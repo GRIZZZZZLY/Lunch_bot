@@ -1,0 +1,493 @@
+﻿import { CallbackQueryContext } from 'grammy';
+import { BotContext } from '../../types/bot.types';
+import { PollService } from '../../services/poll.service';
+import { VoteService } from '../../services/vote.service';
+import { UserService } from '../../services/user.service';
+import { MenuService } from '../../services/menu.service';
+import { notificationService } from '../../services/notification.service';
+import { logger } from '../../utils/logger';
+import { prisma } from '../../database/client';
+import { 
+  createPollKeyboard, 
+  createResultsKeyboard, 
+  createPollMessage, 
+  createResultsMessage,
+  createCompletedPollKeyboard 
+} from '../keyboards/poll.keyboard';
+
+/**
+ * ���������� �����������
+ */
+export async function handleVote(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number, 
+  menuItemId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('? �� ������� ���������� ������������');
+      return;
+    }
+
+    // �������� ������������ �� ��
+    const dbUser = await UserService.getUserByTelegramId(BigInt(user.id));
+    if (!dbUser) {
+      await ctx.answerCallbackQuery('? ������������ �� ���������������. ����������� /start');
+      return;
+    }
+
+    // ���������, ��� ����������� �������
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      await ctx.answerCallbackQuery('? ����������� �� �������');
+      return;
+    }
+    if (poll.status !== 'ACTIVE') {
+      await ctx.answerCallbackQuery('? ����������� ��� ���������');
+      return;
+    }
+
+    // ��������� ����� ���������
+    if (poll.endedAt && poll.endedAt < new Date()) {
+      await ctx.answerCallbackQuery('? ����� ����������� �������');
+      return;
+    }
+
+    // �������� ���������� ����� ������������
+    const previousVote = await VoteService.getUserVoteInPoll(pollId, dbUser.id);
+    
+    // ������� ��� ��������� �����
+    await VoteService.upsertVote({
+      pollId,
+      userId: dbUser.id,
+      menuItemId,
+    });
+
+    // �������� �������� ����� ��� ������
+    const menuItem = await MenuService.getMenuItemById(menuItemId);
+    const itemName = menuItem?.name || '�����';
+
+    // ���������� ����� ������������
+    if (previousVote && previousVote.menuItemId === menuItemId) {
+      await ctx.answerCallbackQuery(`? ��� ����� ������� �� "${itemName}"`);
+    } else if (previousVote) {
+      await ctx.answerCallbackQuery(`?? ����� ������� �� "${itemName}"`);
+    } else {
+      await ctx.answerCallbackQuery(`? ����� �������� �� "${itemName}"`);
+    }
+
+    // ��������� ��������� � ������������
+    // await updatePollMessage(ctx, pollId); // TODO: Implement function
+
+  } catch (error) {
+    logger.error('Error handling vote:', error);
+    await ctx.answerCallbackQuery('? ������ ��� �����������');
+  }
+}
+
+/**
+ * ���������� ������ �����������
+ */
+export async function handleShowResults(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number
+): Promise<void> {
+  try {
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      await ctx.answerCallbackQuery('? ����������� �� �������');
+      return;
+    }
+
+    // �������� ����������
+    const result = await PollService.getPollResultByPollId(pollId);
+    const breakdown = await PollService.getPollVoteBreakdown(pollId);
+    const totalVotes = poll._count.votes;
+
+    // ������� ��������� � ������������
+    const resultsMessage = createResultsMessage({
+      poll,
+      result,
+      breakdown,
+      totalVotes,
+    });
+
+    const keyboard = createResultsKeyboard(
+      pollId,
+      totalVotes > 0,
+      poll.status === 'ACTIVE',
+      Boolean(result?.rouletteData)
+    );
+
+    // ��������� ���������
+    await ctx.editMessageText(resultsMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard,
+    });
+
+    await ctx.answerCallbackQuery('?? �������� ����������');
+
+  } catch (error) {
+    logger.error('Error showing results:', error);
+    await ctx.answerCallbackQuery('? ������ ��� ������ �����������');
+  }
+}
+
+/**
+ * ���������� ������ �����������
+ */
+export async function handleCancelPoll(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('? �� ������� ���������� ������������');
+      return;
+    }
+
+    // ��������� ����� ��������������
+    const isAdmin = await UserService.isAdmin(BigInt(user.id));
+    const chat = ctx.chat;
+
+    if (!isAdmin && chat) {
+      try {
+        const member = await ctx.api.getChatMember(chat.id, user.id);
+        if (!['administrator', 'creator'].includes(member.status)) {
+          await ctx.answerCallbackQuery('? ������������ ���� ��� ������ �����������');
+          return;
+        }
+      } catch {
+        await ctx.answerCallbackQuery('? �� ������� ��������� �����');
+        return;
+      }
+    }
+
+    // �������� �����������
+    const poll = await PollService.cancelPoll(pollId);
+
+    // ��������� ���������
+    await ctx.editMessageText(
+      `? **����������� ��������**\n\n` +
+      `?? "${'???????????'}"\n\n` +
+      `����������� ���� �������� ���������������.\n` +
+      `? ${new Date().toLocaleString('ru-RU')}`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '?? �������� ����������', callback_data: `show_results:${pollId}` }]
+          ]
+        }
+      }
+    );
+
+    await ctx.answerCallbackQuery('? ����������� ��������');
+
+    logger.info(`Poll cancelled by user`, {
+      pollId,
+      cancelledBy: user.id,
+      username: user.username,
+    });
+
+  } catch (error) {
+    logger.error('Error cancelling poll:', error);
+    await ctx.answerCallbackQuery('? ������ ��� ������ �����������');
+  }
+}
+
+/**
+ * ���������� ������� �������
+ */
+export async function handleRunRoulette(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('? �� ������� ���������� ������������');
+      return;
+    }
+
+    // ��������� ����� ��������������
+    const isAdmin = await UserService.isAdmin(BigInt(user.id));
+    const chat = ctx.chat;
+
+    if (!isAdmin && chat) {
+      try {
+        const member = await ctx.api.getChatMember(chat.id, user.id);
+        if (!['administrator', 'creator'].includes(member.status)) {
+          await ctx.answerCallbackQuery('? ������������ ���� ��� ������� �������');
+          return;
+        }
+      } catch {
+        await ctx.answerCallbackQuery('? �� ������� ��������� �����');
+        return;
+      }
+    }
+
+    // �������� �����������
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      await ctx.answerCallbackQuery('? ����������� �� �������');
+      return;
+    }
+
+    if (poll._count.votes === 0) {
+      await ctx.answerCallbackQuery('? � ����������� ��� ����������');
+      return;
+    }
+
+    // ��������� ����������� ���� ��� �������
+    if (poll.status === 'ACTIVE') {
+      await PollService.completePoll(pollId);
+    }
+
+    await ctx.answerCallbackQuery('?? ��������� �������...');
+
+    // �������� �������
+    await showRouletteAnimation(ctx, pollId);
+
+  } catch (error) {
+    logger.error('Error running roulette:', error);
+    await ctx.answerCallbackQuery('? ������ ��� ������� �������');
+  }
+}
+
+/**
+ * �������� �������
+ */
+async function showRouletteAnimation(ctx: CallbackQueryContext<BotContext>, pollId: number): Promise<void> {
+  try {
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) return;
+
+    // �������� ����������
+    const voters = await VoteService.getPollVoters(pollId);
+    if (voters.length === 0) return;
+
+    const animationFrames = ['??', '??', '?', '??'];
+    let currentFrame = 0;
+
+    // ���������� ��������
+    const animationMessage = await ctx.reply(
+      `?? **������ �������!**\n\n` +
+      `?? ����������: ${voters.length}\n` +
+      `${animationFrames[0]} �������� ���������� ���������...`
+    );
+
+    // ��������
+    for (let i = 0; i < 6; i++) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      currentFrame = (currentFrame + 1) % animationFrames.length;
+      
+      try {
+        await ctx.api.editMessageText(
+          animationMessage.chat.id,
+          animationMessage.message_id,
+          `?? **������ �������!**\n\n` +
+          `?? ����������: ${voters.length}\n` +
+          `${animationFrames[currentFrame]} �������� ���������� ���������...`
+        );
+      } catch {
+        // ���������� ������ �������������� ��� ������� ��������
+      }
+    }
+
+    // ��������� �������
+    const result = await PollService.runRoulette(pollId);
+    
+    if (!result.responsibleUserId) {
+      await ctx.api.editMessageText(
+        animationMessage.chat.id,
+        animationMessage.message_id,
+        '? ������ ��� ������ ��������������'
+      );
+      return;
+    }
+
+    // ���������� ���������
+    const responsibleUser = await UserService.getUserById(result.responsibleUserId);
+    if (!responsibleUser) {
+      await ctx.api.editMessageText(animationMessage.chat.id, animationMessage.message_id, 
+'? ������������ �� ������'
+);
+      return;
+    }
+    
+    
+    let winnerItem = 
+'�����'
+;
+    if (result.winnerMenuItemId) {
+      const menuItem = await prisma.menuItem.findUnique({ where: { id: result.winnerMenuItemId } });
+      winnerItem = menuItem?.name || winnerItem;
+    }
+    await ctx.api.editMessageText(
+      animationMessage.chat.id,
+      animationMessage.message_id,
+      `?? **������� ���������!**\n\n` +
+      `?? **������������� �� �����:**\n${winnerMention}\n\n` +
+      `??? **����������:** ${winnerItem}\n\n` +
+      `?? ${responsibleUser.firstName}, ��� ���� ������ ������! ??\n\n` +
+      `?? ����� � �������!`,
+      { parse_mode: 'Markdown' }
+    );
+
+    // ��������� �������� ��������� �����������
+    const finalMessage = `?? **����������� ���������!**\n\n` +
+      `?? "${'???????????'}"\n` +
+      `?? ����������: ${voters.length}\n` +
+      `?? ����������: ${winnerItem}\n` +
+      `?? �������������: ${responsibleUser.firstName}\n\n` +
+      `? ���������: ${new Date().toLocaleString('ru-RU')}`;
+
+    await ctx.editMessageText(finalMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: createCompletedPollKeyboard(pollId, true, true)
+    });
+
+    logger.info('Roulette completed', {
+      pollId,
+      selectedUserId: result.responsibleUserId,
+      selectedUserName: responsibleUser.firstName,
+      totalVoters: voters.length,
+    });
+
+    // ���������� ����������� �������������� ������������
+    try {
+      await notificationService.sendRouletteWinnerNotification({
+        winner: result.responsibleUserId,
+        poll: result.poll,
+        winnerItem: winnerItem || undefined,
+        totalVotes: poll._count.votes,
+        voters: voters.map(v => v.user),
+      });
+      
+      logger.info('Winner notification sent', {
+        pollId,
+        recipientId: result.responsibleUserId.id,
+      });
+    } catch (notificationError) {
+      logger.error('Failed to send winner notification:', notificationError);
+      // ���������� ����������, ���� ���� ����������� �� ����������
+    }
+
+  } catch (error) {
+    logger.error('Error in roulette animation:', error);
+  }
+}
+
+/**
+ * Update poll message
+ */
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) return;
+
+    const votes = await VoteService.getPollVotes(pollId);
+    const menuItems = await MenuService.getActiveMenuItems();
+
+    // ���������� ������ �� ������
+    const votesByItem = new Map<number, any[]>();
+    votes.forEach(vote => {
+      const existing = votesByItem.get(vote.menuItemId) || [];
+      existing.push(vote);
+      votesByItem.set(vote.menuItemId, existing);
+    });
+
+    // ������� ����������� ���������
+    const message = createPollMessage({
+      poll,
+      menuItems,
+      votes: votesByItem,
+      totalVotes: votes.length,
+    });
+
+    const keyboard = createPollKeyboard(pollId, menuItems, votesByItem);
+
+    // ��������� ���������
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard,
+    });
+
+  } catch (error) {
+    logger.error('Error updating poll message:', error);
+  }
+}
+
+/**
+ * ���������� ���������� �����������
+ */
+export async function handleCompletePoll(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('? �� ������� ���������� ������������');
+      return;
+    }
+
+    // ��������� ����� ��������������
+    const isAdmin = await UserService.isAdmin(BigInt(user.id));
+    const chat = ctx.chat;
+
+    if (!isAdmin && chat) {
+      try {
+        const member = await ctx.api.getChatMember(chat.id, user.id);
+        if (!['administrator', 'creator'].includes(member.status)) {
+          await ctx.answerCallbackQuery('? ������������ ���� ��� ���������� �����������');
+          return;
+        }
+      } catch {
+        await ctx.answerCallbackQuery('? �� ������� ��������� �����');
+        return;
+      }
+    }
+
+    // ��������� �����������
+    const result = await PollService.completePoll(pollId);
+    
+    await ctx.answerCallbackQuery('? ����������� ���������');
+    
+    // ���������� ����������
+    await handleShowResults(ctx, pollId);
+
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Poll is already completed') {
+      await ctx.answerCallbackQuery('? ����������� ��� ���������');
+      return;
+    }
+    
+    logger.error('Error completing poll:', error);
+    await ctx.answerCallbackQuery('? ������ ��� ���������� �����������');
+  }
+}
+
+/**
+ * ���������� ���������� �����������
+ */
+export async function handleRefreshPoll(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number
+): Promise<void> {
+  try {
+    // await updatePollMessage(ctx, pollId); // TODO: Implement function
+    await ctx.answerCallbackQuery('?? ����������� ���������');
+  } catch (error) {
+    logger.error('Error refreshing poll:', error);
+    await ctx.answerCallbackQuery('? ������ ��� ����������');
+  }
+}
+
+
+
+
+}
+
+
