@@ -1,0 +1,140 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Пользователи Telegram
+model User {
+  id         Int      @id @default(autoincrement())
+  telegramId BigInt   @unique @map("telegram_id")
+  username   String?
+  firstName  String   @map("first_name")
+  lastName   String?  @map("last_name")
+  isAdmin    Boolean  @default(false) @map("is_admin")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Связи
+  createdMenuItems MenuItem[]
+  votes            Vote[]
+  createdPolls     Poll[]     @relation("PollCreator")
+  responsiblePolls PollResult[]
+
+  @@map("users")
+}
+
+// Telegram группы
+model Group {
+  id         Int      @id @default(autoincrement())
+  telegramId BigInt   @unique @map("telegram_id")
+  title      String
+  type       String   @default("group") // "group", "supergroup", "channel"
+  isActive   Boolean  @default(true) @map("is_active")
+  settings   Json?    // Настройки группы (длительность голосования и т.д.)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Связи
+  polls Poll[]
+
+  @@map("groups")
+}
+
+// Блюда в меню
+model MenuItem {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Decimal? @db.Decimal(10, 2)
+  category    String?
+  imageUrl    String?  @map("image_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdBy   Int      @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Связи
+  creator User @relation(fields: [createdBy], references: [id])
+  votes   Vote[]
+
+  @@index([isActive])
+  @@index([category])
+  @@map("menu_items")
+}
+
+// Голосования
+model Poll {
+  id        Int        @id @default(autoincrement())
+  groupId   Int        @map("group_id")
+  status    PollStatus @default(ACTIVE)
+  duration  Int        @default(30) // в минутах
+  startedAt DateTime   @default(now()) @map("started_at")
+  endedAt   DateTime?  @map("ended_at")
+  createdBy Int        @map("created_by")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  // Связи
+  group   Group        @relation(fields: [groupId], references: [id])
+  creator User         @relation("PollCreator", fields: [createdBy], references: [id])
+  votes   Vote[]
+  result  PollResult?
+
+  @@index([status])
+  @@index([startedAt])
+  @@map("polls")
+}
+
+// Голоса пользователей
+model Vote {
+  id         Int      @id @default(autoincrement())
+  pollId     Int      @map("poll_id")
+  userId     Int      @map("user_id")
+  menuItemId Int      @map("menu_item_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Связи
+  poll     Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  // Ограничение: один голос на пользователя в голосовании
+  @@unique([pollId, userId])
+  @@index([pollId])
+  @@index([userId])
+  @@map("votes")
+}
+
+// Результаты голосований
+model PollResult {
+  id                 Int      @id @default(autoincrement())
+  pollId             Int      @unique @map("poll_id")
+  winnerMenuItemId   Int?     @map("winner_menu_item_id")
+  responsibleUserId  Int      @map("responsible_user_id")
+  totalVotes         Int      @default(0) @map("total_votes")
+  rouletteData       Json?    @map("roulette_data") // Данные рулетки для анимации
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  // Связи
+  poll            Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  responsibleUser User      @relation(fields: [responsibleUserId], references: [id])
+  winnerMenuItem  MenuItem? @relation(fields: [winnerMenuItemId], references: [id])
+
+  @@map("poll_results")
+}
+
+// Статусы голосования
+enum PollStatus {
+  ACTIVE    // Активное голосование
+  COMPLETED // Завершено
+  CANCELLED // Отменено
+}

@@ -1,0 +1,334 @@
+import { CommandContext } from 'grammy';
+import { BotContext } from '../../types/bot.types';
+import { PollService } from '../../services/poll.service';
+import { MenuService } from '../../services/menu.service';
+import { GroupService } from '../../services/group.service';
+import { UserService } from '../../services/user.service';
+import { prisma } from '../../database/client';
+import { logger } from '../../utils/logger';
+import { createPollKeyboard, createPollMessage } from '../keyboards/poll.keyboard';
+
+/**
+ * Команда /startpoll - запуск голосования (только для админов в группах)
+ */
+export async function startPollCommand(ctx: CommandContext<BotContext>): Promise<void> {
+  try {
+    const user = ctx.from;
+    const chat = ctx.chat;
+
+    if (!user || !chat || chat.type === 'private') {
+      await ctx.reply('❌ Команда доступна только в групповых чатах');
+      return;
+    }
+
+    // Проверяем права администратора в группе
+    const member = await ctx.api.getChatMember(chat.id, user.id);
+    const isGroupAdmin = ['administrator', 'creator'].includes(member.status);
+
+    if (!isGroupAdmin) {
+      await ctx.reply(
+        '🔒 **Недостаточно прав**\n\n' +
+        'Для запуска голосования вам нужны права администратора группы.',
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+
+    // Получаем группу из БД
+    const group = await GroupService.getGroupByTelegramId(chat.id.toString());
+    if (!group) {
+      await ctx.reply('❌ Группа не найдена в базе данных. Попробуйте добавить бота заново.');
+      return;
+    }
+
+    // Проверяем, нет ли активного голосования в группе
+    const existingPoll = await PollService.getActivePollInGroup(group.id);
+    if (existingPoll) {
+      await ctx.reply(
+        '⚠️ **Активное голосование уже существует**\n\n' +
+        'Завершите текущее голосование перед началом нового.',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '📊 Показать результаты', callback_data: `show_results:${existingPoll.id}` },
+                { text: '🎲 Запустить рулетку', callback_data: `run_roulette:${existingPoll.id}` }
+              ],
+              [
+                { text: '❌ Отменить голосование', callback_data: `cancel_poll:${existingPoll.id}` }
+              ]
+            ]
+          }
+        }
+      );
+      return;
+    }
+
+    // Получаем активные блюда для голосования
+    const activeMenuItems = await MenuService.getActiveMenuItems();
+    if (activeMenuItems.length === 0) {
+      await ctx.reply(
+        '📋 **Меню пусто**\n\n' +
+        'Добавьте блюда в меню перед запуском голосования.\n\n' +
+        'Используйте команду /menu для управления блюдами.',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🍽️ Управление меню', callback_data: 'menu' }]
+            ]
+          }
+        }
+      );
+      return;
+    }
+
+    if (activeMenuItems.length > 20) {
+      await ctx.reply(
+        '⚠️ **Слишком много блюд в меню**\n\n' +
+        `В меню ${activeMenuItems.length} активных блюд, но для голосования можно использовать максимум 20.\n\n` +
+        'Деактивируйте некоторые блюда или создайте категории.',
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+
+    // Парсим параметры команды (опционально)
+    const commandArgs = ctx.message?.text?.split(' ').slice(1) || [];
+    const durationMinutes = parseInt(commandArgs[0]) || 30; // По умолчанию 30 минут
+    const title = commandArgs.slice(1).join(' ') || 'Выбор еды';
+
+    // Создаем голосование
+    const endTime = new Date(Date.now() + durationMinutes * 60 * 1000);
+    const poll = await PollService.createPoll({
+      groupId: group.id,
+      title,
+      description: `Голосование завершится через ${durationMinutes} минут`,
+      endTime,
+    });
+
+    // Создаем сообщение с голосованием
+    const pollMessage = createPollMessage({
+      poll,
+      menuItems: activeMenuItems,
+      votes: new Map(),
+      totalVotes: 0,
+    });
+
+    const keyboard = createPollKeyboard(poll.id, activeMenuItems, new Map());
+
+    // Отправляем сообщение с голосованием
+    const sentMessage = await ctx.reply(pollMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard,
+    });
+
+    // ID сообщения теперь хранится в контексте бота, не в базе данных
+    // await PollService.updatePollMessageId(poll.id, sentMessage.message_id.toString());
+
+    // Уведомляем о создании голосования
+    const dbUser = await UserService.getUserByTelegramId(user.id.toString());
+    logger.info('Poll started via bot command', {
+      pollId: poll.id,
+      groupId: group.id,
+      startedBy: dbUser?.id || user.id,
+      durationMinutes,
+      menuItemsCount: activeMenuItems.length,
+      messageId: sentMessage.message_id,
+    });
+
+    // Отправляем подтверждение создателю (если это не помешает UX)
+    if (activeMenuItems.length <= 5) {
+      setTimeout(async () => {
+        try {
+          await ctx.reply(
+            `✅ Голосование запущено!\n\n` +
+            `🎯 Блюд в голосовании: ${activeMenuItems.length}\n` +
+            `⏰ Завершится: через ${durationMinutes} мин\n\n` +
+            `💡 Участники могут голосовать нажатием кнопок под сообщением.`,
+            {
+              reply_to_message_id: ctx.message?.message_id,
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '🔄 Обновить результаты', callback_data: `refresh_poll:${poll.id}` },
+                    { text: '⏹️ Завершить досрочно', callback_data: `show_results:${poll.id}` }
+                  ]
+                ]
+              }
+            }
+          );
+        } catch (error) {
+          // Игнорируем ошибки отправки подтверждения
+          logger.debug('Failed to send poll confirmation:', error);
+        }
+      }, 1000);
+    }
+
+    // Планируем автоматическое завершение голосования
+    setTimeout(async () => {
+      try {
+        const currentPoll = await PollService.getPollById(poll.id);
+        if (currentPoll?.status === 'ACTIVE') {
+          await autoCompletePoll(ctx, poll.id, sentMessage.message_id);
+        }
+      } catch (error) {
+        logger.error('Error in auto-complete poll timeout:', error);
+      }
+    }, durationMinutes * 60 * 1000);
+
+  } catch (error) {
+    logger.error('Error in startPoll command:', error);
+    await ctx.reply(
+      '❌ Произошла ошибка при создании голосования.\n\n' +
+      '🔄 Попробуйте еще раз или обратитесь к администратору.'
+    );
+  }
+}
+
+/**
+ * Автоматическое завершение голосования по истечению времени
+ */
+async function autoCompletePoll(ctx: BotContext, pollId: number, messageId: number): Promise<void> {
+  try {
+    logger.info(`Auto-completing poll ${pollId}`);
+
+    // Завершаем голосование
+    const result = await PollService.completePoll(pollId);
+    
+    // Получаем обновленную информацию
+    const pollDetails = await PollService.getPollById(pollId);
+    if (!pollDetails) {
+      return;
+    }
+
+    // Создаем финальное сообщение
+    const finalMessage = createFinalPollMessage(pollDetails, result);
+    const finalKeyboard = createFinalPollKeyboard(pollId, result);
+
+    // Обновляем сообщение
+    await ctx.api.editMessageText(
+      ctx.chat!.id,
+      messageId,
+      finalMessage,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: finalKeyboard,
+      }
+    );
+
+    // Если есть голоса, автоматически запускаем рулетку
+    if (result.totalVotes > 0) {
+      setTimeout(async () => {
+        try {
+          await autoRunRoulette(ctx, pollId);
+        } catch (error) {
+          logger.error('Error in auto-run roulette:', error);
+        }
+      }, 2000);
+    }
+
+  } catch (error) {
+    logger.error('Error in auto-complete poll:', error);
+  }
+}
+
+/**
+ * Автоматический запуск рулетки
+ */
+async function autoRunRoulette(ctx: BotContext, pollId: number): Promise<void> {
+  try {
+    const result = await PollService.runRoulette(pollId);
+    
+    if (responsibleUser) {
+    const result = await PollService.runRoulette(pollId);
+    
+    if (result.responsibleUserId) {
+      const responsibleUser = await UserService.getUserById(result.responsibleUserId);
+      if (!responsibleUser) return;
+      
+      const winnerMention = `[${responsibleUser.firstName}](tg://user?id=${responsibleUser.telegramId})`;
+      let winnerItem = 
+'
+��������� �����
+'
+;
+      if (result.winnerMenuItemId) {
+        const menuItem = await prisma.menuItem.findUnique({ where: { id: result.winnerMenuItemId } });
+        winnerItem = menuItem?.name || winnerItem;
+      }
+      
+      await ctx.reply(
+        
+'
+?? **������� ���������!**\n\n
+'
+ +
+        
+'
+?? **������������� �� �����:** ${winnerMention}\n
+'
+ +
+        
+'
+??? **�����-����������:** ${winnerItem}\n\n
+'
+ +
+        
+'
+?? ${responsibleUser.firstName}, ������� ������ ������! ??
+'
+,
+        { parse_mode: 
+'
+Markdown
+'
+ }
+      );
+    }
+  }
+}
+
+/**
+ * Создание финального сообщения голосования
+ */
+function createFinalPollMessage(poll: any, result: any): string {
+  let message = `🏁 **Голосование завершено!**\n\n`;
+  message += `📊 **"${poll.title}"**\n\n`;
+  
+  if (result.totalVotes > 0) {
+    message += `👥 Участников: ${result.totalVotes}\n`;
+    if (result.winnerMenuItem) {
+      message += `🏆 **Победитель:** ${result.winnerMenuItem.name}\n\n`;
+    }
+  } else {
+    message += `😔 Никто не проголосовал\n\n`;
+  }
+
+  message += `⏰ Завершено: ${new Date().toLocaleString('ru-RU')}\n`;
+  return message;
+}
+
+/**
+ * Создание клавиатуры для завершенного голосования
+ */
+function createFinalPollKeyboard(pollId: number, result: any): any {
+  const keyboard = [
+    [
+      { text: '📊 Подробные результаты', callback_data: `show_results:${pollId}` }
+    ]
+  ];
+
+  if (result.totalVotes > 0 && !result.isRouletteRun) {
+    keyboard.push([
+      { text: '🎲 Запустить рулетку', callback_data: `run_roulette:${pollId}` }
+    ]);
+  }
+
+  return { inline_keyboard: keyboard };
+}
+
+
+
+

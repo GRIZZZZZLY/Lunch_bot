@@ -1,0 +1,24 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const menu_controller_1 = require("../controllers/menu.controller");
+const telegram_auth_1 = require("../middleware/telegram-auth");
+const validation_1 = require("../middleware/validation");
+const router = express_1.default.Router();
+router.get('/', telegram_auth_1.telegramAuthMiddleware, menu_controller_1.menuController.getAllItems);
+router.get('/active', telegram_auth_1.telegramAuthMiddleware, menu_controller_1.menuController.getActiveItems);
+router.get('/categories', telegram_auth_1.telegramAuthMiddleware, menu_controller_1.menuController.getCategories);
+router.get('/popular', telegram_auth_1.telegramAuthMiddleware, menu_controller_1.menuController.getPopularItems);
+router.get('/stats', telegram_auth_1.telegramAuthMiddleware, menu_controller_1.menuController.getMenuStats);
+router.get('/search', telegram_auth_1.telegramAuthMiddleware, menu_controller_1.menuController.searchItems);
+router.get('/:id', telegram_auth_1.telegramAuthMiddleware, menu_controller_1.menuController.getItemById);
+router.post('/', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, validation_1.validateMenuItemData, menu_controller_1.menuController.createItem);
+router.put('/:id', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, validation_1.validateMenuItemData, menu_controller_1.menuController.updateItem);
+router.patch('/:id/toggle', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, menu_controller_1.menuController.toggleItemStatus);
+router.delete('/:id', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, menu_controller_1.menuController.deleteItem);
+router.patch('/bulk-status', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, menu_controller_1.menuController.bulkUpdateStatus);
+exports.default = router;
+//# sourceMappingURL=menu.routes.js.map

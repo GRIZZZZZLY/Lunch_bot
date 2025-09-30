@@ -1,0 +1,587 @@
+import { Request, Response } from 'express';
+import { PollService } from '../../services/poll.service';
+import { VoteService } from '../../services/vote.service';
+import { logger } from '../../utils/logger';
+import { CreatePollData, CreateVoteData } from '../../types/poll.types';
+
+export class PollController {
+  /**
+   * GET /api/polls/active
+   * Получение активных голосований
+   */
+  static async getActivePolls(req: Request, res: Response): Promise<void> {
+    try {
+      const polls = await PollService.getActivePolls();
+
+      res.json({
+        success: true,
+        data: polls,
+        count: polls.length,
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error getting active polls:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get active polls',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * GET /api/polls/history
+   * Получение истории голосований
+   */
+  static async getPollHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const groupId = req.query.groupId ? parseInt(req.query.groupId as string) : undefined;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      if (groupId && isNaN(groupId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid groupId parameter',
+          code: 'INVALID_GROUP_ID'
+        });
+        return;
+      }
+
+      const result = await PollService.getPollHistory(groupId, limit, offset);
+
+      res.json({
+        success: true,
+        data: result.polls,
+        pagination: {
+          total: result.total,
+          limit,
+          offset,
+          hasNext: offset + limit < result.total,
+        },
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error getting poll history:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get poll history',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * GET /api/polls/stats
+   * Получение статистики голосований
+   */
+  static async getPollStats(req: Request, res: Response): Promise<void> {
+    try {
+      const groupId = req.query.groupId ? parseInt(req.query.groupId as string) : undefined;
+
+      if (groupId && isNaN(groupId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid groupId parameter',
+          code: 'INVALID_GROUP_ID'
+        });
+        return;
+      }
+
+      const stats = await PollService.getPollStats(groupId);
+
+      res.json({
+        success: true,
+        data: stats,
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error getting poll stats:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get poll stats',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * GET /api/polls/:id
+   * Получение информации о голосовании
+   */
+  static async getPollById(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_ID'
+        });
+        return;
+      }
+
+      const poll = await PollService.getPollById(id);
+
+      if (!poll) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: poll,
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error getting poll by ID:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get poll',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * GET /api/polls/:id/results
+   * Получение результатов голосования
+   */
+  static async getPollResults(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_ID'
+        });
+        return;
+      }
+
+      const result = await PollService.getPollResultByPollId(id);
+
+      if (!result) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll results not found',
+          code: 'RESULTS_NOT_FOUND'
+        });
+        return;
+      }
+
+      // Получаем детальную разбивку голосов
+      const breakdown = await PollService.getPollVoteBreakdown(id);
+
+      res.json({
+        success: true,
+        data: {
+          result,
+          breakdown,
+        },
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error getting poll results:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get poll results',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * GET /api/polls/:id/votes
+   * Получение голосов по голосованию
+   */
+  static async getPollVotes(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_ID'
+        });
+        return;
+      }
+
+      const votes = await VoteService.getPollVotes(id);
+      const voteCount = await VoteService.getVoteCountByMenuItem(id);
+
+      res.json({
+        success: true,
+        data: {
+          votes,
+          summary: voteCount,
+          totalVotes: votes.length,
+        },
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error getting poll votes:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get poll votes',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * POST /api/polls
+   * Создание нового голосования
+   */
+  static async createPoll(req: Request, res: Response): Promise<void> {
+    try {
+      const data: CreatePollData = req.body;
+      const user = (req as any).user;
+
+      const poll = await PollService.createPoll(data);
+
+      logger.info('Poll created via API', {
+        pollId: poll.id,
+        groupId: poll.groupId,
+        createdBy: user.id,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: poll,
+        message: 'Poll created successfully',
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error creating poll:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create poll',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * PATCH /api/polls/:id/complete
+   * Завершение голосования
+   */
+  static async completePoll(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+      const user = (req as any).user;
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_ID'
+        });
+        return;
+      }
+
+      const result = await PollService.completePoll(id);
+
+      logger.info('Poll completed via API', {
+        pollId: id,
+        completedBy: user.id,
+        winnerItemId: result.winnerMenuItemId,
+        totalVotes: result.totalVotes,
+      });
+
+      res.json({
+        success: true,
+        data: result,
+        message: 'Poll completed successfully',
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'Poll not found') {
+          res.status(404).json({
+            success: false,
+            error: 'Poll not found',
+            code: 'POLL_NOT_FOUND'
+          });
+          return;
+        }
+        if (error.message === 'Poll is already completed') {
+          res.status(400).json({
+            success: false,
+            error: 'Poll is already completed',
+            code: 'POLL_ALREADY_COMPLETED'
+          });
+          return;
+        }
+      }
+
+      logger.error('Error completing poll:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to complete poll',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * PATCH /api/polls/:id/cancel
+   * Отмена голосования
+   */
+  static async cancelPoll(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+      const user = (req as any).user;
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_ID'
+        });
+        return;
+      }
+
+      const poll = await PollService.cancelPoll(id);
+
+      logger.info('Poll cancelled via API', {
+        pollId: id,
+        cancelledBy: user.id,
+      });
+
+      res.json({
+        success: true,
+        data: poll,
+        message: 'Poll cancelled successfully',
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Poll not found') {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      logger.error('Error cancelling poll:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to cancel poll',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * POST /api/polls/:id/vote
+   * Голосование за блюдо
+   */
+  static async vote(req: Request, res: Response): Promise<void> {
+    try {
+      const pollId = parseInt(req.params.id);
+      const { menuItemId } = req.body;
+      const user = (req as any).user;
+
+      if (isNaN(pollId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_ID'
+        });
+        return;
+      }
+
+      if (!menuItemId || isNaN(parseInt(menuItemId))) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid menu item ID',
+          code: 'INVALID_MENU_ITEM_ID'
+        });
+        return;
+      }
+
+      const voteData: CreateVoteData = {
+        pollId,
+        userId: user.id,
+        menuItemId: parseInt(menuItemId),
+      };
+
+      const vote = await VoteService.upsertVote(voteData);
+
+      logger.info('Vote cast via API', {
+        pollId,
+        userId: user.id,
+        menuItemId: vote.menuItemId,
+        isUpdate: vote.updatedAt > vote.createdAt,
+      });
+
+      res.json({
+        success: true,
+        data: vote,
+        message: 'Vote cast successfully',
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      if (error instanceof Error) {
+        if (['Poll not found', 'Poll is not active', 'Poll has expired'].includes(error.message)) {
+          res.status(400).json({
+            success: false,
+            error: error.message,
+            code: 'POLL_ERROR'
+          });
+          return;
+        }
+      }
+
+      logger.error('Error casting vote:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to cast vote',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/polls/:id/vote
+   * Отмена голоса
+   */
+  static async removeVote(req: Request, res: Response): Promise<void> {
+    try {
+      const pollId = parseInt(req.params.id);
+      const user = (req as any).user;
+
+      if (isNaN(pollId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_ID'
+        });
+        return;
+      }
+
+      await VoteService.removeVote(pollId, user.id);
+
+      logger.info('Vote removed via API', {
+        pollId,
+        userId: user.id,
+      });
+
+      res.json({
+        success: true,
+        message: 'Vote removed successfully',
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'Vote not found') {
+          res.status(404).json({
+            success: false,
+            error: 'Vote not found',
+            code: 'VOTE_NOT_FOUND'
+          });
+          return;
+        }
+        if (['Poll not found', 'Poll is not active'].includes(error.message)) {
+          res.status(400).json({
+            success: false,
+            error: error.message,
+            code: 'POLL_ERROR'
+          });
+          return;
+        }
+      }
+
+      logger.error('Error removing vote:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to remove vote',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * POST /api/polls/:id/roulette
+   * Запуск рулетки для выбора ответственного
+   */
+  static async runRoulette(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+      const user = (req as any).user;
+
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_ID'
+        });
+        return;
+      }
+
+      const result = await PollService.runRoulette(id);
+
+      logger.info('Roulette run via API', {
+        pollId: id,
+        runBy: user.id,
+        selectedUserId: result.responsibleUserId,
+      });
+
+      res.json({
+        success: true,
+        data: result,
+        message: 'Roulette completed successfully',
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'Poll not found') {
+          res.status(404).json({
+            success: false,
+            error: 'Poll not found',
+            code: 'POLL_NOT_FOUND'
+          });
+          return;
+        }
+        if (error.message === 'No voters found') {
+          res.status(400).json({
+            success: false,
+            error: 'No voters found for roulette',
+            code: 'NO_VOTERS'
+          });
+          return;
+        }
+      }
+
+      logger.error('Error running roulette:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to run roulette',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+}
+
+export const pollController = PollController;

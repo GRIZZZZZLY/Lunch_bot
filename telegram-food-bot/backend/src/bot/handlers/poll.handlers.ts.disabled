@@ -1,0 +1,479 @@
+﻿import { CallbackQueryContext } from 'grammy';
+import { BotContext } from '../../types/bot.types';
+import { PollService } from '../../services/poll.service';
+import { VoteService } from '../../services/vote.service';
+import { UserService } from '../../services/user.service';
+import { MenuService } from '../../services/menu.service';
+import { notificationService } from '../../services/notification.service';
+import { logger } from '../../utils/logger';
+import { prisma } from '../../database/client';
+import { 
+  createPollKeyboard, 
+  createResultsKeyboard, 
+  createPollMessage, 
+  createResultsMessage,
+  createCompletedPollKeyboard 
+} from '../keyboards/poll.keyboard';
+
+/**
+ * Обработчик голосования
+ */
+export async function handleVote(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number, 
+  menuItemId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+      return;
+    }
+
+    // Получаем пользователя из БД
+    const dbUser = await UserService.getUserByTelegramId(user.id.toString());
+    if (!dbUser) {
+      await ctx.answerCallbackQuery('❌ Пользователь не зарегистрирован. Используйте /start');
+      return;
+    }
+
+    // Проверяем, что голосование активно
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      await ctx.answerCallbackQuery('❌ Голосование не найдено');
+      return;
+    }
+
+    if (!poll.status === 'ACTIVE') {
+      await ctx.answerCallbackQuery('❌ Голосование уже завершено');
+      return;
+    }
+
+    // Проверяем время окончания
+    if (poll.endedAt && poll.endedAt < new Date()) {
+      await ctx.answerCallbackQuery('❌ Время голосования истекло');
+      return;
+    }
+
+    // Получаем предыдущий голос пользователя
+    const previousVote = await VoteService.getUserVoteInPoll(pollId, dbUser.id);
+    
+    // Создаем или обновляем голос
+    await VoteService.upsertVote({
+      pollId,
+      userId: dbUser.id,
+      menuItemId,
+    });
+
+    // Получаем название блюда для ответа
+    const menuItem = await MenuService.getMenuItemById(menuItemId);
+    const itemName = menuItem?.name || 'блюдо';
+
+    // Отправляем ответ пользователю
+    if (previousVote && previousVote.menuItemId === menuItemId) {
+      await ctx.answerCallbackQuery(`✅ Ваш голос остался за "${itemName}"`);
+    } else if (previousVote) {
+      await ctx.answerCallbackQuery(`🔄 Голос изменен на "${itemName}"`);
+    } else {
+      await ctx.answerCallbackQuery(`✅ Голос засчитан за "${itemName}"`);
+    }
+
+    // Обновляем сообщение с результатами
+    await updatePollMessage(ctx, pollId);
+
+  } catch (error) {
+    logger.error('Error handling vote:', error);
+    await ctx.answerCallbackQuery('❌ Ошибка при голосовании');
+  }
+}
+
+/**
+ * Обработчик показа результатов
+ */
+export async function handleShowResults(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number
+): Promise<void> {
+  try {
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      await ctx.answerCallbackQuery('❌ Голосование не найдено');
+      return;
+    }
+
+    // Получаем результаты
+    const result = await PollService.getPollResultByPollId(pollId);
+    const breakdown = await PollService.getPollVoteBreakdown(pollId);
+    const totalVotes = poll._count.votes;
+
+    // Создаем сообщение с результатами
+    const resultsMessage = createResultsMessage({
+      poll,
+      result,
+      breakdown,
+      totalVotes,
+    });
+
+    const keyboard = createResultsKeyboard(
+      pollId,
+      totalVotes > 0,
+      poll.status === 'ACTIVE',
+      result?.rouletteData || false
+    );
+
+    // Обновляем сообщение
+    await ctx.editMessageText(resultsMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard,
+    });
+
+    await ctx.answerCallbackQuery('📊 Показаны результаты');
+
+  } catch (error) {
+    logger.error('Error showing results:', error);
+    await ctx.answerCallbackQuery('❌ Ошибка при показе результатов');
+  }
+}
+
+/**
+ * Обработчик отмены голосования
+ */
+export async function handleCancelPoll(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+      return;
+    }
+
+    // Проверяем права администратора
+    const isAdmin = await UserService.isAdmin(user.id.toString());
+    const chat = ctx.chat;
+
+    if (!isAdmin && chat) {
+      try {
+        const member = await ctx.api.getChatMember(chat.id, user.id);
+        if (!['administrator', 'creator'].includes(member.status)) {
+          await ctx.answerCallbackQuery('❌ Недостаточно прав для отмены голосования');
+          return;
+        }
+      } catch {
+        await ctx.answerCallbackQuery('❌ Не удалось проверить права');
+        return;
+      }
+    }
+
+    // Отменяем голосование
+    const poll = await PollService.cancelPoll(pollId);
+
+    // Обновляем сообщение
+    await ctx.editMessageText(
+      `❌ **Голосование отменено**\n\n` +
+      `🎯 "${'�����������'}"\n\n` +
+      `Голосование было отменено администратором.\n` +
+      `⏰ ${new Date().toLocaleString('ru-RU')}`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📊 Показать результаты', callback_data: `show_results:${pollId}` }]
+          ]
+        }
+      }
+    );
+
+    await ctx.answerCallbackQuery('❌ Голосование отменено');
+
+    logger.info(`Poll cancelled by user`, {
+      pollId,
+      cancelledBy: user.id,
+      username: user.username,
+    });
+
+  } catch (error) {
+    logger.error('Error cancelling poll:', error);
+    await ctx.answerCallbackQuery('❌ Ошибка при отмене голосования');
+  }
+}
+
+/**
+ * Обработчик запуска рулетки
+ */
+export async function handleRunRoulette(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+      return;
+    }
+
+    // Проверяем права администратора
+    const isAdmin = await UserService.isAdmin(user.id.toString());
+    const chat = ctx.chat;
+
+    if (!isAdmin && chat) {
+      try {
+        const member = await ctx.api.getChatMember(chat.id, user.id);
+        if (!['administrator', 'creator'].includes(member.status)) {
+          await ctx.answerCallbackQuery('❌ Недостаточно прав для запуска рулетки');
+          return;
+        }
+      } catch {
+        await ctx.answerCallbackQuery('❌ Не удалось проверить права');
+        return;
+      }
+    }
+
+    // Получаем голосование
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      await ctx.answerCallbackQuery('❌ Голосование не найдено');
+      return;
+    }
+
+    if (poll._count.votes === 0) {
+      await ctx.answerCallbackQuery('❌ В голосовании нет участников');
+      return;
+    }
+
+    // Завершаем голосование если оно активно
+    if (poll.status === 'ACTIVE') {
+      await PollService.completePoll(pollId);
+    }
+
+    await ctx.answerCallbackQuery('🎲 Запускаем рулетку...');
+
+    // Анимация рулетки
+    await showRouletteAnimation(ctx, pollId);
+
+  } catch (error) {
+    logger.error('Error running roulette:', error);
+    await ctx.answerCallbackQuery('❌ Ошибка при запуске рулетки');
+  }
+}
+
+/**
+ * Анимация рулетки
+ */
+async function showRouletteAnimation(ctx: CallbackQueryContext<BotContext>, pollId: number): Promise<void> {
+  try {
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) return;
+
+    // Получаем участников
+    const voters = await VoteService.getPollVoters(pollId);
+    if (voters.length === 0) return;
+
+    const animationFrames = ['🎲', '🔄', '⚡', '🎯'];
+    let currentFrame = 0;
+
+    // Показываем анимацию
+    const animationMessage = await ctx.reply(
+      `🎲 **Запуск рулетки!**\n\n` +
+      `👥 Участников: ${voters.length}\n` +
+      `${animationFrames[0]} Выбираем случайного участника...`
+    );
+
+    // Анимация
+    for (let i = 0; i < 6; i++) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      currentFrame = (currentFrame + 1) % animationFrames.length;
+      
+      try {
+        await ctx.api.editMessageText(
+          animationMessage.chat.id,
+          animationMessage.message_id,
+          `🎲 **Запуск рулетки!**\n\n` +
+          `👥 Участников: ${voters.length}\n` +
+          `${animationFrames[currentFrame]} Выбираем случайного участника...`
+        );
+      } catch {
+        // Игнорируем ошибки редактирования при быстрой анимации
+      }
+    }
+
+    // Запускаем рулетку
+    const result = await PollService.runRoulette(pollId);
+    
+    if (!result.responsibleUserId) {
+      await ctx.api.editMessageText(
+        animationMessage.chat.id,
+        animationMessage.message_id,
+        '❌ Ошибка при выборе ответственного'
+      );
+      return;
+    }
+
+    // Показываем результат
+    const winnerMention = `[${responsibleUser.firstName}](tg://user?id=${responsibleUser.telegramId})`;
+    let winnerItem = '�����'; if (result.winnerMenuItemId) { const menuItem = await prisma.menuItem.findUnique({ where: { id: result.winnerMenuItemId } }); winnerItem = menuItem?.name || 'блюдо';
+
+    await ctx.api.editMessageText(
+      animationMessage.chat.id,
+      animationMessage.message_id,
+      `🎉 **Рулетка завершена!**\n\n` +
+      `🎯 **Ответственный за заказ:**\n${winnerMention}\n\n` +
+      `🍽️ **Заказываем:** ${winnerItem}\n\n` +
+      `📞 ${responsibleUser.firstName}, все ждут вашего заказа! 😊\n\n` +
+      `🏆 Удачи с заказом!`,
+      { parse_mode: 'Markdown' }
+    );
+
+    // Обновляем исходное сообщение голосования
+    const finalMessage = `🏁 **Голосование завершено!**\n\n` +
+      `📊 "${'�����������'}"\n` +
+      `👥 Участников: ${voters.length}\n` +
+      `🏆 Победитель: ${winnerItem}\n` +
+      `🎲 Ответственный: ${responsibleUser.firstName}\n\n` +
+      `⏰ Завершено: ${new Date().toLocaleString('ru-RU')}`;
+
+    await ctx.editMessageText(finalMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: createCompletedPollKeyboard(pollId, true, true)
+    });
+
+    logger.info('Roulette completed', {
+      pollId,
+      selectedUserId: result.responsibleUserId,
+      selectedUserName: responsibleUser.firstName,
+      totalVoters: voters.length,
+    });
+
+    // Отправляем уведомление ответственному пользователю
+    try {
+      await notificationService.sendRouletteWinnerNotification({
+        winner: result.responsibleUserId,
+        poll: result.poll,
+        winnerItem: winnerItem || undefined,
+        totalVotes: poll._count.votes,
+        voters: voters.map(v => v.user),
+      });
+      
+      logger.info('Winner notification sent', {
+        pollId,
+        recipientId: result.responsibleUserId.id,
+      });
+    } catch (notificationError) {
+      logger.error('Failed to send winner notification:', notificationError);
+      // Продолжаем выполнение, даже если уведомление не отправлено
+    }
+
+    logger.error('Error in roulette animation:', error);
+  }
+  } catch (error) {
+    logger.error('Error in roulette animation:', error);
+  }
+/**
+ * Обновление сообщения голосования
+ */
+async function updatePollMessage(ctx: CallbackQueryContext<BotContext>, pollId: number): Promise<void> {
+    if (!poll) return;
+
+    const votes = await VoteService.getPollVotes(pollId);
+    const menuItems = await MenuService.getActiveMenuItems();
+
+    // Группируем голоса по блюдам
+    const votesByItem = new Map<number, any[]>();
+    votes.forEach(vote => {
+      const existing = votesByItem.get(vote.menuItemId) || [];
+      existing.push(vote);
+      votesByItem.set(vote.menuItemId, existing);
+    });
+
+    // Создаем обновленное сообщение
+    const message = createPollMessage({
+      poll,
+      menuItems,
+      votes: votesByItem,
+      totalVotes: votes.length,
+    });
+
+    const keyboard = createPollKeyboard(pollId, menuItems, votesByItem);
+
+    // Обновляем сообщение
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard,
+    });
+
+  } catch (error) {
+    logger.error('Error updating poll message:', error);
+  }
+}
+
+/**
+ * Обработчик завершения голосования
+ */
+export async function handleCompletePoll(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+      return;
+    }
+
+    // Проверяем права администратора
+    const isAdmin = await UserService.isAdmin(user.id.toString());
+    const chat = ctx.chat;
+
+    if (!isAdmin && chat) {
+      try {
+        const member = await ctx.api.getChatMember(chat.id, user.id);
+        if (!['administrator', 'creator'].includes(member.status)) {
+          await ctx.answerCallbackQuery('❌ Недостаточно прав для завершения голосования');
+          return;
+        }
+      } catch {
+        await ctx.answerCallbackQuery('❌ Не удалось проверить права');
+        return;
+      }
+    }
+
+    // Завершаем голосование
+    const result = await PollService.completePoll(pollId);
+    
+    await ctx.answerCallbackQuery('✅ Голосование завершено');
+    
+    // Показываем результаты
+    await handleShowResults(ctx, pollId);
+
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Poll is already completed') {
+      await ctx.answerCallbackQuery('❌ Голосование уже завершено');
+      return;
+    }
+    
+    logger.error('Error completing poll:', error);
+    await ctx.answerCallbackQuery('❌ Ошибка при завершении голосования');
+  }
+}
+
+/**
+ * Обработчик обновления голосования
+ */
+export async function handleRefreshPoll(
+  ctx: CallbackQueryContext<BotContext>, 
+  pollId: number
+): Promise<void> {
+  try {
+    await updatePollMessage(ctx, pollId);
+    await ctx.answerCallbackQuery('🔄 Голосование обновлено');
+  } catch (error) {
+    logger.error('Error refreshing poll:', error);
+    await ctx.answerCallbackQuery('❌ Ошибка при обновлении');
+  }
+}
+
+
+
+
+}

@@ -1,0 +1,27 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './styles/index.css';
+
+// Инициализация Telegram WebApp
+if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+  const webapp = window.Telegram.WebApp;
+  
+  // Включаем показ главной кнопки
+  webapp.ready();
+  webapp.expand();
+  
+  // Устанавливаем цветовую схему
+  if (webapp.colorScheme === 'dark') {
+    document.documentElement.classList.add('dark');
+  }
+  
+  // Отключаем предупреждение о закрытии
+  webapp.enableClosingConfirmation();
+}
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);

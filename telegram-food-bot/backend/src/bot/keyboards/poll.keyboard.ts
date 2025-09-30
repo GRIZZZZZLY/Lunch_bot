@@ -1,0 +1,315 @@
+import { InlineKeyboard } from 'grammy';
+import { MenuItem } from '@prisma/client';
+import { PollMessage, VoteWithDetails } from '../../types/poll.types';
+
+/**
+ * Создание клавиатуры для голосования
+ */
+export function createPollKeyboard(
+  pollId: number, 
+  menuItems: MenuItem[], 
+  votes: Map<number, VoteWithDetails[]>
+): { inline_keyboard: any[][] } {
+  const keyboard: any[][] = [];
+  
+  // Группируем блюда по строкам (максимум 2 в строке для читаемости)
+  for (let i = 0; i < menuItems.length; i += 2) {
+    const row: any[] = [];
+    
+    for (let j = i; j < Math.min(i + 2, menuItems.length); j++) {
+      const item = menuItems[j];
+      const itemVotes = votes.get(item.id) || [];
+      const voteText = itemVotes.length > 0 ? ` (${itemVotes.length})` : '';
+      
+      row.push({
+        text: `${item.name}${voteText}`,
+        callback_data: `vote:${pollId}:${item.id}`
+      });
+    }
+    
+    keyboard.push(row);
+  }
+  
+  // Добавляем кнопки управления
+  keyboard.push([
+    { text: '🔄 Обновить', callback_data: `refresh_poll:${pollId}` },
+    { text: '📊 Результаты', callback_data: `show_results:${pollId}` }
+  ]);
+  
+  return { inline_keyboard: keyboard };
+}
+
+/**
+ * Создание клавиатуры для завершенного голосования
+ */
+export function createCompletedPollKeyboard(
+  pollId: number,
+  hasVotes: boolean = false,
+  isRouletteRun: boolean = false
+): { inline_keyboard: any[][] } {
+  const keyboard: any[][] = [
+    [{ text: '📊 Подробные результаты', callback_data: `show_results:${pollId}` }]
+  ];
+
+  if (hasVotes && !isRouletteRun) {
+    keyboard.push([
+      { text: '🎲 Запустить рулетку', callback_data: `run_roulette:${pollId}` }
+    ]);
+  }
+
+  return { inline_keyboard: keyboard };
+}
+
+/**
+ * Создание клавиатуры для управления голосованием (для админов)
+ */
+export function createPollAdminKeyboard(pollId: number, isActive: boolean = true): { inline_keyboard: any[][] } {
+  const keyboard: any[][] = [];
+
+  if (isActive) {
+    keyboard.push([
+      { text: '✅ Завершить голосование', callback_data: `complete_poll:${pollId}` },
+      { text: '❌ Отменить', callback_data: `cancel_poll:${pollId}` }
+    ]);
+    keyboard.push([
+      { text: '📊 Промежуточные результаты', callback_data: `show_results:${pollId}` }
+    ]);
+  } else {
+    keyboard.push([
+      { text: '📊 Результаты', callback_data: `show_results:${pollId}` },
+      { text: '🎲 Рулетка', callback_data: `run_roulette:${pollId}` }
+    ]);
+  }
+
+  return { inline_keyboard: keyboard };
+}
+
+/**
+ * Создание расширенной клавиатуры с категориями (если блюд много)
+ */
+export function createCategorizedPollKeyboard(
+  pollId: number,
+  menuItemsByCategory: { [category: string]: MenuItem[] },
+  votes: Map<number, VoteWithDetails[]>,
+  selectedCategory?: string
+): { inline_keyboard: any[][] } {
+  const keyboard: any[][] = [];
+  const categories = Object.keys(menuItemsByCategory);
+
+  if (!selectedCategory && categories.length > 1) {
+    // Показываем категории
+    for (let i = 0; i < categories.length; i += 2) {
+      const row: any[] = [];
+      for (let j = i; j < Math.min(i + 2, categories.length); j++) {
+        const category = categories[j];
+        const categoryItems = menuItemsByCategory[category];
+        row.push({
+          text: `📂 ${category} (${categoryItems.length})`,
+          callback_data: `poll_category:${pollId}:${encodeURIComponent(category)}`
+        });
+      }
+      keyboard.push(row);
+    }
+    
+    // Кнопка "Показать все"
+    keyboard.push([
+      { text: '📋 Показать все блюда', callback_data: `poll_show_all:${pollId}` }
+    ]);
+  } else {
+    // Показываем блюда из выбранной категории или все
+    const itemsToShow = selectedCategory 
+      ? menuItemsByCategory[selectedCategory] || []
+      : Object.values(menuItemsByCategory).flat();
+
+    for (let i = 0; i < itemsToShow.length; i += 2) {
+      const row: any[] = [];
+      for (let j = i; j < Math.min(i + 2, itemsToShow.length); j++) {
+        const item = itemsToShow[j];
+        const itemVotes = votes.get(item.id) || [];
+        const voteText = itemVotes.length > 0 ? ` (${itemVotes.length})` : '';
+        
+        row.push({
+          text: `${item.name}${voteText}`,
+          callback_data: `vote:${pollId}:${item.id}`
+        });
+      }
+      keyboard.push(row);
+    }
+
+    // Кнопка возврата к категориям
+    if (selectedCategory && categories.length > 1) {
+      keyboard.push([
+        { text: '← Назад к категориям', callback_data: `poll_categories:${pollId}` }
+      ]);
+    }
+  }
+
+  // Кнопки управления
+  keyboard.push([
+    { text: '🔄 Обновить', callback_data: `refresh_poll:${pollId}` },
+    { text: '📊 Результаты', callback_data: `show_results:${pollId}` }
+  ]);
+
+  return { inline_keyboard: keyboard };
+}
+
+/**
+ * Создание клавиатуры для результатов голосования
+ */
+export function createResultsKeyboard(
+  pollId: number,
+  hasVotes: boolean,
+  isActive: boolean,
+  isRouletteRun: boolean = false
+): { inline_keyboard: any[][] } {
+  const keyboard: any[][] = [];
+
+  if (isActive) {
+    keyboard.push([
+      { text: '🔄 Обновить', callback_data: `refresh_poll:${pollId}` },
+      { text: '🗳️ К голосованию', callback_data: `show_poll:${pollId}` }
+    ]);
+    keyboard.push([
+      { text: '✅ Завершить голосование', callback_data: `complete_poll:${pollId}` }
+    ]);
+  } else {
+    if (hasVotes && !isRouletteRun) {
+      keyboard.push([
+        { text: '🎲 Запустить рулетку', callback_data: `run_roulette:${pollId}` }
+      ]);
+    }
+    keyboard.push([
+      { text: '📈 Подробная статистика', callback_data: `poll_detailed_stats:${pollId}` }
+    ]);
+  }
+
+  return { inline_keyboard: keyboard };
+}
+
+/**
+ * Создание сообщения голосования
+ */
+export function createPollMessage(pollData: {
+  poll: any;
+  menuItems: MenuItem[];
+  votes: Map<number, VoteWithDetails[]>;
+  totalVotes: number;
+}): string {
+  const { poll, menuItems, votes, totalVotes } = pollData;
+  
+  let message = `🗳️ **${poll.title}**\n\n`;
+  
+  if (poll.description) {
+    message += `📝 ${poll.description}\n\n`;
+  }
+  
+  message += `👥 **Участников:** ${totalVotes}\n`;
+  
+  if (poll.endTime && poll.status === 'ACTIVE') {
+    const timeLeft = Math.max(0, Math.floor((new Date(poll.endTime).getTime() - Date.now()) / 1000 / 60));
+    message += `⏰ **Осталось:** ${timeLeft} мин\n`;
+  }
+  
+  message += `\n📋 **Блюда в голосовании:**\n`;
+  
+  // Сортируем блюда по количеству голосов
+  const sortedItems = menuItems
+    .map(item => ({
+      ...item,
+      voteCount: votes.get(item.id)?.length || 0
+    }))
+    .sort((a, b) => b.voteCount - a.voteCount);
+
+  sortedItems.forEach((item, index) => {
+    const voteCount = item.voteCount;
+    const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+    const bar = createProgressBar(percentage);
+    
+    message += `${index + 1}. **${item.name}**\n`;
+    if (item.description && item.description.length < 50) {
+      message += `   _${item.description}_\n`;
+    }
+    if (item.price) {
+      message += `   💰 ${item.price}₽\n`;
+    }
+    message += `   ${bar} ${voteCount} голосов (${percentage}%)\n\n`;
+  });
+
+  if (totalVotes === 0) {
+    message += `💡 _Будьте первыми - проголосуйте за понравившееся блюдо!_\n\n`;
+  }
+
+  message += `⚡ Нажмите кнопку ниже, чтобы проголосовать`;
+  
+  return message;
+}
+
+/**
+ * Создание прогресс-бара для результатов
+ */
+function createProgressBar(percentage: number, length: number = 10): string {
+  const filled = Math.round((percentage / 100) * length);
+  const empty = length - filled;
+  return '█'.repeat(filled) + '░'.repeat(empty);
+}
+
+/**
+ * Создание сообщения с результатами голосования
+ */
+export function createResultsMessage(pollData: {
+  poll: any;
+  result?: any;
+  breakdown: any[];
+  totalVotes: number;
+}): string {
+  const { poll, result, breakdown, totalVotes } = pollData;
+  
+  let message = `📊 **Результаты голосования**\n\n`;
+  message += `🎯 **"${poll.title}"**\n`;
+  message += `👥 Участников: ${totalVotes}\n`;
+  
+  if (poll.status === 'ACTIVE') {
+    message += `🔴 Голосование активно\n`;
+    if (poll.endTime) {
+      const timeLeft = Math.max(0, Math.floor((new Date(poll.endTime).getTime() - Date.now()) / 1000 / 60));
+      message += `⏰ Осталось: ${timeLeft} мин\n`;
+    }
+  } else {
+    message += `✅ Голосование завершено\n`;
+    if (result?.winnerItem) {
+      message += `🏆 **Победитель:** ${result.winnerMenuItem.name}\n`;
+    }
+  }
+  
+  message += `\n📋 **Результаты по блюдам:**\n\n`;
+  
+  if (breakdown.length === 0) {
+    message += `😔 _Никто не проголосовал_`;
+    return message;
+  }
+  
+  breakdown.forEach((item, index) => {
+    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+    const bar = createProgressBar(item.percentage);
+    
+    message += `${medal} **${item.menuItemName}**\n`;
+    message += `   ${bar} ${item.votes} голосов (${item.percentage}%)\n`;
+    
+    if (item.voters.length <= 5) {
+      const voterNames = item.voters.map(v => v.firstName).join(', ');
+      message += `   👤 ${voterNames}\n`;
+    } else {
+      const firstVoters = item.voters.slice(0, 3).map(v => v.firstName).join(', ');
+      message += `   👤 ${firstVoters} и ещё ${item.voters.length - 3}\n`;
+    }
+    message += `\n`;
+  });
+  
+  if (result?.responsible) {
+    message += `🎲 **Ответственный за заказ:** ${result.responsibleUser.firstName}\n`;
+  }
+  
+  return message;
+}
+
+
