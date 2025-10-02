@@ -6,6 +6,9 @@ import { SearchInput } from '../components/common/SearchInput';
 import { CategoryFilter } from '../components/common/CategoryFilter';
 import { SortSelector, SortOption } from '../components/common/SortSelector';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { PullToRefresh } from '../components/common/PullToRefresh';
+import { EmptyMenuState, EmptySearchState } from '../components/common/EmptyState';
+import { useHaptic } from '../hooks/useHaptic';
 import { 
   MenuListSkeleton, 
   StatCardSkeleton, 
@@ -24,6 +27,7 @@ export const MenuPage: React.FC = () => {
   const { user } = useAuth();
   const { mainButton, backButton } = useTelegram();
   const { addNotification } = useUI();
+  const haptic = useHaptic();
   
   const {
     menuItems,
@@ -133,6 +137,13 @@ export const MenuPage: React.FC = () => {
     } finally {
       setMenuLoading(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    await loadMenuItems();
+    await loadCategories();
+    await loadCategoryCounts();
+    haptic.success();
   };
 
   const loadCategories = async () => {
@@ -256,7 +267,8 @@ export const MenuPage: React.FC = () => {
     <Layout>
       <Header />
       
-      <div className="space-y-4">
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="space-y-4">
         {/* Заголовок */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -347,7 +359,7 @@ export const MenuPage: React.FC = () => {
 
         {/* Результаты поиска */}
         {searchTerm && (
-          <div className="bg-telegram-button-color/10 rounded-lg p-3 border-l-4 border-telegram-button-color">
+          <div className="bg-telegram-button-color/10 rounded-lg p-3 border-l-4 border-telegram-button-color animate-slide-down">
             <p className="text-sm text-telegram-text-color">
               <span className="font-semibold">Найдено:</span> {filteredAndSortedItems.length} из {menuItems.length} блюд
               {selectedCategory && <span> в категории "{selectedCategory}"</span>}
@@ -358,6 +370,12 @@ export const MenuPage: React.FC = () => {
         {/* Список блюд с skeleton */}
         {menuLoading ? (
           <MenuListSkeleton count={6} />
+        ) : filteredAndSortedItems.length === 0 ? (
+          searchTerm || selectedCategory ? (
+            <EmptySearchState />
+          ) : (
+            <EmptyMenuState onAction={user?.isAdmin ? () => setShowAddForm(true) : undefined} />
+          )
         ) : (
           <div className="animate-fade-in-up" style={{ animationDelay: '400ms' }}>
             <MenuList
@@ -372,7 +390,8 @@ export const MenuPage: React.FC = () => {
             />
           </div>
         )}
-      </div>
+        </div>
+      </PullToRefresh>
 
       {/* Формы добавления и редактирования */}
       {showAddForm && (

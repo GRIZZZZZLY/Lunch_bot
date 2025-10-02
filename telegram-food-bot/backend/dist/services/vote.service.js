@@ -5,6 +5,91 @@ const client_1 = require("@prisma/client");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
 class VoteService {
+    static async createVote(data) {
+        try {
+            const vote = await client_2.prisma.vote.create({
+                data: {
+                    pollId: data.pollId,
+                    userId: data.userId,
+                    menuItemId: data.menuItemId,
+                },
+            });
+            logger_1.logger.info(`Vote created: user ${data.userId} voted for item ${data.menuItemId} in poll ${data.pollId}`);
+            return vote;
+        }
+        catch (error) {
+            logger_1.logger.error('Error creating vote:', error);
+            throw new Error('Failed to create vote');
+        }
+    }
+    static async updateVote(voteId, menuItemId) {
+        try {
+            const vote = await client_2.prisma.vote.update({
+                where: { id: voteId },
+                data: {
+                    menuItemId,
+                    updatedAt: new Date(),
+                },
+            });
+            logger_1.logger.info(`Vote updated: vote ${voteId} changed to item ${menuItemId}`);
+            return vote;
+        }
+        catch (error) {
+            logger_1.logger.error('Error updating vote:', error);
+            throw new Error('Failed to update vote');
+        }
+    }
+    static async getVoteBreakdown(pollId) {
+        try {
+            const votes = await client_2.prisma.vote.findMany({
+                where: { pollId },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            username: true,
+                        },
+                    },
+                    menuItem: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                },
+            });
+            const totalVotes = votes.length;
+            const breakdown = new Map();
+            votes.forEach(vote => {
+                const existing = breakdown.get(vote.menuItemId) || {
+                    menuItemName: vote.menuItem.name,
+                    votes: 0,
+                    voters: [],
+                };
+                existing.votes++;
+                existing.voters.push({
+                    id: vote.user.id,
+                    firstName: vote.user.firstName,
+                    username: vote.user.username || undefined,
+                });
+                breakdown.set(vote.menuItemId, existing);
+            });
+            return Array.from(breakdown.entries())
+                .map(([menuItemId, data]) => ({
+                menuItemId,
+                menuItemName: data.menuItemName,
+                votes: data.votes,
+                percentage: totalVotes > 0 ? Math.round((data.votes / totalVotes) * 100) : 0,
+                voters: data.voters,
+            }))
+                .sort((a, b) => b.votes - a.votes);
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting vote breakdown:', error);
+            throw new Error('Failed to get vote breakdown');
+        }
+    }
     static async upsertVote(data) {
         try {
             const poll = await client_2.prisma.poll.findUnique({

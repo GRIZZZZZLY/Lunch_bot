@@ -1,10 +1,10 @@
 import { CallbackQueryContext, Context } from 'grammy';
-import { BotContext } from '../types';
+import { BotContext } from '../../types/bot.types';
 import { PollService } from '../../services/poll.service';
 import { VoteService } from '../../services/vote.service';
 import { MenuService } from '../../services/menu.service';
 import { UserService } from '../../services/user.service';
-import { RouletteService } from '../../services/roulette.service';
+import { RouletteService, RouletteResult } from '../../services/roulette.service';
 import { NotificationService } from '../../services/notification.service';
 import { logger } from '../../utils/logger';
 import { createPollKeyboard, createPollMessage, createResultsMessage, createCompletedPollKeyboard } from '../keyboards/poll.keyboard';

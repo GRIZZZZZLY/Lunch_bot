@@ -18,14 +18,34 @@ export async function helpCommand(ctx: CommandContext<BotContext>): Promise<void
     ? await getGroupHelpText(isAdmin)
     : await getPrivateHelpText(isAdmin);
 
+  const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+
+  // В группах web_app кнопки не работают (ограничение Telegram)
   const keyboard = {
-    inline_keyboard: [
+    inline_keyboard: isGroup ? [
+      // Для групп - без web_app
       [
-        { text: '🍽️ Управление меню', callback_data: 'menu' },
+        { text: '🍽️ Меню', callback_data: 'menu' },
         { text: '📊 Статистика', callback_data: 'menu_stats' }
       ],
       [
-        { text: '❓ Помощь по меню', callback_data: 'menu_help' },
+        { text: '❓ Помощь', callback_data: 'menu_help' },
+        { text: '👥 О боте', callback_data: 'about' }
+      ]
+    ] : [
+      // Для личных чатов - с web_app
+      [
+        {
+          text: '🚀 Открыть Mini App',
+          web_app: { url: webappUrl }
+        }
+      ],
+      [
+        { text: '🍽️ Меню', callback_data: 'menu' },
+        { text: '📊 Статистика', callback_data: 'menu_stats' }
+      ],
+      [
+        { text: '❓ Помощь', callback_data: 'menu_help' },
         { text: '👥 О боте', callback_data: 'about' }
       ]
     ]
@@ -61,7 +81,8 @@ async function getGroupHelpText(isAdmin: boolean): Promise<string> {
   text += '4. Рулетка выбирает ответственного за заказ\n\n';
 
   text += '🍽️ **Управление меню:**\n';
-  text += '• Используйте команду `/menu` для открытия Mini App\n';
+  text += '• Откройте бота [@rocket_lunch_bot](https://t.me/rocket_lunch_bot) в личных сообщениях\n';
+  text += '• Используйте команду `/menu` или нажмите кнопку Menu\n';
   text += '• Добавляйте, редактируйте и удаляйте блюда\n';
   text += '• Только активные блюда участвуют в голосовании\n\n';
 

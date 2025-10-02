@@ -1,6 +1,19 @@
 import { Vote } from '@prisma/client';
 import { CreateVoteData, VoteWithDetails } from '../types/poll.types';
 export declare class VoteService {
+    static createVote(data: CreateVoteData): Promise<Vote>;
+    static updateVote(voteId: number, menuItemId: number): Promise<Vote>;
+    static getVoteBreakdown(pollId: number): Promise<Array<{
+        menuItemId: number;
+        menuItemName: string;
+        votes: number;
+        percentage: number;
+        voters: Array<{
+            id: number;
+            firstName: string;
+            username?: string;
+        }>;
+    }>>;
     static upsertVote(data: CreateVoteData): Promise<Vote>;
     static getUserVoteInPoll(pollId: number, userId: number): Promise<Vote | null>;
     static removeVote(pollId: number, userId: number): Promise<void>;

@@ -5,6 +5,26 @@ const client_1 = require("@prisma/client");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
 class UserService {
+    static async createUser(data) {
+        try {
+            const user = await client_2.prisma.user.create({
+                data: {
+                    telegramId: BigInt(data.telegramId),
+                    username: data.username,
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    isAdmin: false,
+                    isActive: true,
+                },
+            });
+            logger_1.logger.info(`User created: ${user.telegramId} (${user.firstName})`);
+            return user;
+        }
+        catch (error) {
+            logger_1.logger.error('Error creating user:', error);
+            throw new Error('Failed to create user');
+        }
+    }
     static async upsertUser(data) {
         try {
             const user = await client_2.prisma.user.upsert({

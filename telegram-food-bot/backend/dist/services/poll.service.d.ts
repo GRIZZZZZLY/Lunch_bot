@@ -27,5 +27,12 @@ export declare class PollService {
             username?: string;
         }[];
     }[]>;
+    static savePollResult(data: {
+        pollId: number;
+        winnerMenuItemId?: number;
+        responsibleUserId: number;
+        totalVotes: number;
+        rouletteData?: string;
+    }): Promise<any>;
 }
 //# sourceMappingURL=poll.service.d.ts.map
