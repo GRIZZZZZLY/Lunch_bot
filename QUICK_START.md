@@ -1,107 +1,159 @@
-# ⚡ Быстрый старт
+# 🚀 Быстрый старт
 
-Минимальная инструкция для запуска проекта.
+## Текущая конфигурация
+- **ngrok URL**: `https://2072f129141b.ngrok-free.app`
+- **Backend**: `http://localhost:3001`
+- **Frontend**: `http://localhost:5173`
 
-## 🎯 За 5 минут
+## 📝 Когда ngrok URL меняется:
 
-### 1. Подготовка
+### Вариант 1: Ручное обновление (самый простой)
 
-```bash
-# Клонировать репозиторий (если еще не клонирован)
-git clone <repository-url>
-cd telegram-food-bot
-
-# Скопировать и настроить .env
-cp .env.example .env
-```
-
-### 2. Настроить `.env`
-
-Откройте `.env` и замените:
-
+#### 1. Обновите frontend/.env:
 ```env
-BOT_TOKEN=your_bot_token_here           # Получить у @BotFather
-BOT_USERNAME=your_bot_username          # Например: MyFoodBot
-TELEGRAM_SECRET_KEY=random_secret_123   # Любая случайная строка
+VITE_API_URL=https://НОВЫЙ-URL.ngrok-free.app/api
 ```
 
-### 3. Запустить
-
-```bash
-# С Docker (рекомендуется)
-docker-compose up -d
-
-# Или локально
-npm install                  # В корне
-cd backend && npm install
-cd ../frontend && npm install
-
-# В отдельных терминалах:
-docker-compose -f docker-compose.dev.yml up -d  # Только БД
-cd backend && npm run dev    # Backend
-cd frontend && npm run dev   # Frontend
+#### 2. Обновите backend/.env:
+```env
+BOT_WEBHOOK_URL=https://НОВЫЙ-URL.ngrok-free.app/webhook
+CORS_ORIGIN=http://localhost:5173,https://НОВЫЙ-URL.ngrok-free.app,https://web.telegram.org
 ```
 
-### 4. Проверить
-
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:3001/health
-- **База данных**: localhost:5432
-
-## 🎮 Основные команды
-
-```bash
-# Docker
-docker-compose up -d        # Запустить
-docker-compose logs -f      # Смотреть логи
-docker-compose down         # Остановить
-
-# Разработка
-npm run dev                 # Backend + Frontend
-npm run build              # Сборка
-npm test                   # Тесты
-npm run lint               # Проверка кода
-
-# База данных
-npx prisma migrate dev     # Создать миграцию
-npx prisma studio          # Открыть GUI для БД
-npx prisma generate        # Обновить Prisma Client
+#### 3. Обновите frontend/.env.production:
+```env
+VITE_API_URL=https://НОВЫЙ-URL.ngrok-free.app/api
 ```
 
-## 🆘 Проблемы?
+### Вариант 2: PowerShell скрипт (автоматический)
 
-### Порт занят
-
-```bash
-# Windows
-netstat -ano | findstr :3001
-taskkill /PID <PID> /F
-
-# Linux/Mac
-lsof -ti:3001 | xargs kill
+```powershell
+# В корневой папке проекта
+.\update-ngrok-url.ps1 -NewUrl "https://НОВЫЙ-URL.ngrok-free.app"
 ```
 
-### База данных не подключается
+---
 
+## ▶️ Запуск проекта
+
+### Backend:
 ```bash
-# Перезапустить PostgreSQL
-docker-compose restart postgres
-
-# Проверить статус
-docker-compose ps postgres
+cd telegram-food-bot/backend
+npm run dev
 ```
 
-### Ошибки при сборке
-
+### Frontend:
 ```bash
-# Очистить кэш и пересобрать
-docker-compose down -v
-docker-compose build --no-cache
+cd telegram-food-bot/frontend
+npm run dev
+```
+
+### Или через Docker:
+```bash
+cd telegram-food-bot
 docker-compose up -d
 ```
 
-## 📚 Детальная документация
+---
 
-- [DOCKER_SETUP.md](DOCKER_SETUP.md) - Полное руководство по Docker
-- [README.md](README.md) - Описание проекта
-- [AGENTS.md](AGENTS.md) - План разработки
+## ⚙️ Настройка в BotFather
+
+1. Откройте [@BotFather](https://t.me/BotFather)
+2. Отправьте `/mybots`
+3. Выберите вашего бота: **@rocket_lunch_bot**
+4. Нажмите **Bot Settings** → **Menu Button**
+5. Укажите URL: `https://2072f129141b.ngrok-free.app`
+
+---
+
+## 🔗 Установка Webhook
+
+### Автоматически (PowerShell):
+```powershell
+.\set-webhook-now.ps1
+```
+
+### Или проверить статус:
+```powershell
+.\check-webhook.ps1
+```
+
+### Или удалить webhook (для разработки без ngrok):
+```powershell
+.\delete-webhook.ps1
+```
+
+### Вручную (curl):
+```bash
+curl -X POST "https://api.telegram.org/botREDACTED-BOT-TOKEN/setWebhook" \
+  -d "url=https://2072f129141b.ngrok-free.app/webhook"
+```
+
+---
+
+## 🛠️ Решение проблем
+
+### "Хост не разрешён" (Host not allowed)
+✅ **Исправлено!** В `vite.config.ts` добавлены `allowedHosts` для всех ngrok доменов.
+
+### CORS ошибки
+✅ **Исправлено!** Backend настроен на прием запросов с ngrok и Telegram.
+
+### Frontend не подключается к API
+1. Проверьте, что backend запущен: `http://localhost:3001/health`
+2. Проверьте `VITE_API_URL` в `frontend/.env`
+3. Перезапустите frontend после изменения `.env`
+
+### Webhook не работает
+1. Убедитесь, что backend запущен
+2. Проверьте, что ngrok туннель активен
+3. Установите webhook заново (команда выше)
+
+---
+
+## 📋 Чеклист перед тестированием
+
+- [ ] Backend запущен (`http://localhost:3001/health` отвечает)
+- [ ] Frontend запущен (`http://localhost:5173` открывается)
+- [ ] ngrok туннель активен
+- [ ] URL обновлён во всех `.env` файлах
+- [ ] URL обновлён в BotFather (Menu Button)
+- [ ] Webhook установлен
+- [ ] Проверен `getWebhookInfo` - нет ошибок
+
+---
+
+## 🔄 При каждом перезапуске ngrok:
+
+1. Получите новый URL: `ngrok http 3001`
+2. Запустите скрипт: `.\update-ngrok-url.ps1 -NewUrl "https://НОВЫЙ-URL.ngrok-free.app"`
+3. Перезапустите backend и frontend
+4. Обновите URL в BotFather
+5. Установите webhook заново
+
+---
+
+## 💡 Полезные команды
+
+### Проверка статуса API:
+```bash
+curl http://localhost:3001/health
+```
+
+### Проверка статуса ngrok:
+```bash
+curl https://2072f129141b.ngrok-free.app/health
+```
+
+### Перезапуск с очисткой кеша (Frontend):
+```bash
+cd frontend
+rm -rf node_modules/.vite
+npm run dev
+```
+
+### Перезапуск Docker:
+```bash
+docker-compose down
+docker-compose up -d --build
+```

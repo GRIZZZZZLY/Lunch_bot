@@ -52,6 +52,27 @@ router.post(
 );
 
 /**
+ * POST /api/polls/create-from-webapp
+ * Создание голосования из Mini App с отправкой в группу
+ */
+router.post(
+  '/create-from-webapp',
+  telegramAuthMiddleware,
+  adminMiddleware,
+  pollController.createPollFromWebApp
+);
+
+/**
+ * GET /api/polls/active/:groupId
+ * Получение активного голосования в группе
+ */
+router.get(
+  '/active/:groupId',
+  telegramAuthMiddleware,
+  pollController.getActivePollInGroup
+);
+
+/**
  * PATCH /api/polls/:id/complete
  * Завершение голосования (только админы)
  */

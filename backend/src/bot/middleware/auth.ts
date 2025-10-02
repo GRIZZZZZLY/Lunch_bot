@@ -36,8 +36,8 @@ export async function authMiddleware(ctx: BotContext, next: NextFunction): Promi
 
       ctx.dbGroup = group;
 
-      // Добавляем пользователя в группу
-      await GroupService.addMemberToGroup(group.id, dbUser.id);
+      // TODO: Добавить метод addMemberToGroup в GroupService
+      // await GroupService.addMemberToGroup(group.id, dbUser.id);
     }
 
     return next();

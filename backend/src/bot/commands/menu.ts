@@ -26,6 +26,7 @@ export async function menuCommand(ctx: CommandContext<BotContext>): Promise<void
     }
 
     const isAdmin = dbUser.isAdmin;
+    const isGroup = ctx.chat.type !== 'private';
     
     // Получаем статистику меню
     const menuStats = await MenuService.getMenuStats();
@@ -65,14 +66,26 @@ export async function menuCommand(ctx: CommandContext<BotContext>): Promise<void
     }
 
     // Кнопки для управления
+    // В группах web_app кнопки не работают (ограничение Telegram)
+    const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+    
     const keyboard = {
-      inline_keyboard: [
+      inline_keyboard: isGroup ? [
+        // Для групп - без web_app кнопки
+        [
+          { text: '📋 Показать список', callback_data: 'show_menu_list' },
+          { text: '🔍 Поиск блюда', callback_data: 'search_menu' }
+        ],
+        [
+          { text: '📊 Популярные', callback_data: 'show_popular' },
+          { text: '📂 Категории', callback_data: 'show_categories' }
+        ]
+      ] : [
+        // Для личных чатов - с web_app кнопкой
         [
           {
-            text: '📱 Открыть Mini App',
-            web_app: {
-              url: process.env.VITE_APP_URL || 'https://your-domain.com/miniapp'
-            }
+            text: '🚀 Открыть Mini App',
+            web_app: { url: webappUrl }
           }
         ],
         [
@@ -92,6 +105,11 @@ export async function menuCommand(ctx: CommandContext<BotContext>): Promise<void
         { text: '➕ Быстрое добавление', callback_data: 'quick_add_item' },
         { text: '⚙️ Настройки', callback_data: 'menu_settings' }
       ]);
+    }
+    
+    // В группах добавляем подсказку как открыть Mini App
+    if (isGroup) {
+      text += '\n💡 **Подсказка:** Для управления меню откройте бота [@rocket_lunch_bot](https://t.me/rocket_lunch_bot) в личных сообщениях.\n';
     }
 
     await ctx.reply(text, {
@@ -192,12 +210,22 @@ export async function handleShowMenuList(ctx: any): Promise<void> {
     });
 
     await ctx.answerCallbackQuery();
+    const isGroup = ctx.chat?.type !== 'private';
+    const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+    
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       reply_markup: {
-        inline_keyboard: [
+        inline_keyboard: isGroup ? [
+          // Для групп - без web_app
           [
-            { text: '📱 Открыть Mini App', web_app: { url: process.env.VITE_APP_URL || '#' } }
+            { text: '🔍 Поиск', callback_data: 'search_menu' },
+            { text: '🔄 Обновить', callback_data: 'show_menu_list' }
+          ]
+        ] : [
+          // Для личных чатов - с web_app
+          [
+            { text: '🚀 Открыть Mini App', web_app: { url: webappUrl } }
           ],
           [
             { text: '🔍 Поиск', callback_data: 'search_menu' },

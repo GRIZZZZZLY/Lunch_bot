@@ -1,5 +1,5 @@
 import { CallbackQueryContext, Context } from 'grammy';
-import { BotContext } from '../types';
+import { BotContext } from '../../types/bot.types';
 export declare function handleVote(ctx: CallbackQueryContext<BotContext>, pollId: number, menuItemId: number): Promise<void>;
 export declare function handleCompletePoll(ctx: CallbackQueryContext<BotContext>, pollId: number): Promise<void>;
 export declare function handleRefreshPoll(ctx: CallbackQueryContext<BotContext>, pollId: number): Promise<void>;

@@ -148,7 +148,9 @@ export const Navigation: React.FC<{
 }> = ({ currentTab, onTabChange }) => {
   const tabs = [
     { id: 'menu', label: 'Меню', icon: '🍽️' },
+    { id: 'polls', label: 'Голосования', icon: '🗳️' },
     { id: 'stats', label: 'Статистика', icon: '📊' },
+    { id: 'profile', label: 'Профиль', icon: '👤' },
   ];
 
   return (

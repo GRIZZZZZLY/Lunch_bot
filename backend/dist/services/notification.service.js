@@ -18,14 +18,14 @@ class NotificationService {
         const templates = new Map();
         templates.set(notification_types_1.NotificationType.POLL_STARTED, {
             type: notification_types_1.NotificationType.POLL_STARTED,
-            getTitle: (data) => '🗳️ Началось голосование!',
+            getTitle: (data) => 'рџ—іпёЏ РќР°С‡Р°Р»РѕСЃСЊ РіРѕР»РѕСЃРѕРІР°РЅРёРµ!',
             getMessage: (data) => {
-                let message = `📢 В группе *${data.groupTitle}* началось новое голосование!\n\n`;
-                message += `🍽️ Доступно блюд: ${data.menuItems.length}\n`;
+                let message = `рџ“ў Р’ РіСЂСѓРїРїРµ *${data.groupTitle}* РЅР°С‡Р°Р»РѕСЃСЊ РЅРѕРІРѕРµ РіРѕР»РѕСЃРѕРІР°РЅРёРµ!\n\n`;
+                message += `рџЌЅпёЏ Р”РѕСЃС‚СѓРїРЅРѕ Р±Р»СЋРґ: ${data.menuItems.length}\n`;
                 if (data.endTime) {
-                    message += `⏰ Завершится: ${this.formatDate(data.endTime)}\n`;
+                    message += `вЏ° Р—Р°РІРµСЂС€РёС‚СЃСЏ: ${this.formatDate(data.endTime)}\n`;
                 }
-                message += `\n👉 Проголосуйте в чате группы!`;
+                message += `\nрџ‘‰ РџСЂРѕРіРѕР»РѕСЃСѓР№С‚Рµ РІ С‡Р°С‚Рµ РіСЂСѓРїРїС‹!`;
                 return message;
             },
             parseMode: 'Markdown',
@@ -33,24 +33,24 @@ class NotificationService {
         });
         templates.set(notification_types_1.NotificationType.POLL_ENDED, {
             type: notification_types_1.NotificationType.POLL_ENDED,
-            getTitle: (data) => '✅ Голосование завершено!',
+            getTitle: (data) => 'вњ… Р“РѕР»РѕСЃРѕРІР°РЅРёРµ Р·Р°РІРµСЂС€РµРЅРѕ!',
             getMessage: (data) => {
-                let message = `📊 Голосование завершилось!\n\n`;
-                message += `👥 Всего голосов: ${data.totalVotes}\n\n`;
+                let message = `рџ“Љ Р“РѕР»РѕСЃРѕРІР°РЅРёРµ Р·Р°РІРµСЂС€РёР»РѕСЃСЊ!\n\n`;
+                message += `рџ‘Ґ Р’СЃРµРіРѕ РіРѕР»РѕСЃРѕРІ: ${data.totalVotes}\n\n`;
                 if (data.winnerItem) {
-                    message += `🏆 *Победитель:* ${data.winnerItem.name}\n`;
+                    message += `рџЏ† *РџРѕР±РµРґРёС‚РµР»СЊ:* ${data.winnerItem.name}\n`;
                     if (data.winnerItem.price) {
-                        message += `💰 Цена: ${data.winnerItem.price} руб.\n`;
+                        message += `рџ’° Р¦РµРЅР°: ${data.winnerItem.price} СЂСѓР±.\n`;
                     }
                 }
                 if (data.topItems && data.topItems.length > 0) {
-                    message += `\n📈 *Топ блюд:*\n`;
+                    message += `\nрџ“€ *РўРѕРї Р±Р»СЋРґ:*\n`;
                     data.topItems.slice(0, 3).forEach((item, index) => {
-                        const emoji = ['🥇', '🥈', '🥉'][index] || '•';
-                        message += `${emoji} ${item.item.name} - ${item.votes} голосов (${item.percentage}%)\n`;
+                        const emoji = ['рџҐ‡', 'рџҐ€', 'рџҐ‰'][index] || 'вЂў';
+                        message += `${emoji} ${item.item.name} - ${item.votes} РіРѕР»РѕСЃРѕРІ (${item.percentage}%)\n`;
                     });
                 }
-                message += `\n🎲 Сейчас запустится рулетка для выбора ответственного...`;
+                message += `\nрџЋІ РЎРµР№С‡Р°СЃ Р·Р°РїСѓСЃС‚РёС‚СЃСЏ СЂСѓР»РµС‚РєР° РґР»СЏ РІС‹Р±РѕСЂР° РѕС‚РІРµС‚СЃС‚РІРµРЅРЅРѕРіРѕ...`;
                 return message;
             },
             parseMode: 'Markdown',
@@ -58,39 +58,39 @@ class NotificationService {
         });
         templates.set(notification_types_1.NotificationType.ROULETTE_WINNER, {
             type: notification_types_1.NotificationType.ROULETTE_WINNER,
-            getTitle: (data) => '🎉 Вы выбраны ответственным!',
+            getTitle: (data) => 'рџЋ‰ Р’С‹ РІС‹Р±СЂР°РЅС‹ РѕС‚РІРµС‚СЃС‚РІРµРЅРЅС‹Рј!',
             getMessage: (data) => {
-                let message = `🎊 *Поздравляем, ${data.winner.firstName}!*\n\n`;
-                message += `Рулетка выбрала вас ответственным за заказ еды.\n\n`;
+                let message = `рџЋЉ *РџРѕР·РґСЂР°РІР»СЏРµРј, ${data.winner.firstName}!*\n\n`;
+                message += `Р СѓР»РµС‚РєР° РІС‹Р±СЂР°Р»Р° РІР°СЃ РѕС‚РІРµС‚СЃС‚РІРµРЅРЅС‹Рј Р·Р° Р·Р°РєР°Р· РµРґС‹.\n\n`;
                 if (data.winnerItem) {
-                    message += `🍽️ *Заказываем:* ${data.winnerItem.name}\n`;
+                    message += `рџЌЅпёЏ *Р—Р°РєР°Р·С‹РІР°РµРј:* ${data.winnerItem.name}\n`;
                     if (data.winnerItem.price) {
-                        message += `💰 *Цена:* ${data.winnerItem.price} руб.\n`;
+                        message += `рџ’° *Р¦РµРЅР°:* ${data.winnerItem.price} СЂСѓР±.\n`;
                     }
                     if (data.winnerItem.description) {
-                        message += `📝 ${data.winnerItem.description}\n`;
+                        message += `рџ“ќ ${data.winnerItem.description}\n`;
                     }
                 }
-                message += `\n👥 *Количество участников:* ${data.voters.length}\n`;
-                message += `📊 *Всего голосов:* ${data.totalVotes}\n`;
+                message += `\nрџ‘Ґ *РљРѕР»РёС‡РµСЃС‚РІРѕ СѓС‡Р°СЃС‚РЅРёРєРѕРІ:* ${data.voters.length}\n`;
+                message += `рџ“Љ *Р’СЃРµРіРѕ РіРѕР»РѕСЃРѕРІ:* ${data.totalVotes}\n`;
                 if (data.orderDetails) {
-                    message += `\n📋 *Детали заказа:*\n`;
+                    message += `\nрџ“‹ *Р”РµС‚Р°Р»Рё Р·Р°РєР°Р·Р°:*\n`;
                     if (data.orderDetails.restaurant) {
-                        message += `🏪 Ресторан: ${data.orderDetails.restaurant}\n`;
+                        message += `рџЏЄ Р РµСЃС‚РѕСЂР°РЅ: ${data.orderDetails.restaurant}\n`;
                     }
                     if (data.orderDetails.deliveryTime) {
-                        message += `⏰ Время доставки: ${this.formatDate(data.orderDetails.deliveryTime)}\n`;
+                        message += `вЏ° Р’СЂРµРјСЏ РґРѕСЃС‚Р°РІРєРё: ${this.formatDate(data.orderDetails.deliveryTime)}\n`;
                     }
                     if (data.orderDetails.budget) {
-                        message += `💵 Бюджет: ${data.orderDetails.budget} руб.\n`;
+                        message += `рџ’µ Р‘СЋРґР¶РµС‚: ${data.orderDetails.budget} СЂСѓР±.\n`;
                     }
                 }
-                message += `\n📝 *Следующие шаги:*\n`;
-                message += `1️⃣ Свяжитесь с участниками\n`;
-                message += `2️⃣ Соберите деньги\n`;
-                message += `3️⃣ Сделайте заказ\n`;
-                message += `4️⃣ Организуйте доставку\n`;
-                message += `\n💪 Удачи! Все рассчитывают на вас!`;
+                message += `\nрџ“ќ *РЎР»РµРґСѓСЋС‰РёРµ С€Р°РіРё:*\n`;
+                message += `1пёЏвѓЈ РЎРІСЏР¶РёС‚РµСЃСЊ СЃ СѓС‡Р°СЃС‚РЅРёРєР°РјРё\n`;
+                message += `2пёЏвѓЈ РЎРѕР±РµСЂРёС‚Рµ РґРµРЅСЊРіРё\n`;
+                message += `3пёЏвѓЈ РЎРґРµР»Р°Р№С‚Рµ Р·Р°РєР°Р·\n`;
+                message += `4пёЏвѓЈ РћСЂРіР°РЅРёР·СѓР№С‚Рµ РґРѕСЃС‚Р°РІРєСѓ\n`;
+                message += `\nрџ’Є РЈРґР°С‡Рё! Р’СЃРµ СЂР°СЃСЃС‡РёС‚С‹РІР°СЋС‚ РЅР° РІР°СЃ!`;
                 return message;
             },
             parseMode: 'Markdown',
@@ -98,12 +98,12 @@ class NotificationService {
         });
         templates.set(notification_types_1.NotificationType.ORDER_REMINDER, {
             type: notification_types_1.NotificationType.ORDER_REMINDER,
-            getTitle: () => '⏰ Напоминание о заказе',
+            getTitle: () => 'вЏ° РќР°РїРѕРјРёРЅР°РЅРёРµ Рѕ Р·Р°РєР°Р·Рµ',
             getMessage: (data) => {
-                let message = `⏰ *Напоминание!*\n\n`;
-                message += `Не забудьте сделать заказ еды.\n`;
+                let message = `вЏ° *РќР°РїРѕРјРёРЅР°РЅРёРµ!*\n\n`;
+                message += `РќРµ Р·Р°Р±СѓРґСЊС‚Рµ СЃРґРµР»Р°С‚СЊ Р·Р°РєР°Р· РµРґС‹.\n`;
                 if (data.deadline) {
-                    message += `⏱️ Крайний срок: ${this.formatDate(data.deadline)}\n`;
+                    message += `вЏ±пёЏ РљСЂР°Р№РЅРёР№ СЃСЂРѕРє: ${this.formatDate(data.deadline)}\n`;
                 }
                 return message;
             },
