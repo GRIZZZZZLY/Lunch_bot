@@ -1,7 +1,17 @@
-﻿import { Poll, Vote, PollResult, Prisma } from '@prisma/client';
+import { Poll, Vote, PollResult, Prisma, MenuItem } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreatePollData, PollWithDetails, PollStats } from '../types/poll.types';
+import { createPollKeyboard, createPollMessage } from '../bot/keyboards/poll.keyboard';
+import { GroupService } from './group.service';
+
+// Bot instance будет инициализирован из bot.ts
+let botInstance: any = null;
+
+export function initializePollServiceBot(bot: any): void {
+  botInstance = bot;
+  logger.info('PollService bot instance initialized');
+}
 
 export class PollService {
   /**
@@ -505,4 +515,57 @@ export class PollService {
       throw new Error('Failed to get poll vote breakdown');
     }
   }
+  /**
+   * РЎРѕС…СЂР°РЅРµРЅРёРµ СЂРµР·СѓР»СЊС‚Р°С‚Р° СЂСѓР»РµС‚РєРё
+   */
+  static async savePollResult(data: {
+    pollId: number;
+    winnerMenuItemId?: number;
+    responsibleUserId: number;
+    totalVotes: number;
+    rouletteData?: string;
+  }): Promise<any> {
+    try {
+      const existing = await prisma.pollResult.findUnique({
+        where: { pollId: data.pollId },
+      });
+
+      if (existing) {
+        const result = await prisma.pollResult.update({
+          where: { pollId: data.pollId },
+          data: {
+            responsibleUserId: data.responsibleUserId,
+            updatedAt: new Date(),
+          },
+          include: {
+            poll: true,
+            winnerMenuItem: true,
+            responsibleUser: true,
+          },
+        });
+        logger.info(`Poll result updated for poll ${data.pollId}`);
+        return result;
+      } else {
+        const result = await prisma.pollResult.create({
+          data: {
+            pollId: data.pollId,
+            winnerMenuItemId: data.winnerMenuItemId,
+            responsibleUserId: data.responsibleUserId,
+            totalVotes: data.totalVotes,
+          },
+          include: {
+            poll: true,
+            winnerMenuItem: true,
+            responsibleUser: true,
+          },
+        });
+        logger.info(`Poll result created for poll ${data.pollId}`);
+        return result;
+      }
+    } catch (error) {
+      logger.error('Error saving poll result:', error);
+      throw new Error('Failed to save poll result');
+    }
+  }
+
 }

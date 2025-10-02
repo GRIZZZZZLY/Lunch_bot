@@ -408,6 +408,50 @@ class PollService {
             throw new Error('Failed to get poll vote breakdown');
         }
     }
+    static async savePollResult(data) {
+        try {
+            const existing = await client_2.prisma.pollResult.findUnique({
+                where: { pollId: data.pollId },
+            });
+            if (existing) {
+                const result = await client_2.prisma.pollResult.update({
+                    where: { pollId: data.pollId },
+                    data: {
+                        responsibleUserId: data.responsibleUserId,
+                        updatedAt: new Date(),
+                    },
+                    include: {
+                        poll: true,
+                        winnerMenuItem: true,
+                        responsibleUser: true,
+                    },
+                });
+                logger_1.logger.info(`Poll result updated for poll ${data.pollId}`);
+                return result;
+            }
+            else {
+                const result = await client_2.prisma.pollResult.create({
+                    data: {
+                        pollId: data.pollId,
+                        winnerMenuItemId: data.winnerMenuItemId,
+                        responsibleUserId: data.responsibleUserId,
+                        totalVotes: data.totalVotes,
+                    },
+                    include: {
+                        poll: true,
+                        winnerMenuItem: true,
+                        responsibleUser: true,
+                    },
+                });
+                logger_1.logger.info(`Poll result created for poll ${data.pollId}`);
+                return result;
+            }
+        }
+        catch (error) {
+            logger_1.logger.error('Error saving poll result:', error);
+            throw new Error('Failed to save poll result');
+        }
+    }
 }
 exports.PollService = PollService;
 //# sourceMappingURL=poll.service.js.map

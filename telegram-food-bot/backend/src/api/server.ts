@@ -9,6 +9,7 @@ import { logger } from '../utils/logger';
 import authRoutes from './routes/auth.routes';
 import menuRoutes from './routes/menu.routes';
 import pollRoutes from './routes/poll.routes';
+import userRoutes from './routes/user.routes';
 
 /**
  * Настройка Express приложения
@@ -45,6 +46,7 @@ export function createApiServer(): express.Application {
   app.use('/api/auth', authRoutes);
   app.use('/api/menu', menuRoutes);
   app.use('/api/polls', pollRoutes);
+  app.use('/api/user', userRoutes);
 
   app.use('/api/stats', (req, res) => {
     res.json({

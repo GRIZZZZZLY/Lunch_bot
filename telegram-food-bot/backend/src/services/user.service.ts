@@ -1,9 +1,32 @@
-﻿import { User, Prisma } from '@prisma/client';
+import { User, Prisma } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreateUserData, UpdateUserData } from '../types/user.types';
 
 export class UserService {
+  /**
+   * РЎРѕР·РґР°РЅРёРµ РЅРѕРІРѕРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+   */
+  static async createUser(data: CreateUserData): Promise<User> {
+    try {
+      const user = await prisma.user.create({
+        data: {
+          telegramId: BigInt(data.telegramId),
+          username: data.username,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          isAdmin: false,
+          isActive: true,
+        },
+      });
+
+      logger.info(`User created: ${user.telegramId} (${user.firstName})`);
+      return user;
+    } catch (error) {
+      logger.error('Error creating user:', error);
+      throw new Error('Failed to create user');
+    }
+  }
   /**
    * Создание или обновление пользователя
    */
@@ -233,5 +256,65 @@ export class UserService {
 
   async isAdmin(telegramId: bigint): Promise<boolean> {
     return UserService.isAdmin(telegramId);
+  }
+
+  /**
+   * Обновление платёжных данных пользователя
+   */
+  static async updatePaymentInfo(
+    userId: number,
+    data: {
+      paymentCard?: string;
+      paymentPhone?: string;
+      paymentDetails?: string;
+    }
+  ): Promise<User> {
+    try {
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          paymentCard: data.paymentCard,
+          paymentPhone: data.paymentPhone,
+          paymentDetails: data.paymentDetails,
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info(`Payment info updated for user: ${user.id}`);
+      return user;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new Error('User not found');
+        }
+      }
+      logger.error('Error updating payment info:', error);
+      throw new Error('Failed to update payment info');
+    }
+  }
+
+  /**
+   * Получение платёжных данных пользователя
+   */
+  static async getPaymentInfo(userId: number): Promise<{
+    paymentCard?: string | null;
+    paymentPhone?: string | null;
+    paymentDetails?: string | null;
+  } | null> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          paymentCard: true,
+          paymentPhone: true,
+          paymentDetails: true,
+        },
+      });
+
+      return user;
+    } catch (error) {
+      logger.error('Error getting payment info:', error);
+      throw new Error('Failed to get payment info');
+    }
   }
 }

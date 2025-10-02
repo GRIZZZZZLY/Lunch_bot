@@ -1,6 +1,7 @@
 import { User } from '@prisma/client';
 import { CreateUserData, UpdateUserData } from '../types/user.types';
 export declare class UserService {
+    static createUser(data: CreateUserData): Promise<User>;
     static upsertUser(data: CreateUserData): Promise<User>;
     static getUserByTelegramId(telegramId: bigint): Promise<User | null>;
     static getUserById(id: number): Promise<User | null>;

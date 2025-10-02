@@ -39,10 +39,31 @@ export async function startCommand(ctx: CommandContext<BotContext>): Promise<voi
         '3. Используйте /help для списка команд'
       : `👋 С возвращением, ${user.first_name}!`;
 
+    const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+    const isGroup = ctx.chat.type !== 'private';
+    
+    // В группах web_app кнопки не работают (ограничение Telegram)
     const keyboard = {
-      inline_keyboard: [
+      inline_keyboard: isGroup ? [
+        // Для групп - обычные кнопки
         [
-          { text: '🍽️ Управление меню', callback_data: 'menu' },
+          { text: '🍽️ Меню', callback_data: 'menu' },
+          { text: '📖 Команды', callback_data: 'help' }
+        ],
+        [
+          { text: '👥 О боте', callback_data: 'about' },
+          { text: '👑 Админы', callback_data: 'show_admins' }
+        ]
+      ] : [
+        // Для личных чатов - с кнопкой Mini App
+        [
+          {
+            text: '🚀 Открыть Mini App',
+            web_app: { url: webappUrl }
+          }
+        ],
+        [
+          { text: '🍽️ Меню', callback_data: 'menu' },
           { text: '📖 Команды', callback_data: 'help' }
         ],
         [
@@ -67,7 +88,7 @@ export async function startCommand(ctx: CommandContext<BotContext>): Promise<voi
     });
 
     // Если это группа, объясняем функционал
-    if (ctx.chat.type !== 'private') {
+    if (isGroup) {
       setTimeout(async () => {
         await ctx.reply(
           '👥 **Групповой режим активирован!**\n\n' +
@@ -75,6 +96,10 @@ export async function startCommand(ctx: CommandContext<BotContext>): Promise<voi
           '1. Сделайте меня администратором группы\n' +
           '2. Используйте /startpoll для запуска голосования\n' +
           '3. Участники смогут голосовать за блюда\n\n' +
+          '📱 **Для управления меню:**\n' +
+          '• Откройте бота [@rocket_lunch_bot](https://t.me/rocket_lunch_bot) в личных сообщениях\n' +
+          '• Нажмите на кнопку Menu внизу экрана\n' +
+          '• Или используйте команду /menu в личке\n\n' +
           '⚡ Попробуйте /help для списка команд',
           { parse_mode: 'Markdown' }
         );

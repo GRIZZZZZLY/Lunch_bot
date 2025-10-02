@@ -124,6 +124,52 @@ class PollsService {
   }
 
   /**
+   * Получение активного голосования в группе
+   */
+  async getActivePollInGroup(groupId: number): Promise<ApiResponse<PollWithDetails | null>> {
+    return await apiService.get<PollWithDetails | null>(`/polls/active/${groupId}`);
+  }
+
+  /**
+   * Создание голосования из WebApp
+   */
+  async createPollFromWebApp(data: {
+    groupId: number;
+    duration: number;
+    selectedMenuItems?: number[];
+    title?: string;
+  }): Promise<ApiResponse<{
+    pollId: number;
+    messageId: number;
+    groupTitle: string;
+    duration: number;
+    menuItemsCount: number;
+  }>> {
+    return await apiService.post<any>('/polls/create-from-webapp', data);
+  }
+
+  /**
+   * Голосование за блюдо
+   */
+  async voteForItem(pollId: number, menuItemId: number): Promise<ApiResponse<Vote>> {
+    return await apiService.post<Vote>(`/polls/${pollId}/vote`, { menuItemId });
+  }
+
+  /**
+   * Отмена голоса
+   */
+  async removeVote(pollId: number): Promise<ApiResponse<void>> {
+    return await apiService.delete<void>(`/polls/${pollId}/vote`);
+  }
+
+  /**
+   * Завершение голосования (только для админов)
+   */
+  async completePoll(pollId: number): Promise<ApiResponse<PollResult>> {
+    return await apiService.patch<PollResult>(`/polls/${pollId}/complete`, {});
+  }
+
+  /**
    * Получение голосования по ID
    */
   async getPollById(id: number): Promise<ApiResponse<PollWithDetails>> {

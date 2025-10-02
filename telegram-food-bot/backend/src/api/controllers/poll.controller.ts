@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
 import { PollService } from '../../services/poll.service';
 import { VoteService } from '../../services/vote.service';
+import { MenuService } from '../../services/menu.service';
+import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { CreatePollData, CreateVoteData } from '../../types/poll.types';
+import { createPollFromWebApp } from '../../services/poll.service.extensions';
 
 export class PollController {
   /**
@@ -271,6 +274,175 @@ export class PollController {
       res.status(500).json({
         success: false,
         error: 'Failed to create poll',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * POST /api/polls/create-from-webapp
+   * Создание голосования из Mini App с отправкой в группу
+   */
+  static async createPollFromWebApp(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId, duration, selectedMenuItems, title } = req.body;
+      const user = (req as any).user;
+
+      // Валидация
+      if (!groupId || isNaN(parseInt(groupId))) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid or missing groupId',
+          code: 'INVALID_GROUP_ID'
+        });
+        return;
+      }
+
+      const parsedGroupId = parseInt(groupId);
+      const parsedDuration = duration ? parseInt(duration) : 30;
+
+      if (parsedDuration < 1 || parsedDuration > 1440) {
+        res.status(400).json({
+          success: false,
+          error: 'Duration must be between 1 and 1440 minutes',
+          code: 'INVALID_DURATION'
+        });
+        return;
+      }
+
+      // Проверяем существование группы
+      const group = await GroupService.getGroupById(parsedGroupId);
+      if (!group) {
+        res.status(404).json({
+          success: false,
+          error: 'Group not found',
+          code: 'GROUP_NOT_FOUND'
+        });
+        return;
+      }
+
+      // Проверяем активное голосование
+      const existingPoll = await PollService.getActivePollInGroup(parsedGroupId);
+      if (existingPoll) {
+        res.status(400).json({
+          success: false,
+          error: 'Group already has an active poll',
+          code: 'POLL_ALREADY_ACTIVE'
+        });
+        return;
+      }
+
+      // Получаем блюда меню
+      let menuItems = await MenuService.getActiveMenuItems();
+      
+      // Фильтруем по выбранным ID если указаны
+      if (selectedMenuItems && Array.isArray(selectedMenuItems) && selectedMenuItems.length > 0) {
+        const selectedIds = selectedMenuItems.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id));
+        menuItems = menuItems.filter(item => selectedIds.includes(item.id));
+      }
+
+      // Проверяем минимум блюд
+      if (menuItems.length < 2) {
+        res.status(400).json({
+          success: false,
+          error: 'At least 2 active menu items required',
+          code: 'NOT_ENOUGH_ITEMS'
+        });
+        return;
+      }
+
+      // Создаём голосование и отправляем в группу
+      const result = await createPollFromWebApp({
+        groupId: parsedGroupId,
+        duration: parsedDuration,
+        createdBy: user.id,
+        title: title || undefined,
+        menuItems
+      });
+
+      logger.info('Poll created from WebApp and sent to group', {
+        pollId: result.pollId,
+        groupId: parsedGroupId,
+        createdBy: user.id,
+        messageId: result.messageId,
+        duration: parsedDuration
+      });
+
+      res.status(201).json({
+        success: true,
+        data: {
+          pollId: result.pollId,
+          messageId: result.messageId,
+          groupTitle: group.title,
+          duration: parsedDuration,
+          menuItemsCount: menuItems.length
+        },
+        message: 'Poll created and sent to group successfully',
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error creating poll from WebApp:', error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Bot not initialized')) {
+          res.status(503).json({
+            success: false,
+            error: 'Bot service is not available',
+            code: 'BOT_NOT_AVAILABLE'
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create poll from WebApp',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * GET /api/polls/active/:groupId
+   * Получение активного голосования в группе
+   */
+  static async getActivePollInGroup(req: Request, res: Response): Promise<void> {
+    try {
+      const groupId = parseInt(req.params.groupId);
+
+      if (isNaN(groupId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid group ID',
+          code: 'INVALID_GROUP_ID'
+        });
+        return;
+      }
+
+      const poll = await PollService.getActivePollInGroup(groupId);
+
+      if (!poll) {
+        res.status(404).json({
+          success: false,
+          error: 'No active poll in this group',
+          code: 'NO_ACTIVE_POLL',
+          data: null
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: poll,
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error getting active poll in group:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get active poll',
         code: 'INTERNAL_ERROR'
       });
     }
