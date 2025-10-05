@@ -43,6 +43,7 @@ async function startApplication() {
         if (!dbConnected) {
             throw new Error('Не удалось подключиться к базе данных');
         }
+        (0, server_1.startApiServer)(app);
         if (process.env.NODE_ENV === 'production' && bot_config_1.botConfig.webhookUrl) {
             await (0, bot_1.setupWebhook)(bot, bot_config_1.botConfig.webhookUrl);
             app.use(`/webhook`, async (req, res) => {
@@ -57,9 +58,8 @@ async function startApplication() {
             });
         }
         else {
-            await (0, bot_1.startPolling)(bot);
+            (0, bot_1.startPolling)(bot);
         }
-        (0, server_1.startApiServer)(app);
         logger_1.logger.info('✅ Приложение успешно запущено');
     }
     catch (error) {

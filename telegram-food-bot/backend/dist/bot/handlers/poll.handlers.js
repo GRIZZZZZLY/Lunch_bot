@@ -1,12 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleVote = handleVote;
+exports.handleBringOwnVote = handleBringOwnVote;
+exports.handleSkipVote = handleSkipVote;
 exports.handleCompletePoll = handleCompletePoll;
 exports.handleRefreshPoll = handleRefreshPoll;
 exports.handleShowResults = handleShowResults;
 exports.handleRunRoulette = handleRunRoulette;
 exports.handleCancelPoll = handleCancelPoll;
 exports.handleShowResultsWithoutComplete = handleShowResultsWithoutComplete;
+exports.handleOpenPollButton = handleOpenPollButton;
 exports.handlePollCallback = handlePollCallback;
 exports.handleStartPoll = handleStartPoll;
 const poll_service_1 = require("../../services/poll.service");
@@ -17,6 +20,7 @@ const roulette_service_1 = require("../../services/roulette.service");
 const notification_service_1 = require("../../services/notification.service");
 const logger_1 = require("../../utils/logger");
 const poll_keyboard_1 = require("../keyboards/poll.keyboard");
+const vote_types_1 = require("../../types/vote.types");
 async function handleVote(ctx, pollId, menuItemId) {
     try {
         const user = ctx.from;
@@ -73,6 +77,84 @@ async function handleVote(ctx, pollId, menuItemId) {
         await ctx.answerCallbackQuery('❌ Ошибка при голосовании');
     }
 }
+async function handleBringOwnVote(ctx, pollId) {
+    try {
+        const user = ctx.from;
+        if (!user) {
+            await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+            return;
+        }
+        let dbUser = await user_service_1.UserService.getUserByTelegramId(BigInt(user.id));
+        if (!dbUser) {
+            dbUser = await user_service_1.UserService.createUser({
+                telegramId: user.id.toString(),
+                username: user.username,
+                firstName: user.first_name,
+                lastName: user.last_name,
+            });
+        }
+        const poll = await poll_service_1.PollService.getPollById(pollId);
+        if (!poll) {
+            await ctx.answerCallbackQuery('❌ Голосование не найдено');
+            return;
+        }
+        if (poll.status !== 'ACTIVE') {
+            await ctx.answerCallbackQuery('⚠️ Голосование уже завершено');
+            return;
+        }
+        await vote_service_1.VoteService.upsertVoteWithType({
+            pollId,
+            userId: dbUser.id,
+            voteType: vote_types_1.VoteType.BRING_OWN,
+        });
+        await ctx.answerCallbackQuery('🏠 Вы выбрали "Принесу из дома"');
+        logger_1.logger.info(`User ${dbUser.id} voted BRING_OWN in poll ${pollId}`);
+        await updatePollMessage(ctx, pollId);
+    }
+    catch (error) {
+        logger_1.logger.error('Error in handleBringOwnVote:', error);
+        await ctx.answerCallbackQuery('❌ Ошибка при голосовании');
+    }
+}
+async function handleSkipVote(ctx, pollId) {
+    try {
+        const user = ctx.from;
+        if (!user) {
+            await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+            return;
+        }
+        let dbUser = await user_service_1.UserService.getUserByTelegramId(BigInt(user.id));
+        if (!dbUser) {
+            dbUser = await user_service_1.UserService.createUser({
+                telegramId: user.id.toString(),
+                username: user.username,
+                firstName: user.first_name,
+                lastName: user.last_name,
+            });
+        }
+        const poll = await poll_service_1.PollService.getPollById(pollId);
+        if (!poll) {
+            await ctx.answerCallbackQuery('❌ Голосование не найдено');
+            return;
+        }
+        if (poll.status !== 'ACTIVE') {
+            await ctx.answerCallbackQuery('⚠️ Голосование уже завершено');
+            return;
+        }
+        await vote_service_1.VoteService.upsertVoteWithType({
+            pollId,
+            userId: dbUser.id,
+            voteType: vote_types_1.VoteType.SKIP,
+        });
+        await ctx.answerCallbackQuery('⏭️ Вы выбрали "Не обедаю"');
+        logger_1.logger.info(`User ${dbUser.id} voted SKIP in poll ${pollId}`);
+        await updatePollMessage(ctx, pollId);
+    }
+    catch (error) {
+        logger_1.logger.error('Error in handleSkipVote:', error);
+        await ctx.answerCallbackQuery('❌ Ошибка при голосовании');
+    }
+}
 async function updatePollMessage(ctx, pollId) {
     try {
         const poll = await poll_service_1.PollService.getPollById(pollId);
@@ -123,11 +205,13 @@ async function handleCompletePoll(ctx, pollId) {
         await ctx.answerCallbackQuery('✅ Голосование завершено');
         const votes = await vote_service_1.VoteService.getPollVotes(pollId);
         const breakdown = await vote_service_1.VoteService.getVoteBreakdown(pollId);
+        const voteTypeStats = await vote_service_1.VoteService.getVoteTypeStats(pollId);
         const resultsMessage = (0, poll_keyboard_1.createResultsMessage)({
             poll: result,
             result,
             breakdown,
             totalVotes: votes.length,
+            voteTypeStats,
         });
         const keyboard = (0, poll_keyboard_1.createCompletedPollKeyboard)(pollId, votes.length > 0, false);
         await ctx.editMessageText(resultsMessage, {
@@ -165,11 +249,13 @@ async function handleShowResults(ctx, pollId) {
         const votes = await vote_service_1.VoteService.getPollVotes(pollId);
         const breakdown = await vote_service_1.VoteService.getVoteBreakdown(pollId);
         const result = await poll_service_1.PollService.getPollResult(pollId);
+        const voteTypeStats = await vote_service_1.VoteService.getVoteTypeStats(pollId);
         const resultsMessage = (0, poll_keyboard_1.createResultsMessage)({
             poll,
             result,
             breakdown,
             totalVotes: votes.length,
+            voteTypeStats,
         });
         const keyboard = (0, poll_keyboard_1.createCompletedPollKeyboard)(pollId, votes.length > 0, !!result?.responsibleUserId);
         await ctx.editMessageText(resultsMessage, {
@@ -328,6 +414,48 @@ async function handleShowResultsWithoutComplete(ctx, pollId) {
         await ctx.answerCallbackQuery('❌ Ошибка при получении результатов');
     }
 }
+async function handleOpenPollButton(ctx, pollId) {
+    try {
+        const user = ctx.from;
+        if (!user) {
+            await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+            return;
+        }
+        const poll = await poll_service_1.PollService.getPollById(pollId);
+        if (!poll) {
+            await ctx.answerCallbackQuery('❌ Голосование не найдено');
+            return;
+        }
+        if (poll.status !== 'ACTIVE') {
+            await ctx.answerCallbackQuery('⚠️ Голосование уже завершено');
+            return;
+        }
+        const botInfo = await ctx.api.getMe();
+        const botUsername = botInfo.username;
+        const deepLinkUrl = `https://t.me/${botUsername}?start=vote_${pollId}`;
+        await ctx.answerCallbackQuery({
+            text: '📱 Открываю бота для голосования...',
+            url: deepLinkUrl,
+        });
+        try {
+            await ctx.reply(`💡 **Альтернативный способ голосования**\n\n` +
+                `Если кнопка не сработала, используйте команду:\n` +
+                `/vote ${pollId}\n\n` +
+                `Или откройте бота [@${botUsername}](https://t.me/${botUsername}) в личных сообщениях`, {
+                parse_mode: 'Markdown',
+                reply_to_message_id: ctx.callbackQuery.message?.message_id,
+            });
+        }
+        catch (fallbackError) {
+            logger_1.logger.warn('Failed to send fallback instructions:', fallbackError);
+        }
+        logger_1.logger.info(`Deep link generated for poll ${pollId}, user ${user.id}`);
+    }
+    catch (error) {
+        logger_1.logger.error('Error in handleOpenPollButton:', error);
+        await ctx.answerCallbackQuery('❌ Ошибка при открытии голосования');
+    }
+}
 async function handlePollCallback(ctx) {
     try {
         const callbackData = ctx.callbackQuery.data;
@@ -336,6 +464,12 @@ async function handlePollCallback(ctx) {
         const parts = callbackData.split(':');
         const action = parts[0];
         switch (action) {
+            case 'openpoll':
+                if (parts.length === 2) {
+                    const pollId = parseInt(parts[1]);
+                    await handleOpenPollButton(ctx, pollId);
+                }
+                break;
             case 'vote':
                 if (parts.length === 3) {
                     const pollId = parseInt(parts[1]);

@@ -66,12 +66,18 @@ export async function menuCommand(ctx: CommandContext<BotContext>): Promise<void
     }
 
     // Кнопки для управления
-    // В группах web_app кнопки не работают (ограничение Telegram)
     const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+    const botUsername = ctx.me.username;
     
     const keyboard = {
       inline_keyboard: isGroup ? [
-        // Для групп - без web_app кнопки
+        // Для групп - deep link для открытия Mini App
+        [
+          {
+            text: '📱 Открыть управление',
+            url: `https://t.me/${botUsername}?start=menu_${ctx.chat.id}`
+          }
+        ],
         [
           { text: '📋 Показать список', callback_data: 'show_menu_list' },
           { text: '🔍 Поиск блюда', callback_data: 'search_menu' }
@@ -81,7 +87,7 @@ export async function menuCommand(ctx: CommandContext<BotContext>): Promise<void
           { text: '📂 Категории', callback_data: 'show_categories' }
         ]
       ] : [
-        // Для личных чатов - с web_app кнопкой
+        // Для личных чатов - прямая web_app кнопка
         [
           {
             text: '🚀 Открыть Mini App',
@@ -107,9 +113,10 @@ export async function menuCommand(ctx: CommandContext<BotContext>): Promise<void
       ]);
     }
     
-    // В группах добавляем подсказку как открыть Mini App
+    // В группах добавляем подсказку
     if (isGroup) {
-      text += '\n💡 **Подсказка:** Для управления меню откройте бота [@rocket_lunch_bot](https://t.me/rocket_lunch_bot) в личных сообщениях.\n';
+      text += '\n💡 **Подсказка:** Нажмите кнопку "📱 Открыть управление" для доступа к Mini App.\n';
+      text += 'Также доступна кнопка Menu справа от поля ввода! ⬇️\n';
     }
 
     await ctx.reply(text, {

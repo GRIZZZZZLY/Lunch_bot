@@ -10,6 +10,7 @@ const logger_1 = require("../utils/logger");
 const error_1 = require("../utils/error");
 const user_service_1 = require("../services/user.service");
 const notification_service_1 = require("../services/notification.service");
+const poll_reminder_service_1 = require("../services/poll-reminder.service");
 const userService = new user_service_1.UserService();
 const auth_1 = require("./middleware/auth");
 const logger_2 = require("./middleware/logger");
@@ -17,7 +18,10 @@ const start_1 = require("./commands/start");
 const help_1 = require("./commands/help");
 const menu_1 = require("./commands/menu");
 const startpoll_1 = require("./commands/startpoll");
+const vote_1 = require("./commands/vote");
+const quick_1 = require("./commands/quick");
 const poll_handlers_1 = require("./handlers/poll.handlers");
+const group_events_1 = require("./events/group-events");
 function initial() {
     return {
         step: undefined,
@@ -28,6 +32,7 @@ function createBot() {
     const bot = new grammy_1.Bot(bot_config_1.botConfig.token);
     (0, error_1.setupErrorHandlers)();
     notification_service_1.notificationService.initialize(bot);
+    poll_reminder_service_1.PollReminderService.initialize(bot);
     bot.use((0, grammy_1.session)({ initial }));
     bot.use(logger_2.loggingMiddleware);
     bot.use(logger_2.errorLoggingMiddleware);
@@ -36,19 +41,48 @@ function createBot() {
     bot.command('start', start_1.startCommand);
     bot.command('help', help_1.helpCommand);
     bot.command('menu', menu_1.menuCommand);
+    bot.command('vote', vote_1.voteCommand);
     bot.command('startpoll', auth_1.groupOnlyMiddleware, (0, auth_1.adminMiddleware)(), startpoll_1.startPollCommand);
+    bot.command('q', auth_1.groupOnlyMiddleware, quick_1.quickVoteCommand);
+    bot.command('r', auth_1.groupOnlyMiddleware, quick_1.resultsCommand);
     bot.command('history', async (ctx) => {
         await ctx.reply('🚧 История голосований в разработке!');
     });
     bot.on('callback_query:data', async (ctx) => {
         const data = ctx.callbackQuery.data;
         try {
-            if (data.startsWith('vote:')) {
-                const [, pollIdStr, menuItemIdStr] = data.split(':');
-                const pollId = parseInt(pollIdStr);
-                const menuItemId = parseInt(menuItemIdStr);
-                await (0, poll_handlers_1.handleVote)(ctx, pollId, menuItemId);
+            if (data.startsWith('openpoll:')) {
+                const pollId = parseInt(data.split(':')[1]);
+                await (0, poll_handlers_1.handleOpenPollButton)(ctx, pollId);
                 return;
+            }
+            if (data.startsWith('vote_fallback:')) {
+                const pollId = parseInt(data.split(':')[1]);
+                await ctx.answerCallbackQuery();
+                await ctx.reply('💡 **Альтернативные способы голосования:**\n\n' +
+                    `1️⃣ Используйте команду: \`/vote ${pollId}\`\n\n` +
+                    `2️⃣ Откройте бота в личных сообщениях и нажмите на кнопку Web App\n\n` +
+                    '📱 Выберите удобный для вас способ!', { parse_mode: 'Markdown' });
+                return;
+            }
+            if (data.startsWith('vote:')) {
+                const parts = data.split(':');
+                if (parts[1] === 'bring_own') {
+                    const pollId = parseInt(parts[2]);
+                    await (0, poll_handlers_1.handleBringOwnVote)(ctx, pollId);
+                    return;
+                }
+                else if (parts[1] === 'skip') {
+                    const pollId = parseInt(parts[2]);
+                    await (0, poll_handlers_1.handleSkipVote)(ctx, pollId);
+                    return;
+                }
+                else {
+                    const pollId = parseInt(parts[1]);
+                    const menuItemId = parseInt(parts[2]);
+                    await (0, poll_handlers_1.handleVote)(ctx, pollId, menuItemId);
+                    return;
+                }
             }
             if (data.startsWith('show_results:')) {
                 const pollId = parseInt(data.split(':')[1]);
@@ -89,7 +123,7 @@ function createBot() {
                     const admins = await user_service_1.UserService.getAdmins();
                     const adminList = admins.map((admin) => `👑 ${admin.firstName}${admin.lastName ? ` ${admin.lastName}` : ''}${admin.username ? ` (@${admin.username})` : ''}`).join('\n');
                     await ctx.answerCallbackQuery();
-                    await ctx.reply('👑 **Администраторы бота:**\n\n' +
+                    await ctx.reply('👑 *Администраторы бота:*\n\n' +
                         (adminList || 'Администраторы не назначены'), { parse_mode: 'Markdown' });
                     break;
                 case 'about':
@@ -146,6 +180,7 @@ function createBot() {
             });
         }
     });
+    (0, group_events_1.setupGroupEvents)(bot);
     bot.api.getMe().then((botInfo) => {
         logger_1.logger.info('🤖 Бот инициализирован', {
             id: botInfo.id,
@@ -154,6 +189,9 @@ function createBot() {
             canJoinGroups: botInfo.can_join_groups,
             canReadAllGroupMessages: botInfo.can_read_all_group_messages,
             supportsInlineQueries: botInfo.supports_inline_queries,
+        });
+        (0, group_events_1.setupDefaultMenuButton)(bot).catch(err => {
+            logger_1.logger.error('Failed to setup default menu button:', err);
         });
     });
     return bot;
@@ -187,6 +225,7 @@ async function setupWebhook(bot, webhookUrl) {
 }
 async function stopBot(bot) {
     try {
+        poll_reminder_service_1.PollReminderService.cancelAllReminders();
         await bot.stop();
         logger_1.logger.info('🛑 Бот остановлен');
     }

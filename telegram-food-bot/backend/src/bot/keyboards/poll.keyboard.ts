@@ -3,6 +3,18 @@ import { MenuItem } from '@prisma/client';
 import { PollMessage, VoteWithDetails } from '../../types/poll.types';
 
 /**
+ * Создание компактной клавиатуры с кнопкой "Проголосовать" (для Deep Linking)
+ */
+export function createCompactPollKeyboard(pollId: number): { inline_keyboard: any[][] } {
+  return {
+    inline_keyboard: [
+      [{ text: '📱 Проголосовать', callback_data: `openpoll:${pollId}` }],
+      [{ text: '📊 Результаты', callback_data: `show_results:${pollId}` }]
+    ]
+  };
+}
+
+/**
  * Создание клавиатуры для голосования
  */
 export function createPollKeyboard(
@@ -30,6 +42,12 @@ export function createPollKeyboard(
     keyboard.push(row);
   }
   
+  // Добавляем дополнительные опции
+  keyboard.push([
+    { text: '🏠 Принесу из дома', callback_data: `vote:bring_own:${pollId}` },
+    { text: '⏭️ Не обедаю', callback_data: `vote:skip:${pollId}` }
+  ]);
+
   // Добавляем кнопки управления
   keyboard.push([
     { text: '🔄 Обновить', callback_data: `refresh_poll:${pollId}` },
@@ -187,6 +205,38 @@ export function createResultsKeyboard(
 }
 
 /**
+ * Создание компактного сообщения для группы (для Deep Linking flow)
+ */
+export function createCompactPollMessage(
+  poll: any,
+  itemCount: number,
+  currentVotes: number = 0,
+  totalMembers: number = 0
+): string {
+  let message = `🗳️ **Голосование началось!**\n\n`;
+  
+  if (poll.title && poll.title !== 'Голосование за обед') {
+    message += `📋 ${poll.title}\n`;
+  }
+  
+  message += `🍽️ Блюд в меню: ${itemCount}\n`;
+  
+  if (poll.duration) {
+    message += `⏰ Длительность: ${poll.duration} мин\n`;
+  }
+  
+  if (totalMembers > 0) {
+    message += `👥 Участвуют: ${currentVotes} из ${totalMembers}\n`;
+  } else {
+    message += `👥 Проголосовало: ${currentVotes}\n`;
+  }
+  
+  message += `\n📱 Нажмите кнопку ниже для голосования`;
+  
+  return message;
+}
+
+/**
  * Создание сообщения голосования
  */
 export function createPollMessage(pollData: {
@@ -261,8 +311,9 @@ export function createResultsMessage(pollData: {
   result?: any;
   breakdown: any[];
   totalVotes: number;
+  voteTypeStats?: { menuItemVotes: number; bringOwnVotes: number; skipVotes: number; total: number };
 }): string {
-  const { poll, result, breakdown, totalVotes } = pollData;
+  const { poll, result, breakdown, totalVotes, voteTypeStats } = pollData;
   
   let message = `📊 **Результаты голосования**\n\n`;
   message += `🎯 **"${poll.title}"**\n`;
@@ -281,6 +332,18 @@ export function createResultsMessage(pollData: {
     }
   }
   
+  // Статистика по типам голосов
+  if (voteTypeStats && voteTypeStats.total > 0) {
+    message += `\n📈 **Статистика:**\n`;
+    message += `🍽️ Заказывают: ${voteTypeStats.menuItemVotes}\n`;
+    if (voteTypeStats.bringOwnVotes > 0) {
+      message += `🏠 Принесут из дома: ${voteTypeStats.bringOwnVotes}\n`;
+    }
+    if (voteTypeStats.skipVotes > 0) {
+      message += `⏭️ Не обедают: ${voteTypeStats.skipVotes}\n`;
+    }
+  }
+  
   message += `\n📋 **Результаты по блюдам:**\n\n`;
   
   if (breakdown.length === 0) {
@@ -296,10 +359,10 @@ export function createResultsMessage(pollData: {
     message += `   ${bar} ${item.votes} голосов (${item.percentage}%)\n`;
     
     if (item.voters.length <= 5) {
-      const voterNames = item.voters.map(v => v.firstName).join(', ');
+      const voterNames = item.voters.map((v: { firstName: string }) => v.firstName).join(', ');
       message += `   👤 ${voterNames}\n`;
     } else {
-      const firstVoters = item.voters.slice(0, 3).map(v => v.firstName).join(', ');
+      const firstVoters = item.voters.slice(0, 3).map((v: { firstName: string }) => v.firstName).join(', ');
       message += `   👤 ${firstVoters} и ещё ${item.voters.length - 3}\n`;
     }
     message += `\n`;

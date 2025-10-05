@@ -1,10 +1,11 @@
 import { CommandContext } from 'grammy';
 import { BotContext } from '../../types/bot.types';
 import { UserService } from '../../services/user.service';
+import { PollService } from '../../services/poll.service';
 import { logger } from '../../utils/logger';
 
 /**
- * Команда /start - регистрация пользователя
+ * Команда /start - регистрация пользователя + обработка deep links
  */
 export async function startCommand(ctx: CommandContext<BotContext>): Promise<void> {
   try {
@@ -25,6 +26,151 @@ export async function startCommand(ctx: CommandContext<BotContext>): Promise<voi
     const isNewUser = ctx.session?.step !== 'registered';
     ctx.session.step = 'registered';
 
+    // Обработка deep links (параметры после /start)
+    const startParam = ctx.match; // Например: "menu_-1001234567"
+    const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+
+    // Deep link для меню группы: /start menu_GROUP_ID
+    if (startParam && startParam.toString().startsWith('menu_')) {
+      const groupId = startParam.toString().replace('menu_', '');
+      
+      await ctx.reply(
+        '🍽 *Открываю управление меню...*\n\n' +
+        'Нажмите кнопку ниже чтобы открыть Mini App:',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[
+              {
+                text: '📱 Открыть меню группы',
+                web_app: { url: `${webappUrl}?groupId=${groupId}` }
+              }
+            ]]
+          }
+        }
+      );
+      return;
+    }
+
+    // Deep link для добавления блюда: /start add_GROUP_ID
+    if (startParam && startParam.toString().startsWith('add_')) {
+      const groupId = startParam.toString().replace('add_', '');
+      
+      await ctx.reply(
+        '➕ *Добавление блюда в меню*\n\n' +
+        'Нажмите кнопку ниже чтобы открыть Mini App:',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[
+              {
+                text: '➕ Добавить блюдо',
+                web_app: { url: `${webappUrl}?groupId=${groupId}&action=add` }
+              }
+            ]]
+          }
+        }
+      );
+      return;
+    }
+
+    // Deep link для голосования в активном poll: /start vote_POLL_ID
+    if (startParam && startParam.toString().startsWith('vote_')) {
+      const pollIdStr = startParam.toString().replace('vote_', '');
+      const pollId = parseInt(pollIdStr);
+
+      if (isNaN(pollId)) {
+        await ctx.reply(
+          '❌ **Неверная ссылка на голосование**\n\n' +
+          '💡 Попробуйте использовать команду `/vote` в группе с активным голосованием',
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      // Проверяем, что голосование существует и активно
+      const poll = await PollService.getPollById(pollId);
+      
+      if (!poll) {
+        await ctx.reply(
+          '❌ **Голосование не найдено**\n\n' +
+          `ID голосования: \`${pollId}\`\n\n` +
+          '💡 Возможно, голосование было удалено или ссылка устарела',
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      if (poll.status !== 'ACTIVE') {
+        await ctx.reply(
+          '⚠️ **Голосование завершено**\n\n' +
+          `ID: \`${pollId}\`\n` +
+          `Статус: ${poll.status}\n\n` +
+          '📊 Результаты были отправлены в группу',
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      // Считаем детали голосования
+      const timeRemaining = poll.startedAt && poll.duration
+        ? Math.max(0, Math.floor((new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000).getTime() - Date.now()) / 1000 / 60))
+        : null;
+      const voteCount = poll.votes?.length || 0;
+
+      // Отправляем сообщение с кнопкой для открытия Mini App
+      await ctx.reply(
+        `🗳️ **Голосование активно!**\n\n` +
+        `👥 Проголосовало: ${voteCount}\n` +
+        (timeRemaining !== null ? `⏰ Осталось: ${timeRemaining} мин\n` : '') +
+        `\n📱 Нажмите кнопку ниже, чтобы проголосовать:`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: '📱 Открыть голосование',
+                  web_app: { url: `${webappUrl}?pollId=${pollId}` }
+                }
+              ],
+              [
+                {
+                  text: '💡 Альтернативный способ',
+                  callback_data: `vote_fallback:${pollId}`
+                }
+              ]
+            ]
+          }
+        }
+      );
+
+      logger.info(`Deep link processed: vote_${pollId} for user ${user.id}`);
+      return;
+    }
+
+    // Deep link для быстрого голосования: /start poll_GROUP_ID
+    if (startParam && startParam.toString().startsWith('poll_')) {
+      const groupId = startParam.toString().replace('poll_', '');
+      
+      await ctx.reply(
+        '🗳 *Быстрое голосование*\n\n' +
+        'Нажмите кнопку ниже чтобы открыть Mini App и настроить голосование:',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[
+              {
+                text: '🗳 Создать голосование',
+                web_app: { url: `${webappUrl}?groupId=${groupId}&action=poll` }
+              }
+            ]]
+          }
+        }
+      );
+      return;
+    }
+
     const welcomeText = isNewUser 
       ? `🎉 Добро пожаловать, ${user.first_name}!\n\n` +
         '🤖 Я помогу вашей команде выбирать еду для заказа.\n\n' +
@@ -39,7 +185,6 @@ export async function startCommand(ctx: CommandContext<BotContext>): Promise<voi
         '3. Используйте /help для списка команд'
       : `👋 С возвращением, ${user.first_name}!`;
 
-    const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
     const isGroup = ctx.chat.type !== 'private';
     
     // В группах web_app кнопки не работают (ограничение Telegram)

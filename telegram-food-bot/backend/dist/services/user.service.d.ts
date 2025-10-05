@@ -19,5 +19,15 @@ export declare class UserService {
     createOrUpdate(data: CreateUserData): Promise<User>;
     getByTelegramId(telegramId: bigint): Promise<User | null>;
     isAdmin(telegramId: bigint): Promise<boolean>;
+    static updatePaymentInfo(userId: number, data: {
+        paymentCard?: string;
+        paymentPhone?: string;
+        paymentDetails?: string;
+    }): Promise<User>;
+    static getPaymentInfo(userId: number): Promise<{
+        paymentCard?: string | null;
+        paymentPhone?: string | null;
+        paymentDetails?: string | null;
+    } | null>;
 }
 //# sourceMappingURL=user.service.d.ts.map

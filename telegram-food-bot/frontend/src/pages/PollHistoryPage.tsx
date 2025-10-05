@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, Header } from '../components/layout/Layout';
+import { Header } from '../components/layout/Layout';
+import { PageHeader } from '../components/common/PageHeader';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PullToRefresh } from '../components/common/PullToRefresh';
 import { EmptyPollsState } from '../components/common/EmptyState';
@@ -87,17 +88,22 @@ export const PollHistoryPage: React.FC = () => {
 
   if (loading && polls.length === 0) {
     return (
-      <Layout>
+      <>
         <div className="flex items-center justify-center min-h-screen">
           <LoadingSpinner size="lg" />
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
-      <Header />
+    <>
+      <PageHeader 
+        title="История голосований"
+        subtitle="Просмотр завершенных голосований"
+        showBack={true}
+        onBack={() => navigate('/')}
+      />
 
       <PullToRefresh onRefresh={handleRefresh}>
         <div className="space-y-4">
@@ -254,6 +260,6 @@ export const PollHistoryPage: React.FC = () => {
           )}
         </div>
       </PullToRefresh>
-    </Layout>
+    </>
   );
 };

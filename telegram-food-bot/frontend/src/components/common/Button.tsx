@@ -34,10 +34,10 @@ export const Button: React.FC<ButtonProps> = ({
   const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 transform-gpu focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 hover:shadow-lg active:shadow-sm';
 
   const variantClasses = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 active:bg-blue-800',
-    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 active:bg-gray-400 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600',
-    destructive: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 active:bg-red-800',
-    ghost: 'text-gray-600 hover:bg-gray-100 focus:ring-gray-500 active:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-800',
+    primary: 'bg-primary-food-700 text-white hover:bg-primary-food-800 focus:ring-primary-food-500 active:bg-primary-food-900 shadow-md shadow-primary-food-700/30 dark:bg-peach-500 dark:hover:bg-peach-600 dark:text-slate-900 dark:shadow-peach-500/30',
+    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 active:bg-gray-400 dark:bg-bluegray-600 dark:text-bluegray-200 dark:hover:bg-bluegray-500',
+    destructive: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 active:bg-red-800 dark:bg-error-soft-400 dark:hover:bg-error-soft-300 dark:text-slate-900',
+    ghost: 'text-gray-600 hover:bg-gray-100 focus:ring-gray-500 active:bg-gray-200 dark:text-bluegray-300 dark:hover:bg-bluegray-800/50',
   };
 
   const sizeClasses = {

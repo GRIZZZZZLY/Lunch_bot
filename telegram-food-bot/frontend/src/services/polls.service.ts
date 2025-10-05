@@ -9,6 +9,7 @@ export interface Poll {
   title: string;
   description?: string;
   isActive: boolean;
+  status?: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
   endTime?: string;
   messageId?: string;
   createdAt: string;

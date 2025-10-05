@@ -8,6 +8,7 @@ import { RouletteService, RouletteResult } from '../../services/roulette.service
 import { NotificationService } from '../../services/notification.service';
 import { logger } from '../../utils/logger';
 import { createPollKeyboard, createPollMessage, createResultsMessage, createCompletedPollKeyboard } from '../keyboards/poll.keyboard';
+import { VoteType } from '../../types/vote.types';
 
 /**
  * Обработка голосования пользователя
@@ -90,6 +91,120 @@ export async function handleVote(
 }
 
 /**
+ * Обработка голосования "Принесу из дома"
+ */
+export async function handleBringOwnVote(
+  ctx: CallbackQueryContext<BotContext>,
+  pollId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+      return;
+    }
+
+    // Получаем пользователя из БД
+    let dbUser = await UserService.getUserByTelegramId(BigInt(user.id));
+    if (!dbUser) {
+      dbUser = await UserService.createUser({
+        telegramId: user.id.toString(),
+        username: user.username,
+        firstName: user.first_name,
+        lastName: user.last_name,
+      });
+    }
+
+    // Получаем голосование
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      await ctx.answerCallbackQuery('❌ Голосование не найдено');
+      return;
+    }
+
+    // Проверяем статус голосования
+    if (poll.status !== 'ACTIVE') {
+      await ctx.answerCallbackQuery('⚠️ Голосование уже завершено');
+      return;
+    }
+
+    // Создаем или обновляем голос
+    await VoteService.upsertVoteWithType({
+      pollId,
+      userId: dbUser.id,
+      voteType: VoteType.BRING_OWN,
+    });
+
+    await ctx.answerCallbackQuery('🏠 Вы выбрали "Принесу из дома"');
+    logger.info(`User ${dbUser.id} voted BRING_OWN in poll ${pollId}`);
+
+    // Обновляем сообщение с голосованием
+    await updatePollMessage(ctx, pollId);
+
+  } catch (error) {
+    logger.error('Error in handleBringOwnVote:', error);
+    await ctx.answerCallbackQuery('❌ Ошибка при голосовании');
+  }
+}
+
+/**
+ * Обработка голосования "Не обедаю"
+ */
+export async function handleSkipVote(
+  ctx: CallbackQueryContext<BotContext>,
+  pollId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+      return;
+    }
+
+    // Получаем пользователя из БД
+    let dbUser = await UserService.getUserByTelegramId(BigInt(user.id));
+    if (!dbUser) {
+      dbUser = await UserService.createUser({
+        telegramId: user.id.toString(),
+        username: user.username,
+        firstName: user.first_name,
+        lastName: user.last_name,
+      });
+    }
+
+    // Получаем голосование
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      await ctx.answerCallbackQuery('❌ Голосование не найдено');
+      return;
+    }
+
+    // Проверяем статус голосования
+    if (poll.status !== 'ACTIVE') {
+      await ctx.answerCallbackQuery('⚠️ Голосование уже завершено');
+      return;
+    }
+
+    // Создаем или обновляем голос
+    await VoteService.upsertVoteWithType({
+      pollId,
+      userId: dbUser.id,
+      voteType: VoteType.SKIP,
+    });
+
+    await ctx.answerCallbackQuery('⏭️ Вы выбрали "Не обедаю"');
+    logger.info(`User ${dbUser.id} voted SKIP in poll ${pollId}`);
+
+    // Обновляем сообщение с голосованием
+    await updatePollMessage(ctx, pollId);
+
+  } catch (error) {
+    logger.error('Error in handleSkipVote:', error);
+    await ctx.answerCallbackQuery('❌ Ошибка при голосовании');
+  }
+}
+
+/**
  * Обновление сообщения с голосованием
  */
 async function updatePollMessage(ctx: CallbackQueryContext<BotContext>, pollId: number): Promise<void> {
@@ -165,12 +280,14 @@ export async function handleCompletePoll(
     // Обновляем сообщение
     const votes = await VoteService.getPollVotes(pollId);
     const breakdown = await VoteService.getVoteBreakdown(pollId);
+    const voteTypeStats = await VoteService.getVoteTypeStats(pollId);
     
     const resultsMessage = createResultsMessage({
       poll: result,
       result,
       breakdown,
       totalVotes: votes.length,
+      voteTypeStats,
     });
 
     const keyboard = createCompletedPollKeyboard(pollId, votes.length > 0, false);
@@ -227,12 +344,14 @@ export async function handleShowResults(
     const votes = await VoteService.getPollVotes(pollId);
     const breakdown = await VoteService.getVoteBreakdown(pollId);
     const result = await PollService.getPollResult(pollId);
+    const voteTypeStats = await VoteService.getVoteTypeStats(pollId);
 
     const resultsMessage = createResultsMessage({
       poll,
       result,
       breakdown,
       totalVotes: votes.length,
+      voteTypeStats,
     });
 
     const keyboard = createCompletedPollKeyboard(
@@ -482,6 +601,71 @@ export async function handleShowResultsWithoutComplete(
 }
 
 /**
+ * Обработка нажатия кнопки "Проголосовать" (Deep Linking)
+ */
+export async function handleOpenPollButton(
+  ctx: CallbackQueryContext<BotContext>,
+  pollId: number
+): Promise<void> {
+  try {
+    const user = ctx.from;
+    if (!user) {
+      await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+      return;
+    }
+
+    // Проверяем, что голосование существует и активно
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      await ctx.answerCallbackQuery('❌ Голосование не найдено');
+      return;
+    }
+
+    if (poll.status !== 'ACTIVE') {
+      await ctx.answerCallbackQuery('⚠️ Голосование уже завершено');
+      return;
+    }
+
+    // Получаем имя бота для deep link
+    const botInfo = await ctx.api.getMe();
+    const botUsername = botInfo.username;
+
+    // Генерируем deep link URL для перехода в личный чат с ботом
+    // Формат: t.me/<bot_username>?start=vote_<poll_id>
+    const deepLinkUrl = `https://t.me/${botUsername}?start=vote_${pollId}`;
+
+    // Отправляем ответ с URL (открывает личный чат с ботом)
+    await ctx.answerCallbackQuery({
+      text: '📱 Открываю бота для голосования...',
+      url: deepLinkUrl,
+    });
+
+    // Fallback: отправляем сообщение с инструкциями в группу
+    // на случай, если deep link не сработал
+    try {
+      await ctx.reply(
+        `💡 **Альтернативный способ голосования**\n\n` +
+        `Если кнопка не сработала, используйте команду:\n` +
+        `/vote ${pollId}\n\n` +
+        `Или откройте бота [@${botUsername}](https://t.me/${botUsername}) в личных сообщениях`,
+        { 
+          parse_mode: 'Markdown',
+          reply_to_message_id: ctx.callbackQuery.message?.message_id,
+        }
+      );
+    } catch (fallbackError) {
+      // Игнорируем ошибку отправки fallback сообщения
+      logger.warn('Failed to send fallback instructions:', fallbackError);
+    }
+
+    logger.info(`Deep link generated for poll ${pollId}, user ${user.id}`);
+  } catch (error) {
+    logger.error('Error in handleOpenPollButton:', error);
+    await ctx.answerCallbackQuery('❌ Ошибка при открытии голосования');
+  }
+}
+
+/**
  * Экспорт функции для обработки callback queries в роутере
  */
 export async function handlePollCallback(ctx: CallbackQueryContext<BotContext>): Promise<void> {
@@ -493,6 +677,13 @@ export async function handlePollCallback(ctx: CallbackQueryContext<BotContext>):
     const action = parts[0];
 
     switch (action) {
+      case 'openpoll':
+        if (parts.length === 2) {
+          const pollId = parseInt(parts[1]);
+          await handleOpenPollButton(ctx, pollId);
+        }
+        break;
+
       case 'vote':
         if (parts.length === 3) {
           const pollId = parseInt(parts[1]);

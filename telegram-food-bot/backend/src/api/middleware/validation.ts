@@ -5,10 +5,10 @@ import { logger } from '../../utils/logger';
 // Схемы валидации для меню
 const createMenuItemSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
-  description: z.string().max(500, 'Description too long').optional(),
+  description: z.string().max(500, 'Description too long').optional().or(z.literal('')),
   price: z.number().min(0, 'Price cannot be negative').optional(),
-  category: z.string().max(50, 'Category name too long').optional(),
-  imageUrl: z.string().url('Invalid image URL').optional(),
+  category: z.string().max(50, 'Category name too long').optional().or(z.literal('')),
+  imageUrl: z.string().url('Invalid image URL').optional().or(z.literal('')),
   isActive: z.boolean().optional(),
 });
 

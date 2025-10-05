@@ -12,9 +12,9 @@ exports.corsMiddleware = (0, cors_1.default)({
         if (!origin) {
             return callback(null, true);
         }
-        const allowedOrigins = Array.isArray(api_config_1.apiConfig.corsOrigin)
-            ? [...api_config_1.apiConfig.corsOrigin]
-            : [api_config_1.apiConfig.corsOrigin];
+        const allowedOrigins = Array.isArray(api_config_1.apiConfig.cors.origin)
+            ? [...api_config_1.apiConfig.cors.origin]
+            : [api_config_1.apiConfig.cors.origin];
         if (process.env.NODE_ENV === 'development') {
             const developmentOrigins = [
                 'http://localhost:3000',

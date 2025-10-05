@@ -13,9 +13,9 @@ export const corsMiddleware = cors({
     }
 
     // Проверяем разрешенные домены
-    const allowedOrigins = Array.isArray(apiConfig.corsOrigin) 
-      ? [...apiConfig.corsOrigin] 
-      : [apiConfig.corsOrigin];
+    const allowedOrigins = Array.isArray(apiConfig.cors.origin) 
+      ? [...apiConfig.cors.origin] 
+      : [apiConfig.cors.origin];
     
     // В development режиме разрешаем localhost
     if (process.env.NODE_ENV === 'development') {

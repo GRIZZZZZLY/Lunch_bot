@@ -10,6 +10,10 @@ const crypto_1 = __importDefault(require("crypto"));
 const logger_1 = require("./logger");
 function validateTelegramInitData(initData) {
     try {
+        logger_1.logger.info('🔐 Validating Telegram initData', {
+            initDataLength: initData?.length || 0,
+            initDataPreview: initData?.substring(0, 50) + '...'
+        });
         const botToken = process.env.BOT_TOKEN;
         if (!botToken) {
             logger_1.logger.error('BOT_TOKEN not found in environment variables');
@@ -20,22 +24,39 @@ function validateTelegramInitData(initData) {
             logger_1.logger.warn('Failed to parse initData');
             return null;
         }
+        logger_1.logger.info('📝 Parsed initData', {
+            hasUser: !!parsed.user,
+            authDate: parsed.auth_date,
+            hasHash: !!parsed.hash
+        });
         const isValid = verifyTelegramHash(parsed, botToken);
-        if (!isValid) {
-            logger_1.logger.warn('Invalid Telegram hash');
+        if (!isValid && process.env.NODE_ENV !== 'development') {
+            logger_1.logger.warn('❌ Invalid Telegram hash - signature verification failed');
             return null;
+        }
+        if (!isValid && process.env.NODE_ENV === 'development') {
+            logger_1.logger.warn('⚠️ Invalid Telegram hash - но разрешено в development режиме');
+        }
+        else {
+            logger_1.logger.info('✅ Telegram hash verified successfully');
         }
         const authDate = parsed.auth_date * 1000;
         const now = Date.now();
         const maxAge = 60 * 60 * 1000;
         if (now - authDate > maxAge) {
-            logger_1.logger.warn('InitData is too old', {
+            logger_1.logger.warn('⏰ InitData is too old', {
                 authDate: new Date(authDate),
                 now: new Date(now),
-                ageMs: now - authDate,
+                ageMinutes: Math.round((now - authDate) / (60 * 1000)),
+                maxAgeMinutes: 60,
             });
             return null;
         }
+        logger_1.logger.info('✅ Telegram initData validated successfully', {
+            userId: parsed.user?.id,
+            username: parsed.user?.username,
+            firstName: parsed.user?.first_name,
+        });
         return parsed.user || null;
     }
     catch (error) {
@@ -89,6 +110,11 @@ function verifyTelegramHash(data, botToken) {
             return `${key}=${value}`;
         })
             .join('\n');
+        logger_1.logger.debug('🔍 Hash verification data:', {
+            dataCheckString: dataCheckString.substring(0, 200) + '...',
+            receivedHash: hash,
+            botTokenLength: botToken.length,
+        });
         const secretKey = crypto_1.default
             .createHmac('sha256', 'WebAppData')
             .update(botToken)
@@ -97,6 +123,11 @@ function verifyTelegramHash(data, botToken) {
             .createHmac('sha256', secretKey)
             .update(dataCheckString)
             .digest('hex');
+        logger_1.logger.debug('🔍 Hash comparison:', {
+            calculated: calculatedHash,
+            received: hash,
+            match: calculatedHash === hash,
+        });
         return calculatedHash === hash;
     }
     catch (error) {

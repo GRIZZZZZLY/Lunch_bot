@@ -83,7 +83,7 @@ export const useUpdatePaymentInfo = () => {
       const previousPaymentInfo = queryClient.getQueryData(queryKeys.user.paymentInfo());
       
       // Optimistic update
-      queryClient.setQueryData(queryKeys.user.paymentInfo(), newData);
+      queryClient.setQueryData(queryKeys.user.paymentInfo(), _newData);
       
       return { previousPaymentInfo };
     },

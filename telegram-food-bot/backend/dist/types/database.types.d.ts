@@ -1,6 +1,6 @@
 import { User, Group, MenuItem, Poll, Vote, PollResult } from '@prisma/client';
-import { PollStatus } from '@prisma/client';
-export type { User, Group, MenuItem, Poll, Vote, PollResult, PollStatus };
+export type { User, Group, MenuItem, Poll, Vote, PollResult };
+export type PollStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 export type UserWithRelations = User & {
     createdMenuItems?: MenuItem[];
     votes?: Vote[];

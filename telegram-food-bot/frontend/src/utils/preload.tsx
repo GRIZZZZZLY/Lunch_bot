@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
  */
 
 // Типы для preload функций
-type PreloadableComponent<T = any> = React.LazyExoticComponent<T> & {
+type PreloadableComponent<T extends React.ComponentType<any> = React.ComponentType<any>> = React.LazyExoticComponent<T> & {
   preload?: () => Promise<any>;
 };
 

@@ -79,17 +79,17 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       />
 
       {/* Modal */}
-      <div className="relative bg-telegram-secondary-bg-color rounded-2xl shadow-2xl max-w-md w-full animate-scale-in">
+      <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full animate-scale-in">
         {/* Header */}
-        <div className="p-6 border-b border-telegram-hint-color/10">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-start gap-4">
             <div className="text-3xl">{iconByVariant[variant]}</div>
             <div className="flex-1">
-              <h3 className="text-xl font-bold text-telegram-text-color mb-2">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                 {title}
               </h3>
               {description && (
-                <p className="text-telegram-hint-color text-sm">
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
                   {description}
                 </p>
               )}

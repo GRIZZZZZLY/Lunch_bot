@@ -20,6 +20,7 @@ async function menuCommand(ctx) {
             return;
         }
         const isAdmin = dbUser.isAdmin;
+        const isGroup = ctx.chat.type !== 'private';
         const menuStats = await menu_service_1.MenuService.getMenuStats();
         const popularItems = await menu_service_1.MenuService.getPopularMenuItems(3);
         let text = '🍽️ **Управление меню**\n\n';
@@ -53,14 +54,29 @@ async function menuCommand(ctx) {
             text += '• Категории и поиск\n\n';
             text += '💡 *Для редактирования требуются права администратора*\n\n';
         }
+        const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+        const botUsername = ctx.me.username;
         const keyboard = {
-            inline_keyboard: [
+            inline_keyboard: isGroup ? [
                 [
                     {
-                        text: '📱 Открыть Mini App',
-                        web_app: {
-                            url: process.env.VITE_APP_URL || 'https://your-domain.com/miniapp'
-                        }
+                        text: '📱 Открыть управление',
+                        url: `https://t.me/${botUsername}?start=menu_${ctx.chat.id}`
+                    }
+                ],
+                [
+                    { text: '📋 Показать список', callback_data: 'show_menu_list' },
+                    { text: '🔍 Поиск блюда', callback_data: 'search_menu' }
+                ],
+                [
+                    { text: '📊 Популярные', callback_data: 'show_popular' },
+                    { text: '📂 Категории', callback_data: 'show_categories' }
+                ]
+            ] : [
+                [
+                    {
+                        text: '🚀 Открыть Mini App',
+                        web_app: { url: webappUrl }
                     }
                 ],
                 [
@@ -78,6 +94,10 @@ async function menuCommand(ctx) {
                 { text: '➕ Быстрое добавление', callback_data: 'quick_add_item' },
                 { text: '⚙️ Настройки', callback_data: 'menu_settings' }
             ]);
+        }
+        if (isGroup) {
+            text += '\n💡 **Подсказка:** Нажмите кнопку "📱 Открыть управление" для доступа к Mini App.\n';
+            text += 'Также доступна кнопка Menu справа от поля ввода! ⬇️\n';
         }
         await ctx.reply(text, {
             parse_mode: 'Markdown',
@@ -154,12 +174,19 @@ async function handleShowMenuList(ctx) {
             text += '\n';
         });
         await ctx.answerCallbackQuery();
+        const isGroup = ctx.chat?.type !== 'private';
+        const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
         await ctx.reply(text, {
             parse_mode: 'Markdown',
             reply_markup: {
-                inline_keyboard: [
+                inline_keyboard: isGroup ? [
                     [
-                        { text: '📱 Открыть Mini App', web_app: { url: process.env.VITE_APP_URL || '#' } }
+                        { text: '🔍 Поиск', callback_data: 'search_menu' },
+                        { text: '🔄 Обновить', callback_data: 'show_menu_list' }
+                    ]
+                ] : [
+                    [
+                        { text: '🚀 Открыть Mini App', web_app: { url: webappUrl } }
                     ],
                     [
                         { text: '🔍 Поиск', callback_data: 'search_menu' },

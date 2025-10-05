@@ -32,6 +32,9 @@ class ApiService {
       },
     });
 
+    // Загружаем токен из localStorage при инициализации
+    this.token = localStorage.getItem('auth_token');
+
     this.setupInterceptors();
   }
 

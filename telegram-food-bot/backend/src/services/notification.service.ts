@@ -233,6 +233,73 @@ export class NotificationService {
   }
 
   /**
+   * Уведомить ответственного за заказ после рулетки
+   * (используется в poll.handlers.ts)
+   */
+  async notifyResponsible(pollId: number, responsibleUserId: number): Promise<NotificationResult> {
+    try {
+      // Получаем детали голосования и результата
+      const poll = await prisma.poll.findUnique({
+        where: { id: pollId },
+        include: {
+          result: {
+            include: {
+              winnerMenuItem: true,
+              responsibleUser: true,
+            },
+          },
+          group: true,
+        },
+      });
+
+      if (!poll || !poll.result) {
+        throw new Error('Poll or poll result not found');
+      }
+
+      // Получаем список проголосовавших
+      const votes = await prisma.vote.findMany({
+        where: { pollId },
+        include: {
+          user: true,
+        },
+      });
+
+      const voters = votes.map(vote => ({
+        id: vote.user.id,
+        firstName: vote.user.firstName,
+        username: vote.user.username,
+      }));
+
+      const notificationData: RouletteWinnerNotificationData = {
+        winner: {
+          id: poll.result.responsibleUser.id,
+          firstName: poll.result.responsibleUser.firstName,
+          lastName: poll.result.responsibleUser.lastName || undefined,
+          username: poll.result.responsibleUser.username || undefined,
+        },
+        winnerItem: poll.result.winnerMenuItem ? {
+          id: poll.result.winnerMenuItem.id,
+          name: poll.result.winnerMenuItem.name,
+          description: poll.result.winnerMenuItem.description || undefined,
+          price: poll.result.winnerMenuItem.price || undefined,
+        } : undefined,
+        voters: voters.map(v => ({ id: v.id, firstName: v.firstName, username: v.username || undefined })),
+        totalVotes: poll.result.totalVotes,
+        groupTitle: poll.group.title,
+      };
+
+      return await this.sendRouletteWinnerNotification(notificationData);
+    } catch (error) {
+      logger.error('Failed to notify responsible user', { pollId, responsibleUserId, error });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        sentAt: new Date(),
+      };
+    }
+  }
+
+  /**
    * РћС‚РїСЂР°РІРёС‚СЊ СѓРІРµРґРѕРјР»РµРЅРёРµ Рѕ Р·Р°РІРµСЂС€РµРЅРёРё РіРѕР»РѕСЃРѕРІР°РЅРёСЏ
    */
   async sendPollEndedNotification(

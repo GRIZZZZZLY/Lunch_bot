@@ -1,7 +1,18 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Poll, pollsService } from '../../services/polls.service';
-import { Button } from '../common/Button';
+import { GlassCard, GlassBadge } from '@/components/glass';
 import { useTelegram } from '../../hooks/useTelegram';
+import { cn } from '@/lib/utils';
+import { 
+  Users, 
+  Calendar, 
+  Clock, 
+  BarChart2, 
+  FileText,
+  TrendingUp,
+  Sparkles
+} from 'lucide-react';
 
 export interface PollCardProps {
   poll: Poll;
@@ -21,7 +32,8 @@ export const PollCard: React.FC<PollCardProps> = ({
   showActions = true,
   compact = false,
 }) => {
-  const { hapticFeedback } = useTelegram();
+  const { hapticFeedback, colorScheme } = useTelegram();
+  const isDark = colorScheme === 'dark';
 
   const handleViewDetails = () => {
     hapticFeedback.impactOccurred('light');
@@ -36,29 +48,35 @@ export const PollCard: React.FC<PollCardProps> = ({
   const timeRemaining = poll.endTime ? pollsService.formatTimeRemaining(poll.endTime) : null;
   const formattedDate = pollsService.formatPollDate(poll.createdAt);
 
-  const statusColor = poll.isActive ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400';
-  const statusBg = poll.isActive ? 'bg-green-100 dark:bg-green-900/20' : 'bg-gray-100 dark:bg-gray-700';
   const statusText = poll.isActive ? 'Активно' : 'Завершено';
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 ${
-      compact ? 'p-3' : 'p-4'
-    }`}>
+    <GlassCard
+      variant="medium"
+      theme={isDark ? 'dark' : 'light'}
+      hover
+      className={cn(compact ? 'p-3' : 'p-4')}
+    >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center space-x-2 mb-1">
-            <h3 className={`font-semibold text-gray-900 dark:text-white truncate ${
+          <div className="flex items-center space-x-2 mb-2">
+            <h3 className={`font-semibold text-gray-900 dark:text-white ${
               compact ? 'text-sm' : 'text-base'
             }`}>
               {poll.title}
             </h3>
-            <span className={`px-2 py-1 text-xs rounded-full ${statusBg} ${statusColor}`}>
-              {statusText}
-            </span>
+            <GlassBadge
+              label={statusText}
+              icon={poll.isActive ? Sparkles : undefined}
+              variant={poll.isActive ? 'success' : 'default'}
+              glassVariant="light"
+              theme={isDark ? 'dark' : 'light'}
+              animate={false}
+            />
           </div>
           
           {poll.description && !compact && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
               {poll.description}
             </p>
           )}
@@ -66,34 +84,36 @@ export const PollCard: React.FC<PollCardProps> = ({
 
         {poll.isActive && timeRemaining && timeRemaining !== 'Завершено' && (
           <div className="ml-3 text-right">
-            <div className="text-sm font-medium text-orange-600 dark:text-orange-400">
-              ⏰ {timeRemaining}
+            <div className="flex items-center space-x-1 text-sm font-semibold text-primary-food-700 dark:text-primary-food-400">
+              <Clock size={14} />
+              <span>{timeRemaining}</span>
             </div>
-            <div className="text-xs text-gray-500">осталось</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">осталось</div>
           </div>
         )}
       </div>
 
       {/* Статистика */}
-      <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-3">
+      <div className="flex items-center justify-between text-sm mb-3">
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-1">
-            <span>👥</span>
-            <span>{poll._count.votes} голосов</span>
+          <div className="flex items-center space-x-1.5 text-gray-600 dark:text-gray-400">
+            <Users size={16} className="text-primary-food-500" />
+            <span className="font-medium">{poll._count.votes}</span>
+            <span className="text-xs">голосов</span>
           </div>
           
           {!compact && (
-            <div className="flex items-center space-x-1">
-              <span>📅</span>
-              <span>{formattedDate}</span>
+            <div className="flex items-center space-x-1.5 text-gray-600 dark:text-gray-400">
+              <Calendar size={16} className="text-gray-400" />
+              <span className="text-xs">{formattedDate}</span>
             </div>
           )}
         </div>
 
         {poll.isActive && (
-          <div className="flex items-center space-x-1 text-green-600 dark:text-green-400">
+          <div className="flex items-center space-x-1.5 text-green-600 dark:text-success-soft-300">
             <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>
-            <span className="text-xs">В эфире</span>
+            <span className="text-xs font-medium">В эфире</span>
           </div>
         )}
       </div>
@@ -101,16 +121,18 @@ export const PollCard: React.FC<PollCardProps> = ({
       {/* Прогресс-бар участия */}
       {!compact && (
         <div className="mb-3">
-          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>Участие</span>
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+            <span className="font-medium">Участие</span>
             <span>{poll._count.votes} участников</span>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-            <div 
-              className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ 
+          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ 
                 width: `${Math.min((poll._count.votes / Math.max(poll._count.votes, 10)) * 100, 100)}%` 
               }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="bg-gradient-to-r from-primary-food-500 to-primary-food-600 dark:from-peach-400 dark:to-peach-500 h-2 rounded-full"
             />
           </div>
         </div>
@@ -118,31 +140,47 @@ export const PollCard: React.FC<PollCardProps> = ({
 
       {/* Действия */}
       {showActions && (
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           {onViewDetails && (
-            <Button
-              variant="ghost"
-              size="sm"
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleViewDetails}
-              className="flex-1 text-blue-600 hover:text-blue-700 dark:text-blue-400"
+              className="
+                flex-1 flex items-center justify-center space-x-1.5
+                px-3 py-2 rounded-lg text-sm font-medium
+                text-blue-600 dark:text-bluegray-300
+                bg-blue-50 dark:bg-bluegray-500/20
+                hover:bg-blue-100 dark:hover:bg-bluegray-500/30
+                transition-colors duration-200
+              "
             >
-              📋 {compact ? 'Детали' : 'Подробнее'}
-            </Button>
+              <FileText size={16} />
+              <span>{compact ? 'Детали' : 'Подробнее'}</span>
+            </motion.button>
           )}
           
           {onViewResults && (
-            <Button
-              variant="ghost"
-              size="sm"
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleViewResults}
-              className="flex-1 text-green-600 hover:text-green-700 dark:text-green-400"
+              className="
+                flex-1 flex items-center justify-center space-x-1.5
+                px-3 py-2 rounded-lg text-sm font-medium
+                text-primary-food-700 dark:text-peach-300
+                bg-primary-food-50 dark:bg-peach-500/20
+                hover:bg-primary-food-100 dark:hover:bg-peach-500/30
+                transition-colors duration-200
+              "
             >
-              📊 Результаты
-            </Button>
+              <BarChart2 size={16} />
+              <span>Результаты</span>
+            </motion.button>
           )}
         </div>
       )}
-    </div>
+    </GlassCard>
   );
 };
 

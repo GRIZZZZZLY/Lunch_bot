@@ -1,7 +1,9 @@
 import { Vote } from '@prisma/client';
 import { CreateVoteData, VoteWithDetails } from '../types/poll.types';
+import { CreateVoteWithTypeData, VoteTypeStats } from '../types/vote.types';
 export declare class VoteService {
     static createVote(data: CreateVoteData): Promise<Vote>;
+    static createVoteWithType(data: CreateVoteWithTypeData): Promise<Vote>;
     static updateVote(voteId: number, menuItemId: number): Promise<Vote>;
     static getVoteBreakdown(pollId: number): Promise<Array<{
         menuItemId: number;
@@ -15,6 +17,8 @@ export declare class VoteService {
         }>;
     }>>;
     static upsertVote(data: CreateVoteData): Promise<Vote>;
+    static upsertVoteWithType(data: CreateVoteWithTypeData): Promise<Vote>;
+    static getVoteTypeStats(pollId: number): Promise<VoteTypeStats>;
     static getUserVoteInPoll(pollId: number, userId: number): Promise<Vote | null>;
     static removeVote(pollId: number, userId: number): Promise<void>;
     static getPollVotes(pollId: number): Promise<VoteWithDetails[]>;
@@ -53,5 +57,15 @@ export declare class VoteService {
         totalVotes: number;
         uniqueVoters: number;
     }[]>;
+    static getVoters(pollId: number): Promise<Array<{
+        userId: number;
+        userName: string;
+        menuItemName: string;
+    }>>;
+    static getMostPopularMenuItem(pollId: number): Promise<{
+        menuItemId: number;
+        menuItemName: string;
+        votes: number;
+    } | null>;
 }
 //# sourceMappingURL=vote.service.d.ts.map

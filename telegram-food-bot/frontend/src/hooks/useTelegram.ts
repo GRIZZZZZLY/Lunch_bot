@@ -78,21 +78,25 @@ const createMockWebApp = () => ({
   disableClosingConfirmation: () => console.log('WebApp.disableClosingConfirmation'),
 });
 
-const isMockMode = import.meta.env.VITE_USE_MOCK_API === 'true' || typeof window === 'undefined' || !window.Telegram?.WebApp;
+const isMockMode = import.meta.env.VITE_USE_MOCK_API === 'true';
 
 // Динамический импорт WebApp SDK или использование mock
 let WebApp: any;
 
 if (isMockMode) {
+  console.log('📱 Telegram WebApp: Using MOCK mode (VITE_USE_MOCK_API=true)');
+  WebApp = createMockWebApp();
+} else if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
+  console.warn('⚠️ Telegram WebApp SDK not found! Make sure you opened this app inside Telegram.');
+  console.warn('📝 window.Telegram:', window.Telegram);
+  console.warn('📝 Using mock data for development...');
   WebApp = createMockWebApp();
 } else {
-  try {
-    // Для реального Telegram WebApp
-    WebApp = window.Telegram?.WebApp || createMockWebApp();
-  } catch (error) {
-    console.warn('Failed to load Telegram WebApp SDK, using mock:', error);
-    WebApp = createMockWebApp();
-  }
+  console.log('✅ Telegram WebApp SDK loaded successfully');
+  const tgWebApp = window.Telegram.WebApp as any;
+  console.log('📱 User:', tgWebApp.initDataUnsafe?.user);
+  console.log('📱 initData length:', tgWebApp.initData?.length || 0);
+  WebApp = tgWebApp;
 }
 
 export interface TelegramUser {

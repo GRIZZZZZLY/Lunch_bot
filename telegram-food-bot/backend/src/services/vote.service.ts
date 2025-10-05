@@ -2,6 +2,7 @@ import { Vote, Prisma } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreateVoteData, VoteWithDetails } from '../types/poll.types';
+import { VoteType, CreateVoteWithTypeData, VoteTypeStats } from '../types/vote.types';
 
 export class VoteService {
   /**
@@ -14,6 +15,7 @@ export class VoteService {
           pollId: data.pollId,
           userId: data.userId,
           menuItemId: data.menuItemId,
+          voteType: VoteType.MENU_ITEM,
         },
       });
       logger.info(`Vote created: user ${data.userId} voted for item ${data.menuItemId} in poll ${data.pollId}`);
@@ -21,6 +23,28 @@ export class VoteService {
     } catch (error) {
       logger.error('Error creating vote:', error);
       throw new Error('Failed to create vote');
+    }
+  }
+
+  /**
+   * Создание голоса с типом (MENU_ITEM, BRING_OWN, SKIP)
+   */
+  static async createVoteWithType(data: CreateVoteWithTypeData): Promise<Vote> {
+    try {
+      const vote = await prisma.vote.create({
+        data: {
+          pollId: data.pollId,
+          userId: data.userId,
+          voteType: data.voteType,
+          menuItemId: data.menuItemId,
+          customOption: data.customOption,
+        },
+      });
+      logger.info(`Vote created with type: user ${data.userId} voted ${data.voteType} in poll ${data.pollId}`);
+      return vote;
+    } catch (error) {
+      logger.error('Error creating vote with type:', error);
+      throw new Error('Failed to create vote with type');
     }
   }
 
@@ -45,7 +69,7 @@ export class VoteService {
   }
 
   /**
-   * РџРѕР»СѓС‡РµРЅРёРµ РґРµС‚Р°Р»СЊРЅРѕР№ СЂР°Р·Р±РёРІРєРё РіРѕР»РѕСЃРѕРІ РїРѕ Р±Р»СЋРґР°Рј
+   * Получение детальной разбивки голосов по блюдам (ОПТИМИЗИРОВАНО с groupBy)
    */
   static async getVoteBreakdown(pollId: number): Promise<Array<{
     menuItemId: number;
@@ -55,55 +79,81 @@ export class VoteService {
     voters: Array<{ id: number; firstName: string; username?: string }>;
   }>> {
     try {
-      const votes = await prisma.vote.findMany({
-        where: { pollId },
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              username: true,
-            },
-          },
-          menuItem: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
+      // ✅ Используем groupBy для агрегации в БД вместо JS
+      const voteGroups = await prisma.vote.groupBy({
+        by: ['menuItemId'],
+        where: {
+          pollId,
+          menuItemId: { not: null }, // Только голоса за блюда
+        },
+        _count: {
+          menuItemId: true,
         },
       });
 
-      const totalVotes = votes.length;
-      const breakdown = new Map<number, {
-        menuItemName: string;
-        votes: number;
-        voters: Array<{ id: number; firstName: string; username?: string }>;
-      }>();
+      const totalVotes = voteGroups.reduce((sum, g) => sum + g._count.menuItemId, 0);
 
-      votes.forEach(vote => {
-        const existing = breakdown.get(vote.menuItemId) || {
-          menuItemName: vote.menuItem.name,
-          votes: 0,
-          voters: [],
-        };
-        existing.votes++;
-        existing.voters.push({
+      if (voteGroups.length === 0) {
+        return [];
+      }
+
+      // Получаем информацию о блюдах и голосующих параллельно
+      const menuItemIds = voteGroups.map(g => g.menuItemId!);
+      
+      const [menuItems, voters] = await Promise.all([
+        prisma.menuItem.findMany({
+          where: { id: { in: menuItemIds } },
+          select: { id: true, name: true },
+        }),
+        prisma.vote.findMany({
+          where: {
+            pollId,
+            menuItemId: { in: menuItemIds },
+          },
+          select: {
+            menuItemId: true,
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                username: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      // Группируем голосующих по блюдам
+      const votersByMenuItem = new Map<number, Array<{
+        id: number;
+        firstName: string;
+        username?: string;
+      }>>();
+      
+      voters.forEach(vote => {
+        if (!vote.menuItemId) return;
+        const list = votersByMenuItem.get(vote.menuItemId) || [];
+        list.push({
           id: vote.user.id,
           firstName: vote.user.firstName,
           username: vote.user.username || undefined,
         });
-        breakdown.set(vote.menuItemId, existing);
+        votersByMenuItem.set(vote.menuItemId, list);
       });
 
-      return Array.from(breakdown.entries())
-        .map(([menuItemId, data]) => ({
-          menuItemId,
-          menuItemName: data.menuItemName,
-          votes: data.votes,
-          percentage: totalVotes > 0 ? Math.round((data.votes / totalVotes) * 100) : 0,
-          voters: data.voters,
-        }))
+      // Собираем результат
+      return voteGroups
+        .map(group => {
+          const menuItem = menuItems.find(mi => mi.id === group.menuItemId);
+          const voters = votersByMenuItem.get(group.menuItemId!) || [];
+          return {
+            menuItemId: group.menuItemId!,
+            menuItemName: menuItem?.name || 'Unknown',
+            votes: group._count.menuItemId,
+            percentage: totalVotes > 0 ? Math.round((group._count.menuItemId / totalVotes) * 100) : 0,
+            voters,
+          };
+        })
         .sort((a, b) => b.votes - a.votes);
     } catch (error) {
       logger.error('Error getting vote breakdown:', error);
@@ -118,7 +168,7 @@ export class VoteService {
       // Проверяем, что голосование активно
       const poll = await prisma.poll.findUnique({
         where: { id: data.pollId },
-        where: { status: 'ACTIVE' }, select: { id: true, status: true, endedAt: true },
+        select: { id: true, status: true, endedAt: true },
       });
 
       if (!poll) {
@@ -143,12 +193,14 @@ export class VoteService {
         },
         update: {
           menuItemId: data.menuItemId,
+          voteType: VoteType.MENU_ITEM,
           updatedAt: new Date(),
         },
         create: {
           pollId: data.pollId,
           userId: data.userId,
           menuItemId: data.menuItemId,
+          voteType: VoteType.MENU_ITEM,
         },
       });
 
@@ -161,6 +213,102 @@ export class VoteService {
       }
       logger.error('Unknown error upserting vote:', error);
       throw new Error('Failed to upsert vote');
+    }
+  }
+
+  /**
+   * Создание или обновление голоса с типом
+   */
+  static async upsertVoteWithType(data: CreateVoteWithTypeData): Promise<Vote> {
+    try {
+      // Проверяем, что голосование активно
+      const poll = await prisma.poll.findUnique({
+        where: { id: data.pollId },
+        select: { id: true, status: true, endedAt: true },
+      });
+
+      if (!poll) {
+        throw new Error('Poll not found');
+      }
+      if (poll.status !== 'ACTIVE') {
+        throw new Error('Poll is not active');
+      }
+
+      // Проверяем, не истекло ли время голосования
+      if (poll.endedAt && poll.endedAt < new Date()) {
+        throw new Error('Poll has expired');
+      }
+
+      // Создаем или обновляем голос
+      const vote = await prisma.vote.upsert({
+        where: {
+          pollId_userId: {
+            pollId: data.pollId,
+            userId: data.userId,
+          },
+        },
+        update: {
+          voteType: data.voteType,
+          menuItemId: data.menuItemId,
+          customOption: data.customOption,
+          updatedAt: new Date(),
+        },
+        create: {
+          pollId: data.pollId,
+          userId: data.userId,
+          voteType: data.voteType,
+          menuItemId: data.menuItemId,
+          customOption: data.customOption,
+        },
+      });
+
+      logger.info(`Vote upserted with type: user ${data.userId} voted ${data.voteType} in poll ${data.pollId}`);
+      return vote;
+    } catch (error) {
+      if (error instanceof Error) {
+        logger.error('Error upserting vote with type:', error);
+        throw error;
+      }
+      logger.error('Unknown error upserting vote with type:', error);
+      throw new Error('Failed to upsert vote with type');
+    }
+  }
+
+  /**
+   * Получение статистики по типам голосов
+   */
+  static async getVoteTypeStats(pollId: number): Promise<VoteTypeStats> {
+    try {
+      const votes = await prisma.vote.findMany({
+        where: { pollId },
+        select: { voteType: true },
+      });
+
+      const stats: VoteTypeStats = {
+        menuItemVotes: 0,
+        bringOwnVotes: 0,
+        skipVotes: 0,
+        total: votes.length,
+      };
+
+      votes.forEach(vote => {
+        switch (vote.voteType) {
+          case VoteType.MENU_ITEM:
+            stats.menuItemVotes++;
+            break;
+          case VoteType.BRING_OWN:
+            stats.bringOwnVotes++;
+            break;
+          case VoteType.SKIP:
+            stats.skipVotes++;
+            break;
+        }
+      });
+
+      return stats;
+    } catch (error) {
+      logger.error('Error getting vote type stats:', error);
+      throw new Error('Failed to get vote type stats');
     }
   }
 
@@ -194,7 +342,7 @@ export class VoteService {
       // Проверяем, что голосование активно
       const poll = await prisma.poll.findUnique({
         where: { id: pollId },
-        where: { status: 'ACTIVE' }, select: { id: true, status: true },
+        select: { id: true, status: true },
       });
 
       if (!poll) {
@@ -269,6 +417,9 @@ export class VoteService {
       const voteCount = new Map<number, { name: string; count: number }>();
 
       votes.forEach(vote => {
+        // Пропускаем голоса без блюда (BRING_OWN, SKIP)
+        if (!vote.menuItemId || !vote.menuItem) return;
+
         const existing = voteCount.get(vote.menuItemId) || { 
           name: vote.menuItem.name, 
           count: 0 
@@ -319,15 +470,17 @@ export class VoteService {
         orderBy: { createdAt: 'desc' },
       });
 
-      return votes.map(vote => ({
-        id: vote.user.id,
-        telegramId: vote.user.telegramId,
-        firstName: vote.user.firstName,
-        lastName: vote.user.lastName,
-        username: vote.user.username,
-        votedFor: vote.menuItem.name,
-        votedAt: vote.createdAt,
-      }));
+      return votes
+        .filter(vote => vote.menuItem) // Фильтруем голоса с блюдами
+        .map(vote => ({
+          id: vote.user.id,
+          telegramId: vote.user.telegramId,
+          firstName: vote.user.firstName,
+          lastName: vote.user.lastName || undefined,
+          username: vote.user.username || undefined,
+          votedFor: vote.menuItem!.name,
+          votedAt: vote.createdAt,
+        }));
     } catch (error) {
       logger.error('Error getting poll voters:', error);
       throw new Error('Failed to get poll voters');
@@ -385,6 +538,7 @@ export class VoteService {
       // Подсчитываем любимые блюда
       const menuItemCount = new Map<string, number>();
       votes.forEach(vote => {
+        if (!vote.menuItem) return; // Пропускаем голоса без блюда
         const name = vote.menuItem.name;
         menuItemCount.set(name, (menuItemCount.get(name) || 0) + 1);
       });
@@ -424,15 +578,7 @@ export class VoteService {
         prisma.vote.findMany({
           where: { userId },
           include: {
-            poll: {
-              include: {
-                group: {
-                  select: {
-                    title: true,
-                  },
-                },
-              },
-            },
+            user: true,
             menuItem: true,
           },
           orderBy: { createdAt: 'desc' },
@@ -442,7 +588,7 @@ export class VoteService {
         prisma.vote.count({ where: { userId } }),
       ]);
 
-      return { votes: votes as VoteWithDetails[], total };
+      return { votes, total };
     } catch (error) {
       logger.error('Error getting user votes:', error);
       throw new Error('Failed to get user votes');
@@ -525,6 +671,9 @@ export class VoteService {
       }>();
 
       votes.forEach(vote => {
+        // Пропускаем голоса без блюда (BRING_OWN, SKIP)
+        if (!vote.menuItemId || !vote.menuItem) return;
+
         const existing = stats.get(vote.menuItemId) || {
           name: vote.menuItem.name,
           votes: 0,
@@ -550,6 +699,108 @@ export class VoteService {
     } catch (error) {
       logger.error('Error getting top menu items by votes:', error);
       throw new Error('Failed to get top menu items by votes');
+    }
+  }
+
+  /**
+   * Получение списка проголосовавших пользователей
+   * (используется в RouletteService)
+   */
+  static async getVoters(pollId: number): Promise<Array<{
+    userId: number;
+    userName: string;
+    menuItemName: string;
+  }>> {
+    try {
+      const votes = await prisma.vote.findMany({
+        where: { pollId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
+          },
+          menuItem: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+
+      return votes
+        .filter(vote => vote.menuItem) // Фильтруем голоса с блюдами
+        .map(vote => ({
+          userId: vote.user.id,
+          userName: vote.user.firstName + (vote.user.lastName ? ` ${vote.user.lastName}` : ''),
+          menuItemName: vote.menuItem!.name,
+        }));
+    } catch (error) {
+      logger.error('Error getting voters:', error);
+      throw new Error('Failed to get voters');
+    }
+  }
+
+  /**
+   * Получение самого популярного блюда в голосовании
+   * (используется в RouletteService)
+   */
+  static async getMostPopularMenuItem(pollId: number): Promise<{
+    menuItemId: number;
+    menuItemName: string;
+    votes: number;
+  } | null> {
+    try {
+      const votes = await prisma.vote.findMany({
+        where: { pollId },
+        include: {
+          menuItem: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      if (votes.length === 0) {
+        return null;
+      }
+
+      // Подсчитываем голоса за каждое блюдо
+      const voteCount = new Map<number, { name: string; count: number }>();
+      
+      votes.forEach(vote => {
+        // Пропускаем голоса без блюда (BRING_OWN, SKIP)
+        if (!vote.menuItemId || !vote.menuItem) return;
+
+        const existing = voteCount.get(vote.menuItemId) || { name: vote.menuItem.name, count: 0 };
+        existing.count++;
+        voteCount.set(vote.menuItemId, existing);
+      });
+
+      // Находим блюдо с максимальным количеством голосов
+      let maxVotes = 0;
+      let mostPopular: { menuItemId: number; menuItemName: string; votes: number } | null = null;
+
+      voteCount.forEach((data, menuItemId) => {
+        if (data.count > maxVotes) {
+          maxVotes = data.count;
+          mostPopular = {
+            menuItemId,
+            menuItemName: data.name,
+            votes: data.count,
+          };
+        }
+      });
+
+      return mostPopular;
+    } catch (error) {
+      logger.error('Error getting most popular menu item:', error);
+      throw new Error('Failed to get most popular menu item');
     }
   }
 }

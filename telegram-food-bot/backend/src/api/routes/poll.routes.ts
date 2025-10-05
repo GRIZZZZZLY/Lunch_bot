@@ -5,6 +5,12 @@ import { telegramAuthMiddleware, adminMiddleware } from '../middleware/telegram-
 const router = express.Router();
 
 /**
+ * GET /api/polls
+ * Получение всех голосований с фильтрацией
+ */
+router.get('/', telegramAuthMiddleware, pollController.getPollHistory);
+
+/**
  * GET /api/polls/active
  * Получение активных голосований
  */
@@ -21,6 +27,12 @@ router.get('/history', telegramAuthMiddleware, pollController.getPollHistory);
  * Получение статистики голосований
  */
 router.get('/stats', telegramAuthMiddleware, pollController.getPollStats);
+
+/**
+ * GET /api/polls/popular-items
+ * Получение популярных блюд
+ */
+router.get('/popular-items', telegramAuthMiddleware, pollController.getPopularItems);
 
 /**
  * GET /api/polls/:id

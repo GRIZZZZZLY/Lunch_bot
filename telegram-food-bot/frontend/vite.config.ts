@@ -132,15 +132,93 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false, // Отключаем sourcemaps в production для уменьшения размера
+    // Оптимизация для production
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Удаляем console.log в production
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug'], // Удаляем все console методы
+        passes: 2, // Дополнительный проход для лучшего минифицирования
+      },
+      mangle: {
+        safari10: true, // Safari 10 compatibility
+      },
+    },
+    // Уменьшаем лимит для warning о размере chunk
+    chunkSizeWarningLimit: 500,
+    // Reportизм размера компонентов
+    reportCompressedSize: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          telegram: ['@twa-dev/sdk'],
+        // Оптимизированный code splitting для лучшего кэширования
+        manualChunks(id) {
+          // Core React библиотеки
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'react-vendor';
+            }
+            // Framer Motion отдельно (большая библиотека)
+            if (id.includes('framer-motion')) {
+              return 'framer-motion';
+            }
+            // React Query отдельно
+            if (id.includes('@tanstack/react-query')) {
+              return 'react-query';
+            }
+            // Telegram SDK
+            if (id.includes('@twa-dev/sdk')) {
+              return 'telegram';
+            }
+            // UI библиотеки (иконки + компоненты)
+            if (id.includes('lucide-react') || id.includes('clsx') || id.includes('tailwind-merge')) {
+              return 'ui-libs';
+            }
+            // Form библиотеки
+            if (id.includes('react-hook-form') || id.includes('@hookform/resolvers') || id.includes('zod')) {
+              return 'forms';
+            }
+            // Zustand + axios
+            if (id.includes('zustand') || id.includes('axios')) {
+              return 'utils';
+            }
+            // Все остальные vendor библиотеки
+            return 'vendor';
+          }
+        },
+        // Именование chunk файлов для лучшего кэширования
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: (assetInfo) => {
+          const info = assetInfo.name.split('.');
+          const ext = info[info.length - 1];
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
+            return `assets/images/[name]-[hash][extname]`;
+          } else if (/woff|woff2|eot|ttf|otf/i.test(ext)) {
+            return `assets/fonts/[name]-[hash][extname]`;
+          }
+          return `assets/[ext]/[name]-[hash][extname]`;
         },
       },
     },
+    // CSS code splitting
+    cssCodeSplit: true,
+    // Оптимизация для загрузки
+    assetsInlineLimit: 4096, // 4KB - файлы меньше будут инлайнится
+  },
+  // Оптимизация для dev server
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'framer-motion',
+      '@tanstack/react-query',
+      'zustand',
+      'axios',
+    ],
+    exclude: ['@storybook/*'], // Исключаем storybook из dev build
   },
   define: {
     // Telegram WebApp глобальные переменные
