@@ -49,8 +49,8 @@ export class AuthController {
       res.json({
         success: true,
         user: {
-          id: user.id,
-          telegramId: user.telegramId,
+          id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+          telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
           username: user.username,
           firstName: user.firstName,
           lastName: user.lastName,
@@ -91,8 +91,8 @@ export class AuthController {
       res.json({
         success: true,
         user: {
-          id: user.id,
-          telegramId: user.telegramId,
+          id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+          telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
           username: user.username,
           firstName: user.firstName,
           lastName: user.lastName,
@@ -125,8 +125,8 @@ export class AuthController {
         success: true,
         authenticated: !!user,
         user: user ? {
-          id: user.id,
-          telegramId: user.telegramId,
+          id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+          telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
           firstName: user.firstName,
           isAdmin: user.isAdmin,
           isActive: user.isActive,
@@ -175,8 +175,8 @@ export class AuthController {
       res.json({
         success: true,
         user: {
-          id: freshUser.id,
-          telegramId: freshUser.telegramId,
+          id: typeof freshUser.id === 'bigint' ? Number(freshUser.id) : freshUser.id,
+          telegramId: typeof freshUser.telegramId === 'bigint' ? freshUser.telegramId.toString() : freshUser.telegramId,
           username: freshUser.username,
           firstName: freshUser.firstName,
           lastName: freshUser.lastName,
@@ -205,8 +205,8 @@ export class AuthController {
 function generateJWT(user: any): string {
   // Упрощенная версия токена для демонстрации
   const payload = {
-    userId: user.id,
-    telegramId: user.telegramId,
+    userId: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+    telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
     isAdmin: user.isAdmin,
     timestamp: Date.now(),
   };

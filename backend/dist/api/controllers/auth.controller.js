@@ -39,8 +39,8 @@ class AuthController {
             res.json({
                 success: true,
                 user: {
-                    id: user.id,
-                    telegramId: user.telegramId,
+                    id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+                    telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
                     username: user.username,
                     firstName: user.firstName,
                     lastName: user.lastName,
@@ -74,8 +74,8 @@ class AuthController {
             res.json({
                 success: true,
                 user: {
-                    id: user.id,
-                    telegramId: user.telegramId,
+                    id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+                    telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
                     username: user.username,
                     firstName: user.firstName,
                     lastName: user.lastName,
@@ -102,8 +102,8 @@ class AuthController {
                 success: true,
                 authenticated: !!user,
                 user: user ? {
-                    id: user.id,
-                    telegramId: user.telegramId,
+                    id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+                    telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
                     firstName: user.firstName,
                     isAdmin: user.isAdmin,
                     isActive: user.isActive,
@@ -143,8 +143,8 @@ class AuthController {
             res.json({
                 success: true,
                 user: {
-                    id: freshUser.id,
-                    telegramId: freshUser.telegramId,
+                    id: typeof freshUser.id === 'bigint' ? Number(freshUser.id) : freshUser.id,
+                    telegramId: typeof freshUser.telegramId === 'bigint' ? freshUser.telegramId.toString() : freshUser.telegramId,
                     username: freshUser.username,
                     firstName: freshUser.firstName,
                     lastName: freshUser.lastName,
@@ -168,8 +168,8 @@ class AuthController {
 exports.AuthController = AuthController;
 function generateJWT(user) {
     const payload = {
-        userId: user.id,
-        telegramId: user.telegramId,
+        userId: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+        telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
         isAdmin: user.isAdmin,
         timestamp: Date.now(),
     };

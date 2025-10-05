@@ -1,12 +1,22 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.createCompactPollKeyboard = createCompactPollKeyboard;
 exports.createPollKeyboard = createPollKeyboard;
 exports.createCompletedPollKeyboard = createCompletedPollKeyboard;
 exports.createPollAdminKeyboard = createPollAdminKeyboard;
 exports.createCategorizedPollKeyboard = createCategorizedPollKeyboard;
 exports.createResultsKeyboard = createResultsKeyboard;
+exports.createCompactPollMessage = createCompactPollMessage;
 exports.createPollMessage = createPollMessage;
 exports.createResultsMessage = createResultsMessage;
+function createCompactPollKeyboard(pollId) {
+    return {
+        inline_keyboard: [
+            [{ text: '📱 Проголосовать', callback_data: `openpoll:${pollId}` }],
+            [{ text: '📊 Результаты', callback_data: `show_results:${pollId}` }]
+        ]
+    };
+}
 function createPollKeyboard(pollId, menuItems, votes) {
     const keyboard = [];
     for (let i = 0; i < menuItems.length; i += 2) {
@@ -22,6 +32,10 @@ function createPollKeyboard(pollId, menuItems, votes) {
         }
         keyboard.push(row);
     }
+    keyboard.push([
+        { text: '🏠 Принесу из дома', callback_data: `vote:bring_own:${pollId}` },
+        { text: '⏭️ Не обедаю', callback_data: `vote:skip:${pollId}` }
+    ]);
     keyboard.push([
         { text: '🔄 Обновить', callback_data: `refresh_poll:${pollId}` },
         { text: '📊 Результаты', callback_data: `show_results:${pollId}` }
@@ -130,6 +144,24 @@ function createResultsKeyboard(pollId, hasVotes, isActive, isRouletteRun = false
     }
     return { inline_keyboard: keyboard };
 }
+function createCompactPollMessage(poll, itemCount, currentVotes = 0, totalMembers = 0) {
+    let message = `🗳️ **Голосование началось!**\n\n`;
+    if (poll.title && poll.title !== 'Голосование за обед') {
+        message += `📋 ${poll.title}\n`;
+    }
+    message += `🍽️ Блюд в меню: ${itemCount}\n`;
+    if (poll.duration) {
+        message += `⏰ Длительность: ${poll.duration} мин\n`;
+    }
+    if (totalMembers > 0) {
+        message += `👥 Участвуют: ${currentVotes} из ${totalMembers}\n`;
+    }
+    else {
+        message += `👥 Проголосовало: ${currentVotes}\n`;
+    }
+    message += `\n📱 Нажмите кнопку ниже для голосования`;
+    return message;
+}
 function createPollMessage(pollData) {
     const { poll, menuItems, votes, totalVotes } = pollData;
     let message = `🗳️ **${poll.title}**\n\n`;
@@ -173,7 +205,7 @@ function createProgressBar(percentage, length = 10) {
     return '█'.repeat(filled) + '░'.repeat(empty);
 }
 function createResultsMessage(pollData) {
-    const { poll, result, breakdown, totalVotes } = pollData;
+    const { poll, result, breakdown, totalVotes, voteTypeStats } = pollData;
     let message = `📊 **Результаты голосования**\n\n`;
     message += `🎯 **"${poll.title}"**\n`;
     message += `👥 Участников: ${totalVotes}\n`;
@@ -190,6 +222,16 @@ function createResultsMessage(pollData) {
             message += `🏆 **Победитель:** ${result.winnerMenuItem.name}\n`;
         }
     }
+    if (voteTypeStats && voteTypeStats.total > 0) {
+        message += `\n📈 **Статистика:**\n`;
+        message += `🍽️ Заказывают: ${voteTypeStats.menuItemVotes}\n`;
+        if (voteTypeStats.bringOwnVotes > 0) {
+            message += `🏠 Принесут из дома: ${voteTypeStats.bringOwnVotes}\n`;
+        }
+        if (voteTypeStats.skipVotes > 0) {
+            message += `⏭️ Не обедают: ${voteTypeStats.skipVotes}\n`;
+        }
+    }
     message += `\n📋 **Результаты по блюдам:**\n\n`;
     if (breakdown.length === 0) {
         message += `😔 _Никто не проголосовал_`;
@@ -201,11 +243,11 @@ function createResultsMessage(pollData) {
         message += `${medal} **${item.menuItemName}**\n`;
         message += `   ${bar} ${item.votes} голосов (${item.percentage}%)\n`;
         if (item.voters.length <= 5) {
-            const voterNames = item.voters.map(v => v.firstName).join(', ');
+            const voterNames = item.voters.map((v) => v.firstName).join(', ');
             message += `   👤 ${voterNames}\n`;
         }
         else {
-            const firstVoters = item.voters.slice(0, 3).map(v => v.firstName).join(', ');
+            const firstVoters = item.voters.slice(0, 3).map((v) => v.firstName).join(', ');
             message += `   👤 ${firstVoters} и ещё ${item.voters.length - 3}\n`;
         }
         message += `\n`;

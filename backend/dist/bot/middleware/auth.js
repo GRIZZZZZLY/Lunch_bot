@@ -30,7 +30,6 @@ async function authMiddleware(ctx, next) {
                 type: ctx.chat.type,
             });
             ctx.dbGroup = group;
-            await group_service_1.GroupService.addMemberToGroup(group.id, dbUser.id);
         }
         return next();
     }

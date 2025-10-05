@@ -46,10 +46,10 @@ export const Secondary: Story = {
   },
 };
 
-export const Secondary: Story = {
+export const Outline: Story = {
   args: {
-    children: 'Secondary Button',
-    variant: 'secondary',
+    children: 'Outline Button',
+    variant: 'ghost',
   },
 };
 

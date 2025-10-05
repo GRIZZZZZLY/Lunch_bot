@@ -82,7 +82,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
   const opacity = pullDistance / triggerDistance;
 
   return (
-    <div ref={containerRef} className="relative h-full overflow-auto">
+    <div ref={containerRef} className="relative h-full overflow-y-auto overflow-x-hidden overscroll-none">
       {/* Pull indicator */}
       <div
         className="absolute top-0 left-0 right-0 flex items-center justify-center transition-all"

@@ -1,4 +1,5 @@
 import React from 'react';
+import { RocketLoader } from './RocketLoader';
 
 export interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
@@ -67,12 +68,12 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 };
 
 /**
- * Полноэкранный загрузчик
+ * Полноэкранный загрузчик с ракетой
  */
-export const FullPageLoader: React.FC<{ text?: string }> = ({ text = 'Загрузка...' }) => {
+export const FullPageLoader: React.FC<{ text?: string }> = ({ text = 'Летим' }) => {
   return (
     <div className="fixed inset-0 bg-white dark:bg-gray-900 flex items-center justify-center z-50">
-      <LoadingSpinner size="lg" text={text} />
+      <RocketLoader size="lg" text={text} />
     </div>
   );
 };

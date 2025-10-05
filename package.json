@@ -1,0 +1,20 @@
+{
+  "name": "telegram-food-bot",
+  "version": "1.0.0",
+  "description": "Telegram бот для выбора еды в коллективе с системой голосования и рулеткой.",
+  "main": "proxy-server.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "proxy": "node proxy-server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}

@@ -7,6 +7,7 @@ export declare class NotificationService {
     private initializeTemplates;
     send(data: NotificationData): Promise<NotificationResult>;
     sendRouletteWinnerNotification(data: RouletteWinnerNotificationData): Promise<NotificationResult>;
+    notifyResponsible(pollId: number, responsibleUserId: number): Promise<NotificationResult>;
     sendPollEndedNotification(userIds: number[], data: PollEndedNotificationData): Promise<NotificationResult[]>;
     sendPollStartedNotification(userIds: number[], data: PollStartedNotificationData): Promise<NotificationResult[]>;
     sendCustomNotification(userId: number, message: string, options?: {

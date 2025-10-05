@@ -12,14 +12,30 @@ async function helpCommand(ctx) {
     const helpText = isGroup
         ? await getGroupHelpText(isAdmin)
         : await getPrivateHelpText(isAdmin);
+    const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
     const keyboard = {
-        inline_keyboard: [
+        inline_keyboard: isGroup ? [
             [
-                { text: '🍽️ Управление меню', callback_data: 'menu' },
+                { text: '🍽️ Меню', callback_data: 'menu' },
                 { text: '📊 Статистика', callback_data: 'menu_stats' }
             ],
             [
-                { text: '❓ Помощь по меню', callback_data: 'menu_help' },
+                { text: '❓ Помощь', callback_data: 'menu_help' },
+                { text: '👥 О боте', callback_data: 'about' }
+            ]
+        ] : [
+            [
+                {
+                    text: '🚀 Открыть Mini App',
+                    web_app: { url: webappUrl }
+                }
+            ],
+            [
+                { text: '🍽️ Меню', callback_data: 'menu' },
+                { text: '📊 Статистика', callback_data: 'menu_stats' }
+            ],
+            [
+                { text: '❓ Помощь', callback_data: 'menu_help' },
                 { text: '👥 О боте', callback_data: 'about' }
             ]
         ]
@@ -34,7 +50,10 @@ async function getGroupHelpText(isAdmin) {
     text += '👥 **Для всех участников:**\n';
     text += '• `/start` - регистрация в системе\n';
     text += '• `/help` - показать эту справку\n';
-    text += '• `/menu` - управление меню (Mini App)\n\n';
+    text += '• `/menu` - управление меню (Mini App)\n';
+    text += '• `/vote` - голосовать (альтернативный способ)\n';
+    text += '• `/q` - быстрое голосование (подтвердить выбор)\n';
+    text += '• `/r` - показать текущие результаты\n\n';
     if (isAdmin) {
         text += '👑 **Для администраторов:**\n';
         text += '• `/startpoll` - запустить голосование\n';
@@ -46,7 +65,8 @@ async function getGroupHelpText(isAdmin) {
     text += '3. По завершении определяется победитель\n';
     text += '4. Рулетка выбирает ответственного за заказ\n\n';
     text += '🍽️ **Управление меню:**\n';
-    text += '• Используйте команду `/menu` для открытия Mini App\n';
+    text += '• Откройте бота [@rocket_lunch_bot](https://t.me/rocket_lunch_bot) в личных сообщениях\n';
+    text += '• Используйте команду `/menu` или нажмите кнопку Menu\n';
     text += '• Добавляйте, редактируйте и удаляйте блюда\n';
     text += '• Только активные блюда участвуют в голосовании\n\n';
     if (!isAdmin) {

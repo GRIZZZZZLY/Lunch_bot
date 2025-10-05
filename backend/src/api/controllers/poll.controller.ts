@@ -139,9 +139,26 @@ export class PollController {
         return;
       }
 
+      // Конвертируем BigInt в строки для JSON сериализации
+      const pollData = {
+        ...poll,
+        chatId: poll.chatId ? poll.chatId.toString() : null,
+        group: poll.group ? {
+          ...poll.group,
+          telegramId: poll.group.telegramId.toString(),
+        } : undefined,
+        votes: poll.votes?.map((vote: any) => ({
+          ...vote,
+          user: vote.user ? {
+            ...vote.user,
+            telegramId: vote.user.telegramId.toString(),
+          } : undefined,
+        })),
+      };
+
       res.json({
         success: true,
-        data: poll,
+        data: pollData,
         timestamp: new Date().toISOString(),
       });
 
@@ -285,11 +302,26 @@ export class PollController {
    */
   static async createPollFromWebApp(req: Request, res: Response): Promise<void> {
     try {
+      logger.info('🚀 START createPollFromWebApp');
+      
       const { groupId, duration, selectedMenuItems, title } = req.body;
       const user = (req as any).user;
 
+      // Детальное логирование для отладки
+      logger.info('Creating poll from WebApp', {
+        groupId,
+        duration,
+        selectedMenuItems,
+        title,
+        userId: user?.id,
+        body: req.body
+      });
+      
+      logger.info('📊 After initial logging, before validation');
+
       // Валидация
       if (!groupId || isNaN(parseInt(groupId))) {
+        logger.warn('Invalid groupId', { groupId, type: typeof groupId });
         res.status(400).json({
           success: false,
           error: 'Invalid or missing groupId',
@@ -323,7 +355,10 @@ export class PollController {
 
       // Проверяем активное голосование
       const existingPoll = await PollService.getActivePollInGroup(parsedGroupId);
+      logger.info('✅ Checked existing poll', { exists: !!existingPoll });
+      
       if (existingPoll) {
+        logger.warn('❌ Group already has active poll');
         res.status(400).json({
           success: false,
           error: 'Group already has an active poll',
@@ -333,16 +368,38 @@ export class PollController {
       }
 
       // Получаем блюда меню
-      let menuItems = await MenuService.getActiveMenuItems();
+      logger.info('🍽️ About to load menu items...');
+      let menuItems;
+      try {
+        menuItems = await MenuService.getActiveMenuItems();
+        logger.info('✅ Initial menu items loaded', { count: menuItems.length });
+      } catch (menuError) {
+        logger.error('❌ FAILED to load menu items', { error: menuError, message: menuError instanceof Error ? menuError.message : 'Unknown error' });
+        throw menuError;
+      }
       
       // Фильтруем по выбранным ID если указаны
       if (selectedMenuItems && Array.isArray(selectedMenuItems) && selectedMenuItems.length > 0) {
         const selectedIds = selectedMenuItems.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id));
+        logger.info('🔍 Filtering menu items', { 
+          selectedIds, 
+          selectedMenuItems,
+          selectedIdsCount: selectedIds.length 
+        });
         menuItems = menuItems.filter(item => selectedIds.includes(item.id));
+        logger.info('✅ Filtered menu items', { 
+          count: menuItems.length, 
+          items: menuItems.map(i => ({ id: i.id, name: i.name })) 
+        });
       }
 
       // Проверяем минимум блюд
       if (menuItems.length < 2) {
+        logger.warn('❌ Not enough menu items', { 
+          count: menuItems.length, 
+          selectedMenuItems,
+          availableMenuItems: menuItems.length
+        });
         res.status(400).json({
           success: false,
           error: 'At least 2 active menu items required',
@@ -750,6 +807,42 @@ export class PollController {
       res.status(500).json({
         success: false,
         error: 'Failed to run roulette',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * GET /api/polls/popular-items
+   * Получение популярных блюд
+   */
+  static async getPopularItems(req: Request, res: Response): Promise<void> {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      if (isNaN(limit) || limit <= 0) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid limit parameter',
+          code: 'INVALID_LIMIT'
+        });
+        return;
+      }
+
+      const popularItems = await MenuService.getPopularMenuItems(limit);
+
+      res.json({
+        success: true,
+        data: popularItems,
+        count: popularItems.length,
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error getting popular items:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get popular items',
         code: 'INTERNAL_ERROR'
       });
     }

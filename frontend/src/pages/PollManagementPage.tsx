@@ -1,15 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, Header } from '../components/layout/Layout';
+import { motion } from 'framer-motion';
+import { Header } from '../components/layout/Layout';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { Button } from '../components/common/Button';
-import { Input } from '../components/common/Input';
+import { GlassHeroCard } from '../components/glass';
+import { SubtleDiagonalGradient } from '../components/background';
+import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
+import { 
+  CheckCircle2, 
+  Circle, 
+  Clock,
+  Users,
+  Send,
+  AlertCircle,
+  CheckCircle,
+  Vote
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
 import { useUI } from '../store/useAppStore';
 import { pollsService } from '../services/polls.service';
 import { menuService, MenuItem } from '../services/menu.service';
 import { userService, Group } from '../services/user.service';
+import { cn } from '../lib/utils';
 
 /**
  * Страница управления голосованиями
@@ -17,8 +31,11 @@ import { userService, Group } from '../services/user.service';
 export const PollManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { mainButton, backButton } = useTelegram();
+  const { mainButton, backButton, colorScheme } = useTelegram();
   const { addNotification } = useUI();
+  
+  const isDark = colorScheme === 'dark';
+  const { from, to, textColor, label } = useTimeBasedGradient(isDark);
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
@@ -186,17 +203,17 @@ export const PollManagementPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <>
         <div className="flex items-center justify-center min-h-screen">
           <LoadingSpinner size="lg" />
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (!user?.isAdmin) {
     return (
-      <Layout>
+      <>
         <div className="text-center py-12">
           <p className="text-telegram-hint-color mb-4">
             Только администраторы могут запускать голосования
@@ -205,7 +222,7 @@ export const PollManagementPage: React.FC = () => {
             На главную
           </Button>
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -213,32 +230,43 @@ export const PollManagementPage: React.FC = () => {
   const someSelected = selectedItems.size > 0 && selectedItems.size < menuItems.length;
 
   return (
-    <Layout>
-      <Header />
+    <>
+      {/* Hero Card */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <GlassHeroCard
+          gradient={{ from, to }}
+          value={selectedItems.size.toString()}
+          label={`Блюд выбрано · ${label}`}
+          sublabel={`${duration} минут · ${groups.find(g => g.id === selectedGroupId)?.title || 'Выберите группу'}`}
+          textColor={textColor}
+          icon={<Vote size={24} />}
+        />
+      </motion.div>
 
       <div className="space-y-6">
-        {/* Заголовок */}
-        <div>
-          <h1 className="text-2xl font-bold text-telegram-text-color mb-2">
-            Создать голосование
-          </h1>
-          <p className="text-telegram-hint-color">
-            Настройте параметры и выберите блюда для голосования
-          </p>
-        </div>
 
         {/* Основные настройки */}
-        <div className="bg-telegram-secondary-bg-color rounded-2xl p-6 border border-telegram-secondary-bg-color/50 space-y-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.4 }}
+          className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm space-y-5"
+        >
           {/* Выбор группы */}
           {groups.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-telegram-text-color mb-2">
-                Группа
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                <Users size={16} className="text-primary-food-500" />
+                <span>Группа</span>
               </label>
               <select
                 value={selectedGroupId || ''}
                 onChange={(e) => setSelectedGroupId(parseInt(e.target.value))}
-                className="w-full px-4 py-3 rounded-xl border-2 border-telegram-secondary-bg-color bg-telegram-bg-color text-telegram-text-color focus:outline-none focus:border-telegram-button-color transition-colors"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-food-500 focus:border-transparent transition-all"
               >
                 <option value="">Выберите группу</option>
                 {groups.map(group => (
@@ -251,97 +279,111 @@ export const PollManagementPage: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-telegram-text-color mb-2">
-              Название голосования
+            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+              <Vote size={16} className="text-primary-food-500" />
+              <span>Название голосования</span>
             </label>
-            <Input
+            <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Голосование за обед"
               maxLength={100}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-food-500 focus:border-transparent transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-telegram-text-color mb-2">
-              Длительность (минуты)
+            <label htmlFor="poll-duration" className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+              <Clock size={16} className="text-primary-food-500" />
+              <span>Длительность</span>
             </label>
-            <Input
+            <input
+              id="poll-duration"
               type="number"
               value={duration}
               onChange={(e) => setDuration(parseInt(e.target.value) || 30)}
               min={1}
               max={1440}
+              aria-describedby="duration-hint"
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-food-500 focus:border-transparent transition-all"
             />
-            <p className="text-xs text-telegram-hint-color mt-1">
+            <p id="duration-hint" className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
               От 1 до 1440 минут (24 часа)
             </p>
           </div>
 
-          {/* Превью времени */}
+          {/* Быстрый выбор времени */}
           <div className="grid grid-cols-3 gap-3">
-            <button
-              onClick={() => setDuration(15)}
-              className={`p-3 rounded-xl border-2 transition-all ${
-                duration === 15
-                  ? 'border-telegram-button-color bg-telegram-button-color/10'
-                  : 'border-telegram-secondary-bg-color/50 hover:border-telegram-button-color/50'
-              }`}
-            >
-              <div className="text-lg font-bold">15</div>
-              <div className="text-xs text-telegram-hint-color">минут</div>
-            </button>
-            <button
-              onClick={() => setDuration(30)}
-              className={`p-3 rounded-xl border-2 transition-all ${
-                duration === 30
-                  ? 'border-telegram-button-color bg-telegram-button-color/10'
-                  : 'border-telegram-secondary-bg-color/50 hover:border-telegram-button-color/50'
-              }`}
-            >
-              <div className="text-lg font-bold">30</div>
-              <div className="text-xs text-telegram-hint-color">минут</div>
-            </button>
-            <button
-              onClick={() => setDuration(60)}
-              className={`p-3 rounded-xl border-2 transition-all ${
-                duration === 60
-                  ? 'border-telegram-button-color bg-telegram-button-color/10'
-                  : 'border-telegram-secondary-bg-color/50 hover:border-telegram-button-color/50'
-              }`}
-            >
-              <div className="text-lg font-bold">60</div>
-              <div className="text-xs text-telegram-hint-color">минут</div>
-            </button>
+            {[
+              { value: 15, label: '15 минут' },
+              { value: 30, label: '30 минут' },
+              { value: 60, label: '1 час' },
+            ].map((option) => (
+              <motion.button
+                key={option.value}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setDuration(option.value)}
+                className={`
+                  p-3 rounded-lg border-2 transition-all
+                  ${duration === option.value
+                    ? 'border-primary-food-500 bg-primary-food-50 dark:bg-primary-food-900/20 shadow-sm'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-primary-food-300 dark:hover:border-primary-food-700'
+                  }
+                `}
+              >
+                <div className={`text-lg font-bold ${
+                  duration === option.value 
+                    ? 'text-primary-food-700 dark:text-primary-food-400' 
+                    : 'text-gray-900 dark:text-white'
+                }`}>
+                  {option.value}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">минут</div>
+              </motion.button>
+            ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* Выбор блюд */}
-        <div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.4 }}
+        >
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-telegram-text-color">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Блюда ({selectedItems.size} из {menuItems.length})
             </h2>
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={toggleAll}
-              className="text-sm text-telegram-button-color hover:underline"
+              className="text-sm font-medium text-primary-food-700 dark:text-primary-food-400 hover:underline"
             >
               {allSelected ? 'Снять все' : 'Выбрать все'}
-            </button>
+            </motion.button>
           </div>
 
           {selectedItems.size < 2 && (
-            <div className="mb-4 p-3 bg-yellow-500/10 rounded-xl border border-yellow-500/30">
-              <p className="text-yellow-600 dark:text-yellow-400 text-sm">
-                ⚠️ Выберите минимум 2 блюда для голосования
-              </p>
-            </div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-4 p-3.5 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
+            >
+              <div className="flex items-start space-x-2">
+                <AlertCircle size={18} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                <p className="text-yellow-700 dark:text-yellow-300 text-sm font-medium">
+                  Выберите минимум 2 блюда для голосования
+                </p>
+              </div>
+            </motion.div>
           )}
 
           {menuItems.length === 0 ? (
-            <div className="text-center py-8 bg-telegram-secondary-bg-color rounded-xl">
-              <p className="text-telegram-hint-color mb-4">
+            <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
                 В меню пока нет блюд
               </p>
               <Button onClick={() => navigate('/menu')}>
@@ -350,42 +392,45 @@ export const PollManagementPage: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {menuItems.map((item) => {
+              {menuItems.map((item, index) => {
                 const isSelected = selectedItems.has(item.id);
 
                 return (
-                  <button
+                  <motion.button
                     key={item.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + index * 0.05, duration: 0.3 }}
                     onClick={() => toggleItem(item.id)}
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                    className={cn(
+                      "w-full text-left p-4 rounded-xl border-2 transition-all shadow-sm",
                       isSelected
-                        ? 'border-telegram-button-color bg-telegram-button-color/10'
-                        : 'border-telegram-secondary-bg-color bg-telegram-secondary-bg-color hover:border-telegram-button-color/50'
-                    }`}
+                        ? 'border-primary-food-500 bg-primary-food-50 dark:bg-primary-food-900/20'
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary-food-300 dark:hover:border-primary-food-700'
+                    )}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
-                        <div className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center ${
-                          isSelected
-                            ? 'border-telegram-button-color bg-telegram-button-color'
-                            : 'border-telegram-hint-color'
-                        }`}>
-                          {isSelected && (
-                            <span className="text-white text-xs">✓</span>
+                        {/* Checkbox Icon */}
+                        <div className="mt-1 flex-shrink-0">
+                          {isSelected ? (
+                            <CheckCircle2 className="size-6 text-primary-food-500" />
+                          ) : (
+                            <Circle className="size-6 text-gray-300 dark:text-gray-600" />
                           )}
                         </div>
 
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-telegram-text-color">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-gray-900 dark:text-white">
                             {item.name}
                           </h3>
                           {item.description && (
-                            <p className="text-sm text-telegram-hint-color mt-1">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
                               {item.description}
                             </p>
                           )}
                           {item.price && (
-                            <p className="text-sm font-medium text-telegram-button-color mt-1">
+                            <p className="text-sm font-semibold text-primary-food-700 dark:text-primary-food-400 mt-1.5">
                               {item.price} ₽
                             </p>
                           )}
@@ -396,42 +441,75 @@ export const PollManagementPage: React.FC = () => {
                         <img
                           src={item.imageUrl}
                           alt={item.name}
-                          className="w-16 h-16 object-cover rounded-lg ml-4"
+                          className="w-16 h-16 object-cover rounded-lg ml-4 flex-shrink-0"
                         />
                       )}
                     </div>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
           )}
-        </div>
+        </motion.div>
 
-        {/* Превью */}
+        {/* Превью готовности */}
         {canCreatePoll() && (
-          <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30">
-            <p className="text-green-600 dark:text-green-400 text-sm font-medium mb-2">
-              ✅ Готово к запуску
-            </p>
-            <p className="text-telegram-hint-color text-sm">
-              Голосование "{title}" будет отправлено в группу на {duration} минут с {selectedItems.size} блюдами
-            </p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800 shadow-sm"
+          >
+            <div className="flex items-start space-x-2">
+              <CheckCircle size={18} className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-green-700 dark:text-green-300 text-sm font-semibold mb-1">
+                  Готово к запуску
+                </p>
+                <p className="text-green-600 dark:text-green-400 text-sm">
+                  Голосование "{title}" будет отправлено в группу на {duration} минут с {selectedItems.size} блюдами
+                </p>
+              </div>
+            </div>
+          </motion.div>
         )}
 
-        {/* Кнопка для desktop */}
-        <div className="pb-safe">
-          <Button
-            onClick={handleCreatePoll}
-            disabled={!canCreatePoll() || creating}
-            loading={creating}
-            fullWidth
-            size="lg"
-          >
-            {creating ? 'Запуск...' : 'Запустить голосование'}
-          </Button>
-        </div>
+        {/* Отступ снизу для FAB */}
+        <div className="h-24"></div>
       </div>
-    </Layout>
+
+      {/* Floating Action Button */}
+      <motion.button
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+        whileHover={{ scale: canCreatePoll() && !creating ? 1.05 : 1 }}
+        whileTap={{ scale: canCreatePoll() && !creating ? 0.95 : 1 }}
+        onClick={handleCreatePoll}
+        disabled={!canCreatePoll() || creating}
+        className={`
+          fixed bottom-20 right-6 z-50
+          flex items-center justify-center space-x-2
+          px-6 py-4 rounded-full
+          text-base font-semibold
+          transition-all duration-300
+          ${canCreatePoll() && !creating
+            ? 'bg-primary-food-700 hover:bg-primary-food-800 text-white shadow-2xl shadow-primary-food-700/40'
+            : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed shadow-lg'
+          }
+        `}
+      >
+        {creating ? (
+          <>
+            <LoadingSpinner size="sm" />
+            <span>Запуск...</span>
+          </>
+        ) : (
+          <>
+            <Send size={20} />
+            <span>Запустить</span>
+          </>
+        )}
+      </motion.button>
+    </>
   );
 };

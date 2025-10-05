@@ -5,9 +5,38 @@ const poll_service_1 = require("../../services/poll.service");
 const menu_service_1 = require("../../services/menu.service");
 const group_service_1 = require("../../services/group.service");
 const user_service_1 = require("../../services/user.service");
+const poll_reminder_service_1 = require("../../services/poll-reminder.service");
 const client_1 = require("../../database/client");
 const logger_1 = require("../../utils/logger");
 const poll_keyboard_1 = require("../keyboards/poll.keyboard");
+const pollUpdateIntervals = new Map();
+async function updatePollMessage(ctx, pollId, messageId, chatId, itemCount) {
+    try {
+        const poll = await poll_service_1.PollService.getPollById(pollId);
+        if (!poll || poll.status !== 'ACTIVE') {
+            const interval = pollUpdateIntervals.get(pollId);
+            if (interval) {
+                clearInterval(interval);
+                pollUpdateIntervals.delete(pollId);
+            }
+            return;
+        }
+        const currentVotes = poll.votes.length;
+        const updatedMessage = (0, poll_keyboard_1.createCompactPollMessage)(poll, itemCount, currentVotes);
+        const keyboard = (0, poll_keyboard_1.createCompactPollKeyboard)(pollId);
+        await ctx.api.editMessageText(chatId, messageId, updatedMessage, {
+            parse_mode: 'Markdown',
+            reply_markup: keyboard,
+        });
+        logger_1.logger.info(`Poll message updated: ${pollId}, votes: ${currentVotes}`);
+    }
+    catch (error) {
+        if (error?.description?.includes('message is not modified')) {
+            return;
+        }
+        logger_1.logger.error('Error updating poll message:', error);
+    }
+}
 async function startPollCommand(ctx) {
     try {
         const user = ctx.from;
@@ -53,17 +82,15 @@ async function startPollCommand(ctx) {
             duration: durationMinutes,
             createdBy: dbUser.id,
         });
-        const pollData = {
-            poll,
-            menuItems: activeItems,
-            votes: new Map(),
-            totalVotes: 0
-        };
-        const keyboard = (0, poll_keyboard_1.createPollKeyboard)(poll.id, activeItems, new Map());
-        const pollMessage = (0, poll_keyboard_1.createPollMessage)(pollData);
+        const keyboard = (0, poll_keyboard_1.createCompactPollKeyboard)(poll.id);
+        const pollMessage = (0, poll_keyboard_1.createCompactPollMessage)(poll, activeItems.length, 0);
         const sentMessage = await ctx.reply(pollMessage, {
             parse_mode: 'Markdown',
             reply_markup: keyboard,
+        });
+        await poll_service_1.PollService.updatePoll(poll.id, {
+            messageId: sentMessage.message_id,
+            chatId: BigInt(chat.id)
         });
         logger_1.logger.info('Poll started via bot command', {
             pollId: poll.id,
@@ -71,6 +98,11 @@ async function startPollCommand(ctx) {
             startedBy: dbUser.id,
             durationMinutes,
         });
+        const updateInterval = setInterval(() => {
+            updatePollMessage(ctx, poll.id, sentMessage.message_id, chat.id, activeItems.length);
+        }, 60 * 1000);
+        pollUpdateIntervals.set(poll.id, updateInterval);
+        poll_reminder_service_1.PollReminderService.scheduleReminders(poll.id, durationMinutes, BigInt(chat.id));
         setTimeout(async () => {
             try {
                 const currentPoll = await poll_service_1.PollService.getPollById(poll.id);
@@ -92,6 +124,12 @@ async function startPollCommand(ctx) {
 }
 async function autoCompletePoll(ctx, pollId, messageId) {
     try {
+        const updateInterval = pollUpdateIntervals.get(pollId);
+        if (updateInterval) {
+            clearInterval(updateInterval);
+            pollUpdateIntervals.delete(pollId);
+        }
+        poll_reminder_service_1.PollReminderService.cancelReminders(pollId);
         const result = await poll_service_1.PollService.completePoll(pollId);
         await ctx.api.editMessageReplyMarkup(ctx.chat.id, messageId, {
             reply_markup: undefined

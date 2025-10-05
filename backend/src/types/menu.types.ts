@@ -5,6 +5,7 @@ export interface CreateMenuItemData {
   category?: string;
   imageUrl?: string;
   isActive?: boolean;
+  createdBy: number; // Required field
 }
 
 export interface UpdateMenuItemData {

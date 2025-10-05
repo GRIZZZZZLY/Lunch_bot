@@ -23,7 +23,7 @@ export interface PollWithDetails extends Poll {
 }
 export interface VoteWithDetails extends Vote {
     user: User;
-    menuItem: MenuItem;
+    menuItem: MenuItem | null;
 }
 export interface PollResultWithDetails extends PollResult {
     poll: PollWithGroup;

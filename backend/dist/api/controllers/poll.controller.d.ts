@@ -7,11 +7,14 @@ export declare class PollController {
     static getPollResults(req: Request, res: Response): Promise<void>;
     static getPollVotes(req: Request, res: Response): Promise<void>;
     static createPoll(req: Request, res: Response): Promise<void>;
+    static createPollFromWebApp(req: Request, res: Response): Promise<void>;
+    static getActivePollInGroup(req: Request, res: Response): Promise<void>;
     static completePoll(req: Request, res: Response): Promise<void>;
     static cancelPoll(req: Request, res: Response): Promise<void>;
     static vote(req: Request, res: Response): Promise<void>;
     static removeVote(req: Request, res: Response): Promise<void>;
     static runRoulette(req: Request, res: Response): Promise<void>;
+    static getPopularItems(req: Request, res: Response): Promise<void>;
 }
 export declare const pollController: typeof PollController;
 //# sourceMappingURL=poll.controller.d.ts.map

@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { CreatePollData, PollWithDetails, PollStats } from '../types/poll.types';
 import { createPollKeyboard, createPollMessage } from '../bot/keyboards/poll.keyboard';
 import { GroupService } from './group.service';
+import { cacheService, CACHE_KEYS, CACHE_TTL, CacheInvalidator } from './cache.service';
 
 // Bot instance будет инициализирован из bot.ts
 let botInstance: any = null;
@@ -27,6 +28,9 @@ export class PollService {
           createdBy: data.createdBy,
         },
       });
+
+      // Инвалидируем кэш активных голосований
+      CacheInvalidator.invalidatePoll(poll.id, poll.groupId);
 
       logger.info(`Poll created: ${poll.id} in group ${poll.groupId}`);
       return poll;
@@ -71,19 +75,25 @@ export class PollService {
   }
 
   /**
-   * Получение активного голосования в группе
+   * Получение активного голосования в группе (С КЭШИРОВАНИЕМ)
    */
   static async getActivePollInGroup(groupId: number): Promise<Poll | null> {
     try {
-      return await prisma.poll.findFirst({
-        where: {
-          groupId,
-          status: 'ACTIVE',
+      return await cacheService.getOrSet(
+        CACHE_KEYS.ACTIVE_POLLS_GROUP(groupId),
+        async () => {
+          return await prisma.poll.findFirst({
+            where: {
+              groupId,
+              status: 'ACTIVE',
+            },
+            orderBy: {
+              createdAt: 'desc',
+            },
+          });
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
+        CACHE_TTL.ACTIVE_POLLS
+      );
     } catch (error) {
       logger.error('Error getting active poll in group:', error);
       throw new Error('Failed to get active poll');
@@ -91,27 +101,63 @@ export class PollService {
   }
 
   /**
-   * Получение всех активных голосований
+   * Получение всех активных голосований (С КЭШИРОВАНИЕМ)
    */
-  static async getActivePolls(): Promise<Poll[]> {
+  static async getActivePolls(): Promise<any[]> {
     try {
-      return await prisma.poll.findMany({
+      logger.info('🔍 Fetching active polls...');
+      
+      const polls = await prisma.poll.findMany({
         where: { status: 'ACTIVE' },
         include: {
           group: true,
+          votes: {
+            include: {
+              user: true,
+              menuItem: true,
+            },
+          },
           _count: {
             select: {
               votes: true,
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: {
+          createdAt: 'desc',
+        },
       });
-    } catch (error) {
-      logger.error('Error getting active polls:', error);
-      throw new Error('Failed to get active polls');
+      
+      logger.info(`📊 Found ${polls.length} polls with ACTIVE status`);
+      
+      // Фильтруем голосования с валидными данными
+      const now = new Date();
+      const activePolls = polls.filter((poll) => {
+        const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
+        const isActive = endsAt > now;
+        logger.info(`Poll ${poll.id}: ends=${endsAt.toISOString()}, now=${now.toISOString()}, active=${isActive}`);
+        return isActive;
+      });
+      
+      logger.info(`✅ Returning ${activePolls.length} active polls`);
+      
+      // Convert BigInt to string for JSON serialization
+      const serializedPolls = activePolls.map(poll => ({
+        ...poll,
+        chatId: poll.chatId ? poll.chatId.toString() : null,
+      }));
+      
+      return serializedPolls;
+    } catch (error: any) {
+      logger.error('❌ Error getting active polls:', {
+        message: error.message,
+        stack: error.stack,
+      });
+      throw error;
     }
   }
+
+
 
   /**
    * Завершение голосования
@@ -168,18 +214,22 @@ export class PollService {
         });
 
         // Создаем результат голосования
+        // responsibleUserId будет обновлен после запуска рулетки
         const pollResult = await tx.pollResult.create({
           data: {
             pollId,
             winnerMenuItemId,
             totalVotes: poll.votes.length,
-            // isRouletteRun: false, // Field removed from schema
+            responsibleUserId: poll.createdBy, // Временно используем создателя, обновится после рулетки
           },
         });
 
         return pollResult;
       });
 
+      // Инвалидируем кэш после завершения голосования
+      CacheInvalidator.invalidatePoll(pollId, poll.groupId);
+      
       logger.info(`Poll completed: ${pollId}, winner: ${winnerMenuItemId}, total votes: ${poll.votes.length}`);
       
       // Возвращаем результат с деталями
@@ -217,7 +267,28 @@ export class PollService {
     }
   }
 
-  // MessageId больше не хранится в Poll, используйте контекст бота для хранения messageId
+  /**
+   * Обновление голосования
+   */
+  static async updatePoll(pollId: number, data: Partial<Poll>): Promise<Poll> {
+    try {
+      const poll = await prisma.poll.update({
+        where: { id: pollId },
+        data,
+      });
+
+      logger.info(`Poll updated: ${pollId}`);
+      return poll;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new Error('Poll not found');
+        }
+      }
+      logger.error('Error updating poll:', error);
+      throw new Error('Failed to update poll');
+    }
+  }
 
   /**
    * Получение результата голосования
@@ -341,7 +412,7 @@ export class PollService {
   }
 
   /**
-   * Получение истории голосований
+   * Получение истории голосований (ОПТИМИЗИРОВАНО с select)
    */
   static async getPollHistory(
     groupId?: number,
@@ -357,12 +428,44 @@ export class PollService {
       const [polls, total] = await Promise.all([
         prisma.poll.findMany({
           where,
-          include: {
-            group: true,
+          select: {
+            id: true,
+            groupId: true,
+            status: true,
+            duration: true,
+            startedAt: true,
+            endedAt: true,
+            createdAt: true,
+            updatedAt: true,
+            group: {
+              select: {
+                id: true,
+                title: true,
+                telegramId: true,
+              },
+            },
             result: {
-              include: {
-                winnerMenuItem: true,
-                responsibleUser: true,
+              select: {
+                id: true,
+                totalVotes: true,
+                createdAt: true,
+                winnerMenuItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    imageUrl: true,
+                  },
+                },
+                responsibleUser: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    username: true,
+                    telegramId: true,
+                  },
+                },
               },
             },
             _count: {
@@ -535,7 +638,7 @@ export class PollService {
           where: { pollId: data.pollId },
           data: {
             responsibleUserId: data.responsibleUserId,
-            updatedAt: new Date(),
+            rouletteData: data.rouletteData,
           },
           include: {
             poll: true,

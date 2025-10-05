@@ -220,12 +220,34 @@ export class MenuController {
       const data: CreateMenuItemData = req.body;
       const user = (req as any).user;
 
-      const item = await MenuService.createMenuItem(data);
+      logger.info('🔵 CREATE MENU ITEM REQUEST', {
+        requestId: Date.now(),
+        userId: user.id,
+        username: user.username,
+        data: {
+          name: data.name,
+          description: data.description?.substring(0, 50),
+          price: data.price,
+          category: data.category,
+          isActive: data.isActive,
+        },
+      });
 
-      logger.info('Menu item created', {
+      // Добавляем createdBy из авторизованного пользователя
+      const itemData = {
+        ...data,
+        createdBy: user.id,
+      };
+
+      const item = await MenuService.createMenuItem(itemData);
+
+      logger.info('✅ MENU ITEM CREATED SUCCESSFULLY', {
         itemId: item.id,
         name: item.name,
+        category: item.category,
+        price: item.price,
         createdBy: user.id,
+        createdByUsername: user.username,
       });
 
       res.status(201).json({
@@ -236,7 +258,12 @@ export class MenuController {
       });
 
     } catch (error) {
-      logger.error('Error creating menu item:', error);
+      logger.error('❌ ERROR CREATING MENU ITEM', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        userId: (req as any).user?.id,
+        requestBody: req.body,
+      });
       res.status(500).json({
         success: false,
         error: 'Failed to create menu item',

@@ -36,16 +36,13 @@ class AuthService {
         throw new Error(response.error || 'Validation failed');
       }
 
-      const response = await apiService.post<{
-        user: User;
-        token: string;
-      }>('/auth/validate', { initData });
+      const response = await apiService.post<any>('/auth/validate', { initData });
 
-      if (response.success && response.data) {
+      if (response.success && response.user && response.token) {
         return {
           success: true,
-          user: response.data.user,
-          token: response.data.token,
+          user: response.user,
+          token: response.token,
         };
       }
 
@@ -76,18 +73,14 @@ class AuthService {
    */
   async getAuthStatus(): Promise<AuthStatusResponse> {
     try {
-      const response = await apiService.get<{
-        authenticated: boolean;
-        user?: User;
-        timestamp: string;
-      }>('/auth/status');
+      const response = await apiService.get<any>('/auth/status');
 
-      if (response.success && response.data) {
+      if (response.success) {
         return {
           success: true,
-          authenticated: response.data.authenticated,
-          user: response.data.user,
-          timestamp: response.data.timestamp,
+          authenticated: response.authenticated,
+          user: response.user,
+          timestamp: response.timestamp,
         };
       }
 
@@ -110,16 +103,13 @@ class AuthService {
    */
   async refreshAuth(): Promise<AuthResponse> {
     try {
-      const response = await apiService.post<{
-        user: User;
-        token: string;
-      }>('/auth/refresh');
+      const response = await apiService.post<any>('/auth/refresh');
 
-      if (response.success && response.data) {
+      if (response.success && response.user && response.token) {
         return {
           success: true,
-          user: response.data.user,
-          token: response.data.token,
+          user: response.user,
+          token: response.token,
         };
       }
 

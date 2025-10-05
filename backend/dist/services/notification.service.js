@@ -172,6 +172,62 @@ class NotificationService {
             parseMode: template.parseMode,
         });
     }
+    async notifyResponsible(pollId, responsibleUserId) {
+        try {
+            const poll = await client_1.prisma.poll.findUnique({
+                where: { id: pollId },
+                include: {
+                    result: {
+                        include: {
+                            winnerMenuItem: true,
+                            responsibleUser: true,
+                        },
+                    },
+                    group: true,
+                },
+            });
+            if (!poll || !poll.result) {
+                throw new Error('Poll or poll result not found');
+            }
+            const votes = await client_1.prisma.vote.findMany({
+                where: { pollId },
+                include: {
+                    user: true,
+                },
+            });
+            const voters = votes.map(vote => ({
+                id: vote.user.id,
+                firstName: vote.user.firstName,
+                username: vote.user.username,
+            }));
+            const notificationData = {
+                winner: {
+                    id: poll.result.responsibleUser.id,
+                    firstName: poll.result.responsibleUser.firstName,
+                    lastName: poll.result.responsibleUser.lastName || undefined,
+                    username: poll.result.responsibleUser.username || undefined,
+                },
+                winnerItem: poll.result.winnerMenuItem ? {
+                    id: poll.result.winnerMenuItem.id,
+                    name: poll.result.winnerMenuItem.name,
+                    description: poll.result.winnerMenuItem.description || undefined,
+                    price: poll.result.winnerMenuItem.price || undefined,
+                } : undefined,
+                voters: voters.map(v => ({ id: v.id, firstName: v.firstName, username: v.username || undefined })),
+                totalVotes: poll.result.totalVotes,
+                groupTitle: poll.group.title,
+            };
+            return await this.sendRouletteWinnerNotification(notificationData);
+        }
+        catch (error) {
+            logger_1.logger.error('Failed to notify responsible user', { pollId, responsibleUserId, error });
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                sentAt: new Date(),
+            };
+        }
+    }
     async sendPollEndedNotification(userIds, data) {
         const template = this.templates.get(notification_types_1.NotificationType.POLL_ENDED);
         if (!template) {

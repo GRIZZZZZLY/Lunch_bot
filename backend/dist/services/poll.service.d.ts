@@ -1,5 +1,6 @@
 import { Poll, PollResult } from '@prisma/client';
 import { CreatePollData, PollWithDetails, PollStats } from '../types/poll.types';
+export declare function initializePollServiceBot(bot: any): void;
 export declare class PollService {
     static createPoll(data: CreatePollData): Promise<Poll>;
     static getPollById(id: number): Promise<PollWithDetails | null>;
@@ -7,6 +8,7 @@ export declare class PollService {
     static getActivePolls(): Promise<Poll[]>;
     static completePoll(pollId: number): Promise<PollResult>;
     static cancelPoll(pollId: number): Promise<Poll>;
+    static updatePoll(pollId: number, data: Partial<Poll>): Promise<Poll>;
     static getPollResult(resultId: number): Promise<PollResult>;
     static getPollResultByPollId(pollId: number): Promise<PollResult | null>;
     static runRoulette(pollId: number): Promise<PollResult>;

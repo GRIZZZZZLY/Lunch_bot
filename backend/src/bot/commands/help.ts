@@ -66,7 +66,10 @@ async function getGroupHelpText(isAdmin: boolean): Promise<string> {
   text += '👥 **Для всех участников:**\n';
   text += '• `/start` - регистрация в системе\n';
   text += '• `/help` - показать эту справку\n';
-  text += '• `/menu` - управление меню (Mini App)\n\n';
+  text += '• `/menu` - управление меню (Mini App)\n';
+  text += '• `/vote` - голосовать (альтернативный способ)\n';
+  text += '• `/q` - быстрое голосование (подтвердить выбор)\n';
+  text += '• `/r` - показать текущие результаты\n\n';
 
   if (isAdmin) {
     text += '👑 **Для администраторов:**\n';

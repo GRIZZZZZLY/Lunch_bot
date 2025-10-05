@@ -4,6 +4,7 @@ import { GroupService } from './group.service';
 import { VoteService } from './vote.service';
 import { NotificationService } from './notification.service';
 import { logger } from '../utils/logger';
+import { createVoteWebAppKeyboard, createResultsWebAppKeyboard, createResponsibleKeyboard } from '../bot/keyboards/webapp.keyboard';
 
 /**
  * Создание уведомления о начале голосования для группы
@@ -45,24 +46,34 @@ export async function createPollFromWebApp(params: {
   menuItems: MenuItem[];
 }): Promise<{ pollId: number; messageId: number }> {
   try {
+    logger.info('🎬 Starting createPollFromWebApp', { groupId: params.groupId, menuItemsCount: params.menuItems.length });
+    
     if (!botInstance) {
+      logger.error('❌ Bot not initialized in PollService');
       throw new Error('Bot not initialized in PollService');
     }
+    
+    logger.info('✅ Bot instance confirmed');
 
     const { groupId, duration, createdBy, title, menuItems } = params;
 
     // Получаем группу для получения telegramId
+    logger.info('🔍 Fetching group data', { groupId });
     const group = await GroupService.getGroupById(groupId);
     if (!group) {
+      logger.error('❌ Group not found', { groupId });
       throw new Error('Group not found');
     }
+    logger.info('✅ Group found', { telegramId: group.telegramId.toString(), title: group.title });
 
     // Создаём голосование в БД
+    logger.info('💾 Creating poll in database');
     const poll = await PollService.createPoll({
       groupId,
       duration,
       createdBy,
     });
+    logger.info('✅ Poll created in DB', { pollId: poll.id });
 
     // Формируем уведомление для группы (БЕЗ inline-кнопок, только кнопка Mini App)
     const endTime = new Date(Date.now() + duration * 60 * 1000);
@@ -74,18 +85,20 @@ export async function createPollFromWebApp(params: {
     });
 
     // Создаём кнопку для открытия Mini App
-    const keyboard = {
-      inline_keyboard: [[
-        {
-          text: '🗳️ Проголосовать',
-          web_app: { url: `${process.env.WEBAPP_URL}/vote/${poll.id}` }
-        }
-      ]]
-    };
+    logger.info('⌨️ Creating keyboard');
+    const keyboard = createVoteWebAppKeyboard(poll.id);
+    logger.info('✅ Keyboard created', { keyboard });
 
     // Отправляем сообщение в группу
+    // ВАЖНО: Преобразуем BigInt в число для совместимости с Grammy API
+    const chatId = typeof group.telegramId === 'bigint' 
+      ? Number(group.telegramId) 
+      : group.telegramId;
+    
+    logger.info('📤 Sending message to group', { chatId, messageLength: message.length });
+    
     const sentMessage = await botInstance.api.sendMessage(
-      group.telegramId,
+      chatId,
       message,
       {
         parse_mode: 'Markdown',
@@ -93,9 +106,9 @@ export async function createPollFromWebApp(params: {
       }
     );
 
-    logger.info('Poll message sent to group', {
+    logger.info('✅ Poll message sent to group', {
       pollId: poll.id,
-      groupId: group.telegramId,
+      groupId: group.telegramId.toString(),
       messageId: sentMessage.message_id,
     });
 
@@ -111,12 +124,14 @@ export async function createPollFromWebApp(params: {
       }
     }, duration * 60 * 1000);
 
+    logger.info('🎉 Poll created successfully!', { pollId: poll.id, messageId: sentMessage.message_id });
+    
     return {
       pollId: poll.id,
       messageId: sentMessage.message_id,
     };
   } catch (error) {
-    logger.error('Error creating poll from WebApp:', error);
+    logger.error('❌ Error creating poll from WebApp:', error);
     throw error;
   }
 }
@@ -153,17 +168,22 @@ async function autoCompletePoll(
       logger.warn('Could not remove poll button:', error);
     }
 
-    // Отправляем результаты в группу
+    // Отправляем результаты в группу с кнопкой просмотра
     const resultsMessage = createPollResultsMessage({
       totalVotes: result.totalVotes,
       breakdown,
       winnerItem: breakdown.length > 0 ? breakdown[0] : null,
     });
 
+    const resultsKeyboard = createResultsWebAppKeyboard(pollId);
+
     await botInstance.api.sendMessage(
       chatId,
       resultsMessage,
-      { parse_mode: 'Markdown' }
+      { 
+        parse_mode: 'Markdown',
+        reply_markup: resultsKeyboard
+      }
     );
 
     // Запускаем рулетку если были голоса
@@ -182,6 +202,27 @@ async function autoCompletePoll(
             `📞 Ожидаем заказа!`,
             { parse_mode: 'Markdown' }
           );
+          
+          // Отправляем личное уведомление ответственному с деталями
+          try {
+            const responsibleKeyboard = createResponsibleKeyboard(pollId);
+            await botInstance.api.sendMessage(
+              Number(responsibleUser.telegramId),
+              `🎯 **Вы выбраны ответственным за заказ!**\n\n` +
+              `📋 Откройте детали заказа в Mini App\n` +
+              `Там вы найдете:\n` +
+              `• Список заказов всех участников\n` +
+              `• Контакты для связи\n` +
+              `• Общую стоимость\n\n` +
+              `💳 Не забудьте указать платёжные данные в профиле!`,
+              { 
+                parse_mode: 'Markdown',
+                reply_markup: responsibleKeyboard
+              }
+            );
+          } catch (error: any) {
+            logger.warn(`Could not send details to responsible user:`, error.message);
+          }
         }
       }
 
@@ -320,7 +361,7 @@ async function sendPersonalNotifications(
           }
 
           await botInstance.api.sendMessage(
-            vote.user.telegramId,
+            Number(vote.user.telegramId),
             message,
             { parse_mode: 'Markdown' }
           );
