@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MenuForm } from '@/components/menu/MenuForm';
+import { PageHeader } from '@/components/common/PageHeader';
 import { useMenu } from '@/hooks/useMenu';
 import { useTelegram } from '@/hooks/useTelegram';
 import { CreateMenuItemData } from '../services/menu.service';
@@ -38,10 +39,18 @@ export function CreateMenuPage() {
   };
 
   return (
-    <MenuForm
-      onSubmit={handleSubmit}
-      onCancel={handleCancel}
-      loading={loading}
-    />
+    <>
+      <PageHeader 
+        title="Добавить блюдо"
+        subtitle="Создайте новое блюдо для меню"
+        showBack={true}
+        onBack={handleCancel}
+      />
+      <MenuForm
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+        loading={loading}
+      />
+    </>
   );
 }

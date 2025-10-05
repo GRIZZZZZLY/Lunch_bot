@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MenuForm } from '@/components/menu/MenuForm';
+import { PageHeader } from '@/components/common/PageHeader';
 import { useMenu } from '@/hooks/useMenu';
 import { useTelegram } from '@/hooks/useTelegram';
 import { CreateMenuItemData, MenuItem } from '../services/menu.service';
@@ -9,7 +10,7 @@ export function EditMenuPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { showAlert, hapticFeedback } = useTelegram();
-  const { updateItem, getItem } = useMenu({ autoFetch: false });
+  const { updateItem, getItem, deleteItem } = useMenu({ autoFetch: false });
   
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
@@ -73,6 +74,30 @@ export function EditMenuPage() {
     }
   };
 
+  const handleDelete = async (itemId: number) => {
+    setLoading(true);
+    
+    try {
+      const result = await deleteItem(itemId);
+      
+      if (result) {
+        hapticFeedback?.notificationOccurred('success');
+        showAlert?.('Блюдо успешно удалено!', () => {
+          navigate('/');
+        });
+      } else {
+        hapticFeedback?.notificationOccurred('error');
+        showAlert?.('Ошибка при удалении блюда. Попробуйте еще раз.');
+      }
+    } catch (error) {
+      console.error('Error deleting menu item:', error);
+      hapticFeedback?.notificationOccurred('error');
+      showAlert?.('Произошла ошибка. Проверьте подключение к интернету.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCancel = () => {
     hapticFeedback?.impactOccurred('light');
     navigate('/');
@@ -110,11 +135,19 @@ export function EditMenuPage() {
   }
 
   return (
-    <MenuForm
-      item={item}
-      onSubmit={handleSubmit}
-      onCancel={handleCancel}
-      loading={loading}
-    />
+    <>
+      <PageHeader 
+        title="Редактировать блюдо"
+        subtitle={item.name}
+        showBack={true}
+        onBack={handleCancel}
+      />
+      <MenuForm
+        item={item}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+        loading={loading}
+      />
+    </>
   );
 }

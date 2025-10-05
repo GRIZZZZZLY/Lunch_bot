@@ -92,6 +92,9 @@ export const botConfig = {
     shortName: process.env.MINI_APP_SHORT_NAME || 'foodbot',
   },
   
+  // WebApp URL
+  webappUrl: process.env.WEBAPP_URL || 'http://localhost:5173',
+  
   // Функции
   features: {
     // Включить систему голосований

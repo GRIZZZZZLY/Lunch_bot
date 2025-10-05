@@ -63,20 +63,20 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     loadCategories();
   }, []);
 
-  // Настройка кнопок Telegram
-  useEffect(() => {
-    mainButton.setText(item ? 'Сохранить изменения' : 'Добавить блюдо');
-    mainButton.onClick(handleSubmit);
-    mainButton.show();
+  // НЕ управляем кнопками Telegram - форма в BottomSheet
+  // useEffect(() => {
+  //   mainButton.setText(item ? 'Сохранить изменения' : 'Добавить блюдо');
+  //   mainButton.onClick(handleSubmit);
+  //   mainButton.show();
 
-    backButton.onClick(onCancel);
-    backButton.show();
+  //   backButton.onClick(onCancel);
+  //   backButton.show();
 
-    return () => {
-      mainButton.hide();
-      backButton.hide();
-    };
-  }, [item, formData, mainButton, backButton]);
+  //   return () => {
+  //     mainButton.hide();
+  //     backButton.hide();
+  //   };
+  // }, [item, formData, mainButton, backButton]);
 
   const loadCategories = async () => {
     try {
@@ -155,17 +155,27 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     }
   };
 
+  // Блокируем скролл body когда форма открыта
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
+  console.log('📝 MenuForm RENDERING!');
+  
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-t-3xl w-full max-w-md max-h-[90vh] flex flex-col scale-in">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+      <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl border border-gray-200/20 dark:border-gray-700/20 scale-in">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200/50 dark:border-gray-700/50">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {item ? 'Редактировать блюдо' : 'Новое блюдо'}
           </h2>
           <button
             onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl leading-none"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             ×
           </button>
@@ -253,7 +263,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
                       onClick={() => handleInputChange('category', category)}
                       className={`text-xs px-2 py-1 rounded border transition-colors ${
                         formData.category === category
-                          ? 'bg-blue-500 text-white border-blue-500'
+                          ? 'bg-primary-food-700 text-white border-primary-food-700 shadow-sm shadow-primary-food-700/30'
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }`}
                     >
@@ -313,8 +323,8 @@ export const MenuForm: React.FC<MenuFormProps> = ({
             <button
               type="button"
               onClick={() => handleInputChange('isActive', !formData.isActive)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                formData.isActive ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-food-500 focus:ring-offset-2 ${
+                formData.isActive ? 'bg-primary-food-700' : 'bg-gray-200 dark:bg-gray-600'
               }`}
             >
               <span
@@ -327,7 +337,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
         </div>
 
         {/* Footer - только для мобильных устройств без MainButton */}
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 space-y-3">
+        <div className="p-6 pb-safe border-t border-gray-200/50 dark:border-gray-700/50 space-y-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-b-3xl">
           <Button
             onClick={handleSubmit}
             loading={loading}

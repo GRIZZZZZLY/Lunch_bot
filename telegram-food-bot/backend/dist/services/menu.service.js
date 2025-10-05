@@ -15,6 +15,7 @@ class MenuService {
                     category: data.category,
                     imageUrl: data.imageUrl,
                     isActive: data.isActive ?? true,
+                    createdBy: data.createdBy,
                 },
             });
             logger_1.logger.info(`Menu item created: ${menuItem.id} (${menuItem.name})`);
@@ -124,13 +125,11 @@ class MenuService {
                         {
                             name: {
                                 contains: query,
-                                mode: 'insensitive',
                             },
                         },
                         {
                             description: {
                                 contains: query,
-                                mode: 'insensitive',
                             },
                         },
                     ],

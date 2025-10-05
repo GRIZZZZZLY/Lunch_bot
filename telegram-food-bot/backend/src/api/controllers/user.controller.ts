@@ -173,17 +173,18 @@ export class UserController {
 
       // TODO: Реализовать получение групп через Telegram API или из БД
       // Пока возвращаем все активные группы (для демо)
-      const groups = await GroupService.getAllGroups();
+      const { groups, total } = await GroupService.getAllGroups();
 
       res.json({
         success: true,
         data: groups.map(group => ({
-          id: group.id,
+          id: typeof group.id === 'bigint' ? Number(group.id) : group.id,
           title: group.title,
-          telegramId: group.telegramId.toString(),
+          telegramId: typeof group.telegramId === 'bigint' ? group.telegramId.toString() : group.telegramId,
           type: group.type,
           isActive: group.isActive,
         })),
+        total,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {

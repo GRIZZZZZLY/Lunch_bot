@@ -2,10 +2,11 @@ import { MenuItem, Prisma } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreateMenuItemData, UpdateMenuItemData, MenuItemWithStats } from '../types/menu.types';
+import { cacheService, CACHE_KEYS, CACHE_TTL, CacheInvalidator } from './cache.service';
 
 export class MenuService {
   /**
-   * Создание нового блюда
+   * Создание нового блюда (с инвалидацией кэша)
    */
   static async createMenuItem(data: CreateMenuItemData): Promise<MenuItem> {
     try {
@@ -17,8 +18,12 @@ export class MenuService {
           category: data.category,
           imageUrl: data.imageUrl,
           isActive: data.isActive ?? true,
+          createdBy: data.createdBy,
         },
       });
+
+      // Инвалидируем кэш меню
+      CacheInvalidator.invalidateMenu();
 
       logger.info(`Menu item created: ${menuItem.id} (${menuItem.name})`);
       return menuItem;
@@ -43,7 +48,7 @@ export class MenuService {
   }
 
   /**
-   * Обновление блюда
+   * Обновление блюда (с инвалидацией кэша)
    */
   static async updateMenuItem(id: number, data: UpdateMenuItemData): Promise<MenuItem> {
     try {
@@ -54,6 +59,9 @@ export class MenuService {
           updatedAt: new Date(),
         },
       });
+
+      // Инвалидируем кэш меню
+      CacheInvalidator.invalidateMenu();
 
       logger.info(`Menu item updated: ${menuItem.id} (${menuItem.name})`);
       return menuItem;
@@ -69,19 +77,67 @@ export class MenuService {
   }
 
   /**
-   * Удаление блюда
+   * Удаление блюда (с инвалидацией кэша)
+   * Проверяет наличие связанных голосов и результатов перед удалением
    */
   static async deleteMenuItem(id: number): Promise<void> {
     try {
+      // Проверяем есть ли связанные голоса или результаты
+      const menuItem = await prisma.menuItem.findUnique({
+        where: { id },
+        include: {
+          _count: {
+            select: {
+              votes: true,
+              pollResults: true,
+            },
+          },
+        },
+      });
+
+      if (!menuItem) {
+        throw new Error('Menu item not found');
+      }
+
+      // Если есть связанные данные, сначала очищаем их
+      if (menuItem._count.votes > 0 || menuItem._count.pollResults > 0) {
+        logger.info(`Menu item ${id} has related data, cleaning up...`, {
+          votes: menuItem._count.votes,
+          pollResults: menuItem._count.pollResults,
+        });
+
+        // Удаляем связанные голоса (set menuItemId to null)
+        await prisma.vote.updateMany({
+          where: { menuItemId: id },
+          data: { menuItemId: null },
+        });
+
+        // Удаляем связанные результаты голосований (set winnerMenuItemId to null)
+        await prisma.pollResult.updateMany({
+          where: { winnerMenuItemId: id },
+          data: { winnerMenuItemId: null },
+        });
+      }
+
+      // Теперь можно безопасно удалить блюдо
       await prisma.menuItem.delete({
         where: { id },
       });
 
-      logger.info(`Menu item deleted: ${id}`);
+      // Инвалидируем кэш меню
+      CacheInvalidator.invalidateMenu();
+
+      logger.info(`Menu item deleted: ${id}`, {
+        cleanedVotes: menuItem._count.votes,
+        cleanedResults: menuItem._count.pollResults,
+      });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           throw new Error('Menu item not found');
+        }
+        if (error.code === 'P2003') {
+          throw new Error('Cannot delete menu item: it is referenced by other records');
         }
       }
       logger.error('Error deleting menu item:', error);
@@ -107,14 +163,31 @@ export class MenuService {
   }
 
   /**
-   * Получение активных блюд
+   * Получение активных блюд (С КЭШИРОВАНИЕМ)
    */
   static async getActiveMenuItems(): Promise<MenuItem[]> {
     try {
-      return await prisma.menuItem.findMany({
-        where: { isActive: true },
-        orderBy: { name: 'asc' },
-      });
+      return await cacheService.getOrSet(
+        CACHE_KEYS.MENU_ITEMS_ACTIVE,
+        async () => {
+          return await prisma.menuItem.findMany({
+            where: { isActive: true },
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              price: true,
+              category: true,
+              imageUrl: true,
+              isActive: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            orderBy: { name: 'asc' },
+          });
+        },
+        CACHE_TTL.MENU
+      );
     } catch (error) {
       logger.error('Error getting active menu items:', error);
       throw new Error('Failed to get active menu items');
@@ -122,17 +195,32 @@ export class MenuService {
   }
 
   /**
-   * Получение блюд по категории
+   * Получение блюд по категории (С КЭШИРОВАНИЕМ)
    */
   static async getMenuItemsByCategory(category: string): Promise<MenuItem[]> {
     try {
-      return await prisma.menuItem.findMany({
-        where: {
-          category,
-          isActive: true,
+      return await cacheService.getOrSet(
+        CACHE_KEYS.MENU_ITEMS_BY_CATEGORY(category),
+        async () => {
+          return await prisma.menuItem.findMany({
+            where: {
+              category,
+              isActive: true,
+            },
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              price: true,
+              category: true,
+              imageUrl: true,
+              isActive: true,
+            },
+            orderBy: { name: 'asc' },
+          });
         },
-        orderBy: { name: 'asc' },
-      });
+        CACHE_TTL.MENU
+      );
     } catch (error) {
       logger.error('Error getting menu items by category:', error);
       throw new Error('Failed to get menu items by category');
@@ -150,13 +238,11 @@ export class MenuService {
             {
               name: {
                 contains: query,
-                mode: 'insensitive',
               },
             },
             {
               description: {
                 contains: query,
-                mode: 'insensitive',
               },
             },
           ],
@@ -171,7 +257,7 @@ export class MenuService {
   }
 
   /**
-   * Переключение статуса активности блюда
+   * Переключение статуса активности блюда (с инвалидацией кэша)
    */
   static async toggleMenuItemStatus(id: number): Promise<MenuItem> {
     try {
@@ -193,6 +279,9 @@ export class MenuService {
           updatedAt: new Date(),
         },
       });
+
+      // Инвалидируем кэш меню
+      CacheInvalidator.invalidateMenu();
 
       logger.info(`Menu item status toggled: ${id} -> ${menuItem.isActive}`);
       return menuItem;
@@ -242,23 +331,29 @@ export class MenuService {
   }
 
   /**
-   * Получение всех категорий
+   * Получение всех категорий (С КЭШИРОВАНИЕМ)
    */
   static async getCategories(): Promise<string[]> {
     try {
-      const categories = await prisma.menuItem.findMany({
-        where: {
-          category: { not: null },
-          isActive: true,
-        },
-        select: { category: true },
-        distinct: ['category'],
-      });
+      return await cacheService.getOrSet(
+        'menu_categories',
+        async () => {
+          const categories = await prisma.menuItem.findMany({
+            where: {
+              category: { not: null },
+              isActive: true,
+            },
+            select: { category: true },
+            distinct: ['category'],
+          });
 
-      return categories
-        .map(item => item.category!)
-        .filter(Boolean)
-        .sort();
+          return categories
+            .map(item => item.category!)
+            .filter(Boolean)
+            .sort();
+        },
+        CACHE_TTL.MENU
+      );
     } catch (error) {
       logger.error('Error getting categories:', error);
       throw new Error('Failed to get categories');
@@ -308,7 +403,7 @@ export class MenuService {
   }
 
   /**
-   * Массовое обновление статуса блюд
+   * Массовое обновление статуса блюд (с инвалидацией кэша)
    */
   static async bulkUpdateStatus(ids: number[], isActive: boolean): Promise<number> {
     try {
@@ -323,6 +418,9 @@ export class MenuService {
           updatedAt: new Date(),
         },
       });
+
+      // Инвалидируем кэш меню
+      CacheInvalidator.invalidateMenu();
 
       logger.info(`Bulk updated ${result.count} menu items status to ${isActive}`);
       return result.count;

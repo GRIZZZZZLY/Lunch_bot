@@ -1,9 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PollService = void 0;
+exports.initializePollServiceBot = initializePollServiceBot;
 const client_1 = require("@prisma/client");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
+let botInstance = null;
+function initializePollServiceBot(bot) {
+    botInstance = bot;
+    logger_1.logger.info('PollService bot instance initialized');
+}
 class PollService {
     static async createPoll(data) {
         try {
@@ -136,6 +142,7 @@ class PollService {
                         pollId,
                         winnerMenuItemId,
                         totalVotes: poll.votes.length,
+                        responsibleUserId: poll.createdBy,
                     },
                 });
                 return pollResult;
@@ -169,6 +176,25 @@ class PollService {
             }
             logger_1.logger.error('Error cancelling poll:', error);
             throw new Error('Failed to cancel poll');
+        }
+    }
+    static async updatePoll(pollId, data) {
+        try {
+            const poll = await client_2.prisma.poll.update({
+                where: { id: pollId },
+                data,
+            });
+            logger_1.logger.info(`Poll updated: ${pollId}`);
+            return poll;
+        }
+        catch (error) {
+            if (error instanceof client_1.Prisma.PrismaClientKnownRequestError) {
+                if (error.code === 'P2025') {
+                    throw new Error('Poll not found');
+                }
+            }
+            logger_1.logger.error('Error updating poll:', error);
+            throw new Error('Failed to update poll');
         }
     }
     static async getPollResult(resultId) {
@@ -418,7 +444,7 @@ class PollService {
                     where: { pollId: data.pollId },
                     data: {
                         responsibleUserId: data.responsibleUserId,
-                        updatedAt: new Date(),
+                        rouletteData: data.rouletteData,
                     },
                     include: {
                         poll: true,

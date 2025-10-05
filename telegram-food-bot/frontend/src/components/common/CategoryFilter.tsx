@@ -1,5 +1,7 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { useTelegram } from '../../hooks/useTelegram';
+import { useHaptic } from '../../hooks/useHaptic';
 
 interface CategoryFilterProps {
   categories: string[];
@@ -10,7 +12,7 @@ interface CategoryFilterProps {
 }
 
 /**
- * Компонент фильтра по категориям с визуальными индикаторами
+ * Компонент фильтра по категориям в премиальном стиле
  */
 export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   categories,
@@ -19,113 +21,94 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   itemCounts = {},
   className = '',
 }) => {
-  const { hapticFeedback } = useTelegram();
+  const { colorScheme } = useTelegram();
+  const haptic = useHaptic();
+  const isDark = colorScheme === 'dark';
 
   const handleCategoryClick = (category: string | null) => {
     onCategoryChange(category);
-    hapticFeedback.selectionChanged();
+    haptic.light();
   };
 
   const totalItems = Object.values(itemCounts).reduce((sum, count) => sum + count, 0);
 
   return (
     <div className={`${className}`}>
-      <div className="flex flex-wrap gap-2 p-2">
+      <div className="flex flex-wrap gap-2">
         {/* Кнопка "Все" */}
-        <button
+        <motion.button
           onClick={() => handleCategoryClick(null)}
           className={`
-            flex items-center px-4 py-2 rounded-full text-sm font-medium
-            transition-all duration-200 transform hover:scale-105
+            flex items-center px-4 py-2.5 rounded-xl text-sm font-medium
+            transition-all duration-200
             ${
               selectedCategory === null
-                ? 'bg-telegram-button-color text-telegram-button-text-color shadow-lg'
-                : 'bg-telegram-secondary-bg-color text-telegram-text-color hover:bg-telegram-button-color/10'
+                ? 'bg-primary-food-700 text-white shadow-md shadow-primary-food-700/30'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-primary-food-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
             }
           `}
         >
           <span>Все</span>
           {totalItems > 0 && (
             <span className={`
-              ml-2 px-2 py-1 rounded-full text-xs
+              ml-2 px-2 py-0.5 rounded-full text-xs font-semibold
               ${
                 selectedCategory === null
-                  ? 'bg-telegram-button-text-color/20 text-telegram-button-text-color'
-                  : 'bg-telegram-hint-color/20 text-telegram-hint-color'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
               }
             `}>
               {totalItems}
             </span>
           )}
-        </button>
+        </motion.button>
 
         {/* Кнопки категорий */}
-        {categories.map((category) => {
+        {categories.map((category, index) => {
           const count = itemCounts[category] || 0;
           const isSelected = selectedCategory === category;
 
           return (
-            <button
+            <motion.button
               key={category}
               onClick={() => handleCategoryClick(category)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: index * 0.05, duration: 0.2 }}
               className={`
-                flex items-center px-4 py-2 rounded-full text-sm font-medium
-                transition-all duration-200 transform hover:scale-105
+                flex items-center px-4 py-2.5 rounded-xl text-sm font-medium
+                transition-all duration-200
                 ${
                   isSelected
-                    ? 'bg-telegram-button-color text-telegram-button-text-color shadow-lg'
-                    : 'bg-telegram-secondary-bg-color text-telegram-text-color hover:bg-telegram-button-color/10'
+                    ? 'bg-primary-food-700 text-white shadow-md shadow-primary-food-700/30'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-primary-food-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
                 }
-                ${count === 0 ? 'opacity-50 cursor-not-allowed' : ''}
+                ${count === 0 ? 'opacity-40 cursor-not-allowed' : ''}
               `}
               disabled={count === 0}
             >
               {/* Иконка категории */}
-              <span className="mr-2">{getCategoryIcon(category)}</span>
+              <span className="mr-2 text-base">{getCategoryIcon(category)}</span>
               
               <span className="capitalize">{category}</span>
               
               {/* Счетчик элементов */}
               {count > 0 && (
                 <span className={`
-                  ml-2 px-2 py-1 rounded-full text-xs
+                  ml-2 px-2 py-0.5 rounded-full text-xs font-semibold
                   ${
                     isSelected
-                      ? 'bg-telegram-button-text-color/20 text-telegram-button-text-color'
-                      : 'bg-telegram-hint-color/20 text-telegram-hint-color'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                   }
                 `}>
                   {count}
                 </span>
               )}
-            </button>
+            </motion.button>
           );
         })}
       </div>
-
-      {/* Активный фильтр индикатор */}
-      {selectedCategory && (
-        <div className="px-4 py-2 bg-telegram-button-color/10 border-l-4 border-telegram-button-color">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-telegram-text-color">
-              Показано: <span className="font-semibold">{selectedCategory}</span>
-              {itemCounts[selectedCategory] && (
-                <span className="text-telegram-hint-color ml-1">
-                  ({itemCounts[selectedCategory]} блюд)
-                </span>
-              )}
-            </span>
-            
-            <button
-              onClick={() => handleCategoryClick(null)}
-              className="text-telegram-button-color hover:text-telegram-button-color/80
-                         transition-colors duration-200 text-sm"
-            >
-              Сбросить
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

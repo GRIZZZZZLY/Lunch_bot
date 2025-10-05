@@ -1,5 +1,5 @@
 import { Context, SessionFlavor } from 'grammy';
-import { User } from './database.types';
+import { User, Group } from './database.types';
 
 // Контекст бота с сессией
 export interface SessionData {
@@ -8,7 +8,14 @@ export interface SessionData {
   tempData?: any;
 }
 
-export type BotContext = Context & SessionFlavor<SessionData>;
+// Расширенный контекст с данными пользователя и группы из БД
+export interface BotContextExtension {
+  dbUser?: User;
+  dbGroup?: Group;
+  chatId?: string;
+}
+
+export type BotContext = Context & SessionFlavor<SessionData> & BotContextExtension;
 
 // Данные пользователя Telegram
 export interface TelegramUser {

@@ -211,6 +211,47 @@ class UserService {
     async isAdmin(telegramId) {
         return UserService.isAdmin(telegramId);
     }
+    static async updatePaymentInfo(userId, data) {
+        try {
+            const user = await client_2.prisma.user.update({
+                where: { id: userId },
+                data: {
+                    paymentCard: data.paymentCard,
+                    paymentPhone: data.paymentPhone,
+                    paymentDetails: data.paymentDetails,
+                    updatedAt: new Date(),
+                },
+            });
+            logger_1.logger.info(`Payment info updated for user: ${user.id}`);
+            return user;
+        }
+        catch (error) {
+            if (error instanceof client_1.Prisma.PrismaClientKnownRequestError) {
+                if (error.code === 'P2025') {
+                    throw new Error('User not found');
+                }
+            }
+            logger_1.logger.error('Error updating payment info:', error);
+            throw new Error('Failed to update payment info');
+        }
+    }
+    static async getPaymentInfo(userId) {
+        try {
+            const user = await client_2.prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    paymentCard: true,
+                    paymentPhone: true,
+                    paymentDetails: true,
+                },
+            });
+            return user;
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting payment info:', error);
+            throw new Error('Failed to get payment info');
+        }
+    }
 }
 exports.UserService = UserService;
 //# sourceMappingURL=user.service.js.map

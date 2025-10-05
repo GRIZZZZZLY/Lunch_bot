@@ -4,6 +4,7 @@ exports.VoteService = void 0;
 const client_1 = require("@prisma/client");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
+const vote_types_1 = require("../types/vote.types");
 class VoteService {
     static async createVote(data) {
         try {
@@ -12,6 +13,7 @@ class VoteService {
                     pollId: data.pollId,
                     userId: data.userId,
                     menuItemId: data.menuItemId,
+                    voteType: vote_types_1.VoteType.MENU_ITEM,
                 },
             });
             logger_1.logger.info(`Vote created: user ${data.userId} voted for item ${data.menuItemId} in poll ${data.pollId}`);
@@ -20,6 +22,25 @@ class VoteService {
         catch (error) {
             logger_1.logger.error('Error creating vote:', error);
             throw new Error('Failed to create vote');
+        }
+    }
+    static async createVoteWithType(data) {
+        try {
+            const vote = await client_2.prisma.vote.create({
+                data: {
+                    pollId: data.pollId,
+                    userId: data.userId,
+                    voteType: data.voteType,
+                    menuItemId: data.menuItemId,
+                    customOption: data.customOption,
+                },
+            });
+            logger_1.logger.info(`Vote created with type: user ${data.userId} voted ${data.voteType} in poll ${data.pollId}`);
+            return vote;
+        }
+        catch (error) {
+            logger_1.logger.error('Error creating vote with type:', error);
+            throw new Error('Failed to create vote with type');
         }
     }
     static async updateVote(voteId, menuItemId) {
@@ -62,6 +83,8 @@ class VoteService {
             const totalVotes = votes.length;
             const breakdown = new Map();
             votes.forEach(vote => {
+                if (!vote.menuItemId || !vote.menuItem)
+                    return;
                 const existing = breakdown.get(vote.menuItemId) || {
                     menuItemName: vote.menuItem.name,
                     votes: 0,
@@ -94,7 +117,7 @@ class VoteService {
         try {
             const poll = await client_2.prisma.poll.findUnique({
                 where: { id: data.pollId },
-                where: { status: 'ACTIVE' }, select: { id: true, status: true, endedAt: true },
+                select: { id: true, status: true, endedAt: true },
             });
             if (!poll) {
                 throw new Error('Poll not found');
@@ -114,12 +137,14 @@ class VoteService {
                 },
                 update: {
                     menuItemId: data.menuItemId,
+                    voteType: vote_types_1.VoteType.MENU_ITEM,
                     updatedAt: new Date(),
                 },
                 create: {
                     pollId: data.pollId,
                     userId: data.userId,
                     menuItemId: data.menuItemId,
+                    voteType: vote_types_1.VoteType.MENU_ITEM,
                 },
             });
             logger_1.logger.info(`Vote upserted: user ${data.userId} voted for item ${data.menuItemId} in poll ${data.pollId}`);
@@ -132,6 +157,86 @@ class VoteService {
             }
             logger_1.logger.error('Unknown error upserting vote:', error);
             throw new Error('Failed to upsert vote');
+        }
+    }
+    static async upsertVoteWithType(data) {
+        try {
+            const poll = await client_2.prisma.poll.findUnique({
+                where: { id: data.pollId },
+                select: { id: true, status: true, endedAt: true },
+            });
+            if (!poll) {
+                throw new Error('Poll not found');
+            }
+            if (poll.status !== 'ACTIVE') {
+                throw new Error('Poll is not active');
+            }
+            if (poll.endedAt && poll.endedAt < new Date()) {
+                throw new Error('Poll has expired');
+            }
+            const vote = await client_2.prisma.vote.upsert({
+                where: {
+                    pollId_userId: {
+                        pollId: data.pollId,
+                        userId: data.userId,
+                    },
+                },
+                update: {
+                    voteType: data.voteType,
+                    menuItemId: data.menuItemId,
+                    customOption: data.customOption,
+                    updatedAt: new Date(),
+                },
+                create: {
+                    pollId: data.pollId,
+                    userId: data.userId,
+                    voteType: data.voteType,
+                    menuItemId: data.menuItemId,
+                    customOption: data.customOption,
+                },
+            });
+            logger_1.logger.info(`Vote upserted with type: user ${data.userId} voted ${data.voteType} in poll ${data.pollId}`);
+            return vote;
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                logger_1.logger.error('Error upserting vote with type:', error);
+                throw error;
+            }
+            logger_1.logger.error('Unknown error upserting vote with type:', error);
+            throw new Error('Failed to upsert vote with type');
+        }
+    }
+    static async getVoteTypeStats(pollId) {
+        try {
+            const votes = await client_2.prisma.vote.findMany({
+                where: { pollId },
+                select: { voteType: true },
+            });
+            const stats = {
+                menuItemVotes: 0,
+                bringOwnVotes: 0,
+                skipVotes: 0,
+                total: votes.length,
+            };
+            votes.forEach(vote => {
+                switch (vote.voteType) {
+                    case vote_types_1.VoteType.MENU_ITEM:
+                        stats.menuItemVotes++;
+                        break;
+                    case vote_types_1.VoteType.BRING_OWN:
+                        stats.bringOwnVotes++;
+                        break;
+                    case vote_types_1.VoteType.SKIP:
+                        stats.skipVotes++;
+                        break;
+                }
+            });
+            return stats;
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting vote type stats:', error);
+            throw new Error('Failed to get vote type stats');
         }
     }
     static async getUserVoteInPoll(pollId, userId) {
@@ -157,7 +262,7 @@ class VoteService {
         try {
             const poll = await client_2.prisma.poll.findUnique({
                 where: { id: pollId },
-                where: { status: 'ACTIVE' }, select: { id: true, status: true },
+                select: { id: true, status: true },
             });
             if (!poll) {
                 throw new Error('Poll not found');
@@ -216,6 +321,8 @@ class VoteService {
             });
             const voteCount = new Map();
             votes.forEach(vote => {
+                if (!vote.menuItemId || !vote.menuItem)
+                    return;
                 const existing = voteCount.get(vote.menuItemId) || {
                     name: vote.menuItem.name,
                     count: 0
@@ -252,12 +359,14 @@ class VoteService {
                 },
                 orderBy: { createdAt: 'desc' },
             });
-            return votes.map(vote => ({
+            return votes
+                .filter(vote => vote.menuItem)
+                .map(vote => ({
                 id: vote.user.id,
                 telegramId: vote.user.telegramId,
                 firstName: vote.user.firstName,
-                lastName: vote.user.lastName,
-                username: vote.user.username,
+                lastName: vote.user.lastName || undefined,
+                username: vote.user.username || undefined,
                 votedFor: vote.menuItem.name,
                 votedAt: vote.createdAt,
             }));
@@ -303,6 +412,8 @@ class VoteService {
             const pollsParticipated = new Set(votes.map(v => v.pollId)).size;
             const menuItemCount = new Map();
             votes.forEach(vote => {
+                if (!vote.menuItem)
+                    return;
                 const name = vote.menuItem.name;
                 menuItemCount.set(name, (menuItemCount.get(name) || 0) + 1);
             });
@@ -329,15 +440,7 @@ class VoteService {
                 client_2.prisma.vote.findMany({
                     where: { userId },
                     include: {
-                        poll: {
-                            include: {
-                                group: {
-                                    select: {
-                                        title: true,
-                                    },
-                                },
-                            },
-                        },
+                        user: true,
                         menuItem: true,
                     },
                     orderBy: { createdAt: 'desc' },
@@ -346,7 +449,7 @@ class VoteService {
                 }),
                 client_2.prisma.vote.count({ where: { userId } }),
             ]);
-            return { votes: votes, total };
+            return { votes, total };
         }
         catch (error) {
             logger_1.logger.error('Error getting user votes:', error);
@@ -404,6 +507,8 @@ class VoteService {
             });
             const stats = new Map();
             votes.forEach(vote => {
+                if (!vote.menuItemId || !vote.menuItem)
+                    return;
                 const existing = stats.get(vote.menuItemId) || {
                     name: vote.menuItem.name,
                     votes: 0,
@@ -426,6 +531,82 @@ class VoteService {
         catch (error) {
             logger_1.logger.error('Error getting top menu items by votes:', error);
             throw new Error('Failed to get top menu items by votes');
+        }
+    }
+    static async getVoters(pollId) {
+        try {
+            const votes = await client_2.prisma.vote.findMany({
+                where: { pollId },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            username: true,
+                        },
+                    },
+                    menuItem: {
+                        select: {
+                            name: true,
+                        },
+                    },
+                },
+            });
+            return votes
+                .filter(vote => vote.menuItem)
+                .map(vote => ({
+                userId: vote.user.id,
+                userName: vote.user.firstName + (vote.user.lastName ? ` ${vote.user.lastName}` : ''),
+                menuItemName: vote.menuItem.name,
+            }));
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting voters:', error);
+            throw new Error('Failed to get voters');
+        }
+    }
+    static async getMostPopularMenuItem(pollId) {
+        try {
+            const votes = await client_2.prisma.vote.findMany({
+                where: { pollId },
+                include: {
+                    menuItem: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                },
+            });
+            if (votes.length === 0) {
+                return null;
+            }
+            const voteCount = new Map();
+            votes.forEach(vote => {
+                if (!vote.menuItemId || !vote.menuItem)
+                    return;
+                const existing = voteCount.get(vote.menuItemId) || { name: vote.menuItem.name, count: 0 };
+                existing.count++;
+                voteCount.set(vote.menuItemId, existing);
+            });
+            let maxVotes = 0;
+            let mostPopular = null;
+            voteCount.forEach((data, menuItemId) => {
+                if (data.count > maxVotes) {
+                    maxVotes = data.count;
+                    mostPopular = {
+                        menuItemId,
+                        menuItemName: data.name,
+                        votes: data.count,
+                    };
+                }
+            });
+            return mostPopular;
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting most popular menu item:', error);
+            throw new Error('Failed to get most popular menu item');
         }
     }
 }

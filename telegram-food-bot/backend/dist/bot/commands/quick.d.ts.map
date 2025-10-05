@@ -1,0 +1,1 @@
+{"version":3,"file":"quick.d.ts","sourceRoot":"","sources":["../../../src/bot/commands/quick.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,cAAc,EAAE,MAAM,QAAQ,CAAC;AACxC,OAAO,EAAE,UAAU,EAAE,MAAM,uBAAuB,CAAC;AAYnD,wBAAsB,gBAAgB,CAAC,GAAG,EAAE,cAAc,CAAC,UAAU,CAAC,GAAG,OAAO,CAAC,IAAI,CAAC,CAgErF;AAMD,wBAAsB,cAAc,CAAC,GAAG,EAAE,cAAc,CAAC,UAAU,CAAC,GAAG,OAAO,CAAC,IAAI,CAAC,CAqEnF"}

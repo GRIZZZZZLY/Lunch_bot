@@ -120,13 +120,25 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     }
   };
 
+  // Блокируем скролл body когда BottomSheet открыт
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const translateY = isDragging ? 
     Math.max(0, currentY - startY) : 0;
 
   const sheetContent = (
-    <div className="fixed inset-0 z-50 flex items-end animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-end animate-fade-in overflow-hidden">
       {/* Backdrop */}
       {enableBackdrop && (
         <div
@@ -138,7 +150,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className={`relative w-full bg-telegram-secondary-bg-color rounded-t-3xl shadow-2xl transition-all duration-300 ${className}`}
+        className={`relative w-full bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl transition-all duration-300 ${className}`}
         style={{
           height: `${currentHeight}%`,
           transform: `translateY(${translateY}px)`,
@@ -150,14 +162,14 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         {/* Handle */}
         {showHandle && (
           <div className="flex justify-center pt-3 pb-2">
-            <div className="w-12 h-1 bg-telegram-hint-color/30 rounded-full" />
+            <div className="w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
           </div>
         )}
 
         {/* Header */}
         {title && (
-          <div className="px-6 py-4 border-b border-telegram-hint-color/10">
-            <h3 className="text-xl font-semibold text-telegram-text-color text-center">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white text-center">
               {title}
             </h3>
           </div>

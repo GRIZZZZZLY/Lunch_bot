@@ -4,6 +4,7 @@ import { logger } from './utils/logger';
 import { botConfig } from './config/bot.config';
 import { createBot, startPolling, setupWebhook, stopBot } from './bot/bot';
 import { createApiServer, startApiServer } from './api/server';
+import { initializePollServiceBot } from './services/poll.service.extensions';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -11,6 +12,9 @@ dotenv.config();
 // Инициализация
 const bot = createBot();
 const app = createApiServer();
+
+// Инициализация PollService с экземпляром бота
+initializePollServiceBot(bot);
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
@@ -50,6 +54,9 @@ async function startApplication(): Promise<void> {
     }
     
     // Запуск бота
+    // Запуск API сервера СНАЧАЛА
+    startApiServer(app);
+    
     if (process.env.NODE_ENV === 'production' && botConfig.webhookUrl) {
       // Production: webhook режим
       await setupWebhook(bot, botConfig.webhookUrl);
@@ -65,12 +72,9 @@ async function startApplication(): Promise<void> {
         }
       });
     } else {
-      // Development: polling режим
-      await startPolling(bot);
+      // Development: polling режим (запускаем БЕЗ await)
+      startPolling(bot);
     }
-    
-    // Запуск API сервера
-    startApiServer(app);
     
     logger.info('✅ Приложение успешно запущено');
     

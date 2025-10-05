@@ -15,6 +15,7 @@ const logger_1 = require("../utils/logger");
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const menu_routes_1 = __importDefault(require("./routes/menu.routes"));
 const poll_routes_1 = __importDefault(require("./routes/poll.routes"));
+const user_routes_1 = __importDefault(require("./routes/user.routes"));
 function createApiServer() {
     const app = (0, express_1.default)();
     app.use((0, helmet_1.default)({
@@ -40,6 +41,7 @@ function createApiServer() {
     app.use('/api/auth', auth_routes_1.default);
     app.use('/api/menu', menu_routes_1.default);
     app.use('/api/polls', poll_routes_1.default);
+    app.use('/api/user', user_routes_1.default);
     app.use('/api/stats', (req, res) => {
         res.json({
             success: false,

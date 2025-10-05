@@ -1,8 +1,10 @@
 import { User, Group, MenuItem, Poll, Vote, PollResult } from '@prisma/client';
-import { PollStatus } from '@prisma/client';
 
 // Основные типы из Prisma
-export type { User, Group, MenuItem, Poll, Vote, PollResult, PollStatus };
+export type { User, Group, MenuItem, Poll, Vote, PollResult };
+
+// Poll статусы (string literals вместо enum)
+export type PollStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 
 // Типы с связанными данными
 export type UserWithRelations = User & {

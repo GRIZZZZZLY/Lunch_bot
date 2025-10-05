@@ -15,6 +15,8 @@ export declare class GroupService {
         duration: number;
         startedAt: Date;
         endedAt: Date | null;
+        messageId: number | null;
+        chatId: bigint | null;
     } | null>;
     static getAllGroups(limit?: number, offset?: number): Promise<{
         groups: Group[];

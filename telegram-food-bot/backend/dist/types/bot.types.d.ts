@@ -1,11 +1,16 @@
 import { Context, SessionFlavor } from 'grammy';
-import { User } from './database.types';
+import { User, Group } from './database.types';
 export interface SessionData {
     user?: User;
     step?: string;
     tempData?: any;
 }
-export type BotContext = Context & SessionFlavor<SessionData>;
+export interface BotContextExtension {
+    dbUser?: User;
+    dbGroup?: Group;
+    chatId?: string;
+}
+export type BotContext = Context & SessionFlavor<SessionData> & BotContextExtension;
 export interface TelegramUser {
     id: number;
     is_bot: boolean;
