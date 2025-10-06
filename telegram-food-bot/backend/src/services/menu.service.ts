@@ -132,6 +132,9 @@ export class MenuService {
         cleanedResults: menuItem._count.pollResults,
       });
     } catch (error) {
+      if (error instanceof Error && error.message === 'Menu item not found') {
+        throw error;
+      }
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           throw new Error('Menu item not found');
@@ -180,6 +183,7 @@ export class MenuService {
               category: true,
               imageUrl: true,
               isActive: true,
+              createdBy: true,
               createdAt: true,
               updatedAt: true,
             },
@@ -215,6 +219,9 @@ export class MenuService {
               category: true,
               imageUrl: true,
               isActive: true,
+              createdBy: true,
+              createdAt: true,
+              updatedAt: true,
             },
             orderBy: { name: 'asc' },
           });
@@ -286,6 +293,9 @@ export class MenuService {
       logger.info(`Menu item status toggled: ${id} -> ${menuItem.isActive}`);
       return menuItem;
     } catch (error) {
+      if (error instanceof Error && error.message === 'Menu item not found') {
+        throw error;
+      }
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           throw new Error('Menu item not found');
