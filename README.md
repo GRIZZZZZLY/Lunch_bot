@@ -2,6 +2,9 @@
 
 > Telegram бот для организации голосований за еду с современным Mini App интерфейсом
 
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github-actions&logoColor=white)](https://github.com/YOUR_USERNAME/telegram-food-bot/actions)
+[![Tests](https://img.shields.io/badge/tests-77%20passing-brightgreen)](https://github.com/YOUR_USERNAME/telegram-food-bot)
+[![Coverage](https://img.shields.io/badge/coverage-85%25-green)](.github/CI_CD_GUIDE.md)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB)](https://reactjs.org/)
