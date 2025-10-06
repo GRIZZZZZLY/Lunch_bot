@@ -36,7 +36,16 @@ const server = http.createServer((req, res) => {
   console.log(`${req.method} ${url}`);
   
   // API запросы идут на backend
-  if (url.startsWith('/api') || url.startsWith('/webhook') || url.startsWith('/health')) {
+  if (url.startsWith('/api')) {
+    // Удаляем префикс /api перед проксированием
+    req.url = url.replace(/^\/api/, '');
+    proxy.web(req, res, {
+      target: `http://localhost:${BACKEND_PORT}`,
+      changeOrigin: true
+    });
+  }
+  // Webhook и health напрямую (без префикса /api)
+  else if (url.startsWith('/webhook') || url.startsWith('/health')) {
     proxy.web(req, res, {
       target: `http://localhost:${BACKEND_PORT}`,
       changeOrigin: true

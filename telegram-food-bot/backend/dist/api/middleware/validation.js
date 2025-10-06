@@ -11,10 +11,10 @@ const zod_1 = require("zod");
 const logger_1 = require("../../utils/logger");
 const createMenuItemSchema = zod_1.z.object({
     name: zod_1.z.string().min(1, 'Name is required').max(100, 'Name too long'),
-    description: zod_1.z.string().max(500, 'Description too long').optional(),
+    description: zod_1.z.string().max(500, 'Description too long').optional().or(zod_1.z.literal('')),
     price: zod_1.z.number().min(0, 'Price cannot be negative').optional(),
-    category: zod_1.z.string().max(50, 'Category name too long').optional(),
-    imageUrl: zod_1.z.string().url('Invalid image URL').optional(),
+    category: zod_1.z.string().max(50, 'Category name too long').optional().or(zod_1.z.literal('')),
+    imageUrl: zod_1.z.string().url('Invalid image URL').optional().or(zod_1.z.literal('')),
     isActive: zod_1.z.boolean().optional(),
 });
 const updateMenuItemSchema = createMenuItemSchema.partial();

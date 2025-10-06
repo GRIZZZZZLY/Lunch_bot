@@ -88,7 +88,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       }}
     >
       {/* Основной контент */}
-      <main className="container mx-auto px-4 py-4 max-w-2xl relative z-0">
+      <main 
+        className="container mx-auto px-4 py-4 max-w-2xl relative z-0"
+        style={{ overscrollBehavior: 'contain' }}
+      >
         {children}
       </main>
 

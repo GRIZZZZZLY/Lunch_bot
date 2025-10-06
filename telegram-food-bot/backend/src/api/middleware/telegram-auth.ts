@@ -12,6 +12,33 @@ export async function telegramAuthMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
+    // В development режиме с SKIP_TELEGRAM_VALIDATION - пропускаем проверку
+    if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      const testUserId = process.env.TEST_USER_ID || '123456789';
+      const dbUser = await UserService.getUserByTelegramId(BigInt(testUserId));
+      
+      if (!dbUser) {
+        // Создаём тестового пользователя если его нет
+        const newUser = await UserService.createUser({
+          telegramId: BigInt(testUserId),
+          username: 'dev_user',
+          firstName: 'Dev',
+          lastName: 'User',
+        });
+        (req as any).user = newUser;
+      } else {
+        (req as any).user = dbUser;
+      }
+      
+      logger.info('✅ telegramAuthMiddleware: SKIP mode - test user', {
+        userId: (req as any).user.id,
+        telegramId: testUserId
+      });
+      
+      next();
+      return;
+    }
+    
     // Получаем токен из заголовка Authorization
     const authHeader = req.headers.authorization;
     
@@ -134,6 +161,21 @@ export async function validateInitDataMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
+    // В development режиме с SKIP_TELEGRAM_VALIDATION - пропускаем проверку
+    if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      const testUserId = process.env.TEST_USER_ID || '123456789';
+      (req as any).telegramUser = {
+        id: Number(testUserId),
+        first_name: 'Dev',
+        last_name: 'User',
+        username: 'dev_user',
+      };
+      
+      logger.info('✅ validateInitDataMiddleware: SKIP mode - test user');
+      next();
+      return;
+    }
+    
     const { initData } = req.body;
 
     if (!initData) {

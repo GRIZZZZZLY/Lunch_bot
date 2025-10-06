@@ -46,6 +46,7 @@ exports.botConfig = {
         url: process.env.VITE_APP_URL || 'https://your-domain.com/miniapp',
         shortName: process.env.MINI_APP_SHORT_NAME || 'foodbot',
     },
+    webappUrl: process.env.WEBAPP_URL || 'http://localhost:5173',
     features: {
         enablePolls: process.env.ENABLE_POLLS !== 'false',
         enableRoulette: process.env.ENABLE_ROULETTE !== 'false',

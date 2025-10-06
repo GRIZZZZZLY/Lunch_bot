@@ -14,6 +14,7 @@ import { useAppStore } from './store/useAppStore';
 import { WebVitals, PerformanceMonitor } from './components/performance/WebVitals';
 import { OfflineBanner } from './components/common/OfflineBanner';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
+import { DebugLogger } from './components/DebugLogger';
 
 // Lazy load страниц для Code Splitting
 const HomePage = lazy(() => import('./pages/HomePage').then(module => ({ default: module.HomePage })));
@@ -154,9 +155,11 @@ function App() {
           <InstallPrompt />
           <WebVitals />
           <PerformanceMonitor />
+          <DebugLogger />
           <AppContent />
         </BrowserRouter>
-        <ReactQueryDevtools initialIsOpen={false} />
+        {/* React Query Devtools - отключены для production */}
+        {import.meta.env.DEV && false && <ReactQueryDevtools initialIsOpen={false} />}
       </ToastProvider>
     </QueryClientProvider>
   );

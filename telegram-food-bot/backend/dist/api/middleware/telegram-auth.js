@@ -9,6 +9,28 @@ const telegram_auth_1 = require("../../utils/telegram-auth");
 const logger_1 = require("../../utils/logger");
 async function telegramAuthMiddleware(req, res, next) {
     try {
+        if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+            const testUserId = process.env.TEST_USER_ID || '123456789';
+            const dbUser = await user_service_1.UserService.getUserByTelegramId(BigInt(testUserId));
+            if (!dbUser) {
+                const newUser = await user_service_1.UserService.createUser({
+                    telegramId: BigInt(testUserId),
+                    username: 'dev_user',
+                    firstName: 'Dev',
+                    lastName: 'User',
+                });
+                req.user = newUser;
+            }
+            else {
+                req.user = dbUser;
+            }
+            logger_1.logger.info('✅ telegramAuthMiddleware: SKIP mode - test user', {
+                userId: req.user.id,
+                telegramId: testUserId
+            });
+            next();
+            return;
+        }
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             res.status(401).json({
@@ -98,6 +120,18 @@ async function adminMiddleware(req, res, next) {
 }
 async function validateInitDataMiddleware(req, res, next) {
     try {
+        if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+            const testUserId = process.env.TEST_USER_ID || '123456789';
+            req.telegramUser = {
+                id: Number(testUserId),
+                first_name: 'Dev',
+                last_name: 'User',
+                username: 'dev_user',
+            };
+            logger_1.logger.info('✅ validateInitDataMiddleware: SKIP mode - test user');
+            next();
+            return;
+        }
         const { initData } = req.body;
         if (!initData) {
             res.status(400).json({

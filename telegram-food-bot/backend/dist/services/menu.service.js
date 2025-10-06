@@ -4,6 +4,7 @@ exports.MenuService = void 0;
 const client_1 = require("@prisma/client");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
+const cache_service_1 = require("./cache.service");
 class MenuService {
     static async createMenuItem(data) {
         try {
@@ -18,6 +19,7 @@ class MenuService {
                     createdBy: data.createdBy,
                 },
             });
+            cache_service_1.CacheInvalidator.invalidateMenu();
             logger_1.logger.info(`Menu item created: ${menuItem.id} (${menuItem.name})`);
             return menuItem;
         }
@@ -46,6 +48,7 @@ class MenuService {
                     updatedAt: new Date(),
                 },
             });
+            cache_service_1.CacheInvalidator.invalidateMenu();
             logger_1.logger.info(`Menu item updated: ${menuItem.id} (${menuItem.name})`);
             return menuItem;
         }
@@ -61,15 +64,50 @@ class MenuService {
     }
     static async deleteMenuItem(id) {
         try {
+            const menuItem = await client_2.prisma.menuItem.findUnique({
+                where: { id },
+                include: {
+                    _count: {
+                        select: {
+                            votes: true,
+                            pollResults: true,
+                        },
+                    },
+                },
+            });
+            if (!menuItem) {
+                throw new Error('Menu item not found');
+            }
+            if (menuItem._count.votes > 0 || menuItem._count.pollResults > 0) {
+                logger_1.logger.info(`Menu item ${id} has related data, cleaning up...`, {
+                    votes: menuItem._count.votes,
+                    pollResults: menuItem._count.pollResults,
+                });
+                await client_2.prisma.vote.updateMany({
+                    where: { menuItemId: id },
+                    data: { menuItemId: null },
+                });
+                await client_2.prisma.pollResult.updateMany({
+                    where: { winnerMenuItemId: id },
+                    data: { winnerMenuItemId: null },
+                });
+            }
             await client_2.prisma.menuItem.delete({
                 where: { id },
             });
-            logger_1.logger.info(`Menu item deleted: ${id}`);
+            cache_service_1.CacheInvalidator.invalidateMenu();
+            logger_1.logger.info(`Menu item deleted: ${id}`, {
+                cleanedVotes: menuItem._count.votes,
+                cleanedResults: menuItem._count.pollResults,
+            });
         }
         catch (error) {
             if (error instanceof client_1.Prisma.PrismaClientKnownRequestError) {
                 if (error.code === 'P2025') {
                     throw new Error('Menu item not found');
+                }
+                if (error.code === 'P2003') {
+                    throw new Error('Cannot delete menu item: it is referenced by other records');
                 }
             }
             logger_1.logger.error('Error deleting menu item:', error);
@@ -92,10 +130,23 @@ class MenuService {
     }
     static async getActiveMenuItems() {
         try {
-            return await client_2.prisma.menuItem.findMany({
-                where: { isActive: true },
-                orderBy: { name: 'asc' },
-            });
+            return await cache_service_1.cacheService.getOrSet(cache_service_1.CACHE_KEYS.MENU_ITEMS_ACTIVE, async () => {
+                return await client_2.prisma.menuItem.findMany({
+                    where: { isActive: true },
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        price: true,
+                        category: true,
+                        imageUrl: true,
+                        isActive: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                    orderBy: { name: 'asc' },
+                });
+            }, cache_service_1.CACHE_TTL.MENU);
         }
         catch (error) {
             logger_1.logger.error('Error getting active menu items:', error);
@@ -104,13 +155,24 @@ class MenuService {
     }
     static async getMenuItemsByCategory(category) {
         try {
-            return await client_2.prisma.menuItem.findMany({
-                where: {
-                    category,
-                    isActive: true,
-                },
-                orderBy: { name: 'asc' },
-            });
+            return await cache_service_1.cacheService.getOrSet(cache_service_1.CACHE_KEYS.MENU_ITEMS_BY_CATEGORY(category), async () => {
+                return await client_2.prisma.menuItem.findMany({
+                    where: {
+                        category,
+                        isActive: true,
+                    },
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        price: true,
+                        category: true,
+                        imageUrl: true,
+                        isActive: true,
+                    },
+                    orderBy: { name: 'asc' },
+                });
+            }, cache_service_1.CACHE_TTL.MENU);
         }
         catch (error) {
             logger_1.logger.error('Error getting menu items by category:', error);
@@ -159,6 +221,7 @@ class MenuService {
                     updatedAt: new Date(),
                 },
             });
+            cache_service_1.CacheInvalidator.invalidateMenu();
             logger_1.logger.info(`Menu item status toggled: ${id} -> ${menuItem.isActive}`);
             return menuItem;
         }
@@ -204,18 +267,20 @@ class MenuService {
     }
     static async getCategories() {
         try {
-            const categories = await client_2.prisma.menuItem.findMany({
-                where: {
-                    category: { not: null },
-                    isActive: true,
-                },
-                select: { category: true },
-                distinct: ['category'],
-            });
-            return categories
-                .map(item => item.category)
-                .filter(Boolean)
-                .sort();
+            return await cache_service_1.cacheService.getOrSet('menu_categories', async () => {
+                const categories = await client_2.prisma.menuItem.findMany({
+                    where: {
+                        category: { not: null },
+                        isActive: true,
+                    },
+                    select: { category: true },
+                    distinct: ['category'],
+                });
+                return categories
+                    .map(item => item.category)
+                    .filter(Boolean)
+                    .sort();
+            }, cache_service_1.CACHE_TTL.MENU);
         }
         catch (error) {
             logger_1.logger.error('Error getting categories:', error);
@@ -267,6 +332,7 @@ class MenuService {
                     updatedAt: new Date(),
                 },
             });
+            cache_service_1.CacheInvalidator.invalidateMenu();
             logger_1.logger.info(`Bulk updated ${result.count} menu items status to ${isActive}`);
             return result.count;
         }

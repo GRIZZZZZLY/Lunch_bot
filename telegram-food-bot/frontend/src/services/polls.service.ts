@@ -128,7 +128,19 @@ class PollsService {
    * Получение активного голосования в группе
    */
   async getActivePollInGroup(groupId: number): Promise<ApiResponse<PollWithDetails | null>> {
-    return await apiService.get<PollWithDetails | null>(`/polls/active/${groupId}`);
+    console.log(`📡 [PollsService] Checking active poll for group ${groupId}`);
+    try {
+      const response = await apiService.get<PollWithDetails | null>(`/polls/active/${groupId}`);
+      console.log('📥 [PollsService] Active poll response:', JSON.stringify({
+        success: response.success,
+        hasData: !!response.data,
+        pollId: response.data?.id
+      }, null, 2));
+      return response;
+    } catch (error: any) {
+      console.error('❌ [PollsService] Get active poll error:', error);
+      throw error;
+    }
   }
 
   /**
@@ -146,7 +158,25 @@ class PollsService {
     duration: number;
     menuItemsCount: number;
   }>> {
-    return await apiService.post<any>('/polls/create-from-webapp', data);
+    console.log('📤 [PollsService] Creating poll from WebApp:', JSON.stringify(data, null, 2));
+    try {
+      const response = await apiService.post<any>('/polls/create-from-webapp', data);
+      console.log('📥 [PollsService] Create poll response:', JSON.stringify({
+        success: response.success,
+        hasData: !!response.data,
+        error: response.error,
+        code: response.code
+      }, null, 2));
+      return response;
+    } catch (error: any) {
+      console.error('❌ [PollsService] Create poll error:', JSON.stringify({
+        success: error.success,
+        error: error.error,
+        code: error.code,
+        status: error.status
+      }, null, 2));
+      throw error;
+    }
   }
 
   /**

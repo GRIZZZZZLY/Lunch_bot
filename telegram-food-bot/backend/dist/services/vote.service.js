@@ -62,50 +62,67 @@ class VoteService {
     }
     static async getVoteBreakdown(pollId) {
         try {
-            const votes = await client_2.prisma.vote.findMany({
-                where: { pollId },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            username: true,
-                        },
-                    },
-                    menuItem: {
-                        select: {
-                            id: true,
-                            name: true,
-                        },
-                    },
+            const voteGroups = await client_2.prisma.vote.groupBy({
+                by: ['menuItemId'],
+                where: {
+                    pollId,
+                    menuItemId: { not: null },
+                },
+                _count: {
+                    menuItemId: true,
                 },
             });
-            const totalVotes = votes.length;
-            const breakdown = new Map();
-            votes.forEach(vote => {
-                if (!vote.menuItemId || !vote.menuItem)
+            const totalVotes = voteGroups.reduce((sum, g) => sum + g._count.menuItemId, 0);
+            if (voteGroups.length === 0) {
+                return [];
+            }
+            const menuItemIds = voteGroups.map(g => g.menuItemId);
+            const [menuItems, voters] = await Promise.all([
+                client_2.prisma.menuItem.findMany({
+                    where: { id: { in: menuItemIds } },
+                    select: { id: true, name: true },
+                }),
+                client_2.prisma.vote.findMany({
+                    where: {
+                        pollId,
+                        menuItemId: { in: menuItemIds },
+                    },
+                    select: {
+                        menuItemId: true,
+                        user: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                username: true,
+                            },
+                        },
+                    },
+                }),
+            ]);
+            const votersByMenuItem = new Map();
+            voters.forEach(vote => {
+                if (!vote.menuItemId)
                     return;
-                const existing = breakdown.get(vote.menuItemId) || {
-                    menuItemName: vote.menuItem.name,
-                    votes: 0,
-                    voters: [],
-                };
-                existing.votes++;
-                existing.voters.push({
+                const list = votersByMenuItem.get(vote.menuItemId) || [];
+                list.push({
                     id: vote.user.id,
                     firstName: vote.user.firstName,
                     username: vote.user.username || undefined,
                 });
-                breakdown.set(vote.menuItemId, existing);
+                votersByMenuItem.set(vote.menuItemId, list);
             });
-            return Array.from(breakdown.entries())
-                .map(([menuItemId, data]) => ({
-                menuItemId,
-                menuItemName: data.menuItemName,
-                votes: data.votes,
-                percentage: totalVotes > 0 ? Math.round((data.votes / totalVotes) * 100) : 0,
-                voters: data.voters,
-            }))
+            return voteGroups
+                .map(group => {
+                const menuItem = menuItems.find(mi => mi.id === group.menuItemId);
+                const voters = votersByMenuItem.get(group.menuItemId) || [];
+                return {
+                    menuItemId: group.menuItemId,
+                    menuItemName: menuItem?.name || 'Unknown',
+                    votes: group._count.menuItemId,
+                    percentage: totalVotes > 0 ? Math.round((group._count.menuItemId / totalVotes) * 100) : 0,
+                    voters,
+                };
+            })
                 .sort((a, b) => b.votes - a.votes);
         }
         catch (error) {

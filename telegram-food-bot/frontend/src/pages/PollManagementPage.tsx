@@ -45,11 +45,18 @@ export const PollManagementPage: React.FC = () => {
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [existingPoll, setExistingPoll] = useState<any>(null);
 
   // Загрузка меню и групп
   useEffect(() => {
-    loadMenuItems();
-    loadGroups();
+    console.log('🚀 [PollManagementPage] Initializing...');
+    const initData = async () => {
+      console.log('🔄 Loading menu items and groups...');
+      await loadMenuItems();
+      await loadGroups();
+      console.log('✅ Initialization complete');
+    };
+    initData();
   }, []);
 
   // Настройка Telegram кнопок
@@ -69,7 +76,25 @@ export const PollManagementPage: React.FC = () => {
       mainButton.hide();
       backButton.hide();
     };
-  }, [selectedGroupId, selectedItems, duration, title]);
+  }, [selectedGroupId, selectedItems, duration, title, existingPoll]); // Добавили existingPoll
+
+  // Проверяем активное голосование при смене группы
+  const checkExistingPoll = async (groupId: number) => {
+    try {
+      console.log(`🔍 Checking active poll for group ${groupId}...`);
+      const response = await pollsService.getActivePollInGroup(groupId);
+      if (response.success && response.data) {
+        console.log('⚠️ Active poll found:', response.data);
+        setExistingPoll(response.data);
+      } else {
+        console.log('✅ No active poll - can create new one');
+        setExistingPoll(null);
+      }
+    } catch (error) {
+      console.error('❌ Error checking existing poll:', error);
+      setExistingPoll(null);
+    }
+  };
 
   const loadMenuItems = async () => {
     try {
@@ -94,17 +119,26 @@ export const PollManagementPage: React.FC = () => {
 
   const loadGroups = async () => {
     try {
+      console.log('📋 Loading groups...');
       const response = await userService.getUserGroups();
       
       if (response.success && response.data) {
+        console.log(`✅ Groups loaded: ${response.data.length} groups`);
         setGroups(response.data);
         // Выбираем первую группу по умолчанию
         if (response.data.length > 0 && !selectedGroupId) {
-          setSelectedGroupId(response.data[0].id);
+          const firstGroupId = response.data[0].id;
+          console.log(`🎯 Setting first group as default: ${firstGroupId}`);
+          setSelectedGroupId(firstGroupId);
+          // Сразу проверяем активное голосование
+          console.log(`🔄 Calling checkExistingPoll for group ${firstGroupId}...`);
+          await checkExistingPoll(firstGroupId);
+        } else {
+          console.log(`⚠️ Skip default group selection (selectedGroupId: ${selectedGroupId}, groups: ${response.data.length})`);
         }
       }
     } catch (error) {
-      console.error('Error loading groups:', error);
+      console.error('❌ Error loading groups:', error);
       addNotification({
         type: 'error',
         message: 'Ошибка загрузки групп',
@@ -112,8 +146,20 @@ export const PollManagementPage: React.FC = () => {
     }
   };
 
+  // Загружаем активное голосование при смене группы
+  useEffect(() => {
+    console.log(`⚡ useEffect triggered, selectedGroupId: ${selectedGroupId}`);
+    if (selectedGroupId) {
+      console.log(`🔄 Calling checkExistingPoll from useEffect for group ${selectedGroupId}...`);
+      checkExistingPoll(selectedGroupId);
+    } else {
+      console.log('⚠️ selectedGroupId is null, skipping checkExistingPoll');
+    }
+  }, [selectedGroupId]);
+
   const canCreatePoll = (): boolean => {
     return (
+      !existingPoll && // Нет активного голосования
       selectedItems.size >= 2 &&
       duration >= 1 &&
       duration <= 1440 &&
@@ -165,19 +211,34 @@ export const PollManagementPage: React.FC = () => {
         throw new Error(response.error || 'Failed to create poll');
       }
     } catch (error: any) {
-      console.error('Error creating poll:', error);
+      console.error('❌ Error creating poll:', JSON.stringify({
+        success: error.success,
+        error: error.error,
+        code: error.code,
+        status: error.status
+      }, null, 2));
       
       let errorMessage = 'Ошибка создания голосования';
-      if (error.message?.includes('already has an active poll')) {
-        errorMessage = 'В этой группе уже есть активное голосование';
-      } else if (error.message?.includes('Not enough items')) {
-        errorMessage = 'Выберите минимум 2 блюда';
+      
+      // Проверяем код ошибки
+      if (error.code === 'POLL_ALREADY_ACTIVE' || error.error?.includes('already has an active poll')) {
+        errorMessage = '⏰ В этой группе уже есть активное голосование. Дождитесь его завершения или завершите вручную.';
+      } else if (error.code === 'NOT_ENOUGH_ITEMS' || error.error?.includes('Not enough items')) {
+        errorMessage = 'Выберите минимум 2 блюда для голосования';
+      } else if (error.error) {
+        // Показываем текст ошибки от сервера
+        errorMessage = error.error;
       }
       
       addNotification({
         type: 'error',
         message: errorMessage,
       });
+      
+      // Обновляем проверку активного голосования
+      if (selectedGroupId && error.code === 'POLL_ALREADY_ACTIVE') {
+        checkExistingPoll(selectedGroupId);
+      }
     } finally {
       setCreating(false);
     }
@@ -248,6 +309,37 @@ export const PollManagementPage: React.FC = () => {
       </motion.div>
 
       <div className="space-y-6">
+
+        {/* Предупреждение об активном голосовании */}
+        {existingPoll && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-500 p-4 rounded-lg"
+          >
+            <div className="flex items-start gap-3">
+              <AlertCircle className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" size={20} />
+              <div className="flex-1">
+                <h3 className="font-semibold text-yellow-800 dark:text-yellow-300 mb-1">
+                  ⏰ Активное голосование
+                </h3>
+                <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-2">
+                  В выбранной группе уже идет голосование. Дождитесь его завершения или завершите вручную через страницу голосования.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/vote/${existingPoll.id}`)}
+                    className="border-yellow-400 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
+                  >
+                    Перейти к голосованию →
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Основные настройки */}
         <motion.div

@@ -72,8 +72,17 @@ export const useAuth = (): UseAuthReturn => {
     if (isReady && hasValidInitData && tgUser) {
       console.log('[useAuth] Using normal authentication with initData');
       login();
-    } else if (isReady && !hasValidInitData) {
-      console.warn('[useAuth] No valid initData - attempting fallback authentication');
+    } else if (isReady) {
+      if (!hasValidInitData) {
+        console.warn('[useAuth] No valid initData - attempting fallback authentication');
+        console.log('[useAuth] Environment:', {
+          isSafari: /^((?!chrome|android).)*safari/i.test(navigator.userAgent),
+          hasWindow: typeof window !== 'undefined',
+          hasTelegram: !!window.Telegram,
+          hasTelegramWebApp: !!(window.Telegram?.WebApp),
+          userAgent: navigator.userAgent.substring(0, 100)
+        });
+      }
       loginWithFallback();
     }
   }, [isReady, initData, tgUser]);
@@ -150,10 +159,24 @@ export const useAuth = (): UseAuthReturn => {
       setIsLoading(true);
       setError(null);
 
+      console.log('[useAuth] 🔄 Attempting fallback authentication...');
+      console.log('[useAuth] Current state:', {
+        hasInitData: !!initData,
+        initDataLength: initData?.length || 0,
+        hasTelegramSDK: !!(window.Telegram?.WebApp),
+        location: window.location.href
+      });
+      
       // Пытаемся получить данные из Telegram WebApp напрямую
       const tg = window.Telegram?.WebApp as any;
       if (tg && tg.initDataUnsafe?.user) {
         const tgUser = tg.initDataUnsafe.user;
+        
+        console.log('[useAuth] ✅ Found Telegram user data:', {
+          id: tgUser.id,
+          username: tgUser.username,
+          firstName: tgUser.first_name
+        });
         
         // Создаем пользователя из данных Telegram
         const fallbackUser: User = {
@@ -168,14 +191,40 @@ export const useAuth = (): UseAuthReturn => {
         };
 
         setUser(fallbackUser);
-        console.log('[useAuth] Fallback authentication successful');
+        console.log('[useAuth] ✅ Fallback authentication successful with Telegram data');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Если нет Telegram данных - пробуем авторизоваться без них
+      console.log('[useAuth] ⚠️ No Telegram SDK data - trying backend authentication without initData');
+      console.log('[useAuth] API URL:', import.meta.env.VITE_API_URL);
+      
+      const response = await authService.validateInitData('');
+      
+      console.log('[useAuth] Backend response:', {
+        success: response.success,
+        hasUser: !!response.user,
+        hasToken: !!response.token,
+        error: response.error
+      });
+      
+      if (response.success && response.user) {
+        setUser(response.user);
+        authService.setToken(response.token);
+        console.log('[useAuth] ✅ Fallback authentication successful without Telegram data');
+        console.log('[useAuth] User:', response.user);
       } else {
-        throw new Error('No Telegram data available');
+        throw new Error(response.error || 'Authentication failed');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Fallback authentication failed';
       setError(errorMessage);
-      console.error('[useAuth] Fallback auth error:', err);
+      console.error('[useAuth] ❌ Fallback auth error:', err);
+      console.error('[useAuth] Error details:', {
+        message: errorMessage,
+        stack: err instanceof Error ? err.stack : undefined
+      });
     } finally {
       setIsLoading(false);
     }
@@ -183,6 +232,7 @@ export const useAuth = (): UseAuthReturn => {
 
   const login = async () => {
     if (!initData) {
+      console.error('[useAuth] ❌ Login failed: No initData');
       setError('No init data available');
       setIsLoading(false);
       return;
@@ -192,7 +242,18 @@ export const useAuth = (): UseAuthReturn => {
       setIsLoading(true);
       setError(null);
 
+      console.log('[useAuth] 🔄 Starting login with initData...');
+      console.log('[useAuth] InitData length:', initData.length);
+      console.log('[useAuth] API URL:', import.meta.env.VITE_API_URL);
+      
       const response = await authService.validateInitData(initData);
+      
+      console.log('[useAuth] 📡 Server response received:', {
+        success: response.success,
+        hasUser: !!response.user,
+        hasToken: !!response.token,
+        error: response.error
+      });
       
       if (response.success) {
         setUser(response.user);
@@ -201,13 +262,22 @@ export const useAuth = (): UseAuthReturn => {
         if (response.token) {
           authService.setToken(response.token);
         }
+        
+        console.log('[useAuth] ✅ Login successful', { 
+          userId: response.user.id,
+          username: response.user.username 
+        });
       } else {
         throw new Error(response.error || 'Authentication failed');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
-      console.error('Auth error:', err);
+      console.error('[useAuth] ❌ Login error:', err);
+      console.error('[useAuth] Error details:', {
+        message: errorMessage,
+        type: err instanceof Error ? err.constructor.name : typeof err
+      });
     } finally {
       setIsLoading(false);
     }
