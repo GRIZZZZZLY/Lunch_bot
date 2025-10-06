@@ -7,7 +7,8 @@ exports.createPollWebAppKeyboard = createPollWebAppKeyboard;
 exports.createResultsWebAppKeyboard = createResultsWebAppKeyboard;
 exports.createPollActionsKeyboard = createPollActionsKeyboard;
 exports.createResponsibleKeyboard = createResponsibleKeyboard;
-const WEBAPP_URL = process.env.WEBAPP_URL || 'http://localhost:5173';
+const bot_config_1 = require("../../config/bot.config");
+const WEBAPP_URL = bot_config_1.botConfig.webappUrl || process.env.WEBAPP_URL || 'http://localhost:5173';
 function createWebAppButton(text, path = '') {
     const url = path ? `${WEBAPP_URL}${path}` : WEBAPP_URL;
     return {
@@ -16,9 +17,13 @@ function createWebAppButton(text, path = '') {
     };
 }
 function createVoteWebAppKeyboard(pollId) {
+    const botUsername = process.env.BOT_USERNAME || 'rocket_lunch_bot';
     return {
         inline_keyboard: [[
-                createWebAppButton('🗳️ Открыть и проголосовать', `/poll/${pollId}`)
+                {
+                    text: '🗳️ Проголосовать',
+                    url: `https://t.me/${botUsername}?start=vote_${pollId}`
+                }
             ]]
     };
 }

@@ -5,7 +5,7 @@ export declare class PollService {
     static createPoll(data: CreatePollData): Promise<Poll>;
     static getPollById(id: number): Promise<PollWithDetails | null>;
     static getActivePollInGroup(groupId: number): Promise<Poll | null>;
-    static getActivePolls(): Promise<Poll[]>;
+    static getActivePolls(): Promise<any[]>;
     static completePoll(pollId: number): Promise<PollResult>;
     static cancelPoll(pollId: number): Promise<Poll>;
     static updatePoll(pollId: number, data: Partial<Poll>): Promise<Poll>;

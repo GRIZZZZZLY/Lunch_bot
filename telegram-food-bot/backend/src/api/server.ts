@@ -42,11 +42,11 @@ export function createApiServer(): express.Application {
     });
   });
 
-  // API routes
-  app.use('/api/auth', authRoutes);
-  app.use('/api/menu', menuRoutes);
-  app.use('/api/polls', pollRoutes);
-  app.use('/api/user', userRoutes);
+  // API routes (БЕЗ префикса /api - proxy уже удаляет его)
+  app.use('/auth', authRoutes);
+  app.use('/menu', menuRoutes);
+  app.use('/polls', pollRoutes);
+  app.use('/user', userRoutes);
 
   app.use('/api/stats', (req, res) => {
     res.json({

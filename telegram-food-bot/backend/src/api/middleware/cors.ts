@@ -12,21 +12,16 @@ export const corsMiddleware = cors({
       return callback(null, true);
     }
 
-    // Проверяем разрешенные домены
+    // В development режиме разрешаем все origins (для работы с ngrok)
+    if (process.env.NODE_ENV === 'development') {
+      logger.debug('CORS: development режим, разрешаем все origins', { origin });
+      return callback(null, true);
+    }
+
+    // Проверяем разрешенные домены в production
     const allowedOrigins = Array.isArray(apiConfig.cors.origin) 
       ? [...apiConfig.cors.origin] 
       : [apiConfig.cors.origin];
-    
-    // В development режиме разрешаем localhost
-    if (process.env.NODE_ENV === 'development') {
-      const developmentOrigins = [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:5173',
-      ];
-      allowedOrigins.push(...developmentOrigins);
-    }
 
     if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       callback(null, true);
@@ -60,6 +55,12 @@ export const telegramCorsMiddleware = cors({
       return callback(null, true);
     }
 
+    // В development режиме разрешаем все origins
+    if (process.env.NODE_ENV === 'development') {
+      logger.debug('Telegram CORS: development режим, разрешаем все origins', { origin });
+      return callback(null, true);
+    }
+
     // Разрешенные домены для Telegram
     const telegramOrigins = [
       'https://web.telegram.org',
@@ -73,15 +74,6 @@ export const telegramCorsMiddleware = cors({
       ? apiConfig.corsOrigin 
       : [apiConfig.corsOrigin];
     const allowedOrigins = [...configOrigins, ...telegramOrigins];
-
-    if (process.env.NODE_ENV === 'development') {
-      allowedOrigins.push(
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-        'https://localhost:5173',
-        'https://127.0.0.1:5173'
-      );
-    }
 
     if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       callback(null, true);

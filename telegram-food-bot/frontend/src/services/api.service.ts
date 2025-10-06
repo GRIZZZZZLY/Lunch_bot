@@ -124,10 +124,18 @@ class ApiService {
    * GET запрос
    */
   async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+    console.log(`🌐 [API] GET ${url}`, { hasToken: !!this.token });
     try {
       const response = await this.client.get<ApiResponse<T>>(url, config);
+      console.log(`✅ [API] GET ${url} success`, { status: response.status });
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
+      console.error(`❌ [API] GET ${url} failed`, {
+        success: error.success,
+        error: error.error,
+        code: error.code,
+        status: error.status
+      });
       throw error;
     }
   }
@@ -140,10 +148,24 @@ class ApiService {
     data?: any, 
     config?: AxiosRequestConfig
   ): Promise<ApiResponse<T>> {
+    console.log(`🌐 [API] POST ${url}`, {
+      data: data,
+      hasToken: !!this.token
+    });
     try {
       const response = await this.client.post<ApiResponse<T>>(url, data, config);
+      console.log(`✅ [API] POST ${url} success`, {
+        status: response.status,
+        success: response.data.success
+      });
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
+      console.error(`❌ [API] POST ${url} failed`, {
+        success: error.success,
+        error: error.error,
+        code: error.code,
+        status: error.status
+      });
       throw error;
     }
   }

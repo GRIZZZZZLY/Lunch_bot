@@ -12,18 +12,13 @@ exports.corsMiddleware = (0, cors_1.default)({
         if (!origin) {
             return callback(null, true);
         }
+        if (process.env.NODE_ENV === 'development') {
+            logger_1.logger.debug('CORS: development режим, разрешаем все origins', { origin });
+            return callback(null, true);
+        }
         const allowedOrigins = Array.isArray(api_config_1.apiConfig.cors.origin)
             ? [...api_config_1.apiConfig.cors.origin]
             : [api_config_1.apiConfig.cors.origin];
-        if (process.env.NODE_ENV === 'development') {
-            const developmentOrigins = [
-                'http://localhost:3000',
-                'http://localhost:5173',
-                'http://127.0.0.1:3000',
-                'http://127.0.0.1:5173',
-            ];
-            allowedOrigins.push(...developmentOrigins);
-        }
         if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
             callback(null, true);
         }
@@ -51,6 +46,10 @@ exports.telegramCorsMiddleware = (0, cors_1.default)({
         if (!origin) {
             return callback(null, true);
         }
+        if (process.env.NODE_ENV === 'development') {
+            logger_1.logger.debug('Telegram CORS: development режим, разрешаем все origins', { origin });
+            return callback(null, true);
+        }
         const telegramOrigins = [
             'https://web.telegram.org',
             'https://k.web.telegram.org',
@@ -61,9 +60,6 @@ exports.telegramCorsMiddleware = (0, cors_1.default)({
             ? api_config_1.apiConfig.corsOrigin
             : [api_config_1.apiConfig.corsOrigin];
         const allowedOrigins = [...configOrigins, ...telegramOrigins];
-        if (process.env.NODE_ENV === 'development') {
-            allowedOrigins.push('http://localhost:5173', 'http://127.0.0.1:5173', 'https://localhost:5173', 'https://127.0.0.1:5173');
-        }
         if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
             callback(null, true);
         }
