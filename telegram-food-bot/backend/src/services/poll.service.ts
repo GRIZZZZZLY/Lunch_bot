@@ -187,6 +187,9 @@ export class PollService {
       // Подсчитываем голоса
       const voteCount = new Map<number, { count: number; menuItem: any }>();
       poll.votes.forEach(vote => {
+        // Skip votes without menuItemId
+        if (!vote.menuItemId || !vote.menuItem) return;
+        
         const current = voteCount.get(vote.menuItemId) || { count: 0, menuItem: vote.menuItem };
         voteCount.set(vote.menuItemId, { count: current.count + 1, menuItem: vote.menuItem });
       });
@@ -320,6 +323,9 @@ export class PollService {
 
       return result;
     } catch (error) {
+      if (error instanceof Error && error.message === 'Poll result not found') {
+        throw error;
+      }
       logger.error('Error getting poll result:', error);
       throw new Error('Failed to get poll result');
     }
@@ -418,7 +424,7 @@ export class PollService {
     groupId?: number,
     limit: number = 20,
     offset: number = 0
-  ): Promise<{ polls: Poll[]; total: number }> {
+  ): Promise<{ polls: any[]; total: number }> {
     try {
       const where = {
         status: 'COMPLETED',
@@ -435,6 +441,9 @@ export class PollService {
             duration: true,
             startedAt: true,
             endedAt: true,
+            createdBy: true,
+            messageId: true,
+            chatId: true,
             createdAt: true,
             updatedAt: true,
             group: {
@@ -591,6 +600,9 @@ export class PollService {
       const breakdown = new Map();
 
       poll.votes.forEach(vote => {
+        // Skip votes without menuItemId or menuItem
+        if (!vote.menuItemId || !vote.menuItem) return;
+        
         const key = vote.menuItemId;
         const existing = breakdown.get(key) || {
           menuItemId: vote.menuItemId,
@@ -614,6 +626,9 @@ export class PollService {
         percentage: totalVotes > 0 ? Math.round((item.votes / totalVotes) * 100) : 0,
       })).sort((a, b) => b.votes - a.votes);
     } catch (error) {
+      if (error instanceof Error && error.message === 'Poll not found') {
+        throw error;
+      }
       logger.error('Error getting poll vote breakdown:', error);
       throw new Error('Failed to get poll vote breakdown');
     }
