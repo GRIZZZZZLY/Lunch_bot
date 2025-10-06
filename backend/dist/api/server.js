@@ -38,10 +38,10 @@ function createApiServer() {
             },
         });
     });
-    app.use('/api/auth', auth_routes_1.default);
-    app.use('/api/menu', menu_routes_1.default);
-    app.use('/api/polls', poll_routes_1.default);
-    app.use('/api/user', user_routes_1.default);
+    app.use('/auth', auth_routes_1.default);
+    app.use('/menu', menu_routes_1.default);
+    app.use('/polls', poll_routes_1.default);
+    app.use('/user', user_routes_1.default);
     app.use('/api/stats', (req, res) => {
         res.json({
             success: false,

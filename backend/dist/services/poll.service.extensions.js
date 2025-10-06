@@ -24,19 +24,27 @@ function initializePollServiceBot(bot) {
 }
 async function createPollFromWebApp(params) {
     try {
+        logger_1.logger.info('🎬 Starting createPollFromWebApp', { groupId: params.groupId, menuItemsCount: params.menuItems.length });
         if (!botInstance) {
+            logger_1.logger.error('❌ Bot not initialized in PollService');
             throw new Error('Bot not initialized in PollService');
         }
+        logger_1.logger.info('✅ Bot instance confirmed');
         const { groupId, duration, createdBy, title, menuItems } = params;
+        logger_1.logger.info('🔍 Fetching group data', { groupId });
         const group = await group_service_1.GroupService.getGroupById(groupId);
         if (!group) {
+            logger_1.logger.error('❌ Group not found', { groupId });
             throw new Error('Group not found');
         }
+        logger_1.logger.info('✅ Group found', { telegramId: group.telegramId.toString(), title: group.title });
+        logger_1.logger.info('💾 Creating poll in database');
         const poll = await poll_service_1.PollService.createPoll({
             groupId,
             duration,
             createdBy,
         });
+        logger_1.logger.info('✅ Poll created in DB', { pollId: poll.id });
         const endTime = new Date(Date.now() + duration * 60 * 1000);
         const message = createPollNotificationMessage({
             title: title || 'Голосование за обед',
@@ -44,14 +52,20 @@ async function createPollFromWebApp(params) {
             menuItemsCount: menuItems.length,
             endTime,
         });
+        logger_1.logger.info('⌨️ Creating keyboard');
         const keyboard = (0, webapp_keyboard_1.createVoteWebAppKeyboard)(poll.id);
-        const sentMessage = await botInstance.api.sendMessage(group.telegramId, message, {
+        logger_1.logger.info('✅ Keyboard created', { keyboard });
+        const chatId = typeof group.telegramId === 'bigint'
+            ? Number(group.telegramId)
+            : group.telegramId;
+        logger_1.logger.info('📤 Sending message to group', { chatId, messageLength: message.length });
+        const sentMessage = await botInstance.api.sendMessage(chatId, message, {
             parse_mode: 'Markdown',
             reply_markup: keyboard,
         });
-        logger_1.logger.info('Poll message sent to group', {
+        logger_1.logger.info('✅ Poll message sent to group', {
             pollId: poll.id,
-            groupId: group.telegramId,
+            groupId: group.telegramId.toString(),
             messageId: sentMessage.message_id,
         });
         setTimeout(async () => {
@@ -65,13 +79,14 @@ async function createPollFromWebApp(params) {
                 logger_1.logger.error('Error in poll auto-completion timeout:', error);
             }
         }, duration * 60 * 1000);
+        logger_1.logger.info('🎉 Poll created successfully!', { pollId: poll.id, messageId: sentMessage.message_id });
         return {
             pollId: poll.id,
             messageId: sentMessage.message_id,
         };
     }
     catch (error) {
-        logger_1.logger.error('Error creating poll from WebApp:', error);
+        logger_1.logger.error('❌ Error creating poll from WebApp:', error);
         throw error;
     }
 }
@@ -114,7 +129,7 @@ async function autoCompletePoll(pollId, chatId, messageId) {
                         `📞 Ожидаем заказа!`, { parse_mode: 'Markdown' });
                     try {
                         const responsibleKeyboard = (0, webapp_keyboard_1.createResponsibleKeyboard)(pollId);
-                        await botInstance.api.sendMessage(responsibleUser.telegramId, `🎯 **Вы выбраны ответственным за заказ!**\n\n` +
+                        await botInstance.api.sendMessage(Number(responsibleUser.telegramId), `🎯 **Вы выбраны ответственным за заказ!**\n\n` +
                             `📋 Откройте детали заказа в Mini App\n` +
                             `Там вы найдете:\n` +
                             `• Список заказов всех участников\n` +
@@ -215,7 +230,7 @@ async function sendPersonalNotifications(pollId, breakdown, responsibleUser) {
                         message += `📍 Свяжитесь с ним напрямую для уточнения деталей оплаты.`;
                     }
                 }
-                await botInstance.api.sendMessage(vote.user.telegramId, message, { parse_mode: 'Markdown' });
+                await botInstance.api.sendMessage(Number(vote.user.telegramId), message, { parse_mode: 'Markdown' });
                 successCount++;
             }
             catch (error) {

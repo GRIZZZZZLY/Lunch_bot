@@ -45,12 +45,17 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Отключаем pull-to-refresh в браузере */
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 #root {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  /* Отключаем pull-to-refresh */
+  overscroll-behavior-y: contain;
 }
 
 /* Telegram-specific utilities */

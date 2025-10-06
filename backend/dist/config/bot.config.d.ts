@@ -38,6 +38,7 @@ export declare const botConfig: {
         url: string;
         shortName: string;
     };
+    webappUrl: string;
     features: {
         enablePolls: boolean;
         enableRoulette: boolean;

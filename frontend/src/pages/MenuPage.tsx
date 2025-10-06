@@ -270,8 +270,8 @@ export const MenuPage: React.FC = () => {
 
   return (
     <>
-      <PullToRefresh onRefresh={handleRefresh}>
-        <div className="space-y-4">
+      {/* PullToRefresh отключен - вызывал проблемы со скроллом */}
+      <div className="space-y-4">
         
         {/* Hero Card с статистикой меню */}
         <motion.div
@@ -388,8 +388,7 @@ export const MenuPage: React.FC = () => {
             />
           </motion.div>
         )}
-        </div>
-      </PullToRefresh>
+      </div>
 
       {/* Форма добавления через BottomSheet */}
       <BottomSheet

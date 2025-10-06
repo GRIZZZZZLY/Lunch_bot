@@ -16,5 +16,8 @@
   "type": "commonjs",
   "dependencies": {
     "http-proxy": "^1.18.1"
+  },
+  "devDependencies": {
+    "serve": "^14.2.5"
   }
 }

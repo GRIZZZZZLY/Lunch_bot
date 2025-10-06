@@ -1,1 +1,1 @@
-{"version":3,"file":"cors.d.ts","sourceRoot":"","sources":["../../../src/api/middleware/cors.ts"],"names":[],"mappings":"AAAA,OAAO,IAAI,MAAM,MAAM,CAAC;AAOxB,eAAO,MAAM,cAAc;cA0CH,CAAC;;;aAOvB,CAAA,sBANA,CAAC;AAKH,eAAO,MAAM,sBAAsB;cANX,CAAC;;;aAOvB,CAAA,sBA+CA,CAAC"}
+{"version":3,"file":"cors.d.ts","sourceRoot":"","sources":["../../../src/api/middleware/cors.ts"],"names":[],"mappings":"AAAA,OAAO,IAAI,MAAM,MAAM,CAAC;AAOxB,eAAO,MAAM,cAAc;cAyCZ,CAAC;;;aAGc,CAAC,sBAN7B,CAAC;AAKH,eAAO,MAAM,sBAAsB;cAFpB,CAAC;;;aAGc,CAAC,sBA4C7B,CAAC"}

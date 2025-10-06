@@ -5,6 +5,7 @@ exports.initializePollServiceBot = initializePollServiceBot;
 const client_1 = require("@prisma/client");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
+const cache_service_1 = require("./cache.service");
 let botInstance = null;
 function initializePollServiceBot(bot) {
     botInstance = bot;
@@ -21,6 +22,7 @@ class PollService {
                     createdBy: data.createdBy,
                 },
             });
+            cache_service_1.CacheInvalidator.invalidatePoll(poll.id, poll.groupId);
             logger_1.logger.info(`Poll created: ${poll.id} in group ${poll.groupId}`);
             return poll;
         }
@@ -62,15 +64,17 @@ class PollService {
     }
     static async getActivePollInGroup(groupId) {
         try {
-            return await client_2.prisma.poll.findFirst({
-                where: {
-                    groupId,
-                    status: 'ACTIVE',
-                },
-                orderBy: {
-                    createdAt: 'desc',
-                },
-            });
+            return await cache_service_1.cacheService.getOrSet(cache_service_1.CACHE_KEYS.ACTIVE_POLLS_GROUP(groupId), async () => {
+                return await client_2.prisma.poll.findFirst({
+                    where: {
+                        groupId,
+                        status: 'ACTIVE',
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
+                });
+            }, cache_service_1.CACHE_TTL.ACTIVE_POLLS);
         }
         catch (error) {
             logger_1.logger.error('Error getting active poll in group:', error);
@@ -79,22 +83,48 @@ class PollService {
     }
     static async getActivePolls() {
         try {
-            return await client_2.prisma.poll.findMany({
+            logger_1.logger.info('🔍 Fetching active polls...');
+            const polls = await client_2.prisma.poll.findMany({
                 where: { status: 'ACTIVE' },
                 include: {
                     group: true,
+                    votes: {
+                        include: {
+                            user: true,
+                            menuItem: true,
+                        },
+                    },
                     _count: {
                         select: {
                             votes: true,
                         },
                     },
                 },
-                orderBy: { createdAt: 'desc' },
+                orderBy: {
+                    createdAt: 'desc',
+                },
             });
+            logger_1.logger.info(`📊 Found ${polls.length} polls with ACTIVE status`);
+            const now = new Date();
+            const activePolls = polls.filter((poll) => {
+                const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
+                const isActive = endsAt > now;
+                logger_1.logger.info(`Poll ${poll.id}: ends=${endsAt.toISOString()}, now=${now.toISOString()}, active=${isActive}`);
+                return isActive;
+            });
+            logger_1.logger.info(`✅ Returning ${activePolls.length} active polls`);
+            const serializedPolls = activePolls.map(poll => ({
+                ...poll,
+                chatId: poll.chatId ? poll.chatId.toString() : null,
+            }));
+            return serializedPolls;
         }
         catch (error) {
-            logger_1.logger.error('Error getting active polls:', error);
-            throw new Error('Failed to get active polls');
+            logger_1.logger.error('❌ Error getting active polls:', {
+                message: error.message,
+                stack: error.stack,
+            });
+            throw error;
         }
     }
     static async completePoll(pollId) {
@@ -147,6 +177,7 @@ class PollService {
                 });
                 return pollResult;
             });
+            cache_service_1.CacheInvalidator.invalidatePoll(pollId, poll.groupId);
             logger_1.logger.info(`Poll completed: ${pollId}, winner: ${winnerMenuItemId}, total votes: ${poll.votes.length}`);
             return await this.getPollResult(result.id);
         }
@@ -304,12 +335,44 @@ class PollService {
             const [polls, total] = await Promise.all([
                 client_2.prisma.poll.findMany({
                     where,
-                    include: {
-                        group: true,
+                    select: {
+                        id: true,
+                        groupId: true,
+                        status: true,
+                        duration: true,
+                        startedAt: true,
+                        endedAt: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        group: {
+                            select: {
+                                id: true,
+                                title: true,
+                                telegramId: true,
+                            },
+                        },
                         result: {
-                            include: {
-                                winnerMenuItem: true,
-                                responsibleUser: true,
+                            select: {
+                                id: true,
+                                totalVotes: true,
+                                createdAt: true,
+                                winnerMenuItem: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        price: true,
+                                        imageUrl: true,
+                                    },
+                                },
+                                responsibleUser: {
+                                    select: {
+                                        id: true,
+                                        firstName: true,
+                                        lastName: true,
+                                        username: true,
+                                        telegramId: true,
+                                    },
+                                },
                             },
                         },
                         _count: {

@@ -8,6 +8,37 @@ class AuthController {
     static async validateInitData(req, res) {
         try {
             const { initData } = req.body;
+            if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+                if (!initData || initData.trim().length === 0 || initData === 'mock_jwt_token_12345678') {
+                    logger_1.logger.warn('⚠️  SKIP_TELEGRAM_VALIDATION: Empty initData - creating test user');
+                    const testUserId = process.env.TEST_USER_ID || '123456789';
+                    const user = await user_service_1.UserService.upsertUser({
+                        telegramId: testUserId,
+                        username: 'dev_user',
+                        firstName: 'Dev',
+                        lastName: 'User',
+                    });
+                    logger_1.logger.info('✅ Test user created via SKIP_TELEGRAM_VALIDATION', {
+                        userId: user.id,
+                        telegramId: testUserId
+                    });
+                    res.json({
+                        success: true,
+                        user: {
+                            id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+                            telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
+                            username: user.username,
+                            firstName: user.firstName,
+                            lastName: user.lastName,
+                            isAdmin: user.isAdmin,
+                            isActive: user.isActive,
+                            createdAt: user.createdAt,
+                        },
+                        token: generateJWT(user),
+                    });
+                    return;
+                }
+            }
             if (!initData) {
                 res.status(400).json({
                     success: false,

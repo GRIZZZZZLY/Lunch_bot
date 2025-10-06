@@ -147,15 +147,28 @@ export const VotingPage: React.FC = () => {
 
       const pollData = pollResponse.data;
       
-      // Принудительное обновление через создание нового объекта
-      setPoll({ ...pollData });
+      console.log(`📊 Poll data loaded: ${pollData._count?.votes || 0} votes, ${pollData.votes?.length || 0} vote records`);
+      
+      // ВАЖНО: Создаем полностью новый объект с глубоким копированием массива votes
+      const freshPoll = {
+        ...pollData,
+        votes: pollData.votes ? [...pollData.votes] : [],
+        _count: { ...pollData._count },
+      };
+      
+      setPoll(freshPoll);
+      console.log('✅ Poll state updated');
 
       // Проверяем голос пользователя
       if (user) {
         const existingVote = pollData.votes?.find(v => v.userId === user.id);
         if (existingVote) {
-          setUserVote(existingVote);
+          console.log('👤 User vote found:', existingVote);
+          setUserVote({ ...existingVote }); // Создаем новый объект
           setSelectedItemId(existingVote.menuItemId);
+        } else {
+          console.log('👤 No user vote found');
+          setUserVote(null);
         }
       }
 
@@ -164,6 +177,7 @@ export const VotingPage: React.FC = () => {
       if (menuResponse.success && menuResponse.data) {
         // Принудительное обновление через создание нового массива
         setMenuItems([...menuResponse.data]);
+        console.log('✅ Menu items updated');
       }
 
     } catch (error) {
@@ -189,33 +203,36 @@ export const VotingPage: React.FC = () => {
     try {
       setSubmitting(true);
       
+      console.log('📤 Submitting vote for item:', selectedItemId);
+      
       // Haptic feedback при отправке голоса
       hapticFeedback.impactOccurred('light');
 
       const response = await pollsService.voteForItem(parseInt(pollId), selectedItemId);
 
       if (response.success && response.data) {
-        // Оптимистичное обновление: сразу обновляем локальное состояние
-        setUserVote(response.data);
+        console.log('✅ Vote response received:', response.data);
         
-        // Успешное голосование - haptic success
+        // Успешное голосование - haptic success (достаточно тактильной обратной связи)
         hapticFeedback.notificationOccurred('success');
         
-        addNotification({
-          type: 'success',
-          message: userVote ? 'Голос изменён' : 'Голос принят',
-        });
-
-        // Принудительно обновляем UI
+        // Убрали всплывающее уведомление - пользователь видит:
+        // 1. Зелёный блок "Вы проголосовали за: ..."
+        // 2. Обновленные счетчики голосов
+        // 3. Checkmark на выбранном блюде
+        
+        console.log('🔄 Refreshing poll data...');
+        
+        // Небольшая задержка чтобы backend успел обновить данные
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Тихое обновление БЕЗ loader - обновятся только измененные блоки
+        await loadPollData(true); // silent = true
+        
+        // Принудительно обновляем UI (React обновит только изменённые компоненты)
         setRefreshKey(prev => prev + 1);
         
-        // Обновляем данные с сервера
-        // Используем небольшую задержку для плавности
-        setTimeout(async () => {
-          await loadPollData(true);
-          // Еще раз обновляем UI после загрузки
-          setRefreshKey(prev => prev + 1);
-        }, 100);
+        console.log('✅ UI refreshed with new data (only changed blocks)');
       } else {
         // Ошибка - haptic error
         hapticFeedback.notificationOccurred('error');
@@ -238,6 +255,8 @@ export const VotingPage: React.FC = () => {
       // Haptic feedback при выборе блюда
       hapticFeedback.selectionChanged();
       setSelectedItemId(itemId);
+      
+      console.log(`✅ Selected item ${itemId}`);
     }
   };
 

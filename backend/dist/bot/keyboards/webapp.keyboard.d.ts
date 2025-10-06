@@ -7,9 +7,7 @@ export declare function createWebAppButton(text: string, path?: string): {
 export declare function createVoteWebAppKeyboard(pollId: number): {
     inline_keyboard: {
         text: string;
-        web_app: {
-            url: string;
-        };
+        url: string;
     }[][];
 };
 export declare function createMenuWebAppKeyboard(): {

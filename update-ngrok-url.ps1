@@ -1,77 +1,72 @@
-# PowerShell script to update ngrok URL in all config files
-# Usage: .\update-ngrok-url.ps1 -NewUrl "https://your-new-url.ngrok-free.app"
+# ========================================
+# Update ngrok URL in .env files
+# ========================================
 
-param (
+param(
     [Parameter(Mandatory=$true)]
-    [string]$NewUrl
+    [string]$NgrokUrl
 )
 
-# Remove trailing slash if present
-$NewUrl = $NewUrl.TrimEnd('/')
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  Update ngrok URL" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
 
-Write-Host "Updating ngrok URL to: $NewUrl" -ForegroundColor Green
+# Remove trailing slash if exists
+$NgrokUrl = $NgrokUrl.TrimEnd('/')
 
-# Get current URL from frontend .env
-$frontendEnvPath = ".\frontend\.env"
-$currentUrl = ""
-
-if (Test-Path $frontendEnvPath) {
-    $content = Get-Content $frontendEnvPath
-    foreach ($line in $content) {
-        if ($line -match "VITE_API_URL=(.+)/api") {
-            $currentUrl = $matches[1]
-            break
-        }
-    }
+# Validate URL format
+if ($NgrokUrl -notmatch '^https?://') {
+    Write-Host "ERROR: URL must start with http:// or https://" -ForegroundColor Red
+    Write-Host "Example: https://abc123.ngrok-free.app" -ForegroundColor Yellow
+    exit 1
 }
 
-if ($currentUrl) {
-    Write-Host "Current URL: $currentUrl" -ForegroundColor Yellow
-} else {
-    Write-Host "Could not detect current URL" -ForegroundColor Yellow
-}
+Write-Host "New URL: $NgrokUrl" -ForegroundColor Green
+Write-Host ""
 
-# Update frontend .env
-Write-Host "`nUpdating frontend\.env..." -ForegroundColor Cyan
-if (Test-Path $frontendEnvPath) {
-    $content = Get-Content $frontendEnvPath -Raw
-    $content = $content -replace "VITE_API_URL=https://[^/]+\.ngrok-free\.app/api", "VITE_API_URL=$NewUrl/api"
-    $content | Set-Content $frontendEnvPath -NoNewline
-    Write-Host "✓ Updated frontend\.env" -ForegroundColor Green
-}
+# 1. Backend .env
+Write-Host "[1/2] Updating backend/.env..." -ForegroundColor Yellow
+$backendEnv = Get-Content "backend\.env" -Raw
 
-# Update frontend .env.production
-$frontendEnvProdPath = ".\frontend\.env.production"
-Write-Host "Updating frontend\.env.production..." -ForegroundColor Cyan
-if (Test-Path $frontendEnvProdPath) {
-    $content = Get-Content $frontendEnvProdPath -Raw
-    $content = $content -replace "VITE_API_URL=https://[^/]+\.ngrok-free\.app/api", "VITE_API_URL=$NewUrl/api"
-    $content | Set-Content $frontendEnvProdPath -NoNewline
-    Write-Host "✓ Updated frontend\.env.production" -ForegroundColor Green
-}
+# Update WEBAPP_URL
+$backendEnv = $backendEnv -replace 'WEBAPP_URL=https?://[^\s]+', "WEBAPP_URL=$NgrokUrl"
 
-# Update backend .env
-$backendEnvPath = ".\backend\.env"
-Write-Host "Updating backend\.env..." -ForegroundColor Cyan
-if (Test-Path $backendEnvPath) {
-    $content = Get-Content $backendEnvPath -Raw
-    
-    # Update BOT_WEBHOOK_URL
-    $content = $content -replace "BOT_WEBHOOK_URL=https://[^/]+\.ngrok-free\.app/webhook", "BOT_WEBHOOK_URL=$NewUrl/webhook"
-    
-    # Update WEBAPP_URL
-    $content = $content -replace "WEBAPP_URL=https://[^/\r\n]+\.ngrok-free\.app", "WEBAPP_URL=$NewUrl"
-    
-    # Update CORS_ORIGIN
-    $content = $content -replace "https://[^,\s]+\.ngrok-free\.app", "$NewUrl"
-    
-    $content | Set-Content $backendEnvPath -NoNewline
-    Write-Host "✓ Updated backend\.env" -ForegroundColor Green
-}
+# Update CORS_ORIGIN
+$corsOrigins = "http://localhost:5173,http://127.0.0.1:5173,$NgrokUrl"
+$backendEnv = $backendEnv -replace 'CORS_ORIGIN=[^\r\n]+', "CORS_ORIGIN=$corsOrigins"
 
-Write-Host "`n✅ All configuration files updated successfully!" -ForegroundColor Green
-Write-Host "`nNext steps:" -ForegroundColor Yellow
-Write-Host "1. Restart backend: cd backend; npm run dev" -ForegroundColor White
-Write-Host "2. Restart frontend: cd frontend; npm run dev" -ForegroundColor White
-Write-Host "3. Update Mini App URL in BotFather to: $NewUrl" -ForegroundColor White
-Write-Host "4. Set webhook: curl -X POST https://api.telegram.org/bot<TOKEN>/setWebhook -d url=$NewUrl/webhook" -ForegroundColor White
+Set-Content "backend\.env" -Value $backendEnv -NoNewline
+Write-Host "  OK backend/.env updated" -ForegroundColor Green
+
+# 2. Frontend .env
+Write-Host "[2/2] Updating frontend/.env..." -ForegroundColor Yellow
+$frontendEnv = Get-Content "frontend\.env" -Raw
+
+# Update VITE_API_URL
+$apiUrl = "$NgrokUrl/api"
+$frontendEnv = $frontendEnv -replace 'VITE_API_URL=https?://[^\s]+', "VITE_API_URL=$apiUrl"
+
+Set-Content "frontend\.env" -Value $frontendEnv -NoNewline
+Write-Host "  OK frontend/.env updated" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "  DONE!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Settings updated:" -ForegroundColor Cyan
+Write-Host "  Backend WEBAPP_URL: $NgrokUrl" -ForegroundColor White
+Write-Host "  Frontend API URL:   $apiUrl" -ForegroundColor White
+Write-Host "  CORS Origin:        $corsOrigins" -ForegroundColor White
+Write-Host ""
+Write-Host "IMPORTANT: Restart services!" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Commands:" -ForegroundColor Cyan
+Write-Host "  cd backend && npm run dev" -ForegroundColor Gray
+Write-Host "  cd frontend && npm run dev" -ForegroundColor Gray
+Write-Host ""
+Write-Host "Or use:" -ForegroundColor Cyan
+Write-Host '  .\start-dev.ps1 -NoNgrok' -ForegroundColor Gray
+Write-Host ""

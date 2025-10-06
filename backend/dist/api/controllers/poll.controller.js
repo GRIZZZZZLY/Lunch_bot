@@ -109,9 +109,24 @@ class PollController {
                 });
                 return;
             }
+            const pollData = {
+                ...poll,
+                chatId: poll.chatId ? poll.chatId.toString() : null,
+                group: poll.group ? {
+                    ...poll.group,
+                    telegramId: poll.group.telegramId.toString(),
+                } : undefined,
+                votes: poll.votes?.map((vote) => ({
+                    ...vote,
+                    user: vote.user ? {
+                        ...vote.user,
+                        telegramId: vote.user.telegramId.toString(),
+                    } : undefined,
+                })),
+            };
             res.json({
                 success: true,
-                data: poll,
+                data: pollData,
                 timestamp: new Date().toISOString(),
             });
         }
@@ -223,6 +238,7 @@ class PollController {
     }
     static async createPollFromWebApp(req, res) {
         try {
+            logger_1.logger.info('🚀 START createPollFromWebApp');
             const { groupId, duration, selectedMenuItems, title } = req.body;
             const user = req.user;
             logger_1.logger.info('Creating poll from WebApp', {
@@ -233,6 +249,7 @@ class PollController {
                 userId: user?.id,
                 body: req.body
             });
+            logger_1.logger.info('📊 After initial logging, before validation');
             if (!groupId || isNaN(parseInt(groupId))) {
                 logger_1.logger.warn('Invalid groupId', { groupId, type: typeof groupId });
                 res.status(400).json({
@@ -262,7 +279,9 @@ class PollController {
                 return;
             }
             const existingPoll = await poll_service_1.PollService.getActivePollInGroup(parsedGroupId);
+            logger_1.logger.info('✅ Checked existing poll', { exists: !!existingPoll });
             if (existingPoll) {
+                logger_1.logger.warn('❌ Group already has active poll');
                 res.status(400).json({
                     success: false,
                     error: 'Group already has an active poll',
@@ -270,16 +289,35 @@ class PollController {
                 });
                 return;
             }
-            let menuItems = await menu_service_1.MenuService.getActiveMenuItems();
-            logger_1.logger.info('Initial menu items loaded', { count: menuItems.length });
+            logger_1.logger.info('🍽️ About to load menu items...');
+            let menuItems;
+            try {
+                menuItems = await menu_service_1.MenuService.getActiveMenuItems();
+                logger_1.logger.info('✅ Initial menu items loaded', { count: menuItems.length });
+            }
+            catch (menuError) {
+                logger_1.logger.error('❌ FAILED to load menu items', { error: menuError, message: menuError instanceof Error ? menuError.message : 'Unknown error' });
+                throw menuError;
+            }
             if (selectedMenuItems && Array.isArray(selectedMenuItems) && selectedMenuItems.length > 0) {
                 const selectedIds = selectedMenuItems.map((id) => parseInt(id)).filter((id) => !isNaN(id));
-                logger_1.logger.info('Filtering menu items', { selectedIds, selectedMenuItems });
+                logger_1.logger.info('🔍 Filtering menu items', {
+                    selectedIds,
+                    selectedMenuItems,
+                    selectedIdsCount: selectedIds.length
+                });
                 menuItems = menuItems.filter(item => selectedIds.includes(item.id));
-                logger_1.logger.info('Filtered menu items', { count: menuItems.length, items: menuItems.map(i => ({ id: i.id, name: i.name })) });
+                logger_1.logger.info('✅ Filtered menu items', {
+                    count: menuItems.length,
+                    items: menuItems.map(i => ({ id: i.id, name: i.name }))
+                });
             }
             if (menuItems.length < 2) {
-                logger_1.logger.warn('Not enough menu items', { count: menuItems.length, selectedMenuItems });
+                logger_1.logger.warn('❌ Not enough menu items', {
+                    count: menuItems.length,
+                    selectedMenuItems,
+                    availableMenuItems: menuItems.length
+                });
                 res.status(400).json({
                     success: false,
                     error: 'At least 2 active menu items required',
