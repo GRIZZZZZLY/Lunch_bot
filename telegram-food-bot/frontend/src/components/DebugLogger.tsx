@@ -34,7 +34,16 @@ export const DebugLogger = () => {
 
     console.log = (...args: any[]) => {
       originalLog(...args);
-      if (args[0]?.includes?.('[useAuth]') || args[0]?.includes?.('🔄') || args[0]?.includes?.('✅') || args[0]?.includes?.('⚠️') || args[0]?.includes?.('❌')) {
+      // Логируем все сообщения с префиксами [ComponentName] или emoji
+      if (
+        args[0]?.includes?.('[') || 
+        args[0]?.includes?.('🔄') || 
+        args[0]?.includes?.('✅') || 
+        args[0]?.includes?.('⚠️') || 
+        args[0]?.includes?.('❌') ||
+        args[0]?.includes?.('🚀') ||
+        args[0]?.includes?.('📱')
+      ) {
         addLog('info', args);
       }
     };
@@ -105,16 +114,21 @@ export const DebugLogger = () => {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - увеличен для мобильных */}
       <button
         onClick={() => setIsVisible(!isVisible)}
-        className="fixed top-4 right-4 z-[9999] bg-gray-800 text-white p-3 rounded-full shadow-lg"
-        style={{ touchAction: 'manipulation' }}
+        className="fixed top-4 right-4 z-[9999] bg-gray-800 text-white p-4 rounded-full shadow-2xl border-2 border-white/20"
+        style={{ touchAction: 'manipulation', minWidth: '56px', minHeight: '56px' }}
       >
-        {isVisible ? '✖️' : '🐛'}
+        <span className="text-xl">{isVisible ? '✖️' : '🐛'}</span>
         {logs.filter(l => l.level === 'error').length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold">
             {logs.filter(l => l.level === 'error').length}
+          </span>
+        )}
+        {logs.length > 0 && (
+          <span className="absolute -bottom-1 -right-1 bg-blue-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center">
+            {logs.length}
           </span>
         )}
       </button>

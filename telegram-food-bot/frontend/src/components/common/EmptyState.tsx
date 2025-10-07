@@ -1,129 +1,178 @@
 import React from 'react';
-import { Button } from './Button';
+import { motion } from 'framer-motion';
+import { GradientButton } from '../ui/gradient-button';
+import { cn } from '../../lib/utils';
+
+export type EmptyStateType = 
+  | 'no-polls' 
+  | 'no-menu' 
+  | 'no-votes' 
+  | 'no-stats'
+  | 'no-history'
+  | 'no-favorites'
+  | 'no-results';
 
 interface EmptyStateProps {
-  icon?: string;
-  title: string;
-  description?: string;
-  actionLabel?: string;
+  type: EmptyStateType;
   onAction?: () => void;
-  illustration?: 'menu' | 'poll' | 'stats' | 'search' | 'error';
+  className?: string;
 }
 
-const illustrations = {
-  menu: (
-    <svg className="w-32 h-32 mx-auto mb-4 text-telegram-hint-color opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-    </svg>
-  ),
-  poll: (
-    <svg className="w-32 h-32 mx-auto mb-4 text-telegram-hint-color opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-    </svg>
-  ),
-  stats: (
-    <svg className="w-32 h-32 mx-auto mb-4 text-telegram-hint-color opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-    </svg>
-  ),
-  search: (
-    <svg className="w-32 h-32 mx-auto mb-4 text-telegram-hint-color opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-    </svg>
-  ),
-  error: (
-    <svg className="w-32 h-32 mx-auto mb-4 text-red-400 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  ),
+interface EmptyStateConfig {
+  illustration: string;
+  title: string;
+  description: string;
+  actionLabel: string;
+  gradient: string;
+}
+
+const EMPTY_STATE_CONFIGS: Record<EmptyStateType, EmptyStateConfig> = {
+  'no-polls': {
+    illustration: '🗳️',
+    title: 'Нет активных голосований',
+    description: 'Создайте первое голосование и начните выбирать обед вместе с командой!',
+    actionLabel: 'Создать голосование',
+    gradient: 'from-lavender-500 to-lavender-600',
+  },
+  'no-menu': {
+    illustration: '🍽️',
+    title: 'Меню пока пустое',
+    description: 'Добавьте первые блюда, чтобы начать голосования',
+    actionLabel: 'Добавить блюдо',
+    gradient: 'from-mint-500 to-mint-600',
+  },
+  'no-votes': {
+    illustration: '👥',
+    title: 'Ещё никто не проголосовал',
+    description: 'Будьте первым! Ваш голос важен для команды',
+    actionLabel: 'Проголосовать',
+    gradient: 'from-peach-500 to-peach-600',
+  },
+  'no-stats': {
+    illustration: '📊',
+    title: 'Статистика пока недоступна',
+    description: 'Проведите несколько голосований, чтобы увидеть аналитику',
+    actionLabel: 'На главную',
+    gradient: 'from-coral-500 to-coral-600',
+  },
+  'no-history': {
+    illustration: '📜',
+    title: 'История пуста',
+    description: 'Здесь будут отображаться ваши прошлые голосования',
+    actionLabel: 'Перейти к голосованию',
+    gradient: 'from-peach-500 to-mint-500',
+  },
+  'no-favorites': {
+    illustration: '⭐',
+    title: 'Нет избранных блюд',
+    description: 'Добавьте любимые блюда, чтобы быстро найти их позже',
+    actionLabel: 'Посмотреть меню',
+    gradient: 'from-butter-500 to-butter-600',
+  },
+  'no-results': {
+    illustration: '🔍',
+    title: 'Ничего не найдено',
+    description: 'Попробуйте изменить параметры поиска или фильтры',
+    actionLabel: 'Сбросить фильтры',
+    gradient: 'from-lavender-500 to-mint-500',
+  },
 };
 
 /**
- * Компонент Empty State для пустых списков
+ * EmptyState - красочный компонент для пустых состояний
+ * 
+ * Особенности:
+ * - Анимированная иллюстрация (emoji)
+ * - Понятное объяснение почему пусто
+ * - CTA кнопка для следующего действия
+ * - Декоративные анимированные точки
  */
 export const EmptyState: React.FC<EmptyStateProps> = ({
-  icon,
-  title,
-  description,
-  actionLabel,
+  type,
   onAction,
-  illustration,
+  className,
 }) => {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center animate-fade-in">
-      {/* Иллюстрация или иконка */}
-      {illustration && illustrations[illustration]}
-      {!illustration && icon && (
-        <div className="text-6xl mb-4 animate-bounce-slow">{icon}</div>
-      )}
+  const config = EMPTY_STATE_CONFIGS[type];
 
-      {/* Заголовок */}
-      <h3 className="text-xl font-semibold text-telegram-text-color mb-2">
-        {title}
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className={cn(
+        'flex flex-col items-center justify-center text-center',
+        'px-8 py-16',
+        className
+      )}
+    >
+      {/* Animated illustration */}
+      <motion.div
+        animate={{
+          scale: [1, 1.1, 1],
+          rotate: [0, 5, -5, 0],
+        }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          repeatDelay: 1,
+          ease: 'easeInOut',
+        }}
+        className="text-8xl mb-6 select-none"
+        role="img"
+        aria-label="Empty state illustration"
+      >
+        {config.illustration}
+      </motion.div>
+
+      {/* Title */}
+      <h3 className="text-xl font-bold mb-2 text-foreground">
+        {config.title}
       </h3>
 
-      {/* Описание */}
-      {description && (
-        <p className="text-telegram-hint-color mb-6 max-w-sm">
-          {description}
-        </p>
+      {/* Description */}
+      <p className="text-muted-foreground text-sm mb-6 max-w-xs leading-relaxed">
+        {config.description}
+      </p>
+
+      {/* CTA Button */}
+      {onAction && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2, duration: 0.3 }}
+        >
+          <GradientButton
+            variant={type.includes('poll') ? 'lavender' : 'peach'}
+            onClick={onAction}
+            className="min-w-[200px]"
+          >
+            {config.actionLabel}
+          </GradientButton>
+        </motion.div>
       )}
 
-      {/* Действие */}
-      {actionLabel && onAction && (
-        <Button onClick={onAction} size="lg">
-          {actionLabel}
-        </Button>
-      )}
-    </div>
+      {/* Decorative animated dots */}
+      <div className="flex gap-2 mt-8">
+        {[0, 1, 2].map((i) => (
+          <motion.div
+            key={i}
+            animate={{
+              scale: [1, 1.5, 1],
+              opacity: [0.3, 1, 0.3],
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              delay: i * 0.2,
+              ease: 'easeInOut',
+            }}
+            className={cn(
+              'size-2 rounded-full',
+              `bg-gradient-to-r ${config.gradient}`
+            )}
+          />
+        ))}
+      </div>
+    </motion.div>
   );
 };
-
-/**
- * Предустановленные Empty States
- */
-export const EmptyMenuState: React.FC<{ onAction?: () => void }> = ({ onAction }) => (
-  <EmptyState
-    illustration="menu"
-    title="Меню пусто"
-    description="Добавьте первое блюдо в меню, чтобы начать работу"
-    actionLabel="Добавить блюдо"
-    onAction={onAction}
-  />
-);
-
-export const EmptyPollsState: React.FC<{ onAction?: () => void }> = ({ onAction }) => (
-  <EmptyState
-    illustration="poll"
-    title="Нет голосований"
-    description="Создайте первое голосование для вашей группы"
-    actionLabel="Создать голосование"
-    onAction={onAction}
-  />
-);
-
-export const EmptyStatsState: React.FC = () => (
-  <EmptyState
-    illustration="stats"
-    title="Статистика недоступна"
-    description="Проведите несколько голосований, чтобы увидеть статистику"
-  />
-);
-
-export const EmptySearchState: React.FC = () => (
-  <EmptyState
-    illustration="search"
-    title="Ничего не найдено"
-    description="Попробуйте изменить параметры поиска"
-  />
-);
-
-export const ErrorState: React.FC<{ onRetry?: () => void }> = ({ onRetry }) => (
-  <EmptyState
-    illustration="error"
-    title="Произошла ошибка"
-    description="Не удалось загрузить данные. Попробуйте ещё раз."
-    actionLabel="Повторить"
-    onAction={onRetry}
-  />
-);

@@ -9,7 +9,7 @@ import { CategoryFilter } from '../components/common/CategoryFilter';
 import { SortSelector, SortOption } from '../components/common/SortSelector';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PullToRefresh } from '../components/common/PullToRefresh';
-import { EmptyMenuState, EmptySearchState } from '../components/common/EmptyState';
+import { EmptyState } from '../components/common/EmptyState';
 import { useHaptic } from '../hooks/useHaptic';
 import { 
   Plus, 
@@ -493,9 +493,9 @@ export const MenuPage: React.FC = () => {
           <MenuListSkeleton count={6} />
         ) : filteredItems.length === 0 ? (
           (selectedCategory || searchQuery) ? (
-            <EmptySearchState />
+            <EmptyState type="no-results" />
           ) : (
-            <EmptyMenuState onAction={user?.isAdmin ? openBottomSheet : undefined} />
+            <EmptyState type="no-menu" onAction={user?.isAdmin ? openBottomSheet : undefined} />
           )
         ) : (
           <motion.div variants={itemVariants}>
