@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Header } from '../components/layout/Layout';
 import { PageHeader } from '../components/common/PageHeader';
 import { MenuList } from '../components/menu/MenuList';
@@ -11,7 +11,19 @@ import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PullToRefresh } from '../components/common/PullToRefresh';
 import { EmptyMenuState, EmptySearchState } from '../components/common/EmptyState';
 import { useHaptic } from '../hooks/useHaptic';
-import { Plus, UtensilsCrossed, Sparkles, Tag } from 'lucide-react';
+import { 
+  Plus, 
+  UtensilsCrossed, 
+  Sparkles, 
+  Tag, 
+  Search, 
+  Settings,
+  X,
+  Utensils,
+  Filter,
+  ChevronDown,
+  Zap
+} from 'lucide-react';
 import { GlassHeroCard, GlassSearchBar } from '../components/glass';
 import { BottomSheet } from '../components/common/BottomSheet';
 import { 
@@ -21,9 +33,17 @@ import {
 } from '../components/common/SkeletonLoader';
 import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
-import { useMenu, useUI } from '../store/useAppStore';
+import { useMenu, useUI, useAppStore } from '../store/useAppStore';
 import { menuService, MenuItem } from '../services/menu.service';
 import { mockApiService } from '../services/mockApi.service';
+
+// New shadcn/ui components
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Input } from '../components/ui/input';
+import { GlassCard, GlassCardContent } from '../components/ui/glass-card';
+import { ThemeToggle } from '../components/ui/theme-toggle';
+import { cn } from '../lib/utils';
 
 /**
  * Страница управления меню
@@ -33,8 +53,8 @@ export const MenuPage: React.FC = () => {
   const { mainButton, backButton, colorScheme } = useTelegram();
   const { addNotification } = useUI();
   const haptic = useHaptic();
-  
-  const isDark = colorScheme === 'dark';
+  const theme = useAppStore((state) => state.theme);
+  const isDark = theme === 'dark';
   
   const {
     menuItems,
@@ -52,6 +72,8 @@ export const MenuPage: React.FC = () => {
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchVisible, setSearchVisible] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Объединяем состояния в одно
   const [formState, setFormState] = useState({ isOpen: false, clickCount: 0 });
@@ -64,11 +86,8 @@ export const MenuPage: React.FC = () => {
   const closeBottomSheet = useCallback(() => {
     console.log('Closing BottomSheet');
     setFormState(prev => ({ ...prev, isOpen: false }));
-    // Показываем mainButton обратно после закрытия
-    if (user?.isAdmin) {
-      mainButton.show();
-    }
-  }, [user, mainButton]);
+    // mainButton всегда скрыт - используем FAB вместо него
+  }, []);
 
   // Фильтрация блюд по категории и поиску
   const filteredItems = useMemo(() => {
@@ -102,22 +121,17 @@ export const MenuPage: React.FC = () => {
     loadCategoryCounts();
   }, []);
 
-  // Настройка Telegram mainButton (работает!)
+  // Настройка Telegram UI
   useEffect(() => {
-    if (user?.isAdmin) {
-      mainButton.setText('Добавить блюдо');
-      mainButton.onClick(() => setFormState(prev => ({ ...prev, isOpen: true })));
-      mainButton.show();
-    } else {
-      mainButton.hide();
-    }
+    // Скрываем mainButton - используем FAB вместо него
+    mainButton.hide();
     backButton.hide();
 
     return () => {
       mainButton.hide();
       backButton.hide();
     };
-  }, [user, mainButton, backButton]);
+  }, [mainButton, backButton]);
 
   const loadMenuItems = async () => {
     try {
@@ -268,100 +282,213 @@ export const MenuPage: React.FC = () => {
     }
   };
 
+  // Container animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
+  
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 },
+  };
+
+  // Toggle search visibility
+  const toggleSearch = () => {
+    setSearchVisible(!searchVisible);
+    haptic.light();
+    
+    // Focus input when opening
+    if (!searchVisible) {
+      setTimeout(() => searchInputRef.current?.focus(), 100);
+    }
+  };
+
+  // Calculate stats
+  const totalCount = menuItems.length;
+  const activeCount = menuItems.filter(item => item.isActive).length;
+  const avgPrice = totalCount > 0 
+    ? Math.round(menuItems.reduce((sum, item) => sum + (item.price || 0), 0) / totalCount)
+    : 0;
+
   return (
     <>
-      {/* PullToRefresh отключен - вызывал проблемы со скроллом */}
-      <div className="space-y-4">
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="space-y-4 pb-24 min-h-screen"
+      >
         
-        {/* Hero Card с статистикой меню */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-        >
-          <GlassHeroCard
-            gradient={{ from: '#FB923C', to: '#F97316' }}
-            value={menuItems.length.toString()}
-            label="Блюд в меню"
-            sublabel={`${categories.length} ${categories.length === 1 ? 'категория' : categories.length < 5 ? 'категории' : 'категорий'} · ${menuItems.filter(i => i.isActive).length} активных`}
-            textColor="#FFFFFF"
-            icon={<UtensilsCrossed size={24} />}
-            className="shadow-lg"
-          />
-        </motion.div>
-        
-
-        {/* Glass Search Bar */}
-        {!menuLoading && menuItems.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-          >
-            <GlassSearchBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Поиск блюд..."
-              theme={isDark ? 'dark' : 'light'}
-            />
-          </motion.div>
-        )}
-
-        {/* Фильтр по категориям */}
-        {!menuLoading && categories.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.4 }}
-          >
-            <CategoryFilter
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onCategoryChange={setSelectedCategory}
-              itemCounts={categoryCounts}
-              className="bg-telegram-bg-color"
-            />
-          </motion.div>
-        )}
-
-        {/* Quick Stats - дополнительная статистика */}
-        {!menuLoading && menuItems.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center space-x-2 mb-1">
-                <Sparkles size={16} className="text-green-500" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">Активных</span>
-              </div>
-              <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                {menuItems.filter(item => item.isActive).length} / {menuItems.length}
-              </p>
+        {/* 1. Compact Header (44px) */}
+        <motion.div variants={itemVariants}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Utensils className="size-6 text-mint-500" />
+              <h1 className="text-2xl font-bold text-foreground">Меню</h1>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center space-x-2 mb-1">
-                <Tag size={16} className="text-purple-500" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">Средняя цена</span>
-              </div>
-              <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                ₽{menuItems.length > 0 ? Math.round(menuItems.reduce((sum, item) => sum + (item.price || 0), 0) / menuItems.length) : 0}
-              </p>
-            </div>
-            
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-gray-700 col-span-2 md:col-span-1">
-              <div className="flex items-center space-x-2 mb-1">
-                <UtensilsCrossed size={16} className="text-primary-food-500" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {selectedCategory ? 'Показано' : 'Всего стоимость'}
-                </span>
-              </div>
-              <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                ₽{filteredItems.reduce((sum, item) => sum + (item.price || 0), 0).toLocaleString('ru-RU')}
-              </p>
+            <div className="flex items-center gap-2">
+              {/* Search toggle */}
+              <Button 
+                size="icon" 
+                variant="ghost"
+                onClick={toggleSearch}
+                className="size-11"
+              >
+                <Search className="size-5" />
+              </Button>
+              
+              {/* Settings (admin only) */}
+              {user?.isAdmin && (
+                <ThemeToggle variant="ghost" size="icon" className="size-11" />
+              )}
             </div>
           </div>
+        </motion.div>
+
+        {/* 2. Inline Stats (48px) - Single Line */}
+        {!menuLoading && menuItems.length > 0 && (
+          <motion.div variants={itemVariants}>
+            <div className="flex items-center justify-center gap-4 py-3 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <Utensils className="size-4" />
+                <span className="font-semibold text-foreground">{totalCount}</span>
+                <span>блюд</span>
+              </div>
+              
+              <div className="size-1 rounded-full bg-muted" />
+              
+              <div className="flex items-center gap-1.5">
+                <Tag className="size-4" />
+                <span className="font-semibold text-foreground">{categories.length}</span>
+                <span>категорий</span>
+              </div>
+              
+              <div className="size-1 rounded-full bg-muted" />
+              
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="size-4 text-mint-500" />
+                <span className="font-semibold text-foreground">{activeCount}/{totalCount}</span>
+              </div>
+              
+              {avgPrice > 0 && (
+                <>
+                  <div className="size-1 rounded-full bg-muted" />
+                  <div className="flex items-center gap-1.5">
+                    <span>~</span>
+                    <span className="font-semibold text-foreground">₽{avgPrice}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </motion.div>
         )}
 
-        {/* Список блюд */}
+        {/* 3. Expandable Search */}
+        <AnimatePresence>
+          {searchVisible && (
+            <motion.div
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <GlassCard intensity="low" className="overflow-hidden">
+                <GlassCardContent className="p-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      ref={searchInputRef}
+                      placeholder="🔍 Поиск блюд..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-mint-500 h-11"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 4. Sticky Category Pills (48px) - Horizontal Scroll */}
+        {!menuLoading && categories.length > 0 && (
+          <motion.div 
+            variants={itemVariants}
+            className="sticky top-0 z-10 bg-background/80 backdrop-blur-md -mx-4 px-4 py-2 border-b border-border"
+          >
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+              {/* All button */}
+              <Button
+                variant={!selectedCategory ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setSelectedCategory(null);
+                  haptic.light();
+                }}
+                className={cn(
+                  "flex-shrink-0 min-h-11",
+                  !selectedCategory && "bg-gradient-to-r from-mint-500 to-mint-600 text-white hover:from-mint-600 hover:to-mint-700"
+                )}
+              >
+                Все
+              </Button>
+              
+              {/* Category buttons */}
+              {categories.map((cat) => {
+                const count = categoryCounts[cat] || 0;
+                const isSelected = selectedCategory === cat;
+                
+                return (
+                  <Button
+                    key={cat}
+                    variant={isSelected ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      haptic.light();
+                    }}
+                    disabled={count === 0}
+                    className={cn(
+                      "flex-shrink-0 min-h-11 gap-1.5",
+                      isSelected && "bg-gradient-to-r from-mint-500 to-mint-600 text-white hover:from-mint-600 hover:to-mint-700"
+                    )}
+                  >
+                    <span className="text-base">{getCategoryIcon(cat)}</span>
+                    <span className="capitalize">{cat}</span>
+                    {count > 0 && (
+                      <Badge 
+                        variant="secondary" 
+                        className={cn(
+                          "ml-1 text-xs",
+                          isSelected && "bg-white/20 text-white border-0"
+                        )}
+                      >
+                        {count}
+                      </Badge>
+                    )}
+                  </Button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* 5. Menu Items List */}
         {menuLoading ? (
           <MenuListSkeleton count={6} />
         ) : filteredItems.length === 0 ? (
@@ -371,11 +498,7 @@ export const MenuPage: React.FC = () => {
             <EmptyMenuState onAction={user?.isAdmin ? openBottomSheet : undefined} />
           )
         ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.4 }}
-          >
+          <motion.div variants={itemVariants}>
             <MenuList
               items={filteredItems}
               loading={menuLoading}
@@ -388,50 +511,101 @@ export const MenuPage: React.FC = () => {
             />
           </motion.div>
         )}
-      </div>
+      </motion.div>
 
-      {/* Форма добавления через BottomSheet */}
+      {/* 6. Contextual FAB */}
+      {user?.isAdmin ? (
+        <motion.button
+          className="fixed bottom-20 right-4 z-30 flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-mint-500 to-mint-600 text-white shadow-lg shadow-mint-500/30 font-medium"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            openBottomSheet();
+            haptic.medium();
+          }}
+        >
+          <Plus className="size-5" />
+          <span>Добавить</span>
+        </motion.button>
+      ) : (
+        <motion.button
+          className="fixed bottom-20 right-4 z-30 flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/30 font-medium"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            haptic.medium();
+            addNotification({
+              type: 'info',
+              message: 'Перейдите на страницу голосования',
+            });
+          }}
+        >
+          <Zap className="size-5" />
+          <span>Голосовать</span>
+        </motion.button>
+      )}
+
+      {/* Bottom Sheets */}
       <BottomSheet
         isOpen={formState.isOpen}
         onClose={closeBottomSheet}
         title="Добавить блюдо"
         enableBackdrop={true}
-        snapPoints={[85, 95]}
+        snapPoints={[100]}
         initialSnap={0}
       >
-        <div className="p-4">
-          <MenuForm
-            onSubmit={handleAddItem}
-            onCancel={closeBottomSheet}
-            loading={menuLoading}
-          />
-        </div>
+        <MenuForm
+          onSubmit={handleAddItem}
+          onCancel={closeBottomSheet}
+          loading={menuLoading}
+        />
       </BottomSheet>
       
-      {/* Форма редактирования */}
       {editingItem && (
         <BottomSheet
           isOpen={!!editingItem}
           onClose={() => setEditingItem(null)}
           title="Редактировать блюдо"
           enableBackdrop={true}
-          snapPoints={[85, 95]}
+          snapPoints={[100]}
           initialSnap={0}
         >
-          <div className="p-4">
-            <MenuForm
-              item={editingItem}
-              onSubmit={handleEditItem}
-              onCancel={() => setEditingItem(null)}
-              loading={menuLoading}
-            />
-          </div>
+          <MenuForm
+            item={editingItem}
+            onSubmit={handleEditItem}
+            onCancel={() => setEditingItem(null)}
+            loading={menuLoading}
+          />
         </BottomSheet>
       )}
-
-
-      
-
     </>
   );
 };
+
+/**
+ * Helper: Get category icon
+ */
+function getCategoryIcon(category: string): string {
+  const icons: Record<string, string> = {
+    'первые блюда': '🍲',
+    'вторые блюда': '🍖',
+    'салаты': '🥗',
+    'десерты': '🍰',
+    'напитки': '🥤',
+    'закуски': '🥨',
+    'супы': '🍜',
+    'мясо': '🥩',
+    'рыба': '🐟',
+    'овощи': '🥬',
+    'паста': '🍝',
+    'пицца': '🍕',
+    'бургеры': '🍔',
+    'азиатская': '🍜',
+    'итальянская': '🍝',
+    'японская': '🍣',
+    'default': '🍽️'
+  };
+
+  const lowerCategory = category.toLowerCase();
+  return icons[lowerCategory] || icons.default;
+}

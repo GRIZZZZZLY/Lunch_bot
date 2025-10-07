@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '../common/Button';
-import { Input } from '../common/Input';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Plus, Check } from 'lucide-react';
+
+// New shadcn/ui components
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import { Badge } from '../ui/badge';
+import { Switch } from '../ui/switch';
+import { GlassCard, GlassCardContent } from '../ui/glass-card';
+import { GradientButton } from '../ui/gradient-button';
+
+// Old components
 import { LoadingSpinner } from '../common/LoadingSpinner';
+
+// Hooks
 import { useTelegram } from '../../hooks/useTelegram';
+import { useHaptic } from '../../hooks/useHaptic';
 import { menuService, MenuItem } from '../../services/menu.service';
+import { cn } from '../../lib/utils';
 
 export interface MenuFormData {
   name: string;
@@ -22,7 +38,8 @@ export interface MenuFormProps {
 }
 
 /**
- * Форма добавления/редактирования блюда
+ * MenuForm v2.0 - Native BottomSheet integration
+ * Без fixed обёртки, glassmorphism, mint цвета
  */
 export const MenuForm: React.FC<MenuFormProps> = ({
   item,
@@ -30,7 +47,9 @@ export const MenuForm: React.FC<MenuFormProps> = ({
   onCancel,
   loading = false,
 }) => {
-  const { mainButton, backButton, hapticFeedback, showAlert } = useTelegram();
+  const { showAlert } = useTelegram();
+  const haptic = useHaptic();
+  
   const [formData, setFormData] = useState<MenuFormData>({
     name: '',
     description: '',
@@ -62,21 +81,6 @@ export const MenuForm: React.FC<MenuFormProps> = ({
   useEffect(() => {
     loadCategories();
   }, []);
-
-  // НЕ управляем кнопками Telegram - форма в BottomSheet
-  // useEffect(() => {
-  //   mainButton.setText(item ? 'Сохранить изменения' : 'Добавить блюдо');
-  //   mainButton.onClick(handleSubmit);
-  //   mainButton.show();
-
-  //   backButton.onClick(onCancel);
-  //   backButton.show();
-
-  //   return () => {
-  //     mainButton.hide();
-  //     backButton.hide();
-  //   };
-  // }, [item, formData, mainButton, backButton]);
 
   const loadCategories = async () => {
     try {
@@ -131,7 +135,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    hapticFeedback.impactOccurred('medium');
+    haptic.medium();
 
     if (!validateForm()) {
       const firstError = Object.values(errors)[0];
@@ -155,206 +159,300 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     }
   };
 
-  // Блокируем скролл body когда форма открыта
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = '';
+  const getCategoryIcon = (category: string): string => {
+    const icons: Record<string, string> = {
+      'первые блюда': '🍲',
+      'вторые блюда': '🍖',
+      'салаты': '🥗',
+      'десерты': '🍰',
+      'напитки': '🥤',
+      'закуски': '🥨',
+      'супы': '🍜',
+      'мясо': '🥩',
+      'рыба': '🐟',
+      'овощи': '🥬',
+      'паста': '🍝',
+      'пицца': '🍕',
+      'бургеры': '🍔',
+      'азиатская': '🍜',
+      'итальянская': '🍝',
+      'японская': '🍣',
+      'default': '🍽️'
     };
-  }, []);
+    const lowerCategory = category.toLowerCase();
+    return icons[lowerCategory] || icons.default;
+  };
 
-  console.log('📝 MenuForm RENDERING!');
-  
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-      <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl border border-gray-200/20 dark:border-gray-700/20 scale-in">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200/50 dark:border-gray-700/50">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {item ? 'Редактировать блюдо' : 'Новое блюдо'}
-          </h2>
-          <button
-            onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            ×
-          </button>
-        </div>
+    <div className="flex flex-col h-full">
+      {/* Form Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {loading && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+            <LoadingSpinner text="Сохранение..." />
+          </div>
+        )}
 
-        {/* Form */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {loading && (
-            <div className="absolute inset-0 bg-white bg-opacity-75 dark:bg-gray-800 dark:bg-opacity-75 flex items-center justify-center z-10">
-              <LoadingSpinner text="Сохранение..." />
-            </div>
-          )}
+        {/* Name */}
+        <GlassCard intensity="low">
+          <GlassCardContent className="p-4 space-y-2">
+            <Label htmlFor="name" className="text-foreground">
+              Название блюда <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="name"
+              placeholder="Например: Пицца Маргарита"
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              className={cn(
+                "bg-background/50 border-mint-200 focus-visible:ring-mint-500",
+                errors.name && "border-red-500"
+              )}
+              maxLength={100}
+            />
+            {errors.name && (
+              <p className="text-sm text-red-500">{errors.name}</p>
+            )}
+          </GlassCardContent>
+        </GlassCard>
 
-          {/* Name */}
-          <Input
-            label="Название блюда *"
-            placeholder="Например: Пицца Маргарита"
-            value={formData.name}
-            onChange={(e) => handleInputChange('name', e.target.value)}
-            error={errors.name}
-            fullWidth
-            maxLength={100}
-          />
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        {/* Description */}
+        <GlassCard intensity="low">
+          <GlassCardContent className="p-4 space-y-2">
+            <Label htmlFor="description" className="text-foreground">
               Описание
-            </label>
-            <textarea
-              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm placeholder-gray-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 resize-none"
+            </Label>
+            <Textarea
+              id="description"
               rows={3}
-              placeholder="Описание блюда..."
+              placeholder="Расскажите о блюде..."
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
+              className={cn(
+                "bg-background/50 border-mint-200 focus-visible:ring-mint-500 resize-none",
+                errors.description && "border-red-500"
+              )}
               maxLength={500}
             />
             {errors.description && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                {errors.description}
-              </p>
+              <p className="text-sm text-red-500">{errors.description}</p>
             )}
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               {(formData.description?.length || 0)}/500
             </p>
-          </div>
+          </GlassCardContent>
+        </GlassCard>
 
-          {/* Price */}
-          <Input
-            label="Цена (₽)"
-            type="number"
-            placeholder="0"
-            value={formData.price || ''}
-            onChange={(e) => handleInputChange('price', e.target.value ? Number(e.target.value) : undefined)}
-            error={errors.price}
-            fullWidth
-            min={0}
-            step={0.01}
-          />
+        {/* Price */}
+        <GlassCard intensity="low">
+          <GlassCardContent className="p-4 space-y-2">
+            <Label htmlFor="price" className="text-foreground">
+              Цена (₽)
+            </Label>
+            <Input
+              id="price"
+              type="number"
+              placeholder="0"
+              value={formData.price || ''}
+              onChange={(e) => handleInputChange('price', e.target.value ? Number(e.target.value) : undefined)}
+              className={cn(
+                "bg-background/50 border-mint-200 focus-visible:ring-mint-500",
+                errors.price && "border-red-500"
+              )}
+              min={0}
+              step={0.01}
+            />
+            {errors.price && (
+              <p className="text-sm text-red-500">{errors.price}</p>
+            )}
+          </GlassCardContent>
+        </GlassCard>
 
-          {/* Category */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        {/* Category - Improved with horizontal scroll */}
+        <GlassCard intensity="low">
+          <GlassCardContent className="p-4 space-y-3">
+            <Label htmlFor="category" className="text-foreground">
               Категория
-            </label>
-            <div className="space-y-2">
-              <Input
-                placeholder="Введите или выберите категорию"
-                value={formData.category}
-                onChange={(e) => handleInputChange('category', e.target.value)}
-                error={errors.category}
-                fullWidth
-                maxLength={50}
-              />
-              
-              {categories.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-xs text-gray-500 dark:text-gray-400 w-full">
-                    Существующие категории:
-                  </span>
-                  {categories.map(category => (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => handleInputChange('category', category)}
-                      className={`text-xs px-2 py-1 rounded border transition-colors ${
-                        formData.category === category
-                          ? 'bg-primary-food-700 text-white border-primary-food-700 shadow-sm shadow-primary-food-700/30'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
+            </Label>
+            
+            {/* Input */}
+            <Input
+              id="category"
+              placeholder="Введите или выберите категорию"
+              value={formData.category}
+              onChange={(e) => handleInputChange('category', e.target.value)}
+              className={cn(
+                "bg-background/50 border-mint-200 focus-visible:ring-mint-500",
+                errors.category && "border-red-500"
               )}
-              
-              {loadingCategories && (
-                <div className="flex items-center space-x-2">
-                  <LoadingSpinner size="sm" />
-                  <span className="text-xs text-gray-500">Загрузка категорий...</span>
+              maxLength={50}
+            />
+            
+            {errors.category && (
+              <p className="text-sm text-red-500">{errors.category}</p>
+            )}
+            
+            {/* Existing categories - Horizontal scroll */}
+            {categories.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-xs text-muted-foreground">
+                  Существующие категории:
+                </span>
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+                  {categories.map(category => {
+                    const isSelected = formData.category === category;
+                    return (
+                      <Button
+                        key={category}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          handleInputChange('category', category);
+                          haptic.light();
+                        }}
+                        className={cn(
+                          "flex-shrink-0 min-h-11 gap-1.5",
+                          isSelected && "bg-gradient-to-r from-mint-500 to-mint-600 text-white border-mint-600 hover:from-mint-600 hover:to-mint-700"
+                        )}
+                      >
+                        <span className="text-base">{getCategoryIcon(category)}</span>
+                        <span className="capitalize">{category}</span>
+                      </Button>
+                    );
+                  })}
                 </div>
+              </div>
+            )}
+            
+            {loadingCategories && (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full size-4 border-2 border-mint-500 border-t-transparent" />
+                <span className="text-xs text-muted-foreground">Загрузка категорий...</span>
+              </div>
+            )}
+          </GlassCardContent>
+        </GlassCard>
+
+        {/* Image URL */}
+        <GlassCard intensity="low">
+          <GlassCardContent className="p-4 space-y-2">
+            <Label htmlFor="imageUrl" className="text-foreground">
+              URL изображения
+            </Label>
+            <Input
+              id="imageUrl"
+              type="url"
+              placeholder="https://example.com/image.jpg"
+              value={formData.imageUrl}
+              onChange={(e) => handleInputChange('imageUrl', e.target.value)}
+              className={cn(
+                "bg-background/50 border-mint-200 focus-visible:ring-mint-500",
+                errors.imageUrl && "border-red-500"
               )}
-            </div>
-          </div>
+            />
+            {errors.imageUrl && (
+              <p className="text-sm text-red-500">{errors.imageUrl}</p>
+            )}
+          </GlassCardContent>
+        </GlassCard>
 
-          {/* Image URL */}
-          <Input
-            label="URL изображения"
-            type="url"
-            placeholder="https://example.com/image.jpg"
-            value={formData.imageUrl}
-            onChange={(e) => handleInputChange('imageUrl', e.target.value)}
-            error={errors.imageUrl}
-            fullWidth
-          />
-
-          {/* Preview image */}
+        {/* Preview image - Large (192px) */}
+        <AnimatePresence>
           {formData.imageUrl && isValidUrl(formData.imageUrl) && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Предварительный просмотр
-              </label>
-              <img
-                src={formData.imageUrl}
-                alt="Preview"
-                className="w-32 h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            </div>
-          )}
-
-          {/* Active toggle */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-white">
-                Активное блюдо
-              </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Будет участвовать в голосованиях
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleInputChange('isActive', !formData.isActive)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-food-500 focus:ring-offset-2 ${
-                formData.isActive ? 'bg-primary-food-700' : 'bg-gray-200 dark:bg-gray-600'
-              }`}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
             >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  formData.isActive ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-        </div>
+              <GlassCard intensity="medium" className="overflow-hidden">
+                <div className="relative h-48 w-full">
+                  <img
+                    src={formData.imageUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  
+                  {/* Remove button overlay */}
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('imageUrl', '')}
+                    className="absolute top-2 right-2 size-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                  >
+                    <X className="size-4" />
+                  </button>
+                  
+                  {/* Preview label */}
+                  <div className="absolute bottom-2 left-2 px-3 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-white text-xs font-medium flex items-center gap-1">
+                    <Check className="size-3" />
+                    Предпросмотр
+                  </div>
+                </div>
+              </GlassCard>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Footer - только для мобильных устройств без MainButton */}
-        <div className="p-6 pb-safe border-t border-gray-200/50 dark:border-gray-700/50 space-y-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-b-3xl">
-          <Button
-            onClick={handleSubmit}
-            loading={loading}
-            fullWidth
-            disabled={!formData.name.trim()}
-          >
-            {item ? 'Сохранить изменения' : 'Добавить блюдо'}
-          </Button>
-          
-          <Button
-            variant="secondary"
+        {/* Active toggle - Touch-friendly Switch */}
+        <GlassCard intensity="low">
+          <GlassCardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="isActive" className="text-base text-foreground">
+                  Активное блюдо
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Будет участвовать в голосованиях
+                </p>
+              </div>
+              <Switch
+                id="isActive"
+                checked={formData.isActive}
+                onCheckedChange={(checked) => {
+                  handleInputChange('isActive', checked);
+                  haptic.light();
+                }}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-mint-500 data-[state=checked]:to-mint-600"
+              />
+            </div>
+          </GlassCardContent>
+        </GlassCard>
+      </div>
+
+      {/* Footer - Compact (single row) */}
+      <div className="sticky bottom-0 bg-background/80 backdrop-blur-md border-t border-border p-4">
+        <div className="flex items-center justify-between gap-3">
+          <Button 
+            variant="ghost" 
             onClick={onCancel}
-            fullWidth
             disabled={loading}
+            className="flex-1 min-h-11"
           >
             Отмена
           </Button>
+          
+          <GradientButton 
+            variant="mint"
+            onClick={handleSubmit}
+            disabled={!formData.name.trim() || loading}
+            className="flex-1 min-h-11"
+            shimmer={!loading}
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full size-4 border-2 border-white border-t-transparent mr-2" />
+                Сохранение...
+              </>
+            ) : (
+              <>
+                {item ? <Check className="size-4 mr-2" /> : <Plus className="size-4 mr-2" />}
+                {item ? 'Сохранить' : 'Добавить'}
+              </>
+            )}
+          </GradientButton>
         </div>
       </div>
     </div>

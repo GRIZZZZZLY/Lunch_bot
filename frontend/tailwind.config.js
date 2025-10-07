@@ -4,6 +4,7 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -16,82 +17,109 @@ export default {
         'tg-button-text': 'var(--tg-color-button-text)',
         'tg-secondary-bg': 'var(--tg-color-secondary-bg)',
         
-        // Кастомные цвета для темы
+        // 🎨 NEW: Modern Color Palette for Dark & Light Themes
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
-        // Food Premium Palette
-        'primary-food': {
-          50: '#FFF7ED',   // Lightest cream
-          100: '#FFEDD5',  // Light peach
-          200: '#FED7AA',  // Soft peach
-          300: '#FDBA74',  // Warm peach
-          400: '#FB923C',  // Vibrant orange
-          500: '#F97316',  // Primary orange [MAIN]
-          600: '#EA580C',  // Deep orange
-          700: '#C2410C',  // TEXT PRIMARY (WCAG AA)
-          800: '#9A3412',  // TEXT BOLD (WCAG AAA)
-          900: '#7C2D12',  // Darkest orange
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
         },
-        // Pastel Bluegray (голубовато-серые виджеты для dark mode)
-        'bluegray': {
-          50: '#F0F4F8',   // Lightest tint
-          100: '#D9E2EC',  // Subtle backgrounds
-          200: '#BCCCDC',  // Widget borders
-          300: '#9FB3C8',  // PRIMARY widget BG (6.8:1 contrast)
-          400: '#829AB1',  // Hover state
-          500: '#627D98',  // Active widget
-          600: '#486581',  // Dark variant
-          700: '#334E68',  // Text on light
-          800: '#243B53',  // Deep backgrounds
-          900: '#102A43',  // Darkest
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
         },
-        // Pastel Lavender (нежно-лиловые акценты для dark mode)
-        'lavender': {
-          50: '#F5F3FF',   // Lightest tint
-          100: '#EDE9FE',  // Subtle backgrounds
-          200: '#DDD6FE',  // Widget borders
-          300: '#C4B5FD',  // SECONDARY widget BG (7.2:1 contrast)
-          400: '#A78BFA',  // Hover state
-          500: '#8B5CF6',  // Active widget
-          600: '#7C3AED',  // Dark variant
-          700: '#6D28D9',  // Text on light
-          800: '#5B21B6',  // Deep backgrounds
-          900: '#4C1D95',  // Darkest
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
         },
-        // Desaturated Peach (приглушенный оранжевый для dark mode)
-        'peach': {
-          50: '#FBF5F0',   // Lightest
-          100: '#F5EBE1',  // Subtle
-          200: '#E6D4BF',  // Light
-          300: '#D4A574',  // PRIMARY desaturated (6.1:1 contrast)
-          400: '#C78A5C',  // Hover
-          500: '#B97447',  // Active
-          600: '#A05E35',  // Dark
-          700: '#824A28',  // Text
-          800: '#63381D',  // Deep
-          900: '#462814',  // Darkest
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
         },
-        success: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        // 🍑 PEACH (Food Primary - Orange)
+        peach: {
+          50: '#FFF4ED',
+          100: '#FFE5D6',
+          200: '#FFCCAD',
+          300: '#FFB38F',   // Dark mode default
+          400: '#FF9870',
+          500: '#FF7851',   // Light mode default
+          600: '#E85D36',
+          700: '#CC4A24',
+          800: '#B33812',
+          900: '#992600',
+          DEFAULT: '#FF7851',
+        },
+        // 🌿 MINT (Success - Green)
+        mint: {
+          50: '#F0FDF7',
+          100: '#DCFCE8',
+          200: '#BBF7D1',
+          300: '#9ED6B9',   // Dark mode default
+          400: '#7BC4A3',
+          500: '#5CAE87',   // Light mode default
+          600: '#3D8F67',
+          700: '#2A7050',
+          800: '#1B5239',
+          900: '#0D3422',
+          DEFAULT: '#5CAE87',
+        },
+        // 💜 LAVENDER (Premium - Purple)
+        lavender: {
+          50: '#F5F3FF',
+          100: '#EDE9FE',
+          200: '#DDD6FE',
+          300: '#C4B5FD',   // Dark mode default
+          400: '#A78BFA',
+          500: '#8B5CF6',   // Light mode default
+          600: '#7C3AED',
+          700: '#6D28D9',
+          800: '#5B21B6',
+          900: '#4C1D95',
+          DEFAULT: '#8B5CF6',
+        },
+        // 🔴 CORAL (Energy - Red-Orange)
+        coral: {
+          50: '#FFF1F0',
+          100: '#FFE4E1',
+          200: '#FFC9C3',
+          300: '#FF9B92',   // Dark mode default
+          400: '#FF7B6E',
+          500: '#FF5A4A',   // Light mode default
+          600: '#E63E2E',
+          700: '#CC2A1A',
+          800: '#B31606',
+          900: '#990200',
+          DEFAULT: '#FF5A4A',
+        },
+        // 🌟 BUTTER (Warning - Yellow)
+        butter: {
+          50: '#FFFBEB',
+          100: '#FFF3C4',
+          200: '#FFE68A',
+          300: '#FFD966',   // Dark mode default
+          400: '#FFCC42',
+          500: '#FFBF1F',   // Light mode default
+          600: '#E5A800',
+          700: '#CC9400',
+          800: '#B38000',
+          900: '#996C00',
+          DEFAULT: '#FFBF1F',
         },
         // Desaturated Success (приглушенный зеленый для dark mode)
         'success-soft': {
@@ -293,10 +321,17 @@ export default {
         '18': '4.5rem',
         '88': '22rem',
       },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
     },
   },
   plugins: [
     require('@tailwindcss/forms'),
+    require('@tailwindcss/typography'),
+    require('@tailwindcss/container-queries'),
+    require('tailwindcss-animate'),
   ],
-  darkMode: 'class',
 };
