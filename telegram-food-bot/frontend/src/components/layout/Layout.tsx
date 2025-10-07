@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useAppStore } from '../../store/useAppStore';
 import { ToastContainer } from '../common/Toast';
 import { FullPageLoader } from '../common/LoadingSpinner';
+import { DonationBar } from '../donation';
 
 export interface LayoutProps {
   children: React.ReactNode;
@@ -82,18 +83,21 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div 
-      className="min-h-screen transition-colors duration-200 relative bg-gray-50 dark:bg-gray-900"
+      className="min-h-screen transition-colors duration-200 relative bg-background"
       style={{
         color: 'var(--tg-theme-text-color)',
       }}
     >
       {/* Основной контент */}
       <main 
-        className="container mx-auto px-4 py-4 max-w-2xl relative z-0"
+        className="container mx-auto px-4 py-4 pb-24 max-w-2xl relative z-0"
         style={{ overscrollBehavior: 'contain' }}
       >
         {children}
       </main>
+
+      {/* Donation bar - показывается на всех страницах */}
+      <DonationBar />
 
       {/* Toast уведомления */}
       <ToastContainer />
