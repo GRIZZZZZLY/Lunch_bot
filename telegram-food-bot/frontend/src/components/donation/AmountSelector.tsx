@@ -67,12 +67,12 @@ export const AmountSelector = ({
             className={cn(
               'relative px-4 py-3 rounded-xl font-semibold transition-all',
               selectedAmount === amount.value && !isCustom
-                ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/30'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-gradient-to-r from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/30'
+                : 'bg-muted/50 text-foreground hover:bg-muted'
             )}
           >
             {amount.popular && (
-              <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+              <div className="absolute -top-2 -right-2 bg-coral-500 text-white text-xs px-2 py-0.5 rounded-full">
                 🔥
               </div>
             )}
@@ -95,8 +95,8 @@ export const AmountSelector = ({
         className={cn(
           'w-full px-4 py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2',
           isCustom
-            ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/30'
-            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+            ? 'bg-gradient-to-r from-lavender-500 to-lavender-600 text-white shadow-lg shadow-lavender-500/30'
+            : 'bg-muted/50 text-foreground hover:bg-muted'
         )}
       >
         <Edit3 size={16} />
@@ -118,10 +118,10 @@ export const AmountSelector = ({
               value={customValue}
               onChange={(e) => handleCustomChange(e.target.value)}
               placeholder={`Введите сумму`}
-              className="w-full px-4 py-3 rounded-xl border-2 border-yellow-300 dark:border-yellow-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 text-center text-lg font-semibold"
+              className="w-full px-4 py-3 rounded-xl border-2 border-peach-300 dark:border-peach-600 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-peach-500 text-center text-lg font-semibold"
               autoFocus
             />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 font-semibold">
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">
               {symbol}
             </div>
           </div>

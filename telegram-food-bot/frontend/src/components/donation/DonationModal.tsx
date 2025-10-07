@@ -6,6 +6,8 @@ import { AmountSelector } from './AmountSelector';
 import { PaymentSuccess } from './PaymentSuccess';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { PaymentMethod, DonationAmount } from '../../types/donation.types';
+import { GlassCard, GlassCardContent } from '../ui/glass-card';
+import { GradientButton } from '../ui/gradient-button';
 
 interface DonationModalProps {
   isOpen: boolean;
@@ -120,7 +122,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+            className="relative w-full max-w-md bg-background rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {showSuccess && successData ? (
@@ -132,28 +134,33 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
             ) : (
               <>
                 {/* Header */}
-                <div className="sticky top-0 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 p-6 text-white">
-                  <button
-                    onClick={handleClose}
-                    className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-                  >
-                    <X size={20} className="text-white" />
-                  </button>
+                <GlassCard intensity="high" className="rounded-t-3xl rounded-b-none overflow-hidden sticky top-0">
+                  <div className="absolute inset-0 bg-gradient-to-r from-peach-500/30 to-butter-500/30" />
+                  <GlassCardContent className="relative p-6">
+                    <button
+                      onClick={handleClose}
+                      className="absolute top-4 right-4"
+                    >
+                      <div className="p-2 rounded-full bg-background/20 hover:bg-background/30 transition-colors">
+                        <X size={20} className="text-foreground" />
+                      </div>
+                    </button>
 
-                  <div className="flex items-center gap-3 mb-2">
-                    <Heart size={28} className="animate-pulse" />
-                    <h2 className="text-2xl font-bold">Поддержать проект</h2>
-                  </div>
-                  <p className="text-yellow-100 text-sm">
-                    Помогите развитию бота - выберите способ оплаты
-                  </p>
-                </div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Heart size={28} className="text-peach-500 animate-pulse" />
+                      <h2 className="text-2xl font-bold text-foreground">Поддержать проект</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Помогите развитию бота - выберите способ оплаты
+                    </p>
+                  </GlassCardContent>
+                </GlassCard>
 
                 {/* Content */}
                 <div className="p-6 space-y-6">
                   {/* Payment Methods */}
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                    <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                       Способ оплаты
                     </h3>
                     {paymentMethods.map((method) => (
@@ -179,7 +186,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-3"
                     >
-                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                      <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                         Сумма
                       </h3>
                       <AmountSelector
@@ -193,35 +200,42 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
 
                   {/* Payment Button */}
                   {canProceed && (
-                    <motion.button
+                    <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handlePayment}
-                      disabled={loading}
-                      className="w-full py-4 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {loading ? (
-                        <>
-                          <LoadingSpinner size="sm" />
-                          <span>Обработка...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Heart size={20} />
-                          <span>Поддержать ({selectedAmount})</span>
-                        </>
-                      )}
-                    </motion.button>
+                      <GradientButton
+                        variant="peach"
+                        size="lg"
+                        shimmer
+                        className="w-full"
+                        onClick={handlePayment}
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <>
+                            <LoadingSpinner size="sm" />
+                            <span>Обработка...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Heart size={20} />
+                            <span>Поддержать ({selectedAmount})</span>
+                          </>
+                        )}
+                      </GradientButton>
+                    </motion.div>
                   )}
 
                   {/* Info */}
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      💡 <strong>Важно:</strong> Все средства идут на развитие и поддержку проекта. Спасибо за вашу щедрость!
-                    </p>
-                  </div>
+                  <GlassCard intensity="low" className="overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-lavender-500/10 to-mint-500/10" />
+                    <GlassCardContent className="relative">
+                      <p className="text-sm text-foreground">
+                        💡 <strong>Важно:</strong> Все средства идут на развитие и поддержку проекта. Спасибо за вашу щедрость!
+                      </p>
+                    </GlassCardContent>
+                  </GlassCard>
                 </div>
               </>
             )}

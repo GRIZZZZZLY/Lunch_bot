@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/index.css';
-import './styles/dark-theme-optimized.css';
 
 // Инициализация Telegram WebApp
 if (typeof window !== 'undefined' && window.Telegram?.WebApp) {

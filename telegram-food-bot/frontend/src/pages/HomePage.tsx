@@ -6,23 +6,108 @@ import {
   TrendingUp,
   Clock,
   Vote,
-  Sun,
-  Moon,
+  History,
+  BarChart3,
+  User,
+  Utensils,
+  ChefHat,
+  Sparkles,
   ArrowRight,
+  Repeat,
+  Trophy,
+  MessageSquare,
+  RefreshCw,
+  Share2,
+  Bell,
+  Shuffle,
+  Flame,
+  Star,
+  Zap,
 } from 'lucide-react';
-import { GlassHeroCard } from '../components/glass';
-import { DonationButton } from '../components/donation';
+
+// New shadcn/ui components
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
+import { Skeleton } from '../components/ui/skeleton';
+import { Progress } from '../components/ui/progress';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../components/ui/tooltip';
+
+// Custom components
+import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardDescription, GlassCardContent } from '../components/ui/glass-card';
+import { GradientButton } from '../components/ui/gradient-button';
+import { ThemeToggle } from '../components/ui/theme-toggle';
+
+// Old components (for poll functionality)
 import { BottomSheet, useBottomSheet } from '../components/common/BottomSheet';
 import { CreatePollForm, SimplePollCard } from '../components/polls';
+
+// Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { useMenu, useAppStore } from '../store/useAppStore';
 import { pollsService, PollWithDetails } from '../services/polls.service';
+import { cn, formatRelativeTime, getInitials, getAvatarColor } from '../lib/utils';
+import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
 
 /**
- * HomePage - Главная страница с Hero section и Action buttons
- * Трансформация от Crypto Premium к Food Premium Experience
+ * Quick Actions v2.0 Types
+ */
+type ScenarioType = 
+  | 'active-not-voted'
+  | 'active-voted'
+  | 'no-active-poll'
+  | 'poll-ended';
+
+interface HeroAction {
+  title: string;
+  description: string;
+  icon?: React.ReactNode;
+  imageUrl?: string;
+  buttonText: string;
+  buttonVariant: 'peach' | 'mint' | 'lavender' | 'coral' | 'butter';
+  showShimmer?: boolean;
+  badge?: {
+    text: string;
+    variant?: 'default' | 'live' | 'popular';
+  };
+  statistics?: {
+    voteCount: number;
+    percentage: number;
+    showProgress: boolean;
+    label?: string;
+  };
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+interface SecondaryAction {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  gradient: 'peach' | 'mint' | 'lavender' | 'coral' | 'butter';
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+interface TertiaryAction {
+  text: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}
+
+interface ScenarioConfig {
+  hero: HeroAction;
+  secondary: SecondaryAction[];
+  tertiary?: TertiaryAction;
+  layout: '2x50%' | '3x33%';
+}
+
+/**
+ * HomePage - Полностью переработанная главная страница
+ * Современный дизайн с glassmorphism, градиентами и анимациями
  */
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,46 +115,59 @@ export const HomePage: React.FC = () => {
   const { user } = useAuth();
   const haptic = useHaptic();
   const { menuItems } = useMenu();
-  const { theme, setTheme } = useAppStore((state) => ({
-    theme: state.theme,
-    setTheme: state.setTheme,
-  }));
+  const theme = useAppStore((state) => state.theme);
   
-  const isDark = colorScheme === 'dark';
+  // Time-based gradient and greeting
+  const gradientColors = useTimeBasedGradient(theme === 'dark');
+  const timeIcons = {
+    morning: '🌅',
+    afternoon: '☀️',
+    evening: '🌆',
+    night: '🌙'
+  } as const;
+  const timeIcon = timeIcons[gradientColors.timeOfDay];
+  
+  const isDark = theme === 'dark';
   const { isOpen: isPollSheetOpen, open: openPollSheet, close: closePollSheet } = useBottomSheet();
   
-  // Подсчёт статистики для Hero card
-  const [orderTotal, setOrderTotal] = useState(0);
-  const [orderItemsCount, setOrderItemsCount] = useState(0);
+  // State
+  const [isLoading, setIsLoading] = useState(true);
   const [activePolls, setActivePolls] = useState<PollWithDetails[]>([]);
   const [activePoll, setActivePoll] = useState<PollWithDetails | null>(null);
-  const [pollRefreshKey, setPollRefreshKey] = useState(0);
   
+  // Quick Actions v2.0 State
+  const [currentScenario, setCurrentScenario] = useState<ScenarioType>('no-active-poll');
+  const [hasVoted, setHasVoted] = useState(false);
+  const [lastPoll, setLastPoll] = useState<PollWithDetails | null>(null);
+  const [popularDish, setPopularDish] = useState<any>(null);
+  const [randomDish, setRandomDish] = useState<any>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  
+  // Модалки
+  const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
+  const [isRandomModalOpen, setIsRandomModalOpen] = useState(false);
+  const [isPopularModalOpen, setIsPopularModalOpen] = useState(false);
+  
+  // Load data on mount
   useEffect(() => {
-    // TODO: Получить реальные данные заказа из store
-    // Пока используем mock данные
-    setOrderTotal(1450);
-    setOrderItemsCount(3);
-    
-    // Загружаем активные голосования
-    loadActivePolls();
+    loadData();
   }, []);
+  
+  const loadData = async () => {
+    setIsLoading(true);
+    await loadActivePolls();
+    setIsLoading(false);
+  };
   
   const loadActivePolls = async () => {
     try {
       const response = await pollsService.getActivePolls();
-      console.log('🔍 Poll API Response:', response);
       
       if (response.success && response.data) {
-        console.log('📊 Active polls data:', response.data);
         setActivePolls(response.data);
         
-        // Set first active poll as main poll
         if (response.data.length > 0) {
           const firstPoll = response.data[0];
-          console.log('✅ Setting active poll:', firstPoll);
-          
-          // Transform backend fields to frontend expected fields
           const transformedPoll = {
             ...firstPoll,
             title: 'Голосование на обед',
@@ -82,12 +180,9 @@ export const HomePage: React.FC = () => {
           
           setActivePoll(transformedPoll);
         } else {
-          console.log('❌ No active polls found');
           setActivePoll(null);
         }
       } else {
-        // Если ошибка авторизации - просто не показываем виджет
-        console.warn('Cannot load polls:', response.error);
         setActivePoll(null);
         setActivePolls([]);
       }
@@ -98,252 +193,728 @@ export const HomePage: React.FC = () => {
     }
   };
 
-  // Auto-refresh active poll every 10 seconds
+  // Auto-refresh
   useEffect(() => {
     if (!activePoll) return;
     
     const refreshInterval = setInterval(() => {
       loadActivePolls();
-    }, 10000); // 10 seconds
+    }, 10000);
 
     return () => clearInterval(refreshInterval);
   }, [activePoll]);
-  
-  // Средний чек
-  const averageCheck = orderItemsCount > 0 
-    ? Math.round(orderTotal / orderItemsCount) 
-    : 0;
 
-  // Handle poll creation success
+  // Handle poll creation
   const handlePollCreated = (pollId: number) => {
     closePollSheet();
     haptic.success();
-    // Reload active polls to show the new poll
     loadActivePolls();
   };
 
-  // Handle poll closed
   const handlePollClosed = () => {
-    loadActivePolls(); // Refresh to remove closed poll
+    loadActivePolls();
   };
 
-  // Handle FAB click
   const handleCreatePollClick = () => {
     haptic.medium();
     openPollSheet();
   };
   
-  // Быстрая статистика
-  const quickStats = [
-    {
-      icon: <ShoppingCart size={20} />,
-      label: 'Текущий заказ',
-      value: `₽${orderTotal.toLocaleString('ru-RU')}`,
-      subtitle: orderItemsCount > 0 
-        ? `${orderItemsCount} ${orderItemsCount === 1 ? 'блюдо' : 'блюда'} · ₽${averageCheck} средний чек`
-        : 'Заказ пуст',
-      color: 'text-orange-600',
-      gradient: true,
+  // ========== Quick Actions v2.0 Logic ==========
+  
+  /**
+   * Проверка, проголосовал ли пользователь в активном голосовании
+   */
+  const checkIfUserVoted = (pollId?: number): boolean => {
+    if (!pollId || !user?.id) return false;
+    // TODO: Реализовать проверку через API или localStorage
+    // Пока возвращаем false для тестирования
+    return hasVoted;
+  };
+  
+  /**
+   * Проверка, завершилось ли голосование недавно (в течение N минут)
+   */
+  const isWithinMinutes = (dateStr: string | undefined, minutes: number): boolean => {
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = (now.getTime() - date.getTime()) / 1000 / 60; // в минутах
+    return diff <= minutes;
+  };
+  
+  /**
+   * Определение текущего сценария Quick Actions
+   */
+  const getCurrentScenario = (): ScenarioType => {
+    const hasActivePoll = !!activePoll && activePoll.status === 'active';
+    const userHasVoted = activePoll ? checkIfUserVoted(activePoll.id) : false;
+    const isPollEnded = activePoll?.status === 'ended';
+    const recentlyEnded = isPollEnded && isWithinMinutes(activePoll.endedAt, 5);
+    
+    if (recentlyEnded) return 'poll-ended';
+    if (hasActivePoll && !userHasVoted) return 'active-not-voted';
+    if (hasActivePoll && userHasVoted) return 'active-voted';
+    return 'no-active-poll';
+  };
+  
+  /**
+   * Handler функции для Quick Actions
+   */
+  
+  // 1. Повторить последнее голосование
+  const handleRepeatLastPoll = async () => {
+    haptic.medium();
+    // TODO: Загрузить последнее голосование и показать модалку
+    console.log('Repeat last poll');
+    setIsRepeatModalOpen(true);
+  };
+  
+  // 2. Случайный выбор
+  const handleRandomVote = async () => {
+    haptic.medium();
+    // TODO: Выбрать случайное блюдо из активного голосования
+    console.log('Random vote');
+    setIsRandomModalOpen(true);
+  };
+  
+  // 3. Голосовать за популярное
+  const handleVoteForPopular = async () => {
+    haptic.medium();
+    // TODO: Получить текущего лидера и показать модалку
+    console.log('Vote for popular');
+    setIsPopularModalOpen(true);
+  };
+  
+  // 4. Показать результаты
+  const handleShowResults = () => {
+    haptic.medium();
+    // Пока перенаправляем на страницу статистики
+    navigate('/stats');
+  };
+  
+  // 5. Установить напоминание
+  const handleSetReminder = () => {
+    haptic.light();
+    // TODO: Показать bottom sheet с выбором времени
+    console.log('Set reminder');
+  };
+  
+  // 6. Пригласить друга
+  const handleInviteFriend = () => {
+    haptic.medium();
+    // TODO: Telegram share API
+    console.log('Invite friend');
+  };
+  
+  // 7. Показать победителя (детально)
+  const handleShowWinner = () => {
+    haptic.medium();
+    // TODO: Открыть модалку с деталями победителя + конфетти
+    console.log('Show winner');
+    setShowConfetti(true);
+  };
+  
+  // 8. Повторить завершенное голосование
+  const handleRepeatThisPoll = async () => {
+    haptic.medium();
+    // TODO: Взять текущее завершенное голосование
+    console.log('Repeat this poll');
+  };
+  
+  // 9. Оставить отзыв
+  const handleLeaveFeedback = () => {
+    haptic.light();
+    // TODO: Открыть форму отзыва
+    console.log('Leave feedback');
+  };
+  
+  // 10. Показать топ блюдо недели
+  const handleShowTopDish = () => {
+    haptic.medium();
+    // TODO: Загрузить статистику и показать модалку
+    console.log('Show top dish');
+    alert('Страница в разработке 🚧');
+  };
+  
+  // 11. Показать статистику пользователя
+  const handleShowUserStats = () => {
+    haptic.medium();
+    // TODO: Создать страницу статистики пользователя
+    console.log('Show user stats');
+    alert('Страница в разработке 🚧');
+  };
+  
+  /**
+   * Получение конфигурации Quick Actions для текущего сценария
+   */
+  const getScenarioConfig = (): ScenarioConfig => {
+    const scenario = getCurrentScenario();
+    
+    // Сценарий 1: Активное голосование + Не проголосовал
+    if (scenario === 'active-not-voted') {
+      return {
+        hero: {
+          title: 'Популярное',
+          description: popularDish 
+            ? `${popularDish.name} - уже ${popularDish.voteCount} голосов!` 
+            : 'Выберите самое популярное блюдо',
+          icon: <Flame className="size-10 text-white" />,
+          buttonText: 'Проголосовать за лидера',
+          buttonVariant: 'coral',
+          showShimmer: true,
+          badge: {
+            text: '🔥 Популярное',
+            variant: 'popular'
+          },
+          onClick: handleVoteForPopular
+        },
+        secondary: [
+          {
+            id: 'random',
+            title: 'Случайное',
+            description: 'Выбрать за меня',
+            icon: <Shuffle className="size-6" />,
+            gradient: 'peach',
+            onClick: handleRandomVote
+          },
+          {
+            id: 'results',
+            title: 'Результаты',
+            description: 'Текущий расклад',
+            icon: <BarChart3 className="size-6" />,
+            gradient: 'lavender',
+            onClick: handleShowResults
+          }
+        ],
+        tertiary: {
+          text: 'Напомнить позже',
+          icon: <Clock className="size-4" />,
+          onClick: handleSetReminder
+        },
+        layout: '2x50%'
+      };
+    }
+    
+    // Сценарий 2: Активное голосование + Проголосовал
+    if (scenario === 'active-voted') {
+      return {
+        hero: {
+          title: 'Результаты Live',
+          description: 'Текущий расклад голосования с живым обновлением',
+          icon: <TrendingUp className="size-10 text-white" />,
+          buttonText: 'Посмотреть подробнее',
+          buttonVariant: 'lavender',
+          badge: {
+            text: '🔴 Live',
+            variant: 'live'
+          },
+          onClick: handleShowResults
+        },
+        secondary: [
+          {
+            id: 'change-vote',
+            title: 'Изменить',
+            description: 'Переголосовать',
+            icon: <RefreshCw className="size-6" />,
+            gradient: 'mint',
+            onClick: () => navigate('/voting')
+          },
+          {
+            id: 'invite',
+            title: 'Пригласить',
+            description: 'Поделиться ботом',
+            icon: <Share2 className="size-6" />,
+            gradient: 'coral',
+            onClick: handleInviteFriend
+          }
+        ],
+        tertiary: {
+          text: 'Напомнить о завершении',
+          icon: <Bell className="size-4" />,
+          onClick: handleSetReminder
+        },
+        layout: '2x50%'
+      };
+    }
+    
+    // Сценарий 4: Голосование завершено
+    if (scenario === 'poll-ended') {
+      return {
+        hero: {
+          title: 'Победитель',
+          description: 'Голосование завершено!',
+          icon: <Trophy className="size-10 text-white" />,
+          buttonText: 'Подробнее о победителе',
+          buttonVariant: 'butter',
+          badge: {
+            text: '🏆 Победитель',
+            variant: 'default'
+          },
+          onClick: handleShowWinner
+        },
+        secondary: [
+          {
+            id: 'full-stats',
+            title: 'Статистика',
+            description: 'Все результаты',
+            icon: <BarChart3 className="size-6" />,
+            gradient: 'lavender',
+            onClick: () => navigate('/stats')
+          },
+          {
+            id: 'repeat-this',
+            title: 'Повторить',
+            description: 'Такое же',
+            icon: <Repeat className="size-6" />,
+            gradient: 'mint',
+            onClick: handleRepeatThisPoll
+          }
+        ],
+        tertiary: {
+          text: 'Оставить отзыв о блюде',
+          icon: <MessageSquare className="size-4" />,
+          onClick: handleLeaveFeedback
+        },
+        layout: '2x50%'
+      };
+    }
+    
+    // Сценарий 3: Нет активного голосования (по умолчанию)
+    return {
+      hero: {
+        title: 'Повторить прошлое',
+        description: lastPoll 
+          ? `Голосование от ${new Date(lastPoll.createdAt).toLocaleDateString()}` 
+          : 'Запустить голосование как в прошлый раз',
+        icon: <Repeat className="size-10 text-white" />,
+        buttonText: 'Запустить голосование',
+        buttonVariant: 'peach',
+        showShimmer: true,
+        onClick: handleRepeatLastPoll,
+        disabled: !lastPoll
+      },
+      secondary: [
+        {
+          id: 'my-stats',
+          title: 'Моя статистика',
+          description: 'История выборов',
+          icon: <User className="size-5" />,
+          gradient: 'lavender',
+          onClick: handleShowUserStats
+        },
+        {
+          id: 'top-dish',
+          title: 'Топ блюдо',
+          description: 'Самое популярное',
+          icon: <Star className="size-5" />,
+          gradient: 'butter',
+          onClick: handleShowTopDish
+        },
+        {
+          id: 'invite',
+          title: 'Пригласить',
+          description: 'Друга',
+          icon: <Share2 className="size-5" />,
+          gradient: 'mint',
+          onClick: handleInviteFriend
+        }
+      ],
+      layout: '3x33%'
+    };
+  };
+  
+  // Получаем текущую конфигурацию Quick Actions v2.0
+  const quickActionsConfig = getScenarioConfig();
+  
+  // Container animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
     },
-    {
-      icon: <TrendingUp size={20} />,
-      label: 'Популярное',
-      value: '🍕 Пицца',
-      color: 'text-primary-food-700',
-    },
-    {
-      icon: <Clock size={20} />,
-      label: 'Сегодня',
-      value: `${menuItems.filter(i => i.isActive).length} блюд`,
-      color: 'text-green-600',
-    },
-  ];
+  };
+  
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 },
+  };
   
   return (
     <>
-      {/* Animated Gradient Background */}
-      <div className="space-y-6 pb-24">
-        {/* Greeting */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="pt-4"
-        >
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Привет, {user?.firstName || 'Гость'}! 👋
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Время выбрать что поесть
-          </p>
-        </motion.div>
-        
-        {/* Theme Toggle */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.3 }}
-          className="flex items-center justify-center gap-4 py-4"
-        >
-          <Sun size={24} className={`transition-colors ${
-            theme === 'light' ? 'text-orange-500' : 'text-gray-400 dark:text-gray-600'
-          }`} />
-          
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className={`relative w-16 h-8 rounded-full transition-all duration-300 ${
-              theme === 'dark' 
-                ? 'bg-slate-600 dark:bg-slate-700' 
-                : 'bg-gray-300'
-            }`}
-            aria-label="Переключить тему"
-          >
-            <motion.span
-              layout
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-md ${
-                theme === 'dark' ? 'left-9' : 'left-1'
-              }`}
+      {/* Gradient Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden bg-background">
+        <div className="absolute -top-1/2 -right-1/2 w-full h-full rounded-full bg-gradient-to-br from-peach-300/20 to-transparent dark:from-peach-500/10 blur-3xl" />
+        <div className="absolute -bottom-1/2 -left-1/2 w-full h-full rounded-full bg-gradient-to-tr from-lavender-300/20 to-transparent dark:from-lavender-500/10 blur-3xl" />
+      </div>
+
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="space-y-6 min-h-screen"
+      >
+        {/* Header Section */}
+        <motion.div variants={itemVariants}>
+          <GlassCard intensity="low" className="overflow-hidden">
+            <div 
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(135deg, ${gradientColors.from}, ${gradientColors.to})`,
+                opacity: 0.4
+              }}
             />
-          </button>
-          
-          <Moon size={24} className={`transition-colors ${
-            theme === 'dark' ? 'text-blue-400' : 'text-gray-400'
-          }`} />
+            <GlassCardContent className="relative">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="text-3xl">{timeIcon}</div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-foreground">
+                      Привет, {user?.firstName || 'Гость'}! Время {gradientColors.label.toLowerCase()}! 🍽️
+                    </h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Выберите что-нибудь вкусное из нашего меню
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <ThemeToggle variant="outline" size="icon" />
+                  <Avatar 
+                    className="size-10 cursor-pointer ring-2 ring-primary/20"
+                    onClick={() => navigate('/profile')}
+                  >
+                    <AvatarImage src={user?.photoUrl} alt={user?.firstName} />
+                    <AvatarFallback className={getAvatarColor(user?.firstName || 'U')}>
+                      {getInitials(user?.firstName || 'User')}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              </div>
+            </GlassCardContent>
+          </GlassCard>
         </motion.div>
-        
-        {/* DEBUG INFO - Показываем всем для отладки */}
-        <div className="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-lg text-xs mb-4">
-          <div>👤 User: {user?.firstName || 'Unknown'}</div>
-          <div>🔑 Admin: {user?.isAdmin ? 'YES' : 'NO'}</div>
-          <div>🗳️ Active Poll: {activePoll ? `ID ${activePoll.id}` : 'NONE'}</div>
-          <div>📊 Total Polls: {activePolls.length}</div>
-          <div>🔄 Refresh Key: {pollRefreshKey}</div>
-          {activePoll && (
-            <>
-              <div>📅 Status: {activePoll.status || 'N/A'}</div>
-              <div>⏱️ Duration: {activePoll.duration || 'N/A'} min</div>
-              <div>🏷️ Title: {activePoll.title || 'N/A'}</div>
-              <div>🏁 EndTime: {activePoll.endTime ? new Date(activePoll.endTime).toLocaleTimeString() : 'N/A'}</div>
-              <div>📍 StartedAt: {activePoll.startedAt || 'N/A'}</div>
-              <div>📍 EndedAt: {activePoll.endedAt || 'N/A'}</div>
-            </>
-          )}
-        </div>
-        
-        {/* Dynamic Poll Widget - Launch or Active */}
+
+        {/* Hero Section - Active Poll Widget with Glassmorphism */}
         <AnimatePresence mode="wait">
-          {!activePoll && user?.isAdmin && (
+          {isLoading ? (
             <motion.div
-              key="launch-poll"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.4 }}
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleCreatePollClick}
-                className="cursor-pointer"
-              >
-                <GlassHeroCard
-                  gradient={{ from: '#8B5CF6', to: '#7C3AED' }}
-                  value="🗳️"
-                  label="Запустить голосование"
-                  sublabel="Создайте новое голосование для вашей группы"
-                  textColor="#FFFFFF"
-                  icon={<Vote size={24} />}
-                  className="shadow-lg ring-2 ring-white/20"
-                />
-              </motion.div>
+              <GlassCard intensity="medium" className="p-6">
+                <Skeleton className="h-8 w-2/3 mb-4" />
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-3/4" />
+              </GlassCard>
             </motion.div>
-          )}
-          
-          {activePoll && (
+          ) : activePoll ? (
             <motion.div
               key="active-poll"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
               exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.4 }}
             >
-              <SimplePollCard 
-                poll={activePoll} 
-                onPollClosed={handlePollClosed}
-              />
+              <GlassCard intensity="high" hover className="overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-peach-400/30 to-transparent dark:from-peach-500/20 blur-2xl" />
+                <GlassCardContent className="relative">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="default" className="bg-peach-500 text-white">
+                          🗳️ Активно
+                        </Badge>
+                        <Badge variant="outline">
+                          {activePoll.voteCount} голосов
+                        </Badge>
+                      </div>
+                      <h2 className="text-2xl font-bold text-foreground mb-1">
+                        {activePoll.title}
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Завершится через {formatRelativeTime(activePoll.endTime)}
+                      </p>
+                    </div>
+                    <Sparkles className="size-8 text-peach-500 animate-pulse" />
+                  </div>
+                  
+                  <GradientButton
+                    variant="peach"
+                    size="lg"
+                    className="w-full"
+                    shimmer
+                    onClick={() => navigate('/voting')}
+                  >
+                    Голосовать
+                    <ArrowRight className="size-5 ml-2" />
+                  </GradientButton>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+          ) : user?.isAdmin ? (
+            <motion.div
+              key="create-poll"
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={handleCreatePollClick}
+              className="cursor-pointer"
+            >
+              <GlassCard intensity="medium" hover className="overflow-hidden">
+                <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-lavender-400/30 to-transparent dark:from-lavender-500/20 blur-2xl" />
+                <GlassCardContent className="relative text-center py-8">
+                  <div className="inline-flex items-center justify-center size-16 rounded-full bg-gradient-to-br from-lavender-500 to-lavender-600 mb-4 shadow-lg">
+                    <Vote className="size-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground mb-2">
+                    Запустить голосование
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Создайте новое голосование для вашей группы
+                  </p>
+                  <GradientButton variant="lavender" size="lg">
+                    Создать
+                    <ArrowRight className="size-5 ml-2" />
+                  </GradientButton>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="no-poll"
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+            >
+              <GlassCard intensity="low" className="text-center py-8">
+                <GlassCardContent>
+                  <div className="inline-flex items-center justify-center size-16 rounded-full bg-muted mb-4">
+                    <Clock className="size-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Нет активных голосований
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Ожидайте запуска голосования от администратора
+                  </p>
+                </GlassCardContent>
+              </GlassCard>
             </motion.div>
           )}
         </AnimatePresence>
-        
 
-        
-        {/* Quick Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
-          className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-        >
-          {quickStats.map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 + index * 0.1, duration: 0.3 }}
-              className={`
-                rounded-xl p-4 shadow-sm border
-                ${stat.gradient 
-                  ? 'bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-700/30 col-span-full' 
-                  : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
-                }
-              `}
-            >
-              <div className="flex items-center space-x-2 mb-2">
-                <div className={stat.color}>
-                  {stat.icon}
-                </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {stat.label}
-                </span>
-              </div>
-              <p className="font-bold text-xl text-gray-900 dark:text-white mb-1">
-                {stat.value}
-              </p>
-              {stat.subtitle && (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {stat.subtitle}
-                </p>
-              )}
-            </motion.div>
-          ))}
-        </motion.div>
-        
-        {/* Time-based Greeting Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.4 }}
-          className="bg-gradient-to-r from-primary-food-50 to-primary-food-100 dark:from-peach-500/20 dark:to-peach-400/20 rounded-xl p-4 border border-primary-food-200 dark:border-peach-400/30"
-        >
-          <div className="flex items-start space-x-3">
-            <div className="text-3xl">
-              🍽️
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-primary-food-900 dark:text-primary-food-100 mb-1">
-                Время обеда!
-              </h3>
-              <p className="text-sm text-primary-food-700 dark:text-primary-food-300">
-                Выберите что-нибудь вкусное из нашего меню
-              </p>
-            </div>
+        {/* Quick Actions v2.0 - Гибридный подход */}
+        <motion.div variants={itemVariants} className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Zap className="size-5 text-peach-500" />
+            <h2 className="text-lg font-semibold text-foreground">
+              Быстрые действия
+            </h2>
           </div>
+          
+          {/* Hero Action */}
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ 
+              type: "spring", 
+              stiffness: 300, 
+              damping: 25,
+              delay: 0.2 
+            }}
+          >
+            <GlassCard 
+              intensity="high" 
+              hover={!quickActionsConfig.hero.disabled}
+              className={cn(
+                "relative overflow-hidden",
+                quickActionsConfig.hero.disabled && "opacity-60 cursor-not-allowed"
+              )}
+            >
+              {/* Gradient overlay */}
+              <div className={cn(
+                "absolute inset-0 -z-10",
+                quickActionsConfig.hero.buttonVariant === 'peach' && "bg-gradient-to-br from-peach-500/20 to-coral-500/20",
+                quickActionsConfig.hero.buttonVariant === 'mint' && "bg-gradient-to-br from-mint-500/20 to-mint-600/20",
+                quickActionsConfig.hero.buttonVariant === 'lavender' && "bg-gradient-to-br from-lavender-500/20 to-lavender-600/20",
+                quickActionsConfig.hero.buttonVariant === 'coral' && "bg-gradient-to-br from-coral-500/20 to-coral-600/20",
+                quickActionsConfig.hero.buttonVariant === 'butter' && "bg-gradient-to-br from-butter-500/20 to-butter-600/20",
+              )} />
+              
+              {/* Shimmer effect */}
+              {quickActionsConfig.hero.showShimmer && (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer pointer-events-none" />
+              )}
+              
+              <GlassCardContent className="relative py-6 px-5 space-y-4">
+                {/* Badge */}
+                {quickActionsConfig.hero.badge && (
+                  <Badge 
+                    className={cn(
+                      "absolute top-3 right-3",
+                      quickActionsConfig.hero.badge.variant === 'live' && "animate-pulse bg-red-500 text-white"
+                    )}
+                  >
+                    {quickActionsConfig.hero.badge.text}
+                  </Badge>
+                )}
+                
+                {/* Icon or Image */}
+                <div className="flex justify-center">
+                  {quickActionsConfig.hero.imageUrl ? (
+                    <img 
+                      src={quickActionsConfig.hero.imageUrl} 
+                      alt={quickActionsConfig.hero.title}
+                      className="size-20 rounded-xl object-cover ring-2 ring-white/20" 
+                    />
+                  ) : (
+                    <div className={cn(
+                      "size-16 rounded-xl flex items-center justify-center",
+                      "bg-gradient-to-br",
+                      quickActionsConfig.hero.buttonVariant === 'peach' && "from-peach-500 to-coral-500",
+                      quickActionsConfig.hero.buttonVariant === 'mint' && "from-mint-500 to-mint-600",
+                      quickActionsConfig.hero.buttonVariant === 'lavender' && "from-lavender-500 to-lavender-600",
+                      quickActionsConfig.hero.buttonVariant === 'coral' && "from-coral-500 to-coral-600",
+                      quickActionsConfig.hero.buttonVariant === 'butter' && "from-butter-500 to-butter-600",
+                    )}>
+                      {quickActionsConfig.hero.icon}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Title + Description */}
+                <div className="text-center space-y-2">
+                  <h3 className="text-xl font-bold text-foreground">
+                    {quickActionsConfig.hero.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {quickActionsConfig.hero.description}
+                  </p>
+                </div>
+                
+                {/* Statistics/Progress (если есть) */}
+                {quickActionsConfig.hero.statistics && (
+                  <div className="space-y-2">
+                    <Progress value={quickActionsConfig.hero.statistics.percentage} className="h-2" />
+                    <p className="text-xs text-center text-muted-foreground">
+                      {quickActionsConfig.hero.statistics.label || 
+                        `👥 ${quickActionsConfig.hero.statistics.voteCount} голосов (${quickActionsConfig.hero.statistics.percentage}%)`
+                      }
+                    </p>
+                  </div>
+                )}
+                
+                {/* Primary Button */}
+                <GradientButton 
+                  variant={quickActionsConfig.hero.buttonVariant}
+                  size="lg" 
+                  className="w-full" 
+                  shimmer={quickActionsConfig.hero.showShimmer}
+                  onClick={quickActionsConfig.hero.onClick}
+                  disabled={quickActionsConfig.hero.disabled}
+                >
+                  {quickActionsConfig.hero.buttonText}
+                  <ArrowRight className="size-5 ml-2" />
+                </GradientButton>
+              </GlassCardContent>
+            </GlassCard>
+          </motion.div>
+          
+          {/* Secondary Actions */}
+          <div className={cn(
+            "grid gap-3",
+            quickActionsConfig.layout === '2x50%' && "grid-cols-2",
+            quickActionsConfig.layout === '3x33%' && "grid-cols-3",
+          )}>
+            {quickActionsConfig.secondary.map((action) => (
+              <motion.div
+                key={action.id}
+                variants={itemVariants}
+                whileHover={{ scale: action.disabled ? 1 : 1.02 }}
+                whileTap={{ scale: action.disabled ? 1 : 0.98 }}
+                onClick={action.disabled ? undefined : action.onClick}
+                className={cn(
+                  "cursor-pointer",
+                  action.disabled && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <GlassCard 
+                  intensity="medium" 
+                  hover={!action.disabled}
+                  className="h-full"
+                >
+                  <GlassCardContent className={cn(
+                    "text-center",
+                    quickActionsConfig.layout === '2x50%' ? "py-4 px-3 space-y-3" : "py-3 px-2 space-y-2"
+                  )}>
+                    {/* Icon */}
+                    <div className="flex justify-center">
+                      <div className={cn(
+                        "rounded-xl flex items-center justify-center",
+                        "bg-gradient-to-br",
+                        quickActionsConfig.layout === '2x50%' ? "size-12" : "size-10 rounded-lg",
+                        action.gradient === 'peach' && "from-peach-500 to-coral-500",
+                        action.gradient === 'mint' && "from-mint-500 to-mint-600",
+                        action.gradient === 'lavender' && "from-lavender-500 to-lavender-600",
+                        action.gradient === 'coral' && "from-coral-500 to-coral-600",
+                        action.gradient === 'butter' && "from-butter-500 to-butter-600",
+                      )}>
+                        {React.cloneElement(action.icon as React.ReactElement, { 
+                          className: cn(
+                            "text-white",
+                            quickActionsConfig.layout === '2x50%' ? "size-6" : "size-5"
+                          )
+                        })}
+                      </div>
+                    </div>
+                    
+                    {/* Text */}
+                    <div>
+                      <h4 className={cn(
+                        "font-semibold text-foreground",
+                        quickActionsConfig.layout === '2x50%' ? "text-sm mb-1" : "text-xs"
+                      )}>
+                        {action.title}
+                      </h4>
+                      {quickActionsConfig.layout === '2x50%' && (
+                        <p className="text-xs text-muted-foreground">
+                          {action.description}
+                        </p>
+                      )}
+                    </div>
+                  </GlassCardContent>
+                </GlassCard>
+              </motion.div>
+            ))}
+          </div>
+          
+          {/* Tertiary Action (если есть) */}
+          {quickActionsConfig.tertiary && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={quickActionsConfig.tertiary.onClick}
+              className="w-full py-3 px-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors flex items-center justify-center gap-2"
+            >
+              {React.cloneElement(quickActionsConfig.tertiary.icon as React.ReactElement, { 
+                className: "size-4 text-muted-foreground" 
+              })}
+              <span className="text-sm text-muted-foreground">
+                {quickActionsConfig.tertiary.text}
+              </span>
+            </motion.button>
+          )}
         </motion.div>
-        
-        {/* Donation Button */}
-        <DonationButton />
-      </div>
+
+
+      </motion.div>
 
       {/* Create Poll Bottom Sheet */}
       <BottomSheet
