@@ -6,7 +6,8 @@ import { queryClient } from './lib/react-query';
 import { ToastProvider } from './components/common/ToastManager';
 import { PageLoader } from './components/common/PageLoader';
 import { DelayedFallback } from './components/common/DelayedFallback';
-import { Layout, Navigation } from './components/layout/Layout';
+import { Layout } from './components/layout/Layout';
+import { BottomNavigation } from './components/layout/BottomNavigation';
 import { OfflineIndicator, UpdatePrompt } from './hooks/usePWA';
 import { WelcomeModal } from './components/onboarding';
 import { useOnboarding } from './hooks/useOnboarding';
@@ -27,13 +28,22 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage').then(module => ({ d
 const TestIconsPage = lazy(() => import('./pages/TestIconsPage').then(module => ({ default: module.TestIconsPage })));
 const ColorDemoPage = lazy(() => import('./pages/ColorDemoPage').then(module => ({ default: module.ColorDemoPage })));
 const ColorTestPage = lazy(() => import('./pages/ColorTestPage').then(module => ({ default: module.ColorTestPage })));
+const DebugHomePage = lazy(() => import('./pages/DebugHomePage').then(module => ({ default: module.DebugHomePage })));
+const SimpleHomePage = lazy(() => import('./pages/SimpleHomePage').then(module => ({ default: module.SimpleHomePage })));
+const TestPage = lazy(() => import('./pages/TestPage').then(module => ({ default: module.TestPage })));
 
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [currentTab, setCurrentTab] = useState<string>('menu');
   const { isModalOpen, completeOnboarding } = useOnboarding();
   const theme = useAppStore((state) => state.theme);
+
+  // Debug logging
+  console.log('[AppContent] Render:', {
+    pathname: location.pathname,
+    theme,
+    isModalOpen,
+  });
   
   // Применяем тему глобально к <html>
   useEffect(() => {
@@ -56,19 +66,7 @@ function AppContent() {
     }
   }, [location.search, navigate]);
 
-  // Синхронизация табов с роутами
-  useEffect(() => {
-    const path = location.pathname;
-    if (path === '/') {
-      setCurrentTab('home');
-    } else if (path === '/menu') {
-      setCurrentTab('menu');
-    } else if (path === '/stats') {
-      setCurrentTab('stats');
-    } else if (path === '/profile') {
-      setCurrentTab('profile');
-    }
-  }, [location.pathname]);
+
 
   // Мгновенный preload ВСЕХ страниц для максимальной скорости
   useEffect(() => {
@@ -87,39 +85,30 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleTabChange = (tab: string) => {
-    // Используем startTransition для плавных переходов без блокировки UI
-    startTransition(() => {
-      setCurrentTab(tab);
-      switch (tab) {
-        case 'home':
-          navigate('/');
-          break;
-        case 'menu':
-          navigate('/menu');
-          break;
-        case 'stats':
-          navigate('/stats');
-          break;
-        case 'profile':
-          navigate('/profile');
-          break;
-        default:
-          navigate('/');
-      }
-    });
-  };
-
-  // Показываем навигацию на всех основных страницах
-  const showNavigation = ['/', '/menu', '/stats', '/profile'].includes(location.pathname);
+  // Показываем навигацию на всех основных страницах (кроме голосования и других модальных)
+  const showNavigation = ['/', '/menu', '/stats', '/profile', '/vote'].includes(location.pathname);
+  
+  console.log('🔍 [AppContent] Navigation state:', {
+    pathname: location.pathname,
+    showNavigation,
+  });
 
   return (
     <Layout>
       <div className="min-h-screen flex flex-col">
         <div className="flex-1">
-          <Suspense fallback={null}>
+          <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-peach-500 mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Загрузка...</p>
+              </div>
+            </div>
+          }>
             <Routes>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<SimpleHomePage />} />
+              <Route path="/debug" element={<DebugHomePage />} />
+              <Route path="/home" element={<HomePage />} />
               <Route path="/menu" element={<MenuPage />} />
               <Route path="/stats" element={<StatsPage />} />
               <Route path="/vote/:pollId" element={<VotingPage />} />
@@ -130,15 +119,14 @@ function AppContent() {
               <Route path="/test-icons" element={<TestIconsPage />} />
               <Route path="/color-demo" element={<ColorDemoPage />} />
               <Route path="/color-test" element={<ColorTestPage />} />
+              <Route path="/test" element={<TestPage />} />
             </Routes>
           </Suspense>
         </div>
-        {showNavigation && (
-          <Navigation currentTab={currentTab} onTabChange={handleTabChange} />
-        )}
+        {showNavigation && <BottomNavigation />}
         
-        {/* Welcome Onboarding Modal */}
-        <WelcomeModal isOpen={isModalOpen} onClose={completeOnboarding} />
+        {/* Welcome Onboarding Modal - TEMPORARILY DISABLED FOR DEBUGGING */}
+        {/* <WelcomeModal isOpen={isModalOpen} onClose={completeOnboarding} /> */}
       </div>
     </Layout>
   );

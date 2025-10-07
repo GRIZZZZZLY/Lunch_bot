@@ -4,7 +4,7 @@ import { Header } from '../components/layout/Layout';
 import { PageHeader } from '../components/common/PageHeader';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PullToRefresh } from '../components/common/PullToRefresh';
-import { EmptyPollsState } from '../components/common/EmptyState';
+import { EmptyState } from '../components/common/EmptyState';
 import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
 import { useUI } from '../store/useAppStore';
@@ -178,7 +178,7 @@ export const PollHistoryPage: React.FC = () => {
 
           {/* Список */}
           {sortedPolls.length === 0 ? (
-            <EmptyPollsState onAction={() => navigate('/poll/create')} />
+            <EmptyState type="no-history" onAction={() => navigate('/poll/create')} />
           ) : (
             <div className="space-y-3">
               {sortedPolls.map((poll, index) => (
