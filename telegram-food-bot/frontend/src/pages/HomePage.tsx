@@ -110,6 +110,8 @@ interface ScenarioConfig {
  * Современный дизайн с glassmorphism, градиентами и анимациями
  */
 export const HomePage: React.FC = () => {
+  console.log('🎨 [HomePage] Component render started');
+  
   const navigate = useNavigate();
   const { colorScheme } = useTelegram();
   const { user } = useAuth();
@@ -150,17 +152,21 @@ export const HomePage: React.FC = () => {
   
   // Load data on mount
   useEffect(() => {
+    console.log('🚀 [HomePage] Component mounted');
     loadData();
   }, []);
   
   const loadData = async () => {
+    console.log('📱 [HomePage] Loading data...');
     setIsLoading(true);
     await loadActivePolls();
     setIsLoading(false);
+    console.log('✅ [HomePage] Data loaded');
   };
   
   const loadActivePolls = async () => {
     try {
+      console.log('🔄 [HomePage] Fetching active polls...');
       const response = await pollsService.getActivePolls();
       
       if (response.success && response.data) {

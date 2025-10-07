@@ -28,6 +28,10 @@ export const useOnboarding = (): OnboardingState => {
     const listener = (isOpen: boolean) => setIsModalOpen(isOpen);
     globalListeners.push(listener);
 
+    // Log Telegram WebApp version
+    const webAppVersion = window.Telegram?.WebApp?.version || 'unknown';
+    console.log(`📱 [Onboarding] Telegram WebApp version: ${webAppVersion}`);
+
     // Check onboarding status on mount
     checkOnboardingStatus();
 
@@ -42,30 +46,50 @@ export const useOnboarding = (): OnboardingState => {
     const localCompleted = localStorage.getItem(ONBOARDING_KEY);
     const localVersion = localStorage.getItem(`${ONBOARDING_KEY}_version`);
 
+    console.log('📱 [Onboarding] Checking status:', { localCompleted, localVersion });
+
     // If version mismatch, show onboarding again
     if (localVersion !== ONBOARDING_VERSION) {
+      console.log('⚠️ [Onboarding] Version mismatch - showing modal');
       setIsFirstLaunch(true);
       setGlobalModalOpen(true);
       return;
     }
 
     if (!localCompleted) {
-      // Check Telegram CloudStorage if available
-      const cloudStorage = (window.Telegram?.WebApp as any)?.CloudStorage;
-      if (cloudStorage) {
-        cloudStorage.getItem(
-          ONBOARDING_KEY,
-          (err: any, value: string) => {
-            if (err || !value) {
-              setIsFirstLaunch(true);
-              setGlobalModalOpen(true);
+      console.log('⚠️ [Onboarding] Not completed - checking cloud storage');
+      // Check Telegram CloudStorage if available (requires v6.9+)
+      const webApp = window.Telegram?.WebApp;
+      const cloudStorage = (webApp as any)?.CloudStorage;
+      const isCloudStorageSupported = webApp?.isVersionAtLeast?.('6.9');
+      
+      if (cloudStorage && isCloudStorageSupported) {
+        console.log('🔄 [Onboarding] Checking cloud storage...');
+        try {
+          cloudStorage.getItem(
+            ONBOARDING_KEY,
+            (err: any, value: string) => {
+              if (err || !value) {
+                console.log('❌ [Onboarding] Cloud storage check failed - showing modal');
+                setIsFirstLaunch(true);
+                setGlobalModalOpen(true);
+              } else {
+                console.log('✅ [Onboarding] Found in cloud storage');
+              }
             }
-          }
-        );
+          );
+        } catch (error) {
+          console.log('❌ [Onboarding] Cloud storage error - showing modal');
+          setIsFirstLaunch(true);
+          setGlobalModalOpen(true);
+        }
       } else {
+        console.log('⚠️ [Onboarding] Cloud storage not supported - showing modal');
         setIsFirstLaunch(true);
         setGlobalModalOpen(true);
       }
+    } else {
+      console.log('✅ [Onboarding] Already completed');
     }
   };
 
@@ -75,18 +99,27 @@ export const useOnboarding = (): OnboardingState => {
       localStorage.setItem(ONBOARDING_KEY, 'true');
       localStorage.setItem(`${ONBOARDING_KEY}_version`, ONBOARDING_VERSION);
 
-      // Save to Telegram CloudStorage if available
-      const cloudStorage = (window.Telegram?.WebApp as any)?.CloudStorage;
-      if (cloudStorage) {
-        cloudStorage.setItem(
-          ONBOARDING_KEY,
-          'true',
-          (err: any) => {
-            if (err) {
-              console.error('Failed to save onboarding status to Telegram Storage:', err);
+      // Save to Telegram CloudStorage if available (requires v6.9+)
+      const webApp = window.Telegram?.WebApp;
+      const cloudStorage = (webApp as any)?.CloudStorage;
+      const isCloudStorageSupported = webApp?.isVersionAtLeast?.('6.9');
+      
+      if (cloudStorage && isCloudStorageSupported) {
+        try {
+          cloudStorage.setItem(
+            ONBOARDING_KEY,
+            'true',
+            (err: any) => {
+              if (err) {
+                console.error('❌ [Onboarding] Failed to save to cloud storage:', err);
+              } else {
+                console.log('✅ [Onboarding] Saved to cloud storage');
+              }
             }
-          }
-        );
+          );
+        } catch (error) {
+          console.error('❌ [Onboarding] Cloud storage error:', error);
+        }
       }
 
       // TODO: Save to backend when API is ready
@@ -116,13 +149,25 @@ if (import.meta.env.DEV) {
   (window as any).resetOnboarding = () => {
     localStorage.removeItem(ONBOARDING_KEY);
     localStorage.removeItem(`${ONBOARDING_KEY}_version`);
-    const cloudStorage = (window.Telegram?.WebApp as any)?.CloudStorage;
-    if (cloudStorage) {
-      cloudStorage.removeItem(ONBOARDING_KEY, () => {
-        console.log('Onboarding reset complete. Reload the page.');
-      });
+    
+    const webApp = window.Telegram?.WebApp;
+    const cloudStorage = (webApp as any)?.CloudStorage;
+    const isCloudStorageSupported = webApp?.isVersionAtLeast?.('6.9');
+    
+    if (cloudStorage && isCloudStorageSupported) {
+      try {
+        cloudStorage.removeItem(ONBOARDING_KEY, () => {
+          console.log('✅ Onboarding reset complete (including cloud). Reload the page.');
+          window.location.reload();
+        });
+      } catch (error) {
+        console.log('✅ Onboarding reset complete (localStorage only). Cloud storage not available.');
+        window.location.reload();
+      }
+    } else {
+      console.log('✅ Onboarding reset complete (localStorage only). Cloud storage not supported.');
+      window.location.reload();
     }
-    window.location.reload();
   };
-  console.log('Debug: Use window.resetOnboarding() to reset onboarding state');
+  console.log('💡 Debug: Use window.resetOnboarding() to reset onboarding state');
 }

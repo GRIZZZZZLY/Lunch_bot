@@ -51,13 +51,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, [isReady, themeParams, colorScheme]);
 
+  // Debug logging
+  console.log('[Layout] Render state:', {
+    isReady,
+    isLoading,
+    isAuthenticated,
+    error,
+    colorScheme,
+  });
+
   // Показываем загрузку пока не готов WebApp
   if (!isReady) {
+    console.log('[Layout] Waiting for Telegram WebApp...');
     return <FullPageLoader text="Летим" />;
   }
 
   // Показываем загрузку пока идет аутентификация
   if (isLoading) {
+    console.log('[Layout] Authenticating...');
     return <FullPageLoader text="Летим" />;
   }
 
