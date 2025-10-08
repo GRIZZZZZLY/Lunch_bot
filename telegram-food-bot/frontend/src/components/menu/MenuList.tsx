@@ -118,41 +118,53 @@ export const MenuList: React.FC<MenuListProps> = ({
   }
 
   return (
-    <div className="space-y-6 overflow-hidden">
+    <div className="space-y-8 overflow-hidden">
       {categories.map((categoryName, categoryIndex) => (
         <motion.div
           key={categoryName}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: categoryIndex * 0.1, duration: 0.4 }}
-          className="space-y-3 overflow-hidden"
+          className="space-y-4 overflow-hidden"
         >
+          {/* Category Header */}
           {categories.length > 1 && (
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center space-x-2 pb-2 border-b border-gray-200 dark:border-gray-700">
-              <span>{categoryName}</span>
-              <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-                ({itemsByCategory[categoryName].length})
-              </span>
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <span>{categoryName}</span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  {itemsByCategory[categoryName].length} блюд
+                </span>
+              </h3>
+            </div>
           )}
           
-          {itemsByCategory[categoryName].map((item, itemIndex) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: (categoryIndex * 0.1) + (itemIndex * 0.05), duration: 0.3 }}
-            >
-              <MenuItemCard
-                item={item}
-                onEdit={onEdit}
-                onDelete={onDelete ? () => handleDelete(item.id) : undefined}
-                onToggle={onToggleStatus ? () => handleToggleStatus(item) : undefined}
-                showActions={showActions}
-                loading={deletingId === item.id}
-              />
-            </motion.div>
-          ))}
+          {/* Grid Layout - адаптивный */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {itemsByCategory[categoryName].map((item, itemIndex) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ 
+                  delay: (categoryIndex * 0.1) + (itemIndex * 0.05), 
+                  duration: 0.3,
+                  type: 'spring',
+                  stiffness: 300,
+                  damping: 25
+                }}
+              >
+                <MenuItemCard
+                  item={item}
+                  onEdit={onEdit}
+                  onDelete={onDelete ? () => handleDelete(item.id) : undefined}
+                  onToggle={onToggleStatus ? () => handleToggleStatus(item) : undefined}
+                  showActions={showActions}
+                  loading={deletingId === item.id}
+                />
+              </motion.div>
+            ))}
+          </div>
         </motion.div>
       ))}
     </div>

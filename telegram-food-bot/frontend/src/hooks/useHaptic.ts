@@ -16,115 +16,65 @@ declare global {
 
 /**
  * Хук для работы с тактильными откликами Telegram
+ * 
+ * ОПТИМИЗИРОВАНО: Только важные действия
+ * - success: Успешные операции (голосование, создание)
+ * - error: Ошибки
+ * - warning: Предупреждения
+ * - impact: Критичные действия (удаление, завершение)
+ * 
+ * НЕ используйте haptic для:
+ * - Обычной навигации
+ * - Кликов по карточкам
+ * - Hover эффектов
+ * - Прокрутки
  */
 export const useHaptic = () => {
   const haptic = useRef(window.Telegram?.WebApp?.HapticFeedback);
 
   /**
-   * Лёгкий отклик (например, при наведении)
-   */
-  const light = () => {
-    haptic.current?.impactOccurred('light');
-  };
-
-  /**
-   * Средний отклик (например, при нажатии кнопки)
-   */
-  const medium = () => {
-    haptic.current?.impactOccurred('medium');
-  };
-
-  /**
-   * Сильный отклик (например, при важном действии)
-   */
-  const heavy = () => {
-    haptic.current?.impactOccurred('heavy');
-  };
-
-  /**
-   * Мягкий отклик
-   */
-  const soft = () => {
-    haptic.current?.impactOccurred('soft');
-  };
-
-  /**
-   * Жёсткий отклик
-   */
-  const rigid = () => {
-    haptic.current?.impactOccurred('rigid');
-  };
-
-  /**
-   * Отклик при изменении выбора
-   */
-  const selection = () => {
-    haptic.current?.selectionChanged();
-  };
-
-  /**
-   * Уведомление об успехе
+   * Уведомление об успехе (зеленая галочка)
+   * Использовать для: успешное голосование, создание, сохранение
    */
   const success = () => {
     haptic.current?.notificationOccurred('success');
   };
 
   /**
-   * Уведомление об ошибке
+   * Уведомление об ошибке (красный крестик)
+   * Использовать для: ошибки API, валидация формы
    */
   const error = () => {
     haptic.current?.notificationOccurred('error');
   };
 
   /**
-   * Уведомление-предупреждение
+   * Уведомление-предупреждение (желтый треугольник)
+   * Использовать для: предупреждения, подтверждения
    */
   const warning = () => {
     haptic.current?.notificationOccurred('warning');
   };
 
+  /**
+   * Сильный тактильный отклик
+   * Использовать для: критичные действия (удаление, завершение голосования)
+   */
+  const impact = () => {
+    haptic.current?.impactOccurred('heavy');
+  };
+
   return {
-    light,
-    medium,
-    heavy,
-    soft,
-    rigid,
-    selection,
     success,
     error,
     warning,
+    impact,
   };
 };
 
 /**
- * Хук для автоматических тактильных откликов при взаимодействии
+ * @deprecated useAutoHaptic удален - используйте haptic только для важных действий
+ * 
+ * Автоматический haptic на каждом клике раздражает пользователей.
+ * Вместо этого вызывайте haptic методы вручную только для критичных событий.
  */
-export const useAutoHaptic = (
-  enabled: boolean = true,
-  type: 'light' | 'medium' | 'heavy' = 'medium'
-) => {
-  const haptic = useHaptic();
-
-  useEffect(() => {
-    if (!enabled) return;
-
-    const handleClick = () => {
-      switch (type) {
-        case 'light':
-          haptic.light();
-          break;
-        case 'medium':
-          haptic.medium();
-          break;
-        case 'heavy':
-          haptic.heavy();
-          break;
-      }
-    };
-
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, [enabled, type]);
-
-  return haptic;
-};

@@ -1,11 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LucideIcon } from 'lucide-react';
 
 export type NavIconType = 'home' | 'vote' | 'menu' | 'stats' | 'profile';
 
 interface AnimatedNavIconProps {
-  icon: LucideIcon;
+  icon: React.FC<{ className?: string }>;
   isActive: boolean;
   type: NavIconType;
   className?: string;

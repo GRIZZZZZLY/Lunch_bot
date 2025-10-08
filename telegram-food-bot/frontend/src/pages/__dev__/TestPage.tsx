@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GradientButton } from '../components/ui/gradient-button';
+import { GradientButton } from '../../components/ui/gradient-button';
 
 /**
  * TestPage - простая тестовая страница для проверки роутинга

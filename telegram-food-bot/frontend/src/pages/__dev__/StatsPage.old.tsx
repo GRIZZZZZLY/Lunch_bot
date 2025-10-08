@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Header } from '../components/layout/Layout';
-import { PollCard } from '../components/polls/PollCard';
-import { PollResults } from '../components/polls/PollResults';
-import { LoadingSpinner, Skeleton } from '../components/common/LoadingSpinner';
-import { GlassHeroCard, GlassCard } from '../components/glass';
+import { Header } from '../../components/layout/Layout';
+import { PollCard } from '../../components/polls/PollCard';
+import { PollResults } from '../../components/polls/PollResults';
+import { LoadingSpinner, Skeleton } from '../../components/common/LoadingSpinner';
+import { GlassHeroCard, GlassCard } from '../../components/glass';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -15,9 +15,9 @@ import {
   CheckCircle
 } from 'lucide-react';
 
-import { useTelegram } from '../hooks/useTelegram';
-import { usePolls, useUI } from '../store/useAppStore';
-import { pollsService, Poll, PollStats, PopularItem } from '../services/polls.service';
+import { useTelegram } from '../../hooks/useTelegram';
+import { usePolls, useUI } from '../../store/useAppStore';
+import { pollsService, Poll, PollStats, PopularItem } from '../../services/polls.service';
 
 type ViewMode = 'overview' | 'history' | 'results';
 

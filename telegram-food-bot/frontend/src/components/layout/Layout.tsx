@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { useTelegram } from '../../hooks/useTelegram';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppStore } from '../../store/useAppStore';
@@ -15,11 +16,15 @@ export interface LayoutProps {
  * Основной Layout компонент
  */
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const location = useLocation();
   const { colorScheme, themeParams, isReady } = useTelegram();
   const { isLoading, error, isAuthenticated } = useAuth();
   const { setTheme } = useAppStore((state) => ({
     setTheme: state.setTheme,
   }));
+
+  // Hide DonationBar on voting pages for clean UX
+  const isVotingPage = location.pathname.startsWith('/vote') || location.pathname.startsWith('/poll');
 
   // Синхронизация темы с Telegram
   useEffect(() => {
@@ -94,21 +99,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div 
-      className="min-h-screen transition-colors duration-200 relative bg-background"
-      style={{
-        color: 'var(--tg-theme-text-color)',
-      }}
+      className="min-h-screen transition-colors duration-200 relative"
     >
       {/* Основной контент */}
       <main 
-        className="container mx-auto px-4 py-4 pb-24 max-w-2xl relative z-0"
+        className="container mx-auto px-4 pt-4 pb-32 max-w-2xl relative z-0 min-h-screen"
         style={{ overscrollBehavior: 'contain' }}
       >
         {children}
       </main>
 
-      {/* Donation bar - показывается на всех страницах */}
-      <DonationBar />
+      {/* Donation bar - скрыт на страницах голосования для чистого UX */}
+      {!isVotingPage && <DonationBar />}
 
       {/* Toast уведомления */}
       <ToastContainer />

@@ -15,3 +15,5 @@ export {
   PremiumMeshGradient,
   CalmAuroraGradient,
 } from './GradientVariants';
+
+export { DarkBlueBackground } from './DarkBlueBackground';

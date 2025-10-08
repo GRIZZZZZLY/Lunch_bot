@@ -10,15 +10,15 @@ import {
 } from 'lucide-react';
 import { useTelegram } from '../../hooks/useTelegram';
 import { useAuth } from '../../hooks/useAuth';
+import { useActivePollsCount, startPollsAutoUpdate, stopPollsAutoUpdate } from '../../store/usePollsStore';
+import { pollsService } from '../../services/polls.service';
 import { cn } from '../../lib/utils';
-import { AnimatedNavIcon, NavIconType } from './AnimatedNavIcon';
 
 interface NavItem {
   path: string;
   icon: React.FC<{ className?: string }>;
   label: string;
   badge?: string | number | null;
-  type: NavIconType;
 }
 
 /**
@@ -36,6 +36,7 @@ export const BottomNavigation: React.FC = () => {
   const location = useLocation();
   const { hapticFeedback, colorScheme } = useTelegram();
   const { user } = useAuth();
+  const { activeCount: activePollsCount } = useActivePollsCount();
 
   const isDark = colorScheme === 'dark';
 
@@ -53,8 +54,16 @@ export const BottomNavigation: React.FC = () => {
     console.log('[BottomNavigation] Route changed:', location.pathname);
   }, [location.pathname]);
 
-  // TODO: Получать badge count из API или store
-  const activePollsCount = 0; // Заменить на реальное значение
+  // Start auto-update on mount
+  React.useEffect(() => {
+    console.log('[BottomNavigation] Starting polls auto-update');
+    startPollsAutoUpdate(30000); // Update every 30 seconds
+    
+    return () => {
+      console.log('[BottomNavigation] Stopping polls auto-update');
+      stopPollsAutoUpdate();
+    };
+  }, []);
 
   const navItems: NavItem[] = [
     { 
@@ -62,46 +71,50 @@ export const BottomNavigation: React.FC = () => {
       icon: Home, 
       label: 'Главная',
       badge: null,
-      type: 'home',
     },
     { 
       path: '/vote', 
       icon: Vote, 
       label: 'Голосование',
       badge: activePollsCount > 0 ? activePollsCount : null,
-      type: 'vote',
     },
     { 
       path: '/menu', 
       icon: UtensilsCrossed, 
       label: 'Меню',
       badge: null,
-      type: 'menu',
     },
     { 
       path: '/stats', 
       icon: BarChart3, 
       label: 'Статистика',
       badge: null,
-      type: 'stats',
     },
     { 
       path: '/profile', 
       icon: User, 
       label: 'Профиль',
       badge: null,
-      type: 'profile',
     },
   ];
 
   const handleNavigation = (path: string) => {
-    // Haptic feedback для native ощущения
-    hapticFeedback.impactOccurred('light');
+    // Haptic убран - не используем для обычной навигации
     navigate(path);
   };
 
+  // Prefetch для оптимизации /vote перехода
+  const prefetchVoteData = React.useCallback(() => {
+    // Prefetch активных голосований для мгновенного перехода
+    pollsService.getActivePolls().catch(() => {
+      // Ignore errors on prefetch
+    });
+  }, []);
+
   return (
     <motion.nav
+      role="navigation"
+      aria-label="Основная навигация"
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ 
@@ -134,21 +147,43 @@ export const BottomNavigation: React.FC = () => {
               whileTap={{ scale: 0.85, rotate: -3 }}
               whileHover={{ scale: 1.05, y: -2 }}
               onClick={() => handleNavigation(item.path)}
+              onMouseEnter={() => {
+                // Prefetch на hover для desktop
+                if (item.path === '/vote') {
+                  prefetchVoteData();
+                }
+              }}
+              onTouchStart={() => {
+                // Prefetch на touch для mobile
+                if (item.path === '/vote') {
+                  prefetchVoteData();
+                }
+              }}
+              aria-label={`Перейти на ${item.label}`}
+              aria-current={isActive ? 'page' : undefined}
+              role="tab"
+              aria-selected={isActive}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleNavigation(item.path);
+                }
+              }}
               className={cn(
                 'relative flex flex-col items-center justify-center gap-1',
-                'px-2 py-2.5 rounded-xl transition-all min-w-[60px]',
-                isActive && (isDark
-                  ? 'bg-gradient-to-br from-lavender-500/10 to-lavender-600/10'
-                  : 'bg-gradient-to-br from-peach-500/10 to-coral-500/10'
-                )
+                'flex-1 py-2.5 rounded-xl transition-all',
+                'focus-visible:outline-2 focus-visible:outline-offset-2',
+                isActive
+                  ? isDark
+                    ? 'bg-gradient-to-br from-lavender-500/10 to-lavender-600/10 focus-visible:outline-lavender-400'
+                    : 'bg-gradient-to-br from-peach-500/10 to-coral-500/10 focus-visible:outline-peach-600'
+                  : 'focus-visible:outline-gray-400'
               )}
             >
               {/* Icon container with badge */}
               <div className="relative">
-                <AnimatedNavIcon
-                  icon={Icon}
-                  isActive={isActive}
-                  type={item.type}
+                <Icon
                   className={cn(
                     'size-6 transition-colors',
                     isActive
@@ -171,6 +206,7 @@ export const BottomNavigation: React.FC = () => {
                         stiffness: 500,
                         damping: 25,
                       }}
+                      aria-label={`${item.badge} ${item.label === 'Голосование' ? 'активных голосований' : 'уведомлений'}`}
                       className={cn(
                         'absolute -top-1 -right-1',
                         'min-w-[16px] h-4 px-1',
@@ -205,28 +241,25 @@ export const BottomNavigation: React.FC = () => {
                 {item.label}
               </motion.span>
 
-              {/* Active indicator */}
-              <AnimatePresence>
-                {isActive && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className={cn(
-                      'absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 w-12 rounded-full',
-                      isDark
-                        ? 'bg-gradient-to-r from-lavender-400 to-lavender-500'
-                        : 'bg-gradient-to-r from-peach-500 to-coral-500'
-                    )}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{
-                      type: 'spring',
-                      stiffness: 500,
-                      damping: 30,
-                    }}
-                  />
-                )}
-              </AnimatePresence>
+              {/* Active indicator - positioned at button center */}
+              {isActive && (
+                <motion.div
+                  className={cn(
+                    'absolute bottom-0 left-0 right-0 mx-auto h-0.5 w-8 rounded-full',
+                    isDark
+                      ? 'bg-gradient-to-r from-lavender-400 to-lavender-500'
+                      : 'bg-gradient-to-r from-peach-500 to-coral-500'
+                  )}
+                  initial={{ opacity: 0, scaleX: 0 }}
+                  animate={{ opacity: 1, scaleX: 1 }}
+                  exit={{ opacity: 0, scaleX: 0 }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 500,
+                    damping: 30,
+                  }}
+                />
+              )}
             </motion.button>
           );
         })}

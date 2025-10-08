@@ -22,15 +22,24 @@ const HomePage = lazy(() => import('./pages/HomePage').then(module => ({ default
 const MenuPage = lazy(() => import('./pages/MenuPage').then(module => ({ default: module.MenuPage })));
 const StatsPage = lazy(() => import('./pages/StatsPage').then(module => ({ default: module.StatsPage })));
 const VotingPage = lazy(() => import('./pages/VotingPage').then(module => ({ default: module.VotingPage })));
+const VotingHubPage = lazy(() => import('./pages/VotingHubPage').then(module => ({ default: module.VotingHubPage })));
 const PollManagementPage = lazy(() => import('./pages/PollManagementPage').then(module => ({ default: module.PollManagementPage })));
 const PollHistoryPage = lazy(() => import('./pages/PollHistoryPage').then(module => ({ default: module.PollHistoryPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
-const TestIconsPage = lazy(() => import('./pages/TestIconsPage').then(module => ({ default: module.TestIconsPage })));
-const ColorDemoPage = lazy(() => import('./pages/ColorDemoPage').then(module => ({ default: module.ColorDemoPage })));
-const ColorTestPage = lazy(() => import('./pages/ColorTestPage').then(module => ({ default: module.ColorTestPage })));
-const DebugHomePage = lazy(() => import('./pages/DebugHomePage').then(module => ({ default: module.DebugHomePage })));
-const SimpleHomePage = lazy(() => import('./pages/SimpleHomePage').then(module => ({ default: module.SimpleHomePage })));
-const TestPage = lazy(() => import('./pages/TestPage').then(module => ({ default: module.TestPage })));
+
+// Dev/Debug pages - удалены из сборки, так как вызывают ошибки импортов
+// Если нужны, исправьте импорты в __dev__ файлах на относительные пути с ../../
+// const HomePageDiagnostic = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/HomePageDiagnostic').then(module => ({ default: module.HomePageDiagnostic }))) : null;
+// const HomePageSimple = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/HomePageSimple').then(module => ({ default: module.HomePageSimple }))) : null;
+// const TestIconsPage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/TestIconsPage').then(module => ({ default: module.TestIconsPage }))) : null;
+// const ColorDemoPage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/ColorDemoPage').then(module => ({ default: module.ColorDemoPage }))) : null;
+// const ColorTestPage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/ColorTestPage').then(module => ({ default: module.ColorTestPage }))) : null;
+// const DebugHomePage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/DebugHomePage').then(module => ({ default: module.DebugHomePage }))) : null;
+// const SimpleHomePage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/SimpleHomePage').then(module => ({ default: module.SimpleHomePage }))) : null;
+// const TestPage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/TestPage').then(module => ({ default: module.TestPage }))) : null;
+
+// Voting Router
+import { VoteRouter } from './components/voting/VoteRouter';
 
 function AppContent() {
   const location = useLocation();
@@ -68,11 +77,11 @@ function AppContent() {
 
 
 
-  // Мгновенный preload ВСЕХ страниц для максимальной скорости
+  // Мгновенный preload критичных страниц для максимальной скорости
   useEffect(() => {
     // Начинаем preload сразу после монтирования (0ms delay)
     const timer = setTimeout(() => {
-      // Предзагружаем ВСЕ страницы фоном
+      // Предзагружаем только production страницы
       import('./pages/MenuPage');
       import('./pages/VotingPage');
       import('./pages/StatsPage');
@@ -106,20 +115,33 @@ function AppContent() {
             </div>
           }>
             <Routes>
-              <Route path="/" element={<SimpleHomePage />} />
-              <Route path="/debug" element={<DebugHomePage />} />
-              <Route path="/home" element={<HomePage />} />
+              {/* Production Routes */}
+              <Route path="/" element={<HomePage />} />
               <Route path="/menu" element={<MenuPage />} />
               <Route path="/stats" element={<StatsPage />} />
+              
+              {/* Voting Routes - Умный роутинг */}
+              <Route path="/vote" element={<VoteRouter />} />
+              <Route path="/vote/hub" element={<VotingHubPage />} />
+              <Route path="/vote/history" element={<PollHistoryPage />} />
               <Route path="/vote/:pollId" element={<VotingPage />} />
+              
+              {/* Legacy poll routes (для обратной совместимости) */}
               <Route path="/poll/create" element={<PollManagementPage />} />
               <Route path="/poll/history" element={<PollHistoryPage />} />
               <Route path="/poll/:pollId" element={<VotingPage />} />
+              
               <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/test-icons" element={<TestIconsPage />} />
-              <Route path="/color-demo" element={<ColorDemoPage />} />
-              <Route path="/color-test" element={<ColorTestPage />} />
-              <Route path="/test" element={<TestPage />} />
+
+              {/* Dev/Debug Routes - закомментированы, так как компоненты не используются */}
+              {/* {import.meta.env.DEV && HomePageSimple && <Route path="/debug-simple" element={<HomePageSimple />} />}
+              {import.meta.env.DEV && HomePageDiagnostic && <Route path="/debug-diagnostic" element={<HomePageDiagnostic />} />}
+              {import.meta.env.DEV && DebugHomePage && <Route path="/debug" element={<DebugHomePage />} />}
+              {import.meta.env.DEV && TestIconsPage && <Route path="/test-icons" element={<TestIconsPage />} />}
+              {import.meta.env.DEV && ColorDemoPage && <Route path="/color-demo" element={<ColorDemoPage />} />}
+              {import.meta.env.DEV && ColorTestPage && <Route path="/color-test" element={<ColorTestPage />} />}
+              {import.meta.env.DEV && TestPage && <Route path="/test" element={<TestPage />} />}
+              {import.meta.env.DEV && SimpleHomePage && <Route path="/simple" element={<SimpleHomePage />} />} */}
             </Routes>
           </Suspense>
         </div>

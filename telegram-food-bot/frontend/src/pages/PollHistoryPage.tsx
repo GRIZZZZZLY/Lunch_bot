@@ -10,6 +10,7 @@ import { useTelegram } from '../hooks/useTelegram';
 import { useUI } from '../store/useAppStore';
 import { useHaptic } from '../hooks/useHaptic';
 import { pollsService, Poll } from '../services/polls.service';
+import { MediumWaveGradient } from '../components/background';
 
 /**
  * Страница истории голосований
@@ -88,16 +89,20 @@ export const PollHistoryPage: React.FC = () => {
 
   if (loading && polls.length === 0) {
     return (
-      <>
+      <div className="min-h-screen relative">
+        <MediumWaveGradient />
         <div className="flex items-center justify-center min-h-screen">
           <LoadingSpinner size="lg" />
         </div>
-      </>
+      </div>
     );
   }
 
   return (
     <>
+      {/* Animated gradient background - full page */}
+      <MediumWaveGradient />
+      
       <PageHeader 
         title="История голосований"
         subtitle="Просмотр завершенных голосований"

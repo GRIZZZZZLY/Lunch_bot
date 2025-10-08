@@ -5,7 +5,7 @@ import { Header } from '../components/layout/Layout';
 import { RocketLoader } from '../components/common/RocketLoader';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { GlassCard, GlassBadge } from '../components/glass';
-import { SubtleRadialGradient } from '../components/background';
+import { MediumWaveGradient } from '../components/background';
 import { 
   User,
   CreditCard,
@@ -162,17 +162,21 @@ export const ProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <>
+      <div className="min-h-screen relative">
+        <MediumWaveGradient />
         <div className="flex items-center justify-center min-h-screen">
           <RocketLoader size="lg" text="Летим" />
         </div>
-      </>
+      </div>
     );
   }
 
   return (
     <>
-      <div className="space-y-6">
+      {/* Animated gradient background - full page */}
+      <MediumWaveGradient />
+      
+      <div className="space-y-6 relative">
         {/* Информация о пользователе */}
         <GlassCard
           variant="medium"
