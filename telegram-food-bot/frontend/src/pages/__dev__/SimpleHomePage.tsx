@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { GlassCard, GlassCardContent } from '../components/ui/glass-card';
-import { GradientButton } from '../components/ui/gradient-button';
+import { useAuth } from '../../hooks/useAuth';
+import { GlassCard, GlassCardContent } from '../../components/ui/glass-card';
+import { GradientButton } from '../../components/ui/gradient-button';
 
 /**
  * Упрощенная HomePage для тестирования
@@ -99,7 +99,7 @@ export const SimpleHomePage: React.FC = () => {
 
       {/* Переключатель на полную версию */}
       <button
-        onClick={() => navigate('/home')}
+        onClick={() => navigate('/')}
         className="w-full bg-gray-800 text-white p-4 rounded-xl"
       >
         Открыть полную версию HomePage →

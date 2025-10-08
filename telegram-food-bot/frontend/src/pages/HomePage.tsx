@@ -35,12 +35,11 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '../components/ui/toolti
 
 // Custom components
 import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardDescription, GlassCardContent } from '../components/ui/glass-card';
-import { GradientButton } from '../components/ui/gradient-button';
 import { ThemeToggle } from '../components/ui/theme-toggle';
+import { MediumWaveGradient } from '../components/background';
 
 // Old components (for poll functionality)
-import { BottomSheet, useBottomSheet } from '../components/common/BottomSheet';
-import { CreatePollForm, SimplePollCard } from '../components/polls';
+import { SimplePollCard } from '../components/polls';
 
 // Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
@@ -55,10 +54,8 @@ import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
  * Quick Actions v2.0 Types
  */
 type ScenarioType = 
-  | 'active-not-voted'
-  | 'active-voted'
-  | 'no-active-poll'
-  | 'poll-ended';
+  | 'has-active-poll'
+  | 'no-active-poll';
 
 interface HeroAction {
   title: string;
@@ -130,7 +127,6 @@ export const HomePage: React.FC = () => {
   const timeIcon = timeIcons[gradientColors.timeOfDay];
   
   const isDark = theme === 'dark';
-  const { isOpen: isPollSheetOpen, open: openPollSheet, close: closePollSheet } = useBottomSheet();
   
   // State
   const [isLoading, setIsLoading] = useState(true);
@@ -145,8 +141,7 @@ export const HomePage: React.FC = () => {
   const [randomDish, setRandomDish] = useState<any>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   
-  // Модалки
-  const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
+  // Модалки (оставлены для будущего функционала)
   const [isRandomModalOpen, setIsRandomModalOpen] = useState(false);
   const [isPopularModalOpen, setIsPopularModalOpen] = useState(false);
   
@@ -210,21 +205,11 @@ export const HomePage: React.FC = () => {
     return () => clearInterval(refreshInterval);
   }, [activePoll]);
 
-  // Handle poll creation
-  const handlePollCreated = (pollId: number) => {
-    closePollSheet();
-    haptic.success();
-    loadActivePolls();
-  };
-
   const handlePollClosed = () => {
     loadActivePolls();
   };
 
-  const handleCreatePollClick = () => {
-    haptic.medium();
-    openPollSheet();
-  };
+  // Admin functions removed - now only available on VotingHubPage
   
   // ========== Quick Actions v2.0 Logic ==========
   
@@ -250,35 +235,25 @@ export const HomePage: React.FC = () => {
   };
   
   /**
-   * Определение текущего сценария Quick Actions
+   * Определение текущего сценария Quick Actions (упрощенно)
    */
   const getCurrentScenario = (): ScenarioType => {
     const hasActivePoll = !!activePoll && activePoll.status === 'active';
-    const userHasVoted = activePoll ? checkIfUserVoted(activePoll.id) : false;
-    const isPollEnded = activePoll?.status === 'ended';
-    const recentlyEnded = isPollEnded && isWithinMinutes(activePoll.endedAt, 5);
-    
-    if (recentlyEnded) return 'poll-ended';
-    if (hasActivePoll && !userHasVoted) return 'active-not-voted';
-    if (hasActivePoll && userHasVoted) return 'active-voted';
-    return 'no-active-poll';
+    return hasActivePoll ? 'has-active-poll' : 'no-active-poll';
   };
   
   /**
    * Handler функции для Quick Actions
    */
   
-  // 1. Повторить последнее голосование
-  const handleRepeatLastPoll = async () => {
-    haptic.medium();
-    // TODO: Загрузить последнее голосование и показать модалку
-    console.log('Repeat last poll');
-    setIsRepeatModalOpen(true);
+  // 1. Перейти к голосованиям
+  const handleGoToVoting = () => {
+    // Haptic убран - не используем для обычной навигации
+    navigate('/vote');
   };
   
   // 2. Случайный выбор
   const handleRandomVote = async () => {
-    haptic.medium();
     // TODO: Выбрать случайное блюдо из активного голосования
     console.log('Random vote');
     setIsRandomModalOpen(true);
@@ -286,7 +261,6 @@ export const HomePage: React.FC = () => {
   
   // 3. Голосовать за популярное
   const handleVoteForPopular = async () => {
-    haptic.medium();
     // TODO: Получить текущего лидера и показать модалку
     console.log('Vote for popular');
     setIsPopularModalOpen(true);
@@ -294,28 +268,23 @@ export const HomePage: React.FC = () => {
   
   // 4. Показать результаты
   const handleShowResults = () => {
-    haptic.medium();
-    // Пока перенаправляем на страницу статистики
     navigate('/stats');
   };
   
   // 5. Установить напоминание
   const handleSetReminder = () => {
-    haptic.light();
     // TODO: Показать bottom sheet с выбором времени
     console.log('Set reminder');
   };
   
   // 6. Пригласить друга
   const handleInviteFriend = () => {
-    haptic.medium();
     // TODO: Telegram share API
     console.log('Invite friend');
   };
   
   // 7. Показать победителя (детально)
   const handleShowWinner = () => {
-    haptic.medium();
     // TODO: Открыть модалку с деталями победителя + конфетти
     console.log('Show winner');
     setShowConfetti(true);
@@ -323,21 +292,18 @@ export const HomePage: React.FC = () => {
   
   // 8. Повторить завершенное голосование
   const handleRepeatThisPoll = async () => {
-    haptic.medium();
     // TODO: Взять текущее завершенное голосование
     console.log('Repeat this poll');
   };
   
   // 9. Оставить отзыв
   const handleLeaveFeedback = () => {
-    haptic.light();
     // TODO: Открыть форму отзыва
     console.log('Leave feedback');
   };
   
   // 10. Показать топ блюдо недели
   const handleShowTopDish = () => {
-    haptic.medium();
     // TODO: Загрузить статистику и показать модалку
     console.log('Show top dish');
     alert('Страница в разработке 🚧');
@@ -345,143 +311,53 @@ export const HomePage: React.FC = () => {
   
   // 11. Показать статистику пользователя
   const handleShowUserStats = () => {
-    haptic.medium();
     // TODO: Создать страницу статистики пользователя
     console.log('Show user stats');
     alert('Страница в разработке 🚧');
   };
   
   /**
-   * Получение конфигурации Quick Actions для текущего сценария
+   * Получение конфигурации Quick Actions для текущего сценария (упрощенно)
    */
   const getScenarioConfig = (): ScenarioConfig => {
     const scenario = getCurrentScenario();
+    const userHasVoted = activePoll ? checkIfUserVoted(activePoll.id) : false;
+    const timeRemaining = activePoll?.endTime ? formatRelativeTime(activePoll.endTime) : '';
     
-    // Сценарий 1: Активное голосование + Не проголосовал
-    if (scenario === 'active-not-voted') {
+    // Сценарий 1: Есть активное голосование
+    if (scenario === 'has-active-poll') {
       return {
         hero: {
-          title: 'Популярное',
-          description: popularDish 
-            ? `${popularDish.name} - уже ${popularDish.voteCount} голосов!` 
-            : 'Выберите самое популярное блюдо',
-          icon: <Flame className="size-10 text-white" />,
-          buttonText: 'Проголосовать за лидера',
-          buttonVariant: 'coral',
-          showShimmer: true,
+          title: activePoll?.title || 'Текущее голосование',
+          description: `Осталось ${timeRemaining}`,
+          icon: <Vote className="size-10 text-white" />,
+          buttonText: userHasVoted ? 'Посмотреть результаты' : 'Проголосовать',
+          buttonVariant: 'peach',
+          showShimmer: !userHasVoted,
           badge: {
-            text: '🔥 Популярное',
-            variant: 'popular'
+            text: userHasVoted ? '✓ Проголосовали' : '⏰ Активно',
+            variant: userHasVoted ? 'default' : 'live'
           },
-          onClick: handleVoteForPopular
+          onClick: () => navigate(`/vote/${activePoll?.id}`)
         },
         secondary: [
           {
-            id: 'random',
-            title: 'Случайное',
-            description: 'Выбрать за меня',
-            icon: <Shuffle className="size-6" />,
-            gradient: 'peach',
-            onClick: handleRandomVote
-          },
-          {
-            id: 'results',
-            title: 'Результаты',
-            description: 'Текущий расклад',
+            id: 'stats',
+            title: 'Статистика',
+            description: 'Текущая',
             icon: <BarChart3 className="size-6" />,
             gradient: 'lavender',
             onClick: handleShowResults
-          }
-        ],
-        tertiary: {
-          text: 'Напомнить позже',
-          icon: <Clock className="size-4" />,
-          onClick: handleSetReminder
-        },
-        layout: '2x50%'
-      };
-    }
-    
-    // Сценарий 2: Активное голосование + Проголосовал
-    if (scenario === 'active-voted') {
-      return {
-        hero: {
-          title: 'Результаты Live',
-          description: 'Текущий расклад голосования с живым обновлением',
-          icon: <TrendingUp className="size-10 text-white" />,
-          buttonText: 'Посмотреть подробнее',
-          buttonVariant: 'lavender',
-          badge: {
-            text: '🔴 Live',
-            variant: 'live'
-          },
-          onClick: handleShowResults
-        },
-        secondary: [
-          {
-            id: 'change-vote',
-            title: 'Изменить',
-            description: 'Переголосовать',
-            icon: <RefreshCw className="size-6" />,
-            gradient: 'mint',
-            onClick: () => navigate('/voting')
           },
           {
             id: 'invite',
             title: 'Пригласить',
-            description: 'Поделиться ботом',
+            description: 'Поделиться',
             icon: <Share2 className="size-6" />,
-            gradient: 'coral',
+            gradient: 'mint',
             onClick: handleInviteFriend
           }
         ],
-        tertiary: {
-          text: 'Напомнить о завершении',
-          icon: <Bell className="size-4" />,
-          onClick: handleSetReminder
-        },
-        layout: '2x50%'
-      };
-    }
-    
-    // Сценарий 4: Голосование завершено
-    if (scenario === 'poll-ended') {
-      return {
-        hero: {
-          title: 'Победитель',
-          description: 'Голосование завершено!',
-          icon: <Trophy className="size-10 text-white" />,
-          buttonText: 'Подробнее о победителе',
-          buttonVariant: 'butter',
-          badge: {
-            text: '🏆 Победитель',
-            variant: 'default'
-          },
-          onClick: handleShowWinner
-        },
-        secondary: [
-          {
-            id: 'full-stats',
-            title: 'Статистика',
-            description: 'Все результаты',
-            icon: <BarChart3 className="size-6" />,
-            gradient: 'lavender',
-            onClick: () => navigate('/stats')
-          },
-          {
-            id: 'repeat-this',
-            title: 'Повторить',
-            description: 'Такое же',
-            icon: <Repeat className="size-6" />,
-            gradient: 'mint',
-            onClick: handleRepeatThisPoll
-          }
-        ],
-        tertiary: {
-          text: 'Оставить отзыв о блюде',
-          icon: <MessageSquare className="size-4" />,
-          onClick: handleLeaveFeedback
-        },
         layout: '2x50%'
       };
     }
@@ -489,16 +365,13 @@ export const HomePage: React.FC = () => {
     // Сценарий 3: Нет активного голосования (по умолчанию)
     return {
       hero: {
-        title: 'Повторить прошлое',
-        description: lastPoll 
-          ? `Голосование от ${new Date(lastPoll.createdAt).toLocaleDateString()}` 
-          : 'Запустить голосование как в прошлый раз',
-        icon: <Repeat className="size-10 text-white" />,
-        buttonText: 'Запустить голосование',
+        title: 'Голосования',
+        description: 'Создавайте и участвуйте в голосованиях',
+        icon: <Vote className="size-10 text-white" />,
+        buttonText: 'Перейти к голосованиям',
         buttonVariant: 'peach',
         showShimmer: true,
-        onClick: handleRepeatLastPoll,
-        disabled: !lastPoll
+        onClick: handleGoToVoting,
       },
       secondary: [
         {
@@ -551,11 +424,8 @@ export const HomePage: React.FC = () => {
   
   return (
     <>
-      {/* Gradient Background */}
-      <div className="fixed inset-0 -z-10 overflow-hidden bg-background">
-        <div className="absolute -top-1/2 -right-1/2 w-full h-full rounded-full bg-gradient-to-br from-peach-300/20 to-transparent dark:from-peach-500/10 blur-3xl" />
-        <div className="absolute -bottom-1/2 -left-1/2 w-full h-full rounded-full bg-gradient-to-tr from-lavender-300/20 to-transparent dark:from-lavender-500/10 blur-3xl" />
-      </div>
+      {/* Animated gradient background - full page */}
+      <MediumWaveGradient />
 
       <motion.div
         variants={containerVariants}
@@ -650,45 +520,17 @@ export const HomePage: React.FC = () => {
                     <Sparkles className="size-8 text-peach-500 animate-pulse" />
                   </div>
                   
-                  <GradientButton
+                  <Button
                     variant="peach"
                     size="lg"
                     className="w-full"
                     shimmer
                     onClick={() => navigate('/voting')}
+                    aria-label="Перейти к голосованию"
                   >
                     Голосовать
-                    <ArrowRight className="size-5 ml-2" />
-                  </GradientButton>
-                </GlassCardContent>
-              </GlassCard>
-            </motion.div>
-          ) : user?.isAdmin ? (
-            <motion.div
-              key="create-poll"
-              variants={itemVariants}
-              initial="hidden"
-              animate="show"
-              exit={{ opacity: 0, scale: 0.95 }}
-              onClick={handleCreatePollClick}
-              className="cursor-pointer"
-            >
-              <GlassCard intensity="medium" hover className="overflow-hidden">
-                <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-lavender-400/30 to-transparent dark:from-lavender-500/20 blur-2xl" />
-                <GlassCardContent className="relative text-center py-8">
-                  <div className="inline-flex items-center justify-center size-16 rounded-full bg-gradient-to-br from-lavender-500 to-lavender-600 mb-4 shadow-lg">
-                    <Vote className="size-8 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">
-                    Запустить голосование
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Создайте новое голосование для вашей группы
-                  </p>
-                  <GradientButton variant="lavender" size="lg">
-                    Создать
-                    <ArrowRight className="size-5 ml-2" />
-                  </GradientButton>
+                    <ArrowRight className="size-5 ml-2" aria-hidden="true" />
+                  </Button>
                 </GlassCardContent>
               </GlassCard>
             </motion.div>
@@ -818,17 +660,18 @@ export const HomePage: React.FC = () => {
                 )}
                 
                 {/* Primary Button */}
-                <GradientButton 
+                <Button 
                   variant={quickActionsConfig.hero.buttonVariant}
                   size="lg" 
                   className="w-full" 
                   shimmer={quickActionsConfig.hero.showShimmer}
                   onClick={quickActionsConfig.hero.onClick}
                   disabled={quickActionsConfig.hero.disabled}
+                  aria-label={quickActionsConfig.hero.buttonText}
                 >
                   {quickActionsConfig.hero.buttonText}
-                  <ArrowRight className="size-5 ml-2" />
-                </GradientButton>
+                  <ArrowRight className="size-5 ml-2" aria-hidden="true" />
+                </Button>
               </GlassCardContent>
             </GlassCard>
           </motion.div>
@@ -922,21 +765,7 @@ export const HomePage: React.FC = () => {
 
       </motion.div>
 
-      {/* Create Poll Bottom Sheet */}
-      <BottomSheet
-        isOpen={isPollSheetOpen}
-        onClose={closePollSheet}
-        title="Запустить голосование"
-        snapPoints={[85]}
-        showHandle
-        enableSwipeDown
-        enableBackdrop={true}
-      >
-        <CreatePollForm 
-          onSuccess={handlePollCreated}
-          onCancel={closePollSheet}
-        />
-      </BottomSheet>
+
     </>
   );
 };

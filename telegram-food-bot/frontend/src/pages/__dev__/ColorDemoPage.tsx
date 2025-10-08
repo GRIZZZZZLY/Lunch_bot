@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Header } from '../components/layout/Layout';
-import { PageHeader } from '../components/common/PageHeader';
-import { useTelegram } from '../hooks/useTelegram';
+import { Header } from '../../components/layout/Layout';
+import { PageHeader } from '../../components/common/PageHeader';
+import { useTelegram } from '../../hooks/useTelegram';
 import { 
   Sparkles, 
   TrendingUp, 

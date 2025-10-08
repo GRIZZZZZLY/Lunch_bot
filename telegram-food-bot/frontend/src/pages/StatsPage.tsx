@@ -36,6 +36,7 @@ import { ThemeToggle } from '../components/ui/theme-toggle';
 import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
+import { MediumWaveGradient } from '../components/background';
 
 // Stats components
 import { CustomTooltip, CountUp } from '../components/stats';
@@ -258,6 +259,9 @@ export const StatsPage: React.FC = () => {
 
   return (
     <>
+      {/* Animated gradient background - full page */}
+      <MediumWaveGradient />
+      
       {/* Compact Header - Sticky */}
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="flex items-center justify-between h-11 px-4">

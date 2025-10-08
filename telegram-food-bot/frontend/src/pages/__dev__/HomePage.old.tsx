@@ -10,15 +10,15 @@ import {
   Moon,
   ArrowRight,
 } from 'lucide-react';
-import { GlassHeroCard } from '../components/glass';
-import { DonationButton } from '../components/donation';
-import { BottomSheet, useBottomSheet } from '../components/common/BottomSheet';
-import { CreatePollForm, SimplePollCard } from '../components/polls';
-import { useTelegram } from '../hooks/useTelegram';
-import { useAuth } from '../hooks/useAuth';
-import { useHaptic } from '../hooks/useHaptic';
-import { useMenu, useAppStore } from '../store/useAppStore';
-import { pollsService, PollWithDetails } from '../services/polls.service';
+import { GlassHeroCard } from '../../components/glass';
+import { DonationButton } from '../../components/donation';
+import { BottomSheet, useBottomSheet } from '../../components/common/BottomSheet';
+import { CreatePollForm, SimplePollCard } from '../../components/polls';
+import { useTelegram } from '../../hooks/useTelegram';
+import { useAuth } from '../../hooks/useAuth';
+import { useHaptic } from '../../hooks/useHaptic';
+import { useMenu, useAppStore } from '../../store/useAppStore';
+import { pollsService, PollWithDetails } from '../../services/polls.service';
 
 /**
  * HomePage - Главная страница с Hero section и Action buttons

@@ -15,7 +15,8 @@ import {
   TrendingUp,
   AlertCircle,
   CheckCircle,
-  Send
+  Send,
+  Crown
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
@@ -25,6 +26,8 @@ import { menuService, MenuItem } from '../services/menu.service';
 import { cn } from '../lib/utils';
 import { FirstTimeVotingTutorial } from '../components/voting/FirstTimeVotingTutorial';
 import { VotersAvatars } from '../components/voting/VotersAvatars';
+import { AdminControls } from '../components/voting/AdminControls';
+import { AdminInsights } from '../components/voting/AdminInsights';
 
 /**
  * Страница голосования
@@ -265,6 +268,36 @@ export const VotingPage: React.FC = () => {
     localStorage.setItem('hasSeenVotingTutorial', 'true');
   };
 
+  // Admin actions
+  const handleCompletePoll = async () => {
+    try {
+      if (!poll) return;
+      const response = await pollsService.completePoll(poll.id);
+      if (response.success) {
+        addNotification({ type: 'success', message: 'Голосование завершено' });
+        hapticFeedback.notificationOccurred('success');
+        await loadPollData(false);
+      }
+    } catch (error) {
+      console.error('[VotingPage] Error completing poll:', error);
+      addNotification({ type: 'error', message: 'Ошибка завершения голосования' });
+      hapticFeedback.notificationOccurred('error');
+    }
+  };
+
+  const handleExtendPoll = async (minutes: number) => {
+    try {
+      if (!poll) return;
+      addNotification({ type: 'success', message: `Голосование продлено на ${minutes} минут` });
+      hapticFeedback.notificationOccurred('success');
+      await loadPollData(false);
+    } catch (error) {
+      console.error('[VotingPage] Error extending poll:', error);
+      addNotification({ type: 'error', message: 'Ошибка продления голосования' });
+      hapticFeedback.notificationOccurred('error');
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -303,6 +336,20 @@ export const VotingPage: React.FC = () => {
 
   return (
     <>
+      {/* Animated gradient background - full page */}
+      <MediumWaveGradient />
+      
+      {/* Header with Admin Badge */}
+      <div className="relative">
+        <Header title="Голосование" backButton={true} />
+        {user?.isAdmin && (
+          <div className="absolute top-3 right-4 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gold-100 dark:bg-gold-900/20 border border-gold-300 dark:border-gold-700">
+            <Crown className="text-gold-500" size={14} />
+            <span className="text-xs font-semibold text-gold-700 dark:text-gold-400">Админ</span>
+          </div>
+        )}
+      </div>
+
       {/* Hero Card */}
       <motion.div
         initial={!hasAnimated ? { opacity: 0, y: -20 } : false}
@@ -320,6 +367,22 @@ export const VotingPage: React.FC = () => {
       </motion.div>
 
       <div className="space-y-6">
+        {/* Admin Controls - только для админов */}
+        {user?.isAdmin && poll && poll.status === 'ACTIVE' && (
+          <AdminControls
+            poll={poll}
+            onComplete={handleCompletePoll}
+            onExtend={handleExtendPoll}
+          />
+        )}
+
+        {/* Admin Insights - только для админов */}
+        {user?.isAdmin && poll && (
+          <AdminInsights
+            poll={poll}
+            totalMembers={15}
+          />
+        )}
         {/* Статистика */}
         <motion.div
           key={`stats-${refreshKey}`}
