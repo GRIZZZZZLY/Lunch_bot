@@ -16,29 +16,29 @@ import {
 } from 'lucide-react';
 
 // New shadcn/ui components
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
-import { Skeleton } from '../components/ui/skeleton';
-import { Progress } from '../components/ui/progress';
-import { Tooltip, TooltipTrigger, TooltipContent } from '../components/ui/tooltip';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
+import { Skeleton } from '../../components/ui/skeleton';
+import { Progress } from '../../components/ui/progress';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../../components/ui/tooltip';
 
 // Custom components
-import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardDescription, GlassCardContent } from '../components/ui/glass-card';
-import { GradientButton } from '../components/ui/gradient-button';
-import { ThemeToggle } from '../components/ui/theme-toggle';
+import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardDescription, GlassCardContent } from '../../components/ui/glass-card';
+import { GradientButton } from '../../components/ui/gradient-button';
+import { ThemeToggle } from '../../components/ui/theme-toggle';
 
 // Old components (for poll functionality)
-import { BottomSheet, useBottomSheet } from '../components/common/BottomSheet';
-import { CreatePollForm, SimplePollCard } from '../components/polls';
+import { BottomSheet, useBottomSheet } from '../../components/common/BottomSheet';
+import { CreatePollForm, SimplePollCard } from '../../components/polls';
 
 // Hooks & Services
-import { useTelegram } from '../hooks/useTelegram';
-import { useAuth } from '../hooks/useAuth';
-import { useHaptic } from '../hooks/useHaptic';
-import { useMenu, useAppStore } from '../store/useAppStore';
-import { pollsService, PollWithDetails } from '../services/polls.service';
-import { cn, formatRelativeTime, getInitials, getAvatarColor } from '../lib/utils';
+import { useTelegram } from '../../hooks/useTelegram';
+import { useAuth } from '../../hooks/useAuth';
+import { useHaptic } from '../../hooks/useHaptic';
+import { useMenu, useAppStore } from '../../store/useAppStore';
+import { pollsService, PollWithDetails } from '../../services/polls.service';
+import { cn, formatRelativeTime, getInitials, getAvatarColor } from '../../lib/utils';
 
 /**
  * HomePage - Полностью переработанная главная страница

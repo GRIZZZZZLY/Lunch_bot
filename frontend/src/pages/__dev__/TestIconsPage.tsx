@@ -1,8 +1,8 @@
 import React from 'react';
-import { PageHeader } from '../components/common/PageHeader';
+import { PageHeader } from '../../../components/common/PageHeader';
 import { CheckCircle2, Circle, Clock, Users, ArrowLeft, Plus } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { cn } from '../lib/utils';
+import { Button } from '../../../components/ui/button';
+import { cn } from '../../../lib/utils';
 
 /**
  * Тестовая страница для проверки иконок lucide-react

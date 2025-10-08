@@ -95,9 +95,9 @@ export function MenuItemCard({
           loading && 'pointer-events-none'
         )}
       >
-      {/* Image with Glass Overlay - 180px (Golden ratio) */}
+      {/* Image - Compact Square 250x250 */}
       {item.imageUrl && (
-        <div className="relative h-45 w-full overflow-hidden">
+        <div className="relative aspect-square w-full overflow-hidden rounded-t-xl">
           <motion.img
             src={item.imageUrl}
             alt={item.name}
@@ -122,55 +122,56 @@ export function MenuItemCard({
             )}
           />
           
-          {/* Price Badge - Larger and more prominent */}
+          {/* Price Badge - Compact */}
           {item.price && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 }}
-              className="absolute bottom-3 right-3"
+              className="absolute bottom-2 right-2"
             >
-              <div className="px-4 py-2 rounded-xl backdrop-blur-md font-bold text-xl shadow-lg bg-white/90 dark:bg-black/60 text-foreground">
+              <div className="px-3 py-1.5 rounded-lg backdrop-blur-md font-bold text-lg shadow-lg bg-white/90 dark:bg-black/60 text-foreground">
                 {formatPrice(item.price)}
               </div>
             </motion.div>
           )}
           
-          {/* Status Badge - Top left */}
+          {/* Status Badge - Top left - Compact */}
           {!item.isActive && (
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="absolute top-3 left-3"
+              className="absolute top-2 left-2"
             >
-              <div className="px-3 py-1.5 rounded-lg backdrop-blur-md bg-black/60 text-white text-sm font-medium flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-red-500 animate-pulse" />
-                Неактивно
+              <div className="px-2 py-1 rounded-md backdrop-blur-md bg-black/60 text-white text-xs font-medium flex items-center gap-1">
+                <span className="size-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="hidden sm:inline">Неактивно</span>
               </div>
             </motion.div>
           )}
           
-          {/* Category Badge - Top right */}
+          {/* Category Badge - Top right - Compact */}
           {item.category && (
             <motion.div
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="absolute top-3 right-3"
+              className="absolute top-2 right-2"
             >
-              <div className="px-3 py-1.5 rounded-lg backdrop-blur-md bg-black/60 text-white text-sm font-medium">
-                {getCategoryIcon(item.category)} {item.category}
+              <div className="px-2 py-1 rounded-md backdrop-blur-md bg-black/60 text-white text-xs font-medium hidden sm:flex items-center gap-1">
+                <span>{getCategoryIcon(item.category)}</span>
+                <span className="hidden md:inline">{item.category}</span>
               </div>
             </motion.div>
           )}
         </div>
       )}
 
-      {/* Content - More compact */}
-      <div className="p-4 space-y-2.5">
+      {/* Content - Compact */}
+      <div className="p-3 space-y-2 flex flex-col flex-1">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-foreground text-xl mb-1.5 line-clamp-1">
+            <h3 className="font-semibold text-foreground text-base leading-tight line-clamp-1">
               {item.name}
             </h3>
             
@@ -202,48 +203,48 @@ export function MenuItemCard({
           )}
         </div>
 
-        {/* Description - More compact */}
+        {/* Description - Compact 2 lines */}
         {item.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+          <p className="text-sm text-muted-foreground line-clamp-2 leading-snug flex-1">
             {item.description}
           </p>
         )}
 
-        {/* Actions - Touch-friendly buttons (44x44px minimum) */}
+        {/* Actions - Compact & Touch-friendly (44x44px) */}
         {showActions && (
-          <div className="flex items-center justify-between pt-3 border-t border-border gap-2">
-            <div className="flex items-center gap-2">
-              <motion.button
-                onClick={handleEdit}
-                disabled={loading}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1.5 text-xs font-medium min-h-11 px-4 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 dark:text-blue-400 transition-colors disabled:opacity-50"
-              >
-                <Edit2 className="size-4" />
-                <span>Изменить</span>
-              </motion.button>
-              
-              <motion.button
-                onClick={handleDeleteClick}
-                disabled={loading || deleting}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1.5 text-xs font-medium min-h-11 px-4 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-500/10 dark:hover:bg-red-500/20 dark:text-red-400 transition-colors disabled:opacity-50"
-              >
-                <Trash2 className="size-4" />
-                <span>Удалить</span>
-              </motion.button>
-            </div>
+          <div className="flex items-center gap-1.5 pt-2 border-t border-border mt-auto">
+            {/* Edit Button */}
+            <motion.button
+              onClick={handleEdit}
+              disabled={loading}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex-1 flex items-center justify-center gap-1 text-xs font-medium min-h-[44px] px-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 dark:text-blue-400 transition-colors disabled:opacity-50"
+            >
+              <Edit2 className="size-4" />
+              <span className="hidden sm:inline">Изм.</span>
+            </motion.button>
+            
+            {/* Delete Button */}
+            <motion.button
+              onClick={handleDeleteClick}
+              disabled={loading || deleting}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex-1 flex items-center justify-center gap-1 text-xs font-medium min-h-[44px] px-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-500/10 dark:hover:bg-red-500/20 dark:text-red-400 transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="size-4" />
+              <span className="hidden sm:inline">Удал.</span>
+            </motion.button>
 
-            {/* Toggle Active/Inactive - Touch-friendly */}
+            {/* Toggle Active/Inactive */}
             <motion.button
               onClick={handleToggle}
               disabled={loading || isToggling}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className={`
-                flex items-center gap-1.5 text-xs font-medium min-h-11 px-4 rounded-lg transition-colors
+                flex-1 flex items-center justify-center gap-1 text-xs font-medium min-h-[44px] px-2 rounded-lg transition-colors
                 ${item.isActive
                   ? 'bg-mint-50 hover:bg-mint-100 text-mint-600 dark:bg-mint-500/10 dark:hover:bg-mint-500/20 dark:text-mint-400'
                   : 'bg-muted hover:bg-muted/80 text-muted-foreground'
@@ -259,12 +260,12 @@ export function MenuItemCard({
                   {item.isActive ? (
                     <>
                       <CheckCircle className="size-4" />
-                      <span>Активно</span>
+                      <span className="hidden sm:inline">Акт.</span>
                     </>
                   ) : (
                     <>
                       <XCircle className="size-4" />
-                      <span>Неактивно</span>
+                      <span className="hidden sm:inline">Неакт.</span>
                     </>
                   )}
                 </>

@@ -5,7 +5,7 @@ import { PageHeader } from '../components/common/PageHeader';
 import { MenuList } from '../components/menu/MenuList';
 import { MenuForm, MenuFormData } from '../components/menu/MenuForm';
 import { SearchInput } from '../components/common/SearchInput';
-import { CategoryFilter } from '../components/common/CategoryFilter';
+import { FilterChips } from '../components/menu/FilterChips';
 import { SortSelector, SortOption } from '../components/common/SortSelector';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PullToRefresh } from '../components/common/PullToRefresh';
@@ -31,6 +31,7 @@ import {
   StatCardSkeleton, 
   SearchFilterSkeleton 
 } from '../components/common/SkeletonLoader';
+import { MenuGridSkeleton, FilterChipsSkeleton } from '../components/menu/MenuGridSkeleton';
 import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
 import { useMenu, useUI, useAppStore } from '../store/useAppStore';
@@ -43,6 +44,7 @@ import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { GlassCard, GlassCardContent } from '../components/ui/glass-card';
 import { ThemeToggle } from '../components/ui/theme-toggle';
+import { MediumWaveGradient } from '../components/background';
 import { cn } from '../lib/utils';
 
 /**
@@ -318,6 +320,9 @@ export const MenuPage: React.FC = () => {
 
   return (
     <>
+      {/* Animated gradient background - full page */}
+      <MediumWaveGradient />
+      
       <motion.div
         variants={containerVariants}
         initial="hidden"
@@ -425,72 +430,31 @@ export const MenuPage: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* 4. Sticky Category Pills (48px) - Horizontal Scroll */}
+        {/* 4. Filter Chips - Horizontal Scroll */}
         {!menuLoading && categories.length > 0 && (
           <motion.div 
             variants={itemVariants}
-            className="sticky top-0 z-10 bg-background/80 backdrop-blur-md -mx-4 px-4 py-2 border-b border-border"
+            className="sticky top-0 z-10 bg-background/95 backdrop-blur-md -mx-4 px-4 py-3"
           >
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-              {/* All button */}
-              <Button
-                variant={!selectedCategory ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setSelectedCategory(null);
-                  haptic.light();
-                }}
-                className={cn(
-                  "flex-shrink-0 min-h-11",
-                  !selectedCategory && "bg-gradient-to-r from-mint-500 to-mint-600 text-white hover:from-mint-600 hover:to-mint-700"
-                )}
-              >
-                Все
-              </Button>
-              
-              {/* Category buttons */}
-              {categories.map((cat) => {
-                const count = categoryCounts[cat] || 0;
-                const isSelected = selectedCategory === cat;
-                
-                return (
-                  <Button
-                    key={cat}
-                    variant={isSelected ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setSelectedCategory(cat);
-                      haptic.light();
-                    }}
-                    disabled={count === 0}
-                    className={cn(
-                      "flex-shrink-0 min-h-11 gap-1.5",
-                      isSelected && "bg-gradient-to-r from-mint-500 to-mint-600 text-white hover:from-mint-600 hover:to-mint-700"
-                    )}
-                  >
-                    <span className="text-base">{getCategoryIcon(cat)}</span>
-                    <span className="capitalize">{cat}</span>
-                    {count > 0 && (
-                      <Badge 
-                        variant="secondary" 
-                        className={cn(
-                          "ml-1 text-xs",
-                          isSelected && "bg-white/20 text-white border-0"
-                        )}
-                      >
-                        {count}
-                      </Badge>
-                    )}
-                  </Button>
-                );
-              })}
-            </div>
+            <FilterChips
+              categories={categories}
+              categoryCounts={categoryCounts}
+              selectedCategory={selectedCategory}
+              onCategorySelect={setSelectedCategory}
+            />
+          </motion.div>
+        )}
+        
+        {/* Loading state for filters */}
+        {menuLoading && (
+          <motion.div variants={itemVariants}>
+            <FilterChipsSkeleton />
           </motion.div>
         )}
 
-        {/* 5. Menu Items List */}
+        {/* 5. Menu Items List - Grid Layout */}
         {menuLoading ? (
-          <MenuListSkeleton count={6} />
+          <MenuGridSkeleton count={8} />
         ) : filteredItems.length === 0 ? (
           (selectedCategory || searchQuery) ? (
             <EmptyState type="no-results" />

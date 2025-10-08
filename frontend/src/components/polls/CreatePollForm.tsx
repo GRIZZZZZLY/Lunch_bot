@@ -1,10 +1,11 @@
 /**
- * CreatePollForm - Компактная форма создания голосования для BottomSheet
+ * CreatePollForm - Форма создания голосования с glassmorphism дизайном
  * 
  * Оптимизирована для mobile:
- * - Минимум полей
- * - Быстрые кнопки для выбора
- * - Virtual scrolling для длинных списков
+ * - Glassmorphism & time-based градиенты
+ * - Smart presets & live preview
+ * - Enhanced визуализация блюд
+ * - Progress indicators
  * - Haptic feedback
  */
 
@@ -16,11 +17,17 @@ import {
   CheckCircle2, 
   Circle,
   AlertCircle,
-  Send,
   ChevronDown,
   ChevronUp,
+  Utensils,
+  Check,
+  Shuffle,
+  Loader,
+  X,
 } from 'lucide-react';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { GlassCard, GlassCardContent, GlassCardHeader } from '../ui/glass-card';
+import { Progress } from '../ui/progress';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useHaptic } from '@/hooks/useHaptic';
@@ -49,8 +56,10 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [showAllItems, setShowAllItems] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string>('Все');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [creationStep, setCreationStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   // Load data
@@ -124,10 +133,22 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
       console.error('Error creating poll:', err);
       
       let errorMessage = 'Ошибка создания голосования';
-      if (err.message?.includes('already has an active poll')) {
-        errorMessage = 'В этой группе уже есть активное голосование';
-      } else if (err.message?.includes('Not enough items')) {
+      
+      // Проверяем разные типы ошибок
+      const errorText = err.error || err.message || '';
+      
+      if (errorText.includes('already has an active poll') || errorText.includes('Group already has active poll')) {
+        errorMessage = 'В этой группе уже есть активное голосование. Дождитесь его завершения.';
+      } else if (errorText.includes('Not enough items') || errorText.includes('NOT_ENOUGH_ITEMS')) {
         errorMessage = 'Выберите минимум 2 блюда';
+      } else if (errorText.includes('Network error') || err.code === 'NETWORK_ERROR') {
+        errorMessage = 'Ошибка сети. Проверьте подключение к интернету.';
+      } else if (errorText.includes('Access denied') || err.code === 'ACCESS_DENIED') {
+        errorMessage = 'Недостаточно прав для создания голосования';
+      } else if (err.code === 'INVALID_GROUP') {
+        errorMessage = 'Выберите группу';
+      } else if (errorText) {
+        errorMessage = `Ошибка: ${errorText}`;
       }
       
       setError(errorMessage);
@@ -157,10 +178,40 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
     }
   };
 
+  const selectRandom = () => {
+    haptic.medium();
+    // Используем отфильтрованные блюда (по категории)
+    const itemsToSelect = activeCategory === 'Все' ? menuItems : filteredItems;
+    // Случайный выбор от 3 до 6 блюд
+    const count = Math.floor(Math.random() * 4) + 3;
+    const shuffled = [...itemsToSelect].sort(() => Math.random() - 0.5);
+    const randomItems = shuffled.slice(0, Math.min(count, itemsToSelect.length));
+    setSelectedItems(new Set(randomItems.map(item => item.id)));
+  };
+
   const setQuickDuration = (minutes: number) => {
     haptic.selection();
     setDuration(minutes);
   };
+
+  // Format duration для live preview
+  const formatDuration = (minutes: number): string => {
+    if (minutes < 60) {
+      return `${minutes} мин`;
+    } else {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return mins > 0 ? `${hours}ч ${mins}м` : `${hours} час${hours > 1 ? 'а' : ''}`;
+    }
+  };
+
+  // Получить уникальные категории
+  const categories = Array.from(new Set(menuItems.map(item => item.category).filter(Boolean))) as string[];
+
+  // Фильтрованные блюда по категории
+  const filteredItems = activeCategory === 'Все' 
+    ? menuItems 
+    : menuItems.filter(item => item.category === activeCategory);
 
   if (loading) {
     return (
@@ -206,126 +257,286 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
 
   // Compact view: show only first 5 items unless expanded
   const visibleItems = compact && !showAllItems 
-    ? menuItems.slice(0, 5) 
-    : menuItems;
+    ? filteredItems.slice(0, 5) 
+    : filteredItems;
   
-  const hasMore = compact && menuItems.length > 5;
+  const hasMore = compact && filteredItems.length > 5;
 
   return (
-    <div className="p-6 space-y-5 bg-white dark:bg-gray-900">
-      {/* Error Alert */}
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800"
-          >
-            <div className="flex items-start gap-2">
-              <AlertCircle size={18} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Group Selection */}
-      {groups.length > 0 && (
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            <Users size={16} className="text-primary-food-500" />
-            <span>Группа</span>
-          </label>
-          <select
-            value={selectedGroupId || ''}
-            onChange={(e) => {
-              setSelectedGroupId(parseInt(e.target.value));
-              haptic.selection();
-            }}
-            className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-food-500 transition-all"
-          >
-            {groups.map(group => (
-              <option key={group.id} value={group.id}>
-                {group.title}
-              </option>
-            ))}
-          </select>
-        </div>
+    <div className="relative space-y-0 bg-white dark:bg-gray-900">
+      {/* Close Button */}
+      {onCancel && (
+        <button
+          onClick={() => {
+            onCancel();
+            haptic.light();
+          }}
+          className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg"
+        >
+          <X className="text-gray-700 dark:text-gray-300" size={20} />
+        </button>
       )}
 
-      {/* Duration */}
-      <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-          <Clock size={16} className="text-primary-food-500" />
-          <span>Длительность</span>
-        </label>
-        
-        {/* Quick Duration Buttons */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          {[15, 30, 60].map((minutes) => (
-            <motion.button
-              key={minutes}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setQuickDuration(minutes)}
-              className={cn(
-                "p-3 rounded-lg border-2 transition-all",
-                duration === minutes
-                  ? "border-primary-food-500 bg-primary-food-50 dark:bg-primary-food-900/20"
-                  : "border-gray-200 dark:border-gray-700"
-              )}
-            >
-              <div className={cn(
-                "text-lg font-bold",
-                duration === minutes 
-                  ? "text-primary-food-700 dark:text-primary-food-400" 
-                  : "text-gray-900 dark:text-white"
-              )}>
-                {minutes}
+      <div className="p-6 pt-16 space-y-5">
+      {/* 🎨 Group Selection - GlassCard */}
+      {groups.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <GlassCard intensity="medium" hover>
+            <GlassCardContent>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2.5 rounded-xl bg-peach-500/20">
+                  <Users className="text-peach-500" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Группа
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Где запустить голосование
+                  </p>
+                </div>
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">мин</div>
-            </motion.button>
-          ))}
-        </div>
+              
+              {/* Группы как радио-кнопки */}
+              <div className="space-y-2">
+                {groups.map((group, index) => (
+                  <motion.button
+                    key={group.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.25 + index * 0.05 }}
+                    onClick={() => {
+                      setSelectedGroupId(group.id);
+                      haptic.selection();
+                    }}
+                    className={cn(
+                      "w-full p-3 rounded-xl border-2 transition-all",
+                      selectedGroupId === group.id
+                        ? "border-peach-500 bg-peach-50 dark:bg-peach-500/10"
+                        : "border-gray-200 dark:border-gray-700 hover:border-peach-300 dark:hover:border-peach-700"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {group.title}
+                      </span>
+                      {selectedGroupId === group.id && (
+                        <motion.div
+                          initial={{ scale: 0, rotate: -180 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                        >
+                          <CheckCircle2 className="text-peach-500" size={20} />
+                        </motion.div>
+                      )}
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </GlassCardContent>
+          </GlassCard>
+        </motion.div>
+      )}
 
-        {/* Custom Duration Input */}
-        <input
-          type="number"
-          value={duration}
-          onChange={(e) => setDuration(parseInt(e.target.value) || 30)}
-          min={1}
-          max={1440}
-          className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-food-500"
-          placeholder="Или введите свое..."
-        />
-      </div>
+      {/* 🎨 Duration - Smart Presets */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <GlassCard intensity="medium" hover>
+          <GlassCardContent>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-mint-500/20">
+                  <Clock className="text-mint-500" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 dark:text-white">Длительность голосования</h3>
+                </div>
+              </div>
+              
+              {/* Live countdown preview */}
+              <motion.div 
+                key={duration}
+                initial={{ scale: 1.2 }}
+                animate={{ scale: 1 }}
+                className="px-3 py-1.5 rounded-lg bg-mint-50 dark:bg-mint-500/10"
+              >
+                <span className="text-sm font-bold text-mint-700 dark:text-mint-400">
+                  {formatDuration(duration)}
+                </span>
+              </motion.div>
+            </div>
 
-      {/* Menu Items Selection */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            Блюда ({selectedItems.size} из {menuItems.length})
-          </label>
-          <button
-            onClick={toggleAll}
-            className="text-sm font-medium text-primary-food-700 dark:text-primary-food-400 hover:underline"
-          >
-            {selectedItems.size === menuItems.length ? 'Снять все' : 'Выбрать все'}
-          </button>
-        </div>
+            {/* Visual time presets с иконками */}
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {[
+                { value: 15, label: 'Быстро', icon: '⚡' },
+                { value: 30, label: 'Обед', icon: '🍽️', popular: true },
+                { value: 60, label: 'Час', icon: '⏰' },
+                { value: 120, label: 'Долго', icon: '☕' }
+              ].map((preset) => (
+                <motion.button
+                  key={preset.value}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setQuickDuration(preset.value)}
+                  className={cn(
+                    "relative p-3 rounded-xl border-2 transition-all",
+                    duration === preset.value
+                      ? "border-mint-500 bg-mint-50 dark:bg-mint-500/10 shadow-lg"
+                      : "border-gray-200 dark:border-gray-700 hover:border-mint-300"
+                  )}
+                >
+                  {preset.popular && (
+                    <motion.div
+                      initial={{ y: -20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-coral-500 text-white text-[10px] font-bold"
+                    >
+                      ТОП
+                    </motion.div>
+                  )}
+                  
+                  <div className="text-2xl mb-1">{preset.icon}</div>
+                  <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    {preset.label}
+                  </div>
+                  <div className="text-[10px] text-gray-500">
+                    {preset.value} мин
+                  </div>
+                </motion.button>
+              ))}
+            </div>
 
-        {/* Validation Warning */}
-        {selectedItems.size < 2 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mb-3 p-2.5 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
-          >
-            <p className="text-yellow-700 dark:text-yellow-300 text-xs">
-              Выберите минимум 2 блюда
-            </p>
-          </motion.div>
-        )}
+            {/* Slider для точной настройки */}
+            <div>
+              <input
+                type="range"
+                min={5}
+                max={240}
+                step={5}
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, #5CAE87 0%, #5CAE87 ${(duration / 240) * 100}%, #e5e7eb ${(duration / 240) * 100}%, #e5e7eb 100%)`
+                }}
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>5 мин</span>
+                <span>4 часа</span>
+              </div>
+            </div>
+          </GlassCardContent>
+        </GlassCard>
+      </motion.div>
+
+      {/* 🎨 Menu Items Selection - Enhanced */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <GlassCard intensity="medium">
+          <GlassCardContent>
+            {/* Header с статистикой */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-lavender-500/20">
+                  <Utensils className="text-lavender-500" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Блюда в голосовании
+                  </h3>
+                  <motion.p 
+                    key={selectedItems.size}
+                    initial={{ scale: 1.2 }}
+                    animate={{ scale: 1 }}
+                    className="text-xs text-gray-500"
+                  >
+                    Выбрано: <span className="font-bold text-lavender-600 dark:text-lavender-400">
+                      {selectedItems.size}
+                    </span> из {menuItems.length}
+                  </motion.p>
+                </div>
+              </div>
+
+              {/* Quick actions */}
+              <div className="flex gap-2">
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={toggleAll}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-lavender-200 dark:border-lavender-800 text-lavender-700 dark:text-lavender-400 hover:bg-lavender-50 dark:hover:bg-lavender-500/10"
+                >
+                  {selectedItems.size === menuItems.length ? '✗ Снять' : '✓ Все'}
+                </motion.button>
+                
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={selectRandom}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-butter-50 dark:bg-butter-500/10 text-butter-700 dark:text-butter-400 hover:bg-butter-100 dark:hover:bg-butter-500/20 flex items-center gap-1"
+                >
+                  <Shuffle size={12} />
+                  <span>Случайно</span>
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Progress bar визуализация */}
+            <div className="mb-4">
+              <Progress 
+                value={(selectedItems.size / menuItems.length) * 100}
+                className="h-2"
+              />
+            </div>
+
+            {/* Validation hint */}
+            <AnimatePresence>
+              {selectedItems.size < 2 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mb-3 p-2.5 rounded-lg bg-butter-50 dark:bg-butter-500/10 border border-butter-200 dark:border-butter-800"
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={16} className="text-butter-600 dark:text-butter-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-butter-700 dark:text-butter-400">
+                      Выберите минимум 2 блюда для голосования
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Категории фильтров */}
+            {categories.length > 0 && (
+              <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide">
+                {['Все', ...categories].map((cat) => (
+                  <motion.button
+                    key={cat}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setActiveCategory(cat);
+                      haptic.selection();
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
+                      activeCategory === cat
+                        ? "bg-lavender-500 text-white shadow-lg"
+                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    )}
+                  >
+                    {cat}
+                  </motion.button>
+                ))}
+              </div>
+            )}
 
         {/* Items List */}
         <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -377,65 +588,85 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
           })}
         </div>
 
-        {/* Show More Button */}
-        {hasMore && (
-          <button
-            onClick={() => {
-              setShowAllItems(!showAllItems);
-              haptic.light();
-            }}
-            className="w-full mt-2 py-2 text-sm font-medium text-primary-food-700 dark:text-primary-food-400 hover:underline flex items-center justify-center gap-1"
+            {/* Show More Button */}
+            {hasMore && (
+              <button
+                onClick={() => {
+                  setShowAllItems(!showAllItems);
+                  haptic.light();
+                }}
+                className="w-full mt-3 py-2 text-sm font-medium text-lavender-600 dark:text-lavender-400 flex items-center justify-center gap-1 hover:underline"
+              >
+                {showAllItems ? (
+                  <>
+                    <span>Показать меньше</span>
+                    <ChevronUp size={16} />
+                  </>
+                ) : (
+                  <>
+                    <span>Показать все ({filteredItems.length - 5} еще)</span>
+                    <ChevronDown size={16} />
+                  </>
+                )}
+              </button>
+            )}
+          </GlassCardContent>
+        </GlassCard>
+      </motion.div>
+
+        {/* Error Alert - показывается перед кнопками */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border-2 border-red-300 dark:border-red-700 shadow-lg"
+            >
+              <div className="flex items-start gap-3">
+                <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-red-700 dark:text-red-300 text-sm font-medium">{error}</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              disabled={creating}
+              className="flex-1 px-4 py-3 rounded-lg bg-peach-500 hover:bg-peach-600 text-white font-medium transition-colors disabled:opacity-50 shadow-md"
+            >
+              Отмена
+            </button>
+          )}
+          
+          <motion.button
+            whileTap={{ scale: canCreatePoll() ? 0.95 : 1 }}
+            onClick={handleCreate}
+            disabled={!canCreatePoll() || creating}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all shadow-md",
+              canCreatePoll() && !creating
+                ? "bg-lavender-500 hover:bg-lavender-600 text-white"
+                : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+            )}
           >
-            {showAllItems ? (
+            {creating ? (
               <>
-                <span>Показать меньше</span>
-                <ChevronUp size={16} />
+                <LoadingSpinner size="sm" />
+                <span>Запуск...</span>
               </>
             ) : (
               <>
-                <span>Показать все ({menuItems.length - 5} еще)</span>
-                <ChevronDown size={16} />
+                <Check size={18} />
+                <span>Запустить</span>
               </>
             )}
-          </button>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        {onCancel && (
-          <button
-            onClick={onCancel}
-            disabled={creating}
-            className="flex-1 px-4 py-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-          >
-            Отмена
-          </button>
-        )}
-        
-        <motion.button
-          whileTap={{ scale: canCreatePoll() ? 0.95 : 1 }}
-          onClick={handleCreate}
-          disabled={!canCreatePoll() || creating}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all",
-            canCreatePoll() && !creating
-              ? "bg-primary-food-600 hover:bg-primary-food-700 text-white"
-              : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-          )}
-        >
-          {creating ? (
-            <>
-              <LoadingSpinner size="sm" />
-              <span>Запуск...</span>
-            </>
-          ) : (
-            <>
-              <Send size={18} />
-              <span>Запустить</span>
-            </>
-          )}
-        </motion.button>
+          </motion.button>
+        </div>
       </div>
     </div>
   );

@@ -74,7 +74,7 @@
   }
   
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -82,7 +82,7 @@
   }
   
   #root {
-    @apply min-h-screen bg-background;
+    @apply min-h-screen;
   }
 }
 
