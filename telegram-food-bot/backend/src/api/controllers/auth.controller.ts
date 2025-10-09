@@ -126,7 +126,7 @@ export class AuthController {
 
       res.json({
         success: true,
-        user: {
+        data: {
           id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
           telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
           username: user.username,

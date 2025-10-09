@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id               Int          @id @default(autoincrement())
+  telegramId       BigInt       @unique @map("telegram_id")
+  username         String?
+  firstName        String       @map("first_name")
+  lastName         String?      @map("last_name")
+  isAdmin          Boolean      @default(false) @map("is_admin")
+  isActive         Boolean      @default(true) @map("is_active")
+  paymentCard      String?      @map("payment_card")
+  paymentPhone     String?      @map("payment_phone")
+  paymentDetails   String?      @map("payment_details")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  createdMenuItems MenuItem[]
+  responsiblePolls PollResult[]
+  createdPolls     Poll[]       @relation("PollCreator")
+  votes            Vote[]
+
+  @@map("users")
+}
+
+model Group {
+  id         Int      @id @default(autoincrement())
+  telegramId BigInt   @unique @map("telegram_id")
+  title      String
+  type       String   @default("group")
+  isActive   Boolean  @default(true) @map("is_active")
+  settings   String?  @map("settings_json")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  polls      Poll[]
+
+  @@map("groups")
+}
+
+model MenuItem {
+  id          Int          @id @default(autoincrement())
+  name        String
+  description String?
+  price       Float?
+  category    String?
+  imageUrl    String?      @map("image_url")
+  isActive    Boolean      @default(true) @map("is_active")
+  createdBy   Int          @map("created_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  creator     User         @relation(fields: [createdBy], references: [id])
+  pollResults PollResult[]
+  votes       Vote[]
+
+  @@index([isActive])
+  @@index([category])
+  @@index([isActive, category]) // Составной индекс для фильтрации активного меню по категориям
+  @@map("menu_items")
+}
+
+model Poll {
+  id        Int         @id @default(autoincrement())
+  groupId   Int         @map("group_id")
+  status    String      @default("ACTIVE")
+  duration  Int         @default(30)
+  startedAt DateTime    @default(now()) @map("started_at")
+  endedAt   DateTime?   @map("ended_at")
+  createdBy Int         @map("created_by")
+  messageId Int?        @map("message_id")
+  chatId    BigInt?     @map("chat_id")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  result    PollResult?
+  creator   User        @relation("PollCreator", fields: [createdBy], references: [id])
+  group     Group       @relation(fields: [groupId], references: [id])
+  votes     Vote[]
+
+  @@index([status])
+  @@index([startedAt])
+  @@index([status, startedAt]) // Составной индекс для поиска истекших активных голосований
+  @@index([groupId, status]) // Составной индекс для getActivePollInGroup
+  @@map("polls")
+}
+
+model Vote {
+  id           Int         @id @default(autoincrement())
+  pollId       Int         @map("poll_id")
+  userId       Int         @map("user_id")
+  menuItemId   Int?        @map("menu_item_id")
+  voteType     String      @default("MENU_ITEM") @map("vote_type")
+  customOption String?     @map("custom_option")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  menuItem     MenuItem?   @relation(fields: [menuItemId], references: [id])
+  user         User        @relation(fields: [userId], references: [id])
+  poll         Poll        @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  rating       VoteRating?
+
+  @@unique([pollId, userId])
+  @@index([pollId])
+  @@index([userId])
+  @@index([voteType])
+  @@index([pollId, userId]) // Составной индекс для быстрого поиска голоса пользователя
+  @@index([createdAt]) // Индекс для фильтрации по дате
+  @@index([menuItemId]) // Индекс для группировки по блюдам
+  @@map("votes")
+}
+
+model PollResult {
+  id                Int       @id @default(autoincrement())
+  pollId            Int       @unique @map("poll_id")
+  winnerMenuItemId  Int?      @map("winner_menu_item_id")
+  responsibleUserId Int       @map("responsible_user_id")
+  totalVotes        Int       @default(0) @map("total_votes")
+  rouletteData      String?   @map("roulette_data")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  winnerMenuItem    MenuItem? @relation(fields: [winnerMenuItemId], references: [id])
+  responsibleUser   User      @relation(fields: [responsibleUserId], references: [id])
+  poll              Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  @@map("poll_results")
+}
+
+model VoteRating {
+  id        Int      @id @default(autoincrement())
+  voteId    Int      @unique @map("vote_id")
+  rating    String   // 'like' или 'dislike'
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  vote      Vote     @relation(fields: [voteId], references: [id], onDelete: Cascade)
+
+  @@index([rating])
+  @@map("vote_ratings")
+}
