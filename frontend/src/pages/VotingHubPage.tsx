@@ -37,12 +37,11 @@ export const VotingHubPage: React.FC = () => {
   const isDark = colorScheme === 'dark';
   
   const [loading, setLoading] = useState(true);
+  const [activePoll, setActivePoll] = useState<PollWithDetails | null>(null);
   const [lastPoll, setLastPoll] = useState<PollWithDetails | null>(null);
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
-    loadData();
-    
     // Настройка back button
     backButton.show();
     backButton.onClick(() => navigate('/'));
@@ -52,27 +51,100 @@ export const VotingHubPage: React.FC = () => {
       backButton.hide();
     };
   }, []);
+  
+  // Загружаем данные только после авторизации
+  useEffect(() => {
+    if (user) {
+      console.log('👤 [VotingHubPage] User logged in, loading data...');
+      loadData();
+    } else {
+      console.log('⏳ [VotingHubPage] Waiting for user login...');
+    }
+  }, [user]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       
+      // Проверяем наличие активных голосований
+      console.log('🔍 [VotingHubPage] Checking for active polls...');
+      const activeResponse = await pollsService.getActivePolls();
+      
+      console.log('📥 [VotingHubPage] Active polls response:', JSON.stringify({
+        success: activeResponse.success,
+        hasData: !!activeResponse.data,
+        dataLength: Array.isArray(activeResponse.data) ? activeResponse.data.length : 0,
+        data: activeResponse.data
+      }, null, 2));
+      
+      if (activeResponse.success && activeResponse.data && Array.isArray(activeResponse.data) && activeResponse.data.length > 0) {
+        const active = activeResponse.data[0];
+        console.log('✅ [VotingHubPage] Found active poll:', {
+          id: active.id,
+          status: active.status
+        });
+        setActivePoll(active);
+        // Не перенаправляем автоматически - показываем на странице
+      } else {
+        console.log('ℹ️ [VotingHubPage] No active polls found');
+        setActivePoll(null);
+      }
+      
       // Загружаем последнее голосование
+      console.log('📡 [VotingHubPage] Loading poll history...');
       const historyResponse = await pollsService.getPollHistory({ limit: 1 });
-      if (historyResponse.success && historyResponse.data && historyResponse.data.polls.length > 0) {
-        setLastPoll(historyResponse.data.polls[0] as any);
+      
+      console.log('📥 [VotingHubPage] History response:', JSON.stringify({
+        success: historyResponse.success,
+        hasData: !!historyResponse.data,
+        isArray: Array.isArray(historyResponse.data),
+        dataLength: Array.isArray(historyResponse.data) ? historyResponse.data.length : 0,
+        hasPollsField: !!(historyResponse.data as any)?.polls,
+        data: historyResponse.data
+      }, null, 2));
+      
+      // API может вернуть либо массив напрямую, либо объект с полем polls
+      let polls: any[] = [];
+      if (historyResponse.success && historyResponse.data) {
+        if (Array.isArray(historyResponse.data)) {
+          // Массив напрямую
+          polls = historyResponse.data;
+        } else if ((historyResponse.data as any).polls) {
+          // Объект с полем polls
+          polls = (historyResponse.data as any).polls;
+        }
+      }
+      
+      if (polls.length > 0) {
+        const poll = polls[0];
+        console.log('✅ [VotingHubPage] Found last poll:', {
+          id: poll.id,
+          status: poll.status
+        });
+        setLastPoll(poll as any);
+      } else {
+        console.log('⚠️ [VotingHubPage] No polls in history');
       }
       
       // Загружаем статистику пользователя
       if (user) {
+        console.log('📊 [VotingHubPage] Loading user stats...');
         const statsResponse = await pollsService.getUserParticipationStats();
+        console.log('📥 [VotingHubPage] Stats response:', {
+          success: statsResponse.success,
+          hasData: !!statsResponse.data
+        });
         if (statsResponse.success && statsResponse.data) {
           setStats(statsResponse.data);
         }
       }
       
     } catch (error) {
-      console.error('[VotingHubPage] Error loading data:', error);
+      console.error('❌ [VotingHubPage] Error loading data:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
     } finally {
       setLoading(false);
     }
@@ -140,22 +212,48 @@ export const VotingHubPage: React.FC = () => {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Empty State Icon */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-8"
-        >
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-peach-100 to-coral-100 dark:from-peach-900/20 dark:to-coral-900/20 mb-4">
-            <Vote className="text-peach-500" size={48} />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Нет активных голосований
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Пока что нет голосований в вашей группе
-          </p>
-        </motion.div>
+        {/* Active Poll or Empty State */}
+        {activePoll ? (
+          // Активное голосование
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-8"
+          >
+            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 mb-4">
+              <Vote className="text-green-500" size={48} />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              🔥 Идёт голосование!
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Голосование уже запущено в вашей группе
+            </p>
+            <button
+              onClick={() => navigate(`/vote/${activePoll.id}`)}
+              className="mt-4 px-6 py-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+            >
+              Перейти к голосованию
+            </button>
+          </motion.div>
+        ) : (
+          // Пустое состояние
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-8"
+          >
+            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-peach-100 to-coral-100 dark:from-peach-900/20 dark:to-coral-900/20 mb-4">
+              <Vote className="text-peach-500" size={48} />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Нет активных голосований
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Пока что нет голосований в вашей группе
+            </p>
+          </motion.div>
+        )}
 
         {/* Admin: Create Poll Button */}
         {user?.isAdmin && (

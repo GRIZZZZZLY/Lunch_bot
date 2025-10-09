@@ -1,3 +1,4 @@
+/* @refresh reset */
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useHaptic } from '../../hooks/useHaptic';

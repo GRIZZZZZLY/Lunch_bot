@@ -17,17 +17,22 @@ async function closeExpiredPolls() {
   console.log('');
 
   try {
-    // Найдем истекшие голосования
-    const expiredPolls = await prisma.poll.findMany({
+    const now = new Date();
+    
+    // Найдем все активные голосования
+    const activePolls = await prisma.poll.findMany({
       where: {
         status: 'ACTIVE',
-        endedAt: {
-          lt: new Date(), // endedAt < now
-        },
       },
       include: {
         group: true,
       },
+    });
+
+    // Фильтруем истекшие голосования
+    const expiredPolls = activePolls.filter((poll) => {
+      const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
+      return endsAt < now;
     });
 
     if (expiredPolls.length === 0) {
@@ -40,34 +45,26 @@ async function closeExpiredPolls() {
     console.log('');
 
     for (const poll of expiredPolls) {
-      const endedAt = new Date(poll.endedAt!);
-      const now = new Date();
-      const hoursSinceEnd = Math.floor((now.getTime() - endedAt.getTime()) / (1000 * 60 * 60));
+      const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
+      const hoursSinceEnd = Math.floor((now.getTime() - endsAt.getTime()) / (1000 * 60 * 60));
 
       console.log(`  Poll ID: ${poll.id}`);
       console.log(`  Group: ${poll.group.title} (ID: ${poll.group_id})`);
-      console.log(`  Ended at: ${endedAt.toISOString()}`);
+      console.log(`  Ended at: ${endsAt.toISOString()}`);
       console.log(`  Hours ago: ${hoursSinceEnd}h`);
       console.log('');
+      
+      // Обновляем каждое голосование отдельно
+      await prisma.poll.update({
+        where: { id: poll.id },
+        data: {
+          status: 'COMPLETED',
+          endedAt: endsAt,
+        },
+      });
     }
 
-    // Завершаем голосования
-    console.log('🔄 Closing expired polls...');
-    console.log('');
-
-    const result = await prisma.poll.updateMany({
-      where: {
-        status: 'ACTIVE',
-        endedAt: {
-          lt: new Date(),
-        },
-      },
-      data: {
-        status: 'COMPLETED',
-      },
-    });
-
-    console.log(`✅ Closed ${result.count} expired poll(s)`);
+    console.log(`✅ Closed ${expiredPolls.length} expired poll(s)`);
     console.log('');
     console.log('========================================');
     console.log('');

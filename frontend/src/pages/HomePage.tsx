@@ -38,8 +38,8 @@ import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardDescription, Glass
 import { ThemeToggle } from '../components/ui/theme-toggle';
 import { MediumWaveGradient } from '../components/background';
 
-// Old components (for poll functionality)
-import { SimplePollCard } from '../components/polls';
+// Poll components
+import { InlineVotingCard } from '../components/voting/InlineVotingCard';
 
 // Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
@@ -96,7 +96,7 @@ interface TertiaryAction {
 }
 
 interface ScenarioConfig {
-  hero: HeroAction;
+  hero: HeroAction | null;  // Hero Action может быть скрыт
   secondary: SecondaryAction[];
   tertiary?: TertiaryAction;
   layout: '2x50%' | '3x33%';
@@ -107,8 +107,6 @@ interface ScenarioConfig {
  * Современный дизайн с glassmorphism, градиентами и анимациями
  */
 export const HomePage: React.FC = () => {
-  console.log('🎨 [HomePage] Component render started');
-  
   const navigate = useNavigate();
   const { colorScheme } = useTelegram();
   const { user } = useAuth();
@@ -164,11 +162,24 @@ export const HomePage: React.FC = () => {
       console.log('🔄 [HomePage] Fetching active polls...');
       const response = await pollsService.getActivePolls();
       
+      console.log('📥 [HomePage] API Response:', JSON.stringify({
+        success: response.success,
+        hasData: !!response.data,
+        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
+        data: response.data
+      }, null, 2));
+      
       if (response.success && response.data) {
         setActivePolls(response.data);
         
         if (response.data.length > 0) {
           const firstPoll = response.data[0];
+          console.log('✅ [HomePage] Found active poll:', {
+            id: firstPoll.id,
+            status: firstPoll.status,
+            groupId: firstPoll.groupId
+          });
+          
           const transformedPoll = {
             ...firstPoll,
             title: 'Голосование на обед',
@@ -181,14 +192,23 @@ export const HomePage: React.FC = () => {
           
           setActivePoll(transformedPoll);
         } else {
+          console.log('⚠️ [HomePage] No active polls in response');
           setActivePoll(null);
         }
       } else {
+        console.log('❌ [HomePage] Invalid response:', { 
+          success: response.success, 
+          hasData: !!response.data 
+        });
         setActivePoll(null);
         setActivePolls([]);
       }
     } catch (error) {
-      console.error('Error loading active polls:', error);
+      console.error('❌ [HomePage] Error loading active polls:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       setActivePoll(null);
       setActivePolls([]);
     }
@@ -246,10 +266,10 @@ export const HomePage: React.FC = () => {
    * Handler функции для Quick Actions
    */
   
-  // 1. Перейти к голосованиям
+  // 1. Перейти к голосованиям (страница создания)
   const handleGoToVoting = () => {
-    // Haptic убран - не используем для обычной навигации
-    navigate('/vote');
+    // haptic.medium(); // Метода medium() не существует в useHaptic
+    navigate('/poll/create');
   };
   
   // 2. Случайный выбор
@@ -363,16 +383,9 @@ export const HomePage: React.FC = () => {
     }
     
     // Сценарий 3: Нет активного голосования (по умолчанию)
+    // Hero Action НЕ показывается - кнопка создания уже есть в пустом состоянии
     return {
-      hero: {
-        title: 'Голосования',
-        description: 'Создавайте и участвуйте в голосованиях',
-        icon: <Vote className="size-10 text-white" />,
-        buttonText: 'Перейти к голосованиям',
-        buttonVariant: 'peach',
-        showShimmer: true,
-        onClick: handleGoToVoting,
-      },
+      hero: null,  // ← Скрываем Hero Action
       secondary: [
         {
           id: 'my-stats',
@@ -405,6 +418,15 @@ export const HomePage: React.FC = () => {
   
   // Получаем текущую конфигурацию Quick Actions v2.0
   const quickActionsConfig = getScenarioConfig();
+  
+  // DEBUG: Логирование состояния (вынесено в useEffect для избежания warning)
+  useEffect(() => {
+    console.log('🔍 [HomePage] Состояние:', {
+      activePoll: !!activePoll,
+      isLoading,
+      hasHeroAction: !!quickActionsConfig.hero
+    });
+  }, [activePoll, isLoading, quickActionsConfig.hero]);
   
   // Container animation variants
   const containerVariants = {
@@ -497,42 +519,11 @@ export const HomePage: React.FC = () => {
               animate="show"
               exit={{ opacity: 0, scale: 0.95 }}
             >
-              <GlassCard intensity="high" hover className="overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-peach-400/30 to-transparent dark:from-peach-500/20 blur-2xl" />
-                <GlassCardContent className="relative">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="default" className="bg-peach-500 text-white">
-                          🗳️ Активно
-                        </Badge>
-                        <Badge variant="outline">
-                          {activePoll.voteCount} голосов
-                        </Badge>
-                      </div>
-                      <h2 className="text-2xl font-bold text-foreground mb-1">
-                        {activePoll.title}
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        Завершится через {formatRelativeTime(activePoll.endTime)}
-                      </p>
-                    </div>
-                    <Sparkles className="size-8 text-peach-500 animate-pulse" />
-                  </div>
-                  
-                  <Button
-                    variant="peach"
-                    size="lg"
-                    className="w-full"
-                    shimmer
-                    onClick={() => navigate('/voting')}
-                    aria-label="Перейти к голосованию"
-                  >
-                    Голосовать
-                    <ArrowRight className="size-5 ml-2" aria-hidden="true" />
-                  </Button>
-                </GlassCardContent>
-              </GlassCard>
+              <InlineVotingCard
+                poll={activePoll}
+                onPollClosed={handlePollClosed}
+                onVoteSuccess={() => loadActivePolls()}
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -542,16 +533,54 @@ export const HomePage: React.FC = () => {
               animate="show"
             >
               <GlassCard intensity="low" className="text-center py-8">
-                <GlassCardContent>
-                  <div className="inline-flex items-center justify-center size-16 rounded-full bg-muted mb-4">
-                    <Clock className="size-8 text-muted-foreground" />
+                <GlassCardContent className="space-y-6">
+                  {/* Иконка + заголовок */}
+                  <div>
+                    <div className="inline-flex items-center justify-center size-16 rounded-full bg-muted mb-4">
+                      <Clock className="size-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      Нет активных голосований
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Ожидайте запуска голосования от администратора
+                    </p>
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    Нет активных голосований
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Ожидайте запуска голосования от администратора
-                  </p>
+
+                  {/* Большая кнопка создания */}
+                  <Button
+                    size="lg"
+                    onClick={() => {
+                      console.log('🔵 [HomePage] Кнопка "Создать голосование" нажата');
+                      // haptic.medium(); // Убираем вибрацию - она ломает навигацию
+                      console.log('🔵 [HomePage] Переход на /poll/create...');
+                      navigate('/poll/create');
+                      console.log('✅ [HomePage] navigate() вызван');
+                    }}
+                    className={cn(
+                      'w-full h-14 text-base font-bold rounded-xl',
+                      'bg-gradient-to-r from-lavender-500 to-lavender-600',
+                      'hover:from-lavender-600 hover:to-lavender-700',
+                      'dark:from-lavender-600 dark:to-lavender-700',
+                      'text-white',
+                      'shadow-md hover:shadow-lg',
+                      'transition-all duration-200',
+                      'flex items-center justify-center gap-2'
+                    )}
+                  >
+                    <Vote size={22} strokeWidth={2.5} />
+                    <span>Создать голосование</span>
+                  </Button>
+
+                  {/* Вторичная кнопка - история */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/vote/history')}
+                  >
+                    <History className="size-4 mr-2" />
+                    История голосований
+                  </Button>
                 </GlassCardContent>
               </GlassCard>
             </motion.div>
@@ -567,20 +596,21 @@ export const HomePage: React.FC = () => {
             </h2>
           </div>
           
-          {/* Hero Action */}
-          <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ 
-              type: "spring", 
-              stiffness: 300, 
-              damping: 25,
-              delay: 0.2 
-            }}
-          >
-            <GlassCard 
-              intensity="high" 
-              hover={!quickActionsConfig.hero.disabled}
+          {/* Hero Action - показывается только при активном голосовании */}
+          {quickActionsConfig.hero && (
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ 
+                type: "spring", 
+                stiffness: 300, 
+                damping: 25,
+                delay: 0.2 
+              }}
+            >
+              <GlassCard 
+                intensity="high" 
+                hover={!quickActionsConfig.hero.disabled}
               className={cn(
                 "relative overflow-hidden",
                 quickActionsConfig.hero.disabled && "opacity-60 cursor-not-allowed"
@@ -601,7 +631,7 @@ export const HomePage: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer pointer-events-none" />
               )}
               
-              <GlassCardContent className="relative py-6 px-5 space-y-4">
+              <GlassCardContent className="relative py-4 px-4 space-y-3">
                 {/* Badge */}
                 {quickActionsConfig.hero.badge && (
                   <Badge 
@@ -624,7 +654,7 @@ export const HomePage: React.FC = () => {
                     />
                   ) : (
                     <div className={cn(
-                      "size-16 rounded-xl flex items-center justify-center",
+                      "size-12 rounded-xl flex items-center justify-center",
                       "bg-gradient-to-br",
                       quickActionsConfig.hero.buttonVariant === 'peach' && "from-peach-500 to-coral-500",
                       quickActionsConfig.hero.buttonVariant === 'mint' && "from-mint-500 to-mint-600",
@@ -638,8 +668,8 @@ export const HomePage: React.FC = () => {
                 </div>
                 
                 {/* Title + Description */}
-                <div className="text-center space-y-2">
-                  <h3 className="text-xl font-bold text-foreground">
+                <div className="text-center space-y-1">
+                  <h3 className="text-lg font-bold text-foreground">
                     {quickActionsConfig.hero.title}
                   </h3>
                   <p className="text-sm text-muted-foreground">
@@ -662,8 +692,8 @@ export const HomePage: React.FC = () => {
                 {/* Primary Button */}
                 <Button 
                   variant={quickActionsConfig.hero.buttonVariant}
-                  size="lg" 
-                  className="w-full" 
+                  size="default" 
+                  className="w-full h-11" 
                   shimmer={quickActionsConfig.hero.showShimmer}
                   onClick={quickActionsConfig.hero.onClick}
                   disabled={quickActionsConfig.hero.disabled}
@@ -675,6 +705,7 @@ export const HomePage: React.FC = () => {
               </GlassCardContent>
             </GlassCard>
           </motion.div>
+          )}
           
           {/* Secondary Actions */}
           <div className={cn(
@@ -764,7 +795,6 @@ export const HomePage: React.FC = () => {
 
 
       </motion.div>
-
 
     </>
   );

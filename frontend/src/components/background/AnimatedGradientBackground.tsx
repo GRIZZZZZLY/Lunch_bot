@@ -159,7 +159,7 @@ export const AnimatedGradientBackground = React.forwardRef<
     };
 
     const baseClasses = cn(
-      'inset-0',
+      'fixed inset-0',
       'pointer-events-none',
       'transition-opacity duration-1000',
       animationClass,

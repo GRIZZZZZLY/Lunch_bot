@@ -65,18 +65,15 @@ export const BottomNavigation: React.FC = () => {
     };
   }, []);
 
+  // Навигация оптимизирована: 4 кнопки вместо 5 (убрана "Голосование")
+  // Голосование встроено в главную страницу, FAB для создания
+  // Badge показывает активные голосования на "Главная"
   const navItems: NavItem[] = [
     { 
       path: '/', 
       icon: Home, 
       label: 'Главная',
-      badge: null,
-    },
-    { 
-      path: '/vote', 
-      icon: Vote, 
-      label: 'Голосование',
-      badge: activePollsCount > 0 ? activePollsCount : null,
+      badge: activePollsCount > 0 ? activePollsCount : null, // Badge с pulse анимацией
     },
     { 
       path: '/menu', 
@@ -199,14 +196,28 @@ export const BottomNavigation: React.FC = () => {
                   {item.badge && (
                     <motion.span
                       initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
+                      animate={{ 
+                        scale: 1, 
+                        opacity: 1,
+                        // Pulse анимация для главной страницы с активным голосованием
+                        ...(item.path === '/' && item.badge > 0 ? {
+                          scale: [1, 1.15, 1],
+                        } : {})
+                      }}
                       exit={{ scale: 0, opacity: 0 }}
                       transition={{
-                        type: 'spring',
-                        stiffness: 500,
-                        damping: 25,
+                        ...(item.path === '/' && item.badge > 0 ? {
+                          type: 'tween',
+                          repeat: Infinity,
+                          duration: 2,
+                          ease: 'easeInOut',
+                        } : {
+                          type: 'spring',
+                          stiffness: 500,
+                          damping: 25,
+                        })
                       }}
-                      aria-label={`${item.badge} ${item.label === 'Голосование' ? 'активных голосований' : 'уведомлений'}`}
+                      aria-label={`${item.badge} ${item.label === 'Главная' ? 'активных голосований' : 'уведомлений'}`}
                       className={cn(
                         'absolute -top-1 -right-1',
                         'min-w-[16px] h-4 px-1',

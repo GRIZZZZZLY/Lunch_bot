@@ -22,7 +22,6 @@ const HomePage = lazy(() => import('./pages/HomePage').then(module => ({ default
 const MenuPage = lazy(() => import('./pages/MenuPage').then(module => ({ default: module.MenuPage })));
 const StatsPage = lazy(() => import('./pages/StatsPage').then(module => ({ default: module.StatsPage })));
 const VotingPage = lazy(() => import('./pages/VotingPage').then(module => ({ default: module.VotingPage })));
-const VotingHubPage = lazy(() => import('./pages/VotingHubPage').then(module => ({ default: module.VotingHubPage })));
 const PollManagementPage = lazy(() => import('./pages/PollManagementPage').then(module => ({ default: module.PollManagementPage })));
 const PollHistoryPage = lazy(() => import('./pages/PollHistoryPage').then(module => ({ default: module.PollHistoryPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
@@ -38,21 +37,20 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage').then(module => ({ d
 // const SimpleHomePage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/SimpleHomePage').then(module => ({ default: module.SimpleHomePage }))) : null;
 // const TestPage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/TestPage').then(module => ({ default: module.TestPage }))) : null;
 
-// Voting Router
-import { VoteRouter } from './components/voting/VoteRouter';
-
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isModalOpen, completeOnboarding } = useOnboarding();
   const theme = useAppStore((state) => state.theme);
 
-  // Debug logging
-  console.log('[AppContent] Render:', {
-    pathname: location.pathname,
-    theme,
-    isModalOpen,
-  });
+  // Debug logging (в useEffect чтобы не вызывать setState во время рендера)
+  useEffect(() => {
+    console.log('[AppContent] Render:', {
+      pathname: location.pathname,
+      theme,
+      isModalOpen,
+    });
+  }, [location.pathname, theme, isModalOpen]);
   
   // Применяем тему глобально к <html>
   useEffect(() => {
@@ -97,10 +95,13 @@ function AppContent() {
   // Показываем навигацию на всех основных страницах (кроме голосования и других модальных)
   const showNavigation = ['/', '/menu', '/stats', '/profile', '/vote'].includes(location.pathname);
   
-  console.log('🔍 [AppContent] Navigation state:', {
-    pathname: location.pathname,
-    showNavigation,
-  });
+  // Debug logging (в useEffect)
+  useEffect(() => {
+    console.log('🔍 [AppContent] Navigation state:', {
+      pathname: location.pathname,
+      showNavigation,
+    });
+  }, [location.pathname, showNavigation]);
 
   return (
     <Layout>
@@ -120,9 +121,9 @@ function AppContent() {
               <Route path="/menu" element={<MenuPage />} />
               <Route path="/stats" element={<StatsPage />} />
               
-              {/* Voting Routes - Умный роутинг */}
-              <Route path="/vote" element={<VoteRouter />} />
-              <Route path="/vote/hub" element={<VotingHubPage />} />
+              {/* Voting Routes */}
+              <Route path="/vote" element={<HomePage />} />
+              <Route path="/vote/hub" element={<HomePage />} /> {/* Legacy redirect */}
               <Route path="/vote/history" element={<PollHistoryPage />} />
               <Route path="/vote/:pollId" element={<VotingPage />} />
               

@@ -11,7 +11,7 @@ interface Voter {
 }
 
 interface VotersAvatarsProps {
-  voters: Voter[];
+  voters?: Voter[];
   maxDisplay?: number;
   size?: 'sm' | 'md' | 'lg';
 }
@@ -20,11 +20,11 @@ interface VotersAvatarsProps {
  * Компонент для отображения аватаров проголосовавших пользователей (Social Proof)
  */
 export const VotersAvatars: React.FC<VotersAvatarsProps> = ({
-  voters,
+  voters = [],
   maxDisplay = 3,
   size = 'md',
 }) => {
-  if (voters.length === 0) return null;
+  if (!voters || voters.length === 0) return null;
 
   const displayedVoters = voters.slice(0, maxDisplay);
   const remainingCount = Math.max(0, voters.length - maxDisplay);

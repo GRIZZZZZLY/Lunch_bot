@@ -41,8 +41,8 @@ export const VoteRouter: React.FC = () => {
       setChecking(true);
       
       if (!user) {
-        console.log('[VoteRouter] No user found, redirecting to hub');
-        navigate('/vote/hub', { replace: true });
+        console.log('[VoteRouter] No user found, redirecting to home');
+        navigate('/', { replace: true });
         return;
       }
       
@@ -62,7 +62,7 @@ export const VoteRouter: React.FC = () => {
               navigate(`/vote/${cached.data[0].id}`, { replace: true });
               return;
             } else {
-              navigate('/vote/hub', { replace: true });
+              navigate('/', { replace: true });
               return;
             }
           } else {
@@ -97,20 +97,20 @@ export const VoteRouter: React.FC = () => {
           
           navigate(`/vote/${firstPoll.id}`, { replace: true });
         } else {
-          console.log('[VoteRouter] No active polls found, redirecting to hub');
-          navigate('/vote/hub', { replace: true });
+          console.log('[VoteRouter] No active polls found, redirecting to home');
+          navigate('/', { replace: true });
         }
       } else {
         console.warn('[VoteRouter] API response not successful');
-        navigate('/vote/hub', { replace: true });
+        navigate('/', { replace: true });
       }
       
     } catch (error) {
       console.error('[VoteRouter] Error checking active polls:', error);
       logger.error('[VoteRouter] Failed to check active polls', error);
       
-      // В случае ошибки перенаправляем на hub
-      navigate('/vote/hub', { replace: true });
+      // В случае ошибки перенаправляем на главную
+      navigate('/', { replace: true });
     } finally {
       setChecking(false);
     }

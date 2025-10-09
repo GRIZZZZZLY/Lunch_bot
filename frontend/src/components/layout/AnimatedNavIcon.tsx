@@ -51,10 +51,9 @@ export const AnimatedNavIcon: React.FC<AnimatedNavIconProps> = ({
 
   // Transition настройки
   const transition = {
-    type: 'spring',
-    stiffness: 300,
-    damping: 20,
+    type: 'tween',
     duration: 0.6,
+    ease: 'easeInOut',
   };
 
   // Дополнительная анимация для активной иконки (пульсация при активации)

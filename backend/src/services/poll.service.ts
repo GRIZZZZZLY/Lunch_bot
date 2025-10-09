@@ -130,14 +130,39 @@ export class PollService {
       
       logger.info(`📊 Found ${polls.length} polls with ACTIVE status`);
       
-      // Фильтруем голосования с валидными данными
+      // Фильтруем и автоматически закрываем истекшие голосования
       const now = new Date();
-      const activePolls = polls.filter((poll) => {
+      const activePolls = [];
+      const expiredPollIds = [];
+      
+      for (const poll of polls) {
         const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
         const isActive = endsAt > now;
         logger.info(`Poll ${poll.id}: ends=${endsAt.toISOString()}, now=${now.toISOString()}, active=${isActive}`);
-        return isActive;
-      });
+        
+        if (isActive) {
+          activePolls.push(poll);
+        } else {
+          // Голосование истекло - закрываем автоматически
+          expiredPollIds.push(poll.id);
+          logger.info(`⏰ Poll ${poll.id} expired, auto-closing...`);
+        }
+      }
+      
+      // Закрываем истекшие голосования в фоне (не блокируем ответ)
+      if (expiredPollIds.length > 0) {
+        prisma.poll.updateMany({
+          where: { id: { in: expiredPollIds } },
+          data: { 
+            status: 'COMPLETED',
+            endedAt: now
+          }
+        }).then(() => {
+          logger.info(`✅ Auto-closed ${expiredPollIds.length} expired polls: ${expiredPollIds.join(', ')}`);
+        }).catch((err) => {
+          logger.error(`❌ Failed to auto-close expired polls:`, err);
+        });
+      }
       
       logger.info(`✅ Returning ${activePolls.length} active polls`);
       

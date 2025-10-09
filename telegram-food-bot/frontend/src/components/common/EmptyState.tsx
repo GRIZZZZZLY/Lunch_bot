@@ -1,0 +1,178 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { GradientButton } from '../ui/gradient-button';
+import { cn } from '../../lib/utils';
+
+export type EmptyStateType = 
+  | 'no-polls' 
+  | 'no-menu' 
+  | 'no-votes' 
+  | 'no-stats'
+  | 'no-history'
+  | 'no-favorites'
+  | 'no-results';
+
+interface EmptyStateProps {
+  type: EmptyStateType;
+  onAction?: () => void;
+  className?: string;
+}
+
+interface EmptyStateConfig {
+  illustration: string;
+  title: string;
+  description: string;
+  actionLabel: string;
+  gradient: string;
+}
+
+const EMPTY_STATE_CONFIGS: Record<EmptyStateType, EmptyStateConfig> = {
+  'no-polls': {
+    illustration: '🗳️',
+    title: 'Нет активных голосований',
+    description: 'Создайте первое голосование и начните выбирать обед вместе с командой!',
+    actionLabel: 'Создать голосование',
+    gradient: 'from-lavender-500 to-lavender-600',
+  },
+  'no-menu': {
+    illustration: '🍽️',
+    title: 'Меню пока пустое',
+    description: 'Добавьте первые блюда, чтобы начать голосования',
+    actionLabel: 'Добавить блюдо',
+    gradient: 'from-mint-500 to-mint-600',
+  },
+  'no-votes': {
+    illustration: '👥',
+    title: 'Ещё никто не проголосовал',
+    description: 'Будьте первым! Ваш голос важен для команды',
+    actionLabel: 'Проголосовать',
+    gradient: 'from-peach-500 to-peach-600',
+  },
+  'no-stats': {
+    illustration: '📊',
+    title: 'Статистика пока недоступна',
+    description: 'Проведите несколько голосований, чтобы увидеть аналитику',
+    actionLabel: 'На главную',
+    gradient: 'from-coral-500 to-coral-600',
+  },
+  'no-history': {
+    illustration: '📜',
+    title: 'История пуста',
+    description: 'Здесь будут отображаться ваши прошлые голосования',
+    actionLabel: 'Перейти к голосованию',
+    gradient: 'from-peach-500 to-mint-500',
+  },
+  'no-favorites': {
+    illustration: '⭐',
+    title: 'Нет избранных блюд',
+    description: 'Добавьте любимые блюда, чтобы быстро найти их позже',
+    actionLabel: 'Посмотреть меню',
+    gradient: 'from-butter-500 to-butter-600',
+  },
+  'no-results': {
+    illustration: '🔍',
+    title: 'Ничего не найдено',
+    description: 'Попробуйте изменить параметры поиска или фильтры',
+    actionLabel: 'Сбросить фильтры',
+    gradient: 'from-lavender-500 to-mint-500',
+  },
+};
+
+/**
+ * EmptyState - красочный компонент для пустых состояний
+ * 
+ * Особенности:
+ * - Анимированная иллюстрация (emoji)
+ * - Понятное объяснение почему пусто
+ * - CTA кнопка для следующего действия
+ * - Декоративные анимированные точки
+ */
+export const EmptyState: React.FC<EmptyStateProps> = ({
+  type,
+  onAction,
+  className,
+}) => {
+  const config = EMPTY_STATE_CONFIGS[type];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className={cn(
+        'flex flex-col items-center justify-center text-center',
+        'px-8 py-16',
+        className
+      )}
+    >
+      {/* Animated illustration */}
+      <motion.div
+        animate={{
+          scale: [1, 1.1, 1],
+          rotate: [0, 5, -5, 0],
+        }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          repeatDelay: 1,
+          ease: 'easeInOut',
+        }}
+        className="text-8xl mb-6 select-none"
+        role="img"
+        aria-label="Empty state illustration"
+      >
+        {config.illustration}
+      </motion.div>
+
+      {/* Title */}
+      <h3 className="text-xl font-bold mb-2 text-foreground">
+        {config.title}
+      </h3>
+
+      {/* Description */}
+      <p className="text-muted-foreground text-sm mb-6 max-w-xs leading-relaxed">
+        {config.description}
+      </p>
+
+      {/* CTA Button */}
+      {onAction && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2, duration: 0.3 }}
+        >
+          <GradientButton
+            variant={type.includes('poll') ? 'lavender' : 'peach'}
+            onClick={onAction}
+            className="min-w-[200px]"
+          >
+            {config.actionLabel}
+          </GradientButton>
+        </motion.div>
+      )}
+
+      {/* Decorative animated dots */}
+      <div className="flex gap-2 mt-8">
+        {[0, 1, 2].map((i) => (
+          <motion.div
+            key={i}
+            animate={{
+              scale: [1, 1.5, 1],
+              opacity: [0.3, 1, 0.3],
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              delay: i * 0.2,
+              ease: 'easeInOut',
+            }}
+            className={cn(
+              'size-2 rounded-full',
+              `bg-gradient-to-r ${config.gradient}`
+            )}
+          />
+        ))}
+      </div>
+    </motion.div>
+  );
+};

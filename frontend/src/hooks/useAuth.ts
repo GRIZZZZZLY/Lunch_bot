@@ -54,35 +54,42 @@ export const useAuth = (): UseAuthReturn => {
     
     console.log('[useAuth] Auth check:', authInfo);
     
-    // ПРИОРИТЕТ 1: Если токен уже есть, пробуем загрузить пользователя по нему
-    if (existingToken) {
-      console.log('[useAuth] Existing token found - loading user data');
-      loadUserWithToken();
-      return;
-    }
-    
-    // ПРИОРИТЕТ 2: Mock режим
+    // ПРИОРИТЕТ 1: Mock режим
     if (useMockApi) {
       console.log('[useAuth] MOCK MODE - using mock authentication');
       loginWithMockData();
       return;
     }
     
-    // ПРИОРИТЕТ 3: Telegram авторизация
+    // ПРИОРИТЕТ 2: Telegram авторизация (если есть initData)
     if (isReady && hasValidInitData && tgUser) {
-      console.log('[useAuth] Using normal authentication with initData');
-      login();
-    } else if (isReady) {
-      if (!hasValidInitData) {
-        console.warn('[useAuth] No valid initData - attempting fallback authentication');
-        console.log('[useAuth] Environment:', {
-          isSafari: /^((?!chrome|android).)*safari/i.test(navigator.userAgent),
-          hasWindow: typeof window !== 'undefined',
-          hasTelegram: !!window.Telegram,
-          hasTelegramWebApp: !!(window.Telegram?.WebApp),
-          userAgent: navigator.userAgent.substring(0, 100)
-        });
+      console.log('[useAuth] Using Telegram authentication with initData');
+      // Очищаем старый токен перед новой авторизацией
+      if (existingToken) {
+        console.log('[useAuth] Clearing old token - using fresh Telegram initData');
+        authService.clearToken();
       }
+      login();
+      return;
+    }
+    
+    // ПРИОРИТЕТ 3: Сохраненный токен (fallback)
+    if (existingToken) {
+      console.log('[useAuth] No Telegram initData - using existing token');
+      loadUserWithToken();
+      return;
+    }
+    
+    // ПРИОРИТЕТ 4: Fallback авторизация
+    if (isReady) {
+      console.warn('[useAuth] No initData and no token - attempting fallback authentication');
+      console.log('[useAuth] Environment:', {
+        isSafari: /^((?!chrome|android).)*safari/i.test(navigator.userAgent),
+        hasWindow: typeof window !== 'undefined',
+        hasTelegram: !!window.Telegram,
+        hasTelegramWebApp: !!(window.Telegram?.WebApp),
+        userAgent: navigator.userAgent.substring(0, 100)
+      });
       loginWithFallback();
     }
   }, [isReady, initData, tgUser]);
@@ -94,11 +101,17 @@ export const useAuth = (): UseAuthReturn => {
 
       console.log('[useAuth] Loading user data with existing token...');
       const response = await authService.getCurrentUser();
+      console.log('[useAuth] Response received:', { 
+        success: response.success, 
+        hasData: !!response.data,
+        data: response.data 
+      });
 
       if (response.success && response.data) {
         setUser(response.data);
-        console.log('[useAuth] User loaded successfully from token');
+        console.log('[useAuth] User loaded successfully from token:', response.data);
       } else {
+        console.error('[useAuth] Invalid response format:', response);
         throw new Error('Failed to load user');
       }
     } catch (err) {
