@@ -1,0 +1,67 @@
+name: PR Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    name: Run Tests on PR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better diffs
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        run: npm ci
+      
+      - name: Generate Prisma Client
+        working-directory: ./backend
+        run: npm run db:generate
+      
+      - name: Run tests
+        working-directory: ./backend
+        run: npm test -- --ci --coverage
+      
+      - name: Comment PR with test results
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const coverage = fs.existsSync('./backend/coverage/coverage-summary.json') 
+              ? JSON.parse(fs.readFileSync('./backend/coverage/coverage-summary.json', 'utf8'))
+              : null;
+            
+            let message = '## 🧪 Test Results\n\n';
+            
+            if (coverage) {
+              const total = coverage.total;
+              message += '### Coverage Report\n\n';
+              message += `| Metric | Coverage |\n`;
+              message += `|--------|----------|\n`;
+              message += `| Lines | ${total.lines.pct}% |\n`;
+              message += `| Statements | ${total.statements.pct}% |\n`;
+              message += `| Functions | ${total.functions.pct}% |\n`;
+              message += `| Branches | ${total.branches.pct}% |\n`;
+            }
+            
+            message += '\n✅ All tests passed!';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });

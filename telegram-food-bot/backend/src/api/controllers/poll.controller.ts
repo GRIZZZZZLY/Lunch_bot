@@ -7,6 +7,41 @@ import { logger } from '../../utils/logger';
 import { CreatePollData, CreateVoteData } from '../../types/poll.types';
 import { createPollFromWebApp } from '../../services/poll.service.extensions';
 
+/**
+ * Converts BigInt values to strings and Date to ISO strings recursively in an object
+ * This is needed because JSON.stringify can't serialize BigInt values
+ */
+function serializeBigInt(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (typeof obj === 'bigint') {
+    return obj.toString();
+  }
+  
+  // Handle Date objects
+  if (obj instanceof Date) {
+    return obj.toISOString();
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(serializeBigInt);
+  }
+  
+  if (typeof obj === 'object') {
+    const result: any = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        result[key] = serializeBigInt(obj[key]);
+      }
+    }
+    return result;
+  }
+  
+  return obj;
+}
+
 export class PollController {
   /**
    * GET /api/polls/active
@@ -18,7 +53,7 @@ export class PollController {
 
       res.json({
         success: true,
-        data: polls,
+        data: serializeBigInt(polls),
         count: polls.length,
         timestamp: new Date().toISOString(),
       });
@@ -56,7 +91,7 @@ export class PollController {
 
       res.json({
         success: true,
-        data: result.polls,
+        data: serializeBigInt(result.polls),
         pagination: {
           total: result.total,
           limit,
@@ -97,7 +132,7 @@ export class PollController {
 
       res.json({
         success: true,
-        data: stats,
+        data: serializeBigInt(stats),
         timestamp: new Date().toISOString(),
       });
 
@@ -139,26 +174,9 @@ export class PollController {
         return;
       }
 
-      // Конвертируем BigInt в строки для JSON сериализации
-      const pollData = {
-        ...poll,
-        chatId: poll.chatId ? poll.chatId.toString() : null,
-        group: poll.group ? {
-          ...poll.group,
-          telegramId: poll.group.telegramId.toString(),
-        } : undefined,
-        votes: poll.votes?.map((vote: any) => ({
-          ...vote,
-          user: vote.user ? {
-            ...vote.user,
-            telegramId: vote.user.telegramId.toString(),
-          } : undefined,
-        })),
-      };
-
       res.json({
         success: true,
-        data: pollData,
+        data: serializeBigInt(poll),
         timestamp: new Date().toISOString(),
       });
 
@@ -205,10 +223,10 @@ export class PollController {
 
       res.json({
         success: true,
-        data: {
+        data: serializeBigInt({
           result,
           breakdown,
-        },
+        }),
         timestamp: new Date().toISOString(),
       });
 
@@ -244,11 +262,11 @@ export class PollController {
 
       res.json({
         success: true,
-        data: {
+        data: serializeBigInt({
           votes,
           summary: voteCount,
           totalVotes: votes.length,
-        },
+        }),
         timestamp: new Date().toISOString(),
       });
 
@@ -281,7 +299,7 @@ export class PollController {
 
       res.status(201).json({
         success: true,
-        data: poll,
+        data: serializeBigInt(poll),
         message: 'Poll created successfully',
         timestamp: new Date().toISOString(),
       });
@@ -427,13 +445,13 @@ export class PollController {
 
       res.status(201).json({
         success: true,
-        data: {
+        data: serializeBigInt({
           pollId: result.pollId,
           messageId: result.messageId,
           groupTitle: group.title,
           duration: parsedDuration,
           menuItemsCount: menuItems.length
-        },
+        }),
         message: 'Poll created and sent to group successfully',
         timestamp: new Date().toISOString(),
       });
@@ -491,7 +509,7 @@ export class PollController {
 
       res.json({
         success: true,
-        data: poll,
+        data: serializeBigInt(poll),
         timestamp: new Date().toISOString(),
       });
 
@@ -534,7 +552,7 @@ export class PollController {
 
       res.json({
         success: true,
-        data: result,
+        data: serializeBigInt(result),
         message: 'Poll completed successfully',
         timestamp: new Date().toISOString(),
       });
@@ -595,7 +613,7 @@ export class PollController {
 
       res.json({
         success: true,
-        data: poll,
+        data: serializeBigInt(poll),
         message: 'Poll cancelled successfully',
         timestamp: new Date().toISOString(),
       });
@@ -664,7 +682,7 @@ export class PollController {
 
       res.json({
         success: true,
-        data: vote,
+        data: serializeBigInt(vote),
         message: 'Vote cast successfully',
         timestamp: new Date().toISOString(),
       });
@@ -778,7 +796,7 @@ export class PollController {
 
       res.json({
         success: true,
-        data: result,
+        data: serializeBigInt(result),
         message: 'Roulette completed successfully',
         timestamp: new Date().toISOString(),
       });
@@ -833,7 +851,7 @@ export class PollController {
 
       res.json({
         success: true,
-        data: popularItems,
+        data: serializeBigInt(popularItems),
         count: popularItems.length,
         timestamp: new Date().toISOString(),
       });
