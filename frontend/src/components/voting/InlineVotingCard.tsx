@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useUI } from '../../store/useAppStore';
+import { trackEvent, ANALYTICS_EVENTS } from '../../lib/analytics';
 import { pollsService, PollWithDetails, Vote } from '../../services/polls.service';
 import { menuService, MenuItem } from '../../services/menu.service';
 import { cn } from '../../lib/utils';
@@ -142,6 +143,13 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
       if (response.success) {
         haptic.success();
         
+        // P1.2.4: Track vote event
+        trackEvent(ANALYTICS_EVENTS.VOTE_SUBMITTED, {
+          pollId: poll.id,
+          menuItemId: selectedItemId,
+          pollType: 'inline',
+        });
+        
         // Небольшая задержка для синхронизации
         await new Promise(resolve => setTimeout(resolve, 300));
         
@@ -165,18 +173,18 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
   };
 
   const handleClosePoll = async () => {
-    if (!window.confirm('Завершить голосование?')) return;
+    if (!window.confirm('Отменить голосование? Все голоса будут потеряны.')) return;
 
     try {
       setClosing(true);
       haptic.impact();
 
-      const response = await pollsService.completePoll(poll.id);
+      const response = await pollsService.cancelPoll(poll.id);
       if (response.success) {
         haptic.success();
         addNotification({
           type: 'success',
-          message: '✅ Голосование завершено',
+          message: '🚫 Голосование отменено',
         });
         if (onPollClosed) onPollClosed();
       } else {
@@ -186,7 +194,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
       haptic.error();
       addNotification({
         type: 'error',
-        message: error.message || 'Не удалось завершить',
+        message: error.message || 'Не удалось отменить',
       });
     } finally {
       setClosing(false);
@@ -250,13 +258,13 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
             </div>
           )}
 
-          {/* Admin close button */}
+          {/* Admin cancel button */}
           {user?.isAdmin && (
             <button
               onClick={handleClosePoll}
               disabled={closing}
               className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors disabled:opacity-50"
-              title="Завершить голосование"
+              title="Отменить голосование"
             >
               <X size={18} />
             </button>
@@ -275,7 +283,21 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         </div>
 
         {voteCount > 0 && (() => {
-          const voters = poll.votes?.map(v => v.user).filter(Boolean) || [];
+          const voters = poll.votes?.map(v => {
+            const telegramIdValue = v.user.telegramId || v.user.id;
+            
+            // Валидация перед преобразованием в BigInt
+            if (!telegramIdValue || isNaN(Number(telegramIdValue))) {
+              console.warn(`Invalid telegramId for user ${v.user.id}, skipping voter avatar`);
+              return null;
+            }
+            
+            return {
+              ...v.user,
+              telegramId: BigInt(telegramIdValue)
+            };
+          }).filter(Boolean) || [];
+          
           return <VotersAvatars voters={voters} maxDisplay={5} size="sm" />;
         })()}
       </div>

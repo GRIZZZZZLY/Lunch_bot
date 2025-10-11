@@ -200,13 +200,13 @@ export const BottomNavigation: React.FC = () => {
                         scale: 1, 
                         opacity: 1,
                         // Pulse анимация для главной страницы с активным голосованием
-                        ...(item.path === '/' && item.badge > 0 ? {
+                        ...(item.path === '/' && typeof item.badge === 'number' && item.badge > 0 ? {
                           scale: [1, 1.15, 1],
                         } : {})
                       }}
                       exit={{ scale: 0, opacity: 0 }}
                       transition={{
-                        ...(item.path === '/' && item.badge > 0 ? {
+                        ...(item.path === '/' && typeof item.badge === 'number' && item.badge > 0 ? {
                           type: 'tween',
                           repeat: Infinity,
                           duration: 2,
