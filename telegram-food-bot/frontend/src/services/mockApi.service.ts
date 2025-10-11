@@ -288,7 +288,9 @@ const MOCK_POLLS: Poll[] = [
     groupId: 1,
     title: 'Обед на сегодня',
     description: 'Выбираем что заказать на обед',
-    isActive: false,
+    status: 'COMPLETED' as const,
+    duration: 60,
+    startedAt: '2025-09-29T13:00:00.000Z',
     endTime: '2025-09-29T14:00:00.000Z',
     createdAt: '2025-09-29T13:00:00.000Z',
     updatedAt: '2025-09-29T14:00:00.000Z',
@@ -299,7 +301,9 @@ const MOCK_POLLS: Poll[] = [
     groupId: 1,
     title: 'Ужин в пятницу',
     description: 'Корпоративный ужин',
-    isActive: true,
+    status: 'ACTIVE' as const,
+    duration: 60,
+    startedAt: '2025-09-29T17:00:00.000Z',
     endTime: '2025-09-29T18:00:00.000Z',
     createdAt: '2025-09-29T17:00:00.000Z',
     updatedAt: '2025-09-29T17:00:00.000Z',
@@ -461,7 +465,7 @@ class MockApiService {
 
   async getActivePolls(): Promise<ApiResponse<Poll[]>> {
     await this.delay(400);
-    const activePolls = MOCK_POLLS.filter(poll => poll.isActive);
+    const activePolls = MOCK_POLLS.filter(poll => poll.status === 'ACTIVE');
     return this.createSuccessResponse(activePolls);
   }
 
@@ -470,8 +474,8 @@ class MockApiService {
     
     const stats: PollStats = {
       totalPolls: MOCK_POLLS.length,
-      activePolls: MOCK_POLLS.filter(p => p.isActive).length,
-      completedPolls: MOCK_POLLS.filter(p => !p.isActive).length,
+      activePolls: MOCK_POLLS.filter(p => p.status === 'ACTIVE').length,
+      completedPolls: MOCK_POLLS.filter(p => p.status === 'COMPLETED').length,
       totalVotes: MOCK_POLLS.reduce((sum, p) => sum + p._count.votes, 0),
       averageParticipants: MOCK_POLLS.length > 0 
         ? MOCK_POLLS.reduce((sum, p) => sum + p._count.votes, 0) / MOCK_POLLS.length 

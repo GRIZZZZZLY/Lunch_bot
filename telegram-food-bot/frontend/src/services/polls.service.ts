@@ -6,15 +6,17 @@ const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true';
 export interface Poll {
   id: number;
   groupId: number;
-  title: string;
+  title?: string;
   description?: string;
-  isActive: boolean;
-  status?: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
-  endTime?: string;
-  messageId?: string;
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  duration: number;
+  startedAt: string;
+  endedAt?: string;
+  endTime?: string; // Alias for endedAt (used in frontend)
+  messageId?: number;
   createdAt: string;
   updatedAt: string;
-  _count: {
+  _count?: {
     votes: number;
   };
 }
@@ -37,6 +39,7 @@ export interface Vote {
   createdAt: string;
   user: {
     id: number;
+    telegramId?: string | number;
     firstName: string;
     lastName?: string;
     username?: string;
@@ -104,6 +107,66 @@ export interface PopularItem {
     votes: number;
     pollResults: number;
   };
+}
+
+// Multi-Winner Voting Types
+export interface VoterSnapshot {
+  userId: number;
+  firstName: string;
+  lastName?: string;
+  username?: string;
+}
+
+export interface Winner {
+  menuItemId: number;
+  menuItemName: string;
+  menuItemSnapshot: {
+    price?: number;
+    category?: string;
+    imageUrl?: string;
+  };
+  voterIds: number[];
+  voters: VoterSnapshot[];
+  voteCount: number;
+  votedAt: string[];
+}
+
+export interface BringOwnGroup {
+  voterIds: number[];
+  voters: VoterSnapshot[];
+  count: number;
+}
+
+export interface SkippedGroup {
+  voterIds: number[];
+  voters: VoterSnapshot[];
+  count: number;
+}
+
+export interface TieBreak {
+  method: 'earliest' | 'alphabetical';
+  appliedTo: number[];
+  reason: string;
+}
+
+export interface ResultMeta {
+  primaryWinnerId: number | null;
+  tieBreak?: TieBreak;
+  completedAt: string;
+  completedBy: number;
+  params: {
+    minVotes: number;
+    maxWinners: number | null;
+  };
+}
+
+export interface MultiWinnerResultData {
+  version: 1;
+  mode: 'multi-winner';
+  winners: Winner[];
+  bringOwn: BringOwnGroup;
+  skipped: SkippedGroup;
+  meta: ResultMeta;
 }
 
 class PollsService {
@@ -198,6 +261,37 @@ class PollsService {
    */
   async completePoll(pollId: number): Promise<ApiResponse<PollResult>> {
     return await apiService.patch<PollResult>(`/polls/${pollId}/complete`, {});
+  }
+
+  /**
+   * Отмена голосования (только для админов)
+   */
+  async cancelPoll(pollId: number, reason?: string): Promise<ApiResponse<Poll>> {
+    return await apiService.patch<Poll>(`/polls/${pollId}/cancel`, { reason });
+  }
+
+  /**
+   * Завершение голосования с множественными победителями
+   * 
+   * @param pollId - ID голосования
+   * @param options - Параметры завершения
+   * @returns PollResult + расшифрованный resultData
+   */
+  async completePollMultiWinner(
+    pollId: number,
+    options?: {
+      minVotes?: number;
+      maxWinners?: number | null;
+      tieBreakMethod?: 'earliest' | 'alphabetical';
+    }
+  ): Promise<ApiResponse<{
+    pollResult: PollResult;
+    resultData: MultiWinnerResultData;
+  }>> {
+    return await apiService.patch<any>(
+      `/polls/${pollId}/complete-multi`,
+      options || {}
+    );
   }
 
   /**
@@ -421,7 +515,7 @@ class PollsService {
     
     return polls.reduce(
       (groups, poll) => {
-        if (poll.isActive) {
+        if (poll.status === 'ACTIVE') {
           if (poll.endTime && new Date(poll.endTime) > now) {
             groups.active.push(poll);
           } else {
@@ -469,6 +563,54 @@ class PollsService {
       if (aValue > bValue) return order === 'asc' ? 1 : -1;
       return 0;
     });
+  }
+
+  /**
+   * Создание нового голосования
+   */
+  async createPoll(data: { groupId: number; duration?: number; title?: string }): Promise<ApiResponse<Poll>> {
+    try {
+      if (USE_MOCK_API) {
+        return await mockApiService.createPoll(data);
+      }
+
+      return await apiService.post<Poll>('/polls', data);
+    } catch (error) {
+      console.error('Error creating poll:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Завершение голосования
+   */
+  async closePoll(pollId: number): Promise<ApiResponse<PollResult>> {
+    try {
+      if (USE_MOCK_API) {
+        return await mockApiService.closePoll(pollId);
+      }
+
+      return await apiService.post<PollResult>(`/polls/${pollId}/close`);
+    } catch (error) {
+      console.error('Error closing poll:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Голосование за блюдо
+   */
+  async vote(pollId: number, menuItemId: number): Promise<ApiResponse<Vote>> {
+    try {
+      if (USE_MOCK_API) {
+        return await mockApiService.vote(pollId, menuItemId);
+      }
+
+      return await apiService.post<Vote>(`/polls/${pollId}/vote`, { menuItemId });
+    } catch (error) {
+      console.error('Error voting:', error);
+      throw error;
+    }
   }
 }
 

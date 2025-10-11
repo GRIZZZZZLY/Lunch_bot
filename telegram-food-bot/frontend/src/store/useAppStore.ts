@@ -6,13 +6,17 @@ import type { MenuItem } from '../services/menu.service';
 export interface Poll {
   id: number;
   groupId: number;
-  title: string;
+  title?: string;
   description?: string;
-  isActive: boolean;
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  duration: number;
+  startedAt: string;
+  endedAt?: string;
   endTime?: string;
+  messageId?: number;
   createdAt: string;
   updatedAt: string;
-  _count: {
+  _count?: {
     votes: number;
   };
 }

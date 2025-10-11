@@ -48,7 +48,7 @@ export const PollCard: React.FC<PollCardProps> = ({
   const timeRemaining = poll.endTime ? pollsService.formatTimeRemaining(poll.endTime) : null;
   const formattedDate = pollsService.formatPollDate(poll.createdAt);
 
-  const statusText = poll.isActive ? 'Активно' : 'Завершено';
+  const statusText = poll.status === 'ACTIVE' ? 'Активно' : 'Завершено';
 
   return (
     <GlassCard
@@ -67,8 +67,8 @@ export const PollCard: React.FC<PollCardProps> = ({
             </h3>
             <GlassBadge
               label={statusText}
-              icon={poll.isActive ? Sparkles : undefined}
-              variant={poll.isActive ? 'success' : 'default'}
+              icon={poll.status === 'ACTIVE' ? Sparkles : undefined}
+              variant={poll.status === 'ACTIVE' ? 'success' : 'default'}
               glassVariant="light"
               theme={isDark ? 'dark' : 'light'}
               animate={false}
@@ -82,7 +82,7 @@ export const PollCard: React.FC<PollCardProps> = ({
           )}
         </div>
 
-        {poll.isActive && timeRemaining && timeRemaining !== 'Завершено' && (
+        {poll.status === 'ACTIVE' && timeRemaining && timeRemaining !== 'Завершено' && (
           <div className="ml-3 text-right">
             <div className="flex items-center space-x-1 text-sm font-semibold text-primary-food-700 dark:text-primary-food-400">
               <Clock size={14} />
@@ -110,7 +110,7 @@ export const PollCard: React.FC<PollCardProps> = ({
           )}
         </div>
 
-        {poll.isActive && (
+        {poll.status === 'ACTIVE' && (
           <div className="flex items-center space-x-1.5 text-green-600 dark:text-success-soft-300">
             <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>
             <span className="text-xs font-medium">В эфире</span>
