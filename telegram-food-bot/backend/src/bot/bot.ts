@@ -9,6 +9,9 @@ import { PollReminderService } from '../services/poll-reminder.service';
 
 const userService = new UserService();
 
+// Module-level bot instance for access from services
+let botInstance: Bot<BotContext> | null = null;
+
 // Middleware
 import { 
   authMiddleware,
@@ -58,7 +61,8 @@ function initial(): SessionData {
  * Настройка и создание бота
  */
 export function createBot(): Bot<BotContext> {
-  const bot = new Bot<BotContext>(botConfig.token);
+  botInstance = new Bot<BotContext>(botConfig.token);
+  const bot = botInstance;
 
   // Настройка обработки ошибок
   setupErrorHandlers();
@@ -85,7 +89,7 @@ export function createBot(): Bot<BotContext> {
   bot.command('q', groupOnlyMiddleware, quickVoteCommand);
   bot.command('r', groupOnlyMiddleware, resultsCommand);
 
-  bot.command('history', async (ctx) => {
+  bot.command('history', async (ctx: BotContext) => {
     await ctx.reply('🚧 История голосований в разработке!');
   });
 
@@ -290,6 +294,11 @@ export function createBot(): Bot<BotContext> {
  */
 export async function startPolling(bot: Bot<BotContext>): Promise<void> {
   try {
+    // Удаляем webhook перед запуском polling (для локальной разработки)
+    logger.info('🔄 Удаление webhook перед запуском polling...');
+    await bot.api.deleteWebhook({ drop_pending_updates: true });
+    logger.info('✅ Webhook удален');
+    
     await bot.start({
       onStart: (botInfo) => {
         logger.info('🚀 Бот запущен в polling режиме', {
@@ -332,6 +341,14 @@ export async function stopBot(bot: Bot<BotContext>): Promise<void> {
   } catch (error) {
     logger.error('❌ Ошибка остановки бота:', error);
   }
+}
+
+/**
+ * Получение глобального экземпляра бота
+ * Используется сервисами для доступа к Telegram API
+ */
+export function getBotInstance(): Bot<BotContext> | null {
+  return botInstance;
 }
 
 

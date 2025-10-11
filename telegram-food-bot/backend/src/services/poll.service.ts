@@ -1,10 +1,17 @@
-import { Poll, Vote, PollResult, Prisma, MenuItem } from '@prisma/client';
+import { Poll, Vote, PollResult, Prisma, MenuItem, User } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreatePollData, PollWithDetails, PollStats } from '../types/poll.types';
 import { createPollKeyboard, createPollMessage } from '../bot/keyboards/poll.keyboard';
 import { GroupService } from './group.service';
+import { NotificationService } from './notification.service';
 import { cacheService, CACHE_KEYS, CACHE_TTL, CacheInvalidator } from './cache.service';
+
+// Тип Vote с включенными связями для корректной типизации
+type VoteWithRelations = Vote & {
+  menuItem: MenuItem | null;
+  user: User;
+};
 
 // Bot instance будет инициализирован из bot.ts
 let botInstance: any = null;
@@ -13,6 +20,15 @@ export function initializePollServiceBot(bot: any): void {
   botInstance = bot;
   logger.info('PollService bot instance initialized');
 }
+
+// Кэш количества участников групп (TTL 2 часа)
+const memberCountCache = new Map<number, {
+  count: number;
+  timestamp: number;
+  source: 'telegram_api' | 'history';
+}>();
+
+const MEMBER_COUNT_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 часа
 
 export class PollService {
   /**
@@ -133,7 +149,7 @@ export class PollService {
       // Фильтруем и автоматически закрываем истекшие голосования
       const now = new Date();
       const activePolls = [];
-      const expiredPollIds = [];
+      const expiredPollIds: number[] = [];
       
       for (const poll of polls) {
         const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
@@ -260,6 +276,15 @@ export class PollService {
       
       logger.info(`Poll completed: ${pollId}, winner: ${winnerMenuItemId}, total votes: ${poll.votes.length}`);
       
+      // Отправляем уведомления участникам (single winner)
+      try {
+        const { notificationService } = await import('./notification.service.js');
+        await notificationService.sendPollCompletionNotifications(pollId);
+        logger.info(`Completion notifications sent for poll ${pollId}`);
+      } catch (notifError) {
+        logger.error('Error sending completion notifications:', notifError);
+      }
+      
       // Возвращаем результат с деталями
       return await this.getPollResult(result.id);
     } catch (error) {
@@ -275,14 +300,35 @@ export class PollService {
   /**
    * Отмена голосования
    */
-  static async cancelPoll(pollId: number): Promise<Poll> {
+  static async cancelPoll(
+    pollId: number,
+    cancelledBy: number,
+    reason?: string
+  ): Promise<Poll> {
     try {
       const poll = await prisma.poll.update({
         where: { id: pollId },
-        data: { status: 'COMPLETED' },
+        data: { 
+          status: 'CANCELLED',
+          endedAt: new Date()
+        },
       });
 
-      logger.info(`Poll cancelled: ${pollId}`);
+      // Отправляем уведомления об отмене
+      const user = await prisma.user.findUnique({
+        where: { id: cancelledBy }
+      });
+
+      if (user) {
+        const { notificationService } = await import('./notification.service.js');
+        await notificationService.sendPollCancelledNotifications(
+          pollId,
+          user,
+          reason
+        );
+      }
+
+      logger.info(`Poll cancelled: ${pollId} by user ${cancelledBy}`, { reason });
       return poll;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -708,6 +754,387 @@ export class PollService {
     } catch (error) {
       logger.error('Error saving poll result:', error);
       throw new Error('Failed to save poll result');
+    }
+  }
+
+  /**
+   * Завершение голосования с множественными победителями
+   * 
+   * @param pollId - ID голосования
+   * @param completedBy - User ID админа
+   * @param options - Параметры завершения
+   * @returns PollResult с MultiWinnerResultData в rouletteData
+   */
+  static async completePollMultiWinner(
+    pollId: number,
+    completedBy: number,
+    options?: {
+      minVotes?: number;
+      maxWinners?: number | null;
+      tieBreakMethod?: 'earliest' | 'alphabetical';
+    }
+  ): Promise<PollResult> {
+    const { 
+      minVotes = 1, 
+      maxWinners = null, 
+      tieBreakMethod = 'earliest' 
+    } = options || {};
+
+    try {
+      // 1. Получаем poll с votes и relations
+      const poll = await prisma.poll.findUnique({
+        where: { id: pollId },
+        include: {
+          votes: {
+            include: {
+              user: true,
+              menuItem: true,
+            },
+          },
+          group: true,
+        },
+      });
+
+      if (!poll) {
+        throw new Error('Poll not found');
+      }
+
+      // Идемпотентность: Если уже завершено - вернуть существующий результат
+      if (poll.status === 'COMPLETED') {
+        const existingResult = await prisma.pollResult.findUnique({
+          where: { pollId },
+          include: {
+            winnerMenuItem: true,
+            responsibleUser: true,
+          },
+        });
+
+        if (existingResult) {
+          logger.info(`Poll ${pollId} already completed, returning existing result`);
+          return existingResult;
+        }
+      }
+
+      if (poll.status !== 'ACTIVE') {
+        throw new Error('Poll is not active');
+      }
+
+      // 2. Группируем голоса по типу
+      const menuItemVotes = new Map<number, VoteWithRelations[]>();
+      const bringOwnVotes: VoteWithRelations[] = [];
+      const skippedVotes: VoteWithRelations[] = [];
+
+      poll.votes.forEach(vote => {
+        if (vote.voteType === 'MENU_ITEM' && vote.menuItemId && vote.menuItem) {
+          if (!menuItemVotes.has(vote.menuItemId)) {
+            menuItemVotes.set(vote.menuItemId, []);
+          }
+          menuItemVotes.get(vote.menuItemId)!.push(vote);
+        } else if (vote.voteType === 'BRING_OWN') {
+          bringOwnVotes.push(vote);
+        } else if (vote.voteType === 'SKIP') {
+          skippedVotes.push(vote);
+        }
+      });
+
+      // 3. Формируем winners с фильтрацией minVotes
+      let winners = Array.from(menuItemVotes.entries())
+        .filter(([_, votes]) => votes.length >= minVotes)
+        .map(([itemId, votes]) => {
+          const menuItem = votes[0].menuItem!;
+
+          return {
+            menuItemId: itemId,
+            menuItemName: menuItem.name,
+            menuItemSnapshot: {
+              price: menuItem.price ?? undefined,
+              category: menuItem.category ?? undefined,
+              imageUrl: menuItem.imageUrl ?? undefined,
+            },
+            voterIds: votes.map(v => v.userId),
+            voters: votes.map(v => ({
+              userId: v.user.id,
+              firstName: v.user.firstName,
+              lastName: v.user.lastName ?? undefined,
+              username: v.user.username ?? undefined,
+            })),
+            voteCount: votes.length,
+            votedAt: votes.map(v => v.createdAt.toISOString()),
+          };
+        })
+        .sort((a, b) => b.voteCount - a.voteCount);
+
+      // Ограничиваем maxWinners
+      if (maxWinners && maxWinners > 0) {
+        winners = winners.slice(0, maxWinners);
+      }
+
+      // 4. Тай-брейк: Определяем primaryWinner
+      let primaryWinnerId: number | null = null;
+      let tieBreak: any = undefined;
+
+      if (winners.length > 0) {
+        const maxVotes = winners[0].voteCount;
+        const topWinners = winners.filter(w => w.voteCount === maxVotes);
+
+        if (topWinners.length === 1) {
+          primaryWinnerId = topWinners[0].menuItemId;
+        } else {
+          if (tieBreakMethod === 'earliest') {
+            const earliest = topWinners.reduce((prev, curr) => {
+              const prevTime = new Date(prev.votedAt[0]).getTime();
+              const currTime = new Date(curr.votedAt[0]).getTime();
+              return currTime < prevTime ? curr : prev;
+            });
+            primaryWinnerId = earliest.menuItemId;
+          } else if (tieBreakMethod === 'alphabetical') {
+            const sorted = [...topWinners].sort((a, b) =>
+              a.menuItemName.localeCompare(b.menuItemName, 'ru')
+            );
+            primaryWinnerId = sorted[0].menuItemId;
+          }
+
+          tieBreak = {
+            method: tieBreakMethod,
+            appliedTo: topWinners.map(w => w.menuItemId),
+            reason: `${topWinners.length} блюд с ${maxVotes} голосами`,
+          };
+
+          logger.info(`Tie-break applied for poll ${pollId}`, {
+            method: tieBreakMethod,
+            topWinners: topWinners.map(w => ({ id: w.menuItemId, name: w.menuItemName })),
+            selected: primaryWinnerId,
+          });
+        }
+      }
+
+      // 5. Формируем bringOwn и skipped группы
+      const bringOwnGroup = {
+        voterIds: bringOwnVotes.map(v => v.userId),
+        voters: bringOwnVotes.map(v => ({
+          userId: v.user.id,
+          firstName: v.user.firstName,
+          lastName: v.user.lastName ?? undefined,
+          username: v.user.username ?? undefined,
+        })),
+        count: bringOwnVotes.length,
+      };
+
+      const skippedGroup = {
+        voterIds: skippedVotes.map(v => v.userId),
+        voters: skippedVotes.map(v => ({
+          userId: v.user.id,
+          firstName: v.user.firstName,
+          lastName: v.user.lastName ?? undefined,
+          username: v.user.username ?? undefined,
+        })),
+        count: skippedVotes.length,
+      };
+
+      // 6. Собираем MultiWinnerResultData
+      const resultData = {
+        version: 1,
+        mode: 'multi-winner' as const,
+        winners,
+        bringOwn: bringOwnGroup,
+        skipped: skippedGroup,
+        meta: {
+          primaryWinnerId,
+          tieBreak,
+          completedAt: new Date().toISOString(),
+          completedBy,
+          params: { minVotes, maxWinners },
+        },
+      };
+
+      // 7. Транзакция: Обновляем poll + создаем result
+      const result = await prisma.$transaction(async (tx) => {
+        await tx.poll.update({
+          where: { id: pollId },
+          data: {
+            status: 'COMPLETED',
+            endedAt: new Date(),
+          },
+        });
+
+        return await tx.pollResult.create({
+          data: {
+            pollId,
+            winnerMenuItemId: primaryWinnerId,
+            totalVotes: poll.votes.length,
+            responsibleUserId: completedBy,
+            rouletteData: JSON.stringify(resultData),
+          },
+          include: {
+            winnerMenuItem: true,
+            responsibleUser: true,
+          },
+        });
+      });
+
+      // 8. Инвалидируем кэш
+      CacheInvalidator.invalidatePoll(pollId, poll.groupId);
+
+      logger.info(`Poll ${pollId} completed with multi-winner mode`, {
+        winnersCount: winners.length,
+        bringOwnCount: bringOwnVotes.length,
+        skippedCount: skippedVotes.length,
+        primaryWinnerId,
+        totalVotes: poll.votes.length,
+      });
+
+      // Отправляем уведомления участникам (multi-winner)
+      try {
+        const { notificationService } = await import('./notification.service.js');
+        await notificationService.sendPollCompletionNotifications(pollId);
+        logger.info(`Completion notifications sent for poll ${pollId} (multi-winner)`);
+      } catch (notifError) {
+        logger.error('Error sending completion notifications:', notifError);
+      }
+
+      return result;
+
+    } catch (error) {
+      logger.error('Error completing poll with multi-winner:', error);
+      
+      if (error instanceof Error) {
+        throw error;
+      }
+      
+      throw new Error('Failed to complete poll with multi-winner mode');
+    }
+  }
+
+  /**
+   * Получение ожидаемого количества участников с кэшем
+   * Приоритеты: 1) Кэш, 2) Telegram API, 3) Settings, 4) История
+   */
+  private static async getExpectedParticipants(
+    groupId: number,
+    groupTelegramId: bigint,
+    settings: any
+  ): Promise<{ count: number; source: string }> {
+    const now = Date.now();
+    
+    // 1️⃣ Проверяем кэш
+    const cached = memberCountCache.get(groupId);
+    if (cached && (now - cached.timestamp) < MEMBER_COUNT_CACHE_TTL) {
+      logger.debug(`Using cached member count for group ${groupId}: ${cached.count} (${cached.source})`);
+      return { count: cached.count, source: `cached_${cached.source}` };
+    }
+    
+    // 2️⃣ Получаем из Telegram API
+    const realCount = await GroupService.getRealMemberCount(
+      groupTelegramId.toString(),
+      botInstance
+    );
+    
+    if (realCount !== null) {
+      // Сохраняем в кэш
+      memberCountCache.set(groupId, {
+        count: realCount,
+        timestamp: now,
+        source: 'telegram_api'
+      });
+      
+      logger.info(`📊 Updated member count for group ${groupId}: ${realCount} (from Telegram API)`);
+      
+      // Сохраняем в БД асинхронно (не ждем)
+      GroupService.updateGroupSettings(groupId, {
+        ...settings,
+        expectedParticipants: realCount
+      }).catch(err => logger.error('Error saving expectedParticipants:', err));
+      
+      return { count: realCount, source: 'telegram_api' };
+    }
+    
+    // 3️⃣ Fallback к настройкам или истории
+    let fallbackCount: number;
+    let fallbackSource: string;
+    
+    if (settings.expectedParticipants) {
+      fallbackCount = settings.expectedParticipants;
+      fallbackSource = 'settings';
+    } else {
+      fallbackCount = await GroupService.getActiveParticipants(groupId);
+      fallbackSource = 'history';
+    }
+    
+    // Сохраняем fallback в кэш
+    memberCountCache.set(groupId, {
+      count: fallbackCount,
+      timestamp: now,
+      source: 'history'
+    });
+    
+    logger.warn(`⚠️ Using fallback member count for group ${groupId}: ${fallbackCount} (${fallbackSource})`);
+    
+    return { count: fallbackCount, source: fallbackSource };
+  }
+
+  /**
+   * Проверка условий для автоматического завершения голосования
+   */
+  static async checkAutoComplete(pollId: number): Promise<boolean> {
+    try {
+      const poll = await prisma.poll.findUnique({
+        where: { id: pollId },
+        include: {
+          votes: {
+            select: { userId: true },
+            distinct: ['userId']
+          },
+          group: true
+        }
+      });
+
+      if (!poll || poll.status !== 'ACTIVE') {
+        return false;
+      }
+
+      // Получаем настройки группы
+      const settings = await GroupService.getGroupSettings(poll.groupId);
+
+      if (!settings.autoCompleteEnabled) {
+        logger.info(`Auto-complete disabled for group ${poll.groupId}`);
+        return false;
+      }
+
+      // Определяем ожидаемое количество участников с использованием кэша
+      const { count: expectedParticipants, source } = await this.getExpectedParticipants(
+        poll.groupId,
+        poll.group.telegramId,
+        settings
+      );
+
+      const currentVotes = poll.votes.length;
+
+      // Вычисляем прогресс
+      const timeElapsed = Date.now() - poll.startedAt.getTime();
+      const totalTime = poll.duration * 60 * 1000;
+      const timeProgress = timeElapsed / totalTime;
+      const voteProgress = currentVotes / expectedParticipants;
+
+      logger.info(`Auto-complete check for poll ${pollId}:`, {
+        currentVotes,
+        expectedParticipants,
+        voteProgress: `${Math.round(voteProgress * 100)}%`,
+        timeProgress: `${Math.round(timeProgress * 100)}%`,
+        source
+      });
+
+      // ✅ Условие 1: Все проголосовали (100% явка)
+      if (voteProgress >= 1.0) {
+        logger.info(`✅ Auto-completing poll ${pollId}: 100% participation (${currentVotes}/${expectedParticipants})`);
+        return true;
+      }
+
+      // ✅ Условие 2: Время истекло - обрабатывается автоматически таймером
+
+      return false;
+    } catch (error) {
+      logger.error('Error checking auto-complete:', error);
+      return false;
     }
   }
 
