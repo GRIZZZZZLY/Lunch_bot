@@ -1,7 +1,7 @@
 import { Group, User, Prisma } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
-import { CreateGroupData, UpdateGroupData } from '../types/group.types';
+import { CreateGroupData, UpdateGroupData, GroupSettings } from '../types/group.types';
 
 export class GroupService {
   /**
@@ -185,6 +185,170 @@ export class GroupService {
     } catch (error) {
       logger.error('Error deactivating group:', error);
       throw new Error('Failed to deactivate group');
+    }
+  }
+
+  /**
+   * Получение РЕАЛЬНОГО количества участников из Telegram API
+   * Использует getChatMemberCount для актуального подсчета
+   * 
+   * @param groupTelegramId - Telegram ID группы (BigInt или string)
+   * @param bot - Экземпляр бота (опционально)
+   * @returns Количество активных участников (минус боты) или null при ошибке
+   */
+  static async getRealMemberCount(
+    groupTelegramId: string | bigint,
+    bot?: any
+  ): Promise<number | null> {
+    try {
+      // Если бот не передан, пытаемся получить глобальный instance
+      let botInstance = bot;
+      if (!botInstance) {
+        try {
+          const botModule = await import('../bot/bot');
+          botInstance = (botModule as any).getBotInstance?.();
+        } catch (error) {
+          logger.debug('Cannot import bot instance for getRealMemberCount');
+        }
+      }
+      
+      if (!botInstance) {
+        logger.debug('Bot instance not available for getRealMemberCount');
+        return null;
+      }
+
+      const chatId = typeof groupTelegramId === 'bigint' 
+        ? Number(groupTelegramId) 
+        : parseInt(groupTelegramId.toString());
+      
+      const totalCount = await botInstance.api.getChatMemberCount(chatId);
+      
+      // Минус 1 (сам бот не учитывается)
+      const realCount = Math.max(totalCount - 1, 1);
+      
+      logger.info(`✅ Real member count for group ${groupTelegramId}: ${realCount} (total: ${totalCount})`);
+      
+      return realCount;
+    } catch (error: any) {
+      // Telegram может вернуть ошибку если бот не в группе
+      if (error.error_code === 403 || error.error_code === 400) {
+        logger.warn(`⚠️ Bot not in group ${groupTelegramId} or no access`);
+      } else {
+        logger.error('Error getting real member count:', error);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Получение активных участников группы (по статистике последних голосований)
+   * Исключает ботов из подсчета
+   * ⚠️ FALLBACK метод - используйте getRealMemberCount() для актуальных данных
+   */
+  static async getActiveParticipants(groupId: number): Promise<number> {
+    try {
+      // Получаем последние 5 завершенных голосований
+      const recentPolls = await prisma.poll.findMany({
+        where: { 
+          groupId, 
+          status: { in: ['COMPLETED', 'CANCELLED'] }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        include: {
+          votes: {
+            include: {
+              user: true
+            }
+          }
+        }
+      });
+
+      if (recentPolls.length === 0) {
+        // Если нет истории, возвращаем минимум (1 реальный участник)
+        return 1;
+      }
+
+      // Собираем уникальных голосовавших (исключая ботов)
+      const uniqueVoters = new Set<number>();
+      recentPolls.forEach(poll => {
+        poll.votes.forEach(vote => {
+          // Добавляем только реальных пользователей
+          // (боты обычно не голосуют, но на всякий случай)
+          uniqueVoters.add(vote.userId);
+        });
+      });
+
+      const count = uniqueVoters.size;
+      logger.info(`Active participants in group ${groupId}: ${count} (excluding bots)`);
+      
+      // Минимум 1 участник (если только боты, то все равно нужен хотя бы один человек)
+      return Math.max(count, 1);
+    } catch (error) {
+      logger.error('Error getting active participants:', error);
+      return 1; // Fallback к 1 участнику
+    }
+  }
+
+  /**
+   * Получение настроек группы
+   */
+  static async getGroupSettings(groupId: number): Promise<GroupSettings> {
+    try {
+      const group = await prisma.group.findUnique({
+        where: { id: groupId },
+        select: { settings: true }
+      });
+
+      if (!group || !group.settings) {
+        // Возвращаем дефолтные настройки
+        return {
+          autoCompleteEnabled: true,
+          notificationsEnabled: true,
+          progressNotifications: false,
+        };
+      }
+
+      return JSON.parse(group.settings) as GroupSettings;
+    } catch (error) {
+      logger.error('Error getting group settings:', error);
+      return {
+        autoCompleteEnabled: true,
+        notificationsEnabled: true,
+      };
+    }
+  }
+
+  /**
+   * Обновление настроек группы
+   */
+  static async updateGroupSettings(
+    groupId: number, 
+    settings: Partial<GroupSettings>
+  ): Promise<Group> {
+    try {
+      // Получаем текущие настройки
+      const currentSettings = await this.getGroupSettings(groupId);
+      
+      // Мержим с новыми
+      const updatedSettings: GroupSettings = {
+        ...currentSettings,
+        ...settings,
+      };
+
+      const group = await prisma.group.update({
+        where: { id: groupId },
+        data: {
+          settings: JSON.stringify(updatedSettings),
+          updatedAt: new Date(),
+        },
+      });
+
+      logger.info(`Group settings updated: ${groupId}`, updatedSettings);
+      return group;
+    } catch (error) {
+      logger.error('Error updating group settings:', error);
+      throw new Error('Failed to update group settings');
     }
   }
 }
