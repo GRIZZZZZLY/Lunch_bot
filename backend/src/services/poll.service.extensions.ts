@@ -75,6 +75,28 @@ export async function createPollFromWebApp(params: {
     });
     logger.info('✅ Poll created in DB', { pollId: poll.id });
 
+    // 🔄 Обновляем expectedParticipants при создании голосования (Вариант 5)
+    try {
+      const realCount = await GroupService.getRealMemberCount(
+        group.telegramId.toString(),
+        botInstance
+      );
+      
+      if (realCount && realCount > 0) {
+        const currentSettings = await GroupService.getGroupSettings(poll.groupId);
+        await GroupService.updateGroupSettings(poll.groupId, {
+          ...currentSettings,
+          expectedParticipants: realCount
+        });
+        logger.info(`✅ Set expectedParticipants for new poll ${poll.id}: ${realCount} members`);
+      } else {
+        logger.warn(`⚠️ Could not get real member count for group ${group.id}, using fallback`);
+      }
+    } catch (error) {
+      logger.error('Error updating expectedParticipants on poll creation:', error);
+      // Не критично - продолжаем работу
+    }
+
     // Формируем уведомление для группы (БЕЗ inline-кнопок, только кнопка Mini App)
     const endTime = new Date(Date.now() + duration * 60 * 1000);
     const message = createPollNotificationMessage({
@@ -111,6 +133,13 @@ export async function createPollFromWebApp(params: {
       groupId: group.telegramId.toString(),
       messageId: sentMessage.message_id,
     });
+
+    // Сохраняем chatId и messageId в БД для последующих уведомлений
+    await PollService.updatePoll(poll.id, {
+      chatId: BigInt(chatId),
+      messageId: sentMessage.message_id,
+    });
+    logger.info('✅ Poll updated with chatId and messageId');
 
     // Устанавливаем таймер для автозавершения
     setTimeout(async () => {
@@ -191,7 +220,8 @@ async function autoCompletePoll(
     if (result.totalVotes > 0) {
       if (process.env.AUTO_ROULETTE_ENABLED === 'true') {
         const rouletteResult = await PollService.runRoulette(pollId);
-        responsibleUser = rouletteResult.responsibleUser;
+        // rouletteResult is PollResult with include { responsibleUser: true }
+        responsibleUser = (rouletteResult as any).responsibleUser;
         
         // Уведомляем о выборе ответственного
         if (responsibleUser) {
