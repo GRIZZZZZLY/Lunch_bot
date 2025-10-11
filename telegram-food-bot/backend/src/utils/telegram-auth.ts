@@ -256,3 +256,62 @@ export function extractUserFromInitData(initData: string): TelegramUser | null {
     return null;
   }
 }
+
+/**
+ * Парсинг initData БЕЗ валидации подписи (только для development!)
+ * В dev режиме извлекает реальные данные пользователя из Telegram initData,
+ * но пропускает проверку HMAC подписи для удобства разработки.
+ * 
+ * ⚠️ ВНИМАНИЕ: Использовать ТОЛЬКО в development режиме!
+ * В production ВСЕГДА должна использоваться полная валидация.
+ * 
+ * @throws {Error} Если вызвана в production окружении
+ */
+export function parseInitDataUnsafe(initData: string): TelegramUser | null {
+  // CRITICAL: Блокировать в production на уровне процесса
+  if (process.env.NODE_ENV === 'production') {
+    const error = new Error(
+      'SECURITY ERROR: parseInitDataUnsafe MUST NOT be used in production! ' +
+      'This function bypasses cryptographic signature validation and poses a critical security risk.'
+    );
+    logger.error('🚨 CRITICAL SECURITY VIOLATION:', {
+      function: 'parseInitDataUnsafe',
+      environment: process.env.NODE_ENV,
+      stack: error.stack,
+    });
+    throw error; // Выбрасываем исключение вместо возврата null
+  }
+
+  try {
+    logger.info('🔓 Parsing initData in UNSAFE mode (dev only)', {
+      initDataLength: initData?.length || 0,
+    });
+
+    // Пустой или невалидный initData - возвращаем null
+    if (!initData || initData.trim().length === 0 || initData === 'mock_jwt_token_12345678') {
+      logger.warn('⚠️ Empty or mock initData - returning null');
+      return null;
+    }
+
+    const params = new URLSearchParams(initData);
+    const userStr = params.get('user');
+    
+    if (!userStr) {
+      logger.warn('⚠️ No user data in initData');
+      return null;
+    }
+
+    const user = JSON.parse(userStr) as TelegramUser;
+    
+    logger.info('✅ Extracted user from initData (UNSAFE mode)', {
+      userId: user.id,
+      username: user.username,
+      firstName: user.first_name,
+    });
+
+    return user;
+  } catch (error) {
+    logger.error('❌ Error parsing initData in unsafe mode:', error);
+    return null;
+  }
+}

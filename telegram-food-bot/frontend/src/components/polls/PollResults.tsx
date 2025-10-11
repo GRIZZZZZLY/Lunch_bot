@@ -160,11 +160,11 @@ export const PollResults: React.FC<PollResultsProps> = ({ poll, onBack }) => {
           <div>
             <span className="text-gray-500 dark:text-gray-400">Статус:</span>
             <div className={`font-medium ${
-              poll.isActive 
+              poll.status === 'ACTIVE' 
                 ? 'text-green-600 dark:text-green-400' 
                 : 'text-gray-600 dark:text-gray-400'
             }`}>
-              {poll.isActive ? '🟢 Активно' : '⭕ Завершено'}
+              {poll.status === 'ACTIVE' ? '🟢 Активно' : '⭕ Завершено'}
             </div>
           </div>
           
@@ -185,10 +185,10 @@ export const PollResults: React.FC<PollResultsProps> = ({ poll, onBack }) => {
           {poll.endTime && (
             <div>
               <span className="text-gray-500 dark:text-gray-400">
-                {poll.isActive ? 'Завершится:' : 'Завершено:'}
+                {poll.status === 'ACTIVE' ? 'Завершится:' : 'Завершено:'}
               </span>
               <div className="font-medium text-gray-900 dark:text-white">
-                ⏰ {poll.isActive ? pollsService.formatTimeRemaining(poll.endTime) : pollsService.formatPollDate(poll.endTime)}
+                ⏰ {poll.status === 'ACTIVE' ? pollsService.formatTimeRemaining(poll.endTime) : pollsService.formatPollDate(poll.endTime)}
               </div>
             </div>
           )}

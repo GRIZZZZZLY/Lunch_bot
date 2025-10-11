@@ -1,109 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { VitePWA } from 'vite-plugin-pwa';
+// import { VitePWA } from 'vite-plugin-pwa'; // Временно отключено
 import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
-      manifest: {
-        name: 'Telegram Food Bot',
-        short_name: 'FoodBot',
-        description: 'Telegram Mini App для выбора еды и голосований',
-        theme_color: '#0088cc',
-        background_color: '#ffffff',
-        display: 'standalone',
-        scope: '/',
-        start_url: '/',
-        icons: [
-          {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ],
-        categories: ['food', 'productivity'],
-        shortcuts: [
-          {
-            name: 'Меню',
-            short_name: 'Меню',
-            description: 'Просмотр меню',
-            url: '/menu',
-            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
-          },
-          {
-            name: 'Голосование',
-            short_name: 'Голосование',
-            description: 'Создать голосование',
-            url: '/poll/create',
-            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
-          }
-        ]
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\.telegram\.org\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'telegram-api-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/.*\.(jpg|jpeg|png|gif|webp)$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'images-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
-              }
-            }
-          },
-          {
-            urlPattern: /\/api\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 10,
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 5 // 5 minutes
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ]
-      },
-      devOptions: {
-        enabled: false  // Отключить в dev, включить только в production
-      }
-    })
+    // PWA временно отключен для отладки (Service Worker мешает)
   ],
   resolve: {
     alias: {
@@ -129,6 +33,14 @@ export default defineConfig({
       '.ngrok.io',
       '.ngrok.app',
     ],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path, // Оставляем /api в пути
+      },
+    },
   },
   build: {
     outDir: 'dist',
@@ -151,39 +63,48 @@ export default defineConfig({
     // Reportизм размера компонентов
     reportCompressedSize: true,
     rollupOptions: {
+      external: [],
       output: {
         // Оптимизированный code splitting для лучшего кэширования
         manualChunks(id) {
-          // Core React библиотеки
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'react-vendor';
+            // ВАЖНО: React ДОЛЖЕН быть в первом чанке, который загружается раньше всех
+            if (id.includes('react/') || id.includes('react-dom/') || id.includes('scheduler/')) {
+              return 'react-core';
             }
-            // Framer Motion отдельно (большая библиотека)
+            // React Router отдельно (зависит от react-core)
+            if (id.includes('react-router') || id.includes('@remix-run/router')) {
+              return 'react-router';
+            }
+            // Framer Motion отдельно (большая библиотека, зависит от react)
             if (id.includes('framer-motion')) {
               return 'framer-motion';
             }
-            // React Query отдельно
+            // React Query отдельно (зависит от react)
             if (id.includes('@tanstack/react-query')) {
               return 'react-query';
             }
-            // Telegram SDK
+            // Telegram SDK (не зависит от React)
             if (id.includes('@twa-dev/sdk')) {
               return 'telegram';
             }
-            // UI библиотеки (иконки + компоненты)
-            if (id.includes('lucide-react') || id.includes('clsx') || id.includes('tailwind-merge')) {
+            // UI библиотеки (зависят от React)
+            if (id.includes('lucide-react') || id.includes('@radix-ui')) {
               return 'ui-libs';
             }
-            // Form библиотеки
+            // Утилиты (НЕ зависят от React)
+            if (id.includes('clsx') || id.includes('tailwind-merge') || id.includes('class-variance-authority')) {
+              return 'utils';
+            }
+            // Form библиотеки (зависят от React)
             if (id.includes('react-hook-form') || id.includes('@hookform/resolvers') || id.includes('zod')) {
               return 'forms';
             }
-            // Zustand + axios
+            // State + HTTP (НЕ зависят от React напрямую)
             if (id.includes('zustand') || id.includes('axios')) {
-              return 'utils';
+              return 'state-http';
             }
-            // Все остальные vendor библиотеки
+            // Все остальные vendor библиотеки (которые НЕ зависят от React)
             return 'vendor';
           }
         },
@@ -217,6 +138,8 @@ export default defineConfig({
       '@tanstack/react-query',
       'zustand',
       'axios',
+      'react-window',
+      'react-virtualized-auto-sizer',
     ],
     exclude: ['@storybook/*'], // Исключаем storybook из dev build
   },
