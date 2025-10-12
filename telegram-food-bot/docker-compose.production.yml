@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: rocket_lunch_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rocket_lunch_db
+      POSTGRES_USER: rocket_lunch_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rocket_lunch_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rocket_lunch_user -d rocket_lunch_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API + Bot
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.production
+    container_name: rocket_lunch_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://rocket_lunch_user:${POSTGRES_PASSWORD}@postgres:5432/rocket_lunch_db
+      - BOT_TOKEN=${BOT_TOKEN}
+      - BOT_USERNAME=${BOT_USERNAME}
+      - BOT_MODE=webhook
+      - BOT_WEBHOOK_URL=${BOT_WEBHOOK_URL}
+      - TELEGRAM_SECRET_KEY=${BOT_TOKEN}
+      - WEBAPP_URL=${WEBAPP_URL}
+      - API_PORT=3001
+      - API_HOST=0.0.0.0
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGIN=${WEBAPP_URL}
+      - ADMIN_USER_IDS=${ADMIN_USER_IDS}
+      - NOTIFICATION_ENABLED=true
+      - NOTIFICATION_DELAY_MINUTES=5
+      - POLL_DURATION_MINUTES=30
+      - AUTO_ROULETTE_ENABLED=true
+      - SKIP_TELEGRAM_VALIDATION=false
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/logs:/app/logs
+      - ./backend/uploads:/app/uploads
+    networks:
+      - rocket_lunch_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy + Frontend
+  nginx:
+    image: nginx:alpine
+    container_name: rocket_lunch_nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - rocket_lunch_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  rocket_lunch_network:
+    driver: bridge

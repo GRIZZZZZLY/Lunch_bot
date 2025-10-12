@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateTelegramInitData = validateTelegramInitData;
 exports.generateTestInitData = generateTestInitData;
 exports.extractUserFromInitData = extractUserFromInitData;
+exports.parseInitDataUnsafe = parseInitDataUnsafe;
 const crypto_1 = __importDefault(require("crypto"));
 const logger_1 = require("./logger");
 function validateTelegramInitData(initData) {
@@ -186,6 +187,44 @@ function extractUserFromInitData(initData) {
     }
     catch (error) {
         logger_1.logger.error('Error extracting user from initData:', error);
+        return null;
+    }
+}
+function parseInitDataUnsafe(initData) {
+    if (process.env.NODE_ENV === 'production') {
+        const error = new Error('SECURITY ERROR: parseInitDataUnsafe MUST NOT be used in production! ' +
+            'This function bypasses cryptographic signature validation and poses a critical security risk.');
+        logger_1.logger.error('🚨 CRITICAL SECURITY VIOLATION:', {
+            function: 'parseInitDataUnsafe',
+            environment: process.env.NODE_ENV,
+            stack: error.stack,
+        });
+        throw error;
+    }
+    try {
+        logger_1.logger.info('🔓 Parsing initData in UNSAFE mode (dev only)', {
+            initDataLength: initData?.length || 0,
+        });
+        if (!initData || initData.trim().length === 0 || initData === 'mock_jwt_token_12345678') {
+            logger_1.logger.warn('⚠️ Empty or mock initData - returning null');
+            return null;
+        }
+        const params = new URLSearchParams(initData);
+        const userStr = params.get('user');
+        if (!userStr) {
+            logger_1.logger.warn('⚠️ No user data in initData');
+            return null;
+        }
+        const user = JSON.parse(userStr);
+        logger_1.logger.info('✅ Extracted user from initData (UNSAFE mode)', {
+            userId: user.id,
+            username: user.username,
+            firstName: user.first_name,
+        });
+        return user;
+    }
+    catch (error) {
+        logger_1.logger.error('❌ Error parsing initData in unsafe mode:', error);
         return null;
     }
 }

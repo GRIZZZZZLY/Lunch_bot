@@ -1,8 +1,10 @@
 import { useState, useEffect, lazy, Suspense, startTransition } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { queryClient } from './lib/react-query';
+import { queryClient, persister, cacheUtils } from './lib/queryClient';
+import { ErrorBoundary } from './lib/sentry';
 import { ToastProvider } from './components/common/ToastManager';
 import { PageLoader } from './components/common/PageLoader';
 import { DelayedFallback } from './components/common/DelayedFallback';
@@ -15,7 +17,8 @@ import { useAppStore } from './store/useAppStore';
 import { WebVitals, PerformanceMonitor } from './components/performance/WebVitals';
 import { OfflineBanner } from './components/common/OfflineBanner';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
-import { DebugLogger } from './components/DebugLogger';
+// TEMPORARY: Отключен из-за бесконечного цикла
+// import { DebugLogger } from './components/DebugLogger';
 
 // Lazy load страниц для Code Splitting
 const HomePage = lazy(() => import('./pages/HomePage').then(module => ({ default: module.HomePage })));
@@ -24,7 +27,9 @@ const StatsPage = lazy(() => import('./pages/StatsPage').then(module => ({ defau
 const VotingPage = lazy(() => import('./pages/VotingPage').then(module => ({ default: module.VotingPage })));
 const PollManagementPage = lazy(() => import('./pages/PollManagementPage').then(module => ({ default: module.PollManagementPage })));
 const PollHistoryPage = lazy(() => import('./pages/PollHistoryPage').then(module => ({ default: module.PollHistoryPage })));
+const PollResultsPage = lazy(() => import('./pages/PollResultsPage').then(module => ({ default: module.PollResultsPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then(module => ({ default: module.AdminDashboardPage })));
 
 // Dev/Debug pages - удалены из сборки, так как вызывают ошибки импортов
 // Если нужны, исправьте импорты в __dev__ файлах на относительные пути с ../../
@@ -42,6 +47,11 @@ function AppContent() {
   const navigate = useNavigate();
   const { isModalOpen, completeOnboarding } = useOnboarding();
   const theme = useAppStore((state) => state.theme);
+  
+  // Очищаем старый кэш polls при запуске
+  useEffect(() => {
+    cacheUtils.clearStalePollsCache();
+  }, []);
 
   // Debug logging (в useEffect чтобы не вызывать setState во время рендера)
   useEffect(() => {
@@ -131,8 +141,12 @@ function AppContent() {
               <Route path="/poll/create" element={<PollManagementPage />} />
               <Route path="/poll/history" element={<PollHistoryPage />} />
               <Route path="/poll/:pollId" element={<VotingPage />} />
+              <Route path="/poll/:pollId/results" element={<PollResultsPage />} />
               
               <Route path="/profile" element={<ProfilePage />} />
+              
+              {/* Admin Routes */}
+              <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
 
               {/* Dev/Debug Routes - закомментированы, так как компоненты не используются */}
               {/* {import.meta.env.DEV && HomePageSimple && <Route path="/debug-simple" element={<HomePageSimple />} />}
@@ -157,22 +171,42 @@ function AppContent() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <BrowserRouter>
+    <ErrorBoundary
+      fallback={({ error, resetError }) => (
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <h2>⚠️ Что-то пошло не так</h2>
+          <p>{error && typeof error === 'object' && 'message' in error ? String((error as any).message) : 'Произошла ошибка'}</p>
+          <button onClick={resetError}>Попробовать снова</button>
+        </div>
+      )}
+      showDialog={false}
+    >
+      <PersistQueryClientProvider 
+        client={queryClient}
+        persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000 }} // 24 hours
+      >
+        <ToastProvider>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
           <OfflineIndicator />
           <OfflineBanner />
           <UpdatePrompt />
           <InstallPrompt />
           <WebVitals />
           <PerformanceMonitor />
-          <DebugLogger />
+          {/* TEMPORARY: Отключен из-за бесконечного цикла */}
+          {/* <DebugLogger /> */}
           <AppContent />
         </BrowserRouter>
         {/* React Query Devtools - отключены для production */}
         {import.meta.env.DEV && false && <ReactQueryDevtools initialIsOpen={false} />}
-      </ToastProvider>
-    </QueryClientProvider>
+        </ToastProvider>
+      </PersistQueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

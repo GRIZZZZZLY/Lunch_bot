@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { UserService } from '../../services/user.service';
 import { validateTelegramInitData } from '../../utils/telegram-auth';
 import { logger } from '../../utils/logger';
+import { JwtService } from '../../services/jwt.service';
 
 export class AuthController {
   /**
@@ -12,40 +13,79 @@ export class AuthController {
     try {
       const { initData } = req.body;
 
-      // В development режиме с SKIP_TELEGRAM_VALIDATION - создаём test user
+      // В development режиме с SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи,
+      // но используем РЕАЛЬНЫЙ ID пользователя из initData для конфиденциальности
       if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
-        if (!initData || initData.trim().length === 0 || initData === 'mock_jwt_token_12345678') {
-          logger.warn('⚠️  SKIP_TELEGRAM_VALIDATION: Empty initData - creating test user');
+        logger.info('🔓 SKIP_TELEGRAM_VALIDATION: extracting REAL user from initData');
+        
+        // Пробуем извлечь реальные данные пользователя
+        if (initData && initData.trim().length > 0 && initData !== 'mock_jwt_token_12345678') {
+          const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
+          const telegramUser = parseInitDataUnsafe(initData);
           
-          const testUserId = process.env.TEST_USER_ID || '123456789';
-          const user = await UserService.upsertUser({
-            telegramId: testUserId,
-            username: 'dev_user',
-            firstName: 'Dev',
-            lastName: 'User',
-          });
+          if (telegramUser) {
+            // Создаём/обновляем пользователя с РЕАЛЬНЫМ ID из Telegram
+            const user = await UserService.upsertUser({
+              telegramId: telegramUser.id.toString(),
+              username: telegramUser.username || `user_${telegramUser.id}`,
+              firstName: telegramUser.first_name,
+              lastName: telegramUser.last_name,
+            });
 
-          logger.info('✅ Test user created via SKIP_TELEGRAM_VALIDATION', {
-            userId: user.id,
-            telegramId: testUserId
-          });
+            logger.info('✅ SKIP mode: authenticated with REAL Telegram user', {
+              userId: user.id,
+              telegramId: telegramUser.id,
+              username: telegramUser.username
+            });
 
-          res.json({
-            success: true,
-            user: {
-              id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
-              telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
-              username: user.username,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              isAdmin: user.isAdmin,
-              isActive: user.isActive,
-              createdAt: user.createdAt,
-            },
-            token: generateJWT(user),
-          });
-          return;
+            res.json({
+              success: true,
+              user: {
+                id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+                telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
+                username: user.username,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                isAdmin: user.isAdmin,
+                isActive: user.isActive,
+                createdAt: user.createdAt,
+              },
+              token: generateJWT(user),
+            });
+            return;
+          }
         }
+        
+        // Fallback: используем TEST_USER_ID только если нет реальных данных
+        logger.warn('⚠️ SKIP_TELEGRAM_VALIDATION: No real initData - using TEST_USER_ID fallback');
+        const testUserId = process.env.TEST_USER_ID || '123456789';
+        const user = await UserService.upsertUser({
+          telegramId: testUserId,
+          username: 'dev_user',
+          firstName: 'Dev',
+          lastName: 'User',
+        });
+
+        logger.info('✅ SKIP mode: fallback test user', {
+          userId: user.id,
+          telegramId: testUserId
+        });
+
+        res.json({
+          success: true,
+          user: {
+            id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+            telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            isAdmin: user.isAdmin,
+            isActive: user.isActive,
+            createdAt: user.createdAt,
+          },
+          token: generateJWT(user),
+        });
+        return;
       }
 
       if (!initData) {
@@ -235,20 +275,19 @@ export class AuthController {
 }
 
 /**
- * Генерация JWT токена (упрощенная версия)
- * В продакшене следует использовать полноценную JWT библиотеку
+ * 🔐 Генерация JWT токена с подписью
+ * Использует настоящий JWT вместо небезопасного base64
  */
 function generateJWT(user: any): string {
-  // Упрощенная версия токена для демонстрации
   const payload = {
     userId: typeof user.id === 'bigint' ? Number(user.id) : user.id,
     telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
+    username: user.username,
     isAdmin: user.isAdmin,
-    timestamp: Date.now(),
   };
   
-  // В реальном проекте использовать jsonwebtoken
-  return Buffer.from(JSON.stringify(payload)).toString('base64');
+  // ✅ Используем настоящий JWT с HMAC SHA256 подписью
+  return JwtService.generateAccessToken(payload);
 }
 
 export const authController = AuthController;

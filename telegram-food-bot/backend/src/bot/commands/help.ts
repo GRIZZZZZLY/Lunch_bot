@@ -1,12 +1,11 @@
-﻿import { CommandContext } from 'grammy';
-import { BotContext } from '../../types/bot.types';
+﻿import { BotContext } from '../../types/bot.types';
 import { UserService } from '../../services/user.service';
 
 /**
  * Команда /help - показать помощь
  */
-export async function helpCommand(ctx: CommandContext<BotContext>): Promise<void> {
-  const isGroup = ctx.chat.type !== 'private';
+export async function helpCommand(ctx: BotContext): Promise<void> {
+  const isGroup = ctx.chat?.type !== 'private';
   const user = ctx.from;
   
   let isAdmin = false;

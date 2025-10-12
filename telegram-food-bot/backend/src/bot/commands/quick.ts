@@ -1,4 +1,3 @@
-import { CommandContext } from 'grammy';
 import { BotContext } from '../../types/bot.types';
 import { PollService } from '../../services/poll.service';
 import { VoteService } from '../../services/vote.service';
@@ -11,7 +10,7 @@ import { createResultsMessage } from '../keyboards/poll.keyboard';
  * Команда /q - быстрое голосование
  * Голосует за последнее блюдо пользователя в активном голосовании группы
  */
-export async function quickVoteCommand(ctx: CommandContext<BotContext>): Promise<void> {
+export async function quickVoteCommand(ctx: BotContext): Promise<void> {
   try {
     const user = ctx.from;
     if (!user) {
@@ -81,7 +80,7 @@ export async function quickVoteCommand(ctx: CommandContext<BotContext>): Promise
  * Команда /r - просмотр результатов
  * Показывает результаты активного голосования в группе
  */
-export async function resultsCommand(ctx: CommandContext<BotContext>): Promise<void> {
+export async function resultsCommand(ctx: BotContext): Promise<void> {
   try {
     // Проверяем, что это групповой чат
     if (ctx.chat?.type !== 'group' && ctx.chat?.type !== 'supergroup') {
@@ -106,11 +105,11 @@ export async function resultsCommand(ctx: CommandContext<BotContext>): Promise<v
     const voteTypeStats = await VoteService.getVoteTypeStats(poll.id);
 
     let message = `📊 **Текущие результаты**\n\n`;
-    message += `🎯 "${poll.title || 'Голосование'}"\n`;
+    message += `🎯 Голосование\n`;
     message += `👥 Проголосовало: ${votes.length}\n`;
 
-    if (poll.endTime) {
-      const timeLeft = Math.max(0, Math.floor((new Date(poll.endTime).getTime() - Date.now()) / 1000 / 60));
+    if (poll.endedAt) {
+      const timeLeft = Math.max(0, Math.floor((new Date(poll.endedAt).getTime() - Date.now()) / 1000 / 60));
       message += `⏰ Осталось: ${timeLeft} мин\n`;
     }
 

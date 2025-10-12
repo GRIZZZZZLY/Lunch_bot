@@ -1,4 +1,3 @@
-import { CommandContext } from 'grammy';
 import { BotContext } from '../../types/bot.types';
 import { PollService } from '../../services/poll.service';
 import { VoteService } from '../../services/vote.service';
@@ -11,7 +10,7 @@ import { createPollKeyboard } from '../keyboards/poll.keyboard';
  * Команда /vote - fallback для голосования без web_app
  * Использование: /vote <pollId> или просто /vote (если есть активное голосование в группе)
  */
-export async function voteCommand(ctx: CommandContext<BotContext>): Promise<void> {
+export async function voteCommand(ctx: BotContext): Promise<void> {
   try {
     const user = ctx.from;
     if (!user) {

@@ -143,18 +143,7 @@ export const VotersAvatars: React.FC<VotersAvatarsProps> = ({
         )}
       </div>
 
-      {/* Иконка пользователей (опционально) */}
-      {voters.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="ml-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"
-        >
-          <Users size={14} />
-          <span>{voters.length}</span>
-        </motion.div>
-      )}
+
     </div>
   );
 };

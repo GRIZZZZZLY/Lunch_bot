@@ -10,7 +10,6 @@ export declare class UserService {
     static isAdmin(telegramId: bigint): Promise<boolean>;
     static setActiveStatus(telegramId: bigint, isActive: boolean): Promise<User>;
     static getAdmins(): Promise<User[]>;
-    static getActiveUsersInGroup(groupId: number): Promise<User[]>;
     static getUserStats(): Promise<{
         total: number;
         active: number;

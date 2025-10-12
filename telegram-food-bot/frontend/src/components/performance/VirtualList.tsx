@@ -14,7 +14,8 @@
  */
 
 import { FC, ReactElement } from 'react';
-import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
+// @ts-ignore - types issue with react-window
+import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useWindowSize } from '@/hooks/useWindowSize';
 
 interface VirtualListProps<T> {
@@ -59,7 +60,7 @@ export function VirtualList<T>({
   };
 
   return (
-    <List
+    <FixedSizeList
       height={listHeight}
       itemCount={items.length}
       itemSize={itemHeight}
@@ -68,7 +69,7 @@ export function VirtualList<T>({
       className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
     >
       {Row}
-    </List>
+    </FixedSizeList>
   );
 }
 
@@ -106,7 +107,6 @@ export function VirtualGrid<T>({
     const row = rows[index];
     return (
       <div 
-        style={style} 
         className="grid gap-4 px-4"
         style={{
           ...style,
@@ -124,7 +124,7 @@ export function VirtualGrid<T>({
   };
 
   return (
-    <List
+    <FixedSizeList
       height={listHeight}
       itemCount={rows.length}
       itemSize={rowHeight}
@@ -132,7 +132,7 @@ export function VirtualGrid<T>({
       overscanCount={2}
     >
       {Row}
-    </List>
+    </FixedSizeList>
   );
 }
 

@@ -21,7 +21,7 @@ const GRADIENTS = {
       to: 'rgba(254, 215, 170, 0.15)',
     },
     textColor: '#9A3412', // primary-food-800
-    label: 'Завтрак',
+    label: 'завтрака',
   },
   afternoon: {
     light: {
@@ -33,7 +33,7 @@ const GRADIENTS = {
       to: 'rgba(74, 222, 128, 0.15)',
     },
     textColor: '#166534', // green-800
-    label: 'Обед',
+    label: 'обеда',
   },
   evening: {
     light: {
@@ -45,7 +45,7 @@ const GRADIENTS = {
       to: 'rgba(147, 197, 253, 0.15)',
     },
     textColor: '#1E40AF', // blue-800
-    label: 'Ужин',
+    label: 'ужина',
   },
   night: {
     light: {
@@ -57,7 +57,7 @@ const GRADIENTS = {
       to: 'rgba(167, 139, 250, 0.15)',
     },
     textColor: '#5B21B6', // purple-800
-    label: 'Перекус',
+    label: 'перекуса',
   },
 } as const;
 

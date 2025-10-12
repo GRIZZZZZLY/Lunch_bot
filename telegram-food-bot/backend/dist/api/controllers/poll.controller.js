@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.pollController = exports.PollController = void 0;
 const poll_service_1 = require("../../services/poll.service");
@@ -7,13 +40,37 @@ const menu_service_1 = require("../../services/menu.service");
 const group_service_1 = require("../../services/group.service");
 const logger_1 = require("../../utils/logger");
 const poll_service_extensions_1 = require("../../services/poll.service.extensions");
+function serializeBigInt(obj) {
+    if (obj === null || obj === undefined) {
+        return obj;
+    }
+    if (typeof obj === 'bigint') {
+        return obj.toString();
+    }
+    if (obj instanceof Date) {
+        return obj.toISOString();
+    }
+    if (Array.isArray(obj)) {
+        return obj.map(serializeBigInt);
+    }
+    if (typeof obj === 'object') {
+        const result = {};
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                result[key] = serializeBigInt(obj[key]);
+            }
+        }
+        return result;
+    }
+    return obj;
+}
 class PollController {
     static async getActivePolls(req, res) {
         try {
             const polls = await poll_service_1.PollService.getActivePolls();
             res.json({
                 success: true,
-                data: polls,
+                data: serializeBigInt(polls),
                 count: polls.length,
                 timestamp: new Date().toISOString(),
             });
@@ -43,7 +100,7 @@ class PollController {
             const result = await poll_service_1.PollService.getPollHistory(groupId, limit, offset);
             res.json({
                 success: true,
-                data: result.polls,
+                data: serializeBigInt(result.polls),
                 pagination: {
                     total: result.total,
                     limit,
@@ -62,6 +119,102 @@ class PollController {
             });
         }
     }
+    static async getLastCompleted(req, res) {
+        try {
+            const user = req.user;
+            const groupId = req.query.groupId ? parseInt(req.query.groupId) : undefined;
+            const poll = await poll_service_1.PollService.getLastCompletedPoll(groupId);
+            res.json({
+                success: true,
+                data: poll ? serializeBigInt(poll) : null,
+            });
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting last completed poll:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to get last completed poll',
+                code: 'INTERNAL_ERROR',
+            });
+        }
+    }
+    static async repeatPoll(req, res) {
+        try {
+            const user = req.user;
+            const pollId = parseInt(req.params.id);
+            logger_1.logger.info(`🔄 Repeating poll ${pollId} by user ${user.id}`);
+            if (!pollId || isNaN(pollId)) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid poll ID',
+                    code: 'INVALID_POLL_ID',
+                });
+                return;
+            }
+            const sourcePoll = await poll_service_1.PollService.getPollById(pollId);
+            if (!sourcePoll) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Poll not found',
+                    code: 'POLL_NOT_FOUND',
+                });
+                return;
+            }
+            logger_1.logger.info(`✅ Source poll found: ${pollId}`, {
+                groupId: sourcePoll.groupId,
+                selectedMenuItemIds: sourcePoll.selectedMenuItemIds,
+            });
+            let selectedMenuItemIds = [];
+            if (sourcePoll.selectedMenuItemIds) {
+                try {
+                    selectedMenuItemIds = JSON.parse(sourcePoll.selectedMenuItemIds);
+                }
+                catch (error) {
+                    logger_1.logger.error('Error parsing selectedMenuItemIds:', error);
+                }
+            }
+            let menuItems = [];
+            if (selectedMenuItemIds.length > 0) {
+                logger_1.logger.info(`📋 Loading ${selectedMenuItemIds.length} selected menu items`);
+                menuItems = await menu_service_1.MenuService.getMenuItemsByIds(selectedMenuItemIds);
+            }
+            else {
+                logger_1.logger.info('📋 Loading all active menu items');
+                menuItems = await menu_service_1.MenuService.getActiveMenuItems();
+            }
+            if (menuItems.length === 0) {
+                res.status(400).json({
+                    success: false,
+                    error: 'No menu items available',
+                    code: 'NO_MENU_ITEMS',
+                });
+                return;
+            }
+            logger_1.logger.info(`✅ Loaded ${menuItems.length} menu items`);
+            const result = await (0, poll_service_extensions_1.createPollFromWebApp)({
+                groupId: sourcePoll.groupId,
+                duration: sourcePoll.duration,
+                createdBy: user.id,
+                menuItems,
+                selectedMenuItemIds: selectedMenuItemIds.length > 0 ? selectedMenuItemIds : undefined,
+            });
+            logger_1.logger.info(`✅ Poll ${pollId} repeated as poll ${result.pollId} by user ${user.id}`);
+            const newPoll = await poll_service_1.PollService.getPollById(result.pollId);
+            res.json({
+                success: true,
+                data: serializeBigInt(newPoll),
+                message: 'Poll repeated and sent to Telegram group',
+            });
+        }
+        catch (error) {
+            logger_1.logger.error('❌ Error repeating poll:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to repeat poll',
+                code: 'INTERNAL_ERROR',
+            });
+        }
+    }
     static async getPollStats(req, res) {
         try {
             const groupId = req.query.groupId ? parseInt(req.query.groupId) : undefined;
@@ -76,7 +229,7 @@ class PollController {
             const stats = await poll_service_1.PollService.getPollStats(groupId);
             res.json({
                 success: true,
-                data: stats,
+                data: serializeBigInt(stats),
                 timestamp: new Date().toISOString(),
             });
         }
@@ -109,24 +262,29 @@ class PollController {
                 });
                 return;
             }
-            const pollData = {
-                ...poll,
-                chatId: poll.chatId ? poll.chatId.toString() : null,
-                group: poll.group ? {
-                    ...poll.group,
-                    telegramId: poll.group.telegramId.toString(),
-                } : undefined,
-                votes: poll.votes?.map((vote) => ({
-                    ...vote,
-                    user: vote.user ? {
-                        ...vote.user,
-                        telegramId: vote.user.telegramId.toString(),
-                    } : undefined,
-                })),
-            };
+            let filteredPoll = poll;
+            if (poll.selectedMenuItemIds) {
+                try {
+                    const selectedIds = JSON.parse(poll.selectedMenuItemIds);
+                    if (Array.isArray(selectedIds) && selectedIds.length > 0) {
+                        filteredPoll = {
+                            ...poll,
+                            votes: poll.votes.filter(vote => vote.menuItemId && selectedIds.includes(vote.menuItemId)),
+                        };
+                        logger_1.logger.info(`Filtered poll ${id} votes`, {
+                            totalVotes: poll.votes.length,
+                            filteredVotes: filteredPoll.votes.length,
+                            selectedMenuItemIds: selectedIds
+                        });
+                    }
+                }
+                catch (parseError) {
+                    logger_1.logger.warn('Failed to parse selectedMenuItemIds', { pollId: id, error: parseError });
+                }
+            }
             res.json({
                 success: true,
-                data: pollData,
+                data: serializeBigInt(filteredPoll),
                 timestamp: new Date().toISOString(),
             });
         }
@@ -162,10 +320,10 @@ class PollController {
             const breakdown = await poll_service_1.PollService.getPollVoteBreakdown(id);
             res.json({
                 success: true,
-                data: {
+                data: serializeBigInt({
                     result,
                     breakdown,
-                },
+                }),
                 timestamp: new Date().toISOString(),
             });
         }
@@ -193,11 +351,11 @@ class PollController {
             const voteCount = await vote_service_1.VoteService.getVoteCountByMenuItem(id);
             res.json({
                 success: true,
-                data: {
+                data: serializeBigInt({
                     votes,
                     summary: voteCount,
                     totalVotes: votes.length,
-                },
+                }),
                 timestamp: new Date().toISOString(),
             });
         }
@@ -222,7 +380,7 @@ class PollController {
             });
             res.status(201).json({
                 success: true,
-                data: poll,
+                data: serializeBigInt(poll),
                 message: 'Poll created successfully',
                 timestamp: new Date().toISOString(),
             });
@@ -330,7 +488,8 @@ class PollController {
                 duration: parsedDuration,
                 createdBy: user.id,
                 title: title || undefined,
-                menuItems
+                menuItems,
+                selectedMenuItemIds: menuItems.map(item => item.id)
             });
             logger_1.logger.info('Poll created from WebApp and sent to group', {
                 pollId: result.pollId,
@@ -341,13 +500,13 @@ class PollController {
             });
             res.status(201).json({
                 success: true,
-                data: {
+                data: serializeBigInt({
                     pollId: result.pollId,
                     messageId: result.messageId,
                     groupTitle: group.title,
                     duration: parsedDuration,
                     menuItemsCount: menuItems.length
-                },
+                }),
                 message: 'Poll created and sent to group successfully',
                 timestamp: new Date().toISOString(),
             });
@@ -394,7 +553,7 @@ class PollController {
             }
             res.json({
                 success: true,
-                data: poll,
+                data: serializeBigInt(poll),
                 timestamp: new Date().toISOString(),
             });
         }
@@ -428,7 +587,7 @@ class PollController {
             });
             res.json({
                 success: true,
-                data: result,
+                data: serializeBigInt(result),
                 message: 'Poll completed successfully',
                 timestamp: new Date().toISOString(),
             });
@@ -472,14 +631,16 @@ class PollController {
                 });
                 return;
             }
-            const poll = await poll_service_1.PollService.cancelPoll(id);
+            const { reason } = req.body || {};
+            const poll = await poll_service_1.PollService.cancelPoll(id, user.id, reason || 'Отменено через API');
             logger_1.logger.info('Poll cancelled via API', {
                 pollId: id,
                 cancelledBy: user.id,
+                reason: reason || 'Отменено через API'
             });
             res.json({
                 success: true,
-                data: poll,
+                data: serializeBigInt(poll),
                 message: 'Poll cancelled successfully',
                 timestamp: new Date().toISOString(),
             });
@@ -534,9 +695,23 @@ class PollController {
                 menuItemId: vote.menuItemId,
                 isUpdate: vote.updatedAt > vote.createdAt,
             });
+            try {
+                const shouldAutoComplete = await poll_service_1.PollService.checkAutoComplete(pollId);
+                if (shouldAutoComplete) {
+                    logger_1.logger.info(`Triggering auto-complete for poll ${pollId} (from API)`);
+                    await poll_service_1.PollService.completePollMultiWinner(pollId, user.id, {
+                        minVotes: 1,
+                        tieBreakMethod: 'earliest'
+                    });
+                    logger_1.logger.info(`Poll ${pollId} auto-completed successfully via API`);
+                }
+            }
+            catch (autoCompleteError) {
+                logger_1.logger.error('Auto-complete check/execution failed:', autoCompleteError);
+            }
             res.json({
                 success: true,
-                data: vote,
+                data: serializeBigInt(vote),
                 message: 'Vote cast successfully',
                 timestamp: new Date().toISOString(),
             });
@@ -630,7 +805,7 @@ class PollController {
             });
             res.json({
                 success: true,
-                data: result,
+                data: serializeBigInt(result),
                 message: 'Roulette completed successfully',
                 timestamp: new Date().toISOString(),
             });
@@ -676,7 +851,7 @@ class PollController {
             const popularItems = await menu_service_1.MenuService.getPopularMenuItems(limit);
             res.json({
                 success: true,
-                data: popularItems,
+                data: serializeBigInt(popularItems),
                 count: popularItems.length,
                 timestamp: new Date().toISOString(),
             });
@@ -688,6 +863,112 @@ class PollController {
                 error: 'Failed to get popular items',
                 code: 'INTERNAL_ERROR'
             });
+        }
+    }
+    static async completePollMultiWinner(req, res) {
+        try {
+            const { FEATURES } = await Promise.resolve().then(() => __importStar(require('../../config/features')));
+            if (!FEATURES.MULTI_WINNER_VOTING) {
+                res.status(503).json({
+                    success: false,
+                    error: 'Multi-Winner Voting is currently disabled',
+                    code: 'FEATURE_DISABLED',
+                });
+                return;
+            }
+            const pollId = parseInt(req.params.id);
+            const user = req.user;
+            if (isNaN(pollId)) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid poll ID',
+                    code: 'INVALID_ID',
+                });
+                return;
+            }
+            if (!user.isAdmin) {
+                res.status(403).json({
+                    success: false,
+                    error: 'Admin access required',
+                    code: 'FORBIDDEN',
+                });
+                return;
+            }
+            const { minVotes = 1, maxWinners = null, tieBreakMethod = 'earliest' } = req.body;
+            if (typeof minVotes !== 'number' || minVotes < 0 || minVotes > 100) {
+                res.status(400).json({
+                    success: false,
+                    error: 'minVotes must be a number between 0 and 100',
+                    code: 'INVALID_PARAMS',
+                });
+                return;
+            }
+            if (maxWinners !== null) {
+                if (typeof maxWinners !== 'number' || maxWinners < 1 || maxWinners > 50) {
+                    res.status(400).json({
+                        success: false,
+                        error: 'maxWinners must be null or a number between 1 and 50',
+                        code: 'INVALID_PARAMS',
+                    });
+                    return;
+                }
+            }
+            if (!['earliest', 'alphabetical'].includes(tieBreakMethod)) {
+                res.status(400).json({
+                    success: false,
+                    error: 'tieBreakMethod must be "earliest" or "alphabetical"',
+                    code: 'INVALID_PARAMS',
+                });
+                return;
+            }
+            const result = await poll_service_1.PollService.completePollMultiWinner(pollId, user.id, { minVotes, maxWinners, tieBreakMethod });
+            const resultData = JSON.parse(result.rouletteData || '{}');
+            logger_1.logger.info('Poll completed with multi-winner via API', {
+                pollId,
+                completedBy: user.id,
+                winnersCount: resultData.winners?.length || 0,
+                params: { minVotes, maxWinners, tieBreakMethod },
+            });
+            res.json({
+                success: true,
+                data: serializeBigInt({
+                    pollResult: result,
+                    resultData,
+                }),
+                message: 'Poll completed with multi-winner mode successfully',
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            logger_1.logger.error('Error completing poll multi-winner:', error);
+            if (error.message === 'Poll not found') {
+                res.status(404).json({
+                    success: false,
+                    error: 'Poll not found',
+                    code: 'NOT_FOUND',
+                });
+            }
+            else if (error.message.includes('already completed')) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Poll is already completed',
+                    code: 'ALREADY_COMPLETED',
+                });
+            }
+            else if (error.message.includes('not active')) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Poll is not active',
+                    code: 'NOT_ACTIVE',
+                });
+            }
+            else {
+                res.status(500).json({
+                    success: false,
+                    error: 'Internal server error',
+                    code: 'INTERNAL_ERROR',
+                });
+            }
         }
     }
 }

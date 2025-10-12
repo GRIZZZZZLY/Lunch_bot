@@ -17,7 +17,7 @@ async function validateInitDataMiddleware(req, res, next) {
                 logger_1.logger.warn('⚠️  SKIP_TELEGRAM_VALIDATION: No auth header - using test user');
                 const testUserId = process.env.TEST_USER_ID || '123456789';
                 const dbUser = await userService.createOrUpdate({
-                    telegramId: BigInt(testUserId),
+                    telegramId: BigInt(testUserId).toString(),
                     username: 'dev_user',
                     firstName: 'Dev',
                     lastName: 'User',
@@ -65,7 +65,7 @@ async function validateInitDataMiddleware(req, res, next) {
             }
             const testUserId = process.env.TEST_USER_ID || '123456789';
             const dbUser = await userService.createOrUpdate({
-                telegramId: BigInt(testUserId),
+                telegramId: BigInt(testUserId).toString(),
                 username: 'dev_user',
                 firstName: 'Dev',
                 lastName: 'User',

@@ -8,6 +8,7 @@ exports.startApiServer = startApiServer;
 exports.stopApiServer = stopApiServer;
 const express_1 = __importDefault(require("express"));
 const helmet_1 = __importDefault(require("helmet"));
+const path_1 = __importDefault(require("path"));
 const cors_1 = require("./middleware/cors");
 const error_handler_1 = require("./middleware/error-handler");
 const api_config_1 = require("../config/api.config");
@@ -22,6 +23,10 @@ function createApiServer() {
         contentSecurityPolicy: false,
         crossOriginEmbedderPolicy: false,
     }));
+    app.use((req, res, next) => {
+        res.setHeader('ngrok-skip-browser-warning', 'true');
+        next();
+    });
     app.use(cors_1.corsMiddleware);
     app.use(express_1.default.json({ limit: '10mb' }));
     app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
@@ -38,10 +43,10 @@ function createApiServer() {
             },
         });
     });
-    app.use('/auth', auth_routes_1.default);
-    app.use('/menu', menu_routes_1.default);
-    app.use('/polls', poll_routes_1.default);
-    app.use('/user', user_routes_1.default);
+    app.use('/api/auth', auth_routes_1.default);
+    app.use('/api/menu', menu_routes_1.default);
+    app.use('/api/polls', poll_routes_1.default);
+    app.use('/api/user', user_routes_1.default);
     app.use('/api/stats', (req, res) => {
         res.json({
             success: false,
@@ -51,6 +56,29 @@ function createApiServer() {
         });
     });
     app.use('/uploads', express_1.default.static(api_config_1.apiConfig.uploadPath));
+    const projectRoot = path_1.default.join(__dirname, '../../..');
+    const frontendDistPath = path_1.default.join(projectRoot, 'frontend/dist');
+    logger_1.logger.info(`Frontend static path: ${frontendDistPath}`);
+    app.use((req, res, next) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        next();
+    });
+    app.use(express_1.default.static(frontendDistPath, {
+        maxAge: 0,
+        etag: false,
+    }));
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api/')) {
+            return next();
+        }
+        res.sendFile(path_1.default.join(frontendDistPath, 'index.html'), (err) => {
+            if (err) {
+                next(err);
+            }
+        });
+    });
     app.use(error_handler_1.notFoundHandler);
     app.use(error_handler_1.errorHandler);
     logger_1.logger.info('API сервер настроен', {

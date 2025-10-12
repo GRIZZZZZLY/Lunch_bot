@@ -6,15 +6,17 @@
 
 ## 🚀 Быстрый старт
 
-### Для продолжения работы над фронтендом:
-1. 📖 **[FRONTEND_QUICK_REFERENCE.md](./FRONTEND_QUICK_REFERENCE.md)** - Краткая справка (начни отсюда!)
-2. 📋 **[FRONTEND_CURRENT_STATE.md](./FRONTEND_CURRENT_STATE.md)** - Полное описание текущего состояния
-3. 📝 **[SESSION_CHANGES_2025-10-07.md](./SESSION_CHANGES_2025-10-07.md)** - Что было сделано в последней сессии
-4. ⭐ **[QUICK_ACTIONS_SPEC.md](./QUICK_ACTIONS_SPEC.md)** - Спецификация Quick Actions v2.0 (в работе)
+### ⚡ Самое актуальное (январь 2025):
+1. 🎨 **[07-ux-audit/UX_AUDIT_COMPLETE_2025-01.md](./07-ux-audit/UX_AUDIT_COMPLETE_2025-01.md)** - Полный UX/UI аудит + приоритизированный план оптимизаций
+2. 🏆 **[08-multi-winner/MULTI_WINNER_VOTING_IMPLEMENTATION.md](./08-multi-winner/MULTI_WINNER_VOTING_IMPLEMENTATION.md)** - Multi-Winner Voting: Implementation Guide
+3. 🗺️ **[ROADMAP.md](./ROADMAP.md)** - План развития проекта
+4. 🏗️ **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Архитектура системы
+5. 📡 **[API.md](./API.md)** - API документация
 
-### Для понимания истории проекта:
-4. 🎨 **[FRONTEND_REDESIGN_PROGRESS.md](./FRONTEND_REDESIGN_PROGRESS.md)** - История редизайна (все фазы)
-5. ✅ **[HOW_TO_ACTIVATE_NEW_HOMEPAGE.md](./HOW_TO_ACTIVATE_NEW_HOMEPAGE.md)** - Как активировать новую версию
+### Для быстрого старта:
+- 🚀 **[01-getting-started/QUICK_START.md](./01-getting-started/QUICK_START.md)** - Быстрый старт
+- ⚙️ **[SETUP.md](./SETUP.md)** - Настройка окружения
+- 💻 **[02-development/README.md](./02-development/README.md)** - Руководство по разработке
 
 ---
 
@@ -46,27 +48,59 @@
 Тестирование:
 - `TESTING_GUIDE_DETAILED.md` - Подробное руководство по тестированию
 
+### 📁 07-ux-audit/ ⭐
+**UX/UI аудит и оптимизации (январь 2025):**
+- `UX_AUDIT_COMPLETE_2025-01.md` - Полный аудит 30+ проблем
+- `P0_FINAL_REPORT.md` - Критичные исправления (accessibility, performance, security)
+- `P1_FINAL_COMPLETE.md` - Production-ready оптимизации (React Query, Sentry, Analytics)
+- `P2_FINAL_COMPLETE.md` - Advanced UX (E2E tests, pull-to-refresh, swipe, undo/redo)
+
+### 📁 08-multi-winner/ ⭐
+**Multi-Winner Voting документация (новое!):**
+- `MULTI_WINNER_VOTING_IMPLEMENTATION.md` - Полное руководство по внедрению (1859 строк)
+- `MULTI_WINNER_API_SPEC.md` - OpenAPI-style спецификация
+- `MULTI_WINNER_FAQ.md` - FAQ + Troubleshooting
+- `examples/` - Готовые примеры кода
+- `diagrams/` - Mermaid диаграммы flow
+
 ### 📁 archive/
-Архив старых документов
+Архив устаревших документов (см. [archive/README.md](./archive/README.md)):
+- `sessions/` - Отчеты о рабочих сессиях
+- `snapshots/` - Snapshots состояния проекта
+- `redesign/` - Завершенные работы по редизайну
+- `ux-old/` - Старая UX документация (заменена на 07-ux-audit/)
+- `reports/` - Завершенные отчеты
+- `frontend-history/` - История frontend трансформаций
 
 ---
 
-## 🎯 Текущий статус проекта
+## 🎯 Текущий статус проекта (январь 2025)
 
-### Фронтенд: ✅ v2.0 - Полный редизайн завершен
-- ✅ Glassmorphism дизайн
+### Фронтенд: ✅ v2.0 - Production Ready (8.8/10)
+**Завершено:**
+- ✅ Glassmorphism дизайн система
 - ✅ Динамическая цветовая палитра (peach, mint, lavender, coral, butter)
-- ✅ Темная и светлая темы
-- ✅ HomePage полностью обновлена
-- ✅ DonationBar (swipeable notification)
-- ✅ Модалка донатов обновлена
-- 🚧 Quick Actions v2.0 (в работе - см. QUICK_ACTIONS_SPEC.md)
-- ⏳ Остальные страницы ждут обновления
+- ✅ Темная и светлая темы с плавным переключением
+- ✅ Полный редизайн всех страниц (HomePage, MenuPage, StatsPage, VotingPage)
+- ✅ P0/P1/P2 UX оптимизации (см. 07-ux-audit/)
+  - Accessibility: WCAG AA 78% (было 54%)
+  - Performance: FCP 1.2s, TTI 2.0s
+  - React Query + optimistic updates
+  - Sentry + Analytics
+  - E2E + Component тестирование
+  - Pull-to-refresh, Swipe gestures, Undo/Redo
 
-### Бэкенд: ✅ Работает
-- ✅ Prisma ORM
-- ✅ API готов
-- ✅ Авторизация
+**В разработке:**
+- 🚧 Multi-Winner Voting (spec готова - см. 08-multi-winner/)
+- 🚧 AI персонализация (P3)
+
+### Бэкенд: ✅ Production Ready
+- ✅ Prisma ORM + SQLite
+- ✅ RESTful API
+- ✅ Telegram Bot API интеграция
+- ✅ Авторизация через Telegram WebApp
+- ✅ Roulette система
+- ✅ Voting система (single-winner)
 
 ---
 
@@ -89,12 +123,18 @@
 
 ---
 
-## 📊 Последние изменения (07.10.2025)
+## 📊 Последние изменения (10.01.2025)
 
-### ✨ Добавлено:
-- DonationBar - swipeable баннер поддержки проекта
-- Динамический header по времени дня
-- Полная документация состояния фронтенда
+### 🎉 Крупные обновления:
+- ✅ **UX/UI Аудит завершен** - 30+ проблем выявлено, все P0/P1/P2 задачи реализованы
+- ✅ **Multi-Winner Voting Spec** - Полная документация по новому сценарию голосования
+- ✅ **Архивация документации** - Устаревшие документы организованы в archive/
+
+### 📚 Документация:
+- Создана папка `07-ux-audit/` с полным UX аудитом (2029 строк)
+- Создана папка `08-multi-winner/` с Implementation Guide (1859 строк)
+- Архивированы завершенные работы (sessions, snapshots, redesign, ux-old, reports)
+- Обновлен главный README.md с актуальными ссылками
 
 ### 🐛 Исправлено:
 - Импорт HomePage

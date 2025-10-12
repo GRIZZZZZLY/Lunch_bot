@@ -27,6 +27,7 @@ export declare function createPollMessage(pollData: {
     votes: Map<number, VoteWithDetails[]>;
     totalVotes: number;
 }): string;
+export declare function formatMultiWinnerResults(resultData: any): string;
 export declare function createResultsMessage(pollData: {
     poll: any;
     result?: any;

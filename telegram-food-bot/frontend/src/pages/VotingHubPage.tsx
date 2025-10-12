@@ -158,8 +158,8 @@ export const VotingHubPage: React.FC = () => {
   const handlePollCreated = (pollId: number) => {
     hapticFeedback.notificationOccurred('success');
     closePollSheet();
-    // Перенаправляем на созданное голосование
-    navigate(`/vote/${pollId}`);
+    // Перенаправляем на главную страницу (там тоже можно голосовать)
+    navigate('/');
   };
 
   const handleViewHistory = () => {

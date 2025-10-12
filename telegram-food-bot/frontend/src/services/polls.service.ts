@@ -14,6 +14,7 @@ export interface Poll {
   endedAt?: string;
   endTime?: string; // Alias for endedAt (used in frontend)
   messageId?: number;
+  selectedMenuItemIds?: string; // JSON array of menu item IDs selected for this poll
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -396,6 +397,30 @@ class PollsService {
   }>> {
     const url = userId ? `/polls/user-stats/${userId}` : '/polls/user-stats/my';
     return await apiService.get<any>(url);
+  }
+
+  /**
+   * Получение последнего завершённого голосования
+   * Используется для функции "Повторить вчерашнее"
+   */
+  async getLastCompleted(): Promise<ApiResponse<Poll | null>> {
+    return await apiService.get<Poll | null>('/polls/last-completed');
+  }
+
+  /**
+   * Повторить голосование (создать копию)
+   * Доступно только для админов
+   */
+  async repeatPoll(pollId: number): Promise<ApiResponse<Poll>> {
+    console.log('🔄 [PollsService] repeatPoll called with ID:', pollId);
+    try {
+      const response = await apiService.post<Poll>(`/polls/repeat/${pollId}`);
+      console.log('✅ [PollsService] repeatPoll response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [PollsService] repeatPoll error:', error);
+      throw error;
+    }
   }
 
   /**

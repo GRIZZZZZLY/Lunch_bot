@@ -27,7 +27,7 @@ export async function validateInitDataMiddleware(
         
         const testUserId = process.env.TEST_USER_ID || '123456789';
         const dbUser = await userService.createOrUpdate({
-          telegramId: BigInt(testUserId),
+          telegramId: BigInt(testUserId).toString(),
           username: 'dev_user',
           firstName: 'Dev',
           lastName: 'User',
@@ -90,7 +90,7 @@ export async function validateInitDataMiddleware(
       // Если не смогли распарсить - используем тестового пользователя
       const testUserId = process.env.TEST_USER_ID || '123456789';
       const dbUser = await userService.createOrUpdate({
-        telegramId: BigInt(testUserId),
+        telegramId: BigInt(testUserId).toString(),
         username: 'dev_user',
         firstName: 'Dev',
         lastName: 'User',

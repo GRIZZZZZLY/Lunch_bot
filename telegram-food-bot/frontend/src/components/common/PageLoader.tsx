@@ -1,5 +1,4 @@
 import React from 'react';
-import { RocketLoader } from './RocketLoader';
 import { LoadingSpinner } from './LoadingSpinner';
 
 /**
@@ -8,7 +7,7 @@ import { LoadingSpinner } from './LoadingSpinner';
 export const PageLoader: React.FC = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-      <RocketLoader text="Летим" size="lg" />
+      <LoadingSpinner size="lg" />
     </div>
   );
 };
@@ -19,7 +18,7 @@ export const PageLoader: React.FC = () => {
 export const MinimalPageLoader: React.FC = () => {
   return (
     <div className="flex items-center justify-center p-8">
-      <RocketLoader text="Летим" size="md" />
+      <LoadingSpinner size="md" />
     </div>
   );
 };

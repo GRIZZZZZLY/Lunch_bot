@@ -5,6 +5,7 @@ export interface CreatePollData {
     createdBy: number;
     title?: string;
     description?: string;
+    selectedMenuItemIds?: string;
 }
 export interface UpdatePollData {
     title?: string;

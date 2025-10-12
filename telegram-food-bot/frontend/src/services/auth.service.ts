@@ -37,7 +37,7 @@ class AuthService {
       }
 
       // Если initData пустой - отправляем пустую строку (backend создаст test user)
-      const response = await apiService.post<any>('/auth/validate', { 
+      const response = await apiService.post<{ success: boolean; user: User; token: string }>('/auth/validate', { 
         initData: initData || 'mock_jwt_token_12345678' 
       });
 
@@ -76,9 +76,9 @@ class AuthService {
    */
   async getAuthStatus(): Promise<AuthStatusResponse> {
     try {
-      const response = await apiService.get<any>('/auth/status');
+      const response = await apiService.get<{ success: boolean; authenticated: boolean; user: User; timestamp: string }>('/auth/status');
 
-      if (response.success) {
+      if (response.success && response.authenticated !== undefined) {
         return {
           success: true,
           authenticated: response.authenticated,
@@ -106,7 +106,7 @@ class AuthService {
    */
   async refreshAuth(): Promise<AuthResponse> {
     try {
-      const response = await apiService.post<any>('/auth/refresh');
+      const response = await apiService.post<{ success: boolean; user: User; token: string }>('/auth/refresh');
 
       if (response.success && response.user && response.token) {
         return {

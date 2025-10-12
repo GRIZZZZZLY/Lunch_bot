@@ -10,7 +10,16 @@ exports.botConfig = {
     token: process.env.BOT_TOKEN || '',
     webhookUrl: process.env.BOT_WEBHOOK_URL || '',
     secretKey: process.env.TELEGRAM_SECRET_KEY || process.env.BOT_TOKEN || '',
-    mode: process.env.NODE_ENV === 'production' ? 'webhook' : 'polling',
+    proxy: {
+        enabled: process.env.USE_PROXY === 'true',
+        url: process.env.PROXY_URL || '',
+    },
+    localApi: {
+        enabled: process.env.USE_LOCAL_API === 'true',
+        url: process.env.LOCAL_API_URL || 'http://localhost:8081',
+    },
+    mode: process.env.BOT_MODE ||
+        (process.env.NODE_ENV === 'production' ? 'webhook' : 'polling'),
     polling: {
         interval: parseInt(process.env.POLLING_INTERVAL || '1000'),
         timeout: parseInt(process.env.POLLING_TIMEOUT || '30'),

@@ -49,7 +49,7 @@ async function closeExpiredPolls() {
       const hoursSinceEnd = Math.floor((now.getTime() - endsAt.getTime()) / (1000 * 60 * 60));
 
       console.log(`  Poll ID: ${poll.id}`);
-      console.log(`  Group: ${poll.group.title} (ID: ${poll.group_id})`);
+      console.log(`  Group: ${poll.group.title} (ID: ${poll.groupId})`);
       console.log(`  Ended at: ${endsAt.toISOString()}`);
       console.log(`  Hours ago: ${hoursSinceEnd}h`);
       console.log('');

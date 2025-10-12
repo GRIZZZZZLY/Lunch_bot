@@ -41,14 +41,42 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
 
   const loadMenuItems = async () => {
     try {
+      console.log('[ActivePollWidget] Loading menu items...');
+      console.log('[ActivePollWidget] poll.selectedMenuItemIds:', poll.selectedMenuItemIds);
+      
       const response = await menuService.getActiveItems();
       if (response.success && response.data) {
-        setMenuItems(response.data);
-        // Get top 3 items for quick vote
-        setTopItems(response.data.slice(0, 3));
+        let items = response.data;
+        console.log('[ActivePollWidget] All active items loaded:', items.length);
+        
+        // Фильтруем по выбранным блюдам, если они указаны в poll
+        if (poll.selectedMenuItemIds) {
+          try {
+            const selectedIds = JSON.parse(poll.selectedMenuItemIds);
+            if (Array.isArray(selectedIds) && selectedIds.length > 0) {
+              console.log('[ActivePollWidget] Filtering by selectedIds:', selectedIds);
+              items = items.filter(item => selectedIds.includes(item.id));
+              console.log('[ActivePollWidget] ✅ Filtered menu items:', {
+                allItems: response.data.length,
+                selectedItems: items.length,
+                selectedIds,
+                filteredItemIds: items.map(i => i.id)
+              });
+            }
+          } catch (parseError) {
+            console.warn('[ActivePollWidget] Failed to parse selectedMenuItemIds:', parseError);
+          }
+        } else {
+          console.warn('[ActivePollWidget] ⚠️ No selectedMenuItemIds in poll, showing all items');
+        }
+        
+        console.log('[ActivePollWidget] Setting topItems:', items.length);
+        setMenuItems(items);
+        // Показываем ВСЕ выбранные блюда для голосования
+        setTopItems(items);
       }
     } catch (error) {
-      console.error('Error loading menu items:', error);
+      console.error('[ActivePollWidget] Error loading menu items:', error);
     }
   };
 
@@ -162,7 +190,16 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
       {/* Voters Avatars */}
       {poll.votes && poll.votes.length > 0 && (
         <div className="mb-4">
-          <VotersAvatars votes={poll.votes} maxDisplay={5} />
+          <VotersAvatars 
+            voters={poll.votes.map(v => ({
+              id: v.user.id,
+              firstName: v.user.firstName,
+              lastName: v.user.lastName,
+              username: v.user.username,
+              telegramId: (v.user as any).telegramId ? BigInt((v.user as any).telegramId) : BigInt(v.user.id)
+            }))} 
+            maxDisplay={5} 
+          />
         </div>
       )}
 

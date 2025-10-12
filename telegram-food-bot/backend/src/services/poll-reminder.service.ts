@@ -167,12 +167,14 @@ export class PollReminderService {
       const poll = await PollService.getPollById(pollId);
       if (!poll || !poll.group) return;
 
+      // TODO: getUsersByGroupId method not implemented yet
       // Получаем всех пользователей группы
-      const groupMembers = await UserService.getUsersByGroupId?.(poll.group.id) || [];
+      // const groupMembers = await UserService.getUsersByGroupId?.(poll.group.id) || [];
+      const groupMembers: any[] = [];
       
       // Фильтруем тех, кто еще не проголосовал
       const votedUserIds = new Set(poll.votes?.map(v => v.userId) || []);
-      const notVotedUsers = groupMembers.filter(user => !votedUserIds.has(user.id));
+      const notVotedUsers = groupMembers.filter((user: any) => !votedUserIds.has(user.id));
 
       // Отправляем персональные уведомления (максимум 50 за раз)
       const usersToNotify = notVotedUsers.slice(0, 50);

@@ -64,21 +64,22 @@ model MenuItem {
 }
 
 model Poll {
-  id        Int         @id @default(autoincrement())
-  groupId   Int         @map("group_id")
-  status    String      @default("ACTIVE")
-  duration  Int         @default(30)
-  startedAt DateTime    @default(now()) @map("started_at")
-  endedAt   DateTime?   @map("ended_at")
-  createdBy Int         @map("created_by")
-  messageId Int?        @map("message_id")
-  chatId    BigInt?     @map("chat_id")
-  createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt @map("updated_at")
-  result    PollResult?
-  creator   User        @relation("PollCreator", fields: [createdBy], references: [id])
-  group     Group       @relation(fields: [groupId], references: [id])
-  votes     Vote[]
+  id                   Int         @id @default(autoincrement())
+  groupId              Int         @map("group_id")
+  status               String      @default("ACTIVE")
+  duration             Int         @default(30)
+  startedAt            DateTime    @default(now()) @map("started_at")
+  endedAt              DateTime?   @map("ended_at")
+  createdBy            Int         @map("created_by")
+  messageId            Int?        @map("message_id")
+  chatId               BigInt?     @map("chat_id")
+  selectedMenuItemIds  String?     @map("selected_menu_item_ids") // JSON array of menu item IDs
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+  result               PollResult?
+  creator              User        @relation("PollCreator", fields: [createdBy], references: [id])
+  group                Group       @relation(fields: [groupId], references: [id])
+  votes                Vote[]
 
   @@index([status])
   @@index([startedAt])

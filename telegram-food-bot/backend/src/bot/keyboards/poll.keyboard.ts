@@ -304,6 +304,102 @@ function createProgressBar(percentage: number, length: number = 10): string {
 }
 
 /**
+ * Вспомогательная функция для множественного числа
+ */
+function getPluralForm(
+  count: number,
+  one: string,
+  few: string,
+  many: string
+): string {
+  if (count % 10 === 1 && count % 100 !== 11) return one;
+  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+    return few;
+  }
+  return many;
+}
+
+/**
+ * Форматирование результатов Multi-Winner для Telegram
+ * 
+ * @param resultData - MultiWinnerResultData из rouletteData
+ * @returns HTML-форматированное сообщение для Telegram
+ */
+export function formatMultiWinnerResults(resultData: any): string {
+  let message = '🍽 <b>Результаты голосования:</b>\n\n';
+
+  // Winners
+  if (resultData.winners.length > 0) {
+    resultData.winners.forEach((winner: any, index: number) => {
+      const emoji = index === 0 ? '🏆' : '🍴';
+      const plural = getPluralForm(winner.voteCount, 'человек', 'человека', 'человек');
+
+      message += `${emoji} <b>${winner.menuItemName}</b> — ${winner.voteCount} ${plural}\n`;
+
+      // Прогрессивное раскрытие: Если > 5 человек - показываем первых 5 + "еще N"
+      const voterNames = winner.voters.map((v: any) => v.firstName);
+      if (voterNames.length <= 5) {
+        message += `   👤 ${voterNames.join(', ')}\n`;
+      } else {
+        const shown = voterNames.slice(0, 5).join(', ');
+        const remaining = voterNames.length - 5;
+        message += `   👤 ${shown} и еще ${remaining}\n`;
+      }
+
+      message += '\n';
+    });
+  } else {
+    message += '   <i>Нет голосов за блюда</i>\n\n';
+  }
+
+  // Bring Own
+  if (resultData.bringOwn.count > 0) {
+    const plural = getPluralForm(
+      resultData.bringOwn.count,
+      'человек',
+      'человека',
+      'человек'
+    );
+    message += `🏠 <b>Принесу своё</b> — ${resultData.bringOwn.count} ${plural}\n`;
+
+    const names = resultData.bringOwn.voters.map((v: any) => v.firstName);
+    if (names.length <= 5) {
+      message += `   ${names.join(', ')}\n\n`;
+    } else {
+      message += `   ${names.slice(0, 5).join(', ')} и еще ${names.length - 5}\n\n`;
+    }
+  }
+
+  // Skipped
+  if (resultData.skipped.count > 0) {
+    const plural = getPluralForm(
+      resultData.skipped.count,
+      'человек',
+      'человека',
+      'человек'
+    );
+    message += `🚫 <b>Пропускаю</b> — ${resultData.skipped.count} ${plural}\n\n`;
+  }
+
+  // Tie-break
+  if (resultData.meta.tieBreak) {
+    message += `ℹ️ <i>${resultData.meta.tieBreak.reason}, выбрано по методу: ${resultData.meta.tieBreak.method}</i>\n\n`;
+  }
+
+  // Telegram Message Length Limit: 4096 символов
+  if (message.length > 3500) {
+    message = message.substring(0, 3500);
+    message += `\n\n📊 Смотреть полные результаты в приложении`;
+  }
+
+  // Footer
+  const completedAt = new Date(resultData.meta.completedAt).toLocaleString('ru-RU');
+  message += `⏱ Завершено: ${completedAt}`;
+
+  return message;
+}
+
+/**
  * Создание сообщения с результатами голосования
  */
 export function createResultsMessage(pollData: {

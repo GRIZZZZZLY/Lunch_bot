@@ -1,16 +1,52 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PollService = void 0;
 exports.initializePollServiceBot = initializePollServiceBot;
 const client_1 = require("@prisma/client");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
+const group_service_1 = require("./group.service");
 const cache_service_1 = require("./cache.service");
 let botInstance = null;
 function initializePollServiceBot(bot) {
     botInstance = bot;
     logger_1.logger.info('PollService bot instance initialized');
 }
+const memberCountCache = new Map();
+const MEMBER_COUNT_CACHE_TTL = 2 * 60 * 60 * 1000;
 class PollService {
     static async createPoll(data) {
         try {
@@ -106,12 +142,33 @@ class PollService {
             });
             logger_1.logger.info(`📊 Found ${polls.length} polls with ACTIVE status`);
             const now = new Date();
-            const activePolls = polls.filter((poll) => {
+            const activePolls = [];
+            const expiredPollIds = [];
+            for (const poll of polls) {
                 const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
                 const isActive = endsAt > now;
                 logger_1.logger.info(`Poll ${poll.id}: ends=${endsAt.toISOString()}, now=${now.toISOString()}, active=${isActive}`);
-                return isActive;
-            });
+                if (isActive) {
+                    activePolls.push(poll);
+                }
+                else {
+                    expiredPollIds.push(poll.id);
+                    logger_1.logger.info(`⏰ Poll ${poll.id} expired, auto-closing...`);
+                }
+            }
+            if (expiredPollIds.length > 0) {
+                client_2.prisma.poll.updateMany({
+                    where: { id: { in: expiredPollIds } },
+                    data: {
+                        status: 'COMPLETED',
+                        endedAt: now
+                    }
+                }).then(() => {
+                    logger_1.logger.info(`✅ Auto-closed ${expiredPollIds.length} expired polls: ${expiredPollIds.join(', ')}`);
+                }).catch((err) => {
+                    logger_1.logger.error(`❌ Failed to auto-close expired polls:`, err);
+                });
+            }
             logger_1.logger.info(`✅ Returning ${activePolls.length} active polls`);
             const serializedPolls = activePolls.map(poll => ({
                 ...poll,
@@ -148,6 +205,8 @@ class PollService {
             }
             const voteCount = new Map();
             poll.votes.forEach(vote => {
+                if (!vote.menuItemId || !vote.menuItem)
+                    return;
                 const current = voteCount.get(vote.menuItemId) || { count: 0, menuItem: vote.menuItem };
                 voteCount.set(vote.menuItemId, { count: current.count + 1, menuItem: vote.menuItem });
             });
@@ -179,6 +238,14 @@ class PollService {
             });
             cache_service_1.CacheInvalidator.invalidatePoll(pollId, poll.groupId);
             logger_1.logger.info(`Poll completed: ${pollId}, winner: ${winnerMenuItemId}, total votes: ${poll.votes.length}`);
+            try {
+                const { notificationService } = await Promise.resolve().then(() => __importStar(require('./notification.service.js')));
+                await notificationService.sendPollCompletionNotifications(pollId);
+                logger_1.logger.info(`Completion notifications sent for poll ${pollId}`);
+            }
+            catch (notifError) {
+                logger_1.logger.error('Error sending completion notifications:', notifError);
+            }
             return await this.getPollResult(result.id);
         }
         catch (error) {
@@ -190,13 +257,23 @@ class PollService {
             throw new Error('Failed to complete poll');
         }
     }
-    static async cancelPoll(pollId) {
+    static async cancelPoll(pollId, cancelledBy, reason) {
         try {
             const poll = await client_2.prisma.poll.update({
                 where: { id: pollId },
-                data: { status: 'COMPLETED' },
+                data: {
+                    status: 'CANCELLED',
+                    endedAt: new Date()
+                },
             });
-            logger_1.logger.info(`Poll cancelled: ${pollId}`);
+            const user = await client_2.prisma.user.findUnique({
+                where: { id: cancelledBy }
+            });
+            if (user) {
+                const { notificationService } = await Promise.resolve().then(() => __importStar(require('./notification.service.js')));
+                await notificationService.sendPollCancelledNotifications(pollId, user, reason);
+            }
+            logger_1.logger.info(`Poll cancelled: ${pollId} by user ${cancelledBy}`, { reason });
             return poll;
         }
         catch (error) {
@@ -254,6 +331,9 @@ class PollService {
             return result;
         }
         catch (error) {
+            if (error instanceof Error && error.message === 'Poll result not found') {
+                throw error;
+            }
             logger_1.logger.error('Error getting poll result:', error);
             throw new Error('Failed to get poll result');
         }
@@ -342,6 +422,9 @@ class PollService {
                         duration: true,
                         startedAt: true,
                         endedAt: true,
+                        createdBy: true,
+                        messageId: true,
+                        chatId: true,
                         createdAt: true,
                         updatedAt: true,
                         group: {
@@ -392,6 +475,26 @@ class PollService {
         catch (error) {
             logger_1.logger.error('Error getting poll history:', error);
             throw new Error('Failed to get poll history');
+        }
+    }
+    static async getLastCompletedPoll(groupId) {
+        try {
+            const where = {
+                status: 'COMPLETED',
+                ...(groupId && { groupId }),
+            };
+            const poll = await client_2.prisma.poll.findFirst({
+                where,
+                orderBy: { endedAt: 'desc' },
+                include: {
+                    group: true,
+                },
+            });
+            return poll;
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting last completed poll:', error);
+            throw error;
         }
     }
     static async getPollStats(groupId) {
@@ -472,6 +575,8 @@ class PollService {
             const totalVotes = poll.votes.length;
             const breakdown = new Map();
             poll.votes.forEach(vote => {
+                if (!vote.menuItemId || !vote.menuItem)
+                    return;
                 const key = vote.menuItemId;
                 const existing = breakdown.get(key) || {
                     menuItemId: vote.menuItemId,
@@ -493,6 +598,9 @@ class PollService {
             })).sort((a, b) => b.votes - a.votes);
         }
         catch (error) {
+            if (error instanceof Error && error.message === 'Poll not found') {
+                throw error;
+            }
             logger_1.logger.error('Error getting poll vote breakdown:', error);
             throw new Error('Failed to get poll vote breakdown');
         }
@@ -539,6 +647,282 @@ class PollService {
         catch (error) {
             logger_1.logger.error('Error saving poll result:', error);
             throw new Error('Failed to save poll result');
+        }
+    }
+    static async completePollMultiWinner(pollId, completedBy, options) {
+        const { minVotes = 1, maxWinners = null, tieBreakMethod = 'earliest' } = options || {};
+        try {
+            const poll = await client_2.prisma.poll.findUnique({
+                where: { id: pollId },
+                include: {
+                    votes: {
+                        include: {
+                            user: true,
+                            menuItem: true,
+                        },
+                    },
+                    group: true,
+                },
+            });
+            if (!poll) {
+                throw new Error('Poll not found');
+            }
+            if (poll.status === 'COMPLETED') {
+                const existingResult = await client_2.prisma.pollResult.findUnique({
+                    where: { pollId },
+                    include: {
+                        winnerMenuItem: true,
+                        responsibleUser: true,
+                    },
+                });
+                if (existingResult) {
+                    logger_1.logger.info(`Poll ${pollId} already completed, returning existing result`);
+                    return existingResult;
+                }
+            }
+            if (poll.status !== 'ACTIVE') {
+                throw new Error('Poll is not active');
+            }
+            const menuItemVotes = new Map();
+            const bringOwnVotes = [];
+            const skippedVotes = [];
+            poll.votes.forEach(vote => {
+                if (vote.voteType === 'MENU_ITEM' && vote.menuItemId && vote.menuItem) {
+                    if (!menuItemVotes.has(vote.menuItemId)) {
+                        menuItemVotes.set(vote.menuItemId, []);
+                    }
+                    menuItemVotes.get(vote.menuItemId).push(vote);
+                }
+                else if (vote.voteType === 'BRING_OWN') {
+                    bringOwnVotes.push(vote);
+                }
+                else if (vote.voteType === 'SKIP') {
+                    skippedVotes.push(vote);
+                }
+            });
+            let winners = Array.from(menuItemVotes.entries())
+                .filter(([_, votes]) => votes.length >= minVotes)
+                .map(([itemId, votes]) => {
+                const menuItem = votes[0].menuItem;
+                return {
+                    menuItemId: itemId,
+                    menuItemName: menuItem.name,
+                    menuItemSnapshot: {
+                        price: menuItem.price ?? undefined,
+                        category: menuItem.category ?? undefined,
+                        imageUrl: menuItem.imageUrl ?? undefined,
+                    },
+                    voterIds: votes.map(v => v.userId),
+                    voters: votes.map(v => ({
+                        userId: v.user.id,
+                        firstName: v.user.firstName,
+                        lastName: v.user.lastName ?? undefined,
+                        username: v.user.username ?? undefined,
+                    })),
+                    voteCount: votes.length,
+                    votedAt: votes.map(v => v.createdAt.toISOString()),
+                };
+            })
+                .sort((a, b) => b.voteCount - a.voteCount);
+            if (maxWinners && maxWinners > 0) {
+                winners = winners.slice(0, maxWinners);
+            }
+            let primaryWinnerId = null;
+            let tieBreak = undefined;
+            if (winners.length > 0) {
+                const maxVotes = winners[0].voteCount;
+                const topWinners = winners.filter(w => w.voteCount === maxVotes);
+                if (topWinners.length === 1) {
+                    primaryWinnerId = topWinners[0].menuItemId;
+                }
+                else {
+                    if (tieBreakMethod === 'earliest') {
+                        const earliest = topWinners.reduce((prev, curr) => {
+                            const prevTime = new Date(prev.votedAt[0]).getTime();
+                            const currTime = new Date(curr.votedAt[0]).getTime();
+                            return currTime < prevTime ? curr : prev;
+                        });
+                        primaryWinnerId = earliest.menuItemId;
+                    }
+                    else if (tieBreakMethod === 'alphabetical') {
+                        const sorted = [...topWinners].sort((a, b) => a.menuItemName.localeCompare(b.menuItemName, 'ru'));
+                        primaryWinnerId = sorted[0].menuItemId;
+                    }
+                    tieBreak = {
+                        method: tieBreakMethod,
+                        appliedTo: topWinners.map(w => w.menuItemId),
+                        reason: `${topWinners.length} блюд с ${maxVotes} голосами`,
+                    };
+                    logger_1.logger.info(`Tie-break applied for poll ${pollId}`, {
+                        method: tieBreakMethod,
+                        topWinners: topWinners.map(w => ({ id: w.menuItemId, name: w.menuItemName })),
+                        selected: primaryWinnerId,
+                    });
+                }
+            }
+            const bringOwnGroup = {
+                voterIds: bringOwnVotes.map(v => v.userId),
+                voters: bringOwnVotes.map(v => ({
+                    userId: v.user.id,
+                    firstName: v.user.firstName,
+                    lastName: v.user.lastName ?? undefined,
+                    username: v.user.username ?? undefined,
+                })),
+                count: bringOwnVotes.length,
+            };
+            const skippedGroup = {
+                voterIds: skippedVotes.map(v => v.userId),
+                voters: skippedVotes.map(v => ({
+                    userId: v.user.id,
+                    firstName: v.user.firstName,
+                    lastName: v.user.lastName ?? undefined,
+                    username: v.user.username ?? undefined,
+                })),
+                count: skippedVotes.length,
+            };
+            const resultData = {
+                version: 1,
+                mode: 'multi-winner',
+                winners,
+                bringOwn: bringOwnGroup,
+                skipped: skippedGroup,
+                meta: {
+                    primaryWinnerId,
+                    tieBreak,
+                    completedAt: new Date().toISOString(),
+                    completedBy,
+                    params: { minVotes, maxWinners },
+                },
+            };
+            const result = await client_2.prisma.$transaction(async (tx) => {
+                await tx.poll.update({
+                    where: { id: pollId },
+                    data: {
+                        status: 'COMPLETED',
+                        endedAt: new Date(),
+                    },
+                });
+                return await tx.pollResult.create({
+                    data: {
+                        pollId,
+                        winnerMenuItemId: primaryWinnerId,
+                        totalVotes: poll.votes.length,
+                        responsibleUserId: completedBy,
+                        rouletteData: JSON.stringify(resultData),
+                    },
+                    include: {
+                        winnerMenuItem: true,
+                        responsibleUser: true,
+                    },
+                });
+            });
+            cache_service_1.CacheInvalidator.invalidatePoll(pollId, poll.groupId);
+            logger_1.logger.info(`Poll ${pollId} completed with multi-winner mode`, {
+                winnersCount: winners.length,
+                bringOwnCount: bringOwnVotes.length,
+                skippedCount: skippedVotes.length,
+                primaryWinnerId,
+                totalVotes: poll.votes.length,
+            });
+            try {
+                const { notificationService } = await Promise.resolve().then(() => __importStar(require('./notification.service.js')));
+                await notificationService.sendPollCompletionNotifications(pollId);
+                logger_1.logger.info(`Completion notifications sent for poll ${pollId} (multi-winner)`);
+            }
+            catch (notifError) {
+                logger_1.logger.error('Error sending completion notifications:', notifError);
+            }
+            return result;
+        }
+        catch (error) {
+            logger_1.logger.error('Error completing poll with multi-winner:', error);
+            if (error instanceof Error) {
+                throw error;
+            }
+            throw new Error('Failed to complete poll with multi-winner mode');
+        }
+    }
+    static async getExpectedParticipants(groupId, groupTelegramId, settings) {
+        const now = Date.now();
+        const cached = memberCountCache.get(groupId);
+        if (cached && (now - cached.timestamp) < MEMBER_COUNT_CACHE_TTL) {
+            logger_1.logger.debug(`Using cached member count for group ${groupId}: ${cached.count} (${cached.source})`);
+            return { count: cached.count, source: `cached_${cached.source}` };
+        }
+        const realCount = await group_service_1.GroupService.getRealMemberCount(groupTelegramId.toString(), botInstance);
+        if (realCount !== null) {
+            memberCountCache.set(groupId, {
+                count: realCount,
+                timestamp: now,
+                source: 'telegram_api'
+            });
+            logger_1.logger.info(`📊 Updated member count for group ${groupId}: ${realCount} (from Telegram API)`);
+            group_service_1.GroupService.updateGroupSettings(groupId, {
+                ...settings,
+                expectedParticipants: realCount
+            }).catch(err => logger_1.logger.error('Error saving expectedParticipants:', err));
+            return { count: realCount, source: 'telegram_api' };
+        }
+        let fallbackCount;
+        let fallbackSource;
+        if (settings.expectedParticipants) {
+            fallbackCount = settings.expectedParticipants;
+            fallbackSource = 'settings';
+        }
+        else {
+            fallbackCount = await group_service_1.GroupService.getActiveParticipants(groupId);
+            fallbackSource = 'history';
+        }
+        memberCountCache.set(groupId, {
+            count: fallbackCount,
+            timestamp: now,
+            source: 'history'
+        });
+        logger_1.logger.warn(`⚠️ Using fallback member count for group ${groupId}: ${fallbackCount} (${fallbackSource})`);
+        return { count: fallbackCount, source: fallbackSource };
+    }
+    static async checkAutoComplete(pollId) {
+        try {
+            const poll = await client_2.prisma.poll.findUnique({
+                where: { id: pollId },
+                include: {
+                    votes: {
+                        select: { userId: true },
+                        distinct: ['userId']
+                    },
+                    group: true
+                }
+            });
+            if (!poll || poll.status !== 'ACTIVE') {
+                return false;
+            }
+            const settings = await group_service_1.GroupService.getGroupSettings(poll.groupId);
+            if (!settings.autoCompleteEnabled) {
+                logger_1.logger.info(`Auto-complete disabled for group ${poll.groupId}`);
+                return false;
+            }
+            const { count: expectedParticipants, source } = await this.getExpectedParticipants(poll.groupId, poll.group.telegramId, settings);
+            const currentVotes = poll.votes.length;
+            const timeElapsed = Date.now() - poll.startedAt.getTime();
+            const totalTime = poll.duration * 60 * 1000;
+            const timeProgress = timeElapsed / totalTime;
+            const voteProgress = currentVotes / expectedParticipants;
+            logger_1.logger.info(`Auto-complete check for poll ${pollId}:`, {
+                currentVotes,
+                expectedParticipants,
+                voteProgress: `${Math.round(voteProgress * 100)}%`,
+                timeProgress: `${Math.round(timeProgress * 100)}%`,
+                source
+            });
+            if (voteProgress >= 1.0) {
+                logger_1.logger.info(`✅ Auto-completing poll ${pollId}: 100% participation (${currentVotes}/${expectedParticipants})`);
+                return true;
+            }
+            return false;
+        }
+        catch (error) {
+            logger_1.logger.error('Error checking auto-complete:', error);
+            return false;
         }
     }
 }

@@ -89,7 +89,7 @@ async function startCommand(ctx) {
                         [
                             {
                                 text: '📱 Открыть голосование',
-                                web_app: { url: `${webappUrl}?pollId=${pollId}` }
+                                web_app: { url: webappUrl }
                             }
                         ],
                         [
@@ -133,7 +133,7 @@ async function startCommand(ctx) {
                 '2. Дайте мне права администратора\n' +
                 '3. Используйте /help для списка команд'
             : `👋 С возвращением, ${user.first_name}!`;
-        const isGroup = ctx.chat.type !== 'private';
+        const isGroup = ctx.chat?.type !== 'private';
         const keyboard = {
             inline_keyboard: isGroup ? [
                 [

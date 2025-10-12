@@ -7,15 +7,16 @@ export declare class PollService {
     static getActivePollInGroup(groupId: number): Promise<Poll | null>;
     static getActivePolls(): Promise<any[]>;
     static completePoll(pollId: number): Promise<PollResult>;
-    static cancelPoll(pollId: number): Promise<Poll>;
+    static cancelPoll(pollId: number, cancelledBy: number, reason?: string): Promise<Poll>;
     static updatePoll(pollId: number, data: Partial<Poll>): Promise<Poll>;
     static getPollResult(resultId: number): Promise<PollResult>;
     static getPollResultByPollId(pollId: number): Promise<PollResult | null>;
     static runRoulette(pollId: number): Promise<PollResult>;
     static getPollHistory(groupId?: number, limit?: number, offset?: number): Promise<{
-        polls: Poll[];
+        polls: any[];
         total: number;
     }>;
+    static getLastCompletedPoll(groupId?: number): Promise<Poll | null>;
     static getPollStats(groupId?: number): Promise<PollStats>;
     static getExpiredPolls(): Promise<Poll[]>;
     static getPollVoteBreakdown(pollId: number): Promise<{
@@ -36,5 +37,12 @@ export declare class PollService {
         totalVotes: number;
         rouletteData?: string;
     }): Promise<any>;
+    static completePollMultiWinner(pollId: number, completedBy: number, options?: {
+        minVotes?: number;
+        maxWinners?: number | null;
+        tieBreakMethod?: 'earliest' | 'alphabetical';
+    }): Promise<PollResult>;
+    private static getExpectedParticipants;
+    static checkAutoComplete(pollId: number): Promise<boolean>;
 }
 //# sourceMappingURL=poll.service.d.ts.map

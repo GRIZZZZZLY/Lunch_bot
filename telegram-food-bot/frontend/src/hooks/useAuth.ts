@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTelegram } from './useTelegram';
 import { authService } from '../services/auth.service';
+import { setUserContext, clearUserContext } from '../lib/sentry';
 
 export interface User {
   id: number;
@@ -99,6 +100,32 @@ export const useAuth = (): UseAuthReturn => {
       setIsLoading(true);
       setError(null);
 
+      // 🚀 ОПТИМИЗАЦИЯ: Сразу парсим токен и показываем данные
+      const existingToken = authService.getToken();
+      if (existingToken) {
+        try {
+          const tokenPayload = JSON.parse(atob(existingToken.split('.')[1]));
+          
+          // Создаём временного пользователя из токена (мгновенно!)
+          const tokenUser: User = {
+            id: tokenPayload.userId,
+            telegramId: tokenPayload.telegramId,
+            username: tokenPayload.username,
+            firstName: tokenPayload.firstName || 'User',
+            lastName: tokenPayload.lastName,
+            isAdmin: tokenPayload.isAdmin, // ← Берём из токена сразу!
+            isActive: true,
+            createdAt: new Date().toISOString(),
+          };
+          
+          setUser(tokenUser);
+          setIsLoading(false); // ← Убираем загрузку сразу!
+          console.log('[useAuth] User loaded from token immediately:', tokenUser);
+        } catch (e) {
+          console.error('[useAuth] Failed to parse token for quick load:', e);
+        }
+      }
+
       console.log('[useAuth] Loading user data with existing token...');
       const response = await authService.getCurrentUser();
       console.log('[useAuth] Response received:', { 
@@ -108,8 +135,37 @@ export const useAuth = (): UseAuthReturn => {
       });
 
       if (response.success && response.data) {
-        setUser(response.data);
-        console.log('[useAuth] User loaded successfully from token:', response.data);
+        setUser(response.data); // ← Обновляем актуальными данными из API
+        console.log('[useAuth] User updated from API:', response.data);
+        
+        // P1.2.6: Set Sentry user context
+        setUserContext({
+          id: response.data.id,
+          username: response.data.username || `user_${response.data.id}`,
+        });
+
+        // 🔄 Проверяем что права в токене совпадают с БД
+        const currentToken = authService.getToken();
+        if (currentToken) {
+          try {
+            const tokenPayload = JSON.parse(atob(currentToken.split('.')[1]));
+            
+            // Если isAdmin в токене не совпадает с данными из БД - обновляем токен
+            if (tokenPayload.isAdmin !== response.data.isAdmin) {
+              console.warn('[useAuth] ⚠️ Token isAdmin mismatch! Refreshing...', {
+                tokenIsAdmin: tokenPayload.isAdmin,
+                dbIsAdmin: response.data.isAdmin
+              });
+              
+              // Обновляем токен асинхронно
+              refresh().catch(err => {
+                console.error('[useAuth] Failed to refresh token:', err);
+              });
+            }
+          } catch (e) {
+            console.error('[useAuth] Failed to parse token:', e);
+          }
+        }
       } else {
         console.error('[useAuth] Invalid response format:', response);
         throw new Error('Failed to load user');
@@ -300,6 +356,9 @@ export const useAuth = (): UseAuthReturn => {
     setUser(null);
     authService.clearToken();
     setError(null);
+    
+    // P1.2.6: Clear Sentry user context
+    clearUserContext();
   };
 
   const refresh = async () => {

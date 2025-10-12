@@ -1,5 +1,4 @@
-﻿import { CommandContext } from 'grammy';
-import { BotContext } from '../../types/bot.types';
+﻿import { BotContext } from '../../types/bot.types';
 import { PollService } from '../../services/poll.service';
 import { MenuService } from '../../services/menu.service';
 import { GroupService } from '../../services/group.service';
@@ -61,7 +60,7 @@ async function updatePollMessage(
 /**
  * Команда /startpoll - запуск голосования (только для админов в группах)
  */
-export async function startPollCommand(ctx: CommandContext<BotContext>): Promise<void> {
+export async function startPollCommand(ctx: BotContext): Promise<void> {
   try {
     const user = ctx.from;
     if (!user) {

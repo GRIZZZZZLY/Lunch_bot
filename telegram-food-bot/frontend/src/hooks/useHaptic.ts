@@ -64,11 +64,47 @@ export const useHaptic = () => {
     haptic.current?.impactOccurred('heavy');
   };
 
+  /**
+   * Легкий тактильный отклик
+   * Использовать для: выбор элемента, переключение
+   */
+  const light = () => {
+    haptic.current?.impactOccurred('light');
+  };
+
+  /**
+   * Средний тактильный отклик
+   * Использовать для: кнопки, важные действия
+   */
+  const medium = () => {
+    haptic.current?.impactOccurred('medium');
+  };
+
+  /**
+   * Изменение выбора
+   * Использовать для: tabs, radio buttons, select
+   */
+  const selection = () => {
+    haptic.current?.selectionChanged();
+  };
+
+  /**
+   * Уведомление с типом
+   * Использовать для: общие уведомления
+   */
+  const notification = (type: 'success' | 'error' | 'warning') => {
+    haptic.current?.notificationOccurred(type);
+  };
+
   return {
     success,
     error,
     warning,
     impact,
+    light,
+    medium,
+    selection,
+    notification,
   };
 };
 

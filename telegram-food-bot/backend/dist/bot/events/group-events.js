@@ -19,8 +19,8 @@ function setupGroupEvents(bot) {
                     type: chat.type,
                 });
                 if (chat.type === 'group' || chat.type === 'supergroup') {
-                    await group_service_1.GroupService.createGroup({
-                        telegramId: BigInt(chat.id),
+                    await group_service_1.GroupService.upsertGroup({
+                        telegramId: chat.id.toString(),
                         title: chat.title || 'Unknown Group',
                         type: chat.type,
                     });
@@ -53,7 +53,10 @@ function setupGroupEvents(bot) {
                     title: chat.title,
                 });
                 if (chat.type === 'group' || chat.type === 'supergroup') {
-                    await group_service_1.GroupService.deactivateGroup(BigInt(chat.id));
+                    const group = await group_service_1.GroupService.getGroupByTelegramId(chat.id.toString());
+                    if (group) {
+                        await group_service_1.GroupService.deactivateGroup(group.id);
+                    }
                 }
             }
         }
@@ -65,9 +68,12 @@ function setupGroupEvents(bot) {
         try {
             const chat = ctx.chat;
             if (chat.type === 'group' || chat.type === 'supergroup') {
-                await group_service_1.GroupService.updateGroup(BigInt(chat.id), {
-                    title: chat.title,
-                });
+                const group = await group_service_1.GroupService.getGroupByTelegramId(chat.id.toString());
+                if (group) {
+                    await group_service_1.GroupService.updateGroup(group.id, {
+                        title: chat.title,
+                    });
+                }
             }
         }
         catch (error) {

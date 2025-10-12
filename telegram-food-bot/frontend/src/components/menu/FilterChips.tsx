@@ -68,6 +68,8 @@ export function FilterChips({
       {/* Горизонтальный скролл */}
       <div
         ref={scrollContainerRef}
+        role="radiogroup"
+        aria-label="Категории меню"
         className="flex gap-2 overflow-x-auto overflow-y-hidden pb-2 scrollbar-hide scroll-smooth"
         style={{
           scrollbarWidth: 'none',
@@ -76,19 +78,21 @@ export function FilterChips({
       >
         {/* Chip "Все" */}
         <motion.button
+          role="radio"
+          aria-checked={!selectedCategory}
           onClick={() => handleCategoryClick(null)}
           data-active={!selectedCategory}
           whileTap={{ scale: 0.95 }}
           className={`
             flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-medium text-sm
-            transition-all duration-200
+            transition-all duration-200 min-h-[44px]
             ${!selectedCategory
               ? 'bg-mint-500 text-white shadow-lg shadow-mint-500/30'
               : 'bg-muted hover:bg-muted/80 text-muted-foreground'
             }
           `}
         >
-          <span>🍽️</span>
+          <span aria-hidden="true">🍽️</span>
           <span>Все</span>
           <span className="text-xs opacity-75">({totalCount})</span>
         </motion.button>
@@ -101,19 +105,21 @@ export function FilterChips({
           return (
             <motion.button
               key={category}
+              role="radio"
+              aria-checked={isActive}
               onClick={() => handleCategoryClick(category)}
               data-active={isActive}
               whileTap={{ scale: 0.95 }}
               className={`
                 flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full font-medium text-sm
-                transition-all duration-200
+                transition-all duration-200 min-h-[44px]
                 ${isActive
                   ? 'bg-mint-500 text-white shadow-lg shadow-mint-500/30'
                   : 'bg-muted hover:bg-muted/80 text-muted-foreground'
                 }
               `}
             >
-              <span>{getCategoryIcon(category)}</span>
+              <span aria-hidden="true">{getCategoryIcon(category)}</span>
               <span className="whitespace-nowrap">{category}</span>
               <span className="text-xs opacity-75">({count})</span>
             </motion.button>

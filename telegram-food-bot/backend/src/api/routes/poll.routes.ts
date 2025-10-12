@@ -35,6 +35,20 @@ router.get('/stats', telegramAuthMiddleware, pollController.getPollStats);
 router.get('/popular-items', telegramAuthMiddleware, pollController.getPopularItems);
 
 /**
+ * GET /api/polls/last-completed
+ * Получение последнего завершённого голосования
+ * Используется для функции "Повторить вчерашнее"
+ */
+router.get('/last-completed', telegramAuthMiddleware, pollController.getLastCompleted);
+
+/**
+ * POST /api/polls/repeat/:id
+ * Повторить голосование (создать копию с теми же параметрами)
+ * Доступно только для админов
+ */
+router.post('/repeat/:id', telegramAuthMiddleware, adminMiddleware, pollController.repeatPoll);
+
+/**
  * GET /api/polls/:id
  * Получение информации о голосовании
  */
@@ -93,6 +107,17 @@ router.patch(
   telegramAuthMiddleware,
   adminMiddleware,
   pollController.completePoll
+);
+
+/**
+ * PATCH /api/polls/:id/complete-multi
+ * Завершение голосования с множественными победителями (только админы)
+ */
+router.patch(
+  '/:id/complete-multi',
+  telegramAuthMiddleware,
+  adminMiddleware,
+  pollController.completePollMultiWinner
 );
 
 /**
