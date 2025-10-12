@@ -2,6 +2,7 @@
 import { UserService } from '../../services/user.service';
 import { validateTelegramInitData } from '../../utils/telegram-auth';
 import { logger } from '../../utils/logger';
+import { JwtService } from '../../services/jwt.service';
 
 /**
  * Middleware для аутентификации через Telegram WebApp
@@ -12,15 +13,84 @@ export async function telegramAuthMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    // В development режиме с SKIP_TELEGRAM_VALIDATION - пропускаем проверку
+    // 🔐 SECURITY: КРИТИЧЕСКАЯ ПРОВЕРКА
+    // SKIP_TELEGRAM_VALIDATION ЗАПРЕЩЕН в production!
+    if (process.env.NODE_ENV === 'production' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      logger.error('🚨 SECURITY BREACH: SKIP_TELEGRAM_VALIDATION enabled in PRODUCTION! Shutting down...');
+      throw new Error('CRITICAL SECURITY ERROR: SKIP_TELEGRAM_VALIDATION must NEVER be enabled in production!');
+    }
+    
+    // В development режиме с SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи,
+    // но используем РЕАЛЬНЫЙ ID пользователя из initData для конфиденциальности
     if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      logger.warn('⚠️ SECURITY: SKIP_TELEGRAM_VALIDATION enabled - DEVELOPMENT ONLY!');
+      logger.info('🔓 SKIP_TELEGRAM_VALIDATION mode - extracting REAL user from initData');
+      
+      const authHeader = req.headers.authorization;
+      let telegramUser = null;
+      
+      // Пробуем извлечь реальные данные из токена/initData
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        
+        try {
+          // Пробуем как наш токен
+          const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+          const user = await UserService.getUserById(decoded.userId);
+          
+          if (user && user.isActive) {
+            (req as any).user = user;
+            logger.info('✅ SKIP mode: authenticated via existing token', {
+              userId: user.id,
+              telegramId: user.telegramId.toString()
+            });
+            next();
+            return;
+          }
+        } catch {
+          // Если не наш токен, пробуем как initData
+          const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
+          telegramUser = parseInitDataUnsafe(token);
+        }
+      }
+      
+      // Если нашли реального пользователя из initData - используем его
+      if (telegramUser) {
+        const dbUser = await UserService.getUserByTelegramId(BigInt(telegramUser.id));
+        
+        if (!dbUser) {
+          // Создаём пользователя с РЕАЛЬНЫМ ID из Telegram
+          const newUser = await UserService.createUser({
+            telegramId: BigInt(telegramUser.id).toString(),
+            username: telegramUser.username || `user_${telegramUser.id}`,
+            firstName: telegramUser.first_name,
+            lastName: telegramUser.last_name,
+          });
+          (req as any).user = newUser;
+          logger.info('✅ SKIP mode: created new user with REAL Telegram ID', {
+            userId: newUser.id,
+            telegramId: telegramUser.id
+          });
+        } else {
+          (req as any).user = dbUser;
+          logger.info('✅ SKIP mode: authenticated with REAL Telegram ID', {
+            userId: dbUser.id,
+            telegramId: telegramUser.id
+          });
+        }
+        
+        next();
+        return;
+      }
+      
+      // Fallback: если нет реальных данных - используем TEST_USER_ID как последнюю попытку
+      logger.warn('⚠️ No real initData found - falling back to TEST_USER_ID (NOT RECOMMENDED!)');
       const testUserId = process.env.TEST_USER_ID || '123456789';
       const dbUser = await UserService.getUserByTelegramId(BigInt(testUserId));
       
       if (!dbUser) {
-        // Создаём тестового пользователя если его нет
         const newUser = await UserService.createUser({
-          telegramId: BigInt(testUserId),
+          telegramId: BigInt(testUserId).toString(),
           username: 'dev_user',
           firstName: 'Dev',
           lastName: 'User',
@@ -30,7 +100,7 @@ export async function telegramAuthMiddleware(
         (req as any).user = dbUser;
       }
       
-      logger.info('✅ telegramAuthMiddleware: SKIP mode - test user', {
+      logger.info('✅ SKIP mode: fallback test user', {
         userId: (req as any).user.id,
         telegramId: testUserId
       });
@@ -53,11 +123,31 @@ export async function telegramAuthMiddleware(
 
     const token = authHeader.substring(7); // Убираем 'Bearer '
 
-    // В упрощенной версии токен - это закодированный initData
+    // 🔐 Валидируем JWT токен с проверкой подписи
     let userData;
     try {
-      // Декодируем токен (в реальности это будет JWT)
-      const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+      // ✅ Используем настоящий JWT вместо base64
+      const decoded = JwtService.verifyToken(token);
+      
+      if (!decoded) {
+        // Токен невалидный или expired
+        res.status(401).json({
+          success: false,
+          error: 'Invalid or expired token',
+          code: 'TOKEN_EXPIRED'
+        });
+        return;
+      }
+
+      // Проверяем что это access token (не refresh)
+      if (decoded.type !== 'access') {
+        res.status(401).json({
+          success: false,
+          error: 'Invalid token type. Use access token.',
+          code: 'INVALID_TOKEN_TYPE'
+        });
+        return;
+      }
       
       // Проверяем пользователя в БД
       const user = await UserService.getUserById(decoded.userId);
@@ -71,10 +161,41 @@ export async function telegramAuthMiddleware(
       }
 
       userData = user;
-    } catch {
-      // Если это не наш токен, пробуем как initData
-      userData = validateTelegramInitData(token);
-      if (!userData) {
+      
+      logger.debug('✅ JWT token validated', {
+        userId: decoded.userId,
+        telegramId: decoded.telegramId,
+      });
+      
+    } catch (error) {
+      // Если JWT валидация не удалась, пробуем как initData (для обратной совместимости)
+      logger.debug('JWT validation failed, trying as initData...');
+      
+      try {
+        userData = validateTelegramInitData(token);
+        if (!userData) {
+          res.status(401).json({
+            success: false,
+            error: 'Invalid token',
+            code: 'INVALID_TOKEN'
+          });
+          return;
+        }
+
+        // Получаем пользователя из БД
+        const dbUser = await UserService.getUserByTelegramId(BigInt(userData.id));
+        if (!dbUser || !dbUser.isActive) {
+          res.status(401).json({
+            success: false,
+            error: 'User not found or inactive',
+            code: 'USER_NOT_ACTIVE'
+          });
+          return;
+        }
+
+        userData = dbUser;
+        logger.debug('✅ InitData validated (legacy path)');
+      } catch (initDataError) {
         res.status(401).json({
           success: false,
           error: 'Invalid token',
@@ -82,19 +203,6 @@ export async function telegramAuthMiddleware(
         });
         return;
       }
-
-      // Получаем пользователя из БД
-      const dbUser = await UserService.getUserByTelegramId(BigInt(userData.id));
-      if (!dbUser || !dbUser.isActive) {
-        res.status(401).json({
-          success: false,
-          error: 'User not found or inactive',
-          code: 'USER_NOT_ACTIVE'
-        });
-        return;
-      }
-
-      userData = dbUser;
     }
 
     // Добавляем пользователя в request
@@ -161,8 +269,36 @@ export async function validateInitDataMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    // В development режиме с SKIP_TELEGRAM_VALIDATION - пропускаем проверку
+    // 🔐 SECURITY: КРИТИЧЕСКАЯ ПРОВЕРКА
+    if (process.env.NODE_ENV === 'production' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      logger.error('🚨 SECURITY BREACH: SKIP_TELEGRAM_VALIDATION in PRODUCTION!');
+      throw new Error('CRITICAL SECURITY ERROR: SKIP_TELEGRAM_VALIDATION forbidden in production!');
+    }
+    
+    // В development режиме с SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи,
+    // но используем РЕАЛЬНЫЕ данные пользователя из initData
     if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      logger.warn('⚠️ SECURITY: SKIP_TELEGRAM_VALIDATION enabled - DEVELOPMENT ONLY!');
+      const { initData } = req.body;
+      
+      // Пробуем извлечь реальные данные пользователя
+      if (initData && initData.trim().length > 0 && initData !== 'mock_jwt_token_12345678') {
+        const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
+        const telegramUser = parseInitDataUnsafe(initData);
+        
+        if (telegramUser) {
+          (req as any).telegramUser = telegramUser;
+          logger.info('✅ validateInitDataMiddleware: SKIP mode - REAL user from initData', {
+            userId: telegramUser.id,
+            username: telegramUser.username
+          });
+          next();
+          return;
+        }
+      }
+      
+      // Fallback: используем TEST_USER_ID только если нет реальных данных
+      logger.warn('⚠️ validateInitDataMiddleware: No real initData - using TEST_USER_ID fallback');
       const testUserId = process.env.TEST_USER_ID || '123456789';
       (req as any).telegramUser = {
         id: Number(testUserId),
@@ -171,7 +307,7 @@ export async function validateInitDataMiddleware(
         username: 'dev_user',
       };
       
-      logger.info('✅ validateInitDataMiddleware: SKIP mode - test user');
+      logger.info('✅ validateInitDataMiddleware: SKIP mode - fallback test user');
       next();
       return;
     }

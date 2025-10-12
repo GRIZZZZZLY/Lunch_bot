@@ -12,6 +12,8 @@ router.get('/active', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.
 router.get('/history', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPollHistory);
 router.get('/stats', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPollStats);
 router.get('/popular-items', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPopularItems);
+router.get('/last-completed', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getLastCompleted);
+router.post('/repeat/:id', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.repeatPoll);
 router.get('/:id', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPollById);
 router.get('/:id/results', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPollResults);
 router.get('/:id/votes', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPollVotes);
@@ -19,6 +21,7 @@ router.post('/', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMi
 router.post('/create-from-webapp', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.createPollFromWebApp);
 router.get('/active/:groupId', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getActivePollInGroup);
 router.patch('/:id/complete', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.completePoll);
+router.patch('/:id/complete-multi', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.completePollMultiWinner);
 router.patch('/:id/cancel', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.cancelPoll);
 router.post('/:id/vote', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.vote);
 router.delete('/:id/vote', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.removeVote);

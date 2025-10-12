@@ -4,6 +4,7 @@ exports.createBot = createBot;
 exports.startPolling = startPolling;
 exports.setupWebhook = setupWebhook;
 exports.stopBot = stopBot;
+exports.getBotInstance = getBotInstance;
 const grammy_1 = require("grammy");
 const bot_config_1 = require("../config/bot.config");
 const logger_1 = require("../utils/logger");
@@ -11,7 +12,10 @@ const error_1 = require("../utils/error");
 const user_service_1 = require("../services/user.service");
 const notification_service_1 = require("../services/notification.service");
 const poll_reminder_service_1 = require("../services/poll-reminder.service");
+const https_proxy_agent_1 = require("https-proxy-agent");
+const socks_proxy_agent_1 = require("socks-proxy-agent");
 const userService = new user_service_1.UserService();
+let botInstance = null;
 const auth_1 = require("./middleware/auth");
 const logger_2 = require("./middleware/logger");
 const start_1 = require("./commands/start");
@@ -29,7 +33,46 @@ function initial() {
     };
 }
 function createBot() {
-    const bot = new grammy_1.Bot(bot_config_1.botConfig.token);
+    let gramBotConfig;
+    if (bot_config_1.botConfig.localApi.enabled) {
+        logger_1.logger.info('🔧 Используется локальный Telegram Bot API сервер', {
+            url: bot_config_1.botConfig.localApi.url,
+        });
+        gramBotConfig = {
+            client: {
+                apiRoot: bot_config_1.botConfig.localApi.url,
+            },
+        };
+    }
+    else if (bot_config_1.botConfig.proxy.enabled && bot_config_1.botConfig.proxy.url) {
+        logger_1.logger.info('🔧 Используется прокси для подключения к Telegram API', {
+            proxy: bot_config_1.botConfig.proxy.url.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@'),
+        });
+        try {
+            const proxyUrl = bot_config_1.botConfig.proxy.url;
+            let agent;
+            if (proxyUrl.startsWith('socks')) {
+                agent = new socks_proxy_agent_1.SocksProxyAgent(proxyUrl);
+            }
+            else {
+                agent = new https_proxy_agent_1.HttpsProxyAgent(proxyUrl);
+            }
+            gramBotConfig = {
+                client: {
+                    baseFetchConfig: {
+                        agent,
+                        compress: true,
+                    },
+                },
+            };
+        }
+        catch (error) {
+            logger_1.logger.error('❌ Ошибка настройки прокси:', error);
+            logger_1.logger.warn('⚠️  Продолжаем без прокси...');
+        }
+    }
+    botInstance = new grammy_1.Bot(bot_config_1.botConfig.token, gramBotConfig);
+    const bot = botInstance;
     (0, error_1.setupErrorHandlers)();
     notification_service_1.notificationService.initialize(bot);
     poll_reminder_service_1.PollReminderService.initialize(bot);
@@ -198,6 +241,9 @@ function createBot() {
 }
 async function startPolling(bot) {
     try {
+        logger_1.logger.info('🔄 Удаление webhook перед запуском polling...');
+        await bot.api.deleteWebhook({ drop_pending_updates: true });
+        logger_1.logger.info('✅ Webhook удален');
         await bot.start({
             onStart: (botInfo) => {
                 logger_1.logger.info('🚀 Бот запущен в polling режиме', {
@@ -232,5 +278,8 @@ async function stopBot(bot) {
     catch (error) {
         logger_1.logger.error('❌ Ошибка остановки бота:', error);
     }
+}
+function getBotInstance() {
+    return botInstance;
 }
 //# sourceMappingURL=bot.js.map

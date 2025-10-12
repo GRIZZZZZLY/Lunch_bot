@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleVote = handleVote;
 exports.handleBringOwnVote = handleBringOwnVote;
@@ -71,6 +104,22 @@ async function handleVote(ctx, pollId, menuItemId) {
             logger_1.logger.info(`Vote created: user ${dbUser.id} voted for item ${menuItemId} in poll ${pollId}`);
         }
         await updatePollMessage(ctx, pollId);
+        const shouldAutoComplete = await poll_service_1.PollService.checkAutoComplete(pollId);
+        if (shouldAutoComplete) {
+            logger_1.logger.info(`Triggering auto-complete for poll ${pollId}`);
+            try {
+                await poll_service_1.PollService.completePollMultiWinner(pollId, dbUser.id, {
+                    minVotes: 1,
+                    tieBreakMethod: 'earliest'
+                });
+                await ctx.editMessageText('✅ Голосование автоматически завершено! Все участники проголосовали.\n\n' +
+                    '📊 Результаты отправлены в группу.', { parse_mode: 'HTML' });
+                logger_1.logger.info(`Poll ${pollId} auto-completed successfully`);
+            }
+            catch (autoCompleteError) {
+                logger_1.logger.error('Error auto-completing poll:', autoCompleteError);
+            }
+        }
     }
     catch (error) {
         logger_1.logger.error('Error in handleVote:', error);
@@ -110,6 +159,22 @@ async function handleBringOwnVote(ctx, pollId) {
         await ctx.answerCallbackQuery('🏠 Вы выбрали "Принесу из дома"');
         logger_1.logger.info(`User ${dbUser.id} voted BRING_OWN in poll ${pollId}`);
         await updatePollMessage(ctx, pollId);
+        const shouldAutoComplete = await poll_service_1.PollService.checkAutoComplete(pollId);
+        if (shouldAutoComplete) {
+            logger_1.logger.info(`Triggering auto-complete for poll ${pollId} after bring-own vote`);
+            try {
+                await poll_service_1.PollService.completePollMultiWinner(pollId, dbUser.id, {
+                    minVotes: 1,
+                    tieBreakMethod: 'earliest'
+                });
+                await ctx.editMessageText('✅ Голосование автоматически завершено! Все участники проголосовали.\n\n' +
+                    '📊 Результаты отправлены в группу.', { parse_mode: 'HTML' });
+                logger_1.logger.info(`Poll ${pollId} auto-completed after bring-own vote`);
+            }
+            catch (autoCompleteError) {
+                logger_1.logger.error('Error auto-completing poll:', autoCompleteError);
+            }
+        }
     }
     catch (error) {
         logger_1.logger.error('Error in handleBringOwnVote:', error);
@@ -149,6 +214,22 @@ async function handleSkipVote(ctx, pollId) {
         await ctx.answerCallbackQuery('⏭️ Вы выбрали "Не обедаю"');
         logger_1.logger.info(`User ${dbUser.id} voted SKIP in poll ${pollId}`);
         await updatePollMessage(ctx, pollId);
+        const shouldAutoComplete = await poll_service_1.PollService.checkAutoComplete(pollId);
+        if (shouldAutoComplete) {
+            logger_1.logger.info(`Triggering auto-complete for poll ${pollId} after skip vote`);
+            try {
+                await poll_service_1.PollService.completePollMultiWinner(pollId, dbUser.id, {
+                    minVotes: 1,
+                    tieBreakMethod: 'earliest'
+                });
+                await ctx.editMessageText('✅ Голосование автоматически завершено! Все участники проголосовали.\n\n' +
+                    '📊 Результаты отправлены в группу.', { parse_mode: 'HTML' });
+                logger_1.logger.info(`Poll ${pollId} auto-completed after skip vote`);
+            }
+            catch (autoCompleteError) {
+                logger_1.logger.error('Error auto-completing poll:', autoCompleteError);
+            }
+        }
     }
     catch (error) {
         logger_1.logger.error('Error in handleSkipVote:', error);
@@ -247,23 +328,48 @@ async function handleShowResults(ctx, pollId) {
             return;
         }
         const votes = await vote_service_1.VoteService.getPollVotes(pollId);
-        const breakdown = await vote_service_1.VoteService.getVoteBreakdown(pollId);
-        const result = await poll_service_1.PollService.getPollResult(pollId);
-        const voteTypeStats = await vote_service_1.VoteService.getVoteTypeStats(pollId);
-        const resultsMessage = (0, poll_keyboard_1.createResultsMessage)({
-            poll,
-            result,
-            breakdown,
-            totalVotes: votes.length,
-            voteTypeStats,
-        });
+        const result = await poll_service_1.PollService.getPollResultByPollId(pollId);
+        let resultsMessage;
+        let parseMode = 'Markdown';
+        try {
+            const resultData = result?.rouletteData ? JSON.parse(result.rouletteData) : null;
+            if (resultData?.mode === 'multi-winner' && resultData?.version === 1) {
+                const { formatMultiWinnerResults } = await Promise.resolve().then(() => __importStar(require('../keyboards/poll.keyboard')));
+                resultsMessage = formatMultiWinnerResults(resultData);
+                parseMode = 'HTML';
+                logger_1.logger.info(`Multi-winner results shown for poll ${pollId}`);
+            }
+            else {
+                const breakdown = await vote_service_1.VoteService.getVoteBreakdown(pollId);
+                const voteTypeStats = await vote_service_1.VoteService.getVoteTypeStats(pollId);
+                resultsMessage = (0, poll_keyboard_1.createResultsMessage)({
+                    poll,
+                    result,
+                    breakdown,
+                    totalVotes: votes.length,
+                    voteTypeStats,
+                });
+                logger_1.logger.info(`Single-winner results shown for poll ${pollId}`);
+            }
+        }
+        catch (e) {
+            logger_1.logger.warn('Failed to parse rouletteData, using fallback format', { error: e });
+            const breakdown = await vote_service_1.VoteService.getVoteBreakdown(pollId);
+            const voteTypeStats = await vote_service_1.VoteService.getVoteTypeStats(pollId);
+            resultsMessage = (0, poll_keyboard_1.createResultsMessage)({
+                poll,
+                result,
+                breakdown,
+                totalVotes: votes.length,
+                voteTypeStats,
+            });
+        }
         const keyboard = (0, poll_keyboard_1.createCompletedPollKeyboard)(pollId, votes.length > 0, !!result?.responsibleUserId);
         await ctx.editMessageText(resultsMessage, {
-            parse_mode: 'Markdown',
+            parse_mode: parseMode,
             reply_markup: keyboard,
         });
         await ctx.answerCallbackQuery('📊 Результаты обновлены');
-        logger_1.logger.info(`Results shown for poll: ${pollId}`);
     }
     catch (error) {
         logger_1.logger.error('Error in handleShowResults:', error);
@@ -338,7 +444,10 @@ async function showRouletteAnimation(ctx, result) {
             const step = animationData.steps[i];
             await new Promise(resolve => setTimeout(resolve, step.delay));
             try {
-                rouletteMessage = await ctx.api.editMessageText(rouletteMessage.chat.id, rouletteMessage.message_id, step.message, { parse_mode: 'Markdown' });
+                const edited = await ctx.api.editMessageText(rouletteMessage.chat.id, rouletteMessage.message_id, step.message, { parse_mode: 'Markdown' });
+                if (edited !== true) {
+                    rouletteMessage = edited;
+                }
             }
             catch (err) {
             }
@@ -373,10 +482,20 @@ async function handleCancelPoll(ctx, pollId) {
                 return;
             }
         }
-        await poll_service_1.PollService.cancelPoll(pollId);
+        let dbUser = await user_service_1.UserService.getUserByTelegramId(BigInt(user.id));
+        if (!dbUser) {
+            dbUser = await user_service_1.UserService.createUser({
+                telegramId: user.id.toString(),
+                username: user.username,
+                firstName: user.first_name,
+                lastName: user.last_name,
+            });
+        }
+        await poll_service_1.PollService.cancelPoll(pollId, dbUser.id, 'Отменено администратором');
         await ctx.answerCallbackQuery('🚫 Голосование отменено');
-        await ctx.editMessageText('🚫 **Голосование отменено администратором**', { parse_mode: 'Markdown' });
-        logger_1.logger.info(`Poll cancelled: ${pollId} by user ${user.id}`);
+        await ctx.editMessageText('🚫 **Голосование отменено администратором**\n\n' +
+            '📬 Уведомления отправлены всем участникам.', { parse_mode: 'Markdown' });
+        logger_1.logger.info(`Poll cancelled: ${pollId} by user ${user.id} (${dbUser.id})`);
     }
     catch (error) {
         logger_1.logger.error('Error in handleCancelPoll:', error);
@@ -393,7 +512,7 @@ async function handleShowResultsWithoutComplete(ctx, pollId) {
         const votes = await vote_service_1.VoteService.getPollVotes(pollId);
         const breakdown = await vote_service_1.VoteService.getVoteBreakdown(pollId);
         let message = `📊 **Промежуточные результаты**\n\n`;
-        message += `🎯 "${poll.title || 'Голосование'}"\n`;
+        message += `🎯 Голосование\n`;
         message += `👥 Проголосовало: ${votes.length}\n\n`;
         if (breakdown.length === 0) {
             message += `😔 _Пока никто не проголосовал_`;

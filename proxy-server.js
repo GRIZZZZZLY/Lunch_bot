@@ -35,10 +35,8 @@ const server = http.createServer((req, res) => {
   // Логирование запросов
   console.log(`${req.method} ${url}`);
   
-  // API запросы идут на backend
+  // API запросы идут на backend (НЕ удаляем префикс /api!)
   if (url.startsWith('/api')) {
-    // Удаляем префикс /api перед проксированием
-    req.url = url.replace(/^\/api/, '');
     proxy.web(req, res, {
       target: `http://localhost:${BACKEND_PORT}`,
       changeOrigin: true

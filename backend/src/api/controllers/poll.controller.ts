@@ -112,6 +112,130 @@ export class PollController {
   }
 
   /**
+   * GET /api/polls/last-completed
+   * Получение последнего завершённого голосования
+   * Используется для функции "Повторить вчерашнее"
+   */
+  static async getLastCompleted(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const groupId = req.query.groupId ? parseInt(req.query.groupId as string) : undefined;
+
+      const poll = await PollService.getLastCompletedPoll(groupId);
+
+      res.json({
+        success: true,
+        data: poll ? serializeBigInt(poll) : null,
+      });
+    } catch (error) {
+      logger.error('Error getting last completed poll:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get last completed poll',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+
+  /**
+   * POST /api/polls/repeat/:id
+   * Повторить голосование (создать копию)
+   * Доступно только для админов
+   */
+  static async repeatPoll(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const pollId = parseInt(req.params.id);
+
+      logger.info(`🔄 Repeating poll ${pollId} by user ${user.id}`);
+
+      if (!pollId || isNaN(pollId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_POLL_ID',
+        });
+        return;
+      }
+
+      // Получаем исходное голосование
+      const sourcePoll = await PollService.getPollById(pollId);
+
+      if (!sourcePoll) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND',
+        });
+        return;
+      }
+
+      logger.info(`✅ Source poll found: ${pollId}`, {
+        groupId: sourcePoll.groupId,
+        selectedMenuItemIds: sourcePoll.selectedMenuItemIds,
+      });
+
+      // Получаем выбранные menu items
+      let selectedMenuItemIds: number[] = [];
+      if (sourcePoll.selectedMenuItemIds) {
+        try {
+          selectedMenuItemIds = JSON.parse(sourcePoll.selectedMenuItemIds);
+        } catch (error) {
+          logger.error('Error parsing selectedMenuItemIds:', error);
+        }
+      }
+
+      // Если нет выбранных items, берём все активные
+      let menuItems = [];
+      if (selectedMenuItemIds.length > 0) {
+        logger.info(`📋 Loading ${selectedMenuItemIds.length} selected menu items`);
+        menuItems = await MenuService.getMenuItemsByIds(selectedMenuItemIds);
+      } else {
+        logger.info('📋 Loading all active menu items');
+        menuItems = await MenuService.getActiveMenuItems();
+      }
+
+      if (menuItems.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'No menu items available',
+          code: 'NO_MENU_ITEMS',
+        });
+        return;
+      }
+
+      logger.info(`✅ Loaded ${menuItems.length} menu items`);
+
+      // Создаём новое голосование с отправкой в Telegram
+      const result = await createPollFromWebApp({
+        groupId: sourcePoll.groupId,
+        duration: sourcePoll.duration,
+        createdBy: user.id,
+        menuItems,
+        selectedMenuItemIds: selectedMenuItemIds.length > 0 ? selectedMenuItemIds : undefined,
+      });
+
+      logger.info(`✅ Poll ${pollId} repeated as poll ${result.pollId} by user ${user.id}`);
+
+      // Получаем созданное голосование для ответа
+      const newPoll = await PollService.getPollById(result.pollId);
+
+      res.json({
+        success: true,
+        data: serializeBigInt(newPoll),
+        message: 'Poll repeated and sent to Telegram group',
+      });
+    } catch (error) {
+      logger.error('❌ Error repeating poll:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to repeat poll',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+
+  /**
    * GET /api/polls/stats
    * Получение статистики голосований
    */
@@ -174,9 +298,33 @@ export class PollController {
         return;
       }
 
+      // Если есть selectedMenuItemIds, фильтруем голоса только по этим блюдам
+      let filteredPoll = poll;
+      if (poll.selectedMenuItemIds) {
+        try {
+          const selectedIds = JSON.parse(poll.selectedMenuItemIds);
+          if (Array.isArray(selectedIds) && selectedIds.length > 0) {
+            // Фильтруем голоса только по выбранным блюдам
+            filteredPoll = {
+              ...poll,
+              votes: poll.votes.filter(vote => 
+                vote.menuItemId && selectedIds.includes(vote.menuItemId)
+              ),
+            };
+            logger.info(`Filtered poll ${id} votes`, { 
+              totalVotes: poll.votes.length, 
+              filteredVotes: filteredPoll.votes.length,
+              selectedMenuItemIds: selectedIds
+            });
+          }
+        } catch (parseError) {
+          logger.warn('Failed to parse selectedMenuItemIds', { pollId: id, error: parseError });
+        }
+      }
+
       res.json({
         success: true,
-        data: serializeBigInt(poll),
+        data: serializeBigInt(filteredPoll),
         timestamp: new Date().toISOString(),
       });
 
@@ -432,7 +580,8 @@ export class PollController {
         duration: parsedDuration,
         createdBy: user.id,
         title: title || undefined,
-        menuItems
+        menuItems,
+        selectedMenuItemIds: menuItems.map(item => item.id) // Сохраняем IDs выбранных блюд
       });
 
       logger.info('Poll created from WebApp and sent to group', {
@@ -604,11 +753,15 @@ export class PollController {
         return;
       }
 
-      const poll = await PollService.cancelPoll(id);
+      // Получаем причину отмены из тела запроса (опционально)
+      const { reason } = req.body || {};
+
+      const poll = await PollService.cancelPoll(id, user.id, reason || 'Отменено через API');
 
       logger.info('Poll cancelled via API', {
         pollId: id,
         cancelledBy: user.id,
+        reason: reason || 'Отменено через API'
       });
 
       res.json({
@@ -679,6 +832,26 @@ export class PollController {
         menuItemId: vote.menuItemId,
         isUpdate: vote.updatedAt > vote.createdAt,
       });
+
+      // Проверяем автозавершение после голосования
+      try {
+        const shouldAutoComplete = await PollService.checkAutoComplete(pollId);
+        
+        if (shouldAutoComplete) {
+          logger.info(`Triggering auto-complete for poll ${pollId} (from API)`);
+          
+          // Завершаем голосование (multi-winner по умолчанию)
+          await PollService.completePollMultiWinner(pollId, user.id, {
+            minVotes: 1,
+            tieBreakMethod: 'earliest'
+          });
+          
+          logger.info(`Poll ${pollId} auto-completed successfully via API`);
+        }
+      } catch (autoCompleteError) {
+        logger.error('Auto-complete check/execution failed:', autoCompleteError);
+        // Не падаем, голос уже записан
+      }
 
       res.json({
         success: true,
@@ -863,6 +1036,140 @@ export class PollController {
         error: 'Failed to get popular items',
         code: 'INTERNAL_ERROR'
       });
+    }
+  }
+
+  /**
+   * PATCH /api/polls/:id/complete-multi
+   * Завершение голосования с множественными победителями
+   * 
+   * @access Admin only
+   */
+  static async completePollMultiWinner(req: Request, res: Response): Promise<void> {
+    try {
+      // Feature flag check
+      const { FEATURES } = await import('../../config/features');
+      if (!FEATURES.MULTI_WINNER_VOTING) {
+        res.status(503).json({
+          success: false,
+          error: 'Multi-Winner Voting is currently disabled',
+          code: 'FEATURE_DISABLED',
+        });
+        return;
+      }
+
+      const pollId = parseInt(req.params.id);
+      const user = (req as any).user;
+
+      if (isNaN(pollId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_ID',
+        });
+        return;
+      }
+
+      if (!user.isAdmin) {
+        res.status(403).json({
+          success: false,
+          error: 'Admin access required',
+          code: 'FORBIDDEN',
+        });
+        return;
+      }
+
+      const {
+        minVotes = 1,
+        maxWinners = null,
+        tieBreakMethod = 'earliest'
+      } = req.body;
+
+      // Валидация minVotes
+      if (typeof minVotes !== 'number' || minVotes < 0 || minVotes > 100) {
+        res.status(400).json({
+          success: false,
+          error: 'minVotes must be a number between 0 and 100',
+          code: 'INVALID_PARAMS',
+        });
+        return;
+      }
+
+      // Валидация maxWinners
+      if (maxWinners !== null) {
+        if (typeof maxWinners !== 'number' || maxWinners < 1 || maxWinners > 50) {
+          res.status(400).json({
+            success: false,
+            error: 'maxWinners must be null or a number between 1 and 50',
+            code: 'INVALID_PARAMS',
+          });
+          return;
+        }
+      }
+
+      // Валидация tieBreakMethod
+      if (!['earliest', 'alphabetical'].includes(tieBreakMethod)) {
+        res.status(400).json({
+          success: false,
+          error: 'tieBreakMethod must be "earliest" or "alphabetical"',
+          code: 'INVALID_PARAMS',
+        });
+        return;
+      }
+
+      const result = await PollService.completePollMultiWinner(
+        pollId,
+        user.id,
+        { minVotes, maxWinners, tieBreakMethod }
+      );
+
+      const resultData = JSON.parse(result.rouletteData || '{}');
+
+      logger.info('Poll completed with multi-winner via API', {
+        pollId,
+        completedBy: user.id,
+        winnersCount: resultData.winners?.length || 0,
+        params: { minVotes, maxWinners, tieBreakMethod },
+      });
+
+      res.json({
+        success: true,
+        data: serializeBigInt({
+          pollResult: result,
+          resultData,
+        }),
+        message: 'Poll completed with multi-winner mode successfully',
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error: any) {
+      logger.error('Error completing poll multi-winner:', error);
+
+      if (error.message === 'Poll not found') {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'NOT_FOUND',
+        });
+      } else if (error.message.includes('already completed')) {
+        res.status(400).json({
+          success: false,
+          error: 'Poll is already completed',
+          code: 'ALREADY_COMPLETED',
+        });
+      } else if (error.message.includes('not active')) {
+        res.status(400).json({
+          success: false,
+          error: 'Poll is not active',
+          code: 'NOT_ACTIVE',
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          code: 'INTERNAL_ERROR',
+        });
+      }
     }
   }
 }

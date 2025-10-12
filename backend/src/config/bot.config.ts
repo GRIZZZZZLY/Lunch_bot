@@ -13,8 +13,21 @@ export const botConfig = {
   // Секретный ключ для валидации Telegram данных
   secretKey: process.env.TELEGRAM_SECRET_KEY || process.env.BOT_TOKEN || '',
   
-  // Режим работы
-  mode: process.env.NODE_ENV === 'production' ? 'webhook' : 'polling',
+  // Прокси настройки (для обхода блокировок)
+  proxy: {
+    enabled: process.env.USE_PROXY === 'true',
+    url: process.env.PROXY_URL || '', // http://user:pass@host:port или socks5://host:port
+  },
+  
+  // Локальный Telegram Bot API сервер
+  localApi: {
+    enabled: process.env.USE_LOCAL_API === 'true',
+    url: process.env.LOCAL_API_URL || 'http://localhost:8081',
+  },
+  
+  // Режим работы (можно переопределить через BOT_MODE)
+  mode: (process.env.BOT_MODE as 'webhook' | 'polling') || 
+        (process.env.NODE_ENV === 'production' ? 'webhook' : 'polling'),
   
   // Настройки polling
   polling: {

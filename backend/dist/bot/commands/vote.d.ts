@@ -1,4 +1,3 @@
-import { CommandContext } from 'grammy';
 import { BotContext } from '../../types/bot.types';
-export declare function voteCommand(ctx: CommandContext<BotContext>): Promise<void>;
+export declare function voteCommand(ctx: BotContext): Promise<void>;
 //# sourceMappingURL=vote.d.ts.map

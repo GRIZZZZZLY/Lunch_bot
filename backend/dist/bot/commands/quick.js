@@ -72,10 +72,10 @@ async function resultsCommand(ctx) {
         const breakdown = await vote_service_1.VoteService.getVoteBreakdown(poll.id);
         const voteTypeStats = await vote_service_1.VoteService.getVoteTypeStats(poll.id);
         let message = `📊 **Текущие результаты**\n\n`;
-        message += `🎯 "${poll.title || 'Голосование'}"\n`;
+        message += `🎯 Голосование\n`;
         message += `👥 Проголосовало: ${votes.length}\n`;
-        if (poll.endTime) {
-            const timeLeft = Math.max(0, Math.floor((new Date(poll.endTime).getTime() - Date.now()) / 1000 / 60));
+        if (poll.endedAt) {
+            const timeLeft = Math.max(0, Math.floor((new Date(poll.endedAt).getTime() - Date.now()) / 1000 / 60));
             message += `⏰ Осталось: ${timeLeft} мин\n`;
         }
         if (voteTypeStats.total > 0) {

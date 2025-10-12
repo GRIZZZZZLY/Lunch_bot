@@ -12,21 +12,39 @@ export const corsMiddleware = cors({
       return callback(null, true);
     }
 
-    // В development режиме разрешаем все origins (для работы с ngrok)
-    if (process.env.NODE_ENV === 'development') {
-      logger.debug('CORS: development режим, разрешаем все origins', { origin });
-      return callback(null, true);
-    }
-
-    // Проверяем разрешенные домены в production
-    const allowedOrigins = Array.isArray(apiConfig.cors.origin) 
+    // Получаем разрешенные домены из конфига
+    const configAllowedOrigins = Array.isArray(apiConfig.cors.origin) 
       ? [...apiConfig.cors.origin] 
       : [apiConfig.cors.origin];
 
-    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+    // 🔐 SECURITY FIX: Даже в development проверяем origins
+    // Разрешаем localhost + ngrok URLs из конфига
+    if (process.env.NODE_ENV === 'development') {
+      const devOrigins = [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:3000',
+        ...configAllowedOrigins,
+      ];
+      
+      // Разрешаем ngrok URLs (содержат .ngrok)
+      const isNgrok = origin.includes('.ngrok');
+      const isAllowed = devOrigins.includes(origin) || isNgrok;
+      
+      if (isAllowed) {
+        logger.debug('CORS: development режим, origin разрешен', { origin });
+        return callback(null, true);
+      }
+      
+      logger.warn('CORS: development режим, origin ЗАБЛОКИРОВАН', { origin, allowedOrigins: devOrigins });
+      return callback(new Error('Origin не в whitelist даже для development'));
+    }
+
+    // Проверяем разрешенные домены в production
+    if (configAllowedOrigins.includes(origin) || configAllowedOrigins.includes('*')) {
       callback(null, true);
     } else {
-      logger.warn('CORS заблокировал запрос', { origin, allowedOrigins });
+      logger.warn('CORS заблокировал запрос', { origin, allowedOrigins: configAllowedOrigins });
       callback(new Error('Запрос заблокирован CORS политикой'));
     }
   },
@@ -55,10 +73,24 @@ export const telegramCorsMiddleware = cors({
       return callback(null, true);
     }
 
-    // В development режиме разрешаем все origins
+    // Получаем разрешенные домены из конфига
+    const configOrigins = Array.isArray(apiConfig.corsOrigin) 
+      ? apiConfig.corsOrigin 
+      : [apiConfig.corsOrigin];
+
+    // 🔐 SECURITY FIX: Telegram CORS тоже проверяем в development
     if (process.env.NODE_ENV === 'development') {
-      logger.debug('Telegram CORS: development режим, разрешаем все origins', { origin });
-      return callback(null, true);
+      const isNgrok = origin.includes('.ngrok');
+      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+      const isTelegram = origin.includes('telegram.org');
+      
+      if (isNgrok || isLocalhost || isTelegram || configOrigins.includes(origin)) {
+        logger.debug('Telegram CORS: development режим, origin разрешен', { origin });
+        return callback(null, true);
+      }
+      
+      logger.warn('Telegram CORS: development режим, origin ЗАБЛОКИРОВАН', { origin });
+      return callback(new Error('Telegram CORS: origin не в whitelist'));
     }
 
     // Разрешенные домены для Telegram
@@ -69,10 +101,7 @@ export const telegramCorsMiddleware = cors({
       'https://a.web.telegram.org',
     ];
 
-    // Добавляем настроенные домены
-    const configOrigins = Array.isArray(apiConfig.corsOrigin) 
-      ? apiConfig.corsOrigin 
-      : [apiConfig.corsOrigin];
+    // Объединяем настроенные домены и Telegram домены
     const allowedOrigins = [...configOrigins, ...telegramOrigins];
 
     if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {

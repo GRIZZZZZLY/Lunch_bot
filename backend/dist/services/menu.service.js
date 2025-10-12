@@ -102,6 +102,9 @@ class MenuService {
             });
         }
         catch (error) {
+            if (error instanceof Error && error.message === 'Menu item not found') {
+                throw error;
+            }
             if (error instanceof client_1.Prisma.PrismaClientKnownRequestError) {
                 if (error.code === 'P2025') {
                     throw new Error('Menu item not found');
@@ -128,6 +131,24 @@ class MenuService {
             throw new Error('Failed to get menu items');
         }
     }
+    static async getMenuItemsByIds(ids) {
+        try {
+            if (!ids || ids.length === 0) {
+                return [];
+            }
+            return await client_2.prisma.menuItem.findMany({
+                where: {
+                    id: { in: ids },
+                    isActive: true,
+                },
+                orderBy: { name: 'asc' },
+            });
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting menu items by IDs:', error);
+            throw new Error('Failed to get menu items by IDs');
+        }
+    }
     static async getActiveMenuItems() {
         try {
             return await cache_service_1.cacheService.getOrSet(cache_service_1.CACHE_KEYS.MENU_ITEMS_ACTIVE, async () => {
@@ -141,6 +162,7 @@ class MenuService {
                         category: true,
                         imageUrl: true,
                         isActive: true,
+                        createdBy: true,
                         createdAt: true,
                         updatedAt: true,
                     },
@@ -169,6 +191,9 @@ class MenuService {
                         category: true,
                         imageUrl: true,
                         isActive: true,
+                        createdBy: true,
+                        createdAt: true,
+                        updatedAt: true,
                     },
                     orderBy: { name: 'asc' },
                 });
@@ -226,6 +251,9 @@ class MenuService {
             return menuItem;
         }
         catch (error) {
+            if (error instanceof Error && error.message === 'Menu item not found') {
+                throw error;
+            }
             if (error instanceof client_1.Prisma.PrismaClientKnownRequestError) {
                 if (error.code === 'P2025') {
                     throw new Error('Menu item not found');

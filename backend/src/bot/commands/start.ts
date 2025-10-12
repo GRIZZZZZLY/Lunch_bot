@@ -1,4 +1,3 @@
-import { CommandContext } from 'grammy';
 import { BotContext } from '../../types/bot.types';
 import { UserService } from '../../services/user.service';
 import { PollService } from '../../services/poll.service';
@@ -7,7 +6,7 @@ import { logger } from '../../utils/logger';
 /**
  * Команда /start - регистрация пользователя + обработка deep links
  */
-export async function startCommand(ctx: CommandContext<BotContext>): Promise<void> {
+export async function startCommand(ctx: BotContext): Promise<void> {
   try {
     const user = ctx.from;
     if (!user) {
@@ -119,6 +118,7 @@ export async function startCommand(ctx: CommandContext<BotContext>): Promise<voi
       const voteCount = poll.votes?.length || 0;
 
       // Отправляем сообщение с кнопкой для открытия Mini App
+      // Открывается главная страница, где уже отображается активное голосование
       await ctx.reply(
         `🗳️ **Голосование активно!**\n\n` +
         `👥 Проголосовало: ${voteCount}\n` +
@@ -131,7 +131,7 @@ export async function startCommand(ctx: CommandContext<BotContext>): Promise<voi
               [
                 {
                   text: '📱 Открыть голосование',
-                  web_app: { url: `${webappUrl}?pollId=${pollId}` }
+                  web_app: { url: webappUrl } // Открываем главную страницу
                 }
               ],
               [
@@ -185,7 +185,7 @@ export async function startCommand(ctx: CommandContext<BotContext>): Promise<voi
         '3. Используйте /help для списка команд'
       : `👋 С возвращением, ${user.first_name}!`;
 
-    const isGroup = ctx.chat.type !== 'private';
+    const isGroup = ctx.chat?.type !== 'private';
     
     // В группах web_app кнопки не работают (ограничение Telegram)
     const keyboard = {

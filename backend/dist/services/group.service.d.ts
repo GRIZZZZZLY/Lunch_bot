@@ -1,5 +1,5 @@
 import { Group } from '@prisma/client';
-import { CreateGroupData, UpdateGroupData } from '../types/group.types';
+import { CreateGroupData, UpdateGroupData, GroupSettings } from '../types/group.types';
 export declare class GroupService {
     static upsertGroup(data: CreateGroupData): Promise<Group>;
     static getGroupByTelegramId(telegramId: string): Promise<Group | null>;
@@ -17,6 +17,7 @@ export declare class GroupService {
         endedAt: Date | null;
         messageId: number | null;
         chatId: bigint | null;
+        selectedMenuItemIds: string | null;
     } | null>;
     static getAllGroups(limit?: number, offset?: number): Promise<{
         groups: Group[];
@@ -29,5 +30,9 @@ export declare class GroupService {
         averageVotesPerPoll: number;
     }>;
     static deactivateGroup(groupId: number): Promise<Group>;
+    static getRealMemberCount(groupTelegramId: string | bigint, bot?: any): Promise<number | null>;
+    static getActiveParticipants(groupId: number): Promise<number>;
+    static getGroupSettings(groupId: number): Promise<GroupSettings>;
+    static updateGroupSettings(groupId: number, settings: Partial<GroupSettings>): Promise<Group>;
 }
 //# sourceMappingURL=group.service.d.ts.map

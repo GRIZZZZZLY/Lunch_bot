@@ -23,6 +23,7 @@ import {
   Flame,
   Star,
   Zap,
+  RotateCcw,
 } from 'lucide-react';
 
 // New shadcn/ui components
@@ -40,6 +41,7 @@ import { MediumWaveGradient } from '../components/background';
 
 // Poll components
 import { InlineVotingCard } from '../components/voting/InlineVotingCard';
+import { CreatePollForm } from '../components/polls/CreatePollForm';
 
 // Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
@@ -47,8 +49,11 @@ import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
 import { useMenu, useAppStore } from '../store/useAppStore';
 import { pollsService, PollWithDetails } from '../services/polls.service';
+import { useActivePolls } from '../hooks/usePolls';
 import { cn, formatRelativeTime, getInitials, getAvatarColor } from '../lib/utils';
 import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../lib/queryClient';
 
 /**
  * Quick Actions v2.0 Types
@@ -108,7 +113,8 @@ interface ScenarioConfig {
  */
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { colorScheme } = useTelegram();
+  const telegram = useTelegram();
+  const { colorScheme } = telegram;
   const { user } = useAuth();
   const haptic = useHaptic();
   const { menuItems } = useMenu();
@@ -126,10 +132,12 @@ export const HomePage: React.FC = () => {
   
   const isDark = theme === 'dark';
   
+  // React Query: Load active polls with caching
+  const { data: activePolls = [], isLoading, refetch } = useActivePolls();
+  
   // State
-  const [isLoading, setIsLoading] = useState(true);
-  const [activePolls, setActivePolls] = useState<PollWithDetails[]>([]);
   const [activePoll, setActivePoll] = useState<PollWithDetails | null>(null);
+  const [isCreatingPoll, setIsCreatingPoll] = useState(false);
   
   // Quick Actions v2.0 State
   const [currentScenario, setCurrentScenario] = useState<ScenarioType>('no-active-poll');
@@ -143,38 +151,13 @@ export const HomePage: React.FC = () => {
   const [isRandomModalOpen, setIsRandomModalOpen] = useState(false);
   const [isPopularModalOpen, setIsPopularModalOpen] = useState(false);
   
-  // Load data on mount
+  // Set first active poll when data loads
   useEffect(() => {
-    console.log('🚀 [HomePage] Component mounted');
-    loadData();
-  }, []);
-  
-  const loadData = async () => {
-    console.log('📱 [HomePage] Loading data...');
-    setIsLoading(true);
-    await loadActivePolls();
-    setIsLoading(false);
-    console.log('✅ [HomePage] Data loaded');
-  };
-  
-  const loadActivePolls = async () => {
-    try {
-      console.log('🔄 [HomePage] Fetching active polls...');
-      const response = await pollsService.getActivePolls();
-      
-      console.log('📥 [HomePage] API Response:', JSON.stringify({
-        success: response.success,
-        hasData: !!response.data,
-        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
-        data: response.data
-      }, null, 2));
-      
-      if (response.success && response.data) {
-        setActivePolls(response.data);
-        
-        if (response.data.length > 0) {
-          const firstPoll = response.data[0];
-          console.log('✅ [HomePage] Found active poll:', {
+    console.log('🚀 [HomePage] Active polls loaded:', activePolls.length);
+    
+    if (activePolls.length > 0) {
+      const firstPoll = activePolls[0];
+      console.log('✅ [HomePage] Found active poll:', {
             id: firstPoll.id,
             status: firstPoll.status,
             groupId: firstPoll.groupId
@@ -191,42 +174,72 @@ export const HomePage: React.FC = () => {
           };
           
           setActivePoll(transformedPoll);
-        } else {
-          console.log('⚠️ [HomePage] No active polls in response');
-          setActivePoll(null);
-        }
-      } else {
-        console.log('❌ [HomePage] Invalid response:', { 
-          success: response.success, 
-          hasData: !!response.data 
-        });
-        setActivePoll(null);
-        setActivePolls([]);
-      }
-    } catch (error) {
-      console.error('❌ [HomePage] Error loading active polls:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
+    } else {
+      console.log('⚠️ [HomePage] No active polls found');
       setActivePoll(null);
-      setActivePolls([]);
     }
-  };
+  }, [activePolls]);
 
   // Auto-refresh
   useEffect(() => {
-    if (!activePoll) return;
+    if (!activePoll) {
+      // Когда нет активного голосования, можем включить подтверждение
+      if (telegram.enableClosingConfirmation) {
+        telegram.enableClosingConfirmation();
+      }
+      return;
+    }
+    
+    // Когда есть активное голосование, отключаем подтверждение закрытия
+    // чтобы пользователь мог свободно закрыть Mini App
+    if (telegram.disableClosingConfirmation) {
+      telegram.disableClosingConfirmation();
+    }
     
     const refreshInterval = setInterval(() => {
-      loadActivePolls();
+      refetch(); // React Query auto-refetch
     }, 10000);
 
-    return () => clearInterval(refreshInterval);
-  }, [activePoll]);
+    return () => {
+      clearInterval(refreshInterval);
+      // При размонтировании восстанавливаем подтверждение
+      if (telegram.enableClosingConfirmation) {
+        telegram.enableClosingConfirmation();
+      }
+    };
+  }, [activePoll, telegram]);
 
   const handlePollClosed = () => {
-    loadActivePolls();
+    refetch(); // Refresh polls after closing
+  };
+
+  const queryClient = useQueryClient();
+
+  const handlePollCreated = async (pollId: number) => {
+    console.log('✅ [HomePage] Poll created:', pollId);
+    haptic.success();
+    setIsCreatingPoll(false);
+    
+    // Очищаем кэш polls
+    queryClient.removeQueries({ queryKey: queryKeys.polls.all });
+    
+    // Очищаем localStorage кэш
+    localStorage.removeItem('TELEGRAM_FOOD_BOT_CACHE');
+    
+    // Показываем уведомление и сразу переходим на страницу голосования
+    if (telegram.showPopup) {
+      telegram.showPopup({
+        title: '✅ Готово!',
+        message: 'Голосование создано и отправлено в группу',
+        buttons: [{ type: 'ok' }]
+      }, () => {
+        // После закрытия popup переходим на страницу голосования
+        navigate(`/vote/${pollId}`);
+      });
+    } else {
+      // Если showPopup не поддерживается, переходим сразу
+      navigate(`/vote/${pollId}`);
+    }
   };
 
   // Admin functions removed - now only available on VotingHubPage
@@ -258,7 +271,7 @@ export const HomePage: React.FC = () => {
    * Определение текущего сценария Quick Actions (упрощенно)
    */
   const getCurrentScenario = (): ScenarioType => {
-    const hasActivePoll = !!activePoll && activePoll.status === 'active';
+    const hasActivePoll = !!activePoll && activePoll.status === 'ACTIVE';
     return hasActivePoll ? 'has-active-poll' : 'no-active-poll';
   };
   
@@ -335,6 +348,116 @@ export const HomePage: React.FC = () => {
     console.log('Show user stats');
     alert('Страница в разработке 🚧');
   };
+
+  // 12. Повторить вчерашнее голосование (только для админов)
+  const handleRepeatYesterday = async () => {
+    console.log('🔄 [handleRepeatYesterday] Функция вызвана');
+    
+    try {
+      haptic.light();
+      console.log('🔄 [handleRepeatYesterday] Haptic feedback отправлен');
+
+      // 1. Получить последнее завершённое голосование
+      console.log('🔄 [handleRepeatYesterday] Запрос последнего poll...');
+      const response = await pollsService.getLastCompleted();
+      console.log('🔄 [handleRepeatYesterday] Ответ получен:', response);
+
+      if (!response.success || !response.data) {
+        console.log('❌ [handleRepeatYesterday] Нет завершённых polls');
+        addNotification({
+          type: 'error',
+          message: '❌ Нет завершённых голосований для повтора',
+        });
+        haptic.error();
+        return;
+      }
+
+      const lastPoll = response.data;
+      console.log('✅ [handleRepeatYesterday] Последний poll:', lastPoll);
+
+      // 2. Подтверждение
+      const endDate = lastPoll.endedAt ? new Date(lastPoll.endedAt).toLocaleDateString('ru-RU') : 'неизвестно';
+      console.log('🔄 [handleRepeatYesterday] Показываем confirm для даты:', endDate);
+      const confirmed = window.confirm(
+        `Повторить голосование от ${endDate}?`
+      );
+      console.log('🔄 [handleRepeatYesterday] Подтверждение:', confirmed);
+
+      if (!confirmed) {
+        console.log('❌ [handleRepeatYesterday] Пользователь отменил');
+        return;
+      }
+
+      // 3. Создать копию
+      console.log('🔄 [handleRepeatYesterday] Создаём копию poll ID:', lastPoll.id);
+      setIsLoading(true);
+      const repeatResponse = await pollsService.repeatPoll(lastPoll.id);
+      console.log('✅ [handleRepeatYesterday] Ответ от repeatPoll:', repeatResponse);
+
+      if (repeatResponse.success && repeatResponse.data) {
+        console.log('✅ [handleRepeatYesterday] Poll создан успешно!');
+        const newPollId = repeatResponse.data.id;
+        
+        haptic.success();
+        addNotification({
+          type: 'success',
+          message: '✅ Голосование создано и отправлено!',
+        });
+
+        // Очищаем кэш
+        console.log('🔄 [handleRepeatYesterday] Очищаем кэш...');
+        await queryClient.invalidateQueries({ 
+          queryKey: queryKeys.polls.active(),
+          refetchType: 'active' 
+        });
+        
+        // Задержка для backend
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Загружаем новое голосование напрямую
+        try {
+          const newPollResponse = await pollsService.getPollById(newPollId);
+          if (newPollResponse.success && newPollResponse.data) {
+            console.log('✅ [handleRepeatYesterday] Новый poll загружен:', newPollResponse.data);
+            console.log('📋 [handleRepeatYesterday] selectedMenuItemIds:', newPollResponse.data.selectedMenuItemIds);
+            
+            setActivePoll({
+              ...newPollResponse.data,
+              title: 'Голосование на обед',
+              endTime: newPollResponse.data.endedAt || 
+                (newPollResponse.data.startedAt ? 
+                  new Date(new Date(newPollResponse.data.startedAt).getTime() + (newPollResponse.data.duration || 30) * 60 * 1000).toISOString() : 
+                  new Date(Date.now() + 30 * 60 * 1000).toISOString()),
+              voteCount: newPollResponse.data._count?.votes || 0,
+            });
+          }
+        } catch (error) {
+          console.error('❌ [handleRepeatYesterday] Ошибка загрузки нового poll:', error);
+        }
+        
+        // Также обновляем React Query кэш
+        console.log('🔄 [handleRepeatYesterday] Обновляем React Query кэш...');
+        await refetch();
+        console.log('✅ [handleRepeatYesterday] Список polls обновлён');
+      } else {
+        console.log('❌ [handleRepeatYesterday] Ошибка создания:', repeatResponse);
+        addNotification({
+          type: 'error',
+          message: '❌ Ошибка создания голосования',
+        });
+      }
+    } catch (error: any) {
+      console.error('❌ [handleRepeatYesterday] Exception:', error);
+      haptic.error();
+      addNotification({
+        type: 'error',
+        message: error.message || '❌ Ошибка создания голосования',
+      });
+    } finally {
+      setIsLoading(false);
+      console.log('🔄 [handleRepeatYesterday] Функция завершена');
+    }
+  };
   
   /**
    * Получение конфигурации Quick Actions для текущего сценария (упрощенно)
@@ -347,25 +470,14 @@ export const HomePage: React.FC = () => {
     // Сценарий 1: Есть активное голосование
     if (scenario === 'has-active-poll') {
       return {
-        hero: {
-          title: activePoll?.title || 'Текущее голосование',
-          description: `Осталось ${timeRemaining}`,
-          icon: <Vote className="size-10 text-white" />,
-          buttonText: userHasVoted ? 'Посмотреть результаты' : 'Проголосовать',
-          buttonVariant: 'peach',
-          showShimmer: !userHasVoted,
-          badge: {
-            text: userHasVoted ? '✓ Проголосовали' : '⏰ Активно',
-            variant: userHasVoted ? 'default' : 'live'
-          },
-          onClick: () => navigate(`/vote/${activePoll?.id}`)
-        },
+        // Убираем Hero Action - голосование уже показывается в ActivePollWidget
+        hero: null,
         secondary: [
           {
             id: 'stats',
             title: 'Статистика',
             description: 'Текущая',
-            icon: <BarChart3 className="size-6" />,
+            icon: <BarChart3 className="size-6" aria-label="Статистика" />,
             gradient: 'lavender',
             onClick: handleShowResults
           },
@@ -373,7 +485,7 @@ export const HomePage: React.FC = () => {
             id: 'invite',
             title: 'Пригласить',
             description: 'Поделиться',
-            icon: <Share2 className="size-6" />,
+            icon: <Share2 className="size-6" aria-label="Поделиться" />,
             gradient: 'mint',
             onClick: handleInviteFriend
           }
@@ -384,34 +496,55 @@ export const HomePage: React.FC = () => {
     
     // Сценарий 3: Нет активного голосования (по умолчанию)
     // Hero Action НЕ показывается - кнопка создания уже есть в пустом состоянии
+    const secondaryActions: any[] = [];
+
+    // Кнопка "Повторить вчерашнее" - только для админов
+    if (user?.isAdmin) {
+      secondaryActions.push({
+        id: 'repeat-yesterday',
+        title: 'Повторить вчерашнее',
+        description: 'Создать копию',
+        icon: <RotateCcw className="size-5" aria-label="Повторить" />,
+        gradient: 'mint',
+        onClick: handleRepeatYesterday
+      });
+    }
+
+    // Остальные кнопки для всех
+    secondaryActions.push(
+      {
+        id: 'my-stats',
+        title: 'Моя статистика',
+        description: 'История выборов',
+        icon: <User className="size-5" aria-label="Профиль" />,
+        gradient: 'lavender',
+        onClick: handleShowUserStats
+      },
+      {
+        id: 'top-dish',
+        title: 'Топ блюдо',
+        description: 'Самое популярное',
+        icon: <Star className="size-5" aria-label="Популярное" />,
+        gradient: 'butter',
+        onClick: handleShowTopDish
+      }
+    );
+
+    // Если не админ, показываем кнопку "Пригласить"
+    if (!user?.isAdmin) {
+      secondaryActions.push({
+        id: 'invite',
+        title: 'Пригласить',
+        description: 'Друга',
+        icon: <Share2 className="size-5" aria-label="Пригласить" />,
+        gradient: 'coral',
+        onClick: handleInviteFriend
+      });
+    }
+
     return {
       hero: null,  // ← Скрываем Hero Action
-      secondary: [
-        {
-          id: 'my-stats',
-          title: 'Моя статистика',
-          description: 'История выборов',
-          icon: <User className="size-5" />,
-          gradient: 'lavender',
-          onClick: handleShowUserStats
-        },
-        {
-          id: 'top-dish',
-          title: 'Топ блюдо',
-          description: 'Самое популярное',
-          icon: <Star className="size-5" />,
-          gradient: 'butter',
-          onClick: handleShowTopDish
-        },
-        {
-          id: 'invite',
-          title: 'Пригласить',
-          description: 'Друга',
-          icon: <Share2 className="size-5" />,
-          gradient: 'mint',
-          onClick: handleInviteFriend
-        }
-      ],
+      secondary: secondaryActions,
       layout: '3x33%'
     };
   };
@@ -511,6 +644,20 @@ export const HomePage: React.FC = () => {
                 <Skeleton className="h-4 w-3/4" />
               </GlassCard>
             </motion.div>
+          ) : isCreatingPoll ? (
+            <motion.div
+              key="creating-poll"
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <CreatePollForm
+                onSuccess={handlePollCreated}
+                onCancel={() => setIsCreatingPoll(false)}
+                compact={true}
+              />
+            </motion.div>
           ) : activePoll ? (
             <motion.div
               key="active-poll"
@@ -522,7 +669,7 @@ export const HomePage: React.FC = () => {
               <InlineVotingCard
                 poll={activePoll}
                 onPollClosed={handlePollClosed}
-                onVoteSuccess={() => loadActivePolls()}
+                onVoteSuccess={() => refetch()}
               />
             </motion.div>
           ) : (
@@ -537,7 +684,7 @@ export const HomePage: React.FC = () => {
                   {/* Иконка + заголовок */}
                   <div>
                     <div className="inline-flex items-center justify-center size-16 rounded-full bg-muted mb-4">
-                      <Clock className="size-8 text-muted-foreground" />
+                      <Clock className="size-8 text-muted-foreground" aria-label="Время" />
                     </div>
                     <h3 className="text-lg font-semibold text-foreground mb-2">
                       Нет активных голосований
@@ -552,10 +699,9 @@ export const HomePage: React.FC = () => {
                     size="lg"
                     onClick={() => {
                       console.log('🔵 [HomePage] Кнопка "Создать голосование" нажата');
-                      // haptic.medium(); // Убираем вибрацию - она ломает навигацию
-                      console.log('🔵 [HomePage] Переход на /poll/create...');
-                      navigate('/poll/create');
-                      console.log('✅ [HomePage] navigate() вызван');
+                      haptic.impact();
+                      setIsCreatingPoll(true);
+                      console.log('✅ [HomePage] Открыта форма создания');
                     }}
                     className={cn(
                       'w-full h-14 text-base font-bold rounded-xl',
@@ -568,7 +714,7 @@ export const HomePage: React.FC = () => {
                       'flex items-center justify-center gap-2'
                     )}
                   >
-                    <Vote size={22} strokeWidth={2.5} />
+                    <Vote size={22} strokeWidth={2.5} aria-label="Создать голосование" />
                     <span>Создать голосование</span>
                   </Button>
 
@@ -578,7 +724,7 @@ export const HomePage: React.FC = () => {
                     size="sm"
                     onClick={() => navigate('/vote/history')}
                   >
-                    <History className="size-4 mr-2" />
+                    <History className="size-4 mr-2" aria-label="История" />
                     История голосований
                   </Button>
                 </GlassCardContent>
@@ -590,7 +736,7 @@ export const HomePage: React.FC = () => {
         {/* Quick Actions v2.0 - Гибридный подход */}
         <motion.div variants={itemVariants} className="space-y-4">
           <div className="flex items-center gap-2">
-            <Zap className="size-5 text-peach-500" />
+            <Zap className="size-5 text-peach-500" aria-label="Быстрые действия" />
             <h2 className="text-lg font-semibold text-foreground">
               Быстрые действия
             </h2>

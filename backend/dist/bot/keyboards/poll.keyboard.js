@@ -8,6 +8,7 @@ exports.createCategorizedPollKeyboard = createCategorizedPollKeyboard;
 exports.createResultsKeyboard = createResultsKeyboard;
 exports.createCompactPollMessage = createCompactPollMessage;
 exports.createPollMessage = createPollMessage;
+exports.formatMultiWinnerResults = formatMultiWinnerResults;
 exports.createResultsMessage = createResultsMessage;
 function createCompactPollKeyboard(pollId) {
     return {
@@ -203,6 +204,62 @@ function createProgressBar(percentage, length = 10) {
     const filled = Math.round((percentage / 100) * length);
     const empty = length - filled;
     return '█'.repeat(filled) + '░'.repeat(empty);
+}
+function getPluralForm(count, one, few, many) {
+    if (count % 10 === 1 && count % 100 !== 11)
+        return one;
+    if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+        return few;
+    }
+    return many;
+}
+function formatMultiWinnerResults(resultData) {
+    let message = '🍽 <b>Результаты голосования:</b>\n\n';
+    if (resultData.winners.length > 0) {
+        resultData.winners.forEach((winner, index) => {
+            const emoji = index === 0 ? '🏆' : '🍴';
+            const plural = getPluralForm(winner.voteCount, 'человек', 'человека', 'человек');
+            message += `${emoji} <b>${winner.menuItemName}</b> — ${winner.voteCount} ${plural}\n`;
+            const voterNames = winner.voters.map((v) => v.firstName);
+            if (voterNames.length <= 5) {
+                message += `   👤 ${voterNames.join(', ')}\n`;
+            }
+            else {
+                const shown = voterNames.slice(0, 5).join(', ');
+                const remaining = voterNames.length - 5;
+                message += `   👤 ${shown} и еще ${remaining}\n`;
+            }
+            message += '\n';
+        });
+    }
+    else {
+        message += '   <i>Нет голосов за блюда</i>\n\n';
+    }
+    if (resultData.bringOwn.count > 0) {
+        const plural = getPluralForm(resultData.bringOwn.count, 'человек', 'человека', 'человек');
+        message += `🏠 <b>Принесу своё</b> — ${resultData.bringOwn.count} ${plural}\n`;
+        const names = resultData.bringOwn.voters.map((v) => v.firstName);
+        if (names.length <= 5) {
+            message += `   ${names.join(', ')}\n\n`;
+        }
+        else {
+            message += `   ${names.slice(0, 5).join(', ')} и еще ${names.length - 5}\n\n`;
+        }
+    }
+    if (resultData.skipped.count > 0) {
+        const plural = getPluralForm(resultData.skipped.count, 'человек', 'человека', 'человек');
+        message += `🚫 <b>Пропускаю</b> — ${resultData.skipped.count} ${plural}\n\n`;
+    }
+    if (resultData.meta.tieBreak) {
+        message += `ℹ️ <i>${resultData.meta.tieBreak.reason}, выбрано по методу: ${resultData.meta.tieBreak.method}</i>\n\n`;
+    }
+    if (message.length > 3500) {
+        message = message.substring(0, 3500);
+        message += `\n\n📊 Смотреть полные результаты в приложении`;
+    }
+    const completedAt = new Date(resultData.meta.completedAt).toLocaleString('ru-RU');
+    message += `⏱ Завершено: ${completedAt}`;
+    return message;
 }
 function createResultsMessage(pollData) {
     const { poll, result, breakdown, totalVotes, voteTypeStats } = pollData;

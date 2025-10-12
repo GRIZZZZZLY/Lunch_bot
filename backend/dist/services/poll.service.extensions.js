@@ -30,7 +30,7 @@ async function createPollFromWebApp(params) {
             throw new Error('Bot not initialized in PollService');
         }
         logger_1.logger.info('✅ Bot instance confirmed');
-        const { groupId, duration, createdBy, title, menuItems } = params;
+        const { groupId, duration, createdBy, title, menuItems, selectedMenuItemIds } = params;
         logger_1.logger.info('🔍 Fetching group data', { groupId });
         const group = await group_service_1.GroupService.getGroupById(groupId);
         if (!group) {
@@ -38,13 +38,36 @@ async function createPollFromWebApp(params) {
             throw new Error('Group not found');
         }
         logger_1.logger.info('✅ Group found', { telegramId: group.telegramId.toString(), title: group.title });
-        logger_1.logger.info('💾 Creating poll in database');
+        logger_1.logger.info('💾 Creating poll in database', { selectedMenuItemIds });
         const poll = await poll_service_1.PollService.createPoll({
             groupId,
             duration,
             createdBy,
         });
         logger_1.logger.info('✅ Poll created in DB', { pollId: poll.id });
+        if (selectedMenuItemIds && selectedMenuItemIds.length > 0) {
+            await poll_service_1.PollService.updatePoll(poll.id, {
+                selectedMenuItemIds: JSON.stringify(selectedMenuItemIds),
+            });
+            logger_1.logger.info('✅ Selected menu items saved', { pollId: poll.id, count: selectedMenuItemIds.length });
+        }
+        try {
+            const realCount = await group_service_1.GroupService.getRealMemberCount(group.telegramId.toString(), botInstance);
+            if (realCount && realCount > 0) {
+                const currentSettings = await group_service_1.GroupService.getGroupSettings(poll.groupId);
+                await group_service_1.GroupService.updateGroupSettings(poll.groupId, {
+                    ...currentSettings,
+                    expectedParticipants: realCount
+                });
+                logger_1.logger.info(`✅ Set expectedParticipants for new poll ${poll.id}: ${realCount} members`);
+            }
+            else {
+                logger_1.logger.warn(`⚠️ Could not get real member count for group ${group.id}, using fallback`);
+            }
+        }
+        catch (error) {
+            logger_1.logger.error('Error updating expectedParticipants on poll creation:', error);
+        }
         const endTime = new Date(Date.now() + duration * 60 * 1000);
         const message = createPollNotificationMessage({
             title: title || 'Голосование за обед',
@@ -68,6 +91,11 @@ async function createPollFromWebApp(params) {
             groupId: group.telegramId.toString(),
             messageId: sentMessage.message_id,
         });
+        await poll_service_1.PollService.updatePoll(poll.id, {
+            chatId: BigInt(chatId),
+            messageId: sentMessage.message_id,
+        });
+        logger_1.logger.info('✅ Poll updated with chatId and messageId');
         setTimeout(async () => {
             try {
                 const currentPoll = await poll_service_1.PollService.getPollById(poll.id);

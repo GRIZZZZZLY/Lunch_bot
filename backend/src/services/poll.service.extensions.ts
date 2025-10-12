@@ -44,6 +44,7 @@ export async function createPollFromWebApp(params: {
   createdBy: number;
   title?: string;
   menuItems: MenuItem[];
+  selectedMenuItemIds?: number[];
 }): Promise<{ pollId: number; messageId: number }> {
   try {
     logger.info('🎬 Starting createPollFromWebApp', { groupId: params.groupId, menuItemsCount: params.menuItems.length });
@@ -55,7 +56,7 @@ export async function createPollFromWebApp(params: {
     
     logger.info('✅ Bot instance confirmed');
 
-    const { groupId, duration, createdBy, title, menuItems } = params;
+    const { groupId, duration, createdBy, title, menuItems, selectedMenuItemIds } = params;
 
     // Получаем группу для получения telegramId
     logger.info('🔍 Fetching group data', { groupId });
@@ -66,14 +67,22 @@ export async function createPollFromWebApp(params: {
     }
     logger.info('✅ Group found', { telegramId: group.telegramId.toString(), title: group.title });
 
-    // Создаём голосование в БД
-    logger.info('💾 Creating poll in database');
+    // Создаём голосование в БД с сохранением выбранных блюд
+    logger.info('💾 Creating poll in database', { selectedMenuItemIds });
     const poll = await PollService.createPoll({
       groupId,
       duration,
       createdBy,
     });
     logger.info('✅ Poll created in DB', { pollId: poll.id });
+    
+    // Сохраняем выбранные блюда в БД
+    if (selectedMenuItemIds && selectedMenuItemIds.length > 0) {
+      await PollService.updatePoll(poll.id, {
+        selectedMenuItemIds: JSON.stringify(selectedMenuItemIds),
+      });
+      logger.info('✅ Selected menu items saved', { pollId: poll.id, count: selectedMenuItemIds.length });
+    }
 
     // 🔄 Обновляем expectedParticipants при создании голосования (Вариант 5)
     try {

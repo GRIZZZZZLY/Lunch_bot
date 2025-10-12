@@ -20,6 +20,7 @@ import { useTelegram } from '../../hooks/useTelegram';
 import { useHaptic } from '../../hooks/useHaptic';
 import { menuService, MenuItem } from '../../services/menu.service';
 import { cn } from '../../lib/utils';
+import { sanitizeText, sanitizeURL } from '../../lib/sanitize';
 
 export interface MenuFormData {
   name: string;
@@ -135,7 +136,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    haptic.medium();
+    haptic.impact();
 
     if (!validateForm()) {
       const firstError = Object.values(errors)[0];
@@ -151,7 +152,20 @@ export const MenuForm: React.FC<MenuFormProps> = ({
   };
 
   const handleInputChange = (field: keyof MenuFormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // 🔒 SECURITY: Sanitize text inputs
+    let sanitizedValue = value;
+    
+    if (typeof value === 'string') {
+      if (field === 'imageUrl') {
+        // Очистка URL
+        sanitizedValue = sanitizeURL(value);
+      } else if (field === 'name' || field === 'description' || field === 'category') {
+        // Очистка текстовых полей от HTML/XSS
+        sanitizedValue = sanitizeText(value);
+      }
+    }
+    
+    setFormData(prev => ({ ...prev, [field]: sanitizedValue }));
     
     // Очищаем ошибку при изменении поля
     if (errors[field]) {
@@ -309,7 +323,6 @@ export const MenuForm: React.FC<MenuFormProps> = ({
                         size="sm"
                         onClick={() => {
                           handleInputChange('category', category);
-                          haptic.light();
                         }}
                         className={cn(
                           "flex-shrink-0 min-h-11 gap-1.5",
@@ -413,7 +426,6 @@ export const MenuForm: React.FC<MenuFormProps> = ({
                 checked={formData.isActive}
                 onCheckedChange={(checked) => {
                   handleInputChange('isActive', checked);
-                  haptic.light();
                 }}
                 className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-mint-500 data-[state=checked]:to-mint-600"
               />

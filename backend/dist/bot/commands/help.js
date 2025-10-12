@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.helpCommand = helpCommand;
 const user_service_1 = require("../../services/user.service");
 async function helpCommand(ctx) {
-    const isGroup = ctx.chat.type !== 'private';
+    const isGroup = ctx.chat?.type !== 'private';
     const user = ctx.from;
     let isAdmin = false;
     if (user) {

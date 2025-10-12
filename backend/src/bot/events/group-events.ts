@@ -29,8 +29,8 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
 
         // Сохраняем группу в базу данных
         if (chat.type === 'group' || chat.type === 'supergroup') {
-          await GroupService.createGroup({
-            telegramId: BigInt(chat.id),
+          await GroupService.upsertGroup({
+            telegramId: chat.id.toString(),
             title: chat.title || 'Unknown Group',
             type: chat.type,
           });
@@ -77,7 +77,10 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
 
         // Деактивируем группу
         if (chat.type === 'group' || chat.type === 'supergroup') {
-          await GroupService.deactivateGroup(BigInt(chat.id));
+          const group = await GroupService.getGroupByTelegramId(chat.id.toString());
+          if (group) {
+            await GroupService.deactivateGroup(group.id);
+          }
         }
       }
     } catch (error) {
@@ -94,9 +97,12 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
       
       // Если изменилось название группы
       if (chat.type === 'group' || chat.type === 'supergroup') {
-        await GroupService.updateGroup(BigInt(chat.id), {
-          title: chat.title,
-        });
+        const group = await GroupService.getGroupByTelegramId(chat.id.toString());
+        if (group) {
+          await GroupService.updateGroup(group.id, {
+            title: chat.title,
+          });
+        }
       }
     } catch (error) {
       logger.error('Error handling chat_member event:', error);

@@ -1,5 +1,4 @@
-﻿import { CommandContext } from 'grammy';
-import { BotContext } from '../../types/bot.types';
+﻿import { BotContext } from '../../types/bot.types';
 import { MenuService } from '../../services/menu.service';
 import { UserService } from '../../services/user.service';
 import { logger } from '../../utils/logger';
@@ -7,7 +6,7 @@ import { logger } from '../../utils/logger';
 /**
  * Команда /menu - открытие Mini App для управления меню
  */
-export async function menuCommand(ctx: CommandContext<BotContext>): Promise<void> {
+export async function menuCommand(ctx: BotContext): Promise<void> {
   try {
     const user = ctx.from;
     if (!user) {
@@ -26,7 +25,7 @@ export async function menuCommand(ctx: CommandContext<BotContext>): Promise<void
     }
 
     const isAdmin = dbUser.isAdmin;
-    const isGroup = ctx.chat.type !== 'private';
+    const isGroup = ctx.chat?.type !== 'private';
     
     // Получаем статистику меню
     const menuStats = await MenuService.getMenuStats();
@@ -75,7 +74,7 @@ export async function menuCommand(ctx: CommandContext<BotContext>): Promise<void
         [
           {
             text: '📱 Открыть управление',
-            url: `https://t.me/${botUsername}?start=menu_${ctx.chat.id}`
+            url: `https://t.me/${botUsername}?start=menu_${ctx.chat?.id || 'unknown'}`
           }
         ],
         [
@@ -128,7 +127,7 @@ export async function menuCommand(ctx: CommandContext<BotContext>): Promise<void
       userId: dbUser.id,
       telegramId: user.id.toString(),
       isAdmin,
-      chatType: ctx.chat.type
+      chatType: ctx.chat?.type || 'unknown'
     });
 
   } catch (error) {

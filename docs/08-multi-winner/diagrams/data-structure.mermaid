@@ -1,0 +1,89 @@
+%% Multi-Winner Voting: Data Structure Diagram
+%% Shows JSON structure stored in rouletteData field
+
+graph TB
+    subgraph PollResult["PollResult (Database Table)"]
+        id["id: number"]
+        pollId["pollId: number"]
+        winnerMenuItemId["winnerMenuItemId: number | null<br/><i>← Primary Winner (for compatibility)</i>"]
+        totalVotes["totalVotes: number"]
+        rouletteData["<b>rouletteData: string (JSON)</b><br/>⬇️ Stores MultiWinnerResultData"]
+        createdAt["createdAt: DateTime"]
+    end
+    
+    rouletteData --> JSON["📦 MultiWinnerResultData JSON"]
+    
+    subgraph JSON["MultiWinnerResultData JSON"]
+        version["version: 1"]
+        mode["mode: 'multi-winner'"]
+        
+        subgraph winners["winners: Winner[]"]
+            w1["Winner 1"]
+            w2["Winner 2"]
+            wN["Winner N"]
+        end
+        
+        subgraph Winner1["Winner Structure"]
+            menuItemId["menuItemId: number"]
+            menuItemName["menuItemName: string<br/><i>← Snapshot</i>"]
+            menuItemSnapshot["menuItemSnapshot: {...}<br/>price, category, imageUrl"]
+            voterIds["voterIds: number[]"]
+            voters["voters: VoterSnapshot[]"]
+            voteCount["voteCount: number"]
+            votedAt["votedAt: string[]<br/><i>← ISO timestamps</i>"]
+        end
+        
+        subgraph VoterSnapshot["VoterSnapshot Structure"]
+            userId["userId: number"]
+            firstName["firstName: string<br/><i>← Snapshot</i>"]
+            lastName["lastName?: string"]
+            username["username?: string"]
+        end
+        
+        subgraph bringOwn["bringOwn: BringOwnGroup"]
+            boVoterIds["voterIds: number[]"]
+            boVoters["voters: VoterSnapshot[]"]
+            boCount["count: number"]
+        end
+        
+        subgraph skipped["skipped: SkippedGroup"]
+            sVoterIds["voterIds: number[]"]
+            sVoters["voters: VoterSnapshot[]"]
+            sCount["count: number"]
+        end
+        
+        subgraph meta["meta: ResultMeta"]
+            primaryWinnerId["primaryWinnerId: number | null<br/><i>← Matches winnerMenuItemId</i>"]
+            tieBreak["tieBreak?: TieBreak"]
+            completedAt["completedAt: string<br/><i>← ISO timestamp</i>"]
+            completedBy["completedBy: number<br/><i>← Admin user ID</i>"]
+            params["params: {minVotes, maxWinners}"]
+        end
+        
+        subgraph TieBreak["TieBreak Structure (if applied)"]
+            method["method: 'earliest' | 'alphabetical'"]
+            appliedTo["appliedTo: number[]<br/><i>← Menu item IDs</i>"]
+            reason["reason: string"]
+        end
+    end
+    
+    winners --> Winner1
+    Winner1 --> voters
+    voters --> VoterSnapshot
+    bringOwn --> boVoters
+    boVoters --> VoterSnapshot
+    skipped --> sVoters
+    sVoters --> VoterSnapshot
+    meta --> tieBreak
+    tieBreak --> TieBreak
+    
+    style PollResult fill:#fff3cd
+    style rouletteData fill:#ffcccc
+    style JSON fill:#e1f5e1
+    style winners fill:#d1ecf1
+    style Winner1 fill:#cce5ff
+    style VoterSnapshot fill:#e7e7ff
+    style bringOwn fill:#ffe5cc
+    style skipped fill:#f0f0f0
+    style meta fill:#d4edda
+    style TieBreak fill:#ffeaa7

@@ -569,6 +569,32 @@ export class PollService {
   }
 
   /**
+   * Получение последнего завершённого голосования
+   * Используется для функции "Повторить вчерашнее"
+   */
+  static async getLastCompletedPoll(groupId?: number): Promise<Poll | null> {
+    try {
+      const where: Prisma.PollWhereInput = {
+        status: 'COMPLETED',
+        ...(groupId && { groupId }),
+      };
+
+      const poll = await prisma.poll.findFirst({
+        where,
+        orderBy: { endedAt: 'desc' },
+        include: {
+          group: true,
+        },
+      });
+
+      return poll;
+    } catch (error) {
+      logger.error('Error getting last completed poll:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Получение статистики голосований
    */
   static async getPollStats(groupId?: number): Promise<PollStats> {

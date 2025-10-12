@@ -180,9 +180,9 @@ export const PollManagementPage: React.FC = () => {
           message: `Голосование запущено в группе ${response.data.groupTitle}`,
         });
 
-        // Перенаправляем на страницу голосования
+        // Перенаправляем на главную страницу (там тоже можно голосовать)
         setTimeout(() => {
-          navigate(`/vote/${response.data.pollId}`);
+          navigate('/');
         }, 1500);
       } else {
         throw new Error(response.error || 'Failed to create poll');

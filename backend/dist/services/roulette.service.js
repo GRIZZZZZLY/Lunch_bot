@@ -46,7 +46,7 @@ class RouletteService {
                     responsibleUserId: result.responsibleUserId,
                     winnerMenuItemId: result.winnerMenuItemId,
                     totalVotes: result.totalVotes,
-                    rouletteData: result.animationData,
+                    rouletteData: JSON.stringify(result.animationData),
                 },
                 include: {
                     poll: true,

@@ -96,10 +96,32 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         }
       }
 
-      // Загружаем меню
+      // Загружаем меню и фильтруем по выбранным блюдам
       const menuResponse = await menuService.getActiveItems();
       if (menuResponse.success && menuResponse.data) {
-        setMenuItems(menuResponse.data);
+        let items = menuResponse.data;
+        
+        // Фильтруем по выбранным блюдам, если они указаны в poll
+        if (pollResponse.data?.selectedMenuItemIds) {
+          try {
+            const selectedIds = JSON.parse(pollResponse.data.selectedMenuItemIds);
+            if (Array.isArray(selectedIds) && selectedIds.length > 0) {
+              items = items.filter(item => selectedIds.includes(item.id));
+              console.log('[InlineVotingCard] ✅ Filtered menu items:', {
+                allItems: menuResponse.data.length,
+                selectedItems: items.length,
+                selectedIds,
+                filteredItemIds: items.map(i => i.id)
+              });
+            }
+          } catch (parseError) {
+            console.warn('[InlineVotingCard] Failed to parse selectedMenuItemIds:', parseError);
+          }
+        } else {
+          console.warn('[InlineVotingCard] ⚠️ No selectedMenuItemIds in poll, showing all items');
+        }
+        
+        setMenuItems(items);
       }
     } catch (error) {
       console.error('Error loading poll data:', error);
@@ -173,18 +195,18 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
   };
 
   const handleClosePoll = async () => {
-    if (!window.confirm('Отменить голосование? Все голоса будут потеряны.')) return;
+    if (!window.confirm('Завершить голосование? Результаты будут подведены.')) return;
 
     try {
       setClosing(true);
       haptic.impact();
 
-      const response = await pollsService.cancelPoll(poll.id);
+      const response = await pollsService.completePoll(poll.id);
       if (response.success) {
         haptic.success();
         addNotification({
           type: 'success',
-          message: '🚫 Голосование отменено',
+          message: '✅ Голосование завершено',
         });
         if (onPollClosed) onPollClosed();
       } else {
@@ -194,7 +216,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
       haptic.error();
       addNotification({
         type: 'error',
-        message: error.message || 'Не удалось отменить',
+        message: error.message || 'Не удалось завершить',
       });
     } finally {
       setClosing(false);
@@ -258,15 +280,15 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
             </div>
           )}
 
-          {/* Admin cancel button */}
+          {/* Admin close button */}
           {user?.isAdmin && (
             <button
               onClick={handleClosePoll}
               disabled={closing}
-              className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors disabled:opacity-50"
-              title="Отменить голосование"
+              className="p-2 bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-colors disabled:opacity-50"
+              title="Завершить голосование"
             >
-              <X size={18} />
+              <CheckCircle size={18} />
             </button>
           )}
         </div>
@@ -284,21 +306,30 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
 
         {voteCount > 0 && (() => {
           const voters = poll.votes?.map(v => {
-            const telegramIdValue = v.user.telegramId || v.user.id;
-            
-            // Валидация перед преобразованием в BigInt
-            if (!telegramIdValue || isNaN(Number(telegramIdValue))) {
-              console.warn(`Invalid telegramId for user ${v.user.id}, skipping voter avatar`);
+            try {
+              const telegramIdValue = v.user.telegramId || v.user.id;
+              
+              // Валидация перед преобразованием в BigInt
+              if (!telegramIdValue) {
+                return null;
+              }
+              
+              const numValue = Number(telegramIdValue);
+              if (isNaN(numValue) || numValue <= 0) {
+                return null;
+              }
+              
+              return {
+                ...v.user,
+                telegramId: BigInt(numValue)
+              };
+            } catch (error) {
+              console.warn(`Error processing voter ${v.user.id}:`, error);
               return null;
             }
-            
-            return {
-              ...v.user,
-              telegramId: BigInt(telegramIdValue)
-            };
           }).filter(Boolean) || [];
           
-          return <VotersAvatars voters={voters} maxDisplay={5} size="sm" />;
+          return voters.length > 0 ? <VotersAvatars voters={voters} maxDisplay={5} size="sm" /> : null;
         })()}
       </div>
 

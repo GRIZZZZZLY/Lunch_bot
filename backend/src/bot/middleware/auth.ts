@@ -30,7 +30,7 @@ export async function authMiddleware(ctx: BotContext, next: NextFunction): Promi
     if (ctx.chat && ['group', 'supergroup'].includes(ctx.chat.type)) {
       const group = await GroupService.upsertGroup({
         telegramId: ctx.chat.id.toString(),
-        title: 'title' in ctx.chat ? ctx.chat.title : 'Unknown Group',
+        title: ('title' in ctx.chat ? ctx.chat.title : undefined) ?? 'Unknown Group',
         type: ctx.chat.type,
       });
 

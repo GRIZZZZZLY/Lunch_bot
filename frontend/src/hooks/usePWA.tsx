@@ -1,24 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useRegisterSW } from 'virtual:pwa-register/react';
+// import { useRegisterSW } from 'virtual:pwa-register/react'; // PWA временно отключен
 
 /**
- * Хук для работы с PWA и Service Worker
+ * Хук для работы с PWA и Service Worker (STUB - PWA отключен)
  */
 export const usePWA = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
-
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegistered(registration) {
-      console.log('SW Registered:', registration);
-    },
-    onRegisterError(error) {
-      console.error('SW registration error', error);
-    },
-  });
+  const [isUpdateAvailable] = useState(false); // Всегда false без PWA
 
   // Отслеживание online/offline
   useEffect(() => {
@@ -34,21 +22,12 @@ export const usePWA = () => {
     };
   }, []);
 
-  // Отслеживание обновлений SW
-  useEffect(() => {
-    if (needRefresh) {
-      setIsUpdateAvailable(true);
-    }
-  }, [needRefresh]);
-
   const updateApp = async () => {
-    await updateServiceWorker(true);
-    setIsUpdateAvailable(false);
+    // No-op без PWA
   };
 
   const skipUpdate = () => {
-    setNeedRefresh(false);
-    setIsUpdateAvailable(false);
+    // No-op без PWA
   };
 
   return {

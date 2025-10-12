@@ -20,7 +20,7 @@ async function menuCommand(ctx) {
             return;
         }
         const isAdmin = dbUser.isAdmin;
-        const isGroup = ctx.chat.type !== 'private';
+        const isGroup = ctx.chat?.type !== 'private';
         const menuStats = await menu_service_1.MenuService.getMenuStats();
         const popularItems = await menu_service_1.MenuService.getPopularMenuItems(3);
         let text = '🍽️ **Управление меню**\n\n';
@@ -61,7 +61,7 @@ async function menuCommand(ctx) {
                 [
                     {
                         text: '📱 Открыть управление',
-                        url: `https://t.me/${botUsername}?start=menu_${ctx.chat.id}`
+                        url: `https://t.me/${botUsername}?start=menu_${ctx.chat?.id || 'unknown'}`
                     }
                 ],
                 [
@@ -107,7 +107,7 @@ async function menuCommand(ctx) {
             userId: dbUser.id,
             telegramId: user.id.toString(),
             isAdmin,
-            chatType: ctx.chat.type
+            chatType: ctx.chat?.type || 'unknown'
         });
     }
     catch (error) {

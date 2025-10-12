@@ -1,0 +1,102 @@
+%% Multi-Winner Voting: System Flow Diagram
+%% Visualizes the complete flow from poll completion to result display
+
+flowchart TD
+    Start([Админ нажимает<br/>Завершить голосование]) --> CheckFeatureFlag{Feature Flag<br/>Enabled?}
+    
+    CheckFeatureFlag -->|false| ReturnDisabled[503: FEATURE_DISABLED]
+    CheckFeatureFlag -->|true| CheckAdmin{User<br/>is Admin?}
+    
+    CheckAdmin -->|false| ReturnForbidden[403: FORBIDDEN]
+    CheckAdmin -->|true| CheckPollStatus{Poll Status<br/>= ACTIVE?}
+    
+    CheckPollStatus -->|false| CheckCompleted{Status<br/>= COMPLETED?}
+    CheckCompleted -->|true| ReturnExisting[Return Existing Result<br/>Idempotency ✅]
+    CheckCompleted -->|false| ReturnNotActive[400: NOT_ACTIVE]
+    
+    CheckPollStatus -->|true| FetchVotes[Fetch Poll + Votes<br/>with Relations]
+    
+    FetchVotes --> GroupVotes[Группировка голосов:<br/>- menuItemVotes Map<br/>- bringOwnVotes []<br/>- skippedVotes []]
+    
+    GroupVotes --> FilterMinVotes[Фильтрация:<br/>votes >= minVotes]
+    
+    FilterMinVotes --> SortByCount[Сортировка<br/>по voteCount DESC]
+    
+    SortByCount --> CheckMaxWinners{maxWinners<br/>specified?}
+    CheckMaxWinners -->|yes| LimitWinners[Slice winners<br/>to maxWinners]
+    CheckMaxWinners -->|no| KeepAll[Keep all winners]
+    
+    LimitWinners --> CheckTie{Top winners<br/>have equal votes?}
+    KeepAll --> CheckTie
+    
+    CheckTie -->|false| SetPrimaryWinner[primaryWinnerId =<br/>winners[0].menuItemId]
+    CheckTie -->|true| ApplyTieBreak{tieBreakMethod}
+    
+    ApplyTieBreak -->|earliest| SelectEarliest[Select dish with<br/>earliest votedAt]
+    ApplyTieBreak -->|alphabetical| SelectAlphabetical[Select dish<br/>alphabetically]
+    
+    SelectEarliest --> RecordTieBreak[Record TieBreak<br/>in meta]
+    SelectAlphabetical --> RecordTieBreak
+    
+    RecordTieBreak --> SetPrimaryWinner
+    
+    SetPrimaryWinner --> CreateSnapshots[Create Snapshots:<br/>- Voter names<br/>- Menu item details]
+    
+    CreateSnapshots --> BuildResultData[Build<br/>MultiWinnerResultData JSON]
+    
+    BuildResultData --> Transaction[Prisma Transaction START]
+    
+    Transaction --> UpdatePollStatus[UPDATE Poll:<br/>status = COMPLETED<br/>endedAt = now]
+    
+    UpdatePollStatus --> CreatePollResult[CREATE PollResult:<br/>rouletteData = JSON<br/>winnerMenuItemId = primaryWinnerId]
+    
+    CreatePollResult --> TransactionCommit[Transaction COMMIT]
+    
+    TransactionCommit --> InvalidateCache[Invalidate Cache]
+    
+    InvalidateCache --> LogSuccess[Log Success Event]
+    
+    LogSuccess --> ReturnSuccess[200: Success<br/>+ resultData]
+    
+    ReturnSuccess --> NotifyTelegram[Telegram Bot:<br/>formatMultiWinnerResults]
+    
+    NotifyTelegram --> CheckMessageLength{Message length<br/>> 3500?}
+    
+    CheckMessageLength -->|true| TruncateMessage[Truncate + Add<br/>WebApp Link]
+    CheckMessageLength -->|false| KeepMessage[Keep Full Message]
+    
+    TruncateMessage --> SendTelegramMessage[Send Telegram Message<br/>with Inline Keyboard]
+    KeepMessage --> SendTelegramMessage
+    
+    SendTelegramMessage --> FrontendRender[Frontend:<br/>Parse rouletteData]
+    
+    FrontendRender --> CheckMode{mode =<br/>'multi-winner'?}
+    
+    CheckMode -->|true| RenderMultiWinner[Render<br/>MultiWinnerResults Component]
+    CheckMode -->|false| RenderSingleWinner[Render<br/>SingleWinnerResults Component]
+    
+    RenderMultiWinner --> CheckVotersCount{voters.length<br/>> 5?}
+    
+    CheckVotersCount -->|true| ProgressiveDisclosure[Progressive Disclosure:<br/>Show first 5 + Expand Button]
+    CheckVotersCount -->|false| ShowAllVoters[Show All Voters]
+    
+    ProgressiveDisclosure --> Complete([Complete ✅])
+    ShowAllVoters --> Complete
+    RenderSingleWinner --> Complete
+    
+    ReturnDisabled --> Complete
+    ReturnForbidden --> Complete
+    ReturnNotActive --> Complete
+    ReturnExisting --> Complete
+    
+    style Start fill:#e1f5e1
+    style Complete fill:#e1f5e1
+    style ReturnSuccess fill:#c3e6cb
+    style ReturnDisabled fill:#f8d7da
+    style ReturnForbidden fill:#f8d7da
+    style ReturnNotActive fill:#f8d7da
+    style Transaction fill:#fff3cd
+    style TransactionCommit fill:#d4edda
+    style ApplyTieBreak fill:#d1ecf1
+    style RenderMultiWinner fill:#d1ecf1
+    style ProgressiveDisclosure fill:#cce5ff
