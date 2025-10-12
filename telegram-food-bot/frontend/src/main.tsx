@@ -2,6 +2,11 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/index.css';
+import './utils/debugLogger'; // Инициализация debug logger
+import { initSentry } from './lib/sentry';
+
+// Инициализация Sentry (P1.2 - Error Tracking)
+initSentry();
 
 // Инициализация Telegram WebApp
 if (typeof window !== 'undefined' && window.Telegram?.WebApp) {

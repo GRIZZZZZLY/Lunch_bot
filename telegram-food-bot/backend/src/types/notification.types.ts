@@ -7,6 +7,7 @@ export enum NotificationType {
   POLL_STARTED = 'poll_started',
   POLL_ENDING_SOON = 'poll_ending_soon',
   POLL_ENDED = 'poll_ended',
+  POLL_CANCELLED = 'poll_cancelled',
   ROULETTE_WINNER = 'roulette_winner',
   ORDER_REMINDER = 'order_reminder',
   CUSTOM = 'custom',
@@ -54,16 +55,67 @@ export interface RouletteWinnerNotificationData {
 
 /**
  * Данные для уведомления о завершении голосования
+ * Поддерживает оба формата: Single Winner и Multi-Winner
  */
 export interface PollEndedNotificationData {
-  poll: Poll;
-  winnerItem?: MenuItem;
+  pollId: number;
+  mode: 'single-winner' | 'multi-winner';
   totalVotes: number;
-  topItems: Array<{
-    item: MenuItem;
+  groupTitle: string;
+  
+  // Single Winner данные
+  winnerItem?: {
+    id: number;
+    name: string;
+    description?: string;
+    price?: number;
+  };
+  topItems?: Array<{
+    item: {
+      id: number;
+      name: string;
+      description?: string;
+      price?: number;
+    };
     votes: number;
     percentage: number;
   }>;
+  
+  // Multi-Winner данные
+  winners?: Array<{
+    menuItemId: number;
+    menuItemName: string;
+    voteCount: number;
+    voters: Array<{
+      userId: number;
+      firstName: string;
+      lastName?: string;
+      username?: string;
+    }>;
+  }>;
+  bringOwn?: {
+    count: number;
+    voters: Array<{
+      userId: number;
+      firstName: string;
+      lastName?: string;
+      username?: string;
+    }>;
+  };
+  skipped?: {
+    count: number;
+    voters: Array<{
+      userId: number;
+      firstName: string;
+      lastName?: string;
+      username?: string;
+    }>;
+  };
+  tieBreak?: {
+    method: string;
+    appliedTo: number[];
+    reason: string;
+  };
 }
 
 /**
@@ -74,6 +126,17 @@ export interface PollStartedNotificationData {
   menuItems: MenuItem[];
   endTime?: Date;
   groupTitle: string;
+}
+
+/**
+ * Данные для уведомления об отмене голосования
+ */
+export interface PollCancelledNotificationData {
+  poll: Poll;
+  cancelledBy: User;
+  reason?: string;
+  totalVotes: number;
+  voters: User[];
 }
 
 /**

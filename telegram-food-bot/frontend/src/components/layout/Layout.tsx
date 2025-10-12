@@ -75,12 +75,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   // Показываем загрузку пока не готов WebApp
   if (!isReady) {
-    return <FullPageLoader text="Летим" />;
+    return <FullPageLoader />;
   }
 
   // Показываем загрузку пока идет аутентификация
   if (isLoading) {
-    return <FullPageLoader text="Летим" />;
+    return <FullPageLoader />;
   }
 
   // Показываем ошибку если аутентификация не удалась

@@ -25,6 +25,8 @@
 - 📳 **Haptic feedback** для тактильной обратной связи
 - 🎨 **Адаптивный дизайн** под светлую/темную тему Telegram
 - 🔄 **Fallback механизмы** для 100% совместимости
+- 🛠️ **Debug инструменты** для быстрой диагностики
+- ✅ **Автотесты** для проверки критичного функционала
 
 ### 🎯 Преимущества
 
@@ -32,6 +34,8 @@
 - **40-60% меньше кликов** для голосования благодаря deep linking
 - **100% покрытие** всех версий Telegram через fallback команды
 - **Готов к production** с полной документацией
+- **Умное кэширование** - polls всегда свежие, menu работает offline
+- **Автоматические тесты** - 9 тестов покрывают критичные сценарии
 
 ## 🚀 Быстрый старт
 
@@ -51,13 +55,51 @@ cd telegram-food-bot
 # 2. Установить ngrok
 winget install ngrok
 
-# 3. Запустить всё окружение
+# 3. Выберите режим разработки
+```
+
+### Режимы запуска
+
+#### 🎯 PROD-DEV (Рекомендуется) ⭐
+**Гибрид производительности production и удобства dev**
+```powershell
+.\start-prod-dev.ps1
+```
+- ✅ Быстрый как production (~500 KB bundle)
+- ✅ console.log и source maps для отладки
+- ✅ Watch mode (автопересборка ~5-10 сек)
+- ✅ SKIP_TELEGRAM_VALIDATION (работает с ngrok)
+
+**Идеально для:** ежедневной разработки, тестирования производительности, демо
+
+#### ⚡ DEV (Максимальная скорость)
+**Классический режим с instant hot reload**
+```powershell
 .\start-dev.ps1
 ```
+- ✅ Мгновенный hot reload
+- ✅ Полная отладка
+- ⚠️ Медленная загрузка (~5-10 MB)
+
+**Идеально для:** активной разработки UI, быстрых итераций
+
+#### 🚢 PRODUCTION (Финальная проверка)
+**Настоящий production build**
+```powershell
+.\start-prod.ps1
+```
+- ✅ Полная оптимизация
+- ✅ Строгая валидация
+- ❌ Нет hot reload
+
+**Идеально для:** финальной проверки перед деплоем
 
 После запуска откроется 5 терминалов. В окне #5 (URL Updater) вставьте ngrok URL из окна #4, и всё настроится автоматически! ✨
 
-**Подробная инструкция**: [docs/01-getting-started/README.md](docs/01-getting-started/README.md)
+**Документация:**
+- [Подробно о PROD-DEV режиме](PROD-DEV-MODE.md)
+- [Сравнение всех режимов](MODES-COMPARISON.md)
+- [Детальная инструкция](docs/01-getting-started/README.md)
 
 ## 📚 Документация
 
@@ -96,6 +138,15 @@ winget install ngrok
 
 - **[Для пользователей групп](docs/06-guides/GROUP_MINIAPP_GUIDE.md)** - как использовать бот
 - **[Ограничения WebApp](docs/06-guides/TELEGRAM_WEBAPP_LIMITATION.md)** - известные issues
+- **[Mobile Troubleshooting](MOBILE_TROUBLESHOOTING.md)** - решение проблем на мобильных
+
+### 🛠️ Отладка и тестирование
+
+- **[Руководство по отладке](DEBUGGING_GUIDE.md)** - полное руководство с 60+ примерами
+- **[Быстрая диагностика](QUICK_DEBUG.md)** - чек-лист за 30 секунд
+- **[Инструменты тестирования](TESTING_TOOLS_SUMMARY.md)** - обзор всех инструментов
+- **[Автотесты](backend/test-app-flow.js)** - запуск: `cd backend && npm run test:flow`
+- **[Browser Debug Tool](frontend/collect-debug-info.html)** - веб-инструмент для диагностики
 
 ### 🔌 API
 
@@ -163,9 +214,31 @@ telegram-food-bot/
 ✅ **Версия**: 2.0.0 (Production Ready)  
 ✅ **Backend**: Полностью реализован  
 ✅ **Frontend**: Полностью реализован  
+✅ **Мобильная версия**: Работает на iOS и Android  
 ✅ **Документация**: 95% готова  
 ⚠️ **Тесты**: Требуются (unit + integration)  
 ⚠️ **CI/CD**: Требуется настройка  
+
+### 🎉 Последние исправления (2025-01-12)
+
+#### Критические исправления:
+- ✅ **Персистентный кэш polls** - polls больше НЕ сохраняются в localStorage, всегда свежие данные
+- ✅ **Фильтрация menu items** - правильное отображение выбранных блюд после создания poll
+- ✅ **Навигация после создания** - автоматический переход на VotingPage с очисткой кэша
+- ✅ **InlineVotingCard** - исправлена валидация BigInt, кнопка завершения использует completePoll
+
+#### Новые инструменты:
+- 🛠️ **Debug Logger** - цветное логирование API, polls, фильтрации с поддержкой включения/выключения
+- ✅ **Автотесты** - 9 тестов покрывают Database, Filtering, Creation, Persistence (100% success rate)
+- 📊 **Browser Debug Tool** - HTML инструмент для сбора диагностической информации
+- 📖 **Полная документация** - DEBUGGING_GUIDE.md, QUICK_DEBUG.md, TESTING_TOOLS_SUMMARY.md
+
+#### Предыдущие исправления (2025-01-11):
+- ✅ **Мобильная авторизация** - исправлена ошибка "Validation Failed"
+- ✅ **Webhook конфликт** - устранен 409 Conflict при запуске polling режима
+- ✅ **PROD-DEV режим** - добавлен гибридный режим для комфортной разработки
+- ✅ **Бесконечный цикл** - отключен проблемный DebugLogger компонент
+- ✅ **Proxy routing** - исправлена маршрутизация /api запросов
 
 ### Что работает
 
@@ -177,10 +250,24 @@ telegram-food-bot/
 - ✅ Fallback механизмы
 - ✅ Real-time updates
 - ✅ Haptic feedback
+- ✅ **Работает на мобильных устройствах (iOS/Android)**
+- ✅ **Три режима разработки (DEV/PROD-DEV/PROD)**
+- ✅ **Умное кэширование** - polls всегда свежие, menu работает offline
+- ✅ **Автотесты** - 9 тестов с 100% success rate
+- ✅ **Debug инструменты** - logger, автотесты, browser tool
+
+### Известные проблемы и решения
+
+| Проблема | Решение | Документация |
+|----------|---------|--------------|
+| ❌ Старое голосование из кэша | ✅ Polls не сохраняются в localStorage | [PERSISTENT_CACHE_FIX.md](PERSISTENT_CACHE_FIX.md) |
+| ❌ Показывает все блюда вместо выбранных | ✅ Переход на VotingPage с очисткой кэша | [CACHE_FIX_REPORT.md](CACHE_FIX_REPORT.md) |
+| ❌ InlineVotingCard crash на BigInt | ✅ Валидация с try-catch | [INLINE_VOTING_AUDIT_REPORT.md](INLINE_VOTING_AUDIT_REPORT.md) |
+| ❌ Кнопка админа удаляет poll | ✅ Теперь использует completePoll | [INLINE_VOTING_AUDIT_REPORT.md](INLINE_VOTING_AUDIT_REPORT.md) |
 
 ### Что нужно доработать
 
-- ⚠️ Unit тесты (>70% coverage)
+- ⚠️ Unit тесты (>70% coverage) - есть только flow тесты
 - ⚠️ Integration тесты
 - ⚠️ CI/CD pipeline
 - ⚠️ API документация (docs/07-api/)

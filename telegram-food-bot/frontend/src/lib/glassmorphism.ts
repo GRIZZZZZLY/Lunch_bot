@@ -18,42 +18,42 @@ export interface GlassStyles {
  */
 const GLASS_CONFIGS = {
   light: {
-    blur: '8px',
+    blur: '12px', // Увеличено с 10px для лучшей читаемости
     light: {
-      background: 'rgba(255, 255, 255, 0.6)',
-      border: 'rgba(255, 255, 255, 0.25)',
-      shadow: 'rgba(0, 0, 0, 0.08)',
-    },
-    dark: {
-      background: 'rgba(35, 46, 60, 0.6)',
-      border: 'rgba(255, 255, 255, 0.08)',
-      shadow: 'rgba(0, 0, 0, 0.25)',
-    },
-  },
-  medium: {
-    blur: '12px',
-    light: {
-      background: 'rgba(255, 255, 255, 0.7)',
-      border: 'rgba(255, 255, 255, 0.3)',
-      shadow: 'rgba(0, 0, 0, 0.1)',
-    },
-    dark: {
-      background: 'rgba(35, 46, 60, 0.7)',
-      border: 'rgba(255, 255, 255, 0.1)',
-      shadow: 'rgba(0, 0, 0, 0.3)',
-    },
-  },
-  heavy: {
-    blur: '16px',
-    light: {
-      background: 'rgba(255, 255, 255, 0.8)',
+      background: 'rgba(255, 255, 255, 0.75)', // Увеличено с 0.65 для лучшего контраста
       border: 'rgba(255, 255, 255, 0.35)',
       shadow: 'rgba(0, 0, 0, 0.12)',
     },
     dark: {
-      background: 'rgba(35, 46, 60, 0.8)',
+      background: 'rgba(35, 46, 60, 0.75)', // Увеличено с 0.65
       border: 'rgba(255, 255, 255, 0.12)',
       shadow: 'rgba(0, 0, 0, 0.35)',
+    },
+  },
+  medium: {
+    blur: '16px', // Увеличено с 14px для WCAG AA соответствия
+    light: {
+      background: 'rgba(255, 255, 255, 0.85)', // Увеличено с 0.75 для контраста 4.5:1
+      border: 'rgba(255, 255, 255, 0.4)',
+      shadow: 'rgba(0, 0, 0, 0.15)',
+    },
+    dark: {
+      background: 'rgba(35, 46, 60, 0.85)', // Увеличено с 0.75
+      border: 'rgba(255, 255, 255, 0.15)',
+      shadow: 'rgba(0, 0, 0, 0.4)',
+    },
+  },
+  heavy: {
+    blur: '20px', // Увеличено с 16px
+    light: {
+      background: 'rgba(255, 255, 255, 0.9)', // Увеличено с 0.8
+      border: 'rgba(255, 255, 255, 0.4)',
+      shadow: 'rgba(0, 0, 0, 0.15)',
+    },
+    dark: {
+      background: 'rgba(35, 46, 60, 0.9)', // Увеличено с 0.8
+      border: 'rgba(255, 255, 255, 0.15)',
+      shadow: 'rgba(0, 0, 0, 0.4)',
     },
   },
   ultra: {

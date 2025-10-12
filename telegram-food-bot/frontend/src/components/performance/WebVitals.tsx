@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as Sentry from '@sentry/react';
 
 /**
  * Web Vitals мониторинг
@@ -26,6 +27,21 @@ const reportWebVitals = (metric: Metric) => {
   console.log(`Rating: ${metric.rating}`);
   console.log(`ID: ${metric.id}`);
   console.groupEnd();
+
+  // P1.2.3: Отправляем Web Vitals в Sentry
+  Sentry.setMeasurement(metric.name, metric.value, 'millisecond');
+  
+  Sentry.addBreadcrumb({
+    category: 'web-vitals',
+    message: `${metric.name}: ${metric.value.toFixed(2)}ms (${metric.rating})`,
+    level: metric.rating === 'good' ? 'info' : metric.rating === 'needs-improvement' ? 'warning' : 'error',
+    data: {
+      value: metric.value,
+      rating: metric.rating,
+      delta: metric.delta,
+      id: metric.id,
+    },
+  });
 
   // В production отправляем в analytics
   if (process.env.NODE_ENV === 'production') {

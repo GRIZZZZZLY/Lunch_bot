@@ -29,7 +29,7 @@ export const useOnboarding = (): OnboardingState => {
     globalListeners.push(listener);
 
     // Log Telegram WebApp version
-    const webAppVersion = window.Telegram?.WebApp?.version || 'unknown';
+    const webAppVersion = (window.Telegram?.WebApp as any)?.version || 'unknown';
     console.log(`📱 [Onboarding] Telegram WebApp version: ${webAppVersion}`);
 
     // Check onboarding status on mount
@@ -61,7 +61,7 @@ export const useOnboarding = (): OnboardingState => {
       // Check Telegram CloudStorage if available (requires v6.9+)
       const webApp = window.Telegram?.WebApp;
       const cloudStorage = (webApp as any)?.CloudStorage;
-      const isCloudStorageSupported = webApp?.isVersionAtLeast?.('6.9');
+      const isCloudStorageSupported = (webApp as any)?.isVersionAtLeast?.('6.9');
       
       if (cloudStorage && isCloudStorageSupported) {
         console.log('🔄 [Onboarding] Checking cloud storage...');
@@ -102,7 +102,7 @@ export const useOnboarding = (): OnboardingState => {
       // Save to Telegram CloudStorage if available (requires v6.9+)
       const webApp = window.Telegram?.WebApp;
       const cloudStorage = (webApp as any)?.CloudStorage;
-      const isCloudStorageSupported = webApp?.isVersionAtLeast?.('6.9');
+      const isCloudStorageSupported = (webApp as any)?.isVersionAtLeast?.('6.9');
       
       if (cloudStorage && isCloudStorageSupported) {
         try {
@@ -152,7 +152,7 @@ if (import.meta.env.DEV) {
     
     const webApp = window.Telegram?.WebApp;
     const cloudStorage = (webApp as any)?.CloudStorage;
-    const isCloudStorageSupported = webApp?.isVersionAtLeast?.('6.9');
+    const isCloudStorageSupported = (webApp as any)?.isVersionAtLeast?.('6.9');
     
     if (cloudStorage && isCloudStorageSupported) {
       try {

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Header } from '../components/layout/Layout';
-import { RocketLoader } from '../components/common/RocketLoader';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { GlassCard, GlassBadge } from '../components/glass';
 import { MediumWaveGradient } from '../components/background';
@@ -15,7 +14,8 @@ import {
   Shield,
   Info,
   Crown,
-  BookOpen
+  BookOpen,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
@@ -28,7 +28,7 @@ import { useOnboarding } from '../hooks/useOnboarding';
  */
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const { mainButton, backButton, colorScheme } = useTelegram();
   const { addNotification } = useUI();
   
@@ -165,7 +165,7 @@ export const ProfilePage: React.FC = () => {
       <div className="min-h-screen relative">
         <MediumWaveGradient />
         <div className="flex items-center justify-center min-h-screen">
-          <RocketLoader size="lg" text="Летим" />
+          <LoadingSpinner size="lg" />
         </div>
       </div>
     );
@@ -220,6 +220,73 @@ export const ProfilePage: React.FC = () => {
             </div>
           </motion.div>
         </GlassCard>
+
+        {/* Admin Dashboard Access */}
+        {user?.isAdmin && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+          >
+            <button
+              onClick={() => navigate('/admin/dashboard')}
+              className="w-full p-5 rounded-2xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-2 border-yellow-200 dark:border-yellow-700 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-xl bg-yellow-400 dark:bg-yellow-600">
+                    <Shield size={24} className="text-white" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
+                      Панель администратора
+                      <Crown size={18} className="text-yellow-600 dark:text-yellow-400" />
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                      Статистика, логи и управление системой
+                    </div>
+                  </div>
+                </div>
+                <div className="text-yellow-600 dark:text-yellow-400">
+                  <Settings size={20} />
+                </div>
+              </div>
+            </button>
+          </motion.div>
+        )}
+
+        {/* Refresh Token button (if admin in DB but not in token) */}
+        {!user?.isAdmin && import.meta.env.DEV && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+          >
+            <button
+              onClick={async () => {
+                try {
+                  await refresh();
+                  addNotification({
+                    type: 'success',
+                    message: '✅ Права обновлены! Перезагрузите страницу.',
+                  });
+                  setTimeout(() => window.location.reload(), 1500);
+                } catch (error) {
+                  addNotification({
+                    type: 'error',
+                    message: '❌ Ошибка обновления прав',
+                  });
+                }
+              }}
+              className="w-full p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-700 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
+                <Settings size={18} />
+                <span className="text-sm font-medium">Обновить права доступа (Dev)</span>
+              </div>
+            </button>
+          </motion.div>
+        )}
 
         {/* Платёжные данные */}
         <GlassCard

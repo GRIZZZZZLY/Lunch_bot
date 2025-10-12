@@ -23,7 +23,7 @@ async function appCommand(ctx) {
             return;
         }
         const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
-        const isGroup = ctx.chat.type !== 'private';
+        const isGroup = ctx.chat?.type !== 'private';
         const isAdmin = dbUser.isAdmin;
         let text = '🚀 **Telegram Food Bot - Mini App**\n\n';
         if (isGroup) {
@@ -87,7 +87,7 @@ async function appCommand(ctx) {
             userId: dbUser.id,
             telegramId: user.id.toString(),
             isAdmin,
-            chatType: ctx.chat.type,
+            chatType: ctx.chat?.type || 'unknown',
             isGroup
         });
     }

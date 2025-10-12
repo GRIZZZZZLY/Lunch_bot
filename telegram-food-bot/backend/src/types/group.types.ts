@@ -35,3 +35,14 @@ export interface GroupMemberWithUser {
   joinedAt: Date;
   user: User;
 }
+
+/**
+ * Настройки группы (хранятся в Group.settings JSON)
+ */
+export interface GroupSettings {
+  expectedParticipants?: number;   // Ожидаемое кол-во участников
+  autoCompleteEnabled?: boolean;   // Автозавершение при 100% явке
+  notificationsEnabled?: boolean;  // Уведомления включены
+  reminderBeforeEnd?: number;      // Напоминание за N минут
+  progressNotifications?: boolean; // Уведомления о прогрессе (50%, 75%)
+}

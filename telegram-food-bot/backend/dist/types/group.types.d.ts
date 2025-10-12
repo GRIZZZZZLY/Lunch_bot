@@ -31,4 +31,11 @@ export interface GroupMemberWithUser {
     joinedAt: Date;
     user: User;
 }
+export interface GroupSettings {
+    expectedParticipants?: number;
+    autoCompleteEnabled?: boolean;
+    notificationsEnabled?: boolean;
+    reminderBeforeEnd?: number;
+    progressNotifications?: boolean;
+}
 //# sourceMappingURL=group.types.d.ts.map

@@ -135,6 +135,8 @@ export interface UseTelegramReturn {
   expand: () => void;
   sendData: (data: string) => void;
   ready: () => void;
+  enableClosingConfirmation?: () => void;
+  disableClosingConfirmation?: () => void;
 }
 
 /**
@@ -150,14 +152,19 @@ export const useTelegram = (): UseTelegramReturn => {
     // Расширяем приложение на весь экран
     WebApp.expand();
     
-    // Включаем закрытие по свайпу
-    WebApp.enableClosingConfirmation();
+    // Включаем закрытие по свайпу (только если поддерживается версией API >= 6.2)
+    const version = parseFloat(WebApp.version || '0');
+    if (version >= 6.2 && WebApp.enableClosingConfirmation) {
+      WebApp.enableClosingConfirmation();
+    }
 
     setIsReady(true);
 
     // Очистка при размонтировании
     return () => {
-      WebApp.disableClosingConfirmation();
+      if (version >= 6.2 && WebApp.disableClosingConfirmation) {
+        WebApp.disableClosingConfirmation();
+      }
     };
   }, []);
 
@@ -204,6 +211,18 @@ export const useTelegram = (): UseTelegramReturn => {
     WebApp.ready();
   }, []);
 
+  const enableClosingConfirmation = useMemo(() => {
+    return WebApp.enableClosingConfirmation ? () => {
+      WebApp.enableClosingConfirmation();
+    } : undefined;
+  }, []);
+
+  const disableClosingConfirmation = useMemo(() => {
+    return WebApp.disableClosingConfirmation ? () => {
+      WebApp.disableClosingConfirmation();
+    } : undefined;
+  }, []);
+
   return {
     webApp: WebApp,
     user,
@@ -222,5 +241,7 @@ export const useTelegram = (): UseTelegramReturn => {
     expand,
     sendData,
     ready,
+    enableClosingConfirmation,
+    disableClosingConfirmation,
   };
 };

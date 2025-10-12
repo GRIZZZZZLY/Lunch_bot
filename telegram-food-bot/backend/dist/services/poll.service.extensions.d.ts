@@ -6,6 +6,7 @@ export declare function createPollFromWebApp(params: {
     createdBy: number;
     title?: string;
     menuItems: MenuItem[];
+    selectedMenuItemIds?: number[];
 }): Promise<{
     pollId: number;
     messageId: number;

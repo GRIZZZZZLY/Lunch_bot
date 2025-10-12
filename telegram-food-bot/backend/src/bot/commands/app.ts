@@ -1,4 +1,3 @@
-import { CommandContext } from 'grammy';
 import { BotContext } from '../../types/bot.types';
 import { UserService } from '../../services/user.service';
 import { logger } from '../../utils/logger';
@@ -7,7 +6,7 @@ import { logger } from '../../utils/logger';
  * Команда /app - быстрое открытие Mini App
  * Работает как в личных чатах, так и в группах
  */
-export async function appCommand(ctx: CommandContext<BotContext>): Promise<void> {
+export async function appCommand(ctx: BotContext): Promise<void> {
   try {
     const user = ctx.from;
     if (!user) {
@@ -33,7 +32,7 @@ export async function appCommand(ctx: CommandContext<BotContext>): Promise<void>
     }
 
     const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
-    const isGroup = ctx.chat.type !== 'private';
+    const isGroup = ctx.chat?.type !== 'private';
     const isAdmin = dbUser.isAdmin;
 
     let text = '🚀 **Telegram Food Bot - Mini App**\n\n';
@@ -102,7 +101,7 @@ export async function appCommand(ctx: CommandContext<BotContext>): Promise<void>
       userId: dbUser.id,
       telegramId: user.id.toString(),
       isAdmin,
-      chatType: ctx.chat.type,
+      chatType: ctx.chat?.type || 'unknown',
       isGroup
     });
 

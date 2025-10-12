@@ -37,7 +37,7 @@ async function checkPolls() {
 
     for (const poll of allPolls) {
       console.log(`Poll ID: ${poll.id}`);
-      console.log(`  Group: ${poll.group.title} (ID: ${poll.group_id})`);
+      console.log(`  Group: ${poll.group.title} (ID: ${poll.groupId})`);
       console.log(`  Status in DB: ${poll.status}`);
       console.log(`  Duration: ${poll.duration} minutes`);
       console.log(`  Started: ${poll.startedAt?.toISOString() || 'null'}`);

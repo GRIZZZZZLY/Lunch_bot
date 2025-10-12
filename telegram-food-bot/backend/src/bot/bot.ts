@@ -1,4 +1,4 @@
-import { Bot, session } from 'grammy';
+import { Bot, session, BotConfig } from 'grammy';
 import { BotContext, SessionData } from '../types/bot.types';
 import { botConfig } from '../config/bot.config';
 import { logger } from '../utils/logger';
@@ -6,6 +6,8 @@ import { setupErrorHandlers } from '../utils/error';
 import { UserService } from '../services/user.service';
 import { notificationService } from '../services/notification.service';
 import { PollReminderService } from '../services/poll-reminder.service';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 
 const userService = new UserService();
 
@@ -61,7 +63,51 @@ function initial(): SessionData {
  * Настройка и создание бота
  */
 export function createBot(): Bot<BotContext> {
-  botInstance = new Bot<BotContext>(botConfig.token);
+  // Настройка прокси или локального API
+  let gramBotConfig: BotConfig<BotContext> | undefined;
+  
+  if (botConfig.localApi.enabled) {
+    // Используем локальный Telegram Bot API сервер
+    logger.info('🔧 Используется локальный Telegram Bot API сервер', {
+      url: botConfig.localApi.url,
+    });
+    gramBotConfig = {
+      client: {
+        apiRoot: botConfig.localApi.url,
+      },
+    };
+  } else if (botConfig.proxy.enabled && botConfig.proxy.url) {
+    // Используем прокси
+    logger.info('🔧 Используется прокси для подключения к Telegram API', {
+      proxy: botConfig.proxy.url.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@'), // Скрываем пароль
+    });
+    
+    try {
+      const proxyUrl = botConfig.proxy.url;
+      let agent;
+      
+      if (proxyUrl.startsWith('socks')) {
+        agent = new SocksProxyAgent(proxyUrl);
+      } else {
+        agent = new HttpsProxyAgent(proxyUrl);
+      }
+      
+      gramBotConfig = {
+        client: {
+          // @ts-ignore - Grammy типы не всегда корректны для агентов
+          baseFetchConfig: {
+            agent,
+            compress: true,
+          },
+        },
+      };
+    } catch (error) {
+      logger.error('❌ Ошибка настройки прокси:', error);
+      logger.warn('⚠️  Продолжаем без прокси...');
+    }
+  }
+  
+  botInstance = new Bot<BotContext>(botConfig.token, gramBotConfig);
   const bot = botInstance;
 
   // Настройка обработки ошибок

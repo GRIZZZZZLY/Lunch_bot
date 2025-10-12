@@ -26,7 +26,7 @@ async function authMiddleware(ctx, next) {
         if (ctx.chat && ['group', 'supergroup'].includes(ctx.chat.type)) {
             const group = await group_service_1.GroupService.upsertGroup({
                 telegramId: ctx.chat.id.toString(),
-                title: 'title' in ctx.chat ? ctx.chat.title : 'Unknown Group',
+                title: ('title' in ctx.chat ? ctx.chat.title : undefined) ?? 'Unknown Group',
                 type: ctx.chat.type,
             });
             ctx.dbGroup = group;

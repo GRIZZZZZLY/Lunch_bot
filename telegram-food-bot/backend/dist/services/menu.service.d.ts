@@ -6,6 +6,7 @@ export declare class MenuService {
     static updateMenuItem(id: number, data: UpdateMenuItemData): Promise<MenuItem>;
     static deleteMenuItem(id: number): Promise<void>;
     static getAllMenuItems(): Promise<MenuItem[]>;
+    static getMenuItemsByIds(ids: number[]): Promise<MenuItem[]>;
     static getActiveMenuItems(): Promise<MenuItem[]>;
     static getMenuItemsByCategory(category: string): Promise<MenuItem[]>;
     static searchMenuItems(query: string): Promise<MenuItem[]>;

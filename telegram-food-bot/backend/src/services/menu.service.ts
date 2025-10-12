@@ -166,6 +166,29 @@ export class MenuService {
   }
 
   /**
+   * Получение блюд по списку ID
+   * Используется для "Повторить вчерашнее"
+   */
+  static async getMenuItemsByIds(ids: number[]): Promise<MenuItem[]> {
+    try {
+      if (!ids || ids.length === 0) {
+        return [];
+      }
+
+      return await prisma.menuItem.findMany({
+        where: {
+          id: { in: ids },
+          isActive: true,
+        },
+        orderBy: { name: 'asc' },
+      });
+    } catch (error) {
+      logger.error('Error getting menu items by IDs:', error);
+      throw new Error('Failed to get menu items by IDs');
+    }
+  }
+
+  /**
    * Получение активных блюд (С КЭШИРОВАНИЕМ)
    */
   static async getActiveMenuItems(): Promise<MenuItem[]> {

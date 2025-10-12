@@ -18,11 +18,12 @@ export interface UpdateMenuItemData {
 export interface MenuItemWithStats {
     id: number;
     name: string;
-    description?: string;
-    price?: number;
-    category?: string;
-    imageUrl?: string;
+    description: string | null;
+    price: number | null;
+    category: string | null;
+    imageUrl: string | null;
     isActive: boolean;
+    createdBy: number;
     createdAt: Date;
     updatedAt: Date;
     voteCount: number;

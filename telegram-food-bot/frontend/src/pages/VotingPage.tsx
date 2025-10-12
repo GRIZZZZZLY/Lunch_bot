@@ -4,19 +4,16 @@ import { motion } from 'framer-motion';
 import { Header } from '../components/layout/Layout';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { GlassHeroCard } from '../components/glass';
+import { GlassCard, GlassCardContent } from '../components/ui/glass-card';
 import { MediumWaveGradient } from '../components/background';
 import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
 import { 
   CheckCircle2, 
   Circle, 
-  Clock, 
   Users,
   Vote as VoteIcon,
-  TrendingUp,
   AlertCircle,
-  CheckCircle,
-  Send,
-  Crown
+  Send
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
@@ -27,7 +24,6 @@ import { cn } from '../lib/utils';
 import { FirstTimeVotingTutorial } from '../components/voting/FirstTimeVotingTutorial';
 import { VotersAvatars } from '../components/voting/VotersAvatars';
 import { AdminControls } from '../components/voting/AdminControls';
-import { AdminInsights } from '../components/voting/AdminInsights';
 
 /**
  * Страница голосования
@@ -55,6 +51,15 @@ export const VotingPage: React.FC = () => {
 
   // Загрузка данных
   useEffect(() => {
+    // Очищаем кэш перед загрузкой для свежих данных
+    if (pollId) {
+      // Удаляем кэш для конкретного poll
+      import('../lib/react-query').then(({ queryClient, queryKeys }) => {
+        queryClient.removeQueries({ 
+          queryKey: queryKeys.polls.detail(parseInt(pollId))
+        });
+      });
+    }
     loadPollData(false); // Первая загрузка - с loading
   }, [pollId]);
 
@@ -175,11 +180,30 @@ export const VotingPage: React.FC = () => {
         }
       }
 
-      // Загружаем меню (можно фильтровать только блюда из голосования)
+      // Загружаем меню и фильтруем по выбранным блюдам в голосовании
       const menuResponse = await menuService.getActiveItems();
       if (menuResponse.success && menuResponse.data) {
+        let items = menuResponse.data;
+        
+        // Фильтруем по выбранным блюдам, если они указаны в poll
+        if (pollData.selectedMenuItemIds) {
+          try {
+            const selectedIds = JSON.parse(pollData.selectedMenuItemIds);
+            if (Array.isArray(selectedIds) && selectedIds.length > 0) {
+              items = items.filter(item => selectedIds.includes(item.id));
+              console.log('✅ Menu items filtered by poll selection:', {
+                total: menuResponse.data.length,
+                filtered: items.length,
+                selectedIds
+              });
+            }
+          } catch (parseError) {
+            console.warn('Failed to parse selectedMenuItemIds:', parseError);
+          }
+        }
+        
         // Принудительное обновление через создание нового массива
-        setMenuItems([...menuResponse.data]);
+        setMenuItems([...items]);
         console.log('✅ Menu items updated');
       }
 
@@ -202,6 +226,21 @@ export const VotingPage: React.FC = () => {
 
   const handleVote = async () => {
     if (!selectedItemId || !pollId) return;
+
+    // SECURITY: Проверка endTime перед голосованием
+    if (poll?.endedAt) {
+      const now = new Date();
+      const endTime = new Date(poll.endedAt);
+      
+      if (now > endTime) {
+        hapticFeedback.notificationOccurred('error');
+        addNotification({
+          type: 'error',
+          message: 'Голосование уже завершено',
+        });
+        return;
+      }
+    }
 
     try {
       setSubmitting(true);
@@ -269,14 +308,30 @@ export const VotingPage: React.FC = () => {
   };
 
   // Admin actions
-  const handleCompletePoll = async () => {
+  const handleCompletePoll = async (mode: 'single' | 'multi') => {
     try {
       if (!poll) return;
-      const response = await pollsService.completePoll(poll.id);
+      
+      let response;
+      if (mode === 'multi') {
+        response = await pollsService.completePollMultiWinner(poll.id, {
+          minVotes: 1,
+          maxWinners: null,
+          tieBreakMethod: 'earliest',
+        });
+      } else {
+        response = await pollsService.completePoll(poll.id);
+      }
+
       if (response.success) {
-        addNotification({ type: 'success', message: 'Голосование завершено' });
+        addNotification({ 
+          type: 'success', 
+          message: mode === 'multi' ? 'Голосование завершено (распределение)' : 'Голосование завершено' 
+        });
         hapticFeedback.notificationOccurred('success');
-        await loadPollData(false);
+        
+        // Перенаправляем на страницу результатов
+        navigate(`/poll/${poll.id}/results`);
       }
     } catch (error) {
       console.error('[VotingPage] Error completing poll:', error);
@@ -316,7 +371,7 @@ export const VotingPage: React.FC = () => {
           animate={{ opacity: 1, scale: 1 }}
           className="text-center py-12"
         >
-          <AlertCircle size={48} className="text-gray-400 mx-auto mb-4" />
+          <AlertCircle size={48} className="text-gray-400 mx-auto mb-4" aria-label="Предупреждение" />
           <p className="text-gray-600 dark:text-gray-400 mb-4">Голосование не найдено</p>
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -339,34 +394,25 @@ export const VotingPage: React.FC = () => {
       {/* Animated gradient background - full page */}
       <MediumWaveGradient />
       
-      {/* Header with Admin Badge */}
-      <div className="relative">
-        <Header title="Голосование" backButton={true} />
-        {user?.isAdmin && (
-          <div className="absolute top-3 right-4 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gold-100 dark:bg-gold-900/20 border border-gold-300 dark:border-gold-700">
-            <Crown className="text-gold-500" size={14} />
-            <span className="text-xs font-semibold text-gold-700 dark:text-gold-400">Админ</span>
-          </div>
-        )}
-      </div>
+
 
       {/* Hero Card */}
       <motion.div
         initial={!hasAnimated ? { opacity: 0, y: -20 } : false}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        transition={{ duration: 0.15 }}
       >
         <GlassHeroCard
           gradient={{ from, to }}
           value={(poll._count?.votes || 0).toString()}
-          label={`${poll.title || 'Голосование'} · ${label}`}
+          label={poll.title || 'Голосование'}
           sublabel={isActive ? `${timeRemaining} · Активно` : 'Завершено'}
           textColor={textColor}
-          icon={<VoteIcon size={24} />}
+          icon={<VoteIcon size={24} aria-hidden="true" />}
         />
       </motion.div>
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Admin Controls - только для админов */}
         {user?.isAdmin && poll && poll.status === 'ACTIVE' && (
           <AdminControls
@@ -376,51 +422,8 @@ export const VotingPage: React.FC = () => {
           />
         )}
 
-        {/* Admin Insights - только для админов */}
-        {user?.isAdmin && poll && (
-          <AdminInsights
-            poll={poll}
-            totalMembers={15}
-          />
-        )}
-        {/* Статистика */}
-        <motion.div
-          key={`stats-${refreshKey}`}
-          initial={!hasAnimated ? { opacity: 0, y: 20 } : false}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: !hasAnimated ? 0.2 : 0, duration: 0.4 }}
-          className="grid grid-cols-2 gap-3"
-        >
-          <div key={`votes-${poll._count?.votes || 0}`} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="p-2 rounded-lg bg-blue-50 dark:bg-bluegray-500/20">
-                <Users size={18} className="text-blue-500 dark:text-bluegray-300" />
-              </div>
-            </div>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-              {poll._count?.votes || 0}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Голосов
-            </p>
-          </div>
-          
-          {isActive && poll.endTime && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="p-2 rounded-lg bg-primary-food-50 dark:bg-peach-500/20">
-                  <Clock size={18} className="text-primary-food-500 dark:text-peach-300" />
-                </div>
-              </div>
-              <p className="text-2xl font-bold text-primary-food-700 dark:text-peach-300 mb-1">
-                {timeRemaining}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Осталось
-              </p>
-            </div>
-          )}
-        </motion.div>
+
+
 
         {/* Статус голоса пользователя */}
         {hasVoted && (
@@ -428,21 +431,13 @@ export const VotingPage: React.FC = () => {
             key={`vote-status-${userVote?.menuItemId || 0}-${refreshKey}`}
             initial={!hasAnimated ? { opacity: 0, scale: 0.95 } : false}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: !hasAnimated ? 0.3 : 0, duration: 0.3 }}
-            className="p-4 bg-green-50 dark:bg-success-soft-500/20 rounded-xl border-l-4 border-green-500 dark:border-success-soft-400 shadow-sm"
+            transition={{ delay: !hasAnimated ? 0.2 : 0, duration: 0.15 }}
           >
-            <div className="flex items-start gap-2">
-              <CheckCircle size={18} className="text-green-600 dark:text-success-soft-300 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-green-700 dark:text-success-soft-300">
-                  Вы проголосовали за: <span className="font-semibold">{userVote.menuItem.name}</span>
-                </p>
-                {isActive && (
-                  <p className="text-xs text-green-600 dark:text-success-soft-300 mt-1">
-                    Вы можете изменить свой выбор до окончания голосования
-                  </p>
-                )}
-              </div>
+            <div className="px-4 py-2 rounded-lg bg-mint-50/80 dark:bg-mint-900/20 border-l-4 border-mint-500 dark:border-mint-400">
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      ✅ <span className="font-medium">{userVote.menuItem.name}</span>
+                      {isActive && <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(можно изменить)</span>}
+                    </p>
             </div>
           </motion.div>
         )}
@@ -451,12 +446,8 @@ export const VotingPage: React.FC = () => {
         <motion.div
           initial={!hasAnimated ? { opacity: 0, y: 20 } : false}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: !hasAnimated ? 0.4 : 0, duration: 0.4 }}
+          transition={{ delay: !hasAnimated ? 0.2 : 0, duration: 0.15 }}
         >
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Выберите блюдо:
-          </h2>
-
           {menuItems.length === 0 ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               Нет доступных блюд
@@ -468,36 +459,53 @@ export const VotingPage: React.FC = () => {
                 const isUserChoice = userVote?.menuItemId === item.id;
                 const itemVotes = poll.votes?.filter(v => v.menuItemId === item.id) || [];
                 const voteCount = itemVotes.length;
-                const voters = itemVotes.map(v => v.user);
+                const voters = itemVotes.map(v => ({
+                  ...v.user,
+                  telegramId: BigInt((v.user as any).telegramId || v.user.id),
+                }));
 
                 return (
-                  <motion.button
+                  <motion.div
                     key={item.id}
                     initial={!hasAnimated ? { opacity: 0, x: -20 } : false}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: !hasAnimated ? 0.5 + index * 0.05 : 0, duration: 0.3 }}
-                    onClick={() => handleSelectItem(item.id)}
-                    disabled={!isActive || submitting}
-                    className={cn(
-                      "w-full text-left p-4 rounded-xl border-2 transition-all relative shadow-sm",
-                      isSelected
-                        ? 'border-primary-food-500 bg-primary-food-50 dark:bg-peach-500/20 dark:border-peach-400'
-                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary-food-300 dark:hover:border-peach-500',
-                      !isActive || submitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                    )}
+                    transition={{ delay: !hasAnimated ? 0.3 + index * 0.03 : 0, duration: 0.15 }}
+                    whileHover={isActive && !submitting ? { scale: 1.02 } : undefined}
+                    whileTap={isActive && !submitting ? { scale: 0.98 } : undefined}
                   >
+                    <button
+                      onClick={() => handleSelectItem(item.id)}
+                      disabled={!isActive || submitting}
+                      aria-label={`${isSelected ? 'Отменить выбор' : 'Выбрать'} блюдо ${item.name}, ${voteCount} ${voteCount === 1 ? 'голос' : voteCount < 5 ? 'голоса' : 'голосов'}`}
+                      aria-pressed={isSelected}
+                      className="w-full min-h-[44px]"
+                    >
+                      <GlassCard
+                        className={cn(
+                          "border-2 transition-all",
+                          isSelected
+                            ? 'border-peach-500 dark:border-peach-400 bg-gradient-to-br from-peach-50/80 to-peach-100/60 dark:from-peach-900/30 dark:to-peach-800/20'
+                            : 'border-gray-200/50 dark:border-gray-700/50 hover:border-peach-300 dark:hover:border-peach-600',
+                          !isActive || submitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                        )}
+                        hover={isActive && !submitting}
+                      >
+                        <GlassCardContent className="p-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
                           {/* Checkbox Icon */}
                           <div className="flex-shrink-0">
                             {isSelected ? (
-                              <CheckCircle2 className="size-6 text-primary-food-500 dark:text-peach-400" />
+                              <CheckCircle2 className="size-6 text-primary-food-500 dark:text-peach-400" aria-hidden="true" />
                             ) : isUserChoice ? (
-                              <CheckCircle2 className="size-6 text-green-500 dark:text-success-soft-300" />
+                              <CheckCircle2 className="size-6 text-green-500 dark:text-success-soft-300" aria-hidden="true" />
                             ) : (
-                              <Circle className="size-6 text-gray-300 dark:text-gray-600" />
+                              <Circle className="size-6 text-gray-300 dark:text-gray-600" aria-hidden="true" />
                             )}
+                            <span className="sr-only">
+                              {isSelected ? 'Выбрано' : isUserChoice ? 'Ваш текущий голос' : 'Не выбрано'}
+                            </span>
                           </div>
                           
                           <div className="flex-1 min-w-0">
@@ -508,31 +516,17 @@ export const VotingPage: React.FC = () => {
                         </div>
                         
                         {item.description && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">
                             {item.description}
                           </p>
                         )}
 
-                        <div className="flex items-center justify-between gap-4 mt-2">
-                          <div className="flex items-center gap-3">
-                            {item.price && (
-                              <span className="text-sm font-semibold text-primary-food-700 dark:text-peach-300">
-                                {item.price} ₽
-                              </span>
-                            )}
-                            {voteCount > 0 && (
-                              <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                                <Users size={12} />
-                                {voteCount}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Social Proof: Аватары проголосовавших */}
-                          {voters.length > 0 && (
+                        {/* Social Proof: Аватары проголосовавших */}
+                        {voters.length > 0 && (
+                          <div className="mt-2">
                             <VotersAvatars voters={voters} maxDisplay={3} size="sm" />
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
 
                       {item.imageUrl && (
@@ -543,7 +537,10 @@ export const VotingPage: React.FC = () => {
                         />
                       )}
                     </div>
-                  </motion.button>
+                        </GlassCardContent>
+                      </GlassCard>
+                    </button>
+                  </motion.div>
                 );
               })}
             </div>
@@ -555,14 +552,19 @@ export const VotingPage: React.FC = () => {
           <motion.div
             initial={!hasAnimated ? { opacity: 0, scale: 0.95 } : false}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 border border-yellow-200 dark:border-yellow-800 shadow-sm"
           >
-            <div className="flex items-start gap-2">
-              <AlertCircle size={18} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-              <p className="text-yellow-700 dark:text-yellow-300 text-sm">
-                Голосование завершено. Результаты будут отправлены в личные сообщения.
-              </p>
-            </div>
+            <GlassCard className="border-l-4 border-butter-500 dark:border-butter-400 bg-gradient-to-r from-butter-50/50 to-transparent dark:from-butter-900/20 dark:to-transparent">
+              <GlassCardContent className="p-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-butter-100 to-butter-200 dark:from-butter-900/30 dark:to-butter-800/30">
+                    <AlertCircle size={18} className="text-butter-600 dark:text-butter-400" aria-hidden="true" />
+                  </div>
+                  <p className="text-sm text-gray-900 dark:text-white flex-1">
+                    Голосование завершено. Результаты будут отправлены в личные сообщения.
+                  </p>
+                </div>
+              </GlassCardContent>
+            </GlassCard>
           </motion.div>
         )}
 
@@ -576,22 +578,23 @@ export const VotingPage: React.FC = () => {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.15 }}
           whileHover={{ scale: !submitting ? 1.05 : 1 }}
           whileTap={{ scale: !submitting ? 0.95 : 1 }}
           onClick={handleVote}
           disabled={submitting}
-          className={`
-            fixed bottom-20 right-6 z-50
-            flex items-center justify-center space-x-2
-            px-6 py-4 rounded-full
-            text-base font-semibold
-            transition-all duration-300
-            ${!submitting
-              ? 'bg-primary-food-700 hover:bg-primary-food-800 text-white dark:bg-peach-500 dark:hover:bg-peach-600 dark:text-slate-900 shadow-2xl shadow-primary-food-700/40 dark:shadow-peach-500/40'
-              : 'bg-primary-food-400 text-white dark:bg-peach-400 dark:text-slate-900 shadow-lg cursor-wait'
-            }
-          `}
+          aria-label="Проголосовать за выбранное блюдо"
+          className={cn(
+            "fixed bottom-20 right-6 z-50",
+            "flex items-center justify-center gap-2",
+            "px-5 py-3 rounded-full",
+            "text-base font-semibold",
+            "transition-all duration-300",
+            "backdrop-blur-xl",
+            !submitting
+              ? 'bg-gradient-to-r from-peach-500 to-coral-500 hover:from-peach-600 hover:to-coral-600 text-white dark:from-peach-400 dark:to-coral-400 shadow-2xl shadow-peach-500/50 dark:shadow-peach-400/50 border border-white/20'
+              : 'bg-gradient-to-r from-peach-400 to-coral-400 text-white shadow-lg cursor-wait border border-white/10'
+          )}
         >
           {submitting ? (
             <>
@@ -600,7 +603,7 @@ export const VotingPage: React.FC = () => {
             </>
           ) : (
             <>
-              <Send size={20} />
+              <Send size={20} aria-hidden="true" />
               <span>Проголосовать</span>
             </>
           )}

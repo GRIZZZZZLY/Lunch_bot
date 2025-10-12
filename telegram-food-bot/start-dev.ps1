@@ -47,6 +47,35 @@ foreach ($path in $requiredPaths) {
 Write-Host "OK: All checks passed" -ForegroundColor Green
 Write-Host ""
 
+# Setup development environment files
+Write-Host "Setting up development environment..." -ForegroundColor Yellow
+
+# Backend: Copy .env.development to .env
+if (Test-Path "backend\.env") {
+    Copy-Item "backend\.env" "backend\.env.backup" -Force
+    Write-Host "  Backed up backend/.env" -ForegroundColor Gray
+}
+if (Test-Path "backend\.env.development") {
+    Copy-Item "backend\.env.development" "backend\.env" -Force
+    Write-Host "  Loaded backend/.env.development" -ForegroundColor Green
+} else {
+    Write-Host "  WARNING: backend/.env.development not found!" -ForegroundColor Yellow
+}
+
+# Frontend: Copy .env.development to .env (if exists)
+if (Test-Path "frontend\.env") {
+    Copy-Item "frontend\.env" "frontend\.env.backup" -Force
+    Write-Host "  Backed up frontend/.env" -ForegroundColor Gray
+}
+if (Test-Path "frontend\.env.development") {
+    Copy-Item "frontend\.env.development" "frontend\.env" -Force
+    Write-Host "  Loaded frontend/.env.development" -ForegroundColor Green
+} else {
+    Write-Host "  Using existing frontend/.env" -ForegroundColor Gray
+}
+
+Write-Host ""
+
 # Install dependencies if needed (unless skipped)
 if (-not $SkipChecks) {
     if (-not (Test-Path "backend\node_modules")) {

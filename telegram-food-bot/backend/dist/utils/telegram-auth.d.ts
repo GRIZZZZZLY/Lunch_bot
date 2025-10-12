@@ -10,5 +10,6 @@ interface TelegramUser {
 export declare function validateTelegramInitData(initData: string): TelegramUser | null;
 export declare function generateTestInitData(userId: number, firstName: string, username?: string): string;
 export declare function extractUserFromInitData(initData: string): TelegramUser | null;
+export declare function parseInitDataUnsafe(initData: string): TelegramUser | null;
 export {};
 //# sourceMappingURL=telegram-auth.d.ts.map

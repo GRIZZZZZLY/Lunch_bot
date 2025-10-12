@@ -8,39 +8,25 @@ async function checkUsers() {
             select: {
                 id: true,
                 telegramId: true,
-                username: true,
                 firstName: true,
+                lastName: true,
+                username: true,
                 isAdmin: true,
-            },
+            }
         });
-        const groups = await prisma.group.findMany({
-            select: {
-                id: true,
-                title: true,
-                telegramId: true,
-            },
+        console.log('\n📋 Пользователи в базе данных:\n');
+        users.forEach(user => {
+            console.log(`ID: ${user.id}`);
+            console.log(`Telegram ID: ${user.telegramId}`);
+            console.log(`Имя: ${user.firstName} ${user.lastName || ''}`);
+            console.log(`Username: @${user.username || 'нет'}`);
+            console.log(`Админ: ${user.isAdmin ? 'Да' : 'Нет'}`);
+            console.log('---');
         });
-        console.log(`\n👥 Пользователи: ${users.length}`);
-        if (users.length > 0) {
-            users.forEach(user => {
-                console.log(`  - ${user.firstName} (@${user.username}) - telegramId: ${user.telegramId} ${user.isAdmin ? '[ADMIN]' : ''}`);
-            });
-        }
-        else {
-            console.log('  ❌ Нет пользователей в базе!');
-        }
-        console.log(`\n👥 Группы: ${groups.length}`);
-        if (groups.length > 0) {
-            groups.forEach(group => {
-                console.log(`  - ${group.name} (chatId: ${group.chatId}) ${group.isActive ? '[АКТИВНА]' : '[НЕАКТИВНА]'}`);
-            });
-        }
-        else {
-            console.log('  ❌ Нет групп в базе!');
-        }
+        console.log(`\nВсего пользователей: ${users.length}\n`);
     }
     catch (error) {
-        console.error('❌ Ошибка:', error);
+        console.error('Ошибка:', error);
     }
     finally {
         await prisma.$disconnect();

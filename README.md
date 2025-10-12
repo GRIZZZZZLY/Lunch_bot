@@ -51,13 +51,38 @@ cd telegram-food-bot
 # 2. Установить ngrok
 winget install ngrok
 
-# 3. Запустить всё окружение
+# 3. Выберите режим разработки
+```
+
+### Режимы запуска
+
+#### 🎯 PROD-DEV (Рекомендуется) ⭐
+```powershell
+cd telegram-food-bot
+.\start-prod-dev.ps1
+```
+**Гибридный режим:** быстрый как production + удобный для отладки  
+Подробнее: [telegram-food-bot/PROD-DEV-MODE.md](telegram-food-bot/PROD-DEV-MODE.md)
+
+#### ⚡ DEV (Максимальная скорость)
+```powershell
+cd telegram-food-bot
 .\start-dev.ps1
 ```
+**Классический режим:** instant hot reload для активной разработки UI
+
+#### 🚢 PRODUCTION (Финальная проверка)
+```powershell
+cd telegram-food-bot
+.\start-prod.ps1
+```
+**Production build:** полная оптимизация и строгая валидация
 
 После запуска откроется 5 терминалов. В окне #5 (URL Updater) вставьте ngrok URL из окна #4, и всё настроится автоматически! ✨
 
-**Подробная инструкция**: [docs/01-getting-started/README.md](docs/01-getting-started/README.md)
+**Документация:**
+- [Сравнение режимов](telegram-food-bot/MODES-COMPARISON.md)
+- [Детальная инструкция](telegram-food-bot/docs/01-getting-started/README.md)
 
 ## 📚 Документация
 
@@ -163,9 +188,24 @@ telegram-food-bot/
 ✅ **Версия**: 2.0.0 (Production Ready)  
 ✅ **Backend**: Полностью реализован  
 ✅ **Frontend**: Полностью реализован  
+✅ **Мобильная версия**: Работает на iOS и Android  
 ✅ **Документация**: 95% готова  
 ⚠️ **Тесты**: Требуются (unit + integration)  
 ⚠️ **CI/CD**: Требуется настройка  
+
+### 🎉 Последние обновления (2025-01-12)
+
+#### Критические исправления:
+- ✅ **Умное кэширование** - polls НЕ сохраняются в localStorage, всегда свежие данные
+- ✅ **Фильтрация блюд** - правильное отображение выбранных блюд после создания poll
+- ✅ **Навигация** - автоматический переход на VotingPage с очисткой кэша
+
+#### Новые инструменты:
+- 🛠️ **Debug Logger** - цветное логирование с включением через `__enableDebug()`
+- ✅ **Автотесты** - 9 тестов с 100% success rate (`npm run test:flow`)
+- 📊 **Browser Debug Tool** - веб-инструмент для диагностики
+
+📖 **Полная документация:** [telegram-food-bot/SESSION_SUMMARY_2025-01-12.md](telegram-food-bot/SESSION_SUMMARY_2025-01-12.md)
 
 ### Что работает
 
@@ -177,6 +217,8 @@ telegram-food-bot/
 - ✅ Fallback механизмы
 - ✅ Real-time updates
 - ✅ Haptic feedback
+- ✅ **Работает на мобильных устройствах (iOS/Android)**
+- ✅ **Три режима разработки (DEV/PROD-DEV/PROD)**
 
 ### Что нужно доработать
 

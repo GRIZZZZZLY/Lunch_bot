@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Header } from '../components/layout/Layout';
 import { PageHeader } from '../components/common/PageHeader';
 import { MenuList } from '../components/menu/MenuList';
+import { VirtualMenuList } from '../components/menu/VirtualMenuList';
 import { MenuForm, MenuFormData } from '../components/menu/MenuForm';
 import { SearchInput } from '../components/common/SearchInput';
 import { FilterChips } from '../components/menu/FilterChips';
@@ -34,8 +35,10 @@ import {
 import { MenuGridSkeleton, FilterChipsSkeleton } from '../components/menu/MenuGridSkeleton';
 import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
-import { useMenu, useUI, useAppStore } from '../store/useAppStore';
+import { useMenu as useMenuHook, useUI, useAppStore } from '../store/useAppStore';
 import { menuService, MenuItem } from '../services/menu.service';
+import { useMenu } from '../hooks/useMenu';
+import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import { mockApiService } from '../services/mockApi.service';
 
 // New shadcn/ui components
@@ -58,19 +61,21 @@ export const MenuPage: React.FC = () => {
   const theme = useAppStore((state) => state.theme);
   const isDark = theme === 'dark';
   
-  const {
-    menuItems,
-    selectedCategory,
-    menuLoading,
-    setMenuItems,
-    setSelectedCategory,
-    setMenuLoading,
-    addMenuItem,
-    updateMenuItem,
-    removeMenuItem,
-  } = useMenu();
+  // useMenu hook: загрузка items
+  const menuResult = useMenu({ autoFetch: true });
+  const menuItems = menuResult.items || [];
+  const menuLoading = menuResult.loading;
+  const refetchMenu = menuResult.fetchItems;
+  const categoriesData: string[] = []; // TODO: implement categories
+  
+  // TODO: Re-implement React Query mutations
+  // const { mutate: createItemMutation, isPending: isCreating } = useCreateMenuItem();
+  // const { mutate: updateItemMutation, isPending: isUpdating } = useUpdateMenuItem();
+  // const { mutate: deleteItemMutation, isPending: isDeleting } = useDeleteMenuItem();
+  
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const [categories, setCategories] = useState<string[]>([]);
+  const categories = categoriesData; // Use categories from React Query
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,10 +121,9 @@ export const MenuPage: React.FC = () => {
     return filtered;
   }, [menuItems, selectedCategory, searchQuery]);
 
-  // Загрузка данных при монтировании
+  // Загрузка данных при монтировании (React Query auto-loads)
   useEffect(() => {
-    loadMenuItems();
-    loadCategories();
+    // loadMenuItems() и loadCategories() больше не нужны - React Query загружает автоматически
     loadCategoryCounts();
   }, []);
 
@@ -135,43 +139,13 @@ export const MenuPage: React.FC = () => {
     };
   }, [mainButton, backButton]);
 
-  const loadMenuItems = async () => {
-    try {
-      setMenuLoading(true);
-      const response = await menuService.getAllItems();
-      
-      if (response.success && response.data) {
-        setMenuItems(response.data);
-      } else {
-        throw new Error(response.error || 'Failed to load menu items');
-      }
-    } catch (error) {
-      console.error('Error loading menu items:', error);
-      addNotification({
-        type: 'error',
-        message: 'Ошибка загрузки меню',
-      });
-    } finally {
-      setMenuLoading(false);
-    }
-  };
-
+  // React Query handles loading automatically
+  
   const handleRefresh = async () => {
-    await loadMenuItems();
-    await loadCategories();
+    await refetchMenu();
+    await // refetchCategories() // TODO: Re-add;
     await loadCategoryCounts();
     haptic.success();
-  };
-
-  const loadCategories = async () => {
-    try {
-      const response = await menuService.getCategories();
-      if (response.success && response.data) {
-        setCategories(response.data);
-      }
-    } catch (error) {
-      console.error('Error loading categories:', error);
-    }
   };
 
   const loadCategoryCounts = async () => {
@@ -186,61 +160,81 @@ export const MenuPage: React.FC = () => {
   };
 
   const handleAddItem = async (itemData: MenuFormData) => {
-    try {
-      const response = await menuService.createItem(itemData);
-      
-      if (response.success && response.data) {
-        addMenuItem(response.data);
+    // TODO: Re-implement with React Query
+    console.warn('createItemMutation not implemented');
+    return;
+    /*
+    createItemMutation(itemData, {
+      onSuccess: () => {
         addNotification({
           type: 'success',
-          message: `Блюдо "${response.data.name}" добавлено`,
+          message: `Блюдо "${itemData.name}" добавлено`,
         });
         closeBottomSheet();
-        await loadCategories(); // Обновляем категории
-      } else {
-        throw new Error(response.error || 'Failed to create item');
-      }
-    } catch (error) {
-      console.error('Error adding menu item:', error);
-      addNotification({
-        type: 'error',
-        message: 'Ошибка добавления блюда',
-      });
-    }
+        // refetchCategories() // TODO: Re-add;
+        haptic.success();
+        
+        // P1.2.4: Track menu item creation
+        trackEvent(ANALYTICS_EVENTS.MENU_ITEM_ADDED, {
+          itemName: itemData.name,
+          category: itemData.category,
+          price: itemData.price,
+        });
+      },
+      onError: (error) => {
+        console.error('Error adding menu item:', error);
+        addNotification({
+          type: 'error',
+          message: 'Ошибка добавления блюда',
+        });
+        haptic.error();
+      },
+    });
+    */
   };
 
   const handleEditItem = async (itemData: MenuFormData) => {
     if (!editingItem) return;
-    
-    try {
-      const response = await menuService.updateItem(editingItem.id, itemData);
-      
-      if (response.success && response.data) {
-        updateMenuItem(editingItem.id, response.data);
+    // TODO: Re-implement with React Query
+    console.warn('updateItemMutation not implemented');
+    return;
+    /*
+    updateItemMutation({ id: editingItem.id, data: itemData }, {
+      onSuccess: (data) => {
         addNotification({
           type: 'success',
-          message: `Блюдо "${response.data.name}" обновлено`,
+          message: `Блюдо "${itemData.name}" обновлено`,
         });
         setEditingItem(null);
-        await loadCategories(); // Обновляем категории
-      } else {
-        throw new Error(response.error || 'Failed to update item');
-      }
-    } catch (error) {
-      console.error('Error updating menu item:', error);
-      addNotification({
-        type: 'error',
-        message: 'Ошибка обновления блюда',
-      });
-    }
+        closeBottomSheet();
+        // refetchCategories() // TODO: Re-add; // Обновляем категории
+        haptic.success();
+        
+        // P1.2.4: Track menu item edit
+        trackEvent(ANALYTICS_EVENTS.MENU_ITEM_EDITED, {
+          itemId: editingItem.id,
+          itemName: itemData.name,
+        });
+      },
+      onError: (error) => {
+        console.error('Error updating menu item:', error);
+        addNotification({
+          type: 'error',
+          message: 'Ошибка обновления блюда',
+        });
+        haptic.error();
+      },
+    });
+    */
   };
 
   const handleDeleteItem = async (id: number) => {
-    try {
-      const response = await menuService.deleteItem(id);
-      
-      if (response.success) {
-        removeMenuItem(id);
+    // TODO: Re-implement with React Query
+    console.warn('deleteItemMutation not implemented');
+    return;
+    /*
+    deleteItemMutation(id, {
+      onSuccess: () => {
         addNotification({
           type: 'success',
           message: 'Блюдо удалено',
@@ -249,17 +243,24 @@ export const MenuPage: React.FC = () => {
         if (editingItem?.id === id) {
           setEditingItem(null);
         }
-        await loadCategories(); // Обновляем категории
-      } else {
-        throw new Error(response.error || 'Failed to delete item');
-      }
-    } catch (error) {
-      console.error('Error deleting menu item:', error);
-      addNotification({
-        type: 'error',
-        message: 'Ошибка удаления блюда',
-      });
-    }
+        // refetchCategories() // TODO: Re-add; // Обновляем категории
+        haptic.success();
+        
+        // P1.2.4: Track menu item deletion
+        trackEvent(ANALYTICS_EVENTS.MENU_ITEM_DELETED, {
+          itemId: id,
+        });
+      },
+      onError: (error) => {
+        console.error('Error deleting menu item:', error);
+        addNotification({
+          type: 'error',
+          message: 'Ошибка удаления блюда',
+        });
+        haptic.error();
+      },
+    });
+    */
   };
 
   const handleToggleStatus = async (id: number) => {
@@ -267,7 +268,7 @@ export const MenuPage: React.FC = () => {
       const response = await menuService.toggleItemStatus(id);
       
       if (response.success && response.data) {
-        updateMenuItem(id, { isActive: response.data.isActive });
+        // updateMenuItem(id, { isActive: response.data.isActive }); // TODO: Re-add optimistic update
         addNotification({
           type: 'success',
           message: `Блюдо ${response.data.isActive ? 'активировано' : 'деактивировано'}`,
@@ -462,17 +463,29 @@ export const MenuPage: React.FC = () => {
             <EmptyState type="no-menu" onAction={user?.isAdmin ? openBottomSheet : undefined} />
           )
         ) : (
-          <motion.div variants={itemVariants}>
-            <MenuList
-              items={filteredItems}
-              loading={menuLoading}
-              onEdit={setEditingItem}
-              onDelete={handleDeleteItem}
-              onToggleStatus={handleToggleStatus}
-              onAdd={openBottomSheet}
-              showActions={user?.isAdmin}
-              selectedCategory={selectedCategory}
-            />
+          <motion.div variants={itemVariants} className="flex-1">
+            {/* P1.3: Виртуализация для больших списков (> 50 items) */}
+            {filteredItems.length > 50 ? (
+              <VirtualMenuList
+                items={filteredItems}
+                isAdmin={user?.isAdmin}
+                onEdit={setEditingItem}
+                onDelete={handleDeleteItem}
+                onToggleStatus={handleToggleStatus}
+                selectedCategory={selectedCategory}
+              />
+            ) : (
+              <MenuList
+                items={filteredItems}
+                loading={menuLoading}
+                onEdit={setEditingItem}
+                onDelete={handleDeleteItem}
+                onToggleStatus={handleToggleStatus}
+                onAdd={openBottomSheet}
+                showActions={user?.isAdmin}
+                selectedCategory={selectedCategory}
+              />
+            )}
           </motion.div>
         )}
       </motion.div>

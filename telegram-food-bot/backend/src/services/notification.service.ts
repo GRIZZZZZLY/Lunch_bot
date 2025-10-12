@@ -1,4 +1,4 @@
-import { Bot } from 'grammy';
+﻿import { Bot } from 'grammy';
 import { logger } from '../utils/logger';
 import { prisma } from '../database/client';
 import {
@@ -9,8 +9,19 @@ import {
   RouletteWinnerNotificationData,
   PollEndedNotificationData,
   PollStartedNotificationData,
+  PollCancelledNotificationData,
   NotificationTemplate,
 } from '../types/notification.types';
+import { User } from '@prisma/client';
+
+/**
+ * Вспомогательная функция для множественного числа
+ */
+function getPluralForm(count: number, one: string, few: string, many: string): string {
+  if (count % 10 === 1 && count % 100 !== 11) return one;
+  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) return few;
+  return many;
+}
 
 export class NotificationService {
   private bot: any | null = null;
@@ -56,25 +67,72 @@ export class NotificationService {
       type: NotificationType.POLL_ENDED,
       getTitle: (data: PollEndedNotificationData) => 'вњ… Р“РѕР»РѕСЃРѕРІР°РЅРёРµ Р·Р°РІРµСЂС€РµРЅРѕ!',
       getMessage: (data: PollEndedNotificationData) => {
-        let message = `рџ“Љ Р“РѕР»РѕСЃРѕРІР°РЅРёРµ Р·Р°РІРµСЂС€РёР»РѕСЃСЊ!\n\n`;
-        message += `рџ‘Ґ Р’СЃРµРіРѕ РіРѕР»РѕСЃРѕРІ: ${data.totalVotes}\n\n`;
+        let message = `🗳️ Голосование завершилось!\n\n`;
+        message += `👥 Всего голосов: ${data.totalVotes}\n\n`;
 
-        if (data.winnerItem) {
-          message += `рџЏ† *РџРѕР±РµРґРёС‚РµР»СЊ:* ${data.winnerItem.name}\n`;
-          if (data.winnerItem.price) {
-            message += `рџ’° Р¦РµРЅР°: ${data.winnerItem.price} СЂСѓР±.\n`;
+        // Multi-Winner режим
+        if (data.mode === 'multi-winner' && data.winners) {
+          if (data.winners.length > 0) {
+            message += `🍽️ *Кто что заказывает:*\n\n`;
+            data.winners.forEach((winner, index) => {
+              const voterCount = winner.voters?.length || 0;
+              const votersText = getPluralForm(voterCount, 'человек', 'человека', 'человек');
+              message += `${index + 1}. *${winner.menuItemName}* — ${voterCount} ${votersText}\n`;
+              
+              if (winner.voters && winner.voters.length > 0) {
+                const displayVoters = winner.voters.slice(0, 3);
+                const voterNames = displayVoters.map(v => v.firstName).join(', ');
+                message += `   👤 ${voterNames}`;
+                if (winner.voters.length > 3) {
+                  message += ` и ещё ${winner.voters.length - 3}`;
+                }
+                message += `\n`;
+              }
+              message += `\n`;
+            });
           }
+
+          if (data.bringOwn && data.bringOwn.count > 0) {
+            const bringOwnText = getPluralForm(data.bringOwn.count, 'человек', 'человека', 'человек');
+            message += `🥪 *Принесу своё:* ${data.bringOwn.count} ${bringOwnText}\n`;
+            if (data.bringOwn.voters && data.bringOwn.voters.length > 0) {
+              const names = data.bringOwn.voters.slice(0, 3).map(v => v.firstName).join(', ');
+              message += `   👤 ${names}`;
+              if (data.bringOwn.voters.length > 3) {
+                message += ` и ещё ${data.bringOwn.voters.length - 3}`;
+              }
+              message += `\n`;
+            }
+            message += `\n`;
+          }
+
+          if (data.skipped && data.skipped.count > 0) {
+            const skippedText = getPluralForm(data.skipped.count, 'человек', 'человека', 'человек');
+            message += `⏭️ *Пропустили:* ${data.skipped.count} ${skippedText}\n\n`;
+          }
+
+          message += `✅ Заказ оформлен!`;
+        } 
+        // Single-Winner режим
+        else {
+          if (data.winnerItem) {
+            message += `🏆 *Победитель:* ${data.winnerItem.name}\n`;
+            if (data.winnerItem.price) {
+              message += `💰 Цена: ${data.winnerItem.price} руб.\n`;
+            }
+          }
+
+          if (data.topItems && data.topItems.length > 0) {
+            message += `\n📊 *Топ блюд:*\n`;
+            data.topItems.slice(0, 3).forEach((item, index) => {
+              const emoji = ['🥇', '🥈', '🥉'][index] || '•';
+              message += `${emoji} ${item.item.name} - ${item.votes} ${getPluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
+            });
+          }
+
+          message += `\n🎲 Сейчас запустится рулетка для выбора ответственного...`;
         }
 
-        if (data.topItems && data.topItems.length > 0) {
-          message += `\nрџ“€ *РўРѕРї Р±Р»СЋРґ:*\n`;
-          data.topItems.slice(0, 3).forEach((item, index) => {
-            const emoji = ['рџҐ‡', 'рџҐ€', 'рџҐ‰'][index] || 'вЂў';
-            message += `${emoji} ${item.item.name} - ${item.votes} РіРѕР»РѕСЃРѕРІ (${item.percentage}%)\n`;
-          });
-        }
-
-        message += `\nрџЋІ РЎРµР№С‡Р°СЃ Р·Р°РїСѓСЃС‚РёС‚СЃСЏ СЂСѓР»РµС‚РєР° РґР»СЏ РІС‹Р±РѕСЂР° РѕС‚РІРµС‚СЃС‚РІРµРЅРЅРѕРіРѕ...`;
         return message;
       },
       parseMode: 'Markdown',
@@ -127,6 +185,36 @@ export class NotificationService {
       },
       parseMode: 'Markdown',
       priority: NotificationPriority.URGENT,
+    });
+
+    // Шаблон для отмены голосования
+    templates.set(NotificationType.POLL_CANCELLED, {
+      type: NotificationType.POLL_CANCELLED,
+      getTitle: (data: PollCancelledNotificationData) => '❌ Голосование отменено',
+      getMessage: (data: PollCancelledNotificationData) => {
+        let message = `❌ Голосование отменено администратором ${data.cancelledBy.firstName}\n\n`;
+        
+        if (data.reason) {
+          message += `📝 Причина: ${data.reason}\n\n`;
+        }
+        
+        message += `👥 Проголосовало: ${data.totalVotes} чел.\n`;
+        
+        if (data.voters.length > 0) {
+          message += `\n✅ Участники:\n`;
+          data.voters.slice(0, 10).forEach(v => {
+            message += `• ${v.firstName}${v.lastName ? ' ' + v.lastName : ''}\n`;
+          });
+          
+          if (data.voters.length > 10) {
+            message += `... и еще ${data.voters.length - 10}\n`;
+          }
+        }
+        
+        return message;
+      },
+      parseMode: 'Markdown',
+      priority: NotificationPriority.NORMAL,
     });
 
     // РЁР°Р±Р»РѕРЅ РґР»СЏ РЅР°РїРѕРјРёРЅР°РЅРёСЏ Рѕ Р·Р°РєР°Р·Рµ
@@ -271,21 +359,11 @@ export class NotificationService {
       }));
 
       const notificationData: RouletteWinnerNotificationData = {
-        winner: {
-          id: poll.result.responsibleUser.id,
-          firstName: poll.result.responsibleUser.firstName,
-          lastName: poll.result.responsibleUser.lastName || undefined,
-          username: poll.result.responsibleUser.username || undefined,
-        },
-        winnerItem: poll.result.winnerMenuItem ? {
-          id: poll.result.winnerMenuItem.id,
-          name: poll.result.winnerMenuItem.name,
-          description: poll.result.winnerMenuItem.description || undefined,
-          price: poll.result.winnerMenuItem.price || undefined,
-        } : undefined,
-        voters: voters.map(v => ({ id: v.id, firstName: v.firstName, username: v.username || undefined })),
+        winner: poll.result.responsibleUser as any,
+        poll: poll as any,
+        winnerItem: poll.result.winnerMenuItem || undefined,
+        voters: votes.map(v => v.user) as any,
         totalVotes: poll.result.totalVotes,
-        groupTitle: poll.group.title,
       };
 
       return await this.sendRouletteWinnerNotification(notificationData);
@@ -326,6 +404,122 @@ export class NotificationService {
     );
 
     return results;
+  }
+
+  /**
+   * Обёртка: отправить уведомления о завершении по pollId
+   * Автоматически определяет тип (Single/Multi Winner) и форматирует данные
+   */
+  async sendPollCompletionNotifications(pollId: number): Promise<NotificationResult[]> {
+    try {
+      const poll = await prisma.poll.findUnique({
+        where: { id: pollId },
+        include: {
+          result: { include: { winnerMenuItem: true } },
+          votes: { include: { user: true, menuItem: true } },
+          group: true,
+        }
+      });
+
+      if (!poll || !poll.result) {
+        throw new Error('Poll or result not found');
+      }
+
+      let resultData: any = null;
+      let mode: 'single-winner' | 'multi-winner' = 'single-winner';
+      
+      if (poll.result.rouletteData) {
+        try {
+          resultData = JSON.parse(poll.result.rouletteData);
+          if (resultData?.mode === 'multi-winner') {
+            mode = 'multi-winner';
+          }
+        } catch (e) {
+          logger.warn('Failed to parse rouletteData, using single-winner mode');
+        }
+      }
+
+      let data: PollEndedNotificationData;
+
+      if (mode === 'multi-winner' && resultData) {
+        data = {
+          pollId,
+          mode: 'multi-winner',
+          totalVotes: poll.result.totalVotes,
+          groupTitle: poll.group.title,
+          winners: resultData.winners,
+          bringOwn: resultData.bringOwn,
+          skipped: resultData.skipped,
+          tieBreak: resultData.meta?.tieBreak,
+        };
+      } else {
+        const votesByItem = new Map<number, number>();
+        poll.votes.forEach(vote => {
+          if (vote.menuItemId) {
+            votesByItem.set(vote.menuItemId, (votesByItem.get(vote.menuItemId) || 0) + 1);
+          }
+        });
+
+        const topItems = Array.from(votesByItem.entries())
+          .map(([itemId, votes]) => {
+            const item = poll.votes.find(v => v.menuItemId === itemId)?.menuItem;
+            return item ? {
+              item: {
+                id: item.id,
+                name: item.name,
+                description: item.description || undefined,
+                price: item.price || undefined,
+              },
+              votes,
+              percentage: Math.round((votes / poll.votes.length) * 100)
+            } : null;
+          })
+          .filter(Boolean)
+          .sort((a, b) => b!.votes - a!.votes);
+
+        data = {
+          pollId,
+          mode: 'single-winner',
+          totalVotes: poll.result.totalVotes,
+          groupTitle: poll.group.title,
+          winnerItem: poll.result.winnerMenuItem ? {
+            id: poll.result.winnerMenuItem.id,
+            name: poll.result.winnerMenuItem.name,
+            description: poll.result.winnerMenuItem.description || undefined,
+            price: poll.result.winnerMenuItem.price || undefined,
+          } : undefined,
+          topItems: topItems as any,
+        };
+      }
+
+      const voterIds = Array.from(new Set(poll.votes.map(v => v.userId)));
+      
+      // Отправляем уведомления голосовавшим
+      const results = await this.sendPollEndedNotification(voterIds, data);
+
+      // Отправляем уведомление в группу
+      if (poll.chatId && this.bot) {
+        try {
+          const template = this.templates.get(NotificationType.POLL_ENDED);
+          if (template) {
+            await this.bot.api.sendMessage(
+              Number(poll.chatId),
+              template.getMessage(data),
+              { parse_mode: template.parseMode }
+            );
+            logger.info(`Completion notification sent to group ${poll.chatId}`);
+          }
+        } catch (error) {
+          logger.error('Error sending completion notification to group:', error);
+        }
+      }
+
+      return results;
+
+    } catch (error) {
+      logger.error('Failed to send poll completion notifications', { pollId, error });
+      throw error;
+    }
   }
 
   /**
@@ -448,6 +642,82 @@ export class NotificationService {
   }
 
   /**
+   * Отправка уведомлений об отмене голосования
+   */
+  async sendPollCancelledNotifications(
+    pollId: number,
+    cancelledBy: User,
+    reason?: string
+  ): Promise<void> {
+    try {
+      const poll = await prisma.poll.findUnique({
+        where: { id: pollId },
+        include: {
+          group: true,
+          votes: {
+            include: { user: true },
+            distinct: ['userId']
+          }
+        }
+      });
+
+      if (!poll) {
+        logger.warn(`Poll not found for cancelled notifications: ${pollId}`);
+        return;
+      }
+
+      const voters = poll.votes.map(v => v.user);
+      const template = this.templates.get(NotificationType.POLL_CANCELLED);
+
+      if (!template || !this.bot) {
+        logger.warn('Template or bot not available for cancelled notifications');
+        return;
+      }
+
+      const data: PollCancelledNotificationData = {
+        poll,
+        cancelledBy,
+        reason,
+        totalVotes: voters.length,
+        voters
+      };
+
+      // Отправляем в группу
+      if (poll.chatId) {
+        try {
+          await this.bot.api.sendMessage(
+            poll.chatId,
+            template.getMessage(data),
+            { parse_mode: template.parseMode }
+          );
+          logger.info(`Cancelled notification sent to group ${poll.chatId}`);
+        } catch (error) {
+          logger.error('Error sending cancelled notification to group:', error);
+        }
+      }
+
+      // Отправляем личные уведомления всем голосовавшим
+      for (const voter of voters) {
+        try {
+          await this.send({
+            userId: Number(voter.telegramId),
+            type: NotificationType.POLL_CANCELLED,
+            message: template.getMessage(data),
+            parseMode: template.parseMode,
+            priority: NotificationPriority.NORMAL
+          });
+        } catch (error) {
+          logger.error(`Error sending notification to user ${voter.id}:`, error);
+        }
+      }
+
+      logger.info(`Poll cancelled notifications sent: ${pollId}, voters: ${voters.length}`);
+    } catch (error) {
+      logger.error('Error sending poll cancelled notifications:', error);
+    }
+  }
+
+  /**
    * РџРѕР»СѓС‡РёС‚СЊ СЃС‚Р°С‚РёСЃС‚РёРєСѓ СѓРІРµРґРѕРјР»РµРЅРёР№
    */
   async getStats(): Promise<any> {
@@ -462,3 +732,6 @@ export class NotificationService {
 }
 
 export const notificationService = new NotificationService();
+
+
+

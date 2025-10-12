@@ -168,26 +168,6 @@ class UserService {
             throw new Error('Failed to get admins');
         }
     }
-    static async getActiveUsersInGroup(groupId) {
-        try {
-            const users = await client_2.prisma.user.findMany({
-                where: {
-                    isActive: true,
-                    groups: {
-                        some: {
-                            groupId: groupId,
-                        },
-                    },
-                },
-                orderBy: { firstName: 'asc' },
-            });
-            return users;
-        }
-        catch (error) {
-            logger_1.logger.error('Error getting active users in group:', error);
-            throw new Error('Failed to get active users in group');
-        }
-    }
     static async getUserStats() {
         try {
             const [total, active, admins] = await Promise.all([

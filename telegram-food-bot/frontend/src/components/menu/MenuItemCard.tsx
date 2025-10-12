@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { MenuItem } from '../../services/menu.service';
@@ -18,7 +18,8 @@ interface MenuItemCardProps {
   loading?: boolean;
 }
 
-export function MenuItemCard({
+// P1.3.4: Memoize для оптимизации виртуализации
+export const MenuItemCard = React.memo(function MenuItemCard({
   item,
   onEdit,
   onDelete,
@@ -300,7 +301,18 @@ export function MenuItemCard({
     </GlassCard>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // P1.3.4: Custom comparison для оптимизации виртуализации
+  // Перерендериваем только если изменились критичные поля
+  return (
+    prevProps.item.id === nextProps.item.id &&
+    prevProps.item.name === nextProps.item.name &&
+    prevProps.item.isActive === nextProps.item.isActive &&
+    prevProps.item.price === nextProps.item.price &&
+    prevProps.loading === nextProps.loading &&
+    prevProps.showActions === nextProps.showActions
+  );
+});
 
 /**
  * Helper: Get category icon

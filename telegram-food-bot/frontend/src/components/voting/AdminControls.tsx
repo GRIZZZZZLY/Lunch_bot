@@ -1,56 +1,63 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   StopCircle, 
-  Clock, 
-  Plus, 
-  RefreshCw,
-  Settings,
-  Send,
-  Crown
+  Clock,
+  Crown,
+  Settings
 } from 'lucide-react';
 import { PollWithDetails } from '../../services/polls.service';
-import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardContent } from '../ui/glass-card';
 import { cn } from '../../lib/utils';
 
 interface AdminControlsProps {
   poll: PollWithDetails;
-  onComplete: () => void;
+  onComplete: (mode: 'single' | 'multi') => void;
   onExtend: (minutes: number) => void;
-  onAddItem?: () => void;
-  onRestart?: () => void;
-  onNotifyUsers?: () => void;
 }
 
 /**
- * AdminControls - Панель управления голосованием для админов
+ * AdminControls - Компактная панель управления голосованием для админов
  * 
  * Быстрые действия:
- * - Завершить голосование досрочно
+ * - Завершить голосование (Multi-Winner по умолчанию)
+ * - ⚙️ Выбрать режим завершения (опционально)
  * - Продлить время на +15 мин
- * - Добавить блюдо в процессе (опционально)
- * - Перезапустить голосование (опционально)
- * - Уведомить непроголосовавших (опционально)
  */
 export const AdminControls: React.FC<AdminControlsProps> = ({
   poll,
   onComplete,
   onExtend,
-  onAddItem,
-  onRestart,
-  onNotifyUsers,
 }) => {
   const [loading, setLoading] = useState<string | null>(null);
+  const [showModeSelector, setShowModeSelector] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<'single' | 'multi'>('multi');
 
-  const handleComplete = async () => {
-    if (!confirm('Завершить голосование досрочно?')) return;
+  // Быстрое завершение (multi по умолчанию)
+  const handleQuickComplete = async () => {
+    if (!confirm('Завершить голосование с распределением по группам?')) return;
     
     setLoading('complete');
     try {
-      await onComplete();
+      await onComplete('multi');
     } finally {
       setLoading(null);
     }
+  };
+
+  // Завершение с выбранным режимом
+  const handleCompleteWithMode = async () => {
+    setShowModeSelector(false);
+    
+    setLoading('complete');
+    try {
+      await onComplete(selectedMode);
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleSettingsClick = () => {
+    setShowModeSelector(!showModeSelector);
   };
 
   const handleExtend = async () => {
@@ -62,186 +69,146 @@ export const AdminControls: React.FC<AdminControlsProps> = ({
     }
   };
 
-  const handleAddItem = async () => {
-    if (!onAddItem) return;
-    setLoading('addItem');
-    try {
-      await onAddItem();
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const handleRestart = async () => {
-    if (!onRestart) return;
-    if (!confirm('Перезапустить голосование? Все текущие голоса будут сброшены.')) return;
-    
-    setLoading('restart');
-    try {
-      await onRestart();
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const handleNotify = async () => {
-    if (!onNotifyUsers) return;
-    setLoading('notify');
-    try {
-      await onNotifyUsers();
-    } finally {
-      setLoading(null);
-    }
-  };
-
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-4"
+      transition={{ duration: 0.2 }}
+      className="space-y-2"
     >
-      {/* Admin Badge */}
-      <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-lavender-500/10 to-gold-400/10 border border-lavender-300 dark:border-lavender-700">
-        <Crown className="text-gold-500" size={20} />
-        <span className="text-sm font-semibold text-lavender-700 dark:text-lavender-300">
-          Режим администратора
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Компактная иконка админа */}
+        <Crown className="text-gold-500" size={16} />
+        
+        {/* Hint: Multi-Winner по умолчанию */}
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          🍽 Распределение
         </span>
+        
+        {/* Завершить (Multi-Winner по умолчанию) */}
+        <button
+          onClick={handleQuickComplete}
+          disabled={loading !== null}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg",
+            "bg-gradient-to-r from-coral-500 to-coral-600",
+            "hover:from-coral-600 hover:to-coral-700",
+            "text-white text-sm font-medium",
+            "transition-all hover:shadow-md",
+            "disabled:opacity-50 disabled:cursor-not-allowed"
+          )}
+        >
+          <StopCircle size={14} />
+          Завершить
+        </button>
+
+        {/* Кнопка настроек (выбор режима) */}
+        <button
+          onClick={handleSettingsClick}
+          disabled={loading !== null}
+          className={cn(
+            "inline-flex items-center justify-center p-1.5 rounded-lg",
+            "bg-gray-200 dark:bg-gray-700",
+            "hover:bg-gray-300 dark:hover:bg-gray-600",
+            "transition-all",
+            "disabled:opacity-50 disabled:cursor-not-allowed"
+          )}
+          title="Выбрать режим завершения"
+        >
+          <Settings size={14} />
+        </button>
+
+        {/* Продлить на +15 мин */}
+        <button
+          onClick={handleExtend}
+          disabled={loading !== null}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg",
+            "bg-gradient-to-r from-mint-500 to-mint-600",
+            "hover:from-mint-600 hover:to-mint-700",
+            "text-white text-sm font-medium",
+            "transition-all hover:shadow-md",
+            "disabled:opacity-50 disabled:cursor-not-allowed"
+          )}
+        >
+          <Clock size={14} />
+          +15 мин
+        </button>
+
+        {/* Loading indicator */}
+        {loading && (
+          <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+            ...
+          </span>
+        )}
       </div>
 
-      {/* Quick Actions */}
-      <GlassCard className="border-2 border-lavender-200 dark:border-lavender-800">
-        <GlassCardHeader>
-          <GlassCardTitle className="flex items-center gap-2">
-            <Settings className="text-lavender-500" size={20} />
-            Управление голосованием
-          </GlassCardTitle>
-        </GlassCardHeader>
-        <GlassCardContent>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Завершить досрочно */}
-            <button
-              onClick={handleComplete}
-              disabled={loading !== null}
-              className={cn(
-                "p-4 rounded-xl border-2 transition-all",
-                "bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/10 dark:to-coral-800/10",
-                "border-coral-300 dark:border-coral-700",
-                "hover:shadow-lg hover:scale-105",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              <StopCircle className="text-coral-500 mb-2" size={24} />
-              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                Завершить
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Досрочно
-              </div>
-            </button>
-
-            {/* Продлить на +15 мин */}
-            <button
-              onClick={handleExtend}
-              disabled={loading !== null}
-              className={cn(
-                "p-4 rounded-xl border-2 transition-all",
-                "bg-gradient-to-br from-mint-50 to-mint-100 dark:from-mint-900/10 dark:to-mint-800/10",
-                "border-mint-300 dark:border-mint-700",
-                "hover:shadow-lg hover:scale-105",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              <Clock className="text-mint-500 mb-2" size={24} />
-              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                +15 минут
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Продлить
-              </div>
-            </button>
-
-            {/* Добавить блюдо (если функция передана) */}
-            {onAddItem && (
-              <button
-                onClick={handleAddItem}
-                disabled={loading !== null}
-                className={cn(
-                  "p-4 rounded-xl border-2 transition-all",
-                  "bg-gradient-to-br from-peach-50 to-peach-100 dark:from-peach-900/10 dark:to-peach-800/10",
-                  "border-peach-300 dark:border-peach-700",
-                  "hover:shadow-lg hover:scale-105",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
-              >
-                <Plus className="text-peach-500 mb-2" size={24} />
-                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  Добавить
+      {/* Mode Selector Modal */}
+      <AnimatePresence>
+        {showModeSelector && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-glass rounded-lg border border-white/10 p-4 overflow-hidden"
+          >
+            <h4 className="text-sm font-semibold mb-3">Выберите режим завершения:</h4>
+            
+            <div className="space-y-2">
+              {/* Multi-Winner Option */}
+              <label className="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-white/5">
+                <input
+                  type="radio"
+                  name="completion-mode"
+                  value="multi"
+                  checked={selectedMode === 'multi'}
+                  onChange={(e) => setSelectedMode(e.target.value as 'multi')}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <p className="font-medium text-sm">🍽 Распределение по группам</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Показать кто какое блюдо заказывает (рекомендуется)
+                  </p>
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Блюдо
-                </div>
-              </button>
-            )}
+              </label>
 
-            {/* Перезапустить (если функция передана) */}
-            {onRestart && (
-              <button
-                onClick={handleRestart}
-                disabled={loading !== null}
-                className={cn(
-                  "p-4 rounded-xl border-2 transition-all",
-                  "bg-gradient-to-br from-lavender-50 to-lavender-100 dark:from-lavender-900/10 dark:to-lavender-800/10",
-                  "border-lavender-300 dark:border-lavender-700",
-                  "hover:shadow-lg hover:scale-105",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
-              >
-                <RefreshCw className="text-lavender-500 mb-2" size={24} />
-                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  Перезапуск
+              {/* Single-Winner Option */}
+              <label className="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-white/5">
+                <input
+                  type="radio"
+                  name="completion-mode"
+                  value="single"
+                  checked={selectedMode === 'single'}
+                  onChange={(e) => setSelectedMode(e.target.value as 'single')}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <p className="font-medium text-sm">🏆 Один победитель</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Классический режим с выбором победителя
+                  </p>
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Сброс
-                </div>
-              </button>
-            )}
-          </div>
-
-          {/* Уведомить пользователей */}
-          {onNotifyUsers && (
-            <button
-              onClick={handleNotify}
-              disabled={loading !== null}
-              className={cn(
-                "w-full mt-3 py-3 px-4 rounded-xl",
-                "bg-gradient-to-r from-lavender-500 to-lavender-600",
-                "hover:from-lavender-600 hover:to-lavender-700",
-                "text-white font-medium text-sm",
-                "flex items-center justify-center gap-2",
-                "transition-all hover:shadow-lg",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              <Send size={16} />
-              Напомнить непроголосовавшим
-            </button>
-          )}
-
-          {/* Loading indicator */}
-          {loading && (
-            <div className="mt-3 text-center text-sm text-gray-600 dark:text-gray-400">
-              Обработка...
+              </label>
             </div>
-          )}
-        </GlassCardContent>
-      </GlassCard>
 
-      {/* Info hint */}
-      <div className="px-4 py-2 rounded-lg bg-gold-50 dark:bg-gold-900/10 border border-gold-200 dark:border-gold-800">
-        <p className="text-xs text-gold-700 dark:text-gold-400">
-          💡 Эти действия доступны только администраторам
-        </p>
-      </div>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={handleCompleteWithMode}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-coral-500 to-coral-600 text-white rounded-lg font-medium hover:shadow-md transition-all"
+              >
+                Завершить
+              </button>
+              <button
+                onClick={() => setShowModeSelector(false)}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
+              >
+                Отмена
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

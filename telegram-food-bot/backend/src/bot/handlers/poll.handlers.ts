@@ -84,6 +84,33 @@ export async function handleVote(
     // Обновляем сообщение с голосованием
     await updatePollMessage(ctx, pollId);
 
+    // Проверяем условия автозавершения
+    const shouldAutoComplete = await PollService.checkAutoComplete(pollId);
+    
+    if (shouldAutoComplete) {
+      logger.info(`Triggering auto-complete for poll ${pollId}`);
+      
+      try {
+        // Завершаем голосование (multi-winner по умолчанию)
+        await PollService.completePollMultiWinner(pollId, dbUser.id, {
+          minVotes: 1,
+          tieBreakMethod: 'earliest'
+        });
+        
+        // Отправляем уведомление о завершении
+        await ctx.editMessageText(
+          '✅ Голосование автоматически завершено! Все участники проголосовали.\n\n' +
+          '📊 Результаты отправлены в группу.',
+          { parse_mode: 'HTML' }
+        );
+        
+        logger.info(`Poll ${pollId} auto-completed successfully`);
+      } catch (autoCompleteError) {
+        logger.error('Error auto-completing poll:', autoCompleteError);
+        // Не показываем ошибку пользователю, голос уже засчитан
+      }
+    }
+
   } catch (error) {
     logger.error('Error in handleVote:', error);
     await ctx.answerCallbackQuery('❌ Ошибка при голосовании');
@@ -141,6 +168,30 @@ export async function handleBringOwnVote(
     // Обновляем сообщение с голосованием
     await updatePollMessage(ctx, pollId);
 
+    // Проверяем условия автозавершения
+    const shouldAutoComplete = await PollService.checkAutoComplete(pollId);
+    
+    if (shouldAutoComplete) {
+      logger.info(`Triggering auto-complete for poll ${pollId} after bring-own vote`);
+      
+      try {
+        await PollService.completePollMultiWinner(pollId, dbUser.id, {
+          minVotes: 1,
+          tieBreakMethod: 'earliest'
+        });
+        
+        await ctx.editMessageText(
+          '✅ Голосование автоматически завершено! Все участники проголосовали.\n\n' +
+          '📊 Результаты отправлены в группу.',
+          { parse_mode: 'HTML' }
+        );
+        
+        logger.info(`Poll ${pollId} auto-completed after bring-own vote`);
+      } catch (autoCompleteError) {
+        logger.error('Error auto-completing poll:', autoCompleteError);
+      }
+    }
+
   } catch (error) {
     logger.error('Error in handleBringOwnVote:', error);
     await ctx.answerCallbackQuery('❌ Ошибка при голосовании');
@@ -197,6 +248,30 @@ export async function handleSkipVote(
 
     // Обновляем сообщение с голосованием
     await updatePollMessage(ctx, pollId);
+
+    // Проверяем условия автозавершения
+    const shouldAutoComplete = await PollService.checkAutoComplete(pollId);
+    
+    if (shouldAutoComplete) {
+      logger.info(`Triggering auto-complete for poll ${pollId} after skip vote`);
+      
+      try {
+        await PollService.completePollMultiWinner(pollId, dbUser.id, {
+          minVotes: 1,
+          tieBreakMethod: 'earliest'
+        });
+        
+        await ctx.editMessageText(
+          '✅ Голосование автоматически завершено! Все участники проголосовали.\n\n' +
+          '📊 Результаты отправлены в группу.',
+          { parse_mode: 'HTML' }
+        );
+        
+        logger.info(`Poll ${pollId} auto-completed after skip vote`);
+      } catch (autoCompleteError) {
+        logger.error('Error auto-completing poll:', autoCompleteError);
+      }
+    }
 
   } catch (error) {
     logger.error('Error in handleSkipVote:', error);
@@ -329,6 +404,7 @@ export async function handleRefreshPoll(
 
 /**
  * Показать результаты голосования
+ * Поддерживает как single-winner, так и multi-winner режим
  */
 export async function handleShowResults(
   ctx: CallbackQueryContext<BotContext>,
@@ -342,17 +418,49 @@ export async function handleShowResults(
     }
 
     const votes = await VoteService.getPollVotes(pollId);
-    const breakdown = await VoteService.getVoteBreakdown(pollId);
-    const result = await PollService.getPollResult(pollId);
-    const voteTypeStats = await VoteService.getVoteTypeStats(pollId);
+    const result = await PollService.getPollResultByPollId(pollId);
 
-    const resultsMessage = createResultsMessage({
-      poll,
-      result,
-      breakdown,
-      totalVotes: votes.length,
-      voteTypeStats,
-    });
+    // Определяем тип результата
+    let resultsMessage: string;
+    let parseMode: 'Markdown' | 'HTML' = 'Markdown';
+
+    try {
+      const resultData = result?.rouletteData ? JSON.parse(result.rouletteData) : null;
+
+      if (resultData?.mode === 'multi-winner' && resultData?.version === 1) {
+        // Multi-Winner формат
+        const { formatMultiWinnerResults } = await import('../keyboards/poll.keyboard');
+        resultsMessage = formatMultiWinnerResults(resultData);
+        parseMode = 'HTML';
+        logger.info(`Multi-winner results shown for poll ${pollId}`);
+      } else {
+        // Старый single-winner формат (для обратной совместимости)
+        const breakdown = await VoteService.getVoteBreakdown(pollId);
+        const voteTypeStats = await VoteService.getVoteTypeStats(pollId);
+
+        resultsMessage = createResultsMessage({
+          poll,
+          result,
+          breakdown,
+          totalVotes: votes.length,
+          voteTypeStats,
+        });
+        logger.info(`Single-winner results shown for poll ${pollId}`);
+      }
+    } catch (e) {
+      // Fallback на старый формат если JSON невалиден
+      logger.warn('Failed to parse rouletteData, using fallback format', { error: e });
+      const breakdown = await VoteService.getVoteBreakdown(pollId);
+      const voteTypeStats = await VoteService.getVoteTypeStats(pollId);
+
+      resultsMessage = createResultsMessage({
+        poll,
+        result,
+        breakdown,
+        totalVotes: votes.length,
+        voteTypeStats,
+      });
+    }
 
     const keyboard = createCompletedPollKeyboard(
       pollId, 
@@ -361,12 +469,11 @@ export async function handleShowResults(
     );
 
     await ctx.editMessageText(resultsMessage, {
-      parse_mode: 'Markdown',
+      parse_mode: parseMode,
       reply_markup: keyboard,
     });
 
     await ctx.answerCallbackQuery('📊 Результаты обновлены');
-    logger.info(`Results shown for poll: ${pollId}`);
 
   } catch (error) {
     logger.error('Error in handleShowResults:', error);
@@ -476,12 +583,15 @@ async function showRouletteAnimation(
       await new Promise(resolve => setTimeout(resolve, step.delay));
       
       try {
-        rouletteMessage = await ctx.api.editMessageText(
+        const edited: any = await ctx.api.editMessageText(
           rouletteMessage.chat.id,
           rouletteMessage.message_id,
           step.message,
           { parse_mode: 'Markdown' }
         );
+        if (edited !== true) {
+          rouletteMessage = edited;
+        }
       } catch (err) {
         // Игнорируем ошибки редактирования (rate limits)
       }
@@ -539,17 +649,29 @@ export async function handleCancelPoll(
       }
     }
 
-    // Отменяем голосование
-    await PollService.cancelPoll(pollId);
+    // Получаем пользователя из БД
+    let dbUser = await UserService.getUserByTelegramId(BigInt(user.id));
+    if (!dbUser) {
+      dbUser = await UserService.createUser({
+        telegramId: user.id.toString(),
+        username: user.username,
+        firstName: user.first_name,
+        lastName: user.last_name,
+      });
+    }
+
+    // Отменяем голосование с уведомлениями
+    await PollService.cancelPoll(pollId, dbUser.id, 'Отменено администратором');
     
     await ctx.answerCallbackQuery('🚫 Голосование отменено');
     
     await ctx.editMessageText(
-      '🚫 **Голосование отменено администратором**',
+      '🚫 **Голосование отменено администратором**\n\n' +
+      '📬 Уведомления отправлены всем участникам.',
       { parse_mode: 'Markdown' }
     );
 
-    logger.info(`Poll cancelled: ${pollId} by user ${user.id}`);
+    logger.info(`Poll cancelled: ${pollId} by user ${user.id} (${dbUser.id})`);
 
   } catch (error) {
     logger.error('Error in handleCancelPoll:', error);
@@ -575,7 +697,7 @@ export async function handleShowResultsWithoutComplete(
     const breakdown = await VoteService.getVoteBreakdown(pollId);
 
     let message = `📊 **Промежуточные результаты**\n\n`;
-    message += `🎯 "${poll.title || 'Голосование'}"\n`;
+    message += `🎯 Голосование\n`;
     message += `👥 Проголосовало: ${votes.length}\n\n`;
 
     if (breakdown.length === 0) {

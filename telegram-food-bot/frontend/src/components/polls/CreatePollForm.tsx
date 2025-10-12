@@ -159,7 +159,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   };
 
   const toggleItem = (itemId: number) => {
-    haptic.light();
     const newSelected = new Set(selectedItems);
     if (newSelected.has(itemId)) {
       newSelected.delete(itemId);
@@ -170,7 +169,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   };
 
   const toggleAll = () => {
-    haptic.selection();
     if (selectedItems.size === menuItems.length) {
       setSelectedItems(new Set());
     } else {
@@ -179,7 +177,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   };
 
   const selectRandom = () => {
-    haptic.medium();
+    haptic.impact();
     // Используем отфильтрованные блюда (по категории)
     const itemsToSelect = activeCategory === 'Все' ? menuItems : filteredItems;
     // Случайный выбор от 3 до 6 блюд
@@ -190,7 +188,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   };
 
   const setQuickDuration = (minutes: number) => {
-    haptic.selection();
     setDuration(minutes);
   };
 
@@ -269,7 +266,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         <button
           onClick={() => {
             onCancel();
-            haptic.light();
           }}
           className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg"
         >
@@ -311,7 +307,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                     transition={{ delay: 0.25 + index * 0.05 }}
                     onClick={() => {
                       setSelectedGroupId(group.id);
-                      haptic.selection();
                     }}
                     className={cn(
                       "w-full p-3 rounded-xl border-2 transition-all",
@@ -523,7 +518,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
                       setActiveCategory(cat);
-                      haptic.selection();
                     }}
                     className={cn(
                       "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
@@ -593,7 +587,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
               <button
                 onClick={() => {
                   setShowAllItems(!showAllItems);
-                  haptic.light();
                 }}
                 className="w-full mt-3 py-2 text-sm font-medium text-lavender-600 dark:text-lavender-400 flex items-center justify-center gap-1 hover:underline"
               >

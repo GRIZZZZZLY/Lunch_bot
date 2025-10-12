@@ -2,7 +2,15 @@ export declare const botConfig: {
     token: string;
     webhookUrl: string;
     secretKey: string;
-    mode: string;
+    proxy: {
+        enabled: boolean;
+        url: string;
+    };
+    localApi: {
+        enabled: boolean;
+        url: string;
+    };
+    mode: "webhook" | "polling";
     polling: {
         interval: number;
         timeout: number;
