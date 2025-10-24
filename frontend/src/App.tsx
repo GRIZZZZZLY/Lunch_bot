@@ -24,12 +24,13 @@ import { InstallPrompt } from './components/pwa/InstallPrompt';
 const HomePage = lazy(() => import('./pages/HomePage').then(module => ({ default: module.HomePage })));
 const MenuPage = lazy(() => import('./pages/MenuPage').then(module => ({ default: module.MenuPage })));
 const StatsPage = lazy(() => import('./pages/StatsPage').then(module => ({ default: module.StatsPage })));
-const VotingPage = lazy(() => import('./pages/VotingPage').then(module => ({ default: module.VotingPage })));
-const PollManagementPage = lazy(() => import('./pages/PollManagementPage').then(module => ({ default: module.PollManagementPage })));
+// DISABLED: VotingPage not used anymore - voting happens on HomePage
+// const VotingPage = lazy(() => import('./pages/VotingPage').then(module => ({ default: module.VotingPage })));
 const PollHistoryPage = lazy(() => import('./pages/PollHistoryPage').then(module => ({ default: module.PollHistoryPage })));
 const PollResultsPage = lazy(() => import('./pages/PollResultsPage').then(module => ({ default: module.PollResultsPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then(module => ({ default: module.AdminDashboardPage })));
+const UserStatsPage = lazy(() => import('./pages/UserStatsPage').then(module => ({ default: module.UserStatsPage })));
 
 // Dev/Debug pages - удалены из сборки, так как вызывают ошибки импортов
 // Если нужны, исправьте импорты в __dev__ файлах на относительные пути с ../../
@@ -72,16 +73,17 @@ function AppContent() {
   }, [theme]);
 
   // Deep Link: Обработка pollId из URL параметров
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const pollId = searchParams.get('pollId');
-    
-    if (pollId) {
-      // Автоматически перенаправляем на страницу голосования
-      console.log('[Deep Link] Navigating to poll:', pollId);
-      navigate(`/poll/${pollId}`, { replace: true });
-    }
-  }, [location.search, navigate]);
+  // DISABLED: Все голосования происходят на главной странице
+  // useEffect(() => {
+  //   const searchParams = new URLSearchParams(location.search);
+  //   const pollId = searchParams.get('pollId');
+  //   
+  //   if (pollId) {
+  //     // Автоматически перенаправляем на страницу голосования
+  //     console.log('[Deep Link] Navigating to poll:', pollId);
+  //     navigate(`/poll/${pollId}`, { replace: true });
+  //   }
+  // }, [location.search, navigate]);
 
 
 
@@ -91,11 +93,11 @@ function AppContent() {
     const timer = setTimeout(() => {
       // Предзагружаем только production страницы
       import('./pages/MenuPage');
-      import('./pages/VotingPage');
+      // DISABLED: VotingPage not used anymore
+      // import('./pages/VotingPage');
       import('./pages/StatsPage');
       import('./pages/HomePage');
       import('./pages/ProfilePage');
-      import('./pages/PollManagementPage');
       import('./pages/PollHistoryPage');
     }, 0); // Мгновенно - без задержки
 
@@ -135,15 +137,17 @@ function AppContent() {
               <Route path="/vote" element={<HomePage />} />
               <Route path="/vote/hub" element={<HomePage />} /> {/* Legacy redirect */}
               <Route path="/vote/history" element={<PollHistoryPage />} />
-              <Route path="/vote/:pollId" element={<VotingPage />} />
+              {/* DISABLED: Voting happens on HomePage now */}
+              {/* <Route path="/vote/:pollId" element={<VotingPage />} /> */}
               
               {/* Legacy poll routes (для обратной совместимости) */}
-              <Route path="/poll/create" element={<PollManagementPage />} />
               <Route path="/poll/history" element={<PollHistoryPage />} />
-              <Route path="/poll/:pollId" element={<VotingPage />} />
+              {/* DISABLED: Voting happens on HomePage now */}
+              {/* <Route path="/poll/:pollId" element={<VotingPage />} /> */}
               <Route path="/poll/:pollId/results" element={<PollResultsPage />} />
               
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/user/stats" element={<UserStatsPage />} />
               
               {/* Admin Routes */}
               <Route path="/admin/dashboard" element={<AdminDashboardPage />} />

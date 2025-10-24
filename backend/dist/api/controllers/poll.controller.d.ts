@@ -5,6 +5,8 @@ export declare class PollController {
     static getLastCompleted(req: Request, res: Response): Promise<void>;
     static repeatPoll(req: Request, res: Response): Promise<void>;
     static getPollStats(req: Request, res: Response): Promise<void>;
+    static getUserStats(req: Request, res: Response): Promise<void>;
+    static getUserStatsByUserId(req: Request, res: Response): Promise<void>;
     static getPollById(req: Request, res: Response): Promise<void>;
     static getPollResults(req: Request, res: Response): Promise<void>;
     static getPollVotes(req: Request, res: Response): Promise<void>;

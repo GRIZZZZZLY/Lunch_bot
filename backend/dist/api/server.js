@@ -20,7 +20,17 @@ const user_routes_1 = __importDefault(require("./routes/user.routes"));
 function createApiServer() {
     const app = (0, express_1.default)();
     app.use((0, helmet_1.default)({
-        contentSecurityPolicy: false,
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'", 'https://telegram.org'],
+                scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://telegram.org'],
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                fontSrc: ["'self'", 'data:', 'https:'],
+                imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+                connectSrc: ["'self'", 'https:', 'wss:', 'ws:'],
+                frameSrc: ["'self'", 'https://telegram.org'],
+            },
+        },
         crossOriginEmbedderPolicy: false,
     }));
     app.use((req, res, next) => {

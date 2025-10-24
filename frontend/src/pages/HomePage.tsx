@@ -42,6 +42,7 @@ import { MediumWaveGradient } from '../components/background';
 // Poll components
 import { InlineVotingCard } from '../components/voting/InlineVotingCard';
 import { CreatePollForm } from '../components/polls/CreatePollForm';
+import { TopDishModal } from '../components/modals/TopDishModal';
 
 // Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
@@ -147,9 +148,12 @@ export const HomePage: React.FC = () => {
   const [randomDish, setRandomDish] = useState<any>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   
-  // Модалки (оставлены для будущего функционала)
+  // Модалки
   const [isRandomModalOpen, setIsRandomModalOpen] = useState(false);
   const [isPopularModalOpen, setIsPopularModalOpen] = useState(false);
+  const [isTopDishModalOpen, setIsTopDishModalOpen] = useState(false);
+  const [topDishData, setTopDishData] = useState<any>(null);
+  const [loadingTopDish, setLoadingTopDish] = useState(false);
   
   // Set first active poll when data loads
   useEffect(() => {
@@ -226,20 +230,8 @@ export const HomePage: React.FC = () => {
     // Очищаем localStorage кэш
     localStorage.removeItem('TELEGRAM_FOOD_BOT_CACHE');
     
-    // Показываем уведомление и сразу переходим на страницу голосования
-    if (telegram.showPopup) {
-      telegram.showPopup({
-        title: '✅ Готово!',
-        message: 'Голосование создано и отправлено в группу',
-        buttons: [{ type: 'ok' }]
-      }, () => {
-        // После закрытия popup переходим на страницу голосования
-        navigate(`/vote/${pollId}`);
-      });
-    } else {
-      // Если showPopup не поддерживается, переходим сразу
-      navigate(`/vote/${pollId}`);
-    }
+    // Обновляем список голосований без popup уведомления
+    refetch();
   };
 
   // Admin functions removed - now only available on VotingHubPage
@@ -279,13 +271,7 @@ export const HomePage: React.FC = () => {
    * Handler функции для Quick Actions
    */
   
-  // 1. Перейти к голосованиям (страница создания)
-  const handleGoToVoting = () => {
-    // haptic.medium(); // Метода medium() не существует в useHaptic
-    navigate('/poll/create');
-  };
-  
-  // 2. Случайный выбор
+  // 1. Случайный выбор
   const handleRandomVote = async () => {
     // TODO: Выбрать случайное блюдо из активного голосования
     console.log('Random vote');
@@ -312,8 +298,32 @@ export const HomePage: React.FC = () => {
   
   // 6. Пригласить друга
   const handleInviteFriend = () => {
-    // TODO: Telegram share API
-    console.log('Invite friend');
+    haptic.impact();
+    
+    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'rocket_lunch_bot';
+    const inviteUrl = `https://t.me/${botUsername}?start=invite_${user?.id || 'unknown'}`;
+    const shareText = `🍽️ Присоединяйся к нашим обеденным голосованиям!\n\n` +
+      `Выбираем еду вместе с командой через удобного бота.\n\n` +
+      `Попробуй: ${inviteUrl}`;
+
+    // Используем Telegram WebApp share API
+    if (telegram.openTelegramLink) {
+      const shareLink = `https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent(shareText)}`;
+      telegram.openTelegramLink(shareLink);
+    } else {
+      // Fallback - копируем в буфер
+      navigator.clipboard.writeText(shareText).then(() => {
+        addNotification({
+          type: 'success',
+          message: '✅ Ссылка скопирована в буфер обмена',
+        });
+      }).catch(() => {
+        addNotification({
+          type: 'error',
+          message: '❌ Не удалось скопировать ссылку',
+        });
+      });
+    }
   };
   
   // 7. Показать победителя (детально)
@@ -336,17 +346,47 @@ export const HomePage: React.FC = () => {
   };
   
   // 10. Показать топ блюдо недели
-  const handleShowTopDish = () => {
-    // TODO: Загрузить статистику и показать модалку
-    console.log('Show top dish');
-    alert('Страница в разработке 🚧');
+  const handleShowTopDish = async () => {
+    try {
+      setLoadingTopDish(true);
+      haptic.light();
+      
+      const response = await pollsService.getPopularItems(1);
+      
+      if (response.success && response.data && response.data.length > 0) {
+        const topItem = response.data[0];
+        setTopDishData({
+          name: topItem.menuItemName,
+          voteCount: topItem.totalVotes,
+          percentage: topItem.percentage,
+          imageUrl: topItem.imageUrl,
+          description: topItem.description,
+          price: topItem.price,
+        });
+        setIsTopDishModalOpen(true);
+        haptic.success();
+      } else {
+        addNotification({
+          type: 'info',
+          message: '📊 Пока недостаточно данных для статистики',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading top dish:', error);
+      addNotification({
+        type: 'error',
+        message: '❌ Не удалось загрузить статистику',
+      });
+      haptic.error();
+    } finally {
+      setLoadingTopDish(false);
+    }
   };
   
   // 11. Показать статистику пользователя
   const handleShowUserStats = () => {
-    // TODO: Создать страницу статистики пользователя
-    console.log('Show user stats');
-    alert('Страница в разработке 🚧');
+    haptic.impact();
+    navigate('/user/stats');
   };
 
   // 12. Повторить вчерашнее голосование (только для админов)
@@ -941,6 +981,13 @@ export const HomePage: React.FC = () => {
 
 
       </motion.div>
+
+      {/* Top Dish Modal */}
+      <TopDishModal
+        isOpen={isTopDishModalOpen}
+        onClose={() => setIsTopDishModalOpen(false)}
+        topDish={topDishData}
+      />
 
     </>
   );

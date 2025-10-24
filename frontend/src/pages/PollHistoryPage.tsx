@@ -77,7 +77,8 @@ export const PollHistoryPage: React.FC = () => {
 
   const handlePollClick = (pollId: number) => {
     haptic.light();
-    navigate(`/vote/${pollId}`);
+    // Перенаправляем на страницу результатов для завершенных голосований
+    navigate(`/poll/${pollId}/results`);
   };
 
   const filteredPolls = polls.filter(poll => {
@@ -183,7 +184,7 @@ export const PollHistoryPage: React.FC = () => {
 
           {/* Список */}
           {sortedPolls.length === 0 ? (
-            <EmptyState type="no-history" onAction={() => navigate('/poll/create')} />
+            <EmptyState type="no-history" onAction={() => navigate('/')} />
           ) : (
             <div className="space-y-3">
               {sortedPolls.map((poll, index) => (

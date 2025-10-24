@@ -29,6 +29,18 @@ router.get('/history', telegramAuthMiddleware, pollController.getPollHistory);
 router.get('/stats', telegramAuthMiddleware, pollController.getPollStats);
 
 /**
+ * GET /api/polls/user-stats/my
+ * Получение статистики текущего пользователя
+ */
+router.get('/user-stats/my', telegramAuthMiddleware, pollController.getUserStats);
+
+/**
+ * GET /api/polls/user-stats/:userId
+ * Получение статистики конкретного пользователя (только админы)
+ */
+router.get('/user-stats/:userId', telegramAuthMiddleware, adminMiddleware, pollController.getUserStatsByUserId);
+
+/**
  * GET /api/polls/popular-items
  * Получение популярных блюд
  */

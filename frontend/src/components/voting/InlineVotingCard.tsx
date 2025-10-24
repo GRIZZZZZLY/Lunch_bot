@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock,
@@ -9,6 +9,10 @@ import {
   Crown,
   Sparkles,
   X,
+  ChevronDown,
+  ChevronUp,
+  Utensils,
+  Zap,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useHaptic } from '../../hooks/useHaptic';
@@ -19,6 +23,7 @@ import { menuService, MenuItem } from '../../services/menu.service';
 import { cn } from '../../lib/utils';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { VotersAvatars } from './VotersAvatars';
+import { Skeleton } from '../ui/skeleton';
 
 interface InlineVotingCardProps {
   poll: PollWithDetails;
@@ -47,6 +52,11 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [closing, setClosing] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>('');
+  
+  // UX: Показать ещё паттерн для скролла
+  const INITIAL_ITEMS_COUNT = 5;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Загрузка данных
   useEffect(() => {
@@ -151,6 +161,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
 
   const handleSelectItem = (itemId: number) => {
     if (userVote) return; // Уже проголосовал
+    haptic.selection(); // P1: Haptic feedback при выборе
     setSelectedItemId(itemId);
   };
 
@@ -159,6 +170,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
 
     try {
       setSubmitting(true);
+      haptic.impact('medium'); // P1: Haptic feedback при отправке
 
       const response = await pollsService.voteForItem(poll.id, selectedItemId);
 
@@ -241,10 +253,51 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
     }, menuItems[0]).id;
   };
 
+  // Вспомогательная функция для правильного склонения слова "блюдо"
+  const getDishWord = (count: number): string => {
+    if (count === 1) return 'блюдо';
+    if (count >= 2 && count <= 4) return 'блюда';
+    return 'блюд';
+  };
+
+  // Логика отображения блюд
+  const displayedItems = isExpanded
+    ? menuItems
+    : menuItems.slice(0, INITIAL_ITEMS_COUNT);
+  const hasMore = menuItems.length > INITIAL_ITEMS_COUNT;
+  const remainingCount = menuItems.length - INITIAL_ITEMS_COUNT;
+
+  // Обработчики для кнопок разворачивания/сворачивания
+  const handleExpand = () => {
+    haptic.selection(); // P1: Улучшенный haptic
+    setIsExpanded(true);
+  };
+
+  const handleCollapse = () => {
+    haptic.selection(); // P1: Улучшенный haptic
+    setIsExpanded(false);
+    // Прокрутка к началу карточки после небольшой задержки
+    setTimeout(() => {
+      cardRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 100);
+  };
+
+  // P1: Skeleton loading вместо спиннера
   if (loading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center">
-        <LoadingSpinner size="lg" />
+      <div className="bg-gradient-to-br from-lavender-50 via-white to-lavender-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 rounded-2xl p-6 shadow-xl border border-lavender-100 dark:border-gray-700">
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <div className="space-y-2 mt-6">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-xl" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -254,38 +307,41 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
 
   return (
     <motion.div
+      ref={cardRef}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-2xl p-6 text-white shadow-xl"
+      className="bg-gradient-to-br from-lavender-50 via-white to-mint-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 rounded-2xl p-6 shadow-xl border border-lavender-100 dark:border-gray-700"
     >
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <Sparkles size={20} />
-            <h3 className="text-xl font-bold">
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-lavender-500 to-lavender-600">
+              <Sparkles size={18} className="text-white" />
+            </div>
+            <h3 className="text-xl font-bold bg-gradient-to-r from-lavender-600 to-lavender-700 bg-clip-text text-transparent dark:from-lavender-400 dark:to-lavender-500">
               {userVote ? 'Вы проголосовали!' : 'Голосование активно'}
             </h3>
           </div>
-          <p className="text-white/80 text-sm">Выберите блюдо на обед</p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm ml-9">Выберите блюдо на обед</p>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Timer */}
+          {/* Timer - P0: butter для warning-подобного элемента */}
           {timeRemaining && (
-            <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5">
+            <div className="flex items-center gap-2 bg-butter-100 dark:bg-butter-900/30 text-butter-700 dark:text-butter-300 rounded-lg px-3 py-1.5 border border-butter-200 dark:border-butter-800">
               <Clock size={16} />
               <span className="text-sm font-medium">{timeRemaining}</span>
             </div>
           )}
 
-          {/* Admin close button */}
+          {/* Admin close button - P0: coral для destructive */}
           {user?.isAdmin && (
             <button
               onClick={handleClosePoll}
               disabled={closing}
-              className="p-2 bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-colors disabled:opacity-50"
+              className="p-2 bg-coral-100 hover:bg-coral-200 dark:bg-coral-900/30 dark:hover:bg-coral-800/50 text-coral-700 dark:text-coral-400 rounded-lg transition-all duration-200 disabled:opacity-50 border border-coral-200 dark:border-coral-800"
               title="Завершить голосование"
             >
               <CheckCircle size={18} />
@@ -296,10 +352,11 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
 
       {/* Stats */}
       <div className="flex items-center gap-4 mb-6">
-        <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2">
+        {/* P0: Убрали coral, оставили lavender для статистики */}
+        <div className="flex items-center gap-2 bg-lavender-100 dark:bg-lavender-900/30 text-lavender-700 dark:text-lavender-300 rounded-lg px-3 py-2 border border-lavender-200 dark:border-lavender-800">
           <Users size={18} />
           <span className="text-lg font-bold">{voteCount}</span>
-          <span className="text-white/80 text-sm">
+          <span className="text-sm">
             {voteCount === 1 ? 'голос' : voteCount < 5 ? 'голоса' : 'голосов'}
           </span>
         </div>
@@ -331,6 +388,18 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           
           return voters.length > 0 ? <VotersAvatars voters={voters} maxDisplay={5} size="sm" /> : null;
         })()}
+
+        {/* P1: Live Updates Badge */}
+        {poll.status === 'ACTIVE' && (
+          <motion.div
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="flex items-center gap-1.5 text-xs text-mint-600 dark:text-mint-400"
+          >
+            <div className="w-2 h-2 bg-mint-500 rounded-full animate-pulse" />
+            <span className="font-medium">Live</span>
+          </motion.div>
+        )}
       </div>
 
       {/* User vote indicator */}
@@ -338,9 +407,9 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-green-500/20 border border-green-400/30 rounded-xl p-3 mb-4"
+          className="bg-gradient-to-r from-mint-100 to-mint-50 dark:from-mint-900/30 dark:to-mint-800/20 border border-mint-300 dark:border-mint-700 rounded-xl p-3 mb-4"
         >
-          <div className="flex items-center gap-2 text-green-100">
+          <div className="flex items-center gap-2 text-mint-700 dark:text-mint-300">
             <CheckCircle size={18} />
             <span className="text-sm font-medium">
               Вы выбрали: <strong>{menuItems.find(i => i.id === userVote.menuItemId)?.name}</strong>
@@ -349,10 +418,29 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         </motion.div>
       )}
 
+      {/* P2: Empty State для первого голосующего */}
+      {!userVote && voteCount === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-6 mb-4 bg-lavender-50 dark:bg-lavender-900/20 rounded-xl"
+        >
+          <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-lavender-100 dark:bg-lavender-900/30 flex items-center justify-center">
+            <Zap size={24} className="text-lavender-500" />
+          </div>
+          <p className="text-gray-700 dark:text-gray-300 font-semibold mb-1">
+            Будьте первым!
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Начните голосование и выберите блюдо
+          </p>
+        </motion.div>
+      )}
+
       {/* Menu items */}
-      <div className="max-h-[360px] overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent pr-1">
+      <div className="space-y-2">
         <AnimatePresence mode="popLayout">
-          {menuItems.map((item, index) => {
+          {displayedItems.map((item, index) => {
             const isSelected = selectedItemId === item.id;
             const isVoted = userVote?.menuItemId === item.id;
             const votes = getItemVoteCount(item.id);
@@ -362,28 +450,34 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
             return (
               <motion.button
                 key={item.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ delay: index * 0.05 }}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{
+                  delay: isExpanded ? index * 0.03 : index * 0.05,
+                  duration: 0.2
+                }}
                 onClick={() => handleSelectItem(item.id)}
                 disabled={!!userVote || submitting}
                 className={cn(
-                  'w-full relative overflow-hidden rounded-xl p-4 text-left transition-all duration-200',
+                  'w-full relative overflow-hidden rounded-xl p-4 text-left transition-all duration-300',
                   'disabled:cursor-not-allowed',
                   !userVote && 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]',
-                  isSelected && !userVote && 'ring-2 ring-white scale-[1.02]',
-                  isVoted && 'bg-white/20 ring-2 ring-green-400',
-                  !isSelected && !isVoted && 'bg-white/10 hover:bg-white/15 hover:shadow-lg'
+                  // P0: Выбранный вариант - lavender mono-gradient
+                  isSelected && !userVote && 'bg-gradient-to-r from-lavender-500 to-lavender-600 text-white scale-[1.02] shadow-lg shadow-lavender-500/50',
+                  // Проголосованный вариант
+                  isVoted && 'bg-gradient-to-r from-mint-500 to-mint-600 text-white shadow-lg shadow-mint-500/50',
+                  // Обычный вариант - белая карточка
+                  !isSelected && !isVoted && 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm hover:shadow-md border border-gray-200 dark:border-gray-700'
                 )}
               >
-                {/* Progress bar background */}
+                {/* P0: Progress bar - lavender mono */}
                 {userVote && percentage > 0 && (
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${percentage}%` }}
                     transition={{ duration: 0.5, ease: 'easeOut' }}
-                    className="absolute inset-0 bg-white/10"
+                    className="absolute inset-0 bg-gradient-to-r from-lavender-200/40 to-lavender-300/40 dark:from-lavender-800/20 dark:to-lavender-700/20"
                   />
                 )}
 
@@ -392,27 +486,39 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
                     {/* Checkbox */}
                     <div className="flex-shrink-0">
                       {isVoted ? (
-                        <CheckCircle size={22} className="text-green-300" />
+                        <CheckCircle size={22} className="text-white drop-shadow-md" />
                       ) : isSelected ? (
-                        <CheckCircle size={22} />
+                        <CheckCircle size={22} className="text-white drop-shadow-md" />
                       ) : (
-                        <Circle size={22} className="text-white/40" />
+                        <Circle size={22} className="text-gray-400 dark:text-gray-500" />
                       )}
                     </div>
 
                     {/* Item name */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium truncate">{item.name}</span>
+                        <span className={cn(
+                          "font-medium truncate",
+                          (isSelected || isVoted) && "drop-shadow-sm"
+                        )}>{item.name}</span>
                         {isLeading && (
-                          <Crown size={16} className="text-yellow-300 flex-shrink-0" />
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 200 }}
+                          >
+                            <Crown size={16} className="text-butter-400 flex-shrink-0 drop-shadow-sm" />
+                          </motion.div>
                         )}
                       </div>
                     </div>
 
                     {/* Vote stats */}
                     {userVote && (
-                      <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className={cn(
+                        "flex items-center gap-3 flex-shrink-0",
+                        isVoted && "text-white"
+                      )}>
                         <span className="text-sm font-medium">{percentage}%</span>
                         <div className="flex items-center gap-1 text-sm">
                           <Users size={14} />
@@ -428,6 +534,70 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         </AnimatePresence>
       </div>
 
+      {/* Кнопка "Показать ещё" - Card стиль с превью */}
+      {!isExpanded && hasMore && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-3"
+        >
+          <button
+            onClick={handleExpand}
+            className={cn(
+              'w-full p-4 rounded-xl',
+              'bg-gradient-to-br from-lavender-50 to-mint-50',
+              'dark:from-gray-800 dark:to-gray-850',
+              'border-2 border-dashed border-lavender-300 dark:border-lavender-700',
+              'hover:border-solid hover:bg-gradient-to-br hover:from-lavender-100 hover:to-mint-100',
+              'dark:hover:from-gray-750 dark:hover:to-gray-800',
+              'transition-all duration-300',
+              'group'
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-lavender-200 dark:bg-lavender-800 group-hover:scale-110 transition-transform">
+                  <Utensils size={18} className="text-lavender-600 dark:text-lavender-300" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">
+                    Ещё {remainingCount} {getDishWord(remainingCount)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Нажмите, чтобы показать все варианты
+                  </p>
+                </div>
+              </div>
+              <ChevronDown
+                size={20}
+                className="text-lavender-500 dark:text-lavender-400 group-hover:translate-y-1 transition-transform"
+              />
+            </div>
+          </button>
+        </motion.div>
+      )}
+
+      {/* Кнопка "Свернуть" */}
+      {isExpanded && hasMore && (
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={handleCollapse}
+          className={cn(
+            'w-full mt-3 py-2 px-4 rounded-lg',
+            'bg-gray-100 dark:bg-gray-800',
+            'text-gray-600 dark:text-gray-400',
+            'font-medium text-sm',
+            'flex items-center justify-center gap-2',
+            'hover:bg-gray-200 dark:hover:bg-gray-700',
+            'transition-all duration-200'
+          )}
+        >
+          <ChevronUp size={16} />
+          Свернуть
+        </motion.button>
+      )}
+
       {/* Vote button */}
       {!userVote && selectedItemId && (
         <motion.button
@@ -437,7 +607,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           whileTap={{ scale: 0.98 }}
           onClick={handleVote}
           disabled={submitting}
-          className="w-full mt-4 bg-white text-purple-600 rounded-xl py-3 px-4 font-bold transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+          className="w-full mt-4 bg-gradient-to-r from-peach-500 to-peach-600 hover:from-peach-600 hover:to-peach-700 text-white rounded-xl py-3 px-4 font-bold transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-peach-500/50"
         >
           {submitting ? (
             <>

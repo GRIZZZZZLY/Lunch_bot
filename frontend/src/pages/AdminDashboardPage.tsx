@@ -7,14 +7,12 @@ import { MediumWaveGradient } from '../components/background';
 import {
   Shield,
   Activity,
-  Users,
   TrendingUp,
   Clock,
   AlertCircle,
   CheckCircle,
   XCircle,
   Crown,
-  Eye,
   BarChart3,
   RefreshCw,
 } from 'lucide-react';
@@ -22,7 +20,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
 import { useUI } from '../store/useAppStore';
 import { pollsService } from '../services/polls.service';
-import { userService } from '../services/user.service';
 import { cn } from '../lib/utils';
 
 interface AdminLog {
@@ -48,13 +45,12 @@ export const AdminDashboardPage: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const hasShownError = useRef(false); // Предотвращение двойного уведомления
+  const hasShownAccessError = useRef(false); // Предотвращение двойного уведомления о правах
+  const hasShownLoadError = useRef(false); // Предотвращение двойного уведомления о загрузке
   const [stats, setStats] = useState({
     totalPolls: 0,
     activePolls: 0,
     completedPolls: 0,
-    totalUsers: 0,
-    activeUsers: 0,
     totalVotes: 0,
   });
   const [recentLogs, setRecentLogs] = useState<AdminLog[]>([]);
@@ -68,12 +64,12 @@ export const AdminDashboardPage: React.FC = () => {
     // Проверка прав доступа
     if (!user?.isAdmin) {
       // Показываем уведомление только один раз (защита от React Strict Mode)
-      if (!hasShownError.current) {
+      if (!hasShownAccessError.current) {
         addNotification({
           type: 'error',
           message: '🔒 Требуются права администратора',
         });
-        hasShownError.current = true;
+        hasShownAccessError.current = true;
       }
       navigate('/profile');
       return;
@@ -94,7 +90,10 @@ export const AdminDashboardPage: React.FC = () => {
       setLoading(true);
 
       // Загружаем статистику голосований
+      console.log('[AdminDashboard] Loading poll stats...');
       const pollStatsResponse = await pollsService.getPollStats();
+      console.log('[AdminDashboard] Poll stats response:', pollStatsResponse);
+      
       if (pollStatsResponse.success && pollStatsResponse.data) {
         setStats(prev => ({
           ...prev,
@@ -103,13 +102,18 @@ export const AdminDashboardPage: React.FC = () => {
           completedPolls: pollStatsResponse.data.completedPolls || 0,
           totalVotes: pollStatsResponse.data.totalVotes || 0,
         }));
+        console.log('[AdminDashboard] Stats updated successfully');
+      } else {
+        console.error('[AdminDashboard] Failed to load stats:', pollStatsResponse);
       }
 
       // Загружаем историю для логов (последние 10 действий)
+      console.log('[AdminDashboard] Loading poll history...');
       const historyResponse = await pollsService.getPollHistory({
         limit: 10,
         offset: 0,
       });
+      console.log('[AdminDashboard] Poll history response:', historyResponse);
       
       if (historyResponse.success && historyResponse.data) {
         // Преобразуем историю в логи
@@ -122,14 +126,21 @@ export const AdminDashboardPage: React.FC = () => {
           status: 'success' as const,
         }));
         setRecentLogs(logs);
+        console.log('[AdminDashboard] History logs updated successfully:', logs.length);
+      } else {
+        console.error('[AdminDashboard] Failed to load history:', historyResponse);
       }
 
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      addNotification({
-        type: 'error',
-        message: 'Ошибка загрузки данных панели',
-      });
+      // Показываем уведомление только один раз (защита от React Strict Mode)
+      if (!hasShownLoadError.current) {
+        addNotification({
+          type: 'error',
+          message: 'Ошибка загрузки данных панели',
+        });
+        hasShownLoadError.current = true;
+      }
     } finally {
       setLoading(false);
     }
@@ -399,30 +410,6 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
             </div>
           </GlassCard>
-        </motion.div>
-
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="grid grid-cols-2 gap-3"
-        >
-          <button
-            onClick={() => navigate('/poll/create')}
-            className="p-4 rounded-xl bg-gradient-to-br from-primary-food-500 to-primary-food-600 text-white shadow-lg hover:shadow-xl transition-all"
-          >
-            <Activity size={24} className="mb-2" />
-            <div className="text-sm font-semibold">Создать голосование</div>
-          </button>
-
-          <button
-            onClick={() => navigate('/menu')}
-            className="p-4 rounded-xl bg-gradient-to-br from-mint-500 to-mint-600 text-white shadow-lg hover:shadow-xl transition-all"
-          >
-            <Eye size={24} className="mb-2" />
-            <div className="text-sm font-semibold">Управление меню</div>
-          </button>
         </motion.div>
       </div>
     </>
