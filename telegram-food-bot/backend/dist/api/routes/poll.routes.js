@@ -11,6 +11,8 @@ router.get('/', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollCo
 router.get('/active', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getActivePolls);
 router.get('/history', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPollHistory);
 router.get('/stats', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPollStats);
+router.get('/user-stats/my', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getUserStats);
+router.get('/user-stats/:userId', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.getUserStatsByUserId);
 router.get('/popular-items', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPopularItems);
 router.get('/last-completed', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getLastCompleted);
 router.post('/repeat/:id', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.repeatPoll);

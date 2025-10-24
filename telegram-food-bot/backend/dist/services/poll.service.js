@@ -542,6 +542,69 @@ class PollService {
             throw new Error('Failed to get poll stats');
         }
     }
+    static async getUserParticipationStats(userId) {
+        try {
+            const totalVotes = await client_2.prisma.vote.count({
+                where: { userId }
+            });
+            const totalPolls = await client_2.prisma.poll.count({
+                where: { status: 'COMPLETED' }
+            });
+            const participationRate = totalPolls > 0
+                ? Math.round((totalVotes / totalPolls) * 100)
+                : 0;
+            const votesByItem = await client_2.prisma.vote.groupBy({
+                by: ['menuItemId'],
+                where: { userId, menuItemId: { not: null } },
+                _count: { id: true },
+                orderBy: { _count: { id: 'desc' } },
+                take: 5
+            });
+            const menuItemIds = votesByItem
+                .map(v => v.menuItemId)
+                .filter((id) => id !== null);
+            const menuItems = await client_2.prisma.menuItem.findMany({
+                where: { id: { in: menuItemIds } }
+            });
+            const favoriteItems = votesByItem.map(vote => {
+                const item = menuItems.find(m => m.id === vote.menuItemId);
+                return {
+                    itemId: vote.menuItemId,
+                    itemName: item?.name || 'Unknown',
+                    voteCount: vote._count.id,
+                    percentage: totalVotes > 0
+                        ? Math.round((vote._count.id / totalVotes) * 100)
+                        : 0
+                };
+            });
+            const recentVotes = await client_2.prisma.vote.findMany({
+                where: { userId },
+                include: {
+                    poll: { select: { id: true } },
+                    menuItem: { select: { name: true } }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 10
+            });
+            const recentActivity = recentVotes.map(vote => ({
+                pollId: vote.pollId,
+                pollTitle: 'Голосование на обед',
+                votedAt: vote.createdAt.toISOString(),
+                itemName: vote.menuItem?.name || 'Unknown'
+            }));
+            return {
+                totalVotes,
+                totalPolls,
+                participationRate,
+                favoriteItems,
+                recentActivity
+            };
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting user participation stats:', error);
+            throw new Error('Failed to get user participation stats');
+        }
+    }
     static async getExpiredPolls() {
         try {
             return await client_2.prisma.poll.findMany({

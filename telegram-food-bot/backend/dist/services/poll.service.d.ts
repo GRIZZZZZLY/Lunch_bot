@@ -18,6 +18,23 @@ export declare class PollService {
     }>;
     static getLastCompletedPoll(groupId?: number): Promise<Poll | null>;
     static getPollStats(groupId?: number): Promise<PollStats>;
+    static getUserParticipationStats(userId: number): Promise<{
+        totalVotes: number;
+        totalPolls: number;
+        participationRate: number;
+        favoriteItems: Array<{
+            itemId: number;
+            itemName: string;
+            voteCount: number;
+            percentage: number;
+        }>;
+        recentActivity: Array<{
+            pollId: number;
+            pollTitle: string;
+            votedAt: string;
+            itemName: string;
+        }>;
+    }>;
     static getExpiredPolls(): Promise<Poll[]>;
     static getPollVoteBreakdown(pollId: number): Promise<{
         menuItemId: number;

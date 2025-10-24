@@ -20,7 +20,17 @@ export function createApiServer(): express.Application {
 
   // Базовые middleware
   app.use(helmet({
-    contentSecurityPolicy: false, // Отключаем для Telegram WebApp
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'", 'https://telegram.org'],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://telegram.org'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        fontSrc: ["'self'", 'data:', 'https:'], // Разрешаем загрузку шрифтов
+        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+        connectSrc: ["'self'", 'https:', 'wss:', 'ws:'],
+        frameSrc: ["'self'", 'https://telegram.org'],
+      },
+    },
     crossOriginEmbedderPolicy: false, // Для iframe интеграции
   }));
 
@@ -143,6 +153,8 @@ export function startApiServer(app: express.Application): void {
     logger.info('  GET  /api/polls/:id/results - результаты голосования');
     logger.info('  GET  /api/polls/history - история голосований');
     logger.info('  GET  /api/polls/stats - статистика голосований');
+    logger.info('  GET  /api/polls/user-stats/my - статистика текущего пользователя');
+    logger.info('  GET  /api/polls/user-stats/:userId - статистика пользователя (admin)');
     logger.info('  POST /api/polls - создание голосования');
     logger.info('  PATCH /api/polls/:id/complete - завершение голосования');
     logger.info('  PATCH /api/polls/:id/cancel - отмена голосования');

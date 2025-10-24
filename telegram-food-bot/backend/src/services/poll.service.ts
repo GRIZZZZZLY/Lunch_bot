@@ -650,6 +650,102 @@ export class PollService {
   }
 
   /**
+   * Получение статистики участия пользователя
+   */
+  static async getUserParticipationStats(userId: number): Promise<{
+    totalVotes: number;
+    totalPolls: number;
+    participationRate: number;
+    favoriteItems: Array<{
+      itemId: number;
+      itemName: string;
+      voteCount: number;
+      percentage: number;
+    }>;
+    recentActivity: Array<{
+      pollId: number;
+      pollTitle: string;
+      votedAt: string;
+      itemName: string;
+    }>;
+  }> {
+    try {
+      // 1. Подсчет общего количества голосов пользователя
+      const totalVotes = await prisma.vote.count({
+        where: { userId }
+      });
+
+      // 2. Подсчет завершенных голосований
+      const totalPolls = await prisma.poll.count({
+        where: { status: 'COMPLETED' }
+      });
+
+      // 3. Расчет процента участия
+      const participationRate = totalPolls > 0 
+        ? Math.round((totalVotes / totalPolls) * 100) 
+        : 0;
+
+      // 4. Любимые блюда (топ 5 по количеству голосов)
+      const votesByItem = await prisma.vote.groupBy({
+        by: ['menuItemId'],
+        where: { userId, menuItemId: { not: null } },
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+        take: 5
+      });
+
+      const menuItemIds = votesByItem
+        .map(v => v.menuItemId)
+        .filter((id): id is number => id !== null);
+
+      const menuItems = await prisma.menuItem.findMany({
+        where: { id: { in: menuItemIds } }
+      });
+
+      const favoriteItems = votesByItem.map(vote => {
+        const item = menuItems.find(m => m.id === vote.menuItemId);
+        return {
+          itemId: vote.menuItemId!,
+          itemName: item?.name || 'Unknown',
+          voteCount: vote._count.id,
+          percentage: totalVotes > 0 
+            ? Math.round((vote._count.id / totalVotes) * 100) 
+            : 0
+        };
+      });
+
+      // 5. Последняя активность (последние 10 голосов)
+      const recentVotes = await prisma.vote.findMany({
+        where: { userId },
+        include: {
+          poll: { select: { id: true } },
+          menuItem: { select: { name: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      });
+
+      const recentActivity = recentVotes.map(vote => ({
+        pollId: vote.pollId,
+        pollTitle: 'Голосование на обед',
+        votedAt: vote.createdAt.toISOString(),
+        itemName: vote.menuItem?.name || 'Unknown'
+      }));
+
+      return {
+        totalVotes,
+        totalPolls,
+        participationRate,
+        favoriteItems,
+        recentActivity
+      };
+    } catch (error) {
+      logger.error('Error getting user participation stats:', error);
+      throw new Error('Failed to get user participation stats');
+    }
+  }
+
+  /**
    * Получение голосований с истекшим временем
    */
   static async getExpiredPolls(): Promise<Poll[]> {
