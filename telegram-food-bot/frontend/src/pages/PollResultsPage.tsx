@@ -36,7 +36,8 @@ export const PollResultsPage: React.FC = () => {
   }, [pollId]);
 
   useEffect(() => {
-    backButton.onClick(() => navigate(`/poll/${pollId}`));
+    // Возврат на главную страницу вместо страницы голосования
+    backButton.onClick(() => navigate('/'));
     backButton.show();
 
     return () => {
@@ -147,11 +148,11 @@ export const PollResultsPage: React.FC = () => {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
-          onClick={() => navigate(`/poll/${pollId}`)}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-4"
         >
           <ArrowLeft size={20} />
-          <span>Назад к голосованию</span>
+          <span>На главную</span>
         </motion.button>
 
         {/* Results Component */}

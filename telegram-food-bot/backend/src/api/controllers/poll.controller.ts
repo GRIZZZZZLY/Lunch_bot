@@ -91,8 +91,8 @@ export class PollController {
 
       res.json({
         success: true,
-        data: serializeBigInt(result.polls),
-        pagination: {
+        data: {
+          polls: serializeBigInt(result.polls),
           total: result.total,
           limit,
           offset,
@@ -265,6 +265,67 @@ export class PollController {
       res.status(500).json({
         success: false,
         error: 'Failed to get poll stats',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * GET /api/polls/user-stats/my
+   * Получение статистики текущего пользователя
+   */
+  static async getUserStats(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+
+      const stats = await PollService.getUserParticipationStats(user.id);
+
+      res.json({
+        success: true,
+        data: serializeBigInt(stats),
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error getting user stats:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get user stats',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * GET /api/polls/user-stats/:userId
+   * Получение статистики конкретного пользователя (только админы)
+   */
+  static async getUserStatsByUserId(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = parseInt(req.params.userId);
+
+      if (isNaN(userId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+          code: 'INVALID_USER_ID'
+        });
+        return;
+      }
+
+      const stats = await PollService.getUserParticipationStats(userId);
+
+      res.json({
+        success: true,
+        data: serializeBigInt(stats),
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error('Error getting user stats by ID:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get user stats',
         code: 'INTERNAL_ERROR'
       });
     }

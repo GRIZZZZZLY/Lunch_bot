@@ -124,7 +124,17 @@ export const StatsPage: React.FC = () => {
       ]);
 
       if (pollsResponse.success && pollsResponse.data) {
-        setPolls(pollsResponse.data);
+        // Backend возвращает { polls: [], total, limit, offset, hasNext }
+        // Извлекаем только массив polls
+        const pollsData = Array.isArray(pollsResponse.data) 
+          ? pollsResponse.data 
+          : (pollsResponse.data as any).polls || [];
+        console.log('[StatsPage] Polls data:', {
+          isArray: Array.isArray(pollsResponse.data),
+          pollsLength: pollsData.length,
+          rawData: pollsResponse.data
+        });
+        setPolls(pollsData);
       }
 
       if (statsResponse.success && statsResponse.data) {
@@ -206,6 +216,11 @@ export const StatsPage: React.FC = () => {
 
   // Sorted polls
   const sortedPolls = useMemo(() => {
+    // Защита: проверяем что polls - это массив
+    if (!Array.isArray(polls)) {
+      console.warn('[StatsPage] polls is not an array:', polls);
+      return [];
+    }
     return pollsService.sortPolls(polls, 'date', 'desc');
   }, [polls]);
 

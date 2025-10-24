@@ -23,6 +23,9 @@ jest.mock('../../database/client', () => ({
     vote: {
       count: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn(),
+    },
     $transaction: jest.fn(),
   },
 }));
@@ -53,6 +56,13 @@ jest.mock('../cache.service', () => ({
   },
 }));
 
+// Mock notification service
+jest.mock('../notification.service', () => ({
+  notificationService: {
+    sendPollCancelledNotifications: jest.fn(),
+  },
+}));
+
 // Helper function to create mock poll
 const createMockPoll = (overrides?: Partial<Poll>): Poll => ({
   id: 1,
@@ -64,6 +74,7 @@ const createMockPoll = (overrides?: Partial<Poll>): Poll => ({
   createdBy: 1,
   messageId: null,
   chatId: null,
+  selectedMenuItemIds: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
@@ -331,15 +342,20 @@ describe('PollService', () => {
 
   describe('cancelPoll', () => {
     it('should cancel poll successfully', async () => {
-      const mockPoll = createMockPoll({ status: 'COMPLETED' });
+      const mockPoll = createMockPoll({ status: 'CANCELLED', endedAt: new Date() });
 
       (prisma.poll.update as jest.Mock).mockResolvedValue(mockPoll);
+      // Return null user to skip notification sending
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
-      const result = await PollService.cancelPoll(1);
+      const result = await PollService.cancelPoll(1, 1, 'Test reason');
 
       expect(prisma.poll.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { status: 'COMPLETED' },
+        data: { 
+          status: 'CANCELLED',
+          endedAt: expect.any(Date)
+        },
       });
 
       expect(result).toEqual(mockPoll);
@@ -358,7 +374,7 @@ describe('PollService', () => {
 
       (prisma.poll.update as jest.Mock).mockRejectedValue(error);
 
-      await expect(PollService.cancelPoll(999)).rejects.toThrow('Poll not found');
+      await expect(PollService.cancelPoll(999, 1)).rejects.toThrow('Poll not found');
     });
   });
 

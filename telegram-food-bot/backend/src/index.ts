@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { testConnection, disconnect } from './database/client';
 import { logger } from './utils/logger';
+import { initSentry } from './config/sentry.config';
 import { botConfig } from './config/bot.config';
 import { createBot, startPolling, setupWebhook, stopBot } from './bot/bot';
 import { createApiServer, startApiServer } from './api/server';
@@ -8,6 +9,9 @@ import { initializePollServiceBot } from './services/poll.service.extensions';
 
 // Загружаем переменные окружения
 dotenv.config();
+
+// Инициализируем Sentry (должно быть сразу после dotenv.config)
+initSentry();
 
 // Инициализация
 const bot = createBot();
