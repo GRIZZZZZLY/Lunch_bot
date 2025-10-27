@@ -17,8 +17,12 @@ const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const menu_routes_1 = __importDefault(require("./routes/menu.routes"));
 const poll_routes_1 = __importDefault(require("./routes/poll.routes"));
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
+const budget_routes_1 = __importDefault(require("./routes/budget.routes"));
 function createApiServer() {
     const app = (0, express_1.default)();
+    BigInt.prototype.toJSON = function () {
+        return this.toString();
+    };
     app.use((0, helmet_1.default)({
         contentSecurityPolicy: {
             directives: {
@@ -57,6 +61,7 @@ function createApiServer() {
     app.use('/api/menu', menu_routes_1.default);
     app.use('/api/polls', poll_routes_1.default);
     app.use('/api/user', user_routes_1.default);
+    app.use('/api/budget', budget_routes_1.default);
     app.use('/api/stats', (req, res) => {
         res.json({
             success: false,
@@ -119,6 +124,8 @@ function startApiServer(app) {
         logger_1.logger.info('  GET  /api/polls/:id/results - результаты голосования');
         logger_1.logger.info('  GET  /api/polls/history - история голосований');
         logger_1.logger.info('  GET  /api/polls/stats - статистика голосований');
+        logger_1.logger.info('  GET  /api/polls/user-stats/my - статистика текущего пользователя');
+        logger_1.logger.info('  GET  /api/polls/user-stats/:userId - статистика пользователя (admin)');
         logger_1.logger.info('  POST /api/polls - создание голосования');
         logger_1.logger.info('  PATCH /api/polls/:id/complete - завершение голосования');
         logger_1.logger.info('  PATCH /api/polls/:id/cancel - отмена голосования');

@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient, persister, cacheUtils } from './lib/queryClient';
+import { initCache } from './lib/cacheUtils';
 import { ErrorBoundary } from './lib/sentry';
 import { ToastProvider } from './components/common/ToastManager';
 import { PageLoader } from './components/common/PageLoader';
@@ -49,9 +50,9 @@ function AppContent() {
   const { isModalOpen, completeOnboarding } = useOnboarding();
   const theme = useAppStore((state) => state.theme);
   
-  // Очищаем старый кэш polls при запуске
+  // Инициализация cache при запуске (только 1 раз)
   useEffect(() => {
-    cacheUtils.clearStalePollsCache();
+    initCache();
   }, []);
 
   // Debug logging (в useEffect чтобы не вызывать setState во время рендера)
@@ -166,8 +167,8 @@ function AppContent() {
         </div>
         {showNavigation && <BottomNavigation />}
         
-        {/* Welcome Onboarding Modal - TEMPORARILY DISABLED FOR DEBUGGING */}
-        {/* <WelcomeModal isOpen={isModalOpen} onClose={completeOnboarding} /> */}
+        {/* Welcome Onboarding Modal */}
+        <WelcomeModal isOpen={isModalOpen} onClose={completeOnboarding} />
       </div>
     </Layout>
   );

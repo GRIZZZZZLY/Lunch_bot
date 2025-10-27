@@ -6,8 +6,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryClient';
 import { pollsService, type PollWithDetails } from '@/services/polls.service';
-// @ts-ignore - useNotification not exported
-// import { useNotification } from '@/store/useAppStore';
+import { useUI } from '@/store/useAppStore';
 
 /**
  * Hook для получения активных polls
@@ -83,7 +82,7 @@ export function usePoll(pollId: number | undefined, silent = false) {
  */
 export function useVote() {
   const queryClient = useQueryClient();
-  const { addNotification } = useNotification();
+  const { addNotification } = useUI();
 
   return useMutation({
     mutationFn: async ({ 
@@ -193,7 +192,7 @@ export function useVote() {
  */
 export function useCreatePoll() {
   const queryClient = useQueryClient();
-  const { addNotification } = useNotification();
+  const { addNotification } = useUI();
 
   return useMutation({
     mutationFn: async (data: { menuItemIds: number[]; duration?: number }) => {
@@ -237,7 +236,7 @@ export function useCreatePoll() {
  */
 export function useClosePoll() {
   const queryClient = useQueryClient();
-  const { addNotification } = useNotification();
+  const { addNotification } = useUI();
 
   return useMutation({
     mutationFn: async (pollId: number) => {

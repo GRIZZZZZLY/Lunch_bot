@@ -895,6 +895,14 @@ class PollService {
             catch (notifError) {
                 logger_1.logger.error('Error sending completion notifications:', notifError);
             }
+            try {
+                const { ResponsibleService } = await Promise.resolve().then(() => __importStar(require('./responsible.service.js')));
+                await ResponsibleService.startResponsibleSelection(pollId);
+                logger_1.logger.info(`Responsible selection started for poll ${pollId}`);
+            }
+            catch (responsibleError) {
+                logger_1.logger.error('Error starting responsible selection:', responsibleError);
+            }
             return result;
         }
         catch (error) {
@@ -966,6 +974,8 @@ class PollService {
             }
             const { count: expectedParticipants, source } = await this.getExpectedParticipants(poll.groupId, poll.group.telegramId, settings);
             const currentVotes = poll.votes.length;
+            const voterIds = poll.votes.map(v => v.userId);
+            logger_1.logger.info(`🔍 DEBUG: Poll ${pollId} voters:`, { voterIds });
             const timeElapsed = Date.now() - poll.startedAt.getTime();
             const totalTime = poll.duration * 60 * 1000;
             const timeProgress = timeElapsed / totalTime;
@@ -975,7 +985,8 @@ class PollService {
                 expectedParticipants,
                 voteProgress: `${Math.round(voteProgress * 100)}%`,
                 timeProgress: `${Math.round(timeProgress * 100)}%`,
-                source
+                source,
+                voterIds
             });
             if (voteProgress >= 1.0) {
                 logger_1.logger.info(`✅ Auto-completing poll ${pollId}: 100% participation (${currentVotes}/${expectedParticipants})`);

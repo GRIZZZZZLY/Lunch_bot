@@ -55,11 +55,16 @@ async function telegramAuthMiddleware(req, res, next) {
             if (authHeader && authHeader.startsWith('Bearer ')) {
                 const token = authHeader.substring(7);
                 try {
-                    const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+                    const jwt = await Promise.resolve().then(() => __importStar(require('jsonwebtoken')));
+                    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                    logger_1.logger.info('✅ SKIP mode: decoded JWT token', {
+                        userId: decoded.userId,
+                        telegramId: decoded.telegramId,
+                    });
                     const user = await user_service_1.UserService.getUserById(decoded.userId);
                     if (user && user.isActive) {
                         req.user = user;
-                        logger_1.logger.info('✅ SKIP mode: authenticated via existing token', {
+                        logger_1.logger.info('✅ SKIP mode: authenticated via JWT token', {
                             userId: user.id,
                             telegramId: user.telegramId.toString()
                         });
@@ -67,9 +72,17 @@ async function telegramAuthMiddleware(req, res, next) {
                         return;
                     }
                 }
-                catch {
-                    const { parseInitDataUnsafe } = await Promise.resolve().then(() => __importStar(require('../../utils/telegram-auth')));
-                    telegramUser = parseInitDataUnsafe(token);
+                catch (jwtError) {
+                    try {
+                        const { parseInitDataUnsafe } = await Promise.resolve().then(() => __importStar(require('../../utils/telegram-auth')));
+                        telegramUser = parseInitDataUnsafe(token);
+                    }
+                    catch (initDataError) {
+                        logger_1.logger.warn('⚠️ Failed to parse as JWT or initData', {
+                            jwtError: jwtError instanceof Error ? jwtError.message : String(jwtError),
+                            initDataError: initDataError instanceof Error ? initDataError.message : String(initDataError),
+                        });
+                    }
                 }
             }
             if (telegramUser) {

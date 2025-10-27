@@ -1114,6 +1114,15 @@ export class PollService {
         logger.error('Error sending completion notifications:', notifError);
       }
 
+      // 🚀 ИНТЕГРАЦИЯ: Запускаем выбор ответственного
+      try {
+        const { ResponsibleService } = await import('./responsible.service.js');
+        await ResponsibleService.startResponsibleSelection(pollId);
+        logger.info(`Responsible selection started for poll ${pollId}`);
+      } catch (responsibleError) {
+        logger.error('Error starting responsible selection:', responsibleError);
+      }
+
       return result;
 
     } catch (error) {
@@ -1230,6 +1239,10 @@ export class PollService {
       );
 
       const currentVotes = poll.votes.length;
+      
+      // DEBUG: Показать конкретных пользователей, которые проголосовали
+      const voterIds = poll.votes.map(v => v.userId);
+      logger.info(`🔍 DEBUG: Poll ${pollId} voters:`, { voterIds });
 
       // Вычисляем прогресс
       const timeElapsed = Date.now() - poll.startedAt.getTime();
@@ -1242,7 +1255,8 @@ export class PollService {
         expectedParticipants,
         voteProgress: `${Math.round(voteProgress * 100)}%`,
         timeProgress: `${Math.round(timeProgress * 100)}%`,
-        source
+        source,
+        voterIds
       });
 
       // ✅ Условие 1: Все проголосовали (100% явка)

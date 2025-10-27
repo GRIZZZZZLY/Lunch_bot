@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { menuService, MenuItem, CreateMenuItemData } from '../../services/menu.service';
 import { queryKeys } from '../../lib/react-query';
-import { useToast } from '../../components/common/ToastManager';
 
 /**
  * Хук для получения всех блюд меню
@@ -83,7 +82,6 @@ export const useCategoryCounts = () => {
  */
 export const useCreateMenuItem = () => {
   const queryClient = useQueryClient();
-  const toast = useToast();
 
   return useMutation({
     mutationFn: async (data: CreateMenuItemData) => {
@@ -98,11 +96,9 @@ export const useCreateMenuItem = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists() });
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.categories() });
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.categoryCounts() });
-      
-      toast.success('Блюдо успешно добавлено!');
     },
     onError: (error: Error) => {
-      toast.error(`Ошибка при создании блюда: ${error.message}`);
+      console.error('[useCreateMenuItem] Error:', error.message);
     },
   });
 };
@@ -112,7 +108,6 @@ export const useCreateMenuItem = () => {
  */
 export const useUpdateMenuItem = () => {
   const queryClient = useQueryClient();
-  const toast = useToast();
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<CreateMenuItemData> }) => {
@@ -142,7 +137,6 @@ export const useUpdateMenuItem = () => {
  */
 export const useDeleteMenuItem = () => {
   const queryClient = useQueryClient();
-  const toast = useToast();
 
   return useMutation({
     mutationFn: async (id: number) => {
@@ -174,7 +168,6 @@ export const useDeleteMenuItem = () => {
  */
 export const useToggleMenuItemStatus = () => {
   const queryClient = useQueryClient();
-  const toast = useToast();
 
   return useMutation({
     mutationFn: async (id: number) => {

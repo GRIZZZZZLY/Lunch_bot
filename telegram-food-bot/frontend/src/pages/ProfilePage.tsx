@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Header } from '../components/layout/Layout';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { GlassCard, GlassBadge } from '../components/glass';
 import { MediumWaveGradient } from '../components/background';
+import { UserAvatar } from '../components/common/UserAvatar';
 import { 
   User,
   CreditCard,
@@ -22,9 +23,12 @@ import { useTelegram } from '../hooks/useTelegram';
 import { useUI } from '../store/useAppStore';
 import { userService, PaymentInfo } from '../services/user.service';
 import { useOnboarding } from '../hooks/useOnboarding';
+import { usePaymentInfo, useUpdatePaymentInfo } from '../hooks/usePaymentInfo';
+import { DonationButton } from '../components/donation/DonationButton';
 
 /**
  * Страница профиля и настроек платёжных данных
+ * Использует React Query для предотвращения смешивания данных между пользователями
  */
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -35,74 +39,75 @@ export const ProfilePage: React.FC = () => {
   const isDark = colorScheme === 'dark';
   const { showOnboarding } = useOnboarding();
 
+  // React Query hooks
+  const { data: serverPaymentInfo, isLoading: loading } = usePaymentInfo();
+  const { mutate: updatePaymentInfo, isPending: saving } = useUpdatePaymentInfo();
+
+  // Local state для формы
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
     paymentCard: '',
     paymentPhone: '',
     paymentDetails: '',
   });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
   const [errors, setErrors] = useState<{
     paymentCard?: string;
     paymentPhone?: string;
   }>({});
+  
+  // Автосохранение
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const isInitialLoadRef = useRef(true);
 
-  // Загрузка данных
+  // Сброс при смене пользователя
   useEffect(() => {
-    loadPaymentInfo();
-  }, []);
-
-  // Настройка Telegram кнопок
-  useEffect(() => {
-    if (hasChanges) {
-      mainButton.setText('Сохранить');
-      mainButton.onClick(handleSave);
-      mainButton.show();
-    } else {
-      mainButton.hide();
+    if (user?.id) {
+      console.log(`[ProfilePage] User changed to ${user.id} - resetting form`);
+      isInitialLoadRef.current = true; // Разрешить синхронизацию для нового пользователя
+      setPaymentInfo({
+        paymentCard: '',
+        paymentPhone: '',
+        paymentDetails: '',
+      });
     }
+  }, [user?.id]);
 
+  // Синхронизируем server data с local state ТОЛЬКО при первой загрузке
+  useEffect(() => {
+    if (serverPaymentInfo && isInitialLoadRef.current) {
+      console.log(`[ProfilePage] Loading payment info for user ${user?.id}`, serverPaymentInfo);
+      setPaymentInfo({
+        paymentCard: serverPaymentInfo.paymentCard || '',
+        paymentPhone: serverPaymentInfo.paymentPhone || '',
+        paymentDetails: serverPaymentInfo.paymentDetails || '',
+      });
+      isInitialLoadRef.current = false;
+    }
+  }, [serverPaymentInfo, user?.id]);
+
+  // Настройка Telegram кнопок (только Back Button)
+  useEffect(() => {
     backButton.onClick(() => navigate('/'));
     backButton.show();
 
     return () => {
-      mainButton.hide();
       backButton.hide();
-    };
-  }, [hasChanges, paymentInfo]);
-
-  const loadPaymentInfo = async () => {
-    try {
-      setLoading(true);
-      const response = await userService.getPaymentInfo();
-      
-      if (response.success && response.data) {
-        setPaymentInfo({
-          paymentCard: response.data.paymentCard || '',
-          paymentPhone: response.data.paymentPhone || '',
-          paymentDetails: response.data.paymentDetails || '',
-        });
+      // Очистить таймер автосохранения при размонтировании
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
-    } catch (error) {
-      console.error('Error loading payment info:', error);
-      addNotification({
-        type: 'error',
-        message: 'Ошибка загрузки данных',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+  }, [backButton, navigate]);
 
-  const validateForm = (): boolean => {
+  const validateForm = (data: PaymentInfo): boolean => {
     const newErrors: typeof errors = {};
 
-    if (paymentInfo.paymentCard && !userService.validateCardNumber(paymentInfo.paymentCard)) {
+    if (data.paymentCard && !userService.validateCardNumber(data.paymentCard)) {
       newErrors.paymentCard = 'Некорректный номер карты';
     }
 
-    if (paymentInfo.paymentPhone && !userService.validatePhone(paymentInfo.paymentPhone)) {
+    if (data.paymentPhone && !userService.validatePhone(data.paymentPhone)) {
       newErrors.paymentPhone = 'Некорректный номер телефона';
     }
 
@@ -110,48 +115,44 @@ export const ProfilePage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = async () => {
-    if (!validateForm()) {
-      addNotification({
-        type: 'error',
-        message: 'Исправьте ошибки в форме',
-      });
-      return;
+  // Автосохранение с debounce
+  const autoSave = useCallback((data: PaymentInfo) => {
+    // Очищаем предыдущий таймер
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
-
-    try {
-      setSaving(true);
-
-      const response = await userService.updatePaymentInfo(paymentInfo);
-
-      if (response.success) {
-        addNotification({
-          type: 'success',
-          message: 'Платёжные данные сохранены',
-        });
-        setHasChanges(false);
-      } else {
-        throw new Error(response.error || 'Failed to update');
+    
+    // Устанавливаем новый таймер на 2 секунды
+    saveTimeoutRef.current = setTimeout(() => {
+      // Валидация перед сохранением
+      if (!validateForm(data)) {
+        return; // Не сохраняем невалидные данные
       }
-    } catch (error) {
-      console.error('Error saving payment info:', error);
-      addNotification({
-        type: 'error',
-        message: 'Ошибка сохранения данных',
+      
+      setIsSaving(true);
+      updatePaymentInfo(data, {
+        onSuccess: () => {
+          setIsSaving(false);
+          setLastSaved(new Date());
+        },
+        onError: () => {
+          setIsSaving(false);
+        }
       });
-    } finally {
-      setSaving(false);
-    }
-  };
+    }, 2000); // 2 секунды задержки
+  }, [updatePaymentInfo]);
 
   const handleChange = (field: keyof PaymentInfo, value: string) => {
-    setPaymentInfo(prev => ({ ...prev, [field]: value }));
-    setHasChanges(true);
+    const newData = { ...paymentInfo, [field]: value };
+    setPaymentInfo(newData);
     
     // Очищаем ошибку при изменении
     if (errors[field as keyof typeof errors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
+    
+    // Запускаем автосохранение
+    autoSave(newData);
   };
 
   const formatCardInput = (value: string) => {
@@ -176,7 +177,7 @@ export const ProfilePage: React.FC = () => {
       {/* Animated gradient background - full page */}
       <MediumWaveGradient />
       
-      <div className="space-y-6 relative">
+      <div className="space-y-6 relative z-10">
         {/* Информация о пользователе */}
         <GlassCard
           variant="medium"
@@ -189,12 +190,13 @@ export const ProfilePage: React.FC = () => {
             transition={{ delay: 0.2, duration: 0.4 }}
             className="flex items-center gap-4"
           >
-            {/* Avatar with glass border */}
-            <div className="relative">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-food-500 to-primary-food-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                {user?.firstName?.charAt(0).toUpperCase()}
-              </div>
-            </div>
+            {/* Avatar with photo support */}
+            <UserAvatar
+              photoUrl={user?.photoUrl}
+              firstName={user?.firstName || '?'}
+              lastName={user?.lastName}
+              size="lg"
+            />
             
             <div className="flex-1">
               <div className="font-semibold text-lg text-gray-900 dark:text-white">
@@ -301,9 +303,25 @@ export const ProfilePage: React.FC = () => {
             className="space-y-5"
           >
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Платёжные данные
-            </h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Платёжные данные
+              </h2>
+              {isSaving && (
+                <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Сохранение...
+                </span>
+              )}
+              {!isSaving && lastSaved && (
+                <span className="text-sm text-green-600 dark:text-green-400">
+                  ✓ Сохранено {lastSaved.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Эти данные будут отправлены участникам голосования, если вы станете ответственным за заказ
             </p>
@@ -472,46 +490,13 @@ export const ProfilePage: React.FC = () => {
           </motion.button>
         </motion.div>
 
+        {/* Donation Button */}
+        <DonationButton />
+
         {/* Отступ снизу для FAB */}
         <div className="h-24"></div>
       </div>
 
-      {/* Floating Action Button */}
-      {hasChanges && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ duration: 0.3 }}
-          whileHover={{ scale: !saving ? 1.05 : 1 }}
-          whileTap={{ scale: !saving ? 0.95 : 1 }}
-          onClick={handleSave}
-          disabled={saving}
-          className={`
-            fixed bottom-20 right-6 z-50
-            flex items-center justify-center space-x-2
-            px-6 py-4 rounded-full
-            text-base font-semibold
-            transition-all duration-300
-            ${!saving
-              ? 'bg-primary-food-700 hover:bg-primary-food-800 text-white shadow-2xl shadow-primary-food-700/40'
-              : 'bg-primary-food-400 text-white shadow-lg cursor-wait'
-            }
-          `}
-        >
-          {saving ? (
-            <>
-              <LoadingSpinner size="sm" />
-              <span>Сохранение...</span>
-            </>
-          ) : (
-            <>
-              <Save size={20} />
-              <span>Сохранить</span>
-            </>
-          )}
-        </motion.button>
-      )}
     </>
   );
 };
