@@ -124,10 +124,10 @@ export const useUpdateMenuItem = () => {
       // Инвалидация списка
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists() });
       
-      toast.success('Блюдо успешно обновлено!');
+      console.log('[useUpdateMenuItem] Success:', data);
     },
     onError: (error: Error) => {
-      toast.error(`Ошибка при обновлении блюда: ${error.message}`);
+      console.error('[useUpdateMenuItem] Error:', error.message);
     },
   });
 };
@@ -155,10 +155,10 @@ export const useDeleteMenuItem = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.categories() });
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.categoryCounts() });
       
-      toast.success('Блюдо успешно удалено!');
+      console.log('[useDeleteMenuItem] Success: item deleted', id);
     },
     onError: (error: Error) => {
-      toast.error(`Ошибка при удалении блюда: ${error.message}`);
+      console.error('[useDeleteMenuItem] Error:', error.message);
     },
   });
 };
@@ -199,7 +199,7 @@ export const useToggleMenuItemStatus = () => {
       queryClient.setQueryData(queryKeys.menu.detail(id), data);
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists() });
       
-      toast.success(`Блюдо ${data?.isActive ? 'активировано' : 'деактивировано'}!`);
+      console.log(`[useToggleMenuItemStatus] Success: ${data?.isActive ? 'activated' : 'deactivated'}`, id);
     },
     onError: (error: Error, id, context) => {
       // Откат optimistic update
@@ -207,7 +207,7 @@ export const useToggleMenuItemStatus = () => {
         queryClient.setQueryData(queryKeys.menu.detail(id), context.previousItem);
       }
       
-      toast.error(`Ошибка при изменении статуса: ${error.message}`);
+      console.error('[useToggleMenuItemStatus] Error:', error.message);
     },
   });
 };

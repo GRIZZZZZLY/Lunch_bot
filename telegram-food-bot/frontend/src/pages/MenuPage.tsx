@@ -140,7 +140,7 @@ export const MenuPage: React.FC = () => {
   
   const handleRefresh = async () => {
     await refetchMenu();
-    await // refetchCategories() // TODO: Re-add;
+    // await refetchCategories() // TODO: Re-add when categories query is implemented
     await loadCategoryCounts();
     haptic.success();
   };
