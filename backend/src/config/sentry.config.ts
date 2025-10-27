@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/node';
-import { ProfilingIntegration } from '@sentry/profiling-node';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { logger } from '../utils/logger';
 
 /**
@@ -30,7 +30,7 @@ export function initSentry() {
     // Профилирование
     profilesSampleRate: environment === 'production' ? 0.1 : 1.0,
     integrations: [
-      new ProfilingIntegration(),
+      nodeProfilingIntegration(),
     ],
 
     // Фильтрация чувствительных данных
@@ -43,8 +43,9 @@ export function initSentry() {
 
       // Удаляем чувствительные переменные окружения
       if (event.contexts?.runtime?.env) {
-        delete event.contexts.runtime.env.TELEGRAM_BOT_TOKEN;
-        delete event.contexts.runtime.env.JWT_SECRET;
+        const env = event.contexts.runtime.env as any;
+        delete env.TELEGRAM_BOT_TOKEN;
+        delete env.JWT_SECRET;
       }
 
       return event;

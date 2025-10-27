@@ -11,12 +11,18 @@ import authRoutes from './routes/auth.routes';
 import menuRoutes from './routes/menu.routes';
 import pollRoutes from './routes/poll.routes';
 import userRoutes from './routes/user.routes';
+import budgetRoutes from './routes/budget.routes';
 
 /**
  * Настройка Express приложения
  */
 export function createApiServer(): express.Application {
   const app = express();
+
+  // Глобальный фикс для BigInt сериализации
+  (BigInt.prototype as any).toJSON = function() {
+    return this.toString();
+  };
 
   // Базовые middleware
   app.use(helmet({
@@ -64,6 +70,7 @@ export function createApiServer(): express.Application {
   app.use('/api/menu', menuRoutes);
   app.use('/api/polls', pollRoutes);
   app.use('/api/user', userRoutes);
+  app.use('/api/budget', budgetRoutes);
 
   app.use('/api/stats', (req, res) => {
     res.json({

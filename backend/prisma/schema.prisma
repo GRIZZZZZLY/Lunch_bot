@@ -13,6 +13,7 @@ model User {
   username         String?
   firstName        String       @map("first_name")
   lastName         String?      @map("last_name")
+  photoUrl         String?      @map("photo_url")
   isAdmin          Boolean      @default(false) @map("is_admin")
   isActive         Boolean      @default(true) @map("is_active")
   paymentCard      String?      @map("payment_card")
@@ -24,6 +25,12 @@ model User {
   responsiblePolls PollResult[]
   createdPolls     Poll[]       @relation("PollCreator")
   votes            Vote[]
+  debts                   Transaction[]           @relation("UserDebts")
+  credits                 Transaction[]           @relation("UserCredits")
+  responsibleSelections   ResponsibleSelection[]  @relation("ResponsibleUser")
+  volunteerSelections     ResponsibleSelection[]  @relation("VolunteerUser")
+  rouletteWins            ResponsibleSelection[]  @relation("RouletteWinner")
+  sentReminders           PaymentReminder[]
 
   @@map("users")
 }
@@ -56,6 +63,7 @@ model MenuItem {
   creator     User         @relation(fields: [createdBy], references: [id])
   pollResults PollResult[]
   votes       Vote[]
+  transactions Transaction[]
 
   @@index([isActive])
   @@index([category])
@@ -80,6 +88,8 @@ model Poll {
   creator              User        @relation("PollCreator", fields: [createdBy], references: [id])
   group                Group       @relation(fields: [groupId], references: [id])
   votes                Vote[]
+  transactions          Transaction[]
+  responsibleSelection  ResponsibleSelection?
 
   @@index([status])
   @@index([startedAt])
@@ -124,4 +134,70 @@ model PollResult {
   poll              Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
 
   @@map("poll_results")
+}
+
+model Transaction {
+  id              Int       @id @default(autoincrement())
+  pollId          Int       @map("poll_id")
+  fromUserId      Int       @map("from_user_id")
+  toUserId        Int       @map("to_user_id")
+  amount          Float
+  menuItemId      Int?      @map("menu_item_id")
+  status          String    @default("PENDING")
+  paidAt          DateTime? @map("paid_at")
+  confirmedAt     DateTime? @map("confirmed_at")
+  disputedReason  String?   @map("disputed_reason")
+  reminderCount   Int       @default(0) @map("reminder_count")
+  lastReminderAt  DateTime? @map("last_reminder_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  poll            Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  fromUser        User      @relation("UserDebts", fields: [fromUserId], references: [id])
+  toUser          User      @relation("UserCredits", fields: [toUserId], references: [id])
+  menuItem        MenuItem? @relation(fields: [menuItemId], references: [id])
+  reminders       PaymentReminder[]
+  
+  @@index([pollId])
+  @@index([fromUserId, status])
+  @@index([toUserId, status])
+  @@map("transactions")
+}
+
+model ResponsibleSelection {
+  id                  Int       @id @default(autoincrement())
+  pollId              Int       @unique @map("poll_id")
+  mode                String
+  status              String    @default("WAITING")
+  selectedUserId      Int?      @map("selected_user_id")
+  volunteerUserId     Int?      @map("volunteer_user_id")
+  rouletteWinnerId    Int?      @map("roulette_winner_id")
+  timeoutAt           DateTime? @map("timeout_at")
+  timeoutMinutes      Int       @default(3) @map("timeout_minutes")
+  completedAt         DateTime? @map("completed_at")
+  messageId           Int?      @map("message_id")
+  chatId              BigInt?   @map("chat_id")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  
+  poll                Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  selectedUser        User?     @relation("ResponsibleUser", fields: [selectedUserId], references: [id])
+  volunteerUser       User?     @relation("VolunteerUser", fields: [volunteerUserId], references: [id])
+  rouletteWinner      User?     @relation("RouletteWinner", fields: [rouletteWinnerId], references: [id])
+  
+  @@map("responsible_selections")
+}
+
+model PaymentReminder {
+  id              Int       @id @default(autoincrement())
+  transactionId   Int       @map("transaction_id")
+  type            String    @default("AUTO")
+  sentBy          Int?      @map("sent_by")
+  message         String?
+  sentAt          DateTime  @default(now()) @map("sent_at")
+  
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  sender          User?       @relation(fields: [sentBy], references: [id])
+  
+  @@map("payment_reminders")
 }

@@ -37,7 +37,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
 import { useMenu as useMenuHook, useUI, useAppStore } from '../store/useAppStore';
 import { menuService, MenuItem } from '../services/menu.service';
-import { useMenu } from '../hooks/useMenu';
+import { useMenuItems, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '../hooks/queries';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import { mockApiService } from '../services/mockApi.service';
 
@@ -61,17 +61,14 @@ export const MenuPage: React.FC = () => {
   const theme = useAppStore((state) => state.theme);
   const isDark = theme === 'dark';
   
-  // useMenu hook: загрузка items
-  const menuResult = useMenu({ autoFetch: true });
-  const menuItems = menuResult.items || [];
-  const menuLoading = menuResult.loading;
-  const refetchMenu = menuResult.fetchItems;
+  // Load menu items using React Query
+  const { data: menuItems = [], isLoading: menuLoading, refetch: refetchMenu } = useMenuItems();
   const categoriesData: string[] = []; // TODO: implement categories
   
-  // TODO: Re-implement React Query mutations
-  // const { mutate: createItemMutation, isPending: isCreating } = useCreateMenuItem();
-  // const { mutate: updateItemMutation, isPending: isUpdating } = useUpdateMenuItem();
-  // const { mutate: deleteItemMutation, isPending: isDeleting } = useDeleteMenuItem();
+  // React Query mutations
+  const { mutate: createItemMutation, isPending: isCreating } = useCreateMenuItem();
+  const { mutate: updateItemMutation, isPending: isUpdating } = useUpdateMenuItem();
+  const { mutate: deleteItemMutation, isPending: isDeleting } = useDeleteMenuItem();
   
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -160,18 +157,16 @@ export const MenuPage: React.FC = () => {
   };
 
   const handleAddItem = async (itemData: MenuFormData) => {
-    // TODO: Re-implement with React Query
-    console.warn('createItemMutation not implemented');
-    return;
-    /*
+    console.log('[MenuPage] Adding item:', itemData);
+    
     createItemMutation(itemData, {
-      onSuccess: () => {
+      onSuccess: (data) => {
+        console.log('[MenuPage] Item added successfully:', data);
         addNotification({
           type: 'success',
           message: `Блюдо "${itemData.name}" добавлено`,
         });
         closeBottomSheet();
-        // refetchCategories() // TODO: Re-add;
         haptic.success();
         
         // P1.2.4: Track menu item creation
@@ -190,24 +185,21 @@ export const MenuPage: React.FC = () => {
         haptic.error();
       },
     });
-    */
   };
 
   const handleEditItem = async (itemData: MenuFormData) => {
     if (!editingItem) return;
-    // TODO: Re-implement with React Query
-    console.warn('updateItemMutation not implemented');
-    return;
-    /*
+    console.log('[MenuPage] Editing item:', editingItem.id, itemData);
+    
     updateItemMutation({ id: editingItem.id, data: itemData }, {
       onSuccess: (data) => {
+        console.log('[MenuPage] Item updated successfully:', data);
         addNotification({
           type: 'success',
           message: `Блюдо "${itemData.name}" обновлено`,
         });
         setEditingItem(null);
         closeBottomSheet();
-        // refetchCategories() // TODO: Re-add; // Обновляем категории
         haptic.success();
         
         // P1.2.4: Track menu item edit
@@ -217,7 +209,7 @@ export const MenuPage: React.FC = () => {
         });
       },
       onError: (error) => {
-        console.error('Error updating menu item:', error);
+        console.error('[MenuPage] Error updating item:', error);
         addNotification({
           type: 'error',
           message: 'Ошибка обновления блюда',
@@ -225,16 +217,14 @@ export const MenuPage: React.FC = () => {
         haptic.error();
       },
     });
-    */
   };
 
   const handleDeleteItem = async (id: number) => {
-    // TODO: Re-implement with React Query
-    console.warn('deleteItemMutation not implemented');
-    return;
-    /*
+    console.log('[MenuPage] Deleting item:', id);
+    
     deleteItemMutation(id, {
       onSuccess: () => {
+        console.log('[MenuPage] Item deleted successfully');
         addNotification({
           type: 'success',
           message: 'Блюдо удалено',
@@ -243,7 +233,6 @@ export const MenuPage: React.FC = () => {
         if (editingItem?.id === id) {
           setEditingItem(null);
         }
-        // refetchCategories() // TODO: Re-add; // Обновляем категории
         haptic.success();
         
         // P1.2.4: Track menu item deletion
@@ -252,7 +241,7 @@ export const MenuPage: React.FC = () => {
         });
       },
       onError: (error) => {
-        console.error('Error deleting menu item:', error);
+        console.error('[MenuPage] Error deleting item:', error);
         addNotification({
           type: 'error',
           message: 'Ошибка удаления блюда',
@@ -260,7 +249,6 @@ export const MenuPage: React.FC = () => {
         haptic.error();
       },
     });
-    */
   };
 
   const handleToggleStatus = async (id: number) => {

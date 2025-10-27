@@ -24,6 +24,7 @@ class UserController {
                     username: user.username,
                     firstName: user.firstName,
                     lastName: user.lastName,
+                    photoUrl: user.photoUrl,
                     isAdmin: user.isAdmin,
                     isActive: user.isActive,
                     createdAt: user.createdAt,

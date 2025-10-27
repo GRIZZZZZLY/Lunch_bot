@@ -44,13 +44,20 @@ import { InlineVotingCard } from '../components/voting/InlineVotingCard';
 import { CreatePollForm } from '../components/polls/CreatePollForm';
 import { TopDishModal } from '../components/modals/TopDishModal';
 
+// Budget components
+import { BudgetWidget } from '../components/budget';
+
+// Gamification components
+import { DynamicHeroBanner } from '../components/gamification/DynamicHeroBanner';
+
 // Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
-import { useMenu, useAppStore } from '../store/useAppStore';
+import { useMenu, useAppStore, useUI } from '../store/useAppStore';
 import { pollsService, PollWithDetails } from '../services/polls.service';
 import { useActivePolls } from '../hooks/usePolls';
+import { useMenuItems } from '../hooks/queries';
 import { cn, formatRelativeTime, getInitials, getAvatarColor } from '../lib/utils';
 import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
 import { useQueryClient } from '@tanstack/react-query';
@@ -118,8 +125,11 @@ export const HomePage: React.FC = () => {
   const { colorScheme } = telegram;
   const { user } = useAuth();
   const haptic = useHaptic();
-  const { menuItems } = useMenu();
+  const { addNotification } = useUI();
   const theme = useAppStore((state) => state.theme);
+  
+  // Load menu items from API using React Query
+  const { data: menuItems = [], isLoading: menuLoading } = useMenuItems();
   
   // Time-based gradient and greeting
   const gradientColors = useTimeBasedGradient(theme === 'dark');
@@ -139,6 +149,7 @@ export const HomePage: React.FC = () => {
   // State
   const [activePoll, setActivePoll] = useState<PollWithDetails | null>(null);
   const [isCreatingPoll, setIsCreatingPoll] = useState(false);
+  const [isRepeatLoading, setIsRepeatLoading] = useState(false);
   
   // Quick Actions v2.0 State
   const [currentScenario, setCurrentScenario] = useState<ScenarioType>('no-active-poll');
@@ -219,16 +230,26 @@ export const HomePage: React.FC = () => {
 
   const queryClient = useQueryClient();
 
+  // Инвалидация polls кэша при смене пользователя
+  useEffect(() => {
+    if (user?.id) {
+      console.log(`[HomePage] User changed to ${user.id} - invalidating polls cache`);
+      
+      // Инвалидируем все polls queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
+      
+      // Рефетчим активные polls
+      refetch();
+    }
+  }, [user?.id, queryClient, refetch]);
+
   const handlePollCreated = async (pollId: number) => {
     console.log('✅ [HomePage] Poll created:', pollId);
     haptic.success();
     setIsCreatingPoll(false);
     
-    // Очищаем кэш polls
-    queryClient.removeQueries({ queryKey: queryKeys.polls.all });
-    
-    // Очищаем localStorage кэш
-    localStorage.removeItem('TELEGRAM_FOOD_BOT_CACHE');
+    // Инвалидируем только кэш polls (НЕ удаляем меню!)
+    queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
     
     // Обновляем список голосований без popup уведомления
     refetch();
@@ -430,7 +451,7 @@ export const HomePage: React.FC = () => {
 
       // 3. Создать копию
       console.log('🔄 [handleRepeatYesterday] Создаём копию poll ID:', lastPoll.id);
-      setIsLoading(true);
+      setIsRepeatLoading(true);
       const repeatResponse = await pollsService.repeatPoll(lastPoll.id);
       console.log('✅ [handleRepeatYesterday] Ответ от repeatPoll:', repeatResponse);
 
@@ -494,7 +515,7 @@ export const HomePage: React.FC = () => {
         message: error.message || '❌ Ошибка создания голосования',
       });
     } finally {
-      setIsLoading(false);
+      setIsRepeatLoading(false);
       console.log('🔄 [handleRepeatYesterday] Функция завершена');
     }
   };
@@ -553,6 +574,14 @@ export const HomePage: React.FC = () => {
     // Остальные кнопки для всех
     secondaryActions.push(
       {
+        id: 'history',
+        title: 'История',
+        description: 'Голосований',
+        icon: <History className="size-5" aria-label="История" />,
+        gradient: 'peach',
+        onClick: () => navigate('/vote/history')
+      },
+      {
         id: 'my-stats',
         title: 'Моя статистика',
         description: 'История выборов',
@@ -570,8 +599,10 @@ export const HomePage: React.FC = () => {
       }
     );
 
-    // Если не админ, показываем кнопку "Пригласить"
-    if (!user?.isAdmin) {
+    // Если не админ, показываем кнопку "Пригласить" вместо третьей
+    if (!user?.isAdmin && secondaryActions.length > 3) {
+      // Удаляем "Топ блюдо" и добавляем "Пригласить"
+      secondaryActions.pop();
       secondaryActions.push({
         id: 'invite',
         title: 'Пригласить',
@@ -630,9 +661,9 @@ export const HomePage: React.FC = () => {
       >
         {/* Header Section */}
         <motion.div variants={itemVariants}>
-          <GlassCard intensity="low" className="overflow-hidden">
+          <GlassCard intensity="solid" className="overflow-hidden">
             <div 
-              className="absolute inset-0"
+              className="absolute inset-0 pointer-events-none"
               style={{
                 background: `linear-gradient(135deg, ${gradientColors.from}, ${gradientColors.to})`,
                 opacity: 0.4
@@ -678,7 +709,7 @@ export const HomePage: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <GlassCard intensity="medium" className="p-6">
+              <GlassCard intensity="solid" className="p-6">
                 <Skeleton className="h-8 w-2/3 mb-4" />
                 <Skeleton className="h-4 w-full mb-2" />
                 <Skeleton className="h-4 w-3/4" />
@@ -719,59 +750,24 @@ export const HomePage: React.FC = () => {
               initial="hidden"
               animate="show"
             >
-              <GlassCard intensity="low" className="text-center py-8">
-                <GlassCardContent className="space-y-6">
-                  {/* Иконка + заголовок */}
-                  <div>
-                    <div className="inline-flex items-center justify-center size-16 rounded-full bg-muted mb-4">
-                      <Clock className="size-8 text-muted-foreground" aria-label="Время" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">
-                      Нет активных голосований
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Ожидайте запуска голосования от администратора
-                    </p>
-                  </div>
-
-                  {/* Большая кнопка создания */}
-                  <Button
-                    size="lg"
-                    onClick={() => {
-                      console.log('🔵 [HomePage] Кнопка "Создать голосование" нажата');
-                      haptic.impact();
-                      setIsCreatingPoll(true);
-                      console.log('✅ [HomePage] Открыта форма создания');
-                    }}
-                    className={cn(
-                      'w-full h-14 text-base font-bold rounded-xl',
-                      'bg-gradient-to-r from-lavender-500 to-lavender-600',
-                      'hover:from-lavender-600 hover:to-lavender-700',
-                      'dark:from-lavender-600 dark:to-lavender-700',
-                      'text-white',
-                      'shadow-md hover:shadow-lg',
-                      'transition-all duration-200',
-                      'flex items-center justify-center gap-2'
-                    )}
-                  >
-                    <Vote size={22} strokeWidth={2.5} aria-label="Создать голосование" />
-                    <span>Создать голосование</span>
-                  </Button>
-
-                  {/* Вторичная кнопка - история */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate('/vote/history')}
-                  >
-                    <History className="size-4 mr-2" aria-label="История" />
-                    История голосований
-                  </Button>
-                </GlassCardContent>
-              </GlassCard>
+              <DynamicHeroBanner
+                user={user!}
+                onCreatePoll={() => {
+                  console.log('🔵 [HomePage] DynamicHeroBanner - создать голосование');
+                  haptic.impact();
+                  setIsCreatingPoll(true);
+                }}
+                onRepeatYesterday={user?.isAdmin ? handleRepeatYesterday : undefined}
+                isRepeatLoading={isRepeatLoading}
+              />
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Budget Widget - адаптивный виджет бюджет-трекера */}
+        <motion.div variants={itemVariants}>
+          <BudgetWidget />
+        </motion.div>
 
         {/* Quick Actions v2.0 - Гибридный подход */}
         <motion.div variants={itemVariants} className="space-y-4">
@@ -795,7 +791,7 @@ export const HomePage: React.FC = () => {
               }}
             >
               <GlassCard 
-                intensity="high" 
+                intensity="solid" 
                 hover={!quickActionsConfig.hero.disabled}
               className={cn(
                 "relative overflow-hidden",
@@ -912,7 +908,7 @@ export const HomePage: React.FC = () => {
                 )}
               >
                 <GlassCard 
-                  intensity="medium" 
+                  intensity="solid" 
                   hover={!action.disabled}
                   className="h-full"
                 >

@@ -861,6 +861,16 @@ export class PollController {
       const { menuItemId } = req.body;
       const user = (req as any).user;
 
+      // 🔍 DEBUG: Логируем информацию о пользователе
+      logger.info('🔍 DEBUG: Vote request from user:', {
+        userId: user.id,
+        telegramId: user.telegramId,
+        firstName: user.firstName,
+        username: user.username,
+        pollId,
+        menuItemId,
+      });
+
       if (isNaN(pollId)) {
         res.status(400).json({
           success: false,

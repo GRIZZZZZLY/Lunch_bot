@@ -182,12 +182,12 @@ export const BottomNavigation: React.FC = () => {
               <div className="relative">
                 <Icon
                   className={cn(
-                    'size-6 transition-colors',
+                    'icon-nav transition-all duration-200',
                     isActive
                       ? isDark
-                        ? 'text-lavender-400'
-                        : 'text-peach-600'
-                      : 'text-muted-foreground'
+                        ? 'text-lavender-400 scale-110'
+                        : 'text-peach-600 scale-110'
+                      : 'text-muted-foreground scale-100'
                   )}
                 />
 

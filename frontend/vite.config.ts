@@ -68,43 +68,38 @@ export default defineConfig({
         // Оптимизированный code splitting для лучшего кэширования
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // ВАЖНО: React ДОЛЖЕН быть в первом чанке, который загружается раньше всех
-            if (id.includes('react/') || id.includes('react-dom/') || id.includes('scheduler/')) {
-              return 'react-core';
+            // КРИТИЧНО: React должен быть в ОДНОМ чанке
+            // Проверяем ВСЕ React-зависимые библиотеки ПЕРВЫМИ
+            if (
+              id.includes('react') ||
+              id.includes('react-dom') ||
+              id.includes('scheduler') ||
+              id.includes('react-router') ||
+              id.includes('@remix-run/router') ||
+              id.includes('react-hook-form') ||
+              id.includes('@tanstack/react-query') ||
+              id.includes('lucide-react') ||
+              id.includes('@radix-ui') ||
+              id.includes('framer-motion') ||
+              id.includes('react-window') ||
+              id.includes('react-use') ||
+              id.includes('react-swipeable') ||
+              id.includes('react-confetti') ||
+              id.includes('react-day-picker')
+            ) {
+              return 'vendor'; // ВСЕ React и React-зависимые в один чанк
             }
-            // React Router отдельно (зависит от react-core)
-            if (id.includes('react-router') || id.includes('@remix-run/router')) {
-              return 'react-router';
+            // Остальные библиотеки в отдельный чанк
+            if (id.includes('axios') || id.includes('zustand')) {
+              return 'state-http';
             }
-            // Framer Motion отдельно (большая библиотека, зависит от react)
-            if (id.includes('framer-motion')) {
-              return 'framer-motion';
-            }
-            // React Query отдельно (зависит от react)
-            if (id.includes('@tanstack/react-query')) {
-              return 'react-query';
-            }
-            // Telegram SDK (не зависит от React)
-            if (id.includes('@twa-dev/sdk')) {
-              return 'telegram';
-            }
-            // UI библиотеки (зависят от React)
-            if (id.includes('lucide-react') || id.includes('@radix-ui')) {
-              return 'ui-libs';
-            }
-            // Утилиты (НЕ зависят от React)
             if (id.includes('clsx') || id.includes('tailwind-merge') || id.includes('class-variance-authority')) {
               return 'utils';
             }
-            // Form библиотеки (зависят от React)
-            if (id.includes('react-hook-form') || id.includes('@hookform/resolvers') || id.includes('zod')) {
-              return 'forms';
+            if (id.includes('@twa-dev/sdk')) {
+              return 'telegram';
             }
-            // State + HTTP (НЕ зависят от React напрямую)
-            if (id.includes('zustand') || id.includes('axios')) {
-              return 'state-http';
-            }
-            // Все остальные vendor библиотеки (которые НЕ зависят от React)
+            // Остальное в vendor
             return 'vendor';
           }
         },
