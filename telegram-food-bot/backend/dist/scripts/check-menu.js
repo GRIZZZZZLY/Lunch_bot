@@ -4,35 +4,28 @@ const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 async function checkMenu() {
     try {
-        const menuItems = await prisma.menuItem.findMany({
-            select: {
-                id: true,
-                name: true,
-                category: true,
-                price: true,
-                isActive: true,
-            },
-        });
-        console.log(`\n📊 В базе данных: ${menuItems.length} блюд\n`);
-        if (menuItems.length > 0) {
-            console.log('Блюда:');
-            menuItems.forEach((item, index) => {
-                console.log(`${index + 1}. ${item.name} (${item.category}) - ₽${item.price} [${item.isActive ? 'Активно' : 'Неактивно'}]`);
+        const totalItems = await prisma.menuItem.count();
+        const activeItems = await prisma.menuItem.count({ where: { isActive: true } });
+        console.log('\n📋 Menu Items Status:');
+        console.log(`Total items: ${totalItems}`);
+        console.log(`Active items: ${activeItems}`);
+        console.log(`Inactive items: ${totalItems - activeItems}`);
+        if (totalItems > 0) {
+            console.log('\n📝 All menu items:');
+            const items = await prisma.menuItem.findMany({
+                orderBy: { name: 'asc' }
+            });
+            items.forEach(item => {
+                console.log(`  ${item.isActive ? '✅' : '❌'} ${item.name} (${item.category}) - ID: ${item.id}`);
             });
         }
         else {
-            console.log('✅ База данных пустая - блюд нет!');
+            console.log('\n⚠️ No menu items found in database!');
+            console.log('Run: npm run db:seed');
         }
-        const polls = await prisma.poll.count();
-        const votes = await prisma.vote.count();
-        const results = await prisma.pollResult.count();
-        console.log(`\n📈 Статистика:`);
-        console.log(`   Голосований: ${polls}`);
-        console.log(`   Голосов: ${votes}`);
-        console.log(`   Результатов: ${results}`);
     }
     catch (error) {
-        console.error('❌ Ошибка:', error);
+        console.error('Error checking menu:', error);
     }
     finally {
         await prisma.$disconnect();

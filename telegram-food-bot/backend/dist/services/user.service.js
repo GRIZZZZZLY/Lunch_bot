@@ -33,6 +33,7 @@ class UserService {
                     username: data.username,
                     firstName: data.firstName,
                     lastName: data.lastName,
+                    photoUrl: data.photoUrl,
                     updatedAt: new Date(),
                 },
                 create: {
@@ -40,11 +41,12 @@ class UserService {
                     username: data.username,
                     firstName: data.firstName,
                     lastName: data.lastName,
+                    photoUrl: data.photoUrl,
                     isAdmin: false,
                     isActive: true,
                 },
             });
-            logger_1.logger.info(`User upserted: ${user.telegramId} (${user.firstName})`);
+            logger_1.logger.info(`User upserted: ${user.telegramId} (${user.firstName})${data.photoUrl ? ' with photo' : ''}`);
             return user;
         }
         catch (error) {

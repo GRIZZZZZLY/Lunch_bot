@@ -3,11 +3,13 @@ export interface CreateUserData {
     username?: string;
     firstName: string;
     lastName?: string;
+    photoUrl?: string;
 }
 export interface UpdateUserData {
     username?: string;
     firstName?: string;
     lastName?: string;
+    photoUrl?: string;
     isAdmin?: boolean;
     isActive?: boolean;
 }
@@ -17,6 +19,7 @@ export interface UserWithStats {
     username?: string;
     firstName: string;
     lastName?: string;
+    photoUrl?: string;
     isAdmin: boolean;
     isActive: boolean;
     createdAt: Date;

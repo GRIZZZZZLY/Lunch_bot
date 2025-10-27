@@ -118,6 +118,12 @@ export function createBot(): Bot<BotContext> {
   
   // Инициализация poll reminder service
   PollReminderService.initialize(bot);
+  
+  // 🚀 НОВОЕ: Инициализация ResponsibleService и BudgetService
+  const { initializeResponsibleServiceBot } = require('../services/responsible.service');
+  const { initializeBudgetServiceBot } = require('../services/budget.service');
+  initializeResponsibleServiceBot(bot);
+  initializeBudgetServiceBot(bot);
 
   // Глобальные middleware (применяются ко всем обновлениям)
   bot.use(session({ initial }));
@@ -219,6 +225,39 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('refresh_poll:')) {
         const pollId = parseInt(data.split(':')[1]);
         await handleRefreshPoll(ctx as any, pollId);
+        return;
+      }
+
+      // 🚀 НОВОЕ: Бюджет-трекер - Добровольный выбор ответственного
+      if (data.startsWith('volunteer:')) {
+        const pollId = parseInt(data.split(':')[1]);
+        const { ResponsibleService } = await import('../services/responsible.service.js');
+        await ResponsibleService.handleVolunteer(pollId, ctx.from.id);
+        await ctx.answerCallbackQuery('✅ Спасибо! Вы выбраны ответственным');
+        return;
+      }
+
+      // 🚀 НОВОЕ: Бюджет-трекер - Отметить оплату
+      if (data.startsWith('budget:mark_paid:')) {
+        const txId = parseInt(data.split(':')[2]);
+        const { BudgetService } = await import('../services/budget.service.js');
+        await BudgetService.markAsPaid(txId, ctx.from.id);
+        await ctx.answerCallbackQuery('✅ Отмечено как оплачено');
+        try {
+          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
+        } catch (e) { /* ignore */ }
+        return;
+      }
+
+      // 🚀 НОВОЕ: Бюджет-трекер - Подтвердить оплату
+      if (data.startsWith('budget:confirm:')) {
+        const txId = parseInt(data.split(':')[2]);
+        const { BudgetService } = await import('../services/budget.service.js');
+        await BudgetService.confirmPayment(txId);
+        await ctx.answerCallbackQuery('✅ Оплата подтверждена');
+        try {
+          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
+        } catch (e) { /* ignore */ }
         return;
       }
 

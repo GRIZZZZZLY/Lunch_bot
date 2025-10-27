@@ -38,6 +38,7 @@ export class UserService {
           username: data.username,
           firstName: data.firstName,
           lastName: data.lastName,
+          photoUrl: data.photoUrl, // ✅ Обновляем фото при каждом входе
           updatedAt: new Date(),
         },
         create: {
@@ -45,12 +46,13 @@ export class UserService {
           username: data.username,
           firstName: data.firstName,
           lastName: data.lastName,
+          photoUrl: data.photoUrl, // ✅ Сохраняем фото при создании
           isAdmin: false,
           isActive: true,
         },
       });
 
-      logger.info(`User upserted: ${user.telegramId} (${user.firstName})`);
+      logger.info(`User upserted: ${user.telegramId} (${user.firstName})${data.photoUrl ? ' with photo' : ''}`);
       return user;
     } catch (error) {
       logger.error('Error upserting user:', error);

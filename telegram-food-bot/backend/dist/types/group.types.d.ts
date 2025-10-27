@@ -37,5 +37,7 @@ export interface GroupSettings {
     notificationsEnabled?: boolean;
     reminderBeforeEnd?: number;
     progressNotifications?: boolean;
+    responsibleSelectionMode?: 'volunteer' | 'roulette' | 'volunteer_with_fallback';
+    volunteerTimeoutMinutes?: number;
 }
 //# sourceMappingURL=group.types.d.ts.map

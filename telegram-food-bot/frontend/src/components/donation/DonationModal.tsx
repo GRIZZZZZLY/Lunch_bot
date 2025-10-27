@@ -8,6 +8,7 @@ import { LoadingSpinner } from '../common/LoadingSpinner';
 import { PaymentMethod, DonationAmount } from '../../types/donation.types';
 import { GlassCard, GlassCardContent } from '../ui/glass-card';
 import { GradientButton } from '../ui/gradient-button';
+import { DONATION_THEME } from '../../styles/donation.theme';
 
 interface DonationModalProps {
   isOpen: boolean;
@@ -134,27 +135,49 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
             ) : (
               <>
                 {/* Header */}
-                <GlassCard intensity="high" className="rounded-t-3xl rounded-b-none overflow-hidden sticky top-0">
-                  <div className="absolute inset-0 bg-gradient-to-r from-peach-500/30 to-butter-500/30" />
-                  <GlassCardContent className="relative p-6">
+                <div 
+                  className="rounded-t-3xl rounded-b-none overflow-hidden sticky top-0 z-10"
+                  style={{
+                    background: DONATION_THEME.gradients.modalHeader,
+                    boxShadow: DONATION_THEME.shadow.bar,
+                  }}
+                >
+                  <div className="relative p-6">
                     <button
                       onClick={handleClose}
-                      className="absolute top-4 right-4"
+                      className="absolute top-4 right-4 z-10"
                     >
-                      <div className="p-2 rounded-full bg-background/20 hover:bg-background/30 transition-colors">
-                        <X size={20} className="text-foreground" />
+                      <div className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors backdrop-blur-sm">
+                        <X size={20} style={{ color: 'white' }} />
                       </div>
                     </button>
 
                     <div className="flex items-center gap-3 mb-2">
-                      <Heart size={28} className="text-peach-500 animate-pulse" />
-                      <h2 className="text-2xl font-bold text-foreground">Поддержать проект</h2>
+                      <motion.div
+                        animate={{ 
+                          scale: [1, 1.1, 1],
+                        }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                        }}
+                      >
+                        <Heart 
+                          size={DONATION_THEME.spacing.iconSize.large} 
+                          className="fill-white"
+                          style={{ color: 'white' }}
+                        />
+                      </motion.div>
+                      <h2 className="text-2xl font-bold text-gray-200">
+                        Поддержите проект
+                      </h2>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-gray-300">
                       Помогите развитию бота - выберите способ оплаты
                     </p>
-                  </GlassCardContent>
-                </GlassCard>
+                  </div>
+                </div>
 
                 {/* Content */}
                 <div className="p-6 space-y-6">

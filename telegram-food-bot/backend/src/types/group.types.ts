@@ -45,4 +45,7 @@ export interface GroupSettings {
   notificationsEnabled?: boolean;  // Уведомления включены
   reminderBeforeEnd?: number;      // Напоминание за N минут
   progressNotifications?: boolean; // Уведомления о прогрессе (50%, 75%)
+  // Бюджет-трекер
+  responsibleSelectionMode?: 'volunteer' | 'roulette' | 'volunteer_with_fallback'; // Режим выбора ответственного
+  volunteerTimeoutMinutes?: number; // Время ожидания добровольца (минуты)
 }

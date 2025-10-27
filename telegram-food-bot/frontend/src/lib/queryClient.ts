@@ -18,23 +18,23 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 const queryConfig: DefaultOptions = {
   queries: {
     // Время, в течение которого данные считаются "свежими"
-    staleTime: 5 * 60 * 1000, // 5 минут
+    staleTime: 30 * 1000, // 30 секунд (было 5 минут - слишком долго!)
     
     // Время хранения неиспользуемых данных в cache
-    gcTime: 10 * 60 * 1000, // 10 минут (было cacheTime в v4)
+    gcTime: 5 * 60 * 1000, // 5 минут (было 10 минут)
     
-    // Не перезапрашивать данные при фокусе окна
-    refetchOnWindowFocus: false,
+    // Перезапрашивать данные при фокусе окна
+    refetchOnWindowFocus: true, // Было false - включаем для актуальности!
     
-    // Не перезапрашивать при переподключении
+    // Перезапрашивать при переподключении
     refetchOnReconnect: true,
     
     // Retry policy
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    retry: 1, // Было 2 - уменьшаем для быстрого фейла
+    retryDelay: (attemptIndex) => Math.min(500 * 2 ** attemptIndex, 10000), // Быстрее retry
     
     // Network mode
-    networkMode: 'online', // Работать только online (можно изменить на 'offlineFirst')
+    networkMode: 'online',
   },
   mutations: {
     // Retry для mutations
@@ -91,6 +91,7 @@ export const queryKeys = {
   user: {
     all: ['user'] as const,
     profile: (id: number) => [...queryKeys.user.all, 'profile', id] as const,
+    paymentInfo: (id: number) => [...queryKeys.user.all, 'payment', id] as const,
     votes: (id: number) => [...queryKeys.user.all, 'votes', id] as const,
   },
 } as const;

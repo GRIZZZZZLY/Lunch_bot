@@ -4,13 +4,14 @@ import { Heart, ChevronRight } from 'lucide-react';
 import { GlassCard, GlassCardContent } from '../ui/glass-card';
 import { DonationModal } from './DonationModal';
 import { useHaptic } from '../../hooks/useHaptic';
+import { DONATION_THEME } from '../../styles/donation.theme';
 
 const DONATION_CONFIG = {
-  FIRST_SHOW_DELAY: 30 * 1000,           // Первый показ через 30 сек
-  SHOW_INTERVAL: 5 * 60 * 1000,          // Повтор каждые 5 минут
-  AUTO_HIDE_TIMEOUT: 10 * 1000,          // Скрыть через 10 сек
-  DISMISS_DURATION: 24 * 60 * 60 * 1000, // Dismiss на 24 часа
-  SWIPE_THRESHOLD: 100,                   // Порог свайпа для dismiss
+  FIRST_SHOW_DELAY: DONATION_THEME.timing.firstShowDelay,
+  SHOW_INTERVAL: DONATION_THEME.timing.showInterval,
+  AUTO_HIDE_TIMEOUT: DONATION_THEME.timing.autoHideTimeout,
+  DISMISS_DURATION: DONATION_THEME.timing.dismissDuration,
+  SWIPE_THRESHOLD: DONATION_THEME.timing.swipeThreshold,
 };
 
 /**
@@ -96,33 +97,57 @@ export const DonationBar: React.FC = () => {
               transition: { duration: 0.3 }
             }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed bottom-20 left-4 right-4 z-40"
+            className="fixed left-4 right-4 z-40"
+            style={{ bottom: DONATION_THEME.spacing.barBottom }}
           >
-            <GlassCard
-              intensity="high"
-              className="overflow-hidden shadow-xl cursor-pointer"
+            <div
+              className="overflow-hidden cursor-pointer rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+              style={{
+                background: DONATION_THEME.gradients.bar,
+                boxShadow: DONATION_THEME.shadow.bar,
+                border: DONATION_THEME.border.default,
+              }}
               onClick={handleTap}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-peach-500/20 to-coral-500/20" />
-              <GlassCardContent className="relative py-3 px-4">
+              <div className="relative py-4 px-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1">
-                    <div className="p-2 bg-peach-500/20 rounded-xl">
-                      <Heart className="size-5 text-peach-500 fill-peach-500" />
-                    </div>
+                    {/* Heart icon with subtle pulse */}
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.1, 1],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                      className="p-2 bg-white/20 rounded-xl"
+                    >
+                      <Heart 
+                        size={DONATION_THEME.spacing.iconSize.medium}
+                        className="fill-white"
+                        style={{ color: 'white' }}
+                      />
+                    </motion.div>
+                    
                     <div className="flex-1">
-                      <p className="font-bold text-sm text-foreground">
-                        Помогите проекту
+                      <p className="font-bold text-base text-gray-200">
+                        Поддержите проект
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        Свайп → чтобы скрыть
+                      <p className="text-xs mt-0.5 text-gray-300">
+                        Свайп в сторону чтобы скрыть
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className="size-5 text-muted-foreground" />
+                  
+                  <ChevronRight 
+                    className="size-5 flex-shrink-0"
+                    style={{ color: 'white' }}
+                  />
                 </div>
-              </GlassCardContent>
-            </GlassCard>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

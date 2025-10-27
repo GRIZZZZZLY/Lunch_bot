@@ -713,6 +713,14 @@ class PollController {
             const pollId = parseInt(req.params.id);
             const { menuItemId } = req.body;
             const user = req.user;
+            logger_1.logger.info('🔍 DEBUG: Vote request from user:', {
+                userId: user.id,
+                telegramId: user.telegramId,
+                firstName: user.firstName,
+                username: user.username,
+                pollId,
+                menuItemId,
+            });
             if (isNaN(pollId)) {
                 res.status(400).json({
                     success: false,

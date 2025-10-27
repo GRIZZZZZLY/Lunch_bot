@@ -18,8 +18,7 @@ async function checkGroups() {
       groups.forEach(group => {
         console.log(`  ${group.isActive ? '✅' : '❌'} ${group.title}`);
         console.log(`     ID: ${group.telegramId}`);
-        console.log(`     Chat ID: ${group.chatId}`);
-        console.log(`     Members: ${group.membersCount || 'unknown'}`);
+        console.log(`     Type: ${group.type}`);
         console.log('');
       });
     } else {

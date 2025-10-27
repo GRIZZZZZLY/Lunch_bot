@@ -28,17 +28,19 @@ function validateTelegramInitData(initData) {
         logger_1.logger.info('📝 Parsed initData', {
             hasUser: !!parsed.user,
             authDate: parsed.auth_date,
-            hasHash: !!parsed.hash
+            hasHash: !!parsed.hash,
+            hasSignature: !!parsed.signature
         });
         const isValid = verifyTelegramHash(parsed, botToken);
-        if (!isValid && process.env.NODE_ENV !== 'development') {
+        const skipValidation = process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true';
+        if (!isValid && !skipValidation) {
             logger_1.logger.warn('❌ Invalid Telegram hash - signature verification failed');
             return null;
         }
-        if (!isValid && process.env.NODE_ENV === 'development') {
-            logger_1.logger.warn('⚠️ Invalid Telegram hash - но разрешено в development режиме');
+        if (!isValid && skipValidation) {
+            logger_1.logger.warn('⚠️ Invalid Telegram hash - но разрешено в SKIP_TELEGRAM_VALIDATION режиме');
         }
-        else {
+        else if (isValid) {
             logger_1.logger.info('✅ Telegram hash verified successfully');
         }
         const authDate = parsed.auth_date * 1000;
@@ -73,6 +75,7 @@ function parseInitData(initData) {
             if (key === 'user') {
                 try {
                     result[key] = JSON.parse(value);
+                    result['_userRaw'] = value;
                 }
                 catch {
                     logger_1.logger.warn('Failed to parse user data from initData');
@@ -86,8 +89,8 @@ function parseInitData(initData) {
                 result[key] = value;
             }
         }
-        if (!result.hash || !result.auth_date) {
-            logger_1.logger.warn('Missing required fields in initData');
+        if ((!result.hash && !result.signature) || !result.auth_date) {
+            logger_1.logger.warn('Missing required fields in initData (hash/signature and auth_date)');
             return null;
         }
         return result;
@@ -99,40 +102,72 @@ function parseInitData(initData) {
 }
 function verifyTelegramHash(data, botToken) {
     try {
-        const { hash, ...params } = data;
+        const receivedSignature = data.signature || data.hash;
+        if (!receivedSignature) {
+            logger_1.logger.warn('No signature or hash found in initData');
+            return false;
+        }
+        const { hash, signature, _userRaw, ...params } = data;
         const dataCheckString = Object.keys(params)
-            .filter(key => key !== 'hash')
+            .filter(key => key !== 'hash' && key !== 'signature' && key !== '_userRaw')
             .sort()
             .map(key => {
             const value = params[key];
+            if (key === 'user' && _userRaw) {
+                return `${key}=${_userRaw}`;
+            }
             if (typeof value === 'object') {
                 return `${key}=${JSON.stringify(value)}`;
             }
             return `${key}=${value}`;
         })
             .join('\n');
-        logger_1.logger.debug('🔍 Hash verification data:', {
-            dataCheckString: dataCheckString.substring(0, 200) + '...',
-            receivedHash: hash,
+        logger_1.logger.debug('🔍 Signature verification data:', {
+            dataCheckString: dataCheckString,
+            dataCheckStringLength: dataCheckString.length,
+            receivedSignature: receivedSignature.substring(0, 20) + '...',
+            receivedSignatureFull: receivedSignature,
+            usingField: data.signature ? 'signature' : 'hash',
+            signatureLength: receivedSignature.length,
             botTokenLength: botToken.length,
+            fields: Object.keys(params).sort(),
         });
+        let calculatedSignature;
         const secretKey = crypto_1.default
             .createHmac('sha256', 'WebAppData')
             .update(botToken)
             .digest();
-        const calculatedHash = crypto_1.default
+        const calculatedHmac = crypto_1.default
             .createHmac('sha256', secretKey)
             .update(dataCheckString)
-            .digest('hex');
-        logger_1.logger.debug('🔍 Hash comparison:', {
-            calculated: calculatedHash,
-            received: hash,
-            match: calculatedHash === hash,
+            .digest();
+        if (data.signature) {
+            const rawBase64 = calculatedHmac.toString('base64');
+            calculatedSignature = rawBase64
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+        else {
+            calculatedSignature = calculatedHmac.toString('hex');
+        }
+        logger_1.logger.debug('🔍 Signature comparison:', {
+            calculated: calculatedSignature.substring(0, 20) + '...',
+            received: receivedSignature.substring(0, 20) + '...',
+            format: data.signature ? 'base64url (URL-safe)' : 'hex (WebAppData)',
+            match: calculatedSignature === receivedSignature,
         });
-        return calculatedHash === hash;
+        const isMatch = calculatedSignature === receivedSignature;
+        if (!isMatch && process.env.SKIP_SIGNATURE_CHECK === 'true') {
+            logger_1.logger.warn('⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!');
+            logger_1.logger.warn('⚠️ Using REAL user data from Telegram despite signature mismatch');
+            logger_1.logger.warn('⚠️ This should ONLY be used for debugging ngrok setup!');
+            return true;
+        }
+        return isMatch;
     }
     catch (error) {
-        logger_1.logger.error('Error verifying Telegram hash:', error);
+        logger_1.logger.error('Error verifying Telegram signature:', error);
         return false;
     }
 }
@@ -204,6 +239,8 @@ function parseInitDataUnsafe(initData) {
     try {
         logger_1.logger.info('🔓 Parsing initData in UNSAFE mode (dev only)', {
             initDataLength: initData?.length || 0,
+            initDataPreview: initData?.substring(0, 100),
+            looksLikeJWT: initData?.startsWith('eyJ'),
         });
         if (!initData || initData.trim().length === 0 || initData === 'mock_jwt_token_12345678') {
             logger_1.logger.warn('⚠️ Empty or mock initData - returning null');
@@ -211,6 +248,11 @@ function parseInitDataUnsafe(initData) {
         }
         const params = new URLSearchParams(initData);
         const userStr = params.get('user');
+        logger_1.logger.info('🔍 DEBUG: Parsed URLSearchParams', {
+            hasUser: !!userStr,
+            allKeys: Array.from(params.keys()),
+            userStrPreview: userStr?.substring(0, 50),
+        });
         if (!userStr) {
             logger_1.logger.warn('⚠️ No user data in initData');
             return null;

@@ -6,6 +6,7 @@ interface TelegramUser {
   first_name: string;
   last_name?: string;
   username?: string;
+  photo_url?: string;
   language_code?: string;
   is_premium?: boolean;
   allows_write_to_pm?: boolean;
@@ -14,7 +15,8 @@ interface TelegramUser {
 interface TelegramInitData {
   user?: TelegramUser;
   auth_date: number;
-  hash: string;
+  hash?: string;      // Старый формат (Web Apps SDK v6.x)
+  signature?: string; // Новый формат (Web Apps SDK v7.x+)
   [key: string]: any;
 }
 
@@ -46,21 +48,24 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
     logger.info('📝 Parsed initData', {
       hasUser: !!parsed.user,
       authDate: parsed.auth_date,
-      hasHash: !!parsed.hash
+      hasHash: !!parsed.hash,
+      hasSignature: !!parsed.signature
     });
 
     // Проверяем подпись
     const isValid = verifyTelegramHash(parsed, botToken);
     
-    // В development режиме можем пропустить проверку подписи для тестирования
-    if (!isValid && process.env.NODE_ENV !== 'development') {
+    // В development режиме с SKIP_TELEGRAM_VALIDATION можем пропустить проверку подписи
+    const skipValidation = process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true';
+    
+    if (!isValid && !skipValidation) {
       logger.warn('❌ Invalid Telegram hash - signature verification failed');
       return null;
     }
     
-    if (!isValid && process.env.NODE_ENV === 'development') {
-      logger.warn('⚠️ Invalid Telegram hash - но разрешено в development режиме');
-    } else {
+    if (!isValid && skipValidation) {
+      logger.warn('⚠️ Invalid Telegram hash - но разрешено в SKIP_TELEGRAM_VALIDATION режиме');
+    } else if (isValid) {
       logger.info('✅ Telegram hash verified successfully');
     }
 
@@ -105,6 +110,8 @@ function parseInitData(initData: string): TelegramInitData | null {
       if (key === 'user') {
         try {
           result[key] = JSON.parse(value);
+          // Сохраняем оригинальную строку для проверки подписи
+          result['_userRaw'] = value;
         } catch {
           logger.warn('Failed to parse user data from initData');
           return null;
@@ -116,8 +123,9 @@ function parseInitData(initData: string): TelegramInitData | null {
       }
     }
 
-    if (!result.hash || !result.auth_date) {
-      logger.warn('Missing required fields in initData');
+    // Проверяем наличие hash ИЛИ signature (поддержка старых и новых версий SDK)
+    if ((!result.hash && !result.signature) || !result.auth_date) {
+      logger.warn('Missing required fields in initData (hash/signature and auth_date)');
       return null;
     }
 
@@ -131,17 +139,30 @@ function parseInitData(initData: string): TelegramInitData | null {
 
 /**
  * Проверка подписи Telegram
+ * Поддерживает оба формата: hash (SDK v6) и signature (SDK v7+)
  */
 function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
   try {
-    const { hash, ...params } = data;
+    // Используем signature если есть, иначе hash (обратная совместимость)
+    const receivedSignature = data.signature || data.hash;
+    if (!receivedSignature) {
+      logger.warn('No signature or hash found in initData');
+      return false;
+    }
+
+    // Удаляем и hash, и signature из параметров для проверки
+    const { hash, signature, _userRaw, ...params } = data;
 
     // Создаем строку для проверки
     const dataCheckString = Object.keys(params)
-      .filter(key => key !== 'hash')
+      .filter(key => key !== 'hash' && key !== 'signature' && key !== '_userRaw')
       .sort()
       .map(key => {
         const value = params[key];
+        // Для user используем оригинальную строку если есть
+        if (key === 'user' && _userRaw) {
+          return `${key}=${_userRaw}`;
+        }
         if (typeof value === 'object') {
           return `${key}=${JSON.stringify(value)}`;
         }
@@ -150,35 +171,68 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       .join('\n');
 
     // DEBUG: Логируем данные для проверки
-    logger.debug('🔍 Hash verification data:', {
-      dataCheckString: dataCheckString.substring(0, 200) + '...',
-      receivedHash: hash,
+    logger.debug('🔍 Signature verification data:', {
+      dataCheckString: dataCheckString, // FULL STRING FOR DEBUG
+      dataCheckStringLength: dataCheckString.length,
+      receivedSignature: receivedSignature.substring(0, 20) + '...',
+      receivedSignatureFull: receivedSignature, // FULL FOR DEBUG
+      usingField: data.signature ? 'signature' : 'hash',
+      signatureLength: receivedSignature.length,
       botTokenLength: botToken.length,
+      fields: Object.keys(params).sort(),
     });
 
-    // Создаем ключ для HMAC
+    let calculatedSignature: string;
+
+    // Алгоритм одинаковый для hash и signature - используем промежуточный ключ WebAppData
     const secretKey = crypto
       .createHmac('sha256', 'WebAppData')
       .update(botToken)
       .digest();
-
-    // Создаем HMAC подпись
-    const calculatedHash = crypto
+    
+    // Вычисляем HMAC как Buffer (бинарные данные)
+    const calculatedHmac = crypto
       .createHmac('sha256', secretKey)
       .update(dataCheckString)
-      .digest('hex');
+      .digest();
+    
+    if (data.signature) {
+      // НОВЫЙ ФОРМАТ (SDK v7+): signature в base64url
+      // Конвертируем вычисленный HMAC в base64url для сравнения
+      const rawBase64 = calculatedHmac.toString('base64');
+      calculatedSignature = rawBase64
+        .replace(/\+/g, '-')   // + → -
+        .replace(/\//g, '_')   // / → _
+        .replace(/=+$/, '');   // Удаляем padding
+    } else {
+      // СТАРЫЙ ФОРМАТ (SDK v6): hash в hex
+      calculatedSignature = calculatedHmac.toString('hex');
+    }
 
-    logger.debug('🔍 Hash comparison:', {
-      calculated: calculatedHash,
-      received: hash,
-      match: calculatedHash === hash,
+    logger.debug('🔍 Signature comparison:', {
+      calculated: calculatedSignature.substring(0, 20) + '...',
+      received: receivedSignature.substring(0, 20) + '...',
+      format: data.signature ? 'base64url (URL-safe)' : 'hex (WebAppData)',
+      match: calculatedSignature === receivedSignature,
     });
 
     // Сравниваем подписи
-    return calculatedHash === hash;
+    const isMatch = calculatedSignature === receivedSignature;
+    
+    // ВРЕМЕННО: Разрешаем пропустить проверку подписи для отладки
+    // ⚠️ ВАЖНО: Данные пользователя всё равно берутся РЕАЛЬНЫЕ из Telegram!
+    // ⚠️ ЗАПРЕЩЕНО в настоящем production - только для тестирования через ngrok
+    if (!isMatch && process.env.SKIP_SIGNATURE_CHECK === 'true') {
+      logger.warn('⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!');
+      logger.warn('⚠️ Using REAL user data from Telegram despite signature mismatch');
+      logger.warn('⚠️ This should ONLY be used for debugging ngrok setup!');
+      return true; // Пропускаем но используем реальные данные
+    }
+    
+    return isMatch;
 
   } catch (error) {
-    logger.error('Error verifying Telegram hash:', error);
+    logger.error('Error verifying Telegram signature:', error);
     return false;
   }
 }
@@ -285,6 +339,8 @@ export function parseInitDataUnsafe(initData: string): TelegramUser | null {
   try {
     logger.info('🔓 Parsing initData in UNSAFE mode (dev only)', {
       initDataLength: initData?.length || 0,
+      initDataPreview: initData?.substring(0, 100),
+      looksLikeJWT: initData?.startsWith('eyJ'),
     });
 
     // Пустой или невалидный initData - возвращаем null
@@ -295,6 +351,12 @@ export function parseInitDataUnsafe(initData: string): TelegramUser | null {
 
     const params = new URLSearchParams(initData);
     const userStr = params.get('user');
+    
+    logger.info('🔍 DEBUG: Parsed URLSearchParams', {
+      hasUser: !!userStr,
+      allKeys: Array.from(params.keys()),
+      userStrPreview: userStr?.substring(0, 50),
+    });
     
     if (!userStr) {
       logger.warn('⚠️ No user data in initData');

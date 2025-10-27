@@ -325,6 +325,9 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        // 🎨 Оптимизированные радиусы для карточек
+        'card': '0.75rem',  // 12px - более сбалансированный вариант
+        'card-lg': '1rem',  // 16px - для больших карточек
       },
     },
   },

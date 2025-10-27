@@ -9,6 +9,7 @@ export interface User {
   username?: string;
   firstName: string;
   lastName?: string;
+  photoUrl?: string;
   isAdmin: boolean;
   isActive: boolean;
   createdAt: string;
@@ -100,32 +101,6 @@ export const useAuth = (): UseAuthReturn => {
       setIsLoading(true);
       setError(null);
 
-      // 🚀 ОПТИМИЗАЦИЯ: Сразу парсим токен и показываем данные
-      const existingToken = authService.getToken();
-      if (existingToken) {
-        try {
-          const tokenPayload = JSON.parse(atob(existingToken.split('.')[1]));
-          
-          // Создаём временного пользователя из токена (мгновенно!)
-          const tokenUser: User = {
-            id: tokenPayload.userId,
-            telegramId: tokenPayload.telegramId,
-            username: tokenPayload.username,
-            firstName: tokenPayload.firstName || 'User',
-            lastName: tokenPayload.lastName,
-            isAdmin: tokenPayload.isAdmin, // ← Берём из токена сразу!
-            isActive: true,
-            createdAt: new Date().toISOString(),
-          };
-          
-          setUser(tokenUser);
-          setIsLoading(false); // ← Убираем загрузку сразу!
-          console.log('[useAuth] User loaded from token immediately:', tokenUser);
-        } catch (e) {
-          console.error('[useAuth] Failed to parse token for quick load:', e);
-        }
-      }
-
       console.log('[useAuth] Loading user data with existing token...');
       const response = await authService.getCurrentUser();
       console.log('[useAuth] Response received:', { 
@@ -135,8 +110,9 @@ export const useAuth = (): UseAuthReturn => {
       });
 
       if (response.success && response.data) {
-        setUser(response.data); // ← Обновляем актуальными данными из API
-        console.log('[useAuth] User updated from API:', response.data);
+        // ✅ ИСПРАВЛЕНО: Устанавливаем user ОДИН раз из API
+        setUser(response.data);
+        console.log('[useAuth] User loaded from API:', response.data);
         
         // P1.2.6: Set Sentry user context
         setUserContext({

@@ -34,23 +34,37 @@ export async function telegramAuthMiddleware(
         const token = authHeader.substring(7);
         
         try {
-          // Пробуем как наш токен
-          const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+          // Пробуем как JWT токен
+          const jwt = await import('jsonwebtoken');
+          const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+          
+          logger.info('✅ SKIP mode: decoded JWT token', {
+            userId: decoded.userId,
+            telegramId: decoded.telegramId,
+          });
+          
           const user = await UserService.getUserById(decoded.userId);
           
           if (user && user.isActive) {
             (req as any).user = user;
-            logger.info('✅ SKIP mode: authenticated via existing token', {
+            logger.info('✅ SKIP mode: authenticated via JWT token', {
               userId: user.id,
               telegramId: user.telegramId.toString()
             });
             next();
             return;
           }
-        } catch {
-          // Если не наш токен, пробуем как initData
-          const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
-          telegramUser = parseInitDataUnsafe(token);
+        } catch (jwtError) {
+          // Если не JWT токен, пробуем как initData
+          try {
+            const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
+            telegramUser = parseInitDataUnsafe(token);
+          } catch (initDataError) {
+            logger.warn('⚠️ Failed to parse as JWT or initData', {
+              jwtError: jwtError instanceof Error ? jwtError.message : String(jwtError),
+              initDataError: initDataError instanceof Error ? initDataError.message : String(initDataError),
+            });
+          }
         }
       }
       

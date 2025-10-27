@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils"
 
 export interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
-   * Intensity of glassmorphism effect (low, medium, high)
+   * Intensity of glassmorphism effect (low, medium, high) or solid gradient
    */
-  intensity?: "low" | "medium" | "high"
+  intensity?: "low" | "medium" | "high" | "solid"
   /**
    * Enable hover animation
    */
@@ -27,18 +27,21 @@ export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
       low: "bg-white/5 dark:bg-black/10 backdrop-blur-sm border-white/10",
       medium: "bg-white/10 dark:bg-black/20 backdrop-blur-md border-white/15",
       high: "bg-white/20 dark:bg-black/30 backdrop-blur-xl border-white/20",
+      solid: "bg-gradient-to-br from-lavender-50 via-white to-mint-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 border-lavender-100 dark:border-gray-700",
     }
 
     return (
       <div
         ref={ref}
         className={cn(
-          // Base styles
-          "rounded-3xl border shadow-xl transition-all duration-300",
-          // Glassmorphism effect
+          // Base styles - улучшенные тени и радиусы
+          "rounded-card-lg border transition-all duration-300",
+          // Улучшенные тени для эффекта "всплытия"
+          "shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]",
+          // Glassmorphism effect or solid gradient
           intensityClasses[intensity],
-          // Hover effect
-          hover && "hover:scale-[1.02] hover:shadow-2xl hover:shadow-primary/20",
+          // Hover effect с улучшенной тенью
+          hover && "hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:shadow-primary/15",
           // Custom classes
           className
         )}

@@ -53,6 +53,7 @@ class AuthController {
                             username: telegramUser.username || `user_${telegramUser.id}`,
                             firstName: telegramUser.first_name,
                             lastName: telegramUser.last_name,
+                            photoUrl: telegramUser.photo_url,
                         });
                         logger_1.logger.info('✅ SKIP mode: authenticated with REAL Telegram user', {
                             userId: user.id,
@@ -105,6 +106,7 @@ class AuthController {
                 return;
             }
             if (!initData) {
+                logger_1.logger.warn('❌ No initData provided');
                 res.status(400).json({
                     success: false,
                     error: 'Missing initData',
@@ -112,8 +114,13 @@ class AuthController {
                 });
                 return;
             }
+            logger_1.logger.info('🔐 Validating initData...', {
+                initDataLength: initData.length,
+                nodeEnv: process.env.NODE_ENV,
+            });
             const userData = (0, telegram_auth_1.validateTelegramInitData)(initData);
             if (!userData) {
+                logger_1.logger.error('❌ InitData validation failed');
                 res.status(401).json({
                     success: false,
                     error: 'Invalid initData',
@@ -121,11 +128,16 @@ class AuthController {
                 });
                 return;
             }
+            logger_1.logger.info('✅ InitData validated successfully', {
+                userId: userData.id,
+                username: userData.username,
+            });
             const user = await user_service_1.UserService.upsertUser({
                 telegramId: userData.id.toString(),
                 username: userData.username,
                 firstName: userData.first_name,
                 lastName: userData.last_name,
+                photoUrl: userData.photo_url,
             });
             logger_1.logger.info('User validated via initData', {
                 userId: user.id,
@@ -140,6 +152,7 @@ class AuthController {
                     username: user.username,
                     firstName: user.firstName,
                     lastName: user.lastName,
+                    photoUrl: user.photoUrl,
                     isAdmin: user.isAdmin,
                     isActive: user.isActive,
                     createdAt: user.createdAt,

@@ -34,7 +34,7 @@
     --input: 0 0% 90%;
     --ring: 18 100% 66%; /* Peach */
     
-    --radius: 1rem; /* 16px - rounded-2xl */
+    --radius: 0.75rem; /* 12px - более сбалансированный радиус для карточек */
   }
 
   .dark {
@@ -141,6 +141,27 @@
 }
 
 @layer utilities {
+  /* 🎨 Унифицированные размеры иконок */
+  .icon-nav {
+    @apply size-6; /* 24px - иконки навигации */
+  }
+  
+  .icon-action {
+    @apply size-8; /* 32px - иконки в quick actions */
+  }
+  
+  .icon-list {
+    @apply size-5; /* 20px - иконки в списках */
+  }
+  
+  .icon-empty {
+    @apply size-12; /* 48px - иконки empty state */
+  }
+  
+  .icon-lg {
+    @apply size-16; /* 64px - большие иконки */
+  }
+  
   /* Telegram-specific utilities */
   .tg-safe-area {
     padding-top: env(safe-area-inset-top);

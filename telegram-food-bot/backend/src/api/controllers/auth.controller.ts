@@ -30,6 +30,7 @@ export class AuthController {
               username: telegramUser.username || `user_${telegramUser.id}`,
               firstName: telegramUser.first_name,
               lastName: telegramUser.last_name,
+              photoUrl: telegramUser.photo_url,
             });
 
             logger.info('✅ SKIP mode: authenticated with REAL Telegram user', {
@@ -88,7 +89,9 @@ export class AuthController {
         return;
       }
 
+      // В production режиме initData обязателен
       if (!initData) {
+        logger.warn('❌ No initData provided');
         res.status(400).json({
           success: false,
           error: 'Missing initData',
@@ -97,9 +100,15 @@ export class AuthController {
         return;
       }
 
+      logger.info('🔐 Validating initData...', {
+        initDataLength: initData.length,
+        nodeEnv: process.env.NODE_ENV,
+      });
+
       // Валидируем initData от Telegram
       const userData = validateTelegramInitData(initData);
       if (!userData) {
+        logger.error('❌ InitData validation failed');
         res.status(401).json({
           success: false,
           error: 'Invalid initData',
@@ -108,12 +117,18 @@ export class AuthController {
         return;
       }
 
+      logger.info('✅ InitData validated successfully', {
+        userId: userData.id,
+        username: userData.username,
+      });
+
       // Создаем или обновляем пользователя в БД
       const user = await UserService.upsertUser({
         telegramId: userData.id.toString(),
         username: userData.username,
         firstName: userData.first_name,
         lastName: userData.last_name,
+        photoUrl: userData.photo_url,
       });
 
       logger.info('User validated via initData', {
@@ -130,6 +145,7 @@ export class AuthController {
           username: user.username,
           firstName: user.firstName,
           lastName: user.lastName,
+          photoUrl: user.photoUrl,
           isAdmin: user.isAdmin,
           isActive: user.isActive,
           createdAt: user.createdAt,
