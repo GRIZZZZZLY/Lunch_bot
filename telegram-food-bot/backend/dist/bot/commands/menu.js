@@ -201,4 +201,3 @@ async function handleShowMenuList(ctx) {
         await ctx.answerCallbackQuery('❌ Ошибка загрузки списка');
     }
 }
-//# sourceMappingURL=menu.js.map

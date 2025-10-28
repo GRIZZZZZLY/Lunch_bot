@@ -75,11 +75,26 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         userService.getUserGroups(),
       ]);
 
+      console.log('[CreatePollForm] 🔍 Menu response:', {
+        success: menuResponse.success,
+        dataLength: menuResponse.data?.length || 0,
+        data: menuResponse.data,
+        error: menuResponse.error
+      });
+
       if (menuResponse.success && menuResponse.data) {
         setMenuItems(menuResponse.data);
         // Auto-select all items by default
         setSelectedItems(new Set(menuResponse.data.map(item => item.id)));
+        console.log('[CreatePollForm] ✅ Menu items loaded:', menuResponse.data.length);
+      } else {
+        console.error('[CreatePollForm] ❌ Failed to load menu:', menuResponse.error);
       }
+
+      console.log('[CreatePollForm] 🔍 Groups response:', {
+        success: groupsResponse.success,
+        dataLength: groupsResponse.data?.length || 0,
+      });
 
       if (groupsResponse.success && groupsResponse.data) {
         setGroups(groupsResponse.data);
@@ -89,7 +104,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         }
       }
     } catch (err) {
-      console.error('Error loading data:', err);
+      console.error('[CreatePollForm] ❌ Error loading data:', err);
       setError('Ошибка загрузки данных');
     } finally {
       setLoading(false);

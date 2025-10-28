@@ -151,8 +151,10 @@ class MenuService {
     }
     static async getActiveMenuItems() {
         try {
-            return await cache_service_1.cacheService.getOrSet(cache_service_1.CACHE_KEYS.MENU_ITEMS_ACTIVE, async () => {
-                return await client_2.prisma.menuItem.findMany({
+            logger_1.logger.info('🔍 [MenuService] getActiveMenuItems called');
+            const items = await cache_service_1.cacheService.getOrSet(cache_service_1.CACHE_KEYS.MENU_ITEMS_ACTIVE, async () => {
+                logger_1.logger.info('🔍 [MenuService] Fetching from DB (cache miss)');
+                const dbItems = await client_2.prisma.menuItem.findMany({
                     where: { isActive: true },
                     select: {
                         id: true,
@@ -168,10 +170,17 @@ class MenuService {
                     },
                     orderBy: { name: 'asc' },
                 });
+                logger_1.logger.info('✅ [MenuService] DB query result', {
+                    count: dbItems.length,
+                    items: dbItems.slice(0, 3).map(i => i.name)
+                });
+                return dbItems;
             }, cache_service_1.CACHE_TTL.MENU);
+            logger_1.logger.info('✅ [MenuService] Returning items', { count: items.length });
+            return items;
         }
         catch (error) {
-            logger_1.logger.error('Error getting active menu items:', error);
+            logger_1.logger.error('❌ [MenuService] Error getting active menu items:', error);
             throw new Error('Failed to get active menu items');
         }
     }
@@ -371,4 +380,3 @@ class MenuService {
     }
 }
 exports.MenuService = MenuService;
-//# sourceMappingURL=menu.service.js.map

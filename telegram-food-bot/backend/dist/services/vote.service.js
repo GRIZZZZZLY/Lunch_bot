@@ -628,4 +628,3 @@ class VoteService {
     }
 }
 exports.VoteService = VoteService;
-//# sourceMappingURL=vote.service.js.map

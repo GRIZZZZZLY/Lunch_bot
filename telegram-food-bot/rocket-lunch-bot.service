@@ -1,0 +1,27 @@
+[Unit]
+Description=Rocket Lunch Bot - Telegram Food Voting Bot
+Documentation=https://github.com/yourusername/rocket-lunch-bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/telegram-food-bot/backend
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /root/telegram-food-bot/backend/dist/index.js
+Restart=on-failure
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=rocket-lunch-bot
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Resource limits
+MemoryLimit=512M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

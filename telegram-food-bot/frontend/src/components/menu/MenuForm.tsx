@@ -97,7 +97,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     }
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = (): { isValid: boolean; errors: Record<string, string> } => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
@@ -123,7 +123,10 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      errors: newErrors
+    };
   };
 
   const isValidUrl = (url: string): boolean => {
@@ -138,9 +141,10 @@ export const MenuForm: React.FC<MenuFormProps> = ({
   const handleSubmit = async () => {
     haptic.impact();
 
-    if (!validateForm()) {
-      const firstError = Object.values(errors)[0];
-      showAlert(firstError);
+    const validation = validateForm();
+    if (!validation.isValid) {
+      const firstError = Object.values(validation.errors)[0];
+      showAlert(firstError || 'Проверьте правильность заполнения формы');
       return;
     }
 

@@ -11,35 +11,8 @@ class PollReminderService {
         logger_1.logger.info('PollReminderService initialized');
     }
     static scheduleReminders(pollId, durationMinutes, chatId) {
-        if (!this.botInstance) {
-            logger_1.logger.error('PollReminderService not initialized with bot instance');
-            return;
-        }
-        this.cancelReminders(pollId);
-        const timers = {};
-        if (durationMinutes > 10) {
-            const tenMinutesDelay = (durationMinutes - 10) * 60 * 1000;
-            timers.tenMinutes = setTimeout(async () => {
-                await this.sendReminderNotification(pollId, chatId, 10);
-            }, tenMinutesDelay);
-            logger_1.logger.info(`Scheduled 10-minute reminder for poll ${pollId}`);
-        }
-        if (durationMinutes > 2) {
-            const twoMinutesDelay = (durationMinutes - 2) * 60 * 1000;
-            timers.twoMinutes = setTimeout(async () => {
-                await this.sendReminderNotification(pollId, chatId, 2);
-            }, twoMinutesDelay);
-            logger_1.logger.info(`Scheduled 2-minute reminder for poll ${pollId}`);
-        }
-        if (durationMinutes > 0.5) {
-            const finalCallDelay = (durationMinutes - 0.5) * 60 * 1000;
-            timers.finalCall = setTimeout(async () => {
-                await this.sendFinalCallNotification(pollId, chatId);
-            }, finalCallDelay);
-            logger_1.logger.info(`Scheduled final call for poll ${pollId}`);
-        }
-        this.reminders.set(pollId, { pollId, timers });
-        logger_1.logger.info(`Reminders scheduled for poll ${pollId}, duration: ${durationMinutes} min`);
+        logger_1.logger.info(`[UX] Reminder notifications DISABLED for poll ${pollId} (using live updates instead)`);
+        this.reminders.set(pollId, { pollId, timers: {} });
     }
     static async sendReminderNotification(pollId, chatId, minutesRemaining) {
         try {
@@ -155,4 +128,3 @@ class PollReminderService {
     }
 }
 exports.PollReminderService = PollReminderService;
-//# sourceMappingURL=poll-reminder.service.js.map

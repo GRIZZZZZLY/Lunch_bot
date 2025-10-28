@@ -33,4 +33,3 @@ var BotErrorCodes;
     BotErrorCodes["RATE_LIMIT_EXCEEDED"] = "RATE_LIMIT_EXCEEDED";
     BotErrorCodes["DATABASE_ERROR"] = "DATABASE_ERROR";
 })(BotErrorCodes || (exports.BotErrorCodes = BotErrorCodes = {}));
-//# sourceMappingURL=bot.types.js.map

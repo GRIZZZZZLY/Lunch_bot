@@ -146,14 +146,24 @@ function createResultsKeyboard(pollId, hasVotes, isActive, isRouletteRun = false
     return { inline_keyboard: keyboard };
 }
 function createCompactPollMessage(poll, itemCount, currentVotes = 0, totalMembers = 0) {
-    let message = `🗳️ **Голосование началось!**\n\n`;
+    let timeRemaining = poll.duration || 0;
+    if (poll.startedAt) {
+        const elapsed = Math.floor((Date.now() - new Date(poll.startedAt).getTime()) / 1000 / 60);
+        timeRemaining = Math.max(0, (poll.duration || 0) - elapsed);
+    }
+    let timeEmoji = '⏰';
+    if (timeRemaining <= 2) {
+        timeEmoji = '🔥';
+    }
+    else if (timeRemaining <= 5) {
+        timeEmoji = '⚠️';
+    }
+    let message = `🗳️ **Голосование за обед**\n\n`;
     if (poll.title && poll.title !== 'Голосование за обед') {
         message += `📋 ${poll.title}\n`;
     }
     message += `🍽️ Блюд в меню: ${itemCount}\n`;
-    if (poll.duration) {
-        message += `⏰ Длительность: ${poll.duration} мин\n`;
-    }
+    message += `${timeEmoji} Осталось: ${timeRemaining} мин\n`;
     if (totalMembers > 0) {
         message += `👥 Участвуют: ${currentVotes} из ${totalMembers}\n`;
     }
@@ -314,4 +324,3 @@ function createResultsMessage(pollData) {
     }
     return message;
 }
-//# sourceMappingURL=poll.keyboard.js.map

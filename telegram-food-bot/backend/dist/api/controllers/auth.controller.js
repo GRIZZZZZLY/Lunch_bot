@@ -285,4 +285,3 @@ function generateJWT(user) {
     return jwt_service_1.JwtService.generateAccessToken(payload);
 }
 exports.authController = AuthController;
-//# sourceMappingURL=auth.controller.js.map

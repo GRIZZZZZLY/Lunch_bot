@@ -51,6 +51,9 @@ export const useAuth = (): UseAuthReturn => {
       hasInitData: !!initData,
       initDataLength: initData?.length || 0,
       hasTgUser: !!tgUser,
+      tgUserId: tgUser?.id,
+      tgUserName: tgUser?.first_name,
+      initDataPreview: initData?.substring(0, 50) || 'empty',
       useMockApi,
     };
     

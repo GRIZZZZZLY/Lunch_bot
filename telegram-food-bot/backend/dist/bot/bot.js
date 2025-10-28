@@ -348,4 +348,3 @@ async function stopBot(bot) {
 function getBotInstance() {
     return botInstance;
 }
-//# sourceMappingURL=bot.js.map

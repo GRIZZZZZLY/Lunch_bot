@@ -122,4 +122,3 @@ async function setupDefaultMenuButton(bot) {
         logger_1.logger.error('Error setting default menu button:', error);
     }
 }
-//# sourceMappingURL=group-events.js.map

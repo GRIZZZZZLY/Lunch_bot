@@ -125,4 +125,3 @@ function validateApiConfig() {
 }
 validateApiConfig();
 exports.default = exports.apiConfig;
-//# sourceMappingURL=api.config.js.map
