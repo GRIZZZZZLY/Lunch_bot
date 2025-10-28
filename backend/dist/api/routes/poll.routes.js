@@ -29,4 +29,3 @@ router.post('/:id/vote', telegram_auth_1.telegramAuthMiddleware, poll_controller
 router.delete('/:id/vote', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.removeVote);
 router.post('/:id/roulette', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.runRoulette);
 exports.default = router;
-//# sourceMappingURL=poll.routes.js.map

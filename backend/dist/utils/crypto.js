@@ -107,4 +107,3 @@ function verifyWebhookSignature(body, signature, secretToken) {
     const expectedSignature = createWebhookSignature(body, secretToken);
     return crypto_1.default.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
 }
-//# sourceMappingURL=crypto.js.map

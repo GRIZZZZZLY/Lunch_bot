@@ -31,46 +31,12 @@ export class PollReminderService {
    * Планирование напоминаний для нового голосования
    */
   static scheduleReminders(pollId: number, durationMinutes: number, chatId: bigint): void {
-    if (!this.botInstance) {
-      logger.error('PollReminderService not initialized with bot instance');
-      return;
-    }
-
-    // Очищаем существующие напоминания для этого poll
-    this.cancelReminders(pollId);
-
-    const timers: ScheduledReminder['timers'] = {};
-
-    // Напоминание за 10 минут до окончания
-    if (durationMinutes > 10) {
-      const tenMinutesDelay = (durationMinutes - 10) * 60 * 1000;
-      timers.tenMinutes = setTimeout(async () => {
-        await this.sendReminderNotification(pollId, chatId, 10);
-      }, tenMinutesDelay);
-      logger.info(`Scheduled 10-minute reminder for poll ${pollId}`);
-    }
-
-    // Напоминание за 2 минуты до окончания
-    if (durationMinutes > 2) {
-      const twoMinutesDelay = (durationMinutes - 2) * 60 * 1000;
-      timers.twoMinutes = setTimeout(async () => {
-        await this.sendReminderNotification(pollId, chatId, 2);
-      }, twoMinutesDelay);
-      logger.info(`Scheduled 2-minute reminder for poll ${pollId}`);
-    }
-
-    // Финальное напоминание за 30 секунд (опционально)
-    if (durationMinutes > 0.5) {
-      const finalCallDelay = (durationMinutes - 0.5) * 60 * 1000;
-      timers.finalCall = setTimeout(async () => {
-        await this.sendFinalCallNotification(pollId, chatId);
-      }, finalCallDelay);
-      logger.info(`Scheduled final call for poll ${pollId}`);
-    }
-
-    // Сохраняем таймеры
-    this.reminders.set(pollId, { pollId, timers });
-    logger.info(`Reminders scheduled for poll ${pollId}, duration: ${durationMinutes} min`);
+    // UX UPGRADE (Фаза 1.5): ОТКЛЮЧЕНО - вместо 3 сообщений используется 1 live-обновляемое
+    // Основное сообщение обновляется каждую минуту с изменением emoji (⏰ → ⚠️ → 🔥)
+    logger.info(`[UX] Reminder notifications DISABLED for poll ${pollId} (using live updates instead)`);
+    
+    // Сохраняем пустую запись для обратной совместимости
+    this.reminders.set(pollId, { pollId, timers: {} });
   }
 
   /**

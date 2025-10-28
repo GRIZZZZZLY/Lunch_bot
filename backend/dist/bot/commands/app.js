@@ -97,4 +97,3 @@ async function appCommand(ctx) {
             '🔄 Попробуйте еще раз или обратитесь к администратору.');
     }
 }
-//# sourceMappingURL=app.js.map

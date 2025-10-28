@@ -91,4 +91,3 @@ exports.logger.info('🔍 Logger инициализирован', {
     environment: process.env.NODE_ENV || 'development',
     transports: transports.length
 });
-//# sourceMappingURL=logger.js.map

@@ -1,10 +1,9 @@
 import { BotContext } from '../../types/bot.types';
 import { PollService } from '../../services/poll.service';
-import { VoteService } from '../../services/vote.service';
 import { UserService } from '../../services/user.service';
 import { MenuService } from '../../services/menu.service';
 import { logger } from '../../utils/logger';
-import { createPollKeyboard } from '../keyboards/poll.keyboard';
+// UX UPGRADE: Убраны неиспользуемые импорты (VoteService, createPollKeyboard)
 
 /**
  * Команда /vote - fallback для голосования без web_app
@@ -92,46 +91,47 @@ export async function voteCommand(ctx: BotContext): Promise<void> {
       return;
     }
 
-    // Проверяем, голосовал ли пользователь
-    const existingVote = await VoteService.getUserVoteInPoll(pollId, dbUser.id);
-    const votedItemName = existingVote 
-      ? activeItems.find(item => item.id === existingVote.menuItemId)?.name 
-      : null;
-
-    // Подсчитываем голоса
-    const votes = poll.votes || [];
-    const votesByItem = new Map<number, number>();
-    votes.forEach(vote => {
-      if (vote.menuItemId) {
-        votesByItem.set(vote.menuItemId, (votesByItem.get(vote.menuItemId) || 0) + 1);
-      }
-    });
-
-    // Создаём клавиатуру для голосования
-    const keyboard = createPollKeyboard(pollId, activeItems, new Map());
-
-    // Формируем сообщение
-    let message = `🗳️ **Голосование: ${poll.id}**\n\n`;
+    // UX UPGRADE (Фаза 1.6): Вместо inline-кнопок → направляем в Mini App
+    // Поддержка двух интерфейсов сложна, лучше единый UX
     
-    if (existingVote && votedItemName) {
-      message += `✅ Вы уже проголосовали за: **${votedItemName}**\n`;
-      message += `💡 Вы можете изменить свой выбор ниже\n\n`;
-    }
-
-    message += `👥 **Участников:** ${votes.length}\n`;
+    const votes = poll.votes || [];
+    const voteCount = votes.length;
     
     // Считаем оставшееся время
+    let timeRemaining = 'неизвестно';
     if (poll.startedAt && poll.duration) {
       const endTime = new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
       const remaining = Math.max(0, Math.floor((endTime.getTime() - Date.now()) / 1000 / 60));
-      message += `⏰ **Осталось:** ${remaining} мин\n`;
+      timeRemaining = `${remaining} мин`;
     }
-    
-    message += `\n📋 **Выберите блюдо:**`;
+
+    // Формируем сообщение с призывом использовать Mini App
+    const message = 
+      `🗳️ **Голосование активно!**\n\n` +
+      `👥 Проголосовало: ${voteCount}\n` +
+      `⏰ Осталось: ${timeRemaining}\n\n` +
+      `🤖 Для удобного голосования откройте Mini App:\n` +
+      `• Фото блюд\n` +
+      `• Описания и цены\n` +
+      `• Live-результаты\n\n` +
+      `👇 Нажмите кнопку ниже:`;
+
+    // Создаём клавиатуру только с кнопкой Mini App
+    const webAppUrl = process.env.WEBAPP_URL || 'https://your-domain.com';
+    const miniAppKeyboard = {
+      inline_keyboard: [
+        [
+          {
+            text: '📱 Открыть голосование',
+            web_app: { url: `${webAppUrl}?pollId=${pollId}` }
+          }
+        ]
+      ]
+    };
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',
-      reply_markup: keyboard,
+      reply_markup: miniAppKeyboard,
     });
 
     logger.info(`Fallback vote command used by user ${dbUser.id} for poll ${pollId}`);

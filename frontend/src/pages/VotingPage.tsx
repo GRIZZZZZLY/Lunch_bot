@@ -255,13 +255,14 @@ export const VotingPage: React.FC = () => {
       if (response.success && response.data) {
         console.log('✅ Vote response received:', response.data);
         
-        // Успешное голосование - haptic success (достаточно тактильной обратной связи)
+        // Успешное голосование - haptic success + уведомление
         hapticFeedback.notificationOccurred('success');
         
-        // Убрали всплывающее уведомление - пользователь видит:
-        // 1. Зелёный блок "Вы проголосовали за: ..."
-        // 2. Обновленные счетчики голосов
-        // 3. Checkmark на выбранном блюде
+        // UX UPGRADE: Показываем toast с подтверждением (простая обратная связь)
+        addNotification({
+          type: 'success',
+          message: '✓ Голос учтен! Чтобы изменить - выберите другое блюдо',
+        });
         
         console.log('🔄 Refreshing poll data...');
         

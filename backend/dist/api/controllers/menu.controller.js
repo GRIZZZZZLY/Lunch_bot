@@ -25,7 +25,17 @@ class MenuController {
     }
     static async getActiveItems(req, res) {
         try {
+            const user = req.user;
+            logger_1.logger.info('🔍 [MenuController] getActiveItems called', {
+                userId: user?.id,
+                userTelegramId: user?.telegramId,
+                hasAuthHeader: !!req.headers.authorization
+            });
             const items = await menu_service_1.MenuService.getActiveMenuItems();
+            logger_1.logger.info('✅ [MenuController] Active menu items retrieved', {
+                count: items.length,
+                items: items.map(i => ({ id: i.id, name: i.name, isActive: i.isActive }))
+            });
             res.json({
                 success: true,
                 data: items,
@@ -34,7 +44,7 @@ class MenuController {
             });
         }
         catch (error) {
-            logger_1.logger.error('Error getting active menu items:', error);
+            logger_1.logger.error('❌ [MenuController] Error getting active menu items:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to get active menu items',
@@ -385,4 +395,3 @@ class MenuController {
 }
 exports.MenuController = MenuController;
 exports.menuController = MenuController;
-//# sourceMappingURL=menu.controller.js.map

@@ -12,4 +12,3 @@ router.get('/me', telegram_auth_1.telegramAuthMiddleware, auth_controller_1.auth
 router.get('/status', telegram_auth_1.telegramAuthMiddleware, auth_controller_1.authController.getAuthStatus);
 router.post('/refresh', telegram_auth_1.telegramAuthMiddleware, auth_controller_1.authController.refreshAuth);
 exports.default = router;
-//# sourceMappingURL=auth.routes.js.map

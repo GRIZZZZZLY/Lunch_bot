@@ -100,7 +100,23 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
 
         // Проверяем голос пользователя
         if (user) {
+          console.log('[InlineVotingCard] 🔍 Looking for user vote:', {
+            currentUserId: user.id,
+            userTelegramId: user.telegramId,
+            userFirstName: user.firstName,
+            totalVotes: pollResponse.data.votes?.length || 0,
+            allVoterIds: pollResponse.data.votes?.map(v => ({ userId: v.userId, userName: v.user?.firstName })) || []
+          });
+          
           const existingVote = pollResponse.data.votes?.find(v => v.userId === user.id);
+          
+          console.log('[InlineVotingCard] 🎯 User vote result:', {
+            found: !!existingVote,
+            voteId: existingVote?.id,
+            menuItemId: existingVote?.menuItemId,
+            menuItemName: existingVote?.menuItem?.name
+          });
+          
           setUserVote(existingVote || null);
           setSelectedItemId(existingVote?.menuItemId || null);
         }

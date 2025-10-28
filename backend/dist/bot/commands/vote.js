@@ -35,11 +35,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.voteCommand = voteCommand;
 const poll_service_1 = require("../../services/poll.service");
-const vote_service_1 = require("../../services/vote.service");
 const user_service_1 = require("../../services/user.service");
 const menu_service_1 = require("../../services/menu.service");
 const logger_1 = require("../../utils/logger");
-const poll_keyboard_1 = require("../keyboards/poll.keyboard");
 async function voteCommand(ctx) {
     try {
         const user = ctx.from;
@@ -100,33 +98,36 @@ async function voteCommand(ctx) {
             await ctx.reply('❌ Нет доступных блюд в меню');
             return;
         }
-        const existingVote = await vote_service_1.VoteService.getUserVoteInPoll(pollId, dbUser.id);
-        const votedItemName = existingVote
-            ? activeItems.find(item => item.id === existingVote.menuItemId)?.name
-            : null;
         const votes = poll.votes || [];
-        const votesByItem = new Map();
-        votes.forEach(vote => {
-            if (vote.menuItemId) {
-                votesByItem.set(vote.menuItemId, (votesByItem.get(vote.menuItemId) || 0) + 1);
-            }
-        });
-        const keyboard = (0, poll_keyboard_1.createPollKeyboard)(pollId, activeItems, new Map());
-        let message = `🗳️ **Голосование: ${poll.id}**\n\n`;
-        if (existingVote && votedItemName) {
-            message += `✅ Вы уже проголосовали за: **${votedItemName}**\n`;
-            message += `💡 Вы можете изменить свой выбор ниже\n\n`;
-        }
-        message += `👥 **Участников:** ${votes.length}\n`;
+        const voteCount = votes.length;
+        let timeRemaining = 'неизвестно';
         if (poll.startedAt && poll.duration) {
             const endTime = new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
             const remaining = Math.max(0, Math.floor((endTime.getTime() - Date.now()) / 1000 / 60));
-            message += `⏰ **Осталось:** ${remaining} мин\n`;
+            timeRemaining = `${remaining} мин`;
         }
-        message += `\n📋 **Выберите блюдо:**`;
+        const message = `🗳️ **Голосование активно!**\n\n` +
+            `👥 Проголосовало: ${voteCount}\n` +
+            `⏰ Осталось: ${timeRemaining}\n\n` +
+            `🤖 Для удобного голосования откройте Mini App:\n` +
+            `• Фото блюд\n` +
+            `• Описания и цены\n` +
+            `• Live-результаты\n\n` +
+            `👇 Нажмите кнопку ниже:`;
+        const webAppUrl = process.env.WEBAPP_URL || 'https://your-domain.com';
+        const miniAppKeyboard = {
+            inline_keyboard: [
+                [
+                    {
+                        text: '📱 Открыть голосование',
+                        web_app: { url: `${webAppUrl}?pollId=${pollId}` }
+                    }
+                ]
+            ]
+        };
         await ctx.reply(message, {
             parse_mode: 'Markdown',
-            reply_markup: keyboard,
+            reply_markup: miniAppKeyboard,
         });
         logger_1.logger.info(`Fallback vote command used by user ${dbUser.id} for poll ${pollId}`);
     }
@@ -135,4 +136,3 @@ async function voteCommand(ctx) {
         await ctx.reply('❌ Произошла ошибка. Попробуйте позже.');
     }
 }
-//# sourceMappingURL=vote.js.map

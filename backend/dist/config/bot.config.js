@@ -88,4 +88,3 @@ function validateConfig() {
 }
 validateConfig();
 exports.default = exports.botConfig;
-//# sourceMappingURL=bot.config.js.map

@@ -65,10 +65,25 @@ class MenuService {
    * Получение только активных блюд
    */
   async getActiveItems(): Promise<ApiResponse<MenuItem[]>> {
+    console.log('[MenuService] 🔍 getActiveItems called', {
+      useMockApi: USE_MOCK_API,
+      hasToken: !!apiService.getToken()
+    });
+    
     if (USE_MOCK_API) {
       return await mockApiService.getActiveMenuItems();
     }
-    return await apiService.get<MenuItem[]>('/menu/active');
+    
+    const response = await apiService.get<MenuItem[]>('/menu/active');
+    
+    console.log('[MenuService] ✅ getActiveItems response', {
+      success: response.success,
+      count: response.data?.length || 0,
+      error: response.error,
+      data: response.data
+    });
+    
+    return response;
   }
 
   /**

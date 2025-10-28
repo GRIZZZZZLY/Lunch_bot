@@ -192,4 +192,3 @@ async function startCommand(ctx) {
         await ctx.reply('❌ Произошла ошибка при регистрации. Попробуйте позже.');
     }
 }
-//# sourceMappingURL=start.js.map
