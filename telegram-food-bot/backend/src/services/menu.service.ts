@@ -193,10 +193,13 @@ export class MenuService {
    */
   static async getActiveMenuItems(): Promise<MenuItem[]> {
     try {
-      return await cacheService.getOrSet(
+      logger.info('🔍 [MenuService] getActiveMenuItems called');
+      
+      const items = await cacheService.getOrSet(
         CACHE_KEYS.MENU_ITEMS_ACTIVE,
         async () => {
-          return await prisma.menuItem.findMany({
+          logger.info('🔍 [MenuService] Fetching from DB (cache miss)');
+          const dbItems = await prisma.menuItem.findMany({
             where: { isActive: true },
             select: {
               id: true,
@@ -212,11 +215,19 @@ export class MenuService {
             },
             orderBy: { name: 'asc' },
           });
+          logger.info('✅ [MenuService] DB query result', {
+            count: dbItems.length,
+            items: dbItems.slice(0, 3).map(i => i.name)
+          });
+          return dbItems;
         },
         CACHE_TTL.MENU
       );
+      
+      logger.info('✅ [MenuService] Returning items', { count: items.length });
+      return items;
     } catch (error) {
-      logger.error('Error getting active menu items:', error);
+      logger.error('❌ [MenuService] Error getting active menu items:', error);
       throw new Error('Failed to get active menu items');
     }
   }

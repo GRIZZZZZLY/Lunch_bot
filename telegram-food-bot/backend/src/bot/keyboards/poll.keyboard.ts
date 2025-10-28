@@ -206,6 +206,7 @@ export function createResultsKeyboard(
 
 /**
  * Создание компактного сообщения для группы (для Deep Linking flow)
+ * UX UPGRADE (Фаза 1.5): Вместо 3 сообщений - 1 live-обновляемое
  */
 export function createCompactPollMessage(
   poll: any,
@@ -213,17 +214,29 @@ export function createCompactPollMessage(
   currentVotes: number = 0,
   totalMembers: number = 0
 ): string {
-  let message = `🗳️ **Голосование началось!**\n\n`;
+  // Вычисляем оставшееся время
+  let timeRemaining = poll.duration || 0;
+  if (poll.startedAt) {
+    const elapsed = Math.floor((Date.now() - new Date(poll.startedAt).getTime()) / 1000 / 60);
+    timeRemaining = Math.max(0, (poll.duration || 0) - elapsed);
+  }
+  
+  // Определяем emoji на основе оставшегося времени (live indicator)
+  let timeEmoji = '⏰';
+  if (timeRemaining <= 2) {
+    timeEmoji = '🔥'; // < 2 мин - HOT!
+  } else if (timeRemaining <= 5) {
+    timeEmoji = '⚠️'; // < 5 мин - срочно
+  }
+  
+  let message = `🗳️ **Голосование за обед**\n\n`;
   
   if (poll.title && poll.title !== 'Голосование за обед') {
     message += `📋 ${poll.title}\n`;
   }
   
   message += `🍽️ Блюд в меню: ${itemCount}\n`;
-  
-  if (poll.duration) {
-    message += `⏰ Длительность: ${poll.duration} мин\n`;
-  }
+  message += `${timeEmoji} Осталось: ${timeRemaining} мин\n`;
   
   if (totalMembers > 0) {
     message += `👥 Участвуют: ${currentVotes} из ${totalMembers}\n`;

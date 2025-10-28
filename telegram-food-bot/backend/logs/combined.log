@@ -25047,3 +25047,171 @@
 {"level":"debug","message":"✅ JWT token validated","telegramId":"555502880","timestamp":"2025-10-27T20:35:23.339Z","userId":4833}
 {"duration":"2ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":200,"timestamp":"2025-10-27T20:35:23.340Z","url":"/credits?userId=4833","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
 {"duration":"3ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":200,"timestamp":"2025-10-27T20:35:23.341Z","url":"/debts?userId=4833","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"environment":"production","level":"info","message":"🔍 Logger инициализирован","timestamp":"2025-10-27T20:35:56.304Z","transports":3}
+{"level":"info","message":"Cache service initialized","timestamp":"2025-10-27T20:35:56.625Z"}
+{"level":"info","message":"Sentry мониторинг отключен","timestamp":"2025-10-27T20:35:56.744Z"}
+{"level":"info","message":"Notification service initialized","timestamp":"2025-10-27T20:35:56.745Z"}
+{"level":"info","message":"PollReminderService initialized","timestamp":"2025-10-27T20:35:56.745Z"}
+{"level":"info","message":"ResponsibleService bot instance initialized","timestamp":"2025-10-27T20:35:56.746Z"}
+{"level":"info","message":"BudgetService bot instance initialized","timestamp":"2025-10-27T20:35:56.746Z"}
+{"level":"info","message":"Frontend static path: E:\\Lunch_bot\\telegram-food-bot\\frontend\\dist","timestamp":"2025-10-27T20:35:56.766Z"}
+{"corsOrigin":"https://epicritic-uninspiredly-makai.ngrok-free.dev","level":"info","maxFileSize":"5MB","message":"API сервер настроен","timestamp":"2025-10-27T20:35:56.766Z","uploadPath":"E:\\Lunch_bot\\telegram-food-bot\\backend\\uploads"}
+{"level":"info","message":"PollService bot instance initialized","timestamp":"2025-10-27T20:35:56.767Z"}
+{"level":"info","message":"Запуск Telegram Food Bot...","timestamp":"2025-10-27T20:35:56.767Z"}
+{"level":"info","message":"Prisma Info: Starting a sqlite pool with 13 connections.","target":"quaint::pooled","timestamp":"2025-10-27T20:35:56.775Z"}
+{"level":"info","message":"✅ Подключение к базе данных успешно установлено","timestamp":"2025-10-27T20:35:56.776Z"}
+{"level":"info","message":"🔄 Удаление webhook перед запуском polling...","timestamp":"2025-10-27T20:35:56.777Z"}
+{"level":"info","message":"✅ Приложение успешно запущено","timestamp":"2025-10-27T20:35:56.778Z"}
+{"level":"info","message":"🚀 API сервер запущен на http://127.0.0.1:3001","timestamp":"2025-10-27T20:35:56.780Z"}
+{"level":"info","message":"📋 Доступные endpoints:","timestamp":"2025-10-27T20:35:56.780Z"}
+{"level":"info","message":"  GET  /health - проверка состояния","timestamp":"2025-10-27T20:35:56.780Z"}
+{"level":"info","message":"  POST /api/auth/validate - валидация пользователя","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  GET  /api/auth/me - информация о пользователе","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  GET  /api/auth/status - статус авторизации","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  GET  /api/menu - список блюд","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  POST /api/menu - создание блюда","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  GET  /api/menu/:id - получение блюда","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  PUT  /api/menu/:id - обновление блюда","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  DELETE /api/menu/:id - удаление блюда","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  PATCH /api/menu/:id/toggle - переключение активности","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  GET  /api/polls/active - активные голосования","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  GET  /api/polls/:id - информация о голосовании","timestamp":"2025-10-27T20:35:56.781Z"}
+{"level":"info","message":"  GET  /api/polls/:id/results - результаты голосования","timestamp":"2025-10-27T20:35:56.782Z"}
+{"level":"info","message":"  GET  /api/polls/history - история голосований","timestamp":"2025-10-27T20:35:56.782Z"}
+{"level":"info","message":"  GET  /api/polls/stats - статистика голосований","timestamp":"2025-10-27T20:35:56.782Z"}
+{"level":"info","message":"  GET  /api/polls/user-stats/my - статистика текущего пользователя","timestamp":"2025-10-27T20:35:56.782Z"}
+{"level":"info","message":"  GET  /api/polls/user-stats/:userId - статистика пользователя (admin)","timestamp":"2025-10-27T20:35:56.782Z"}
+{"level":"info","message":"  POST /api/polls - создание голосования","timestamp":"2025-10-27T20:35:56.782Z"}
+{"level":"info","message":"  PATCH /api/polls/:id/complete - завершение голосования","timestamp":"2025-10-27T20:35:56.782Z"}
+{"level":"info","message":"  PATCH /api/polls/:id/cancel - отмена голосования","timestamp":"2025-10-27T20:35:56.782Z"}
+{"canJoinGroups":true,"canReadAllGroupMessages":false,"firstName":"Rocket Lunch","id":8298516078,"level":"info","message":"🤖 Бот инициализирован","supportsInlineQueries":false,"timestamp":"2025-10-27T20:35:57.396Z","username":"rocket_lunch_bot"}
+{"level":"info","message":"✅ Webhook удален","timestamp":"2025-10-27T20:35:57.481Z"}
+{"level":"info","message":"Default menu button set for private chats","timestamp":"2025-10-27T20:35:57.514Z","webappUrl":"https://epicritic-uninspiredly-makai.ngrok-free.dev"}
+{"level":"info","message":"🚀 Бот запущен в polling режиме","timestamp":"2025-10-27T20:35:57.873Z","username":"rocket_lunch_bot"}
+{"initDataLength":600,"level":"info","message":"🔐 Validating initData...","nodeEnv":"production","timestamp":"2025-10-27T20:36:01.987Z"}
+{"initDataLength":600,"initDataPreview":"query_id=AAEgTRwhAAAAACBNHCHRG2Xn&user=%7B%22id%22...","level":"info","message":"🔐 Validating Telegram initData","timestamp":"2025-10-27T20:36:01.988Z"}
+{"authDate":1761595674,"hasHash":true,"hasSignature":true,"hasUser":true,"level":"info","message":"📝 Parsed initData","timestamp":"2025-10-27T20:36:01.988Z"}
+{"botTokenLength":46,"dataCheckString":"auth_date=1761595674\nquery_id=AAEgTRwhAAAAACBNHCHRG2Xn\nuser={\"id\":555502880,\"first_name\":\"Игорь\",\"last_name\":\"\",\"username\":\"igo_kravts\",\"language_code\":\"ru\",\"is_premium\":true,\"allows_write_to_pm\":true,\"photo_url\":\"https:\\/\\/t.me\\/i\\/userpic\\/320\\/MBilWOD5D8SWpocN4gcDd_hBAHftHOccZKDOfCA91Ls.svg\"}","dataCheckStringLength":296,"fields":["auth_date","query_id","user"],"level":"debug","message":"🔍 Signature verification data:","receivedSignature":"BTPiYVzlZcZvSGz3JC_1...","receivedSignatureFull":"BTPiYVzlZcZvSGz3JC_1WRrfZkPwc2luRoLzplqQ6Cj--VnoDcGiHdgHFHlToTjQhW8cUoUJryiBx26m3dv0CA","signatureLength":86,"timestamp":"2025-10-27T20:36:01.989Z","usingField":"signature"}
+{"calculated":"zL4RKN1g0GjfyTS2qHXn...","format":"base64url (URL-safe)","level":"debug","match":false,"message":"🔍 Signature comparison:","received":"BTPiYVzlZcZvSGz3JC_1...","timestamp":"2025-10-27T20:36:01.990Z"}
+{"level":"warn","message":"⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!","timestamp":"2025-10-27T20:36:01.990Z"}
+{"level":"warn","message":"⚠️ Using REAL user data from Telegram despite signature mismatch","timestamp":"2025-10-27T20:36:01.990Z"}
+{"level":"warn","message":"⚠️ This should ONLY be used for debugging ngrok setup!","timestamp":"2025-10-27T20:36:01.990Z"}
+{"level":"info","message":"✅ Telegram hash verified successfully","timestamp":"2025-10-27T20:36:01.990Z"}
+{"firstName":"Игорь","level":"info","message":"✅ Telegram initData validated successfully","timestamp":"2025-10-27T20:36:01.991Z","userId":555502880,"username":"igo_kravts"}
+{"level":"info","message":"✅ InitData validated successfully","timestamp":"2025-10-27T20:36:01.991Z","userId":555502880,"username":"igo_kravts"}
+{"duration":"1ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":401,"timestamp":"2025-10-27T20:36:01.993Z","url":"/me","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"initDataLength":600,"level":"info","message":"🔐 Validating initData...","nodeEnv":"production","timestamp":"2025-10-27T20:36:02.193Z"}
+{"initDataLength":600,"initDataPreview":"query_id=AAEgTRwhAAAAACBNHCHRG2Xn&user=%7B%22id%22...","level":"info","message":"🔐 Validating Telegram initData","timestamp":"2025-10-27T20:36:02.193Z"}
+{"authDate":1761595674,"hasHash":true,"hasSignature":true,"hasUser":true,"level":"info","message":"📝 Parsed initData","timestamp":"2025-10-27T20:36:02.194Z"}
+{"botTokenLength":46,"dataCheckString":"auth_date=1761595674\nquery_id=AAEgTRwhAAAAACBNHCHRG2Xn\nuser={\"id\":555502880,\"first_name\":\"Игорь\",\"last_name\":\"\",\"username\":\"igo_kravts\",\"language_code\":\"ru\",\"is_premium\":true,\"allows_write_to_pm\":true,\"photo_url\":\"https:\\/\\/t.me\\/i\\/userpic\\/320\\/MBilWOD5D8SWpocN4gcDd_hBAHftHOccZKDOfCA91Ls.svg\"}","dataCheckStringLength":296,"fields":["auth_date","query_id","user"],"level":"debug","message":"🔍 Signature verification data:","receivedSignature":"BTPiYVzlZcZvSGz3JC_1...","receivedSignatureFull":"BTPiYVzlZcZvSGz3JC_1WRrfZkPwc2luRoLzplqQ6Cj--VnoDcGiHdgHFHlToTjQhW8cUoUJryiBx26m3dv0CA","signatureLength":86,"timestamp":"2025-10-27T20:36:02.194Z","usingField":"signature"}
+{"calculated":"zL4RKN1g0GjfyTS2qHXn...","format":"base64url (URL-safe)","level":"debug","match":false,"message":"🔍 Signature comparison:","received":"BTPiYVzlZcZvSGz3JC_1...","timestamp":"2025-10-27T20:36:02.195Z"}
+{"level":"warn","message":"⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!","timestamp":"2025-10-27T20:36:02.195Z"}
+{"level":"warn","message":"⚠️ Using REAL user data from Telegram despite signature mismatch","timestamp":"2025-10-27T20:36:02.195Z"}
+{"level":"warn","message":"⚠️ This should ONLY be used for debugging ngrok setup!","timestamp":"2025-10-27T20:36:02.195Z"}
+{"level":"info","message":"✅ Telegram hash verified successfully","timestamp":"2025-10-27T20:36:02.195Z"}
+{"firstName":"Игорь","level":"info","message":"✅ Telegram initData validated successfully","timestamp":"2025-10-27T20:36:02.195Z","userId":555502880,"username":"igo_kravts"}
+{"level":"info","message":"✅ InitData validated successfully","timestamp":"2025-10-27T20:36:02.196Z","userId":555502880,"username":"igo_kravts"}
+{"duration":"0ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":401,"timestamp":"2025-10-27T20:36:02.223Z","url":"/active","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"initDataLength":600,"level":"info","message":"🔐 Validating initData...","nodeEnv":"production","timestamp":"2025-10-27T20:36:02.226Z"}
+{"initDataLength":600,"initDataPreview":"query_id=AAEgTRwhAAAAACBNHCHRG2Xn&user=%7B%22id%22...","level":"info","message":"🔐 Validating Telegram initData","timestamp":"2025-10-27T20:36:02.227Z"}
+{"authDate":1761595674,"hasHash":true,"hasSignature":true,"hasUser":true,"level":"info","message":"📝 Parsed initData","timestamp":"2025-10-27T20:36:02.227Z"}
+{"botTokenLength":46,"dataCheckString":"auth_date=1761595674\nquery_id=AAEgTRwhAAAAACBNHCHRG2Xn\nuser={\"id\":555502880,\"first_name\":\"Игорь\",\"last_name\":\"\",\"username\":\"igo_kravts\",\"language_code\":\"ru\",\"is_premium\":true,\"allows_write_to_pm\":true,\"photo_url\":\"https:\\/\\/t.me\\/i\\/userpic\\/320\\/MBilWOD5D8SWpocN4gcDd_hBAHftHOccZKDOfCA91Ls.svg\"}","dataCheckStringLength":296,"fields":["auth_date","query_id","user"],"level":"debug","message":"🔍 Signature verification data:","receivedSignature":"BTPiYVzlZcZvSGz3JC_1...","receivedSignatureFull":"BTPiYVzlZcZvSGz3JC_1WRrfZkPwc2luRoLzplqQ6Cj--VnoDcGiHdgHFHlToTjQhW8cUoUJryiBx26m3dv0CA","signatureLength":86,"timestamp":"2025-10-27T20:36:02.227Z","usingField":"signature"}
+{"calculated":"zL4RKN1g0GjfyTS2qHXn...","format":"base64url (URL-safe)","level":"debug","match":false,"message":"🔍 Signature comparison:","received":"BTPiYVzlZcZvSGz3JC_1...","timestamp":"2025-10-27T20:36:02.228Z"}
+{"level":"warn","message":"⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!","timestamp":"2025-10-27T20:36:02.228Z"}
+{"level":"warn","message":"⚠️ Using REAL user data from Telegram despite signature mismatch","timestamp":"2025-10-27T20:36:02.228Z"}
+{"level":"warn","message":"⚠️ This should ONLY be used for debugging ngrok setup!","timestamp":"2025-10-27T20:36:02.228Z"}
+{"level":"info","message":"✅ Telegram hash verified successfully","timestamp":"2025-10-27T20:36:02.228Z"}
+{"firstName":"Игорь","level":"info","message":"✅ Telegram initData validated successfully","timestamp":"2025-10-27T20:36:02.228Z","userId":555502880,"username":"igo_kravts"}
+{"level":"info","message":"✅ InitData validated successfully","timestamp":"2025-10-27T20:36:02.231Z","userId":555502880,"username":"igo_kravts"}
+{"duration":"0ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":401,"timestamp":"2025-10-27T20:36:02.268Z","url":"/","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"initDataLength":600,"level":"info","message":"🔐 Validating initData...","nodeEnv":"production","timestamp":"2025-10-27T20:36:02.306Z"}
+{"initDataLength":600,"initDataPreview":"query_id=AAEgTRwhAAAAACBNHCHRG2Xn&user=%7B%22id%22...","level":"info","message":"🔐 Validating Telegram initData","timestamp":"2025-10-27T20:36:02.306Z"}
+{"authDate":1761595674,"hasHash":true,"hasSignature":true,"hasUser":true,"level":"info","message":"📝 Parsed initData","timestamp":"2025-10-27T20:36:02.307Z"}
+{"botTokenLength":46,"dataCheckString":"auth_date=1761595674\nquery_id=AAEgTRwhAAAAACBNHCHRG2Xn\nuser={\"id\":555502880,\"first_name\":\"Игорь\",\"last_name\":\"\",\"username\":\"igo_kravts\",\"language_code\":\"ru\",\"is_premium\":true,\"allows_write_to_pm\":true,\"photo_url\":\"https:\\/\\/t.me\\/i\\/userpic\\/320\\/MBilWOD5D8SWpocN4gcDd_hBAHftHOccZKDOfCA91Ls.svg\"}","dataCheckStringLength":296,"fields":["auth_date","query_id","user"],"level":"debug","message":"🔍 Signature verification data:","receivedSignature":"BTPiYVzlZcZvSGz3JC_1...","receivedSignatureFull":"BTPiYVzlZcZvSGz3JC_1WRrfZkPwc2luRoLzplqQ6Cj--VnoDcGiHdgHFHlToTjQhW8cUoUJryiBx26m3dv0CA","signatureLength":86,"timestamp":"2025-10-27T20:36:02.308Z","usingField":"signature"}
+{"calculated":"zL4RKN1g0GjfyTS2qHXn...","format":"base64url (URL-safe)","level":"debug","match":false,"message":"🔍 Signature comparison:","received":"BTPiYVzlZcZvSGz3JC_1...","timestamp":"2025-10-27T20:36:02.308Z"}
+{"level":"warn","message":"⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!","timestamp":"2025-10-27T20:36:02.308Z"}
+{"level":"warn","message":"⚠️ Using REAL user data from Telegram despite signature mismatch","timestamp":"2025-10-27T20:36:02.308Z"}
+{"level":"warn","message":"⚠️ This should ONLY be used for debugging ngrok setup!","timestamp":"2025-10-27T20:36:02.308Z"}
+{"level":"info","message":"✅ Telegram hash verified successfully","timestamp":"2025-10-27T20:36:02.309Z"}
+{"firstName":"Игорь","level":"info","message":"✅ Telegram initData validated successfully","timestamp":"2025-10-27T20:36:02.309Z","userId":555502880,"username":"igo_kravts"}
+{"level":"info","message":"✅ InitData validated successfully","timestamp":"2025-10-27T20:36:02.309Z","userId":555502880,"username":"igo_kravts"}
+{"initDataLength":600,"level":"info","message":"🔐 Validating initData...","nodeEnv":"production","timestamp":"2025-10-27T20:36:02.311Z"}
+{"initDataLength":600,"initDataPreview":"query_id=AAEgTRwhAAAAACBNHCHRG2Xn&user=%7B%22id%22...","level":"info","message":"🔐 Validating Telegram initData","timestamp":"2025-10-27T20:36:02.311Z"}
+{"authDate":1761595674,"hasHash":true,"hasSignature":true,"hasUser":true,"level":"info","message":"📝 Parsed initData","timestamp":"2025-10-27T20:36:02.311Z"}
+{"botTokenLength":46,"dataCheckString":"auth_date=1761595674\nquery_id=AAEgTRwhAAAAACBNHCHRG2Xn\nuser={\"id\":555502880,\"first_name\":\"Игорь\",\"last_name\":\"\",\"username\":\"igo_kravts\",\"language_code\":\"ru\",\"is_premium\":true,\"allows_write_to_pm\":true,\"photo_url\":\"https:\\/\\/t.me\\/i\\/userpic\\/320\\/MBilWOD5D8SWpocN4gcDd_hBAHftHOccZKDOfCA91Ls.svg\"}","dataCheckStringLength":296,"fields":["auth_date","query_id","user"],"level":"debug","message":"🔍 Signature verification data:","receivedSignature":"BTPiYVzlZcZvSGz3JC_1...","receivedSignatureFull":"BTPiYVzlZcZvSGz3JC_1WRrfZkPwc2luRoLzplqQ6Cj--VnoDcGiHdgHFHlToTjQhW8cUoUJryiBx26m3dv0CA","signatureLength":86,"timestamp":"2025-10-27T20:36:02.312Z","usingField":"signature"}
+{"calculated":"zL4RKN1g0GjfyTS2qHXn...","format":"base64url (URL-safe)","level":"debug","match":false,"message":"🔍 Signature comparison:","received":"BTPiYVzlZcZvSGz3JC_1...","timestamp":"2025-10-27T20:36:02.312Z"}
+{"level":"warn","message":"⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!","timestamp":"2025-10-27T20:36:02.312Z"}
+{"level":"warn","message":"⚠️ Using REAL user data from Telegram despite signature mismatch","timestamp":"2025-10-27T20:36:02.312Z"}
+{"level":"warn","message":"⚠️ This should ONLY be used for debugging ngrok setup!","timestamp":"2025-10-27T20:36:02.313Z"}
+{"level":"info","message":"✅ Telegram hash verified successfully","timestamp":"2025-10-27T20:36:02.313Z"}
+{"firstName":"Игорь","level":"info","message":"✅ Telegram initData validated successfully","timestamp":"2025-10-27T20:36:02.313Z","userId":555502880,"username":"igo_kravts"}
+{"level":"info","message":"✅ InitData validated successfully","timestamp":"2025-10-27T20:36:02.313Z","userId":555502880,"username":"igo_kravts"}
+{"duration":"0ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":401,"timestamp":"2025-10-27T20:36:02.417Z","url":"/active","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"level":"info","message":"User upserted: 555502880 (Игорь) with photo","timestamp":"2025-10-27T20:36:02.510Z"}
+{"level":"info","message":"User validated via initData","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.510Z","userId":4833,"username":"igo_kravts"}
+{"expiresIn":"7d","level":"debug","message":"🔐 Access token generated","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.513Z","userId":4833}
+{"duration":"527ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"POST","statusCode":200,"timestamp":"2025-10-27T20:36:02.514Z","url":"/validate","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"level":"info","message":"User upserted: 555502880 (Игорь) with photo","timestamp":"2025-10-27T20:36:02.590Z"}
+{"level":"info","message":"User validated via initData","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.590Z","userId":4833,"username":"igo_kravts"}
+{"expiresIn":"7d","level":"debug","message":"🔐 Access token generated","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.592Z","userId":4833}
+{"duration":"366ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"POST","statusCode":200,"timestamp":"2025-10-27T20:36:02.592Z","url":"/validate","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"level":"info","message":"User upserted: 555502880 (Игорь) with photo","timestamp":"2025-10-27T20:36:02.677Z"}
+{"level":"info","message":"User validated via initData","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.677Z","userId":4833,"username":"igo_kravts"}
+{"expiresIn":"7d","level":"debug","message":"🔐 Access token generated","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.678Z","userId":4833}
+{"duration":"367ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"POST","statusCode":200,"timestamp":"2025-10-27T20:36:02.678Z","url":"/validate","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"level":"info","message":"User upserted: 555502880 (Игорь) with photo","timestamp":"2025-10-27T20:36:02.765Z"}
+{"level":"info","message":"User validated via initData","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.766Z","userId":4833,"username":"igo_kravts"}
+{"expiresIn":"7d","level":"debug","message":"🔐 Access token generated","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.766Z","userId":4833}
+{"duration":"574ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"POST","statusCode":200,"timestamp":"2025-10-27T20:36:02.767Z","url":"/validate","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"level":"info","message":"User upserted: 555502880 (Игорь) with photo","timestamp":"2025-10-27T20:36:02.844Z"}
+{"level":"info","message":"User validated via initData","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.844Z","userId":4833,"username":"igo_kravts"}
+{"expiresIn":"7d","level":"debug","message":"🔐 Access token generated","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.845Z","userId":4833}
+{"duration":"540ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"POST","statusCode":200,"timestamp":"2025-10-27T20:36:02.846Z","url":"/validate","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"level":"debug","message":"✅ Token verified successfully","timestamp":"2025-10-27T20:36:02.900Z","type":"access","userId":4833}
+{"level":"debug","message":"✅ JWT token validated","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.902Z","userId":4833}
+{"level":"info","message":"🔍 Fetching active polls...","timestamp":"2025-10-27T20:36:02.902Z"}
+{"level":"info","message":"📊 Found 0 polls with ACTIVE status","timestamp":"2025-10-27T20:36:02.904Z"}
+{"level":"info","message":"✅ Returning 0 active polls","timestamp":"2025-10-27T20:36:02.904Z"}
+{"duration":"5ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":200,"timestamp":"2025-10-27T20:36:02.904Z","url":"/active","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"level":"debug","message":"✅ Token verified successfully","timestamp":"2025-10-27T20:36:02.942Z","type":"access","userId":4833}
+{"level":"debug","message":"✅ JWT token validated","telegramId":"555502880","timestamp":"2025-10-27T20:36:02.943Z","userId":4833}
+{"duration":"3ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":200,"timestamp":"2025-10-27T20:36:02.945Z","url":"/","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"level":"debug","message":"✅ Token verified successfully","timestamp":"2025-10-27T20:36:03.140Z","type":"access","userId":4833}
+{"level":"debug","message":"✅ JWT token validated","telegramId":"555502880","timestamp":"2025-10-27T20:36:03.141Z","userId":4833}
+{"level":"info","message":"🔍 Fetching active polls...","timestamp":"2025-10-27T20:36:03.141Z"}
+{"level":"info","message":"📊 Found 0 polls with ACTIVE status","timestamp":"2025-10-27T20:36:03.143Z"}
+{"level":"info","message":"✅ Returning 0 active polls","timestamp":"2025-10-27T20:36:03.143Z"}
+{"duration":"3ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":200,"timestamp":"2025-10-27T20:36:03.143Z","url":"/active","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"duration":"1ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":401,"timestamp":"2025-10-27T20:36:05.952Z","url":"/me","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"initDataLength":600,"level":"info","message":"🔐 Validating initData...","nodeEnv":"production","timestamp":"2025-10-27T20:36:05.953Z"}
+{"initDataLength":600,"initDataPreview":"query_id=AAEgTRwhAAAAACBNHCHRG2Xn&user=%7B%22id%22...","level":"info","message":"🔐 Validating Telegram initData","timestamp":"2025-10-27T20:36:05.953Z"}
+{"authDate":1761595674,"hasHash":true,"hasSignature":true,"hasUser":true,"level":"info","message":"📝 Parsed initData","timestamp":"2025-10-27T20:36:05.953Z"}
+{"botTokenLength":46,"dataCheckString":"auth_date=1761595674\nquery_id=AAEgTRwhAAAAACBNHCHRG2Xn\nuser={\"id\":555502880,\"first_name\":\"Игорь\",\"last_name\":\"\",\"username\":\"igo_kravts\",\"language_code\":\"ru\",\"is_premium\":true,\"allows_write_to_pm\":true,\"photo_url\":\"https:\\/\\/t.me\\/i\\/userpic\\/320\\/MBilWOD5D8SWpocN4gcDd_hBAHftHOccZKDOfCA91Ls.svg\"}","dataCheckStringLength":296,"fields":["auth_date","query_id","user"],"level":"debug","message":"🔍 Signature verification data:","receivedSignature":"BTPiYVzlZcZvSGz3JC_1...","receivedSignatureFull":"BTPiYVzlZcZvSGz3JC_1WRrfZkPwc2luRoLzplqQ6Cj--VnoDcGiHdgHFHlToTjQhW8cUoUJryiBx26m3dv0CA","signatureLength":86,"timestamp":"2025-10-27T20:36:05.954Z","usingField":"signature"}
+{"calculated":"zL4RKN1g0GjfyTS2qHXn...","format":"base64url (URL-safe)","level":"debug","match":false,"message":"🔍 Signature comparison:","received":"BTPiYVzlZcZvSGz3JC_1...","timestamp":"2025-10-27T20:36:05.954Z"}
+{"level":"warn","message":"⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!","timestamp":"2025-10-27T20:36:05.954Z"}
+{"level":"warn","message":"⚠️ Using REAL user data from Telegram despite signature mismatch","timestamp":"2025-10-27T20:36:05.954Z"}
+{"level":"warn","message":"⚠️ This should ONLY be used for debugging ngrok setup!","timestamp":"2025-10-27T20:36:05.954Z"}
+{"level":"info","message":"✅ Telegram hash verified successfully","timestamp":"2025-10-27T20:36:05.955Z"}
+{"firstName":"Игорь","level":"info","message":"✅ Telegram initData validated successfully","timestamp":"2025-10-27T20:36:05.955Z","userId":555502880,"username":"igo_kravts"}
+{"level":"info","message":"✅ InitData validated successfully","timestamp":"2025-10-27T20:36:05.955Z","userId":555502880,"username":"igo_kravts"}
+{"duration":"0ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":401,"timestamp":"2025-10-27T20:36:05.956Z","url":"/groups","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"duration":"0ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"GET","statusCode":401,"timestamp":"2025-10-27T20:36:05.957Z","url":"/active","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"level":"info","message":"User upserted: 555502880 (Игорь) with photo","timestamp":"2025-10-27T20:36:06.044Z"}
+{"level":"info","message":"User validated via initData","telegramId":"555502880","timestamp":"2025-10-27T20:36:06.044Z","userId":4833,"username":"igo_kravts"}
+{"expiresIn":"7d","level":"debug","message":"🔐 Access token generated","telegramId":"555502880","timestamp":"2025-10-27T20:36:06.045Z","userId":4833}
+{"duration":"93ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"POST","statusCode":200,"timestamp":"2025-10-27T20:36:06.046Z","url":"/validate","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"initDataLength":600,"level":"info","message":"🔐 Validating initData...","nodeEnv":"production","timestamp":"2025-10-27T20:36:06.123Z"}
+{"initDataLength":600,"initDataPreview":"query_id=AAEgTRwhAAAAACBNHCHRG2Xn&user=%7B%22id%22...","level":"info","message":"🔐 Validating Telegram initData","timestamp":"2025-10-27T20:36:06.123Z"}
+{"authDate":1761595674,"hasHash":true,"hasSignature":true,"hasUser":true,"level":"info","message":"📝 Parsed initData","timestamp":"2025-10-27T20:36:06.124Z"}
+{"botTokenLength":46,"dataCheckString":"auth_date=1761595674\nquery_id=AAEgTRwhAAAAACBNHCHRG2Xn\nuser={\"id\":555502880,\"first_name\":\"Игорь\",\"last_name\":\"\",\"username\":\"igo_kravts\",\"language_code\":\"ru\",\"is_premium\":true,\"allows_write_to_pm\":true,\"photo_url\":\"https:\\/\\/t.me\\/i\\/userpic\\/320\\/MBilWOD5D8SWpocN4gcDd_hBAHftHOccZKDOfCA91Ls.svg\"}","dataCheckStringLength":296,"fields":["auth_date","query_id","user"],"level":"debug","message":"🔍 Signature verification data:","receivedSignature":"BTPiYVzlZcZvSGz3JC_1...","receivedSignatureFull":"BTPiYVzlZcZvSGz3JC_1WRrfZkPwc2luRoLzplqQ6Cj--VnoDcGiHdgHFHlToTjQhW8cUoUJryiBx26m3dv0CA","signatureLength":86,"timestamp":"2025-10-27T20:36:06.124Z","usingField":"signature"}
+{"calculated":"zL4RKN1g0GjfyTS2qHXn...","format":"base64url (URL-safe)","level":"debug","match":false,"message":"🔍 Signature comparison:","received":"BTPiYVzlZcZvSGz3JC_1...","timestamp":"2025-10-27T20:36:06.125Z"}
+{"level":"warn","message":"⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!","timestamp":"2025-10-27T20:36:06.125Z"}
+{"level":"warn","message":"⚠️ Using REAL user data from Telegram despite signature mismatch","timestamp":"2025-10-27T20:36:06.125Z"}
+{"level":"warn","message":"⚠️ This should ONLY be used for debugging ngrok setup!","timestamp":"2025-10-27T20:36:06.125Z"}
+{"level":"info","message":"✅ Telegram hash verified successfully","timestamp":"2025-10-27T20:36:06.125Z"}
+{"firstName":"Игорь","level":"info","message":"✅ Telegram initData validated successfully","timestamp":"2025-10-27T20:36:06.125Z","userId":555502880,"username":"igo_kravts"}
+{"level":"info","message":"✅ InitData validated successfully","timestamp":"2025-10-27T20:36:06.125Z","userId":555502880,"username":"igo_kravts"}
+{"level":"info","message":"User upserted: 555502880 (Игорь) with photo","timestamp":"2025-10-27T20:36:06.210Z"}
+{"level":"info","message":"User validated via initData","telegramId":"555502880","timestamp":"2025-10-27T20:36:06.211Z","userId":4833,"username":"igo_kravts"}
+{"expiresIn":"7d","level":"debug","message":"🔐 Access token generated","telegramId":"555502880","timestamp":"2025-10-27T20:36:06.212Z","userId":4833}
+{"duration":"89ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"POST","statusCode":200,"timestamp":"2025-10-27T20:36:06.212Z","url":"/validate","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}

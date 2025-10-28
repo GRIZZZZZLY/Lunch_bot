@@ -33,35 +33,59 @@ export async function telegramAuthMiddleware(
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
         
-        try {
-          // Пробуем как JWT токен
-          const jwt = await import('jsonwebtoken');
-          const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-          
-          logger.info('✅ SKIP mode: decoded JWT token', {
-            userId: decoded.userId,
-            telegramId: decoded.telegramId,
-          });
-          
-          const user = await UserService.getUserById(decoded.userId);
-          
-          if (user && user.isActive) {
-            (req as any).user = user;
-            logger.info('✅ SKIP mode: authenticated via JWT token', {
-              userId: user.id,
-              telegramId: user.telegramId.toString()
+        // Проверяем что это JWT токен (начинается с 'eyJ')
+        const isJWT = token.startsWith('eyJ');
+        
+        logger.info('🔍 SKIP mode: analyzing token', {
+          isJWT,
+          tokenLength: token.length,
+          tokenPreview: token.substring(0, 50)
+        });
+        
+        if (isJWT) {
+          // Это JWT токен - используем JWT валидацию через JwtService
+          try {
+            const decoded = JwtService.verifyToken(token);
+            
+            if (decoded && decoded.type === 'access') {
+              logger.info('✅ SKIP mode: decoded JWT token', {
+                userId: decoded.userId,
+                telegramId: decoded.telegramId,
+              });
+              
+              const user = await UserService.getUserById(decoded.userId);
+              
+              if (user && user.isActive) {
+                (req as any).user = user;
+                logger.info('✅ SKIP mode: authenticated via JWT token', {
+                  userId: user.id,
+                  telegramId: user.telegramId.toString()
+                });
+                next();
+                return;
+              }
+            } else {
+              logger.warn('⚠️ Invalid JWT token type or expired');
+            }
+          } catch (jwtError) {
+            logger.warn('⚠️ Failed to verify JWT token', {
+              jwtError: jwtError instanceof Error ? jwtError.message : String(jwtError),
             });
-            next();
-            return;
           }
-        } catch (jwtError) {
-          // Если не JWT токен, пробуем как initData
+        } else {
+          // Это Telegram initData - парсим без валидации подписи
           try {
             const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
             telegramUser = parseInitDataUnsafe(token);
+            
+            if (telegramUser) {
+              logger.info('✅ SKIP mode: extracted user from initData', {
+                userId: telegramUser.id,
+                username: telegramUser.username,
+              });
+            }
           } catch (initDataError) {
-            logger.warn('⚠️ Failed to parse as JWT or initData', {
-              jwtError: jwtError instanceof Error ? jwtError.message : String(jwtError),
+            logger.warn('⚠️ Failed to parse initData', {
               initDataError: initDataError instanceof Error ? initDataError.message : String(initDataError),
             });
           }
@@ -97,29 +121,16 @@ export async function telegramAuthMiddleware(
         return;
       }
       
-      // Fallback: если нет реальных данных - используем TEST_USER_ID как последнюю попытку
-      logger.warn('⚠️ No real initData found - falling back to TEST_USER_ID (NOT RECOMMENDED!)');
-      const testUserId = process.env.TEST_USER_ID || '123456789';
-      const dbUser = await UserService.getUserByTelegramId(BigInt(testUserId));
+      // Fallback: КРИТИЧНО - НЕ использовать TEST_USER_ID!
+      // Это приведёт к смешиванию голосов разных пользователей
+      logger.error('❌ CRITICAL: No real user data in initData!');
+      logger.error('❌ Cannot authenticate - this would mix votes from different users!');
       
-      if (!dbUser) {
-        const newUser = await UserService.createUser({
-          telegramId: BigInt(testUserId).toString(),
-          username: 'dev_user',
-          firstName: 'Dev',
-          lastName: 'User',
-        });
-        (req as any).user = newUser;
-      } else {
-        (req as any).user = dbUser;
-      }
-      
-      logger.info('✅ SKIP mode: fallback test user', {
-        userId: (req as any).user.id,
-        telegramId: testUserId
+      res.status(401).json({
+        success: false,
+        error: 'Telegram authentication required. Please open app inside Telegram.',
+        code: 'MISSING_TELEGRAM_DATA'
       });
-      
-      next();
       return;
     }
     
@@ -295,34 +306,37 @@ export async function validateInitDataMiddleware(
       logger.warn('⚠️ SECURITY: SKIP_TELEGRAM_VALIDATION enabled - DEVELOPMENT ONLY!');
       const { initData } = req.body;
       
-      // Пробуем извлечь реальные данные пользователя
-      if (initData && initData.trim().length > 0 && initData !== 'mock_jwt_token_12345678') {
-        const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
-        const telegramUser = parseInitDataUnsafe(initData);
-        
-        if (telegramUser) {
-          (req as any).telegramUser = telegramUser;
-          logger.info('✅ validateInitDataMiddleware: SKIP mode - REAL user from initData', {
-            userId: telegramUser.id,
-            username: telegramUser.username
-          });
-          next();
-          return;
+      // Пробуем извлечь реальные данные пользователя из initData
+      if (initData && initData.trim().length > 0) {
+        try {
+          const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
+          const telegramUser = parseInitDataUnsafe(initData);
+          
+          if (telegramUser && telegramUser.id) {
+            (req as any).telegramUser = telegramUser;
+            logger.info('✅ validateInitDataMiddleware: SKIP mode - REAL user from initData', {
+              userId: telegramUser.id,
+              firstName: telegramUser.first_name,
+              username: telegramUser.username
+            });
+            next();
+            return;
+          }
+        } catch (parseError) {
+          logger.error('❌ Failed to parse initData:', parseError);
         }
       }
       
-      // Fallback: используем TEST_USER_ID только если нет реальных данных
-      logger.warn('⚠️ validateInitDataMiddleware: No real initData - using TEST_USER_ID fallback');
-      const testUserId = process.env.TEST_USER_ID || '123456789';
-      (req as any).telegramUser = {
-        id: Number(testUserId),
-        first_name: 'Dev',
-        last_name: 'User',
-        username: 'dev_user',
-      };
+      // Fallback: КРИТИЧНО - НЕ использовать TEST_USER_ID!
+      // Это приведёт к смешиванию голосов разных пользователей
+      logger.error('❌ validateInitDataMiddleware: No real user data in initData!');
+      logger.error('❌ Cannot authenticate - this would mix votes from different users!');
       
-      logger.info('✅ validateInitDataMiddleware: SKIP mode - fallback test user');
-      next();
+      res.status(401).json({
+        success: false,
+        error: 'Telegram authentication required. Please open app inside Telegram.',
+        code: 'MISSING_TELEGRAM_DATA'
+      });
       return;
     }
     

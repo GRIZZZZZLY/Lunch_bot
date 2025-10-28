@@ -99,4 +99,3 @@ exports.telegramCorsMiddleware = (0, cors_1.default)({
     credentials: false,
     maxAge: 3600,
 });
-//# sourceMappingURL=cors.js.map

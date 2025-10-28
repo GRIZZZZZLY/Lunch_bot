@@ -1028,4 +1028,3 @@ class PollController {
 }
 exports.PollController = PollController;
 exports.pollController = PollController;
-//# sourceMappingURL=poll.controller.js.map

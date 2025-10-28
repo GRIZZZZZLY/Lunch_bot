@@ -110,4 +110,3 @@ async function resultsCommand(ctx) {
         await ctx.reply('❌ Ошибка при получении результатов');
     }
 }
-//# sourceMappingURL=quick.js.map

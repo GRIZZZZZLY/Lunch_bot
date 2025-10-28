@@ -2,28 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ShoppingCart, 
-  TrendingUp,
-  Clock,
-  Vote,
-  History,
-  BarChart3,
-  User,
-  Utensils,
-  ChefHat,
-  Sparkles,
   ArrowRight,
-  Repeat,
-  Trophy,
-  MessageSquare,
-  RefreshCw,
   Share2,
   Bell,
-  Shuffle,
-  Flame,
   Star,
   Zap,
   RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 
 // New shadcn/ui components
@@ -46,9 +31,6 @@ import { TopDishModal } from '../components/modals/TopDishModal';
 
 // Budget components
 import { BudgetWidget } from '../components/budget';
-
-// Gamification components
-import { DynamicHeroBanner } from '../components/gamification/DynamicHeroBanner';
 
 // Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
@@ -151,17 +133,10 @@ export const HomePage: React.FC = () => {
   const [isCreatingPoll, setIsCreatingPoll] = useState(false);
   const [isRepeatLoading, setIsRepeatLoading] = useState(false);
   
-  // Quick Actions v2.0 State
-  const [currentScenario, setCurrentScenario] = useState<ScenarioType>('no-active-poll');
+  // Quick Actions v2.0 State (очищено от удаленных функций)
   const [hasVoted, setHasVoted] = useState(false);
-  const [lastPoll, setLastPoll] = useState<PollWithDetails | null>(null);
-  const [popularDish, setPopularDish] = useState<any>(null);
-  const [randomDish, setRandomDish] = useState<any>(null);
-  const [showConfetti, setShowConfetti] = useState(false);
   
-  // Модалки
-  const [isRandomModalOpen, setIsRandomModalOpen] = useState(false);
-  const [isPopularModalOpen, setIsPopularModalOpen] = useState(false);
+  // Модалки (оставлены только активные)
   const [isTopDishModalOpen, setIsTopDishModalOpen] = useState(false);
   const [topDishData, setTopDishData] = useState<any>(null);
   const [loadingTopDish, setLoadingTopDish] = useState(false);
@@ -292,24 +267,9 @@ export const HomePage: React.FC = () => {
    * Handler функции для Quick Actions
    */
   
-  // 1. Случайный выбор
-  const handleRandomVote = async () => {
-    // TODO: Выбрать случайное блюдо из активного голосования
-    console.log('Random vote');
-    setIsRandomModalOpen(true);
-  };
-  
-  // 3. Голосовать за популярное
-  const handleVoteForPopular = async () => {
-    // TODO: Получить текущего лидера и показать модалку
-    console.log('Vote for popular');
-    setIsPopularModalOpen(true);
-  };
-  
-  // 4. Показать результаты
-  const handleShowResults = () => {
-    navigate('/stats');
-  };
+  // УДАЛЕНО: handleRandomVote - функция убрана (нишевая, <1% использования)
+  // УДАЛЕНО: handleVoteForPopular - функция убрана (создает bias)
+  // УДАЛЕНО: handleShowResults - функция убрана (дублирует Bottom Nav → Stats)
   
   // 5. Установить напоминание
   const handleSetReminder = () => {
@@ -317,7 +277,7 @@ export const HomePage: React.FC = () => {
     console.log('Set reminder');
   };
   
-  // 6. Пригласить друга
+  // 6. Пригласить друга (ОСТАВЛЕНО по запросу)
   const handleInviteFriend = () => {
     haptic.impact();
     
@@ -347,24 +307,7 @@ export const HomePage: React.FC = () => {
     }
   };
   
-  // 7. Показать победителя (детально)
-  const handleShowWinner = () => {
-    // TODO: Открыть модалку с деталями победителя + конфетти
-    console.log('Show winner');
-    setShowConfetti(true);
-  };
-  
-  // 8. Повторить завершенное голосование
-  const handleRepeatThisPoll = async () => {
-    // TODO: Взять текущее завершенное голосование
-    console.log('Repeat this poll');
-  };
-  
-  // 9. Оставить отзыв
-  const handleLeaveFeedback = () => {
-    // TODO: Открыть форму отзыва
-    console.log('Leave feedback');
-  };
+  // УДАЛЕНО: handleShowWinner, handleRepeatThisPoll, handleLeaveFeedback - не используются
   
   // 10. Показать топ блюдо недели
   const handleShowTopDish = async () => {
@@ -404,11 +347,7 @@ export const HomePage: React.FC = () => {
     }
   };
   
-  // 11. Показать статистику пользователя
-  const handleShowUserStats = () => {
-    haptic.impact();
-    navigate('/user/stats');
-  };
+  // УДАЛЕНО: handleShowUserStats - кнопка убрана из Quick Actions (доступна через Bottom Nav)
 
   // 12. Повторить вчерашнее голосование (только для админов)
   const handleRepeatYesterday = async () => {
@@ -531,24 +470,18 @@ export const HomePage: React.FC = () => {
     // Сценарий 1: Есть активное голосование
     if (scenario === 'has-active-poll') {
       return {
-        // Убираем Hero Action - голосование уже показывается в ActivePollWidget
+        // Hero Action скрыт - голосование показывается в InlineVotingCard
         hero: null,
+        // УПРОЩЕНО: Убраны дубликаты (Статистика дублирует Bottom Nav)
+        // Оставлена только 1 кнопка: Напоминание (уникальная функция)
         secondary: [
           {
-            id: 'stats',
-            title: 'Статистика',
-            description: 'Текущая',
-            icon: <BarChart3 className="size-6" aria-label="Статистика" />,
-            gradient: 'lavender',
-            onClick: handleShowResults
-          },
-          {
-            id: 'invite',
-            title: 'Пригласить',
-            description: 'Поделиться',
-            icon: <Share2 className="size-6" aria-label="Поделиться" />,
-            gradient: 'mint',
-            onClick: handleInviteFriend
+            id: 'reminder',
+            title: 'Напоминание',
+            description: 'За 5 мин до конца',
+            icon: <Bell className="size-6" aria-label="Напоминание" />,
+            gradient: 'coral',
+            onClick: handleSetReminder
           }
         ],
         layout: '2x50%'
@@ -571,24 +504,9 @@ export const HomePage: React.FC = () => {
       });
     }
 
-    // Остальные кнопки для всех
+    // UX UPGRADE: Убраны "История" и "Моя статистика" (доступны через Bottom Nav)
+    // Оставлена только кнопка "Топ блюдо" для быстрого доступа
     secondaryActions.push(
-      {
-        id: 'history',
-        title: 'История',
-        description: 'Голосований',
-        icon: <History className="size-5" aria-label="История" />,
-        gradient: 'peach',
-        onClick: () => navigate('/vote/history')
-      },
-      {
-        id: 'my-stats',
-        title: 'Моя статистика',
-        description: 'История выборов',
-        icon: <User className="size-5" aria-label="Профиль" />,
-        gradient: 'lavender',
-        onClick: handleShowUserStats
-      },
       {
         id: 'top-dish',
         title: 'Топ блюдо',
@@ -750,16 +668,59 @@ export const HomePage: React.FC = () => {
               initial="hidden"
               animate="show"
             >
-              <DynamicHeroBanner
-                user={user!}
-                onCreatePoll={() => {
-                  console.log('🔵 [HomePage] DynamicHeroBanner - создать голосование');
-                  haptic.impact();
-                  setIsCreatingPoll(true);
-                }}
-                onRepeatYesterday={user?.isAdmin ? handleRepeatYesterday : undefined}
-                isRepeatLoading={isRepeatLoading}
-              />
+              {/* UX UPGRADE: Убрана геймификация (DynamicHeroBanner) - простая карточка */}
+              <GlassCard intensity="solid" className="overflow-hidden">
+                <div 
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background: `linear-gradient(135deg, ${gradientColors.from}, ${gradientColors.to})`,
+                    opacity: 0.4
+                  }}
+                />
+                <GlassCardContent className="relative py-8 px-6 text-center space-y-6">
+                  <div className="text-6xl">🍽️</div>
+                  
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-bold text-foreground">
+                      Нет активного голосования
+                    </h2>
+                    <p className="text-muted-foreground">
+                      {user?.isAdmin 
+                        ? 'Создайте новое голосование для группы'
+                        : 'Дождитесь, пока администратор создаст голосование'
+                      }
+                    </p>
+                  </div>
+
+                  {user?.isAdmin && (
+                    <div className="flex flex-col gap-3">
+                      <Button 
+                        variant="mint"
+                        size="lg"
+                        className="w-full"
+                        onClick={() => {
+                          haptic.impact();
+                          setIsCreatingPoll(true);
+                        }}
+                      >
+                        <Sparkles className="size-5 mr-2" />
+                        Создать голосование
+                      </Button>
+                      
+                      <Button 
+                        variant="outline"
+                        size="default"
+                        className="w-full"
+                        onClick={handleRepeatYesterday}
+                        disabled={isRepeatLoading}
+                      >
+                        <RotateCcw className="size-4 mr-2" />
+                        Повторить вчерашнее
+                      </Button>
+                    </div>
+                  )}
+                </GlassCardContent>
+              </GlassCard>
             </motion.div>
           )}
         </AnimatePresence>

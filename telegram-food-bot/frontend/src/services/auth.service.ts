@@ -36,9 +36,16 @@ class AuthService {
         throw new Error(response.error || 'Validation failed');
       }
 
-      // Если initData пустой - отправляем пустую строку (backend создаст test user)
+      // КРИТИЧНО: Отправляем РЕАЛЬНЫЙ initData от Telegram!
+      // Если initData пустой - отправляем пустую строку, backend обработает
+      console.log('[authService] validateInitData called:', {
+        hasInitData: !!initData,
+        initDataLength: initData?.length || 0,
+        initDataPreview: initData?.substring(0, 100) || 'empty'
+      });
+      
       const response = await apiService.post<{ success: boolean; user: User; token: string }>('/auth/validate', { 
-        initData: initData || 'mock_jwt_token_12345678' 
+        initData: initData || '' 
       });
 
       if (response.success && response.user && response.token) {

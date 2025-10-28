@@ -92,4 +92,3 @@ process.on('SIGTERM', async () => {
     await (0, exports.disconnect)();
 });
 exports.default = exports.prisma;
-//# sourceMappingURL=client.js.map

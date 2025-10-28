@@ -35,7 +35,19 @@ export class MenuController {
    */
   static async getActiveItems(req: Request, res: Response): Promise<void> {
     try {
+      const user = (req as any).user;
+      logger.info('🔍 [MenuController] getActiveItems called', {
+        userId: user?.id,
+        userTelegramId: user?.telegramId,
+        hasAuthHeader: !!req.headers.authorization
+      });
+
       const items = await MenuService.getActiveMenuItems();
+
+      logger.info('✅ [MenuController] Active menu items retrieved', {
+        count: items.length,
+        items: items.map(i => ({ id: i.id, name: i.name, isActive: i.isActive }))
+      });
 
       res.json({
         success: true,
@@ -45,7 +57,7 @@ export class MenuController {
       });
 
     } catch (error) {
-      logger.error('Error getting active menu items:', error);
+      logger.error('❌ [MenuController] Error getting active menu items:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to get active menu items',

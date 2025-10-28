@@ -270,4 +270,3 @@ function parseInitDataUnsafe(initData) {
         return null;
     }
 }
-//# sourceMappingURL=telegram-auth.js.map
