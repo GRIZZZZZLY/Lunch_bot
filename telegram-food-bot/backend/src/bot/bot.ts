@@ -241,6 +241,24 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:mark_paid:')) {
         const txId = parseInt(data.split(':')[2]);
         const { BudgetService } = await import('../services/budget.service.js');
+        const { prisma } = await import('../database/client.js');
+        
+        // ✅ FIX: Проверяем что пользователь - должник
+        const tx = await prisma.transaction.findUnique({
+          where: { id: txId },
+          include: { fromUser: true },
+        });
+        
+        if (!tx) {
+          await ctx.answerCallbackQuery('❌ Транзакция не найдена');
+          return;
+        }
+        
+        if (Number(tx.fromUser.telegramId) !== ctx.from.id) {
+          await ctx.answerCallbackQuery('❌ Вы можете отметить только свои долги');
+          return;
+        }
+        
         await BudgetService.markAsPaid(txId, ctx.from.id);
         await ctx.answerCallbackQuery('✅ Отмечено как оплачено');
         try {
@@ -253,6 +271,24 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:confirm:')) {
         const txId = parseInt(data.split(':')[2]);
         const { BudgetService } = await import('../services/budget.service.js');
+        const { prisma } = await import('../database/client.js');
+        
+        // ✅ FIX: Проверяем что пользователь - кредитор (получатель)
+        const tx = await prisma.transaction.findUnique({
+          where: { id: txId },
+          include: { toUser: true },
+        });
+        
+        if (!tx) {
+          await ctx.answerCallbackQuery('❌ Транзакция не найдена');
+          return;
+        }
+        
+        if (Number(tx.toUser.telegramId) !== ctx.from.id) {
+          await ctx.answerCallbackQuery('❌ Вы можете подтвердить только платежи в ваш адрес');
+          return;
+        }
+        
         await BudgetService.confirmPayment(txId);
         await ctx.answerCallbackQuery('✅ Оплата подтверждена');
         try {

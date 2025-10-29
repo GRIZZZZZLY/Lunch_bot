@@ -51,7 +51,7 @@ export class AuthController {
                 isActive: user.isActive,
                 createdAt: user.createdAt,
               },
-              token: generateJWT(user),
+              ...generateJWT(user),
             });
             return;
           }
@@ -84,7 +84,7 @@ export class AuthController {
             isActive: user.isActive,
             createdAt: user.createdAt,
           },
-          token: generateJWT(user),
+          ...generateJWT(user),
         });
         return;
       }
@@ -150,7 +150,7 @@ export class AuthController {
           isActive: user.isActive,
           createdAt: user.createdAt,
         },
-        token: generateJWT(user),
+        ...generateJWT(user),
       });
 
     } catch (error) {
@@ -276,7 +276,7 @@ export class AuthController {
           isActive: freshUser.isActive,
           updatedAt: freshUser.updatedAt,
         },
-        token: generateJWT(freshUser),
+        ...generateJWT(freshUser),
       });
 
     } catch (error) {
@@ -291,10 +291,10 @@ export class AuthController {
 }
 
 /**
- * 🔐 Генерация JWT токена с подписью
- * Использует настоящий JWT вместо небезопасного base64
+ * 🔐 Генерация пары токенов (access + refresh)
+ * ✅ FIX: Возвращаем ОБА токена для правильной работы refresh механизма
  */
-function generateJWT(user: any): string {
+function generateJWT(user: any): { accessToken: string; refreshToken: string; expiresIn: number } {
   const payload = {
     userId: typeof user.id === 'bigint' ? Number(user.id) : user.id,
     telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
@@ -302,8 +302,12 @@ function generateJWT(user: any): string {
     isAdmin: user.isAdmin,
   };
   
-  // ✅ Используем настоящий JWT с HMAC SHA256 подписью
-  return JwtService.generateAccessToken(payload);
+  // ✅ Генерируем ОБА токена: access (1 час) и refresh (7 дней)
+  const tokens = JwtService.generateTokenPair(payload);
+  return {
+    ...tokens,
+    expiresIn: 3600, // 1 час в секундах
+  };
 }
 
 export const authController = AuthController;
