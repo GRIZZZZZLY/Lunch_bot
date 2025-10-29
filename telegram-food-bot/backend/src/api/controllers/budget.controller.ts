@@ -15,15 +15,16 @@ export class BudgetController {
    */
   async getDebts(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(req.query.userId as string);
-      const status = req.query.status as 'PENDING' | 'PAID' | 'CONFIRMED' | undefined;
-
-      if (!userId) {
-        res.status(400).json({ error: 'userId is required' });
+      // ✅ FIX IDOR: Используем userId из аутентифицированного пользователя
+      const authenticatedUser = (req as any).user;
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
         return;
       }
 
-      const debts = await this.budgetService.getUserDebts(userId, status);
+      const status = req.query.status as 'PENDING' | 'PAID' | 'CONFIRMED' | undefined;
+
+      const debts = await this.budgetService.getUserDebts(authenticatedUser.id, status);
 
       res.json({ success: true, data: debts });
     } catch (error) {
@@ -38,15 +39,16 @@ export class BudgetController {
    */
   async getCredits(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(req.query.userId as string);
-      const status = req.query.status as 'PENDING' | 'PAID' | 'CONFIRMED' | undefined;
-
-      if (!userId) {
-        res.status(400).json({ error: 'userId is required' });
+      // ✅ FIX IDOR: Используем userId из аутентифицированного пользователя
+      const authenticatedUser = (req as any).user;
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
         return;
       }
 
-      const credits = await this.budgetService.getUserCredits(userId, status);
+      const status = req.query.status as 'PENDING' | 'PAID' | 'CONFIRMED' | undefined;
+
+      const credits = await this.budgetService.getUserCredits(authenticatedUser.id, status);
 
       res.json({ success: true, data: credits });
     } catch (error) {
@@ -127,17 +129,18 @@ export class BudgetController {
    */
   async getStats(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(req.query.userId as string);
-      const from = req.query.from as string;
-      const to = req.query.to as string;
-
-      if (!userId) {
-        res.status(400).json({ error: 'userId is required' });
+      // ✅ FIX IDOR: Используем userId из аутентифицированного пользователя
+      const authenticatedUser = (req as any).user;
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
         return;
       }
 
+      const from = req.query.from as string;
+      const to = req.query.to as string;
+
       const stats = await this.budgetService.getUserStats(
-        userId,
+        authenticatedUser.id,
         from ? new Date(from) : undefined,
         to ? new Date(to) : undefined
       );

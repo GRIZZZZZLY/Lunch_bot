@@ -69,17 +69,18 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
       logger.info('✅ Telegram hash verified successfully');
     }
 
-    // Проверяем время (не старше 1 часа)
+    // ✅ FIX: Проверяем время (не старше 24 часов согласно Telegram документации)
+    // Telegram считает initData валидным в течение 24 часов, а не 1 часа
     const authDate = parsed.auth_date * 1000; // Конвертируем в миллисекунды
     const now = Date.now();
-    const maxAge = 60 * 60 * 1000; // 1 час
+    const maxAge = 24 * 60 * 60 * 1000; // 24 часа (Telegram официальный TTL)
 
     if (now - authDate > maxAge) {
       logger.warn('⏰ InitData is too old', {
         authDate: new Date(authDate),
         now: new Date(now),
-        ageMinutes: Math.round((now - authDate) / (60 * 1000)),
-        maxAgeMinutes: 60,
+        ageHours: Math.round((now - authDate) / (60 * 60 * 1000)),
+        maxAgeHours: 24,
       });
       return null;
     }
