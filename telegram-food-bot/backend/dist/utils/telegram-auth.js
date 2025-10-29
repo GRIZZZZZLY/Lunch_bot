@@ -15,7 +15,16 @@ function validateTelegramInitData(initData) {
             initDataLength: initData?.length || 0,
             initDataPreview: initData?.substring(0, 50) + '...'
         });
+        console.log('📥 Original initData:', initData);
         const botToken = process.env.BOT_TOKEN;
+        console.log('🔑 BOT_TOKEN runtime check:', {
+            exists: !!botToken,
+            length: botToken?.length || 0,
+            first10: botToken?.substring(0, 10) || 'EMPTY',
+            last10: botToken ? botToken.substring(botToken.length - 10) : 'EMPTY',
+            nodeEnv: process.env.NODE_ENV,
+            cwd: process.cwd()
+        });
         if (!botToken) {
             logger_1.logger.error('BOT_TOKEN not found in environment variables');
             return null;
@@ -69,13 +78,25 @@ function validateTelegramInitData(initData) {
 }
 function parseInitData(initData) {
     try {
+        const rawPairs = {};
+        const pairs = initData.split('&');
+        for (const pair of pairs) {
+            const eqIndex = pair.indexOf('=');
+            if (eqIndex === -1)
+                continue;
+            const key = pair.substring(0, eqIndex);
+            const rawValue = pair.substring(eqIndex + 1);
+            rawPairs[key] = rawValue;
+        }
         const params = new URLSearchParams(initData);
-        const result = {};
+        const result = {
+            _rawPairs: rawPairs,
+        };
         for (const [key, value] of params.entries()) {
             if (key === 'user') {
                 try {
                     result[key] = JSON.parse(value);
-                    result['_userRaw'] = value;
+                    result['_userRaw'] = rawPairs['user'];
                 }
                 catch {
                     logger_1.logger.warn('Failed to parse user data from initData');
@@ -102,26 +123,43 @@ function parseInitData(initData) {
 }
 function verifyTelegramHash(data, botToken) {
     try {
-        const receivedSignature = data.signature || data.hash;
+        console.log('📨 Received signature fields:', {
+            hasSignature: !!data.signature,
+            hasHash: !!data.hash,
+            signatureLength: data.signature?.length || 0,
+            hashLength: data.hash?.length || 0,
+            usingField: data.hash ? 'hash (HMAC)' : 'signature (Ed25519)'
+        });
+        const receivedSignature = data.hash || data.signature;
         if (!receivedSignature) {
             logger_1.logger.warn('No signature or hash found in initData');
             return false;
         }
-        const { hash, signature, _userRaw, ...params } = data;
+        const rawPairs = data._rawPairs || {};
+        const { hash, signature, _userRaw, _rawPairs, ...params } = data;
         const dataCheckString = Object.keys(params)
-            .filter(key => key !== 'hash' && key !== 'signature' && key !== '_userRaw')
+            .filter(key => key !== 'hash' && key !== 'signature' && key !== '_userRaw' && key !== '_rawPairs')
             .sort()
             .map(key => {
-            const value = params[key];
-            if (key === 'user' && _userRaw) {
-                return `${key}=${_userRaw}`;
+            const rawValue = rawPairs[key];
+            if (rawValue !== undefined) {
+                return `${key}=${rawValue}`;
             }
+            const value = params[key];
             if (typeof value === 'object') {
                 return `${key}=${JSON.stringify(value)}`;
             }
             return `${key}=${value}`;
         })
             .join('\n');
+        console.log('📝 DataCheckString:', {
+            full: dataCheckString,
+            length: dataCheckString.length,
+            fields: Object.keys(params).sort(),
+            usingRawPairs: !!Object.keys(rawPairs).length,
+            rawPairsKeys: Object.keys(rawPairs),
+            userValuePreview: rawPairs['user']?.substring(0, 100) + '...'
+        });
         logger_1.logger.debug('🔍 Signature verification data:', {
             dataCheckString: dataCheckString,
             dataCheckStringLength: dataCheckString.length,
@@ -141,7 +179,8 @@ function verifyTelegramHash(data, botToken) {
             .createHmac('sha256', secretKey)
             .update(dataCheckString)
             .digest();
-        if (data.signature) {
+        const usingHash = (receivedSignature === data.hash);
+        if (!usingHash && data.signature) {
             const rawBase64 = calculatedHmac.toString('base64');
             calculatedSignature = rawBase64
                 .replace(/\+/g, '-')
@@ -154,8 +193,17 @@ function verifyTelegramHash(data, botToken) {
         logger_1.logger.debug('🔍 Signature comparison:', {
             calculated: calculatedSignature.substring(0, 20) + '...',
             received: receivedSignature.substring(0, 20) + '...',
-            format: data.signature ? 'base64url (URL-safe)' : 'hex (WebAppData)',
+            format: usingHash ? 'hex (HMAC-SHA256)' : 'base64url (Ed25519)',
             match: calculatedSignature === receivedSignature,
+        });
+        console.log('🔍 SIGNATURE DEBUG:', {
+            botTokenLength: botToken.length,
+            calculatedFull: calculatedSignature,
+            receivedFull: receivedSignature,
+            format: usingHash ? 'hex (HMAC)' : 'base64url (Ed25519)',
+            match: calculatedSignature === receivedSignature,
+            dataCheckStringLength: dataCheckString.length,
+            fields: Object.keys(params).sort()
         });
         const isMatch = calculatedSignature === receivedSignature;
         if (process.env.NODE_ENV === 'production' && process.env.SKIP_SIGNATURE_CHECK === 'true') {
