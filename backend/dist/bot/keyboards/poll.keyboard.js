@@ -324,3 +324,4 @@ function createResultsMessage(pollData) {
     }
     return message;
 }
+//# sourceMappingURL=poll.keyboard.js.map

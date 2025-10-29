@@ -196,3 +196,4 @@ async function optionalAuthMiddleware(req, res, next) {
         next();
     }
 }
+//# sourceMappingURL=validate-init-data.js.map

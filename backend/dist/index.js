@@ -72,3 +72,4 @@ async function startApplication() {
     }
 }
 startApplication();
+//# sourceMappingURL=index.js.map

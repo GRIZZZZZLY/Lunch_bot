@@ -104,6 +104,21 @@ function createWebhookSignature(body, secretToken) {
         .digest('hex');
 }
 function verifyWebhookSignature(body, signature, secretToken) {
-    const expectedSignature = createWebhookSignature(body, secretToken);
-    return crypto_1.default.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
+    try {
+        if (!signature || signature.length !== 64 || !/^[0-9a-fA-F]+$/.test(signature)) {
+            logger_1.logger.warn('Invalid webhook signature format', {
+                signatureLength: signature?.length,
+                expectedLength: 64,
+                isHex: /^[0-9a-fA-F]+$/.test(signature || ''),
+            });
+            return false;
+        }
+        const expectedSignature = createWebhookSignature(body, secretToken);
+        return crypto_1.default.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
+    }
+    catch (error) {
+        logger_1.logger.error('Error verifying webhook signature:', error);
+        return false;
+    }
 }
+//# sourceMappingURL=crypto.js.map

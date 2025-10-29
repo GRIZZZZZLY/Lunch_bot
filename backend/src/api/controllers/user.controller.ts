@@ -197,7 +197,7 @@ export class UserController {
           type: group.type,
           isActive: group.isActive,
         })),
-        total,
+        total: groups.length,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {

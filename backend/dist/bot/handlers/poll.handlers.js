@@ -641,3 +641,4 @@ async function handlePollCallback(ctx) {
 async function handleStartPoll(ctx) {
     await ctx.reply('ℹ️ Используйте команду /startpoll для создания голосования');
 }
+//# sourceMappingURL=poll.handlers.js.map

@@ -7,3 +7,4 @@ var VoteType;
     VoteType["BRING_OWN"] = "BRING_OWN";
     VoteType["SKIP"] = "SKIP";
 })(VoteType || (exports.VoteType = VoteType = {}));
+//# sourceMappingURL=vote.types.js.map

@@ -136,3 +136,4 @@ async function voteCommand(ctx) {
         await ctx.reply('❌ Произошла ошибка. Попробуйте позже.');
     }
 }
+//# sourceMappingURL=vote.js.map
