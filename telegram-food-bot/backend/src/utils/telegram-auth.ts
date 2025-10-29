@@ -193,6 +193,15 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       })
       .join('\n');
 
+    // TEMPORARY DEBUG: Log dataCheckString to see what we're signing
+    console.log('📝 DataCheckString:', {
+      full: dataCheckString,
+      length: dataCheckString.length,
+      fields: Object.keys(params).sort(),
+      hasUserRaw: !!_userRaw,
+      userRawLength: _userRaw?.length || 0
+    });
+
     // DEBUG: Логируем данные для проверки
     logger.debug('🔍 Signature verification data:', {
       dataCheckString: dataCheckString, // FULL STRING FOR DEBUG
