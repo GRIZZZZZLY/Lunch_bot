@@ -584,9 +584,36 @@ export class BudgetService {
    */
   async cancelMarkAsPaid(transactionId: number) {
     try {
+      // ✅ FIX: Проверяем текущий статус - нельзя отменить подтверждённый платёж
+      const currentTx = await prisma.transaction.findUnique({
+        where: { id: transactionId },
+        select: { status: true },
+      });
+
+      if (!currentTx) {
+        throw new Error('Transaction not found');
+      }
+
+      if (currentTx.status === 'CONFIRMED') {
+        throw new Error('Cannot cancel confirmed payment');
+      }
+
+      if (currentTx.status === 'PENDING') {
+        logger.warn('Transaction already in PENDING status', { transactionId });
+        return await prisma.transaction.findUnique({
+          where: { id: transactionId },
+          include: { fromUser: true, toUser: true },
+        });
+      }
+
       const tx = await prisma.transaction.update({
         where: { id: transactionId },
-        data: { status: 'PENDING', paidAt: null },
+        data: { 
+          status: 'PENDING', 
+          paidAt: null,
+          // ✅ FIX: Очищаем confirmedAt при отмене
+          confirmedAt: null,
+        },
         include: { fromUser: true, toUser: true },
       });
 
