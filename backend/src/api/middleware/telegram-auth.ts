@@ -395,11 +395,15 @@ export async function optionalAuthMiddleware(
     const token = authHeader.substring(7);
 
     try {
-      const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
-      const user = await UserService.getUserById(decoded.userId);
+      // ✅ FIX: Используем JwtService.verifyToken вместо base64 парсинга
+      const decoded = JwtService.verifyToken(token);
       
-      if (user && user.isActive) {
-        (req as any).user = user;
+      if (decoded && decoded.type === 'access') {
+        const user = await UserService.getUserById(decoded.userId);
+        
+        if (user && user.isActive) {
+          (req as any).user = user;
+        }
       }
     } catch {
       // Игнорируем ошибки токена в опциональной авторизации

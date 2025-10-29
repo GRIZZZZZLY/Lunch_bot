@@ -545,13 +545,17 @@ class PollsService {
     return polls.reduce(
       (groups, poll) => {
         if (poll.status === 'ACTIVE') {
-          if (poll.endTime && new Date(poll.endTime) > now) {
-            groups.active.push(poll);
+          // ✅ FIX: Проверяем не истекло ли время
+          if (poll.endTime && new Date(poll.endTime) <= now) {
+            groups.completed.push(poll); // Истекшие в completed
           } else {
-            groups.active.push(poll);
+            groups.active.push(poll); // Активные в active
           }
+        } else if (poll.status === 'COMPLETED' || poll.status === 'CANCELLED') {
+          groups.completed.push(poll); // Завершенные в completed
         } else {
-          groups.completed.push(poll);
+          // Будущие голосования (если будет такой статус)
+          groups.upcoming.push(poll);
         }
         return groups;
       },
