@@ -12,3 +12,4 @@ router.get('/payment-info', telegram_auth_1.telegramAuthMiddleware, user_control
 router.put('/payment-info', telegram_auth_1.telegramAuthMiddleware, user_controller_1.userController.updatePaymentInfo);
 router.get('/groups', telegram_auth_1.telegramAuthMiddleware, user_controller_1.userController.getUserGroups);
 exports.default = router;
+//# sourceMappingURL=user.routes.js.map

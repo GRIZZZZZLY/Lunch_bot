@@ -107,3 +107,4 @@ async function getPrivateHelpText(isAdmin) {
     }
     return text;
 }
+//# sourceMappingURL=help.js.map

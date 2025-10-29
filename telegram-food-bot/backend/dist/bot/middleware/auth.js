@@ -168,3 +168,4 @@ async function registeredUserMiddleware(ctx, next) {
         await ctx.reply('❌ Ошибка проверки регистрации');
     }
 }
+//# sourceMappingURL=auth.js.map

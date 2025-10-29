@@ -18,3 +18,4 @@ var NotificationPriority;
     NotificationPriority["HIGH"] = "high";
     NotificationPriority["URGENT"] = "urgent";
 })(NotificationPriority || (exports.NotificationPriority = NotificationPriority = {}));
+//# sourceMappingURL=notification.types.js.map

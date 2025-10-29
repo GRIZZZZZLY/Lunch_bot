@@ -168,3 +168,4 @@ async function autoRunRoulette(ctx, pollId) {
         logger_1.logger.error('Error in auto-run roulette:', error);
     }
 }
+//# sourceMappingURL=startpoll.js.map

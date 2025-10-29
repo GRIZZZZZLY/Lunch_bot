@@ -21,3 +21,4 @@ router.patch('/:id/toggle', telegram_auth_1.telegramAuthMiddleware, telegram_aut
 router.delete('/:id', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, menu_controller_1.menuController.deleteItem);
 router.patch('/bulk-status', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, menu_controller_1.menuController.bulkUpdateStatus);
 exports.default = router;
+//# sourceMappingURL=menu.routes.js.map

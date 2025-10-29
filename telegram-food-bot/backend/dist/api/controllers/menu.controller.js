@@ -395,3 +395,4 @@ class MenuController {
 }
 exports.MenuController = MenuController;
 exports.menuController = MenuController;
+//# sourceMappingURL=menu.controller.js.map

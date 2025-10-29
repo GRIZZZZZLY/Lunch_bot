@@ -72,7 +72,7 @@ class AuthController {
                                 isActive: user.isActive,
                                 createdAt: user.createdAt,
                             },
-                            token: generateJWT(user),
+                            ...generateJWT(user),
                         });
                         return;
                     }
@@ -101,7 +101,7 @@ class AuthController {
                         isActive: user.isActive,
                         createdAt: user.createdAt,
                     },
-                    token: generateJWT(user),
+                    ...generateJWT(user),
                 });
                 return;
             }
@@ -157,7 +157,7 @@ class AuthController {
                     isActive: user.isActive,
                     createdAt: user.createdAt,
                 },
-                token: generateJWT(user),
+                ...generateJWT(user),
             });
         }
         catch (error) {
@@ -261,7 +261,7 @@ class AuthController {
                     isActive: freshUser.isActive,
                     updatedAt: freshUser.updatedAt,
                 },
-                token: generateJWT(freshUser),
+                ...generateJWT(freshUser),
             });
         }
         catch (error) {
@@ -282,6 +282,11 @@ function generateJWT(user) {
         username: user.username,
         isAdmin: user.isAdmin,
     };
-    return jwt_service_1.JwtService.generateAccessToken(payload);
+    const tokens = jwt_service_1.JwtService.generateTokenPair(payload);
+    return {
+        ...tokens,
+        expiresIn: 3600,
+    };
 }
 exports.authController = AuthController;
+//# sourceMappingURL=auth.controller.js.map

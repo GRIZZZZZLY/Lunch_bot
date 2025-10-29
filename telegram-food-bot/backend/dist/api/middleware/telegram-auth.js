@@ -37,6 +37,7 @@ exports.telegramAuthMiddleware = telegramAuthMiddleware;
 exports.adminMiddleware = adminMiddleware;
 exports.validateInitDataMiddleware = validateInitDataMiddleware;
 exports.optionalAuthMiddleware = optionalAuthMiddleware;
+exports.refreshTokenMiddleware = refreshTokenMiddleware;
 const user_service_1 = require("../../services/user.service");
 const telegram_auth_1 = require("../../utils/telegram-auth");
 const logger_1 = require("../../utils/logger");
@@ -336,10 +337,12 @@ async function optionalAuthMiddleware(req, res, next) {
         }
         const token = authHeader.substring(7);
         try {
-            const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
-            const user = await user_service_1.UserService.getUserById(decoded.userId);
-            if (user && user.isActive) {
-                req.user = user;
+            const decoded = jwt_service_1.JwtService.verifyToken(token);
+            if (decoded && decoded.type === 'access') {
+                const user = await user_service_1.UserService.getUserById(decoded.userId);
+                if (user && user.isActive) {
+                    req.user = user;
+                }
             }
         }
         catch {
@@ -351,3 +354,64 @@ async function optionalAuthMiddleware(req, res, next) {
         next();
     }
 }
+async function refreshTokenMiddleware(req, res, next) {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            res.status(401).json({
+                success: false,
+                error: 'Missing or invalid authorization header',
+                code: 'MISSING_TOKEN'
+            });
+            return;
+        }
+        const token = authHeader.substring(7);
+        try {
+            const decoded = jwt_service_1.JwtService.verifyToken(token);
+            if (!decoded) {
+                res.status(401).json({
+                    success: false,
+                    error: 'Invalid or expired refresh token',
+                    code: 'TOKEN_EXPIRED'
+                });
+                return;
+            }
+            if (decoded.type !== 'refresh') {
+                res.status(401).json({
+                    success: false,
+                    error: 'Invalid token type. Use refresh token.',
+                    code: 'INVALID_TOKEN_TYPE'
+                });
+                return;
+            }
+            const user = await user_service_1.UserService.getUserById(decoded.userId);
+            if (!user || !user.isActive) {
+                res.status(401).json({
+                    success: false,
+                    error: 'User not found or inactive',
+                    code: 'USER_NOT_ACTIVE'
+                });
+                return;
+            }
+            req.user = user;
+            next();
+        }
+        catch (error) {
+            res.status(401).json({
+                success: false,
+                error: 'Invalid refresh token',
+                code: 'INVALID_TOKEN'
+            });
+            return;
+        }
+    }
+    catch (error) {
+        logger_1.logger.error('Refresh token middleware error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            code: 'INTERNAL_ERROR'
+        });
+    }
+}
+//# sourceMappingURL=telegram-auth.js.map

@@ -18,6 +18,10 @@ const menu_routes_1 = __importDefault(require("./routes/menu.routes"));
 const poll_routes_1 = __importDefault(require("./routes/poll.routes"));
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
 const budget_routes_1 = __importDefault(require("./routes/budget.routes"));
+const metrics_routes_1 = __importDefault(require("./routes/metrics.routes"));
+const health_routes_1 = __importDefault(require("./routes/health.routes"));
+const test_routes_1 = __importDefault(require("./routes/test.routes"));
+const metrics_1 = require("./middleware/metrics");
 function createApiServer() {
     const app = (0, express_1.default)();
     BigInt.prototype.toJSON = function () {
@@ -45,23 +49,18 @@ function createApiServer() {
     app.use(express_1.default.json({ limit: '10mb' }));
     app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
     app.use(error_handler_1.requestLogger);
-    app.get('/health', (req, res) => {
-        res.json({
-            status: 'ok',
-            timestamp: new Date().toISOString(),
-            version: '1.0.0',
-            uptime: process.uptime(),
-            memory: {
-                used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
-                total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024 * 100) / 100,
-            },
-        });
-    });
+    app.use(metrics_1.metricsMiddleware);
+    app.use('/health', health_routes_1.default);
     app.use('/api/auth', auth_routes_1.default);
     app.use('/api/menu', menu_routes_1.default);
     app.use('/api/polls', poll_routes_1.default);
     app.use('/api/user', user_routes_1.default);
     app.use('/api/budget', budget_routes_1.default);
+    app.use('/api/metrics', metrics_routes_1.default);
+    if (process.env.NODE_ENV !== 'production') {
+        app.use('/api/test', test_routes_1.default);
+        logger_1.logger.info('Test endpoints enabled (dev/staging mode)');
+    }
     app.use('/api/stats', (req, res) => {
         res.json({
             success: false,
@@ -108,27 +107,26 @@ function startApiServer(app) {
     const host = api_config_1.apiConfig.host;
     app.listen(port, host, () => {
         logger_1.logger.info(`🚀 API сервер запущен на http://${host}:${port}`);
-        logger_1.logger.info('📋 Доступные endpoints:');
+        logger_1.logger.info('📋 Monitoring endpoints:');
         logger_1.logger.info('  GET  /health - проверка состояния');
+        logger_1.logger.info('  GET  /health/ready - readiness check');
+        logger_1.logger.info('  GET  /health/live - liveness check');
+        logger_1.logger.info('  GET  /api/metrics - метрики приложения');
+        logger_1.logger.info('  GET  /api/metrics/detailed - детальная статистика');
+        logger_1.logger.info('  GET  /dashboard.html - monitoring dashboard');
+        logger_1.logger.info('');
+        logger_1.logger.info('📋 Main API endpoints:');
         logger_1.logger.info('  POST /api/auth/validate - валидация пользователя');
-        logger_1.logger.info('  GET  /api/auth/me - информация о пользователе');
-        logger_1.logger.info('  GET  /api/auth/status - статус авторизации');
         logger_1.logger.info('  GET  /api/menu - список блюд');
-        logger_1.logger.info('  POST /api/menu - создание блюда');
-        logger_1.logger.info('  GET  /api/menu/:id - получение блюда');
-        logger_1.logger.info('  PUT  /api/menu/:id - обновление блюда');
-        logger_1.logger.info('  DELETE /api/menu/:id - удаление блюда');
-        logger_1.logger.info('  PATCH /api/menu/:id/toggle - переключение активности');
         logger_1.logger.info('  GET  /api/polls/active - активные голосования');
-        logger_1.logger.info('  GET  /api/polls/:id - информация о голосовании');
-        logger_1.logger.info('  GET  /api/polls/:id/results - результаты голосования');
-        logger_1.logger.info('  GET  /api/polls/history - история голосований');
-        logger_1.logger.info('  GET  /api/polls/stats - статистика голосований');
-        logger_1.logger.info('  GET  /api/polls/user-stats/my - статистика текущего пользователя');
-        logger_1.logger.info('  GET  /api/polls/user-stats/:userId - статистика пользователя (admin)');
-        logger_1.logger.info('  POST /api/polls - создание голосования');
-        logger_1.logger.info('  PATCH /api/polls/:id/complete - завершение голосования');
-        logger_1.logger.info('  PATCH /api/polls/:id/cancel - отмена голосования');
+        logger_1.logger.info('  GET  /api/budget/debts - долги пользователя');
+        logger_1.logger.info('');
+        if (process.env.NODE_ENV !== 'production') {
+            logger_1.logger.info('🧪 Test endpoints (dev/staging):');
+            logger_1.logger.info('  GET  /api/test/sentry-error - тест Sentry error');
+            logger_1.logger.info('  GET  /api/test/sentry-message - тест Sentry message');
+            logger_1.logger.info('');
+        }
     });
 }
 function stopApiServer(server) {
@@ -139,3 +137,4 @@ function stopApiServer(server) {
         });
     });
 }
+//# sourceMappingURL=server.js.map

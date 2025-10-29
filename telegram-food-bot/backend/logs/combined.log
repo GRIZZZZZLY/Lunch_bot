@@ -25215,3 +25215,34 @@
 {"level":"info","message":"User validated via initData","telegramId":"555502880","timestamp":"2025-10-27T20:36:06.211Z","userId":4833,"username":"igo_kravts"}
 {"expiresIn":"7d","level":"debug","message":"🔐 Access token generated","telegramId":"555502880","timestamp":"2025-10-27T20:36:06.212Z","userId":4833}
 {"duration":"89ms","ip":"127.0.0.1","level":"info","message":"API Request","method":"POST","statusCode":200,"timestamp":"2025-10-27T20:36:06.212Z","url":"/validate","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0"}
+{"environment":"production","level":"info","message":"🔍 Logger инициализирован","timestamp":"2025-10-29T11:58:21.340Z","transports":3}
+{"level":"info","message":"Cache service initialized","timestamp":"2025-10-29T11:58:22.916Z"}
+{"level":"info","message":"Sentry мониторинг отключен","timestamp":"2025-10-29T11:58:23.437Z"}
+{"level":"info","message":"Notification service initialized","timestamp":"2025-10-29T11:58:23.438Z"}
+{"level":"info","message":"PollReminderService initialized","timestamp":"2025-10-29T11:58:23.438Z"}
+{"level":"info","message":"ResponsibleService bot instance initialized","timestamp":"2025-10-29T11:58:23.439Z"}
+{"level":"info","message":"BudgetService bot instance initialized","timestamp":"2025-10-29T11:58:23.439Z"}
+{"level":"info","message":"Frontend static path: E:\\Lunch_bot\\telegram-food-bot\\frontend\\dist","timestamp":"2025-10-29T11:58:23.461Z"}
+{"corsOrigin":"https://rocket-lunch.duckdns.org","level":"info","maxFileSize":"5MB","message":"API сервер настроен","timestamp":"2025-10-29T11:58:23.462Z","uploadPath":"E:\\Lunch_bot\\telegram-food-bot\\backend\\uploads"}
+{"level":"info","message":"PollService bot instance initialized","timestamp":"2025-10-29T11:58:23.462Z"}
+{"level":"info","message":"Запуск Telegram Food Bot...","timestamp":"2025-10-29T11:58:23.463Z"}
+{"level":"info","message":"Prisma Info: Starting a sqlite pool with 13 connections.","target":"quaint::pooled","timestamp":"2025-10-29T11:58:23.675Z"}
+{"level":"info","message":"✅ Подключение к базе данных успешно установлено","timestamp":"2025-10-29T11:58:23.808Z"}
+{"level":"info","message":"🚀 API сервер запущен на http://0.0.0.0:3001","timestamp":"2025-10-29T11:58:23.811Z"}
+{"level":"info","message":"📋 Monitoring endpoints:","timestamp":"2025-10-29T11:58:23.821Z"}
+{"level":"info","message":"  GET  /health - проверка состояния","timestamp":"2025-10-29T11:58:23.821Z"}
+{"level":"info","message":"  GET  /health/ready - readiness check","timestamp":"2025-10-29T11:58:23.821Z"}
+{"level":"info","message":"  GET  /health/live - liveness check","timestamp":"2025-10-29T11:58:23.821Z"}
+{"level":"info","message":"  GET  /api/metrics - метрики приложения","timestamp":"2025-10-29T11:58:23.821Z"}
+{"level":"info","message":"  GET  /api/metrics/detailed - детальная статистика","timestamp":"2025-10-29T11:58:23.822Z"}
+{"level":"info","message":"  GET  /dashboard.html - monitoring dashboard","timestamp":"2025-10-29T11:58:23.822Z"}
+{"level":"info","message":"","timestamp":"2025-10-29T11:58:23.822Z"}
+{"level":"info","message":"📋 Main API endpoints:","timestamp":"2025-10-29T11:58:23.822Z"}
+{"level":"info","message":"  POST /api/auth/validate - валидация пользователя","timestamp":"2025-10-29T11:58:23.822Z"}
+{"level":"info","message":"  GET  /api/menu - список блюд","timestamp":"2025-10-29T11:58:23.822Z"}
+{"level":"info","message":"  GET  /api/polls/active - активные голосования","timestamp":"2025-10-29T11:58:23.822Z"}
+{"level":"info","message":"  GET  /api/budget/debts - долги пользователя","timestamp":"2025-10-29T11:58:23.822Z"}
+{"level":"info","message":"","timestamp":"2025-10-29T11:58:23.822Z"}
+{"canJoinGroups":true,"canReadAllGroupMessages":false,"firstName":"Rocket Lunch","id":8298516078,"level":"info","message":"🤖 Бот инициализирован","supportsInlineQueries":false,"timestamp":"2025-10-29T11:58:24.051Z","username":"rocket_lunch_bot"}
+{"level":"info","message":"Default menu button set for private chats","timestamp":"2025-10-29T11:58:24.172Z","webappUrl":"https://rocket-lunch.duckdns.org"}
+{"error":{"code":"ECONNRESET","errno":"ECONNRESET","message":"request to https://api.telegram.org/bot8298516078:AAF3QAaoVURt634PcNtwMKiExF2nILnziGk/setWebhook failed, reason: Client network socket disconnected before secure TLS connection was established","type":"system"},"level":"error","message":"❌ Ошибка установки webhook: Network request for 'setWebhook' failed!","name":"HttpError","stack":"HttpError: Network request for 'setWebhook' failed!\n    at E:\\Lunch_bot\\telegram-food-bot\\backend\\node_modules\\grammy\\out\\core\\error.js:85:15\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async ApiClient.call (E:\\Lunch_bot\\telegram-food-bot\\backend\\node_modules\\grammy\\out\\core\\client.js:54:29)\n    at async ApiClient.callApi (E:\\Lunch_bot\\telegram-food-bot\\backend\\node_modules\\grammy\\out\\core\\client.js:93:22)\n    at async setupWebhook (E:\\Lunch_bot\\telegram-food-bot\\backend\\dist\\bot\\bot.js:354:9)\n    at async startApplication (E:\\Lunch_bot\\telegram-food-bot\\backend\\dist\\index.js:52:13)","timestamp":"2025-10-29T11:58:25.182Z"}
