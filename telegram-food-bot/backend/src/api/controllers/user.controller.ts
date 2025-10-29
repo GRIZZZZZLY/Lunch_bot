@@ -172,9 +172,21 @@ export class UserController {
         return;
       }
 
-      // TODO: Реализовать получение групп через Telegram API или из БД
-      // Пока возвращаем все активные группы (для демо)
-      const { groups, total } = await GroupService.getAllGroups();
+      // ✅ FIX: Возвращаем только группы где пользователь админ
+      // Проверяем через polls где пользователь создавал голосования
+      const { prisma } = await import('../../database/client.js');
+      
+      const groups = await prisma.group.findMany({
+        where: {
+          isActive: true,
+          polls: {
+            some: {
+              createdBy: user.id,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
 
       res.json({
         success: true,

@@ -363,6 +363,21 @@ export class BudgetService {
    */
   static async markAsPaid(txId: number, telegramId: number): Promise<any> {
     try {
+      // ✅ FIX: Проверяем текущий статус - нельзя понизить CONFIRMED
+      const currentTx = await prisma.transaction.findUnique({
+        where: { id: txId },
+        select: { status: true },
+      });
+
+      if (!currentTx) throw new Error('Transaction not found');
+      if (currentTx.status === 'CONFIRMED') throw new Error('Cannot modify confirmed payment');
+      if (currentTx.status === 'PAID') {
+        return await prisma.transaction.findUnique({
+          where: { id: txId },
+          include: { fromUser: true, toUser: true, menuItem: true },
+        });
+      }
+
       const tx = await prisma.transaction.update({
         where: { id: txId },
         data: { status: 'PAID', paidAt: new Date() },
@@ -397,6 +412,21 @@ export class BudgetService {
    */
   static async confirmPayment(txId: number): Promise<any> {
     try {
+      // ✅ FIX: Проверяем что транзакция в статусе PAID
+      const currentTx = await prisma.transaction.findUnique({
+        where: { id: txId },
+        select: { status: true },
+      });
+
+      if (!currentTx) throw new Error('Transaction not found');
+      if (currentTx.status === 'CONFIRMED') {
+        return await prisma.transaction.findUnique({
+          where: { id: txId },
+          include: { fromUser: true, toUser: true },
+        });
+      }
+      if (currentTx.status === 'PENDING') throw new Error('Cannot confirm unpaid transaction');
+
       const tx = await prisma.transaction.update({
         where: { id: txId },
         data: { status: 'CONFIRMED', confirmedAt: new Date() },
