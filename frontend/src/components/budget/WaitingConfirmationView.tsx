@@ -22,7 +22,7 @@ export const WaitingConfirmationView: React.FC<WaitingConfirmationViewProps> = (
   credits 
 }) => {
   const haptic = useHaptic();
-  const { showToast } = useToast();
+  const toast = useToast();
   const queryClient = useQueryClient();
   
   // CRITICAL: Защита от undefined значений
@@ -36,12 +36,12 @@ export const WaitingConfirmationView: React.FC<WaitingConfirmationViewProps> = (
     mutationFn: () => budgetService.cancelMark(debt.id),
     onSuccess: () => {
       haptic.success();
-      showToast('Отметка оплаты отменена', 'success');
+      toast.success('Отметка оплаты отменена');
       queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();
-      showToast('Ошибка отмены', 'error');
+      toast.error('Ошибка отмены');
     },
   });
   

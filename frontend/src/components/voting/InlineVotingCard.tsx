@@ -186,7 +186,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
 
     try {
       setSubmitting(true);
-      haptic.impact('medium'); // P1: Haptic feedback при отправке
+      haptic.medium(); // P1: Haptic feedback при отправке
 
       const response = await pollsService.voteForItem(poll.id, selectedItemId);
 

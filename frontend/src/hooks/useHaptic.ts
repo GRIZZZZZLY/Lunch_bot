@@ -9,6 +9,7 @@ declare global {
           notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
           selectionChanged: () => void;
         };
+        openLink?: (url: string) => void;
       };
     };
   }

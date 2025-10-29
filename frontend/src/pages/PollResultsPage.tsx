@@ -59,24 +59,25 @@ export const PollResultsPage: React.FC = () => {
         throw new Error('Results not found');
       }
 
-      const pollResult = response.data.result;
+      const pollResult = response.data;
       setResult(pollResult);
 
       // Определяем тип результата
       try {
-        const rouletteData = pollResult.rouletteData ? JSON.parse(pollResult.rouletteData) : null;
+        const rouletteData = (pollResult as any).rouletteData ? JSON.parse((pollResult as any).rouletteData) : null;
 
         if (rouletteData && rouletteData.mode === 'multi-winner' && rouletteData.version === 1) {
           setResultType('multi');
           setMultiWinnerData(rouletteData);
         } else {
           setResultType('single');
-          setBreakdown(response.data.breakdown || []);
+          // Fetch breakdown separately if needed
+          setBreakdown([]);
         }
       } catch (parseError) {
         console.error('Error parsing rouletteData:', parseError);
         setResultType('single');
-        setBreakdown(response.data.breakdown || []);
+        setBreakdown([]);
       }
 
     } catch (error) {
