@@ -58,15 +58,11 @@ async function startApplication(): Promise<void> {
     }
     
     // Запуск бота
-    // Запуск API сервера СНАЧАЛА
-    startApiServer(app);
-    
     if (process.env.NODE_ENV === 'production' && botConfig.webhookUrl) {
       // Production: webhook режим
-      await setupWebhook(bot, botConfig.webhookUrl);
-      
-      // Обработчик webhook
-      app.use(`/webhook`, async (req, res) => {
+
+      // ✅ FIX: Регистрируем роут webhook ДО запуска сервера
+      app.post('/webhook', async (req, res) => {
         try {
           await bot.handleUpdate(req.body);
           res.sendStatus(200);
@@ -75,11 +71,18 @@ async function startApplication(): Promise<void> {
           res.sendStatus(500);
         }
       });
+
+      // Запускаем API сервер
+      startApiServer(app);
+
+      // Устанавливаем webhook в Telegram
+      await setupWebhook(bot, botConfig.webhookUrl);
     } else {
-      // Development: polling режим (запускаем БЕЗ await)
+      // Development: polling режим
+      startApiServer(app);
       startPolling(bot);
     }
-    
+
     logger.info('✅ Приложение успешно запущено');
     
   } catch (error) {
