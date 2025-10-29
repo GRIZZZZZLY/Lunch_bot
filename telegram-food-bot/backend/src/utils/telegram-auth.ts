@@ -119,31 +119,33 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
  */
 function parseInitData(initData: string): TelegramInitData | null {
   try {
-    // Сохраняем оригинальные пары ключ=значение БЕЗ декодирования
-    const rawPairs: Record<string, string> = {};
-    const pairs = initData.split('&');
+    // ✅ FIX: Сначала URL-декодируем ВСЮ строку (алгоритм Telegram)
+    // Источник: https://gist.github.com/konstantin24121/49da5d8023532d66cc4db1136435a885
+    const decoded = decodeURIComponent(initData);
+
+    // Сохраняем декодированные пары для data-check-string
+    const decodedPairs: Record<string, string> = {};
+    const pairs = decoded.split('&');
 
     for (const pair of pairs) {
       const eqIndex = pair.indexOf('=');
       if (eqIndex === -1) continue;
 
       const key = pair.substring(0, eqIndex);
-      const rawValue = pair.substring(eqIndex + 1); // URL-encoded значение
-      rawPairs[key] = rawValue;
+      const value = pair.substring(eqIndex + 1); // Декодированное значение
+      decodedPairs[key] = value;
     }
 
-    // Теперь парсим через URLSearchParams для декодированных значений
+    // Парсим через URLSearchParams для получения декодированных значений
     const params = new URLSearchParams(initData);
     const result: any = {
-      _rawPairs: rawPairs, // Сохраняем оригинальные URL-encoded значения
+      _decodedPairs: decodedPairs, // ✅ Декодированные значения для проверки подписи
     };
 
     for (const [key, value] of params.entries()) {
       if (key === 'user') {
         try {
           result[key] = JSON.parse(value);
-          // Сохраняем оригинальную URL-encoded строку (НЕ декодированную)
-          result['_userRaw'] = rawPairs['user'];
         } catch {
           logger.warn('Failed to parse user data from initData');
           return null;
@@ -193,22 +195,22 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       return false;
     }
 
-    // Получаем оригинальные URL-encoded значения
-    const rawPairs = (data as any)._rawPairs || {};
+    // ✅ Получаем декодированные значения для data-check-string
+    const decodedPairs = (data as any)._decodedPairs || {};
 
     // Удаляем hash, signature и служебные поля
-    const { hash, signature, _userRaw, _rawPairs, ...params } = data;
+    const { hash, signature, _userDecoded, _decodedPairs, ...params } = data;
 
-    // ✅ FIX: Создаем строку для проверки используя ОРИГИНАЛЬНЫЕ URL-encoded значения
-    // Telegram подписывает именно их, БЕЗ декодирования!
+    // ✅ FIX: Создаем строку для проверки используя ДЕКОДИРОВАННЫЕ значения
+    // По алгоритму Telegram: decodeURIComponent всей строки, потом split
     const dataCheckString = Object.keys(params)
-      .filter(key => key !== 'hash' && key !== 'signature' && key !== '_userRaw' && key !== '_rawPairs')
+      .filter(key => key !== 'hash' && key !== 'signature' && key !== '_userDecoded' && key !== '_decodedPairs')
       .sort()
       .map(key => {
-        // Используем оригинальное URL-encoded значение из rawPairs
-        const rawValue = rawPairs[key];
-        if (rawValue !== undefined) {
-          return `${key}=${rawValue}`; // ✅ Оригинальное значение
+        // Используем оригинальное URL-encoded значение из decodedPairs
+        const decodedValue = decodedPairs[key];
+        if (decodedValue !== undefined) {
+          return `${key}=${decodedValue}`; // ✅ Оригинальное значение
         }
 
         // Fallback для декодированных значений (не должно использоваться)
@@ -225,9 +227,9 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       full: dataCheckString,
       length: dataCheckString.length,
       fields: Object.keys(params).sort(),
-      usingRawPairs: !!Object.keys(rawPairs).length,
-      rawPairsKeys: Object.keys(rawPairs),
-      userValuePreview: rawPairs['user']?.substring(0, 100) + '...'
+      usingDecodedPairs: !!Object.keys(decodedPairs).length,
+      decodedPairsKeys: Object.keys(decodedPairs),
+      userValuePreview: decodedPairs['user']?.substring(0, 100) + '...'
     });
 
     // DEBUG: Логируем данные для проверки
