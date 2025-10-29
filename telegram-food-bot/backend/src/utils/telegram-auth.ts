@@ -33,6 +33,17 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
     });
 
     const botToken = process.env.BOT_TOKEN;
+
+    // TEMPORARY DEBUG: Check token in runtime
+    console.log('🔑 BOT_TOKEN runtime check:', {
+      exists: !!botToken,
+      length: botToken?.length || 0,
+      first10: botToken?.substring(0, 10) || 'EMPTY',
+      last10: botToken ? botToken.substring(botToken.length - 10) : 'EMPTY',
+      nodeEnv: process.env.NODE_ENV,
+      cwd: process.cwd()
+    });
+
     if (!botToken) {
       logger.error('BOT_TOKEN not found in environment variables');
       return null;
