@@ -64,9 +64,31 @@ export class BudgetController {
   async markAsPaid(req: Request, res: Response): Promise<void> {
     try {
       const { transactionId } = req.body;
+      const authenticatedUser = (req as any).user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
 
       if (!transactionId) {
         res.status(400).json({ error: 'transactionId is required' });
+        return;
+      }
+
+      // ✅ FIX IDOR: Проверяем что пользователь - должник (fromUserId)
+      const transaction = await this.budgetService.getTransactionById(transactionId);
+      
+      if (!transaction) {
+        res.status(404).json({ error: 'Transaction not found' });
+        return;
+      }
+
+      if (transaction.fromUserId !== authenticatedUser.id) {
+        res.status(403).json({ 
+          error: 'Access denied',
+          message: 'Вы можете отметить оплаченными только свои долги'
+        });
         return;
       }
 
@@ -86,9 +108,31 @@ export class BudgetController {
   async confirmPayment(req: Request, res: Response): Promise<void> {
     try {
       const { transactionId } = req.body;
+      const authenticatedUser = (req as any).user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
 
       if (!transactionId) {
         res.status(400).json({ error: 'transactionId is required' });
+        return;
+      }
+
+      // ✅ FIX IDOR: Проверяем что пользователь - кредитор/ответственный (toUserId)
+      const transaction = await this.budgetService.getTransactionById(transactionId);
+      
+      if (!transaction) {
+        res.status(404).json({ error: 'Transaction not found' });
+        return;
+      }
+
+      if (transaction.toUserId !== authenticatedUser.id) {
+        res.status(403).json({ 
+          error: 'Access denied',
+          message: 'Вы можете подтвердить только платежи в ваш адрес'
+        });
         return;
       }
 
@@ -108,9 +152,31 @@ export class BudgetController {
   async cancelMark(req: Request, res: Response): Promise<void> {
     try {
       const { transactionId } = req.body;
+      const authenticatedUser = (req as any).user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
 
       if (!transactionId) {
         res.status(400).json({ error: 'transactionId is required' });
+        return;
+      }
+
+      // ✅ FIX IDOR: Проверяем что пользователь - должник (fromUserId)
+      const transaction = await this.budgetService.getTransactionById(transactionId);
+      
+      if (!transaction) {
+        res.status(404).json({ error: 'Transaction not found' });
+        return;
+      }
+
+      if (transaction.fromUserId !== authenticatedUser.id) {
+        res.status(403).json({ 
+          error: 'Access denied',
+          message: 'Вы можете отменять только свои отметки оплаты'
+        });
         return;
       }
 

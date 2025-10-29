@@ -468,6 +468,26 @@ export class BudgetService {
   }
 
   /**
+   * Получить транзакцию по ID (для проверки прав доступа)
+   */
+  async getTransactionById(transactionId: number) {
+    try {
+      return await prisma.transaction.findUnique({
+        where: { id: transactionId },
+        select: {
+          id: true,
+          fromUserId: true,
+          toUserId: true,
+          status: true,
+        },
+      });
+    } catch (error) {
+      logger.error('Error getting transaction by ID:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Получить все долги пользователя
    */
   async getUserDebts(userId: number, status?: 'PENDING' | 'PAID' | 'CONFIRMED') {
