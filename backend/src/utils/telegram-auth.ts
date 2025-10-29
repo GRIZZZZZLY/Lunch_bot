@@ -115,18 +115,35 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
 
 /**
  * Парсинг строки initData в объект
+ * ВАЖНО: Сохраняем оригинальные URL-encoded значения для проверки подписи
  */
 function parseInitData(initData: string): TelegramInitData | null {
   try {
+    // Сохраняем оригинальные пары ключ=значение БЕЗ декодирования
+    const rawPairs: Record<string, string> = {};
+    const pairs = initData.split('&');
+
+    for (const pair of pairs) {
+      const eqIndex = pair.indexOf('=');
+      if (eqIndex === -1) continue;
+
+      const key = pair.substring(0, eqIndex);
+      const rawValue = pair.substring(eqIndex + 1); // URL-encoded значение
+      rawPairs[key] = rawValue;
+    }
+
+    // Теперь парсим через URLSearchParams для декодированных значений
     const params = new URLSearchParams(initData);
-    const result: any = {};
+    const result: any = {
+      _rawPairs: rawPairs, // Сохраняем оригинальные URL-encoded значения
+    };
 
     for (const [key, value] of params.entries()) {
       if (key === 'user') {
         try {
           result[key] = JSON.parse(value);
-          // Сохраняем оригинальную строку для проверки подписи
-          result['_userRaw'] = value;
+          // Сохраняем оригинальную URL-encoded строку (НЕ декодированную)
+          result['_userRaw'] = rawPairs['user'];
         } catch {
           logger.warn('Failed to parse user data from initData');
           return null;
@@ -176,19 +193,26 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       return false;
     }
 
-    // Удаляем и hash, и signature из параметров для проверки
-    const { hash, signature, _userRaw, ...params } = data;
+    // Получаем оригинальные URL-encoded значения
+    const rawPairs = (data as any)._rawPairs || {};
 
-    // Создаем строку для проверки
+    // Удаляем hash, signature и служебные поля
+    const { hash, signature, _userRaw, _rawPairs, ...params } = data;
+
+    // ✅ FIX: Создаем строку для проверки используя ОРИГИНАЛЬНЫЕ URL-encoded значения
+    // Telegram подписывает именно их, БЕЗ декодирования!
     const dataCheckString = Object.keys(params)
-      .filter(key => key !== 'hash' && key !== 'signature' && key !== '_userRaw')
+      .filter(key => key !== 'hash' && key !== 'signature' && key !== '_userRaw' && key !== '_rawPairs')
       .sort()
       .map(key => {
-        const value = params[key];
-        // Для user используем оригинальную строку если есть
-        if (key === 'user' && _userRaw) {
-          return `${key}=${_userRaw}`;
+        // Используем оригинальное URL-encoded значение из rawPairs
+        const rawValue = rawPairs[key];
+        if (rawValue !== undefined) {
+          return `${key}=${rawValue}`; // ✅ Оригинальное значение
         }
+
+        // Fallback для декодированных значений (не должно использоваться)
+        const value = params[key];
         if (typeof value === 'object') {
           return `${key}=${JSON.stringify(value)}`;
         }
@@ -201,8 +225,9 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       full: dataCheckString,
       length: dataCheckString.length,
       fields: Object.keys(params).sort(),
-      hasUserRaw: !!_userRaw,
-      userRawLength: _userRaw?.length || 0
+      usingRawPairs: !!Object.keys(rawPairs).length,
+      rawPairsKeys: Object.keys(rawPairs),
+      userValuePreview: rawPairs['user']?.substring(0, 100) + '...'
     });
 
     // DEBUG: Логируем данные для проверки
