@@ -416,3 +416,81 @@ export async function optionalAuthMiddleware(
     next(); // Продолжаем выполнение даже при ошибке
   }
 }
+
+/**
+ * Middleware для обновления токена через refresh token
+ * ✅ FIX: Отдельный middleware который принимает refresh токены
+ */
+export async function refreshTokenMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({
+        success: false,
+        error: 'Missing or invalid authorization header',
+        code: 'MISSING_TOKEN'
+      });
+      return;
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+      const decoded = JwtService.verifyToken(token);
+      
+      if (!decoded) {
+        res.status(401).json({
+          success: false,
+          error: 'Invalid or expired refresh token',
+          code: 'TOKEN_EXPIRED'
+        });
+        return;
+      }
+
+      // ✅ Принимаем только refresh токены
+      if (decoded.type !== 'refresh') {
+        res.status(401).json({
+          success: false,
+          error: 'Invalid token type. Use refresh token.',
+          code: 'INVALID_TOKEN_TYPE'
+        });
+        return;
+      }
+      
+      // Проверяем пользователя в БД
+      const user = await UserService.getUserById(decoded.userId);
+      if (!user || !user.isActive) {
+        res.status(401).json({
+          success: false,
+          error: 'User not found or inactive',
+          code: 'USER_NOT_ACTIVE'
+        });
+        return;
+      }
+
+      (req as any).user = user;
+      next();
+
+    } catch (error) {
+      res.status(401).json({
+        success: false,
+        error: 'Invalid refresh token',
+        code: 'INVALID_TOKEN'
+      });
+      return;
+    }
+
+  } catch (error) {
+    logger.error('Refresh token middleware error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+}

@@ -1,6 +1,6 @@
 import express from 'express';
 import { authController } from '../controllers/auth.controller';
-import { telegramAuthMiddleware } from '../middleware/telegram-auth';
+import { telegramAuthMiddleware, refreshTokenMiddleware } from '../middleware/telegram-auth';
 
 const router = express.Router();
 
@@ -25,7 +25,8 @@ router.get('/status', telegramAuthMiddleware, authController.getAuthStatus);
 /**
  * POST /api/auth/refresh
  * Обновление токена авторизации
+ * ✅ FIX: Используем refreshTokenMiddleware вместо telegramAuthMiddleware
  */
-router.post('/refresh', telegramAuthMiddleware, authController.refreshAuth);
+router.post('/refresh', refreshTokenMiddleware, authController.refreshAuth);
 
 export default router;

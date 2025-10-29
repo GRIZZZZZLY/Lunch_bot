@@ -498,7 +498,13 @@ export class PollController {
       const data: CreatePollData = req.body;
       const user = (req as any).user;
 
-      const poll = await PollService.createPoll(data);
+      // ✅ FIX: Используем userId из аутентифицированного пользователя, игнорируем createdBy из body
+      const pollData = {
+        ...data,
+        createdBy: user.id, // Всегда используем ID аутентифицированного пользователя
+      };
+
+      const poll = await PollService.createPoll(pollData);
 
       logger.info('Poll created via API', {
         pollId: poll.id,
