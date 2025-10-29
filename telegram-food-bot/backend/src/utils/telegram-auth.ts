@@ -32,6 +32,9 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
       initDataPreview: initData?.substring(0, 50) + '...'
     });
 
+    // TEMPORARY DEBUG: Log full initData to see original format
+    console.log('📥 Original initData:', initData);
+
     const botToken = process.env.BOT_TOKEN;
 
     // TEMPORARY DEBUG: Check token in runtime
