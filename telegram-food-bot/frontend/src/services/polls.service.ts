@@ -100,10 +100,14 @@ export interface VoteBreakdown {
 export interface PopularItem {
   id: number;
   name: string;
+  menuItemName?: string;
   description?: string;
   price?: number;
   voteCount: number;
+  totalVotes?: number;
   winCount: number;
+  percentage?: number;
+  imageUrl?: string;
   _count: {
     votes: number;
     pollResults: number;

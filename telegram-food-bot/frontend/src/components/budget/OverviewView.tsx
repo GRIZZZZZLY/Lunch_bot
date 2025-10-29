@@ -25,7 +25,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   totalCredits 
 }) => {
   const haptic = useHaptic();
-  const { showToast } = useToast();
+  const toast = useToast();
   const queryClient = useQueryClient();
   
   // CRITICAL: Защита от undefined/null значений
@@ -43,12 +43,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     mutationFn: (transactionId: number) => budgetService.markAsPaid(transactionId),
     onSuccess: () => {
       haptic.success();
-      showToast('Оплата отмечена!', 'success');
+      toast.success('Оплата отмечена!');
       queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();
-      showToast('Ошибка отметки', 'error');
+      toast.error('Ошибка отметки');
     },
   });
   
@@ -59,7 +59,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   
   const handleRemind = (transactionId: number) => {
     haptic.impact();
-    showToast('Напоминание отправлено!', 'info');
+    toast.info('Напоминание отправлено!');
     // TODO: Implement reminder API
   };
   

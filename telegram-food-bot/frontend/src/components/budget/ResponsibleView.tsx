@@ -18,7 +18,7 @@ interface ResponsibleViewProps {
  */
 export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, otherDebts }) => {
   const haptic = useHaptic();
-  const { showToast } = useToast();
+  const toast = useToast();
   const queryClient = useQueryClient();
   
   // CRITICAL: Защита от undefined/null значений
@@ -41,12 +41,12 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
     mutationFn: (transactionId: number) => budgetService.confirmPayment(transactionId),
     onSuccess: () => {
       haptic.success();
-      showToast('Платеж подтвержден!', 'success');
+      toast.success('Платеж подтвержден!');
       queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();
-      showToast('Ошибка подтверждения', 'error');
+      toast.error('Ошибка подтверждения');
     },
   });
   
@@ -57,7 +57,7 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
   
   const handleRemindAll = () => {
     haptic.impact();
-    showToast('Напоминания отправлены!', 'info');
+    toast.info('Напоминания отправлены!');
     // TODO: Implement reminder API
   };
   

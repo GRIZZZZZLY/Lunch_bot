@@ -4,11 +4,22 @@
 # 🚀 VPS Deployment Script for Rocket Lunch Bot
 # ===============================================
 # Domain: rocket-lunch.duckdns.org
+# Branch: feature/new_version
 # This script deploys the application to production VPS
 
 set -e  # Exit on any error
 
 echo "🚀 Starting deployment to VPS..."
+
+# Check current branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+echo "📍 Current branch: $CURRENT_BRANCH"
+
+if [ "$CURRENT_BRANCH" != "feature/new_version" ]; then
+    echo "⚠️  Warning: Not on feature/new_version branch!"
+    echo "Switching to feature/new_version..."
+    git checkout feature/new_version
+fi
 
 # ===============================================
 # 1. Environment Setup

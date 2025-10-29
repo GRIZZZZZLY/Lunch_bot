@@ -83,7 +83,7 @@ export const VotingHubPage: React.FC = () => {
           id: active.id,
           status: active.status
         });
-        setActivePoll(active);
+        setActivePoll(active as any);
         // Не перенаправляем автоматически - показываем на странице
       } else {
         console.log('ℹ️ [VotingHubPage] No active polls found');

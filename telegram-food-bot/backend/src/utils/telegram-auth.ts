@@ -218,7 +218,13 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
 
     // Сравниваем подписи
     const isMatch = calculatedSignature === receivedSignature;
-    
+
+    // 🔐 CRITICAL SECURITY: SKIP_SIGNATURE_CHECK запрещен в production!
+    if (process.env.NODE_ENV === 'production' && process.env.SKIP_SIGNATURE_CHECK === 'true') {
+      logger.error('🚨 SECURITY BREACH: SKIP_SIGNATURE_CHECK enabled in PRODUCTION!');
+      throw new Error('CRITICAL SECURITY ERROR: SKIP_SIGNATURE_CHECK must NEVER be enabled in production!');
+    }
+
     // ВРЕМЕННО: Разрешаем пропустить проверку подписи для отладки
     // ⚠️ ВАЖНО: Данные пользователя всё равно берутся РЕАЛЬНЫЕ из Telegram!
     // ⚠️ ЗАПРЕЩЕНО в настоящем production - только для тестирования через ngrok
@@ -228,7 +234,7 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       logger.warn('⚠️ This should ONLY be used for debugging ngrok setup!');
       return true; // Пропускаем но используем реальные данные
     }
-    
+
     return isMatch;
 
   } catch (error) {

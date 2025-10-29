@@ -19,7 +19,7 @@ interface UrgentDebtViewProps {
  */
 export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts, credits }) => {
   const haptic = useHaptic();
-  const { showToast } = useToast();
+  const toast = useToast();
   const queryClient = useQueryClient();
   
   // CRITICAL: Защита от undefined значений
@@ -33,12 +33,12 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
     mutationFn: () => budgetService.markAsPaid(debt.id),
     onSuccess: () => {
       haptic.success();
-      showToast('Оплата отмечена! Ждем подтверждения', 'success');
+      toast.success('Оплата отмечена! Ждем подтверждения');
       queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();
-      showToast('Ошибка отметки оплаты', 'error');
+      toast.error('Ошибка отметки оплаты');
     },
   });
   
@@ -51,7 +51,7 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
     haptic.impact();
     
     if (!debt.toUser.paymentPhone) {
-      showToast('Номер телефона не указан', 'error');
+      toast.error('Номер телефона не указан');
       return;
     }
     

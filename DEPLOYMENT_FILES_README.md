@@ -2,6 +2,8 @@
 
 Все необходимые файлы для деплоя Rocket Lunch Bot на VPS с доменом `rocket-lunch.duckdns.org`.
 
+⚠️ **Важно:** Проект использует ветку `feature/new_version` для деплоя (не `main`)!
+
 ---
 
 ## 📁 Структура файлов
@@ -27,7 +29,9 @@ telegram-food-bot/
 ├── VPS_DEPLOYMENT_GUIDE_NEW.md   # Полное руководство по деплою
 ├── QUICK_VPS_DEPLOY.md           # Быстрая шпаргалка
 ├── DEPLOYMENT_CHECKLIST.md       # Чек-лист подготовки
-└── DEPLOYMENT_FILES_README.md    # Этот файл
+├── DEPLOYMENT_FILES_README.md    # Этот файл
+├── DEPLOYMENT_READY_SUMMARY.md   # Итоговый summary
+└── GIT_BRANCH_INFO.md            # ⚠️ Инфо о ветке feature/new_version
 ```
 
 ---
@@ -40,6 +44,7 @@ telegram-food-bot/
 **Назначение:** Полный деплой приложения на VPS  
 **Использование:** Первый деплой или полная переустановка  
 **Что делает:**
+- ✅ Автоматически переключается на ветку `feature/new_version`
 - Копирует production .env файлы
 - Устанавливает зависимости
 - Собирает frontend и backend
@@ -55,7 +60,8 @@ chmod +x deploy-vps.sh
 **Назначение:** Быстрое обновление без downtime  
 **Использование:** Регулярные обновления кода  
 **Что делает:**
-- Подтягивает изменения из Git
+- ✅ Автоматически переключается на ветку `feature/new_version`
+- Подтягивает изменения из Git (`git pull origin feature/new_version`)
 - Обновляет зависимости
 - Пересобирает приложение
 - Перезапускает через PM2 reload (zero-downtime)

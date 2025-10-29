@@ -48,11 +48,11 @@ class AuthService {
         initData: initData || '' 
       });
 
-      if (response.success && response.user && response.token) {
+      if (response.success && response.data?.user && response.data?.token) {
         return {
           success: true,
-          user: response.user,
-          token: response.token,
+          user: response.data.user,
+          token: response.data.token,
         };
       }
 
@@ -85,12 +85,12 @@ class AuthService {
     try {
       const response = await apiService.get<{ success: boolean; authenticated: boolean; user: User; timestamp: string }>('/auth/status');
 
-      if (response.success && response.authenticated !== undefined) {
+      if (response.success && response.data?.authenticated !== undefined) {
         return {
           success: true,
-          authenticated: response.authenticated,
-          user: response.user,
-          timestamp: response.timestamp,
+          authenticated: response.data.authenticated,
+          user: response.data.user,
+          timestamp: response.data.timestamp || new Date().toISOString(),
         };
       }
 
@@ -115,11 +115,11 @@ class AuthService {
     try {
       const response = await apiService.post<{ success: boolean; user: User; token: string }>('/auth/refresh');
 
-      if (response.success && response.user && response.token) {
+      if (response.success && response.data?.user && response.data?.token) {
         return {
           success: true,
-          user: response.user,
-          token: response.token,
+          user: response.data.user,
+          token: response.data.token,
         };
       }
 

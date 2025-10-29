@@ -566,6 +566,56 @@ class MockApiService {
     
     return this.createSuccessResponse(categoryCounts);
   }
+
+  /**
+   * Создание голосования (mock)
+   */
+  async createPoll(data: any): Promise<ApiResponse<Poll>> {
+    await this.delay(500);
+    const newPoll: Poll = {
+      id: MOCK_POLLS.length + 1,
+      groupId: data.groupId || 1,
+      title: data.title || 'Новое голосование',
+      description: data.description,
+      status: 'ACTIVE',
+      duration: data.duration || 30,
+      startedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    MOCK_POLLS.push(newPoll);
+    return this.createSuccessResponse(newPoll);
+  }
+
+  /**
+   * Закрытие голосования (mock)
+   */
+  async closePoll(pollId: number): Promise<ApiResponse<any>> {
+    await this.delay(500);
+    const poll = MOCK_POLLS.find(p => p.id === pollId);
+    if (poll) {
+      poll.status = 'COMPLETED';
+      poll.endedAt = new Date().toISOString();
+    }
+    return this.createSuccessResponse(poll || {} as Poll);
+  }
+
+  /**
+   * Голосование (mock)
+   */
+  async vote(pollId: number, menuItemId: number): Promise<ApiResponse<any>> {
+    await this.delay(300);
+    return this.createSuccessResponse({
+      success: true,
+      vote: {
+        id: Date.now(),
+        pollId,
+        menuItemId,
+        userId: 1,
+        createdAt: new Date().toISOString(),
+      }
+    });
+  }
 }
 
 export const mockApiService = new MockApiService();

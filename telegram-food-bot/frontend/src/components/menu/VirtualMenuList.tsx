@@ -43,7 +43,7 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   selectedCategory,
 }) => {
   const haptic = useHaptic();
-  const listRef = useRef<FixedSizeList>(null);
+  const listRef = useRef<typeof FixedSizeList>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
 
   // Автоскролл наверх при изменении категории
