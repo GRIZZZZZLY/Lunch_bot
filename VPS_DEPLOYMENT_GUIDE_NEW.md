@@ -2,162 +2,320 @@
 
 **Домен:** `rocket-lunch.duckdns.org`  
 **IP VPS:** Ваш IP адрес  
-**OS:** Ubuntu 20.04+ / Debian 11+
+**OS:** Ubuntu 20.04+ / Debian 11+  
+**Метод:** Загрузка через Git  
+**Время:** ~35-40 минут
 
 ---
 
 ## 📋 Содержание
 
 1. [Предварительные требования](#предварительные-требования)
-2. [Настройка VPS](#настройка-vps)
-3. [Установка зависимостей](#установка-зависимостей)
-4. [Настройка SSL сертификата](#настройка-ssl-сертификата)
-5. [Деплой приложения](#деплой-приложения)
-6. [Настройка Telegram Webhook](#настройка-telegram-webhook)
-7. [Мониторинг и логи](#мониторинг-и-логи)
-8. [Обновление приложения](#обновление-приложения)
-9. [Траблшутинг](#траблшутинг)
+2. [ШАГ 1: Подготовка VPS](#шаг-1-подготовка-vps)
+3. [ШАГ 2: Установка зависимостей](#шаг-2-установка-зависимостей)
+4. [ШАГ 3: Клонирование проекта через Git](#шаг-3-клонирование-проекта-через-git)
+5. [ШАГ 4: Настройка SSL сертификата](#шаг-4-настройка-ssl-сертификата)
+6. [ШАГ 5: Деплой приложения](#шаг-5-деплой-приложения)
+7. [ШАГ 6: Настройка Nginx](#шаг-6-настройка-nginx)
+8. [ШАГ 7: Настройка Telegram Webhook](#шаг-7-настройка-telegram-webhook)
+9. [Мониторинг и логи](#мониторинг-и-логи)
+10. [Обновление приложения](#обновление-приложения)
+11. [Траблшутинг](#траблшутинг)
 
 ---
 
 ## 📌 Предварительные требования
 
-### На локальной машине:
-- ✅ Git установлен
-- ✅ Node.js 18+ установлен
-- ✅ Доступ к VPS по SSH
-- ✅ DuckDNS домен настроен и привязан к IP VPS
+### Что нужно подготовить:
 
-### На VPS:
+**1. GitHub репозиторий:**
+- ✅ Репозиторий с проектом создан на GitHub
+- ✅ Ветка `feature/new_version` запушена в репозиторий
+- ✅ Файлы `.env.production` настроены (но НЕ закоммичены!)
+
+**2. DuckDNS домен:**
+- ✅ Зарегистрирован на https://www.duckdns.org
+- ✅ Привязан к IP вашего VPS
+- ✅ Домен: `rocket-lunch.duckdns.org`
+
+**3. Telegram бот:**
+- ✅ Бот создан через @BotFather
+- ✅ Токен бота сохранен
+- ✅ Бот добавлен в тестовую группу
+
+**4. VPS сервер:**
 - ✅ Ubuntu 20.04+ или Debian 11+
-- ✅ Root или sudo доступ
-- ✅ Открытые порты: 80 (HTTP), 443 (HTTPS)
+- ✅ Доступ по SSH
+- ✅ Пользователь с sudo правами (НЕ обязательно root)
 - ✅ Минимум 1GB RAM
-- ✅ 10GB+ свободного места на диске
+- ✅ 10GB+ свободного места
+
+**5. SSH доступ:**
+```bash
+# Проверьте доступ (замените на ваши данные)
+ssh igor@YOUR_VPS_IP
+
+# Если работает - можно начинать!
+```
 
 ---
 
-## 🔧 Настройка VPS
+## ШАГ 1: Подготовка VPS
 
-### 1. Подключение к VPS
+**⏱️ Время: ~5 минут**
+
+### 1.1. Подключитесь к VPS
 
 ```bash
-# Подключитесь к серверу по SSH
-ssh root@YOUR_VPS_IP
-
-# Или если у вас другой пользователь
-ssh your-user@YOUR_VPS_IP
+# Замените YOUR_VPS_IP на ваш IP
+ssh igor@YOUR_VPS_IP
 ```
 
-### 2. Обновление системы
+### 1.2. Обновите систему
 
 ```bash
 # Обновите список пакетов
-apt update
+sudo apt update
 
 # Обновите установленные пакеты
-apt upgrade -y
+sudo apt upgrade -y
 
 # Установите необходимые утилиты
-apt install -y curl wget git build-essential
+sudo apt install -y curl wget git build-essential
 ```
 
-### 3. Настройка firewall (UFW)
+**⚠️ ВАЖНО:** Все команды `apt`, `systemctl`, `nginx`, `certbot` требуют `sudo`!
+
+### 1.3. Настройте firewall (UFW)
 
 ```bash
 # Установите UFW если не установлен
-apt install -y ufw
+sudo apt install -y ufw
 
-# Разрешите SSH (важно, чтобы не потерять доступ!)
-ufw allow OpenSSH
+# Разрешите SSH (ВАЖНО! Иначе потеряете доступ!)
+sudo ufw allow OpenSSH
 
 # Разрешите HTTP и HTTPS
-ufw allow 80/tcp
-ufw allow 443/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
 
-# Включите firewall
-ufw enable
+# Включите firewall (подтвердите 'y')
+sudo ufw enable
 
 # Проверьте статус
-ufw status
+sudo ufw status
+```
+
+**Ожидаемый результат:**
+```
+Status: active
+
+To                         Action      From
+--                         ------      ----
+OpenSSH                    ALLOW       Anywhere
+80/tcp                     ALLOW       Anywhere
+443/tcp                    ALLOW       Anywhere
 ```
 
 ---
 
-## 📦 Установка зависимостей
+## ШАГ 2: Установка зависимостей
 
-### 1. Установка Node.js 22.x (LTS)
+**⏱️ Время: ~10 минут**
+
+### 2.1. Установите Node.js 22.x (LTS)
 
 ```bash
 # Добавьте NodeSource repository
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
 
 # Установите Node.js
-apt install -y nodejs
+sudo apt install -y nodejs
 
 # Проверьте версии
 node --version  # должно быть v22.x.x
 npm --version   # должно быть 10.x.x
 ```
 
-### 2. Установка PM2
+**Ожидаемый результат:**
+```
+v22.11.0  (или выше)
+10.9.0    (или выше)
+```
+
+### 2.2. Установите PM2
 
 ```bash
 # Установите PM2 глобально
-npm install -g pm2
+sudo npm install -g pm2
 
 # Проверьте установку
 pm2 --version
+
+# Настройте PM2 для автозапуска при перезагрузке
+pm2 startup
+# Выполните команду, которую выведет PM2
 ```
 
-### 3. Установка Nginx
+**Ожидаемый результат:**
+```
+[PM2] Spawning PM2 daemon with pm2_home=...
+5.4.2  (или выше)
+```
+
+### 2.3. Установите Nginx
 
 ```bash
 # Установите Nginx
-apt install -y nginx
+sudo apt install -y nginx
 
 # Проверьте статус
-systemctl status nginx
+sudo systemctl status nginx
 
 # Запустите Nginx если не запущен
-systemctl start nginx
-systemctl enable nginx
+sudo systemctl start nginx
+sudo systemctl enable nginx
 ```
+
+**Проверка:** Откройте в браузере `http://YOUR_VPS_IP` - должна открыться страница "Welcome to nginx!"
 
 ---
 
-## 🔐 Настройка SSL сертификата
+## ШАГ 3: Клонирование проекта через Git
 
-### 1. Установка Certbot
+**⏱️ Время: ~3 минуты**
+
+### 3.1. Настройте Git (если требуется аутентификация)
 
 ```bash
-# Установите Certbot и плагин для Nginx
-apt install -y certbot python3-certbot-nginx
+# Если репозиторий приватный, настройте Git credentials
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+
+# Для приватных репозиториев используйте Personal Access Token
+# Создайте токен: GitHub → Settings → Developer settings → Personal access tokens
 ```
 
-### 2. Получение SSL сертификата
+### 3.2. Клонируйте репозиторий
+
+```bash
+# Перейдите в домашнюю директорию
+cd ~
+
+# Клонируйте репозиторий (замените на ваш URL)
+git clone https://github.com/YOUR_USERNAME/telegram-food-bot.git
+
+# Если приватный репозиторий:
+git clone https://YOUR_TOKEN@github.com/YOUR_USERNAME/telegram-food-bot.git
+
+# Перейдите в директорию проекта
+cd telegram-food-bot
+```
+
+### 3.3. Переключитесь на ветку feature/new_version
+
+```bash
+# ⚠️ ВАЖНО: Проект на ветке feature/new_version, НЕ на main!
+git checkout feature/new_version
+
+# Проверьте текущую ветку
+git branch
+
+# Должно показать:
+# * feature/new_version
+```
+
+### 3.4. Настройте .env файлы
+
+```bash
+# Backend .env
+cd ~/telegram-food-bot/backend
+
+# Создайте .env файл
+nano .env
+```
+
+**Вставьте следующее содержимое (замените значения на свои):**
+```env
+# === PRODUCTION CONFIGURATION ===
+NODE_ENV=production
+API_PORT=3001
+
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
+WEBAPP_URL=https://rocket-lunch.duckdns.org
+
+# Security
+JWT_SECRET=your_random_jwt_secret_min_32_chars
+
+# Database
+DATABASE_URL="file:./prisma/prod.db"
+
+# Optional: Sentry for error tracking
+# SENTRY_DSN=your_sentry_dsn
+```
+
+**Сохраните:** `Ctrl+O`, `Enter`, `Ctrl+X`
+
+```bash
+# Frontend .env
+cd ~/telegram-food-bot/frontend
+
+# Создайте .env файл
+nano .env
+```
+
+**Вставьте:**
+```env
+VITE_API_URL=https://rocket-lunch.duckdns.org/api
+VITE_BOT_USERNAME=rocket_lunch_bot
+```
+
+**Сохраните:** `Ctrl+O`, `Enter`, `Ctrl+X`
+
+---
+
+## ШАГ 4: Настройка SSL сертификата
+
+**⏱️ Время: ~5 минут**
+
+### 4.1. Установите Certbot
+
+```bash
+# Установите Certbot
+sudo apt install -y certbot python3-certbot-nginx
+```
+
+### 4.2. Получите SSL сертификат
 
 ```bash
 # Остановите Nginx временно
-systemctl stop nginx
+sudo systemctl stop nginx
 
 # Получите сертификат (standalone mode)
-certbot certonly --standalone -d rocket-lunch.duckdns.org
+sudo certbot certonly --standalone -d rocket-lunch.duckdns.org
 
 # Следуйте инструкциям:
-# - Введите email для уведомлений
-# - Согласитесь с Terms of Service
-# - Выберите использование сертификата для указанного домена
+# 1. Введите email для уведомлений
+# 2. Согласитесь с Terms of Service (y)
+# 3. Выберите опции по желанию
 
 # Запустите Nginx обратно
-systemctl start nginx
+sudo systemctl start nginx
 ```
 
-### 3. Проверка сертификата
+**Ожидаемый результат:**
+```
+Successfully received certificate.
+Certificate is saved at: /etc/letsencrypt/live/rocket-lunch.duckdns.org/fullchain.pem
+Key is saved at:         /etc/letsencrypt/live/rocket-lunch.duckdns.org/privkey.pem
+```
+
+### 4.3. Проверьте сертификат
 
 ```bash
-# Сертификаты должны быть в:
-ls -la /etc/letsencrypt/live/rocket-lunch.duckdns.org/
+# Проверьте файлы сертификата
+sudo ls -la /etc/letsencrypt/live/rocket-lunch.duckdns.org/
 
 # Должны быть файлы:
 # - fullchain.pem
@@ -166,14 +324,14 @@ ls -la /etc/letsencrypt/live/rocket-lunch.duckdns.org/
 # - chain.pem
 ```
 
-### 4. Автоматическое обновление сертификата
+### 4.4. Настройте автообновление
 
 ```bash
-# Certbot автоматически создаст cron job для обновления
-# Проверьте его работу:
-certbot renew --dry-run
+# Проверьте, что автообновление работает
+sudo certbot renew --dry-run
 
-# Если всё OK, сертификаты будут обновляться автоматически
+# Должно вывести: "Cert not yet due for renewal"
+# Certbot автоматически обновляет сертификаты через cron
 ```
 
 ---
