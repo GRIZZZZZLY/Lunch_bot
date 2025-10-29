@@ -113,9 +113,10 @@ export const MenuPage: React.FC = () => {
     }
 
     // Сортировка по названию (по умолчанию)
-    filtered.sort((a, b) => a.name.localeCompare(b.name));
+    // ✅ FIX: Копируем массив перед сортировкой, чтобы не мутировать кэш React Query
+    const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
 
-    return filtered;
+    return sorted;
   }, [menuItems, selectedCategory, searchQuery]);
 
   // Загрузка данных при монтировании (React Query auto-loads)

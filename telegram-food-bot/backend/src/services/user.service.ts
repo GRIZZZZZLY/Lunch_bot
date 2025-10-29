@@ -5,7 +5,7 @@ import { CreateUserData, UpdateUserData } from '../types/user.types';
 
 export class UserService {
   /**
-   * РЎРѕР·РґР°РЅРёРµ РЅРѕРІРѕРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+   * Создание нового пользователя
    */
   static async createUser(data: CreateUserData): Promise<User> {
     try {
