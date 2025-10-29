@@ -163,7 +163,7 @@ export const HomePage: React.FC = () => {
             voteCount: firstPoll._count?.votes || 0,
           };
           
-          setActivePoll(transformedPoll);
+          setActivePoll(transformedPoll as any);
     } else {
       console.log('⚠️ [HomePage] No active polls found');
       setActivePoll(null);
@@ -288,9 +288,9 @@ export const HomePage: React.FC = () => {
       `Попробуй: ${inviteUrl}`;
 
     // Используем Telegram WebApp share API
-    if (telegram.openTelegramLink) {
+    if (window.Telegram?.WebApp?.openLink) {
       const shareLink = `https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent(shareText)}`;
-      telegram.openTelegramLink(shareLink);
+      window.Telegram.WebApp.openLink(shareLink);
     } else {
       // Fallback - копируем в буфер
       navigator.clipboard.writeText(shareText).then(() => {
@@ -429,7 +429,7 @@ export const HomePage: React.FC = () => {
                   new Date(new Date(newPollResponse.data.startedAt).getTime() + (newPollResponse.data.duration || 30) * 60 * 1000).toISOString() : 
                   new Date(Date.now() + 30 * 60 * 1000).toISOString()),
               voteCount: newPollResponse.data._count?.votes || 0,
-            });
+            } as any);
           }
         } catch (error) {
           console.error('❌ [handleRepeatYesterday] Ошибка загрузки нового poll:', error);

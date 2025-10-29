@@ -13,7 +13,18 @@ echo "🔄 Starting quick update..."
 # 1. Pull Latest Changes
 # ===============================================
 echo "📥 Pulling latest changes from Git..."
-git pull origin main
+
+# Check current branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+echo "📍 Current branch: $CURRENT_BRANCH"
+
+if [ "$CURRENT_BRANCH" != "feature/new_version" ]; then
+    echo "⚠️  Warning: Not on feature/new_version branch!"
+    echo "Switching to feature/new_version..."
+    git checkout feature/new_version
+fi
+
+git pull origin feature/new_version
 
 echo "✅ Changes pulled"
 

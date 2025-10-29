@@ -2,6 +2,7 @@
 
 **Дата подготовки:** 2025-10-28  
 **Домен:** rocket-lunch.duckdns.org  
+**Ветка Git:** feature/new_version  
 **Статус:** 🟢 ГОТОВ К PRODUCTION
 
 ---
@@ -78,6 +79,9 @@ npm install -g pm2
 cd /root
 git clone YOUR_REPO_URL telegram-food-bot
 cd telegram-food-bot
+
+# ⚠️ ВАЖНО: Переключитесь на ветку feature/new_version
+git checkout feature/new_version
 
 # Запустите деплой
 chmod +x deploy-vps.sh
@@ -209,12 +213,13 @@ curl https://rocket-lunch.duckdns.org/api/health
 # На локальной машине - закоммитьте изменения
 git add .
 git commit -m "Обновление"
-git push
+git push origin feature/new_version
 
 # На VPS - запустите update
 ssh root@YOUR_VPS_IP
 cd /root/telegram-food-bot
 ./update-vps.sh
+# Скрипт автоматически переключится на feature/new_version и обновится
 ```
 
 **Zero-downtime обновление!** PM2 использует `reload` вместо `restart`.

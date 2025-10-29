@@ -12,6 +12,12 @@ import menuRoutes from './routes/menu.routes';
 import pollRoutes from './routes/poll.routes';
 import userRoutes from './routes/user.routes';
 import budgetRoutes from './routes/budget.routes';
+import metricsRoutes from './routes/metrics.routes';
+import healthRoutes from './routes/health.routes';
+import testRoutes from './routes/test.routes';
+
+// Импорт middleware
+import { metricsMiddleware } from './middleware/metrics';
 
 /**
  * Настройка Express приложения
@@ -50,20 +56,10 @@ export function createApiServer(): express.Application {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(requestLogger);
+  app.use(metricsMiddleware); // Отслеживание response time
 
-  // Health check endpoint
-  app.get('/health', (req, res) => {
-    res.json({
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      uptime: process.uptime(),
-      memory: {
-        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
-        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024 * 100) / 100,
-      },
-    });
-  });
+  // Health & Monitoring endpoints (без префикса /api)
+  app.use('/health', healthRoutes);
 
   // API routes с префиксом /api
   app.use('/api/auth', authRoutes);
@@ -71,6 +67,13 @@ export function createApiServer(): express.Application {
   app.use('/api/polls', pollRoutes);
   app.use('/api/user', userRoutes);
   app.use('/api/budget', budgetRoutes);
+  app.use('/api/metrics', metricsRoutes);
+
+  // Test endpoints (только для dev/staging)
+  if (process.env.NODE_ENV !== 'production') {
+    app.use('/api/test', testRoutes);
+    logger.info('Test endpoints enabled (dev/staging mode)');
+  }
 
   app.use('/api/stats', (req, res) => {
     res.json({
@@ -144,27 +147,26 @@ export function startApiServer(app: express.Application): void {
 
   app.listen(port, host, () => {
     logger.info(`🚀 API сервер запущен на http://${host}:${port}`);
-    logger.info('📋 Доступные endpoints:');
+    logger.info('📋 Monitoring endpoints:');
     logger.info('  GET  /health - проверка состояния');
+    logger.info('  GET  /health/ready - readiness check');
+    logger.info('  GET  /health/live - liveness check');
+    logger.info('  GET  /api/metrics - метрики приложения');
+    logger.info('  GET  /api/metrics/detailed - детальная статистика');
+    logger.info('  GET  /dashboard.html - monitoring dashboard');
+    logger.info('');
+    logger.info('📋 Main API endpoints:');
     logger.info('  POST /api/auth/validate - валидация пользователя');
-    logger.info('  GET  /api/auth/me - информация о пользователе');
-    logger.info('  GET  /api/auth/status - статус авторизации');
     logger.info('  GET  /api/menu - список блюд');
-    logger.info('  POST /api/menu - создание блюда');
-    logger.info('  GET  /api/menu/:id - получение блюда');
-    logger.info('  PUT  /api/menu/:id - обновление блюда');
-    logger.info('  DELETE /api/menu/:id - удаление блюда');
-    logger.info('  PATCH /api/menu/:id/toggle - переключение активности');
     logger.info('  GET  /api/polls/active - активные голосования');
-    logger.info('  GET  /api/polls/:id - информация о голосовании');
-    logger.info('  GET  /api/polls/:id/results - результаты голосования');
-    logger.info('  GET  /api/polls/history - история голосований');
-    logger.info('  GET  /api/polls/stats - статистика голосований');
-    logger.info('  GET  /api/polls/user-stats/my - статистика текущего пользователя');
-    logger.info('  GET  /api/polls/user-stats/:userId - статистика пользователя (admin)');
-    logger.info('  POST /api/polls - создание голосования');
-    logger.info('  PATCH /api/polls/:id/complete - завершение голосования');
-    logger.info('  PATCH /api/polls/:id/cancel - отмена голосования');
+    logger.info('  GET  /api/budget/debts - долги пользователя');
+    logger.info('');
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('🧪 Test endpoints (dev/staging):');
+      logger.info('  GET  /api/test/sentry-error - тест Sentry error');
+      logger.info('  GET  /api/test/sentry-message - тест Sentry message');
+      logger.info('');
+    }
   });
 }
 

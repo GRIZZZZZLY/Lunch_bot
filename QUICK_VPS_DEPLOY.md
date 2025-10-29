@@ -16,7 +16,7 @@ git status
 # Запушьте изменения (если есть)
 git add .
 git commit -m "Подготовка к деплою"
-git push origin main
+git push origin feature/new_version
 ```
 
 ### 2️⃣ На VPS - Первый деплой
@@ -34,6 +34,9 @@ npm install -g pm2
 cd /root
 git clone YOUR_REPO_URL telegram-food-bot
 cd telegram-food-bot
+
+# ⚠️ ВАЖНО: Переключитесь на ветку feature/new_version
+git checkout feature/new_version
 
 # Получите SSL сертификат
 systemctl stop nginx
@@ -69,8 +72,8 @@ curl -X POST "https://api.telegram.org/bot<YOUR_TOKEN>/setChatMenuButton" \
 ssh root@YOUR_VPS_IP
 cd /root/telegram-food-bot
 
-# Получите последние изменения
-git pull origin main
+# Получите последние изменения из feature/new_version
+git pull origin feature/new_version
 
 # Запустите деплой
 ./deploy-vps.sh

@@ -189,6 +189,10 @@ cd /root
 # Клонируйте репозиторий (или загрузите через Git)
 git clone https://github.com/YOUR_USERNAME/telegram-food-bot.git
 
+# ⚠️ ВАЖНО: Переключитесь на ветку feature/new_version
+cd telegram-food-bot
+git checkout feature/new_version
+
 # Или загрузите через SCP с локальной машины:
 # scp -r E:\Lunch_bot\telegram-food-bot root@YOUR_VPS_IP:/root/
 ```
@@ -361,11 +365,14 @@ netstat -tuln | grep -E ':(80|443|3001)'
 # Перейдите в директорию проекта
 cd /root/telegram-food-bot
 
+# Убедитесь, что вы на правильной ветке
+git checkout feature/new_version
+
 # Сохраните изменения (если есть)
 git stash
 
 # Получите последние изменения
-git pull origin main
+git pull origin feature/new_version
 
 # Запустите deployment скрипт
 ./deploy-vps.sh

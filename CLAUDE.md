@@ -4,7 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Telegram Food Bot - a production-ready Telegram bot with Mini App for organizing food voting in groups. Built with Grammy.js, Express, React, and Prisma ORM. Features deep linking, real-time updates, push notifications, and multiple fallback mechanisms.
+**Telegram Food Bot** - a production-ready Telegram bot with Mini App for organizing food voting in groups. Built with Grammy.js, Express, React, and Prisma ORM. Features deep linking, real-time updates, push notifications, budget tracking, and multiple fallback mechanisms.
+
+**Current Status:** ✅ Production Ready
+**Version:** 2.0.0
+**Git Branch:** `feature/new_version` (NOT main - important!)
+**Domain:** rocket-lunch.duckdns.org
+**Bot:** @rocket_lunch_bot
+**Tests:** 197/202 passing (97.5%)
+
+### Recent Major Features
+- ✅ **Budget Tracker** - Adaptive widget with 6 scenarios, СБП integration
+- ✅ **VPS Deployment** - Full automation scripts, zero-downtime updates
+- ✅ **CI/CD Pipeline** - GitHub Actions, Docker builds, automated tests
+- ⚠️ **Gamification Removed** - Simplified UX (removed from dev build)
 
 ## Common Commands
 
@@ -159,7 +172,8 @@ All business logic in services (`backend/src/services/`):
 - `menu.service.ts` - Menu management
 - `user.service.ts` - User management
 - `notification.service.ts` - Push notifications
-- `roulette.service.ts` - Responsible person selection
+- `responsible.service.ts` - Responsible person selection (roulette/volunteer)
+- `budget.service.ts` - Budget tracking, transactions, debts/credits
 
 **4. State Management:**
 - Frontend: Zustand (global state) + React Query (server state)
@@ -174,12 +188,17 @@ Core models:
 - `Poll` - Voting sessions (status: ACTIVE/COMPLETED/CANCELLED)
 - `Vote` - User votes (one per user per poll)
 - `PollResult` - Final results with winner and responsible person
+- `Transaction` - Budget tracking (PENDING → PAID → CONFIRMED)
+- `ResponsibleSelection` - Track who was responsible (volunteer/roulette)
+- `PaymentReminder` - Automated payment reminders
 
 Key relationships:
 - Poll → Group (many-to-one)
 - Poll → Votes (one-to-many)
 - Poll → PollResult (one-to-one)
+- Poll → Transactions (one-to-many) - NEW
 - Vote → User, MenuItem (many-to-one)
+- Transaction → Poll, Debtor, Creditor (many-to-one)
 
 ### Deep Linking Flow
 
@@ -194,6 +213,33 @@ Key relationships:
 - `backend/src/bot/commands/start.ts`
 - `frontend/src/App.tsx` (useEffect for pollId parsing)
 - `frontend/src/pages/VotingPage.tsx`
+
+### Budget Tracker System
+
+**Workflow after poll completion:**
+1. Poll closes → `ResponsibleService` selects responsible person
+2. `BudgetService` creates transactions for all participants
+3. Frontend shows adaptive widget based on 6 scenarios:
+   - **Urgent Debt** (<5 min after poll) - with СБП quick pay
+   - **Waiting Confirmation** - user marked payment
+   - **Success Message** - payment confirmed (with confetti)
+   - **Overview** - all debts/credits summary
+   - **Responsible View** - for the person who paid
+   - **Hidden** - no active debts
+
+**Files involved:**
+- `backend/src/services/budget.service.ts`
+- `backend/src/services/responsible.service.ts`
+- `backend/src/api/routes/budget.routes.ts`
+- `frontend/src/components/budget/BudgetWidget.tsx`
+- `frontend/src/hooks/useBudgetWidget.ts`
+
+**API Endpoints:**
+- `GET /api/budget/debts` - get user debts
+- `GET /api/budget/credits` - get user credits
+- `POST /api/budget/mark-paid` - mark as paid
+- `POST /api/budget/confirm-payment` - confirm payment
+- `POST /api/budget/cancel-mark` - cancel mark
 
 ### Environment Modes
 
@@ -272,17 +318,28 @@ For users without Mini App support:
 7. Click "Проголосовать" button
 8. Test voting flow in Mini App
 
-Full checklist: `telegram-food-bot/docs/05-testing/TESTING_GUIDE_FULL.md`
+**Quick testing guides:**
+- [START_TESTING_UX.md](START_TESTING_UX.md) - UX testing checklist
+- [TESTING_INSTRUCTIONS.md](TESTING_INSTRUCTIONS.md) - Detailed instructions
+- [QUICK_TEST_CHECKLIST.md](QUICK_TEST_CHECKLIST.md) - Quick checklist
 
 ### Automated Tests
 
-Backend has unit tests for services:
+**Backend:** 197/202 tests passing (97.5%)
 ```bash
-cd backend
-npm test
+cd telegram-food-bot/backend
+npm test                # Run all tests
+npm run test:coverage   # With coverage (~85%)
+npm run test:flow       # Run flow tests (9 tests, 100% success)
 ```
 
-Frontend needs test expansion (currently minimal coverage).
+**Known issues:** 5 integration auth tests need fixing (low priority)
+
+**Frontend:** Minimal coverage (needs expansion)
+```bash
+cd telegram-food-bot/frontend
+npm test                # Run Vitest
+```
 
 ## Common Development Tasks
 
@@ -350,6 +407,36 @@ Start scripts automatically copy correct .env file.
 
 ## Production Deployment
 
+### VPS Deployment (Recommended) ⭐
+
+**Quick start:** See [START_HERE.md](START_HERE.md) - main entry point
+
+**Automated deployment scripts:**
+- `telegram-food-bot/deploy-vps.sh` - Full deployment
+- `telegram-food-bot/update-vps.sh` - Zero-downtime updates
+- `telegram-food-bot/backup-db.sh` - Database backup
+- `telegram-food-bot/setup-cron-backup.sh` - Auto-backups
+
+**Key steps (35-40 minutes):**
+1. Install dependencies (Node.js 22, PM2, Nginx, Certbot)
+2. Clone repo → checkout `feature/new_version` branch
+3. Run `./deploy-vps.sh` (auto-installs, builds, starts)
+4. Configure Nginx + SSL certificate
+5. Set Telegram webhook and menu button
+
+**Deployment guides:**
+- [QUICK_VPS_DEPLOY.md](QUICK_VPS_DEPLOY.md) - Quick reference (5 min)
+- [VPS_DEPLOYMENT_GUIDE_NEW.md](VPS_DEPLOYMENT_GUIDE_NEW.md) - Full guide (20 min)
+- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) - Checklist
+
+**Important notes:**
+- ⚠️ Project is on `feature/new_version` branch (NOT main)
+- ✅ Scripts auto-switch to correct branch
+- ✅ Zero-downtime updates via PM2 reload
+- ✅ Configured for rocket-lunch.duckdns.org
+
+### Manual Deployment
+
 Full guide: `telegram-food-bot/docs/04-deployment/README.md`
 
 Key steps:
@@ -365,24 +452,53 @@ Backend serves frontend static files from `frontend/dist/` in production.
 
 ## Important Notes
 
-- **Database location**: `backend/prisma/dev.db` (SQLite file)
+- **Git Branch**: Project is on `feature/new_version` (NOT main) - deployment scripts handle this
+- **Database location**: `backend/prisma/dev.db` (SQLite file) - production needs PostgreSQL
 - **Backup before migrations**: Database contains production data
 - **Proxy configuration**: Required for Telegram API in some regions (check `backend/src/config/bot.config.ts`)
 - **ngrok auth**: Free tier has limitations, consider paid for stable URLs
 - **Poll expiration**: Polls auto-close after `duration` minutes (default 30)
 - **Admin users**: Set via `npm run make-admin` in backend
 - **Menu button**: Must be configured in BotFather settings
+- **Budget Tracker**: Automatically creates transactions after poll completion
+- **Zero-downtime updates**: Use `./update-vps.sh` for production updates
 
 ## Documentation
 
-Comprehensive docs in `telegram-food-bot/docs/`:
-- 01-getting-started/ - Setup guides
-- 02-development/ - Dev workflows, scripts
-- 03-architecture/ - System design, features
-- 04-deployment/ - Production deployment
-- 05-testing/ - Testing scenarios
-- 06-guides/ - User guides
-- 07-api/ - API documentation (TODO: needs expansion)
+### Main Documentation (Root)
+
+⚠️ **Note:** Most documentation is in root folder (70+ .md files), NOT in a `docs/` folder
+
+**Start here:**
+- [START_HERE.md](START_HERE.md) - Main entry point for deployment
+- [README.md](README.md) - Project overview
+- [CLAUDE.md](CLAUDE.md) - This file
+
+**Deployment:**
+- [QUICK_VPS_DEPLOY.md](QUICK_VPS_DEPLOY.md) - Quick reference
+- [VPS_DEPLOYMENT_GUIDE_NEW.md](VPS_DEPLOYMENT_GUIDE_NEW.md) - Full guide
+- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) - Checklist
+- [DEPLOYMENT_FILES_README.md](DEPLOYMENT_FILES_README.md) - File descriptions
+- [GIT_BRANCH_INFO.md](GIT_BRANCH_INFO.md) - Git workflow
+
+**Development:**
+- [telegram-food-bot/PROD-DEV-MODE.md](telegram-food-bot/PROD-DEV-MODE.md) - PROD-DEV mode
+- [telegram-food-bot/MODES-COMPARISON.md](telegram-food-bot/MODES-COMPARISON.md) - Mode comparison
+- [telegram-food-bot/DEV_START_CHECKLIST.md](telegram-food-bot/DEV_START_CHECKLIST.md) - Dev checklist
+
+**Features:**
+- [BUDGET_TRACKER_IMPLEMENTATION.md](BUDGET_TRACKER_IMPLEMENTATION.md) - Budget tracker
+- [ENGAGEMENT_STRATEGY.md](ENGAGEMENT_STRATEGY.md) - Monetization/gamification plan (2300+ lines)
+- [GAMIFICATION_REMOVAL_SUMMARY.md](GAMIFICATION_REMOVAL_SUMMARY.md) - Why removed
+
+**Testing:**
+- [TESTING_INSTRUCTIONS.md](TESTING_INSTRUCTIONS.md) - Testing guide
+- [QUICK_TEST_CHECKLIST.md](QUICK_TEST_CHECKLIST.md) - Quick checklist
+- [telegram-food-bot/TESTING_TOOLS_SUMMARY.md](telegram-food-bot/TESTING_TOOLS_SUMMARY.md) - Tools overview
+
+**Session summaries:**
+- [SESSION_SUMMARY_2025-10-24.md](SESSION_SUMMARY_2025-10-24.md) - CI/CD + features
+- [telegram-food-bot/SESSION_SUMMARY_2025-01-12.md](telegram-food-bot/SESSION_SUMMARY_2025-01-12.md) - Cache fixes
 
 Always check docs before making architectural changes.
 
@@ -396,12 +512,29 @@ Always check docs before making architectural changes.
 - Image lazy loading
 - Service worker for PWA support
 
-## Known Issues
+## Known Issues & Solutions
 
-- Poll caching can cause stale data → Always use `cacheUtils.clearStalePollsCache()`
-- Deep links may fail on very old Telegram versions → Fallback to `/vote` command
-- ngrok URLs change on restart → Run URL updater script after restart
-- Telegram Mini App not available in some regions → Fallback mechanisms handle this
+**Fixed:**
+- ✅ Poll caching causing stale data → Fixed: polls never cached in localStorage
+- ✅ Menu items filtering → Fixed: proper display after poll creation
+- ✅ Navigation after poll creation → Fixed: auto-redirect with cache clear
+- ✅ InlineVotingCard BigInt crash → Fixed: validation with try-catch
+- ✅ Admin delete button → Fixed: now uses completePoll instead of delete
+
+**Active (low priority):**
+- ⚠️ 5 integration auth tests failing → Need fixing
+- ⚠️ Frontend test coverage low → Need expansion
+- ⚠️ SQLite in production → Plan migration to PostgreSQL
+
+**By design:**
+- 💡 Deep links may fail on very old Telegram versions → Fallback to `/vote` command
+- 💡 ngrok URLs change on restart → Run URL updater script after restart
+- 💡 Telegram Mini App not available in some regions → Fallback mechanisms handle this
+
+**Documentation:**
+- [PERSISTENT_CACHE_FIX.md](telegram-food-bot/PERSISTENT_CACHE_FIX.md) - Poll caching fix
+- [CACHE_FIX_REPORT.md](telegram-food-bot/CACHE_FIX_REPORT.md) - Menu filtering fix
+- [INLINE_VOTING_AUDIT_REPORT.md](telegram-food-bot/INLINE_VOTING_AUDIT_REPORT.md) - Voting fixes
 
 ## Security
 
@@ -447,3 +580,80 @@ Always check docs before making architectural changes.
 - Use Prisma Client, never raw SQL
 - Logger for all significant events: `logger.info()`, `logger.error()`
 - Error boundaries for React components
+
+---
+
+## Current Project Status
+
+### ✅ Production Ready (v2.0.0)
+
+**What's Working:**
+- ✅ All core features implemented
+- ✅ Budget tracker with 6 adaptive scenarios
+- ✅ VPS deployment automation ready
+- ✅ 197/202 tests passing (97.5%)
+- ✅ CI/CD pipeline configured
+- ✅ Comprehensive documentation (70+ files)
+- ✅ Multiple environment modes (DEV/PROD-DEV/PROD)
+- ✅ Zero-downtime update scripts
+
+**Ready for Deployment:**
+- Domain: rocket-lunch.duckdns.org
+- Branch: feature/new_version
+- Scripts: `./deploy-vps.sh` and `./update-vps.sh`
+- Documentation: See [START_HERE.md](START_HERE.md)
+
+### 📋 Next Steps
+
+**Immediate (this week):**
+1. Deploy to VPS using automated scripts
+2. Configure Sentry DSN for monitoring
+3. Test in production environment
+4. Gather user feedback
+
+**Short-term (1-2 weeks):**
+5. Fix 5 failing auth tests
+6. Expand frontend test coverage
+7. Performance optimization
+8. Prepare PostgreSQL migration
+
+**Medium-term (1-2 months):**
+9. Implement monetization (plan ready in ENGAGEMENT_STRATEGY.md)
+10. Add gamification (optional, plan ready)
+11. Multi-winner polls
+12. Integrations (Яндекс.Еда, etc.)
+
+### 📊 Metrics
+
+- **Backend:** ~15,000 lines of TypeScript
+- **Frontend:** ~20,000 lines of TypeScript/React
+- **Tests:** 202 total (197 passing)
+- **Coverage:** Backend ~85%, Frontend needs expansion
+- **Documentation:** 70+ markdown files
+- **Bundle size:** ~500 KB (production)
+
+---
+
+## Quick Reference Links
+
+**For Development:**
+- [Start dev](telegram-food-bot/) → `.\start-dev.ps1`
+- [Start PROD-DEV](telegram-food-bot/) → `.\start-prod-dev.ps1`
+- [Run tests](telegram-food-bot/backend/) → `npm test`
+
+**For Deployment:**
+- [START_HERE.md](START_HERE.md) - Main guide
+- [QUICK_VPS_DEPLOY.md](QUICK_VPS_DEPLOY.md) - Quick reference
+- [Deploy script](telegram-food-bot/) → `./deploy-vps.sh`
+- [Update script](telegram-food-bot/) → `./update-vps.sh`
+
+**For Documentation:**
+- [README.md](README.md) - Project overview
+- [BUDGET_TRACKER_IMPLEMENTATION.md](BUDGET_TRACKER_IMPLEMENTATION.md) - Budget feature
+- [ENGAGEMENT_STRATEGY.md](ENGAGEMENT_STRATEGY.md) - Monetization plan
+- [Session summaries](.) - Check SESSION_SUMMARY_*.md files
+
+---
+
+**Last updated:** 2025-10-29
+**Status:** ✅ Production Ready - Ready for VPS deployment

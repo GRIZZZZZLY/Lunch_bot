@@ -138,7 +138,7 @@ export function useVote() {
                 ...old._count,
                 votes: (old._count?.votes || 0) + 1,
               },
-            };
+            } as PollWithDetails;
           }
         );
       }
@@ -195,11 +195,11 @@ export function useCreatePoll() {
   const { addNotification } = useUI();
 
   return useMutation({
-    mutationFn: async (data: { menuItemIds: number[]; duration?: number }) => {
-      const response = await pollsService.createPoll(
-        data.menuItemIds,
-        data.duration
-      );
+    mutationFn: async (data: { menuItemIds: number[]; duration?: number; groupId?: number }) => {
+      const response = await pollsService.createPoll({
+        groupId: data.groupId || 1,
+        duration: data.duration
+      });
       if (!response.success) {
         throw new Error(response.error || 'Failed to create poll');
       }
