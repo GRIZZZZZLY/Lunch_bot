@@ -217,6 +217,17 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       match: calculatedSignature === receivedSignature,
     });
 
+    // TEMPORARY DEBUG: Force console.log for production debugging
+    console.log('🔍 SIGNATURE DEBUG:', {
+      botTokenLength: botToken.length,
+      calculatedFull: calculatedSignature,
+      receivedFull: receivedSignature,
+      format: data.signature ? 'base64url' : 'hex',
+      match: calculatedSignature === receivedSignature,
+      dataCheckStringLength: dataCheckString.length,
+      fields: Object.keys(params).sort()
+    });
+
     // Сравниваем подписи
     const isMatch = calculatedSignature === receivedSignature;
 
