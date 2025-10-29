@@ -161,11 +161,13 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       hasHash: !!data.hash,
       signatureLength: data.signature?.length || 0,
       hashLength: data.hash?.length || 0,
-      usingField: data.signature ? 'signature' : 'hash'
+      usingField: data.hash ? 'hash (HMAC)' : 'signature (Ed25519)'
     });
 
-    // Используем signature если есть, иначе hash (обратная совместимость)
-    const receivedSignature = data.signature || data.hash;
+    // FIX: Всегда используем hash (HMAC-SHA256), т.к. signature это Ed25519 (другой алгоритм)
+    // hash = 64 символа hex (32 байта HMAC-SHA256) ✅
+    // signature = 86 символов base64url (64 байта Ed25519) ❌ - другой алгоритм!
+    const receivedSignature = data.hash || data.signature;
     if (!receivedSignature) {
       logger.warn('No signature or hash found in initData');
       return false;
@@ -217,8 +219,11 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       .update(dataCheckString)
       .digest();
     
-    if (data.signature) {
-      // НОВЫЙ ФОРМАТ (SDK v7+): signature в base64url
+    // FIX: Определяем формат по тому, какое поле реально используем
+    const usingHash = (receivedSignature === data.hash);
+
+    if (!usingHash && data.signature) {
+      // НОВЫЙ ФОРМАТ (SDK v7+): signature в base64url (НО это Ed25519, не HMAC!)
       // Конвертируем вычисленный HMAC в base64url для сравнения
       const rawBase64 = calculatedHmac.toString('base64');
       calculatedSignature = rawBase64
@@ -233,7 +238,7 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
     logger.debug('🔍 Signature comparison:', {
       calculated: calculatedSignature.substring(0, 20) + '...',
       received: receivedSignature.substring(0, 20) + '...',
-      format: data.signature ? 'base64url (URL-safe)' : 'hex (WebAppData)',
+      format: usingHash ? 'hex (HMAC-SHA256)' : 'base64url (Ed25519)',
       match: calculatedSignature === receivedSignature,
     });
 
@@ -242,7 +247,7 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       botTokenLength: botToken.length,
       calculatedFull: calculatedSignature,
       receivedFull: receivedSignature,
-      format: data.signature ? 'base64url' : 'hex',
+      format: usingHash ? 'hex (HMAC)' : 'base64url (Ed25519)',
       match: calculatedSignature === receivedSignature,
       dataCheckStringLength: dataCheckString.length,
       fields: Object.keys(params).sort()
