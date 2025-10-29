@@ -149,9 +149,27 @@ export function verifyWebhookSignature(
   signature: string,
   secretToken: string
 ): boolean {
-  const expectedSignature = createWebhookSignature(body, secretToken);
-  return crypto.timingSafeEqual(
-    Buffer.from(signature, 'hex'),
-    Buffer.from(expectedSignature, 'hex')
-  );
+  try {
+    // ✅ FIX: Проверяем формат подписи перед созданием буфера
+    // Подпись должна быть hex строкой чётной длины (64 символа для SHA-256)
+    if (!signature || signature.length !== 64 || !/^[0-9a-fA-F]+$/.test(signature)) {
+      logger.warn('Invalid webhook signature format', {
+        signatureLength: signature?.length,
+        expectedLength: 64,
+        isHex: /^[0-9a-fA-F]+$/.test(signature || ''),
+      });
+      return false;
+    }
+
+    const expectedSignature = createWebhookSignature(body, secretToken);
+    
+    // Теперь безопасно создаём буферы одинаковой длины
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, 'hex'),
+      Buffer.from(expectedSignature, 'hex')
+    );
+  } catch (error) {
+    logger.error('Error verifying webhook signature:', error);
+    return false;
+  }
 }
