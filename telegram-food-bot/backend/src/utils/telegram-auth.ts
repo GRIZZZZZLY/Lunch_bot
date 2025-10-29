@@ -155,6 +155,15 @@ function parseInitData(initData: string): TelegramInitData | null {
  */
 function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
   try {
+    // TEMPORARY DEBUG: Check which field Telegram sends
+    console.log('📨 Received signature fields:', {
+      hasSignature: !!data.signature,
+      hasHash: !!data.hash,
+      signatureLength: data.signature?.length || 0,
+      hashLength: data.hash?.length || 0,
+      usingField: data.signature ? 'signature' : 'hash'
+    });
+
     // Используем signature если есть, иначе hash (обратная совместимость)
     const receivedSignature = data.signature || data.hash;
     if (!receivedSignature) {
