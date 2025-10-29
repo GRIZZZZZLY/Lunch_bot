@@ -38,6 +38,14 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
       return null;
     }
 
+    const safeTokenLog = {
+      exists: !!botToken,
+      length: botToken.length,
+      previewStart: botToken.substring(0, Math.min(6, botToken.length)),
+      previewEnd: botToken.substring(Math.max(0, botToken.length - 6)),
+    };
+    logger.info('🔑 BOT_TOKEN runtime check', safeTokenLog);
+
     // Парсим initData
     const parsed = parseInitData(initData);
     if (!parsed) {
@@ -113,6 +121,10 @@ function parseInitData(initData: string): TelegramInitData | null {
           result[key] = JSON.parse(value);
           // Сохраняем оригинальную строку для проверки подписи
           result['_userRaw'] = value;
+          logger.debug('📦 Received raw user payload from initData', {
+            rawLength: value.length,
+            startsWith: value.substring(0, 15),
+          });
         } catch {
           logger.warn('Failed to parse user data from initData');
           return null;
@@ -181,6 +193,14 @@ function verifyTelegramHash(data: TelegramInitData, botToken: string): boolean {
       signatureLength: receivedSignature.length,
       botTokenLength: botToken.length,
       fields: Object.keys(params).sort(),
+      hasPadding: receivedSignature.includes('='),
+      newlineType: dataCheckString.includes('\r\n') ? 'CRLF' : 'LF',
+    });
+
+    logger.debug('🔁 Signature format insights', {
+      receivedFormat: data.signature ? 'base64url' : 'hex',
+      receivedLength: receivedSignature.length,
+      calculatedUsing: data.signature ? 'base64url' : 'hex',
     });
 
     let calculatedSignature: string;
