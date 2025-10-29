@@ -199,6 +199,19 @@ function createBot() {
             if (data.startsWith('budget:mark_paid:')) {
                 const txId = parseInt(data.split(':')[2]);
                 const { BudgetService } = await Promise.resolve().then(() => __importStar(require('../services/budget.service.js')));
+                const { prisma } = await Promise.resolve().then(() => __importStar(require('../database/client.js')));
+                const tx = await prisma.transaction.findUnique({
+                    where: { id: txId },
+                    include: { fromUser: true },
+                });
+                if (!tx) {
+                    await ctx.answerCallbackQuery('❌ Транзакция не найдена');
+                    return;
+                }
+                if (Number(tx.fromUser.telegramId) !== ctx.from.id) {
+                    await ctx.answerCallbackQuery('❌ Вы можете отметить только свои долги');
+                    return;
+                }
                 await BudgetService.markAsPaid(txId, ctx.from.id);
                 await ctx.answerCallbackQuery('✅ Отмечено как оплачено');
                 try {
@@ -210,6 +223,19 @@ function createBot() {
             if (data.startsWith('budget:confirm:')) {
                 const txId = parseInt(data.split(':')[2]);
                 const { BudgetService } = await Promise.resolve().then(() => __importStar(require('../services/budget.service.js')));
+                const { prisma } = await Promise.resolve().then(() => __importStar(require('../database/client.js')));
+                const tx = await prisma.transaction.findUnique({
+                    where: { id: txId },
+                    include: { toUser: true },
+                });
+                if (!tx) {
+                    await ctx.answerCallbackQuery('❌ Транзакция не найдена');
+                    return;
+                }
+                if (Number(tx.toUser.telegramId) !== ctx.from.id) {
+                    await ctx.answerCallbackQuery('❌ Вы можете подтвердить только платежи в ваш адрес');
+                    return;
+                }
                 await BudgetService.confirmPayment(txId);
                 await ctx.answerCallbackQuery('✅ Оплата подтверждена');
                 try {
@@ -348,3 +374,4 @@ async function stopBot(bot) {
 function getBotInstance() {
     return botInstance;
 }
+//# sourceMappingURL=bot.js.map

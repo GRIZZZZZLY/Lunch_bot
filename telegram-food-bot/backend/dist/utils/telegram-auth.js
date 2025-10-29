@@ -45,13 +45,13 @@ function validateTelegramInitData(initData) {
         }
         const authDate = parsed.auth_date * 1000;
         const now = Date.now();
-        const maxAge = 60 * 60 * 1000;
+        const maxAge = 24 * 60 * 60 * 1000;
         if (now - authDate > maxAge) {
             logger_1.logger.warn('⏰ InitData is too old', {
                 authDate: new Date(authDate),
                 now: new Date(now),
-                ageMinutes: Math.round((now - authDate) / (60 * 1000)),
-                maxAgeMinutes: 60,
+                ageHours: Math.round((now - authDate) / (60 * 60 * 1000)),
+                maxAgeHours: 24,
             });
             return null;
         }
@@ -158,6 +158,10 @@ function verifyTelegramHash(data, botToken) {
             match: calculatedSignature === receivedSignature,
         });
         const isMatch = calculatedSignature === receivedSignature;
+        if (process.env.NODE_ENV === 'production' && process.env.SKIP_SIGNATURE_CHECK === 'true') {
+            logger_1.logger.error('🚨 SECURITY BREACH: SKIP_SIGNATURE_CHECK enabled in PRODUCTION!');
+            throw new Error('CRITICAL SECURITY ERROR: SKIP_SIGNATURE_CHECK must NEVER be enabled in production!');
+        }
         if (!isMatch && process.env.SKIP_SIGNATURE_CHECK === 'true') {
             logger_1.logger.warn('⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!');
             logger_1.logger.warn('⚠️ Using REAL user data from Telegram despite signature mismatch');
@@ -270,3 +274,4 @@ function parseInitDataUnsafe(initData) {
         return null;
     }
 }
+//# sourceMappingURL=telegram-auth.js.map

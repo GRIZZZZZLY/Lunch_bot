@@ -190,3 +190,4 @@ class RouletteService {
 }
 exports.RouletteService = RouletteService;
 exports.rouletteService = new RouletteService();
+//# sourceMappingURL=roulette.service.js.map

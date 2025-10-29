@@ -418,7 +418,11 @@ class PollController {
         try {
             const data = req.body;
             const user = req.user;
-            const poll = await poll_service_1.PollService.createPoll(data);
+            const pollData = {
+                ...data,
+                createdBy: user.id,
+            };
+            const poll = await poll_service_1.PollService.createPoll(pollData);
             logger_1.logger.info('Poll created via API', {
                 pollId: poll.id,
                 groupId: poll.groupId,
@@ -1028,3 +1032,4 @@ class PollController {
 }
 exports.PollController = PollController;
 exports.pollController = PollController;
+//# sourceMappingURL=poll.controller.js.map

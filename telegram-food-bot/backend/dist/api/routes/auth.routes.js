@@ -10,5 +10,6 @@ const router = express_1.default.Router();
 router.post('/validate', auth_controller_1.authController.validateInitData);
 router.get('/me', telegram_auth_1.telegramAuthMiddleware, auth_controller_1.authController.getCurrentUser);
 router.get('/status', telegram_auth_1.telegramAuthMiddleware, auth_controller_1.authController.getAuthStatus);
-router.post('/refresh', telegram_auth_1.telegramAuthMiddleware, auth_controller_1.authController.refreshAuth);
+router.post('/refresh', telegram_auth_1.refreshTokenMiddleware, auth_controller_1.authController.refreshAuth);
 exports.default = router;
+//# sourceMappingURL=auth.routes.js.map

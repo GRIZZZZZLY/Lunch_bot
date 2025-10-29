@@ -272,3 +272,4 @@ async function sendPersonalNotifications(pollId, breakdown, responsibleUser) {
         logger_1.logger.error('Error sending personal notifications:', error);
     }
 }
+//# sourceMappingURL=poll.service.extensions.js.map

@@ -70,3 +70,4 @@ function createResponsibleKeyboard(pollId) {
         ]
     };
 }
+//# sourceMappingURL=webapp.keyboard.js.map
