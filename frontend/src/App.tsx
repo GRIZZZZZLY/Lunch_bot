@@ -18,20 +18,46 @@ import { useAppStore } from './store/useAppStore';
 import { WebVitals, PerformanceMonitor } from './components/performance/WebVitals';
 import { OfflineBanner } from './components/common/OfflineBanner';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
-// TEMPORARY: Отключен из-за бесконечного цикла
-// import { DebugLogger } from './components/DebugLogger';
 
-// Lazy load страниц для Code Splitting
-const HomePage = lazy(() => import('./pages/HomePage').then(module => ({ default: module.HomePage })));
-const MenuPage = lazy(() => import('./pages/MenuPage').then(module => ({ default: module.MenuPage })));
-const StatsPage = lazy(() => import('./pages/StatsPage').then(module => ({ default: module.StatsPage })));
-// DISABLED: VotingPage not used anymore - voting happens on HomePage
-// const VotingPage = lazy(() => import('./pages/VotingPage').then(module => ({ default: module.VotingPage })));
-const PollHistoryPage = lazy(() => import('./pages/PollHistoryPage').then(module => ({ default: module.PollHistoryPage })));
-const PollResultsPage = lazy(() => import('./pages/PollResultsPage').then(module => ({ default: module.PollResultsPage })));
-const ProfilePage = lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
-const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then(module => ({ default: module.AdminDashboardPage })));
-const UserStatsPage = lazy(() => import('./pages/UserStatsPage').then(module => ({ default: module.UserStatsPage })));
+// ✅ ИСПРАВЛЕНО: Lazy load с обработкой ошибок
+const createLazyComponent = <T extends React.ComponentType<any>>(
+  importFn: () => Promise<{ [key: string]: T }>,
+  exportName: string
+) => {
+  return lazy(() =>
+    importFn()
+      .then(module => ({ default: module[exportName] as T }))
+      .catch(error => {
+        console.error(`Failed to load component ${exportName}:`, error);
+        // Возвращаем fallback компонент при ошибке загрузки
+        return {
+          default: (() => (
+            <div className="flex items-center justify-center min-h-screen p-4">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold mb-2">Ошибка загрузки</h2>
+                <p className="text-muted-foreground mb-4">Не удалось загрузить страницу</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-peach-500 text-white rounded-lg hover:bg-peach-600"
+                >
+                  Перезагрузить
+                </button>
+              </div>
+            </div>
+          )) as unknown as T
+        };
+      })
+  );
+};
+
+const HomePage = createLazyComponent(() => import('./pages/HomePage'), 'HomePage');
+const MenuPage = createLazyComponent(() => import('./pages/MenuPage'), 'MenuPage');
+const StatsPage = createLazyComponent(() => import('./pages/StatsPage'), 'StatsPage');
+const PollHistoryPage = createLazyComponent(() => import('./pages/PollHistoryPage'), 'PollHistoryPage');
+const PollResultsPage = createLazyComponent(() => import('./pages/PollResultsPage'), 'PollResultsPage');
+const ProfilePage = createLazyComponent(() => import('./pages/ProfilePage'), 'ProfilePage');
+const AdminDashboardPage = createLazyComponent(() => import('./pages/AdminDashboardPage'), 'AdminDashboardPage');
+const UserStatsPage = createLazyComponent(() => import('./pages/UserStatsPage'), 'UserStatsPage');
 
 // Dev/Debug pages - удалены из сборки, так как вызывают ошибки импортов
 // Если нужны, исправьте импорты в __dev__ файлах на относительные пути с ../../
@@ -88,21 +114,47 @@ function AppContent() {
 
 
 
-  // Мгновенный preload критичных страниц для максимальной скорости
+  // ✅ ИСПРАВЛЕНО: Preload критичных страниц через requestIdleCallback
   useEffect(() => {
-    // Начинаем preload сразу после монтирования (0ms delay)
-    const timer = setTimeout(() => {
-      // Предзагружаем только production страницы
-      import('./pages/MenuPage');
-      // DISABLED: VotingPage not used anymore
-      // import('./pages/VotingPage');
-      import('./pages/StatsPage');
-      import('./pages/HomePage');
-      import('./pages/ProfilePage');
-      import('./pages/PollHistoryPage');
-    }, 0); // Мгновенно - без задержки
+    let cancelled = false;
 
-    return () => clearTimeout(timer);
+    // Проверяем поддержку requestIdleCallback
+    if ('requestIdleCallback' in window) {
+      const handle = requestIdleCallback(
+        () => {
+          if (cancelled) return;
+
+          // Предзагружаем только production страницы
+          import('./pages/MenuPage').catch(() => {});
+          import('./pages/StatsPage').catch(() => {});
+          import('./pages/HomePage').catch(() => {});
+          import('./pages/ProfilePage').catch(() => {});
+          import('./pages/PollHistoryPage').catch(() => {});
+        },
+        { timeout: 2000 } // Максимум 2 секунды ожидания
+      );
+
+      return () => {
+        cancelled = true;
+        cancelIdleCallback(handle);
+      };
+    } else {
+      // Fallback для старых браузеров
+      const timer = setTimeout(() => {
+        if (cancelled) return;
+
+        import('./pages/MenuPage').catch(() => {});
+        import('./pages/StatsPage').catch(() => {});
+        import('./pages/HomePage').catch(() => {});
+        import('./pages/ProfilePage').catch(() => {});
+        import('./pages/PollHistoryPage').catch(() => {});
+      }, 100);
+
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
+    }
   }, []);
 
   // Показываем навигацию на всех основных страницах (кроме голосования и других модальных)
@@ -203,12 +255,10 @@ function App() {
           <InstallPrompt />
           <WebVitals />
           <PerformanceMonitor />
-          {/* TEMPORARY: Отключен из-за бесконечного цикла */}
-          {/* <DebugLogger /> */}
           <AppContent />
         </BrowserRouter>
-        {/* React Query Devtools - отключены для production */}
-        {import.meta.env.DEV && false && <ReactQueryDevtools initialIsOpen={false} />}
+        {/* ✅ ИСПРАВЛЕНО: React Query Devtools включены в dev режиме */}
+        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
       </PersistQueryClientProvider>
     </ErrorBoundary>
   );
