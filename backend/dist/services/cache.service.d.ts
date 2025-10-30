@@ -1,25 +1,33 @@
+import Redis from 'ioredis';
 declare class CacheService {
-    private cache;
+    private client;
     private hits;
     private misses;
     constructor();
-    get<T>(key: string): T | undefined;
-    set<T>(key: string, value: T, ttl?: number): boolean;
-    del(key: string | string[]): number;
-    flush(): void;
-    invalidatePattern(pattern: string): void;
+    get<T>(key: string): Promise<T | undefined>;
+    set<T>(key: string, value: T, ttl?: number): Promise<boolean>;
+    del(key: string | string[]): Promise<number>;
+    flush(): Promise<void>;
+    invalidatePattern(pattern: string): Promise<void>;
     getOrSet<T>(key: string, fetcher: () => Promise<T>, ttl?: number): Promise<T>;
-    getStats(): {
+    getStats(): Promise<{
         hits: number;
         misses: number;
         hitRate: string;
-        keys: number;
-        ksize: number;
-        vsize: number;
-    };
-    keys(): string[];
-    has(key: string): boolean;
-    getTtl(key: string): number | undefined;
+        dbSize: number;
+        redisInfo: string;
+    } | {
+        hits: number;
+        misses: number;
+        hitRate: string;
+        dbSize: number;
+        redisInfo?: undefined;
+    }>;
+    keys(pattern?: string): Promise<string[]>;
+    has(key: string): Promise<boolean>;
+    getTtl(key: string): Promise<number | undefined>;
+    getClient(): Redis;
+    close(): Promise<void>;
 }
 export declare const cacheService: CacheService;
 export declare const CACHE_KEYS: {
@@ -48,10 +56,10 @@ export declare const CACHE_TTL: {
     readonly VOTES: 30;
 };
 export declare class CacheInvalidator {
-    static invalidatePoll(pollId: number, groupId?: number): void;
-    static invalidateVote(pollId: number): void;
-    static invalidateMenu(): void;
-    static invalidateUser(userId: number, telegramId?: bigint): void;
+    static invalidatePoll(pollId: number, groupId?: number): Promise<void>;
+    static invalidateVote(pollId: number): Promise<void>;
+    static invalidateMenu(): Promise<void>;
+    static invalidateUser(userId: number, telegramId?: bigint): Promise<void>;
 }
 export {};
 //# sourceMappingURL=cache.service.d.ts.map

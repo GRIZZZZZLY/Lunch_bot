@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { CreditCard, Phone, Info, CheckCircle } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
-import { useToast } from '../common/ToastManager';
+import { toast } from 'sonner';
 import { cn, formatRelativeTime } from '../../lib/utils';
 
 interface UrgentDebtViewProps {
@@ -19,7 +19,6 @@ interface UrgentDebtViewProps {
  */
 export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts, credits }) => {
   const haptic = useHaptic();
-  const toast = useToast();
   const queryClient = useQueryClient();
   
   // CRITICAL: Защита от undefined значений

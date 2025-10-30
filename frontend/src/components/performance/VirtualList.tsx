@@ -16,7 +16,7 @@
 import { FC, ReactElement } from 'react';
 // @ts-ignore - types issue with react-window
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
-import { useWindowSize } from '@/hooks/useWindowSize';
+import { useWindowSize } from 'react-use';
 
 interface VirtualListProps<T> {
   items: T[];

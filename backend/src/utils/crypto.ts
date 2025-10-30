@@ -1,99 +1,12 @@
 import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 import { logger } from './logger';
 
 /**
- * Валидация initData от Telegram WebApp
+ * ⚠️ DEPRECATED: Use telegram-auth.ts instead!
+ * This file now only contains utility crypto functions.
+ * Telegram initData validation moved to utils/telegram-auth.ts
  */
-export function validateTelegramInitData(
-  initData: string,
-  botToken: string
-): { isValid: boolean; data?: any } {
-  try {
-    // Парсим данные
-    const urlParams = new URLSearchParams(initData);
-    const hash = urlParams.get('hash');
-    
-    if (!hash) {
-      logger.warn('Отсутствует hash в initData');
-      return { isValid: false };
-    }
-
-    // Удаляем hash для проверки
-    urlParams.delete('hash');
-    
-    // Сортируем параметры по ключу
-    const sortedParams = Array.from(urlParams.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => `${key}=${value}`)
-      .join('\n');
-
-    // Создаем secret key
-    const secretKey = crypto
-      .createHmac('sha256', 'WebAppData')
-      .update(botToken)
-      .digest();
-
-    // Вычисляем hash
-    const calculatedHash = crypto
-      .createHmac('sha256', secretKey)
-      .update(sortedParams)
-      .digest('hex');
-
-    const isValid = calculatedHash === hash;
-
-    if (!isValid) {
-      logger.warn('Невалидный hash в initData', {
-        calculated: calculatedHash,
-        received: hash,
-      });
-      return { isValid: false };
-    }
-
-    // Парсим данные пользователя
-    const userData = urlParams.get('user');
-    const authDate = urlParams.get('auth_date');
-    
-    if (!userData || !authDate) {
-      logger.warn('Отсутствуют обязательные данные в initData');
-      return { isValid: false };
-    }
-
-    // Проверяем время жизни данных (24 часа)
-    const authTimestamp = parseInt(authDate) * 1000;
-    const now = Date.now();
-    const maxAge = 24 * 60 * 60 * 1000; // 24 часа
-    
-    if (now - authTimestamp > maxAge) {
-      logger.warn('InitData устарел', {
-        authDate: new Date(authTimestamp),
-        now: new Date(now),
-        ageHours: Math.round((now - authTimestamp) / (60 * 60 * 1000)),
-      });
-      return { isValid: false };
-    }
-
-    // Возвращаем валидные данные
-    const parsedUserData = JSON.parse(decodeURIComponent(userData));
-    
-    return {
-      isValid: true,
-      data: {
-        user: parsedUserData,
-        auth_date: parseInt(authDate),
-        query_id: urlParams.get('query_id'),
-        chat: urlParams.get('chat') ? JSON.parse(decodeURIComponent(urlParams.get('chat')!)) : undefined,
-        chat_type: urlParams.get('chat_type'),
-        chat_instance: urlParams.get('chat_instance'),
-        start_param: urlParams.get('start_param'),
-        can_send_after: urlParams.get('can_send_after') ? parseInt(urlParams.get('can_send_after')!) : undefined,
-      }
-    };
-
-  } catch (error) {
-    logger.error('Ошибка валидации initData:', error);
-    return { isValid: false };
-  }
-}
 
 /**
  * Извлечение Authorization заголовка
@@ -114,21 +27,34 @@ export function generateRandomToken(length: number = 32): string {
 }
 
 /**
- * Хеширование пароля (для будущего использования)
+ * Хеширование пароля с bcrypt
+ * ✅ Заменено с PBKDF2 на bcrypt для:
+ * - Неблокирующая работа (async)
+ * - Защита от timing attacks
+ * - Автоматический salt management
  */
-export function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha256').toString('hex');
-  return `${salt}:${hash}`;
+const BCRYPT_ROUNDS = 12; // Рекомендуемое значение (баланс безопасность/скорость)
+
+export async function hashPassword(password: string): Promise<string> {
+  try {
+    return await bcrypt.hash(password, BCRYPT_ROUNDS);
+  } catch (error) {
+    logger.error('Password hashing error:', error);
+    throw new Error('Failed to hash password');
+  }
 }
 
 /**
- * Проверка пароля (для будущего использования)
+ * Проверка пароля с bcrypt
+ * Автоматическая защита от timing attacks
  */
-export function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(':');
-  const testHash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha256').toString('hex');
-  return testHash === hash;
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  try {
+    return await bcrypt.compare(password, hash);
+  } catch (error) {
+    logger.error('Password verification error:', error);
+    return false;
+  }
 }
 
 /**
