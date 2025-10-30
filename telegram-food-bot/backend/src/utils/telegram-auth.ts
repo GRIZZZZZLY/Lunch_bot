@@ -40,22 +40,24 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
       logger.warn('⚠️ SKIP_TELEGRAM_VALIDATION enabled - parsing without validation');
       try {
         const parsed = parse(initData);
+        const rawUser = parsed.user as any;
+
         logger.info('✅ initData parsed (validation skipped)', {
-          userId: parsed.user?.id,
-          username: parsed.user?.username,
-          firstName: parsed.user?.firstName,
+          userId: rawUser?.id,
+          username: rawUser?.username,
+          firstName: rawUser?.first_name,
         });
 
-        // Приводим к нашему формату TelegramUser
-        return parsed.user ? {
-          id: parsed.user.id as number,
-          first_name: parsed.user.firstName as string,
-          last_name: parsed.user.lastName as string | undefined,
-          username: parsed.user.username as string | undefined,
-          photo_url: parsed.user.photoUrl as string | undefined,
-          language_code: parsed.user.languageCode as string | undefined,
-          is_premium: parsed.user.isPremium as boolean | undefined,
-          allows_write_to_pm: parsed.user.allowsWriteToPm as boolean | undefined,
+        // Библиотека возвращает поля в snake_case (как от Telegram)
+        return rawUser ? {
+          id: rawUser.id as number,
+          first_name: rawUser.first_name as string,
+          last_name: rawUser.last_name as string | undefined,
+          username: rawUser.username as string | undefined,
+          photo_url: rawUser.photo_url as string | undefined,
+          language_code: rawUser.language_code as string | undefined,
+          is_premium: rawUser.is_premium as boolean | undefined,
+          allows_write_to_pm: rawUser.allows_write_to_pm as boolean | undefined,
         } : null;
       } catch (parseError) {
         logger.error('Failed to parse initData even without validation:', parseError);
@@ -70,30 +72,24 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
     // Если validate не выбросила ошибку, парсим данные
     const parsed = parse(initData);
 
-    // 🔍 DEBUG: Смотрим что именно вернула библиотека
-    logger.info('🔍 DEBUG: Raw parsed user object from library', {
-      parsedUser: parsed.user,
-      allKeys: parsed.user ? Object.keys(parsed.user) : [],
-      firstName_camelCase: (parsed.user as any)?.firstName,
-      firstName_snakeCase: (parsed.user as any)?.first_name,
-    });
-
     logger.info('✅ Telegram initData validated successfully', {
       userId: parsed.user?.id,
       username: parsed.user?.username,
-      firstName: parsed.user?.firstName,
+      firstName: (parsed.user as any)?.first_name,
     });
 
+    // Библиотека возвращает поля в snake_case (как от Telegram), а не camelCase
     // Приводим к нашему формату TelegramUser
-    return parsed.user ? {
-      id: parsed.user.id as number,
-      first_name: parsed.user.firstName as string,
-      last_name: parsed.user.lastName as string | undefined,
-      username: parsed.user.username as string | undefined,
-      photo_url: parsed.user.photoUrl as string | undefined,
-      language_code: parsed.user.languageCode as string | undefined,
-      is_premium: parsed.user.isPremium as boolean | undefined,
-      allows_write_to_pm: parsed.user.allowsWriteToPm as boolean | undefined,
+    const rawUser = parsed.user as any;
+    return rawUser ? {
+      id: rawUser.id as number,
+      first_name: rawUser.first_name as string,
+      last_name: rawUser.last_name as string | undefined,
+      username: rawUser.username as string | undefined,
+      photo_url: rawUser.photo_url as string | undefined,
+      language_code: rawUser.language_code as string | undefined,
+      is_premium: rawUser.is_premium as boolean | undefined,
+      allows_write_to_pm: rawUser.allows_write_to_pm as boolean | undefined,
     } : null;
 
   } catch (error) {

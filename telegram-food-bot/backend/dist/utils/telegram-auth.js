@@ -26,20 +26,21 @@ function validateTelegramInitData(initData) {
             logger_1.logger.warn('⚠️ SKIP_TELEGRAM_VALIDATION enabled - parsing without validation');
             try {
                 const parsed = (0, init_data_node_1.parse)(initData);
+                const rawUser = parsed.user;
                 logger_1.logger.info('✅ initData parsed (validation skipped)', {
-                    userId: parsed.user?.id,
-                    username: parsed.user?.username,
-                    firstName: parsed.user?.firstName,
+                    userId: rawUser?.id,
+                    username: rawUser?.username,
+                    firstName: rawUser?.first_name,
                 });
-                return parsed.user ? {
-                    id: parsed.user.id,
-                    first_name: parsed.user.firstName,
-                    last_name: parsed.user.lastName,
-                    username: parsed.user.username,
-                    photo_url: parsed.user.photoUrl,
-                    language_code: parsed.user.languageCode,
-                    is_premium: parsed.user.isPremium,
-                    allows_write_to_pm: parsed.user.allowsWriteToPm,
+                return rawUser ? {
+                    id: rawUser.id,
+                    first_name: rawUser.first_name,
+                    last_name: rawUser.last_name,
+                    username: rawUser.username,
+                    photo_url: rawUser.photo_url,
+                    language_code: rawUser.language_code,
+                    is_premium: rawUser.is_premium,
+                    allows_write_to_pm: rawUser.allows_write_to_pm,
                 } : null;
             }
             catch (parseError) {
@@ -49,26 +50,21 @@ function validateTelegramInitData(initData) {
         }
         (0, init_data_node_1.validate)(initData, botToken, { expiresIn: 86400 });
         const parsed = (0, init_data_node_1.parse)(initData);
-        logger_1.logger.info('🔍 DEBUG: Raw parsed user object from library', {
-            parsedUser: parsed.user,
-            allKeys: parsed.user ? Object.keys(parsed.user) : [],
-            firstName_camelCase: parsed.user?.firstName,
-            firstName_snakeCase: parsed.user?.first_name,
-        });
         logger_1.logger.info('✅ Telegram initData validated successfully', {
             userId: parsed.user?.id,
             username: parsed.user?.username,
-            firstName: parsed.user?.firstName,
+            firstName: parsed.user?.first_name,
         });
-        return parsed.user ? {
-            id: parsed.user.id,
-            first_name: parsed.user.firstName,
-            last_name: parsed.user.lastName,
-            username: parsed.user.username,
-            photo_url: parsed.user.photoUrl,
-            language_code: parsed.user.languageCode,
-            is_premium: parsed.user.isPremium,
-            allows_write_to_pm: parsed.user.allowsWriteToPm,
+        const rawUser = parsed.user;
+        return rawUser ? {
+            id: rawUser.id,
+            first_name: rawUser.first_name,
+            last_name: rawUser.last_name,
+            username: rawUser.username,
+            photo_url: rawUser.photo_url,
+            language_code: rawUser.language_code,
+            is_premium: rawUser.is_premium,
+            allows_write_to_pm: rawUser.allows_write_to_pm,
         } : null;
     }
     catch (error) {
