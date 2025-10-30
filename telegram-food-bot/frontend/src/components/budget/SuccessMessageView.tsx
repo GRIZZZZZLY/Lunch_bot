@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Transaction } from '../../services/budget.service';
 import { Sparkles } from 'lucide-react';
 import Confetti from 'react-confetti';
-import { useWindowSize } from '../../hooks/useWindowSize';
+import { useWindowSize } from 'react-use';
 
 interface SuccessMessageViewProps {
   debt: Transaction;

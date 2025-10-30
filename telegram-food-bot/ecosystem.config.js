@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'rocket-lunch-bot',
     script: './backend/dist/index.js',
-    cwd: '/root/telegram-food-bot',
+    cwd: '/home/igor/Lunch_bot/telegram-food-bot',
 
     // Process management
     instances: 1,
@@ -10,6 +10,9 @@ module.exports = {
     autorestart: true,
     watch: false,
     max_memory_restart: '1G',
+
+    // Environment file
+    env_file: './backend/.env',
 
     // Environment
     env: {

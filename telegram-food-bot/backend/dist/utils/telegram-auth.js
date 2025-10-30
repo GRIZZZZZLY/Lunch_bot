@@ -8,219 +8,66 @@ exports.generateTestInitData = generateTestInitData;
 exports.extractUserFromInitData = extractUserFromInitData;
 exports.parseInitDataUnsafe = parseInitDataUnsafe;
 const crypto_1 = __importDefault(require("crypto"));
+const init_data_node_1 = require("@telegram-apps/init-data-node");
 const logger_1 = require("./logger");
 function validateTelegramInitData(initData) {
     try {
-        logger_1.logger.info('🔐 Validating Telegram initData', {
+        logger_1.logger.info('🔐 Validating Telegram initData with @telegram-apps/init-data-node', {
             initDataLength: initData?.length || 0,
             initDataPreview: initData?.substring(0, 50) + '...'
         });
-        console.log('📥 Original initData:', initData);
         const botToken = process.env.BOT_TOKEN;
-        console.log('🔑 BOT_TOKEN runtime check:', {
-            exists: !!botToken,
-            length: botToken?.length || 0,
-            first10: botToken?.substring(0, 10) || 'EMPTY',
-            last10: botToken ? botToken.substring(botToken.length - 10) : 'EMPTY',
-            nodeEnv: process.env.NODE_ENV,
-            cwd: process.cwd()
-        });
         if (!botToken) {
             logger_1.logger.error('BOT_TOKEN not found in environment variables');
             return null;
         }
-        const parsed = parseInitData(initData);
-        if (!parsed) {
-            logger_1.logger.warn('Failed to parse initData');
-            return null;
-        }
-        logger_1.logger.info('📝 Parsed initData', {
-            hasUser: !!parsed.user,
-            authDate: parsed.auth_date,
-            hasHash: !!parsed.hash,
-            hasSignature: !!parsed.signature
-        });
-        const isValid = verifyTelegramHash(parsed, botToken);
         const skipValidation = process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true';
-        if (!isValid && !skipValidation) {
-            logger_1.logger.warn('❌ Invalid Telegram hash - signature verification failed');
-            return null;
+        if (skipValidation) {
+            logger_1.logger.warn('⚠️ SKIP_TELEGRAM_VALIDATION enabled - parsing without validation');
+            try {
+                const parsed = (0, init_data_node_1.parse)(initData);
+                logger_1.logger.info('✅ initData parsed (validation skipped)', {
+                    userId: parsed.user?.id,
+                    username: parsed.user?.username,
+                    firstName: parsed.user?.firstName,
+                });
+                return parsed.user ? {
+                    id: parsed.user.id,
+                    first_name: parsed.user.firstName,
+                    last_name: parsed.user.lastName,
+                    username: parsed.user.username,
+                    photo_url: parsed.user.photoUrl,
+                    language_code: parsed.user.languageCode,
+                    is_premium: parsed.user.isPremium,
+                    allows_write_to_pm: parsed.user.allowsWriteToPm,
+                } : null;
+            }
+            catch (parseError) {
+                logger_1.logger.error('Failed to parse initData even without validation:', parseError);
+                return null;
+            }
         }
-        if (!isValid && skipValidation) {
-            logger_1.logger.warn('⚠️ Invalid Telegram hash - но разрешено в SKIP_TELEGRAM_VALIDATION режиме');
-        }
-        else if (isValid) {
-            logger_1.logger.info('✅ Telegram hash verified successfully');
-        }
-        const authDate = parsed.auth_date * 1000;
-        const now = Date.now();
-        const maxAge = 24 * 60 * 60 * 1000;
-        if (now - authDate > maxAge) {
-            logger_1.logger.warn('⏰ InitData is too old', {
-                authDate: new Date(authDate),
-                now: new Date(now),
-                ageHours: Math.round((now - authDate) / (60 * 60 * 1000)),
-                maxAgeHours: 24,
-            });
-            return null;
-        }
+        (0, init_data_node_1.validate)(initData, botToken, { expiresIn: 86400 });
+        const parsed = (0, init_data_node_1.parse)(initData);
         logger_1.logger.info('✅ Telegram initData validated successfully', {
             userId: parsed.user?.id,
             username: parsed.user?.username,
-            firstName: parsed.user?.first_name,
+            firstName: parsed.user?.firstName,
         });
-        return parsed.user || null;
+        return parsed.user ? {
+            id: parsed.user.id,
+            first_name: parsed.user.firstName,
+            last_name: parsed.user.lastName,
+            username: parsed.user.username,
+            photo_url: parsed.user.photoUrl,
+            language_code: parsed.user.languageCode,
+            is_premium: parsed.user.isPremium,
+            allows_write_to_pm: parsed.user.allowsWriteToPm,
+        } : null;
     }
     catch (error) {
-        logger_1.logger.error('Error validating Telegram initData:', error);
+        logger_1.logger.error('❌ Error validating Telegram initData:', error);
         return null;
-    }
-}
-function parseInitData(initData) {
-    try {
-        const rawPairs = {};
-        const pairs = initData.split('&');
-        for (const pair of pairs) {
-            const eqIndex = pair.indexOf('=');
-            if (eqIndex === -1)
-                continue;
-            const key = pair.substring(0, eqIndex);
-            const rawValue = pair.substring(eqIndex + 1);
-            rawPairs[key] = rawValue;
-        }
-        const params = new URLSearchParams(initData);
-        const result = {
-            _rawPairs: rawPairs,
-        };
-        for (const [key, value] of params.entries()) {
-            if (key === 'user') {
-                try {
-                    result[key] = JSON.parse(value);
-                    result['_userRaw'] = rawPairs['user'];
-                }
-                catch {
-                    logger_1.logger.warn('Failed to parse user data from initData');
-                    return null;
-                }
-            }
-            else if (key === 'auth_date') {
-                result[key] = parseInt(value);
-            }
-            else {
-                result[key] = value;
-            }
-        }
-        if ((!result.hash && !result.signature) || !result.auth_date) {
-            logger_1.logger.warn('Missing required fields in initData (hash/signature and auth_date)');
-            return null;
-        }
-        return result;
-    }
-    catch (error) {
-        logger_1.logger.error('Error parsing initData:', error);
-        return null;
-    }
-}
-function verifyTelegramHash(data, botToken) {
-    try {
-        console.log('📨 Received signature fields:', {
-            hasSignature: !!data.signature,
-            hasHash: !!data.hash,
-            signatureLength: data.signature?.length || 0,
-            hashLength: data.hash?.length || 0,
-            usingField: data.hash ? 'hash (HMAC)' : 'signature (Ed25519)'
-        });
-        const receivedSignature = data.hash || data.signature;
-        if (!receivedSignature) {
-            logger_1.logger.warn('No signature or hash found in initData');
-            return false;
-        }
-        const rawPairs = data._rawPairs || {};
-        const { hash, signature, _userRaw, _rawPairs, ...params } = data;
-        const dataCheckString = Object.keys(params)
-            .filter(key => key !== 'hash' && key !== 'signature' && key !== '_userRaw' && key !== '_rawPairs')
-            .sort()
-            .map(key => {
-            const rawValue = rawPairs[key];
-            if (rawValue !== undefined) {
-                return `${key}=${rawValue}`;
-            }
-            const value = params[key];
-            if (typeof value === 'object') {
-                return `${key}=${JSON.stringify(value)}`;
-            }
-            return `${key}=${value}`;
-        })
-            .join('\n');
-        console.log('📝 DataCheckString:', {
-            full: dataCheckString,
-            length: dataCheckString.length,
-            fields: Object.keys(params).sort(),
-            usingRawPairs: !!Object.keys(rawPairs).length,
-            rawPairsKeys: Object.keys(rawPairs),
-            userValuePreview: rawPairs['user']?.substring(0, 100) + '...'
-        });
-        logger_1.logger.debug('🔍 Signature verification data:', {
-            dataCheckString: dataCheckString,
-            dataCheckStringLength: dataCheckString.length,
-            receivedSignature: receivedSignature.substring(0, 20) + '...',
-            receivedSignatureFull: receivedSignature,
-            usingField: data.signature ? 'signature' : 'hash',
-            signatureLength: receivedSignature.length,
-            botTokenLength: botToken.length,
-            fields: Object.keys(params).sort(),
-        });
-        let calculatedSignature;
-        const secretKey = crypto_1.default
-            .createHmac('sha256', 'WebAppData')
-            .update(botToken)
-            .digest();
-        const calculatedHmac = crypto_1.default
-            .createHmac('sha256', secretKey)
-            .update(dataCheckString)
-            .digest();
-        const usingHash = (receivedSignature === data.hash);
-        if (!usingHash && data.signature) {
-            const rawBase64 = calculatedHmac.toString('base64');
-            calculatedSignature = rawBase64
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
-        }
-        else {
-            calculatedSignature = calculatedHmac.toString('hex');
-        }
-        logger_1.logger.debug('🔍 Signature comparison:', {
-            calculated: calculatedSignature.substring(0, 20) + '...',
-            received: receivedSignature.substring(0, 20) + '...',
-            format: usingHash ? 'hex (HMAC-SHA256)' : 'base64url (Ed25519)',
-            match: calculatedSignature === receivedSignature,
-        });
-        console.log('🔍 SIGNATURE DEBUG:', {
-            botTokenLength: botToken.length,
-            calculatedFull: calculatedSignature,
-            receivedFull: receivedSignature,
-            format: usingHash ? 'hex (HMAC)' : 'base64url (Ed25519)',
-            match: calculatedSignature === receivedSignature,
-            dataCheckStringLength: dataCheckString.length,
-            fields: Object.keys(params).sort()
-        });
-        const isMatch = calculatedSignature === receivedSignature;
-        if (process.env.NODE_ENV === 'production' && process.env.SKIP_SIGNATURE_CHECK === 'true') {
-            logger_1.logger.error('🚨 SECURITY BREACH: SKIP_SIGNATURE_CHECK enabled in PRODUCTION!');
-            throw new Error('CRITICAL SECURITY ERROR: SKIP_SIGNATURE_CHECK must NEVER be enabled in production!');
-        }
-        if (!isMatch && process.env.SKIP_SIGNATURE_CHECK === 'true') {
-            logger_1.logger.warn('⚠️ SIGNATURE MISMATCH but SKIP_SIGNATURE_CHECK=true - allowing!');
-            logger_1.logger.warn('⚠️ Using REAL user data from Telegram despite signature mismatch');
-            logger_1.logger.warn('⚠️ This should ONLY be used for debugging ngrok setup!');
-            return true;
-        }
-        return isMatch;
-    }
-    catch (error) {
-        logger_1.logger.error('Error verifying Telegram signature:', error);
-        return false;
     }
 }
 function generateTestInitData(userId, firstName, username) {

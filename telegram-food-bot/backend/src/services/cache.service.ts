@@ -1,4 +1,5 @@
-import NodeCache from 'node-cache';
+import Redis from 'ioredis';
+import { createRedisClient } from '../config/redis.config';
 import { logger } from '../utils/logger';
 
 // TTL (Time To Live) в секундах
@@ -8,87 +9,115 @@ const MENU_TTL = 300; // 5 минут для меню
 const STATS_TTL = 120; // 2 минуты для статистики
 
 /**
- * Сервис кэширования на основе node-cache
- * Использует in-memory кэш для оптимизации частых запросов к БД
+ * Сервис кэширования на основе Redis
+ * Заменяет in-memory node-cache на Redis для:
+ * - Персистентность (не теряется при перезапуске)
+ * - Масштабируемость (общий кэш между серверами)
+ * - Pub/Sub для инвалидации кэша
  */
 class CacheService {
-  private cache: NodeCache;
+  private client: Redis;
   private hits = 0;
   private misses = 0;
 
   constructor() {
-    this.cache = new NodeCache({
-      stdTTL: DEFAULT_TTL,
-      checkperiod: 60, // Проверка истекших ключей каждые 60 сек
-      useClones: false, // Для лучшей производительности (не клонируем объекты)
-      deleteOnExpire: true,
-    });
-
-    // События для логирования
-    this.cache.on('expired', (key, value) => {
-      logger.debug(`Cache key expired: ${key}`);
-    });
-
-    this.cache.on('flush', () => {
-      logger.info('Cache flushed');
-    });
-
-    logger.info('Cache service initialized');
+    this.client = createRedisClient();
+    logger.info('✅ Cache service initialized with Redis');
   }
 
   /**
    * Получить значение из кэша
    */
-  get<T>(key: string): T | undefined {
-    const value = this.cache.get<T>(key);
-    if (value !== undefined) {
-      this.hits++;
-      logger.debug(`Cache HIT: ${key} (hits: ${this.hits}/${this.hits + this.misses})`);
-    } else {
-      this.misses++;
-      logger.debug(`Cache MISS: ${key} (misses: ${this.misses}/${this.hits + this.misses})`);
+  async get<T>(key: string): Promise<T | undefined> {
+    try {
+      const value = await this.client.get(key);
+
+      if (value !== null) {
+        this.hits++;
+        logger.debug(`Cache HIT: ${key} (hits: ${this.hits}/${this.hits + this.misses})`);
+        return JSON.parse(value) as T;
+      } else {
+        this.misses++;
+        logger.debug(`Cache MISS: ${key} (misses: ${this.misses}/${this.hits + this.misses})`);
+        return undefined;
+      }
+    } catch (error) {
+      logger.error(`Cache GET error for key ${key}:`, error);
+      return undefined;
     }
-    return value;
   }
 
   /**
    * Установить значение в кэш
    */
-  set<T>(key: string, value: T, ttl?: number): boolean {
-    const result = this.cache.set(key, value, ttl || DEFAULT_TTL);
-    logger.debug(`Cache SET: ${key}, TTL: ${ttl || DEFAULT_TTL}s`);
-    return result;
+  async set<T>(key: string, value: T, ttl?: number): Promise<boolean> {
+    try {
+      const serialized = JSON.stringify(value);
+      const ttlSeconds = ttl || DEFAULT_TTL;
+
+      await this.client.setex(key, ttlSeconds, serialized);
+      logger.debug(`Cache SET: ${key}, TTL: ${ttlSeconds}s`);
+      return true;
+    } catch (error) {
+      logger.error(`Cache SET error for key ${key}:`, error);
+      return false;
+    }
   }
 
   /**
    * Удалить значение из кэша
    */
-  del(key: string | string[]): number {
-    const result = this.cache.del(key);
-    logger.debug(`Cache DELETE: ${Array.isArray(key) ? key.join(', ') : key}`);
-    return result;
+  async del(key: string | string[]): Promise<number> {
+    try {
+      const keys = Array.isArray(key) ? key : [key];
+      const result = await this.client.del(...keys);
+      logger.debug(`Cache DELETE: ${keys.join(', ')}`);
+      return result;
+    } catch (error) {
+      logger.error(`Cache DELETE error:`, error);
+      return 0;
+    }
   }
 
   /**
    * Очистить весь кэш
    */
-  flush(): void {
-    this.cache.flushAll();
-    this.hits = 0;
-    this.misses = 0;
-    logger.info('Cache flushed (all keys deleted)');
+  async flush(): Promise<void> {
+    try {
+      await this.client.flushdb();
+      this.hits = 0;
+      this.misses = 0;
+      logger.info('Cache flushed (all keys deleted)');
+    } catch (error) {
+      logger.error('Cache FLUSH error:', error);
+    }
   }
 
   /**
    * Инвалидация кэша по паттерну
-   * Удаляет все ключи, содержащие указанный паттерн
+   * Удаляет все ключи, соответствующие паттерну
    */
-  invalidatePattern(pattern: string): void {
-    const keys = this.cache.keys();
-    const matchedKeys = keys.filter(key => key.includes(pattern));
-    if (matchedKeys.length > 0) {
-      this.cache.del(matchedKeys);
-      logger.info(`Cache invalidated for pattern: ${pattern}, keys: ${matchedKeys.length}`);
+  async invalidatePattern(pattern: string): Promise<void> {
+    try {
+      const stream = this.client.scanStream({
+        match: `*${pattern}*`,
+        count: 100,
+      });
+
+      const keysToDelete: string[] = [];
+
+      stream.on('data', (keys: string[]) => {
+        keysToDelete.push(...keys);
+      });
+
+      stream.on('end', async () => {
+        if (keysToDelete.length > 0) {
+          await this.client.del(...keysToDelete);
+          logger.info(`Cache invalidated for pattern: ${pattern}, keys: ${keysToDelete.length}`);
+        }
+      });
+    } catch (error) {
+      logger.error(`Cache INVALIDATE PATTERN error for ${pattern}:`, error);
     }
   }
 
@@ -101,53 +130,102 @@ class CacheService {
     fetcher: () => Promise<T>,
     ttl?: number
   ): Promise<T> {
-    const cached = this.get<T>(key);
+    const cached = await this.get<T>(key);
     if (cached !== undefined) {
       return cached;
     }
 
     logger.debug(`Fetching data for cache key: ${key}`);
     const value = await fetcher();
-    this.set(key, value, ttl);
+    await this.set(key, value, ttl);
     return value;
   }
 
   /**
    * Получить статистику кэша
    */
-  getStats() {
-    const stats = this.cache.getStats();
-    const hitRate = this.hits + this.misses > 0
-      ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(2)
-      : '0.00';
+  async getStats() {
+    try {
+      const info = await this.client.info('stats');
+      const dbSize = await this.client.dbsize();
 
-    return {
-      ...stats,
-      hits: this.hits,
-      misses: this.misses,
-      hitRate: `${hitRate}%`,
-    };
+      const hitRate = this.hits + this.misses > 0
+        ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(2)
+        : '0.00';
+
+      return {
+        hits: this.hits,
+        misses: this.misses,
+        hitRate: `${hitRate}%`,
+        dbSize,
+        redisInfo: info,
+      };
+    } catch (error) {
+      logger.error('Error getting cache stats:', error);
+      return {
+        hits: this.hits,
+        misses: this.misses,
+        hitRate: '0.00%',
+        dbSize: 0,
+      };
+    }
   }
 
   /**
-   * Получить все ключи кэша
+   * Получить все ключи кэша (осторожно с большим количеством!)
    */
-  keys(): string[] {
-    return this.cache.keys();
+  async keys(pattern: string = '*'): Promise<string[]> {
+    try {
+      return await this.client.keys(pattern);
+    } catch (error) {
+      logger.error('Error getting cache keys:', error);
+      return [];
+    }
   }
 
   /**
    * Проверить, есть ли ключ в кэше
    */
-  has(key: string): boolean {
-    return this.cache.has(key);
+  async has(key: string): Promise<boolean> {
+    try {
+      const exists = await this.client.exists(key);
+      return exists === 1;
+    } catch (error) {
+      logger.error(`Error checking cache key ${key}:`, error);
+      return false;
+    }
   }
 
   /**
-   * Получить TTL ключа
+   * Получить TTL ключа в секундах
    */
-  getTtl(key: string): number | undefined {
-    return this.cache.getTtl(key);
+  async getTtl(key: string): Promise<number | undefined> {
+    try {
+      const ttl = await this.client.ttl(key);
+      return ttl >= 0 ? ttl : undefined;
+    } catch (error) {
+      logger.error(`Error getting TTL for key ${key}:`, error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Получить Redis client для прямого доступа (если нужно)
+   */
+  getClient(): Redis {
+    return this.client;
+  }
+
+  /**
+   * Закрыть соединение с Redis
+   */
+  async close(): Promise<void> {
+    try {
+      await this.client.quit();
+      logger.info('Redis cache client closed');
+    } catch (error) {
+      logger.error('Error closing Redis cache client:', error);
+    }
   }
 }
 
@@ -165,20 +243,20 @@ export const CACHE_KEYS = {
   POLL_DETAILS: (pollId: number) => `poll_${pollId}`,
   POLL_VOTES: (pollId: number) => `poll_votes_${pollId}`,
   POLL_VOTE_BREAKDOWN: (pollId: number) => `poll_vote_breakdown_${pollId}`,
-  
+
   // Menu
   MENU_ITEMS: 'menu_items',
   MENU_ITEMS_ACTIVE: 'menu_items_active',
   MENU_ITEMS_BY_CATEGORY: (category: string) => `menu_items_category_${category}`,
-  
+
   // Users
   USER: (userId: number) => `user_${userId}`,
   USER_BY_TELEGRAM_ID: (telegramId: bigint) => `user_telegram_${telegramId}`,
-  
+
   // Groups
   GROUP: (groupId: number) => `group_${groupId}`,
   GROUP_BY_TELEGRAM_ID: (telegramId: bigint) => `group_telegram_${telegramId}`,
-  
+
   // Stats
   POLL_STATS: (groupId?: number) => groupId ? `stats_${groupId}` : 'stats_global',
   USER_STATS: (userId: number) => `user_stats_${userId}`,
@@ -205,7 +283,7 @@ export class CacheInvalidator {
   /**
    * Инвалидация при создании/обновлении голосования
    */
-  static invalidatePoll(pollId: number, groupId?: number): void {
+  static async invalidatePoll(pollId: number, groupId?: number): Promise<void> {
     const keysToDelete = [
       CACHE_KEYS.ACTIVE_POLLS,
       CACHE_KEYS.POLL_DETAILS(pollId),
@@ -217,39 +295,39 @@ export class CacheInvalidator {
       keysToDelete.push(CACHE_KEYS.ACTIVE_POLLS_GROUP(groupId));
     }
 
-    cacheService.del(keysToDelete);
-    cacheService.invalidatePattern('stats'); // Инвалидируем все статистики
+    await cacheService.del(keysToDelete);
+    await cacheService.invalidatePattern('stats'); // Инвалидируем все статистики
   }
 
   /**
    * Инвалидация при создании/изменении голоса
    */
-  static invalidateVote(pollId: number): void {
-    cacheService.del([
+  static async invalidateVote(pollId: number): Promise<void> {
+    await cacheService.del([
       CACHE_KEYS.POLL_VOTES(pollId),
       CACHE_KEYS.POLL_VOTE_BREAKDOWN(pollId),
       CACHE_KEYS.POLL_DETAILS(pollId),
     ]);
-    cacheService.invalidatePattern('stats');
+    await cacheService.invalidatePattern('stats');
   }
 
   /**
    * Инвалидация при изменении меню
    */
-  static invalidateMenu(): void {
-    cacheService.invalidatePattern('menu_items');
+  static async invalidateMenu(): Promise<void> {
+    await cacheService.invalidatePattern('menu_items');
   }
 
   /**
    * Инвалидация при изменении пользователя
    */
-  static invalidateUser(userId: number, telegramId?: bigint): void {
+  static async invalidateUser(userId: number, telegramId?: bigint): Promise<void> {
     const keysToDelete = [CACHE_KEYS.USER(userId)];
-    
+
     if (telegramId) {
       keysToDelete.push(CACHE_KEYS.USER_BY_TELEGRAM_ID(telegramId));
     }
-    
-    cacheService.del(keysToDelete);
+
+    await cacheService.del(keysToDelete);
   }
 }

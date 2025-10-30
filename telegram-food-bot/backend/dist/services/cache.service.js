@@ -1,100 +1,171 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CacheInvalidator = exports.CACHE_TTL = exports.CACHE_KEYS = exports.cacheService = void 0;
-const node_cache_1 = __importDefault(require("node-cache"));
+const redis_config_1 = require("../config/redis.config");
 const logger_1 = require("../utils/logger");
 const DEFAULT_TTL = 60;
 const ACTIVE_POLLS_TTL = 30;
 const MENU_TTL = 300;
 const STATS_TTL = 120;
 class CacheService {
-    cache;
+    client;
     hits = 0;
     misses = 0;
     constructor() {
-        this.cache = new node_cache_1.default({
-            stdTTL: DEFAULT_TTL,
-            checkperiod: 60,
-            useClones: false,
-            deleteOnExpire: true,
-        });
-        this.cache.on('expired', (key, value) => {
-            logger_1.logger.debug(`Cache key expired: ${key}`);
-        });
-        this.cache.on('flush', () => {
-            logger_1.logger.info('Cache flushed');
-        });
-        logger_1.logger.info('Cache service initialized');
+        this.client = (0, redis_config_1.createRedisClient)();
+        logger_1.logger.info('✅ Cache service initialized with Redis');
     }
-    get(key) {
-        const value = this.cache.get(key);
-        if (value !== undefined) {
-            this.hits++;
-            logger_1.logger.debug(`Cache HIT: ${key} (hits: ${this.hits}/${this.hits + this.misses})`);
+    async get(key) {
+        try {
+            const value = await this.client.get(key);
+            if (value !== null) {
+                this.hits++;
+                logger_1.logger.debug(`Cache HIT: ${key} (hits: ${this.hits}/${this.hits + this.misses})`);
+                return JSON.parse(value);
+            }
+            else {
+                this.misses++;
+                logger_1.logger.debug(`Cache MISS: ${key} (misses: ${this.misses}/${this.hits + this.misses})`);
+                return undefined;
+            }
         }
-        else {
-            this.misses++;
-            logger_1.logger.debug(`Cache MISS: ${key} (misses: ${this.misses}/${this.hits + this.misses})`);
+        catch (error) {
+            logger_1.logger.error(`Cache GET error for key ${key}:`, error);
+            return undefined;
         }
-        return value;
     }
-    set(key, value, ttl) {
-        const result = this.cache.set(key, value, ttl || DEFAULT_TTL);
-        logger_1.logger.debug(`Cache SET: ${key}, TTL: ${ttl || DEFAULT_TTL}s`);
-        return result;
+    async set(key, value, ttl) {
+        try {
+            const serialized = JSON.stringify(value);
+            const ttlSeconds = ttl || DEFAULT_TTL;
+            await this.client.setex(key, ttlSeconds, serialized);
+            logger_1.logger.debug(`Cache SET: ${key}, TTL: ${ttlSeconds}s`);
+            return true;
+        }
+        catch (error) {
+            logger_1.logger.error(`Cache SET error for key ${key}:`, error);
+            return false;
+        }
     }
-    del(key) {
-        const result = this.cache.del(key);
-        logger_1.logger.debug(`Cache DELETE: ${Array.isArray(key) ? key.join(', ') : key}`);
-        return result;
+    async del(key) {
+        try {
+            const keys = Array.isArray(key) ? key : [key];
+            const result = await this.client.del(...keys);
+            logger_1.logger.debug(`Cache DELETE: ${keys.join(', ')}`);
+            return result;
+        }
+        catch (error) {
+            logger_1.logger.error(`Cache DELETE error:`, error);
+            return 0;
+        }
     }
-    flush() {
-        this.cache.flushAll();
-        this.hits = 0;
-        this.misses = 0;
-        logger_1.logger.info('Cache flushed (all keys deleted)');
+    async flush() {
+        try {
+            await this.client.flushdb();
+            this.hits = 0;
+            this.misses = 0;
+            logger_1.logger.info('Cache flushed (all keys deleted)');
+        }
+        catch (error) {
+            logger_1.logger.error('Cache FLUSH error:', error);
+        }
     }
-    invalidatePattern(pattern) {
-        const keys = this.cache.keys();
-        const matchedKeys = keys.filter(key => key.includes(pattern));
-        if (matchedKeys.length > 0) {
-            this.cache.del(matchedKeys);
-            logger_1.logger.info(`Cache invalidated for pattern: ${pattern}, keys: ${matchedKeys.length}`);
+    async invalidatePattern(pattern) {
+        try {
+            const stream = this.client.scanStream({
+                match: `*${pattern}*`,
+                count: 100,
+            });
+            const keysToDelete = [];
+            stream.on('data', (keys) => {
+                keysToDelete.push(...keys);
+            });
+            stream.on('end', async () => {
+                if (keysToDelete.length > 0) {
+                    await this.client.del(...keysToDelete);
+                    logger_1.logger.info(`Cache invalidated for pattern: ${pattern}, keys: ${keysToDelete.length}`);
+                }
+            });
+        }
+        catch (error) {
+            logger_1.logger.error(`Cache INVALIDATE PATTERN error for ${pattern}:`, error);
         }
     }
     async getOrSet(key, fetcher, ttl) {
-        const cached = this.get(key);
+        const cached = await this.get(key);
         if (cached !== undefined) {
             return cached;
         }
         logger_1.logger.debug(`Fetching data for cache key: ${key}`);
         const value = await fetcher();
-        this.set(key, value, ttl);
+        await this.set(key, value, ttl);
         return value;
     }
-    getStats() {
-        const stats = this.cache.getStats();
-        const hitRate = this.hits + this.misses > 0
-            ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(2)
-            : '0.00';
-        return {
-            ...stats,
-            hits: this.hits,
-            misses: this.misses,
-            hitRate: `${hitRate}%`,
-        };
+    async getStats() {
+        try {
+            const info = await this.client.info('stats');
+            const dbSize = await this.client.dbsize();
+            const hitRate = this.hits + this.misses > 0
+                ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(2)
+                : '0.00';
+            return {
+                hits: this.hits,
+                misses: this.misses,
+                hitRate: `${hitRate}%`,
+                dbSize,
+                redisInfo: info,
+            };
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting cache stats:', error);
+            return {
+                hits: this.hits,
+                misses: this.misses,
+                hitRate: '0.00%',
+                dbSize: 0,
+            };
+        }
     }
-    keys() {
-        return this.cache.keys();
+    async keys(pattern = '*') {
+        try {
+            return await this.client.keys(pattern);
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting cache keys:', error);
+            return [];
+        }
     }
-    has(key) {
-        return this.cache.has(key);
+    async has(key) {
+        try {
+            const exists = await this.client.exists(key);
+            return exists === 1;
+        }
+        catch (error) {
+            logger_1.logger.error(`Error checking cache key ${key}:`, error);
+            return false;
+        }
     }
-    getTtl(key) {
-        return this.cache.getTtl(key);
+    async getTtl(key) {
+        try {
+            const ttl = await this.client.ttl(key);
+            return ttl >= 0 ? ttl : undefined;
+        }
+        catch (error) {
+            logger_1.logger.error(`Error getting TTL for key ${key}:`, error);
+            return undefined;
+        }
+    }
+    getClient() {
+        return this.client;
+    }
+    async close() {
+        try {
+            await this.client.quit();
+            logger_1.logger.info('Redis cache client closed');
+        }
+        catch (error) {
+            logger_1.logger.error('Error closing Redis cache client:', error);
+        }
     }
 }
 exports.cacheService = new CacheService();
@@ -124,7 +195,7 @@ exports.CACHE_TTL = {
     VOTES: 30,
 };
 class CacheInvalidator {
-    static invalidatePoll(pollId, groupId) {
+    static async invalidatePoll(pollId, groupId) {
         const keysToDelete = [
             exports.CACHE_KEYS.ACTIVE_POLLS,
             exports.CACHE_KEYS.POLL_DETAILS(pollId),
@@ -134,26 +205,26 @@ class CacheInvalidator {
         if (groupId) {
             keysToDelete.push(exports.CACHE_KEYS.ACTIVE_POLLS_GROUP(groupId));
         }
-        exports.cacheService.del(keysToDelete);
-        exports.cacheService.invalidatePattern('stats');
+        await exports.cacheService.del(keysToDelete);
+        await exports.cacheService.invalidatePattern('stats');
     }
-    static invalidateVote(pollId) {
-        exports.cacheService.del([
+    static async invalidateVote(pollId) {
+        await exports.cacheService.del([
             exports.CACHE_KEYS.POLL_VOTES(pollId),
             exports.CACHE_KEYS.POLL_VOTE_BREAKDOWN(pollId),
             exports.CACHE_KEYS.POLL_DETAILS(pollId),
         ]);
-        exports.cacheService.invalidatePattern('stats');
+        await exports.cacheService.invalidatePattern('stats');
     }
-    static invalidateMenu() {
-        exports.cacheService.invalidatePattern('menu_items');
+    static async invalidateMenu() {
+        await exports.cacheService.invalidatePattern('menu_items');
     }
-    static invalidateUser(userId, telegramId) {
+    static async invalidateUser(userId, telegramId) {
         const keysToDelete = [exports.CACHE_KEYS.USER(userId)];
         if (telegramId) {
             keysToDelete.push(exports.CACHE_KEYS.USER_BY_TELEGRAM_ID(telegramId));
         }
-        exports.cacheService.del(keysToDelete);
+        await exports.cacheService.del(keysToDelete);
     }
 }
 exports.CacheInvalidator = CacheInvalidator;

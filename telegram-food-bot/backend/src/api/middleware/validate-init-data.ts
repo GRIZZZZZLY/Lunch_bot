@@ -1,6 +1,7 @@
 ﻿import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../../types/api.types';
-import { validateTelegramInitData, extractAuthHeader } from '../../utils/crypto';
+import { extractAuthHeader } from '../../utils/crypto';
+import { validateTelegramInitData } from '../../utils/telegram-auth';
 import { UserService } from '../../services/user.service';
 import { botConfig } from '../../config/bot.config';
 import { logger } from '../../utils/logger';
@@ -63,26 +64,26 @@ export async function validateInitDataMiddleware(
       
       if (initData) {
         // Пробуем распарсить данные (без проверки хэша)
-        const validation = validateTelegramInitData(initData, botConfig.token);
-        
-        if (validation.data?.user) {
+        const telegramUser = validateTelegramInitData(initData);
+
+        if (telegramUser) {
           // Используем реальные данные Telegram если есть
           const dbUser = await userService.createOrUpdate({
-            telegramId: validation.data.user.id,
-            username: validation.data.user.username,
-            firstName: validation.data.user.first_name,
-            lastName: validation.data.user.last_name,
+            telegramId: telegramUser.id.toString(),
+            username: telegramUser.username,
+            firstName: telegramUser.first_name,
+            lastName: telegramUser.last_name,
           });
-          
+
           req.user = dbUser;
-          req.telegramInitData = validation.data;
-          
+          req.telegramInitData = { user: telegramUser };
+
           logger.info('✅ Real Telegram user (validation skipped)', {
             userId: dbUser.id,
             telegramId: dbUser.telegramId.toString(),
             username: dbUser.username
           });
-          
+
           return next();
         }
       }
@@ -125,21 +126,15 @@ export async function validateInitDataMiddleware(
     }
 
     // Валидируем initData
-    const validation = validateTelegramInitData(initData, botConfig.token);
-    
-    if (!validation.isValid || !validation.data) {
-      throw new AuthenticationError('Невалидные данные Telegram');
-    }
+    const telegramUser = validateTelegramInitData(initData);
 
-    const { user: telegramUser } = validation.data;
-    
     if (!telegramUser) {
-      throw new AuthenticationError('Отсутствуют данные пользователя');
+      throw new AuthenticationError('Невалидные данные Telegram');
     }
 
     // Создаем или обновляем пользователя в БД
     const dbUser = await userService.createOrUpdate({
-      telegramId: telegramUser.id,
+      telegramId: telegramUser.id.toString(),
       username: telegramUser.username,
       firstName: telegramUser.first_name,
       lastName: telegramUser.last_name,
@@ -147,7 +142,7 @@ export async function validateInitDataMiddleware(
 
     // Добавляем данные в request
     req.user = dbUser;
-    req.telegramInitData = validation.data;
+    req.telegramInitData = { user: telegramUser };
 
     logger.debug('API пользователь аутентифицирован', {
       userId: dbUser.id,
@@ -243,18 +238,18 @@ export async function optionalAuthMiddleware(
       return;
     }
 
-    const validation = validateTelegramInitData(initData, botConfig.token);
-    
-    if (validation.isValid && validation.data?.user) {
+    const telegramUser = validateTelegramInitData(initData);
+
+    if (telegramUser) {
       const dbUser = await userService.createOrUpdate({
-        telegramId: validation.data.user.id,
-        username: validation.data.user.username,
-        firstName: validation.data.user.first_name,
-        lastName: validation.data.user.last_name,
+        telegramId: telegramUser.id.toString(),
+        username: telegramUser.username,
+        firstName: telegramUser.first_name,
+        lastName: telegramUser.last_name,
       });
 
       req.user = dbUser;
-      req.telegramInitData = validation.data;
+      req.telegramInitData = { user: telegramUser };
     }
 
     next();
