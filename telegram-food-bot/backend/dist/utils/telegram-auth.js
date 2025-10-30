@@ -49,6 +49,12 @@ function validateTelegramInitData(initData) {
         }
         (0, init_data_node_1.validate)(initData, botToken, { expiresIn: 86400 });
         const parsed = (0, init_data_node_1.parse)(initData);
+        logger_1.logger.info('🔍 DEBUG: Raw parsed user object from library', {
+            parsedUser: parsed.user,
+            allKeys: parsed.user ? Object.keys(parsed.user) : [],
+            firstName_camelCase: parsed.user?.firstName,
+            firstName_snakeCase: parsed.user?.first_name,
+        });
         logger_1.logger.info('✅ Telegram initData validated successfully', {
             userId: parsed.user?.id,
             username: parsed.user?.username,
