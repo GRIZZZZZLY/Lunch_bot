@@ -82,12 +82,15 @@ function AppContent() {
   }, []);
 
   // Debug logging (в useEffect чтобы не вызывать setState во время рендера)
+  // ✅ ИСПРАВЛЕНО: console.log обёрнут в DEV проверку
   useEffect(() => {
-    console.log('[AppContent] Render:', {
-      pathname: location.pathname,
-      theme,
-      isModalOpen,
-    });
+    if (import.meta.env.DEV) {
+      console.log('[AppContent] Render:', {
+        pathname: location.pathname,
+        theme,
+        isModalOpen,
+      });
+    }
   }, [location.pathname, theme, isModalOpen]);
   
   // Применяем тему глобально к <html>
@@ -161,11 +164,14 @@ function AppContent() {
   const showNavigation = ['/', '/menu', '/stats', '/profile', '/vote'].includes(location.pathname);
   
   // Debug logging (в useEffect)
+  // ✅ ИСПРАВЛЕНО: console.log обёрнут в DEV проверку
   useEffect(() => {
-    console.log('🔍 [AppContent] Navigation state:', {
-      pathname: location.pathname,
-      showNavigation,
-    });
+    if (import.meta.env.DEV) {
+      console.log('🔍 [AppContent] Navigation state:', {
+        pathname: location.pathname,
+        showNavigation,
+      });
+    }
   }, [location.pathname, showNavigation]);
 
   return (
