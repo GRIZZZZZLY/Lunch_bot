@@ -24,8 +24,16 @@ class ApiService {
   private token: string | null = null;
 
   constructor() {
+    // В production используем относительный путь (т.к. frontend раздается с того же сервера)
+    // В development используем полный URL для кросс-доменных запросов
+    const baseURL = import.meta.env.MODE === 'production' 
+      ? '/api'  // Относительный путь для production
+      : (import.meta.env.VITE_API_URL || 'http://localhost:3001/api');
+    
+    console.log('[ApiService] Initializing with baseURL:', baseURL, 'mode:', import.meta.env.MODE);
+    
     this.client = axios.create({
-      baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
+      baseURL,
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
@@ -296,10 +304,14 @@ class ApiService {
    */
   async healthCheck(): Promise<{ status: string; timestamp: string; version?: string }> {
     try {
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/health`,
-        { timeout: 5000 }
-      );
+      // В production используем относительный путь, в dev - полный URL
+      const healthUrl = import.meta.env.MODE === 'production'
+        ? '/health'
+        : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'}/health`;
+      
+      console.log('[ApiService] healthCheck URL:', healthUrl);
+      
+      const response = await axios.get(healthUrl, { timeout: 5000 });
       return response.data;
     } catch (error) {
       throw {
