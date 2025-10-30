@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTelegram } from './useTelegram';
 import { authService } from '../services/auth.service';
 import { setUserContext, clearUserContext } from '../lib/sentry';
@@ -27,6 +27,7 @@ export interface UseAuthReturn {
 
 /**
  * Хук для управления аутентификацией
+ * ✅ ИСПРАВЛЕНО: Добавлены useCallback и cleanup для предотвращения race conditions
  */
 export const useAuth = (): UseAuthReturn => {
   const { initData, user: tgUser, isReady } = useTelegram();
@@ -34,142 +35,108 @@ export const useAuth = (): UseAuthReturn => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Автоматическая аутентификация при готовности Telegram WebApp
-  useEffect(() => {
-    // Проверяем есть ли уже токен в localStorage
-    const existingToken = authService.getToken();
-    
-    // Проверяем env переменную для MOCK режима
-    const useMockApi = import.meta.env.VITE_USE_MOCK_API === 'true';
-    
-    // Проверка что initData реально есть (не пустая строка)
-    const hasValidInitData = initData && initData.trim().length > 0;
-    
-    const authInfo = {
-      hasExistingToken: !!existingToken,
-      isReady,
-      hasInitData: !!initData,
-      initDataLength: initData?.length || 0,
-      hasTgUser: !!tgUser,
-      tgUserId: tgUser?.id,
-      tgUserName: tgUser?.first_name,
-      initDataPreview: initData?.substring(0, 50) || 'empty',
-      useMockApi,
-    };
-    
-    console.log('[useAuth] Auth check:', authInfo);
-    
-    // ПРИОРИТЕТ 1: Mock режим
-    if (useMockApi) {
-      console.log('[useAuth] MOCK MODE - using mock authentication');
-      loginWithMockData();
-      return;
-    }
-    
-    // ПРИОРИТЕТ 2: Telegram авторизация (если есть initData)
-    if (isReady && hasValidInitData && tgUser) {
-      console.log('[useAuth] Using Telegram authentication with initData');
-      // Очищаем старый токен перед новой авторизацией
-      if (existingToken) {
-        console.log('[useAuth] Clearing old token - using fresh Telegram initData');
-        authService.clearToken();
-      }
-      login();
-      return;
-    }
-    
-    // ПРИОРИТЕТ 3: Сохраненный токен (fallback)
-    if (existingToken) {
-      console.log('[useAuth] No Telegram initData - using existing token');
-      loadUserWithToken();
-      return;
-    }
-    
-    // ПРИОРИТЕТ 4: Fallback авторизация
-    if (isReady) {
-      console.warn('[useAuth] No initData and no token - attempting fallback authentication');
-      console.log('[useAuth] Environment:', {
-        isSafari: /^((?!chrome|android).)*safari/i.test(navigator.userAgent),
-        hasWindow: typeof window !== 'undefined',
-        hasTelegram: !!window.Telegram,
-        hasTelegramWebApp: !!(window.Telegram?.WebApp),
-        userAgent: navigator.userAgent.substring(0, 100)
-      });
-      loginWithFallback();
-    }
-  }, [isReady, initData, tgUser]);
+  // Ref для отслеживания монтирования компонента (предотвращение race conditions)
+  const isMountedRef = useRef(true);
 
-  const loadUserWithToken = async () => {
+  // Ref для отслеживания текущей авторизации (предотвращение дублирования)
+  const authInProgressRef = useRef(false);
+
+  // Cleanup при размонтировании
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // ✅ ИСПРАВЛЕНО: Обёртываем функции в useCallback для стабильных ссылок
+  const loadUserWithToken = useCallback(async () => {
+    if (!isMountedRef.current || authInProgressRef.current) return;
+    authInProgressRef.current = true;
+
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('[useAuth] Loading user data with existing token...');
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] Loading user data with existing token...');
+      }
+
       const response = await authService.getCurrentUser();
-      console.log('[useAuth] Response received:', { 
-        success: response.success, 
-        hasData: !!response.data,
-        data: response.data 
-      });
+
+      if (!isMountedRef.current) return; // Проверка после async операции
+
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] Response received:', {
+          success: response.success,
+          hasData: !!response.data
+        });
+      }
 
       if (response.success && response.data) {
-        // ✅ ИСПРАВЛЕНО: Устанавливаем user ОДИН раз из API
         setUser(response.data);
-        console.log('[useAuth] User loaded from API:', response.data);
-        
-        // P1.2.6: Set Sentry user context
+
         setUserContext({
           id: response.data.id,
           username: response.data.username || `user_${response.data.id}`,
         });
 
-        // 🔄 Проверяем что права в токене совпадают с БД
+        // Проверяем что права в токене совпадают с БД
         const currentToken = authService.getToken();
         if (currentToken) {
           try {
             const tokenPayload = JSON.parse(atob(currentToken.split('.')[1]));
-            
-            // Если isAdmin в токене не совпадает с данными из БД - обновляем токен
+
             if (tokenPayload.isAdmin !== response.data.isAdmin) {
-              console.warn('[useAuth] ⚠️ Token isAdmin mismatch! Refreshing...', {
-                tokenIsAdmin: tokenPayload.isAdmin,
-                dbIsAdmin: response.data.isAdmin
-              });
-              
+              if (import.meta.env.DEV) {
+                console.warn('[useAuth] ⚠️ Token isAdmin mismatch! Refreshing...');
+              }
+
               // Обновляем токен асинхронно
               refresh().catch(err => {
-                console.error('[useAuth] Failed to refresh token:', err);
+                if (import.meta.env.DEV) {
+                  console.error('[useAuth] Failed to refresh token:', err);
+                }
               });
             }
           } catch (e) {
-            console.error('[useAuth] Failed to parse token:', e);
+            if (import.meta.env.DEV) {
+              console.error('[useAuth] Failed to parse token:', e);
+            }
           }
         }
       } else {
-        console.error('[useAuth] Invalid response format:', response);
         throw new Error('Failed to load user');
       }
     } catch (err) {
-      console.error('[useAuth] Failed to load user with token:', err);
-      // Токен невалидный, очищаем и пробуем другие методы
+      if (!isMountedRef.current) return;
+
+      if (import.meta.env.DEV) {
+        console.error('[useAuth] Failed to load user with token:', err);
+      }
+
       authService.clearToken();
       setError('Invalid token');
-      
-      // Если в Telegram, пробуем авторизацию через Telegram
+
       if (initData && initData.trim().length > 0) {
         login();
       }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+      authInProgressRef.current = false;
     }
-  };
+  }, [initData]); // ✅ Правильные зависимости
 
-  const loginWithMockData = async () => {
+  const loginWithMockData = useCallback(async () => {
+    if (!isMountedRef.current || authInProgressRef.current) return;
+    authInProgressRef.current = true;
+
     try {
       setIsLoading(true);
       setError(null);
 
-      // Mock пользователь для тестирования
       const mockUser: User = {
         id: 1,
         telegramId: '123456789',
@@ -181,7 +148,6 @@ export const useAuth = (): UseAuthReturn => {
         createdAt: new Date().toISOString(),
       };
 
-      // Создаём mock токен
       const mockToken = btoa(JSON.stringify({
         userId: mockUser.id,
         telegramId: mockUser.telegramId,
@@ -189,44 +155,47 @@ export const useAuth = (): UseAuthReturn => {
         timestamp: Date.now(),
       }));
 
-      // Сохраняем токен
-      authService.setToken(mockToken);
+      if (!isMountedRef.current) return;
 
+      authService.setToken(mockToken);
       setUser(mockUser);
-      console.log('[useAuth] Mock authentication successful with token');
+
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] Mock authentication successful');
+      }
     } catch (err) {
-      console.error('[useAuth] Mock auth error:', err);
+      if (!isMountedRef.current) return;
+
+      if (import.meta.env.DEV) {
+        console.error('[useAuth] Mock auth error:', err);
+      }
       setError('Mock authentication failed');
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+      authInProgressRef.current = false;
     }
-  };
+  }, []);
 
-  const loginWithFallback = async () => {
+  const loginWithFallback = useCallback(async () => {
+    if (!isMountedRef.current || authInProgressRef.current) return;
+    authInProgressRef.current = true;
+
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('[useAuth] 🔄 Attempting fallback authentication...');
-      console.log('[useAuth] Current state:', {
-        hasInitData: !!initData,
-        initDataLength: initData?.length || 0,
-        hasTelegramSDK: !!(window.Telegram?.WebApp),
-        location: window.location.href
-      });
-      
-      // Пытаемся получить данные из Telegram WebApp напрямую
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] 🔄 Attempting fallback authentication...');
+      }
+
       const tg = window.Telegram?.WebApp as any;
       if (tg && tg.initDataUnsafe?.user) {
         const tgUser = tg.initDataUnsafe.user;
-        
-        console.log('[useAuth] ✅ Found Telegram user data:', {
-          id: tgUser.id,
-          username: tgUser.username,
-          firstName: tgUser.first_name
-        });
-        
-        // Создаем пользователя из данных Telegram
+
+        if (!isMountedRef.current) return;
+
         const fallbackUser: User = {
           id: tgUser.id,
           telegramId: String(tgUser.id),
@@ -239,115 +208,136 @@ export const useAuth = (): UseAuthReturn => {
         };
 
         setUser(fallbackUser);
-        console.log('[useAuth] ✅ Fallback authentication successful with Telegram data');
+
+        if (import.meta.env.DEV) {
+          console.log('[useAuth] ✅ Fallback authentication successful with Telegram data');
+        }
         setIsLoading(false);
+        authInProgressRef.current = false;
         return;
       }
-      
-      // Если нет Telegram данных - пробуем авторизоваться без них
-      console.log('[useAuth] ⚠️ No Telegram SDK data - trying backend authentication without initData');
-      console.log('[useAuth] API URL:', import.meta.env.VITE_API_URL);
-      
+
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] ⚠️ No Telegram SDK data - trying backend authentication without initData');
+      }
+
       const response = await authService.validateInitData('');
-      
-      console.log('[useAuth] Backend response:', {
-        success: response.success,
-        hasUser: !!response.user,
-        hasToken: !!response.token,
-        error: response.error
-      });
-      
+
+      if (!isMountedRef.current) return;
+
       if (response.success && response.user) {
         setUser(response.user);
         authService.setToken(response.token);
-        console.log('[useAuth] ✅ Fallback authentication successful without Telegram data');
-        console.log('[useAuth] User:', response.user);
+
+        if (import.meta.env.DEV) {
+          console.log('[useAuth] ✅ Fallback authentication successful');
+        }
       } else {
         throw new Error(response.error || 'Authentication failed');
       }
     } catch (err) {
+      if (!isMountedRef.current) return;
+
       const errorMessage = err instanceof Error ? err.message : 'Fallback authentication failed';
       setError(errorMessage);
-      console.error('[useAuth] ❌ Fallback auth error:', err);
-      console.error('[useAuth] Error details:', {
-        message: errorMessage,
-        stack: err instanceof Error ? err.stack : undefined
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const login = async () => {
-    if (!initData) {
-      console.error('[useAuth] ❌ Login failed: No initData');
-      setError('No init data available');
-      setIsLoading(false);
+      if (import.meta.env.DEV) {
+        console.error('[useAuth] ❌ Fallback auth error:', err);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+      authInProgressRef.current = false;
+    }
+  }, []);
+
+  const login = useCallback(async () => {
+    if (!initData || !isMountedRef.current || authInProgressRef.current) {
+      if (!initData && import.meta.env.DEV) {
+        console.error('[useAuth] ❌ Login failed: No initData');
+      }
+      if (!initData) {
+        setError('No init data available');
+        setIsLoading(false);
+      }
       return;
     }
+
+    authInProgressRef.current = true;
 
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('[useAuth] 🔄 Starting login with initData...');
-      console.log('[useAuth] InitData length:', initData.length);
-      console.log('[useAuth] API URL:', import.meta.env.VITE_API_URL);
-      
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] 🔄 Starting login with initData...');
+        console.log('[useAuth] InitData length:', initData.length);
+      }
+
       const response = await authService.validateInitData(initData);
-      
-      console.log('[useAuth] 📡 Server response received:', {
-        success: response.success,
-        hasUser: !!response.user,
-        hasToken: !!response.token,
-        error: response.error
-      });
-      
+
+      if (!isMountedRef.current) return; // Проверка после async операции
+
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] 📡 Server response received:', {
+          success: response.success,
+          hasUser: !!response.user,
+          hasToken: !!response.token,
+          error: response.error
+        });
+      }
+
       if (response.success) {
         setUser(response.user);
-        
-        // Сохраняем токен для последующих запросов
+
         if (response.token) {
           authService.setToken(response.token);
         }
-        
-        console.log('[useAuth] ✅ Login successful', { 
-          userId: response.user.id,
-          username: response.user.username 
-        });
+
+        if (import.meta.env.DEV) {
+          console.log('[useAuth] ✅ Login successful', {
+            userId: response.user.id,
+            username: response.user.username
+          });
+        }
       } else {
         throw new Error(response.error || 'Authentication failed');
       }
     } catch (err) {
+      if (!isMountedRef.current) return;
+
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
-      console.error('[useAuth] ❌ Login error:', err);
-      console.error('[useAuth] Error details:', {
-        message: errorMessage,
-        type: err instanceof Error ? err.constructor.name : typeof err
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const logout = () => {
+      if (import.meta.env.DEV) {
+        console.error('[useAuth] ❌ Login error:', err);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+      authInProgressRef.current = false;
+    }
+  }, [initData]); // ✅ Правильные зависимости
+
+  const logout = useCallback(() => {
     setUser(null);
     authService.clearToken();
     setError(null);
-    
-    // P1.2.6: Clear Sentry user context
     clearUserContext();
-  };
+  }, []);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       setError(null);
       const response = await authService.refreshAuth();
-      
+
+      if (!isMountedRef.current) return;
+
       if (response.success) {
         setUser(response.user);
-        
+
         if (response.token) {
           authService.setToken(response.token);
         }
@@ -355,12 +345,79 @@ export const useAuth = (): UseAuthReturn => {
         throw new Error(response.error || 'Refresh failed');
       }
     } catch (err) {
+      if (!isMountedRef.current) return;
+
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
-      console.error('Refresh error:', err);
+
+      if (import.meta.env.DEV) {
+        console.error('Refresh error:', err);
+      }
       logout();
     }
-  };
+  }, [logout]);
+
+  // ✅ ИСПРАВЛЕНО: Автоматическая аутентификация с правильными зависимостями
+  useEffect(() => {
+    // Пропускаем если уже идёт авторизация
+    if (authInProgressRef.current) return;
+
+    const existingToken = authService.getToken();
+    const useMockApi = import.meta.env.VITE_USE_MOCK_API === 'true';
+    const hasValidInitData = initData && initData.trim().length > 0;
+
+    if (import.meta.env.DEV) {
+      console.log('[useAuth] Auth check:', {
+        hasExistingToken: !!existingToken,
+        isReady,
+        hasInitData: !!initData,
+        hasTgUser: !!tgUser,
+        useMockApi,
+      });
+    }
+
+    // ПРИОРИТЕТ 1: Mock режим
+    if (useMockApi) {
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] MOCK MODE - using mock authentication');
+      }
+      loginWithMockData();
+      return;
+    }
+
+    // ПРИОРИТЕТ 2: Telegram авторизация (если есть initData)
+    if (isReady && hasValidInitData && tgUser) {
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] Using Telegram authentication with initData');
+      }
+
+      if (existingToken) {
+        if (import.meta.env.DEV) {
+          console.log('[useAuth] Clearing old token - using fresh Telegram initData');
+        }
+        authService.clearToken();
+      }
+      login();
+      return;
+    }
+
+    // ПРИОРИТЕТ 3: Сохраненный токен (fallback)
+    if (existingToken) {
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] No Telegram initData - using existing token');
+      }
+      loadUserWithToken();
+      return;
+    }
+
+    // ПРИОРИТЕТ 4: Fallback авторизация
+    if (isReady) {
+      if (import.meta.env.DEV) {
+        console.warn('[useAuth] No initData and no token - attempting fallback authentication');
+      }
+      loginWithFallback();
+    }
+  }, [isReady, initData, tgUser, login, loadUserWithToken, loginWithMockData, loginWithFallback]); // ✅ Все зависимости
 
   const isAuthenticated = useMemo(() => user !== null, [user]);
 
