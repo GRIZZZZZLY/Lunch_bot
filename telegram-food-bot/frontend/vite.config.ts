@@ -140,6 +140,7 @@ export default defineConfig({
   },
   define: {
     // Telegram WebApp глобальные переменные
-    __TELEGRAM_WEB_APP__: true,
+    // Vite 6+ требует JSON.stringify для всех значений в define
+    __TELEGRAM_WEB_APP__: JSON.stringify(true),
   },
 });
