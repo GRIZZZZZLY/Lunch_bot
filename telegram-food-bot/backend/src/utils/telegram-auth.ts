@@ -70,6 +70,14 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
     // Если validate не выбросила ошибку, парсим данные
     const parsed = parse(initData);
 
+    // 🔍 DEBUG: Смотрим что именно вернула библиотека
+    logger.info('🔍 DEBUG: Raw parsed user object from library', {
+      parsedUser: parsed.user,
+      allKeys: parsed.user ? Object.keys(parsed.user) : [],
+      firstName_camelCase: (parsed.user as any)?.firstName,
+      firstName_snakeCase: (parsed.user as any)?.first_name,
+    });
+
     logger.info('✅ Telegram initData validated successfully', {
       userId: parsed.user?.id,
       username: parsed.user?.username,
