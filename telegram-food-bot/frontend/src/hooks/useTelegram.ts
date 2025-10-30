@@ -83,20 +83,27 @@ const isMockMode = import.meta.env.VITE_USE_MOCK_API === 'true';
 // Динамический импорт WebApp SDK или использование mock
 let WebApp: any;
 
+// ✅ ИСПРАВЛЕНО: console.log обёрнуты в DEV проверку
 if (isMockMode) {
-  console.log('📱 Telegram WebApp: Using MOCK mode (VITE_USE_MOCK_API=true)');
+  if (import.meta.env.DEV) {
+    console.log('📱 Telegram WebApp: Using MOCK mode (VITE_USE_MOCK_API=true)');
+  }
   WebApp = createMockWebApp();
 } else if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
-  console.warn('⚠️ Telegram WebApp SDK not found! Make sure you opened this app inside Telegram.');
-  console.warn('📝 window.Telegram:', window.Telegram);
-  console.warn('📝 Using mock data for development...');
+  if (import.meta.env.DEV) {
+    console.warn('⚠️ Telegram WebApp SDK not found! Make sure you opened this app inside Telegram.');
+    console.warn('📝 window.Telegram:', window.Telegram);
+    console.warn('📝 Using mock data for development...');
+  }
   WebApp = createMockWebApp();
 } else {
-  console.log('✅ Telegram WebApp SDK loaded successfully');
-  const tgWebApp = window.Telegram.WebApp as any;
-  console.log('📱 User:', tgWebApp.initDataUnsafe?.user);
-  console.log('📱 initData length:', tgWebApp.initData?.length || 0);
-  WebApp = tgWebApp;
+  if (import.meta.env.DEV) {
+    console.log('✅ Telegram WebApp SDK loaded successfully');
+    const tgWebApp = window.Telegram.WebApp as any;
+    console.log('📱 User:', tgWebApp.initDataUnsafe?.user);
+    console.log('📱 initData length:', tgWebApp.initData?.length || 0);
+  }
+  WebApp = window.Telegram.WebApp as any;
 }
 
 export interface TelegramUser {

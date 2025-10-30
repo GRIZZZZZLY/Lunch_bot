@@ -50,6 +50,8 @@ export const useAuth = (): UseAuthReturn => {
   }, []);
 
   // ✅ ИСПРАВЛЕНО: Обёртываем функции в useCallback для стабильных ссылок
+  // ⚠️ ВАЖНО: refresh и login объявлены НИЖЕ, поэтому loadUserWithToken будет пересоздаваться
+  // когда они изменятся. Это правильное поведение для предотвращения stale closures.
   const loadUserWithToken = useCallback(async () => {
     if (!isMountedRef.current || authInProgressRef.current) return;
     authInProgressRef.current = true;
@@ -93,6 +95,7 @@ export const useAuth = (): UseAuthReturn => {
               }
 
               // Обновляем токен асинхронно
+              // ✅ ИСПРАВЛЕНО: refresh теперь в зависимостях, stale closure предотвращён
               refresh().catch(err => {
                 if (import.meta.env.DEV) {
                   console.error('[useAuth] Failed to refresh token:', err);
@@ -118,8 +121,11 @@ export const useAuth = (): UseAuthReturn => {
       authService.clearToken();
       setError('Invalid token');
 
-      if (initData && initData.trim().length > 0) {
-        login();
+      // ✅ ИСПРАВЛЕНО: Убран циклический вызов login()
+      // Вместо этого устанавливаем ошибку и пусть useEffect сам решает что делать
+      // на следующем рендере, когда authInProgressRef.current станет false
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] Token invalid, will retry authentication on next render');
       }
     } finally {
       if (isMountedRef.current) {
@@ -127,7 +133,7 @@ export const useAuth = (): UseAuthReturn => {
       }
       authInProgressRef.current = false;
     }
-  }, [initData]); // ✅ Правильные зависимости
+  }, [refresh]); // ✅ ИСПРАВЛЕНО: Добавлен refresh в зависимости (login убран для предотвращения цикла)
 
   const loginWithMockData = useCallback(async () => {
     if (!isMountedRef.current || authInProgressRef.current) return;
