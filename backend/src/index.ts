@@ -57,9 +57,10 @@ async function startApplication(): Promise<void> {
       throw new Error('Не удалось подключиться к базе данных');
     }
     
-    // Запуск бота
-    if (process.env.NODE_ENV === 'production' && botConfig.webhookUrl) {
-      // Production: webhook режим
+    // Запуск бота - проверяем BOT_MODE вместо NODE_ENV!
+    if (botConfig.mode === 'webhook' && botConfig.webhookUrl) {
+      // Webhook режим
+      logger.info('🌐 Запуск в webhook режиме');
 
       // ✅ FIX: Регистрируем роут webhook ДО запуска сервера
       app.post('/webhook', async (req, res) => {
@@ -78,7 +79,8 @@ async function startApplication(): Promise<void> {
       // Устанавливаем webhook в Telegram
       await setupWebhook(bot, botConfig.webhookUrl);
     } else {
-      // Development: polling режим
+      // Polling режим (по умолчанию)
+      logger.info('🔄 Запуск в polling режиме');
       startApiServer(app);
       startPolling(bot);
     }

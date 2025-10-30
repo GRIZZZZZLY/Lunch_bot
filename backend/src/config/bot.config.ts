@@ -25,9 +25,9 @@ export const botConfig = {
     url: process.env.LOCAL_API_URL || 'http://localhost:8081',
   },
   
-  // Режим работы (можно переопределить через BOT_MODE)
-  mode: (process.env.BOT_MODE as 'webhook' | 'polling') || 
-        (process.env.NODE_ENV === 'production' ? 'webhook' : 'polling'),
+  // Режим работы: ВСЕГДА используем BOT_MODE, по умолчанию polling
+  // ⛔ ВАЖНО: webhook отключен, используем только polling!
+  mode: (process.env.BOT_MODE as 'webhook' | 'polling') || 'polling',
   
   // Настройки polling
   polling: {
