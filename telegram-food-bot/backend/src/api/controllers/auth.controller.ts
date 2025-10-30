@@ -13,9 +13,9 @@ export class AuthController {
     try {
       const { initData } = req.body;
 
-      // В development режиме с SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи,
-      // но используем РЕАЛЬНЫЙ ID пользователя из initData для конфиденциальности
-      if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      // ⚠️ SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи
+      // Используем РЕАЛЬНЫЙ ID пользователя из initData
+      if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
         logger.info('🔓 SKIP_TELEGRAM_VALIDATION: extracting REAL user from initData');
         
         // Пробуем извлечь реальные данные пользователя

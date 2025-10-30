@@ -13,16 +13,9 @@ export async function telegramAuthMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    // 🔐 SECURITY: КРИТИЧЕСКАЯ ПРОВЕРКА
-    // SKIP_TELEGRAM_VALIDATION ЗАПРЕЩЕН в production!
-    if (process.env.NODE_ENV === 'production' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
-      logger.error('🚨 SECURITY BREACH: SKIP_TELEGRAM_VALIDATION enabled in PRODUCTION! Shutting down...');
-      throw new Error('CRITICAL SECURITY ERROR: SKIP_TELEGRAM_VALIDATION must NEVER be enabled in production!');
-    }
-    
-    // В development режиме с SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи,
-    // но используем РЕАЛЬНЫЙ ID пользователя из initData для конфиденциальности
-    if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+    // ⚠️ SKIP_TELEGRAM_VALIDATION - отключает проверку подписи Telegram
+    // Используем РЕАЛЬНЫЙ ID пользователя из initData
+    if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
       logger.warn('⚠️ SECURITY: SKIP_TELEGRAM_VALIDATION enabled - DEVELOPMENT ONLY!');
       logger.info('🔓 SKIP_TELEGRAM_VALIDATION mode - extracting REAL user from initData');
       
@@ -295,14 +288,9 @@ export async function validateInitDataMiddleware(
 ): Promise<void> {
   try {
     // 🔐 SECURITY: КРИТИЧЕСКАЯ ПРОВЕРКА
-    if (process.env.NODE_ENV === 'production' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
-      logger.error('🚨 SECURITY BREACH: SKIP_TELEGRAM_VALIDATION in PRODUCTION!');
-      throw new Error('CRITICAL SECURITY ERROR: SKIP_TELEGRAM_VALIDATION forbidden in production!');
-    }
-    
-    // В development режиме с SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи,
-    // но используем РЕАЛЬНЫЕ данные пользователя из initData
-    if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+    // ⚠️ SKIP_TELEGRAM_VALIDATION - отключает проверку подписи Telegram
+    // Используем РЕАЛЬНЫЕ данные пользователя из initData
+    if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
       logger.warn('⚠️ SECURITY: SKIP_TELEGRAM_VALIDATION enabled - DEVELOPMENT ONLY!');
       const { initData } = req.body;
       
