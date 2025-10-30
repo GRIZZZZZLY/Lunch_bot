@@ -4,8 +4,8 @@ exports.validateInitDataMiddleware = validateInitDataMiddleware;
 exports.requireAdminMiddleware = requireAdminMiddleware;
 exports.optionalAuthMiddleware = optionalAuthMiddleware;
 const crypto_1 = require("../../utils/crypto");
+const telegram_auth_1 = require("../../utils/telegram-auth");
 const user_service_1 = require("../../services/user.service");
-const bot_config_1 = require("../../config/bot.config");
 const logger_1 = require("../../utils/logger");
 const error_1 = require("../../utils/error");
 const userService = new user_service_1.UserService();
@@ -45,16 +45,16 @@ async function validateInitDataMiddleware(req, res, next) {
             });
             const initData = (0, crypto_1.extractAuthHeader)(authHeader);
             if (initData) {
-                const validation = (0, crypto_1.validateTelegramInitData)(initData, bot_config_1.botConfig.token);
-                if (validation.data?.user) {
+                const telegramUser = (0, telegram_auth_1.validateTelegramInitData)(initData);
+                if (telegramUser) {
                     const dbUser = await userService.createOrUpdate({
-                        telegramId: validation.data.user.id,
-                        username: validation.data.user.username,
-                        firstName: validation.data.user.first_name,
-                        lastName: validation.data.user.last_name,
+                        telegramId: telegramUser.id.toString(),
+                        username: telegramUser.username,
+                        firstName: telegramUser.first_name,
+                        lastName: telegramUser.last_name,
                     });
                     req.user = dbUser;
-                    req.telegramInitData = validation.data;
+                    req.telegramInitData = { user: telegramUser };
                     logger_1.logger.info('✅ Real Telegram user (validation skipped)', {
                         userId: dbUser.id,
                         telegramId: dbUser.telegramId.toString(),
@@ -92,22 +92,18 @@ async function validateInitDataMiddleware(req, res, next) {
         if (!initData) {
             throw new error_1.AuthenticationError('Неверный формат заголовка Authorization');
         }
-        const validation = (0, crypto_1.validateTelegramInitData)(initData, bot_config_1.botConfig.token);
-        if (!validation.isValid || !validation.data) {
+        const telegramUser = (0, telegram_auth_1.validateTelegramInitData)(initData);
+        if (!telegramUser) {
             throw new error_1.AuthenticationError('Невалидные данные Telegram');
         }
-        const { user: telegramUser } = validation.data;
-        if (!telegramUser) {
-            throw new error_1.AuthenticationError('Отсутствуют данные пользователя');
-        }
         const dbUser = await userService.createOrUpdate({
-            telegramId: telegramUser.id,
+            telegramId: telegramUser.id.toString(),
             username: telegramUser.username,
             firstName: telegramUser.first_name,
             lastName: telegramUser.last_name,
         });
         req.user = dbUser;
-        req.telegramInitData = validation.data;
+        req.telegramInitData = { user: telegramUser };
         logger_1.logger.debug('API пользователь аутентифицирован', {
             userId: dbUser.id,
             telegramId: dbUser.telegramId.toString(),
@@ -178,16 +174,16 @@ async function optionalAuthMiddleware(req, res, next) {
             next();
             return;
         }
-        const validation = (0, crypto_1.validateTelegramInitData)(initData, bot_config_1.botConfig.token);
-        if (validation.isValid && validation.data?.user) {
+        const telegramUser = (0, telegram_auth_1.validateTelegramInitData)(initData);
+        if (telegramUser) {
             const dbUser = await userService.createOrUpdate({
-                telegramId: validation.data.user.id,
-                username: validation.data.user.username,
-                firstName: validation.data.user.first_name,
-                lastName: validation.data.user.last_name,
+                telegramId: telegramUser.id.toString(),
+                username: telegramUser.username,
+                firstName: telegramUser.first_name,
+                lastName: telegramUser.last_name,
             });
             req.user = dbUser;
-            req.telegramInitData = validation.data;
+            req.telegramInitData = { user: telegramUser };
         }
         next();
     }

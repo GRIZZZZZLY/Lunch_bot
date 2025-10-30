@@ -4,7 +4,6 @@ import { useLocation } from 'react-router-dom';
 import { useTelegram } from '../../hooks/useTelegram';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppStore } from '../../store/useAppStore';
-import { ToastContainer } from '../common/Toast';
 import { FullPageLoader } from '../common/LoadingSpinner';
 import { DonationBar } from '../donation';
 
@@ -117,9 +116,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Donation bar - скрыт на страницах голосования для чистого UX */}
       {!isVotingPage && <DonationBar />}
-
-      {/* Toast уведомления */}
-      <ToastContainer />
     </div>
   );
 };

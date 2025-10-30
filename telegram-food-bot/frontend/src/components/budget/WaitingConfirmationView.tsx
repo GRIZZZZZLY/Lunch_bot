@@ -4,7 +4,7 @@ import { Transaction, budgetService } from '../../services/budget.service';
 import { Button } from '../ui/button';
 import { Clock, X } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
-import { useToast } from '../common/ToastManager';
+import { toast } from 'sonner';
 import { formatRelativeTime } from '../../lib/utils';
 
 interface WaitingConfirmationViewProps {
@@ -22,7 +22,6 @@ export const WaitingConfirmationView: React.FC<WaitingConfirmationViewProps> = (
   credits 
 }) => {
   const haptic = useHaptic();
-  const toast = useToast();
   const queryClient = useQueryClient();
   
   // CRITICAL: Защита от undefined значений

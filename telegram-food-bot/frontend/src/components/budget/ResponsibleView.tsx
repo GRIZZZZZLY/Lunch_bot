@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Bell, CheckCircle, X, User } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
-import { useToast } from '../common/ToastManager';
+import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
 
 interface ResponsibleViewProps {
@@ -18,7 +18,6 @@ interface ResponsibleViewProps {
  */
 export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, otherDebts }) => {
   const haptic = useHaptic();
-  const toast = useToast();
   const queryClient = useQueryClient();
   
   // CRITICAL: Защита от undefined/null значений

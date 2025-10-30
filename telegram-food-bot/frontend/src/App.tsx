@@ -6,7 +6,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient, persister, cacheUtils } from './lib/queryClient';
 import { initCache } from './lib/cacheUtils';
 import { ErrorBoundary } from './lib/sentry';
-import { ToastProvider } from './components/common/ToastManager';
+import { Toaster } from 'sonner';
 import { PageLoader } from './components/common/PageLoader';
 import { DelayedFallback } from './components/common/DelayedFallback';
 import { Layout } from './components/layout/Layout';
@@ -190,13 +190,13 @@ function App() {
         client={queryClient}
         persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000 }} // 24 hours
       >
-        <ToastProvider>
         <BrowserRouter
           future={{
             v7_startTransition: true,
             v7_relativeSplatPath: true,
           }}
         >
+          <Toaster position="top-center" richColors closeButton />
           <OfflineIndicator />
           <OfflineBanner />
           <UpdatePrompt />
@@ -209,7 +209,6 @@ function App() {
         </BrowserRouter>
         {/* React Query Devtools - отключены для production */}
         {import.meta.env.DEV && false && <ReactQueryDevtools initialIsOpen={false} />}
-        </ToastProvider>
       </PersistQueryClientProvider>
     </ErrorBoundary>
   );

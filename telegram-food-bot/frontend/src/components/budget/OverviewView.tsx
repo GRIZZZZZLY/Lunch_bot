@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { CheckCircle, Bell, TrendingDown, TrendingUp } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
-import { useToast } from '../common/ToastManager';
+import { toast } from 'sonner';
 import { cn, formatRelativeTime } from '../../lib/utils';
 
 interface OverviewViewProps {
@@ -18,14 +18,13 @@ interface OverviewViewProps {
 /**
  * Сценарий 4: Обзор всех финансов (долгов и кредитов)
  */
-export const OverviewView: React.FC<OverviewViewProps> = ({ 
-  debts, 
-  credits, 
-  totalDebts, 
-  totalCredits 
+export const OverviewView: React.FC<OverviewViewProps> = ({
+  debts,
+  credits,
+  totalDebts,
+  totalCredits
 }) => {
   const haptic = useHaptic();
-  const toast = useToast();
   const queryClient = useQueryClient();
   
   // CRITICAL: Защита от undefined/null значений

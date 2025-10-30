@@ -37,8 +37,8 @@ export interface TelegramInitData {
   chat_instance?: string;
   start_param?: string;
   can_send_after?: number;
-  auth_date: number;
-  hash: string;
+  auth_date?: number;
+  hash?: string;
 }
 
 export interface TelegramWebAppUser {
