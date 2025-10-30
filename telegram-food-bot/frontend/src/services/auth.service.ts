@@ -44,16 +44,16 @@ class AuthService {
         initDataPreview: initData?.substring(0, 100) || 'empty'
       });
       
-      const response = await apiService.post<{ user: User; token: string; expiresAt: string }>('/auth/validate', {
+      const response = await apiService.post<{ user: User; accessToken: string; refreshToken: string; expiresIn: number }>('/auth/validate', {
         initData: initData || ''
       });
 
-      // ApiService возвращает response.data, который уже содержит { success, user, token, expiresAt }
-      if (response.success && (response as any).user && (response as any).token) {
+      // ✅ ИСПРАВЛЕНО: Backend возвращает accessToken и refreshToken, используем accessToken
+      if (response.success && (response as any).user && (response as any).accessToken) {
         return {
           success: true,
           user: (response as any).user,
-          token: (response as any).token,
+          token: (response as any).accessToken, // ✅ Используем accessToken
         };
       }
 
@@ -115,14 +115,14 @@ class AuthService {
    */
   async refreshAuth(): Promise<AuthResponse> {
     try {
-      const response = await apiService.post<{ user: User; token: string }>('/auth/refresh');
+      const response = await apiService.post<{ user: User; accessToken: string; refreshToken: string }>('/auth/refresh');
 
-      // ApiService возвращает response.data напрямую
-      if (response.success && (response as any).user && (response as any).token) {
+      // ✅ ИСПРАВЛЕНО: Backend возвращает accessToken и refreshToken
+      if (response.success && (response as any).user && (response as any).accessToken) {
         return {
           success: true,
           user: (response as any).user,
-          token: (response as any).token,
+          token: (response as any).accessToken, // ✅ Используем accessToken
         };
       }
 
