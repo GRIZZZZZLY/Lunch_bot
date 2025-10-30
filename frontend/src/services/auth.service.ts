@@ -44,15 +44,16 @@ class AuthService {
         initDataPreview: initData?.substring(0, 100) || 'empty'
       });
       
-      const response = await apiService.post<{ success: boolean; user: User; token: string }>('/auth/validate', { 
-        initData: initData || '' 
+      const response = await apiService.post<{ user: User; token: string; expiresAt: string }>('/auth/validate', {
+        initData: initData || ''
       });
 
-      if (response.success && response.data?.user && response.data?.token) {
+      // ApiService возвращает response.data, который уже содержит { success, user, token, expiresAt }
+      if (response.success && (response as any).user && (response as any).token) {
         return {
           success: true,
-          user: response.data.user,
-          token: response.data.token,
+          user: (response as any).user,
+          token: (response as any).token,
         };
       }
 
@@ -83,14 +84,15 @@ class AuthService {
    */
   async getAuthStatus(): Promise<AuthStatusResponse> {
     try {
-      const response = await apiService.get<{ success: boolean; authenticated: boolean; user: User; timestamp: string }>('/auth/status');
+      const response = await apiService.get<{ authenticated: boolean; user: User; timestamp: string }>('/auth/status');
 
-      if (response.success && response.data?.authenticated !== undefined) {
+      // ApiService возвращает response.data напрямую
+      if (response.success && (response as any).authenticated !== undefined) {
         return {
           success: true,
-          authenticated: response.data.authenticated,
-          user: response.data.user,
-          timestamp: response.data.timestamp || new Date().toISOString(),
+          authenticated: (response as any).authenticated,
+          user: (response as any).user,
+          timestamp: (response as any).timestamp || new Date().toISOString(),
         };
       }
 
@@ -113,13 +115,14 @@ class AuthService {
    */
   async refreshAuth(): Promise<AuthResponse> {
     try {
-      const response = await apiService.post<{ success: boolean; user: User; token: string }>('/auth/refresh');
+      const response = await apiService.post<{ user: User; token: string }>('/auth/refresh');
 
-      if (response.success && response.data?.user && response.data?.token) {
+      // ApiService возвращает response.data напрямую
+      if (response.success && (response as any).user && (response as any).token) {
         return {
           success: true,
-          user: response.data.user,
-          token: response.data.token,
+          user: (response as any).user,
+          token: (response as any).token,
         };
       }
 
