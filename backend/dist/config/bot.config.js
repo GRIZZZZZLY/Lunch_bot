@@ -18,8 +18,7 @@ exports.botConfig = {
         enabled: process.env.USE_LOCAL_API === 'true',
         url: process.env.LOCAL_API_URL || 'http://localhost:8081',
     },
-    mode: process.env.BOT_MODE ||
-        (process.env.NODE_ENV === 'production' ? 'webhook' : 'polling'),
+    mode: process.env.BOT_MODE || 'polling',
     polling: {
         interval: parseInt(process.env.POLLING_INTERVAL || '1000'),
         timeout: parseInt(process.env.POLLING_TIMEOUT || '30'),

@@ -50,8 +50,9 @@ export const useAuth = (): UseAuthReturn => {
   }, []);
 
   // ✅ ИСПРАВЛЕНО: Обёртываем функции в useCallback для стабильных ссылок
-  // ⚠️ ВАЖНО: refresh и login объявлены НИЖЕ, поэтому loadUserWithToken будет пересоздаваться
-  // когда они изменятся. Это правильное поведение для предотвращения stale closures.
+  // Ref для refresh функции чтобы избежать циклической зависимости
+  const refreshRef = useRef<(() => Promise<void>) | null>(null);
+  
   const loadUserWithToken = useCallback(async () => {
     if (!isMountedRef.current || authInProgressRef.current) return;
     authInProgressRef.current = true;
@@ -94,13 +95,14 @@ export const useAuth = (): UseAuthReturn => {
                 console.warn('[useAuth] ⚠️ Token isAdmin mismatch! Refreshing...');
               }
 
-              // Обновляем токен асинхронно
-              // ✅ ИСПРАВЛЕНО: refresh теперь в зависимостях, stale closure предотвращён
-              refresh().catch(err => {
-                if (import.meta.env.DEV) {
-                  console.error('[useAuth] Failed to refresh token:', err);
-                }
-              });
+              // Обновляем токен асинхронно через ref (избегаем циклической зависимости)
+              if (refreshRef.current) {
+                refreshRef.current().catch(err => {
+                  if (import.meta.env.DEV) {
+                    console.error('[useAuth] Failed to refresh token:', err);
+                  }
+                });
+              }
             }
           } catch (e) {
             if (import.meta.env.DEV) {
@@ -133,7 +135,7 @@ export const useAuth = (): UseAuthReturn => {
       }
       authInProgressRef.current = false;
     }
-  }, [refresh]); // ✅ ИСПРАВЛЕНО: Добавлен refresh в зависимости (login убран для предотвращения цикла)
+  }, []); // ✅ ИСПРАВЛЕНО: Убрана циклическая зависимость от refresh
 
   const loginWithMockData = useCallback(async () => {
     if (!isMountedRef.current || authInProgressRef.current) return;
@@ -362,6 +364,11 @@ export const useAuth = (): UseAuthReturn => {
       logout();
     }
   }, [logout]);
+
+  // Обновляем ref для refresh после создания функции
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
 
   // ✅ ИСПРАВЛЕНО: Автоматическая аутентификация с правильными зависимостями
   useEffect(() => {

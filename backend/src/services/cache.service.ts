@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import { createRedisClient } from '../config/redis.config';
+import { createRedisClient, REDIS_ENABLED } from '../config/redis.config';
 import { logger } from '../utils/logger';
 
 // TTL (Time To Live) в секундах
@@ -14,23 +14,51 @@ const STATS_TTL = 120; // 2 минуты для статистики
  * - Персистентность (не теряется при перезапуске)
  * - Масштабируемость (общий кэш между серверами)
  * - Pub/Sub для инвалидации кэша
+ * 
+ * В dev режиме если Redis не доступен - работает без кэша
  */
 class CacheService {
-  private client: Redis;
+  private client: Redis | null;
   private hits = 0;
   private misses = 0;
+  private enabled: boolean;
 
   constructor() {
-    this.client = createRedisClient();
-    logger.info('✅ Cache service initialized with Redis');
+    this.enabled = REDIS_ENABLED;
+    
+    if (this.enabled) {
+      try {
+        this.client = createRedisClient();
+        logger.info('✅ Cache service initialized with Redis');
+      } catch (error) {
+        logger.warn('⚠️ Failed to initialize Redis, running without cache', error);
+        this.client = null;
+        this.enabled = false;
+      }
+    } else {
+      logger.warn('⚠️ Redis disabled via REDIS_ENABLED=false, running without cache');
+      this.client = null;
+    }
+  }
+  
+  /**
+   * Проверка доступности кэша
+   */
+  private isAvailable(): boolean {
+    return this.enabled && this.client !== null && this.client.status === 'ready';
   }
 
   /**
    * Получить значение из кэша
    */
   async get<T>(key: string): Promise<T | undefined> {
+    if (!this.isAvailable()) {
+      this.misses++;
+      return undefined;
+    }
+    
     try {
-      const value = await this.client.get(key);
+      const value = await this.client!.get(key);
 
       if (value !== null) {
         this.hits++;
@@ -51,11 +79,15 @@ class CacheService {
    * Установить значение в кэш
    */
   async set<T>(key: string, value: T, ttl?: number): Promise<boolean> {
+    if (!this.isAvailable()) {
+      return false;
+    }
+    
     try {
       const serialized = JSON.stringify(value);
       const ttlSeconds = ttl || DEFAULT_TTL;
 
-      await this.client.setex(key, ttlSeconds, serialized);
+      await this.client!.setex(key, ttlSeconds, serialized);
       logger.debug(`Cache SET: ${key}, TTL: ${ttlSeconds}s`);
       return true;
     } catch (error) {
@@ -68,9 +100,13 @@ class CacheService {
    * Удалить значение из кэша
    */
   async del(key: string | string[]): Promise<number> {
+    if (!this.isAvailable()) {
+      return 0;
+    }
+    
     try {
       const keys = Array.isArray(key) ? key : [key];
-      const result = await this.client.del(...keys);
+      const result = await this.client!.del(...keys);
       logger.debug(`Cache DELETE: ${keys.join(', ')}`);
       return result;
     } catch (error) {
@@ -83,8 +119,12 @@ class CacheService {
    * Очистить весь кэш
    */
   async flush(): Promise<void> {
+    if (!this.isAvailable()) {
+      return;
+    }
+    
     try {
-      await this.client.flushdb();
+      await this.client!.flushdb();
       this.hits = 0;
       this.misses = 0;
       logger.info('Cache flushed (all keys deleted)');
@@ -98,8 +138,12 @@ class CacheService {
    * Удаляет все ключи, соответствующие паттерну
    */
   async invalidatePattern(pattern: string): Promise<void> {
+    if (!this.isAvailable()) {
+      return;
+    }
+    
     try {
-      const stream = this.client.scanStream({
+      const stream = this.client!.scanStream({
         match: `*${pattern}*`,
         count: 100,
       });
@@ -111,7 +155,7 @@ class CacheService {
       });
 
       stream.on('end', async () => {
-        if (keysToDelete.length > 0) {
+        if (keysToDelete.length > 0 && this.client) {
           await this.client.del(...keysToDelete);
           logger.info(`Cache invalidated for pattern: ${pattern}, keys: ${keysToDelete.length}`);
         }
@@ -145,13 +189,23 @@ class CacheService {
    * Получить статистику кэша
    */
   async getStats() {
+    const hitRate = this.hits + this.misses > 0
+      ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(2)
+      : '0.00';
+    
+    if (!this.isAvailable()) {
+      return {
+        hits: this.hits,
+        misses: this.misses,
+        hitRate: `${hitRate}%`,
+        dbSize: 0,
+        enabled: false,
+      };
+    }
+    
     try {
-      const info = await this.client.info('stats');
-      const dbSize = await this.client.dbsize();
-
-      const hitRate = this.hits + this.misses > 0
-        ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(2)
-        : '0.00';
+      const info = await this.client!.info('stats');
+      const dbSize = await this.client!.dbsize();
 
       return {
         hits: this.hits,
@@ -159,14 +213,16 @@ class CacheService {
         hitRate: `${hitRate}%`,
         dbSize,
         redisInfo: info,
+        enabled: true,
       };
     } catch (error) {
       logger.error('Error getting cache stats:', error);
       return {
         hits: this.hits,
         misses: this.misses,
-        hitRate: '0.00%',
+        hitRate: `${hitRate}%`,
         dbSize: 0,
+        enabled: false,
       };
     }
   }
@@ -175,8 +231,12 @@ class CacheService {
    * Получить все ключи кэша (осторожно с большим количеством!)
    */
   async keys(pattern: string = '*'): Promise<string[]> {
+    if (!this.isAvailable()) {
+      return [];
+    }
+    
     try {
-      return await this.client.keys(pattern);
+      return await this.client!.keys(pattern);
     } catch (error) {
       logger.error('Error getting cache keys:', error);
       return [];
@@ -187,8 +247,12 @@ class CacheService {
    * Проверить, есть ли ключ в кэше
    */
   async has(key: string): Promise<boolean> {
+    if (!this.isAvailable()) {
+      return false;
+    }
+    
     try {
-      const exists = await this.client.exists(key);
+      const exists = await this.client!.exists(key);
       return exists === 1;
     } catch (error) {
       logger.error(`Error checking cache key ${key}:`, error);
@@ -200,8 +264,12 @@ class CacheService {
    * Получить TTL ключа в секундах
    */
   async getTtl(key: string): Promise<number | undefined> {
+    if (!this.isAvailable()) {
+      return undefined;
+    }
+    
     try {
-      const ttl = await this.client.ttl(key);
+      const ttl = await this.client!.ttl(key);
       return ttl >= 0 ? ttl : undefined;
     } catch (error) {
       logger.error(`Error getting TTL for key ${key}:`, error);
@@ -212,7 +280,7 @@ class CacheService {
   /**
    * Получить Redis client для прямого доступа (если нужно)
    */
-  getClient(): Redis {
+  getClient(): Redis | null {
     return this.client;
   }
 
@@ -220,6 +288,10 @@ class CacheService {
    * Закрыть соединение с Redis
    */
   async close(): Promise<void> {
+    if (!this.client) {
+      return;
+    }
+    
     try {
       await this.client.quit();
       logger.info('Redis cache client closed');

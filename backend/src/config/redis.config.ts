@@ -11,6 +11,9 @@ import { logger } from '../utils/logger';
  * - REDIS_DB: Redis database number (default: 0)
  */
 
+// Redis можно отключить для dev режима
+export const REDIS_ENABLED = process.env.REDIS_ENABLED !== 'false';
+
 const redisConfig = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379'),
@@ -19,6 +22,11 @@ const redisConfig = {
 
   // Connection options
   retryStrategy: (times: number) => {
+    // В dev режиме с отключенным Redis прекращаем попытки после 5 раз
+    if (!REDIS_ENABLED && times > 5) {
+      logger.info('⚠️ Redis disabled in dev mode, stopping reconnection attempts');
+      return null;
+    }
     const delay = Math.min(times * 50, 2000);
     logger.warn(`Redis connection retry attempt ${times}, delay: ${delay}ms`);
     return delay;
@@ -31,10 +39,10 @@ const redisConfig = {
   lazyConnect: false,
 
   // Enable offline queue
-  enableOfflineQueue: true,
+  enableOfflineQueue: REDIS_ENABLED,
 
   // Max retry attempts
-  maxRetriesPerRequest: 3,
+  maxRetriesPerRequest: REDIS_ENABLED ? 3 : 1,
 };
 
 /**
