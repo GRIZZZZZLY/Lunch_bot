@@ -105,6 +105,8 @@ export function createBot(): Bot<BotContext> {
       logger.error('❌ Ошибка настройки прокси:', error);
       logger.warn('⚠️  Продолжаем без прокси...');
     }
+  } else {
+    logger.warn('⚠️  ВАЖНО: Прокси не настроен! Если Telegram API заблокирован, включите VPN или настройте прокси в .env');
   }
   
   botInstance = new Bot<BotContext>(botConfig.token, gramBotConfig);
