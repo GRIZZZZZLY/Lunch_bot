@@ -15,7 +15,8 @@
       "Bash(python fix_auth.py:*)",
       "Bash(iconv:*)",
       "Bash(python fix-webhook-route.py:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

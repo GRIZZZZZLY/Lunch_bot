@@ -25246,3 +25246,123 @@
 {"canJoinGroups":true,"canReadAllGroupMessages":false,"firstName":"Rocket Lunch","id":8298516078,"level":"info","message":"🤖 Бот инициализирован","supportsInlineQueries":false,"timestamp":"2025-10-29T11:58:24.051Z","username":"rocket_lunch_bot"}
 {"level":"info","message":"Default menu button set for private chats","timestamp":"2025-10-29T11:58:24.172Z","webappUrl":"https://rocket-lunch.duckdns.org"}
 {"error":{"code":"ECONNRESET","errno":"ECONNRESET","message":"request to https://api.telegram.org/bot8298516078:AAF3QAaoVURt634PcNtwMKiExF2nILnziGk/setWebhook failed, reason: Client network socket disconnected before secure TLS connection was established","type":"system"},"level":"error","message":"❌ Ошибка установки webhook: Network request for 'setWebhook' failed!","name":"HttpError","stack":"HttpError: Network request for 'setWebhook' failed!\n    at E:\\Lunch_bot\\telegram-food-bot\\backend\\node_modules\\grammy\\out\\core\\error.js:85:15\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async ApiClient.call (E:\\Lunch_bot\\telegram-food-bot\\backend\\node_modules\\grammy\\out\\core\\client.js:54:29)\n    at async ApiClient.callApi (E:\\Lunch_bot\\telegram-food-bot\\backend\\node_modules\\grammy\\out\\core\\client.js:93:22)\n    at async setupWebhook (E:\\Lunch_bot\\telegram-food-bot\\backend\\dist\\bot\\bot.js:354:9)\n    at async startApplication (E:\\Lunch_bot\\telegram-food-bot\\backend\\dist\\index.js:52:13)","timestamp":"2025-10-29T11:58:25.182Z"}
+{"environment":"production","level":"info","message":"🔍 Logger инициализирован","timestamp":"2025-10-30T13:33:26.018Z","transports":3}
+{"level":"info","message":"✅ Cache service initialized with Redis","timestamp":"2025-10-30T13:33:28.150Z"}
+{"level":"info","message":"✅ Metrics service initialized with Prometheus","timestamp":"2025-10-30T13:33:29.365Z"}
+{"level":"info","message":"Sentry мониторинг отключен","timestamp":"2025-10-30T13:33:29.367Z"}
+{"level":"info","message":"Notification service initialized","timestamp":"2025-10-30T13:33:29.368Z"}
+{"level":"info","message":"PollReminderService initialized","timestamp":"2025-10-30T13:33:29.368Z"}
+{"level":"info","message":"ResponsibleService bot instance initialized","timestamp":"2025-10-30T13:33:29.369Z"}
+{"level":"info","message":"BudgetService bot instance initialized","timestamp":"2025-10-30T13:33:29.369Z"}
+{"level":"info","message":"Frontend static path: E:\\Lunch_bot\\telegram-food-bot\\frontend\\dist","timestamp":"2025-10-30T13:33:29.389Z"}
+{"corsOrigin":"https://rocket-lunch.duckdns.org","level":"info","maxFileSize":"5MB","message":"API сервер настроен","timestamp":"2025-10-30T13:33:29.390Z","uploadPath":"E:\\Lunch_bot\\telegram-food-bot\\backend\\uploads"}
+{"level":"info","message":"PollService bot instance initialized","timestamp":"2025-10-30T13:33:29.390Z"}
+{"level":"info","message":"Запуск Telegram Food Bot...","timestamp":"2025-10-30T13:33:29.390Z"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:33:29.582Z"}
+{"level":"warn","message":"Redis connection retry attempt 1, delay: 50ms","timestamp":"2025-10-30T13:33:29.583Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:33:29.586Z"}
+{"delay":50,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:33:29.587Z"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:33:29.637Z"}
+{"level":"warn","message":"Redis connection retry attempt 2, delay: 100ms","timestamp":"2025-10-30T13:33:29.638Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:33:29.638Z"}
+{"delay":100,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:33:29.638Z"}
+{"level":"info","message":"Prisma Info: Starting a sqlite pool with 13 connections.","target":"quaint::pooled","timestamp":"2025-10-30T13:33:29.654Z"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:33:29.751Z"}
+{"level":"warn","message":"Redis connection retry attempt 3, delay: 150ms","timestamp":"2025-10-30T13:33:29.752Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:33:29.753Z"}
+{"delay":150,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:33:29.753Z"}
+{"level":"info","message":"✅ Подключение к базе данных успешно установлено","timestamp":"2025-10-30T13:33:29.769Z"}
+{"level":"info","message":"🚀 API сервер запущен на http://0.0.0.0:3001","timestamp":"2025-10-30T13:33:29.774Z"}
+{"level":"info","message":"📋 Monitoring endpoints:","timestamp":"2025-10-30T13:33:29.774Z"}
+{"level":"info","message":"  GET  /health - проверка состояния","timestamp":"2025-10-30T13:33:29.775Z"}
+{"level":"info","message":"  GET  /health/ready - readiness check","timestamp":"2025-10-30T13:33:29.775Z"}
+{"level":"info","message":"  GET  /health/live - liveness check","timestamp":"2025-10-30T13:33:29.775Z"}
+{"level":"info","message":"  GET  /api/metrics - метрики приложения","timestamp":"2025-10-30T13:33:29.775Z"}
+{"level":"info","message":"  GET  /api/metrics/detailed - детальная статистика","timestamp":"2025-10-30T13:33:29.776Z"}
+{"level":"info","message":"  GET  /dashboard.html - monitoring dashboard","timestamp":"2025-10-30T13:33:29.776Z"}
+{"level":"info","message":"","timestamp":"2025-10-30T13:33:29.776Z"}
+{"level":"info","message":"📋 Main API endpoints:","timestamp":"2025-10-30T13:33:29.776Z"}
+{"level":"info","message":"  POST /api/auth/validate - валидация пользователя","timestamp":"2025-10-30T13:33:29.776Z"}
+{"level":"info","message":"  GET  /api/menu - список блюд","timestamp":"2025-10-30T13:33:29.776Z"}
+{"level":"info","message":"  GET  /api/polls/active - активные голосования","timestamp":"2025-10-30T13:33:29.777Z"}
+{"level":"info","message":"  GET  /api/budget/debts - долги пользователя","timestamp":"2025-10-30T13:33:29.777Z"}
+{"level":"info","message":"","timestamp":"2025-10-30T13:33:29.777Z"}
+{"canJoinGroups":true,"canReadAllGroupMessages":false,"firstName":"Rocket Lunch","id":8298516078,"level":"info","message":"🤖 Бот инициализирован","supportsInlineQueries":false,"timestamp":"2025-10-30T13:33:29.854Z","username":"rocket_lunch_bot"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:33:29.907Z"}
+{"level":"warn","message":"Redis connection retry attempt 4, delay: 200ms","timestamp":"2025-10-30T13:33:29.908Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:33:29.909Z"}
+{"delay":200,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:33:29.910Z"}
+{"level":"info","message":"Default menu button set for private chats","timestamp":"2025-10-30T13:33:29.977Z","webappUrl":"https://rocket-lunch.duckdns.org"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:33:30.111Z"}
+{"level":"warn","message":"Redis connection retry attempt 5, delay: 250ms","timestamp":"2025-10-30T13:33:30.112Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:33:30.113Z"}
+{"delay":250,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:33:30.113Z"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:33:30.378Z"}
+{"level":"warn","message":"Redis connection retry attempt 6, delay: 300ms","timestamp":"2025-10-30T13:33:30.379Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:33:30.381Z"}
+{"delay":300,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:33:30.381Z"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:33:30.694Z"}
+{"level":"warn","message":"Redis connection retry attempt 7, delay: 350ms","timestamp":"2025-10-30T13:33:30.695Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:33:30.696Z"}
+{"delay":350,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:33:30.696Z"}
+{"description":"Bad Request: bad webhook: Failed to resolve host: Temporary failure in name resolution","error_code":400,"level":"error","message":"❌ Ошибка установки webhook: Call to 'setWebhook' failed! (400: Bad Request: bad webhook: Failed to resolve host: Temporary failure in name resolution)","method":"setWebhook","name":"GrammyError","ok":false,"parameters":{},"payload":{"drop_pending_updates":true,"url":"https://rocket-lunch.duckdns.org/webhook"},"stack":"GrammyError: Call to 'setWebhook' failed! (400: Bad Request: bad webhook: Failed to resolve host: Temporary failure in name resolution)\n    at toGrammyError (E:\\Lunch_bot\\telegram-food-bot\\backend\\node_modules\\grammy\\out\\core\\error.js:47:12)\n    at ApiClient.callApi (E:\\Lunch_bot\\telegram-food-bot\\backend\\node_modules\\grammy\\out\\core\\client.js:97:48)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async setupWebhook (E:\\Lunch_bot\\telegram-food-bot\\backend\\dist\\bot\\bot.js:354:9)\n    at async startApplication (E:\\Lunch_bot\\telegram-food-bot\\backend\\dist\\index.js:62:13)","timestamp":"2025-10-30T13:33:31.049Z"}
+{"environment":"production","level":"info","message":"🔍 Logger инициализирован","timestamp":"2025-10-30T13:40:09.970Z","transports":3}
+{"level":"info","message":"✅ Cache service initialized with Redis","timestamp":"2025-10-30T13:40:10.290Z"}
+{"level":"info","message":"✅ Metrics service initialized with Prometheus","timestamp":"2025-10-30T13:40:10.402Z"}
+{"level":"info","message":"Sentry мониторинг отключен","timestamp":"2025-10-30T13:40:10.403Z"}
+{"level":"info","message":"Notification service initialized","timestamp":"2025-10-30T13:40:10.404Z"}
+{"level":"info","message":"PollReminderService initialized","timestamp":"2025-10-30T13:40:10.405Z"}
+{"level":"info","message":"ResponsibleService bot instance initialized","timestamp":"2025-10-30T13:40:10.405Z"}
+{"level":"info","message":"BudgetService bot instance initialized","timestamp":"2025-10-30T13:40:10.405Z"}
+{"level":"info","message":"Frontend static path: E:\\Lunch_bot\\telegram-food-bot\\frontend\\dist","timestamp":"2025-10-30T13:40:10.425Z"}
+{"corsOrigin":"https://rocket-lunch.duckdns.org","level":"info","maxFileSize":"5MB","message":"API сервер настроен","timestamp":"2025-10-30T13:40:10.425Z","uploadPath":"E:\\Lunch_bot\\telegram-food-bot\\backend\\uploads"}
+{"level":"info","message":"PollService bot instance initialized","timestamp":"2025-10-30T13:40:10.426Z"}
+{"level":"info","message":"Запуск Telegram Food Bot...","timestamp":"2025-10-30T13:40:10.426Z"}
+{"level":"info","message":"Prisma Info: Starting a sqlite pool with 13 connections.","target":"quaint::pooled","timestamp":"2025-10-30T13:40:10.435Z"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:40:10.437Z"}
+{"level":"info","message":"✅ Подключение к базе данных успешно установлено","timestamp":"2025-10-30T13:40:10.437Z"}
+{"level":"info","message":"🚀 API сервер запущен на http://0.0.0.0:3001","timestamp":"2025-10-30T13:40:10.440Z"}
+{"level":"info","message":"📋 Monitoring endpoints:","timestamp":"2025-10-30T13:40:10.440Z"}
+{"level":"info","message":"  GET  /health - проверка состояния","timestamp":"2025-10-30T13:40:10.441Z"}
+{"level":"info","message":"  GET  /health/ready - readiness check","timestamp":"2025-10-30T13:40:10.441Z"}
+{"level":"info","message":"  GET  /health/live - liveness check","timestamp":"2025-10-30T13:40:10.441Z"}
+{"level":"info","message":"  GET  /api/metrics - метрики приложения","timestamp":"2025-10-30T13:40:10.441Z"}
+{"level":"info","message":"  GET  /api/metrics/detailed - детальная статистика","timestamp":"2025-10-30T13:40:10.441Z"}
+{"level":"info","message":"  GET  /dashboard.html - monitoring dashboard","timestamp":"2025-10-30T13:40:10.441Z"}
+{"level":"info","message":"","timestamp":"2025-10-30T13:40:10.441Z"}
+{"level":"info","message":"📋 Main API endpoints:","timestamp":"2025-10-30T13:40:10.441Z"}
+{"level":"info","message":"  POST /api/auth/validate - валидация пользователя","timestamp":"2025-10-30T13:40:10.441Z"}
+{"level":"info","message":"  GET  /api/menu - список блюд","timestamp":"2025-10-30T13:40:10.442Z"}
+{"level":"info","message":"  GET  /api/polls/active - активные голосования","timestamp":"2025-10-30T13:40:10.442Z"}
+{"level":"info","message":"  GET  /api/budget/debts - долги пользователя","timestamp":"2025-10-30T13:40:10.442Z"}
+{"level":"info","message":"","timestamp":"2025-10-30T13:40:10.442Z"}
+{"level":"warn","message":"Redis connection retry attempt 1, delay: 50ms","timestamp":"2025-10-30T13:40:10.442Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:40:10.442Z"}
+{"delay":50,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:40:10.443Z"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:40:10.564Z"}
+{"level":"warn","message":"Redis connection retry attempt 2, delay: 100ms","timestamp":"2025-10-30T13:40:10.564Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:40:10.564Z"}
+{"delay":100,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:40:10.564Z"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:40:10.674Z"}
+{"level":"warn","message":"Redis connection retry attempt 3, delay: 150ms","timestamp":"2025-10-30T13:40:10.675Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:40:10.675Z"}
+{"delay":150,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:40:10.676Z"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:40:10.831Z"}
+{"level":"warn","message":"Redis connection retry attempt 4, delay: 200ms","timestamp":"2025-10-30T13:40:10.831Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:40:10.833Z"}
+{"delay":200,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:40:10.833Z"}
+{"canJoinGroups":true,"canReadAllGroupMessages":false,"firstName":"Rocket Lunch","id":8298516078,"level":"info","message":"🤖 Бот инициализирован","supportsInlineQueries":false,"timestamp":"2025-10-30T13:40:10.939Z","username":"rocket_lunch_bot"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:40:11.048Z"}
+{"level":"warn","message":"Redis connection retry attempt 5, delay: 250ms","timestamp":"2025-10-30T13:40:11.048Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:40:11.050Z"}
+{"delay":250,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:40:11.050Z"}
+{"level":"info","message":"Default menu button set for private chats","timestamp":"2025-10-30T13:40:11.055Z","webappUrl":"https://rocket-lunch.duckdns.org"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:40:11.310Z"}
+{"level":"warn","message":"Redis connection retry attempt 6, delay: 300ms","timestamp":"2025-10-30T13:40:11.310Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:40:11.311Z"}
+{"delay":300,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:40:11.312Z"}
+{"code":"EACCES","level":"error","message":"❌ Redis error:","stack":"AggregateError [EACCES]: \n    at internalConnectMultiple (node:net:1134:18)\n    at afterConnectMultiple (node:net:1715:7)","timestamp":"2025-10-30T13:40:11.620Z"}
+{"level":"warn","message":"Redis connection retry attempt 7, delay: 350ms","timestamp":"2025-10-30T13:40:11.621Z"}
+{"level":"warn","message":"⚠️ Redis connection closed","timestamp":"2025-10-30T13:40:11.622Z"}
+{"delay":350,"level":"info","message":"🔄 Redis reconnecting...","timestamp":"2025-10-30T13:40:11.623Z"}
+{"description":"Bad Request: bad webhook: Failed to resolve host: Temporary failure in name resolution","error_code":400,"level":"error","message":"❌ Ошибка установки webhook: Call to 'setWebhook' failed! (400: Bad Request: bad webhook: Failed to resolve host: Temporary failure in name resolution)","method":"setWebhook","name":"GrammyError","ok":false,"parameters":{},"payload":{"drop_pending_updates":true,"url":"https://rocket-lunch.duckdns.org/webhook"},"stack":"GrammyError: Call to 'setWebhook' failed! (400: Bad Request: bad webhook: Failed to resolve host: Temporary failure in name resolution)\n    at toGrammyError (E:\\Lunch_bot\\telegram-food-bot\\backend\\node_modules\\grammy\\out\\core\\error.js:47:12)\n    at ApiClient.callApi (E:\\Lunch_bot\\telegram-food-bot\\backend\\node_modules\\grammy\\out\\core\\client.js:97:48)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async setupWebhook (E:\\Lunch_bot\\telegram-food-bot\\backend\\dist\\bot\\bot.js:354:9)\n    at async startApplication (E:\\Lunch_bot\\telegram-food-bot\\backend\\dist\\index.js:62:13)","timestamp":"2025-10-30T13:40:11.843Z"}
