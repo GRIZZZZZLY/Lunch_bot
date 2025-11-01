@@ -217,4 +217,64 @@ export class BudgetController {
       res.status(500).json({ error: 'Failed to get stats' });
     }
   }
+
+  /**
+   * POST /api/budget/send-reminder
+   * Отправить напоминание должнику
+   */
+  async sendReminder(req: Request, res: Response): Promise<void> {
+    try {
+      const { transactionId } = req.body;
+      const authenticatedUser = (req as any).user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      if (!transactionId) {
+        res.status(400).json({ error: 'transactionId is required' });
+        return;
+      }
+
+      await this.budgetService.sendReminder(transactionId, authenticatedUser.id);
+
+      res.json({ success: true, message: 'Reminder sent' });
+    } catch (error: any) {
+      logger.error('[BudgetController] Error sending reminder:', error);
+      res.status(500).json({ error: error.message || 'Failed to send reminder' });
+    }
+  }
+
+  /**
+   * POST /api/budget/send-reminders-all
+   * Отправить напоминания всем должникам по конкретному заказу
+   */
+  async sendRemindersAll(req: Request, res: Response): Promise<void> {
+    try {
+      const { pollId } = req.body;
+      const authenticatedUser = (req as any).user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      if (!pollId) {
+        res.status(400).json({ error: 'pollId is required' });
+        return;
+      }
+
+      const sentCount = await this.budgetService.sendRemindersToAll(pollId, authenticatedUser.id);
+
+      res.json({ 
+        success: true, 
+        message: `Reminders sent to ${sentCount} user(s)`,
+        sentCount 
+      });
+    } catch (error: any) {
+      logger.error('[BudgetController] Error sending reminders to all:', error);
+      res.status(500).json({ error: error.message || 'Failed to send reminders' });
+    }
+  }
 }

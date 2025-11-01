@@ -735,4 +735,115 @@ export class BudgetService {
       throw error;
     }
   }
+
+  /**
+   * Отправить напоминание должнику
+   */
+  async sendReminder(transactionId: number, requestingUserId: number): Promise<void> {
+    try {
+      const transaction = await prisma.transaction.findUnique({
+        where: { id: transactionId },
+        include: {
+          fromUser: true,
+          toUser: true,
+          poll: {
+            include: {
+              group: true,
+            },
+          },
+        },
+      });
+
+      if (!transaction) {
+        throw new Error('Transaction not found');
+      }
+
+      // Проверяем, что запрашивающий - это получатель платежа
+      if (transaction.toUserId !== requestingUserId) {
+        throw new Error('Only creditor can send reminders');
+      }
+
+      if (!botInstance) {
+        logger.error('Bot instance not initialized');
+        throw new Error('Bot not available');
+      }
+
+      // Формируем сообщение
+      const amount = transaction.amount.toFixed(2);
+      const creditorName = transaction.toUser.firstName;
+      const groupName = transaction.poll?.group?.title || 'группа';
+
+      const message = `
+💰 Напоминание об оплате
+
+Привет! ${creditorName} напоминает о платеже:
+💸 Сумма: ${amount}₽
+📍 Заказ в ${groupName}
+
+${transaction.toUser.paymentPhone ? `📱 СБП: ${transaction.toUser.paymentPhone}` : ''}
+${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymentCard}` : ''}
+
+Отметь оплату в Mini App после перевода 👍
+      `.trim();
+
+      // Отправляем уведомление
+      await botInstance.api.sendMessage(transaction.fromUser.telegramId, message);
+
+      // Сохраняем запись о напоминании
+      await prisma.paymentReminder.create({
+        data: {
+          transactionId: transaction.id,
+          type: 'MANUAL',
+          sentBy: requestingUserId,
+          message,
+        },
+      });
+
+      // Обновляем счетчик напоминаний
+      await prisma.transaction.update({
+        where: { id: transactionId },
+        data: {
+          reminderCount: { increment: 1 },
+          lastReminderAt: new Date(),
+        },
+      });
+
+      logger.info('Reminder sent', { transactionId, fromUserId: transaction.fromUserId });
+    } catch (error) {
+      logger.error('Error sending reminder:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Отправить напоминания всем должникам (для ответственного)
+   */
+  async sendRemindersToAll(pollId: number, requestingUserId: number): Promise<number> {
+    try {
+      // Получаем все pending транзакции для этого poll
+      const transactions = await prisma.transaction.findMany({
+        where: {
+          pollId,
+          toUserId: requestingUserId,
+          status: 'PENDING',
+        },
+      });
+
+      let sentCount = 0;
+      for (const transaction of transactions) {
+        try {
+          await this.sendReminder(transaction.id, requestingUserId);
+          sentCount++;
+        } catch (error) {
+          logger.error('Failed to send reminder', { transactionId: transaction.id, error });
+        }
+      }
+
+      logger.info('Reminders sent to all', { pollId, sentCount });
+      return sentCount;
+    } catch (error) {
+      logger.error('Error sending reminders to all:', error);
+      throw error;
+    }
+  }
 }
