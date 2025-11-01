@@ -645,6 +645,22 @@ class PollsService {
       throw error;
     }
   }
+
+  /**
+   * Получение последнего завершённого голосования сегодня
+   */
+  async getTodayCompletedPoll(groupId: number): Promise<ApiResponse<PollWithDetails | null>> {
+    try {
+      const response = await apiService.get<PollWithDetails | null>(`/polls/today-completed/${groupId}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching today completed poll:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error'
+      };
+    }
+  }
 }
 
 export const pollsService = new PollsService();

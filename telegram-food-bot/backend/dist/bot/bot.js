@@ -104,6 +104,9 @@ function createBot() {
             logger_1.logger.warn('⚠️  Продолжаем без прокси...');
         }
     }
+    else {
+        logger_1.logger.warn('⚠️  ВАЖНО: Прокси не настроен! Если Telegram API заблокирован, включите VPN или настройте прокси в .env');
+    }
     botInstance = new grammy_1.Bot(bot_config_1.botConfig.token, gramBotConfig);
     const bot = botInstance;
     (0, error_1.setupErrorHandlers)();

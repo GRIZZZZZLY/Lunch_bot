@@ -3,7 +3,9 @@ declare class CacheService {
     private client;
     private hits;
     private misses;
+    private enabled;
     constructor();
+    private isAvailable;
     get<T>(key: string): Promise<T | undefined>;
     set<T>(key: string, value: T, ttl?: number): Promise<boolean>;
     del(key: string | string[]): Promise<number>;
@@ -15,18 +17,20 @@ declare class CacheService {
         misses: number;
         hitRate: string;
         dbSize: number;
-        redisInfo: string;
+        enabled: boolean;
+        redisInfo?: undefined;
     } | {
         hits: number;
         misses: number;
         hitRate: string;
         dbSize: number;
-        redisInfo?: undefined;
+        redisInfo: string;
+        enabled: boolean;
     }>;
     keys(pattern?: string): Promise<string[]>;
     has(key: string): Promise<boolean>;
     getTtl(key: string): Promise<number | undefined>;
-    getClient(): Redis;
+    getClient(): Redis | null;
     close(): Promise<void>;
 }
 export declare const cacheService: CacheService;

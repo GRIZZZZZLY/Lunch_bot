@@ -11,11 +11,13 @@ const bot_config_1 = require("./config/bot.config");
 const bot_1 = require("./bot/bot");
 const server_1 = require("./api/server");
 const poll_service_extensions_1 = require("./services/poll.service.extensions");
+const feedback_service_1 = require("./services/feedback.service");
 dotenv_1.default.config();
 (0, sentry_config_1.initSentry)();
 const bot = (0, bot_1.createBot)();
 const app = (0, server_1.createApiServer)();
 (0, poll_service_extensions_1.initializePollServiceBot)(bot);
+feedback_service_1.feedbackService.initialize(bot);
 process.on('SIGINT', async () => {
     logger_1.logger.info('Получен сигнал SIGINT, завершаем приложение...');
     try {

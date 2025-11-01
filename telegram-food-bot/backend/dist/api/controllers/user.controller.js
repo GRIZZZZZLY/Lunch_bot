@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.userController = exports.UserController = void 0;
 const user_service_1 = require("../../services/user.service");
+const avatar_service_1 = require("../../services/avatar.service");
 const logger_1 = require("../../utils/logger");
 class UserController {
     static async getCurrentUser(req, res) {
@@ -177,14 +178,10 @@ class UserController {
             const groups = await prisma.group.findMany({
                 where: {
                     isActive: true,
-                    polls: {
-                        some: {
-                            createdBy: user.id,
-                        },
-                    },
                 },
                 orderBy: { createdAt: 'desc' },
             });
+            logger_1.logger.info(`User ${user.id} requested groups list, found ${groups.length} groups`);
             res.json({
                 success: true,
                 data: groups.map(group => ({
@@ -203,6 +200,90 @@ class UserController {
             res.status(500).json({
                 success: false,
                 error: 'Failed to get user groups',
+                code: 'INTERNAL_ERROR',
+            });
+        }
+    }
+    static async getUserAvatar(req, res) {
+        try {
+            const { userId } = req.params;
+            if (!userId) {
+                res.status(400).json({
+                    success: false,
+                    error: 'User ID is required',
+                    code: 'INVALID_PARAMS',
+                });
+                return;
+            }
+            const user = await user_service_1.UserService.getUserById(parseInt(userId, 10));
+            if (!user) {
+                res.status(404).json({
+                    success: false,
+                    error: 'User not found',
+                    code: 'USER_NOT_FOUND',
+                });
+                return;
+            }
+            const avatarUrl = await avatar_service_1.AvatarService.getUserAvatar(user.telegramId);
+            res.json({
+                success: true,
+                data: {
+                    userId: user.id,
+                    telegramId: user.telegramId.toString(),
+                    avatarUrl,
+                },
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting user avatar:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to get user avatar',
+                code: 'INTERNAL_ERROR',
+            });
+        }
+    }
+    static async getUserAvatarsBatch(req, res) {
+        try {
+            const { userIds } = req.body;
+            if (!Array.isArray(userIds) || userIds.length === 0) {
+                res.status(400).json({
+                    success: false,
+                    error: 'User IDs array is required',
+                    code: 'INVALID_PARAMS',
+                });
+                return;
+            }
+            if (userIds.length > 100) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Maximum 100 user IDs per request',
+                    code: 'TOO_MANY_IDS',
+                });
+                return;
+            }
+            const users = await Promise.all(userIds.map((id) => user_service_1.UserService.getUserById(parseInt(id, 10))));
+            const validUsers = users.filter((u) => u !== null);
+            const telegramIds = validUsers.map((u) => u.telegramId);
+            const avatarsMap = await avatar_service_1.AvatarService.getUserAvatarsBatch(telegramIds);
+            const result = validUsers.map((user) => ({
+                userId: user.id,
+                telegramId: user.telegramId.toString(),
+                avatarUrl: avatarsMap.get(user.telegramId.toString()) || null,
+            }));
+            res.json({
+                success: true,
+                data: result,
+                total: result.length,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting user avatars batch:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to get user avatars',
                 code: 'INTERNAL_ERROR',
             });
         }

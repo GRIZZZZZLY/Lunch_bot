@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Users } from 'lucide-react';
+import { UserAvatar } from '../common/UserAvatar';
 
 interface Voter {
   id: number;
@@ -18,6 +19,7 @@ interface VotersAvatarsProps {
 
 /**
  * Компонент для отображения аватаров проголосовавших пользователей (Social Proof)
+ * Использует UserAvatar для автоматической загрузки аватаров из Telegram API
  */
 export const VotersAvatars: React.FC<VotersAvatarsProps> = ({
   voters = [],
@@ -29,93 +31,32 @@ export const VotersAvatars: React.FC<VotersAvatarsProps> = ({
   const displayedVoters = voters.slice(0, maxDisplay);
   const remainingCount = Math.max(0, voters.length - maxDisplay);
 
-  const sizeClasses = {
-    sm: 'w-6 h-6 text-[10px]',
-    md: 'w-8 h-8 text-xs',
-    lg: 'w-10 h-10 text-sm',
-  };
-
   const offsetClasses = {
     sm: '-ml-2',
     md: '-ml-2.5',
     lg: '-ml-3',
   };
 
-  /**
-   * Генерация цвета фона на основе имени пользователя
-   */
-  const getColorFromName = (name: string): string => {
-    const colors = [
-      'bg-blue-500',
-      'bg-green-500',
-      'bg-yellow-500',
-      'bg-red-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-indigo-500',
-      'bg-teal-500',
-    ];
-    
-    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  };
-
-  /**
-   * Получение инициалов пользователя
-   */
-  const getInitials = (voter: Voter): string => {
-    const first = voter.firstName?.charAt(0) || '';
-    const last = voter.lastName?.charAt(0) || '';
-    return (first + last).toUpperCase() || '?';
-  };
-
-  /**
-   * Получение Telegram аватара (если доступно)
-   * Note: Telegram не предоставляет прямые URL аватаров через Web App API,
-   * поэтому используем fallback с инициалами
-   */
-  const getTelegramAvatarUrl = (telegramId: bigint): string | null => {
-    // Telegram не предоставляет публичные URLs для аватаров через Web App
-    // В будущем можно добавить запрос через Bot API к /getUserProfilePhotos
-    return null;
-  };
-
   return (
     <div className="flex items-center">
       <div className="flex items-center">
         {displayedVoters.map((voter, index) => {
-          const avatarUrl = getTelegramAvatarUrl(voter.telegramId);
-          const initials = getInitials(voter);
-          const colorClass = getColorFromName(voter.firstName);
-
           return (
             <motion.div
               key={voter.id}
               initial={{ opacity: 0, scale: 0.8, x: -10 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
               transition={{ delay: index * 0.05, duration: 0.2 }}
-              className={`
-                ${sizeClasses[size]}
-                ${index > 0 ? offsetClasses[size] : ''}
-                relative rounded-full border-2 border-white dark:border-gray-800
-                flex items-center justify-center
-                font-semibold text-white
-                shadow-md
-                ${colorClass}
-                hover:z-10 hover:scale-110 transition-transform
-                cursor-default
-              `}
-              title={`${voter.firstName}${voter.lastName ? ' ' + voter.lastName : ''}`}
+              className={index > 0 ? offsetClasses[size] : ''}
             >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={voter.firstName}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                <span>{initials}</span>
-              )}
+              <UserAvatar
+                userId={voter.id}
+                firstName={voter.firstName}
+                lastName={voter.lastName}
+                size={size}
+                className="border-2 border-white dark:border-gray-800 shadow-md hover:z-10 hover:scale-110 transition-transform cursor-default"
+                title={`${voter.firstName}${voter.lastName ? ' ' + voter.lastName : ''}`}
+              />
             </motion.div>
           );
         })}

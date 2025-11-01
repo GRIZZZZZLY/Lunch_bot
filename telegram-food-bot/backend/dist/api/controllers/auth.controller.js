@@ -42,7 +42,7 @@ class AuthController {
     static async validateInitData(req, res) {
         try {
             const { initData } = req.body;
-            if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+            if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
                 logger_1.logger.info('🔓 SKIP_TELEGRAM_VALIDATION: extracting REAL user from initData');
                 if (initData && initData.trim().length > 0 && initData !== 'mock_jwt_token_12345678') {
                     const { parseInitDataUnsafe } = await Promise.resolve().then(() => __importStar(require('../../utils/telegram-auth')));

@@ -107,22 +107,30 @@ Write-Host ""
 
 $projectRoot = Get-Location
 
-# Window 1: Backend (compiled with watch mode)
+# Window 1: Backend (production build with watch mode)
 Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
 Write-Host ''; 
 Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host '  BACKEND PROD-DEV (Watch Mode)' -ForegroundColor Cyan; 
+Write-Host '  BACKEND PROD-DEV' -ForegroundColor Cyan; 
 Write-Host '========================================' -ForegroundColor Cyan; 
 Write-Host ''; 
-Write-Host 'Port: 3001' -ForegroundColor White; 
-Write-Host 'URL: http://localhost:3001' -ForegroundColor White; 
-Write-Host ''; 
-Write-Host 'OK Production environment' -ForegroundColor Green; 
-Write-Host 'OK Watch mode (auto-restart)' -ForegroundColor Green; 
-Write-Host 'OK SKIP_TELEGRAM_VALIDATION' -ForegroundColor Green; 
+Write-Host 'Building TypeScript...' -ForegroundColor Yellow; 
 Write-Host ''; 
 cd '$projectRoot\backend'; 
-npm run dev
+npm run build; 
+Write-Host ''; 
+Write-Host 'OK Build completed' -ForegroundColor Green; 
+Write-Host 'Starting backend...' -ForegroundColor Yellow; 
+Write-Host ''; 
+Write-Host 'Port: 3001' -ForegroundColor White; 
+Write-Host 'API:  http://localhost:3001/api' -ForegroundColor White; 
+Write-Host 'Web:  http://localhost:3001' -ForegroundColor White; 
+Write-Host ''; 
+Write-Host 'OK Production build' -ForegroundColor Green; 
+Write-Host 'OK Serving static from dist/' -ForegroundColor Green; 
+Write-Host 'OK SKIP_TELEGRAM_VALIDATION' -ForegroundColor Green; 
+Write-Host ''; 
+npm start
 "@
 
 Start-Sleep -Seconds 2
@@ -148,53 +156,74 @@ npm run build:prod-dev
 
 Start-Sleep -Seconds 2
 
-# Window 3: Proxy Server
-Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
-Write-Host ''; 
-Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host '  PROXY SERVER' -ForegroundColor Cyan; 
-Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host ''; 
-Write-Host 'Port: 8080' -ForegroundColor White; 
-Write-Host 'URL: http://localhost:8080' -ForegroundColor White; 
-Write-Host ''; 
-Write-Host 'Routes:' -ForegroundColor Yellow; 
-Write-Host '  /api/*  -> http://localhost:3001/api/*' -ForegroundColor Gray; 
-Write-Host '  /*      -> frontend/dist/*' -ForegroundColor Gray; 
-Write-Host ''; 
-cd '$projectRoot'; 
-node proxy-server.js
-"@
-
-Start-Sleep -Seconds 2
-
-# Window 4: ngrok
+# Window 3: ngrok
 Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
 Write-Host ''; 
 Write-Host '========================================' -ForegroundColor Cyan; 
 Write-Host '  NGROK TUNNEL' -ForegroundColor Cyan; 
 Write-Host '========================================' -ForegroundColor Cyan; 
 Write-Host ''; 
-Write-Host 'Tunneling: http://localhost:8080' -ForegroundColor White; 
+Write-Host 'Tunneling: http://localhost:3001' -ForegroundColor White; 
 Write-Host ''; 
-Write-Host 'Copy the HTTPS URL below and paste it in Window 5!' -ForegroundColor Yellow; 
+Write-Host 'Copy the HTTPS URL below and paste it in Window 4!' -ForegroundColor Yellow; 
 Write-Host ''; 
-ngrok http 8080
+ngrok http 3001
 "@
 
 Start-Sleep -Seconds 2
 
-# Window 5: URL Updater
+# Window 4: URL Updater (автоматически обновляет ngrok URL)
 Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
 Write-Host ''; 
-Write-Host '========================================' -ForegroundColor Green; 
-Write-Host '  URL UPDATER' -ForegroundColor Green; 
-Write-Host '========================================' -ForegroundColor Green; 
+Write-Host '========================================' -ForegroundColor Cyan; 
+Write-Host '  URL UPDATER' -ForegroundColor Cyan; 
+Write-Host '========================================' -ForegroundColor Cyan; 
 Write-Host ''; 
-Write-Host 'This will update .env files with ngrok URL' -ForegroundColor Cyan; 
+Write-Host 'Waiting for ngrok to start...' -ForegroundColor Yellow; 
+Start-Sleep -Seconds 5; 
 Write-Host ''; 
-cd '$projectRoot'; 
-.\update-urls-prod.ps1
+Write-Host 'Fetching ngrok URL...' -ForegroundColor Yellow; 
+try {
+    `$ngrokApi = Invoke-RestMethod -Uri 'http://127.0.0.1:4040/api/tunnels' -ErrorAction Stop;
+    `$ngrokUrl = `$ngrokApi.tunnels[0].public_url;
+    if (`$ngrokUrl) {
+        Write-Host ''; 
+        Write-Host '[OK] Found ngrok URL:' -ForegroundColor Green; 
+        Write-Host '  ' `$ngrokUrl -ForegroundColor White; 
+        Write-Host ''; 
+        Write-Host 'Updating .env files...' -ForegroundColor Yellow; 
+        cd '$projectRoot';
+        `$output = .\update-urls.ps1 -NgrokUrl `$ngrokUrl -Auto;
+        Write-Host ''; 
+        Write-Host '[OK] URLs updated successfully!' -ForegroundColor Green; 
+        Write-Host ''; 
+        Write-Host '========================================' -ForegroundColor Green; 
+        Write-Host '  READY TO TEST!' -ForegroundColor Green; 
+        Write-Host '========================================' -ForegroundColor Green; 
+        Write-Host ''; 
+        Write-Host 'Open @rocket_lunch_bot in Telegram' -ForegroundColor White; 
+        Write-Host 'Mini App URL: ' `$ngrokUrl -ForegroundColor Cyan; 
+        Write-Host ''; 
+    } else {
+        Write-Host ''; 
+        Write-Host '[ERROR] Could not get ngrok URL' -ForegroundColor Red; 
+        Write-Host ''; 
+        Write-Host 'Manual steps:' -ForegroundColor Yellow; 
+        Write-Host '  1. Copy ngrok URL from Window 3' -ForegroundColor Gray; 
+        Write-Host '  2. Run: .\update-urls.ps1' -ForegroundColor Gray; 
+        Write-Host ''; 
+    }
+} catch {
+    Write-Host ''; 
+    Write-Host '[ERROR] Failed to connect to ngrok API' -ForegroundColor Red; 
+    Write-Host ''; 
+    Write-Host 'Manual steps:' -ForegroundColor Yellow; 
+    Write-Host '  1. Copy ngrok URL from Window 3' -ForegroundColor Gray; 
+    Write-Host '  2. Run: .\update-urls.ps1' -ForegroundColor Gray; 
+    Write-Host ''; 
+}
+Write-Host 'Press Ctrl+C to close' -ForegroundColor DarkGray; 
+while (`$true) { Start-Sleep -Seconds 60 }
 "@
 
 Write-Host ""
@@ -202,18 +231,18 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host "  OK All Services Started!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "5 Windows opened:" -ForegroundColor Cyan
-Write-Host "  1. Backend PROD-DEV (Watch Mode)" -ForegroundColor White
-Write-Host "  2. Frontend PROD-DEV (Watch Mode)" -ForegroundColor White
-Write-Host "  3. Proxy Server (8080)" -ForegroundColor White
-Write-Host "  4. ngrok Tunnel" -ForegroundColor White
-Write-Host "  5. URL Updater" -ForegroundColor White
+Write-Host "4 Windows opened:" -ForegroundColor Cyan
+Write-Host "  1. Backend PROD-DEV (build + run)" -ForegroundColor White
+Write-Host "  2. Frontend PROD-DEV (watch mode)" -ForegroundColor White
+Write-Host "  3. ngrok Tunnel (port 3001)" -ForegroundColor White
+Write-Host "  4. URL Updater (auto-updates ngrok URL)" -ForegroundColor White
 Write-Host ""
-Write-Host "Window 5 (URL Updater) will guide you through:" -ForegroundColor Cyan
-Write-Host "  1. Paste ngrok URL" -ForegroundColor White
-Write-Host "  2. Auto-update .env files" -ForegroundColor White
-Write-Host "  3. Auto-rebuild frontend" -ForegroundColor White
-Write-Host "  4. Auto-restart backend" -ForegroundColor White
+Write-Host "Architecture:" -ForegroundColor Yellow
+Write-Host "  Telegram -> ngrok -> Backend:3001 -+- /api -> API" -ForegroundColor Gray
+Write-Host "                                      +- /    -> Static (dist/)" -ForegroundColor Gray
+Write-Host ""
+Write-Host "ngrok URL will be auto-detected and updated in ~10 seconds..." -ForegroundColor Cyan
+Write-Host "Check Window 4 (URL Updater) for status!" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Features:" -ForegroundColor Yellow
 Write-Host "  OK Production optimization" -ForegroundColor Green

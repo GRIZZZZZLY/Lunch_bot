@@ -98,6 +98,49 @@ class PollService {
             throw new Error('Failed to get poll');
         }
     }
+    static async getTodayCompletedPoll(groupId) {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const poll = await client_2.prisma.poll.findFirst({
+                where: {
+                    groupId,
+                    status: 'COMPLETED',
+                    endedAt: {
+                        gte: today,
+                    },
+                },
+                orderBy: {
+                    endedAt: 'desc',
+                },
+                include: {
+                    group: true,
+                    votes: {
+                        include: {
+                            user: true,
+                            menuItem: true,
+                        },
+                    },
+                    result: {
+                        include: {
+                            winnerMenuItem: true,
+                            responsibleUser: true,
+                        },
+                    },
+                    _count: {
+                        select: {
+                            votes: true,
+                        },
+                    },
+                },
+            });
+            return poll;
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting today completed poll:', error);
+            throw new Error('Failed to get today completed poll');
+        }
+    }
     static async getActivePollInGroup(groupId) {
         try {
             return await cache_service_1.cacheService.getOrSet(cache_service_1.CACHE_KEYS.ACTIVE_POLLS_GROUP(groupId), async () => {

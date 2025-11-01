@@ -10,13 +10,30 @@ exports.createCompactPollMessage = createCompactPollMessage;
 exports.createPollMessage = createPollMessage;
 exports.formatMultiWinnerResults = formatMultiWinnerResults;
 exports.createResultsMessage = createResultsMessage;
-function createCompactPollKeyboard(pollId) {
-    return {
-        inline_keyboard: [
-            [{ text: '📱 Проголосовать', callback_data: `openpoll:${pollId}` }],
-            [{ text: '📊 Результаты', callback_data: `show_results:${pollId}` }]
-        ]
-    };
+function createCompactPollKeyboard(pollId, status = 'active') {
+    if (status === 'active') {
+        return {
+            inline_keyboard: [
+                [{ text: '📱 Проголосовать', callback_data: `openpoll:${pollId}` }],
+                [{ text: '📊 Результаты', callback_data: `show_results:${pollId}` }]
+            ]
+        };
+    }
+    if (status === 'completed') {
+        return {
+            inline_keyboard: [
+                [{ text: '📊 Результаты', callback_data: `show_results:${pollId}` }]
+            ]
+        };
+    }
+    if (status === 'with_responsible') {
+        return {
+            inline_keyboard: [
+                [{ text: '📊 Просмотр деталей', callback_data: `show_results:${pollId}` }]
+            ]
+        };
+    }
+    return { inline_keyboard: [] };
 }
 function createPollKeyboard(pollId, menuItems, votes) {
     const keyboard = [];
@@ -145,33 +162,96 @@ function createResultsKeyboard(pollId, hasVotes, isActive, isRouletteRun = false
     }
     return { inline_keyboard: keyboard };
 }
-function createCompactPollMessage(poll, itemCount, currentVotes = 0, totalMembers = 0) {
-    let timeRemaining = poll.duration || 0;
-    if (poll.startedAt) {
-        const elapsed = Math.floor((Date.now() - new Date(poll.startedAt).getTime()) / 1000 / 60);
-        timeRemaining = Math.max(0, (poll.duration || 0) - elapsed);
+function createCompactPollMessage(poll, itemCount, currentVotes = 0, totalMembers = 0, options) {
+    const status = options?.status || 'active';
+    if (status === 'active') {
+        let timeRemaining = poll.duration || 0;
+        if (poll.startedAt) {
+            const elapsed = Math.floor((Date.now() - new Date(poll.startedAt).getTime()) / 1000 / 60);
+            timeRemaining = Math.max(0, (poll.duration || 0) - elapsed);
+        }
+        let timeEmoji = '⏰';
+        if (timeRemaining <= 2) {
+            timeEmoji = '🔥';
+        }
+        else if (timeRemaining <= 5) {
+            timeEmoji = '⚠️';
+        }
+        let message = `🗳️ **Голосование за обед**\n\n`;
+        if (poll.title && poll.title !== 'Голосование за обед') {
+            message += `📋 ${poll.title}\n`;
+        }
+        message += `🍽️ Блюд в меню: ${itemCount}\n`;
+        message += `${timeEmoji} Осталось: ${timeRemaining} мин\n`;
+        if (totalMembers > 0) {
+            message += `👥 Участвуют: ${currentVotes} из ${totalMembers}\n`;
+        }
+        else {
+            message += `👥 Проголосовало: ${currentVotes}\n`;
+        }
+        message += `\n📱 Нажмите кнопку ниже для голосования`;
+        return message;
     }
-    let timeEmoji = '⏰';
-    if (timeRemaining <= 2) {
-        timeEmoji = '🔥';
+    if (status === 'completed') {
+        const breakdown = options?.breakdown || [];
+        let message = `✅ **Голосование завершено!**\n\n`;
+        if (poll.title && poll.title !== 'Голосование за обед') {
+            message += `📋 ${poll.title}\n`;
+        }
+        message += `🍽️ Блюд в меню: ${itemCount}\n`;
+        message += `⏰ Длилось: ${poll.duration} мин\n`;
+        if (totalMembers > 0) {
+            message += `👥 Проголосовало: ${currentVotes} из ${totalMembers}\n`;
+        }
+        else {
+            message += `👥 Проголосовало: ${currentVotes}\n`;
+        }
+        if (breakdown.length > 0) {
+            message += `\n📊 **Результаты:**\n`;
+            breakdown.slice(0, 3).forEach((item, index) => {
+                const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                message += `${emoji} ${item.menuItemName} — ${item.votes} ${getPluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
+            });
+            message += `\n🎲 Выбираем ответственного...`;
+        }
+        else {
+            message += `\n😔 Никто не проголосовал`;
+        }
+        return message;
     }
-    else if (timeRemaining <= 5) {
-        timeEmoji = '⚠️';
+    if (status === 'with_responsible') {
+        const breakdown = options?.breakdown || [];
+        const responsibleUser = options?.responsibleUser;
+        let message = `✅ **Голосование завершено!**\n\n`;
+        if (poll.title && poll.title !== 'Голосование за обед') {
+            message += `📋 ${poll.title}\n`;
+        }
+        message += `🍽️ Блюд в меню: ${itemCount}\n`;
+        message += `⏰ Длилось: ${poll.duration} мин\n`;
+        if (totalMembers > 0) {
+            message += `👥 Проголосовало: ${currentVotes} из ${totalMembers}\n`;
+        }
+        else {
+            message += `👥 Проголосовало: ${currentVotes}\n`;
+        }
+        if (breakdown.length > 0) {
+            message += `\n📊 **Результаты:**\n`;
+            breakdown.slice(0, 3).forEach((item, index) => {
+                const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                message += `${emoji} ${item.menuItemName} — ${item.votes} ${getPluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
+            });
+        }
+        if (responsibleUser) {
+            message += `\n🎯 **Ответственный:** ${responsibleUser.firstName}`;
+            if (responsibleUser.username) {
+                message += ` (@${responsibleUser.username})`;
+            }
+            message += `\n💳 Детали отправлены в личные сообщения`;
+        }
+        message += `\n\n📱 Просмотреть детали ↓`;
+        return message;
     }
-    let message = `🗳️ **Голосование за обед**\n\n`;
-    if (poll.title && poll.title !== 'Голосование за обед') {
-        message += `📋 ${poll.title}\n`;
-    }
-    message += `🍽️ Блюд в меню: ${itemCount}\n`;
-    message += `${timeEmoji} Осталось: ${timeRemaining} мин\n`;
-    if (totalMembers > 0) {
-        message += `👥 Участвуют: ${currentVotes} из ${totalMembers}\n`;
-    }
-    else {
-        message += `👥 Проголосовало: ${currentVotes}\n`;
-    }
-    message += `\n📱 Нажмите кнопку ниже для голосования`;
-    return message;
+    return '';
 }
 function createPollMessage(pollData) {
     const { poll, menuItems, votes, totalVotes } = pollData;

@@ -1,12 +1,29 @@
 import React, { useState } from 'react';
 import { User } from 'lucide-react';
+import { useUserAvatar } from '@/hooks/useUserAvatar';
 
 interface UserAvatarProps {
+  /**
+   * ID пользователя для автозагрузки аватарки из API
+   * Если указан, то photoUrl игнорируется и загружается из Telegram API
+   */
+  userId?: number;
+
+  /**
+   * Прямой URL фото (для обратной совместимости)
+   * Используется только если userId не указан
+   */
   photoUrl?: string;
+
   firstName: string;
   lastName?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+
+  /**
+   * Отключить автозагрузку аватарки (использовать только photoUrl или fallback)
+   */
+  disableAutoLoad?: boolean;
 }
 
 const sizeMap = {
@@ -25,23 +42,45 @@ const iconSizeMap = {
 
 /**
  * Компонент аватара пользователя с fallback на первую букву имени
- * Поддерживает фото из Telegram API (если доступно)
+ *
+ * Режимы работы:
+ * 1. Auto-load mode (приоритет): если передан userId, автоматически загружает аватарку из API
+ * 2. Direct mode: если передан photoUrl, использует его напрямую
+ * 3. Fallback: показывает инициал имени
  */
 export const UserAvatar: React.FC<UserAvatarProps> = ({
+  userId,
   photoUrl,
   firstName,
   lastName,
   size = 'md',
   className = '',
+  disableAutoLoad = false,
 }) => {
   const [imageError, setImageError] = useState(false);
 
-  // Если есть photoUrl и изображение загрузилось
-  if (photoUrl && !imageError) {
+  // Auto-load mode: загружаем аватарку через API если указан userId
+  const { avatarUrl, isLoading } = useUserAvatar(userId, {
+    enabled: !!userId && !disableAutoLoad,
+  });
+
+  // Определяем финальный URL для отображения
+  // Приоритет: avatarUrl (из API) > photoUrl (прямой) > fallback (инициал)
+  const finalAvatarUrl = userId && !disableAutoLoad ? avatarUrl : photoUrl;
+
+  // Показываем skeleton при загрузке (только для auto-load mode)
+  if (userId && !disableAutoLoad && isLoading) {
+    return (
+      <div className={`${sizeMap[size]} rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse ${className}`} />
+    );
+  }
+
+  // Если есть finalAvatarUrl и изображение загрузилось
+  if (finalAvatarUrl && !imageError) {
     return (
       <div className={`${sizeMap[size]} rounded-full overflow-hidden shadow-lg ${className}`}>
         <img
-          src={photoUrl}
+          src={finalAvatarUrl}
           alt={`${firstName} ${lastName || ''}`}
           className="w-full h-full object-cover"
           onError={() => setImageError(true)}

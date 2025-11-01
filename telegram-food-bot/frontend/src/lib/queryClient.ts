@@ -68,33 +68,41 @@ export const persister = createSyncStoragePersister({
 /**
  * Query Keys константы
  * Используются для invalidation и prefetching
+ *
+ * IMPORTANT: Simplified structure to prevent initialization errors
+ * - No methods that reference the object itself
+ * - All keys defined as simple arrays or factory functions
+ * - No spread operators with 'as const'
  */
 export const queryKeys = {
-  // Polls
+  // Polls - simple structure
   polls: {
-    all: ['polls'] as const,
-    active: () => [...queryKeys.polls.all, 'active'] as const,
-    detail: (id: number) => [...queryKeys.polls.all, 'detail', id] as const,
-    history: () => [...queryKeys.polls.all, 'history'] as const,
-    stats: () => [...queryKeys.polls.all, 'stats'] as const,
+    all: ['polls'],
+    active: () => ['polls', 'active'],
+    todayCompleted: (groupId: number) => ['polls', 'today-completed', groupId],
+    detail: (id: number) => ['polls', 'detail', id],
+    history: () => ['polls', 'history'],
+    stats: () => ['polls', 'stats'],
   },
-  
-  // Menu
+
+  // Menu - simple structure
   menu: {
-    all: ['menu'] as const,
-    items: () => [...queryKeys.menu.all, 'items'] as const,
-    item: (id: number) => [...queryKeys.menu.all, 'item', id] as const,
-    categories: () => [...queryKeys.menu.all, 'categories'] as const,
+    all: ['menu'],
+    items: () => ['menu', 'items'],
+    item: (id: number) => ['menu', 'item', id],
+    categories: () => ['menu', 'categories'],
   },
-  
-  // User
+
+  // User - simple structure, NO ALIAS
   user: {
-    all: ['user'] as const,
-    profile: (id: number) => [...queryKeys.user.all, 'profile', id] as const,
-    paymentInfo: (id: number) => [...queryKeys.user.all, 'payment', id] as const,
-    votes: (id: number) => [...queryKeys.user.all, 'votes', id] as const,
+    all: ['user'],
+    profile: (id: number) => ['user', 'profile', id],
+    paymentInfo: (id: number) => ['user', 'payment', id],
+    votes: (id: number) => ['user', 'votes', id],
+    avatar: (id: number) => ['user', 'avatar', id],
+    avatarsBatch: (ids: number[]) => ['user', 'avatars-batch', ids.sort().join(',')],
   },
-} as const;
+};
 
 /**
  * Утилиты для работы с cache

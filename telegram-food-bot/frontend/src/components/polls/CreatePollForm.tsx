@@ -56,7 +56,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [showAllItems, setShowAllItems] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string>('Все');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [creationStep, setCreationStep] = useState(0);
@@ -192,18 +191,30 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   };
 
   const selectRandom = () => {
+    console.log('[CreatePollForm] 🎲 selectRandom clicked', { 
+      totalItems: menuItems.length,
+      currentSelected: selectedItems.size 
+    });
+    
     haptic.impact();
-    // Используем отфильтрованные блюда (по категории)
-    const itemsToSelect = activeCategory === 'Все' ? menuItems : filteredItems;
-    // Случайный выбор от 3 до 6 блюд
-    const count = Math.floor(Math.random() * 4) + 3;
-    const shuffled = [...itemsToSelect].sort(() => Math.random() - 0.5);
-    const randomItems = shuffled.slice(0, Math.min(count, itemsToSelect.length));
-    setSelectedItems(new Set(randomItems.map(item => item.id)));
-  };
-
-  const setQuickDuration = (minutes: number) => {
-    setDuration(minutes);
+    
+    // Случайный выбор от 3 до 6 блюд (или меньше если блюд мало)
+    const maxCount = Math.min(6, menuItems.length);
+    const minCount = Math.min(3, menuItems.length);
+    const count = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
+    
+    console.log('[CreatePollForm] 🎲 Selecting random items', { count, maxCount, minCount });
+    
+    const shuffled = [...menuItems].sort(() => Math.random() - 0.5);
+    const randomItems = shuffled.slice(0, count);
+    const newSelection = new Set(randomItems.map(item => item.id));
+    
+    console.log('[CreatePollForm] ✅ Random items selected', { 
+      selectedIds: Array.from(newSelection),
+      selectedNames: randomItems.map(i => i.name)
+    });
+    
+    setSelectedItems(newSelection);
   };
 
   // Format duration для live preview
@@ -217,13 +228,10 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
     }
   };
 
-  // Получить уникальные категории
-  const categories = Array.from(new Set(menuItems.map(item => item.category).filter(Boolean))) as string[];
-
-  // Фильтрованные блюда по категории
-  const filteredItems = activeCategory === 'Все' 
-    ? menuItems 
-    : menuItems.filter(item => item.category === activeCategory);
+  // Все блюда без фильтрации
+  const visibleItems = compact && !showAllItems 
+    ? menuItems.slice(0, 5) 
+    : menuItems;
 
   if (loading) {
     return (
@@ -267,12 +275,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
     );
   }
 
-  // Compact view: show only first 5 items unless expanded
-  const visibleItems = compact && !showAllItems 
-    ? filteredItems.slice(0, 5) 
-    : filteredItems;
-  
-  const hasMore = compact && filteredItems.length > 5;
+  const hasMore = compact && menuItems.length > 5;
 
   return (
     <div className="relative space-y-0 bg-white dark:bg-gray-900">
@@ -382,47 +385,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
               </motion.div>
             </div>
 
-            {/* Visual time presets с иконками */}
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              {[
-                { value: 15, label: 'Быстро', icon: '⚡' },
-                { value: 30, label: 'Обед', icon: '🍽️', popular: true },
-                { value: 60, label: 'Час', icon: '⏰' },
-                { value: 120, label: 'Долго', icon: '☕' }
-              ].map((preset) => (
-                <motion.button
-                  key={preset.value}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setQuickDuration(preset.value)}
-                  className={cn(
-                    "relative p-3 rounded-xl border-2 transition-all",
-                    duration === preset.value
-                      ? "border-mint-500 bg-mint-50 dark:bg-mint-500/10 shadow-lg"
-                      : "border-gray-200 dark:border-gray-700 hover:border-mint-300"
-                  )}
-                >
-                  {preset.popular && (
-                    <motion.div
-                      initial={{ y: -20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-coral-500 text-white text-[10px] font-bold"
-                    >
-                      ТОП
-                    </motion.div>
-                  )}
-                  
-                  <div className="text-2xl mb-1">{preset.icon}</div>
-                  <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {preset.label}
-                  </div>
-                  <div className="text-[10px] text-gray-500">
-                    {preset.value} мин
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-
-            {/* Slider для точной настройки */}
+            {/* Slider для выбора времени */}
             <div>
               <input
                 type="range"
@@ -454,8 +417,8 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         <GlassCard intensity="medium">
           <GlassCardContent>
             {/* Header с статистикой */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
+            <div className="mb-3">
+              <div className="flex items-center gap-3 mb-2">
                 <div className="p-2.5 rounded-xl bg-lavender-500/20">
                   <Utensils className="text-lavender-500" size={20} />
                 </div>
@@ -469,40 +432,41 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                     animate={{ scale: 1 }}
                     className="text-xs text-gray-500"
                   >
-                    Выбрано: <span className="font-bold text-lavender-600 dark:text-lavender-400">
-                      {selectedItems.size}
-                    </span> из {menuItems.length}
+                    Выбрано <span className="font-bold text-lavender-600 dark:text-lavender-400">
+                      {selectedItems.size} {selectedItems.size === 1 ? 'блюдо' : selectedItems.size < 5 ? 'блюда' : 'блюд'}
+                    </span>
                   </motion.p>
                 </div>
-              </div>
-
-              {/* Quick actions */}
-              <div className="flex gap-2">
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={toggleAll}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium border-2 border-lavender-200 dark:border-lavender-800 text-lavender-700 dark:text-lavender-400 hover:bg-lavender-50 dark:hover:bg-lavender-500/10"
-                >
-                  {selectedItems.size === menuItems.length ? '✗ Снять' : '✓ Все'}
-                </motion.button>
-                
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={selectRandom}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-butter-50 dark:bg-butter-500/10 text-butter-700 dark:text-butter-400 hover:bg-butter-100 dark:hover:bg-butter-500/20 flex items-center gap-1"
-                >
-                  <Shuffle size={12} />
-                  <span>Случайно</span>
-                </motion.button>
               </div>
             </div>
 
             {/* Progress bar визуализация */}
-            <div className="mb-4">
+            <div className="mb-3">
               <Progress 
                 value={(selectedItems.size / menuItems.length) * 100}
                 className="h-2"
               />
+            </div>
+
+            {/* Quick actions */}
+            <div className="flex gap-2 mb-4">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={toggleAll}
+                className="px-4 py-2 rounded-lg text-sm font-medium border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
+              >
+                <X size={16} />
+                <span>{selectedItems.size === menuItems.length ? 'Снять всё' : 'Выбрать всё'}</span>
+              </motion.button>
+              
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={selectRandom}
+                className="px-4 py-2 rounded-lg text-sm font-medium border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
+              >
+                <Shuffle size={16} />
+                <span>Случайный выбор</span>
+              </motion.button>
             </div>
 
             {/* Validation hint */}
@@ -512,40 +476,17 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="mb-3 p-2.5 rounded-lg bg-butter-50 dark:bg-butter-500/10 border border-butter-200 dark:border-butter-800"
+                  className="mb-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                 >
                   <div className="flex items-start gap-2">
-                    <AlertCircle size={16} className="text-butter-600 dark:text-butter-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-butter-700 dark:text-butter-400">
-                      Выберите минимум 2 блюда для голосования
+                    <AlertCircle size={16} className="text-gray-600 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      💡 Выберите минимум 2 блюда для голосования
                     </p>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Категории фильтров */}
-            {categories.length > 0 && (
-              <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide">
-                {['Все', ...categories].map((cat) => (
-                  <motion.button
-                    key={cat}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      setActiveCategory(cat);
-                    }}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
-                      activeCategory === cat
-                        ? "bg-lavender-500 text-white shadow-lg"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                    )}
-                  >
-                    {cat}
-                  </motion.button>
-                ))}
-              </div>
-            )}
 
         {/* Items List */}
         <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -577,12 +518,15 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                     <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
                       {item.name}
                     </h4>
-                    {item.price && (
-                      <p className="text-xs font-semibold text-primary-food-700 dark:text-primary-food-400">
+                  </div>
+
+                  {item.price && (
+                    <div className="flex-shrink-0 px-2 py-1 rounded-md bg-primary-food-50 dark:bg-primary-food-900/20">
+                      <p className="text-sm font-semibold text-primary-food-700 dark:text-primary-food-400 whitespace-nowrap">
                         {item.price} ₽
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {item.imageUrl && (
                     <img
@@ -612,7 +556,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                   </>
                 ) : (
                   <>
-                    <span>Показать все ({filteredItems.length - 5} еще)</span>
+                    <span>Показать все ({menuItems.length - 5} еще)</span>
                     <ChevronDown size={16} />
                   </>
                 )}

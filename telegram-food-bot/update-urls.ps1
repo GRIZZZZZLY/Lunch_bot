@@ -3,7 +3,8 @@
 # ========================================
 
 param(
-    [string]$NgrokUrl = ""
+    [string]$NgrokUrl = "",
+    [switch]$Auto
 )
 
 # Function to update backend .env file
@@ -77,16 +78,18 @@ if (-not $NgrokUrl) {
 # Remove trailing slash if present
 $NgrokUrl = $NgrokUrl.TrimEnd('/')
 
-# Validate format
-if ($NgrokUrl -notmatch '^https://[a-zA-Z0-9\-\.]+\.ngrok-free\.app$') {
+# Validate format (accept both .app and .dev domains)
+if ($NgrokUrl -notmatch '^https://[a-zA-Z0-9\-\.]+\.ngrok-free\.(app|dev)$') {
     Write-Host "WARNING: URL format doesn't match ngrok pattern" -ForegroundColor Yellow
-    Write-Host "Expected format: https://xxxxx.ngrok-free.app" -ForegroundColor Yellow
+    Write-Host "Expected format: https://xxxxx.ngrok-free.app or https://xxxxx.ngrok-free.dev" -ForegroundColor Yellow
     Write-Host "Provided: $NgrokUrl" -ForegroundColor Yellow
     Write-Host ""
-    $continue = Read-Host "Continue anyway? (y/N)"
-    if ($continue -ne "y" -and $continue -ne "Y") {
-        Write-Host "Cancelled" -ForegroundColor Red
-        exit 1
+    if (-not $Auto) {
+        $continue = Read-Host "Continue anyway? (y/N)"
+        if ($continue -ne "y" -and $continue -ne "Y") {
+            Write-Host "Cancelled" -ForegroundColor Red
+            exit 1
+        }
     }
 }
 
@@ -185,7 +188,7 @@ Write-Host "Backend must be restarted for changes to take effect." -ForegroundCo
 Write-Host ""
 
 # Offer to restart backend automatically
-$restart = Read-Host "Restart backend automatically? (Y/n)"
+$restart = if ($Auto) { "n" } else { Read-Host "Restart backend automatically? (Y/n)" }
 if ($restart -ne "n" -and $restart -ne "N") {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
@@ -287,43 +290,112 @@ if ($restart -ne "n" -and $restart -ne "N") {
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Setting Telegram Webhook..." -ForegroundColor Cyan
+Write-Host "  Configuring Telegram Bot..." -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Get BOT_TOKEN from backend/.env
+# Get BOT_TOKEN and BOT_MODE from backend/.env
 $botToken = ""
+$botMode = "polling"
 if (Test-Path "backend\.env") {
     $envContent = Get-Content "backend\.env" -Raw
     if ($envContent -match 'BOT_TOKEN=([^\r\n]+)') {
         $botToken = $matches[1]
     }
+    if ($envContent -match 'BOT_MODE=([^\r\n]+)') {
+        $botMode = $matches[1].Trim()
+    }
 }
 
 if ($botToken) {
-    Write-Host "Setting webhook for Telegram bot..." -ForegroundColor Yellow
-    $webhookUrl = "$NgrokUrl/api/webhook"
+    Write-Host "Bot mode: $botMode" -ForegroundColor Cyan
     
-    try {
-        $result = Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/setWebhook?url=$webhookUrl" -Method POST -ErrorAction Stop
+    if ($botMode -eq "webhook") {
+        # Webhook mode - set webhook URL
+        Write-Host "Setting webhook for Telegram bot..." -ForegroundColor Yellow
+        $webhookUrl = "$NgrokUrl/api/webhook"
         
-        if ($result.ok) {
-            Write-Host "  [OK] Webhook set successfully!" -ForegroundColor Green
-            Write-Host "  URL: $webhookUrl" -ForegroundColor Gray
-        } else {
-            Write-Host "  WARNING: Failed to set webhook" -ForegroundColor Yellow
-            Write-Host "  $($result.description)" -ForegroundColor Gray
+        try {
+            $result = Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/setWebhook?url=$webhookUrl" -Method POST -ErrorAction Stop
+            
+            if ($result.ok) {
+                Write-Host "  [OK] Webhook set successfully!" -ForegroundColor Green
+                Write-Host "  URL: $webhookUrl" -ForegroundColor Gray
+            } else {
+                Write-Host "  WARNING: Failed to set webhook" -ForegroundColor Yellow
+                Write-Host "  $($result.description)" -ForegroundColor Gray
+            }
+        } catch {
+            Write-Host "  WARNING: Could not set webhook automatically" -ForegroundColor Yellow
+            Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Gray
         }
-    } catch {
-        Write-Host "  WARNING: Could not set webhook automatically" -ForegroundColor Yellow
-        Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Gray
-        Write-Host ""
-        Write-Host "  You can set it manually:" -ForegroundColor Cyan
-        Write-Host "  curl -X POST https://api.telegram.org/bot<TOKEN>/setWebhook?url=$webhookUrl" -ForegroundColor Gray
+    } else {
+        # Polling mode - delete webhook
+        Write-Host "Deleting webhook (polling mode)..." -ForegroundColor Yellow
+        
+        try {
+            $result = Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/deleteWebhook" -Method POST -ErrorAction Stop
+            
+            if ($result.ok) {
+                Write-Host "  [OK] Webhook deleted successfully!" -ForegroundColor Green
+                Write-Host "  Bot will use polling mode" -ForegroundColor Gray
+            } else {
+                Write-Host "  WARNING: Failed to delete webhook" -ForegroundColor Yellow
+                Write-Host "  $($result.description)" -ForegroundColor Gray
+            }
+        } catch {
+            Write-Host "  WARNING: Could not delete webhook automatically" -ForegroundColor Yellow
+            Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Gray
+        }
     }
 } else {
     Write-Host "WARNING: BOT_TOKEN not found in backend/.env" -ForegroundColor Yellow
-    Write-Host "Skipping webhook setup" -ForegroundColor Gray
+    Write-Host "Skipping webhook/polling setup" -ForegroundColor Gray
+}
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  Updating Menu Button..." -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+# Update Telegram Menu Button
+if ($botToken) {
+    Write-Host "Setting Menu Button URL..." -ForegroundColor Yellow
+    
+    # Prepare menu button data
+    $menuButton = @{
+        type = "web_app"
+        text = "Выбрать обед"
+        web_app = @{
+            url = $NgrokUrl
+        }
+    } | ConvertTo-Json -Compress
+    
+    try {
+        $result = Invoke-RestMethod `
+            -Uri "https://api.telegram.org/bot$botToken/setChatMenuButton" `
+            -Method POST `
+            -Headers @{ "Content-Type" = "application/json" } `
+            -Body $menuButton `
+            -ErrorAction Stop
+        
+        if ($result.ok) {
+            Write-Host "  [OK] Menu Button updated!" -ForegroundColor Green
+            Write-Host "  URL: $NgrokUrl" -ForegroundColor Gray
+        } else {
+            Write-Host "  WARNING: Failed to update Menu Button" -ForegroundColor Yellow
+            Write-Host "  $($result.description)" -ForegroundColor Gray
+        }
+    } catch {
+        Write-Host "  WARNING: Could not update Menu Button" -ForegroundColor Yellow
+        Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "  You can update it manually:" -ForegroundColor Cyan
+        Write-Host "  .\update-menu-button-quick.ps1" -ForegroundColor Gray
+    }
+} else {
+    Write-Host "WARNING: BOT_TOKEN not found, skipping Menu Button update" -ForegroundColor Yellow
 }
 
 Write-Host ""

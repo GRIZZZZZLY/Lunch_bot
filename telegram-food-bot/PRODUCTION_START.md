@@ -104,12 +104,12 @@ telegram-food-bot/
 
 ### Backend `.env`:
 ```env
-WEBAPP_URL=https://weighty-untreacherously-christina.ngrok-free.dev
+WEBAPP_URL=https://epicritic-uninspiredly-makai.ngrok-free.dev
 ```
 
 ### Frontend `.env.production`:
 ```env
-VITE_API_URL=https://weighty-untreacherously-christina.ngrok-free.dev/api
+VITE_API_URL=https://epicritic-uninspiredly-makai.ngrok-free.dev/api
 ```
 
 **ВАЖНО:** При изменении ngrok URL нужно:

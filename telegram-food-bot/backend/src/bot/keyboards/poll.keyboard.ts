@@ -4,14 +4,38 @@ import { PollMessage, VoteWithDetails } from '../../types/poll.types';
 
 /**
  * Создание компактной клавиатуры с кнопкой "Проголосовать" (для Deep Linking)
+ * UX UPGRADE (Фаза 2.0): Поддержка разных состояний
  */
-export function createCompactPollKeyboard(pollId: number): { inline_keyboard: any[][] } {
-  return {
-    inline_keyboard: [
-      [{ text: '📱 Проголосовать', callback_data: `openpoll:${pollId}` }],
-      [{ text: '📊 Результаты', callback_data: `show_results:${pollId}` }]
-    ]
-  };
+export function createCompactPollKeyboard(
+  pollId: number,
+  status: 'active' | 'completed' | 'with_responsible' = 'active'
+): { inline_keyboard: any[][] } {
+  if (status === 'active') {
+    return {
+      inline_keyboard: [
+        [{ text: '📱 Проголосовать', callback_data: `openpoll:${pollId}` }],
+        [{ text: '📊 Результаты', callback_data: `show_results:${pollId}` }]
+      ]
+    };
+  }
+
+  if (status === 'completed') {
+    return {
+      inline_keyboard: [
+        [{ text: '📊 Результаты', callback_data: `show_results:${pollId}` }]
+      ]
+    };
+  }
+
+  if (status === 'with_responsible') {
+    return {
+      inline_keyboard: [
+        [{ text: '📊 Просмотр деталей', callback_data: `show_results:${pollId}` }]
+      ]
+    };
+  }
+
+  return { inline_keyboard: [] };
 }
 
 /**
@@ -207,46 +231,139 @@ export function createResultsKeyboard(
 /**
  * Создание компактного сообщения для группы (для Deep Linking flow)
  * UX UPGRADE (Фаза 1.5): Вместо 3 сообщений - 1 live-обновляемое
+ * UX UPGRADE (Фаза 2.0): Поддержка всех состояний - active/completed/with_responsible
  */
 export function createCompactPollMessage(
   poll: any,
   itemCount: number,
   currentVotes: number = 0,
-  totalMembers: number = 0
+  totalMembers: number = 0,
+  options?: {
+    status?: 'active' | 'completed' | 'with_responsible';
+    breakdown?: any[];
+    responsibleUser?: any;
+  }
 ): string {
-  // Вычисляем оставшееся время
-  let timeRemaining = poll.duration || 0;
-  if (poll.startedAt) {
-    const elapsed = Math.floor((Date.now() - new Date(poll.startedAt).getTime()) / 1000 / 60);
-    timeRemaining = Math.max(0, (poll.duration || 0) - elapsed);
+  const status = options?.status || 'active';
+
+  // ФАЗА 1: АКТИВНОЕ ГОЛОСОВАНИЕ
+  if (status === 'active') {
+    // Вычисляем оставшееся время
+    let timeRemaining = poll.duration || 0;
+    if (poll.startedAt) {
+      const elapsed = Math.floor((Date.now() - new Date(poll.startedAt).getTime()) / 1000 / 60);
+      timeRemaining = Math.max(0, (poll.duration || 0) - elapsed);
+    }
+
+    // Определяем emoji на основе оставшегося времени (live indicator)
+    let timeEmoji = '⏰';
+    if (timeRemaining <= 2) {
+      timeEmoji = '🔥'; // < 2 мин - HOT!
+    } else if (timeRemaining <= 5) {
+      timeEmoji = '⚠️'; // < 5 мин - срочно
+    }
+
+    let message = `🗳️ **Голосование за обед**\n\n`;
+
+    if (poll.title && poll.title !== 'Голосование за обед') {
+      message += `📋 ${poll.title}\n`;
+    }
+
+    message += `🍽️ Блюд в меню: ${itemCount}\n`;
+    message += `${timeEmoji} Осталось: ${timeRemaining} мин\n`;
+
+    if (totalMembers > 0) {
+      message += `👥 Участвуют: ${currentVotes} из ${totalMembers}\n`;
+    } else {
+      message += `👥 Проголосовало: ${currentVotes}\n`;
+    }
+
+    message += `\n📱 Нажмите кнопку ниже для голосования`;
+
+    return message;
   }
-  
-  // Определяем emoji на основе оставшегося времени (live indicator)
-  let timeEmoji = '⏰';
-  if (timeRemaining <= 2) {
-    timeEmoji = '🔥'; // < 2 мин - HOT!
-  } else if (timeRemaining <= 5) {
-    timeEmoji = '⚠️'; // < 5 мин - срочно
+
+  // ФАЗА 2: ЗАВЕРШЕННОЕ ГОЛОСОВАНИЕ С РЕЗУЛЬТАТАМИ
+  if (status === 'completed') {
+    const breakdown = options?.breakdown || [];
+
+    let message = `✅ **Голосование завершено!**\n\n`;
+
+    if (poll.title && poll.title !== 'Голосование за обед') {
+      message += `📋 ${poll.title}\n`;
+    }
+
+    message += `🍽️ Блюд в меню: ${itemCount}\n`;
+    message += `⏰ Длилось: ${poll.duration} мин\n`;
+
+    if (totalMembers > 0) {
+      message += `👥 Проголосовало: ${currentVotes} из ${totalMembers}\n`;
+    } else {
+      message += `👥 Проголосовало: ${currentVotes}\n`;
+    }
+
+    // Добавляем топ-3 результата
+    if (breakdown.length > 0) {
+      message += `\n📊 **Результаты:**\n`;
+
+      breakdown.slice(0, 3).forEach((item: any, index: number) => {
+        const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+        message += `${emoji} ${item.menuItemName} — ${item.votes} ${getPluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
+      });
+
+      message += `\n🎲 Выбираем ответственного...`;
+    } else {
+      message += `\n😔 Никто не проголосовал`;
+    }
+
+    return message;
   }
-  
-  let message = `🗳️ **Голосование за обед**\n\n`;
-  
-  if (poll.title && poll.title !== 'Голосование за обед') {
-    message += `📋 ${poll.title}\n`;
+
+  // ФАЗА 3: С ИНФОРМАЦИЕЙ ОБ ОТВЕТСТВЕННОМ
+  if (status === 'with_responsible') {
+    const breakdown = options?.breakdown || [];
+    const responsibleUser = options?.responsibleUser;
+
+    let message = `✅ **Голосование завершено!**\n\n`;
+
+    if (poll.title && poll.title !== 'Голосование за обед') {
+      message += `📋 ${poll.title}\n`;
+    }
+
+    message += `🍽️ Блюд в меню: ${itemCount}\n`;
+    message += `⏰ Длилось: ${poll.duration} мин\n`;
+
+    if (totalMembers > 0) {
+      message += `👥 Проголосовало: ${currentVotes} из ${totalMembers}\n`;
+    } else {
+      message += `👥 Проголосовало: ${currentVotes}\n`;
+    }
+
+    // Добавляем топ-3 результата
+    if (breakdown.length > 0) {
+      message += `\n📊 **Результаты:**\n`;
+
+      breakdown.slice(0, 3).forEach((item: any, index: number) => {
+        const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+        message += `${emoji} ${item.menuItemName} — ${item.votes} ${getPluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
+      });
+    }
+
+    // Добавляем информацию об ответственном
+    if (responsibleUser) {
+      message += `\n🎯 **Ответственный:** ${responsibleUser.firstName}`;
+      if (responsibleUser.username) {
+        message += ` (@${responsibleUser.username})`;
+      }
+      message += `\n💳 Детали отправлены в личные сообщения`;
+    }
+
+    message += `\n\n📱 Просмотреть детали ↓`;
+
+    return message;
   }
-  
-  message += `🍽️ Блюд в меню: ${itemCount}\n`;
-  message += `${timeEmoji} Осталось: ${timeRemaining} мин\n`;
-  
-  if (totalMembers > 0) {
-    message += `👥 Участвуют: ${currentVotes} из ${totalMembers}\n`;
-  } else {
-    message += `👥 Проголосовало: ${currentVotes}\n`;
-  }
-  
-  message += `\n📱 Нажмите кнопку ниже для голосования`;
-  
-  return message;
+
+  return '';
 }
 
 /**

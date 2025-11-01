@@ -91,6 +91,54 @@ export class PollService {
   }
 
   /**
+   * Получение последнего завершённого голосования сегодня в группе
+   */
+  static async getTodayCompletedPoll(groupId: number): Promise<PollWithDetails | null> {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const poll = await prisma.poll.findFirst({
+        where: {
+          groupId,
+          status: 'COMPLETED',
+          endedAt: {
+            gte: today,
+          },
+        },
+        orderBy: {
+          endedAt: 'desc',
+        },
+        include: {
+          group: true,
+          votes: {
+            include: {
+              user: true,
+              menuItem: true,
+            },
+          },
+          result: {
+            include: {
+              winnerMenuItem: true,
+              responsibleUser: true,
+            },
+          },
+          _count: {
+            select: {
+              votes: true,
+            },
+          },
+        },
+      });
+
+      return poll;
+    } catch (error) {
+      logger.error('Error getting today completed poll:', error);
+      throw new Error('Failed to get today completed poll');
+    }
+  }
+
+  /**
    * Получение активного голосования в группе (С КЭШИРОВАНИЕМ)
    */
   static async getActivePollInGroup(groupId: number): Promise<Poll | null> {
