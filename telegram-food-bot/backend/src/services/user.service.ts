@@ -203,17 +203,16 @@ export class UserService {
 
   /**
    * Получение активных пользователей группы
-   * TODO: Requires many-to-many relation between User and Group in Prisma schema
    */
-  /* 
   static async getActiveUsersInGroup(groupId: number): Promise<User[]> {
     try {
       const users = await prisma.user.findMany({
         where: {
           isActive: true,
-          groups: {
+          groupMemberships: {
             some: {
               groupId: groupId,
+              isActive: true,
             },
           },
         },
@@ -226,7 +225,13 @@ export class UserService {
       throw new Error('Failed to get active users in group');
     }
   }
-  */
+
+  /**
+   * Получение пользователей по ID группы (для poll reminder service)
+   */
+  static async getUsersByGroupId(groupId: number): Promise<User[]> {
+    return this.getActiveUsersInGroup(groupId);
+  }
 
   /**
    * Получение статистики пользователей
