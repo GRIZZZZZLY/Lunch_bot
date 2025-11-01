@@ -718,16 +718,33 @@ export class NotificationService {
   }
 
   /**
-   * РџРѕР»СѓС‡РёС‚СЊ СЃС‚Р°С‚РёСЃС‚РёРєСѓ СѓРІРµРґРѕРјР»РµРЅРёР№
+   * Получить статистику уведомлений
    */
-  async getStats(): Promise<any> {
-    // TODO: Implement statistics collection
-    return {
-      total: 0,
-      sent: 0,
-      failed: 0,
-      pending: 0,
-    };
+  async getStats(): Promise<{
+    paymentReminders: number;
+    pollNotifications: number;
+    totalReminders: number;
+  }> {
+    try {
+      // Считаем payment reminders
+      const paymentRemindersCount = await prisma.paymentReminder.count();
+      
+      // Считаем admin reminders (poll notifications)
+      const adminRemindersCount = await prisma.adminReminder.count();
+      
+      return {
+        paymentReminders: paymentRemindersCount,
+        pollNotifications: adminRemindersCount,
+        totalReminders: paymentRemindersCount + adminRemindersCount,
+      };
+    } catch (error) {
+      logger.error('Error getting notification stats:', error);
+      return {
+        paymentReminders: 0,
+        pollNotifications: 0,
+        totalReminders: 0,
+      };
+    }
   }
 }
 
