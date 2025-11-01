@@ -112,8 +112,139 @@ export class GroupService {
     }
   }
 
-  // GroupMember functions are temporarily disabled as the model doesn't exist in schema
-  // TODO: Add GroupMember model to Prisma schema if needed
+  /**
+   * Добавить участника в группу
+   */
+  static async addMemberToGroup(groupId: number, userId: number, role: string = 'MEMBER'): Promise<any> {
+    try {
+      // Проверяем, не состоит ли уже пользователь в группе
+      const existingMember = await prisma.groupMember.findUnique({
+        where: {
+          groupId_userId: {
+            groupId,
+            userId,
+          },
+        },
+      });
+
+      if (existingMember) {
+        // Если участник уже был, но вышел - восстанавливаем
+        if (!existingMember.isActive) {
+          return await prisma.groupMember.update({
+            where: { id: existingMember.id },
+            data: {
+              isActive: true,
+              leftAt: null,
+              role,
+            },
+          });
+        }
+        // Если уже активный участник - ничего не делаем
+        return existingMember;
+      }
+
+      // Создаём нового участника
+      return await prisma.groupMember.create({
+        data: {
+          groupId,
+          userId,
+          role,
+          isActive: true,
+        },
+      });
+    } catch (error) {
+      logger.error('Error adding member to group:', error);
+      throw new Error('Failed to add member to group');
+    }
+  }
+
+  /**
+   * Удалить участника из группы (мягкое удаление)
+   */
+  static async removeMemberFromGroup(groupId: number, userId: number): Promise<void> {
+    try {
+      await prisma.groupMember.updateMany({
+        where: {
+          groupId,
+          userId,
+          isActive: true,
+        },
+        data: {
+          isActive: false,
+          leftAt: new Date(),
+        },
+      });
+    } catch (error) {
+      logger.error('Error removing member from group:', error);
+      throw new Error('Failed to remove member from group');
+    }
+  }
+
+  /**
+   * Получить всех участников группы
+   */
+  static async getGroupMembers(groupId: number, activeOnly: boolean = true): Promise<any[]> {
+    try {
+      return await prisma.groupMember.findMany({
+        where: {
+          groupId,
+          ...(activeOnly ? { isActive: true } : {}),
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              telegramId: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+              photoUrl: true,
+              avatarUrl: true,
+              isAdmin: true,
+            },
+          },
+        },
+        orderBy: {
+          joinedAt: 'asc',
+        },
+      });
+    } catch (error) {
+      logger.error('Error getting group members:', error);
+      throw new Error('Failed to get group members');
+    }
+  }
+
+  /**
+   * Получить пользователей группы (только User объекты)
+   */
+  static async getUsersByGroupId(groupId: number, activeOnly: boolean = true): Promise<any[]> {
+    try {
+      const members = await this.getGroupMembers(groupId, activeOnly);
+      return members.map((member) => member.user);
+    } catch (error) {
+      logger.error('Error getting users by group ID:', error);
+      throw new Error('Failed to get users by group ID');
+    }
+  }
+
+  /**
+   * Проверить, является ли пользователь участником группы
+   */
+  static async isMemberOfGroup(groupId: number, userId: number): Promise<boolean> {
+    try {
+      const member = await prisma.groupMember.findFirst({
+        where: {
+          groupId,
+          userId,
+          isActive: true,
+        },
+      });
+      return !!member;
+    } catch (error) {
+      logger.error('Error checking group membership:', error);
+      return false;
+    }
+  }
 
   /**
    * Получение всех групп

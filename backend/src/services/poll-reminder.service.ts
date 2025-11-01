@@ -133,10 +133,8 @@ export class PollReminderService {
       const poll = await PollService.getPollById(pollId);
       if (!poll || !poll.group) return;
 
-      // TODO: getUsersByGroupId method not implemented yet
       // Получаем всех пользователей группы
-      // const groupMembers = await UserService.getUsersByGroupId?.(poll.group.id) || [];
-      const groupMembers: any[] = [];
+      const groupMembers = await UserService.getUsersByGroupId(poll.group.id);
       
       // Фильтруем тех, кто еще не проголосовал
       const votedUserIds = new Set(poll.votes?.map(v => v.userId) || []);
