@@ -737,6 +737,13 @@ export class BudgetService {
   }
 
   /**
+   * Получить итоговые суммы по заказу (instance wrapper)
+   */
+  async calculateTotals(pollId: number, responsibleUserId: number) {
+    return BudgetService.calculateTotals(pollId, responsibleUserId);
+  }
+
+  /**
    * Отправить напоминание должнику
    */
   async sendReminder(transactionId: number, requestingUserId: number): Promise<void> {

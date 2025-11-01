@@ -277,4 +277,35 @@ export class BudgetController {
       res.status(500).json({ error: error.message || 'Failed to send reminders' });
     }
   }
+
+  /**
+   * GET /api/budget/poll-totals/:pollId
+   * Получить итоговые суммы по заказу
+   */
+  async getPollTotals(req: Request, res: Response): Promise<void> {
+    try {
+      const { pollId } = req.params;
+      const authenticatedUser = (req as any).user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      if (!pollId) {
+        res.status(400).json({ error: 'pollId is required' });
+        return;
+      }
+
+      const totals = await this.budgetService.calculateTotals(
+        parseInt(pollId),
+        authenticatedUser.id
+      );
+
+      res.json({ success: true, data: totals });
+    } catch (error: any) {
+      logger.error('[BudgetController] Error getting poll totals:', error);
+      res.status(500).json({ error: error.message || 'Failed to get poll totals' });
+    }
+  }
 }
