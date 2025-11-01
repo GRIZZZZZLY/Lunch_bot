@@ -34,6 +34,7 @@ model User {
   rouletteWins            ResponsibleSelection[]  @relation("RouletteWinner")
   sentReminders           PaymentReminder[]
   adminReminders          AdminReminder[]
+  groupMemberships        GroupMember[]
 
   @@map("users")
 }
@@ -49,6 +50,7 @@ model Group {
   updatedAt  DateTime @updatedAt @map("updated_at")
   polls      Poll[]
   adminReminders AdminReminder[]
+  members    GroupMember[]
 
   @@map("groups")
 }
@@ -218,4 +220,22 @@ model AdminReminder {
   @@index([userId, groupId])
   @@index([createdAt])
   @@map("admin_reminders")
+}
+
+model GroupMember {
+  id        Int      @id @default(autoincrement())
+  groupId   Int      @map("group_id")
+  userId    Int      @map("user_id")
+  role      String   @default("MEMBER")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  leftAt    DateTime? @map("left_at")
+  isActive  Boolean  @default(true) @map("is_active")
+  
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([groupId, userId])
+  @@index([groupId, isActive])
+  @@index([userId])
+  @@map("group_members")
 }
