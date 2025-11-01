@@ -54,10 +54,21 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
     confirmMutation.mutate(transactionId);
   };
   
+  const remindAllMutation = useMutation({
+    mutationFn: () => budgetService.sendRemindersToAll(currentPollId),
+    onSuccess: (data) => {
+      haptic.success();
+      toast.success(`Напоминания отправлены: ${data.sentCount} чел.`);
+    },
+    onError: () => {
+      haptic.error();
+      toast.error('Ошибка отправки');
+    },
+  });
+
   const handleRemindAll = () => {
     haptic.impact();
-    toast.info('Напоминания отправлены!');
-    // TODO: Implement reminder API
+    remindAllMutation.mutate();
   };
   
   return (

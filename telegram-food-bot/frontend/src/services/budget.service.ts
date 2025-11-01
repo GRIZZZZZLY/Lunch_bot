@@ -177,6 +177,26 @@ class BudgetService {
       window.open(sbpUrl, '_blank');
     }
   }
+
+  /**
+   * Отправить напоминание должнику
+   */
+  async sendReminder(transactionId: number): Promise<void> {
+    await apiService.post('/budget/send-reminder', { transactionId });
+  }
+
+  /**
+   * Отправить напоминания всем должникам по заказу
+   */
+  async sendRemindersToAll(pollId: number): Promise<{ sentCount: number }> {
+    const response = await apiService.post<{ sentCount: number }>('/budget/send-reminders-all', { pollId });
+    
+    if (response.success && response.data) {
+      return response.data;
+    }
+    
+    throw new Error('Failed to send reminders');
+  }
 }
 
 export const budgetService = new BudgetService();

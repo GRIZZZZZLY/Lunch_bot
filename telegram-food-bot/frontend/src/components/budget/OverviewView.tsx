@@ -56,10 +56,21 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     markAsPaidMutation.mutate(transactionId);
   };
   
+  const remindMutation = useMutation({
+    mutationFn: (transactionId: number) => budgetService.sendReminder(transactionId),
+    onSuccess: () => {
+      haptic.success();
+      toast.success('Напоминание отправлено!');
+    },
+    onError: () => {
+      haptic.error();
+      toast.error('Ошибка отправки');
+    },
+  });
+
   const handleRemind = (transactionId: number) => {
     haptic.impact();
-    toast.info('Напоминание отправлено!');
-    // TODO: Implement reminder API
+    remindMutation.mutate(transactionId);
   };
   
   return (

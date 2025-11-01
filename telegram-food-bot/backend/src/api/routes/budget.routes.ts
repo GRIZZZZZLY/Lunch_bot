@@ -21,5 +21,7 @@ router.get('/stats', (req, res) => budgetController.getStats(req, res));
 router.post('/mark-paid', (req, res) => budgetController.markAsPaid(req, res));
 router.post('/confirm-payment', (req, res) => budgetController.confirmPayment(req, res));
 router.post('/cancel-mark', (req, res) => budgetController.cancelMark(req, res));
+router.post('/send-reminder', (req, res) => budgetController.sendReminder(req, res));
+router.post('/send-reminders-all', (req, res) => budgetController.sendRemindersAll(req, res));
 
 export default router;
