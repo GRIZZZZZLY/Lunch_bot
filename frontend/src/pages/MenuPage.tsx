@@ -37,7 +37,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
 import { useMenu as useMenuHook, useUI, useAppStore } from '../store/useAppStore';
 import { menuService, MenuItem } from '../services/menu.service';
-import { useMenuItems, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '../hooks/queries';
+import { useMenuItems, useMenuCategories, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '../hooks/queries';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import { mockApiService } from '../services/mockApi.service';
 
@@ -63,7 +63,7 @@ export const MenuPage: React.FC = () => {
   
   // Load menu items using React Query
   const { data: menuItems = [], isLoading: menuLoading, refetch: refetchMenu } = useMenuItems();
-  const categoriesData: string[] = []; // TODO: implement categories
+  const { data: categoriesData = [], refetch: refetchCategories } = useMenuCategories();
   
   // React Query mutations
   const { mutate: createItemMutation, isPending: isCreating } = useCreateMenuItem();
@@ -141,7 +141,7 @@ export const MenuPage: React.FC = () => {
   
   const handleRefresh = async () => {
     await refetchMenu();
-    // await refetchCategories() // TODO: Re-add when categories query is implemented
+    await refetchCategories();
     await loadCategoryCounts();
     haptic.success();
   };
