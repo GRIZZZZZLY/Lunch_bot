@@ -1,6 +1,6 @@
 import { MenuItem } from '@prisma/client';
 import { VoteWithDetails } from '../../types/poll.types';
-export declare function createCompactPollKeyboard(pollId: number): {
+export declare function createCompactPollKeyboard(pollId: number, status?: 'active' | 'completed' | 'with_responsible'): {
     inline_keyboard: any[][];
 };
 export declare function createPollKeyboard(pollId: number, menuItems: MenuItem[], votes: Map<number, VoteWithDetails[]>): {
@@ -20,7 +20,11 @@ export declare function createCategorizedPollKeyboard(pollId: number, menuItemsB
 export declare function createResultsKeyboard(pollId: number, hasVotes: boolean, isActive: boolean, isRouletteRun?: boolean): {
     inline_keyboard: any[][];
 };
-export declare function createCompactPollMessage(poll: any, itemCount: number, currentVotes?: number, totalMembers?: number): string;
+export declare function createCompactPollMessage(poll: any, itemCount: number, currentVotes?: number, totalMembers?: number, options?: {
+    status?: 'active' | 'completed' | 'with_responsible';
+    breakdown?: any[];
+    responsibleUser?: any;
+}): string;
 export declare function createPollMessage(pollData: {
     poll: any;
     menuItems: MenuItem[];

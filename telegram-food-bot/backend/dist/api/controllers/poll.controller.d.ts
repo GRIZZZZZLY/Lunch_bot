@@ -3,6 +3,7 @@ export declare class PollController {
     static getActivePolls(req: Request, res: Response): Promise<void>;
     static getPollHistory(req: Request, res: Response): Promise<void>;
     static getLastCompleted(req: Request, res: Response): Promise<void>;
+    static getTodayCompletedPoll(req: Request, res: Response): Promise<void>;
     static repeatPoll(req: Request, res: Response): Promise<void>;
     static getPollStats(req: Request, res: Response): Promise<void>;
     static getUserStats(req: Request, res: Response): Promise<void>;

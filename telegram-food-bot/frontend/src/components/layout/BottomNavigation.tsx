@@ -123,6 +123,7 @@ export const BottomNavigation: React.FC = () => {
         'fixed bottom-0 left-0 right-0 z-50',
         'backdrop-blur-xl saturate-180',
         'border-t',
+        'overflow-hidden',
         isDark 
           ? 'bg-background/80 border-border/50' 
           : 'bg-background/90 border-border/30'
@@ -133,7 +134,7 @@ export const BottomNavigation: React.FC = () => {
           : '0 -4px 20px rgba(0, 0, 0, 0.08)',
       }}
     >
-      <div className="flex items-center justify-center gap-1 h-16 max-w-2xl mx-auto px-6 pb-2">
+      <div className="flex items-center justify-center gap-1 h-16 max-w-2xl mx-auto px-6">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -141,8 +142,7 @@ export const BottomNavigation: React.FC = () => {
           return (
             <motion.button
               key={item.path}
-              whileTap={{ scale: 0.85, rotate: -3 }}
-              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => handleNavigation(item.path)}
               onMouseEnter={() => {
                 // Prefetch на hover для desktop
@@ -169,7 +169,8 @@ export const BottomNavigation: React.FC = () => {
               }}
               className={cn(
                 'relative flex flex-col items-center justify-center gap-1',
-                'flex-1 py-2.5 rounded-xl transition-all',
+                'flex-1 h-14 rounded-xl transition-all',
+                'px-2 py-1.5',
                 'focus-visible:outline-2 focus-visible:outline-offset-2',
                 isActive
                   ? isDark
@@ -252,11 +253,11 @@ export const BottomNavigation: React.FC = () => {
                 {item.label}
               </motion.span>
 
-              {/* Active indicator - positioned at button center */}
+              {/* Active indicator - positioned at bottom inside button */}
               {isActive && (
                 <motion.div
                   className={cn(
-                    'absolute bottom-0 left-0 right-0 mx-auto h-0.5 w-8 rounded-full',
+                    'absolute bottom-1.5 left-0 right-0 mx-auto h-0.5 w-8 rounded-full',
                     isDark
                       ? 'bg-gradient-to-r from-lavender-400 to-lavender-500'
                       : 'bg-gradient-to-r from-peach-500 to-coral-500'

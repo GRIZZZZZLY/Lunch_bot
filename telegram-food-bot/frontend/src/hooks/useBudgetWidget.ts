@@ -168,18 +168,18 @@ export function useBudgetWidget(): BudgetWidgetData {
       return 'success-message';
     }
     
-    // Я ответственный в текущем голосовании
-    if (isResponsible && pollJustCompleted) {
+    // Я ответственный в текущем голосовании (показываем всегда, не только первые 5 минут)
+    if (isResponsible) {
       return 'responsible-view';
     }
     
-    // Есть текущий долг и он оплачен, но не подтвержден
-    if (currentDebt?.status === 'PAID' && pollJustCompleted) {
+    // Есть текущий долг и он оплачен, но не подтвержден (показываем всегда)
+    if (currentDebt?.status === 'PAID') {
       return 'waiting-confirmation';
     }
     
-    // Есть текущий долг и голосование только что завершилось
-    if (currentDebt && pollJustCompleted) {
+    // Есть текущий долг и он PENDING (показываем всегда)
+    if (currentDebt?.status === 'PENDING') {
       return 'urgent-debt';
     }
     

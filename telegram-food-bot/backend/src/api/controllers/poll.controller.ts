@@ -138,6 +138,40 @@ export class PollController {
   }
 
   /**
+   * GET /api/polls/today-completed/:groupId
+   * Получение последнего завершённого голосования сегодня
+   */
+  static async getTodayCompletedPoll(req: Request, res: Response): Promise<void> {
+    try {
+      const groupId = parseInt(req.params.groupId);
+      
+      if (isNaN(groupId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid group ID',
+          code: 'INVALID_GROUP_ID',
+        });
+        return;
+      }
+
+      const poll = await PollService.getTodayCompletedPoll(groupId);
+      
+      res.json({
+        success: true,
+        data: poll ? serializeBigInt(poll) : null,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Error in getTodayCompletedPoll:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch today completed poll',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+
+  /**
    * POST /api/polls/repeat/:id
    * Повторить голосование (создать копию)
    * Доступно только для админов

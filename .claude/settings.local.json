@@ -1,22 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm test:*)",
-      "Bash(npm run db:push:*)",
-      "Bash(dir:*)",
-      "Bash(ssh:*)",
-      "Bash(npm run build:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)",
-      "Bash(node fix-telegram-auth.js:*)",
-      "Bash(node fix-telegram-auth-v2.js:*)",
-      "Bash(git checkout:*)",
-      "Bash(python fix_auth.py:*)",
-      "Bash(iconv:*)",
-      "Bash(python fix-webhook-route.py:*)",
-      "Bash(npm install:*)",
-      "Bash(cat:*)"
+      "Bash(Select-Object ProcessName, Id)",
+      "Bash(Format-Table:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

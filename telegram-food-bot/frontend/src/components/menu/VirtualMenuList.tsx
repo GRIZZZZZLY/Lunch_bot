@@ -9,12 +9,9 @@
  */
 
 import React, { useRef, useEffect, useState } from 'react';
-// @ts-ignore
-import * as ReactWindow from 'react-window';
+import { List, type ListProps } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 
-// @ts-ignore
-const FixedSizeList = (ReactWindow as any).FixedSizeList || ReactWindow.default?.FixedSizeList;
 type ListOnScrollProps = any;
 import { MenuItem } from '@/services/menu.service';
 import { MenuItemCard } from './MenuItemCard';
@@ -43,7 +40,7 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   selectedCategory,
 }) => {
   const haptic = useHaptic();
-  const listRef = useRef<typeof FixedSizeList>(null);
+  const listRef = useRef<typeof List>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
 
   // Автоскролл наверх при изменении категории
@@ -143,11 +140,11 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
     <div className="h-full w-full">
       <AutoSizer>
         {({ height, width }) => (
-          <FixedSizeList
+          <List
             ref={listRef}
             height={height}
-            itemCount={items.length}
-            itemSize={ITEM_HEIGHT}
+            rowCount={items.length}
+            rowHeight={ITEM_HEIGHT}
             width={width}
             onScroll={handleScroll}
             // Оптимизации
@@ -155,7 +152,7 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
             useIsScrolling // Показываем placeholder при быстром скролле
           >
             {MemoizedRow}
-          </FixedSizeList>
+          </List>
         )}
       </AutoSizer>
 

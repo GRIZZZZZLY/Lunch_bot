@@ -71,33 +71,38 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('react/') || id.includes('react-dom/') || id.includes('scheduler/')) {
-              return 'react-core';
+            // КРИТИЧНО: React должен быть в ОДНОМ чанке
+            // Проверяем ВСЕ React-зависимые библиотеки ПЕРВЫМИ
+            if (
+              id.includes('react') ||
+              id.includes('react-dom') ||
+              id.includes('scheduler') ||
+              id.includes('react-router') ||
+              id.includes('@remix-run/router') ||
+              id.includes('react-hook-form') ||
+              id.includes('@tanstack/react-query') ||
+              id.includes('lucide-react') ||
+              id.includes('@radix-ui') ||
+              id.includes('framer-motion') ||
+              id.includes('react-window') ||
+              id.includes('react-use') ||
+              id.includes('react-swipeable') ||
+              id.includes('react-confetti') ||
+              id.includes('react-day-picker')
+            ) {
+              return 'vendor'; // ВСЕ React и React-зависимые в один чанк
             }
-            if (id.includes('react-router') || id.includes('@remix-run/router')) {
-              return 'react-router';
-            }
-            if (id.includes('framer-motion')) {
-              return 'framer-motion';
-            }
-            if (id.includes('@tanstack/react-query')) {
-              return 'react-query';
-            }
-            if (id.includes('@twa-dev/sdk')) {
-              return 'telegram';
-            }
-            if (id.includes('lucide-react') || id.includes('@radix-ui')) {
-              return 'ui-libs';
+            // Остальные библиотеки в отдельный чанк
+            if (id.includes('axios') || id.includes('zustand')) {
+              return 'state-http';
             }
             if (id.includes('clsx') || id.includes('tailwind-merge') || id.includes('class-variance-authority')) {
               return 'utils';
             }
-            if (id.includes('react-hook-form') || id.includes('@hookform/resolvers') || id.includes('zod')) {
-              return 'forms';
+            if (id.includes('@twa-dev/sdk')) {
+              return 'telegram';
             }
-            if (id.includes('zustand') || id.includes('axios')) {
-              return 'state-http';
-            }
+            // Остальное в vendor
             return 'vendor';
           }
         },
@@ -133,6 +138,7 @@ export default defineConfig({
     exclude: ['@storybook/*'],
   },
   define: {
-    __TELEGRAM_WEB_APP__: true,
+    // Vite 6+ требует JSON.stringify для всех значений в define
+    __TELEGRAM_WEB_APP__: JSON.stringify(true),
   },
 });

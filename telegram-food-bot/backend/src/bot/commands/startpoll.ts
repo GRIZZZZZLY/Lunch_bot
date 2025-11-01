@@ -74,6 +74,25 @@ export async function startPollCommand(ctx: BotContext): Promise<void> {
       return;
     }
 
+    // ✅ Проверяем права администратора в группе
+    try {
+      const chatMember = await ctx.api.getChatMember(chat.id, user.id);
+      const isAdmin = chatMember.status === 'creator' || chatMember.status === 'administrator';
+      
+      if (!isAdmin) {
+        await ctx.reply(
+          '⚠️ Только администраторы группы могут запускать голосования.\n\n' +
+          'Если вы должны быть администратором, попросите создателя группы назначить вас.'
+        );
+        logger.warn(`Non-admin user ${user.id} attempted to start poll in group ${chat.id}`);
+        return;
+      }
+    } catch (error) {
+      logger.error('Error checking admin status:', error);
+      await ctx.reply('Произошла ошибка при проверке прав доступа');
+      return;
+    }
+
     // Получаем или создаём группу
     let group = await GroupService.getGroupByTelegramId(chat.id.toString());
     if (!group) {
@@ -175,6 +194,7 @@ export async function startPollCommand(ctx: BotContext): Promise<void> {
 
 /**
  * Автоматическое завершение голосования по таймауту
+ * UX UPGRADE (Фаза 2.0): Редактирование одного сообщения вместо создания новых
  */
 async function autoCompletePoll(ctx: any, pollId: number, messageId: number): Promise<void> {
   try {
@@ -188,19 +208,56 @@ async function autoCompletePoll(ctx: any, pollId: number, messageId: number): Pr
     // Отменяем все запланированные напоминания
     PollReminderService.cancelReminders(pollId);
 
+    logger.info(`[UX 2.0] Auto-completing poll ${pollId} via startpoll.ts - editing message`);
+
     const result = await PollService.completePoll(pollId);
-    
-    // Убираем кнопки голосования
-    await ctx.api.editMessageReplyMarkup(ctx.chat.id, messageId, { 
-      reply_markup: undefined 
-    });
-    
-    // Уведомляем о завершении
-    await ctx.reply('⏰ Время голосования истекло!');
-    
+
+    // Получаем детальную информацию для обновления сообщения
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      logger.error(`Poll ${pollId} not found`);
+      return;
+    }
+
+    const votes = await PollService.getPollVoteBreakdown(pollId);
+    const totalVotes = result.totalVotes;
+
+    // Получаем активные блюда для подсчета
+    const activeItems = await MenuService.getActiveMenuItems();
+
+    // ФАЗА 1: Редактируем сообщение с результатами
+    try {
+      const completedMessage = createCompactPollMessage(
+        poll,
+        activeItems.length,
+        totalVotes,
+        0,
+        {
+          status: 'completed',
+          breakdown: votes
+        }
+      );
+
+      const completedKeyboard = createCompactPollKeyboard(pollId, 'completed');
+
+      await ctx.api.editMessageText(
+        ctx.chat.id,
+        messageId,
+        completedMessage,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: completedKeyboard
+        }
+      );
+
+      logger.info(`[UX 2.0] Poll message updated with results (startpoll.ts)`);
+    } catch (error) {
+      logger.error('Could not edit poll message:', error);
+    }
+
     // Запускаем рулетку если были голоса
     if (result.totalVotes > 0) {
-      await autoRunRoulette(ctx, pollId);
+      await autoRunRoulette(ctx, pollId, messageId, poll, activeItems.length, totalVotes, votes);
     }
   } catch (error) {
     logger.error('Error in autoCompletePoll:', error);
@@ -209,32 +266,57 @@ async function autoCompletePoll(ctx: any, pollId: number, messageId: number): Pr
 
 /**
  * Автоматический запуск рулетки после завершения голосования
+ * UX UPGRADE (Фаза 2.0): Обновление существующего сообщения
  */
-async function autoRunRoulette(ctx: any, pollId: number): Promise<void> {
+async function autoRunRoulette(
+  ctx: any,
+  pollId: number,
+  messageId: number,
+  poll: any,
+  itemCount: number,
+  totalVotes: number,
+  breakdown: any[]
+): Promise<void> {
   try {
+    // Небольшая задержка для эффекта "выбираем ответственного..."
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     const result = await PollService.runRoulette(pollId);
-    
+
     if (result.responsibleUserId) {
       const responsibleUser = await UserService.getUserById(result.responsibleUserId);
       if (!responsibleUser) return;
-      
-      const winnerMention = `[${responsibleUser.firstName}](tg://user?id=${responsibleUser.telegramId})`;
-      let winnerItem = 'выбранное блюдо';
-      
-      if (result.winnerMenuItemId) {
-        const menuItem = await prisma.menuItem.findUnique({ 
-          where: { id: result.winnerMenuItemId } 
-        });
-        winnerItem = menuItem?.name || winnerItem;
+
+      // ФАЗА 2: Редактируем сообщение - добавляем ответственного
+      try {
+        const finalMessage = createCompactPollMessage(
+          poll,
+          itemCount,
+          totalVotes,
+          0,
+          {
+            status: 'with_responsible',
+            breakdown: breakdown,
+            responsibleUser: responsibleUser
+          }
+        );
+
+        const finalKeyboard = createCompactPollKeyboard(pollId, 'with_responsible');
+
+        await ctx.api.editMessageText(
+          ctx.chat.id,
+          messageId,
+          finalMessage,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: finalKeyboard
+          }
+        );
+
+        logger.info(`[UX 2.0] Poll message updated with responsible (startpoll.ts)`);
+      } catch (error) {
+        logger.error('Could not edit poll message with responsible:', error);
       }
-      
-      await ctx.reply(
-        `🎲 **Рулетка завершена!**\n\n` +
-        `🎯 **Ответственный за заказ:** ${winnerMention}\n` +
-        `🍽️ **Блюдо-победитель:** ${winnerItem}\n\n` +
-        `📞 ${responsibleUser.firstName}, ожидаем вашего заказа! 😊`,
-        { parse_mode: 'Markdown' }
-      );
     }
   } catch (error) {
     logger.error('Error in auto-run roulette:', error);

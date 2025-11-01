@@ -13,7 +13,7 @@
 2. ✅ **Пользователь существует** - ID 1, Игорь, isAdmin=true, isActive=true
 3. ✅ **Роут работает** - `/api/polls/create-from-webapp` существует
 4. ✅ **Авторизация настроена** - `SKIP_TELEGRAM_VALIDATION=true` для dev режима
-5. ⚠️ **Ngrok туннель** - `https://weighty-untreacherously-christina.ngrok-free.dev/api`
+5. ⚠️ **Ngrok туннель** - `https://epicritic-uninspiredly-makai.ngrok-free.dev/api`
 
 ### Возможные Причины:
 
@@ -34,7 +34,7 @@
 
 ```bash
 # Проверьте работает ли ngrok
-curl https://weighty-untreacherously-christina.ngrok-free.dev/api/health
+curl https://epicritic-uninspiredly-makai.ngrok-free.dev/api/health
 
 # Если не работает - запустите новый туннель:
 cd C:\BOT_V2\telegram-food-bot\backend
@@ -64,7 +64,7 @@ ngrok http 3001
 2. Измените API URL:
    ```bash
    # Было:
-   VITE_API_URL=https://weighty-untreacherously-christina.ngrok-free.dev/api
+   VITE_API_URL=https://epicritic-uninspiredly-makai.ngrok-free.dev/api
 
    # Стало:
    VITE_API_URL=http://localhost:3001/api

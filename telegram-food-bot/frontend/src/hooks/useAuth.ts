@@ -370,7 +370,7 @@ export const useAuth = (): UseAuthReturn => {
     refreshRef.current = refresh;
   }, [refresh]);
 
-  // ✅ ИСПРАВЛЕНО: Автоматическая аутентификация с правильными зависимостями
+  // ✅ ИСПРАВЛЕНО: Автоматическая аутентификация БЕЗ циклических зависимостей
   useEffect(() => {
     // Пропускаем если уже идёт авторизация
     if (authInProgressRef.current) return;
@@ -430,7 +430,8 @@ export const useAuth = (): UseAuthReturn => {
       }
       loginWithFallback();
     }
-  }, [isReady, initData, tgUser, login, loadUserWithToken, loginWithMockData, loginWithFallback]); // ✅ Все зависимости
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, initData, tgUser]); // ✅ ИСПРАВЛЕНО: Убраны функции из зависимостей (используем refs)
 
   const isAuthenticated = useMemo(() => user !== null, [user]);
 

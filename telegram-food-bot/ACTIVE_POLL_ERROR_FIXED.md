@@ -118,13 +118,13 @@ Your choice: y
 
 **Backend (.env):**
 ```bash
-WEBAPP_URL=https://weighty-untreacherously-christina.ngrok-free.dev
-CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173,https://weighty-untreacherously-christina.ngrok-free.dev
+WEBAPP_URL=https://epicritic-uninspiredly-makai.ngrok-free.dev
+CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173,https://epicritic-uninspiredly-makai.ngrok-free.dev
 ```
 
 **Frontend (.env):**
 ```bash
-VITE_API_URL=https://weighty-untreacherously-christina.ngrok-free.dev/api
+VITE_API_URL=https://epicritic-uninspiredly-makai.ngrok-free.dev/api
 VITE_USE_MOCK_API=false
 ```
 

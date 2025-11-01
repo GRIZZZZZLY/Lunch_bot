@@ -4,6 +4,8 @@ export declare class UserController {
     static getPaymentInfo(req: Request, res: Response): Promise<void>;
     static updatePaymentInfo(req: Request, res: Response): Promise<void>;
     static getUserGroups(req: Request, res: Response): Promise<void>;
+    static getUserAvatar(req: Request, res: Response): Promise<void>;
+    static getUserAvatarsBatch(req: Request, res: Response): Promise<void>;
 }
 export declare const userController: typeof UserController;
 //# sourceMappingURL=user.controller.d.ts.map

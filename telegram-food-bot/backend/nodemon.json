@@ -1,0 +1,14 @@
+{
+  "watch": ["dist"],
+  "ignore": [
+    "dist/**/*.map",
+    "logs/**/*",
+    "uploads/**/*",
+    "prisma/dev.db",
+    "prisma/dev.db-journal",
+    "node_modules/**/*",
+    ".git/**/*"
+  ],
+  "ext": "js",
+  "delay": "2000"
+}

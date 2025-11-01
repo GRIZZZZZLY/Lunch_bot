@@ -176,6 +176,7 @@ export async function createPollFromWebApp(params: {
 
 /**
  * Автоматическое завершение голосования
+ * UX UPGRADE (Фаза 2.0): Редактирование одного сообщения вместо создания новых
  */
 async function autoCompletePoll(
   pollId: number,
@@ -188,7 +189,7 @@ async function autoCompletePoll(
       return;
     }
 
-    logger.info(`Auto-completing poll ${pollId}`);
+    logger.info(`[UX 2.0] Auto-completing poll ${pollId} - editing existing message`);
 
     // Завершаем голосование
     const result = await PollService.completePoll(pollId);
@@ -197,51 +198,93 @@ async function autoCompletePoll(
     const breakdown = await PollService.getPollVoteBreakdown(pollId);
     const votes = await VoteService.getPollVotes(pollId);
 
-    // Убираем кнопку голосования
-    try {
-      await botInstance.api.editMessageReplyMarkup(chatId, messageId, {
-        reply_markup: undefined,
-      });
-    } catch (error) {
-      logger.warn('Could not remove poll button:', error);
+    // Получаем информацию о голосовании для сообщения
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      logger.error(`Poll ${pollId} not found`);
+      return;
     }
 
-    // Отправляем результаты в группу с кнопкой просмотра
-    const resultsMessage = createPollResultsMessage({
-      totalVotes: result.totalVotes,
-      breakdown,
-      winnerItem: breakdown.length > 0 ? breakdown[0] : null,
-    });
+    // Получаем количество блюд
+    const menuItems = JSON.parse(poll.selectedMenuItemIds || '[]');
+    const itemCount = menuItems.length || 0;
 
-    const resultsKeyboard = createResultsWebAppKeyboard(pollId);
+    // ФАЗА 1: Редактируем сообщение - добавляем результаты (БЕЗ ответственного)
+    try {
+      const { createCompactPollMessage, createCompactPollKeyboard } = await import('../bot/keyboards/poll.keyboard');
 
-    await botInstance.api.sendMessage(
-      chatId,
-      resultsMessage,
-      { 
-        parse_mode: 'Markdown',
-        reply_markup: resultsKeyboard
-      }
-    );
+      const completedMessage = createCompactPollMessage(
+        poll,
+        itemCount,
+        votes.length,
+        0,
+        {
+          status: 'completed',
+          breakdown: breakdown
+        }
+      );
+
+      const completedKeyboard = createCompactPollKeyboard(pollId, 'completed');
+
+      await botInstance.api.editMessageText(
+        chatId,
+        messageId,
+        completedMessage,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: completedKeyboard
+        }
+      );
+
+      logger.info(`[UX 2.0] Poll message updated with results (phase 1)`);
+    } catch (error) {
+      logger.error('Could not edit poll message with results:', error);
+    }
 
     // Запускаем рулетку если были голоса
     let responsibleUser = null;
     if (result.totalVotes > 0) {
       if (process.env.AUTO_ROULETTE_ENABLED === 'true') {
+        // Небольшая задержка для эффекта "выбираем ответственного..."
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
         const rouletteResult = await PollService.runRoulette(pollId);
-        // rouletteResult is PollResult with include { responsibleUser: true }
         responsibleUser = (rouletteResult as any).responsibleUser;
-        
-        // Уведомляем о выборе ответственного
+
+        // ФАЗА 2: Редактируем то же сообщение - добавляем ответственного
         if (responsibleUser) {
-          await botInstance.api.sendMessage(
-            chatId,
-            `🎲 **Рулетка завершена!**\n\n` +
-            `🎯 Ответственный за заказ: [${responsibleUser.firstName}](tg://user?id=${responsibleUser.telegramId})\n\n` +
-            `📞 Ожидаем заказа!`,
-            { parse_mode: 'Markdown' }
-          );
-          
+          try {
+            const { createCompactPollMessage, createCompactPollKeyboard } = await import('../bot/keyboards/poll.keyboard');
+
+            const finalMessage = createCompactPollMessage(
+              poll,
+              itemCount,
+              votes.length,
+              0,
+              {
+                status: 'with_responsible',
+                breakdown: breakdown,
+                responsibleUser: responsibleUser
+              }
+            );
+
+            const finalKeyboard = createCompactPollKeyboard(pollId, 'with_responsible');
+
+            await botInstance.api.editMessageText(
+              chatId,
+              messageId,
+              finalMessage,
+              {
+                parse_mode: 'Markdown',
+                reply_markup: finalKeyboard
+              }
+            );
+
+            logger.info(`[UX 2.0] Poll message updated with responsible user (phase 2)`);
+          } catch (error) {
+            logger.error('Could not edit poll message with responsible:', error);
+          }
+
           // Отправляем личное уведомление ответственному с деталями
           try {
             const responsibleKeyboard = createResponsibleKeyboard(pollId);
@@ -254,7 +297,7 @@ async function autoCompletePoll(
               `• Контакты для связи\n` +
               `• Общую стоимость\n\n` +
               `💳 Не забудьте указать платёжные данные в профиле!`,
-              { 
+              {
                 parse_mode: 'Markdown',
                 reply_markup: responsibleKeyboard
               }
@@ -269,7 +312,7 @@ async function autoCompletePoll(
       await sendPersonalNotifications(pollId, breakdown, responsibleUser);
     }
 
-    logger.info(`Poll ${pollId} completed successfully`);
+    logger.info(`[UX 2.0] Poll ${pollId} completed successfully - 1 message instead of 3-4!`);
   } catch (error) {
     logger.error('Error in autoCompletePoll:', error);
   }

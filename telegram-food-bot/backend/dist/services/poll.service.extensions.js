@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.initializePollServiceBot = initializePollServiceBot;
 exports.createPollFromWebApp = createPollFromWebApp;
@@ -124,37 +157,57 @@ async function autoCompletePoll(pollId, chatId, messageId) {
             logger_1.logger.error('Bot not initialized for auto-complete');
             return;
         }
-        logger_1.logger.info(`Auto-completing poll ${pollId}`);
+        logger_1.logger.info(`[UX 2.0] Auto-completing poll ${pollId} - editing existing message`);
         const result = await poll_service_1.PollService.completePoll(pollId);
         const breakdown = await poll_service_1.PollService.getPollVoteBreakdown(pollId);
         const votes = await vote_service_1.VoteService.getPollVotes(pollId);
+        const poll = await poll_service_1.PollService.getPollById(pollId);
+        if (!poll) {
+            logger_1.logger.error(`Poll ${pollId} not found`);
+            return;
+        }
+        const menuItems = JSON.parse(poll.selectedMenuItemIds || '[]');
+        const itemCount = menuItems.length || 0;
         try {
-            await botInstance.api.editMessageReplyMarkup(chatId, messageId, {
-                reply_markup: undefined,
+            const { createCompactPollMessage, createCompactPollKeyboard } = await Promise.resolve().then(() => __importStar(require('../bot/keyboards/poll.keyboard')));
+            const completedMessage = createCompactPollMessage(poll, itemCount, votes.length, 0, {
+                status: 'completed',
+                breakdown: breakdown
             });
+            const completedKeyboard = createCompactPollKeyboard(pollId, 'completed');
+            await botInstance.api.editMessageText(chatId, messageId, completedMessage, {
+                parse_mode: 'Markdown',
+                reply_markup: completedKeyboard
+            });
+            logger_1.logger.info(`[UX 2.0] Poll message updated with results (phase 1)`);
         }
         catch (error) {
-            logger_1.logger.warn('Could not remove poll button:', error);
+            logger_1.logger.error('Could not edit poll message with results:', error);
         }
-        const resultsMessage = createPollResultsMessage({
-            totalVotes: result.totalVotes,
-            breakdown,
-            winnerItem: breakdown.length > 0 ? breakdown[0] : null,
-        });
-        const resultsKeyboard = (0, webapp_keyboard_1.createResultsWebAppKeyboard)(pollId);
-        await botInstance.api.sendMessage(chatId, resultsMessage, {
-            parse_mode: 'Markdown',
-            reply_markup: resultsKeyboard
-        });
         let responsibleUser = null;
         if (result.totalVotes > 0) {
             if (process.env.AUTO_ROULETTE_ENABLED === 'true') {
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 const rouletteResult = await poll_service_1.PollService.runRoulette(pollId);
                 responsibleUser = rouletteResult.responsibleUser;
                 if (responsibleUser) {
-                    await botInstance.api.sendMessage(chatId, `🎲 **Рулетка завершена!**\n\n` +
-                        `🎯 Ответственный за заказ: [${responsibleUser.firstName}](tg://user?id=${responsibleUser.telegramId})\n\n` +
-                        `📞 Ожидаем заказа!`, { parse_mode: 'Markdown' });
+                    try {
+                        const { createCompactPollMessage, createCompactPollKeyboard } = await Promise.resolve().then(() => __importStar(require('../bot/keyboards/poll.keyboard')));
+                        const finalMessage = createCompactPollMessage(poll, itemCount, votes.length, 0, {
+                            status: 'with_responsible',
+                            breakdown: breakdown,
+                            responsibleUser: responsibleUser
+                        });
+                        const finalKeyboard = createCompactPollKeyboard(pollId, 'with_responsible');
+                        await botInstance.api.editMessageText(chatId, messageId, finalMessage, {
+                            parse_mode: 'Markdown',
+                            reply_markup: finalKeyboard
+                        });
+                        logger_1.logger.info(`[UX 2.0] Poll message updated with responsible user (phase 2)`);
+                    }
+                    catch (error) {
+                        logger_1.logger.error('Could not edit poll message with responsible:', error);
+                    }
                     try {
                         const responsibleKeyboard = (0, webapp_keyboard_1.createResponsibleKeyboard)(pollId);
                         await botInstance.api.sendMessage(Number(responsibleUser.telegramId), `🎯 **Вы выбраны ответственным за заказ!**\n\n` +
@@ -175,7 +228,7 @@ async function autoCompletePoll(pollId, chatId, messageId) {
             }
             await sendPersonalNotifications(pollId, breakdown, responsibleUser);
         }
-        logger_1.logger.info(`Poll ${pollId} completed successfully`);
+        logger_1.logger.info(`[UX 2.0] Poll ${pollId} completed successfully - 1 message instead of 3-4!`);
     }
     catch (error) {
         logger_1.logger.error('Error in autoCompletePoll:', error);

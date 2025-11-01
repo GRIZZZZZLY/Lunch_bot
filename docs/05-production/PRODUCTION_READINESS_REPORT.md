@@ -101,7 +101,7 @@ SKIP_TELEGRAM_VALIDATION=false
 
 ### ⚠️ 3. Устаревший ngrok URL
 **Файл:** `backend/.env.production`  
-**Строка 30:** `WEBAPP_URL=https://weighty-untreacherously-christina.ngrok-free.dev`
+**Строка 30:** `WEBAPP_URL=https://epicritic-uninspiredly-makai.ngrok-free.dev`
 
 **Проблема:**
 - Hardcoded ngrok URL из прошлой сессии
@@ -124,13 +124,12 @@ WEBAPP_URL=https://your-ngrok-url-here.ngrok-free.dev
 **Строка 5:** `VITE_API_URL=https://epicritic-uninspiredly-makai.ngrok-free.dev/api`
 
 **Backend .env.production:**  
-**Строка 30:** `WEBAPP_URL=https://weighty-untreacherously-christina.ngrok-free.dev`
+**Строка 30:** `WEBAPP_URL=https://epicritic-uninspiredly-makai.ngrok-free.dev`
 
 **Проблема:**
-- Frontend и Backend используют РАЗНЫЕ ngrok URLs!
-- Backend ждёт запросы на `weighty-untreacherously-christina`
-- Frontend отправляет на `epicritic-uninspiredly-makai`
-- Это 100% приведёт к CORS ошибкам
+- Frontend и Backend должны использовать ОДИН ngrok URL!
+- Оба теперь используют `epicritic-uninspiredly-makai`
+- CORS настроен корректно
 
 **Решение:**
 Оба должны использовать ОДИН и тот же ngrok URL:
@@ -172,7 +171,7 @@ drop_console: false, // Оставить console.log для тестирован
 
 ### 🔶 6. CORS Origins неполные
 **Файл:** `backend/.env.production`  
-**Строка 47:** `CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173,https://weighty-untreacherously-christina.ngrok-free.dev`
+**Строка 47:** `CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173,https://epicritic-uninspiredly-makai.ngrok-free.dev`
 
 **Проблема:**
 - Нет `.ngrok.io`, `.ngrok.app` в списке
@@ -181,7 +180,7 @@ drop_console: false, // Оставить console.log для тестирован
 **Решение:**
 Добавить все возможные ngrok домены или использовать wildcard:
 ```bash
-CORS_ORIGIN=https://weighty-untreacherously-christina.ngrok-free.dev,https://*.ngrok.io,https://*.ngrok-free.app
+CORS_ORIGIN=https://epicritic-uninspiredly-makai.ngrok-free.dev,https://*.ngrok.io,https://*.ngrok-free.app
 ```
 
 ---

@@ -84,7 +84,7 @@ cd telegram-food-bot/backend
 node -e "
 const https = require('https');
 const BOT_TOKEN = process.env.BOT_TOKEN || '8298516078:AAF3QAaoVURt634PcNtwMKiExF2nILnziGk';
-const WEBAPP_URL = process.env.WEBAPP_URL || 'https://weighty-untreacherously-christina.ngrok-free.dev';
+const WEBAPP_URL = process.env.WEBAPP_URL || 'https://epicritic-uninspiredly-makai.ngrok-free.dev';
 
 const options = {
   hostname: 'api.telegram.org',
@@ -160,7 +160,7 @@ req.end();
 **Проверьте backend/.env:**
 
 ```bash
-CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173,https://weighty-untreacherously-christina.ngrok-free.dev
+CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173,https://epicritic-uninspiredly-makai.ngrok-free.dev
 ```
 
 **Убедитесь что ngrok URL там есть!**
@@ -171,7 +171,7 @@ CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173,https://weighty-untreach
 
 ```bash
 # Проверка что backend отвечает
-curl https://weighty-untreacherously-christina.ngrok-free.dev/api/health
+curl https://epicritic-uninspiredly-makai.ngrok-free.dev/api/health
 
 # Должен вернуть:
 # {"status":"ok","timestamp":"..."}
@@ -186,7 +186,7 @@ curl https://weighty-untreacherously-christina.ngrok-free.dev/api/health
 ### Способ 1: Через браузер на мобильном
 
 1. Откройте браузер на мобильном
-2. Зайдите на `https://weighty-untreacherously-christina.ngrok-free.dev`
+2. Зайдите на `https://epicritic-uninspiredly-makai.ngrok-free.dev`
 3. Если появляется "You are about to visit..." - нажмите "Visit Site"
 4. Если открывается - значит ngrok работает
 5. Теперь попробуйте через Telegram

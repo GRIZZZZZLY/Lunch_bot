@@ -138,6 +138,33 @@ class PollController {
             });
         }
     }
+    static async getTodayCompletedPoll(req, res) {
+        try {
+            const groupId = parseInt(req.params.groupId);
+            if (isNaN(groupId)) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid group ID',
+                    code: 'INVALID_GROUP_ID',
+                });
+                return;
+            }
+            const poll = await poll_service_1.PollService.getTodayCompletedPoll(groupId);
+            res.json({
+                success: true,
+                data: poll ? serializeBigInt(poll) : null,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            logger_1.logger.error('Error in getTodayCompletedPoll:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch today completed poll',
+                code: 'INTERNAL_ERROR',
+            });
+        }
+    }
     static async repeatPoll(req, res) {
         try {
             const user = req.user;
