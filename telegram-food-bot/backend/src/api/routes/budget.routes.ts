@@ -16,6 +16,7 @@ router.use(telegramAuthMiddleware);
 router.get('/debts', (req, res) => budgetController.getDebts(req, res));
 router.get('/credits', (req, res) => budgetController.getCredits(req, res));
 router.get('/stats', (req, res) => budgetController.getStats(req, res));
+router.get('/poll-totals/:pollId', (req, res) => budgetController.getPollTotals(req, res));
 
 // POST routes
 router.post('/mark-paid', (req, res) => budgetController.markAsPaid(req, res));

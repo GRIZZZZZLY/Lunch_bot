@@ -197,6 +197,27 @@ class BudgetService {
     
     throw new Error('Failed to send reminders');
   }
+
+  /**
+   * Получить итоговые суммы по заказу
+   */
+  async getPollTotals(pollId: number): Promise<{
+    totalOrder: number;
+    totalToReturn: number;
+    responsibleShare: number;
+  }> {
+    const response = await apiService.get<{
+      totalOrder: number;
+      totalToReturn: number;
+      responsibleShare: number;
+    }>(`/budget/poll-totals/${pollId}`);
+    
+    if (response.success && response.data) {
+      return response.data;
+    }
+    
+    throw new Error('Failed to get poll totals');
+  }
 }
 
 export const budgetService = new BudgetService();

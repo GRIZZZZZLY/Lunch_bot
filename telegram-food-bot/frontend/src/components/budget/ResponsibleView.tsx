@@ -30,10 +30,17 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
   const currentPollId = credits[0]?.pollId;
   const currentCredits = credits.filter(c => c?.pollId === currentPollId);
   
+  // Получаем итоговые суммы по заказу
+  const { data: pollTotals } = useQuery({
+    queryKey: ['pollTotals', currentPollId],
+    queryFn: () => budgetService.getPollTotals(currentPollId),
+    enabled: !!currentPollId,
+  });
+  
   // Рассчитываем суммы
   const totalToReceive = currentCredits.reduce((sum, c) => sum + c.amount, 0);
-  const myShare = currentCredits[0]?.amount || 0; // Предполагаем что ответственный тоже заказывал
-  const totalPaid = currentCredits[0]?.poll ? 0 : 0; // TODO: нужно знать общую сумму заказа
+  const myShare = pollTotals?.responsibleShare || 0;
+  const totalPaid = pollTotals?.totalOrder || 0;
   
   // Mutation для подтверждения платежа
   const confirmMutation = useMutation({
