@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { UserService } from '../../services/user.service';
 import { GroupService } from '../../services/group.service';
+import { AvatarService } from '../../services/avatar.service';
 import { logger } from '../../utils/logger';
 
 export class UserController {
@@ -157,7 +158,8 @@ export class UserController {
 
   /**
    * GET /api/user/groups
-   * Получение списка групп где пользователь админ
+   * Получение списка групп где есть бот
+   * Проверка прав админа происходит при создании голосования
    */
   static async getUserGroups(req: Request, res: Response): Promise<void> {
     try {
@@ -172,21 +174,18 @@ export class UserController {
         return;
       }
 
-      // ✅ FIX: Возвращаем только группы где пользователь админ
-      // Проверяем через polls где пользователь создавал голосования
+      // ✅ FIX: Возвращаем ВСЕ активные группы где есть бот
+      // Проверка прав админа будет при создании голосования
       const { prisma } = await import('../../database/client.js');
       
       const groups = await prisma.group.findMany({
         where: {
           isActive: true,
-          polls: {
-            some: {
-              createdBy: user.id,
-            },
-          },
         },
         orderBy: { createdAt: 'desc' },
       });
+
+      logger.info(`User ${user.id} requested groups list, found ${groups.length} groups`);
 
       res.json({
         success: true,
@@ -205,6 +204,121 @@ export class UserController {
       res.status(500).json({
         success: false,
         error: 'Failed to get user groups',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+
+  /**
+   * GET /api/user/:userId/avatar
+   * Получение аватарки пользователя по ID
+   */
+  static async getUserAvatar(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: 'User ID is required',
+          code: 'INVALID_PARAMS',
+        });
+        return;
+      }
+
+      // Получаем пользователя по ID
+      const user = await UserService.getUserById(parseInt(userId, 10));
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found',
+          code: 'USER_NOT_FOUND',
+        });
+        return;
+      }
+
+      // Получаем аватарку через AvatarService (с кэшированием)
+      const avatarUrl = await AvatarService.getUserAvatar(user.telegramId);
+
+      res.json({
+        success: true,
+        data: {
+          userId: user.id,
+          telegramId: user.telegramId.toString(),
+          avatarUrl,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Error getting user avatar:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get user avatar',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+
+  /**
+   * POST /api/user/avatars/batch
+   * Batch-загрузка аватарок для нескольких пользователей
+   *
+   * Body: { userIds: number[] }
+   */
+  static async getUserAvatarsBatch(req: Request, res: Response): Promise<void> {
+    try {
+      const { userIds } = req.body;
+
+      if (!Array.isArray(userIds) || userIds.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'User IDs array is required',
+          code: 'INVALID_PARAMS',
+        });
+        return;
+      }
+
+      // Ограничиваем количество запросов за раз
+      if (userIds.length > 100) {
+        res.status(400).json({
+          success: false,
+          error: 'Maximum 100 user IDs per request',
+          code: 'TOO_MANY_IDS',
+        });
+        return;
+      }
+
+      // Получаем пользователей по ID
+      const users = await Promise.all(
+        userIds.map((id) => UserService.getUserById(parseInt(id, 10)))
+      );
+
+      // Фильтруем null значения и получаем Telegram IDs
+      const validUsers = users.filter((u): u is NonNullable<typeof u> => u !== null);
+      const telegramIds = validUsers.map((u) => u.telegramId);
+
+      // Batch-загрузка аватарок
+      const avatarsMap = await AvatarService.getUserAvatarsBatch(telegramIds);
+
+      // Формируем результат
+      const result = validUsers.map((user) => ({
+        userId: user.id,
+        telegramId: user.telegramId.toString(),
+        avatarUrl: avatarsMap.get(user.telegramId.toString()) || null,
+      }));
+
+      res.json({
+        success: true,
+        data: result,
+        total: result.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Error getting user avatars batch:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get user avatars',
         code: 'INTERNAL_ERROR',
       });
     }

@@ -6,6 +6,7 @@ import { botConfig } from './config/bot.config';
 import { createBot, startPolling, setupWebhook, stopBot } from './bot/bot';
 import { createApiServer, startApiServer } from './api/server';
 import { initializePollServiceBot } from './services/poll.service.extensions';
+import { feedbackService } from './services/feedback.service';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -19,6 +20,9 @@ const app = createApiServer();
 
 // Инициализация PollService с экземпляром бота
 initializePollServiceBot(bot);
+
+// Инициализация FeedbackService с экземпляром бота
+feedbackService.initialize(bot);
 
 // Graceful shutdown
 process.on('SIGINT', async () => {

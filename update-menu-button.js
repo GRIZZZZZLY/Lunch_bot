@@ -3,20 +3,45 @@ const fs = require('fs');
 const https = require('https');
 
 // Читаем .env файл
-const envFile = fs.readFileSync('./backend/.env', 'utf8');
+const envPath = require('path').join(__dirname, 'backend', '.env');
+const envFile = fs.readFileSync(envPath, 'utf8');
 const envVars = {};
-envFile.split('\n').forEach(line => {
-  const match = line.match(/^([^=:#]+)=(.*)$/);
-  if (match) {
-    envVars[match[1].trim()] = match[2].trim();
+
+// Улучшенный парсер .env
+envFile.split(/\r?\n/).forEach(line => {
+  // Удаляем пробелы по краям
+  line = line.trim();
+
+  // Пропускаем пустые строки и комментарии
+  if (!line || line.startsWith('#')) {
+    return;
+  }
+
+  // Ищем знак =
+  const equalIndex = line.indexOf('=');
+  if (equalIndex === -1) {
+    return;
+  }
+
+  const key = line.substring(0, equalIndex).trim();
+  const value = line.substring(equalIndex + 1).trim();
+
+  if (key && value) {
+    envVars[key] = value;
   }
 });
 
 const BOT_TOKEN = envVars.BOT_TOKEN;
 const WEBAPP_URL = envVars.WEBAPP_URL;
 
+console.log('🔍 Найденные переменные:');
+console.log('   BOT_TOKEN:', BOT_TOKEN ? `${BOT_TOKEN.substring(0, 10)}...` : '❌ НЕ НАЙДЕН');
+console.log('   WEBAPP_URL:', WEBAPP_URL || '❌ НЕ НАЙДЕН');
+console.log('');
+
 if (!BOT_TOKEN || !WEBAPP_URL) {
   console.error('❌ BOT_TOKEN или WEBAPP_URL не установлены');
+  console.error('📂 Проверьте файл:', envPath);
   process.exit(1);
 }
 
@@ -56,7 +81,7 @@ const deleteReq = https.request(deleteOptions, (res) => {
       const setData = JSON.stringify({
         menu_button: {
           type: 'web_app',
-          text: '📋 Мои группы',
+          text: 'Выбрать обед',
           web_app: {
             url: WEBAPP_URL
           }

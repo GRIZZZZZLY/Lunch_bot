@@ -6,7 +6,6 @@ const menu_service_1 = require("../../services/menu.service");
 const group_service_1 = require("../../services/group.service");
 const user_service_1 = require("../../services/user.service");
 const poll_reminder_service_1 = require("../../services/poll-reminder.service");
-const client_1 = require("../../database/client");
 const logger_1 = require("../../utils/logger");
 const poll_keyboard_1 = require("../keyboards/poll.keyboard");
 const pollUpdateIntervals = new Map();
@@ -47,6 +46,21 @@ async function startPollCommand(ctx) {
         const chat = ctx.chat;
         if (!chat || chat.type === 'private') {
             await ctx.reply('Эта команда доступна только в группах');
+            return;
+        }
+        try {
+            const chatMember = await ctx.api.getChatMember(chat.id, user.id);
+            const isAdmin = chatMember.status === 'creator' || chatMember.status === 'administrator';
+            if (!isAdmin) {
+                await ctx.reply('⚠️ Только администраторы группы могут запускать голосования.\n\n' +
+                    'Если вы должны быть администратором, попросите создателя группы назначить вас.');
+                logger_1.logger.warn(`Non-admin user ${user.id} attempted to start poll in group ${chat.id}`);
+                return;
+            }
+        }
+        catch (error) {
+            logger_1.logger.error('Error checking admin status:', error);
+            await ctx.reply('Произошла ошибка при проверке прав доступа');
             return;
         }
         let group = await group_service_1.GroupService.getGroupByTelegramId(chat.id.toString());
@@ -130,38 +144,63 @@ async function autoCompletePoll(ctx, pollId, messageId) {
             pollUpdateIntervals.delete(pollId);
         }
         poll_reminder_service_1.PollReminderService.cancelReminders(pollId);
+        logger_1.logger.info(`[UX 2.0] Auto-completing poll ${pollId} via startpoll.ts - editing message`);
         const result = await poll_service_1.PollService.completePoll(pollId);
-        await ctx.api.editMessageReplyMarkup(ctx.chat.id, messageId, {
-            reply_markup: undefined
-        });
-        await ctx.reply('⏰ Время голосования истекло!');
+        const poll = await poll_service_1.PollService.getPollById(pollId);
+        if (!poll) {
+            logger_1.logger.error(`Poll ${pollId} not found`);
+            return;
+        }
+        const votes = await poll_service_1.PollService.getPollVoteBreakdown(pollId);
+        const totalVotes = result.totalVotes;
+        const activeItems = await menu_service_1.MenuService.getActiveMenuItems();
+        try {
+            const completedMessage = (0, poll_keyboard_1.createCompactPollMessage)(poll, activeItems.length, totalVotes, 0, {
+                status: 'completed',
+                breakdown: votes
+            });
+            const completedKeyboard = (0, poll_keyboard_1.createCompactPollKeyboard)(pollId, 'completed');
+            await ctx.api.editMessageText(ctx.chat.id, messageId, completedMessage, {
+                parse_mode: 'Markdown',
+                reply_markup: completedKeyboard
+            });
+            logger_1.logger.info(`[UX 2.0] Poll message updated with results (startpoll.ts)`);
+        }
+        catch (error) {
+            logger_1.logger.error('Could not edit poll message:', error);
+        }
         if (result.totalVotes > 0) {
-            await autoRunRoulette(ctx, pollId);
+            await autoRunRoulette(ctx, pollId, messageId, poll, activeItems.length, totalVotes, votes);
         }
     }
     catch (error) {
         logger_1.logger.error('Error in autoCompletePoll:', error);
     }
 }
-async function autoRunRoulette(ctx, pollId) {
+async function autoRunRoulette(ctx, pollId, messageId, poll, itemCount, totalVotes, breakdown) {
     try {
+        await new Promise(resolve => setTimeout(resolve, 2000));
         const result = await poll_service_1.PollService.runRoulette(pollId);
         if (result.responsibleUserId) {
             const responsibleUser = await user_service_1.UserService.getUserById(result.responsibleUserId);
             if (!responsibleUser)
                 return;
-            const winnerMention = `[${responsibleUser.firstName}](tg://user?id=${responsibleUser.telegramId})`;
-            let winnerItem = 'выбранное блюдо';
-            if (result.winnerMenuItemId) {
-                const menuItem = await client_1.prisma.menuItem.findUnique({
-                    where: { id: result.winnerMenuItemId }
+            try {
+                const finalMessage = (0, poll_keyboard_1.createCompactPollMessage)(poll, itemCount, totalVotes, 0, {
+                    status: 'with_responsible',
+                    breakdown: breakdown,
+                    responsibleUser: responsibleUser
                 });
-                winnerItem = menuItem?.name || winnerItem;
+                const finalKeyboard = (0, poll_keyboard_1.createCompactPollKeyboard)(pollId, 'with_responsible');
+                await ctx.api.editMessageText(ctx.chat.id, messageId, finalMessage, {
+                    parse_mode: 'Markdown',
+                    reply_markup: finalKeyboard
+                });
+                logger_1.logger.info(`[UX 2.0] Poll message updated with responsible (startpoll.ts)`);
             }
-            await ctx.reply(`🎲 **Рулетка завершена!**\n\n` +
-                `🎯 **Ответственный за заказ:** ${winnerMention}\n` +
-                `🍽️ **Блюдо-победитель:** ${winnerItem}\n\n` +
-                `📞 ${responsibleUser.firstName}, ожидаем вашего заказа! 😊`, { parse_mode: 'Markdown' });
+            catch (error) {
+                logger_1.logger.error('Could not edit poll message with responsible:', error);
+            }
         }
     }
     catch (error) {

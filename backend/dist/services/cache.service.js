@@ -11,11 +11,33 @@ class CacheService {
     client;
     hits = 0;
     misses = 0;
+    enabled;
     constructor() {
-        this.client = (0, redis_config_1.createRedisClient)();
-        logger_1.logger.info('✅ Cache service initialized with Redis');
+        this.enabled = redis_config_1.REDIS_ENABLED;
+        if (this.enabled) {
+            try {
+                this.client = (0, redis_config_1.createRedisClient)();
+                logger_1.logger.info('✅ Cache service initialized with Redis');
+            }
+            catch (error) {
+                logger_1.logger.warn('⚠️ Failed to initialize Redis, running without cache', error);
+                this.client = null;
+                this.enabled = false;
+            }
+        }
+        else {
+            logger_1.logger.warn('⚠️ Redis disabled via REDIS_ENABLED=false, running without cache');
+            this.client = null;
+        }
+    }
+    isAvailable() {
+        return this.enabled && this.client !== null && this.client.status === 'ready';
     }
     async get(key) {
+        if (!this.isAvailable()) {
+            this.misses++;
+            return undefined;
+        }
         try {
             const value = await this.client.get(key);
             if (value !== null) {
@@ -35,6 +57,9 @@ class CacheService {
         }
     }
     async set(key, value, ttl) {
+        if (!this.isAvailable()) {
+            return false;
+        }
         try {
             const serialized = JSON.stringify(value);
             const ttlSeconds = ttl || DEFAULT_TTL;
@@ -48,6 +73,9 @@ class CacheService {
         }
     }
     async del(key) {
+        if (!this.isAvailable()) {
+            return 0;
+        }
         try {
             const keys = Array.isArray(key) ? key : [key];
             const result = await this.client.del(...keys);
@@ -60,6 +88,9 @@ class CacheService {
         }
     }
     async flush() {
+        if (!this.isAvailable()) {
+            return;
+        }
         try {
             await this.client.flushdb();
             this.hits = 0;
@@ -71,6 +102,9 @@ class CacheService {
         }
     }
     async invalidatePattern(pattern) {
+        if (!this.isAvailable()) {
+            return;
+        }
         try {
             const stream = this.client.scanStream({
                 match: `*${pattern}*`,
@@ -81,7 +115,7 @@ class CacheService {
                 keysToDelete.push(...keys);
             });
             stream.on('end', async () => {
-                if (keysToDelete.length > 0) {
+                if (keysToDelete.length > 0 && this.client) {
                     await this.client.del(...keysToDelete);
                     logger_1.logger.info(`Cache invalidated for pattern: ${pattern}, keys: ${keysToDelete.length}`);
                 }
@@ -102,18 +136,28 @@ class CacheService {
         return value;
     }
     async getStats() {
+        const hitRate = this.hits + this.misses > 0
+            ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(2)
+            : '0.00';
+        if (!this.isAvailable()) {
+            return {
+                hits: this.hits,
+                misses: this.misses,
+                hitRate: `${hitRate}%`,
+                dbSize: 0,
+                enabled: false,
+            };
+        }
         try {
             const info = await this.client.info('stats');
             const dbSize = await this.client.dbsize();
-            const hitRate = this.hits + this.misses > 0
-                ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(2)
-                : '0.00';
             return {
                 hits: this.hits,
                 misses: this.misses,
                 hitRate: `${hitRate}%`,
                 dbSize,
                 redisInfo: info,
+                enabled: true,
             };
         }
         catch (error) {
@@ -121,12 +165,16 @@ class CacheService {
             return {
                 hits: this.hits,
                 misses: this.misses,
-                hitRate: '0.00%',
+                hitRate: `${hitRate}%`,
                 dbSize: 0,
+                enabled: false,
             };
         }
     }
     async keys(pattern = '*') {
+        if (!this.isAvailable()) {
+            return [];
+        }
         try {
             return await this.client.keys(pattern);
         }
@@ -136,6 +184,9 @@ class CacheService {
         }
     }
     async has(key) {
+        if (!this.isAvailable()) {
+            return false;
+        }
         try {
             const exists = await this.client.exists(key);
             return exists === 1;
@@ -146,6 +197,9 @@ class CacheService {
         }
     }
     async getTtl(key) {
+        if (!this.isAvailable()) {
+            return undefined;
+        }
         try {
             const ttl = await this.client.ttl(key);
             return ttl >= 0 ? ttl : undefined;
@@ -159,6 +213,9 @@ class CacheService {
         return this.client;
     }
     async close() {
+        if (!this.client) {
+            return;
+        }
         try {
             await this.client.quit();
             logger_1.logger.info('Redis cache client closed');

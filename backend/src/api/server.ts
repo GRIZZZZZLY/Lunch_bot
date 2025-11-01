@@ -15,6 +15,7 @@ import budgetRoutes from './routes/budget.routes';
 import metricsRoutes from './routes/metrics.routes';
 import healthRoutes from './routes/health.routes';
 import testRoutes from './routes/test.routes';
+import feedbackRoutes from './routes/feedback.routes';
 
 // Импорт middleware
 import { metricsMiddleware } from './middleware/metrics';
@@ -52,7 +53,6 @@ export function createApiServer(): express.Application {
     next();
   });
 
-  app.use(corsMiddleware);
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(requestLogger);
@@ -61,6 +61,9 @@ export function createApiServer(): express.Application {
   // Health & Monitoring endpoints (без префикса /api)
   app.use('/health', healthRoutes);
 
+  // CORS только для API роутов
+  app.use('/api', corsMiddleware);
+
   // API routes с префиксом /api
   app.use('/api/auth', authRoutes);
   app.use('/api/menu', menuRoutes);
@@ -68,6 +71,8 @@ export function createApiServer(): express.Application {
   app.use('/api/user', userRoutes);
   app.use('/api/budget', budgetRoutes);
   app.use('/api/metrics', metricsRoutes);
+  app.use('/api/feedback', feedbackRoutes);
+  app.use('/api/notifications', require('./routes/notification.routes').default);
 
   // Test endpoints (только для dev/staging)
   if (process.env.NODE_ENV !== 'production') {

@@ -190,9 +190,9 @@ export const ProfilePage: React.FC = () => {
             transition={{ delay: 0.2, duration: 0.4 }}
             className="flex items-center gap-4"
           >
-            {/* Avatar with photo support */}
+            {/* Avatar with automatic loading from Telegram */}
             <UserAvatar
-              photoUrl={user?.photoUrl}
+              userId={user?.id}
               firstName={user?.firstName || '?'}
               lastName={user?.lastName}
               size="lg"

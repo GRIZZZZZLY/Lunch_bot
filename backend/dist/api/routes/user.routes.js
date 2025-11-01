@@ -11,5 +11,7 @@ router.get('/me', telegram_auth_1.telegramAuthMiddleware, user_controller_1.user
 router.get('/payment-info', telegram_auth_1.telegramAuthMiddleware, user_controller_1.userController.getPaymentInfo);
 router.put('/payment-info', telegram_auth_1.telegramAuthMiddleware, user_controller_1.userController.updatePaymentInfo);
 router.get('/groups', telegram_auth_1.telegramAuthMiddleware, user_controller_1.userController.getUserGroups);
+router.get('/:userId/avatar', telegram_auth_1.telegramAuthMiddleware, user_controller_1.userController.getUserAvatar);
+router.post('/avatars/batch', telegram_auth_1.telegramAuthMiddleware, user_controller_1.userController.getUserAvatarsBatch);
 exports.default = router;
 //# sourceMappingURL=user.routes.js.map

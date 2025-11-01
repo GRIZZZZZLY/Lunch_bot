@@ -21,6 +21,7 @@ const budget_routes_1 = __importDefault(require("./routes/budget.routes"));
 const metrics_routes_1 = __importDefault(require("./routes/metrics.routes"));
 const health_routes_1 = __importDefault(require("./routes/health.routes"));
 const test_routes_1 = __importDefault(require("./routes/test.routes"));
+const feedback_routes_1 = __importDefault(require("./routes/feedback.routes"));
 const metrics_1 = require("./middleware/metrics");
 function createApiServer() {
     const app = (0, express_1.default)();
@@ -45,18 +46,20 @@ function createApiServer() {
         res.setHeader('ngrok-skip-browser-warning', 'true');
         next();
     });
-    app.use(cors_1.corsMiddleware);
     app.use(express_1.default.json({ limit: '10mb' }));
     app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
     app.use(error_handler_1.requestLogger);
     app.use(metrics_1.metricsMiddleware);
     app.use('/health', health_routes_1.default);
+    app.use('/api', cors_1.corsMiddleware);
     app.use('/api/auth', auth_routes_1.default);
     app.use('/api/menu', menu_routes_1.default);
     app.use('/api/polls', poll_routes_1.default);
     app.use('/api/user', user_routes_1.default);
     app.use('/api/budget', budget_routes_1.default);
     app.use('/api/metrics', metrics_routes_1.default);
+    app.use('/api/feedback', feedback_routes_1.default);
+    app.use('/api/notifications', require('./routes/notification.routes').default);
     if (process.env.NODE_ENV !== 'production') {
         app.use('/api/test', test_routes_1.default);
         logger_1.logger.info('Test endpoints enabled (dev/staging mode)');

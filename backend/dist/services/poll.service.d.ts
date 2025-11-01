@@ -4,6 +4,7 @@ export declare function initializePollServiceBot(bot: any): void;
 export declare class PollService {
     static createPoll(data: CreatePollData): Promise<Poll>;
     static getPollById(id: number): Promise<PollWithDetails | null>;
+    static getTodayCompletedPoll(groupId: number): Promise<PollWithDetails | null>;
     static getActivePollInGroup(groupId: number): Promise<Poll | null>;
     static getActivePolls(): Promise<any[]>;
     static completePoll(pollId: number): Promise<PollResult>;

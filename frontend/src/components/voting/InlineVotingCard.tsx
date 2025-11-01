@@ -381,19 +381,23 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           const voters = poll.votes?.map(v => {
             try {
               const telegramIdValue = v.user.telegramId || v.user.id;
-              
+
               // Валидация перед преобразованием в BigInt
               if (!telegramIdValue) {
                 return null;
               }
-              
+
               const numValue = Number(telegramIdValue);
               if (isNaN(numValue) || numValue <= 0) {
                 return null;
               }
-              
+
+              // Явно передаём все необходимые поля для VotersAvatars
               return {
-                ...v.user,
+                id: v.user.id,  // userId для загрузки аватара
+                firstName: v.user.firstName,
+                lastName: v.user.lastName,
+                username: v.user.username,
                 telegramId: BigInt(numValue)
               };
             } catch (error) {
@@ -401,7 +405,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
               return null;
             }
           }).filter(Boolean) || [];
-          
+
           return voters.length > 0 ? <VotersAvatars voters={voters} maxDisplay={5} size="sm" /> : null;
         })()}
 

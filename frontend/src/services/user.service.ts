@@ -12,6 +12,12 @@ export interface User {
   createdAt: string;
 }
 
+export interface UserAvatar {
+  userId: number;
+  telegramId: string;
+  avatarUrl: string | null;
+}
+
 export interface PaymentInfo {
   paymentCard?: string | null;
   paymentPhone?: string | null;
@@ -53,6 +59,20 @@ class UserService {
    */
   async getUserGroups(): Promise<ApiResponse<Group[]>> {
     return await apiService.get<Group[]>('/user/groups');
+  }
+
+  /**
+   * Получение аватарки пользователя по ID
+   */
+  async getUserAvatar(userId: number): Promise<ApiResponse<UserAvatar>> {
+    return await apiService.get<UserAvatar>(`/user/${userId}/avatar`);
+  }
+
+  /**
+   * Batch-загрузка аватарок для нескольких пользователей
+   */
+  async getUserAvatarsBatch(userIds: number[]): Promise<ApiResponse<UserAvatar[]>> {
+    return await apiService.post<UserAvatar[]>('/user/avatars/batch', { userIds });
   }
 
   /**

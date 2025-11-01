@@ -15,6 +15,7 @@ router.get('/user-stats/my', telegram_auth_1.telegramAuthMiddleware, poll_contro
 router.get('/user-stats/:userId', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.getUserStatsByUserId);
 router.get('/popular-items', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPopularItems);
 router.get('/last-completed', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getLastCompleted);
+router.get('/today-completed/:groupId', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getTodayCompletedPoll);
 router.post('/repeat/:id', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.repeatPoll);
 router.get('/:id', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPollById);
 router.get('/:id/results', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.getPollResults);

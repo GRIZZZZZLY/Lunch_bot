@@ -14,6 +14,8 @@ model User {
   firstName        String       @map("first_name")
   lastName         String?      @map("last_name")
   photoUrl         String?      @map("photo_url")
+  avatarUrl        String?      @map("avatar_url")
+  avatarUpdatedAt  DateTime?    @map("avatar_updated_at")
   isAdmin          Boolean      @default(false) @map("is_admin")
   isActive         Boolean      @default(true) @map("is_active")
   paymentCard      String?      @map("payment_card")
@@ -31,6 +33,7 @@ model User {
   volunteerSelections     ResponsibleSelection[]  @relation("VolunteerUser")
   rouletteWins            ResponsibleSelection[]  @relation("RouletteWinner")
   sentReminders           PaymentReminder[]
+  adminReminders          AdminReminder[]
 
   @@map("users")
 }
@@ -45,6 +48,7 @@ model Group {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
   polls      Poll[]
+  adminReminders AdminReminder[]
 
   @@map("groups")
 }
@@ -200,4 +204,18 @@ model PaymentReminder {
   sender          User?       @relation(fields: [sentBy], references: [id])
   
   @@map("payment_reminders")
+}
+
+model AdminReminder {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  groupId   Int
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, groupId])
+  @@index([createdAt])
+  @@map("admin_reminders")
 }

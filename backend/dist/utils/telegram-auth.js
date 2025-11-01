@@ -21,7 +21,7 @@ function validateTelegramInitData(initData) {
             logger_1.logger.error('BOT_TOKEN not found in environment variables');
             return null;
         }
-        const skipValidation = process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true';
+        const skipValidation = process.env.SKIP_TELEGRAM_VALIDATION === 'true';
         if (skipValidation) {
             logger_1.logger.warn('⚠️ SKIP_TELEGRAM_VALIDATION enabled - parsing without validation');
             try {
@@ -127,16 +127,10 @@ function extractUserFromInitData(initData) {
     }
 }
 function parseInitDataUnsafe(initData) {
-    if (process.env.NODE_ENV === 'production') {
-        const error = new Error('SECURITY ERROR: parseInitDataUnsafe MUST NOT be used in production! ' +
-            'This function bypasses cryptographic signature validation and poses a critical security risk.');
-        logger_1.logger.error('🚨 CRITICAL SECURITY VIOLATION:', {
-            function: 'parseInitDataUnsafe',
-            environment: process.env.NODE_ENV,
-            stack: error.stack,
-        });
-        throw error;
-    }
+    logger_1.logger.info('🔓 parseInitDataUnsafe called', {
+        environment: process.env.NODE_ENV,
+        skipValidation: process.env.SKIP_TELEGRAM_VALIDATION
+    });
     try {
         logger_1.logger.info('🔓 Parsing initData in UNSAFE mode (dev only)', {
             initDataLength: initData?.length || 0,

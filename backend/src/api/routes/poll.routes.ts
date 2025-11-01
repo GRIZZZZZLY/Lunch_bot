@@ -54,6 +54,12 @@ router.get('/popular-items', telegramAuthMiddleware, pollController.getPopularIt
 router.get('/last-completed', telegramAuthMiddleware, pollController.getLastCompleted);
 
 /**
+ * GET /api/polls/today-completed/:groupId
+ * Получение последнего завершённого голосования сегодня в группе
+ */
+router.get('/today-completed/:groupId', telegramAuthMiddleware, pollController.getTodayCompletedPoll);
+
+/**
  * POST /api/polls/repeat/:id
  * Повторить голосование (создать копию с теми же параметрами)
  * Доступно только для админов

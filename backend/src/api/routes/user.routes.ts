@@ -40,4 +40,24 @@ router.get(
   userController.getUserGroups
 );
 
+/**
+ * GET /api/user/:userId/avatar
+ * Получение аватарки пользователя по ID
+ */
+router.get(
+  '/:userId/avatar',
+  telegramAuthMiddleware,
+  userController.getUserAvatar
+);
+
+/**
+ * POST /api/user/avatars/batch
+ * Batch-загрузка аватарок для нескольких пользователей
+ */
+router.post(
+  '/avatars/batch',
+  telegramAuthMiddleware,
+  userController.getUserAvatarsBatch
+);
+
 export default router;
