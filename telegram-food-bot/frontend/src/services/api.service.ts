@@ -30,7 +30,9 @@ class ApiService {
       ? '/api'  // Относительный путь для production
       : (import.meta.env.VITE_API_URL || 'http://localhost:3001/api');
     
-    console.log('[ApiService] Initializing with baseURL:', baseURL, 'mode:', import.meta.env.MODE);
+    if (import.meta.env.DEV) {
+      console.log('[ApiService] Initializing with baseURL:', baseURL, 'mode:', import.meta.env.MODE);
+    }
     
     this.client = axios.create({
       baseURL,
@@ -132,10 +134,14 @@ class ApiService {
    * GET запрос
    */
   async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    console.log(`🌐 [API] GET ${url}`, { hasToken: !!this.token });
+    if (import.meta.env.DEV) {
+      console.log(`🌐 [API] GET ${url}`, { hasToken: !!this.token });
+    }
     try {
       const response = await this.client.get<ApiResponse<T>>(url, config);
-      console.log(`✅ [API] GET ${url} success`, { status: response.status });
+      if (import.meta.env.DEV) {
+        console.log(`✅ [API] GET ${url} success`, { status: response.status });
+      }
       return response.data;
     } catch (error: any) {
       console.error(`❌ [API] GET ${url} failed`, {
@@ -156,16 +162,20 @@ class ApiService {
     data?: any, 
     config?: AxiosRequestConfig
   ): Promise<ApiResponse<T>> {
-    console.log(`🌐 [API] POST ${url}`, {
-      data: data,
-      hasToken: !!this.token
-    });
+    if (import.meta.env.DEV) {
+      console.log(`🌐 [API] POST ${url}`, {
+        data: data,
+        hasToken: !!this.token
+      });
+    }
     try {
       const response = await this.client.post<ApiResponse<T>>(url, data, config);
-      console.log(`✅ [API] POST ${url} success`, {
-        status: response.status,
-        success: response.data.success
-      });
+      if (import.meta.env.DEV) {
+        console.log(`✅ [API] POST ${url} success`, {
+          status: response.status,
+          success: response.data.success
+        });
+      }
       return response.data;
     } catch (error: any) {
       console.error(`❌ [API] POST ${url} failed`, {
@@ -309,7 +319,9 @@ class ApiService {
         ? '/health'
         : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001'}/health`;
       
-      console.log('[ApiService] healthCheck URL:', healthUrl);
+      if (import.meta.env.DEV) {
+        console.log('[ApiService] healthCheck URL:', healthUrl);
+      }
       
       const response = await axios.get(healthUrl, { timeout: 5000 });
       return response.data;

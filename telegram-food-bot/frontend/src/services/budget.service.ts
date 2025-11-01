@@ -76,14 +76,18 @@ class BudgetService {
       }
       
       const response = await apiService.get<Transaction[]>(`/budget/debts?${params}`);
-      console.log('[BudgetService.getDebts] ✅ Success:', response.data?.length || 0);
+      if (import.meta.env.DEV) {
+        console.log('[BudgetService.getDebts] ✅ Success:', response.data?.length || 0);
+      }
       
       // apiService.get возвращает { success: true, data: [...] }
       if (response.success && response.data) {
         return response.data;
       }
       
-      console.warn('[BudgetService.getDebts] ⚠️ No data returned, using empty array');
+      if (import.meta.env.DEV) {
+        console.warn('[BudgetService.getDebts] ⚠️ No data returned, using empty array');
+      }
       return [];
     } catch (error) {
       console.error('[BudgetService.getDebts] ❌ Request failed:', error);
@@ -103,14 +107,18 @@ class BudgetService {
       }
       
       const response = await apiService.get<Transaction[]>(`/budget/credits?${params}`);
-      console.log('[BudgetService.getCredits] ✅ Success:', response.data?.length || 0);
+      if (import.meta.env.DEV) {
+        console.log('[BudgetService.getCredits] ✅ Success:', response.data?.length || 0);
+      }
       
       // apiService.get возвращает { success: true, data: [...] }
       if (response.success && response.data) {
         return response.data;
       }
       
-      console.warn('[BudgetService.getCredits] ⚠️ No data returned, using empty array');
+      if (import.meta.env.DEV) {
+        console.warn('[BudgetService.getCredits] ⚠️ No data returned, using empty array');
+      }
       return [];
     } catch (error) {
       console.error('[BudgetService.getCredits] ❌ Request failed:', error);
