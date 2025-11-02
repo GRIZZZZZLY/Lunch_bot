@@ -37,6 +37,12 @@ export const VotersAvatars: React.FC<VotersAvatarsProps> = ({
     lg: '-ml-3',
   };
 
+  const sizeClasses = {
+    sm: 'w-8 h-8',
+    md: 'w-12 h-12',
+    lg: 'w-16 h-16',
+  };
+
   return (
     <div className="flex items-center">
       <div className="flex items-center">
@@ -55,7 +61,6 @@ export const VotersAvatars: React.FC<VotersAvatarsProps> = ({
                 lastName={voter.lastName}
                 size={size}
                 className="border-2 border-white dark:border-gray-800 shadow-md hover:z-10 hover:scale-110 transition-transform cursor-default"
-                title={`${voter.firstName}${voter.lastName ? ' ' + voter.lastName : ''}`}
               />
             </motion.div>
           );

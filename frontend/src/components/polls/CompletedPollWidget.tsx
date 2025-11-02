@@ -35,28 +35,28 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Получаем результаты голосования
-  const pollResult = poll.result;
+  const pollResult = poll.results?.[0]; // Берём первый результат из массива
   const votes = poll.votes || [];
   const voteCount = poll._count?.votes || 0;
 
   // Находим победителя
-  const winnerDish = pollResult?.winnerDish;
+  const winnerDish = pollResult?.winnerItem;
   const winnerVoteCount = votes.filter(v => v.menuItemId === winnerDish?.id).length;
   const winnerPercentage = voteCount > 0 ? Math.round((winnerVoteCount / voteCount) * 100) : 0;
 
   // Форматируем время завершения
-  const endTime = poll.endedAt || poll.endTime;
+  const endTime = poll.endedAt || (poll as any).endTime;
   const formattedTime = endTime ? format(new Date(endTime), 'HH:mm', { locale: ru }) : '';
 
   // Подготавливаем данные для ParticipantsList
   const participants = votes.map(v => ({
     id: v.user.id,
     firstName: v.user.firstName,
-    lastName: v.user.lastName,
-    photoUrl: v.user.photoUrl,
+    lastName: v.user.lastName || '',
+    photoUrl: (v.user as any).photoUrl,
     dishName: v.menuItem?.name || 'Неизвестно',
     dishPrice: v.menuItem?.price || 0,
-    dishEmoji: v.menuItem?.emoji,
+    dishEmoji: (v.menuItem as any)?.emoji,
   }));
 
   return (
@@ -91,7 +91,7 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
               transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
               className="text-6xl mb-4"
             >
-              {winnerDish.emoji || '🍽️'}
+              {(winnerDish as any).emoji || '🍽️'}
             </motion.div>
 
             <motion.h2
@@ -158,7 +158,7 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
                     <div className="flex items-center gap-2">
                       {winnerDish && (
                         <>
-                          <span className="text-sm">{winnerDish.emoji}</span>
+                          <span className="text-sm">{(winnerDish as any).emoji || '🍽️'}</span>
                           <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
                             {winnerDish.name}
                           </span>
@@ -203,7 +203,7 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
                     {winnerDish && (
                       <div className="bg-gradient-to-br from-mint-100 to-mint-50 dark:from-mint-900/30 dark:to-mint-800/20 rounded-lg p-4 border border-mint-200 dark:border-mint-700">
                         <div className="flex items-center gap-3 mb-2">
-                          <div className="text-3xl">{winnerDish.emoji || '🍽️'}</div>
+                          <div className="text-3xl">{(winnerDish as any).emoji || '🍽️'}</div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <h4 className="font-semibold text-gray-900 dark:text-white">
@@ -243,15 +243,15 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
                     )}
 
                     {/* Responsible person (if assigned) */}
-                    {pollResult?.responsiblePerson && (
+                    {pollResult?.responsible && (
                       <div className="bg-lavender-50 dark:bg-lavender-900/20 rounded-lg p-3 border border-lavender-200 dark:border-lavender-700">
                         <div className="flex items-center gap-2 text-sm">
                           <TrendingUp className="w-4 h-4 text-lavender-600 dark:text-lavender-400" />
                           <span className="text-gray-700 dark:text-gray-300">
                             Ответственный:{' '}
                             <strong>
-                              {pollResult.responsiblePerson.firstName}
-                              {pollResult.responsiblePerson.lastName && ` ${pollResult.responsiblePerson.lastName}`}
+                              {pollResult.responsible.firstName}
+                              {pollResult.responsible.lastName && ` ${pollResult.responsible.lastName}`}
                             </strong>
                           </span>
                         </div>
