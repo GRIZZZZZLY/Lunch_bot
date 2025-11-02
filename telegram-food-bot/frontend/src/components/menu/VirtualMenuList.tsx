@@ -9,8 +9,10 @@
  */
 
 import React, { useRef, useEffect, useState } from 'react';
-import { List, type ListProps } from 'react-window';
+import { List } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
+
+import type { ListProps } from 'react-window';
 
 type ListOnScrollProps = any;
 import { MenuItem } from '@/services/menu.service';
@@ -40,13 +42,13 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   selectedCategory,
 }) => {
   const haptic = useHaptic();
-  const listRef = useRef<typeof List>(null);
+  const listRef = useRef<any>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
 
   // Автоскролл наверх при изменении категории
   useEffect(() => {
     if (listRef.current) {
-      listRef.current.scrollTo(0);
+      listRef.current.scrollToItem(0, 'start');
     }
   }, [selectedCategory]);
 
@@ -88,13 +90,13 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   /**
    * P1.3.5: Handle scroll для haptic feedback + analytics
    */
-  const handleScroll = ({ scrollOffset }: { scrollOffset: number }) => {
+  const handleScroll = (props: any) => {
     const previousOffset = scrollOffset;
     
     // Haptic на каждые 100px скролла
-    if (Math.abs(scrollOffset - previousOffset) > 100) {
+    if (Math.abs(props.scrollOffset - previousOffset) > 100) {
       haptic.selection();
-      setScrollOffset(scrollOffset);
+      setScrollOffset(props.scrollOffset);
     }
     
     // P1.3.5: Track deep scrolling для analytics
@@ -139,21 +141,24 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   return (
     <div className="h-full w-full">
       <AutoSizer>
-        {({ height, width }) => (
-          <List
-            ref={listRef}
-            height={height}
-            rowCount={items.length}
-            rowHeight={ITEM_HEIGHT}
-            width={width}
-            onScroll={handleScroll}
-            // Оптимизации
-            overscanCount={3} // Рендерим 3 extra items за viewport
-            useIsScrolling // Показываем placeholder при быстром скролле
-          >
-            {MemoizedRow}
-          </List>
-        )}
+        {({ height, width }) => {
+          const ListComponent = List as any;
+          return (
+            <ListComponent
+              ref={listRef}
+              height={height}
+              rowCount={items.length}
+              rowHeight={ITEM_HEIGHT}
+              width={width}
+              onScroll={handleScroll}
+              // Оптимизации
+              overscanCount={3} // Рендерим 3 extra items за viewport
+              useIsScrolling // Показываем placeholder при быстром скролле
+            >
+              {MemoizedRow}
+            </ListComponent>
+          );
+        }}
       </AutoSizer>
 
       {/* Debug info (только в dev) */}
