@@ -98,8 +98,8 @@ export const HomePage: React.FC = () => {
   const { data: activePolls = [], isLoading, refetch } = useActivePolls();
 
   // React Query: Load today's completed poll
-  // Используем groupId из активного голосования или из user groups (если есть)
-  const userGroupId = user?.groups?.[0]?.id || activePoll?.groupId;
+  // Используем groupId из активного голосования
+  const userGroupId = activePoll?.groupId;
   const { data: todayCompletedPoll, isLoading: loadingCompletedPoll, error: completedPollError, refetch: refetchCompleted } = useTodayCompletedPoll(
     userGroupId,
     !!userGroupId // Всегда загружаем если есть groupId (не зависит от activePoll)
