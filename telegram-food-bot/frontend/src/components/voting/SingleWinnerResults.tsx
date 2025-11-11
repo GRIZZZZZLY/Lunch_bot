@@ -2,6 +2,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Users, Crown } from 'lucide-react';
 import { PollResult } from '@/services/polls.service';
+import { Badge } from '@/components/ui/badge';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface SingleWinnerResultsProps {
   result: PollResult;
@@ -43,7 +45,7 @@ export const SingleWinnerResults: React.FC<SingleWinnerResultsProps> = ({
           className="bg-gradient-to-br from-gold-100 to-gold-200 dark:from-gold-900/30 dark:to-gold-800/20 rounded-xl p-6 border-2 border-gold-400"
         >
           <div className="flex items-start gap-4">
-            <Trophy className="text-gold-600 dark:text-gold-400 flex-shrink-0" size={48} />
+            <Trophy className={`${ICON_SIZES['2xl']} text-gold-600 dark:text-gold-400 flex-shrink-0`} />
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-2xl font-bold">🏆 Победитель</h3>
@@ -75,7 +77,7 @@ export const SingleWinnerResults: React.FC<SingleWinnerResultsProps> = ({
           className="bg-glass rounded-xl p-4 border border-white/10"
         >
           <div className="flex items-center gap-3">
-            <Crown className="text-purple-500" size={32} />
+            <Crown className={`${ICON_SIZES.xl} text-purple-500`} />
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Ответственный за заказ
@@ -138,9 +140,9 @@ export const SingleWinnerResults: React.FC<SingleWinnerResultsProps> = ({
                       </span>
                     ))}
                     {item.voters.length > 5 && (
-                      <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full">
+                      <Badge variant="secondary">
                         +{item.voters.length - 5}
-                      </span>
+                      </Badge>
                     )}
                   </div>
                 )}
@@ -158,7 +160,7 @@ export const SingleWinnerResults: React.FC<SingleWinnerResultsProps> = ({
         className="bg-glass rounded-lg p-4 border border-white/10"
       >
         <div className="flex items-center gap-3">
-          <Users className="text-blue-500" size={24} />
+          <Users className={`${ICON_SIZES.lg} text-blue-500`} />
           <div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Всего участников

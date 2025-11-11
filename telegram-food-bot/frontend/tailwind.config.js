@@ -51,75 +51,89 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // 🍑 PEACH (Food Primary - Orange)
-        peach: {
-          50: '#FFF4ED',
-          100: '#FFE5D6',
-          200: '#FFCCAD',
-          300: '#FFB38F',   // Dark mode default
-          400: '#FF9870',
-          500: '#FF7851',   // Light mode default
-          600: '#E85D36',
-          700: '#CC4A24',
-          800: '#B33812',
-          900: '#992600',
-          DEFAULT: '#FF7851',
+        // ========================================
+        // 🎨 PASTEL HARMONY PALETTE (5 Core Colors)
+        // Requirement: Orange, Purple, Blue, Green, Red
+        // ========================================
+        
+        // 🍑 PASTEL PEACH (Primary - Orange family)
+        'pastel-peach': {
+          50: '#FFF5F0',   // Lightest background
+          100: '#FFE4D6',  // Light background
+          200: '#FFCCAD',  // Border/divider
+          300: '#FFB899',  // DEFAULT - Main UI color
+          400: '#FFA380',  // Hover state
+          500: '#FF8F66',  // Active/pressed state
+          600: '#E67550',  // Dark accent
+          700: '#CC5C3B',  // Darker accent
+          800: '#B34427',  // Darkest
+          900: '#4D1F12',  // Very dark for dark mode
+          950: '#2A1109',  // Ultra dark for dark mode backgrounds
+          DEFAULT: '#FFB899',
         },
-        // 🌿 MINT (Success - Green)
-        mint: {
-          50: '#F0FDF7',
-          100: '#DCFCE8',
-          200: '#BBF7D1',
-          300: '#9ED6B9',   // Dark mode default
-          400: '#7BC4A3',
-          500: '#5CAE87',   // Light mode default
-          600: '#3D8F67',
-          700: '#2A7050',
-          800: '#1B5239',
-          900: '#0D3422',
-          DEFAULT: '#5CAE87',
+        
+        // 💜 PASTEL LAVENDER (Accent - Purple family)
+        'pastel-lavender': {
+          50: '#F8F6FF',   // Lightest background
+          100: '#EDE9FE',  // Light background
+          200: '#DDD6FE',  // Border/divider
+          300: '#C4B5FD',  // DEFAULT - Main UI color
+          400: '#B19BFC',  // Hover state
+          500: '#9E81FA',  // Active/pressed state
+          600: '#8B67E8',  // Dark accent
+          700: '#7850D6',  // Darker accent
+          800: '#6539C4',  // Darkest
+          900: '#2D1854',  // Very dark for dark mode
+          950: '#1A0E2E',  // Ultra dark for dark mode backgrounds
+          DEFAULT: '#C4B5FD',
         },
-        // 💜 LAVENDER (Premium - Purple)
-        lavender: {
-          50: '#F5F3FF',
-          100: '#EDE9FE',
-          200: '#DDD6FE',
-          300: '#C4B5FD',   // Dark mode default
-          400: '#A78BFA',
-          500: '#8B5CF6',   // Light mode default
-          600: '#7C3AED',
-          700: '#6D28D9',
-          800: '#5B21B6',
-          900: '#4C1D95',
-          DEFAULT: '#8B5CF6',
+        
+        // 🌊 PASTEL SKY (Info - Blue family)
+        'pastel-sky': {
+          50: '#F0F9FF',   // Lightest background
+          100: '#E0F2FE',  // Light background
+          200: '#BAE6FD',  // Border/divider
+          300: '#7DD3FC',  // DEFAULT - Main UI color
+          400: '#5BC5FA',  // Hover state
+          500: '#38B7F8',  // Active/pressed state
+          600: '#1FA3E6',  // Dark accent
+          700: '#0E8FD4',  // Darker accent
+          800: '#037BC2',  // Darkest
+          900: '#01334D',  // Very dark for dark mode
+          950: '#011D2A',  // Ultra dark for dark mode backgrounds
+          DEFAULT: '#7DD3FC',
         },
-        // 🔴 CORAL (Energy - Red-Orange)
-        coral: {
-          50: '#FFF1F0',
-          100: '#FFE4E1',
-          200: '#FFC9C3',
-          300: '#FF9B92',   // Dark mode default
-          400: '#FF7B6E',
-          500: '#FF5A4A',   // Light mode default
-          600: '#E63E2E',
-          700: '#CC2A1A',
-          800: '#B31606',
-          900: '#990200',
-          DEFAULT: '#FF5A4A',
+        
+        // 🌿 PASTEL SAGE (Success - Green family)
+        'pastel-sage': {
+          50: '#F2FCF8',   // Lightest background
+          100: '#D9F5E8',  // Light background
+          200: '#B3EBD1',  // Border/divider
+          300: '#8CE0B9',  // DEFAULT - Main UI color
+          400: '#70D6A8',  // Hover state
+          500: '#54CC97',  // Active/pressed state
+          600: '#3BB882',  // Dark accent
+          700: '#28A46D',  // Darker accent
+          800: '#1A9058',  // Darkest
+          900: '#0D3826',  // Very dark for dark mode
+          950: '#072016',  // Ultra dark for dark mode backgrounds
+          DEFAULT: '#8CE0B9',
         },
-        // 🌟 BUTTER (Warning - Yellow)
-        butter: {
-          50: '#FFFBEB',
-          100: '#FFF3C4',
-          200: '#FFE68A',
-          300: '#FFD966',   // Dark mode default
-          400: '#FFCC42',
-          500: '#FFBF1F',   // Light mode default
-          600: '#E5A800',
-          700: '#CC9400',
-          800: '#B38000',
-          900: '#996C00',
-          DEFAULT: '#FFBF1F',
+        
+        // 🌺 PASTEL ROSE (Error/Warning - Red family)
+        'pastel-rose': {
+          50: '#FFF5F5',   // Lightest background
+          100: '#FEE2E2',  // Light background
+          200: '#FECACA',  // Border/divider
+          300: '#FCA5A5',  // DEFAULT - Main UI color
+          400: '#F87171',  // Hover state
+          500: '#EF4444',  // Active/pressed state
+          600: '#DC2626',  // Dark accent
+          700: '#B91C1C',  // Darker accent
+          800: '#991B1B',  // Darkest
+          900: '#3D0A0A',  // Very dark for dark mode
+          950: '#220606',  // Ultra dark for dark mode backgrounds
+          DEFAULT: '#FCA5A5',
         },
         // Desaturated Success (приглушенный зеленый для dark mode)
         'success-soft': {
@@ -166,6 +180,36 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      // 🎨 PASTEL HARMONY ГРАДИЕНТЫ (5 цветов)
+      backgroundImage: {
+        // 🍑 Pastel Peach градиенты
+        'gradient-pastel-peach': 'linear-gradient(135deg, #FFB899 0%, #FFCCAD 100%)',
+        'gradient-pastel-peach-vibrant': 'linear-gradient(135deg, #FF8F66 0%, #FFB899 100%)',
+        
+        // 💜 Pastel Lavender градиенты
+        'gradient-pastel-lavender': 'linear-gradient(135deg, #C4B5FD 0%, #DDD6FE 100%)',
+        'gradient-pastel-lavender-vibrant': 'linear-gradient(135deg, #9E81FA 0%, #C4B5FD 100%)',
+        
+        // 🌊 Pastel Sky градиенты
+        'gradient-pastel-sky': 'linear-gradient(135deg, #7DD3FC 0%, #BAE6FD 100%)',
+        'gradient-pastel-sky-vibrant': 'linear-gradient(135deg, #38B7F8 0%, #7DD3FC 100%)',
+        
+        // 🌿 Pastel Sage градиенты
+        'gradient-pastel-sage': 'linear-gradient(135deg, #8CE0B9 0%, #B3EBD1 100%)',
+        'gradient-pastel-sage-vibrant': 'linear-gradient(135deg, #54CC97 0%, #8CE0B9 100%)',
+        
+        // 🌺 Pastel Rose градиенты
+        'gradient-pastel-rose': 'linear-gradient(135deg, #FCA5A5 0%, #FECACA 100%)',
+        'gradient-pastel-rose-vibrant': 'linear-gradient(135deg, #EF4444 0%, #FCA5A5 100%)',
+        
+        // Нейтральные градиенты для карточек
+        'gradient-card-light': 'linear-gradient(135deg, #FFFFFF 0%, #F9FAFB 100%)',
+        'gradient-card-dark': 'linear-gradient(135deg, #1F2937 0%, #111827 100%)',
+        
+        // Фоновые градиенты
+        'gradient-bg-light': 'linear-gradient(180deg, #FAFAFA 0%, #FFFFFF 100%)',
+        'gradient-bg-dark': 'linear-gradient(180deg, #09090B 0%, #18181B 100%)',
       },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-in-out',

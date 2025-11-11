@@ -136,7 +136,17 @@ async function requireAdminMiddleware(req, res, next) {
         if (!req.user) {
             throw new error_1.AuthenticationError('Пользователь не аутентифицирован');
         }
-        const isAdmin = await userService.isAdmin(BigInt(req.user.telegramId));
+        const telegramId = req.user?.telegramId;
+        if (!telegramId) {
+            res.status(401).json({
+                success: false,
+                error: 'Telegram ID not found',
+                code: 'UNAUTHORIZED',
+                timestamp: new Date().toISOString(),
+            });
+            return;
+        }
+        const isAdmin = await userService.isAdmin(BigInt(telegramId));
         if (!isAdmin) {
             res.status(403).json({
                 success: false,
@@ -148,7 +158,7 @@ async function requireAdminMiddleware(req, res, next) {
         }
         logger_1.logger.debug('API администратор подтвержден', {
             userId: req.user.id,
-            telegramId: req.user.telegramId.toString(),
+            telegramId: req.user.telegramId?.toString(),
         });
         next();
     }

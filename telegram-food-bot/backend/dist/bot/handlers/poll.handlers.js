@@ -553,21 +553,9 @@ async function handleOpenPollButton(ctx, pollId) {
         const botUsername = botInfo.username;
         const deepLinkUrl = `https://t.me/${botUsername}?start=vote_${pollId}`;
         await ctx.answerCallbackQuery({
-            text: '📱 Открываю бота для голосования...',
+            text: '📱 Открываю голосование...',
             url: deepLinkUrl,
         });
-        try {
-            await ctx.reply(`💡 **Альтернативный способ голосования**\n\n` +
-                `Если кнопка не сработала, используйте команду:\n` +
-                `/vote ${pollId}\n\n` +
-                `Или откройте бота [@${botUsername}](https://t.me/${botUsername}) в личных сообщениях`, {
-                parse_mode: 'Markdown',
-                reply_to_message_id: ctx.callbackQuery.message?.message_id,
-            });
-        }
-        catch (fallbackError) {
-            logger_1.logger.warn('Failed to send fallback instructions:', fallbackError);
-        }
         logger_1.logger.info(`Deep link generated for poll ${pollId}, user ${user.id}`);
     }
     catch (error) {

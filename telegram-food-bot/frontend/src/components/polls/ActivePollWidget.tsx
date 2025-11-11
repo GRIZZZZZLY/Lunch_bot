@@ -11,6 +11,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useUI } from '../../store/useAppStore';
 import { PollWithDetails, pollsService } from '../../services/polls.service';
 import { MenuItem, menuService } from '../../services/menu.service';
+import { ICON_SIZES } from '@/lib/design-tokens';
+import { cn } from '@/lib/utils';
 
 interface ActivePollWidgetProps {
   poll: PollWithDetails;
@@ -163,7 +165,7 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp size={20} className="text-white" />
+            <TrendingUp className={cn(ICON_SIZES.md, "text-white")} />
             <h2 className="text-lg font-bold text-white">Активное голосование</h2>
           </div>
           <p className="text-sm text-white/80">Голосование на обед</p>
@@ -176,7 +178,7 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
             className="flex-shrink-0 p-2 hover:bg-white/10 rounded-lg transition-colors"
             title="Завершить голосование"
           >
-            <X size={20} className="text-white" />
+            <X className={cn(ICON_SIZES.md, "text-white")} />
           </button>
         )}
       </div>

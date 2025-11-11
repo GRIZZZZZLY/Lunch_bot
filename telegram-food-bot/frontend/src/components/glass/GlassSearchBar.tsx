@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { getGlassTailwindClasses, type GlassVariant, type GlassTheme } from '@/lib/glassmorphism';
 import { useHaptic } from '@/hooks/useHaptic';
 import { useTelegram } from '@/hooks/useTelegram';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 export interface GlassSearchBarProps {
   value: string;
@@ -96,7 +97,7 @@ export const GlassSearchBar: React.FC<GlassSearchBarProps> = ({
         }}
         transition={{ duration: 0.2 }}
       >
-        <Search className="w-5 h-5" />
+        <Search className={ICON_SIZES.md} />
       </motion.div>
       
       {/* Input */}
@@ -111,7 +112,7 @@ export const GlassSearchBar: React.FC<GlassSearchBarProps> = ({
         disabled={disabled}
         className={cn(
           'flex-1 bg-transparent outline-none text-base',
-          'placeholder:text-gray-400 dark:placeholder:text-gray-500',
+          'placeholder:text-gray-400 dark:placeholder:text-gray-400 dark:text-gray-400',
           'text-gray-900 dark:text-white',
           'transition-colors duration-200'
         )}
@@ -135,7 +136,7 @@ export const GlassSearchBar: React.FC<GlassSearchBarProps> = ({
             )}
             aria-label="Очистить"
           >
-            <X className="w-4 h-4" />
+            <X className={ICON_SIZES.sm} />
           </motion.button>
         )}
       </AnimatePresence>

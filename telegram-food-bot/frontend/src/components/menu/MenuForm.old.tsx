@@ -4,6 +4,7 @@ import { Input } from '../common/Input';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { useTelegram } from '../../hooks/useTelegram';
 import { menuService, MenuItem } from '../../services/menu.service';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 export interface MenuFormData {
   name: string;
@@ -175,7 +176,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
           </h2>
           <button
             onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            className={`${ICON_SIZES.xl} text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-2xl leading-none  flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700`}
           >
             ×
           </button>
@@ -218,7 +219,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
                 {errors.description}
               </p>
             )}
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-400">
               {(formData.description?.length || 0)}/500
             </p>
           </div>
@@ -276,7 +277,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
               {loadingCategories && (
                 <div className="flex items-center space-x-2">
                   <LoadingSpinner size="sm" />
-                  <span className="text-xs text-gray-500">Загрузка категорий...</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-400">Загрузка категорий...</span>
                 </div>
               )}
             </div>

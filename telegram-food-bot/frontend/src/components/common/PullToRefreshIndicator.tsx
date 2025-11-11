@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface PullToRefreshIndicatorProps {
   progress: number; // 0-1
@@ -60,9 +61,9 @@ export const PullToRefreshIndicator: React.FC<PullToRefreshIndicatorProps> = ({
               )}
             >
               {isRefreshing ? (
-                <Loader2 className="size-5" />
+                <Loader2 className={ICON_SIZES.md} />
               ) : (
-                <RefreshCw className="size-5" />
+                <RefreshCw className={ICON_SIZES.md} />
               )}
             </motion.div>
 

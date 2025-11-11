@@ -1,8 +1,25 @@
 import { Request, Response } from 'express';
 import { User } from './database.types';
+export interface RequestUser {
+    id: number;
+    telegramId?: number | bigint;
+    isAdmin?: boolean;
+}
 export interface AuthenticatedRequest extends Request {
+    user?: RequestUser;
+    telegramInitData?: TelegramInitData;
+}
+export interface AuthenticatedRequestFull extends Request {
     user?: User;
     telegramInitData?: TelegramInitData;
+}
+declare global {
+    namespace Express {
+        interface Request {
+            user?: RequestUser;
+            telegramInitData?: TelegramInitData;
+        }
+    }
 }
 export interface ApiResponse<T = any> {
     success: boolean;
@@ -76,4 +93,50 @@ export interface MenuItemQueryDto {
     sortOrder?: 'asc' | 'desc';
 }
 export type ApiController = (req: AuthenticatedRequest, res: Response) => Promise<void>;
+export interface OrderCostsDto {
+    deliveryCost: number;
+    serviceFee: number;
+    tip: number;
+    notes?: string;
+}
+export interface UpdateOrderCostsDto {
+    deliveryCost?: number;
+    serviceFee?: number;
+    tip?: number;
+    notes?: string;
+}
+export interface OrderCostsResponse {
+    id: number;
+    pollId: number;
+    deliveryCost: number;
+    serviceFee: number;
+    tip: number;
+    notes?: string;
+    enteredBy: number;
+    enteredAt: string;
+    updatedAt: string;
+}
+export interface TransactionBreakdown {
+    transactionId: number;
+    userId: number;
+    userName: string;
+    menuItemName: string;
+    itemPrice: number;
+    deliveryShare: number;
+    serviceShare: number;
+    tipShare: number;
+    totalAmount: number;
+    status: 'PENDING' | 'PAID' | 'CONFIRMED';
+}
+export interface PollCostBreakdown {
+    pollId: number;
+    totalItemsCost: number;
+    totalDeliveryCost: number;
+    totalServiceFee: number;
+    totalTip: number;
+    grandTotal: number;
+    participantsCount: number;
+    transactions: TransactionBreakdown[];
+    orderCosts?: OrderCostsResponse;
+}
 //# sourceMappingURL=api.types.d.ts.map

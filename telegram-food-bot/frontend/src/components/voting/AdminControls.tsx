@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { PollWithDetails } from '../../services/polls.service';
 import { cn } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface AdminControlsProps {
   poll: PollWithDetails;
@@ -78,7 +79,7 @@ export const AdminControls: React.FC<AdminControlsProps> = ({
     >
       <div className="flex items-center gap-2 flex-wrap">
         {/* Компактная иконка админа */}
-        <Crown className="text-gold-500" size={16} />
+        <Crown className={`${ICON_SIZES.sm} text-gold-500`} />
         
         {/* Hint: Multi-Winner по умолчанию */}
         <span className="text-xs text-gray-500 dark:text-gray-400">

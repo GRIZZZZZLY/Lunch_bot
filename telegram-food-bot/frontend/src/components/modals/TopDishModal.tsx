@@ -4,6 +4,8 @@ import { X, Trophy, TrendingUp, Users } from 'lucide-react';
 import { GlassCard } from '../ui/glass-card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { ICON_SIZES } from '@/lib/design-tokens';
+import { cn } from '@/lib/utils';
 
 interface TopDishModalProps {
   isOpen: boolean;
@@ -48,7 +50,7 @@ export const TopDishModal: React.FC<TopDishModalProps> = ({ isOpen, onClose, top
                   onClick={onClose}
                   className="absolute top-4 right-4 p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors z-10"
                 >
-                  <X size={20} className="text-foreground" />
+                  <X className={cn(ICON_SIZES.md, "text-foreground")} />
                 </button>
 
                 {/* Trophy icon */}
@@ -61,7 +63,7 @@ export const TopDishModal: React.FC<TopDishModalProps> = ({ isOpen, onClose, top
                   {/* Header */}
                   <div className="text-center space-y-2">
                     <div className="inline-flex items-center justify-center size-16 rounded-full bg-gradient-to-br from-butter-500 to-butter-600 mb-3">
-                      <Trophy size={32} className="text-white" />
+                      <Trophy className={cn(ICON_SIZES.xl, "text-white")} />
                     </div>
                     <h2 className="text-2xl font-bold text-foreground">
                       Топ блюдо недели

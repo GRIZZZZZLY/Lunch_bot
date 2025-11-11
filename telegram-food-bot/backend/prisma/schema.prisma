@@ -35,6 +35,15 @@ model User {
   sentReminders           PaymentReminder[]
   adminReminders          AdminReminder[]
   groupMemberships        GroupMember[]
+  menuSuggestions         MenuSuggestion[]        @relation("SuggestionCreator")
+  reviewedSuggestions     MenuSuggestion[]        @relation("SuggestionReviewer")
+  progress                UserProgress?
+  stats                   UserStats?             @relation("UserStats")
+  achievements            UserAchievement[]
+  challengeProgress       UserChallengeProgress[]
+  quests                  UserQuest[]            @relation("UserQuests")
+  createdRecurringPolls   RecurringPoll[]
+  xpHistory               XPHistory[]            @relation("UserXPHistory")
 
   @@map("users")
 }
@@ -51,6 +60,7 @@ model Group {
   polls      Poll[]
   adminReminders AdminReminder[]
   members    GroupMember[]
+  recurringPolls RecurringPoll[]
 
   @@map("groups")
 }
@@ -96,6 +106,7 @@ model Poll {
   votes                Vote[]
   transactions          Transaction[]
   responsibleSelection  ResponsibleSelection?
+  orderCosts           PollOrderCosts?
 
   @@index([status])
   @@index([startedAt])
@@ -117,11 +128,13 @@ model Vote {
   user         User     @relation(fields: [userId], references: [id])
   poll         Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
 
-  @@unique([pollId, userId])
+  // ИЗМЕНЕНО: Убрали @@unique([pollId, userId]) для поддержки множественного выбора
+  // Теперь один пользователь может голосовать за несколько блюд в одном poll
+  @@unique([pollId, userId, menuItemId]) // Один пользователь не может дважды выбрать одно блюдо
   @@index([pollId])
   @@index([userId])
   @@index([voteType])
-  @@index([pollId, userId]) // Составной индекс для быстрого поиска голоса пользователя
+  @@index([pollId, userId]) // Составной индекс для быстрого поиска всех голосов пользователя
   @@index([createdAt]) // Индекс для фильтрации по дате
   @@index([menuItemId]) // Индекс для группировки по блюдам
   @@map("votes")
@@ -149,6 +162,11 @@ model Transaction {
   toUserId        Int       @map("to_user_id")
   amount          Float
   menuItemId      Int?      @map("menu_item_id")
+  // Cost breakdown fields
+  itemPrice       Float?    @map("item_price")       // Price of menu item only
+  deliveryShare   Float?    @map("delivery_share")   // Equal share of delivery cost
+  serviceShare    Float?    @map("service_share")    // Equal share of service fees
+  tipShare        Float?    @map("tip_share")        // Equal share of tips
   status          String    @default("PENDING")
   paidAt          DateTime? @map("paid_at")
   confirmedAt     DateTime? @map("confirmed_at")
@@ -157,17 +175,33 @@ model Transaction {
   lastReminderAt  DateTime? @map("last_reminder_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
-  
+
   poll            Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
   fromUser        User      @relation("UserDebts", fields: [fromUserId], references: [id])
   toUser          User      @relation("UserCredits", fields: [toUserId], references: [id])
   menuItem        MenuItem? @relation(fields: [menuItemId], references: [id])
   reminders       PaymentReminder[]
-  
+
   @@index([pollId])
   @@index([fromUserId, status])
   @@index([toUserId, status])
   @@map("transactions")
+}
+
+model PollOrderCosts {
+  id              Int       @id @default(autoincrement())
+  pollId          Int       @unique @map("poll_id")
+  deliveryCost    Float     @default(0) @map("delivery_cost")    // Total delivery cost
+  serviceFee      Float     @default(0) @map("service_fee")      // Service fees (commission, etc)
+  tip             Float     @default(0)                          // Optional tip
+  notes           String?                                        // Optional notes from responsible
+  enteredBy       Int       @map("entered_by")                   // User who entered costs
+  enteredAt       DateTime  @default(now()) @map("entered_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  poll            Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  @@map("poll_order_costs")
 }
 
 model ResponsibleSelection {
@@ -185,12 +219,12 @@ model ResponsibleSelection {
   chatId              BigInt?   @map("chat_id")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
-  
+
   poll                Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
   selectedUser        User?     @relation("ResponsibleUser", fields: [selectedUserId], references: [id])
   volunteerUser       User?     @relation("VolunteerUser", fields: [volunteerUserId], references: [id])
   rouletteWinner      User?     @relation("RouletteWinner", fields: [rouletteWinnerId], references: [id])
-  
+
   @@map("responsible_selections")
 }
 
@@ -230,12 +264,341 @@ model GroupMember {
   joinedAt  DateTime @default(now()) @map("joined_at")
   leftAt    DateTime? @map("left_at")
   isActive  Boolean  @default(true) @map("is_active")
-  
+
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([groupId, userId])
   @@index([groupId, isActive])
   @@index([userId])
   @@map("group_members")
+}
+
+model MenuSuggestion {
+  id              Int       @id @default(autoincrement())
+  name            String
+  description     String?
+  price           Float?
+  category        String?
+  imageUrl        String?   @map("image_url")
+  status          String    @default("PENDING")
+  suggestedBy     Int       @map("suggested_by")
+  reviewedBy      Int?      @map("reviewed_by")
+  reviewedAt      DateTime? @map("reviewed_at")
+  rejectionReason String?   @map("rejection_reason")
+  createdMenuItemId Int?    @map("created_menu_item_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  suggester       User      @relation("SuggestionCreator", fields: [suggestedBy], references: [id])
+  reviewer        User?     @relation("SuggestionReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([status])
+  @@index([suggestedBy])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@map("menu_suggestions")
+}
+
+// ============================================
+// GAMIFICATION MODELS (Sprint 6 - Enhanced)
+// ============================================
+
+model UserStats {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+
+  // XP and Level System
+  totalXP   Int      @default(0) @map("total_xp")
+  level     Int      @default(1)
+  rank      String   @default("Новичок") // Новичок, Гурман, Эксперт, Мастер, Легенда
+
+  // Multi-Category Ratings
+  gastroRating       Int      @default(0) @map("gastro_rating")
+  responsibleRating  Int      @default(0) @map("responsible_rating")
+  socialRating       Int      @default(0) @map("social_rating")
+  explorerRating     Int      @default(0) @map("explorer_rating")
+
+  // Streak System
+  currentStreak      Int      @default(0) @map("current_streak")
+  longestStreak      Int      @default(0) @map("longest_streak")
+  lastVoteDate       DateTime? @map("last_vote_date")
+
+  // Voting Stats
+  pollsParticipated  Int      @default(0) @map("polls_participated")
+  pollsWon           Int      @default(0) @map("polls_won")
+  totalVotes         Int      @default(0) @map("total_votes")
+  correctPredictions Int      @default(0) @map("correct_predictions")
+
+  // Responsible Stats
+  timesResponsible   Int      @default(0) @map("times_responsible")
+  timesVolunteer     Int      @default(0) @map("times_volunteer")
+  ordersReceived     Int      @default(0) @map("orders_received")
+
+  // Financial Stats
+  paymentsOnTime     Int      @default(0) @map("payments_on_time")
+  totalSpent         Float    @default(0) @map("total_spent")
+  totalOrders        Int      @default(0) @map("total_orders")
+
+  // Explorer Stats
+  newDishesDiscovered Int     @default(0) @map("new_dishes_discovered")
+  categoriesTried     Int     @default(0) @map("categories_tried")
+  menuItemsAdded      Int     @default(0) @map("menu_items_added")
+
+  // Social Stats
+  referralsCount     Int      @default(0) @map("referrals_count")
+
+  // Legacy fields (keep for backward compatibility)
+  randomChoices      Int      @default(0) @map("random_choices")
+  winStreak          Int      @default(0) @map("win_streak")
+  maxWinStreak       Int      @default(0) @map("max_win_streak")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      User     @relation("UserStats", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([totalXP])
+  @@index([level])
+  @@index([userId, totalXP])
+  @@index([gastroRating])
+  @@index([responsibleRating])
+  @@index([socialRating])
+  @@index([explorerRating])
+  @@map("user_stats")
+}
+
+model XPHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  amount    Int      // Can be positive or negative
+  reason    String
+  category  String   // GASTRO, RESPONSIBLE, SOCIAL, EXPLORER
+  seasonId  Int?     @map("season_id") // NULL for pre-season XP
+  metadata  String?  // JSON with additional context
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation("UserXPHistory", fields: [userId], references: [id], onDelete: Cascade)
+  season    Season?  @relation(fields: [seasonId], references: [id])
+
+  @@index([userId])
+  @@index([seasonId])
+  @@index([createdAt])
+  @@index([category])
+  @@index([userId, seasonId]) // For season-specific leaderboards
+  @@map("xp_history")
+}
+
+// Keep UserProgress for backward compatibility (can be deprecated later)
+model UserProgress {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  xp        Int      @default(0)
+  level     Int      @default(1)
+  rank      String   @default("Новичок")
+  totalVotes        Int      @default(0) @map("total_votes")
+  totalOrders       Int      @default(0) @map("total_orders")
+  totalSpent        Float    @default(0) @map("total_spent")
+  winStreak         Int      @default(0) @map("win_streak")
+  maxWinStreak      Int      @default(0) @map("max_win_streak")
+  categoriesTried   Int      @default(0) @map("categories_tried")
+  randomChoices     Int      @default(0) @map("random_choices")
+  correctPredictions Int     @default(0) @map("correct_predictions")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([xp])
+  @@index([level])
+  @@index([userId, xp])
+  @@map("user_progress")
+}
+
+model Achievement {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique // Unique identifier like "FIRST_VOTE", "TASTE_EXPERT"
+  title       String
+  description String
+  icon        String   // Emoji like "🍽️", "🎯"
+  category    String   // GASTRO, RESPONSIBLE, SOCIAL, EXPLORER
+  rarity      String   @default("COMMON") // COMMON, RARE, EPIC, LEGENDARY
+  xpReward    Int      @default(0) @map("xp_reward")
+  requirement String   // JSON: {"type": "stat_gte", "stat": "pollsParticipated", "value": 1}
+  isHidden    Boolean  @default(false) @map("is_hidden") // Easter egg achievements
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  unlockedBy  UserAchievement[]
+
+  @@index([key])
+  @@index([category])
+  @@index([rarity])
+  @@index([isActive])
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            Int         @id @default(autoincrement())
+  userId        Int         @map("user_id")
+  achievementId Int         @map("achievement_id")
+  progress      Int         @default(100) // 0-100, for progressive achievements
+  unlockedAt    DateTime    @default(now()) @map("unlocked_at")
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([achievementId])
+  @@index([unlockedAt])
+  @@map("user_achievements")
+}
+
+model Quest {
+  id          Int       @id @default(autoincrement())
+  key         String    @unique // Unique identifier like "DAILY_VOTE", "WEEK_STREAK"
+  title       String
+  description String
+  type        String    // DAILY, WEEKLY, RANDOM, EVENT
+  category    String    // GASTRO, RESPONSIBLE, SOCIAL, EXPLORER
+  icon        String    // Emoji
+  xpReward    Int       @default(0) @map("xp_reward")
+  requirement String    // JSON: {"type": "vote_count", "target": 1}
+  duration    Int       @default(1) // Days quest is active (1 for daily, 7 for weekly)
+  rarity      String    @default("COMMON") // COMMON, RARE, EPIC, LEGENDARY
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  userQuests  UserQuest[]
+
+  @@index([key])
+  @@index([type])
+  @@index([category])
+  @@index([isActive])
+  @@map("quests")
+}
+
+model UserQuest {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  questId     Int       @map("quest_id")
+  status      String    @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED
+  progress    Int       @default(0)
+  target      Int       // Target value for completion (e.g., 5 votes)
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  expiresAt   DateTime  @map("expires_at")
+
+  user        User      @relation("UserQuests", fields: [userId], references: [id], onDelete: Cascade)
+  quest       Quest     @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questId, startedAt]) // Allow same quest multiple times on different days
+  @@index([userId, status])
+  @@index([questId])
+  @@index([expiresAt])
+  @@index([status])
+  @@map("user_quests")
+}
+
+// Keep Challenge models for backward compatibility (can be deprecated later)
+model Challenge {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String
+  type        String    // daily, weekly, monthly, special
+  rarity      String    @default("common") // common, rare, epic, legendary
+  icon        String
+  target      String    // JSON: {"type": "votes", "count": 7}
+  reward      String    // JSON: {"xp": 300, "badge": "Активист", "discount": 10}
+  deadline    DateTime? // Optional deadline
+  isActive    Boolean   @default(true) @map("is_active")
+  startDate   DateTime  @default(now()) @map("start_date")
+  endDate     DateTime? @map("end_date")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  progress    UserChallengeProgress[]
+
+  @@index([type])
+  @@index([rarity])
+  @@index([isActive])
+  @@index([deadline])
+  @@map("challenges")
+}
+
+model UserChallengeProgress {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @map("user_id")
+  challengeId  Int       @map("challenge_id")
+  progress     Int       @default(0)
+  isCompleted  Boolean   @default(false) @map("is_completed")
+  completedAt  DateTime? @map("completed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge    Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+  @@index([userId])
+  @@index([challengeId])
+  @@index([isCompleted])
+  @@map("user_challenge_progress")
+}
+
+model Season {
+  id          Int       @id @default(autoincrement())
+  number      Int       @unique // Season number (1, 2, 3, ...)
+  name        String    // "Зимний сезон", "Весенний сезон"
+  theme       String?   // Optional theme color/identifier
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime  @map("end_date")
+  isActive    Boolean   @default(false) @map("is_active")
+  rewards     String?   // JSON: Top player rewards, badges, etc
+  metadata    String?   // JSON: Additional season info
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  xpHistory   XPHistory[] // XP earned during this season
+
+  @@index([isActive])
+  @@index([startDate, endDate])
+  @@map("seasons")
+}
+
+// ============================================
+// RECURRING POLLS (Auto-scheduled voting)
+// ============================================
+
+model RecurringPoll {
+  id                  Int       @id @default(autoincrement())
+  groupId             Int       @map("group_id")
+  isEnabled           Boolean   @default(true) @map("is_enabled")
+  
+  // Schedule (Europe/Moscow, UTC+3)
+  daysOfWeek          String    @map("days_of_week") // JSON: "[1,2,3,4,5]" (Mon-Fri)
+  timeOfDay           String    @map("time_of_day") // "11:00"
+  duration            Int       @default(30) // minutes
+  
+  // Menu items
+  selectedMenuItemIds String?   @map("selected_menu_item_ids") // JSON: "[1,5,8]" or null (all active)
+  
+  // Tracking
+  lastRunAt           DateTime? @map("last_run_at")
+  nextRunAt           DateTime? @map("next_run_at") // Cached for performance
+  lastRunStatus       String?   @map("last_run_status") // SUCCESS, SKIPPED_CONFLICT, FAILED_NO_MENU, FAILED_ERROR
+  lastRunMessage      String?   @map("last_run_message") // Error details if failed
+  
+  // Metadata
+  createdBy           Int       @map("created_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  group               Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator             User      @relation(fields: [createdBy], references: [id])
+  
+  @@unique([groupId]) // One schedule per group
+  @@index([isEnabled, nextRunAt]) // For scheduler queries
+  @@index([groupId, isEnabled])
+  @@map("recurring_polls")
 }

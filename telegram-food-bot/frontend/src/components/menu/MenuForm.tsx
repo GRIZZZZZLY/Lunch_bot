@@ -21,6 +21,7 @@ import { useHaptic } from '../../hooks/useHaptic';
 import { menuService, MenuItem } from '../../services/menu.service';
 import { cn } from '../../lib/utils';
 import { sanitizeText, sanitizeURL } from '../../lib/sanitize';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 export interface MenuFormData {
   name: string;
@@ -204,7 +205,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
   return (
     <div className="flex flex-col h-full">
       {/* Form Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-4">
         {loading && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
             <LoadingSpinner text="Сохранение..." />
@@ -344,7 +345,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
             
             {loadingCategories && (
               <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full size-4 border-2 border-mint-500 border-t-transparent" />
+                <div className={`${ICON_SIZES.sm} animate-spin rounded-full  border-2 border-mint-500 border-t-transparent`} />
                 <span className="text-xs text-muted-foreground">Загрузка категорий...</span>
               </div>
             )}
@@ -397,14 +398,14 @@ export const MenuForm: React.FC<MenuFormProps> = ({
                   <button
                     type="button"
                     onClick={() => handleInputChange('imageUrl', '')}
-                    className="absolute top-2 right-2 size-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                    className={`${ICON_SIZES.xl} absolute top-2 right-2  rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-red-500 transition-colors`}
                   >
-                    <X className="size-4" />
+                    <X className={ICON_SIZES.sm} />
                   </button>
                   
                   {/* Preview label */}
                   <div className="absolute bottom-2 left-2 px-3 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-white text-xs font-medium flex items-center gap-1">
-                    <Check className="size-3" />
+                    <Check className={ICON_SIZES.xs} />
                     Предпросмотр
                   </div>
                 </div>
@@ -459,12 +460,12 @@ export const MenuForm: React.FC<MenuFormProps> = ({
           >
             {loading ? (
               <>
-                <div className="animate-spin rounded-full size-4 border-2 border-white border-t-transparent mr-2" />
+                <div className={`${ICON_SIZES.sm} animate-spin rounded-full  border-2 border-white border-t-transparent mr-2`} />
                 Сохранение...
               </>
             ) : (
               <>
-                {item ? <Check className="size-4 mr-2" /> : <Plus className="size-4 mr-2" />}
+                {item ? <Check className={`${ICON_SIZES.sm} mr-2`} /> : <Plus className={`${ICON_SIZES.sm} mr-2`} />}
                 {item ? 'Сохранить' : 'Добавить'}
               </>
             )}

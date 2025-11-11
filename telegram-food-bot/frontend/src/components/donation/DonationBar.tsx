@@ -5,6 +5,7 @@ import { GlassCard, GlassCardContent } from '../ui/glass-card';
 import { DonationModal } from './DonationModal';
 import { useHaptic } from '../../hooks/useHaptic';
 import { DONATION_THEME } from '../../styles/donation.theme';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 const DONATION_CONFIG = {
   FIRST_SHOW_DELAY: DONATION_THEME.timing.firstShowDelay,
@@ -142,7 +143,7 @@ export const DonationBar: React.FC = () => {
                   </div>
                   
                   <ChevronRight 
-                    className="size-5 flex-shrink-0"
+                    className={`${ICON_SIZES.md} flex-shrink-0`}
                     style={{ color: 'white' }}
                   />
                 </div>

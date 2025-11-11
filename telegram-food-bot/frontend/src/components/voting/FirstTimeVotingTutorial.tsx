@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { useTelegram } from '../../hooks/useTelegram';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface FirstTimeVotingTutorialProps {
   isOpen: boolean;
@@ -109,7 +110,7 @@ export const FirstTimeVotingTutorial: React.FC<FirstTimeVotingTutorialProps> = (
                 onClick={handleSkip}
                 className="absolute top-4 right-4 p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
-                <X size={20} />
+                <X className={ICON_SIZES.md} />
               </button>
 
               {/* Progress bar */}
@@ -180,7 +181,7 @@ export const FirstTimeVotingTutorial: React.FC<FirstTimeVotingTutorialProps> = (
                   }
                 `}
               >
-                <ChevronLeft size={20} />
+                <ChevronLeft className={ICON_SIZES.md} />
                 Назад
               </motion.button>
 
@@ -192,13 +193,13 @@ export const FirstTimeVotingTutorial: React.FC<FirstTimeVotingTutorialProps> = (
               >
                 {currentStep === tutorialSteps.length - 1 ? (
                   <>
-                    <Check size={20} />
+                    <Check className={ICON_SIZES.md} />
                     Понятно!
                   </>
                 ) : (
                   <>
                     Далее
-                    <ChevronRight size={20} />
+                    <ChevronRight className={ICON_SIZES.md} />
                   </>
                 )}
               </motion.button>
@@ -210,7 +211,7 @@ export const FirstTimeVotingTutorial: React.FC<FirstTimeVotingTutorialProps> = (
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
-                className="text-center py-2 text-xs text-gray-400 dark:text-gray-500"
+                className="text-center py-2 text-xs text-gray-400 dark:text-gray-400 dark:text-gray-400"
               >
                 Нажмите на фон, чтобы пропустить
               </motion.div>

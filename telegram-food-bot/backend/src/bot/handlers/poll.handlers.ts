@@ -724,6 +724,7 @@ export async function handleShowResultsWithoutComplete(
 
 /**
  * Обработка нажатия кнопки "Проголосовать" (Deep Linking)
+ * ОБНОВЛЕНО: Убраны fallback сообщения, прямое открытие Mini App
  */
 export async function handleOpenPollButton(
   ctx: CallbackQueryContext<BotContext>,
@@ -757,28 +758,11 @@ export async function handleOpenPollButton(
     const deepLinkUrl = `https://t.me/${botUsername}?start=vote_${pollId}`;
 
     // Отправляем ответ с URL (открывает личный чат с ботом)
+    // Бот молча откроет Mini App благодаря логике в start.ts
     await ctx.answerCallbackQuery({
-      text: '📱 Открываю бота для голосования...',
+      text: '📱 Открываю голосование...',
       url: deepLinkUrl,
     });
-
-    // Fallback: отправляем сообщение с инструкциями в группу
-    // на случай, если deep link не сработал
-    try {
-      await ctx.reply(
-        `💡 **Альтернативный способ голосования**\n\n` +
-        `Если кнопка не сработала, используйте команду:\n` +
-        `/vote ${pollId}\n\n` +
-        `Или откройте бота [@${botUsername}](https://t.me/${botUsername}) в личных сообщениях`,
-        { 
-          parse_mode: 'Markdown',
-          reply_to_message_id: ctx.callbackQuery.message?.message_id,
-        }
-      );
-    } catch (fallbackError) {
-      // Игнорируем ошибку отправки fallback сообщения
-      logger.warn('Failed to send fallback instructions:', fallbackError);
-    }
 
     logger.info(`Deep link generated for poll ${pollId}, user ${user.id}`);
   } catch (error) {

@@ -40,7 +40,7 @@ export function VirtualList<T>({
   // Если список пустой
   if (items.length === 0) {
     return emptyState || (
-      <div className="flex items-center justify-center p-8 text-gray-500">
+      <div className="flex items-center justify-center p-8 text-gray-400 dark:text-gray-400">
         Нет элементов
       </div>
     );

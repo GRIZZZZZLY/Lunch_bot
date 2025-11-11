@@ -26,7 +26,11 @@ export declare class NotificationService {
     private isUserMuted;
     private formatDate;
     sendPollCancelledNotifications(pollId: number, cancelledBy: User, reason?: string): Promise<void>;
-    getStats(): Promise<any>;
+    getStats(): Promise<{
+        paymentReminders: number;
+        pollNotifications: number;
+        totalReminders: number;
+    }>;
 }
 export declare const notificationService: NotificationService;
 //# sourceMappingURL=notification.service.d.ts.map

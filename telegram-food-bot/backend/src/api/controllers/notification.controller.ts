@@ -53,25 +53,34 @@ class NotificationController {
         });
       }
 
-      // Проверяем cooldown (10 минут)
-      const COOLDOWN_MINUTES = 10;
-      const lastReminder = await prisma.$queryRaw<Array<{ createdAt: Date }>>`
-        SELECT "createdAt" 
-        FROM "AdminReminder" 
-        WHERE "userId" = ${userId} 
-          AND "groupId" = ${groupId}
-          AND "createdAt" > NOW() - INTERVAL '${COOLDOWN_MINUTES} minutes'
-        ORDER BY "createdAt" DESC 
-        LIMIT 1
-      `;
+      // Проверяем cooldown (30 минут) - ОБЩИЙ для всей группы
+      const COOLDOWN_MINUTES = 30;
+      const cooldownTime = new Date(Date.now() - COOLDOWN_MINUTES * 60 * 1000);
+      const lastReminder = await prisma.adminReminder.findFirst({
+        where: {
+          groupId, // Убрали проверку userId - теперь cooldown общий для всей группы
+          createdAt: {
+            gt: cooldownTime,
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          user: true, // Включаем информацию о пользователе для сообщения
+        },
+      });
 
-      if (lastReminder && lastReminder.length > 0) {
+      if (lastReminder) {
         const minutesLeft = Math.ceil(
-          (COOLDOWN_MINUTES * 60000 - (Date.now() - new Date(lastReminder[0].createdAt).getTime())) / 60000
+          (COOLDOWN_MINUTES * 60000 - (Date.now() - new Date(lastReminder.createdAt).getTime())) / 60000
         );
+        const reminderUserName = lastReminder.user.firstName || lastReminder.user.username || 'Другой пользователь';
         return res.status(429).json({ 
           success: false, 
-          error: `Подождите ${minutesLeft} минут${minutesLeft === 1 ? 'у' : minutesLeft < 5 ? 'ы' : ''} перед следующим напоминанием` 
+          error: `${reminderUserName} уже отправил напоминание. Подождите ${minutesLeft} минут${minutesLeft === 1 ? 'у' : minutesLeft < 5 ? 'ы' : ''} перед следующим`,
+          cooldownEndsAt: new Date(new Date(lastReminder.createdAt).getTime() + COOLDOWN_MINUTES * 60 * 1000).toISOString(),
+          minutesLeft,
         });
       }
 
@@ -122,10 +131,12 @@ class NotificationController {
       }
 
       // Сохраняем запись о напоминании
-      await prisma.$executeRaw`
-        INSERT INTO "AdminReminder" ("userId", "groupId", "createdAt")
-        VALUES (${userId}, ${groupId}, NOW())
-      `;
+      await prisma.adminReminder.create({
+        data: {
+          userId,
+          groupId,
+        },
+      });
 
       logger.info(`[NotificationController] Sent ${sentCount} reminders to admins`);
 
@@ -139,6 +150,87 @@ class NotificationController {
 
     } catch (error) {
       logger.error('[NotificationController] Error in remindAdmin:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Internal server error' 
+      });
+    }
+  }
+
+  /**
+   * Получить статус cooldown для группы
+   * GET /api/notifications/cooldown/:groupId
+   */
+  async getCooldownStatus(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      const groupId = parseInt(req.params.groupId);
+
+      if (!userId) {
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Unauthorized' 
+        });
+      }
+
+      if (!groupId || isNaN(groupId)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid group ID' 
+        });
+      }
+
+      const COOLDOWN_MINUTES = 30;
+      const cooldownTime = new Date(Date.now() - COOLDOWN_MINUTES * 60 * 1000);
+      
+      const lastReminder = await prisma.adminReminder.findFirst({
+        where: {
+          groupId,
+          createdAt: {
+            gt: cooldownTime,
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      if (lastReminder) {
+        const endsAt = new Date(new Date(lastReminder.createdAt).getTime() + COOLDOWN_MINUTES * 60 * 1000);
+        const secondsLeft = Math.ceil((endsAt.getTime() - Date.now()) / 1000);
+        const minutesLeft = Math.ceil(secondsLeft / 60);
+        
+        return res.json({
+          success: true,
+          data: {
+            isActive: true,
+            cooldownEndsAt: endsAt.toISOString(),
+            secondsLeft,
+            minutesLeft,
+            lastReminderBy: {
+              id: lastReminder.user.id,
+              name: lastReminder.user.firstName || lastReminder.user.username || 'Пользователь',
+            },
+          },
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          isActive: false,
+          cooldownEndsAt: null,
+          secondsLeft: 0,
+          minutesLeft: 0,
+          lastReminderBy: null,
+        },
+      });
+
+    } catch (error) {
+      logger.error('[NotificationController] Error in getCooldownStatus:', error);
       return res.status(500).json({ 
         success: false, 
         error: 'Internal server error' 

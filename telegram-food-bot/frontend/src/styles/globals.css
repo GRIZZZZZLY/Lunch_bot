@@ -2,11 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 🎨 Modern Design System - CSS Variables */
+/* 🎨 PASTEL HARMONY - CSS Variables (5 цветов) */
 @layer base {
   :root {
-    /* ☀️ LIGHT THEME (Default) */
-    --background: 282 100% 98%; /* #F5F3FF - Lavender light */
+    /* ☀️ LIGHT THEME - Pastel Peach Primary */
+    --background: 0 0% 98%; /* #FAFAFA - Near white */
     --foreground: 0 0% 4%; /* #0A0A0A - Almost black text */
     
     --card: 0 0% 100%; /* #FFFFFF - White cards */
@@ -15,57 +15,71 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 4%;
     
-    --primary: 18 100% 66%; /* #FF7851 - Peach */
-    --primary-foreground: 0 0% 100%; /* White text on primary */
+    /* 🍑 PRIMARY - Pastel Peach (main accent) */
+    --primary: 25 100% 76%; /* #FFB899 - Soft Orange Pastel */
+    --primary-foreground: 0 0% 10%; /* Dark text for better contrast */
     
-    --secondary: 158 42% 53%; /* #5CAE87 - Mint */
-    --secondary-foreground: 0 0% 100%;
+    /* 🌿 SECONDARY - Pastel Sage (success) */
+    --secondary: 152 56% 72%; /* #8CE0B9 - Mint Green Pastel */
+    --secondary-foreground: 0 0% 10%;
     
-    --muted: 0 0% 89%; /* #E3E3E3 - Light gray */
-    --muted-foreground: 0 0% 30%; /* #4D4D4D */
+    --muted: 0 0% 96%; /* #F5F5F5 - Very light gray */
+    --muted-foreground: 0 0% 40%; /* #666666 - Medium gray */
     
-    --accent: 263 84% 72%; /* #8B5CF6 - Lavender */
-    --accent-foreground: 0 0% 100%;
+    /* 💜 ACCENT - Pastel Lavender for highlights */
+    --accent: 258 88% 86%; /* #DDD6FE - Light Purple Pastel */
+    --accent-foreground: 0 0% 10%;
     
-    --destructive: 6 95% 64%; /* #FF5A4A - Coral */
-    --destructive-foreground: 0 0% 100%;
+    /* 🌺 DESTRUCTIVE - Pastel Rose for errors */
+    --destructive: 0 93% 82%; /* #FCA5A5 - Coral Pastel */
+    --destructive-foreground: 0 0% 10%;
     
-    --border: 0 0% 90%; /* #E5E7EB */
-    --input: 0 0% 90%;
-    --ring: 18 100% 66%; /* Peach */
+    --border: 0 0% 90%; /* #E5E5E5 */
+    --input: 0 0% 94%; /* #F0F0F0 */
+    --ring: 25 100% 76%; /* Pastel Peach ring focus */
     
-    --radius: 0.75rem; /* 12px - более сбалансированный радиус для карточек */
+    --radius: 0.75rem; /* 12px */
+    
+    /* 🎨 Дополнительные цвета палитры */
+    --color-pastel-sky: 199 89% 74%; /* #7DD3FC - Sky Blue Pastel */
   }
 
   .dark {
-    /* 🌙 DARK THEME */
-    --background: 0 0% 4%; /* #0A0A0A - Almost black */
-    --foreground: 0 0% 100%; /* #FFFFFF - White text */
+    /* 🌙 DARK THEME - Pastel Lavender Primary */
+    --background: 240 10% 4%; /* #09090B - Deep dark */
+    --foreground: 0 0% 98%; /* #FAFAFA - Near white text */
     
-    --card: 0 0% 8%; /* #141414 - Dark gray cards */
-    --card-foreground: 0 0% 100%;
+    --card: 240 10% 8%; /* #13131A - Dark cards */
+    --card-foreground: 0 0% 98%;
     
-    --popover: 0 0% 11%; /* #1C1C1C */
-    --popover-foreground: 0 0% 100%;
+    --popover: 240 10% 10%; /* #191921 */
+    --popover-foreground: 0 0% 98%;
     
-    --primary: 18 100% 78%; /* #FFB38F - Peach pastel */
-    --primary-foreground: 0 0% 4%; /* Black text on primary */
+    /* 💜 PRIMARY - Pastel Lavender (main accent) */
+    --primary: 258 88% 86%; /* #DDD6FE - Light Purple Pastel */
+    --primary-foreground: 0 0% 10%; /* Dark text for contrast */
     
-    --secondary: 158 42% 62%; /* #9ED6B9 - Mint pastel */
-    --secondary-foreground: 0 0% 4%;
+    /* 🌿 SECONDARY - Pastel Sage */
+    --secondary: 152 56% 72%; /* #8CE0B9 - Mint Green Pastel */
+    --secondary-foreground: 0 0% 10%;
     
-    --muted: 0 0% 14%; /* #242424 - Dark muted */
-    --muted-foreground: 0 0% 72%; /* #B8B8B8 */
+    --muted: 240 10% 14%; /* #212129 - Dark muted */
+    --muted-foreground: 0 0% 65%; /* #A6A6A6 - Light gray */
     
-    --accent: 263 84% 82%; /* #C4B5FD - Lavender pastel */
-    --accent-foreground: 0 0% 4%;
+    /* 🍑 ACCENT - Pastel Peach for highlights */
+    --accent: 25 100% 76%; /* #FFB899 - Soft Orange Pastel */
+    --accent-foreground: 0 0% 10%;
     
-    --destructive: 6 100% 78%; /* #FF9B92 - Coral pastel */
-    --destructive-foreground: 0 0% 4%;
+    /* 🌺 DESTRUCTIVE - Pastel Rose for errors */
+    --destructive: 0 93% 82%; /* #FCA5A5 - Coral Pastel */
+    --destructive-foreground: 0 0% 10%;
     
-    --border: 0 0% 16%; /* #2A2A2A */
-    --input: 0 0% 16%;
-    --ring: 18 100% 78%; /* Peach pastel */
+    --border: 240 10% 18%; /* #2D2D38 */
+    --input: 240 10% 16%; /* #26262F */
+    --ring: 258 88% 86%; /* Pastel Lavender ring focus */
+    
+    /* 🎨 Дополнительные цвета палитры */
+    --color-pastel-sky: 199 89% 74%; /* #7DD3FC - Sky Blue Pastel */
   }
   
   * {

@@ -69,13 +69,14 @@ export function createResultsWebAppKeyboard(pollId: number) {
 
 /**
  * Универсальная клавиатура с несколькими действиями
+ * ИЗМЕНЕНО: голосование теперь на главной странице (?pollId=X вместо /poll/:id)
  */
 export function createPollActionsKeyboard(pollId: number, showResults: boolean = false) {
   const buttons = [];
   
-  // Кнопка голосования
+  // Кнопка голосования - ИЗМЕНЕНО: открывает главную с параметром pollId
   buttons.push([
-    createWebAppButton('🗳️ Проголосовать', `/poll/${pollId}`)
+    createWebAppButton('🗳️ Проголосовать', `/?pollId=${pollId}`)
   ]);
   
   // Кнопка результатов (если голосование завершено)
@@ -92,12 +93,13 @@ export function createPollActionsKeyboard(pollId: number, showResults: boolean =
 
 /**
  * Клавиатура для ответственного за заказ
+ * ИЗМЕНЕНО: убрана кнопка "Детали заказа", так как /poll/:id/order больше не существует
  */
 export function createResponsibleKeyboard(pollId: number) {
   return {
     inline_keyboard: [
-      [createWebAppButton('📋 Детали заказа', `/poll/${pollId}/order`)],
-      [createWebAppButton('💰 Информация о платежах', '/payments')]
+      [createWebAppButton('🏠 Главная', '/')],
+      [createWebAppButton('💰 Информация о платежах', '/profile')]
     ]
   };
 }

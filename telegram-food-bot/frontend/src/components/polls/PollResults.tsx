@@ -158,7 +158,7 @@ export const PollResults: React.FC<PollResultsProps> = ({ poll, onBack }) => {
 
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-500 dark:text-gray-400">Статус:</span>
+            <span className="text-muted-foreground dark:text-gray-400">Статус:</span>
             <div className={`font-medium ${
               poll.status === 'ACTIVE' 
                 ? 'text-green-600 dark:text-green-400' 
@@ -169,14 +169,14 @@ export const PollResults: React.FC<PollResultsProps> = ({ poll, onBack }) => {
           </div>
           
           <div>
-            <span className="text-gray-500 dark:text-gray-400">Участников:</span>
+            <span className="text-muted-foreground dark:text-gray-400">Участников:</span>
             <div className="font-medium text-gray-900 dark:text-white">
               👥 {totalVotes}
             </div>
           </div>
 
           <div>
-            <span className="text-gray-500 dark:text-gray-400">Создано:</span>
+            <span className="text-muted-foreground dark:text-gray-400">Создано:</span>
             <div className="font-medium text-gray-900 dark:text-white">
               📅 {pollsService.formatPollDate(poll.createdAt)}
             </div>
@@ -184,7 +184,7 @@ export const PollResults: React.FC<PollResultsProps> = ({ poll, onBack }) => {
 
           {poll.endTime && (
             <div>
-              <span className="text-gray-500 dark:text-gray-400">
+              <span className="text-muted-foreground dark:text-gray-400">
                 {poll.status === 'ACTIVE' ? 'Завершится:' : 'Завершено:'}
               </span>
               <div className="font-medium text-gray-900 dark:text-white">
@@ -261,7 +261,7 @@ export const PollResults: React.FC<PollResultsProps> = ({ poll, onBack }) => {
                     <div className="font-semibold text-gray-900 dark:text-white">
                       {item.votes} голосов
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="text-sm text-muted-foreground dark:text-gray-400">
                       {item.percentage}%
                     </div>
                   </div>

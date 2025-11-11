@@ -1,9 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Poll, pollsService } from '../../services/polls.service';
-import { GlassCard, GlassBadge } from '@/components/glass';
+import { PastelCard } from '../ui/pastel-card';
+import { Badge } from '../ui/badge';
 import { useTelegram } from '../../hooks/useTelegram';
 import { cn } from '@/lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 import { 
   Users, 
   Calendar, 
@@ -51,11 +53,12 @@ export const PollCard: React.FC<PollCardProps> = ({
   const statusText = poll.status === 'ACTIVE' ? 'Активно' : 'Завершено';
 
   return (
-    <GlassCard
-      variant="medium"
-      theme={isDark ? 'dark' : 'light'}
-      hover
-      className={cn(compact ? 'p-3' : 'p-4')}
+    <PastelCard
+      variant="lavender"
+      className={cn(
+        "hover:scale-[1.02] transition-transform",
+        compact ? 'p-3' : 'p-4'
+      )}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
@@ -65,14 +68,13 @@ export const PollCard: React.FC<PollCardProps> = ({
             }`}>
               {poll.title}
             </h3>
-            <GlassBadge
-              label={statusText}
-              icon={poll.status === 'ACTIVE' ? Sparkles : undefined}
-              variant={poll.status === 'ACTIVE' ? 'success' : 'default'}
-              glassVariant="light"
-              theme={isDark ? 'dark' : 'light'}
-              animate={false}
-            />
+            <Badge
+              variant={poll.status === 'ACTIVE' ? 'default' : 'secondary'}
+              className="ml-2"
+            >
+              {poll.status === 'ACTIVE' && <Sparkles className="w-3 h-3 mr-1" />}
+              {statusText}
+            </Badge>
           </div>
           
           {poll.description && !compact && (
@@ -97,14 +99,14 @@ export const PollCard: React.FC<PollCardProps> = ({
       <div className="flex items-center justify-between text-sm mb-3">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-1.5 text-gray-600 dark:text-gray-400">
-            <Users size={16} className="text-primary-food-500" />
+            <Users className={cn(ICON_SIZES.sm, "text-primary-food-500")} />
             <span className="font-medium">{poll._count.votes}</span>
             <span className="text-xs">голосов</span>
           </div>
           
           {!compact && (
             <div className="flex items-center space-x-1.5 text-gray-600 dark:text-gray-400">
-              <Calendar size={16} className="text-gray-400" />
+              <Calendar className={cn(ICON_SIZES.sm, "text-gray-400")} />
               <span className="text-xs">{formattedDate}</span>
             </div>
           )}
@@ -155,7 +157,7 @@ export const PollCard: React.FC<PollCardProps> = ({
                 transition-colors duration-200
               "
             >
-              <FileText size={16} />
+              <FileText className={ICON_SIZES.sm} />
               <span>{compact ? 'Детали' : 'Подробнее'}</span>
             </motion.button>
           )}
@@ -180,7 +182,7 @@ export const PollCard: React.FC<PollCardProps> = ({
           )}
         </div>
       )}
-    </GlassCard>
+    </PastelCard>
   );
 };
 

@@ -5,7 +5,8 @@
 
 param(
     [switch]$SkipChecks,
-    [switch]$NoNgrok
+    [switch]$NoNgrok,
+    [switch]$SkipBuild
 )
 
 Write-Host ""
@@ -33,8 +34,7 @@ if (-not $NoNgrok) {
 # Check project structure
 $requiredPaths = @(
     "backend\package.json",
-    "frontend\package.json",
-    "proxy-server.js"
+    "frontend\package.json"
 )
 
 foreach ($path in $requiredPaths) {
@@ -43,6 +43,8 @@ foreach ($path in $requiredPaths) {
         exit 1
     }
 }
+
+Write-Host "OK: Project structure valid" -ForegroundColor Green
 
 Write-Host "OK: All checks passed" -ForegroundColor Green
 Write-Host ""
@@ -92,10 +94,6 @@ if (-not $SkipChecks) {
         Set-Location ..
     }
 
-    if (-not (Test-Path "node_modules\http-proxy")) {
-        Write-Host "Installing http-proxy..." -ForegroundColor Yellow
-        npm install http-proxy
-    }
 }
 
 Write-Host ""
@@ -104,20 +102,36 @@ Write-Host "  Preparing Frontend..." -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 
-# Check if frontend/dist exists, if not - create initial build
-if (-not (Test-Path "frontend\dist")) {
-    Write-Host "No dist/ found, creating initial build..." -ForegroundColor Yellow
+# ИСПРАВЛЕНИЕ: Всегда пересобираем frontend для гарантии актуальности (если не пропущено)
+if (-not $SkipBuild) {
+    # Это занимает ~15-20 секунд, но предотвращает проблемы с устаревшими файлами
+    Write-Host "Building frontend with prod-dev config..." -ForegroundColor Yellow
+    Write-Host "(This ensures all files are up-to-date)" -ForegroundColor Gray
+    Write-Host "(Use -SkipBuild to skip this step)" -ForegroundColor DarkGray
     Set-Location frontend
-    npm run build
+
+    # Запускаем сборку
+    npm run build:prod-dev
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "ERROR: Initial frontend build failed!" -ForegroundColor Red
+        Write-Host "ERROR: Frontend build failed!" -ForegroundColor Red
         Set-Location ..
         exit 1
     }
-    Write-Host "OK: Initial build completed" -ForegroundColor Green
+
+    Write-Host "OK: Frontend built successfully" -ForegroundColor Green
     Set-Location ..
 } else {
-    Write-Host "OK: Using existing dist/, watcher will rebuild if needed" -ForegroundColor Green
+    Write-Host "Skipping frontend build (-SkipBuild flag)" -ForegroundColor Yellow
+    Write-Host "WARNING: Make sure frontend/dist is up-to-date!" -ForegroundColor Yellow
+
+    # Проверяем что dist существует
+    if (-not (Test-Path "frontend\dist")) {
+        Write-Host "ERROR: frontend/dist not found! Cannot skip build." -ForegroundColor Red
+        Write-Host "Run without -SkipBuild first" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "OK: Using existing dist/" -ForegroundColor Green
 }
 
 Write-Host ""
@@ -128,21 +142,21 @@ Write-Host ""
 if (-not $NoNgrok) {
     Write-Host "4 terminal windows will open:" -ForegroundColor White
     Write-Host "  1. Backend (port 3001) - serves API + static" -ForegroundColor Cyan
-    Write-Host "  2. Frontend Watcher - rebuilds on changes" -ForegroundColor Cyan
-    Write-Host "  3. ngrok (HTTPS tunnel on 3001)" -ForegroundColor Cyan
+    Write-Host "  2. Frontend (watch mode) - auto-rebuilds on changes" -ForegroundColor Cyan
+    Write-Host "  3. ngrok (HTTPS tunnel)" -ForegroundColor Cyan
     Write-Host "  4. URL Updater (auto-config)" -ForegroundColor Green
 } else {
     Write-Host "2 terminal windows will open:" -ForegroundColor White
     Write-Host "  1. Backend (port 3001)" -ForegroundColor Cyan
-    Write-Host "  2. Frontend Watcher" -ForegroundColor Cyan
+    Write-Host "  2. Frontend (watch mode)" -ForegroundColor Cyan
 }
 Write-Host ""
 
 # Get current directory
 $projectRoot = Get-Location
 
-# 1. Start Backend (serves static + API)
-Write-Host "[1/3] Starting Backend..." -ForegroundColor Yellow
+# 1. Start Backend (serves static + API in watch mode)
+Write-Host "[1/4] Starting Backend..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-Command",
@@ -153,45 +167,50 @@ Start-Process powershell -ArgumentList @(
      Write-Host '========================================' -ForegroundColor Green; `
      Write-Host ''; `
      Write-Host 'Port: 3001' -ForegroundColor Cyan; `
-     Write-Host 'Mode: Production build + Dev logging' -ForegroundColor Yellow; `
+     Write-Host 'Mode: tsx watch + PROD env' -ForegroundColor Yellow; `
      Write-Host ''; `
      Write-Host 'Serving:' -ForegroundColor White; `
      Write-Host '  /api  -> Express API' -ForegroundColor Gray; `
      Write-Host '  /     -> Static (from ../frontend/dist/)' -ForegroundColor Gray; `
+     Write-Host ''; `
+     Write-Host 'Starting backend watch mode...' -ForegroundColor Green; `
+     Write-Host 'Backend will auto-restart on file changes' -ForegroundColor Yellow; `
      Write-Host ''; `
      npm run dev"
 )
 
 Start-Sleep -Seconds 3
 
-# 2. Start Frontend Watcher (rebuilds on changes)
-Write-Host "[2/3] Starting Frontend Watcher..." -ForegroundColor Yellow
+# 2. Start Frontend Watch Mode
+Write-Host "[2/4] Starting Frontend watch mode..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-Command",
     "cd '$projectRoot\frontend'; `
      Write-Host ''; `
      Write-Host '========================================' -ForegroundColor Green; `
-     Write-Host '  FRONTEND WATCHER (PROD-DEV)' -ForegroundColor Green; `
+     Write-Host '  FRONTEND PROD-DEV WATCH' -ForegroundColor Green; `
      Write-Host '========================================' -ForegroundColor Green; `
      Write-Host ''; `
-     Write-Host 'Mode: Production build + Watch' -ForegroundColor Cyan; `
      Write-Host 'Output: dist/' -ForegroundColor Cyan; `
+     Write-Host 'Mode: Production build with watch' -ForegroundColor Yellow; `
      Write-Host ''; `
-     Write-Host 'First build in progress...' -ForegroundColor Yellow; `
-     Write-Host 'After that: watching for changes' -ForegroundColor Gray; `
+     Write-Host 'Features:' -ForegroundColor White; `
+     Write-Host '  Auto-rebuild on file changes' -ForegroundColor Gray; `
+     Write-Host '  Console.log preserved' -ForegroundColor Gray; `
+     Write-Host '  Source maps enabled' -ForegroundColor Gray; `
      Write-Host ''; `
-     Write-Host 'Changes will be picked up by backend automatically' -ForegroundColor Gray; `
-     Write-Host 'Refresh browser/Telegram to see changes' -ForegroundColor Yellow; `
+     Write-Host 'Watching for changes...' -ForegroundColor Green; `
+     Write-Host 'Frontend will auto-rebuild on file changes' -ForegroundColor Yellow; `
      Write-Host ''; `
      npm run build:prod-dev"
 )
 
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 2  # Wait for frontend to start
 
 # 3. Start ngrok (unless skipped)
 if (-not $NoNgrok) {
-    Write-Host "[3/3] Starting ngrok..." -ForegroundColor Yellow
+    Write-Host "[3/4] Starting ngrok..." -ForegroundColor Yellow
     Start-Process powershell -ArgumentList @(
         "-NoExit",
         "-Command",
@@ -200,17 +219,18 @@ if (-not $NoNgrok) {
          Write-Host '  NGROK HTTPS TUNNEL' -ForegroundColor Magenta; `
          Write-Host '========================================' -ForegroundColor Magenta; `
          Write-Host ''; `
-         Write-Host 'Port: 3001 (Backend)' -ForegroundColor Cyan; `
+         Write-Host 'Tunneling: Backend on port 3001' -ForegroundColor Cyan; `
+         Write-Host 'Backend serves: API + Static files' -ForegroundColor Gray; `
          Write-Host ''; `
          Write-Host '========================================' -ForegroundColor Yellow; `
-         Write-Host '  IMPORTANT: COPY THE HTTPS URL BELOW' -ForegroundColor Yellow; `
+         Write-Host '  COPY THE HTTPS URL BELOW!' -ForegroundColor Yellow; `
          Write-Host '========================================' -ForegroundColor Yellow; `
          Write-Host ''; `
          ngrok http 3001"
     )
     
     Start-Sleep -Seconds 2
-    
+
     # 4. Start URL updater in separate window
     Write-Host "[4/4] Starting URL updater..." -ForegroundColor Yellow
     Start-Process powershell -ArgumentList @(
@@ -239,27 +259,42 @@ Write-Host ""
 if (-not $NoNgrok) {
     Write-Host "PROD-DEV MODE ACTIVATED!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Features:" -ForegroundColor Cyan
-    Write-Host "  [OK] Production optimizations (minified, fast)" -ForegroundColor Green
-    Write-Host "  [OK] Dev debugging (console.log, source maps)" -ForegroundColor Green
-    Write-Host "  [OK] Auto-rebuild on file changes" -ForegroundColor Green
-    Write-Host "  [OK] SKIP_TELEGRAM_VALIDATION enabled" -ForegroundColor Green
+    Write-Host "Architecture:" -ForegroundColor Cyan
+    Write-Host "  [Backend] Serves API + static files on port 3001" -ForegroundColor White
+    Write-Host "  [Frontend] Production build in dist/ with watch mode" -ForegroundColor White
+    Write-Host "  [ngrok] Tunnels backend:3001 to HTTPS" -ForegroundColor White
     Write-Host ""
-    Write-Host "Window 5 (URL Updater) will guide you through:" -ForegroundColor Cyan
-    Write-Host "  1. Paste ngrok URL" -ForegroundColor White
-    Write-Host "  2. Auto-update .env files" -ForegroundColor White  
+    Write-Host "Features:" -ForegroundColor Cyan
+    Write-Host "  ✅ Production build (esbuild minify + source maps)" -ForegroundColor Green
+    Write-Host "  ✅ Dev debugging (console.log preserved)" -ForegroundColor Green
+    Write-Host "  ✅ Auto-rebuild on file changes (watch mode)" -ForegroundColor Green
+    Write-Host "  ✅ SKIP_TELEGRAM_VALIDATION enabled" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Watch mode active:" -ForegroundColor Cyan
+    Write-Host "  Frontend auto-rebuilds on changes to:" -ForegroundColor White
+    Write-Host "  - src/**/*.tsx, src/**/*.ts" -ForegroundColor Gray
+    Write-Host "  - tailwind.config.js" -ForegroundColor Gray
+    Write-Host "  - vite.config.ts" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Window 4 (URL Updater) will guide you:" -ForegroundColor Cyan
+    Write-Host "  1. Paste ngrok URL from window 3" -ForegroundColor White
+    Write-Host "  2. Auto-update .env files" -ForegroundColor White
     Write-Host "  3. Auto-restart backend" -ForegroundColor White
     Write-Host ""
-    Write-Host "Just copy the ngrok URL from window 4 and paste it in window 5!" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "After that:" -ForegroundColor Cyan
+    Write-Host "After setup:" -ForegroundColor Cyan
     Write-Host "  -> Open @rocket_lunch_bot in Telegram" -ForegroundColor White
     Write-Host "  -> Press 'Menu' button" -ForegroundColor White
-    Write-Host "  -> WebApp opens! Done!" -ForegroundColor Green
+    Write-Host "  -> WebApp loads! Ready!" -ForegroundColor Green
     Write-Host ""
 } else {
-    Write-Host "NGROK SKIPPED - Services running without HTTPS tunnel" -ForegroundColor Yellow
-    Write-Host "WebApp will only work if WEBAPP_URL is already configured" -ForegroundColor Yellow
+    Write-Host "NGROK SKIPPED - Backend running on port 3001" -ForegroundColor Yellow
+    Write-Host "Configure WEBAPP_URL in .env manually" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Features:" -ForegroundColor Cyan
+    Write-Host "  ✅ Production build (esbuild minify + source maps)" -ForegroundColor Green
+    Write-Host "  ✅ Dev debugging (console.log preserved)" -ForegroundColor Green
+    Write-Host "  ✅ Auto-rebuild on file changes (watch mode)" -ForegroundColor Green
+    Write-Host "  ✅ Backend auto-restarts on changes" -ForegroundColor Green
     Write-Host ""
 }
 

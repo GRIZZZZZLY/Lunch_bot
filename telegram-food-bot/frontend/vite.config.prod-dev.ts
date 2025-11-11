@@ -4,11 +4,12 @@ import path from 'path';
 
 /**
  * PRODUCTION-DEV MODE
- * 
+ *
  * Гибридная конфигурация для разработки с production-like окружением:
  * - Production оптимизация кода (минификация, code splitting)
  * - НО оставляем console.log для отладки
  * - НО добавляем source maps для отладки
+ * - Watch mode включается через CLI: `vite build --watch --config vite.config.prod-dev.ts`
  * - Используется для тестирования production build локально
  */
 export default defineConfig({
@@ -27,6 +28,8 @@ export default defineConfig({
       '@/utils': path.resolve(__dirname, './src/utils'),
       '@/styles': path.resolve(__dirname, './src/styles'),
     },
+    // Гарантируем использование только одной версии React
+    dedupe: ['react', 'react-dom'],
   },
   server: {
     port: 5173,
@@ -52,60 +55,14 @@ export default defineConfig({
     outDir: 'dist',
     // ✅ ВКЛЮЧАЕМ source maps для отладки (но в финальном production - отключить)
     sourcemap: true,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        // ⚠️ НЕ удаляем console.log в prod-dev режиме!
-        drop_console: false, // ← Оставляем для отладки
-        drop_debugger: true,
-        passes: 2,
-      },
-      mangle: {
-        safari10: true,
-      },
-    },
+    // ⚠️ ИСПОЛЬЗУЕМ esbuild минификацию (безопаснее чем отключать полностью)
+    minify: 'esbuild',
     chunkSizeWarningLimit: 500,
     reportCompressedSize: true,
     rollupOptions: {
-      external: [],
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            // КРИТИЧНО: React должен быть в ОДНОМ чанке
-            // Проверяем ВСЕ React-зависимые библиотеки ПЕРВЫМИ
-            if (
-              id.includes('react') ||
-              id.includes('react-dom') ||
-              id.includes('scheduler') ||
-              id.includes('react-router') ||
-              id.includes('@remix-run/router') ||
-              id.includes('react-hook-form') ||
-              id.includes('@tanstack/react-query') ||
-              id.includes('lucide-react') ||
-              id.includes('@radix-ui') ||
-              id.includes('framer-motion') ||
-              id.includes('react-window') ||
-              id.includes('react-use') ||
-              id.includes('react-swipeable') ||
-              id.includes('react-confetti') ||
-              id.includes('react-day-picker')
-            ) {
-              return 'vendor'; // ВСЕ React и React-зависимые в один чанк
-            }
-            // Остальные библиотеки в отдельный чанк
-            if (id.includes('axios') || id.includes('zustand')) {
-              return 'state-http';
-            }
-            if (id.includes('clsx') || id.includes('tailwind-merge') || id.includes('class-variance-authority')) {
-              return 'utils';
-            }
-            if (id.includes('@twa-dev/sdk')) {
-              return 'telegram';
-            }
-            // Остальное в vendor
-            return 'vendor';
-          }
-        },
+        // ⚠️ УПРОЩЕННАЯ стратегия - избегаем circular dependencies
+        manualChunks: undefined,
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: (assetInfo) => {

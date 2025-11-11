@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useHaptic } from '../../hooks/useHaptic';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 export interface Toast {
   id: string;
@@ -285,7 +286,7 @@ const ToastItem: React.FC<{
               onClick={handleDismiss}
               className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className={ICON_SIZES.md} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

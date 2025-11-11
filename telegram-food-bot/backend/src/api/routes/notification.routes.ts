@@ -10,4 +10,10 @@ const router = Router();
  */
 router.post('/remind-admin', telegramAuthMiddleware, notificationController.remindAdmin);
 
+/**
+ * GET /api/notifications/cooldown/:groupId
+ * Получить статус cooldown для группы
+ */
+router.get('/cooldown/:groupId', telegramAuthMiddleware, notificationController.getCooldownStatus);
+
 export default router;

@@ -12,6 +12,7 @@ import { Check, Info } from 'lucide-react';
 import { MenuItem } from '@/services/menu.service';
 import { useHaptic } from '@/hooks/useHaptic';
 import { cn } from '@/lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface SwipeableMenuItemProps {
   item: MenuItem;
@@ -103,7 +104,7 @@ export const SwipeableMenuItem: React.FC<SwipeableMenuItemProps> = ({
           }}
           transition={{ duration: 0.2 }}
         >
-          <Check className="h-6 w-6" />
+          <Check className={ICON_SIZES.lg} />
           <span className="font-semibold">Голосовать</span>
         </motion.div>
 
@@ -122,7 +123,7 @@ export const SwipeableMenuItem: React.FC<SwipeableMenuItemProps> = ({
             transition={{ duration: 0.2 }}
           >
             <span className="font-semibold">Подробнее</span>
-            <Info className="h-6 w-6" />
+            <Info className={ICON_SIZES.lg} />
           </motion.div>
         )}
       </div>
@@ -179,7 +180,7 @@ export const SwipeableMenuItem: React.FC<SwipeableMenuItemProps> = ({
               animate={{ scale: 1 }}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-primary"
             >
-              <Check className="h-5 w-5 text-primary-foreground" />
+              <Check className={cn(ICON_SIZES.md, "text-primary-foreground")} />
             </motion.div>
           )}
         </div>

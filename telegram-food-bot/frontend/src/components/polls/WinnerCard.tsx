@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Users } from 'lucide-react';
-import { GlassCard, GlassCardContent } from '../ui/glass-card';
+import { PastelCard, CardContent } from '../ui/pastel-card';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface WinnerCardProps {
   dishName: string;
@@ -32,15 +33,15 @@ export const WinnerCard: React.FC<WinnerCardProps> = ({
       transition={{ duration: 0.5, delay: 0.3 }}
       className={cn('w-full', className)}
     >
-      <GlassCard className="overflow-hidden border-2 border-yellow-500/30 shadow-xl">
-        <GlassCardContent className="p-6">
+      <PastelCard variant="peach" className="overflow-hidden border-2 border-pastel-peach-400 shadow-xl">
+        <CardContent className="p-6 pt-6">
           {/* Бейдж победителя */}
           <div className="flex justify-center mb-4">
             <Badge 
               variant="default" 
               className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-1.5 text-sm font-semibold shadow-lg"
             >
-              <Trophy className="w-4 h-4 mr-1.5" />
+              <Trophy className={`${ICON_SIZES.sm} mr-1.5`} />
               Победитель
             </Badge>
           </div>
@@ -73,7 +74,7 @@ export const WinnerCard: React.FC<WinnerCardProps> = ({
           {/* Статистика */}
           <div className="flex items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
             <div className="flex items-center gap-1.5">
-              <Users className="w-4 h-4" />
+              <Users className={ICON_SIZES.sm} />
               <span className="font-medium">{voteCount} {voteCount === 1 ? 'голос' : voteCount < 5 ? 'голоса' : 'голосов'}</span>
             </div>
             
@@ -83,8 +84,8 @@ export const WinnerCard: React.FC<WinnerCardProps> = ({
               {price} ₽
             </div>
           </div>
-        </GlassCardContent>
-      </GlassCard>
+        </CardContent>
+      </PastelCard>
     </motion.div>
   );
 };

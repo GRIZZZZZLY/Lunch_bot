@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { Button } from '../components/ui/button';
-import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle, GlassCardDescription } from '../components/ui/glass-card';
-import { MediumWaveGradient } from '../components/background';
+import { PastelCard, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/pastel-card';
+// import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { Badge } from '../components/ui/badge';
 import { ThemeToggle } from '../components/ui/theme-toggle';
 import { 
@@ -24,6 +24,7 @@ import { pollsService } from '../services/polls.service';
 import { menuService, MenuItem } from '../services/menu.service';
 import { userService, Group } from '../services/user.service';
 import { cn } from '../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 /**
  * Страница управления голосованиями
@@ -43,13 +44,16 @@ export const PollManagementPage: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [existingPoll, setExistingPoll] = useState<any>(null);
 
-  // Загрузка меню и групп
+  // ✅ ОПТИМИЗАЦИЯ: Параллельная загрузка меню и групп
   useEffect(() => {
     console.log('🚀 [PollManagementPage] Initializing...');
     const initData = async () => {
-      console.log('🔄 Loading menu items and groups...');
-      await loadMenuItems();
-      await loadGroups();
+      console.log('🔄 Loading menu items and groups in parallel...');
+      // Запускаем оба запроса параллельно вместо последовательно
+      await Promise.all([
+        loadMenuItems(),
+        loadGroups()
+      ]);
       console.log('✅ Initialization complete');
     };
     initData();
@@ -285,8 +289,7 @@ export const PollManagementPage: React.FC = () => {
 
   return (
     <>
-      {/* Animated gradient background */}
-      <MediumWaveGradient />
+      {/* Background removed - using neutral bg-background from Layout */}
 
       {/* Main content */}
       <motion.div
@@ -301,11 +304,11 @@ export const PollManagementPage: React.FC = () => {
             {/* Gradient overlay */}
             <div className="absolute inset-0 -z-10 bg-gradient-to-br from-lavender-500/20 to-mint-500/20" />
             
-            <GlassCardContent className="py-6 px-5">
+            <CardContent className="py-6 px-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="size-12 rounded-xl bg-gradient-to-br from-lavender-500 to-lavender-600 flex items-center justify-center shadow-lg">
-                    <Vote size={24} className="text-white" />
+                  <div className={`${ICON_SIZES['2xl']} rounded-xl bg-gradient-to-br from-lavender-500 to-lavender-600 flex items-center justify-center shadow-lg`}>
+                    <Vote className={cn(ICON_SIZES.lg, "text-white")} />
                   </div>
                   <div>
                     <h1 className="text-2xl font-bold text-foreground">
@@ -340,7 +343,7 @@ export const PollManagementPage: React.FC = () => {
                   <div className="text-xs text-muted-foreground">Групп</div>
                 </div>
               </div>
-            </GlassCardContent>
+            </CardContent>
           </GlassCard>
         </motion.div>
 
@@ -348,9 +351,9 @@ export const PollManagementPage: React.FC = () => {
         {existingPoll && (
           <motion.div variants={itemVariants}>
             <GlassCard intensity="medium" className="border-l-4 border-yellow-500">
-              <GlassCardContent className="p-4">
+              <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="text-yellow-600 dark:text-yellow-400 flex-shrink-0" size={20} />
+                  <AlertCircle className={`${ICON_SIZES.md} text-yellow-600 dark:text-yellow-400 flex-shrink-0`} />
                   <div className="flex-1">
                     <h3 className="font-semibold text-foreground mb-1">
                       ⏰ Активное голосование
@@ -367,7 +370,7 @@ export const PollManagementPage: React.FC = () => {
                     </Button>
                   </div>
                 </div>
-              </GlassCardContent>
+              </CardContent>
             </GlassCard>
           </motion.div>
         )}
@@ -375,16 +378,16 @@ export const PollManagementPage: React.FC = () => {
         {/* Основные настройки */}
         <motion.div variants={itemVariants}>
           <GlassCard intensity="medium" hover>
-            <GlassCardHeader>
-              <GlassCardTitle className="flex items-center gap-2">
-                <Users className="text-lavender-500" size={20} />
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className={`${ICON_SIZES.md} text-lavender-500`} />
                 Настройки голосования
-              </GlassCardTitle>
-              <GlassCardDescription>
+              </CardTitle>
+              <CardDescription>
                 Выберите группу, название и длительность
-              </GlassCardDescription>
-            </GlassCardHeader>
-            <GlassCardContent className="space-y-4">
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               {/* Выбор группы */}
               {groups.length > 0 && (
                 <div>
@@ -470,19 +473,19 @@ export const PollManagementPage: React.FC = () => {
                   </motion.button>
                 ))}
               </div>
-            </GlassCardContent>
+            </CardContent>
           </GlassCard>
         </motion.div>
 
         {/* Выбор блюд */}
         <motion.div variants={itemVariants}>
           <GlassCard intensity="medium" hover>
-            <GlassCardHeader>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <GlassCardTitle className="flex items-center gap-2">
-                  <Utensils className="text-mint-500" size={20} />
+                <CardTitle className="flex items-center gap-2">
+                  <Utensils className={`${ICON_SIZES.md} text-mint-500`} />
                   Блюда ({selectedItems.size} из {menuItems.length})
-                </GlassCardTitle>
+                </CardTitle>
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -494,14 +497,14 @@ export const PollManagementPage: React.FC = () => {
               </div>
               {selectedItems.size < 2 && (
                 <div className="mt-3 flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                  <AlertCircle size={16} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className={cn(ICON_SIZES.sm, "text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5")} />
                   <p className="text-yellow-700 dark:text-yellow-300 text-sm font-medium">
                     Выберите минимум 2 блюда
                   </p>
                 </div>
               )}
-            </GlassCardHeader>
-            <GlassCardContent>
+            </CardHeader>
+            <CardContent>
               {menuItems.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground mb-4">
@@ -532,14 +535,14 @@ export const PollManagementPage: React.FC = () => {
                           )}
                           onClick={() => toggleItem(item.id)}
                         >
-                          <GlassCardContent className="p-4">
+                          <CardContent className="p-4">
                             <div className="flex items-start gap-3">
                               {/* Иконка чекбокса */}
                               <div className="size-10 rounded-lg bg-gradient-to-br from-lavender-500 to-lavender-600 flex items-center justify-center flex-shrink-0">
                                 {isSelected ? (
                                   <CheckCircle2 className="text-white" size={20} />
                                 ) : (
-                                  <Circle className="text-white/50" size={20} />
+                                  <Circle className={`${ICON_SIZES.md} text-white/50`} />
                                 )}
                               </div>
 
@@ -569,14 +572,14 @@ export const PollManagementPage: React.FC = () => {
                                 />
                               )}
                             </div>
-                          </GlassCardContent>
+                          </CardContent>
                         </GlassCard>
                       </motion.div>
                 );
               })}
             </div>
           )}
-            </GlassCardContent>
+            </CardContent>
           </GlassCard>
         </motion.div>
 
@@ -584,8 +587,7 @@ export const PollManagementPage: React.FC = () => {
 
       {/* Фиксированная кнопка создания */}
       <div 
-        className="fixed bottom-20 left-0 right-0 px-4 pb-4 pointer-events-none z-50"
-        style={{ position: 'fixed', bottom: '80px' }}
+        className="fixed bottom-24 sm:bottom-20 left-0 right-0 px-4 pb-4 pointer-events-none z-50"
       >
         <div className="max-w-2xl mx-auto">
           <Button
@@ -601,13 +603,13 @@ export const PollManagementPage: React.FC = () => {
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               >
-                <Vote size={20} />
+                <Vote className={ICON_SIZES.md} />
               </motion.div>
               <span>Создаю...</span>
             </>
           ) : (
             <>
-              <Vote size={20} />
+              <Vote className={ICON_SIZES.md} />
               <span>Запустить голосование</span>
             </>
           )}

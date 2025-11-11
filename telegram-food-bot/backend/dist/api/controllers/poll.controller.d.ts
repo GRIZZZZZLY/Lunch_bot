@@ -17,6 +17,7 @@ export declare class PollController {
     static completePoll(req: Request, res: Response): Promise<void>;
     static cancelPoll(req: Request, res: Response): Promise<void>;
     static vote(req: Request, res: Response): Promise<void>;
+    static voteMultiple(req: Request, res: Response): Promise<void>;
     static removeVote(req: Request, res: Response): Promise<void>;
     static runRoulette(req: Request, res: Response): Promise<void>;
     static getPopularItems(req: Request, res: Response): Promise<void>;

@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { PollService } from './poll.service';
 import { UserService } from './user.service';
 import { Prisma, Transaction, User } from '@prisma/client';
+import { now, toLocaleDateString } from '../utils/date';
 
 let botInstance: any = null;
 
@@ -11,10 +12,53 @@ export function initializeBudgetServiceBot(bot: any): void {
   logger.info('BudgetService bot instance initialized');
 }
 
+// Типы для результатов отправки напоминаний
+interface SendReminderResult {
+  success: boolean;
+  error?: string;
+  errorCode?: 'bot_blocked' | 'no_chat' | 'user_deactivated' | 'unknown';
+}
+
+interface FailedUser {
+  id: number;
+  firstName: string;
+  lastName?: string;
+  reason: string;
+  errorCode: 'bot_blocked' | 'no_chat' | 'user_deactivated' | 'unknown';
+}
+
+interface SendRemindersResult {
+  sentCount: number;
+  failedCount: number;
+  totalCount: number;
+  failedUsers: FailedUser[];
+}
+
 interface PaymentInfo {
   paymentCard?: string | null;
   paymentPhone?: string | null;
   paymentDetails?: string | null;
+}
+
+/**
+ * Классифицировать ошибку Telegram API
+ */
+function classifyTelegramError(error: any): { errorCode: SendReminderResult['errorCode']; reason: string } {
+  const errorMessage = error?.message || error?.description || String(error);
+  
+  if (errorMessage.includes('bot was blocked by the user')) {
+    return { errorCode: 'bot_blocked', reason: 'Пользователь заблокировал бота' };
+  }
+  
+  if (errorMessage.includes("bot can't initiate conversation") || errorMessage.includes('chat not found')) {
+    return { errorCode: 'no_chat', reason: 'Пользователь не начал чат с ботом' };
+  }
+  
+  if (errorMessage.includes('user is deactivated')) {
+    return { errorCode: 'user_deactivated', reason: 'Аккаунт пользователя деактивирован' };
+  }
+  
+  return { errorCode: 'unknown', reason: 'Неизвестная ошибка отправки' };
 }
 
 export class BudgetService {
@@ -293,7 +337,7 @@ export class BudgetService {
         message += `ℹ️ ${responsiblePaymentInfo.paymentDetails}\n`;
       }
 
-      message += `\n💬 Комментарий: Обед ${new Date().toLocaleDateString('ru')}\n`;
+      message += `\n💬 Комментарий: Обед ${toLocaleDateString(now())}\n`;
       message += `⏰ Ожидаем заказ`;
 
       const keyboard = {
@@ -380,7 +424,7 @@ export class BudgetService {
 
       const tx = await prisma.transaction.update({
         where: { id: txId },
-        data: { status: 'PAID', paidAt: new Date() },
+        data: { status: 'PAID', paidAt: now() },
         include: { fromUser: true, toUser: true, menuItem: true },
       });
 
@@ -429,7 +473,7 @@ export class BudgetService {
 
       const tx = await prisma.transaction.update({
         where: { id: txId },
-        data: { status: 'CONFIRMED', confirmedAt: new Date() },
+        data: { status: 'CONFIRMED', confirmedAt: now() },
         include: { fromUser: true, toUser: true },
       });
 
@@ -746,7 +790,7 @@ export class BudgetService {
   /**
    * Отправить напоминание должнику
    */
-  async sendReminder(transactionId: number, requestingUserId: number): Promise<void> {
+  async sendReminder(transactionId: number, requestingUserId: number): Promise<SendReminderResult> {
     try {
       const transaction = await prisma.transaction.findUnique({
         where: { id: transactionId },
@@ -762,17 +806,29 @@ export class BudgetService {
       });
 
       if (!transaction) {
-        throw new Error('Transaction not found');
+        return {
+          success: false,
+          error: 'Transaction not found',
+          errorCode: 'unknown',
+        };
       }
 
       // Проверяем, что запрашивающий - это получатель платежа
       if (transaction.toUserId !== requestingUserId) {
-        throw new Error('Only creditor can send reminders');
+        return {
+          success: false,
+          error: 'Only creditor can send reminders',
+          errorCode: 'unknown',
+        };
       }
 
       if (!botInstance) {
         logger.error('Bot instance not initialized');
-        throw new Error('Bot not available');
+        return {
+          success: false,
+          error: 'Bot not available',
+          errorCode: 'unknown',
+        };
       }
 
       // Формируем сообщение
@@ -794,38 +850,63 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       `.trim();
 
       // Отправляем уведомление
-      await botInstance.api.sendMessage(transaction.fromUser.telegramId, message);
+      try {
+        await botInstance.api.sendMessage(transaction.fromUser.telegramId, message);
+        
+        // Сохраняем запись о напоминании
+        await prisma.paymentReminder.create({
+          data: {
+            transactionId: transaction.id,
+            type: 'MANUAL',
+            sentBy: requestingUserId,
+            message,
+          },
+        });
 
-      // Сохраняем запись о напоминании
-      await prisma.paymentReminder.create({
-        data: {
-          transactionId: transaction.id,
-          type: 'MANUAL',
-          sentBy: requestingUserId,
-          message,
-        },
-      });
+        // Обновляем счетчик напоминаний
+        await prisma.transaction.update({
+          where: { id: transactionId },
+          data: {
+            reminderCount: { increment: 1 },
+            lastReminderAt: now(),
+          },
+        });
 
-      // Обновляем счетчик напоминаний
-      await prisma.transaction.update({
-        where: { id: transactionId },
-        data: {
-          reminderCount: { increment: 1 },
-          lastReminderAt: new Date(),
-        },
-      });
-
-      logger.info('Reminder sent', { transactionId, fromUserId: transaction.fromUserId });
+        logger.info('Reminder sent successfully', { transactionId, fromUserId: transaction.fromUserId });
+        return { success: true };
+        
+      } catch (sendError: any) {
+        // Классифицируем ошибку Telegram API
+        const { errorCode, reason } = classifyTelegramError(sendError);
+        
+        logger.warn('Failed to send reminder via Telegram', {
+          transactionId,
+          userId: transaction.fromUserId,
+          errorCode,
+          reason,
+          originalError: sendError.message,
+        });
+        
+        return {
+          success: false,
+          error: reason,
+          errorCode,
+        };
+      }
     } catch (error) {
-      logger.error('Error sending reminder:', error);
-      throw error;
+      logger.error('Error in sendReminder:', error);
+      return {
+        success: false,
+        error: 'Internal error',
+        errorCode: 'unknown',
+      };
     }
   }
 
   /**
    * Отправить напоминания всем должникам (для ответственного)
    */
-  async sendRemindersToAll(pollId: number, requestingUserId: number): Promise<number> {
+  async sendRemindersToAll(pollId: number, requestingUserId: number): Promise<SendRemindersResult> {
     try {
       // Получаем все pending транзакции для этого poll
       const transactions = await prisma.transaction.findMany({
@@ -834,22 +915,254 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
           toUserId: requestingUserId,
           status: 'PENDING',
         },
+        include: {
+          fromUser: true,
+        },
       });
 
+      const totalCount = transactions.length;
       let sentCount = 0;
+      const failedUsers: FailedUser[] = [];
+
       for (const transaction of transactions) {
-        try {
-          await this.sendReminder(transaction.id, requestingUserId);
+        const result = await this.sendReminder(transaction.id, requestingUserId);
+
+        if (result.success) {
           sentCount++;
-        } catch (error) {
-          logger.error('Failed to send reminder', { transactionId: transaction.id, error });
+        } else {
+          failedUsers.push({
+            id: transaction.fromUser.id,
+            firstName: transaction.fromUser.firstName,
+            lastName: transaction.fromUser.lastName || undefined,
+            reason: result.error || 'Неизвестная ошибка',
+            errorCode: result.errorCode || 'unknown',
+          });
         }
       }
 
-      logger.info('Reminders sent to all', { pollId, sentCount });
-      return sentCount;
+      const failedCount = failedUsers.length;
+
+      logger.info('Reminders sent to all', {
+        pollId,
+        totalCount,
+        sentCount,
+        failedCount,
+        failedUserIds: failedUsers.map(u => u.id),
+      });
+
+      return {
+        sentCount,
+        failedCount,
+        totalCount,
+        failedUsers,
+      };
     } catch (error) {
       logger.error('Error sending reminders to all:', error);
+      throw error;
+    }
+  }
+
+  // ============================================
+  // COST SPLITTING METHODS
+  // ============================================
+
+  /**
+   * Set order costs (delivery, service, tips) for a poll
+   * Only the responsible person can set costs
+   */
+  async setOrderCosts(
+    pollId: number,
+    userId: number,
+    costs: { deliveryCost: number; serviceFee: number; tip: number; notes?: string }
+  ) {
+    try {
+      // Verify user is the responsible person for this poll
+      const poll = await prisma.poll.findUnique({
+        where: { id: pollId },
+        include: {
+          result: true,
+          responsibleSelection: true,
+        },
+      });
+
+      if (!poll) {
+        throw new Error('Poll not found');
+      }
+
+      const responsibleUserId = poll.result?.responsibleUserId || poll.responsibleSelection?.selectedUserId;
+
+      if (responsibleUserId !== userId) {
+        throw new Error('Only responsible person can set order costs');
+      }
+
+      // Create or update order costs
+      const orderCosts = await prisma.pollOrderCosts.upsert({
+        where: { pollId },
+        create: {
+          pollId,
+          deliveryCost: costs.deliveryCost,
+          serviceFee: costs.serviceFee,
+          tip: costs.tip,
+          notes: costs.notes,
+          enteredBy: userId,
+        },
+        update: {
+          deliveryCost: costs.deliveryCost,
+          serviceFee: costs.serviceFee,
+          tip: costs.tip,
+          notes: costs.notes,
+        },
+      });
+
+      // Recalculate all transactions with new breakdown
+      await this.recalculateTransactionsWithCosts(pollId);
+
+      logger.info('Order costs set and transactions recalculated', { pollId, orderCosts });
+
+      return orderCosts;
+    } catch (error) {
+      logger.error('Error setting order costs:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get order costs for a poll
+   */
+  async getOrderCosts(pollId: number) {
+    try {
+      return await prisma.pollOrderCosts.findUnique({
+        where: { pollId },
+      });
+    } catch (error) {
+      logger.error('Error getting order costs:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Recalculate all transactions with cost breakdown
+   */
+  private async recalculateTransactionsWithCosts(pollId: number) {
+    try {
+      // Get order costs
+      const orderCosts = await prisma.pollOrderCosts.findUnique({
+        where: { pollId },
+      });
+
+      if (!orderCosts) {
+        logger.warn('No order costs found for poll', { pollId });
+        return;
+      }
+
+      // Get all transactions for this poll
+      const transactions = await prisma.transaction.findMany({
+        where: { pollId },
+        include: {
+          menuItem: true,
+        },
+      });
+
+      if (transactions.length === 0) {
+        logger.warn('No transactions found for poll', { pollId });
+        return;
+      }
+
+      // Calculate per-person shares
+      const participantsCount = transactions.length;
+      const deliveryShare = orderCosts.deliveryCost / participantsCount;
+      const serviceShare = orderCosts.serviceFee / participantsCount;
+      const tipShare = orderCosts.tip / participantsCount;
+
+      // Update each transaction
+      for (const tx of transactions) {
+        const itemPrice = tx.menuItem?.price || 0;
+        const newAmount = itemPrice + deliveryShare + serviceShare + tipShare;
+
+        await prisma.transaction.update({
+          where: { id: tx.id },
+          data: {
+            itemPrice,
+            deliveryShare,
+            serviceShare,
+            tipShare,
+            amount: newAmount,
+          },
+        });
+      }
+
+      logger.info('Transactions recalculated with cost breakdown', {
+        pollId,
+        participantsCount,
+        deliveryShare,
+        serviceShare,
+        tipShare,
+      });
+    } catch (error) {
+      logger.error('Error recalculating transactions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get detailed cost breakdown for a poll
+   */
+  async getPollCostBreakdown(pollId: number) {
+    try {
+      const transactions = await prisma.transaction.findMany({
+        where: { pollId },
+        include: {
+          fromUser: true,
+          menuItem: true,
+        },
+      });
+
+      const orderCosts = await this.getOrderCosts(pollId);
+
+      const transactionBreakdowns = transactions.map((tx) => ({
+        transactionId: tx.id,
+        userId: tx.fromUserId,
+        userName: tx.fromUser.firstName,
+        menuItemName: tx.menuItem?.name || 'Unknown',
+        itemPrice: tx.itemPrice || 0,
+        deliveryShare: tx.deliveryShare || 0,
+        serviceShare: tx.serviceShare || 0,
+        tipShare: tx.tipShare || 0,
+        totalAmount: tx.amount,
+        status: tx.status as 'PENDING' | 'PAID' | 'CONFIRMED',
+      }));
+
+      const totalItemsCost = transactionBreakdowns.reduce((sum, tx) => sum + tx.itemPrice, 0);
+      const totalDeliveryCost = orderCosts?.deliveryCost || 0;
+      const totalServiceFee = orderCosts?.serviceFee || 0;
+      const totalTip = orderCosts?.tip || 0;
+      const grandTotal = totalItemsCost + totalDeliveryCost + totalServiceFee + totalTip;
+
+      return {
+        pollId,
+        totalItemsCost,
+        totalDeliveryCost,
+        totalServiceFee,
+        totalTip,
+        grandTotal,
+        participantsCount: transactions.length,
+        transactions: transactionBreakdowns,
+        orderCosts: orderCosts
+          ? {
+              id: orderCosts.id,
+              pollId: orderCosts.pollId,
+              deliveryCost: orderCosts.deliveryCost,
+              serviceFee: orderCosts.serviceFee,
+              tip: orderCosts.tip,
+              notes: orderCosts.notes,
+              enteredBy: orderCosts.enteredBy,
+              enteredAt: orderCosts.enteredAt.toISOString(),
+              updatedAt: orderCosts.updatedAt.toISOString(),
+            }
+          : undefined,
+      };
+    } catch (error) {
+      logger.error('Error getting poll cost breakdown:', error);
       throw error;
     }
   }

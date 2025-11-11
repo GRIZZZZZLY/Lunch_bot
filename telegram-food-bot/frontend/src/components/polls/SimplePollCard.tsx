@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useUI } from '../../store/useAppStore';
 import { pollsService } from '../../services/polls.service';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface SimplePollCardProps {
   poll: any;
@@ -90,7 +91,7 @@ export const SimplePollCard: React.FC<SimplePollCardProps> = ({
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <Vote size={20} />
+            <Vote className={ICON_SIZES.md} />
             <h3 className="text-xl font-bold">Голосование активно</h3>
           </div>
           <p className="text-white/80 text-sm">
@@ -101,7 +102,7 @@ export const SimplePollCard: React.FC<SimplePollCardProps> = ({
         {/* Timer */}
         {timeLeft && (
           <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5">
-            <Clock size={16} />
+            <Clock className={ICON_SIZES.sm} />
             <span className="text-sm font-medium">{timeLeft}</span>
           </div>
         )}
@@ -139,7 +140,7 @@ export const SimplePollCard: React.FC<SimplePollCardProps> = ({
             className="px-4 bg-red-500/20 hover:bg-red-500/30 backdrop-blur-sm rounded-xl transition-all duration-200 flex items-center justify-center disabled:opacity-50"
             title="Завершить голосование"
           >
-            <X size={20} />
+            <X className={ICON_SIZES.md} />
           </motion.button>
         )}
       </div>

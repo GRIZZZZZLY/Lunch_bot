@@ -6,6 +6,15 @@ import { createPollKeyboard, createPollMessage } from '../bot/keyboards/poll.key
 import { GroupService } from './group.service';
 import { NotificationService } from './notification.service';
 import { cacheService, CACHE_KEYS, CACHE_TTL, CacheInvalidator } from './cache.service';
+import {
+  now,
+  getStartOfToday,
+  toISOString,
+  calculatePollEndTime,
+  getTimestamp,
+  getMillisecondsDifference,
+  subtractMinutes,
+} from '../utils/date';
 
 // Тип Vote с включенными связями для корректной типизации
 type VoteWithRelations = Vote & {
@@ -95,8 +104,7 @@ export class PollService {
    */
   static async getTodayCompletedPoll(groupId: number): Promise<PollWithDetails | null> {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = getStartOfToday();
 
       const poll = await prisma.poll.findFirst({
         where: {
@@ -195,14 +203,14 @@ export class PollService {
       logger.info(`📊 Found ${polls.length} polls with ACTIVE status`);
       
       // Фильтруем и автоматически закрываем истекшие голосования
-      const now = new Date();
+      const nowDate = now();
       const activePolls = [];
       const expiredPollIds: number[] = [];
-      
+
       for (const poll of polls) {
-        const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
-        const isActive = endsAt > now;
-        logger.info(`Poll ${poll.id}: ends=${endsAt.toISOString()}, now=${now.toISOString()}, active=${isActive}`);
+        const endsAt = poll.endedAt || calculatePollEndTime(poll.startedAt, poll.duration);
+        const isActive = endsAt > nowDate;
+        logger.info(`Poll ${poll.id}: ends=${toISOString(endsAt)}, now=${toISOString(nowDate)}, active=${isActive}`);
         
         if (isActive) {
           activePolls.push(poll);
@@ -217,9 +225,9 @@ export class PollService {
       if (expiredPollIds.length > 0) {
         prisma.poll.updateMany({
           where: { id: { in: expiredPollIds } },
-          data: { 
+          data: {
             status: 'COMPLETED',
-            endedAt: now
+            endedAt: now()
           }
         }).then(() => {
           logger.info(`✅ Auto-closed ${expiredPollIds.length} expired polls: ${expiredPollIds.join(', ')}`);
@@ -299,9 +307,9 @@ export class PollService {
         // Обновляем статус голосования
         await tx.poll.update({
           where: { id: pollId },
-          data: { 
+          data: {
             status: 'COMPLETED',
-            endedAt: new Date()
+            endedAt: now()
           },
         });
 
@@ -323,6 +331,24 @@ export class PollService {
       CacheInvalidator.invalidatePoll(pollId, poll.groupId);
       
       logger.info(`Poll completed: ${pollId}, winner: ${winnerMenuItemId}, total votes: ${poll.votes.length}`);
+
+      // Sprint 6: XP интеграция за создание опроса
+      try {
+        const { GamificationService } = await import('./gamification.service.js');
+        const { getXPReward } = await import('../constants/xp-constants.js');
+        const reward = getXPReward('CREATE_POLL');
+        await GamificationService.awardXP(
+          poll.createdBy,
+          reward.amount,
+          reward.reason,
+          reward.category,
+          { pollId, participants: poll.votes.length }
+        );
+        logger.info(`XP awarded: ${reward.amount} to user ${poll.createdBy} for creating poll`);
+      } catch (xpError) {
+        logger.error('Failed to award XP for poll creation:', xpError);
+        // Не прерываем основной процесс
+      }
       
       // Отправляем уведомления участникам (single winner)
       try {
@@ -356,9 +382,9 @@ export class PollService {
     try {
       const poll = await prisma.poll.update({
         where: { id: pollId },
-        data: { 
+        data: {
           status: 'CANCELLED',
-          endedAt: new Date()
+          endedAt: now()
         },
       });
 
@@ -776,7 +802,7 @@ export class PollService {
       const recentActivity = recentVotes.map(vote => ({
         pollId: vote.pollId,
         pollTitle: 'Голосование на обед',
-        votedAt: vote.createdAt.toISOString(),
+        votedAt: toISOString(vote.createdAt),
         itemName: vote.menuItem?.name || 'Unknown'
       }));
 
@@ -801,7 +827,7 @@ export class PollService {
       return await prisma.poll.findMany({
         where: {
           status: 'ACTIVE',
-          startedAt: { lte: new Date(Date.now() - 30 * 60 * 1000) },
+          startedAt: { lte: subtractMinutes(now(), 30) },
         },
       });
     } catch (error) {
@@ -1029,7 +1055,7 @@ export class PollService {
               username: v.user.username ?? undefined,
             })),
             voteCount: votes.length,
-            votedAt: votes.map(v => v.createdAt.toISOString()),
+            votedAt: votes.map(v => toISOString(v.createdAt)),
           };
         })
         .sort((a, b) => b.voteCount - a.voteCount);
@@ -1052,8 +1078,8 @@ export class PollService {
         } else {
           if (tieBreakMethod === 'earliest') {
             const earliest = topWinners.reduce((prev, curr) => {
-              const prevTime = new Date(prev.votedAt[0]).getTime();
-              const currTime = new Date(curr.votedAt[0]).getTime();
+              const prevTime = getTimestamp(new Date(prev.votedAt[0]));
+              const currTime = getTimestamp(new Date(curr.votedAt[0]));
               return currTime < prevTime ? curr : prev;
             });
             primaryWinnerId = earliest.menuItemId;
@@ -1111,7 +1137,7 @@ export class PollService {
         meta: {
           primaryWinnerId,
           tieBreak,
-          completedAt: new Date().toISOString(),
+          completedAt: toISOString(now()),
           completedBy,
           params: { minVotes, maxWinners },
         },
@@ -1123,7 +1149,7 @@ export class PollService {
           where: { id: pollId },
           data: {
             status: 'COMPLETED',
-            endedAt: new Date(),
+            endedAt: now(),
           },
         });
 
@@ -1293,7 +1319,7 @@ export class PollService {
       logger.info(`🔍 DEBUG: Poll ${pollId} voters:`, { voterIds });
 
       // Вычисляем прогресс
-      const timeElapsed = Date.now() - poll.startedAt.getTime();
+      const timeElapsed = getMillisecondsDifference(now(), poll.startedAt);
       const totalTime = poll.duration * 60 * 1000;
       const timeProgress = timeElapsed / totalTime;
       const voteProgress = currentVotes / expectedParticipants;

@@ -3,7 +3,7 @@
  * Включается через localStorage: localStorage.setItem('debug', 'true')
  */
 
-export const DEBUG_ENABLED = localStorage.getItem('debug') === 'true';
+export const DEBUG_ENABLED = typeof window !== 'undefined' && localStorage.getItem('debug') === 'true';
 
 export const DEBUG_STYLES = {
   api: 'background: #2196F3; color: white; padding: 2px 6px; border-radius: 3px;',

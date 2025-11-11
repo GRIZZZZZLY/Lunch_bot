@@ -160,6 +160,16 @@ router.post(
 );
 
 /**
+ * POST /api/polls/:id/vote-multiple
+ * Голосование за несколько блюд одновременно (множественный выбор)
+ */
+router.post(
+  '/:id/vote-multiple',
+  telegramAuthMiddleware,
+  pollController.voteMultiple
+);
+
+/**
  * DELETE /api/polls/:id/vote
  * Отмена голоса
  */

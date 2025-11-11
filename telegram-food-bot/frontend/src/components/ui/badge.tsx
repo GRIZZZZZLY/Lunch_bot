@@ -17,6 +17,16 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        
+        // ✅ SEMANTIC VARIANTS - Intent-based design (NEW!)
+        success:
+          "border-transparent bg-mint-500/10 text-mint-700 border-mint-500/20 dark:bg-mint-500/20 dark:text-mint-300 dark:border-mint-500/30 [a&]:hover:bg-mint-500/20",
+        warning:
+          "border-transparent bg-butter-500/10 text-butter-700 border-butter-500/20 dark:bg-butter-500/20 dark:text-butter-300 dark:border-butter-500/30 [a&]:hover:bg-butter-500/20",
+        danger:
+          "border-transparent bg-coral-500/10 text-coral-700 border-coral-500/20 dark:bg-coral-500/20 dark:text-coral-300 dark:border-coral-500/30 [a&]:hover:bg-coral-500/20",
+        info:
+          "border-transparent bg-lavender-500/10 text-lavender-700 border-lavender-500/20 dark:bg-lavender-500/20 dark:text-lavender-300 dark:border-lavender-500/30 [a&]:hover:bg-lavender-500/20",
       },
     },
     defaultVariants: {

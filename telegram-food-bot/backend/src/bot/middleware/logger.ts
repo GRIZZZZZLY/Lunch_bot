@@ -61,7 +61,8 @@ export async function statsMiddleware(ctx: BotContext, next: NextFunction): Prom
     await next();
   } catch (error) {
     logger.error('Stats middleware error:', error);
-    await next();
+    // НЕ вызываем next() здесь - он уже был вызван в try блоке
+    throw error;
   }
 }
 

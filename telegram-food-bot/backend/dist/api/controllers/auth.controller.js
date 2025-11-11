@@ -42,6 +42,42 @@ class AuthController {
     static async validateInitData(req, res) {
         try {
             const { initData } = req.body;
+            if (!initData) {
+                logger_1.logger.warn('❌ No initData provided');
+                res.status(400).json({
+                    success: false,
+                    error: 'Missing initData',
+                    code: 'INVALID_REQUEST'
+                });
+                return;
+            }
+            if (typeof initData !== 'string') {
+                logger_1.logger.warn('❌ initData is not a string');
+                res.status(400).json({
+                    success: false,
+                    error: 'initData must be a string',
+                    code: 'INVALID_REQUEST'
+                });
+                return;
+            }
+            if (initData.trim().length === 0) {
+                logger_1.logger.warn('❌ initData is empty');
+                res.status(400).json({
+                    success: false,
+                    error: 'initData cannot be empty',
+                    code: 'INVALID_REQUEST'
+                });
+                return;
+            }
+            if (initData.length > 5000) {
+                logger_1.logger.warn('❌ initData is too long');
+                res.status(400).json({
+                    success: false,
+                    error: 'initData is too long',
+                    code: 'INVALID_REQUEST'
+                });
+                return;
+            }
             if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
                 logger_1.logger.info('🔓 SKIP_TELEGRAM_VALIDATION: extracting REAL user from initData');
                 if (initData && initData.trim().length > 0 && initData !== 'mock_jwt_token_12345678') {
@@ -105,25 +141,29 @@ class AuthController {
                 });
                 return;
             }
-            if (!initData) {
-                logger_1.logger.warn('❌ No initData provided');
+            logger_1.logger.info('🔐 Validating initData signature...', {
+                initDataLength: initData.length,
+                nodeEnv: process.env.NODE_ENV,
+            });
+            try {
+                const { parse } = await Promise.resolve().then(() => __importStar(require('@telegram-apps/init-data-node')));
+                parse(initData);
+            }
+            catch (parseError) {
+                logger_1.logger.error('❌ InitData format is invalid:', parseError);
                 res.status(400).json({
                     success: false,
-                    error: 'Missing initData',
+                    error: 'Invalid initData format',
                     code: 'INVALID_REQUEST'
                 });
                 return;
             }
-            logger_1.logger.info('🔐 Validating initData...', {
-                initDataLength: initData.length,
-                nodeEnv: process.env.NODE_ENV,
-            });
             const userData = (0, telegram_auth_1.validateTelegramInitData)(initData);
             if (!userData) {
-                logger_1.logger.error('❌ InitData validation failed');
+                logger_1.logger.error('❌ InitData signature validation failed');
                 res.status(401).json({
                     success: false,
-                    error: 'Invalid initData',
+                    error: 'Invalid initData signature',
                     code: 'INVALID_INIT_DATA'
                 });
                 return;

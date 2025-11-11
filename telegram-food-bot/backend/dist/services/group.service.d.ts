@@ -19,6 +19,11 @@ export declare class GroupService {
         chatId: bigint | null;
         selectedMenuItemIds: string | null;
     } | null>;
+    static addMemberToGroup(groupId: number, userId: number, role?: string): Promise<any>;
+    static removeMemberFromGroup(groupId: number, userId: number): Promise<void>;
+    static getGroupMembers(groupId: number, activeOnly?: boolean): Promise<any[]>;
+    static getUsersByGroupId(groupId: number, activeOnly?: boolean): Promise<any[]>;
+    static isMemberOfGroup(groupId: number, userId: number): Promise<boolean>;
     static getAllGroups(limit?: number, offset?: number): Promise<{
         groups: Group[];
         total: number;

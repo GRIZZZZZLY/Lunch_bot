@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBudgetWidget } from '../../hooks/useBudgetWidget';
-import { GlassCard } from '../ui/glass-card';
+import { PastelCard } from '../ui/pastel-card';
 import { Badge } from '../ui/badge';
 import { UrgentDebtView } from './UrgentDebtView';
 import { WaitingConfirmationView } from './WaitingConfirmationView';
@@ -11,33 +11,34 @@ import { OverviewView } from './OverviewView';
 import { Wallet, AlertCircle, CheckCircle2, Crown, TrendingUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 /**
  * Стили для разных сценариев
  */
 const scenarioStyles = {
   'urgent-debt': {
-    icon: <AlertCircle className="size-5" />,
+    icon: <AlertCircle className={ICON_SIZES.md} />,
     title: 'Ваш долг',
     badge: { text: 'Новое', variant: 'destructive' as const },
   },
   'waiting-confirmation': {
-    icon: <CheckCircle2 className="size-5" />,
+    icon: <CheckCircle2 className={ICON_SIZES.md} />,
     title: 'Ожидание подтверждения',
     badge: null,
   },
   'success-message': {
-    icon: <CheckCircle2 className="size-5 text-mint-500" />,
+    icon: <CheckCircle2 className={`${ICON_SIZES.md} text-pastel-sage-500`} />,
     title: 'Оплата подтверждена',
     badge: null,
   },
   'overview': {
-    icon: <Wallet className="size-5" />,
+    icon: <Wallet className={ICON_SIZES.md} />,
     title: 'Финансы',
     badge: null,
   },
   'responsible-view': {
-    icon: <Crown className="size-5 text-peach-500" />,
+    icon: <Crown className={`${ICON_SIZES.md} text-pastel-peach-500`} />,
     title: 'Вы ответственный',
     badge: { text: 'Активно', variant: 'default' as const },
   },
@@ -147,7 +148,7 @@ const BudgetWidgetContent: React.FC = () => {
   if (scenario === 'hidden' || isLoading) {
     if (DEBUG_MODE) {
       return (
-        <GlassCard intensity="solid" className="p-4">
+        <PastelCard variant="rose" className="p-4">
           <div className="text-xs space-y-2 font-mono">
             <div className="font-bold text-red-500">🔍 DEBUG: Widget Hidden</div>
             <div>Scenario: {scenario}</div>
@@ -157,7 +158,7 @@ const BudgetWidgetContent: React.FC = () => {
             <div>Total debts: {totalDebts}₽</div>
             <div>Total credits: {totalCredits}₽</div>
           </div>
-        </GlassCard>
+        </PastelCard>
       );
     }
     return null;
@@ -179,9 +180,15 @@ const BudgetWidgetContent: React.FC = () => {
           duration: 0.3 
         }}
       >
-        <GlassCard
-          intensity="solid"
-          className="overflow-hidden"
+        <PastelCard
+          variant={
+            scenario === 'urgent-debt' ? 'rose' :
+            scenario === 'waiting-confirmation' ? 'sky' :
+            scenario === 'success-message' ? 'sage' :
+            scenario === 'responsible-view' ? 'peach' :
+            'default'
+          }
+          className="overflow-hidden hover:scale-[1.01] transition-transform"
         >
           {/* DEBUG INFO */}
           {DEBUG_MODE && (
@@ -227,23 +234,23 @@ const BudgetWidgetContent: React.FC = () => {
             </div>
           )}
           
-          {/* Header - увеличенный padding */}
-          <div className="flex items-center justify-between px-5 py-4">
+          {/* Header - компактный стиль как в BudgetWidgetCompact */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
             <div className="flex items-center gap-2">
               {style.icon}
-              <h3 className="font-semibold text-foreground">
+              <h3 className="font-semibold text-base text-foreground">
                 {style.title}
               </h3>
             </div>
             {style.badge && (
-              <Badge variant={style.badge.variant}>
+              <Badge variant={style.badge.variant} className="text-xs">
                 {style.badge.text}
               </Badge>
             )}
           </div>
           
-          {/* Content - увеличенный padding для лучшей читаемости */}
-          <div className="px-5 pb-5">
+          {/* Content - стандартный padding */}
+          <div className="px-4 py-4">
             {/* Добавляем дополнительные проверки для предотвращения крашей */}
             {scenario === 'urgent-debt' && currentDebt && (
               <UrgentDebtView 
@@ -281,7 +288,7 @@ const BudgetWidgetContent: React.FC = () => {
               />
             )}
           </div>
-        </GlassCard>
+        </PastelCard>
       </motion.div>
     </AnimatePresence>
   );

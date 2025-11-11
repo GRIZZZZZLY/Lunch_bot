@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Copy, ChevronDown, ChevronUp, Trophy, User } from 'lucide-react';
 import type { MultiWinnerResultData } from '@/services/polls.service';
 import { useTelegram } from '@/hooks/useTelegram';
+import { Badge } from '@/components/ui/badge';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface MultiWinnerResultsProps {
   resultData: MultiWinnerResultData;
@@ -65,7 +67,7 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
           className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg hover:bg-primary/20 transition"
           aria-label="Копировать результаты"
         >
-          <Copy size={16} />
+          <Copy className={ICON_SIZES.sm} />
           <span className="text-sm">Копировать</span>
         </button>
       </div>
@@ -91,7 +93,7 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
                 {/* Icon */}
                 <div className="flex-shrink-0 text-3xl">
                   {index === 0 ? (
-                    <Trophy className="text-yellow-500" size={32} />
+                    <Trophy className={`${ICON_SIZES.xl} text-yellow-500`} />
                   ) : (
                     <span>🍴</span>
                   )}
@@ -102,9 +104,9 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
                   <div className="flex items-baseline gap-2 flex-wrap">
                     <h3 className="text-lg font-bold">{winner.menuItemName}</h3>
                     {index === 0 && (
-                      <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full">
+                      <Badge variant="warning">
                         🏆 Лидер
-                      </span>
+                      </Badge>
                     )}
                   </div>
 
@@ -119,7 +121,7 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
                         key={voter.userId}
                         className="px-2 py-1 bg-mint-100 dark:bg-mint-900/30 rounded-full text-xs flex items-center gap-1"
                       >
-                        <User size={12} />
+                        <User className={ICON_SIZES.xs} />
                         {voter.firstName}
                       </span>
                     ))}
@@ -133,13 +135,13 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
                       >
                         {isExpanded ? (
                           <>
-                            <ChevronUp size={12} />
+                            <ChevronUp className={ICON_SIZES.xs} />
                             <span>Свернуть</span>
                           </>
                         ) : (
                           <>
                             <span>Еще {winner.voters.length - 5}</span>
-                            <ChevronDown size={12} />
+                            <ChevronDown className={ICON_SIZES.xs} />
                           </>
                         )}
                       </button>

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { MenuItem } from '../../services/menu.service';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface QuickVoteButtonProps {
   item: MenuItem;
@@ -50,10 +51,10 @@ export const QuickVoteButton: React.FC<QuickVoteButtonProps> = ({
             <img
               src={item.imageUrl}
               alt={item.name}
-              className="w-12 h-12 rounded-lg object-cover"
+              className={`${ICON_SIZES['2xl']} rounded-lg object-cover`}
             />
           ) : (
-            <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-2xl">
+            <div className={`${ICON_SIZES['2xl']} rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-2xl`}>
               🍽️
             </div>
           )}
@@ -82,9 +83,7 @@ export const QuickVoteButton: React.FC<QuickVoteButtonProps> = ({
               className="text-primary-food-500 flex-shrink-0"
             />
           ) : (
-            <Circle
-              size={24}
-              className="text-gray-400 dark:text-gray-600 flex-shrink-0"
+            <Circle className={ICON_SIZES.lg} 
             />
           )}
         </div>

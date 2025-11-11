@@ -4,6 +4,9 @@ import { PollService } from './poll.service';
 import { UserService } from './user.service';
 import { GroupService } from './group.service';
 import { RouletteService } from './roulette.service';
+import { GamificationService } from './gamification.service';
+import { getXPReward } from '../constants/xp-constants';
+import { now, addMinutesToDate, getTimestamp } from '../utils/date';
 
 let botInstance: any = null;
 
@@ -36,7 +39,7 @@ export class ResponsibleService {
           mode,
           status: 'WAITING',
           timeoutAt: mode.includes('volunteer')
-            ? new Date(Date.now() + (settings.volunteerTimeoutMinutes || 3) * 60 * 1000)
+            ? addMinutesToDate(now(), settings.volunteerTimeoutMinutes || 3)
             : null,
           timeoutMinutes: settings.volunteerTimeoutMinutes || 3,
           chatId: poll.chatId,
@@ -154,11 +157,27 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
           status: 'VOLUNTEER_SELECTED',
           selectedUserId: user.id,
           volunteerUserId: user.id,
-          completedAt: new Date(),
+          completedAt: now(),
         },
       });
 
       logger.info('Volunteer selected', { pollId, userId: user.id, firstName: user.firstName });
+
+      // Sprint 6: XP интеграция за волонтёрство
+      try {
+        const reward = getXPReward('VOLUNTEER_RESPONSIBLE');
+        await GamificationService.awardXP(
+          user.id,
+          reward.amount,
+          reward.reason,
+          reward.category,
+          { pollId, selectionMode: 'volunteer' }
+        );
+        logger.info(`XP awarded: ${reward.amount} to user ${user.id} for volunteering`);
+      } catch (xpError) {
+        logger.error('Failed to award XP for volunteer:', xpError);
+        // Не прерываем основной процесс
+      }
 
       // Обновляем сообщение в группе
       if (selection.messageId && selection.chatId && botInstance) {
@@ -247,11 +266,27 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
           status: 'ROULETTE_RUN',
           selectedUserId: result.responsibleUserId,
           rouletteWinnerId: result.responsibleUserId,
-          completedAt: new Date(),
+          completedAt: now(),
         },
       });
 
       logger.info('Roulette completed', { pollId, responsibleUserId: result.responsibleUserId });
+
+      // Sprint 6: XP интеграция за выбор рулеткой
+      try {
+        const reward = getXPReward('SELECTED_RESPONSIBLE');
+        await GamificationService.awardXP(
+          result.responsibleUserId,
+          reward.amount,
+          reward.reason,
+          reward.category,
+          { pollId, selectionMode: 'roulette' }
+        );
+        logger.info(`XP awarded: ${reward.amount} to user ${result.responsibleUserId} for being selected by roulette`);
+      } catch (xpError) {
+        logger.error('Failed to award XP for roulette selection:', xpError);
+        // Не прерываем основной процесс
+      }
 
       // Переход к фазе 4
       const { BudgetService } = await import('./budget.service.js');

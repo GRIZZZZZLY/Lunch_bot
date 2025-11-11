@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
 import { UserAvatar } from '../common/UserAvatar';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface Participant {
   id: number;
@@ -83,7 +84,7 @@ export const ParticipantsList: React.FC<ParticipantsListProps> = ({
           animate={{ rotate: isExpanded ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
-          <ChevronDown className="w-5 h-5 text-gray-500" />
+          <ChevronDown className={`${ICON_SIZES.md} text-gray-400 dark:text-gray-400`} />
         </motion.div>
       </button>
 

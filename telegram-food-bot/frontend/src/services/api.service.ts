@@ -79,11 +79,13 @@ class ApiService {
           }
           
           // Возвращаем стандартизированную ошибку
+          // ВАЖНО: Передаем ВСЕ поля из data (например, minutesLeft, cooldownEndsAt)
           return Promise.reject({
             success: false,
             error: data?.error || `HTTP Error ${status}`,
             code: data?.code || `HTTP_${status}`,
             status,
+            ...data, // Добавляем все остальные поля из ответа сервера
           });
         } else if (error.request) {
           // Запрос был отправлен, но ответ не получен

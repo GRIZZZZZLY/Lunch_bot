@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { Badge, BadgeWrapper, StatusBadge } from './Badge';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 const meta: Meta<typeof Badge> = {
   title: 'Components/Common/Badge',
@@ -91,7 +92,7 @@ export const WithWrapper: Story = {
 export const WithDotBadge: Story = {
   render: () => (
     <BadgeWrapper badge={1} dot pulse variant="success">
-      <div className="w-12 h-12 bg-gray-300 rounded-full" />
+      <div className={`${ICON_SIZES['2xl']} bg-gray-300 rounded-full`} />
     </BadgeWrapper>
   ),
 };

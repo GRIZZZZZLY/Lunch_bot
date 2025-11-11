@@ -1,113 +1,104 @@
-// Скрипт для обновления Menu Button с новым URL
-const fs = require('fs');
-const https = require('https');
+#!/usr/bin/env node
 
-// Читаем .env файл
-const envPath = require('path').join(__dirname, 'backend', '.env');
-const envFile = fs.readFileSync(envPath, 'utf8');
-const envVars = {};
+/**
+ * Универсальный скрипт для обновления Menu Button в Telegram
+ *
+ * Использует:
+ * - ✅ dotenv для парсинга .env файлов
+ * - ✅ Grammy API для работы с Telegram Bot API
+ *
+ * Преимущества:
+ * - Нет самописного .env парсинга
+ * - Нет низкоуровневых https.request
+ * - Автоматическая обработка ошибок
+ * - Поддержка всех edge cases
+ */
 
-// Улучшенный парсер .env
-envFile.split(/\r?\n/).forEach(line => {
-  // Удаляем пробелы по краям
-  line = line.trim();
+require('dotenv').config({ path: './backend/.env' });
+const { Bot } = require('grammy');
 
-  // Пропускаем пустые строки и комментарии
-  if (!line || line.startsWith('#')) {
-    return;
+// Константы
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const WEBAPP_URL = process.env.WEBAPP_URL;
+
+/**
+ * Главная функция
+ */
+async function updateMenuButton() {
+  console.log('');
+  console.log('========================================');
+  console.log('  UPDATE TELEGRAM MENU BUTTON');
+  console.log('========================================');
+  console.log('');
+
+  // Валидация переменных окружения
+  if (!BOT_TOKEN) {
+    console.error('❌ ERROR: BOT_TOKEN not found in backend/.env');
+    console.error('📂 Check file: ./backend/.env');
+    process.exit(1);
   }
 
-  // Ищем знак =
-  const equalIndex = line.indexOf('=');
-  if (equalIndex === -1) {
-    return;
+  if (!WEBAPP_URL) {
+    console.error('❌ ERROR: WEBAPP_URL not found in backend/.env');
+    console.error('📂 Check file: ./backend/.env');
+    process.exit(1);
   }
 
-  const key = line.substring(0, equalIndex).trim();
-  const value = line.substring(equalIndex + 1).trim();
+  console.log(`🔑 Bot Token: ${BOT_TOKEN.substring(0, 15)}...`);
+  console.log(`🌐 WebApp URL: ${WEBAPP_URL}`);
+  console.log('');
 
-  if (key && value) {
-    envVars[key] = value;
+  try {
+    // Создаём bot instance
+    const bot = new Bot(BOT_TOKEN);
+
+    console.log('🔄 Updating menu button...');
+
+    // Обновляем menu button через Grammy API
+    await bot.api.setChatMenuButton({
+      menu_button: {
+        type: 'web_app',
+        text: 'Открыть меню',
+        web_app: {
+          url: WEBAPP_URL
+        }
+      }
+    });
+
+    console.log('');
+    console.log('✅ SUCCESS: Menu button updated!');
+    console.log('');
+    console.log('📱 Users can now access the app via:');
+    console.log('   - Menu button (bottom left)');
+    console.log('   - /app command');
+    console.log('   - Deep links from group messages');
+    console.log('');
+
+    process.exit(0);
+
+  } catch (error) {
+    console.error('');
+    console.error('❌ ERROR: Failed to update menu button');
+    console.error('');
+
+    if (error.error_code === 401) {
+      console.error('🔐 Authentication failed:');
+      console.error('   - Check if BOT_TOKEN is valid');
+      console.error('   - Token format: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11');
+    } else if (error.error_code === 400) {
+      console.error('⚠️  Invalid request:');
+      console.error('   - Check if WEBAPP_URL is a valid HTTPS URL');
+      console.error('   - Telegram requires HTTPS for WebApps');
+    } else {
+      console.error('📋 Error details:');
+      console.error(`   Code: ${error.error_code || 'unknown'}`);
+      console.error(`   Message: ${error.description || error.message}`);
+    }
+
+    console.error('');
+    process.exit(1);
   }
-});
-
-const BOT_TOKEN = envVars.BOT_TOKEN;
-const WEBAPP_URL = envVars.WEBAPP_URL;
-
-console.log('🔍 Найденные переменные:');
-console.log('   BOT_TOKEN:', BOT_TOKEN ? `${BOT_TOKEN.substring(0, 10)}...` : '❌ НЕ НАЙДЕН');
-console.log('   WEBAPP_URL:', WEBAPP_URL || '❌ НЕ НАЙДЕН');
-console.log('');
-
-if (!BOT_TOKEN || !WEBAPP_URL) {
-  console.error('❌ BOT_TOKEN или WEBAPP_URL не установлены');
-  console.error('📂 Проверьте файл:', envPath);
-  process.exit(1);
 }
 
-// Удаляем старый menu button
-const deleteOptions = {
-  hostname: 'api.telegram.org',
-  path: `/bot${BOT_TOKEN}/setChatMenuButton`,
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  }
-};
-
-const deleteData = JSON.stringify({
-  menu_button: { type: 'default' }
-});
-
-console.log('🔄 Сброс menu button...');
-
-const deleteReq = https.request(deleteOptions, (res) => {
-  let data = '';
-  res.on('data', (chunk) => { data += chunk; });
-  res.on('end', () => {
-    console.log('✅ Menu button сброшен');
-    
-    // Устанавливаем новый
-    setTimeout(() => {
-      const setOptions = {
-        hostname: 'api.telegram.org',
-        path: `/bot${BOT_TOKEN}/setChatMenuButton`,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      };
-
-      const setData = JSON.stringify({
-        menu_button: {
-          type: 'web_app',
-          text: 'Выбрать обед',
-          web_app: {
-            url: WEBAPP_URL
-          }
-        }
-      });
-
-      console.log('🔄 Установка нового menu button...');
-      console.log('📍 URL:', WEBAPP_URL);
-
-      const setReq = https.request(setOptions, (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
-          console.log('✅ Menu button обновлен!');
-          console.log('📱 Теперь:');
-          console.log('   1. Закройте чат с ботом полностью');
-          console.log('   2. Откройте снова');
-          console.log('   3. Нажмите на иконку меню');
-        });
-      });
-
-      setReq.write(setData);
-      setReq.end();
-    }, 1000);
-  });
-});
-
-deleteReq.write(deleteData);
-deleteReq.end();
+// Запуск
+updateMenuButton();

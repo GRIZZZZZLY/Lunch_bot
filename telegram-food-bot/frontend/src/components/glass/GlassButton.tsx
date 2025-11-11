@@ -4,6 +4,7 @@ import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGlassStyles, type GlassVariant, type GlassTheme } from '@/lib/glassmorphism';
 import { useHaptic } from '@/hooks/useHaptic';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 export interface GlassButtonProps {
   children?: React.ReactNode;
@@ -226,7 +227,7 @@ export const GlassIconButton: React.FC<GlassIconButtonProps> = ({
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.95 }}
     >
-      <Icon size={20} strokeWidth={2} />
+      <Icon className={ICON_SIZES.md} strokeWidth={2} />
     </motion.button>
   );
 };

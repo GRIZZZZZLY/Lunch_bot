@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startCommand = startCommand;
 const user_service_1 = require("../../services/user.service");
@@ -57,67 +90,64 @@ async function startCommand(ctx) {
             const pollIdStr = startParam.toString().replace('vote_', '');
             const pollId = parseInt(pollIdStr);
             if (isNaN(pollId)) {
-                await ctx.reply('❌ **Неверная ссылка на голосование**\n\n' +
-                    '💡 Попробуйте использовать команду `/vote` в группе с активным голосованием', { parse_mode: 'Markdown' });
+                await ctx.reply('❌ **Неверная ссылка на голосование**', { parse_mode: 'Markdown' });
                 return;
             }
             const poll = await poll_service_1.PollService.getPollById(pollId);
             if (!poll) {
                 await ctx.reply('❌ **Голосование не найдено**\n\n' +
-                    `ID голосования: \`${pollId}\`\n\n` +
                     '💡 Возможно, голосование было удалено или ссылка устарела', { parse_mode: 'Markdown' });
                 return;
             }
             if (poll.status !== 'ACTIVE') {
                 await ctx.reply('⚠️ **Голосование завершено**\n\n' +
-                    `ID: \`${pollId}\`\n` +
-                    `Статус: ${poll.status}\n\n` +
                     '📊 Результаты были отправлены в группу', { parse_mode: 'Markdown' });
                 return;
             }
-            const timeRemaining = poll.startedAt && poll.duration
-                ? Math.max(0, Math.floor((new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000).getTime() - Date.now()) / 1000 / 60))
-                : null;
-            const voteCount = poll.votes?.length || 0;
-            await ctx.reply(`🗳️ **Голосование активно!**\n\n` +
-                `👥 Проголосовало: ${voteCount}\n` +
-                (timeRemaining !== null ? `⏰ Осталось: ${timeRemaining} мин\n` : '') +
-                `\n📱 Нажмите кнопку ниже, чтобы проголосовать:`, {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            {
-                                text: '📱 Открыть голосование',
-                                web_app: { url: webappUrl }
-                            }
-                        ],
-                        [
-                            {
-                                text: '💡 Альтернативный способ',
-                                callback_data: `vote_fallback:${pollId}`
-                            }
-                        ]
-                    ]
-                }
-            });
-            logger_1.logger.info(`Deep link processed: vote_${pollId} for user ${user.id}`);
-            return;
-        }
-        if (startParam && startParam.toString().startsWith('poll_')) {
-            const groupId = startParam.toString().replace('poll_', '');
-            await ctx.reply('🗳 *Быстрое голосование*\n\n' +
-                'Нажмите кнопку ниже чтобы открыть Mini App и настроить голосование:', {
-                parse_mode: 'Markdown',
+            const { VoteService } = await Promise.resolve().then(() => __importStar(require('../../services/vote.service')));
+            const existingVote = await VoteService.getUserVoteInPoll(pollId, dbUser.id);
+            if (existingVote) {
+                await ctx.reply('✅ **Вы уже проголосовали**\n\n' +
+                    'Ваш голос учтён. Результаты будут объявлены после завершения голосования.', { parse_mode: 'Markdown' });
+                return;
+            }
+            await ctx.reply('🗳️ Голосование', {
                 reply_markup: {
                     inline_keyboard: [[
                             {
-                                text: '🗳 Создать голосование',
-                                web_app: { url: `${webappUrl}?groupId=${groupId}&action=poll` }
+                                text: '📱 Открыть голосование',
+                                web_app: { url: `${webappUrl}?pollId=${pollId}` }
                             }
                         ]]
                 }
             });
+            logger_1.logger.info(`Direct deep link: Mini App button sent for poll ${pollId}, user ${user.id}`);
+            return;
+        }
+        if (startParam && startParam.toString().startsWith('poll_')) {
+            const groupId = startParam.toString().replace('poll_', '');
+            const isWebAppAvailable = webappUrl &&
+                webappUrl.startsWith('https://') &&
+                !webappUrl.includes('localhost');
+            if (isWebAppAvailable) {
+                await ctx.reply('🗳 *Быстрое голосование*\n\n' +
+                    'Нажмите кнопку ниже чтобы открыть Mini App и настроить голосование:', {
+                    parse_mode: 'Markdown',
+                    reply_markup: {
+                        inline_keyboard: [[
+                                {
+                                    text: '🗳 Создать голосование',
+                                    web_app: { url: `${webappUrl}?groupId=${groupId}&action=poll` }
+                                }
+                            ]]
+                    }
+                });
+            }
+            else {
+                await ctx.reply('🗳 *Быстрое голосование*\n\n' +
+                    '⚠️ Mini App недоступен в режиме разработки.\n\n' +
+                    '📱 Используйте команду `/startpoll` в группе для создания голосования.', { parse_mode: 'Markdown' });
+            }
             return;
         }
         const welcomeText = isNewUser
@@ -134,6 +164,9 @@ async function startCommand(ctx) {
                 '3. Используйте /help для списка команд'
             : `👋 С возвращением, ${user.first_name}!`;
         const isGroup = ctx.chat?.type !== 'private';
+        const isWebAppAvailable = webappUrl &&
+            webappUrl.startsWith('https://') &&
+            !webappUrl.includes('localhost');
         const keyboard = {
             inline_keyboard: isGroup ? [
                 [
@@ -144,13 +177,22 @@ async function startCommand(ctx) {
                     { text: '👥 О боте', callback_data: 'about' },
                     { text: '👑 Админы', callback_data: 'show_admins' }
                 ]
-            ] : [
+            ] : isWebAppAvailable ? [
                 [
                     {
                         text: '🚀 Открыть Mini App',
                         web_app: { url: webappUrl }
                     }
                 ],
+                [
+                    { text: '🍽️ Меню', callback_data: 'menu' },
+                    { text: '📖 Команды', callback_data: 'help' }
+                ],
+                [
+                    { text: '👥 О боте', callback_data: 'about' },
+                    { text: '👑 Админы', callback_data: 'show_admins' }
+                ]
+            ] : [
                 [
                     { text: '🍽️ Меню', callback_data: 'menu' },
                     { text: '📖 Команды', callback_data: 'help' }

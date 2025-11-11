@@ -4,6 +4,7 @@ exports.notificationService = exports.NotificationService = void 0;
 const logger_1 = require("../utils/logger");
 const client_1 = require("../database/client");
 const notification_types_1 = require("../types/notification.types");
+const date_1 = require("../utils/date");
 function getPluralForm(count, one, few, many) {
     if (count % 10 === 1 && count % 100 !== 11)
         return one;
@@ -194,7 +195,7 @@ class NotificationService {
                 return {
                     success: false,
                     error: 'User is muted',
-                    sentAt: new Date(),
+                    sentAt: (0, date_1.now)(),
                 };
             }
             const result = await this.bot.api.sendMessage(data.userId, data.message, {
@@ -212,7 +213,7 @@ class NotificationService {
             return {
                 success: true,
                 messageId: result.message_id,
-                sentAt: new Date(),
+                sentAt: (0, date_1.now)(),
             };
         }
         catch (error) {
@@ -224,7 +225,7 @@ class NotificationService {
             return {
                 success: false,
                 error: error.message,
-                sentAt: new Date(),
+                sentAt: (0, date_1.now)(),
             };
         }
     }
@@ -284,7 +285,7 @@ class NotificationService {
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error',
-                sentAt: new Date(),
+                sentAt: (0, date_1.now)(),
             };
         }
     }
@@ -523,12 +524,23 @@ class NotificationService {
         }
     }
     async getStats() {
-        return {
-            total: 0,
-            sent: 0,
-            failed: 0,
-            pending: 0,
-        };
+        try {
+            const paymentRemindersCount = await client_1.prisma.paymentReminder.count();
+            const adminRemindersCount = await client_1.prisma.adminReminder.count();
+            return {
+                paymentReminders: paymentRemindersCount,
+                pollNotifications: adminRemindersCount,
+                totalReminders: paymentRemindersCount + adminRemindersCount,
+            };
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting notification stats:', error);
+            return {
+                paymentReminders: 0,
+                pollNotifications: 0,
+                totalReminders: 0,
+            };
+        }
     }
 }
 exports.NotificationService = NotificationService;

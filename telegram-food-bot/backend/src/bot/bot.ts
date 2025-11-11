@@ -126,6 +126,12 @@ export function createBot(): Bot<BotContext> {
   const { initializeBudgetServiceBot } = require('../services/budget.service');
   initializeResponsibleServiceBot(bot);
   initializeBudgetServiceBot(bot);
+  
+  // ⚡ НОВОЕ: Инициализация RecurringPollService и Scheduler
+  const { initializeRecurringPollServiceBot } = require('../services/recurring-poll.service');
+  const { PollSchedulerService } = require('../services/poll-scheduler.service');
+  initializeRecurringPollServiceBot(bot);
+  PollSchedulerService.initialize(bot);
 
   // Глобальные middleware (применяются ко всем обновлениям)
   bot.use(session({ initial }));
@@ -299,6 +305,22 @@ export function createBot(): Bot<BotContext> {
         return;
       }
 
+      // ⚡ НОВОЕ: Recurring Polls - Отключить расписание
+      if (data.startsWith('recurring:disable:')) {
+        const scheduleId = parseInt(data.split(':')[2]);
+        const { PollSchedulerService } = await import('../services/poll-scheduler.service.js');
+        
+        try {
+          await PollSchedulerService.handleDisableCallback(scheduleId);
+          await ctx.answerCallbackQuery('✅ Автоматические голосования отключены');
+          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
+        } catch (error) {
+          logger.error('Error disabling recurring poll:', error);
+          await ctx.answerCallbackQuery('❌ Ошибка отключения');
+        }
+        return;
+      }
+
       // Остальные команды
       switch (data) {
         case 'help':
@@ -419,14 +441,24 @@ export async function startPolling(bot: Bot<BotContext>): Promise<void> {
   try {
     // Удаляем webhook перед запуском polling (для локальной разработки)
     logger.info('🔄 Удаление webhook перед запуском polling...');
-    await bot.api.deleteWebhook({ drop_pending_updates: true });
-    logger.info('✅ Webhook удален');
+    try {
+      await bot.api.deleteWebhook({ drop_pending_updates: true });
+      logger.info('✅ Webhook удален');
+    } catch (webhookError: any) {
+      // Игнорируем ошибки удаления webhook (VPN/прокси проблемы)
+      logger.warn('⚠️ Не удалось удалить webhook (пропускаем):', webhookError.message);
+    }
     
     await bot.start({
       onStart: (botInfo) => {
         logger.info('🚀 Бот запущен в polling режиме', {
           username: botInfo.username,
         });
+        
+        // ⚡ НОВОЕ: Запускаем scheduler для автоматических голосований
+        const { PollSchedulerService } = require('../services/poll-scheduler.service');
+        PollSchedulerService.start();
+        logger.info('⚡ Poll scheduler запущен');
       },
     });
   } catch (error) {
@@ -458,6 +490,11 @@ export async function stopBot(bot: Bot<BotContext>): Promise<void> {
   try {
     // Отменяем все активные напоминания
     PollReminderService.cancelAllReminders();
+    
+    // ⚡ НОВОЕ: Останавливаем scheduler
+    const { PollSchedulerService } = require('../services/poll-scheduler.service');
+    PollSchedulerService.stop();
+    logger.info('⚡ Poll scheduler остановлен');
     
     await bot.stop();
     logger.info('🛑 Бот остановлен');

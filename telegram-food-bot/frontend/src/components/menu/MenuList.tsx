@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MenuItem } from '../../services/menu.service';
 import { MenuItemCard } from './MenuItemCard';
+import { SwipeableMenuItem } from './SwipeableMenuItem';
 import { Button } from '../common/Button';
 import { Skeleton } from '../common/LoadingSpinner';
 import { useTelegram } from '../../hooks/useTelegram';
@@ -146,22 +147,34 @@ export const MenuList: React.FC<MenuListProps> = ({
                 key={item.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ 
-                  delay: (categoryIndex * 0.1) + (itemIndex * 0.05), 
+                transition={{
+                  delay: (categoryIndex * 0.1) + (itemIndex * 0.05),
                   duration: 0.3,
                   type: 'spring',
                   stiffness: 300,
                   damping: 25
                 }}
               >
-                <MenuItemCard
-                  item={item}
-                  onEdit={onEdit}
-                  onDelete={onDelete ? () => handleDelete(item.id) : undefined}
-                  onToggle={onToggleStatus ? () => handleToggleStatus(item) : undefined}
-                  showActions={showActions}
-                  loading={deletingId === item.id}
-                />
+                {showActions ? (
+                  // Admin view - with swipe actions
+                  <SwipeableMenuItem
+                    item={item}
+                    onEdit={onEdit}
+                    onDelete={onDelete ? () => handleDelete(item.id) : undefined}
+                    onToggle={onToggleStatus ? () => handleToggleStatus(item) : undefined}
+                    loading={deletingId === item.id}
+                  />
+                ) : (
+                  // Regular user view - simple card
+                  <MenuItemCard
+                    item={item}
+                    onEdit={onEdit}
+                    onDelete={onDelete ? () => handleDelete(item.id) : undefined}
+                    onToggle={onToggleStatus ? () => handleToggleStatus(item) : undefined}
+                    showActions={false}
+                    loading={deletingId === item.id}
+                  />
+                )}
               </motion.div>
             ))}
           </div>

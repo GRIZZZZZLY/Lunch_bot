@@ -53,7 +53,7 @@ async function statsMiddleware(ctx, next) {
     }
     catch (error) {
         logger_1.logger.error('Stats middleware error:', error);
-        await next();
+        throw error;
     }
 }
 async function errorLoggingMiddleware(ctx, next) {

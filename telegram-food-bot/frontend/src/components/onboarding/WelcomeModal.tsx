@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { OnboardingSlide } from './OnboardingSlide';
 import { SlideIndicator } from './SlideIndicator';
+import { ICON_SIZES } from '@/lib/design-tokens';
+import { cn } from '@/lib/utils';
 
 interface WelcomeModalProps {
   isOpen: boolean;
@@ -23,35 +25,35 @@ const slides = [
     iconColor: 'text-yellow-500',
     iconBgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
     title: 'Добро пожаловать!',
-    description: 'Заказывайте вкусный обед вместе с вашей командой. Все просто и удобно!'
-  },
-  {
-    icon: UtensilsCrossed,
-    iconColor: 'text-primary-food-500',
-    iconBgColor: 'bg-primary-food-50 dark:bg-primary-food-900/20',
-    title: 'Свежее меню',
-    description: 'Выбирайте из разнообразного меню. Новые блюда появляются каждый день!'
+    description: 'Заказывайте вкусный обед вместе с вашей командой. Голосуйте за блюда и делите расходы - все просто и удобно!'
   },
   {
     icon: Vote,
-    iconColor: 'text-blue-500',
-    iconBgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    iconColor: 'text-peach-500',
+    iconBgColor: 'bg-peach-50 dark:bg-peach-900/20',
     title: 'Голосуйте вместе',
-    description: 'Участвуйте в голосованиях и выбирайте блюда совместно с коллегами'
+    description: 'Выбирайте блюда из меню, голосуйте, и мы автоматически определим победителя и ответственного за заказ'
+  },
+  {
+    icon: UtensilsCrossed,
+    iconColor: 'text-mint-600',
+    iconBgColor: 'bg-mint-50 dark:bg-mint-900/20',
+    title: 'Бюджет-трекер',
+    description: 'Следите за долгами и кредитами. Отмечайте оплату одним нажатием через СБП или другие способы'
   },
   {
     icon: BarChart3,
-    iconColor: 'text-purple-500',
-    iconBgColor: 'bg-purple-50 dark:bg-purple-900/20',
-    title: 'Статистика',
-    description: 'Отслеживайте популярные блюда и смотрите что выбирают другие'
+    iconColor: 'text-lavender-500',
+    iconBgColor: 'bg-lavender-50 dark:bg-lavender-900/20',
+    title: 'Статистика и друзья',
+    description: 'Смотрите популярные блюда, приглашайте друзей и зарабатывайте XP за активность'
   },
   {
     icon: CheckCircle,
-    iconColor: 'text-green-500',
-    iconBgColor: 'bg-green-50 dark:bg-green-900/20',
+    iconColor: 'text-mint-500',
+    iconBgColor: 'bg-mint-50 dark:bg-mint-900/20',
     title: 'Всё готово!',
-    description: 'Теперь вы готовы начать. Приятного аппетита!'
+    description: 'Теперь вы готовы начать. Свайпните карточки на главной странице и начните голосование!'
   }
 ];
 
@@ -123,7 +125,7 @@ export const WelcomeModal = ({ isOpen, onClose }: WelcomeModalProps) => {
               aria-label="Закрыть окно приветствия"
               className="absolute top-4 right-4 z-10 p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
-              <X size={20} className="text-gray-600 dark:text-gray-400" />
+              <X className={cn(ICON_SIZES.md, "text-gray-600 dark:text-gray-400")} />
             </button>
 
             {/* Slides Container */}

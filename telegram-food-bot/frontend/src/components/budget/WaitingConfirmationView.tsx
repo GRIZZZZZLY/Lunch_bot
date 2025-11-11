@@ -6,6 +6,7 @@ import { Clock, X } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
 import { toast } from 'sonner';
 import { formatRelativeTime } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface WaitingConfirmationViewProps {
   debt: Transaction;
@@ -54,22 +55,22 @@ export const WaitingConfirmationView: React.FC<WaitingConfirmationViewProps> = (
       {/* Статус */}
       <div className="text-center py-4">
         <div className="inline-flex items-center justify-center size-16 rounded-full bg-amber-100 dark:bg-amber-900/30 mb-3">
-          <Clock className="size-8 text-amber-600 dark:text-amber-400" />
+          <Clock className={`${ICON_SIZES.xl} text-amber-600 dark:text-amber-400`} />
         </div>
         
         <p className="text-sm text-muted-foreground mb-1">
-          ✅ Вы отметили оплату
+          Вы отметили оплату
         </p>
         <h4 className="font-semibold text-lg mb-2">
           {debt.menuItem?.name || 'Блюдо'} — {debt.amount}₽
         </h4>
         <p className="text-sm text-muted-foreground">
-          👤 {debt.toUser.firstName} проверит платеж
+          {debt.toUser.firstName} проверит платеж
         </p>
         
         {debt.paidAt && (
           <p className="text-xs text-muted-foreground mt-2">
-            ⏱️ Отмечено {formatRelativeTime(debt.paidAt)}
+            Отмечено {formatRelativeTime(debt.paidAt)}
           </p>
         )}
       </div>
@@ -82,7 +83,7 @@ export const WaitingConfirmationView: React.FC<WaitingConfirmationViewProps> = (
         size="sm"
         className="w-full"
       >
-        <X className="size-4 mr-1.5" />
+        <X className={`${ICON_SIZES.sm} mr-1.5`} />
         {cancelMarkMutation.isPending ? 'Отменяю...' : 'Отменить отметку'}
       </Button>
       

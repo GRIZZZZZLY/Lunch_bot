@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface LazyImageProps {
   src: string;
@@ -108,9 +109,9 @@ export const LazyImage: React.FC<LazyImageProps> = ({
       {/* Error fallback */}
       {hasError && (
         <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-          <div className="text-center text-gray-400 dark:text-gray-500">
+          <div className="text-center text-gray-400 dark:text-gray-400 dark:text-gray-400">
             <svg 
-              className="w-12 h-12 mx-auto mb-2" 
+              className={`${ICON_SIZES['2xl']} mx-auto mb-2`} 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -152,7 +153,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({
       {/* Loading indicator */}
       {isInView && !isLoaded && !hasError && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-primary-food-200 border-t-primary-food-500 rounded-full animate-spin" />
+          <div className={`${ICON_SIZES.xl} border-4 border-primary-food-200 border-t-primary-food-500 rounded-full animate-spin`} />
         </div>
       )}
     </div>

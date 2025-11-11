@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useTelegram } from '@/hooks/useTelegram';
 import { cn } from '@/lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface PageHeaderProps {
   title?: string;
@@ -51,7 +52,7 @@ export function PageHeader({
               onClick={handleBack}
               className="gap-1 -ml-2 text-telegram-button-color hover:bg-telegram-button-color/10"
             >
-              <ArrowLeft className="size-4" />
+              <ArrowLeft className={ICON_SIZES.sm} />
               <span>Назад</span>
             </Button>
           )}

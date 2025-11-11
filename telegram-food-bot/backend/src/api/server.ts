@@ -9,6 +9,7 @@ import { logger } from '../utils/logger';
 // Импорт роутов
 import authRoutes from './routes/auth.routes';
 import menuRoutes from './routes/menu.routes';
+import menuSuggestionRoutes from './routes/menu-suggestion.routes';
 import pollRoutes from './routes/poll.routes';
 import userRoutes from './routes/user.routes';
 import budgetRoutes from './routes/budget.routes';
@@ -16,6 +17,10 @@ import metricsRoutes from './routes/metrics.routes';
 import healthRoutes from './routes/health.routes';
 import testRoutes from './routes/test.routes';
 import feedbackRoutes from './routes/feedback.routes';
+import gamificationRoutes from './routes/gamification.routes';
+import seasonRoutes from './routes/season.routes';
+import insightsRoutes from './routes/insights.routes';
+import recurringPollRoutes from './routes/recurring-poll.routes';
 
 // Импорт middleware
 import { metricsMiddleware } from './middleware/metrics';
@@ -67,12 +72,19 @@ export function createApiServer(): express.Application {
   // API routes с префиксом /api
   app.use('/api/auth', authRoutes);
   app.use('/api/menu', menuRoutes);
+  app.use('/api/suggestions', menuSuggestionRoutes);
   app.use('/api/polls', pollRoutes);
+  app.use('/api/votes', require('./routes/vote.routes').default);
   app.use('/api/user', userRoutes);
   app.use('/api/budget', budgetRoutes);
   app.use('/api/metrics', metricsRoutes);
   app.use('/api/feedback', feedbackRoutes);
   app.use('/api/notifications', require('./routes/notification.routes').default);
+  app.use('/api/gamification', gamificationRoutes);
+  app.use('/api/seasons', seasonRoutes);
+  app.use('/api/insights', insightsRoutes);
+  app.use('/api/avatar', require('./routes/avatar.routes').default);
+  app.use('/api/recurring', recurringPollRoutes);
 
   // Test endpoints (только для dev/staging)
   if (process.env.NODE_ENV !== 'production') {
@@ -93,25 +105,67 @@ export function createApiServer(): express.Application {
   app.use('/uploads', express.static(apiConfig.uploadPath));
 
   // Production: Раздача frontend статики из dist/
-  // Определяем корень проекта независимо от режима (dev/prod)
-  // В dev (tsx): __dirname = backend/src/api → ../../.. = корень
-  // В prod: __dirname = backend/dist/api → ../../.. = корень
-  const projectRoot = path.join(__dirname, '../../..');
-  const frontendDistPath = path.join(projectRoot, 'frontend/dist');
-  
+  // ИСПРАВЛЕНИЕ: Используем process.cwd() - надёжнее чем __dirname
+  // process.cwd() всегда указывает на директорию, откуда запущен процесс
+
+  // Если запускаем из backend/ → cwd = backend, нужно подняться на 1 уровень
+  // Если запускаем из корня проекта → cwd уже корень
+  const cwd = process.cwd();
+  const isInBackendDir = cwd.endsWith('backend') || cwd.endsWith('backend\\');
+  const projectRoot = isInBackendDir ? path.join(cwd, '..') : cwd;
+
+  const frontendDistPath = path.join(projectRoot, 'frontend', 'dist');
+  const frontendDistExists = require('fs').existsSync(frontendDistPath);
+
+  logger.info(`CWD: ${cwd}`);
+  logger.info(`Project root: ${projectRoot}`);
   logger.info(`Frontend static path: ${frontendDistPath}`);
-  
-  // Добавляем заголовки no-cache для статики (чтобы браузер не кэшировал при разработке)
+  logger.info(`Frontend dist exists: ${frontendDistExists}`);
+
+  // КРИТИЧНО: Проверяем что frontend/dist существует
+  if (!frontendDistExists) {
+    logger.error('❌ ОШИБКА: frontend/dist не найдена!');
+    logger.error('Запустите сборку frontend: cd frontend && npm run build');
+    throw new Error(`Frontend dist directory not found: ${frontendDistPath}`);
+  }
+
+  // Настройка кеширования для статических файлов
   app.use((req, res, next) => {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    const path = req.path;
+    
+    // HTML файлы - всегда проверяем на сервере (no-cache)
+    if (path.endsWith('.html') || path === '/' || !path.includes('.')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    // JS и CSS с хешами в имени - долгое кеширование (immutable)
+    else if (/\.(js|css)$/.test(path) && /-[a-f0-9]{8}\.(js|css)$/.test(path)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+    // Остальные JS/CSS - короткое кеширование
+    else if (/\.(js|css)$/.test(path)) {
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate'); // 1 час
+    }
+    // Изображения и шрифты - долгое кеширование
+    else if (/\.(png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/.test(path)) {
+      res.setHeader('Cache-Control', 'public, max-age=2592000'); // 30 дней
+    }
+    // Все остальное - короткое кеширование
+    else {
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 час
+    }
+    
+    // Добавляем заголовок версии приложения
+    res.setHeader('X-App-Version', '2.0.1');
+    
     next();
   });
   
   app.use(express.static(frontendDistPath, {
-    maxAge: 0,
-    etag: false,
+    maxAge: 0, // Управляем через middleware выше
+    etag: true, // Включаем ETag для проверки изменений
+    lastModified: true, // Включаем Last-Modified
   }));
 
   // Fallback на index.html для React Router (SPA)

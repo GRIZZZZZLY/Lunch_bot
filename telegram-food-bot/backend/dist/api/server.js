@@ -15,6 +15,7 @@ const api_config_1 = require("../config/api.config");
 const logger_1 = require("../utils/logger");
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const menu_routes_1 = __importDefault(require("./routes/menu.routes"));
+const menu_suggestion_routes_1 = __importDefault(require("./routes/menu-suggestion.routes"));
 const poll_routes_1 = __importDefault(require("./routes/poll.routes"));
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
 const budget_routes_1 = __importDefault(require("./routes/budget.routes"));
@@ -22,6 +23,10 @@ const metrics_routes_1 = __importDefault(require("./routes/metrics.routes"));
 const health_routes_1 = __importDefault(require("./routes/health.routes"));
 const test_routes_1 = __importDefault(require("./routes/test.routes"));
 const feedback_routes_1 = __importDefault(require("./routes/feedback.routes"));
+const gamification_routes_1 = __importDefault(require("./routes/gamification.routes"));
+const season_routes_1 = __importDefault(require("./routes/season.routes"));
+const insights_routes_1 = __importDefault(require("./routes/insights.routes"));
+const recurring_poll_routes_1 = __importDefault(require("./routes/recurring-poll.routes"));
 const metrics_1 = require("./middleware/metrics");
 function createApiServer() {
     const app = (0, express_1.default)();
@@ -54,12 +59,19 @@ function createApiServer() {
     app.use('/api', cors_1.corsMiddleware);
     app.use('/api/auth', auth_routes_1.default);
     app.use('/api/menu', menu_routes_1.default);
+    app.use('/api/suggestions', menu_suggestion_routes_1.default);
     app.use('/api/polls', poll_routes_1.default);
+    app.use('/api/votes', require('./routes/vote.routes').default);
     app.use('/api/user', user_routes_1.default);
     app.use('/api/budget', budget_routes_1.default);
     app.use('/api/metrics', metrics_routes_1.default);
     app.use('/api/feedback', feedback_routes_1.default);
     app.use('/api/notifications', require('./routes/notification.routes').default);
+    app.use('/api/gamification', gamification_routes_1.default);
+    app.use('/api/seasons', season_routes_1.default);
+    app.use('/api/insights', insights_routes_1.default);
+    app.use('/api/avatar', require('./routes/avatar.routes').default);
+    app.use('/api/recurring', recurring_poll_routes_1.default);
     if (process.env.NODE_ENV !== 'production') {
         app.use('/api/test', test_routes_1.default);
         logger_1.logger.info('Test endpoints enabled (dev/staging mode)');
@@ -73,18 +85,46 @@ function createApiServer() {
         });
     });
     app.use('/uploads', express_1.default.static(api_config_1.apiConfig.uploadPath));
-    const projectRoot = path_1.default.join(__dirname, '../../..');
-    const frontendDistPath = path_1.default.join(projectRoot, 'frontend/dist');
+    const cwd = process.cwd();
+    const isInBackendDir = cwd.endsWith('backend') || cwd.endsWith('backend\\');
+    const projectRoot = isInBackendDir ? path_1.default.join(cwd, '..') : cwd;
+    const frontendDistPath = path_1.default.join(projectRoot, 'frontend', 'dist');
+    const frontendDistExists = require('fs').existsSync(frontendDistPath);
+    logger_1.logger.info(`CWD: ${cwd}`);
+    logger_1.logger.info(`Project root: ${projectRoot}`);
     logger_1.logger.info(`Frontend static path: ${frontendDistPath}`);
+    logger_1.logger.info(`Frontend dist exists: ${frontendDistExists}`);
+    if (!frontendDistExists) {
+        logger_1.logger.error('❌ ОШИБКА: frontend/dist не найдена!');
+        logger_1.logger.error('Запустите сборку frontend: cd frontend && npm run build');
+        throw new Error(`Frontend dist directory not found: ${frontendDistPath}`);
+    }
     app.use((req, res, next) => {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
+        const path = req.path;
+        if (path.endsWith('.html') || path === '/' || !path.includes('.')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+        else if (/\.(js|css)$/.test(path) && /-[a-f0-9]{8}\.(js|css)$/.test(path)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+        else if (/\.(js|css)$/.test(path)) {
+            res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+        }
+        else if (/\.(png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/.test(path)) {
+            res.setHeader('Cache-Control', 'public, max-age=2592000');
+        }
+        else {
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+        }
+        res.setHeader('X-App-Version', '2.0.1');
         next();
     });
     app.use(express_1.default.static(frontendDistPath, {
         maxAge: 0,
-        etag: false,
+        etag: true,
+        lastModified: true,
     }));
     app.get('*', (req, res, next) => {
         if (req.path.startsWith('/api/')) {

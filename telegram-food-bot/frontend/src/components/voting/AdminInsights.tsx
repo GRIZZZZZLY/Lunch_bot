@@ -11,6 +11,7 @@ import {
 import { PollWithDetails, Vote } from '../../services/polls.service';
 import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardContent } from '../ui/glass-card';
 import { cn } from '../../lib/utils';
+import { ICON_SIZES } from '../../lib/design-tokens';
 
 interface AdminInsightsProps {
   poll: PollWithDetails;
@@ -69,7 +70,7 @@ export const AdminInsights: React.FC<AdminInsightsProps> = ({
         <GlassCard className="border border-lavender-200 dark:border-lavender-800">
           <GlassCardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Users className="text-lavender-500" size={20} />
+              <Users className={`${ICON_SIZES.md} text-lavender-500`} />
               <span className="text-xs text-gray-600 dark:text-gray-400">Участие</span>
             </div>
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -85,7 +86,7 @@ export const AdminInsights: React.FC<AdminInsightsProps> = ({
         <GlassCard className="border border-mint-200 dark:border-mint-800">
           <GlassCardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Activity className="text-mint-500" size={20} />
+              <Activity className={`${ICON_SIZES.md} text-mint-500`} />
               <span className="text-xs text-gray-600 dark:text-gray-400">Скорость</span>
             </div>
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -103,7 +104,7 @@ export const AdminInsights: React.FC<AdminInsightsProps> = ({
         <GlassCardHeader>
           <GlassCardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="text-mint-500" size={20} />
+              <CheckCircle2 className={`${ICON_SIZES.md} text-mint-500`} />
               Проголосовали
             </div>
             <span className="text-sm font-normal text-mint-600 dark:text-mint-400">
@@ -120,7 +121,7 @@ export const AdminInsights: React.FC<AdminInsightsProps> = ({
                   className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-mint-400 to-mint-500 flex items-center justify-center text-white text-xs font-bold">
+                    <div className={`${ICON_SIZES.xl} rounded-full bg-gradient-to-br from-mint-400 to-mint-500 flex items-center justify-center text-white text-xs font-bold`}>
                       {vote.user?.firstName?.charAt(0) || '?'}
                     </div>
                     <div>
@@ -160,7 +161,7 @@ export const AdminInsights: React.FC<AdminInsightsProps> = ({
           <GlassCardHeader>
             <GlassCardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertCircle className="text-butter-500" size={20} />
+                <AlertCircle className={`${ICON_SIZES.md} text-butter-500`} />
                 Еще не проголосовали
               </div>
               <span className="text-sm font-normal text-butter-600 dark:text-butter-400">
@@ -187,7 +188,7 @@ export const AdminInsights: React.FC<AdminInsightsProps> = ({
       <GlassCard className="border border-gold-200 dark:border-gold-800">
         <GlassCardHeader>
           <GlassCardTitle className="flex items-center gap-2">
-            <TrendingUp className="text-gold-500" size={20} />
+            <TrendingUp className={`${ICON_SIZES.md} text-gold-500`} />
             Insights
           </GlassCardTitle>
         </GlassCardHeader>
@@ -195,7 +196,7 @@ export const AdminInsights: React.FC<AdminInsightsProps> = ({
           <div className="space-y-2 text-sm">
             {/* Время с начала */}
             <div className="flex items-start gap-2">
-              <Clock className="text-gray-400 flex-shrink-0 mt-0.5" size={16} />
+              <Clock className={`${ICON_SIZES.sm} text-gray-400 flex-shrink-0 mt-0.5`} />
               <div>
                 <span className="text-gray-900 dark:text-white font-medium">Прошло:</span>{' '}
                 <span className="text-gray-600 dark:text-gray-400">{elapsedMinutes} мин с начала</span>
@@ -204,7 +205,7 @@ export const AdminInsights: React.FC<AdminInsightsProps> = ({
 
             {/* Средняя скорость */}
             <div className="flex items-start gap-2">
-              <Activity className="text-gray-400 flex-shrink-0 mt-0.5" size={16} />
+              <Activity className={`${ICON_SIZES.sm} text-gray-400 flex-shrink-0 mt-0.5`} />
               <div>
                 <span className="text-gray-900 dark:text-white font-medium">Скорость:</span>{' '}
                 <span className="text-gray-600 dark:text-gray-400">
@@ -216,7 +217,7 @@ export const AdminInsights: React.FC<AdminInsightsProps> = ({
             {/* Прогноз участия */}
             {elapsedMinutes > 5 && (
               <div className="flex items-start gap-2">
-                <TrendingUp className="text-gray-400 flex-shrink-0 mt-0.5" size={16} />
+                <TrendingUp className={`${ICON_SIZES.sm} text-gray-400 flex-shrink-0 mt-0.5`} />
                 <div>
                   <span className="text-gray-900 dark:text-white font-medium">Прогноз:</span>{' '}
                   <span className="text-gray-600 dark:text-gray-400">

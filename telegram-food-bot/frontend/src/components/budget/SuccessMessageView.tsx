@@ -44,20 +44,20 @@ export const SuccessMessageView: React.FC<SuccessMessageViewProps> = ({ debt }) 
       
       {/* Контент */}
       <div className="text-center py-6">
-        <div className="inline-flex items-center justify-center size-20 rounded-full bg-green-100 dark:bg-green-900/30 mb-4 animate-bounce">
-          <Sparkles className="size-10 text-green-600 dark:text-green-400" />
+        <div className="inline-flex items-center justify-center size-20 rounded-full bg-mint-100 dark:bg-mint-900/30 mb-4 animate-bounce">
+          <Sparkles className="size-10 text-mint-600 dark:text-mint-400" />
         </div>
         
         <h3 className="text-2xl font-bold mb-2">
-          ✨ СПАСИБО! ✨
+          СПАСИБО!
         </h3>
         
-        <p className="text-lg font-semibold text-green-600 dark:text-green-400 mb-1">
-          ✅ {debt.toUser.firstName} получил(а) {debt.amount}₽
+        <p className="text-lg font-semibold text-mint-500 dark:text-mint-300 mb-1">
+          {debt.toUser.firstName} получил(а) {debt.amount}₽
         </p>
         
         <p className="text-sm text-muted-foreground">
-          🍽️ {debt.menuItem?.name || 'Заказ'}
+          {debt.menuItem?.name || 'Заказ'}
         </p>
         
         <p className="text-xs text-muted-foreground mt-4 opacity-60">

@@ -2,6 +2,7 @@ import { User, Prisma } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreateUserData, UpdateUserData } from '../types/user.types';
+import { now } from '../utils/date';
 
 export class UserService {
   /**
@@ -39,7 +40,7 @@ export class UserService {
           firstName: data.firstName,
           lastName: data.lastName,
           photoUrl: data.photoUrl, // ✅ Обновляем фото при каждом входе
-          updatedAt: new Date(),
+          updatedAt: now(),
         },
         create: {
           telegramId: BigInt(data.telegramId),
@@ -97,7 +98,7 @@ export class UserService {
         where: { id },
         data: {
           ...data,
-          updatedAt: new Date(),
+          updatedAt: now(),
         },
       });
 
@@ -121,9 +122,9 @@ export class UserService {
     try {
       const user = await prisma.user.update({
         where: { telegramId: BigInt(telegramId) },
-        data: { 
+        data: {
           isAdmin,
-          updatedAt: new Date(),
+          updatedAt: now(),
         },
       });
 
@@ -164,9 +165,9 @@ export class UserService {
     try {
       const user = await prisma.user.update({
         where: { telegramId: BigInt(telegramId) },
-        data: { 
+        data: {
           isActive,
-          updatedAt: new Date(),
+          updatedAt: now(),
         },
       });
 
@@ -286,7 +287,7 @@ export class UserService {
           paymentCard: data.paymentCard,
           paymentPhone: data.paymentPhone,
           paymentDetails: data.paymentDetails,
-          updatedAt: new Date(),
+          updatedAt: now(),
         },
       });
 

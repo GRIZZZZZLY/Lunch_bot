@@ -20,6 +20,12 @@ const buttonVariants = cva(
           "hover:bg-gray-100 dark:hover:bg-gray-800",
         link: "text-primary underline-offset-4 hover:underline",
         
+        // ✅ SEMANTIC VARIANTS - Intent-based design (NEW!)
+        success: "bg-mint-500 hover:bg-mint-600 active:bg-mint-700 text-white shadow-md hover:shadow-lg hover:shadow-mint-500/30 dark:bg-mint-600 dark:hover:bg-mint-500",
+        warning: "bg-butter-500 hover:bg-butter-600 active:bg-butter-700 text-gray-900 shadow-md hover:shadow-lg hover:shadow-butter-500/30 dark:bg-butter-600 dark:hover:bg-butter-500",
+        danger: "bg-coral-500 hover:bg-coral-600 active:bg-coral-700 text-white shadow-md hover:shadow-lg hover:shadow-coral-500/30 dark:bg-coral-600 dark:hover:bg-coral-500",
+        info: "bg-lavender-500 hover:bg-lavender-600 active:bg-lavender-700 text-white shadow-md hover:shadow-lg hover:shadow-lavender-500/30 dark:bg-lavender-600 dark:hover:bg-lavender-500",
+        
         // Gradient variants - унифицированные с GradientButton
         peach: "bg-gradient-to-r from-peach-500 to-coral-500 text-white hover:from-peach-600 hover:to-coral-600 shadow-lg hover:shadow-[0_10px_30px_rgba(255,120,81,0.4)]",
         mint: "bg-gradient-to-r from-mint-500 to-mint-600 text-white hover:from-mint-600 hover:to-mint-700 shadow-lg hover:shadow-[0_10px_30px_rgba(92,174,135,0.4)]",

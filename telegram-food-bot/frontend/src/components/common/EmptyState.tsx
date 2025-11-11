@@ -2,6 +2,17 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { GradientButton } from '../ui/gradient-button';
 import { cn } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
+import { 
+  Vote, 
+  Utensils, 
+  Users, 
+  BarChart3, 
+  ScrollText, 
+  Star, 
+  Search,
+  type LucideIcon 
+} from 'lucide-react';
 
 export type EmptyStateType = 
   | 'no-polls' 
@@ -16,10 +27,11 @@ interface EmptyStateProps {
   type: EmptyStateType;
   onAction?: () => void;
   className?: string;
+  actionLabel?: string; // Custom action label override
 }
 
 interface EmptyStateConfig {
-  illustration: string;
+  icon: LucideIcon;
   title: string;
   description: string;
   actionLabel: string;
@@ -28,49 +40,49 @@ interface EmptyStateConfig {
 
 const EMPTY_STATE_CONFIGS: Record<EmptyStateType, EmptyStateConfig> = {
   'no-polls': {
-    illustration: '🗳️',
+    icon: Vote,
     title: 'Нет активных голосований',
     description: 'Создайте первое голосование и начните выбирать обед вместе с командой!',
     actionLabel: 'Создать голосование',
     gradient: 'from-lavender-500 to-lavender-600',
   },
   'no-menu': {
-    illustration: '🍽️',
+    icon: Utensils,
     title: 'Меню пока пустое',
     description: 'Добавьте первые блюда, чтобы начать голосования',
     actionLabel: 'Добавить блюдо',
     gradient: 'from-mint-500 to-mint-600',
   },
   'no-votes': {
-    illustration: '👥',
+    icon: Users,
     title: 'Ещё никто не проголосовал',
     description: 'Будьте первым! Ваш голос важен для команды',
     actionLabel: 'Проголосовать',
     gradient: 'from-peach-500 to-peach-600',
   },
   'no-stats': {
-    illustration: '📊',
+    icon: BarChart3,
     title: 'Статистика пока недоступна',
     description: 'Проведите несколько голосований, чтобы увидеть аналитику',
     actionLabel: 'На главную',
     gradient: 'from-coral-500 to-coral-600',
   },
   'no-history': {
-    illustration: '📜',
+    icon: ScrollText,
     title: 'История пуста',
     description: 'Здесь будут отображаться ваши прошлые голосования',
     actionLabel: 'Перейти к голосованию',
     gradient: 'from-peach-500 to-mint-500',
   },
   'no-favorites': {
-    illustration: '⭐',
+    icon: Star,
     title: 'Нет избранных блюд',
     description: 'Добавьте любимые блюда, чтобы быстро найти их позже',
     actionLabel: 'Посмотреть меню',
     gradient: 'from-butter-500 to-butter-600',
   },
   'no-results': {
-    illustration: '🔍',
+    icon: Search,
     title: 'Ничего не найдено',
     description: 'Попробуйте изменить параметры поиска или фильтры',
     actionLabel: 'Сбросить фильтры',
@@ -91,8 +103,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   type,
   onAction,
   className,
+  actionLabel,
 }) => {
   const config = EMPTY_STATE_CONFIGS[type];
+  const Icon = config.icon;
 
   return (
     <motion.div
@@ -105,23 +119,28 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         className
       )}
     >
-      {/* Animated illustration */}
+      {/* Animated icon with gradient background */}
       <motion.div
         animate={{
-          scale: [1, 1.1, 1],
-          rotate: [0, 5, -5, 0],
+          scale: [1, 1.05, 1],
+          rotate: [0, 2, -2, 0],
         }}
         transition={{
-          duration: 2,
+          duration: 3,
           repeat: Infinity,
           repeatDelay: 1,
           ease: 'easeInOut',
         }}
-        className="text-8xl mb-6 select-none"
+        className="mb-6"
         role="img"
         aria-label="Empty state illustration"
       >
-        {config.illustration}
+        <div className={cn(
+          'w-24 h-24 rounded-3xl flex items-center justify-center shadow-2xl',
+          `bg-gradient-to-br ${config.gradient}`
+        )}>
+          <Icon className={`${ICON_SIZES['2xl']} text-white`} strokeWidth={2} />
+        </div>
       </motion.div>
 
       {/* Title */}
@@ -146,7 +165,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
             onClick={onAction}
             className="min-w-[200px]"
           >
-            {config.actionLabel}
+            {actionLabel || config.actionLabel}
           </GradientButton>
         </motion.div>
       )}

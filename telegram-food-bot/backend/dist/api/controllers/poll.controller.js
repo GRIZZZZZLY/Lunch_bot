@@ -40,6 +40,7 @@ const menu_service_1 = require("../../services/menu.service");
 const group_service_1 = require("../../services/group.service");
 const logger_1 = require("../../utils/logger");
 const poll_service_extensions_1 = require("../../services/poll.service.extensions");
+const date_1 = require("../../utils/date");
 function serializeBigInt(obj) {
     if (obj === null || obj === undefined) {
         return obj;
@@ -68,10 +69,17 @@ class PollController {
     static async getActivePolls(req, res) {
         try {
             const polls = await poll_service_1.PollService.getActivePolls();
+            const pollsWithEndTime = polls.map(poll => {
+                const endTime = poll.endedAt || (0, date_1.calculatePollEndTime)(poll.startedAt, poll.duration);
+                return {
+                    ...poll,
+                    endTime: endTime.toISOString(),
+                };
+            });
             res.json({
                 success: true,
-                data: serializeBigInt(polls),
-                count: polls.length,
+                data: serializeBigInt(pollsWithEndTime),
+                count: pollsWithEndTime.length,
                 timestamp: new Date().toISOString(),
             });
         }
@@ -335,13 +343,18 @@ class PollController {
                 });
                 return;
             }
-            let filteredPoll = poll;
+            const endTime = poll.endedAt || (0, date_1.calculatePollEndTime)(poll.startedAt, poll.duration);
+            const pollWithEndTime = {
+                ...poll,
+                endTime: endTime.toISOString(),
+            };
+            let filteredPoll = pollWithEndTime;
             if (poll.selectedMenuItemIds) {
                 try {
                     const selectedIds = JSON.parse(poll.selectedMenuItemIds);
                     if (Array.isArray(selectedIds) && selectedIds.length > 0) {
                         filteredPoll = {
-                            ...poll,
+                            ...pollWithEndTime,
                             votes: poll.votes.filter(vote => vote.menuItemId && selectedIds.includes(vote.menuItemId)),
                         };
                         logger_1.logger.info(`Filtered poll ${id} votes`, {
@@ -816,6 +829,93 @@ class PollController {
             res.status(500).json({
                 success: false,
                 error: 'Failed to cast vote',
+                code: 'INTERNAL_ERROR'
+            });
+        }
+    }
+    static async voteMultiple(req, res) {
+        try {
+            const pollId = parseInt(req.params.id);
+            const { menuItemIds } = req.body;
+            const user = req.user;
+            logger_1.logger.info('🔍 DEBUG: Multiple vote request from user:', {
+                userId: user.id,
+                telegramId: user.telegramId,
+                firstName: user.firstName,
+                username: user.username,
+                pollId,
+                menuItemIds,
+                count: menuItemIds?.length || 0,
+            });
+            if (isNaN(pollId)) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid poll ID',
+                    code: 'INVALID_ID'
+                });
+                return;
+            }
+            if (!menuItemIds || !Array.isArray(menuItemIds) || menuItemIds.length === 0) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid menu item IDs. Must be a non-empty array.',
+                    code: 'INVALID_MENU_ITEM_IDS'
+                });
+                return;
+            }
+            const invalidIds = menuItemIds.filter(id => isNaN(parseInt(id)));
+            if (invalidIds.length > 0) {
+                res.status(400).json({
+                    success: false,
+                    error: 'All menu item IDs must be valid numbers',
+                    code: 'INVALID_MENU_ITEM_IDS'
+                });
+                return;
+            }
+            const numericMenuItemIds = menuItemIds.map(id => parseInt(id));
+            const votes = await vote_service_1.VoteService.createMultipleVotes(pollId, user.id, numericMenuItemIds);
+            logger_1.logger.info('Multiple votes cast via API', {
+                pollId,
+                userId: user.id,
+                itemsCount: votes.length,
+                menuItemIds: votes.map(v => v.menuItemId),
+            });
+            try {
+                const shouldAutoComplete = await poll_service_1.PollService.checkAutoComplete(pollId);
+                if (shouldAutoComplete) {
+                    logger_1.logger.info(`Triggering auto-complete for poll ${pollId} (from multi-vote API)`);
+                    await poll_service_1.PollService.completePollMultiWinner(pollId, user.id, {
+                        minVotes: 1,
+                        tieBreakMethod: 'earliest'
+                    });
+                    logger_1.logger.info(`Poll ${pollId} auto-completed successfully via multi-vote API`);
+                }
+            }
+            catch (autoCompleteError) {
+                logger_1.logger.error('Auto-complete check/execution failed:', autoCompleteError);
+            }
+            res.json({
+                success: true,
+                data: votes.map(vote => serializeBigInt(vote)),
+                message: `Successfully voted for ${votes.length} items`,
+                timestamp: new Date().toISOString(),
+            });
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                if (['Poll not found', 'Poll is not active', 'Poll has expired', 'Invalid parameters for multiple votes'].includes(error.message)) {
+                    res.status(400).json({
+                        success: false,
+                        error: error.message,
+                        code: 'POLL_ERROR'
+                    });
+                    return;
+                }
+            }
+            logger_1.logger.error('Error casting multiple votes:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to cast multiple votes',
                 code: 'INTERNAL_ERROR'
             });
         }

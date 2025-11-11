@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { EmptyState } from '../components/common/EmptyState';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from '../components/common/PullToRefreshIndicator';
-import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardContent } from '../components/ui/glass-card';
+import { PastelCard, CardHeader, CardTitle, CardContent } from '../components/ui/pastel-card';
 import { Skeleton } from '../components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
 
@@ -81,16 +81,16 @@ export const ExamplePullToRefreshPage: React.FC = () => {
           // Loading Skeletons
           <>
             <GlassCard>
-              <GlassCardContent className="p-4">
+              <CardContent className="p-4">
                 <Skeleton className="h-6 w-32 mb-2" />
                 <Skeleton className="h-4 w-full" />
-              </GlassCardContent>
+              </CardContent>
             </GlassCard>
             <GlassCard>
-              <GlassCardContent className="p-4">
+              <CardContent className="p-4">
                 <Skeleton className="h-6 w-32 mb-2" />
                 <Skeleton className="h-4 w-full" />
-              </GlassCardContent>
+              </CardContent>
             </GlassCard>
           </>
         ) : items.length === 0 ? (
@@ -109,7 +109,7 @@ export const ExamplePullToRefreshPage: React.FC = () => {
               transition={{ delay: index * 0.1 }}
             >
               <GlassCard hover>
-                <GlassCardContent className="p-4">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold">{item.title}</h3>
@@ -119,7 +119,7 @@ export const ExamplePullToRefreshPage: React.FC = () => {
                     </div>
                     <div className="text-2xl">🍽️</div>
                   </div>
-                </GlassCardContent>
+                </CardContent>
               </GlassCard>
             </motion.div>
           ))
@@ -127,7 +127,7 @@ export const ExamplePullToRefreshPage: React.FC = () => {
       </div>
 
       {/* Instructions */}
-      <div className="fixed bottom-20 left-0 right-0 px-4">
+      <div className="fixed bottom-24 sm:bottom-20 left-0 right-0 px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
