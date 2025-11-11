@@ -2,7 +2,8 @@ import { motion } from 'framer-motion';
 import { Star, CreditCard, Bitcoin, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { PaymentMethod } from '../../types/donation.types';
-import { GlassCard, GlassCardContent } from '../ui/glass-card';
+import { PastelCard, CardContent } from '../ui/pastel-card';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface PaymentMethodCardProps {
   method: PaymentMethod;
@@ -16,11 +17,11 @@ interface PaymentMethodCardProps {
 const getMethodIcon = (method: PaymentMethod) => {
   switch (method) {
     case 'stars':
-      return <Star size={24} className="text-butter-500" />;
+      return <Star className={cn(ICON_SIZES.lg, "text-butter-500")} />;
     case 'sbp':
-      return <CreditCard size={24} className="text-mint-500" />;
+      return <CreditCard className={cn(ICON_SIZES.lg, "text-mint-500")} />;
     case 'crypto':
-      return <Bitcoin size={24} className="text-coral-500" />;
+      return <Bitcoin className={cn(ICON_SIZES.lg, "text-coral-500")} />;
   }
 };
 
@@ -48,21 +49,20 @@ export const PaymentMethodCard = ({
       whileHover={enabled ? { scale: 1.02 } : {}}
       whileTap={enabled ? { scale: 0.98 } : {}}
     >
-      <GlassCard
-        intensity={selected ? "medium" : "low"}
-        hover={enabled}
+      <PastelCard
+        variant={
+          method === 'stars' ? 'peach' :
+          method === 'sbp' ? 'sage' :
+          'lavender'
+        }
         className={cn(
           'cursor-pointer transition-all relative overflow-hidden',
           !enabled && 'opacity-50 cursor-not-allowed',
-          selected && 'ring-2 ring-peach-500'
+          selected && 'ring-2 ring-pastel-peach-500'
         )}
         onClick={enabled ? onClick : undefined}
       >
-        <div className={cn(
-          "absolute inset-0",
-          selected && "bg-gradient-to-r " + getMethodColor(method)
-        )} />
-        <GlassCardContent className="relative">
+        <CardContent className="p-4 pt-4 relative">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {/* Icon */}
@@ -88,12 +88,7 @@ export const PaymentMethodCard = ({
 
             {/* Arrow */}
             {enabled && (
-              <ChevronRight
-                size={20}
-                className={cn(
-                  'transition-transform',
-                  selected ? 'text-foreground' : 'text-muted-foreground'
-                )}
+              <ChevronRight className={ICON_SIZES.md}
               />
             )}
           </div>
@@ -104,8 +99,8 @@ export const PaymentMethodCard = ({
               Скоро
             </div>
           )}
-        </GlassCardContent>
-      </GlassCard>
+        </CardContent>
+      </PastelCard>
     </motion.div>
   );
 };

@@ -5,9 +5,22 @@ const client_1 = require("@prisma/client");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
 const vote_types_1 = require("../types/vote.types");
+const gamification_service_1 = require("./gamification.service");
+const xp_constants_1 = require("../constants/xp-constants");
 class VoteService {
     static async createVote(data) {
         try {
+            const existingVote = await client_2.prisma.vote.findFirst({
+                where: {
+                    pollId: data.pollId,
+                    userId: data.userId,
+                    menuItemId: data.menuItemId,
+                },
+            });
+            if (existingVote) {
+                logger_1.logger.info(`User ${data.userId} already voted for item ${data.menuItemId} in poll ${data.pollId}`);
+                return existingVote;
+            }
             const vote = await client_2.prisma.vote.create({
                 data: {
                     pollId: data.pollId,
@@ -17,6 +30,34 @@ class VoteService {
                 },
             });
             logger_1.logger.info(`Vote created: user ${data.userId} voted for item ${data.menuItemId} in poll ${data.pollId}`);
+            try {
+                const reward = (0, xp_constants_1.getXPReward)('VOTE');
+                let xpAmount = reward.amount;
+                const context = {
+                    isFirstVoteOfDay: await this.isFirstVoteOfDay(data.userId),
+                    isUnanimous: await this.isUnanimousVote(data.pollId),
+                    isCloseToDeadline: await this.isCloseToDeadline(data.pollId),
+                };
+                let finalXP = xpAmount;
+                if ((0, xp_constants_1.isMultiplierAvailable)('FIRST_VOTE_OF_DAY', context)) {
+                    finalXP = (0, xp_constants_1.calculateXPWithMultiplier)(finalXP, 'FIRST_VOTE_OF_DAY');
+                    logger_1.logger.info(`First vote of day bonus applied for user ${data.userId}`);
+                }
+                if ((0, xp_constants_1.isMultiplierAvailable)('UNANIMOUS_VOTE', context)) {
+                    finalXP = (0, xp_constants_1.calculateXPWithMultiplier)(finalXP, 'UNANIMOUS_VOTE');
+                    logger_1.logger.info(`Unanimous vote bonus applied for poll ${data.pollId}`);
+                }
+                if ((0, xp_constants_1.isMultiplierAvailable)('CLOSE_POLL_DEADLINE', context)) {
+                    finalXP = (0, xp_constants_1.calculateXPWithMultiplier)(finalXP, 'CLOSE_POLL_DEADLINE');
+                    logger_1.logger.info(`Close deadline bonus applied for poll ${data.pollId}`);
+                }
+                const roundedXP = Math.round(finalXP);
+                await gamification_service_1.GamificationService.awardXP(data.userId, roundedXP, reward.reason, reward.category, { pollId: data.pollId, menuItemId: data.menuItemId, baseAmount: reward.amount });
+                logger_1.logger.info(`XP awarded: ${xpAmount} to user ${data.userId} for voting`);
+            }
+            catch (xpError) {
+                logger_1.logger.error('Failed to award XP for vote:', xpError);
+            }
             return vote;
         }
         catch (error) {
@@ -41,6 +82,73 @@ class VoteService {
         catch (error) {
             logger_1.logger.error('Error creating vote with type:', error);
             throw new Error('Failed to create vote with type');
+        }
+    }
+    static async createMultipleVotes(pollId, userId, menuItemIds) {
+        try {
+            if (!pollId || !userId || !menuItemIds || menuItemIds.length === 0) {
+                throw new Error('Invalid parameters for multiple votes');
+            }
+            logger_1.logger.info(`Creating multiple votes: user ${userId} voting for ${menuItemIds.length} items in poll ${pollId}`);
+            const existingVotes = await client_2.prisma.vote.findMany({
+                where: {
+                    pollId,
+                    userId,
+                    menuItemId: { in: menuItemIds },
+                },
+            });
+            const existingItemIds = existingVotes.map(v => v.menuItemId);
+            const newMenuItemIds = menuItemIds.filter(id => !existingItemIds.includes(id));
+            if (newMenuItemIds.length === 0) {
+                logger_1.logger.info(`User ${userId} already voted for all selected items in poll ${pollId}`);
+                return existingVotes;
+            }
+            const newVotes = await Promise.all(newMenuItemIds.map(menuItemId => this.createVote({
+                pollId,
+                userId,
+                menuItemId,
+            })));
+            logger_1.logger.info(`Multiple votes created: user ${userId} voted for ${newVotes.length} new items in poll ${pollId}`);
+            return [...existingVotes, ...newVotes];
+        }
+        catch (error) {
+            logger_1.logger.error('Error creating multiple votes:', error);
+            throw new Error('Failed to create multiple votes');
+        }
+    }
+    static async getUserVotes(pollId, userId) {
+        try {
+            const votes = await client_2.prisma.vote.findMany({
+                where: {
+                    pollId,
+                    userId,
+                    menuItemId: { not: null },
+                },
+                include: {
+                    menuItem: true,
+                },
+            });
+            return votes;
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting user votes:', error);
+            throw new Error('Failed to get user votes');
+        }
+    }
+    static async deleteVote(pollId, userId, menuItemId) {
+        try {
+            await client_2.prisma.vote.deleteMany({
+                where: {
+                    pollId,
+                    userId,
+                    menuItemId,
+                },
+            });
+            logger_1.logger.info(`Vote deleted: user ${userId}, poll ${pollId}, item ${menuItemId}`);
+        }
+        catch (error) {
+            logger_1.logger.error('Error deleting vote:', error);
+            throw new Error('Failed to delete vote');
         }
     }
     static async updateVote(voteId, menuItemId) {
@@ -145,19 +253,14 @@ class VoteService {
             if (poll.endedAt && poll.endedAt < new Date()) {
                 throw new Error('Poll has expired');
             }
-            const vote = await client_2.prisma.vote.upsert({
+            await client_2.prisma.vote.deleteMany({
                 where: {
-                    pollId_userId: {
-                        pollId: data.pollId,
-                        userId: data.userId,
-                    },
+                    pollId: data.pollId,
+                    userId: data.userId,
                 },
-                update: {
-                    menuItemId: data.menuItemId,
-                    voteType: vote_types_1.VoteType.MENU_ITEM,
-                    updatedAt: new Date(),
-                },
-                create: {
+            });
+            const vote = await client_2.prisma.vote.create({
+                data: {
                     pollId: data.pollId,
                     userId: data.userId,
                     menuItemId: data.menuItemId,
@@ -191,20 +294,14 @@ class VoteService {
             if (poll.endedAt && poll.endedAt < new Date()) {
                 throw new Error('Poll has expired');
             }
-            const vote = await client_2.prisma.vote.upsert({
+            await client_2.prisma.vote.deleteMany({
                 where: {
-                    pollId_userId: {
-                        pollId: data.pollId,
-                        userId: data.userId,
-                    },
+                    pollId: data.pollId,
+                    userId: data.userId,
                 },
-                update: {
-                    voteType: data.voteType,
-                    menuItemId: data.menuItemId,
-                    customOption: data.customOption,
-                    updatedAt: new Date(),
-                },
-                create: {
+            });
+            const vote = await client_2.prisma.vote.create({
+                data: {
                     pollId: data.pollId,
                     userId: data.userId,
                     voteType: data.voteType,
@@ -258,17 +355,8 @@ class VoteService {
     }
     static async getUserVoteInPoll(pollId, userId) {
         try {
-            return await client_2.prisma.vote.findUnique({
-                where: {
-                    pollId_userId: {
-                        pollId,
-                        userId,
-                    },
-                },
-                include: {
-                    menuItem: true,
-                },
-            });
+            const votes = await this.getUserVotes(pollId, userId);
+            return votes.length > 0 ? votes[0] : null;
         }
         catch (error) {
             logger_1.logger.error('Error getting user vote in poll:', error);
@@ -287,12 +375,10 @@ class VoteService {
             if (poll.status !== 'ACTIVE') {
                 throw new Error('Poll is not active');
             }
-            await client_2.prisma.vote.delete({
+            await client_2.prisma.vote.deleteMany({
                 where: {
-                    pollId_userId: {
-                        pollId,
-                        userId,
-                    },
+                    pollId,
+                    userId,
                 },
             });
             logger_1.logger.info(`Vote removed: user ${userId} from poll ${pollId}`);
@@ -395,15 +481,8 @@ class VoteService {
     }
     static async hasUserVoted(pollId, userId) {
         try {
-            const vote = await client_2.prisma.vote.findUnique({
-                where: {
-                    pollId_userId: {
-                        pollId,
-                        userId,
-                    },
-                },
-            });
-            return vote !== null;
+            const votes = await this.getUserVotes(pollId, userId);
+            return votes.length > 0;
         }
         catch (error) {
             logger_1.logger.error('Error checking if user voted:', error);
@@ -451,7 +530,7 @@ class VoteService {
             throw new Error('Failed to get user vote stats');
         }
     }
-    static async getUserVotes(userId, limit = 20, offset = 0) {
+    static async getUserVotesHistory(userId, limit = 20, offset = 0) {
         try {
             const [votes, total] = await Promise.all([
                 client_2.prisma.vote.findMany({
@@ -623,7 +702,65 @@ class VoteService {
         }
         catch (error) {
             logger_1.logger.error('Error getting most popular menu item:', error);
-            throw new Error('Failed to get most popular menu item');
+            return null;
+        }
+    }
+    static async isFirstVoteOfDay(userId) {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const voteCount = await client_2.prisma.vote.count({
+                where: {
+                    userId,
+                    createdAt: {
+                        gte: today,
+                        lt: tomorrow,
+                    },
+                },
+            });
+            return voteCount === 1;
+        }
+        catch (error) {
+            logger_1.logger.error('Error checking first vote of day:', error);
+            return false;
+        }
+    }
+    static async isUnanimousVote(pollId) {
+        try {
+            const votes = await client_2.prisma.vote.findMany({
+                where: {
+                    pollId,
+                    menuItemId: { not: null },
+                },
+                distinct: ['menuItemId'],
+            });
+            return votes.length <= 1;
+        }
+        catch (error) {
+            logger_1.logger.error('Error checking unanimous vote:', error);
+            return false;
+        }
+    }
+    static async isCloseToDeadline(pollId) {
+        try {
+            const poll = await client_2.prisma.poll.findUnique({
+                where: { id: pollId },
+                select: { duration: true, createdAt: true },
+            });
+            if (!poll)
+                return false;
+            const deadline = new Date(poll.createdAt);
+            deadline.setMinutes(deadline.getMinutes() + poll.duration);
+            const now = new Date();
+            const oneHourFromDeadline = new Date(deadline);
+            oneHourFromDeadline.setHours(oneHourFromDeadline.getHours() - 1);
+            return now >= oneHourFromDeadline && now < deadline;
+        }
+        catch (error) {
+            logger_1.logger.error('Error checking close to deadline:', error);
+            return false;
         }
     }
 }

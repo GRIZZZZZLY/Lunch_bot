@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PollReminderService = void 0;
 const logger_1 = require("../utils/logger");
 const poll_service_1 = require("./poll.service");
+const user_service_1 = require("./user.service");
 class PollReminderService {
     static reminders = new Map();
     static botInstance = null;
@@ -73,7 +74,7 @@ class PollReminderService {
             const poll = await poll_service_1.PollService.getPollById(pollId);
             if (!poll || !poll.group)
                 return;
-            const groupMembers = [];
+            const groupMembers = await user_service_1.UserService.getUsersByGroupId(poll.group.id);
             const votedUserIds = new Set(poll.votes?.map(v => v.userId) || []);
             const notVotedUsers = groupMembers.filter((user) => !votedUserIds.has(user.id));
             const usersToNotify = notVotedUsers.slice(0, 50);

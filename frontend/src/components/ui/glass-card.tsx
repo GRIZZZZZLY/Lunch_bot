@@ -27,7 +27,7 @@ export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
       low: "bg-white/5 dark:bg-black/10 backdrop-blur-sm border-white/10",
       medium: "bg-white/10 dark:bg-black/20 backdrop-blur-md border-white/15",
       high: "bg-white/20 dark:bg-black/30 backdrop-blur-xl border-white/20",
-      solid: "bg-gradient-to-br from-lavender-50 via-white to-mint-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 border-lavender-100 dark:border-gray-700",
+      solid: "bg-card dark:bg-card border-border",
     }
 
     return (

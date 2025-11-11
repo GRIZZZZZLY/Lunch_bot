@@ -4,13 +4,14 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, TrendingUp } from 'lucide-react';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { GlassHeroCard } from '../components/glass';
-import { MediumWaveGradient } from '../components/background';
+// import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
 import { useTelegram } from '../hooks/useTelegram';
 import { useUI } from '../store/useAppStore';
 import { pollsService, MultiWinnerResultData } from '../services/polls.service';
 import { MultiWinnerResults } from '../components/voting/MultiWinnerResults';
 import { SingleWinnerResults } from '../components/voting/SingleWinnerResults';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 /**
  * Страница отображения результатов голосования
@@ -94,7 +95,6 @@ export const PollResultsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen relative">
-        <MediumWaveGradient />
         <div className="flex items-center justify-center min-h-screen">
           <LoadingSpinner size="lg" />
         </div>
@@ -105,7 +105,6 @@ export const PollResultsPage: React.FC = () => {
   if (!result) {
     return (
       <div className="min-h-screen relative">
-        <MediumWaveGradient />
         <div className="flex flex-col items-center justify-center min-h-screen gap-4">
           <p className="text-lg text-gray-600 dark:text-gray-400">
             Результаты не найдены
@@ -125,7 +124,7 @@ export const PollResultsPage: React.FC = () => {
 
   return (
     <>
-      <MediumWaveGradient />
+      {/* Background removed - using neutral bg-background from Layout */}
 
       <div className="min-h-screen pb-24">
         {/* Hero Card */}
@@ -140,7 +139,7 @@ export const PollResultsPage: React.FC = () => {
             label="Результаты голосования"
             sublabel={resultType === 'multi' ? 'Распределение по группам' : 'Single Winner'}
             textColor={textColor}
-            icon={<TrendingUp size={24} />}
+            icon={<TrendingUp className={ICON_SIZES.lg} />}
           />
         </motion.div>
 
@@ -152,7 +151,7 @@ export const PollResultsPage: React.FC = () => {
           onClick={() => navigate('/')}
           className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-4"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft className={ICON_SIZES.md} />
           <span>На главную</span>
         </motion.button>
 

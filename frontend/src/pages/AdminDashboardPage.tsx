@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { GlassCard } from '../components/glass';
-import { MediumWaveGradient } from '../components/background';
+import { PastelCard, CardHeader, CardContent, CardTitle } from '../components/ui/pastel-card';
+import { Badge } from '../components/ui/badge';
+// import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import {
   Shield,
   Activity,
@@ -21,6 +22,7 @@ import { useTelegram } from '../hooks/useTelegram';
 import { useUI } from '../store/useAppStore';
 import { pollsService } from '../services/polls.service';
 import { cn } from '../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface AdminLog {
   id: string;
@@ -89,11 +91,15 @@ export const AdminDashboardPage: React.FC = () => {
     try {
       setLoading(true);
 
-      // Загружаем статистику голосований
-      console.log('[AdminDashboard] Loading poll stats...');
-      const pollStatsResponse = await pollsService.getPollStats();
-      console.log('[AdminDashboard] Poll stats response:', pollStatsResponse);
+      // ✅ ОПТИМИЗАЦИЯ: Параллельная загрузка stats и history
+      console.log('[AdminDashboard] Loading data in parallel...');
+      const [pollStatsResponse, historyResponse] = await Promise.all([
+        pollsService.getPollStats(),
+        pollsService.getPollHistory({ limit: 10, offset: 0 })
+      ]);
       
+      // Обрабатываем stats response
+      console.log('[AdminDashboard] Poll stats response:', pollStatsResponse);
       if (pollStatsResponse.success && pollStatsResponse.data) {
         setStats(prev => ({
           ...prev,
@@ -107,12 +113,7 @@ export const AdminDashboardPage: React.FC = () => {
         console.error('[AdminDashboard] Failed to load stats:', pollStatsResponse);
       }
 
-      // Загружаем историю для логов (последние 10 действий)
-      console.log('[AdminDashboard] Loading poll history...');
-      const historyResponse = await pollsService.getPollHistory({
-        limit: 10,
-        offset: 0,
-      });
+      // Обрабатываем history response
       console.log('[AdminDashboard] Poll history response:', historyResponse);
       
       if (historyResponse.success && historyResponse.data) {
@@ -160,7 +161,6 @@ export const AdminDashboardPage: React.FC = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen relative">
-        <MediumWaveGradient />
         <div className="flex items-center justify-center min-h-screen">
           <LoadingSpinner size="lg" />
         </div>
@@ -170,7 +170,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   return (
     <>
-      <MediumWaveGradient />
+      {/* Background removed - using neutral bg-background from Layout */}
 
       <div className="space-y-6 relative pb-24">
         {/* Header */}
@@ -199,12 +199,7 @@ export const AdminDashboardPage: React.FC = () => {
                 : 'hover:bg-gray-100 dark:hover:bg-gray-800'
             )}
           >
-            <RefreshCw
-              size={20}
-              className={cn(
-                'text-gray-600 dark:text-gray-400',
-                refreshing && 'animate-spin'
-              )}
+            <RefreshCw className={ICON_SIZES.md}
             />
           </button>
         </motion.div>
@@ -217,7 +212,7 @@ export const AdminDashboardPage: React.FC = () => {
           className="grid grid-cols-2 gap-4"
         >
           {/* Total Polls */}
-          <GlassCard variant="medium" theme={isDark ? 'dark' : 'light'} className="p-4">
+          <PastelCard variant="default" className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                 <BarChart3 className="text-blue-500" size={20} />
@@ -231,13 +226,13 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </GlassCard>
+          </PastelCard>
 
           {/* Active Polls */}
-          <GlassCard variant="medium" theme={isDark ? 'dark' : 'light'} className="p-4">
+          <PastelCard variant="default" className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
-                <Activity className="text-green-500" size={20} />
+                <Activity className={`${ICON_SIZES.md} text-green-500`} />
               </div>
               <div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -248,13 +243,13 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </GlassCard>
+          </PastelCard>
 
           {/* Completed Polls */}
-          <GlassCard variant="medium" theme={isDark ? 'dark' : 'light'} className="p-4">
+          <PastelCard variant="default" className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20">
-                <CheckCircle className="text-purple-500" size={20} />
+                <CheckCircle className={`${ICON_SIZES.md} text-purple-500`} />
               </div>
               <div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -265,13 +260,13 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </GlassCard>
+          </PastelCard>
 
           {/* Total Votes */}
-          <GlassCard variant="medium" theme={isDark ? 'dark' : 'light'} className="p-4">
+          <PastelCard variant="default" className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-orange-50 dark:bg-orange-900/20">
-                <TrendingUp className="text-orange-500" size={20} />
+                <TrendingUp className={`${ICON_SIZES.md} text-orange-500`} />
               </div>
               <div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -282,7 +277,7 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </GlassCard>
+          </PastelCard>
         </motion.div>
 
         {/* Admin Info Card */}
@@ -291,10 +286,10 @@ export const AdminDashboardPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <GlassCard variant="medium" theme={isDark ? 'dark' : 'light'} className="p-5">
+          <PastelCard variant="default" className="p-5">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
-                <Crown className="text-yellow-500" size={20} />
+                <Crown className={`${ICON_SIZES.md} text-yellow-500`} />
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
@@ -302,25 +297,25 @@ export const AdminDashboardPage: React.FC = () => {
                 </h3>
                 <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-green-500" />
+                    <CheckCircle className={cn(ICON_SIZES.sm, "text-green-500")} />
                     <span>Создание и управление голосованиями</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-green-500" />
+                    <CheckCircle className={cn(ICON_SIZES.sm, "text-green-500")} />
                     <span>Редактирование меню</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-green-500" />
+                    <CheckCircle className={cn(ICON_SIZES.sm, "text-green-500")} />
                     <span>Завершение и отмена голосований</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-green-500" />
+                    <CheckCircle className={cn(ICON_SIZES.sm, "text-green-500")} />
                     <span>Просмотр полной статистики</span>
                   </div>
                 </div>
               </div>
             </div>
-          </GlassCard>
+          </PastelCard>
         </motion.div>
 
         {/* Recent Activity Logs */}
@@ -330,18 +325,18 @@ export const AdminDashboardPage: React.FC = () => {
           transition={{ delay: 0.3 }}
         >
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Clock size={20} className="text-gray-600 dark:text-gray-400" />
+            <Clock className={cn(ICON_SIZES.md, "text-gray-600 dark:text-gray-400")} />
             Последние действия
           </h2>
 
           <div className="space-y-3">
             {recentLogs.length === 0 ? (
-              <GlassCard variant="medium" theme={isDark ? 'dark' : 'light'} className="p-6">
+              <PastelCard variant="default" className="p-6">
                 <div className="text-center text-gray-500 dark:text-gray-400">
-                  <Activity size={32} className="mx-auto mb-2 opacity-50" />
+                  <Activity className={cn(ICON_SIZES.xl, "mx-auto mb-2 opacity-50")} />
                   <p className="text-sm">Пока нет записей в журнале</p>
                 </div>
-              </GlassCard>
+              </PastelCard>
             ) : (
               recentLogs.map((log, index) => (
                 <motion.div
@@ -350,7 +345,7 @@ export const AdminDashboardPage: React.FC = () => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 + index * 0.05 }}
                 >
-                  <GlassCard variant="light" theme={isDark ? 'dark' : 'light'} className="p-4">
+                  <PastelCard variant="default" className="p-4">
                     <div className="flex items-start gap-3">
                       <div
                         className={cn(
@@ -361,9 +356,9 @@ export const AdminDashboardPage: React.FC = () => {
                         )}
                       >
                         {log.status === 'success' ? (
-                          <CheckCircle size={16} className="text-green-500" />
+                          <CheckCircle className={cn(ICON_SIZES.sm, "text-green-500")} />
                         ) : (
-                          <XCircle size={16} className="text-red-500" />
+                          <XCircle className={cn(ICON_SIZES.sm, "text-red-500")} />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -383,7 +378,7 @@ export const AdminDashboardPage: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                  </GlassCard>
+                  </PastelCard>
                 </motion.div>
               ))
             )}
@@ -396,9 +391,9 @@ export const AdminDashboardPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <GlassCard variant="medium" theme={isDark ? 'dark' : 'light'} className="p-5">
+          <PastelCard variant="default" className="p-5">
             <div className="flex items-start gap-3">
-              <AlertCircle size={20} className="text-blue-500 flex-shrink-0 mt-0.5" />
+              <AlertCircle className={cn(ICON_SIZES.md, "text-blue-500 flex-shrink-0 mt-0.5")} />
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 <p className="font-medium text-gray-900 dark:text-white mb-1">
                   Безопасность
@@ -409,7 +404,7 @@ export const AdminDashboardPage: React.FC = () => {
                 </p>
               </div>
             </div>
-          </GlassCard>
+          </PastelCard>
         </motion.div>
       </div>
     </>

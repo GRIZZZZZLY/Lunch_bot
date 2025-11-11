@@ -1,12 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowRight,
-  Share2,
+import {
   Bell,
-  Star,
-  Zap,
   RotateCcw,
   Sparkles,
   UserPlus,
@@ -14,46 +10,48 @@ import {
 
 // New shadcn/ui components
 import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
-import { Progress } from '../components/ui/progress';
-import { Tooltip, TooltipTrigger, TooltipContent } from '../components/ui/tooltip';
-
-// Common components
-import { UserAvatar } from '../components/common/UserAvatar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 
 // Custom components
-import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardDescription, GlassCardContent } from '../components/ui/glass-card';
+import { PastelCard, CardContent } from '../components/ui/pastel-card';
 import { ThemeToggle } from '../components/ui/theme-toggle';
-import { MediumWaveGradient } from '../components/background';
+// import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
+import { BottomNavigation } from '../components/layout/BottomNavigation';
 
 // Poll components
 import { InlineVotingCard } from '../components/voting/InlineVotingCard';
 import { CreatePollForm } from '../components/polls/CreatePollForm';
 import { CompletedPollWidget } from '../components/polls/CompletedPollWidget';
 import { TopDishModal } from '../components/modals/TopDishModal';
-import { PollSummaryCard } from '../components/polls/PollSummaryCard';
 
 // Budget components
 import { BudgetWidget } from '../components/budget';
 
+// Recurring Polls components
+import { RecurringPollBadge } from '../components/polls/RecurringPollBadge';
+
 // New components
 import { FloatingActionButton } from '../components/common/FloatingActionButton';
+import { UserAvatar } from '../components/common/UserAvatar';
 import { FeedbackModal } from '../components/modals/FeedbackModal';
 
 // Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
-import { useMenu, useAppStore, useUI } from '../store/useAppStore';
+import { useAppStore, useUI } from '../store/useAppStore';
 import { pollsService, PollWithDetails } from '../services/polls.service';
+import { notificationService } from '../services/notification.service';
 import { useActivePolls } from '../hooks/usePolls';
 import { useMenuItems } from '../hooks/queries';
+import { useUserGroups } from '../hooks/queries/useUserQueries';
 import { useTodayCompletedPoll } from '../hooks/useTodayCompletedPoll';
-import { cn, formatRelativeTime, getInitials, getAvatarColor } from '../lib/utils';
+import { cn, formatRelativeTime } from '../lib/utils';
 import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 /**
  * HomePage - Умная адаптивная главная страница
@@ -94,16 +92,25 @@ export const HomePage: React.FC = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const [justCompletedPollId, setJustCompletedPollId] = useState<number | null>(null);
 
+  // ✅ ПАРАЛЛЕЛЬНАЯ ЗАГРУЗКА: Все 3 запроса идут одновременно
   // React Query: Load active polls with caching
-  const { data: activePolls = [], isLoading, refetch } = useActivePolls();
+  const { data: activePolls = [], isLoading: pollsLoading, refetch } = useActivePolls();
 
-  // React Query: Load today's completed poll
-  // Используем groupId из активного голосования
-  const userGroupId = activePoll?.groupId;
+  // React Query: Load user groups (параллельно с polls)
+  const { data: userGroups = [], isLoading: groupsLoading } = useUserGroups();
+
+  // ВАЖНО: userGroupId ДОЛЖЕН быть объявлен ПОСЛЕ activePolls и userGroups
+  // Используем groupId из активного голосования или первой группы пользователя
+  const userGroupId = activePoll?.groupId || userGroups[0]?.id;
+
+  // React Query: Load today's completed poll (параллельно, но использует userGroupId)
   const { data: todayCompletedPoll, isLoading: loadingCompletedPoll, error: completedPollError, refetch: refetchCompleted } = useTodayCompletedPoll(
     userGroupId,
     !!userGroupId // Всегда загружаем если есть groupId (не зависит от activePoll)
   );
+
+  // Общий loading state - показываем loading только если ВСЕ запросы в процессе
+  const isLoading = pollsLoading || groupsLoading || loadingCompletedPoll;
 
   // Debug logging
   useEffect(() => {
@@ -153,33 +160,69 @@ export const HomePage: React.FC = () => {
   
   // NOTE: userPollCount и Welcome Card удалены - инструкция показывается только при первом запуске
   
-  // Set first active poll when data loads
+  // ИЗМЕНЕНО: Set active poll based on URL param OR first poll
   useEffect(() => {
     console.log('🚀 [HomePage] Active polls loaded:', activePolls.length);
     
-    if (activePolls.length > 0) {
-      const firstPoll = activePolls[0];
-      console.log('✅ [HomePage] Found active poll:', {
-            id: firstPoll.id,
-            status: firstPoll.status,
-            groupId: firstPoll.groupId
-          });
-          
-          const transformedPoll = {
-            ...firstPoll,
-            title: 'Голосование на обед',
-            endTime: firstPoll.endedAt || 
-              (firstPoll.startedAt ? 
-                new Date(new Date(firstPoll.startedAt).getTime() + (firstPoll.duration || 30) * 60 * 1000).toISOString() : 
-                new Date(Date.now() + 30 * 60 * 1000).toISOString()),
-            voteCount: firstPoll._count?.votes || 0,
-          };
-          
-          setActivePoll(transformedPoll as any);
-    } else {
+    if (activePolls.length === 0) {
       console.log('⚠️ [HomePage] No active polls found');
       setActivePoll(null);
+      return;
     }
+
+    // Проверяем URL параметр pollId (deep link support)
+    const searchParams = new URLSearchParams(window.location.search);
+    const requestedPollId = searchParams.get('pollId');
+
+    let selectedPoll: PollWithDetails | null = null;
+
+    if (requestedPollId) {
+      // Deep link: Ищем конкретное голосование по ID
+      const targetPoll = activePolls.find(p => p.id === parseInt(requestedPollId));
+      if (targetPoll) {
+        selectedPoll = targetPoll as PollWithDetails;
+        console.log('✅ [HomePage] Deep link poll found:', {
+          id: targetPoll.id,
+          status: targetPoll.status,
+          groupId: targetPoll.groupId
+        });
+      } else {
+        console.warn('[HomePage] ⚠️ Deep link poll not found:', requestedPollId);
+        // Fallback на первое голосование
+        selectedPoll = activePolls[0] as PollWithDetails;
+      }
+    } else {
+      // Обычный режим: показываем первое активное голосование
+      selectedPoll = activePolls[0] as PollWithDetails;
+      console.log('✅ [HomePage] Showing first active poll:', {
+        id: selectedPoll.id,
+        status: selectedPoll.status,
+        groupId: selectedPoll.groupId
+      });
+    }
+
+    // Вычисляем endTime на основе startedAt + duration
+    const endTime = selectedPoll.endedAt || 
+      (selectedPoll.startedAt ? 
+        new Date(new Date(selectedPoll.startedAt).getTime() + (selectedPoll.duration || 30) * 60 * 1000).toISOString() : 
+        new Date(Date.now() + 30 * 60 * 1000).toISOString());
+
+    console.log('📊 [HomePage] Poll time calculation:', {
+      pollId: selectedPoll.id,
+      startedAt: selectedPoll.startedAt,
+      duration: selectedPoll.duration,
+      endedAt: selectedPoll.endedAt,
+      calculatedEndTime: endTime
+    });
+
+    const transformedPoll = {
+      ...selectedPoll,
+      title: 'Голосование на обед',
+      endTime,
+      voteCount: selectedPoll._count?.votes || 0,
+    };
+    
+    setActivePoll(transformedPoll as any);
   }, [activePolls]);
 
   // Auto-refresh
@@ -258,32 +301,146 @@ export const HomePage: React.FC = () => {
   
   // ========== Handler Functions ==========
   
-  // Пригласить друга
-  const handleInviteFriend = () => {
+  // Пригласить друга - улучшенная версия с shareLink API
+  const handleInviteFriend = async () => {
     haptic.impact();
     
     const botUsername = import.meta.env.VITE_BOT_USERNAME || 'rocket_lunch_bot';
-    const inviteUrl = `https://t.me/${botUsername}?start=invite_${user?.id || 'unknown'}`;
-    const shareText = `🍽️ Присоединяйся к нашим обеденным голосованиям!\n\n` +
-      `Выбираем еду вместе с командой через удобного бота.\n\n` +
-      `Попробуй: ${inviteUrl}`;
+    const inviteUrl = `https://t.me/${botUsername}?start=ref_${user?.id || 'unknown'}`;
+    const shareText = `🍽️ Присоединяйся к обеденным голосованиям! Выбираем еду вместе с командой. ${inviteUrl}`;
+    
+    console.log('[Invite] Starting invite flow:', {
+      botUsername,
+      userId: user?.id,
+      inviteUrl,
+      hasTelegramWebApp: !!window.Telegram?.WebApp,
+      hasShareLink: !!window.Telegram?.WebApp?.shareLink,
+      webAppVersion: (window.Telegram?.WebApp as any)?.version,
+    });
+    
+    // Проверяем версию Telegram
+    const webApp = window.Telegram?.WebApp;
+    const version = (webApp as any)?.version || '0.0';
+    const isVersionSupported = parseFloat(version) >= 6.1;
+    
+    // Вариант 1: Используем shareLink API (Telegram 6.1+)
+    if (webApp?.shareLink && isVersionSupported) {
+      console.log('[Invite] Using shareLink API');
+      try {
+        await webApp.shareLink(inviteUrl);
+        addNotification({
+          type: 'success',
+          message: '🎉 Спасибо за приглашение! +50 XP за каждого друга',
+        });
+        return;
+      } catch (error) {
+        console.error('[Invite] shareLink failed:', error);
+      }
+    }
+    
+    // Вариант 2: Используем openTelegramLink (работает всегда)
+    if (webApp?.openTelegramLink) {
+      console.log('[Invite] Using openTelegramLink');
+      try {
+        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent('🍽️ Присоединяйся к обеденным голосованиям!')}`;
+        (webApp as any).openTelegramLink(shareUrl);
+        addNotification({
+          type: 'success',
+          message: '📤 Откройте диалог для отправки приглашения',
+        });
+        return;
+      } catch (error) {
+        console.error('[Invite] openTelegramLink failed:', error);
+      }
+    }
+    
+    // Вариант 3: Используем openLink (откроет Telegram, но через браузер)
+    if (webApp?.openLink) {
+      console.log('[Invite] Using openLink');
+      try {
+        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent('🍽️ Присоединяйся к обеденным голосованиям!')}`;
+        webApp.openLink(shareUrl);
+        addNotification({
+          type: 'info',
+          message: '📱 Откройте Telegram для отправки приглашения',
+        });
+        return;
+      } catch (error) {
+        console.error('[Invite] openLink failed:', error);
+      }
+    }
+    
+    // Вариант 4: Fallback - копируем в буфер
+    console.log('[Invite] Using clipboard fallback');
+    fallbackShareInvite(inviteUrl, shareText);
+  };
 
-    // Используем Telegram WebApp share API
-    if (window.Telegram?.WebApp?.openLink) {
-      const shareLink = `https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent(shareText)}`;
-      window.Telegram.WebApp.openLink(shareLink);
-    } else {
-      // Fallback - копируем в буфер
+  // Fallback метод - копирование в буфер обмена
+  const fallbackShareInvite = (inviteUrl: string, shareText: string) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(shareText).then(() => {
         addNotification({
           type: 'success',
-          message: '✅ Ссылка скопирована в буфер обмена',
+          message: '✅ Реферальная ссылка скопирована! За каждого друга +50 XP 🎁',
         });
-      }).catch(() => {
+      }).catch((error) => {
+        console.error('[Invite] Clipboard failed:', error);
+        // Показываем ссылку в алерте
+        showInviteLinkAlert(inviteUrl, shareText);
+      });
+    } else {
+      // Старый браузер - показываем алерт
+      showInviteLinkAlert(inviteUrl, shareText);
+    }
+  };
+
+  // Показать ссылку в алерте (последний fallback)
+  const showInviteLinkAlert = (inviteUrl: string, shareText: string) => {
+    if (window.Telegram?.WebApp?.showPopup) {
+      window.Telegram.WebApp.showPopup({
+        title: 'Пригласить друга',
+        message: `Отправьте эту ссылку другу:\n\n${inviteUrl}`,
+        buttons: [{ id: 'ok', type: 'ok', text: 'OK' }],
+      });
+    } else {
+      alert(`Пригласите друга:\n\n${shareText}`);
+    }
+  };
+
+  // Напомнить админу о создании голосования
+  const handleRemindAdmin = async () => {
+    // Используем первую группу пользователя (приоритет выше чем activePoll)
+    const groupId = userGroups[0]?.id || activePoll?.groupId;
+    
+    if (!groupId) {
+      addNotification({
+        type: 'error',
+        message: '❌ Не удалось определить группу',
+      });
+      return;
+    }
+    
+    try {
+      haptic.impact();
+      
+      const response = await notificationService.remindAdmin(groupId);
+      
+      if (response.success && response.data) {
+        addNotification({
+          type: 'success',
+          message: response.data.message,
+        });
+      } else {
         addNotification({
           type: 'error',
-          message: '❌ Не удалось скопировать ссылку',
+          message: response.error || 'Ошибка отправки напоминания',
         });
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || 'Не удалось отправить напоминание';
+      addNotification({
+        type: 'error',
+        message: errorMessage,
       });
     }
   };
@@ -460,8 +617,7 @@ export const HomePage: React.FC = () => {
   
   return (
     <>
-      {/* Animated gradient background - full page */}
-      <MediumWaveGradient />
+      {/* Background removed - using neutral bg-background from Layout */}
 
       <motion.div
         variants={containerVariants}
@@ -471,23 +627,23 @@ export const HomePage: React.FC = () => {
       >
         {/* Header Section */}
         <motion.div variants={itemVariants}>
-          <GlassCard intensity="solid" className="overflow-hidden">
-            <GlassCardContent className="relative">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="text-3xl">{timeIcon}</div>
+          <PastelCard variant="peach" className="overflow-hidden">
+            <CardContent className="relative pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="text-4xl">{timeIcon}</div>
                   <div>
-                    <h1 className="text-2xl font-bold text-foreground">
-                      Привет, {user?.firstName || 'Гость'}! Время {gradientColors.label.toLowerCase()}! 🍽️
+                    <h1 className="text-xl font-bold text-foreground">
+                      Привет, {user?.firstName || 'Гость'}!
                     </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Выберите что-нибудь вкусное из нашего меню
+                    <p className="text-sm text-muted-foreground">
+                      Время перекуса 🍽️
                     </p>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <ThemeToggle variant="outline" size="icon" />
+                  <ThemeToggle variant="ghost" size="sm" />
                   <div
                     className="cursor-pointer"
                     onClick={() => navigate('/profile')}
@@ -502,11 +658,11 @@ export const HomePage: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </GlassCardContent>
-          </GlassCard>
+            </CardContent>
+          </PastelCard>
         </motion.div>
 
-        {/* Hero Section - Active Poll Widget with Glassmorphism */}
+        {/* Hero Section - Active Poll Widget */}
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div
@@ -515,25 +671,11 @@ export const HomePage: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <GlassCard intensity="solid" className="p-6">
+              <PastelCard variant="lavender" className="p-6">
                 <Skeleton className="h-8 w-2/3 mb-4" />
                 <Skeleton className="h-4 w-full mb-2" />
                 <Skeleton className="h-4 w-3/4" />
-              </GlassCard>
-            </motion.div>
-          ) : isCreatingPoll ? (
-            <motion.div
-              key="creating-poll"
-              variants={itemVariants}
-              initial="hidden"
-              animate="show"
-              exit={{ opacity: 0, scale: 0.95 }}
-            >
-              <CreatePollForm
-                onSuccess={handlePollCreated}
-                onCancel={() => setIsCreatingPoll(false)}
-                compact={true}
-              />
+              </PastelCard>
             </motion.div>
           ) : activePoll ? (
             <motion.div
@@ -556,11 +698,11 @@ export const HomePage: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <GlassCard intensity="solid" className="p-6">
+              <PastelCard variant="sky" className="p-6">
                 <Skeleton className="h-8 w-2/3 mb-4" />
                 <Skeleton className="h-4 w-full mb-2" />
                 <Skeleton className="h-4 w-3/4" />
-              </GlassCard>
+              </PastelCard>
             </motion.div>
           ) : todayCompletedPoll ? (
             <motion.div
@@ -569,7 +711,6 @@ export const HomePage: React.FC = () => {
               initial="hidden"
               animate="show"
             >
-              {/* Показываем результаты завершенного голосования с celebration */}
               <CompletedPollWidget
                 poll={todayCompletedPoll}
                 showCelebration={showCelebration && justCompletedPollId === todayCompletedPoll.id}
@@ -577,21 +718,20 @@ export const HomePage: React.FC = () => {
               />
             </motion.div>
           ) : showCelebration ? (
-            // Во время celebration показываем loading вместо "Нет активного голосования"
             <motion.div
               key="celebration-loading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <GlassCard intensity="solid" className="p-6">
+              <PastelCard variant="sage" className="p-6">
                 <div className="text-center space-y-4">
                   <div className="text-6xl">🎉</div>
                   <Skeleton className="h-8 w-2/3 mx-auto mb-4" />
                   <Skeleton className="h-4 w-full mb-2" />
                   <Skeleton className="h-4 w-3/4 mx-auto" />
                 </div>
-              </GlassCard>
+              </PastelCard>
             </motion.div>
           ) : (
             <motion.div
@@ -600,26 +740,25 @@ export const HomePage: React.FC = () => {
               initial="hidden"
               animate="show"
             >
-              {/* UX UPGRADE: Убрана геймификация (DynamicHeroBanner) - простая карточка */}
-              <GlassCard intensity="solid" className="overflow-hidden">
-                <GlassCardContent className="relative py-8 px-6 text-center space-y-6">
+              <PastelCard variant="default" className="overflow-hidden">
+                <CardContent className="relative py-8 px-6 text-center space-y-6">
                   <div className="text-6xl">🍽️</div>
-                  
+
                   <div className="space-y-2">
                     <h2 className="text-2xl font-bold text-foreground">
                       Нет активного голосования
                     </h2>
                     <p className="text-muted-foreground">
-                      {user?.isAdmin 
+                      {user?.isAdmin
                         ? 'Создайте новое голосование для группы'
-                        : 'Дождитесь, пока администратор создаст голосование'
+                        : 'Пока нет активных голосований, но скоро появятся!'
                       }
                     </p>
                   </div>
 
                   {user?.isAdmin && (
                     <div className="flex flex-col gap-3">
-                      <Button 
+                      <Button
                         variant="mint"
                         size="lg"
                         className="w-full"
@@ -628,116 +767,113 @@ export const HomePage: React.FC = () => {
                           setIsCreatingPoll(true);
                         }}
                       >
-                        <Sparkles className="size-5 mr-2" />
+                        <Sparkles className={`${ICON_SIZES.md} mr-2`} />
                         Создать голосование
                       </Button>
-                      
-                      <Button 
+
+                      <Button
                         variant="outline"
                         size="default"
                         className="w-full"
                         onClick={handleRepeatYesterday}
                         disabled={isRepeatLoading}
                       >
-                        <RotateCcw className="size-4 mr-2" />
+                        <RotateCcw className={`${ICON_SIZES.sm} mr-2`} />
                         Повторить вчерашнее
                       </Button>
                     </div>
                   )}
-                </GlassCardContent>
-              </GlassCard>
+
+                  {/* Remind Admin - только для НЕ-админов когда нет голосования */}
+                  {!user?.isAdmin && userGroupId && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleRemindAdmin}
+                      className="w-full bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all mt-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-pastel-peach-50 dark:bg-pastel-peach-900/20">
+                            <Bell className={cn(ICON_SIZES.md, "text-pastel-peach-500")} />
+                          </div>
+                          <div className="text-left">
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              Напомнить админу
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              Попросить создать голосование
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-gray-400 dark:text-gray-600">›</div>
+                      </div>
+                    </motion.button>
+                  )}
+                </CardContent>
+              </PastelCard>
             </motion.div>
           )}
         </AnimatePresence>
 
 
 
-        {/* Budget Widget - адаптивный виджет бюджет-трекера */}
+        {/* Budget Widget - адаптивный виджет бюджет-трекера (conditional) */}
         <motion.div variants={itemVariants}>
           <BudgetWidget />
         </motion.div>
 
-        {/* Actions Section - Действия */}
-        <motion.div variants={itemVariants} className="space-y-3">
-          {/* Remind Admin Button */}
-          <motion.button
-            whileHover={!activePoll ? { scale: 1.02 } : undefined}
-            whileTap={!activePoll ? { scale: 0.98 } : undefined}
-            onClick={() => {
-              if (!activePoll) {
+        {/* Recurring Poll Badge - индикатор автоматических голосований */}
+        {user?.isAdmin && (
+          <motion.div variants={itemVariants}>
+            <RecurringPollBadge
+              groupId={userGroupId}
+              onClick={() => {
                 haptic.impact();
-                addNotification({
-                  type: 'info',
-                  message: '🔔 Функция в разработке',
-                });
-                // TODO: Реализовать отправку уведомления через API
-              }
-            }}
-            disabled={!!activePoll}
-            className={cn(
-              'w-full bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm transition-all',
-              activePoll 
-                ? 'opacity-50 cursor-not-allowed' 
-                : 'hover:shadow-md cursor-pointer'
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  'p-2 rounded-lg',
-                  activePoll 
-                    ? 'bg-gray-100 dark:bg-gray-700' 
-                    : 'bg-peach-50 dark:bg-peach-900/20'
-                )}>
-                  <Bell size={20} className={cn(
-                    activePoll 
-                      ? 'text-gray-400' 
-                      : 'text-peach-500'
-                  )} />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    Напомнить админу
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {activePoll 
-                      ? 'Голосование уже активно' 
-                      : 'Попросить создать голосование'
-                    }
-                  </p>
-                </div>
-              </div>
-              {!activePoll && <div className="text-gray-400 dark:text-gray-600">›</div>}
-            </div>
-          </motion.button>
+                setIsCreatingPoll(true);
+                // TODO: переключить на вкладку "Автоматическое" при открытии
+              }}
+            />
+          </motion.div>
+        )}
 
-          {/* Invite Friend Button */}
+        {/* Actions Section - Vertical list */}
+        <motion.div variants={itemVariants} className="space-y-3">
+          {/* Invite Friend Button - High priority CTA */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleInviteFriend}
-            className="w-full bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all"
+            className="relative w-full bg-gradient-to-r from-mint-500 to-emerald-500 dark:from-mint-600 dark:to-emerald-600 rounded-xl p-4 shadow-lg hover:shadow-xl transition-all overflow-hidden group"
           >
-            <div className="flex items-center justify-between">
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
+
+            <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-mint-50 dark:bg-mint-900/20">
-                  <UserPlus size={20} className="text-mint-500" />
+                <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                  <UserPlus className={cn(ICON_SIZES.lg, "text-white")} />
                 </div>
                 <div className="text-left">
-                  <p className="font-medium text-gray-900 dark:text-white">
+                  <p className="font-bold text-white text-lg">
                     Пригласить друга
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Поделитесь ботом с коллегами
+                  <p className="text-sm text-white/80">
+                    +50 XP за каждого приглашённого 🎁
                   </p>
                 </div>
               </div>
-              <div className="text-gray-400 dark:text-gray-600">›</div>
             </div>
           </motion.button>
         </motion.div>
 
+        {/* Bottom padding for BottomNavigation */}
+        <div className="h-20" />
+
       </motion.div>
+
+      {/* BottomNavigation - Sticky navigation bar */}
+      <BottomNavigation />
 
       {/* Floating Action Button - всегда видна */}
       <FloatingActionButton onClick={() => setIsFeedbackModalOpen(true)} />
@@ -754,6 +890,20 @@ export const HomePage: React.FC = () => {
         onClose={() => setIsTopDishModalOpen(false)}
         topDish={topDishData}
       />
+
+      {/* Create Poll Modal */}
+      <Dialog open={isCreatingPoll} onOpenChange={setIsCreatingPoll}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Создание голосования</DialogTitle>
+          </DialogHeader>
+          <CreatePollForm
+            onSuccess={handlePollCreated}
+            onCancel={() => setIsCreatingPoll(false)}
+            compact={true}
+          />
+        </DialogContent>
+      </Dialog>
 
     </>
   );

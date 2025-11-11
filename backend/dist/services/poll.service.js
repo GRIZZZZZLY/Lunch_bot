@@ -40,6 +40,7 @@ const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
 const group_service_1 = require("./group.service");
 const cache_service_1 = require("./cache.service");
+const date_1 = require("../utils/date");
 let botInstance = null;
 function initializePollServiceBot(bot) {
     botInstance = bot;
@@ -100,8 +101,7 @@ class PollService {
     }
     static async getTodayCompletedPoll(groupId) {
         try {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const today = (0, date_1.getStartOfToday)();
             const poll = await client_2.prisma.poll.findFirst({
                 where: {
                     groupId,
@@ -184,13 +184,13 @@ class PollService {
                 },
             });
             logger_1.logger.info(`📊 Found ${polls.length} polls with ACTIVE status`);
-            const now = new Date();
+            const nowDate = (0, date_1.now)();
             const activePolls = [];
             const expiredPollIds = [];
             for (const poll of polls) {
-                const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
-                const isActive = endsAt > now;
-                logger_1.logger.info(`Poll ${poll.id}: ends=${endsAt.toISOString()}, now=${now.toISOString()}, active=${isActive}`);
+                const endsAt = poll.endedAt || (0, date_1.calculatePollEndTime)(poll.startedAt, poll.duration);
+                const isActive = endsAt > nowDate;
+                logger_1.logger.info(`Poll ${poll.id}: ends=${(0, date_1.toISOString)(endsAt)}, now=${(0, date_1.toISOString)(nowDate)}, active=${isActive}`);
                 if (isActive) {
                     activePolls.push(poll);
                 }
@@ -204,7 +204,7 @@ class PollService {
                     where: { id: { in: expiredPollIds } },
                     data: {
                         status: 'COMPLETED',
-                        endedAt: now
+                        endedAt: (0, date_1.now)()
                     }
                 }).then(() => {
                     logger_1.logger.info(`✅ Auto-closed ${expiredPollIds.length} expired polls: ${expiredPollIds.join(', ')}`);
@@ -266,7 +266,7 @@ class PollService {
                     where: { id: pollId },
                     data: {
                         status: 'COMPLETED',
-                        endedAt: new Date()
+                        endedAt: (0, date_1.now)()
                     },
                 });
                 const pollResult = await tx.pollResult.create({
@@ -281,6 +281,16 @@ class PollService {
             });
             cache_service_1.CacheInvalidator.invalidatePoll(pollId, poll.groupId);
             logger_1.logger.info(`Poll completed: ${pollId}, winner: ${winnerMenuItemId}, total votes: ${poll.votes.length}`);
+            try {
+                const { GamificationService } = await Promise.resolve().then(() => __importStar(require('./gamification.service.js')));
+                const { getXPReward } = await Promise.resolve().then(() => __importStar(require('../constants/xp-constants.js')));
+                const reward = getXPReward('CREATE_POLL');
+                await GamificationService.awardXP(poll.createdBy, reward.amount, reward.reason, reward.category, { pollId, participants: poll.votes.length });
+                logger_1.logger.info(`XP awarded: ${reward.amount} to user ${poll.createdBy} for creating poll`);
+            }
+            catch (xpError) {
+                logger_1.logger.error('Failed to award XP for poll creation:', xpError);
+            }
             try {
                 const { notificationService } = await Promise.resolve().then(() => __importStar(require('./notification.service.js')));
                 await notificationService.sendPollCompletionNotifications(pollId);
@@ -306,7 +316,7 @@ class PollService {
                 where: { id: pollId },
                 data: {
                     status: 'CANCELLED',
-                    endedAt: new Date()
+                    endedAt: (0, date_1.now)()
                 },
             });
             const user = await client_2.prisma.user.findUnique({
@@ -632,7 +642,7 @@ class PollService {
             const recentActivity = recentVotes.map(vote => ({
                 pollId: vote.pollId,
                 pollTitle: 'Голосование на обед',
-                votedAt: vote.createdAt.toISOString(),
+                votedAt: (0, date_1.toISOString)(vote.createdAt),
                 itemName: vote.menuItem?.name || 'Unknown'
             }));
             return {
@@ -653,7 +663,7 @@ class PollService {
             return await client_2.prisma.poll.findMany({
                 where: {
                     status: 'ACTIVE',
-                    startedAt: { lte: new Date(Date.now() - 30 * 60 * 1000) },
+                    startedAt: { lte: (0, date_1.subtractMinutes)((0, date_1.now)(), 30) },
                 },
             });
         }
@@ -826,7 +836,7 @@ class PollService {
                         username: v.user.username ?? undefined,
                     })),
                     voteCount: votes.length,
-                    votedAt: votes.map(v => v.createdAt.toISOString()),
+                    votedAt: votes.map(v => (0, date_1.toISOString)(v.createdAt)),
                 };
             })
                 .sort((a, b) => b.voteCount - a.voteCount);
@@ -844,8 +854,8 @@ class PollService {
                 else {
                     if (tieBreakMethod === 'earliest') {
                         const earliest = topWinners.reduce((prev, curr) => {
-                            const prevTime = new Date(prev.votedAt[0]).getTime();
-                            const currTime = new Date(curr.votedAt[0]).getTime();
+                            const prevTime = (0, date_1.getTimestamp)(new Date(prev.votedAt[0]));
+                            const currTime = (0, date_1.getTimestamp)(new Date(curr.votedAt[0]));
                             return currTime < prevTime ? curr : prev;
                         });
                         primaryWinnerId = earliest.menuItemId;
@@ -895,7 +905,7 @@ class PollService {
                 meta: {
                     primaryWinnerId,
                     tieBreak,
-                    completedAt: new Date().toISOString(),
+                    completedAt: (0, date_1.toISOString)((0, date_1.now)()),
                     completedBy,
                     params: { minVotes, maxWinners },
                 },
@@ -905,7 +915,7 @@ class PollService {
                     where: { id: pollId },
                     data: {
                         status: 'COMPLETED',
-                        endedAt: new Date(),
+                        endedAt: (0, date_1.now)(),
                     },
                 });
                 return await tx.pollResult.create({
@@ -1019,7 +1029,7 @@ class PollService {
             const currentVotes = poll.votes.length;
             const voterIds = poll.votes.map(v => v.userId);
             logger_1.logger.info(`🔍 DEBUG: Poll ${pollId} voters:`, { voterIds });
-            const timeElapsed = Date.now() - poll.startedAt.getTime();
+            const timeElapsed = (0, date_1.getMillisecondsDifference)((0, date_1.now)(), poll.startedAt);
             const totalTime = poll.duration * 60 * 1000;
             const timeProgress = timeElapsed / totalTime;
             const voteProgress = currentVotes / expectedParticipants;

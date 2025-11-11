@@ -1,12 +1,19 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Transaction, budgetService } from '../../services/budget.service';
+import { Transaction, budgetService, SendRemindersResult } from '../../services/budget.service';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Bell, CheckCircle, X, User } from 'lucide-react';
+import { Bell, CheckCircle, X, User, Info } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
 import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip';
 
 interface ResponsibleViewProps {
   credits: Transaction[];
@@ -63,9 +70,33 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
   
   const remindAllMutation = useMutation({
     mutationFn: () => budgetService.sendRemindersToAll(currentPollId),
-    onSuccess: (data) => {
+    onSuccess: (data: SendRemindersResult) => {
       haptic.success();
-      toast.success(`Напоминания отправлены: ${data.sentCount} чел.`);
+      
+      // Формируем детальное сообщение
+      if (data.failedCount === 0) {
+        // Все успешно
+        toast.success(`✅ Отправлено ${data.sentCount} из ${data.totalCount} напоминаний`);
+      } else if (data.sentCount === 0) {
+        // Все неудачно
+        toast.error(`❌ Не удалось отправить напоминания (${data.failedCount} чел.)`);
+      } else {
+        // Частично успешно
+        const failedNames = data.failedUsers
+          .slice(0, 3)
+          .map(u => `${u.firstName}${u.lastName ? ' ' + u.lastName.charAt(0) + '.' : ''}`)
+          .join(', ');
+        
+        const moreCount = data.failedCount - 3;
+        const namesList = moreCount > 0 
+          ? `${failedNames} и еще ${moreCount}`
+          : failedNames;
+        
+        toast.warning(
+          `⚠️ Отправлено ${data.sentCount} из ${data.totalCount}. ${namesList} не могут получить уведомление. Попросите их написать /start боту.`,
+          { duration: 6000 }
+        );
+      }
     },
     onError: () => {
       haptic.error();
@@ -88,13 +119,13 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
         </div>
         
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">🍽️ Ваша доля:</span>
+          <span className="text-sm text-muted-foreground">Ваша доля:</span>
           <span className="font-medium">{myShare}₽</span>
         </div>
         
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">💵 Вернут вам:</span>
-          <span className="text-xl font-bold text-green-600 dark:text-green-400">
+          <span className="text-sm text-muted-foreground">Вернут вам:</span>
+          <span className="text-xl font-bold text-mint-500 dark:text-mint-300">
             +{totalToReceive}₽
           </span>
         </div>
@@ -116,7 +147,7 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
               )}
             >
               <div className="flex items-center gap-3 flex-1">
-                <User className="size-5 text-muted-foreground" />
+                <User className={`${ICON_SIZES.md} text-muted-foreground`} />
                 <div>
                   <div className="font-medium text-sm">
                     {credit.fromUser.firstName} {credit.fromUser.lastName || ''}
@@ -130,38 +161,39 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
               <div className="flex items-center gap-2">
                 {credit.status === 'PENDING' && (
                   <Badge variant="secondary" className="text-xs">
-                    ⏰ Ожидается
+                    Ожидается
                   </Badge>
                 )}
                 
                 {credit.status === 'PAID' && (
                   <>
-                    <Badge variant="default" className="text-xs bg-amber-500">
+                    <Badge variant="warning" className="text-xs">
                       Оплачено
                     </Badge>
                     <div className="flex gap-1">
                       <Button
                         size="sm"
+                        variant="success"
                         onClick={() => handleConfirm(credit.id)}
                         disabled={confirmMutation.isPending}
-                        className="h-7 px-2 bg-green-500 hover:bg-green-600"
+                        className="h-7 px-2"
                       >
-                        <CheckCircle className="size-3" />
+                        <CheckCircle className={ICON_SIZES.xs} />
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         className="h-7 px-2"
                       >
-                        <X className="size-3" />
+                        <X className={ICON_SIZES.xs} />
                       </Button>
                     </div>
                   </>
                 )}
                 
                 {credit.status === 'CONFIRMED' && (
-                  <Badge variant="default" className="text-xs bg-green-500">
-                    🔔 Подтверждено
+                  <Badge variant="success" className="text-xs">
+                    Подтверждено
                   </Badge>
                 )}
               </div>
@@ -172,14 +204,27 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
       
       {/* Глобальные действия */}
       <div className="grid grid-cols-2 gap-2">
-        <Button
-          onClick={handleRemindAll}
-          variant="outline"
-          size="sm"
-        >
-          <Bell className="size-4 mr-1.5" />
-          Напомнить 🔔
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={handleRemindAll}
+                variant="outline"
+                size="sm"
+                className="relative"
+              >
+                <Bell className={`${ICON_SIZES.sm} mr-1.5`} />
+                Напомнить
+                <Info className={`${ICON_SIZES.xs} ml-1.5 text-muted-foreground`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[250px]">
+              <p className="text-xs">
+                Напоминание получат только пользователи, запустившие бота (написавшие /start)
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         
         <Button
           onClick={() => {}}

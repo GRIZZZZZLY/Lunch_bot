@@ -10,7 +10,8 @@ import { useTelegram } from '../hooks/useTelegram';
 import { useUI } from '../store/useAppStore';
 import { useHaptic } from '../hooks/useHaptic';
 import { pollsService, Poll } from '../services/polls.service';
-import { MediumWaveGradient } from '../components/background';
+import { ICON_SIZES } from '@/lib/design-tokens';
+// import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 
 /**
  * Страница истории голосований
@@ -91,7 +92,6 @@ export const PollHistoryPage: React.FC = () => {
   if (loading && polls.length === 0) {
     return (
       <div className="min-h-screen relative">
-        <MediumWaveGradient />
         <div className="flex items-center justify-center min-h-screen">
           <LoadingSpinner size="lg" />
         </div>
@@ -101,8 +101,7 @@ export const PollHistoryPage: React.FC = () => {
 
   return (
     <>
-      {/* Animated gradient background - full page */}
-      <MediumWaveGradient />
+      {/* Background removed - using neutral bg-background from Layout */}
       
       <PageHeader 
         title="История голосований"
@@ -204,7 +203,7 @@ export const PollHistoryPage: React.FC = () => {
                           className={`text-xs px-2 py-1 rounded-full ${
                             poll.status === 'ACTIVE'
                               ? 'bg-green-500/20 text-green-500'
-                              : 'bg-gray-500/20 text-gray-500'
+                              : 'bg-gray-500/20 text-gray-400 dark:text-gray-400'
                           }`}
                         >
                           {poll.status === 'ACTIVE' ? 'Активно' : 'Завершено'}
@@ -230,7 +229,7 @@ export const PollHistoryPage: React.FC = () => {
 
                     <div className="text-telegram-button-color">
                       <svg
-                        className="w-5 h-5"
+                        className={ICON_SIZES.md}
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"

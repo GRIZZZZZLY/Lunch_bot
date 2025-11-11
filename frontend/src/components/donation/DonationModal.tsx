@@ -6,9 +6,10 @@ import { AmountSelector } from './AmountSelector';
 import { PaymentSuccess } from './PaymentSuccess';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { PaymentMethod, DonationAmount } from '../../types/donation.types';
-import { GlassCard, GlassCardContent } from '../ui/glass-card';
+import { PastelCard, CardContent } from '../ui/pastel-card';
 import { GradientButton } from '../ui/gradient-button';
 import { DONATION_THEME } from '../../styles/donation.theme';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface DonationModalProps {
   isOpen: boolean;
@@ -142,7 +143,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                       className="absolute top-4 right-4 z-10"
                     >
                       <div className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors backdrop-blur-sm">
-                        <X size={20} style={{ color: 'white' }} />
+                        <X className={ICON_SIZES.md} style={{ color: 'white' }} />
                       </div>
                     </button>
 
@@ -236,7 +237,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                           </>
                         ) : (
                           <>
-                            <Heart size={20} />
+                            <Heart className={ICON_SIZES.md} />
                             <span>Поддержать ({selectedAmount})</span>
                           </>
                         )}
@@ -245,14 +246,13 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                   )}
 
                   {/* Info */}
-                  <GlassCard intensity="low" className="overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-lavender-500/10 to-mint-500/10" />
-                    <GlassCardContent className="relative">
+                  <PastelCard variant="lavender" className="overflow-hidden">
+                    <CardContent className="p-4 pt-4">
                       <p className="text-sm text-foreground">
                         💡 <strong>Важно:</strong> Все средства идут на развитие и поддержку проекта. Спасибо за вашу щедрость!
                       </p>
-                    </GlassCardContent>
-                  </GlassCard>
+                    </CardContent>
+                  </PastelCard>
                 </div>
               </>
             )}

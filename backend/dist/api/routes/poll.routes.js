@@ -27,6 +27,7 @@ router.patch('/:id/complete', telegram_auth_1.telegramAuthMiddleware, telegram_a
 router.patch('/:id/complete-multi', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.completePollMultiWinner);
 router.patch('/:id/cancel', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.cancelPoll);
 router.post('/:id/vote', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.vote);
+router.post('/:id/vote-multiple', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.voteMultiple);
 router.delete('/:id/vote', telegram_auth_1.telegramAuthMiddleware, poll_controller_1.pollController.removeVote);
 router.post('/:id/roulette', telegram_auth_1.telegramAuthMiddleware, telegram_auth_1.adminMiddleware, poll_controller_1.pollController.runRoulette);
 exports.default = router;

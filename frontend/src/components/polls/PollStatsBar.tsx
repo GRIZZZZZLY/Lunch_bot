@@ -4,6 +4,7 @@ import { Users, Clock, User } from 'lucide-react';
 import { Progress } from '../ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { cn, formatRelativeTime, getInitials } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface PollStatsBarProps {
   participantCount: number;
@@ -45,7 +46,7 @@ export const PollStatsBar: React.FC<PollStatsBarProps> = ({
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-            <Users className="w-4 h-4" />
+            <Users className={ICON_SIZES.sm} />
             <span className="font-medium">
               {participantCount} из {totalMembers} {totalMembers === 1 ? 'человека' : totalMembers < 5 ? 'человек' : 'человек'} проголосовали
             </span>
@@ -69,7 +70,7 @@ export const PollStatsBar: React.FC<PollStatsBarProps> = ({
       {/* Время */}
       <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
         <div className="flex items-center gap-1.5">
-          <Clock className="w-4 h-4" />
+          <Clock className={ICON_SIZES.sm} />
           <span>
             Завершено {formatRelativeTime(endedAtDate)} 
             <span className="text-xs ml-1">
@@ -79,7 +80,7 @@ export const PollStatsBar: React.FC<PollStatsBarProps> = ({
         </div>
       </div>
 
-      <div className="text-xs text-gray-500 dark:text-gray-500">
+      <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-400">
         Длительность: {duration} {duration === 1 ? 'минута' : duration < 5 ? 'минуты' : 'минут'}
       </div>
 
@@ -88,12 +89,12 @@ export const PollStatsBar: React.FC<PollStatsBarProps> = ({
         <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <User className="w-4 h-4" />
+              <User className={ICON_SIZES.sm} />
               <span className="font-medium">Ответственный:</span>
             </div>
             
             <div className="flex items-center gap-2">
-              <Avatar className="w-8 h-8 border-2 border-green-500">
+              <Avatar className={`${ICON_SIZES.xl} border-2 border-green-500`}>
                 {responsiblePerson.photoUrl && (
                   <AvatarImage src={responsiblePerson.photoUrl} alt={responsiblePerson.firstName} />
                 )}

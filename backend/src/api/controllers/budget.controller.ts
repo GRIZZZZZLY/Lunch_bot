@@ -265,12 +265,14 @@ export class BudgetController {
         return;
       }
 
-      const sentCount = await this.budgetService.sendRemindersToAll(pollId, authenticatedUser.id);
+      const result = await this.budgetService.sendRemindersToAll(pollId, authenticatedUser.id);
 
       res.json({ 
         success: true, 
-        message: `Reminders sent to ${sentCount} user(s)`,
-        sentCount 
+        sentCount: result.sentCount,
+        failedCount: result.failedCount,
+        totalCount: result.totalCount,
+        failedUsers: result.failedUsers,
       });
     } catch (error: any) {
       logger.error('[BudgetController] Error sending reminders to all:', error);
@@ -306,6 +308,131 @@ export class BudgetController {
     } catch (error: any) {
       logger.error('[BudgetController] Error getting poll totals:', error);
       res.status(500).json({ error: error.message || 'Failed to get poll totals' });
+    }
+  }
+
+  // ============================================
+  // COST SPLITTING ENDPOINTS
+  // ============================================
+
+  /**
+   * POST /api/budget/order-costs/:pollId
+   * Set order costs (delivery, service, tips) - only responsible person
+   */
+  async setOrderCosts(req: Request, res: Response): Promise<void> {
+    try {
+      const { pollId } = req.params;
+      const { deliveryCost, serviceFee, tip, notes } = req.body;
+      const authenticatedUser = (req as any).user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      if (!pollId) {
+        res.status(400).json({ error: 'pollId is required' });
+        return;
+      }
+
+      // Validate input
+      if (typeof deliveryCost !== 'number' || deliveryCost < 0) {
+        res.status(400).json({ error: 'deliveryCost must be a non-negative number' });
+        return;
+      }
+
+      if (typeof serviceFee !== 'number' || serviceFee < 0) {
+        res.status(400).json({ error: 'serviceFee must be a non-negative number' });
+        return;
+      }
+
+      if (typeof tip !== 'number' || tip < 0) {
+        res.status(400).json({ error: 'tip must be a non-negative number' });
+        return;
+      }
+
+      const orderCosts = await this.budgetService.setOrderCosts(
+        parseInt(pollId),
+        authenticatedUser.id,
+        { deliveryCost, serviceFee, tip, notes }
+      );
+
+      res.json({ success: true, data: orderCosts });
+    } catch (error: any) {
+      logger.error('[BudgetController] Error setting order costs:', error);
+
+      if (error.message === 'Poll not found') {
+        res.status(404).json({ error: 'Poll not found' });
+        return;
+      }
+
+      if (error.message === 'Only responsible person can set order costs') {
+        res.status(403).json({ error: 'Access denied', message: error.message });
+        return;
+      }
+
+      res.status(500).json({ error: 'Failed to set order costs' });
+    }
+  }
+
+  /**
+   * GET /api/budget/order-costs/:pollId
+   * Get order costs for a poll
+   */
+  async getOrderCosts(req: Request, res: Response): Promise<void> {
+    try {
+      const { pollId } = req.params;
+      const authenticatedUser = (req as any).user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      if (!pollId) {
+        res.status(400).json({ error: 'pollId is required' });
+        return;
+      }
+
+      const orderCosts = await this.budgetService.getOrderCosts(parseInt(pollId));
+
+      if (!orderCosts) {
+        res.status(404).json({ error: 'Order costs not found for this poll' });
+        return;
+      }
+
+      res.json({ success: true, data: orderCosts });
+    } catch (error: any) {
+      logger.error('[BudgetController] Error getting order costs:', error);
+      res.status(500).json({ error: 'Failed to get order costs' });
+    }
+  }
+
+  /**
+   * GET /api/budget/poll-breakdown/:pollId
+   * Get detailed cost breakdown for a poll
+   */
+  async getPollCostBreakdown(req: Request, res: Response): Promise<void> {
+    try {
+      const { pollId } = req.params;
+      const authenticatedUser = (req as any).user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      if (!pollId) {
+        res.status(400).json({ error: 'pollId is required' });
+        return;
+      }
+
+      const breakdown = await this.budgetService.getPollCostBreakdown(parseInt(pollId));
+
+      res.json({ success: true, data: breakdown });
+    } catch (error: any) {
+      logger.error('[BudgetController] Error getting poll breakdown:', error);
+      res.status(500).json({ error: 'Failed to get poll breakdown' });
     }
   }
 }

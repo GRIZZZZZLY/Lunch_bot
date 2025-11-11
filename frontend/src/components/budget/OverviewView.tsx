@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Transaction, budgetService } from '../../services/budget.service';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { CheckCircle, Bell, TrendingDown, TrendingUp } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Stats01 } from '../blocks/stats-01';
+import { CheckCircle, Bell, TrendingDown, TrendingUp, CreditCard, Wallet } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
 import { toast } from 'sonner';
 import { cn, formatRelativeTime } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface OverviewViewProps {
   debts: Transaction[];
@@ -26,18 +29,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 }) => {
   const haptic = useHaptic();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<string>("debts");
   
-  // CRITICAL: Защита от undefined/null значений
   const safeDebts = debts || [];
   const safeCredits = credits || [];
   const safeTotalDebts = totalDebts || 0;
   const safeTotalCredits = totalCredits || 0;
   
-  // Показываем только последние 2-3 элемента
   const displayDebts = safeDebts.slice(0, 2);
   const displayCredits = safeCredits.slice(0, 2);
   
-  // Mutation для отметки оплаты
   const markAsPaidMutation = useMutation({
     mutationFn: (transactionId: number) => budgetService.markAsPaid(transactionId),
     onSuccess: () => {
@@ -74,20 +75,48 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   };
   
   return (
-    <div className="space-y-5">
-      {/* Секция долгов */}
-      {safeDebts.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <TrendingDown className="size-4 text-coral-500" />
-              <span className="text-sm font-medium">Мои долги:</span>
-            </div>
-            <span className="font-bold text-coral-600 dark:text-coral-400">
-              {safeTotalDebts}₽
-            </span>
-          </div>
-          
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      {/* Stats карточки */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <Stats01
+          title="Мои долги"
+          value={`₽${safeTotalDebts}`}
+          description="Нужно оплатить"
+          icon={<CreditCard className={ICON_SIZES.sm} />}
+          variant="rose"
+        />
+        <Stats01
+          title="Мне должны"
+          value={`₽${safeTotalCredits}`}
+          description="Ожидаю оплаты"
+          icon={<Wallet className={ICON_SIZES.sm} />}
+          variant="sage"
+        />
+      </div>
+
+      {/* Tabs */}
+      <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsTrigger value="debts" className="relative">
+          Долги
+          {safeDebts.length > 0 && (
+            <Badge className="ml-2 h-5 min-w-5 px-1.5" variant="destructive">
+              {safeDebts.length}
+            </Badge>
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="credits" className="relative">
+          Кредиты
+          {safeCredits.length > 0 && (
+            <Badge className="ml-2 h-5 min-w-5 px-1.5">
+              {safeCredits.length}
+            </Badge>
+          )}
+        </TabsTrigger>
+      </TabsList>
+
+      {/* Вкладка долгов */}
+      <TabsContent value="debts" className="mt-0">
+        {safeDebts.length > 0 ? (
           <div className="space-y-3">
             {displayDebts.map((debt) => (
               <div
@@ -100,20 +129,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="font-medium text-sm">
-                      🍽️ {debt.menuItem?.name || 'Блюдо'} — {debt.amount}₽
+                      {debt.menuItem?.name || 'Блюдо'} — {debt.amount}₽
                     </div>
                     <div className="text-xs text-muted-foreground">
                       → {debt.toUser.firstName} {debt.toUser.lastName || ''}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      📅 {formatRelativeTime(debt.createdAt)}
+                      {formatRelativeTime(debt.createdAt)}
                     </div>
                   </div>
                   
                   <div>
                     {debt.status === 'PENDING' && (
                       <Badge variant="secondary" className="text-xs">
-                        ⏰ К оплате
+                        К оплате
                       </Badge>
                     )}
                     {debt.status === 'PAID' && (
@@ -133,38 +162,34 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   <Button
                     onClick={() => handleMarkAsPaid(debt.id)}
                     disabled={markAsPaidMutation.isPending}
+                    variant="success"
                     size="sm"
-                    className="w-full h-8 bg-green-500 hover:bg-green-600"
+                    className="w-full h-8"
                   >
-                    <CheckCircle className="size-3 mr-1.5" />
+                    <CheckCircle className={`${ICON_SIZES.xs} mr-1.5`} />
                     Оплатил(а)
                   </Button>
                 )}
               </div>
             ))}
             
-            {debts.length > 2 && (
+            {safeDebts.length > 2 && (
               <div className="text-xs text-muted-foreground text-center py-1">
-                + еще {debts.length - 2} долгов
+                + еще {safeDebts.length - 2} долгов
               </div>
             )}
           </div>
-        </div>
-      )}
-      
-      {/* Секция кредитов */}
-      {safeCredits.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="size-4 text-green-500" />
-              <span className="text-sm font-medium">Мне должны:</span>
-            </div>
-            <span className="font-bold text-green-600 dark:text-green-400">
-              {safeTotalCredits}₽
-            </span>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <CheckCircle className="mx-auto mb-2 h-8 w-8 text-pastel-sage-400" />
+            <p className="text-sm">Нет долгов</p>
           </div>
-          
+        )}
+      </TabsContent>
+      
+      {/* Вкладка кредитов */}
+      <TabsContent value="credits" className="mt-0">
+        {safeCredits.length > 0 ? (
           <div className="space-y-3">
             {displayCredits.map((credit) => (
               <div
@@ -176,7 +201,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               >
                 <div className="flex-1">
                   <div className="font-medium text-sm">
-                    👤 {credit.fromUser.firstName} {credit.fromUser.lastName || ''}
+                    {credit.fromUser.firstName} {credit.fromUser.lastName || ''}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {credit.amount}₽ • {formatRelativeTime(credit.createdAt)}
@@ -187,7 +212,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   {credit.status === 'PENDING' && (
                     <>
                       <Badge variant="secondary" className="text-xs">
-                        ⏰ Ожидается
+                        Ожидается
                       </Badge>
                       <Button
                         onClick={() => handleRemind(credit.id)}
@@ -195,34 +220,39 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                         variant="ghost"
                         className="h-7 px-2"
                       >
-                        <Bell className="size-3" />
+                        <Bell className={ICON_SIZES.xs} />
                       </Button>
                     </>
                   )}
                   
                   {credit.status === 'PAID' && (
                     <Badge variant="default" className="text-xs bg-amber-500">
-                      ✅ Оплачено
+                      Оплачено
                     </Badge>
                   )}
                   
                   {credit.status === 'CONFIRMED' && (
                     <Badge variant="default" className="text-xs bg-green-500">
-                      🔔 Подтверждено
+                      Подтверждено
                     </Badge>
                   )}
                 </div>
               </div>
             ))}
             
-            {credits.length > 2 && (
+            {safeCredits.length > 2 && (
               <div className="text-xs text-muted-foreground text-center py-1">
-                + еще {credits.length - 2} кредитов
+                + еще {safeCredits.length - 2} кредитов
               </div>
             )}
           </div>
-        </div>
-      )}
-    </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <Wallet className="mx-auto mb-2 h-8 w-8 text-pastel-sage-400" />
+            <p className="text-sm">Нет кредитов</p>
+          </div>
+        )}
+      </TabsContent>
+    </Tabs>
   );
 };

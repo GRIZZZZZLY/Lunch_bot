@@ -9,6 +9,8 @@ import { FC, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WifiOff, Wifi, Cloud } from 'lucide-react';
 import { offlineQueue } from '@/services/offline.service';
+import { Badge } from '@/components/ui/badge';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 export const OfflineBanner: FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -82,22 +84,22 @@ export const OfflineBanner: FC = () => {
             <div className="flex items-center justify-center gap-2">
               {!isOnline ? (
                 <>
-                  <WifiOff className="w-4 h-4" />
+                  <WifiOff className={ICON_SIZES.sm} />
                   <span>Нет сети</span>
                   {pendingCount > 0 && (
-                    <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs">
+                    <Badge variant="secondary" className="ml-1 bg-white/20 border-white/30">
                       {pendingCount} действий в очереди
-                    </span>
+                    </Badge>
                   )}
                 </>
               ) : isSyncing ? (
                 <>
-                  <Cloud className="w-4 h-4 animate-pulse" />
+                  <Cloud className={`${ICON_SIZES.sm} animate-pulse`} />
                   <span>Синхронизация...</span>
                 </>
               ) : (
                 <>
-                  <Wifi className="w-4 h-4" />
+                  <Wifi className={ICON_SIZES.sm} />
                   <span>Все синхронизировано ✓</span>
                 </>
               )}

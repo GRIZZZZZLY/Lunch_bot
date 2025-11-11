@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Zap, WifiOff, Bell, Download } from 'lucide-react';
 import { GlassCard } from '@/components/glass/GlassCard';
 import { GlassButton } from '@/components/glass/GlassButton';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -146,13 +147,13 @@ export const InstallPrompt: FC = () => {
                   onClick={handleDismiss}
                   className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className={ICON_SIZES.md} />
                 </button>
 
                 {/* Icon */}
                 <div className="flex justify-center mb-4">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center">
-                    <Download className="w-8 h-8 text-white" />
+                    <Download className={`${ICON_SIZES.xl} text-white`} />
                   </div>
                 </div>
 
@@ -170,7 +171,7 @@ export const InstallPrompt: FC = () => {
                 <div className="space-y-3 mb-6">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                      <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <Zap className={`${ICON_SIZES.md} text-blue-600 dark:text-blue-400`} />
                     </div>
                     <div>
                       <p className="font-medium text-gray-900 dark:text-gray-100">Быстрый доступ</p>
@@ -180,7 +181,7 @@ export const InstallPrompt: FC = () => {
 
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-                      <WifiOff className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <WifiOff className={`${ICON_SIZES.md} text-green-600 dark:text-green-400`} />
                     </div>
                     <div>
                       <p className="font-medium text-gray-900 dark:text-gray-100">Работает offline</p>
@@ -190,7 +191,7 @@ export const InstallPrompt: FC = () => {
 
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
-                      <Bell className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      <Bell className={`${ICON_SIZES.md} text-purple-600 dark:text-purple-400`} />
                     </div>
                     <div>
                       <p className="font-medium text-gray-900 dark:text-gray-100">Уведомления</p>

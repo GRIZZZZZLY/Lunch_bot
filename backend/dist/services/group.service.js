@@ -129,6 +129,119 @@ class GroupService {
             throw new Error('Failed to get active poll');
         }
     }
+    static async addMemberToGroup(groupId, userId, role = 'MEMBER') {
+        try {
+            const existingMember = await client_2.prisma.groupMember.findUnique({
+                where: {
+                    groupId_userId: {
+                        groupId,
+                        userId,
+                    },
+                },
+            });
+            if (existingMember) {
+                if (!existingMember.isActive) {
+                    return await client_2.prisma.groupMember.update({
+                        where: { id: existingMember.id },
+                        data: {
+                            isActive: true,
+                            leftAt: null,
+                            role,
+                        },
+                    });
+                }
+                return existingMember;
+            }
+            return await client_2.prisma.groupMember.create({
+                data: {
+                    groupId,
+                    userId,
+                    role,
+                    isActive: true,
+                },
+            });
+        }
+        catch (error) {
+            logger_1.logger.error('Error adding member to group:', error);
+            throw new Error('Failed to add member to group');
+        }
+    }
+    static async removeMemberFromGroup(groupId, userId) {
+        try {
+            await client_2.prisma.groupMember.updateMany({
+                where: {
+                    groupId,
+                    userId,
+                    isActive: true,
+                },
+                data: {
+                    isActive: false,
+                    leftAt: new Date(),
+                },
+            });
+        }
+        catch (error) {
+            logger_1.logger.error('Error removing member from group:', error);
+            throw new Error('Failed to remove member from group');
+        }
+    }
+    static async getGroupMembers(groupId, activeOnly = true) {
+        try {
+            return await client_2.prisma.groupMember.findMany({
+                where: {
+                    groupId,
+                    ...(activeOnly ? { isActive: true } : {}),
+                },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            telegramId: true,
+                            username: true,
+                            firstName: true,
+                            lastName: true,
+                            photoUrl: true,
+                            avatarUrl: true,
+                            isAdmin: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    joinedAt: 'asc',
+                },
+            });
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting group members:', error);
+            throw new Error('Failed to get group members');
+        }
+    }
+    static async getUsersByGroupId(groupId, activeOnly = true) {
+        try {
+            const members = await this.getGroupMembers(groupId, activeOnly);
+            return members.map((member) => member.user);
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting users by group ID:', error);
+            throw new Error('Failed to get users by group ID');
+        }
+    }
+    static async isMemberOfGroup(groupId, userId) {
+        try {
+            const member = await client_2.prisma.groupMember.findFirst({
+                where: {
+                    groupId,
+                    userId,
+                    isActive: true,
+                },
+            });
+            return !!member;
+        }
+        catch (error) {
+            logger_1.logger.error('Error checking group membership:', error);
+            return false;
+        }
+    }
     static async getAllGroups(limit = 50, offset = 0) {
         try {
             const [groups, total] = await Promise.all([

@@ -6,6 +6,7 @@ import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { CreatePollData, CreateVoteData } from '../../types/poll.types';
 import { createPollFromWebApp } from '../../services/poll.service.extensions';
+import { calculatePollEndTime } from '../../utils/date';
 
 /**
  * Converts BigInt values to strings and Date to ISO strings recursively in an object
@@ -50,11 +51,20 @@ export class PollController {
   static async getActivePolls(req: Request, res: Response): Promise<void> {
     try {
       const polls = await PollService.getActivePolls();
+      
+      // Добавляем вычисленное endTime для каждого активного голосования
+      const pollsWithEndTime = polls.map(poll => {
+        const endTime = poll.endedAt || calculatePollEndTime(poll.startedAt, poll.duration);
+        return {
+          ...poll,
+          endTime: endTime.toISOString(), // Добавляем вычисленное время окончания
+        };
+      });
 
       res.json({
         success: true,
-        data: serializeBigInt(polls),
-        count: polls.length,
+        data: serializeBigInt(pollsWithEndTime),
+        count: pollsWithEndTime.length,
         timestamp: new Date().toISOString(),
       });
 
@@ -393,15 +403,22 @@ export class PollController {
         return;
       }
 
+      // Добавляем вычисленное endTime для активного голосования
+      const endTime = poll.endedAt || calculatePollEndTime(poll.startedAt, poll.duration);
+      const pollWithEndTime = {
+        ...poll,
+        endTime: endTime.toISOString(), // Добавляем вычисленное время окончания
+      };
+
       // Если есть selectedMenuItemIds, фильтруем голоса только по этим блюдам
-      let filteredPoll = poll;
+      let filteredPoll = pollWithEndTime;
       if (poll.selectedMenuItemIds) {
         try {
           const selectedIds = JSON.parse(poll.selectedMenuItemIds);
           if (Array.isArray(selectedIds) && selectedIds.length > 0) {
             // Фильтруем голоса только по выбранным блюдам
             filteredPoll = {
-              ...poll,
+              ...pollWithEndTime,
               votes: poll.votes.filter(vote => 
                 vote.menuItemId && selectedIds.includes(vote.menuItemId)
               ),
@@ -987,6 +1004,118 @@ export class PollController {
       res.status(500).json({
         success: false,
         error: 'Failed to cast vote',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  }
+
+  /**
+   * POST /api/polls/:id/vote-multiple
+   * Голосование за несколько блюд одновременно (множественный выбор)
+   */
+  static async voteMultiple(req: Request, res: Response): Promise<void> {
+    try {
+      const pollId = parseInt(req.params.id);
+      const { menuItemIds } = req.body;
+      const user = (req as any).user;
+
+      logger.info('🔍 DEBUG: Multiple vote request from user:', {
+        userId: user.id,
+        telegramId: user.telegramId,
+        firstName: user.firstName,
+        username: user.username,
+        pollId,
+        menuItemIds,
+        count: menuItemIds?.length || 0,
+      });
+
+      // Валидация pollId
+      if (isNaN(pollId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid poll ID',
+          code: 'INVALID_ID'
+        });
+        return;
+      }
+
+      // Валидация menuItemIds
+      if (!menuItemIds || !Array.isArray(menuItemIds) || menuItemIds.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid menu item IDs. Must be a non-empty array.',
+          code: 'INVALID_MENU_ITEM_IDS'
+        });
+        return;
+      }
+
+      // Проверка, что все элементы массива - числа
+      const invalidIds = menuItemIds.filter(id => isNaN(parseInt(id)));
+      if (invalidIds.length > 0) {
+        res.status(400).json({
+          success: false,
+          error: 'All menu item IDs must be valid numbers',
+          code: 'INVALID_MENU_ITEM_IDS'
+        });
+        return;
+      }
+
+      // Преобразуем все ID в числа
+      const numericMenuItemIds = menuItemIds.map(id => parseInt(id));
+
+      // Создаём множественные голоса
+      const votes = await VoteService.createMultipleVotes(pollId, user.id, numericMenuItemIds);
+
+      logger.info('Multiple votes cast via API', {
+        pollId,
+        userId: user.id,
+        itemsCount: votes.length,
+        menuItemIds: votes.map(v => v.menuItemId),
+      });
+
+      // Проверяем автозавершение после голосования
+      try {
+        const shouldAutoComplete = await PollService.checkAutoComplete(pollId);
+        
+        if (shouldAutoComplete) {
+          logger.info(`Triggering auto-complete for poll ${pollId} (from multi-vote API)`);
+          
+          // Завершаем голосование (multi-winner по умолчанию)
+          await PollService.completePollMultiWinner(pollId, user.id, {
+            minVotes: 1,
+            tieBreakMethod: 'earliest'
+          });
+          
+          logger.info(`Poll ${pollId} auto-completed successfully via multi-vote API`);
+        }
+      } catch (autoCompleteError) {
+        logger.error('Auto-complete check/execution failed:', autoCompleteError);
+        // Не падаем, голоса уже записаны
+      }
+
+      res.json({
+        success: true,
+        data: votes.map(vote => serializeBigInt(vote)),
+        message: `Successfully voted for ${votes.length} items`,
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      if (error instanceof Error) {
+        if (['Poll not found', 'Poll is not active', 'Poll has expired', 'Invalid parameters for multiple votes'].includes(error.message)) {
+          res.status(400).json({
+            success: false,
+            error: error.message,
+            code: 'POLL_ERROR'
+          });
+          return;
+        }
+      }
+
+      logger.error('Error casting multiple votes:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to cast multiple votes',
         code: 'INTERNAL_ERROR'
       });
     }

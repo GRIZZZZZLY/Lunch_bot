@@ -3,10 +3,18 @@ import { motion } from 'framer-motion';
 import { MessageCircle } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
 import { cn } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip';
 
 interface FloatingActionButtonProps {
   onClick: () => void;
   className?: string;
+  tooltipText?: string;
 }
 
 /**
@@ -17,7 +25,8 @@ interface FloatingActionButtonProps {
  */
 export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ 
   onClick,
-  className 
+  className,
+  tooltipText = "Обратная связь"
 }) => {
   const haptic = useHaptic();
 
@@ -27,12 +36,15 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   };
 
   return (
-    <motion.button
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <motion.button
       onClick={handleClick}
       className={cn(
-        'fixed bottom-20 right-4 z-40',
+        'fixed bottom-24 sm:bottom-20 right-4 z-40',
         'size-16 rounded-full',
-        'bg-gradient-to-br from-coral-500 to-coral-600',
+        'bg-gradient-to-br from-pastel-rose-500 to-pastel-rose-600',
         'shadow-2xl',
         'flex items-center justify-center',
         'cursor-pointer',
@@ -59,9 +71,15 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
           ease: 'easeInOut',
         },
       }}
-      aria-label="Обратная связь"
+      aria-label={tooltipText}
     >
-      <MessageCircle className="size-6 text-white" />
+      <MessageCircle className={`${ICON_SIZES.lg} text-white`} />
     </motion.button>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="font-medium">
+          <p>{tooltipText}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };

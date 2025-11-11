@@ -3,11 +3,14 @@ import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { MenuItem } from '../../services/menu.service';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { GlassCard, GlassBadge } from '@/components/glass';
+import { PastelCard } from '../ui/pastel-card';
+import { GlassBadge } from '@/components/glass';
+import { Badge } from '../ui/badge';
 import { useTelegram } from '@/hooks/useTelegram';
 import { Edit2, Trash2, CheckCircle, XCircle, Tag, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGlassTailwindClasses } from '@/lib/glassmorphism';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface MenuItemCardProps {
   item: MenuItem;
@@ -86,12 +89,10 @@ export const MenuItemCard = React.memo(function MenuItemCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <GlassCard
-        variant="medium"
-        theme={isDark ? 'dark' : 'light'}
-        hover
+      <PastelCard
+        variant="default"
         className={cn(
-          'relative overflow-hidden p-0',
+          'relative overflow-hidden p-0 hover:scale-[1.02] transition-transform',
           !item.isActive && 'opacity-60',
           loading && 'pointer-events-none'
         )}
@@ -185,8 +186,8 @@ export const MenuItemCard = React.memo(function MenuItemCard({
                   </span>
                 )}
                 {item.isActive && (
-                  <span className="flex items-center gap-1 text-xs text-mint-500">
-                    <span className="size-1.5 rounded-full bg-mint-500" />
+                  <span className="flex items-center gap-1 text-xs text-peach-500">
+                    <span className="size-1.5 rounded-full bg-peach-500" />
                     Активно
                   </span>
                 )}
@@ -197,7 +198,7 @@ export const MenuItemCard = React.memo(function MenuItemCard({
           {/* Price (если нет изображения) */}
           {item.price && !item.imageUrl && (
             <div className="ml-3 flex-shrink-0">
-              <span className="text-2xl font-bold text-mint-500">
+              <span className="text-2xl font-bold text-peach-500">
                 {formatPrice(item.price)}
               </span>
             </div>
@@ -222,7 +223,7 @@ export const MenuItemCard = React.memo(function MenuItemCard({
               whileTap={{ scale: 0.95 }}
               className="flex-1 flex items-center justify-center gap-1 text-xs font-medium min-h-[44px] px-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 dark:text-blue-400 transition-colors disabled:opacity-50"
             >
-              <Edit2 className="size-4" />
+              <Edit2 className={ICON_SIZES.sm} />
               <span className="hidden sm:inline">Изм.</span>
             </motion.button>
             
@@ -234,7 +235,7 @@ export const MenuItemCard = React.memo(function MenuItemCard({
               whileTap={{ scale: 0.95 }}
               className="flex-1 flex items-center justify-center gap-1 text-xs font-medium min-h-[44px] px-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-500/10 dark:hover:bg-red-500/20 dark:text-red-400 transition-colors disabled:opacity-50"
             >
-              <Trash2 className="size-4" />
+              <Trash2 className={ICON_SIZES.sm} />
               <span className="hidden sm:inline">Удал.</span>
             </motion.button>
 
@@ -247,7 +248,7 @@ export const MenuItemCard = React.memo(function MenuItemCard({
               className={`
                 flex-1 flex items-center justify-center gap-1 text-xs font-medium min-h-[44px] px-2 rounded-lg transition-colors
                 ${item.isActive
-                  ? 'bg-mint-50 hover:bg-mint-100 text-mint-600 dark:bg-mint-500/10 dark:hover:bg-mint-500/20 dark:text-mint-400'
+                  ? 'bg-peach-50 hover:bg-peach-100 text-peach-600 dark:bg-peach-500/10 dark:hover:bg-peach-500/20 dark:text-peach-400'
                   : 'bg-muted hover:bg-muted/80 text-muted-foreground'
                 }
                 ${isToggling ? 'opacity-50' : ''}
@@ -255,17 +256,17 @@ export const MenuItemCard = React.memo(function MenuItemCard({
               `}
             >
               {isToggling ? (
-                <div className="animate-spin rounded-full size-4 border-2 border-current border-t-transparent" />
+                <div className={`${ICON_SIZES.sm} animate-spin rounded-full  border-2 border-current border-t-transparent`} />
               ) : (
                 <>
                   {item.isActive ? (
                     <>
-                      <CheckCircle className="size-4" />
+                      <CheckCircle className={ICON_SIZES.sm} />
                       <span className="hidden sm:inline">Акт.</span>
                     </>
                   ) : (
                     <>
-                      <XCircle className="size-4" />
+                      <XCircle className={ICON_SIZES.sm} />
                       <span className="hidden sm:inline">Неакт.</span>
                     </>
                   )}
@@ -279,7 +280,7 @@ export const MenuItemCard = React.memo(function MenuItemCard({
       {/* Loading overlay */}
       {loading && (
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
-          <div className="animate-spin rounded-full size-8 border-4 border-mint-200 border-t-mint-500 dark:border-mint-500/20 dark:border-t-mint-500" />
+          <div className={`${ICON_SIZES.xl} animate-spin rounded-full  border-4 border-peach-200 border-t-peach-500 dark:border-peach-500/20 dark:border-t-peach-500`} />
         </div>
       )}
 
@@ -298,7 +299,7 @@ export const MenuItemCard = React.memo(function MenuItemCard({
         />,
         document.body
       )}
-    </GlassCard>
+    </PastelCard>
     </div>
   );
 }, (prevProps, nextProps) => {

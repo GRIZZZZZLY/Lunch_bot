@@ -7,6 +7,7 @@ import { CreditCard, Phone, Info, CheckCircle } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
 import { toast } from 'sonner';
 import { cn, formatRelativeTime } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface UrgentDebtViewProps {
   debt: Transaction;
@@ -76,13 +77,13 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
       {/* Информация о заказе */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">🍽️ Ваш заказ:</span>
+          <span className="text-sm text-muted-foreground">Ваш заказ:</span>
           <span className="font-medium">{debt.menuItem?.name || 'Блюдо'}</span>
         </div>
         
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">К оплате:</span>
-          <span className="text-2xl font-bold text-coral-600 dark:text-coral-400">
+          <span className="text-2xl font-bold text-coral-500 dark:text-coral-300">
             {debt.amount}₽
           </span>
         </div>
@@ -98,14 +99,14 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
       {/* Реквизиты для оплаты */}
       <div className="bg-muted/50 rounded-lg p-3 space-y-2">
         <div className="flex items-center gap-2 text-sm font-medium mb-2">
-          <Info className="size-4" />
+          <Info className={ICON_SIZES.sm} />
           <span>Реквизиты для оплаты:</span>
         </div>
         
         <div className="space-y-1.5 text-sm">
           {debt.toUser.paymentCard && (
             <div className="flex items-center gap-2">
-              <CreditCard className="size-4 text-muted-foreground" />
+              <CreditCard className={`${ICON_SIZES.sm} text-muted-foreground`} />
               <span className="text-muted-foreground">Карта:</span>
               <span className="font-mono">{maskCard(debt.toUser.paymentCard)}</span>
             </div>
@@ -113,7 +114,7 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
           
           {debt.toUser.paymentPhone && (
             <div className="flex items-center gap-2">
-              <Phone className="size-4 text-muted-foreground" />
+              <Phone className={`${ICON_SIZES.sm} text-muted-foreground`} />
               <span className="text-muted-foreground">Телефон:</span>
               <span className="font-mono">{formatPhone(debt.toUser.paymentPhone)}</span>
             </div>
@@ -121,7 +122,7 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
           
           {debt.toUser.paymentDetails && (
             <div className="text-xs text-muted-foreground mt-2">
-              ℹ️ {debt.toUser.paymentDetails}
+              {debt.toUser.paymentDetails}
             </div>
           )}
           
@@ -138,12 +139,9 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
         <Button
           onClick={handleMarkAsPaid}
           disabled={markAsPaidMutation.isPending}
-          className={cn(
-            'bg-green-500 hover:bg-green-600 text-white',
-            'dark:bg-green-600 dark:hover:bg-green-700'
-          )}
+          variant="success"
         >
-          <CheckCircle className="size-4 mr-1.5" />
+          <CheckCircle className={`${ICON_SIZES.sm} mr-1.5`} />
           {markAsPaidMutation.isPending ? 'Отмечаю...' : 'Оплатил(а)'}
         </Button>
         
@@ -153,7 +151,7 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
             variant="outline"
             className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
           >
-            <CreditCard className="size-4 mr-1.5" />
+            <CreditCard className={`${ICON_SIZES.sm} mr-1.5`} />
             Открыть СБП
           </Button>
         )}

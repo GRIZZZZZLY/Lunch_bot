@@ -7,6 +7,11 @@ export interface Transaction {
   toUserId: number;
   amount: number;
   menuItemId: number | null;
+  // Cost breakdown fields
+  itemPrice?: number | null;
+  deliveryShare?: number | null;
+  serviceShare?: number | null;
+  tipShare?: number | null;
   status: 'PENDING' | 'PAID' | 'CONFIRMED';
   createdAt: string;
   paidAt: string | null;
@@ -46,6 +51,21 @@ export interface Transaction {
       title: string;
     };
   };
+}
+
+export interface FailedUser {
+  id: number;
+  firstName: string;
+  lastName?: string;
+  reason: string;
+  errorCode: 'bot_blocked' | 'no_chat' | 'user_deactivated' | 'unknown';
+}
+
+export interface SendRemindersResult {
+  sentCount: number;
+  failedCount: number;
+  totalCount: number;
+  failedUsers: FailedUser[];
 }
 
 export interface BudgetStats {
@@ -196,8 +216,8 @@ class BudgetService {
   /**
    * Отправить напоминания всем должникам по заказу
    */
-  async sendRemindersToAll(pollId: number): Promise<{ sentCount: number }> {
-    const response = await apiService.post<{ sentCount: number }>('/budget/send-reminders-all', { pollId });
+  async sendRemindersToAll(pollId: number): Promise<SendRemindersResult> {
+    const response = await apiService.post<SendRemindersResult>('/budget/send-reminders-all', { pollId });
     
     if (response.success && response.data) {
       return response.data;
@@ -219,13 +239,119 @@ class BudgetService {
       totalToReturn: number;
       responsibleShare: number;
     }>(`/budget/poll-totals/${pollId}`);
-    
+
     if (response.success && response.data) {
       return response.data;
     }
-    
+
     throw new Error('Failed to get poll totals');
   }
+
+  // ============================================
+  // COST SPLITTING METHODS
+  // ============================================
+
+  /**
+   * Установить расходы на заказ (доставка, комиссия, чаевые)
+   * Только для ответственного лица
+   */
+  async setOrderCosts(
+    pollId: number,
+    costs: {
+      deliveryCost: number;
+      serviceFee: number;
+      tip: number;
+      notes?: string;
+    }
+  ): Promise<OrderCosts> {
+    const response = await apiService.post<OrderCosts>(
+      `/budget/order-costs/${pollId}`,
+      costs
+    );
+
+    if (response.success && response.data) {
+      return response.data;
+    }
+
+    throw new Error('Failed to set order costs');
+  }
+
+  /**
+   * Получить расходы на заказ
+   */
+  async getOrderCosts(pollId: number): Promise<OrderCosts | null> {
+    try {
+      const response = await apiService.get<OrderCosts>(`/budget/order-costs/${pollId}`);
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      return null;
+    } catch (error: any) {
+      // 404 означает что расходы еще не введены
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Получить детальную разбивку расходов по заказу
+   */
+  async getPollCostBreakdown(pollId: number): Promise<PollCostBreakdown> {
+    const response = await apiService.get<PollCostBreakdown>(
+      `/budget/poll-breakdown/${pollId}`
+    );
+
+    if (response.success && response.data) {
+      return response.data;
+    }
+
+    throw new Error('Failed to get poll cost breakdown');
+  }
+}
+
+// ============================================
+// COST SPLITTING INTERFACES
+// ============================================
+
+export interface OrderCosts {
+  id: number;
+  pollId: number;
+  deliveryCost: number;
+  serviceFee: number;
+  tip: number;
+  notes?: string | null;
+  enteredBy: number;
+  enteredAt: string;
+  updatedAt: string;
+}
+
+export interface TransactionBreakdown {
+  transactionId: number;
+  userId: number;
+  userName: string;
+  menuItemName: string;
+  itemPrice: number;
+  deliveryShare: number;
+  serviceShare: number;
+  tipShare: number;
+  totalAmount: number;
+  status: 'PENDING' | 'PAID' | 'CONFIRMED';
+}
+
+export interface PollCostBreakdown {
+  pollId: number;
+  totalItemsCost: number;
+  totalDeliveryCost: number;
+  totalServiceFee: number;
+  totalTip: number;
+  grandTotal: number;
+  participantsCount: number;
+  transactions: TransactionBreakdown[];
+  orderCosts?: OrderCosts;
 }
 
 export const budgetService = new BudgetService();

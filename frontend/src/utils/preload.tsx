@@ -47,7 +47,8 @@ export const preloadCriticalRoutes = () => {
   // Загружаем самые часто используемые страницы
   const routes = [
     () => import('../pages/MenuPage'),
-    () => import('../pages/VotingPage'),
+    () => import('../pages/StatsPage'),
+    // VotingPage УДАЛЁН - функционал в InlineVotingCard на главной
   ];
 
   routes.forEach(route => {

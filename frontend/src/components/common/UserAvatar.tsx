@@ -66,7 +66,13 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
 
   // Определяем финальный URL для отображения
   // Приоритет: avatarUrl (из API) > photoUrl (прямой) > fallback (инициал)
-  const finalAvatarUrl = userId && !disableAutoLoad ? avatarUrl : photoUrl;
+  let finalAvatarUrl = userId && !disableAutoLoad ? avatarUrl : photoUrl;
+  
+  // Преобразуем tg://avatar/{fileId} в прокси URL /api/avatar/{fileId}
+  if (finalAvatarUrl?.startsWith('tg://avatar/')) {
+    const fileId = finalAvatarUrl.replace('tg://avatar/', '');
+    finalAvatarUrl = `/api/avatar/${fileId}`;
+  }
 
   // Показываем skeleton при загрузке (только для auto-load mode)
   if (userId && !disableAutoLoad && isLoading) {

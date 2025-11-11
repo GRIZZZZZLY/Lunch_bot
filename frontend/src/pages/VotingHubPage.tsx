@@ -13,10 +13,11 @@ import { useTelegram } from '../hooks/useTelegram';
 import { useBottomSheet } from '../components/common/BottomSheet';
 import { pollsService, PollWithDetails } from '../services/polls.service';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { GlassCard, GlassCardHeader, GlassCardTitle, GlassCardContent } from '../components/ui/glass-card';
+import { PastelCard, CardHeader, CardTitle, CardContent } from '../components/ui/pastel-card';
 import { CreatePollForm } from '../components/polls';
-import { MediumWaveGradient } from '../components/background';
+// import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { cn } from '../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 /**
  * VotingHubPage - Главная страница голосований (пустое состояние)
@@ -66,10 +67,15 @@ export const VotingHubPage: React.FC = () => {
     try {
       setLoading(true);
       
-      // Проверяем наличие активных голосований
-      console.log('🔍 [VotingHubPage] Checking for active polls...');
-      const activeResponse = await pollsService.getActivePolls();
+      // ✅ ОПТИМИЗАЦИЯ: Параллельная загрузка активных polls, истории и статистики
+      console.log('🔍 [VotingHubPage] Loading data in parallel...');
+      const [activeResponse, historyResponse, statsResponse] = await Promise.all([
+        pollsService.getActivePolls(),
+        pollsService.getPollHistory({ limit: 1 }),
+        user ? pollsService.getUserParticipationStats() : Promise.resolve({ success: false, data: null })
+      ]);
       
+      // Обрабатываем active polls
       console.log('📥 [VotingHubPage] Active polls response:', JSON.stringify({
         success: activeResponse.success,
         hasData: !!activeResponse.data,
@@ -84,16 +90,12 @@ export const VotingHubPage: React.FC = () => {
           status: active.status
         });
         setActivePoll(active as any);
-        // Не перенаправляем автоматически - показываем на странице
       } else {
         console.log('ℹ️ [VotingHubPage] No active polls found');
         setActivePoll(null);
       }
       
-      // Загружаем последнее голосование
-      console.log('📡 [VotingHubPage] Loading poll history...');
-      const historyResponse = await pollsService.getPollHistory({ limit: 1 });
-      
+      // Обрабатываем history response
       console.log('📥 [VotingHubPage] History response:', JSON.stringify({
         success: historyResponse.success,
         hasData: !!historyResponse.data,
@@ -107,10 +109,8 @@ export const VotingHubPage: React.FC = () => {
       let polls: any[] = [];
       if (historyResponse.success && historyResponse.data) {
         if (Array.isArray(historyResponse.data)) {
-          // Массив напрямую
           polls = historyResponse.data;
         } else if ((historyResponse.data as any).polls) {
-          // Объект с полем polls
           polls = (historyResponse.data as any).polls;
         }
       }
@@ -126,17 +126,13 @@ export const VotingHubPage: React.FC = () => {
         console.log('⚠️ [VotingHubPage] No polls in history');
       }
       
-      // Загружаем статистику пользователя
-      if (user) {
-        console.log('📊 [VotingHubPage] Loading user stats...');
-        const statsResponse = await pollsService.getUserParticipationStats();
-        console.log('📥 [VotingHubPage] Stats response:', {
-          success: statsResponse.success,
-          hasData: !!statsResponse.data
-        });
-        if (statsResponse.success && statsResponse.data) {
-          setStats(statsResponse.data);
-        }
+      // Обрабатываем stats response
+      console.log('📥 [VotingHubPage] Stats response:', {
+        success: statsResponse.success,
+        hasData: !!statsResponse.data
+      });
+      if (statsResponse.success && statsResponse.data) {
+        setStats(statsResponse.data);
       }
       
     } catch (error) {
@@ -184,8 +180,7 @@ export const VotingHubPage: React.FC = () => {
 
   return (
     <div className="min-h-screen relative">
-      {/* Animated gradient background - full page */}
-      <MediumWaveGradient />
+      {/* Background removed - using neutral bg-background from Layout */}
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200 dark:border-gray-800">
         <div className="flex items-center justify-between px-4 py-3">
@@ -194,7 +189,7 @@ export const VotingHubPage: React.FC = () => {
               onClick={() => navigate('/')}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft className={ICON_SIZES.md} />
             </button>
             <h1 className="text-lg font-bold text-gray-900 dark:text-white">
               Голосования
@@ -205,7 +200,7 @@ export const VotingHubPage: React.FC = () => {
             onClick={handleViewHistory}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-peach-600 dark:text-peach-400 hover:bg-peach-50 dark:hover:bg-peach-500/10 transition-colors"
           >
-            <History size={16} />
+            <History className={ICON_SIZES.sm} />
             История
           </button>
         </div>
@@ -221,7 +216,7 @@ export const VotingHubPage: React.FC = () => {
             className="text-center py-8"
           >
             <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 mb-4">
-              <Vote className="text-green-500" size={48} />
+              <Vote className={`${ICON_SIZES['2xl']} text-green-500`} />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               🔥 Идёт голосование!
@@ -244,7 +239,7 @@ export const VotingHubPage: React.FC = () => {
             className="text-center py-8"
           >
             <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-peach-100 to-coral-100 dark:from-peach-900/20 dark:to-coral-900/20 mb-4">
-              <Vote className="text-peach-500" size={48} />
+              <Vote className={`${ICON_SIZES['2xl']} text-peach-500`} />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               Нет активных голосований
@@ -267,7 +262,7 @@ export const VotingHubPage: React.FC = () => {
               className="w-full p-6 rounded-2xl bg-gradient-to-br from-lavender-500 to-lavender-600 hover:from-lavender-600 hover:to-lavender-700 text-white shadow-lg hover:shadow-xl transition-all"
             >
               <div className="flex items-center justify-center gap-3">
-                <Plus size={24} />
+                <Plus className={ICON_SIZES.lg} />
                 <span className="text-lg font-semibold">Создать новое голосование</span>
               </div>
               <p className="mt-2 text-sm text-lavender-100">
@@ -285,13 +280,13 @@ export const VotingHubPage: React.FC = () => {
             transition={{ delay: 0.2 }}
           >
             <GlassCard>
-              <GlassCardHeader>
-                <GlassCardTitle className="flex items-center gap-2">
-                  <History size={20} className="text-peach-500" />
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className={cn(ICON_SIZES.md, "text-peach-500")} />
                   Последнее голосование
-                </GlassCardTitle>
-              </GlassCardHeader>
-              <GlassCardContent>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="space-y-3">
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">
@@ -322,7 +317,7 @@ export const VotingHubPage: React.FC = () => {
                     Посмотреть детали
                   </button>
                 </div>
-              </GlassCardContent>
+              </CardContent>
             </GlassCard>
           </motion.div>
         )}
@@ -335,13 +330,13 @@ export const VotingHubPage: React.FC = () => {
             transition={{ delay: 0.3 }}
           >
             <GlassCard>
-              <GlassCardHeader>
-                <GlassCardTitle className="flex items-center gap-2">
-                  <TrendingUp size={20} className="text-lavender-500" />
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className={cn(ICON_SIZES.md, "text-lavender-500")} />
                   Ваша статистика
-                </GlassCardTitle>
-              </GlassCardHeader>
-              <GlassCardContent>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center p-3 rounded-lg bg-gradient-to-br from-peach-50 to-coral-50 dark:from-peach-900/10 dark:to-coral-900/10">
                     <div className="text-2xl font-bold text-peach-600 dark:text-peach-400">
@@ -372,7 +367,7 @@ export const VotingHubPage: React.FC = () => {
                     </div>
                   </div>
                 )}
-              </GlassCardContent>
+              </CardContent>
             </GlassCard>
           </motion.div>
         )}
@@ -388,7 +383,7 @@ export const VotingHubPage: React.FC = () => {
             onClick={handleViewHistory}
             className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-peach-300 dark:hover:border-peach-600 transition-colors"
           >
-            <History className="text-peach-500 mb-2" size={24} />
+            <History className={`${ICON_SIZES.lg} text-peach-500 mb-2`} />
             <div className="text-sm font-medium text-gray-900 dark:text-white">
               История
             </div>
@@ -398,7 +393,7 @@ export const VotingHubPage: React.FC = () => {
             onClick={() => navigate('/stats')}
             className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-lavender-300 dark:hover:border-lavender-600 transition-colors"
           >
-            <TrendingUp className="text-lavender-500 mb-2" size={24} />
+            <TrendingUp className={`${ICON_SIZES.lg} text-lavender-500 mb-2`} />
             <div className="text-sm font-medium text-gray-900 dark:text-white">
               Статистика
             </div>

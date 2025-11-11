@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useHaptic } from '../../hooks/useHaptic';
+import { Badge } from '@/components/ui/badge';
 
 export interface Tab {
   id: string;
@@ -164,9 +165,9 @@ export const Tabs: React.FC<TabsProps> = ({
 
             {/* Badge */}
             {tab.badge !== undefined && (
-              <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-red-500 text-white rounded-full">
+              <Badge variant="danger" className="ml-1">
                 {tab.badge}
-              </span>
+              </Badge>
             )}
           </button>
         ))}

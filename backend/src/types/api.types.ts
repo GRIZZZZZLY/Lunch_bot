@@ -1,10 +1,33 @@
 import { Request, Response } from 'express';
 import { User } from './database.types';
 
-// Расширение Express Request для добавления пользователя
+// Simplified user type for authentication
+export interface RequestUser {
+  id: number;
+  telegramId?: number | bigint;
+  isAdmin?: boolean;
+}
+
+// Расширение Express Request для добавления пользователя (минимальный вариант)
 export interface AuthenticatedRequest extends Request {
+  user?: RequestUser;
+  telegramInitData?: TelegramInitData;
+}
+
+// Authenticated request with full user info (когда нужны все поля)
+export interface AuthenticatedRequestFull extends Request {
   user?: User;
   telegramInitData?: TelegramInitData;
+}
+
+// Extend Express Request type globally
+declare global {
+  namespace Express {
+    interface Request {
+      user?: RequestUser;
+      telegramInitData?: TelegramInitData;
+    }
+  }
 }
 
 // Стандартный ответ API
@@ -95,3 +118,58 @@ export type ApiController = (
   req: AuthenticatedRequest,
   res: Response
 ) => Promise<void>;
+
+// ============================================
+// COST SPLITTING TYPES
+// ============================================
+
+export interface OrderCostsDto {
+  deliveryCost: number;
+  serviceFee: number;
+  tip: number;
+  notes?: string;
+}
+
+export interface UpdateOrderCostsDto {
+  deliveryCost?: number;
+  serviceFee?: number;
+  tip?: number;
+  notes?: string;
+}
+
+export interface OrderCostsResponse {
+  id: number;
+  pollId: number;
+  deliveryCost: number;
+  serviceFee: number;
+  tip: number;
+  notes?: string;
+  enteredBy: number;
+  enteredAt: string;
+  updatedAt: string;
+}
+
+export interface TransactionBreakdown {
+  transactionId: number;
+  userId: number;
+  userName: string;
+  menuItemName: string;
+  itemPrice: number;
+  deliveryShare: number;
+  serviceShare: number;
+  tipShare: number;
+  totalAmount: number;
+  status: 'PENDING' | 'PAID' | 'CONFIRMED';
+}
+
+export interface PollCostBreakdown {
+  pollId: number;
+  totalItemsCost: number;
+  totalDeliveryCost: number;
+  totalServiceFee: number;
+  totalTip: number;
+  grandTotal: number;
+  participantsCount: number;
+  transactions: TransactionBreakdown[];
+  orderCosts?: OrderCostsResponse;
+}

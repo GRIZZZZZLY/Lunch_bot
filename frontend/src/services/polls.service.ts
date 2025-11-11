@@ -255,6 +255,20 @@ class PollsService {
   }
 
   /**
+   * Голосование за несколько блюд (множественный выбор)
+   */
+  async voteForMultipleItems(pollId: number, menuItemIds: number[]): Promise<ApiResponse<Vote[]>> {
+    return await apiService.post<Vote[]>(`/polls/${pollId}/vote-multiple`, { menuItemIds });
+  }
+
+  /**
+   * Получение голосов пользователя в голосовании
+   */
+  async getUserVotes(pollId: number): Promise<ApiResponse<{ menuItemIds: number[] }>> {
+    return await apiService.get<{ menuItemIds: number[] }>(`/polls/${pollId}/my-votes`);
+  }
+
+  /**
    * Отмена голоса
    */
   async removeVote(pollId: number): Promise<ApiResponse<void>> {
@@ -353,9 +367,9 @@ class PollsService {
   }
 
   /**
-   * Получение голосов пользователя
+   * Получение всех голосов пользователя (история голосов)
    */
-  async getUserVotes(userId?: number): Promise<ApiResponse<Vote[]>> {
+  async getAllUserVotes(userId?: number): Promise<ApiResponse<Vote[]>> {
     const url = userId ? `/polls/votes/user/${userId}` : '/polls/votes/my';
     return await apiService.get<Vote[]>(url);
   }

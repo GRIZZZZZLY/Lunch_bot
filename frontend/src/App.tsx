@@ -7,17 +7,15 @@ import { queryClient, persister, cacheUtils } from './lib/queryClient';
 import { initCache } from './lib/cacheUtils';
 import { ErrorBoundary } from './lib/sentry';
 import { Toaster } from 'sonner';
-import { PageLoader } from './components/common/PageLoader';
-import { DelayedFallback } from './components/common/DelayedFallback';
+import { AppSkeleton } from './components/common/AppSkeleton';
 import { Layout } from './components/layout/Layout';
 import { BottomNavigation } from './components/layout/BottomNavigation';
-import { OfflineIndicator, UpdatePrompt } from './hooks/usePWA';
+import { OfflineIndicator } from './components/common/OfflineIndicator';
+import { PWAUpdatePrompt } from './components/common/PWAUpdatePrompt';
 import { WelcomeModal } from './components/onboarding';
 import { useOnboarding } from './hooks/useOnboarding';
 import { useAppStore } from './store/useAppStore';
 import { WebVitals, PerformanceMonitor } from './components/performance/WebVitals';
-import { OfflineBanner } from './components/common/OfflineBanner';
-import { InstallPrompt } from './components/pwa/InstallPrompt';
 
 // ✅ ИСПРАВЛЕНО: Lazy load с обработкой ошибок
 const createLazyComponent = <T extends React.ComponentType<any>>(
@@ -52,11 +50,14 @@ const createLazyComponent = <T extends React.ComponentType<any>>(
 
 const HomePage = createLazyComponent(() => import('./pages/HomePage'), 'HomePage');
 const MenuPage = createLazyComponent(() => import('./pages/MenuPage'), 'MenuPage');
+// VotingPage УДАЛЁН - функционал перенесён в InlineVotingCard на главной странице
 const StatsPage = createLazyComponent(() => import('./pages/StatsPage'), 'StatsPage');
 const PollHistoryPage = createLazyComponent(() => import('./pages/PollHistoryPage'), 'PollHistoryPage');
 const PollResultsPage = createLazyComponent(() => import('./pages/PollResultsPage'), 'PollResultsPage');
 const ProfilePage = createLazyComponent(() => import('./pages/ProfilePage'), 'ProfilePage');
 const AdminDashboardPage = createLazyComponent(() => import('./pages/AdminDashboardPage'), 'AdminDashboardPage');
+const SuggestionsPage = createLazyComponent(() => import('./pages/SuggestionsPage'), 'SuggestionsPage');
+const MySuggestionsPage = createLazyComponent(() => import('./pages/MySuggestionsPage'), 'MySuggestionsPage');
 const UserStatsPage = createLazyComponent(() => import('./pages/UserStatsPage'), 'UserStatsPage');
 
 // Dev/Debug pages - удалены из сборки, так как вызывают ошибки импортов
@@ -103,17 +104,23 @@ function AppContent() {
   }, [theme]);
 
   // Deep Link: Обработка pollId из URL параметров
-  // DISABLED: Все голосования происходят на главной странице
-  // useEffect(() => {
-  //   const searchParams = new URLSearchParams(location.search);
-  //   const pollId = searchParams.get('pollId');
-  //   
-  //   if (pollId) {
-  //     // Автоматически перенаправляем на страницу голосования
-  //     console.log('[Deep Link] Navigating to poll:', pollId);
-  //     navigate(`/poll/${pollId}`, { replace: true });
-  //   }
-  // }, [location.search, navigate]);
+  // ВАЖНО: Больше НЕ перенаправляем на /poll/:id, остаёмся на главной
+  // InlineVotingCard на главной странице автоматически развернётся и покажет нужное голосование
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const pollId = searchParams.get('pollId');
+
+    if (pollId && location.pathname === '/') {
+      // Логируем, что deep link обработан
+      if (import.meta.env.DEV) {
+        console.log('[Deep Link] Poll ID detected on HomePage:', pollId);
+        console.log('[Deep Link] InlineVotingCard will handle poll display');
+      }
+      
+      // НЕ делаем navigate - InlineVotingCard сам покажет нужное голосование
+      // Параметр ?pollId=X остаётся в URL для HomePage
+    }
+  }, [location.search, location.pathname, navigate]);
 
 
 
@@ -178,14 +185,7 @@ function AppContent() {
     <Layout>
       <div className="min-h-screen flex flex-col">
         <div className="flex-1">
-          <Suspense fallback={
-            <div className="flex items-center justify-center min-h-screen">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-peach-500 mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Загрузка...</p>
-              </div>
-            </div>
-          }>
+          <Suspense fallback={<AppSkeleton />}>
             <Routes>
               {/* Production Routes */}
               <Route path="/" element={<HomePage />} />
@@ -196,20 +196,27 @@ function AppContent() {
               <Route path="/vote" element={<HomePage />} />
               <Route path="/vote/hub" element={<HomePage />} /> {/* Legacy redirect */}
               <Route path="/vote/history" element={<PollHistoryPage />} />
-              {/* DISABLED: Voting happens on HomePage now */}
-              {/* <Route path="/vote/:pollId" element={<VotingPage />} /> */}
               
-              {/* Legacy poll routes (для обратной совместимости) */}
+              {/* ИЗМЕНЕНО: /poll/:pollId теперь редиректит на главную
+                  Все голосования показываются через InlineVotingCard на главной странице */}
               <Route path="/poll/history" element={<PollHistoryPage />} />
-              {/* DISABLED: Voting happens on HomePage now */}
-              {/* <Route path="/poll/:pollId" element={<VotingPage />} /> */}
               <Route path="/poll/:pollId/results" element={<PollResultsPage />} />
+              
+              {/* DEPRECATED: VotingPage больше не используется
+                  Все голосования через InlineVotingCard на главной странице
+                  Оставлено для backwards compatibility, но редиректит на главную */}
+              <Route path="/poll/:pollId" element={<HomePage />} />
+              <Route path="/vote/:pollId" element={<HomePage />} />
               
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/user/stats" element={<UserStatsPage />} />
               
               {/* Admin Routes */}
               <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+              <Route path="/admin/suggestions" element={<SuggestionsPage />} />
+
+              {/* User Suggestions Route */}
+              <Route path="/my-suggestions" element={<MySuggestionsPage />} />
 
               {/* Dev/Debug Routes - закомментированы, так как компоненты не используются */}
               {/* {import.meta.env.DEV && HomePageSimple && <Route path="/debug-simple" element={<HomePageSimple />} />}
@@ -254,11 +261,19 @@ function App() {
             v7_relativeSplatPath: true,
           }}
         >
-          <Toaster position="top-center" richColors closeButton />
+          <Toaster 
+            position="top-center" 
+            richColors 
+            closeButton 
+            icons={{
+              success: undefined,
+              error: undefined,
+              warning: undefined,
+              info: undefined,
+            }}
+          />
           <OfflineIndicator />
-          <OfflineBanner />
-          <UpdatePrompt />
-          <InstallPrompt />
+          <PWAUpdatePrompt />
           <WebVitals />
           <PerformanceMonitor />
           <AppContent />

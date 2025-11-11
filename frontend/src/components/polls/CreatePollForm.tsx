@@ -24,16 +24,21 @@ import {
   Shuffle,
   Loader,
   X,
+  Zap,
+  RotateCcw,
 } from 'lucide-react';
 import { LoadingSpinner } from '../common/LoadingSpinner';
-import { GlassCard, GlassCardContent, GlassCardHeader } from '../ui/glass-card';
+import { PastelCard, CardContent, CardHeader, CardTitle } from '../ui/pastel-card';
 import { Progress } from '../ui/progress';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useHaptic } from '@/hooks/useHaptic';
 import { menuService, MenuItem } from '@/services/menu.service';
 import { userService, Group } from '@/services/user.service';
 import { pollsService } from '@/services/polls.service';
+import { RecurringPollForm } from './RecurringPollForm';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface CreatePollFormProps {
   onSuccess?: (pollId: number) => void;
@@ -50,6 +55,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   const haptic = useHaptic();
 
   // State
+  const [activeTab, setActiveTab] = useState<'single' | 'recurring'>('single');
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [duration, setDuration] = useState(30);
@@ -83,8 +89,9 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
 
       if (menuResponse.success && menuResponse.data) {
         setMenuItems(menuResponse.data);
-        // Auto-select all items by default
-        setSelectedItems(new Set(menuResponse.data.map(item => item.id)));
+        // ✅ UX FIX: Don't pre-select all items (Paradox of Choice)
+        // Admin can use "🎲 Случайные 5" or select manually
+        // Was: setSelectedItems(new Set(menuResponse.data.map(item => item.id)));
         console.log('[CreatePollForm] ✅ Menu items loaded:', menuResponse.data.length);
       } else {
         console.error('[CreatePollForm] ❌ Failed to load menu:', menuResponse.error);
@@ -244,7 +251,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   if (!user?.isAdmin) {
     return (
       <div className="p-6 text-center bg-white dark:bg-gray-900">
-        <AlertCircle className="mx-auto mb-4 text-yellow-500" size={48} />
+        <AlertCircle className={`${ICON_SIZES['2xl']} mx-auto mb-4 text-yellow-500`} />
         <p className="text-gray-600 dark:text-gray-400">
           Только администраторы могут запускать голосования
         </p>
@@ -256,7 +263,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   if (menuItems.length === 0) {
     return (
       <div className="p-6 text-center bg-white dark:bg-gray-900">
-        <AlertCircle className="mx-auto mb-4 text-orange-500" size={48} />
+        <AlertCircle className={`${ICON_SIZES['2xl']} mx-auto mb-4 text-orange-500`} />
         <p className="text-gray-900 dark:text-white font-semibold mb-2">
           Меню пустое
         </p>
@@ -279,37 +286,44 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
 
   return (
     <div className="relative space-y-0 bg-white dark:bg-gray-900">
-      {/* Close Button */}
-      {onCancel && (
-        <button
-          onClick={() => {
-            onCancel();
-          }}
-          className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg"
-        >
-          <X className="text-gray-700 dark:text-gray-300" size={20} />
-        </button>
-      )}
 
-      <div className="p-6 pt-16 space-y-5">
-      {/* 🎨 Group Selection - GlassCard */}
+
+      {/* Tabs for Single vs Recurring */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="pt-12">
+        <div className="px-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="single" className="flex items-center gap-2">
+              <Zap className={ICON_SIZES.sm} />
+              Разовое
+            </TabsTrigger>
+            <TabsTrigger value="recurring" className="flex items-center gap-2">
+              <RotateCcw className={ICON_SIZES.sm} />
+              Автоматическое
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Single Poll Form */}
+        <TabsContent value="single">
+          <div className="p-6 pt-4 space-y-5">
+      {/* 🎨 Group Selection - Pastel Card */}
       {groups.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <GlassCard intensity="medium" hover>
-            <GlassCardContent>
+          <PastelCard variant="lavender">
+            <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2.5 rounded-xl bg-peach-500/20">
-                  <Users className="text-peach-500" size={20} />
+                <div className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800">
+                  <Users className={`${ICON_SIZES.md} text-gray-600 dark:text-gray-400`} />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">
                     Группа
                   </h3>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-400 dark:text-gray-400">
                     Где запустить голосование
                   </p>
                 </div>
@@ -327,10 +341,10 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                       setSelectedGroupId(group.id);
                     }}
                     className={cn(
-                      "w-full p-3 rounded-xl border-2 transition-all",
+                      "w-full p-3 rounded-2xl border-2 transition-all",
                       selectedGroupId === group.id
-                        ? "border-peach-500 bg-peach-50 dark:bg-peach-500/10"
-                        : "border-gray-200 dark:border-gray-700 hover:border-peach-300 dark:hover:border-peach-700"
+                        ? "border-lavender-500 bg-lavender-50 dark:bg-lavender-500/10"
+                        : "border-gray-200 dark:border-gray-700 hover:border-lavender-300 dark:hover:border-lavender-700"
                     )}
                   >
                     <div className="flex items-center justify-between">
@@ -342,15 +356,15 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                           initial={{ scale: 0, rotate: -180 }}
                           animate={{ scale: 1, rotate: 0 }}
                         >
-                          <CheckCircle2 className="text-peach-500" size={20} />
+                          <CheckCircle2 className="text-lavender-500" size={20} />
                         </motion.div>
                       )}
                     </div>
                   </motion.button>
                 ))}
               </div>
-            </GlassCardContent>
-          </GlassCard>
+            </CardContent>
+          </PastelCard>
         </motion.div>
       )}
 
@@ -360,12 +374,12 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <GlassCard intensity="medium" hover>
-          <GlassCardContent>
+        <PastelCard variant="sky">
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-mint-500/20">
-                  <Clock className="text-mint-500" size={20} />
+                  <Clock className={`${ICON_SIZES.md} text-mint-500`} />
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900 dark:text-white">Длительность голосования</h3>
@@ -399,13 +413,13 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                   background: `linear-gradient(to right, #5CAE87 0%, #5CAE87 ${(duration / 240) * 100}%, #e5e7eb ${(duration / 240) * 100}%, #e5e7eb 100%)`
                 }}
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <div className="flex justify-between text-xs text-gray-400 dark:text-gray-400 mt-1">
                 <span>5 мин</span>
                 <span>4 часа</span>
               </div>
             </div>
-          </GlassCardContent>
-        </GlassCard>
+          </CardContent>
+        </PastelCard>
       </motion.div>
 
       {/* 🎨 Menu Items Selection - Enhanced */}
@@ -414,13 +428,13 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        <GlassCard intensity="medium">
-          <GlassCardContent>
+        <PastelCard variant="peach">
+          <CardContent className="pt-6">
             {/* Header с статистикой */}
             <div className="mb-3">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2.5 rounded-xl bg-lavender-500/20">
-                  <Utensils className="text-lavender-500" size={20} />
+                  <Utensils className={`${ICON_SIZES.md} text-lavender-500`} />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">
@@ -430,7 +444,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                     key={selectedItems.size}
                     initial={{ scale: 1.2 }}
                     animate={{ scale: 1 }}
-                    className="text-xs text-gray-500"
+                    className="text-xs text-gray-400 dark:text-gray-400"
                   >
                     Выбрано <span className="font-bold text-lavender-600 dark:text-lavender-400">
                       {selectedItems.size} {selectedItems.size === 1 ? 'блюдо' : selectedItems.size < 5 ? 'блюда' : 'блюд'}
@@ -455,7 +469,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 onClick={toggleAll}
                 className="px-4 py-2 rounded-lg text-sm font-medium border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
               >
-                <X size={16} />
+                <X className={ICON_SIZES.sm} />
                 <span>{selectedItems.size === menuItems.length ? 'Снять всё' : 'Выбрать всё'}</span>
               </motion.button>
               
@@ -464,7 +478,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 onClick={selectRandom}
                 className="px-4 py-2 rounded-lg text-sm font-medium border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
               >
-                <Shuffle size={16} />
+                <Shuffle className={ICON_SIZES.sm} />
                 <span>Случайный выбор</span>
               </motion.button>
             </div>
@@ -479,7 +493,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                   className="mb-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                 >
                   <div className="flex items-start gap-2">
-                    <AlertCircle size={16} className="text-gray-600 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                    <AlertCircle className={cn(ICON_SIZES.sm, "text-gray-600 dark:text-gray-400 flex-shrink-0 mt-0.5")} />
                     <p className="text-sm text-gray-700 dark:text-gray-300">
                       💡 Выберите минимум 2 блюда для голосования
                     </p>
@@ -499,7 +513,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 layout
                 onClick={() => toggleItem(item.id)}
                 className={cn(
-                  "w-full text-left p-3 rounded-lg border-2 transition-all",
+                  "w-full text-left p-3 rounded-2xl border-2 transition-all",
                   isSelected
                     ? "border-primary-food-500 bg-primary-food-50 dark:bg-primary-food-900/20"
                     : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
@@ -508,9 +522,9 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 <div className="flex items-center gap-3">
                   <div className="flex-shrink-0">
                     {isSelected ? (
-                      <CheckCircle2 className="w-5 h-5 text-primary-food-500" />
+                      <CheckCircle2 className={`${ICON_SIZES.md} text-primary-food-500`} />
                     ) : (
-                      <Circle className="w-5 h-5 text-gray-300 dark:text-gray-600" />
+                      <Circle className={`${ICON_SIZES.md} text-gray-300 dark:text-gray-600`} />
                     )}
                   </div>
                   
@@ -532,7 +546,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                     <img
                       src={item.imageUrl}
                       alt={item.name}
-                      className="w-12 h-12 object-cover rounded-lg"
+                      className={`${ICON_SIZES['2xl']} object-cover rounded-lg`}
                     />
                   )}
                 </div>
@@ -552,18 +566,18 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 {showAllItems ? (
                   <>
                     <span>Показать меньше</span>
-                    <ChevronUp size={16} />
+                    <ChevronUp className={ICON_SIZES.sm} />
                   </>
                 ) : (
                   <>
                     <span>Показать все ({menuItems.length - 5} еще)</span>
-                    <ChevronDown size={16} />
+                    <ChevronDown className={ICON_SIZES.sm} />
                   </>
                 )}
               </button>
             )}
-          </GlassCardContent>
-        </GlassCard>
+          </CardContent>
+        </PastelCard>
       </motion.div>
 
         {/* Error Alert - показывается перед кнопками */}
@@ -576,50 +590,57 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
               className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border-2 border-red-300 dark:border-red-700 shadow-lg"
             >
               <div className="flex items-start gap-3">
-                <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <AlertCircle className={cn(ICON_SIZES.md, "text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5")} />
                 <p className="text-red-700 dark:text-red-300 text-sm font-medium">{error}</p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-          {onCancel && (
-            <button
-              onClick={onCancel}
-              disabled={creating}
-              className="flex-1 px-4 py-3 rounded-lg bg-peach-500 hover:bg-peach-600 text-white font-medium transition-colors disabled:opacity-50 shadow-md"
-            >
-              Отмена
-            </button>
-          )}
-          
+        {/* Action Button */}
+        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
           <motion.button
             whileTap={{ scale: canCreatePoll() ? 0.95 : 1 }}
             onClick={handleCreate}
             disabled={!canCreatePoll() || creating}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all shadow-md",
+              "w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold text-lg transition-all shadow-lg",
               canCreatePoll() && !creating
-                ? "bg-lavender-500 hover:bg-lavender-600 text-white"
+                ? "bg-gradient-to-r from-lavender-500 to-lavender-600 hover:from-lavender-600 hover:to-lavender-700 text-white shadow-lavender-500/30 hover:shadow-lavender-600/40"
                 : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
             )}
           >
             {creating ? (
               <>
                 <LoadingSpinner size="sm" />
-                <span>Запуск...</span>
+                <span>Запуск голосования...</span>
               </>
             ) : (
               <>
-                <Check size={18} />
-                <span>Запустить</span>
+                <Check className={ICON_SIZES.md} />
+                <span>Запустить голосование</span>
               </>
             )}
           </motion.button>
         </div>
-      </div>
+          </div>
+        </TabsContent>
+
+        {/* Recurring Poll Form */}
+        <TabsContent value="recurring">
+          <RecurringPollForm
+            groups={groups}
+            menuItems={menuItems}
+            selectedGroupId={selectedGroupId}
+            onSuccess={() => {
+              haptic.success();
+              onSuccess?.(0); // No pollId for recurring schedules
+            }}
+            onCancel={onCancel}
+            compact={compact}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

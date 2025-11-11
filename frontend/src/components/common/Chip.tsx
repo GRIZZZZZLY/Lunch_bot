@@ -54,7 +54,7 @@ export const Chip: React.FC<ChipProps> = ({
   const colorClasses = {
     default: {
       filled: 'bg-gray-500 text-white',
-      outlined: 'border-gray-500 text-gray-500',
+      outlined: 'border-gray-500 text-gray-400 dark:text-gray-400',
       default: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
     },
     primary: {

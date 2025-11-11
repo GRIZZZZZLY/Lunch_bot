@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { CheckCircle, Heart, Sparkles } from 'lucide-react';
 import Confetti from 'react-confetti';
 import { useWindowSize } from 'react-use';
+import { ICON_SIZES } from '@/lib/design-tokens';
+import { cn } from '@/lib/utils';
 
 interface PaymentSuccessProps {
   amount: number;
@@ -30,7 +32,7 @@ export const PaymentSuccess = ({ amount, currency, onClose }: PaymentSuccessProp
         transition={{ type: 'spring', stiffness: 200, damping: 15 }}
         className="mx-auto w-24 h-24 bg-gradient-to-r from-green-400 to-green-500 rounded-full flex items-center justify-center mb-6 shadow-2xl"
       >
-        <CheckCircle size={48} className="text-white" />
+        <CheckCircle className={cn(ICON_SIZES['2xl'], "text-white")} />
       </motion.div>
 
       {/* Title */}
@@ -61,9 +63,9 @@ export const PaymentSuccess = ({ amount, currency, onClose }: PaymentSuccessProp
         transition={{ delay: 0.4 }}
         className="flex items-center justify-center gap-4 mb-8"
       >
-        <Heart size={32} className="text-red-500 fill-red-500" />
-        <Sparkles size={32} className="text-yellow-500" />
-        <Heart size={32} className="text-pink-500 fill-pink-500" />
+        <Heart className={cn(ICON_SIZES.xl, "text-red-500 fill-red-500")} />
+        <Sparkles className={cn(ICON_SIZES.xl, "text-yellow-500")} />
+        <Heart className={cn(ICON_SIZES.xl, "text-pink-500 fill-pink-500")} />
       </motion.div>
 
       {/* Badge Info */}
@@ -74,7 +76,7 @@ export const PaymentSuccess = ({ amount, currency, onClose }: PaymentSuccessProp
         className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl p-4 mb-6 border border-yellow-200 dark:border-yellow-700"
       >
         <div className="flex items-center justify-center gap-2 mb-2">
-          <Sparkles size={20} className="text-yellow-500" />
+          <Sparkles className={cn(ICON_SIZES.md, "text-yellow-500")} />
           <span className="font-semibold text-gray-900 dark:text-white">
             Вы получили бейдж "Supporter"!
           </span>

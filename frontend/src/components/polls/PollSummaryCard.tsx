@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
-import { GlassCard, GlassCardContent } from '../ui/glass-card';
+import { PastelCard, CardContent } from '../ui/pastel-card';
 import { Button } from '../ui/button';
 import { ConfettiAnimation } from './ConfettiAnimation';
 import { WinnerCard } from './WinnerCard';
 import { PollStatsBar } from './PollStatsBar';
 import { ParticipantsList } from './ParticipantsList';
 import { cn } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface PollSummaryData {
   pollId: number;
@@ -87,8 +88,8 @@ export const PollSummaryCard: React.FC<PollSummaryCardProps> = ({
         transition={{ duration: 0.5 }}
         className={cn('space-y-6', className)}
       >
-        <GlassCard className="overflow-hidden">
-          <GlassCardContent className="p-6 space-y-6">
+        <PastelCard variant="sage" className="overflow-hidden">
+          <CardContent className="p-6 pt-6 space-y-6">
             {/* Заголовок */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -97,11 +98,11 @@ export const PollSummaryCard: React.FC<PollSummaryCardProps> = ({
               className="text-center"
             >
               <div className="flex items-center justify-center gap-2 mb-2">
-                <Sparkles className="w-6 h-6 text-yellow-500" />
+                <Sparkles className={`${ICON_SIZES.lg} text-yellow-500`} />
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
                   ГОЛОСОВАНИЕ ЗАВЕРШЕНО!
                 </h2>
-                <Sparkles className="w-6 h-6 text-yellow-500" />
+                <Sparkles className={`${ICON_SIZES.lg} text-yellow-500`} />
               </div>
             </motion.div>
 
@@ -159,11 +160,11 @@ export const PollSummaryCard: React.FC<PollSummaryCardProps> = ({
                 size="lg"
               >
                 <span>Подробные результаты</span>
-                <ArrowRight className="w-4 h-4 ml-2" />
+                <ArrowRight className={`${ICON_SIZES.sm} ml-2`} />
               </Button>
             </motion.div>
-          </GlassCardContent>
-        </GlassCard>
+          </CardContent>
+        </PastelCard>
       </motion.div>
     </>
   );

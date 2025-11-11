@@ -106,20 +106,18 @@ async function voteCommand(ctx) {
             const remaining = Math.max(0, Math.floor((endTime.getTime() - Date.now()) / 1000 / 60));
             timeRemaining = `${remaining} мин`;
         }
-        const message = `🗳️ **Голосование активно!**\n\n` +
-            `👥 Проголосовало: ${voteCount}\n` +
-            `⏰ Осталось: ${timeRemaining}\n\n` +
-            `🤖 Для удобного голосования откройте Mini App:\n` +
-            `• Фото блюд\n` +
-            `• Описания и цены\n` +
-            `• Live-результаты\n\n` +
-            `👇 Нажмите кнопку ниже:`;
+        const pollTitle = poll.group?.title || 'Голосование';
+        const message = `🗳️ Активное голосование: **"${pollTitle}"**\n\n` +
+            `📊 Статус:\n` +
+            `   • Проголосовало: ${voteCount} чел.\n` +
+            `   • Время: ⏰ ${timeRemaining}\n\n` +
+            `💡 Используйте Mini App для удобного выбора - там есть фото блюд, цены и результаты в реальном времени.`;
         const webAppUrl = process.env.WEBAPP_URL || 'https://your-domain.com';
         const miniAppKeyboard = {
             inline_keyboard: [
                 [
                     {
-                        text: '📱 Открыть голосование',
+                        text: '🍽 Проголосовать в Mini App',
                         web_app: { url: `${webAppUrl}?pollId=${pollId}` }
                     }
                 ]

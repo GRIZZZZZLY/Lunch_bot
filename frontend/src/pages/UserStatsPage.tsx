@@ -11,15 +11,16 @@ import {
   Zap,
   Trophy
 } from 'lucide-react';
-import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from '../components/ui/glass-card';
+import { PastelCard, CardContent, CardHeader, CardTitle } from '../components/ui/pastel-card';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { MediumWaveGradient } from '../components/background';
+// import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { useTelegram } from '../hooks/useTelegram';
 import { useAuth } from '../hooks/useAuth';
 import { pollsService } from '../services/polls.service';
 import { cn } from '../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 export const UserStatsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -75,7 +76,6 @@ export const UserStatsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen relative">
-        <MediumWaveGradient />
         <div className="flex items-center justify-center min-h-screen">
           <LoadingSpinner size="lg" />
         </div>
@@ -89,7 +89,7 @@ export const UserStatsPage: React.FC = () => {
 
   return (
     <>
-      <MediumWaveGradient />
+      {/* Background removed - using neutral bg-background from Layout */}
 
       <div className="space-y-6 relative pb-24">
         {/* Header */}
@@ -117,7 +117,7 @@ export const UserStatsPage: React.FC = () => {
           <GlassCard intensity="medium" className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-peach-50 dark:bg-peach-900/20">
-                <Zap className="text-peach-500" size={20} />
+                <Zap className={`${ICON_SIZES.md} text-peach-500`} />
               </div>
               <div>
                 <div className="text-2xl font-bold text-foreground">
@@ -134,7 +134,7 @@ export const UserStatsPage: React.FC = () => {
           <GlassCard intensity="medium" className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-mint-50 dark:bg-mint-900/20">
-                <Calendar className="text-mint-500" size={20} />
+                <Calendar className={`${ICON_SIZES.md} text-mint-500`} />
               </div>
               <div>
                 <div className="text-2xl font-bold text-foreground">
@@ -157,7 +157,7 @@ export const UserStatsPage: React.FC = () => {
           <GlassCard intensity="medium" className="p-5">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-lavender-50 dark:bg-lavender-900/20">
-                <Target className="text-lavender-500" size={20} />
+                <Target className={`${ICON_SIZES.md} text-lavender-500`} />
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-foreground mb-1">
@@ -186,7 +186,7 @@ export const UserStatsPage: React.FC = () => {
           transition={{ delay: 0.3 }}
         >
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Heart className="text-peach-500" size={20} />
+            <Heart className={`${ICON_SIZES.md} text-peach-500`} />
             Любимые блюда
           </h2>
 
@@ -194,7 +194,7 @@ export const UserStatsPage: React.FC = () => {
             {favoriteItems.length === 0 ? (
               <GlassCard intensity="medium" className="p-6">
                 <div className="text-center text-muted-foreground">
-                  <PieChart size={32} className="mx-auto mb-2 opacity-50" />
+                  <PieChart className={cn(ICON_SIZES.xl, "mx-auto mb-2 opacity-50")} />
                   <p className="text-sm">
                     Пока нет данных о любимых блюдах
                   </p>
@@ -219,7 +219,7 @@ export const UserStatsPage: React.FC = () => {
                           index === 2 && "bg-gradient-to-br from-orange-400 to-orange-500 text-white",
                           index > 2 && "bg-muted text-muted-foreground"
                         )}>
-                          {index === 0 && <Trophy size={16} />}
+                          {index === 0 && <Trophy className={ICON_SIZES.sm} />}
                           {index !== 0 && (index + 1)}
                         </div>
 
@@ -255,7 +255,7 @@ export const UserStatsPage: React.FC = () => {
           <GlassCard intensity="medium" className="p-5">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-butter-50 dark:bg-butter-900/20">
-                <Trophy className="text-butter-500" size={20} />
+                <Trophy className={`${ICON_SIZES.md} text-butter-500`} />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground mb-1">

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface OnboardingSlideProps {
   icon: LucideIcon;
@@ -30,7 +31,7 @@ export const OnboardingSlide = ({
         transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
         className={`w-24 h-24 rounded-full ${iconBgColor} flex items-center justify-center mb-6`}
       >
-        <Icon size={48} className={iconColor} />
+        <Icon className={ICON_SIZES['2xl']} />
       </motion.div>
 
       {/* Title */}

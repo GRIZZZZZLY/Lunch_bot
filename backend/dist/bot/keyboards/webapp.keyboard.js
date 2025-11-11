@@ -51,7 +51,7 @@ function createResultsWebAppKeyboard(pollId) {
 function createPollActionsKeyboard(pollId, showResults = false) {
     const buttons = [];
     buttons.push([
-        createWebAppButton('🗳️ Проголосовать', `/poll/${pollId}`)
+        createWebAppButton('🗳️ Проголосовать', `/?pollId=${pollId}`)
     ]);
     if (showResults) {
         buttons.push([
@@ -65,8 +65,8 @@ function createPollActionsKeyboard(pollId, showResults = false) {
 function createResponsibleKeyboard(pollId) {
     return {
         inline_keyboard: [
-            [createWebAppButton('📋 Детали заказа', `/poll/${pollId}/order`)],
-            [createWebAppButton('💰 Информация о платежах', '/payments')]
+            [createWebAppButton('🏠 Главная', '/')],
+            [createWebAppButton('💰 Информация о платежах', '/profile')]
         ]
     };
 }

@@ -2,9 +2,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { UserPlus } from 'lucide-react';
 import { Button } from '../ui/button';
-import { GlassCard, GlassCardContent } from '../ui/glass-card';
+import { PastelCard, CardContent } from '../ui/pastel-card';
 import { useTimeBasedGradient } from '../../hooks/useTimeBasedGradient';
 import { useAppStore } from '../../store/useAppStore';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface WelcomeCardProps {
   onInviteFriend: () => void;
@@ -26,17 +27,17 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({ onInviteFriend }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
     >
-      <GlassCard intensity="solid" className="overflow-hidden">
+      <PastelCard variant="peach" className="relative overflow-hidden">
         {/* Gradient background */}
         <div 
           className="absolute inset-0 pointer-events-none"
           style={{
             background: `linear-gradient(135deg, ${gradientColors.from}, ${gradientColors.to})`,
-            opacity: 0.3
+            opacity: 0.15
           }}
         />
         
-        <GlassCardContent className="relative py-6 px-6 space-y-4">
+        <CardContent className="relative py-6 px-6 space-y-4">
           {/* Emoji */}
           <div className="text-center">
             <div className="text-6xl mb-2">🎉</div>
@@ -82,16 +83,15 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({ onInviteFriend }) => {
 
           {/* Invite button */}
           <Button 
-            variant="mint"
+            className="w-full bg-pastel-sage hover:bg-pastel-sage-400 text-foreground"
             size="lg"
-            className="w-full"
             onClick={onInviteFriend}
           >
-            <UserPlus className="size-5 mr-2" />
+            <UserPlus className={`${ICON_SIZES.md} mr-2`} />
             Пригласить друга
           </Button>
-        </GlassCardContent>
-      </GlassCard>
+        </CardContent>
+      </PastelCard>
     </motion.div>
   );
 };

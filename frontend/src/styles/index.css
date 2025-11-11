@@ -153,6 +153,22 @@ body {
   }
 }
 
+/* Pulse animation for selected voting items */
+@keyframes pulse-selection {
+  0%, 100% {
+    transform: scale(1.02);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 0.95;
+  }
+}
+
+.animate-pulse-selection {
+  animation: pulse-selection 2s ease-in-out infinite;
+}
+
 /* Scroll customization */
 .scrollbar-thin::-webkit-scrollbar {
   width: 4px;

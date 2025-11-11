@@ -163,7 +163,7 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
 
       {/* Debug info (только в dev) */}
       {import.meta.env.MODE === 'development' && (
-        <div className="fixed bottom-20 right-4 bg-black/80 text-white text-xs px-2 py-1 rounded">
+        <div className="fixed bottom-24 sm:bottom-20 right-4 bg-black/80 text-white text-xs px-2 py-1 rounded">
           Virtual List: {items.length} items
         </div>
       )}

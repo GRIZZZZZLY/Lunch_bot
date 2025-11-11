@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Header } from '../components/layout/Layout';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { GlassCard, GlassBadge } from '../components/glass';
-import { MediumWaveGradient } from '../components/background';
+import { PastelCard, CardHeader, CardContent } from '../components/ui/pastel-card';
+import { Badge } from '../components/ui/badge';
+// import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { UserAvatar } from '../components/common/UserAvatar';
-import { 
+import {
   User,
   CreditCard,
   Phone,
@@ -16,7 +17,9 @@ import {
   Info,
   Crown,
   BookOpen,
-  Settings
+  Settings,
+  Lightbulb,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
@@ -25,6 +28,8 @@ import { userService, PaymentInfo } from '../services/user.service';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { usePaymentInfo, useUpdatePaymentInfo } from '../hooks/usePaymentInfo';
 import { DonationButton } from '../components/donation/DonationButton';
+import { ICON_SIZES } from '@/lib/design-tokens';
+import { cn } from '@/lib/utils';
 
 /**
  * Страница профиля и настроек платёжных данных
@@ -164,7 +169,6 @@ export const ProfilePage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen relative">
-        <MediumWaveGradient />
         <div className="flex items-center justify-center min-h-screen">
           <LoadingSpinner size="lg" />
         </div>
@@ -174,16 +178,11 @@ export const ProfilePage: React.FC = () => {
 
   return (
     <>
-      {/* Animated gradient background - full page */}
-      <MediumWaveGradient />
+      {/* Background removed - using neutral bg-background from Layout */}
       
       <div className="space-y-6 relative z-10">
         {/* Информация о пользователе */}
-        <GlassCard
-          variant="medium"
-          theme={isDark ? 'dark' : 'light'}
-          className="p-5"
-        >
+        <PastelCard variant="default" className="p-5">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -210,18 +209,18 @@ export const ProfilePage: React.FC = () => {
               )}
               {user?.isAdmin && (
                 <div className="mt-2">
-                  <GlassBadge
-                    label="Администратор"
-                    icon={Crown}
-                    variant="food"
-                    glassVariant="light"
-                    theme={isDark ? 'dark' : 'light'}
-                  />
+                  <Badge 
+                    variant="default" 
+                    className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                  >
+                    <Crown className={`${ICON_SIZES.sm} mr-1`} />
+                    Администратор
+                  </Badge>
                 </div>
               )}
             </div>
           </motion.div>
-        </GlassCard>
+        </PastelCard>
 
         {/* Admin Dashboard Access */}
         {user?.isAdmin && (
@@ -237,7 +236,7 @@ export const ProfilePage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-xl bg-yellow-400 dark:bg-yellow-600">
-                    <Shield size={24} className="text-white" />
+                    <Shield className={cn(ICON_SIZES.lg, "text-white")} />
                   </div>
                   <div className="text-left">
                     <div className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
@@ -250,7 +249,7 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 </div>
                 <div className="text-yellow-600 dark:text-yellow-400">
-                  <Settings size={20} />
+                  <Settings className={ICON_SIZES.md} />
                 </div>
               </div>
             </button>
@@ -290,12 +289,39 @@ export const ProfilePage: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Платёжные данные */}
-        <GlassCard
-          variant="medium"
-          theme={isDark ? 'dark' : 'light'}
-          className="p-5"
+        {/* My Suggestions Access - для всех пользователей */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: user?.isAdmin ? 0.4 : 0.3, duration: 0.4 }}
         >
+          <button
+            onClick={() => navigate('/my-suggestions')}
+            className="w-full p-5 rounded-2xl bg-gradient-to-br from-peach-50 to-coral-100 dark:from-peach-900/20 dark:to-coral-800/20 border-2 border-peach-200 dark:border-peach-700 hover:shadow-lg transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-peach-500 to-coral-500">
+                  <Lightbulb className={cn(ICON_SIZES.lg, "text-white")} />
+                </div>
+                <div className="text-left">
+                  <div className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
+                    Мои предложения
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                    История предложенных блюд для меню
+                  </div>
+                </div>
+              </div>
+              <div className="text-peach-600 dark:text-peach-400">
+                <ChevronRight className={ICON_SIZES.md} />
+              </div>
+            </div>
+          </button>
+        </motion.div>
+
+        {/* Платёжные данные */}
+        <PastelCard variant="default" className="p-5">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -317,7 +343,7 @@ export const ProfilePage: React.FC = () => {
                 </span>
               )}
               {!isSaving && lastSaved && (
-                <span className="text-sm text-green-600 dark:text-green-400">
+                <span className="text-sm text-mint-500 dark:text-mint-300">
                   ✓ Сохранено {lastSaved.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
@@ -330,7 +356,7 @@ export const ProfilePage: React.FC = () => {
           {/* Номер карты */}
           <div>
             <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              <CreditCard size={16} className="text-primary-food-500" />
+              <CreditCard className={cn(ICON_SIZES.sm, "text-primary-food-500")} />
               <span>Номер карты</span>
             </label>
             <input
@@ -347,7 +373,7 @@ export const ProfilePage: React.FC = () => {
             />
             {errors.paymentCard && (
               <p className="text-xs text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
-                <Info size={12} />
+                <Info className={ICON_SIZES.xs} />
                 {errors.paymentCard}
               </p>
             )}
@@ -359,7 +385,7 @@ export const ProfilePage: React.FC = () => {
           {/* Номер телефона */}
           <div>
             <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              <Phone size={16} className="text-primary-food-500" />
+              <Phone className={cn(ICON_SIZES.sm, "text-primary-food-500")} />
               <span>Номер телефона</span>
             </label>
             <input
@@ -375,7 +401,7 @@ export const ProfilePage: React.FC = () => {
             />
             {errors.paymentPhone && (
               <p className="text-xs text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
-                <Info size={12} />
+                <Info className={ICON_SIZES.xs} />
                 {errors.paymentPhone}
               </p>
             )}
@@ -387,7 +413,7 @@ export const ProfilePage: React.FC = () => {
           {/* Дополнительные детали */}
           <div>
             <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              <FileText size={16} className="text-primary-food-500" />
+              <FileText className={cn(ICON_SIZES.sm, "text-primary-food-500")} />
               <span>Дополнительная информация</span>
             </label>
             <textarea
@@ -416,7 +442,7 @@ export const ProfilePage: React.FC = () => {
               className="bg-primary-food-50 dark:bg-primary-food-900/20 rounded-lg p-4 border border-primary-food-200 dark:border-primary-food-800"
             >
               <div className="flex items-center gap-2 text-sm font-semibold text-primary-food-700 dark:text-primary-food-300 mb-2">
-                <FileText size={16} />
+                <FileText className={ICON_SIZES.sm} />
                 Так увидят участники:
               </div>
               <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1.5">
@@ -445,14 +471,14 @@ export const ProfilePage: React.FC = () => {
           {/* Информация */}
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
             <div className="flex items-start gap-2">
-              <Shield size={16} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <Shield className={cn(ICON_SIZES.sm, "text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5")} />
               <p className="text-sm text-blue-700 dark:text-blue-300">
                 <strong>Конфиденциальность:</strong> Ваши данные будут видны только участникам голосования, где вы стали ответственным за заказ.
               </p>
             </div>
           </div>
           </motion.div>
-        </GlassCard>
+        </PastelCard>
 
         {/* Help Section */}
         <motion.div
@@ -474,7 +500,7 @@ export const ProfilePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary-food-50 dark:bg-primary-food-900/20">
-                  <BookOpen size={20} className="text-primary-food-500" />
+                  <BookOpen className={cn(ICON_SIZES.md, "text-primary-food-500")} />
                 </div>
                 <div className="text-left">
                   <p className="font-medium text-gray-900 dark:text-white">

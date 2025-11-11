@@ -72,6 +72,8 @@ declare global {
         sendData: (data: string) => void;
         enableClosingConfirmation: () => void;
         disableClosingConfirmation: () => void;
+        openLink: (url: string) => void;
+        shareLink: (url: string, text?: string) => Promise<void>;
       };
     };
   }

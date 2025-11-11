@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/layout/Layout';
 import { PageHeader } from '../components/common/PageHeader';
 import { MenuList } from '../components/menu/MenuList';
 import { VirtualMenuList } from '../components/menu/VirtualMenuList';
 import { MenuForm, MenuFormData } from '../components/menu/MenuForm';
+import { SuggestDishForm } from '../components/menu/SuggestDishForm';
 import { SearchInput } from '../components/common/SearchInput';
 import { FilterChips } from '../components/menu/FilterChips';
+import { ConfirmDialog } from '../components/modals';
 import { SortSelector, SortOption } from '../components/common/SortSelector';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PullToRefresh } from '../components/common/PullToRefresh';
@@ -40,15 +43,17 @@ import { menuService, MenuItem } from '../services/menu.service';
 import { useMenuItems, useMenuCategories, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '../hooks/queries';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import { mockApiService } from '../services/mockApi.service';
+import { usePendingCount } from '../hooks/useSuggestions';
 
 // New shadcn/ui components
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
-import { GlassCard, GlassCardContent } from '../components/ui/glass-card';
+import { PastelCard, CardContent } from '../components/ui/pastel-card';
 import { ThemeToggle } from '../components/ui/theme-toggle';
-import { MediumWaveGradient } from '../components/background';
+// import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { cn } from '../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 /**
  * Страница управления меню
@@ -60,10 +65,14 @@ export const MenuPage: React.FC = () => {
   const haptic = useHaptic();
   const theme = useAppStore((state) => state.theme);
   const isDark = theme === 'dark';
+  const navigate = useNavigate();
   
   // Load menu items using React Query
   const { data: menuItems = [], isLoading: menuLoading, refetch: refetchMenu } = useMenuItems();
   const { data: categoriesData = [], refetch: refetchCategories } = useMenuCategories();
+  
+  // Load pending suggestions count (only for admin)
+  const { data: pendingCount = 0 } = usePendingCount();
   
   // React Query mutations
   const { mutate: createItemMutation, isPending: isCreating } = useCreateMenuItem();
@@ -76,11 +85,14 @@ export const MenuPage: React.FC = () => {
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchVisible, setSearchVisible] = useState(false);
+  // ✅ UX FIX: Show search by default if 10+ items (Hidden Feature fix)
+  const [searchVisible, setSearchVisible] = useState(true);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Объединяем состояния в одно
   const [formState, setFormState] = useState({ isOpen: false, clickCount: 0 });
+  const [suggestFormOpen, setSuggestFormOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: number; name: string } | null>(null);
   
   const openBottomSheet = useCallback(() => {
     console.log('Opening BottomSheet');
@@ -220,10 +232,22 @@ export const MenuPage: React.FC = () => {
     });
   };
 
-  const handleDeleteItem = async (id: number) => {
-    console.log('[MenuPage] Deleting item:', id);
-    
-    deleteItemMutation(id, {
+  const handleDeleteItem = (id: number) => {
+    // Находим блюдо для отображения его имени в диалоге
+    const item = menuItems.find(i => i.id === id);
+    if (!item) return;
+
+    // Открываем диалог подтверждения
+    setItemToDelete({ id, name: item.name });
+    haptic.light();
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete) return;
+
+    console.log('[MenuPage] Deleting item:', itemToDelete.id);
+
+    deleteItemMutation(itemToDelete.id, {
       onSuccess: () => {
         console.log('[MenuPage] Item deleted successfully');
         addNotification({
@@ -231,15 +255,18 @@ export const MenuPage: React.FC = () => {
           message: 'Блюдо удалено',
         });
         // Закрываем форму редактирования если она открыта
-        if (editingItem?.id === id) {
+        if (editingItem?.id === itemToDelete.id) {
           setEditingItem(null);
         }
         haptic.success();
-        
+
         // P1.2.4: Track menu item deletion
         trackEvent(ANALYTICS_EVENTS.MENU_ITEM_DELETED, {
-          itemId: id,
+          itemId: itemToDelete.id,
         });
+
+        // Закрываем диалог
+        setItemToDelete(null);
       },
       onError: (error) => {
         console.error('[MenuPage] Error deleting item:', error);
@@ -248,6 +275,9 @@ export const MenuPage: React.FC = () => {
           message: 'Ошибка удаления блюда',
         });
         haptic.error();
+
+        // Закрываем диалог
+        setItemToDelete(null);
       },
     });
   };
@@ -310,8 +340,7 @@ export const MenuPage: React.FC = () => {
 
   return (
     <>
-      {/* Animated gradient background - full page */}
-      <MediumWaveGradient />
+      {/* Background removed - using neutral bg-background from Layout */}
       
       <motion.div
         variants={containerVariants}
@@ -324,7 +353,7 @@ export const MenuPage: React.FC = () => {
         <motion.div variants={itemVariants}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Utensils className="size-6 text-mint-500" />
+              <Utensils className={`${ICON_SIZES.lg} text-peach-500`} />
               <h1 className="text-2xl font-bold text-foreground">Меню</h1>
             </div>
             
@@ -336,7 +365,7 @@ export const MenuPage: React.FC = () => {
                 onClick={toggleSearch}
                 className="size-11"
               >
-                <Search className="size-5" />
+                <Search className={ICON_SIZES.md} />
               </Button>
               
               {/* Settings (admin only) */}
@@ -347,39 +376,97 @@ export const MenuPage: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* 2. Inline Stats (48px) - Single Line */}
+        {/* 2. Stats Grid with Glassmorphism */}
         {!menuLoading && menuItems.length > 0 && (
           <motion.div variants={itemVariants}>
-            <div className="flex items-center justify-center gap-4 py-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <Utensils className="size-4" />
-                <span className="font-semibold text-foreground">{totalCount}</span>
-                <span>блюд</span>
-              </div>
-              
-              <div className="size-1 rounded-full bg-muted" />
-              
-              <div className="flex items-center gap-1.5">
-                <Tag className="size-4" />
-                <span className="font-semibold text-foreground">{categories.length}</span>
-                <span>категорий</span>
-              </div>
-              
-              <div className="size-1 rounded-full bg-muted" />
-              
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="size-4 text-mint-500" />
-                <span className="font-semibold text-foreground">{activeCount}/{totalCount}</span>
-              </div>
-              
-              {avgPrice > 0 && (
-                <>
-                  <div className="size-1 rounded-full bg-muted" />
-                  <div className="flex items-center gap-1.5">
-                    <span>~</span>
-                    <span className="font-semibold text-foreground">₽{avgPrice}</span>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Total Items */}
+              <PastelCard variant="sky" className="overflow-hidden">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-peach-500/10 dark:bg-peach-500/20">
+                      <Utensils className={`${ICON_SIZES.md} text-peach-500`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-2xl font-bold text-foreground">{totalCount}</div>
+                      <div className="text-xs text-muted-foreground">Всего блюд</div>
+                    </div>
                   </div>
-                </>
+                </CardContent>
+              </PastelCard>
+
+              {/* Categories */}
+              <PastelCard variant="sky" className="overflow-hidden">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-blue-500/10 dark:bg-blue-500/20">
+                      <Tag className={`${ICON_SIZES.md} text-blue-500`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-2xl font-bold text-foreground">{categories.length}</div>
+                      <div className="text-xs text-muted-foreground">Категорий</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </PastelCard>
+
+              {/* Active Items OR Pending Suggestions (admin) */}
+              {user?.isAdmin && pendingCount > 0 ? (
+                <PastelCard variant="default" 
+                  className="overflow-hidden cursor-pointer transition-shadow hover:shadow-md" 
+                  onClick={() => {
+                    navigate('/admin/suggestions');
+                    haptic.light();
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-butter-500/10 dark:bg-butter-500/20 relative">
+                        <Sparkles className={`${ICON_SIZES.md} text-butter-500`} />
+                        {pendingCount > 0 && (
+                          <div className={`${ICON_SIZES.md} absolute -top-1 -right-1  rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center`}>
+                            {pendingCount}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-2xl font-bold text-foreground">{pendingCount}</div>
+                        <div className="text-xs text-muted-foreground">Ожидают</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </PastelCard>
+              ) : (
+                <PastelCard variant="sky" className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-mint-500/10 dark:bg-mint-500/20">
+                        <Sparkles className={`${ICON_SIZES.md} text-mint-500`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-2xl font-bold text-foreground">{activeCount}/{totalCount}</div>
+                        <div className="text-xs text-muted-foreground">Активных</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </PastelCard>
+              )}
+
+              {/* Average Price */}
+              {avgPrice > 0 && (
+                <PastelCard variant="sky" className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-butter-500/10 dark:bg-butter-500/20">
+                        <span className="text-xl">💰</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-2xl font-bold text-foreground">₽{avgPrice}</div>
+                        <div className="text-xs text-muted-foreground">Средняя цена</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </PastelCard>
               )}
             </div>
           </motion.div>
@@ -394,28 +481,28 @@ export const MenuPage: React.FC = () => {
               animate="show"
               exit={{ opacity: 0, height: 0 }}
             >
-              <GlassCard intensity="low" className="overflow-hidden">
-                <GlassCardContent className="p-3">
+              <PastelCard variant="default" className="overflow-hidden">
+                <CardContent className="p-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                    <Search className={`${ICON_SIZES.sm} absolute left-3 top-1/2 -translate-y-1/2  text-muted-foreground pointer-events-none`} />
                     <Input
                       ref={searchInputRef}
                       placeholder="🔍 Поиск блюд..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-mint-500 h-11"
+                      className="pl-10 bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-peach-500 h-11"
                     />
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery('')}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        <X className="size-4" />
+                        <X className={ICON_SIZES.sm} />
                       </button>
                     )}
                   </div>
-                </GlassCardContent>
-              </GlassCard>
+                </CardContent>
+              </PastelCard>
             </motion.div>
           )}
         </AnimatePresence>
@@ -447,9 +534,20 @@ export const MenuPage: React.FC = () => {
           <MenuGridSkeleton count={8} />
         ) : filteredItems.length === 0 ? (
           (selectedCategory || searchQuery) ? (
-            <EmptyState type="no-results" />
+            <EmptyState
+              type="no-results"
+              onAction={() => {
+                setSearchQuery('');
+                setSelectedCategory(null);
+                haptic.light();
+              }}
+            />
           ) : (
-            <EmptyState type="no-menu" onAction={user?.isAdmin ? openBottomSheet : undefined} />
+            <EmptyState
+              type="no-menu"
+              onAction={user?.isAdmin ? openBottomSheet : () => setSuggestFormOpen(true)}
+              actionLabel={user?.isAdmin ? 'Добавить блюдо' : 'Предложить блюдо'}
+            />
           )
         ) : (
           <motion.div variants={itemVariants} className="flex-1">
@@ -482,7 +580,7 @@ export const MenuPage: React.FC = () => {
       {/* 6. Contextual FAB */}
       {user?.isAdmin ? (
         <motion.button
-          className="fixed bottom-20 right-4 z-30 flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-mint-500 to-mint-600 text-white shadow-lg shadow-mint-500/30 font-medium"
+          className="fixed bottom-24 sm:bottom-20 right-4 z-30 flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/30 font-medium"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => {
@@ -490,24 +588,21 @@ export const MenuPage: React.FC = () => {
             haptic.medium();
           }}
         >
-          <Plus className="size-5" />
+          <Plus className={ICON_SIZES.md} />
           <span>Добавить</span>
         </motion.button>
       ) : (
         <motion.button
-          className="fixed bottom-20 right-4 z-30 flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/30 font-medium"
+          className="fixed bottom-24 sm:bottom-20 right-4 z-30 flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/30 font-medium"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => {
+            setSuggestFormOpen(true);
             haptic.medium();
-            addNotification({
-              type: 'info',
-              message: 'Перейдите на страницу голосования',
-            });
           }}
         >
-          <Zap className="size-5" />
-          <span>Голосовать</span>
+          <Sparkles className={ICON_SIZES.md} />
+          <span>Предложить</span>
         </motion.button>
       )}
 
@@ -544,6 +639,24 @@ export const MenuPage: React.FC = () => {
           />
         </BottomSheet>
       )}
+
+      {/* Форма предложения блюда для обычных пользователей */}
+      <SuggestDishForm
+        isOpen={suggestFormOpen}
+        onClose={() => setSuggestFormOpen(false)}
+      />
+
+      {/* Диалог подтверждения удаления */}
+      <ConfirmDialog
+        isOpen={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={confirmDeleteItem}
+        title="Удалить блюдо?"
+        description={`Вы уверены, что хотите удалить "${itemToDelete?.name}" из меню? Это действие нельзя отменить.`}
+        confirmLabel="Удалить"
+        cancelLabel="Отмена"
+        variant="danger"
+      />
     </>
   );
 };

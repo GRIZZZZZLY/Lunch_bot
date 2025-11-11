@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useTelegram } from '../../hooks/useTelegram';
 import { cn } from '../../lib/utils';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface Breadcrumb {
   label: string;
@@ -118,7 +119,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                 )}
                 {index < breadcrumbs.length - 1 && (
                   <ChevronRight 
-                    className="size-3 text-muted-foreground flex-shrink-0" 
+                    className={`${ICON_SIZES.xs} text-muted-foreground flex-shrink-0`} 
                     aria-hidden="true"
                   />
                 )}
@@ -141,7 +142,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               )}
               aria-label="Назад"
             >
-              <ArrowLeft className="size-5 text-foreground" />
+              <ArrowLeft className={`${ICON_SIZES.md} text-foreground`} />
             </motion.button>
           )}
           

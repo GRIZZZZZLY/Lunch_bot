@@ -4,6 +4,9 @@ import { CreateVoteWithTypeData, VoteTypeStats } from '../types/vote.types';
 export declare class VoteService {
     static createVote(data: CreateVoteData): Promise<Vote>;
     static createVoteWithType(data: CreateVoteWithTypeData): Promise<Vote>;
+    static createMultipleVotes(pollId: number, userId: number, menuItemIds: number[]): Promise<Vote[]>;
+    static getUserVotes(pollId: number, userId: number): Promise<Vote[]>;
+    static deleteVote(pollId: number, userId: number, menuItemId: number): Promise<void>;
     static updateVote(voteId: number, menuItemId: number): Promise<Vote>;
     static getVoteBreakdown(pollId: number): Promise<Array<{
         menuItemId: number;
@@ -46,7 +49,7 @@ export declare class VoteService {
         }[];
         lastVoteDate?: Date;
     }>;
-    static getUserVotes(userId: number, limit?: number, offset?: number): Promise<{
+    static getUserVotesHistory(userId: number, limit?: number, offset?: number): Promise<{
         votes: VoteWithDetails[];
         total: number;
     }>;
@@ -67,5 +70,8 @@ export declare class VoteService {
         menuItemName: string;
         votes: number;
     } | null>;
+    private static isFirstVoteOfDay;
+    private static isUnanimousVote;
+    private static isCloseToDeadline;
 }
 //# sourceMappingURL=vote.service.d.ts.map

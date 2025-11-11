@@ -13,6 +13,7 @@ import {
   NotificationTemplate,
 } from '../types/notification.types';
 import { User } from '@prisma/client';
+import { now } from '../utils/date';
 
 /**
  * Вспомогательная функция для множественного числа
@@ -254,7 +255,7 @@ export class NotificationService {
         return {
           success: false,
           error: 'User is muted',
-          sentAt: new Date(),
+          sentAt: now(),
         };
       }
 
@@ -281,7 +282,7 @@ export class NotificationService {
       return {
         success: true,
         messageId: result.message_id,
-        sentAt: new Date(),
+        sentAt: now(),
       };
     } catch (error: any) {
       logger.error('Failed to send notification', {
@@ -293,7 +294,7 @@ export class NotificationService {
       return {
         success: false,
         error: error.message,
-        sentAt: new Date(),
+        sentAt: now(),
       };
     }
   }
@@ -372,7 +373,7 @@ export class NotificationService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        sentAt: new Date(),
+        sentAt: now(),
       };
     }
   }

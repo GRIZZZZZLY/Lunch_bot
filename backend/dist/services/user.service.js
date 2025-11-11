@@ -4,6 +4,7 @@ exports.UserService = void 0;
 const client_1 = require("@prisma/client");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
+const date_1 = require("../utils/date");
 class UserService {
     static async createUser(data) {
         try {
@@ -34,7 +35,7 @@ class UserService {
                     firstName: data.firstName,
                     lastName: data.lastName,
                     photoUrl: data.photoUrl,
-                    updatedAt: new Date(),
+                    updatedAt: (0, date_1.now)(),
                 },
                 create: {
                     telegramId: BigInt(data.telegramId),
@@ -82,7 +83,7 @@ class UserService {
                 where: { id },
                 data: {
                     ...data,
-                    updatedAt: new Date(),
+                    updatedAt: (0, date_1.now)(),
                 },
             });
             logger_1.logger.info(`User updated: ${user.telegramId} (${user.firstName})`);
@@ -104,7 +105,7 @@ class UserService {
                 where: { telegramId: BigInt(telegramId) },
                 data: {
                     isAdmin,
-                    updatedAt: new Date(),
+                    updatedAt: (0, date_1.now)(),
                 },
             });
             logger_1.logger.info(`Admin status changed: ${user.telegramId} -> ${isAdmin}`);
@@ -139,7 +140,7 @@ class UserService {
                 where: { telegramId: BigInt(telegramId) },
                 data: {
                     isActive,
-                    updatedAt: new Date(),
+                    updatedAt: (0, date_1.now)(),
                 },
             });
             logger_1.logger.info(`User active status changed: ${user.telegramId} -> ${isActive}`);
@@ -169,6 +170,30 @@ class UserService {
             logger_1.logger.error('Error getting admins:', error);
             throw new Error('Failed to get admins');
         }
+    }
+    static async getActiveUsersInGroup(groupId) {
+        try {
+            const users = await client_2.prisma.user.findMany({
+                where: {
+                    isActive: true,
+                    groupMemberships: {
+                        some: {
+                            groupId: groupId,
+                            isActive: true,
+                        },
+                    },
+                },
+                orderBy: { firstName: 'asc' },
+            });
+            return users;
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting active users in group:', error);
+            throw new Error('Failed to get active users in group');
+        }
+    }
+    static async getUsersByGroupId(groupId) {
+        return this.getActiveUsersInGroup(groupId);
     }
     static async getUserStats() {
         try {
@@ -201,7 +226,7 @@ class UserService {
                     paymentCard: data.paymentCard,
                     paymentPhone: data.paymentPhone,
                     paymentDetails: data.paymentDetails,
-                    updatedAt: new Date(),
+                    updatedAt: (0, date_1.now)(),
                 },
             });
             logger_1.logger.info(`Payment info updated for user: ${user.id}`);

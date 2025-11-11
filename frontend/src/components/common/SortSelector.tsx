@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTelegram } from '../../hooks/useTelegram';
+import { ICON_SIZES } from '@/lib/design-tokens';
 
 export type SortOption = {
   value: string;
@@ -110,7 +111,7 @@ export const SortSelector: React.FC<SortSelectorProps> = ({
               {/* Индикатор выбранного */}
               {value === option.value && (
                 <svg
-                  className="ml-auto w-5 h-5 text-telegram-button-color"
+                  className={`${ICON_SIZES.md} ml-auto  text-telegram-button-color`}
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >

@@ -13,6 +13,48 @@ export class AuthController {
     try {
       const { initData } = req.body;
 
+      // 🔒 Базовая валидация формата (работает ВСЕГДА, даже в SKIP режиме)
+      // 400 Bad Request - невалидный формат данных
+      if (!initData) {
+        logger.warn('❌ No initData provided');
+        res.status(400).json({
+          success: false,
+          error: 'Missing initData',
+          code: 'INVALID_REQUEST'
+        });
+        return;
+      }
+
+      if (typeof initData !== 'string') {
+        logger.warn('❌ initData is not a string');
+        res.status(400).json({
+          success: false,
+          error: 'initData must be a string',
+          code: 'INVALID_REQUEST'
+        });
+        return;
+      }
+
+      if (initData.trim().length === 0) {
+        logger.warn('❌ initData is empty');
+        res.status(400).json({
+          success: false,
+          error: 'initData cannot be empty',
+          code: 'INVALID_REQUEST'
+        });
+        return;
+      }
+
+      if (initData.length > 5000) {
+        logger.warn('❌ initData is too long');
+        res.status(400).json({
+          success: false,
+          error: 'initData is too long',
+          code: 'INVALID_REQUEST'
+        });
+        return;
+      }
+
       // ⚠️ SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи
       // Используем РЕАЛЬНЫЙ ID пользователя из initData
       if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
@@ -89,29 +131,36 @@ export class AuthController {
         return;
       }
 
-      // В production режиме initData обязателен
-      if (!initData) {
-        logger.warn('❌ No initData provided');
-        res.status(400).json({
-          success: false,
-          error: 'Missing initData',
-          code: 'INVALID_REQUEST'
-        });
-        return;
-      }
-
-      logger.info('🔐 Validating initData...', {
+      // 🔐 Production режим - валидация подписи Telegram
+      logger.info('🔐 Validating initData signature...', {
         initDataLength: initData.length,
         nodeEnv: process.env.NODE_ENV,
       });
 
       // Валидируем initData от Telegram
+      // Сначала проверяем формат (400 для format errors, 401 для signature errors)
+      try {
+        const { parse } = await import('@telegram-apps/init-data-node');
+        parse(initData); // Если формат невалиден - выбросит ошибку
+      } catch (parseError) {
+        // Формат данных невалидный -> 400 Bad Request
+        logger.error('❌ InitData format is invalid:', parseError);
+        res.status(400).json({
+          success: false,
+          error: 'Invalid initData format',
+          code: 'INVALID_REQUEST'
+        });
+        return;
+      }
+
+      // Теперь валидируем подпись
       const userData = validateTelegramInitData(initData);
       if (!userData) {
-        logger.error('❌ InitData validation failed');
+        // Формат валиден, но подпись неправильная -> 401 Unauthorized
+        logger.error('❌ InitData signature validation failed');
         res.status(401).json({
           success: false,
-          error: 'Invalid initData',
+          error: 'Invalid initData signature',
           code: 'INVALID_INIT_DATA'
         });
         return;

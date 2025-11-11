@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useTelegram } from '../../hooks/useTelegram';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppStore } from '../../store/useAppStore';
-import { FullPageLoader } from '../common/LoadingSpinner';
+import { AppSkeleton } from '../common/AppSkeleton';
 import { DonationBar } from '../donation';
 
 export interface LayoutProps {
@@ -22,8 +22,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     setTheme: state.setTheme,
   }));
 
-  // Hide DonationBar on voting pages for clean UX
-  const isVotingPage = location.pathname.startsWith('/vote') || location.pathname.startsWith('/poll');
+  // Hide DonationBar on voting/results pages for clean UX
+  // ИЗМЕНЕНО: VotingPage удалена, голосование теперь на главной (?pollId=X)
+  // Скрываем DonationBar только на страницах результатов
+  const isVotingPage = location.pathname.includes('/results');
 
   // Синхронизация темы с Telegram
   useEffect(() => {
@@ -72,14 +74,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, [isReady, isLoading, isAuthenticated, error, colorScheme]);
 
-  // Показываем загрузку пока не готов WebApp
+  // Показываем unified skeleton пока не готов WebApp
   if (!isReady) {
-    return <FullPageLoader />;
+    return <AppSkeleton />;
   }
 
-  // Показываем загрузку пока идет аутентификация
+  // Показываем unified skeleton пока идет аутентификация
   if (isLoading) {
-    return <FullPageLoader />;
+    return <AppSkeleton />;
   }
 
   // Показываем ошибку если аутентификация не удалась
@@ -94,7 +96,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             {error}
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">
             Попробуйте перезапустить приложение
           </p>
         </div>
@@ -104,7 +106,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div 
-      className="min-h-screen transition-colors duration-200 relative"
+      className="min-h-screen bg-background transition-colors duration-200 relative"
     >
       {/* Основной контент */}
       <main 
