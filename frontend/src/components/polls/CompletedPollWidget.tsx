@@ -13,6 +13,7 @@ import { cn } from '../../lib/utils';
 import { PollWithDetails } from '../../services/polls.service';
 import { ParticipantsList } from './ParticipantsList';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { useTelegram } from '../../hooks/useTelegram';
 import confetti from 'canvas-confetti';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -37,6 +38,8 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
   className,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { colorScheme } = useTelegram();
+  const isDark = colorScheme === 'dark';
 
   // Получаем результаты голосования
   const pollResult = poll.results?.[0];
@@ -148,7 +151,12 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-gradient-to-br from-pastel-sage-50 via-white to-pastel-sage-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 rounded-2xl p-8 shadow-xl border border-pastel-sage-200 dark:border-gray-700 text-center"
+            className={cn(
+              "rounded-2xl p-8 shadow-xl border-2 text-center bg-white dark:bg-gray-800",
+              isDark
+                ? "border-pastel-lavender-400"
+                : "border-pastel-peach-400"
+            )}
           >
             <motion.div
               initial={{ scale: 0 }}
@@ -156,23 +164,23 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
               transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
               className="mb-4 flex items-center justify-center"
             >
-              {(() => {
-                const Icon = getDishCategoryIcon((winnerDish as any).category || 'default');
-                return (
-                  <div className="w-16 h-16 rounded-full bg-gradient-peach dark:bg-gradient-peach-dark flex items-center justify-center shadow-lg">
-                    <Icon className="w-10 h-10 text-white" />
-                  </div>
-                );
-              })()}
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-xl">
+                <Trophy className="w-12 h-12 text-white drop-shadow-md" />
+              </div>
             </motion.div>
 
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="text-2xl font-bold bg-gradient-to-r from-pastel-sage-600 to-pastel-sage-700 bg-clip-text text-transparent dark:from-pastel-sage-400 dark:to-pastel-sage-500 mb-2"
+              className={cn(
+                "text-2xl font-bold mb-2",
+                isDark
+                  ? "text-pastel-lavender-400"
+                  : "text-pastel-peach-600"
+              )}
             >
-              🎉 Победитель!
+              Победитель!
             </motion.h2>
 
             <motion.p
@@ -202,12 +210,27 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-gradient-to-br from-pastel-sage-50/50 via-white/80 to-pastel-sage-50/50 dark:from-gray-800/50 dark:via-gray-850/80 dark:to-gray-900/50 rounded-xl p-4 shadow-sm border border-pastel-sage-100 dark:border-gray-700"
+            className={cn(
+              "rounded-xl p-4 shadow-sm border-2 bg-white dark:bg-gray-800",
+              isDark
+                ? "border-pastel-lavender-300"
+                : "border-pastel-peach-300"
+            )}
           >
             {/* Header с временем */}
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex-shrink-0 px-2 py-1 bg-pastel-sage-100 dark:bg-pastel-sage-900/30 rounded-md">
-                <span className="text-xs text-pastel-sage-600 dark:text-pastel-sage-400 font-medium flex items-center gap-1">
+              <div className={cn(
+                "flex-shrink-0 px-2 py-1 rounded-md",
+                isDark
+                  ? "bg-pastel-lavender-100 dark:bg-pastel-lavender-900/30"
+                  : "bg-pastel-peach-100"
+              )}>
+                <span className={cn(
+                  "text-xs font-medium flex items-center gap-1",
+                  isDark
+                    ? "text-pastel-lavender-600 dark:text-pastel-lavender-400"
+                    : "text-pastel-peach-600"
+                )}>
                   <Clock className={ICON_SIZES.xs} />
                   {formattedTime}
                 </span>
@@ -219,7 +242,7 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
 
             {/* Заголовок секции меню */}
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-              <Trophy className={`${ICON_SIZES.md} text-pastel-sage-600 dark:text-pastel-sage-400`} />
+              <Trophy className={`${ICON_SIZES.md} text-yellow-500 dark:text-yellow-400`} />
               Заказываем сегодня
             </h3>
 
@@ -261,7 +284,7 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
                           <div className={cn(
                             "w-10 h-10 rounded-lg flex items-center justify-center",
                             isMostPopular
-                              ? "bg-gradient-peach dark:bg-gradient-peach-dark"
+                              ? "bg-gradient-to-br from-yellow-400 to-yellow-600"
                               : "bg-gray-100 dark:bg-gray-700"
                           )}>
                             <Icon className={cn(
@@ -305,7 +328,12 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
                             title={`${voter.firstName} ${voter.lastName || ''}`}
                           >
                             {/* Аватар */}
-                            <div className={`${ICON_SIZES.md} rounded-full bg-gradient-to-br from-lavender-400 to-lavender-600 flex items-center justify-center text-[10px] text-white font-semibold flex-shrink-0`}>
+                            <div className={cn(
+                              `${ICON_SIZES.md} rounded-full flex items-center justify-center text-[10px] text-white font-semibold flex-shrink-0`,
+                              isDark
+                                ? "bg-gradient-to-br from-pastel-lavender-400 to-pastel-lavender-600"
+                                : "bg-gradient-to-br from-pastel-peach-400 to-pastel-peach-600"
+                            )}>
                               {voter.firstName?.[0]?.toUpperCase() || '?'}
                             </div>
                             {/* Имя (только если помещается) */}
@@ -440,7 +468,12 @@ export const CompletedPollWidget: React.FC<CompletedPollWidgetProps> = ({
                                   title={`${voter.firstName} ${voter.lastName || ''}`}
                                 >
                                   {/* Аватар */}
-                                  <div className={`${ICON_SIZES.md} rounded-full bg-gradient-to-br from-lavender-400 to-lavender-600 flex items-center justify-center text-[10px] text-white font-semibold flex-shrink-0`}>
+                                  <div className={cn(
+                                    `${ICON_SIZES.md} rounded-full flex items-center justify-center text-[10px] text-white font-semibold flex-shrink-0`,
+                                    isDark
+                                      ? "bg-gradient-to-br from-pastel-lavender-400 to-pastel-lavender-600"
+                                      : "bg-gradient-to-br from-pastel-peach-400 to-pastel-peach-600"
+                                  )}>
                                     {voter.firstName?.[0]?.toUpperCase() || '?'}
                                   </div>
                                   {/* Имя (только если помещается) */}

@@ -47,7 +47,11 @@ export function useBudgetWidget(): BudgetWidgetData {
       }
     },
     enabled: !!user,
+    staleTime: 0, // Данные всегда устаревшие - нет кэширования
+    gcTime: 0, // Не хранить в кэше
     refetchInterval: 10000, // Обновляем каждые 10 секунд
+    refetchOnMount: 'always', // Всегда перезагружать при монтировании
+    refetchOnWindowFocus: true, // Перезагружать при фокусе окна
     retry: 1, // Одна попытка повтора
     retryDelay: 2000,
     // CRITICAL: Отключаем показ ошибок через React Query Error Boundary
@@ -73,7 +77,11 @@ export function useBudgetWidget(): BudgetWidgetData {
       }
     },
     enabled: !!user,
+    staleTime: 0, // Данные всегда устаревшие - нет кэширования
+    gcTime: 0, // Не хранить в кэше
     refetchInterval: 10000,
+    refetchOnMount: 'always', // Всегда перезагружать при монтировании
+    refetchOnWindowFocus: true, // Перезагружать при фокусе окна
     retry: 1,
     retryDelay: 2000,
     // CRITICAL: Отключаем показ ошибок через React Query Error Boundary

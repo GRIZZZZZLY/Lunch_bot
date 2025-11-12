@@ -34,6 +34,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useHaptic } from '@/hooks/useHaptic';
+import { useTelegram } from '@/hooks/useTelegram';
 import { menuService, MenuItem } from '@/services/menu.service';
 import { userService, Group } from '@/services/user.service';
 import { pollsService } from '@/services/polls.service';
@@ -53,6 +54,28 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
 }) => {
   const { user } = useAuth();
   const haptic = useHaptic();
+  const { colorScheme, themeParams } = useTelegram();
+  
+  // Определяем тему: сначала по colorScheme, потом по цвету фона
+  const isDark = React.useMemo(() => {
+    // Метод 1: По colorScheme
+    if (colorScheme === 'dark') return true;
+    if (colorScheme === 'light') return false;
+    
+    // Метод 2: По цвету фона (если bg_color темный)
+    if (themeParams?.bg_color) {
+      const bgColor = themeParams.bg_color;
+      // Парсим hex цвет и проверяем яркость
+      const hex = bgColor.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness < 128; // Темная тема если яркость < 128
+    }
+    
+    return false; // По умолчанию светлая
+  }, [colorScheme, themeParams]);
 
   // State
   const [activeTab, setActiveTab] = useState<'single' | 'recurring'>('single');
@@ -286,8 +309,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
 
   return (
     <div className="relative space-y-0 bg-white dark:bg-gray-900">
-
-
       {/* Tabs for Single vs Recurring */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="pt-12">
         <div className="px-6">
@@ -343,8 +364,8 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                     className={cn(
                       "w-full p-3 rounded-2xl border-2 transition-all",
                       selectedGroupId === group.id
-                        ? "border-lavender-500 bg-lavender-50 dark:bg-lavender-500/10"
-                        : "border-gray-200 dark:border-gray-700 hover:border-lavender-300 dark:hover:border-lavender-700"
+                        ? "border-pastel-peach-500 dark:border-pastel-lavender-500 bg-white dark:bg-gray-800"
+                        : "border-gray-200 dark:border-gray-700 hover:border-pastel-peach-300 dark:hover:border-pastel-lavender-600 bg-white dark:bg-gray-800"
                     )}
                   >
                     <div className="flex items-center justify-between">
@@ -356,7 +377,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                           initial={{ scale: 0, rotate: -180 }}
                           animate={{ scale: 1, rotate: 0 }}
                         >
-                          <CheckCircle2 className="text-lavender-500" size={20} />
+                          <CheckCircle2 className="text-pastel-peach-500 dark:text-pastel-lavender-500" size={20} />
                         </motion.div>
                       )}
                     </div>
@@ -374,12 +395,18 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <PastelCard variant="sky">
+        <PastelCard variant={isDark ? "lavender" : "peach"}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-mint-500/20">
-                  <Clock className={`${ICON_SIZES.md} text-mint-500`} />
+                <div className={cn(
+                  "p-2.5 rounded-xl",
+                  isDark ? "bg-pastel-lavender-500/20" : "bg-pastel-peach-500/20"
+                )}>
+                  <Clock className={cn(
+                    ICON_SIZES.md,
+                    isDark ? "text-pastel-lavender-500" : "text-pastel-peach-500"
+                  )} />
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900 dark:text-white">Длительность голосования</h3>
@@ -391,9 +418,15 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 key={duration}
                 initial={{ scale: 1.2 }}
                 animate={{ scale: 1 }}
-                className="px-3 py-1.5 rounded-lg bg-mint-50 dark:bg-mint-500/10"
+                className={cn(
+                  "px-3 py-1.5 rounded-lg",
+                  isDark ? "bg-pastel-lavender-50 dark:bg-pastel-lavender-500/10" : "bg-pastel-peach-50"
+                )}
               >
-                <span className="text-sm font-bold text-mint-700 dark:text-mint-400">
+                <span className={cn(
+                  "text-sm font-bold",
+                  isDark ? "text-pastel-lavender-700 dark:text-pastel-lavender-400" : "text-pastel-peach-700"
+                )}>
                   {formatDuration(duration)}
                 </span>
               </motion.div>
@@ -410,7 +443,9 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 onChange={(e) => setDuration(Number(e.target.value))}
                 className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                 style={{
-                  background: `linear-gradient(to right, #5CAE87 0%, #5CAE87 ${(duration / 240) * 100}%, #e5e7eb ${(duration / 240) * 100}%, #e5e7eb 100%)`
+                  background: isDark
+                    ? `linear-gradient(to right, #A78BFA 0%, #A78BFA ${(duration / 240) * 100}%, #374151 ${(duration / 240) * 100}%, #374151 100%)`
+                    : `linear-gradient(to right, #FFB47D 0%, #FFB47D ${(duration / 240) * 100}%, #e5e7eb ${(duration / 240) * 100}%, #e5e7eb 100%)`
                 }}
               />
               <div className="flex justify-between text-xs text-gray-400 dark:text-gray-400 mt-1">
@@ -428,37 +463,38 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        <PastelCard variant="peach">
+        <PastelCard variant="default">
           <CardContent className="pt-6">
             {/* Header с статистикой */}
-            <div className="mb-3">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2.5 rounded-xl bg-lavender-500/20">
-                  <Utensils className={`${ICON_SIZES.md} text-lavender-500`} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
-                    Блюда в голосовании
-                  </h3>
-                  <motion.p 
-                    key={selectedItems.size}
-                    initial={{ scale: 1.2 }}
-                    animate={{ scale: 1 }}
-                    className="text-xs text-gray-400 dark:text-gray-400"
-                  >
-                    Выбрано <span className="font-bold text-lavender-600 dark:text-lavender-400">
-                      {selectedItems.size} {selectedItems.size === 1 ? 'блюдо' : selectedItems.size < 5 ? 'блюда' : 'блюд'}
-                    </span>
-                  </motion.p>
-                </div>
+            <div className="mb-4">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                Блюда в голосовании
+              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <motion.p 
+                  key={selectedItems.size}
+                  initial={{ scale: 1.2 }}
+                  animate={{ scale: 1 }}
+                  className="text-sm text-gray-600 dark:text-gray-400"
+                >
+                  Выбрано <span className={cn(
+                    "font-bold",
+                    isDark ? "text-pastel-lavender-500" : "text-pastel-peach-600"
+                  )}>
+                    {selectedItems.size} {selectedItems.size === 1 ? 'блюдо' : selectedItems.size < 5 ? 'блюда' : 'блюд'}
+                  </span>
+                </motion.p>
               </div>
-            </div>
-
-            {/* Progress bar визуализация */}
-            <div className="mb-3">
+              
+              {/* Progress bar визуализация */}
               <Progress 
                 value={(selectedItems.size / menuItems.length) * 100}
-                className="h-2"
+                className={cn(
+                  "h-2",
+                  isDark 
+                    ? "[&>div]:bg-pastel-lavender-500" 
+                    : "[&>div]:bg-pastel-peach-500"
+                )}
               />
             </div>
 
@@ -467,7 +503,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={toggleAll}
-                className="px-4 py-2 rounded-lg text-sm font-medium border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
+                className="px-4 py-3 rounded-lg text-sm font-medium border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
               >
                 <X className={ICON_SIZES.sm} />
                 <span>{selectedItems.size === menuItems.length ? 'Снять всё' : 'Выбрать всё'}</span>
@@ -476,7 +512,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={selectRandom}
-                className="px-4 py-2 rounded-lg text-sm font-medium border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
+                className="px-4 py-3 rounded-lg text-sm font-medium border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
               >
                 <Shuffle className={ICON_SIZES.sm} />
                 <span>Случайный выбор</span>
@@ -515,14 +551,14 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 className={cn(
                   "w-full text-left p-3 rounded-2xl border-2 transition-all",
                   isSelected
-                    ? "border-primary-food-500 bg-primary-food-50 dark:bg-primary-food-900/20"
+                    ? "border-pastel-lavender-500 bg-white dark:bg-gray-800"
                     : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
                 )}
               >
                 <div className="flex items-center gap-3">
                   <div className="flex-shrink-0">
                     {isSelected ? (
-                      <CheckCircle2 className={`${ICON_SIZES.md} text-primary-food-500`} />
+                      <CheckCircle2 className={`${ICON_SIZES.md} text-pastel-lavender-500`} />
                     ) : (
                       <Circle className={`${ICON_SIZES.md} text-gray-300 dark:text-gray-600`} />
                     )}
@@ -535,8 +571,8 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                   </div>
 
                   {item.price && (
-                    <div className="flex-shrink-0 px-2 py-1 rounded-md bg-primary-food-50 dark:bg-primary-food-900/20">
-                      <p className="text-sm font-semibold text-primary-food-700 dark:text-primary-food-400 whitespace-nowrap">
+                    <div className="flex-shrink-0 px-2 py-1 rounded-md bg-pastel-lavender-50 dark:bg-pastel-lavender-900/20">
+                      <p className="text-sm font-semibold text-pastel-lavender-700 dark:text-pastel-lavender-400 whitespace-nowrap">
                         {item.price} ₽
                       </p>
                     </div>
@@ -561,7 +597,10 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 onClick={() => {
                   setShowAllItems(!showAllItems);
                 }}
-                className="w-full mt-3 py-2 text-sm font-medium text-lavender-600 dark:text-lavender-400 flex items-center justify-center gap-1 hover:underline"
+                className={cn(
+                  "w-full mt-3 py-2 text-sm font-medium flex items-center justify-center gap-1 hover:underline",
+                  isDark ? "text-pastel-lavender-400" : "text-pastel-peach-600"
+                )}
               >
                 {showAllItems ? (
                   <>
@@ -606,7 +645,9 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
             className={cn(
               "w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold text-lg transition-all shadow-lg",
               canCreatePoll() && !creating
-                ? "bg-gradient-to-r from-lavender-500 to-lavender-600 hover:from-lavender-600 hover:to-lavender-700 text-white shadow-lavender-500/30 hover:shadow-lavender-600/40"
+                ? isDark
+                  ? "bg-gradient-to-r from-pastel-lavender-500 to-pastel-mint-500 hover:from-pastel-lavender-600 hover:to-pastel-mint-600 text-white shadow-pastel-lavender-500/30 hover:shadow-pastel-lavender-600/40"
+                  : "bg-gradient-to-r from-pastel-peach-500 to-pastel-coral-500 hover:from-pastel-peach-600 hover:to-pastel-coral-600 text-white shadow-pastel-peach-500/30 hover:shadow-pastel-peach-600/40"
                 : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
             )}
           >
