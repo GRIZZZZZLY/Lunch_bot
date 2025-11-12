@@ -151,6 +151,7 @@ export interface UseTelegramReturn {
  */
 export const useTelegram = (): UseTelegramReturn => {
   const [isReady, setIsReady] = useState(false);
+  const [colorScheme, setColorScheme] = useState<'light' | 'dark'>(WebApp.colorScheme || 'light');
 
   useEffect(() => {
     // Инициализация WebApp
@@ -165,12 +166,36 @@ export const useTelegram = (): UseTelegramReturn => {
       WebApp.enableClosingConfirmation();
     }
 
+    // Устанавливаем начальную тему
+    setColorScheme(WebApp.colorScheme || 'light');
+    
+    // Слушаем изменения темы
+    const onThemeChanged = () => {
+      const newScheme = WebApp.colorScheme || 'light';
+      if (import.meta.env.DEV) {
+        console.log('🎨 Theme changed:', newScheme);
+      }
+      setColorScheme(newScheme);
+    };
+    
+    if (WebApp.onEvent) {
+      WebApp.onEvent('themeChanged', onThemeChanged);
+    }
+
     setIsReady(true);
+
+    if (import.meta.env.DEV) {
+      console.log('🎨 Initial colorScheme:', WebApp.colorScheme);
+      console.log('🎨 Theme params:', WebApp.themeParams);
+    }
 
     // Очистка при размонтировании
     return () => {
       if (version >= 6.2 && WebApp.disableClosingConfirmation) {
         WebApp.disableClosingConfirmation();
+      }
+      if (WebApp.offEvent) {
+        WebApp.offEvent('themeChanged', onThemeChanged);
       }
     };
   }, []);
@@ -236,7 +261,7 @@ export const useTelegram = (): UseTelegramReturn => {
     initData: WebApp.initData,
     initDataUnsafe: WebApp.initDataUnsafe,
     isReady,
-    colorScheme: WebApp.colorScheme,
+    colorScheme,
     themeParams: WebApp.themeParams,
     mainButton: WebApp.MainButton,
     backButton: WebApp.BackButton,

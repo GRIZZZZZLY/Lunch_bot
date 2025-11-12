@@ -43,6 +43,9 @@ class NotificationService {
             type: notification_types_1.NotificationType.POLL_ENDED,
             getTitle: (data) => 'вњ… Р“РѕР»РѕСЃРѕРІР°РЅРёРµ Р·Р°РІРµСЂС€РµРЅРѕ!',
             getMessage: (data) => {
+                if (data.totalVotes === 0) {
+                    return `🍃 Тишина...\n\nПохоже, все на диете! 😄\nНикто не проголосовал за обед.\n\nПопробуем снова? Создайте новое голосование!`;
+                }
                 let message = `🗳️ Голосование завершилось!\n\n`;
                 message += `👥 Всего голосов: ${data.totalVotes}\n\n`;
                 if (data.mode === 'multi-winner' && data.winners) {

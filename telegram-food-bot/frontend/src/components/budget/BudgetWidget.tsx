@@ -180,15 +180,17 @@ const BudgetWidgetContent: React.FC = () => {
           duration: 0.3 
         }}
       >
-        <PastelCard
-          variant={
-            scenario === 'urgent-debt' ? 'rose' :
-            scenario === 'waiting-confirmation' ? 'sky' :
-            scenario === 'success-message' ? 'sage' :
-            scenario === 'responsible-view' ? 'peach' :
-            'default'
-          }
-          className="overflow-hidden hover:scale-[1.01] transition-transform"
+        <div
+          className={cn(
+            "rounded-xl overflow-hidden hover:scale-[1.01] transition-transform",
+            "bg-white dark:bg-gray-800 border-2",
+            // Цветные обводки для разных сценариев
+            scenario === 'urgent-debt' && 'border-pastel-rose-300 dark:border-pastel-rose-700',
+            scenario === 'waiting-confirmation' && 'border-pastel-sky-300 dark:border-pastel-sky-700',
+            scenario === 'success-message' && 'border-pastel-sage-300 dark:border-pastel-sage-700',
+            scenario === 'responsible-view' && 'border-pastel-peach-300 dark:border-pastel-peach-700',
+            scenario === 'overview' && 'border-gray-200 dark:border-gray-700'
+          )}
         >
           {/* DEBUG INFO */}
           {DEBUG_MODE && (
@@ -288,7 +290,7 @@ const BudgetWidgetContent: React.FC = () => {
               />
             )}
           </div>
-        </PastelCard>
+        </div>
       </motion.div>
     </AnimatePresence>
   );

@@ -87,7 +87,7 @@ export const BudgetWidgetCompact: React.FC<BudgetWidgetCompactProps> = ({
                 Всё оплачено! 🎉
               </h3>
               <p className="text-sm text-muted-foreground">
-                У вас нет активных долгов и кредитов
+                Нет активных финансовых обязательств
               </p>
             </div>
           </CardContent>
@@ -156,7 +156,7 @@ export const BudgetWidgetCompact: React.FC<BudgetWidgetCompactProps> = ({
               )}>
                 <div className="flex items-center gap-1.5 mb-1">
                   <TrendingDown className={`${ICON_SIZES.xs} .5 text-red-500`} />
-                  <span className="text-xs text-muted-foreground">Долги</span>
+                  <span className="text-xs text-muted-foreground">Я должен</span>
                 </div>
                 <p className="text-lg font-bold text-red-600 dark:text-red-400">
                   {totalDebts}₽

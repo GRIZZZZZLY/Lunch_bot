@@ -4,8 +4,7 @@ import { Transaction, budgetService } from '../../services/budget.service';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Stats01 } from '../blocks/stats-01';
-import { CheckCircle, Bell, TrendingDown, TrendingUp, CreditCard, Wallet } from 'lucide-react';
+import { CheckCircle, Bell, TrendingDown, TrendingUp } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
 import { toast } from 'sonner';
 import { cn, formatRelativeTime } from '../../lib/utils';
@@ -76,28 +75,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      {/* Stats карточки */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <Stats01
-          title="Мои долги"
-          value={`₽${safeTotalDebts}`}
-          description="Нужно оплатить"
-          icon={<CreditCard className={ICON_SIZES.sm} />}
-          variant="rose"
-        />
-        <Stats01
-          title="Мне должны"
-          value={`₽${safeTotalCredits}`}
-          description="Ожидаю оплаты"
-          icon={<Wallet className={ICON_SIZES.sm} />}
-          variant="sage"
-        />
-      </div>
-
       {/* Tabs */}
       <TabsList className="grid w-full grid-cols-2 mb-4">
         <TabsTrigger value="debts" className="relative">
-          Долги
+          <TrendingDown className={cn(ICON_SIZES.sm, "mr-1.5")} />
+          Я должен
           {safeDebts.length > 0 && (
             <Badge className="ml-2 h-5 min-w-5 px-1.5" variant="destructive">
               {safeDebts.length}
@@ -105,7 +87,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           )}
         </TabsTrigger>
         <TabsTrigger value="credits" className="relative">
-          Кредиты
+          <TrendingUp className={cn(ICON_SIZES.sm, "mr-1.5")} />
+          Мне должны
           {safeCredits.length > 0 && (
             <Badge className="ml-2 h-5 min-w-5 px-1.5">
               {safeCredits.length}
@@ -175,14 +158,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             
             {safeDebts.length > 2 && (
               <div className="text-xs text-muted-foreground text-center py-1">
-                + еще {safeDebts.length - 2} долгов
+                + еще {safeDebts.length - 2}
               </div>
             )}
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
             <CheckCircle className="mx-auto mb-2 h-8 w-8 text-pastel-sage-400" />
-            <p className="text-sm">Нет долгов</p>
+            <p className="text-sm">Ничего не должны</p>
           </div>
         )}
       </TabsContent>
@@ -242,14 +225,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             
             {safeCredits.length > 2 && (
               <div className="text-xs text-muted-foreground text-center py-1">
-                + еще {safeCredits.length - 2} кредитов
+                + еще {safeCredits.length - 2}
               </div>
             )}
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
             <Wallet className="mx-auto mb-2 h-8 w-8 text-pastel-sage-400" />
-            <p className="text-sm">Нет кредитов</p>
+            <p className="text-sm">Никто не должен</p>
           </div>
         )}
       </TabsContent>

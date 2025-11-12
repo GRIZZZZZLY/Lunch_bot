@@ -11,10 +11,12 @@ import {
   ChevronUp,
   Utensils,
   Zap,
+  XCircle,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useUI } from '../../store/useAppStore';
+import { useTelegram } from '../../hooks/useTelegram';
 import { trackEvent, ANALYTICS_EVENTS } from '../../lib/analytics';
 import { pollsService, PollWithDetails, Vote } from '../../services/polls.service';
 import { menuService, MenuItem } from '../../services/menu.service';
@@ -34,9 +36,9 @@ interface InlineVotingCardProps {
 
 /**
  * Компонент бейджа с обратным отсчётом времени
- * УЛУЧШЕННАЯ ВЕРСИЯ - большой, яркий, заметный
+ * Day & Night адаптивная версия
  */
-const CountdownBadge: React.FC<{ endTime: string | Date | undefined }> = ({ endTime }) => {
+const CountdownBadge: React.FC<{ endTime: string | Date | undefined; isDark: boolean }> = ({ endTime, isDark }) => {
   // Защита от undefined
   if (!endTime) {
     console.warn('[CountdownBadge] endTime is undefined');
@@ -61,8 +63,12 @@ const CountdownBadge: React.FC<{ endTime: string | Date | undefined }> = ({ endT
       className={cn(
         "flex items-center gap-2 px-4 py-2 rounded-xl font-bold shadow-lg",
         isLastMinute
-          ? "bg-gradient-to-r from-pastel-rose-400 to-pastel-rose-500 text-white animate-pulse"
-          : "bg-gradient-to-r from-pastel-peach-400 to-pastel-peach-500 text-white"
+          ? isDark
+            ? "bg-gradient-to-r from-pastel-lavender-500 to-pastel-lavender-600 text-white animate-pulse shadow-pastel-lavender-500/50"
+            : "bg-gradient-to-r from-pastel-peach-500 to-pastel-peach-600 text-white animate-pulse shadow-pastel-peach-500/50"
+          : isDark
+            ? "bg-gradient-to-r from-pastel-lavender-400 to-pastel-lavender-500 text-white"
+            : "bg-gradient-to-r from-pastel-peach-400 to-pastel-peach-500 text-white"
       )}
     >
       <Clock className={cn(ICON_SIZES.md, isLastMinute && "animate-pulse")} />
@@ -84,6 +90,8 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
   const { user } = useAuth();
   const haptic = useHaptic();
   const { addNotification } = useUI();
+  const { colorScheme } = useTelegram();
+  const isDark = colorScheme === 'dark';
 
   const [poll, setPoll] = useState<PollWithDetails>(initialPoll);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -323,7 +331,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
   };
 
   const handleClosePoll = async () => {
-    if (!window.confirm('Завершить голосование? Результаты будут подведены.')) return;
+    if (!window.confirm('Отменить голосование? Результаты будут подведены.')) return;
 
     try {
       setClosing(true);
@@ -446,7 +454,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
               <Sparkles size={18} className="text-white" />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-xl font-bold bg-gradient-to-r from-lavender-600 to-lavender-700 bg-clip-text text-transparent dark:from-lavender-400 dark:to-lavender-500">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 {userVotes.length > 0 ? 'Вы проголосовали!' : 'Голосование активно'}
               </h3>
               {/* НОВЫЙ ТАЙМЕР В ЗАГОЛОВКЕ - большой и заметный */}
@@ -464,7 +472,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
                 const endTimeToUse = poll.endTime || poll.endedAt;
                 
                 if (poll.status === 'ACTIVE' && endTimeToUse) {
-                  return <CountdownBadge endTime={endTimeToUse} />;
+                  return <CountdownBadge endTime={endTimeToUse} isDark={isDark} />;
                 }
                 
                 // Если endTime нет, вычисляем на лету (fallback)
@@ -472,7 +480,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
                   const calculatedEndTime = new Date(poll.startedAt);
                   calculatedEndTime.setMinutes(calculatedEndTime.getMinutes() + poll.duration);
                   console.log('[InlineVotingCard] Using calculated endTime:', calculatedEndTime.toISOString());
-                  return <CountdownBadge endTime={calculatedEndTime.toISOString()} />;
+                  return <CountdownBadge endTime={calculatedEndTime.toISOString()} isDark={isDark} />;
                 }
                 
                 return null;
@@ -483,15 +491,15 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Admin close button - P0: coral для destructive */}
+          {/* Admin cancel button - отменить голосование */}
           {user?.isAdmin && (
             <button
               onClick={handleClosePoll}
               disabled={closing}
               className="p-2 bg-coral-100 hover:bg-coral-200 dark:bg-coral-900/30 dark:hover:bg-coral-800/50 text-coral-700 dark:text-coral-400 rounded-lg transition-all duration-200 disabled:opacity-50 border border-coral-200 dark:border-coral-800"
-              title="Завершить голосование"
+              title="Отменить голосование"
             >
-              <CheckCircle size={18} />
+              <XCircle size={18} />
             </button>
           )}
         </div>
@@ -500,7 +508,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
       {/* Stats */}
       <div className="flex items-center gap-4 mb-6">
         {/* Счётчик уникальных пользователей (один пользователь = один голос) */}
-        <div className="flex items-center gap-2 bg-lavender-100 dark:bg-lavender-900/30 text-lavender-700 dark:text-lavender-300 rounded-lg px-3 py-2 border border-lavender-200 dark:border-lavender-800">
+        <div className="flex items-center gap-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg px-3 py-2 border border-orange-200 dark:border-orange-800">
           <Users size={18} />
           <span className="text-lg font-bold">{voteCount}</span>
           <span className="text-sm">
@@ -522,10 +530,10 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-gradient-to-r from-pastel-sage-100 to-pastel-sage-50 dark:from-pastel-sage-900/30 dark:to-pastel-sage-800/20 border border-pastel-sage-300 dark:border-pastel-sage-700 rounded-xl p-3 mb-4"
+          className="bg-gray-100 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl p-3 mb-4"
         >
-          <div className="flex items-start gap-2 text-pastel-sage-700 dark:text-pastel-sage-300">
-            <CheckCircle size={18} className="flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
+            <CheckCircle size={18} className="flex-shrink-0 mt-0.5 text-gray-600 dark:text-gray-400" />
             <div className="flex-1">
               <span className="text-sm font-medium block mb-1">
                 Вы выбрали {userVotes.length} {userVotes.length === 1 ? 'блюдо' : userVotes.length < 5 ? 'блюда' : 'блюд'}:
@@ -542,24 +550,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         </motion.div>
       )}
 
-      {/* P2: Empty State для первого голосующего - ИЗМЕНЕНО: текст про множественный выбор */}
-      {userVotes.length === 0 && voteCount === 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-6 mb-4 bg-lavender-50 dark:bg-lavender-900/20 rounded-xl"
-        >
-          <div className={`${ICON_SIZES['2xl']} mx-auto mb-2 rounded-full bg-lavender-100 dark:bg-lavender-900/30 flex items-center justify-center`}>
-            <Zap className={cn(ICON_SIZES.lg, "text-lavender-500")} />
-          </div>
-          <p className="text-gray-700 dark:text-gray-300 font-semibold mb-1">
-            Будьте первым!
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Выберите одно или несколько блюд
-          </p>
-        </motion.div>
-      )}
+
 
       {/* Menu items */}
       <div className="space-y-2">
@@ -586,22 +577,31 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
                 className={cn(
                   'w-full relative overflow-hidden rounded-xl p-4 text-left transition-all duration-300',
                   'disabled:cursor-not-allowed',
-                  userVotes.length === 0 && 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]', // ИЗМЕНЕНО
-                  // P0: Выбранный вариант - lavender mono-gradient с пульсацией
-                  isSelected && userVotes.length === 0 && 'bg-gradient-to-r from-pastel-lavender-400 to-pastel-lavender-500 text-white animate-pulse-selection shadow-lg shadow-pastel-lavender-500/50', // ИЗМЕНЕНО: добавлена анимация пульсации
-                  // Проголосованный вариант
-                  isVoted && 'bg-gradient-to-r from-pastel-sage-400 to-pastel-sage-500 text-white shadow-lg shadow-pastel-sage-500/50',
+                  userVotes.length === 0 && 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]',
+                  // Выбранный вариант - адаптивный gradient с пульсацией
+                  isSelected && userVotes.length === 0 && (
+                    isDark
+                      ? 'bg-gradient-to-r from-pastel-lavender-400 to-pastel-lavender-500 text-white animate-pulse-selection shadow-lg shadow-pastel-lavender-500/50'
+                      : 'bg-gradient-to-r from-pastel-peach-400 to-pastel-peach-500 text-white animate-pulse-selection shadow-lg shadow-pastel-peach-500/50'
+                  ),
+                  // Проголосованный вариант - neutral gray с галочкой
+                  isVoted && 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-2 border-gray-300 dark:border-gray-600',
                   // Обычный вариант - белая карточка
                   !isSelected && !isVoted && 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm hover:shadow-md border border-gray-200 dark:border-gray-700'
                 )}
               >
-                {/* P0: Progress bar - lavender mono */}
-                {userVotes.length > 0 && percentage > 0 && ( // ИЗМЕНЕНО
+                {/* Progress bar - адаптивный */}
+                {userVotes.length > 0 && percentage > 0 && (
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${percentage}%` }}
                     transition={{ duration: 0.5, ease: 'easeOut' }}
-                    className="absolute inset-0 bg-gradient-to-r from-lavender-200/40 to-lavender-300/40 dark:from-lavender-800/20 dark:to-lavender-700/20"
+                    className={cn(
+                      "absolute inset-0",
+                      isDark
+                        ? "bg-gradient-to-r from-pastel-lavender-200/40 to-pastel-lavender-300/40 dark:from-pastel-lavender-800/20 dark:to-pastel-lavender-700/20"
+                        : "bg-gradient-to-r from-pastel-peach-200/40 to-pastel-peach-300/40"
+                    )}
                   />
                 )}
 
@@ -610,11 +610,11 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
                     {/* Checkbox */}
                     <div className="flex-shrink-0">
                       {isVoted ? (
-                        <CheckCircle size={22} className="text-white drop-shadow-md" />
+                        <CheckCircle size={22} className="text-gray-600 dark:text-gray-400" />
                       ) : isSelected ? (
                         <CheckCircle size={22} className="text-white drop-shadow-md" />
                       ) : (
-                        <Circle size={22} className="text-gray-400 dark:text-gray-400 dark:text-gray-400" />
+                        <Circle size={22} className="text-gray-300 dark:text-gray-600" />
                       )}
                     </div>
 
@@ -733,7 +733,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           whileTap={{ scale: 0.98 }}
           onClick={handleVote}
           disabled={submitting}
-          className="w-full mt-4 bg-gradient-to-r from-peach-500 to-peach-600 hover:from-peach-600 hover:to-peach-700 text-white rounded-xl py-3 px-4 font-bold transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-peach-500/50"
+          className="w-full mt-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl py-3 px-4 font-bold transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 shadow-[0_0_20px_rgba(249,115,22,0.5)] hover:shadow-[0_0_30px_rgba(249,115,22,0.7)]"
         >
           {submitting ? (
             <>

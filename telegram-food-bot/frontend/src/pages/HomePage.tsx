@@ -69,6 +69,7 @@ export const HomePage: React.FC = () => {
   const haptic = useHaptic();
   const { addNotification } = useUI();
   const theme = useAppStore((state) => state.theme);
+  const isDark = colorScheme === 'dark';
   
   // Load menu items from API using React Query
   const { data: menuItems = [], isLoading: menuLoading } = useMenuItems();
@@ -82,8 +83,6 @@ export const HomePage: React.FC = () => {
     night: '🌙'
   } as const;
   const timeIcon = timeIcons[gradientColors.timeOfDay];
-  
-  const isDark = theme === 'dark';
 
   // State - ВАЖНО: объявляем ДО использования в React Query hooks
   const [activePoll, setActivePoll] = useState<PollWithDetails | null>(null);
@@ -623,7 +622,7 @@ export const HomePage: React.FC = () => {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="space-y-6 min-h-screen"
+        className="space-y-8 min-h-screen"
       >
         {/* Header Section */}
         <motion.div variants={itemVariants}>
@@ -653,7 +652,7 @@ export const HomePage: React.FC = () => {
                       firstName={user?.firstName || 'User'}
                       lastName={user?.lastName}
                       size="md"
-                      className="size-10 ring-2 ring-primary/20"
+                      className="ring-2 ring-primary/20"
                     />
                   </div>
                 </div>
@@ -844,12 +843,14 @@ export const HomePage: React.FC = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleInviteFriend}
-            className="relative w-full bg-gradient-to-r from-mint-500 to-emerald-500 dark:from-mint-600 dark:to-emerald-600 rounded-xl p-4 shadow-lg hover:shadow-xl transition-all overflow-hidden group"
+            className={cn(
+              "relative w-full rounded-xl p-4 shadow-lg hover:shadow-xl transition-all",
+              isDark
+                ? "bg-gradient-to-r from-pastel-lavender-500 to-pastel-mint-500"
+                : "bg-gradient-to-r from-pastel-peach-500 to-pastel-coral-500"
+            )}
           >
-            {/* Shimmer effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
-
-            <div className="relative flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
                   <UserPlus className={cn(ICON_SIZES.lg, "text-white")} />
@@ -859,7 +860,7 @@ export const HomePage: React.FC = () => {
                     Пригласить друга
                   </p>
                   <p className="text-sm text-white/80">
-                    +50 XP за каждого приглашённого 🎁
+                    Поделитесь ботом с коллегами
                   </p>
                 </div>
               </div>

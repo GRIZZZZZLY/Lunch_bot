@@ -489,7 +489,7 @@ export const StatsPage: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4 }}
                 >
-                  <GlassCard intensity="medium" hover className="relative overflow-hidden">
+                  <PastelCard variant="sky" className="relative overflow-hidden">
                     {/* Gradient overlay - Theme aware (UPDATED: peach/coral) */}
                     <div className={cn(
                       "absolute inset-0 bg-gradient-to-br",
@@ -521,7 +521,7 @@ export const StatsPage: React.FC = () => {
                               ? "from-lavender-400 to-mint-500"
                               : "from-peach-500 to-coral-500"
                           )}>
-                            <CountUp end={stats?.totalVotes || 0} duration={1.5} />
+                            {stats?.totalVotes || 0}
                           </div>
                         </div>
 
@@ -573,7 +573,7 @@ export const StatsPage: React.FC = () => {
                           : 'Нет данных'}
                       </p>
                     </CardContent>
-                  </GlassCard>
+                  </PastelCard>
                 </motion.div>
               )}
                 {/* Leaderboard - Top 10 users (Sprint 3.2) */}
@@ -617,7 +617,7 @@ export const StatsPage: React.FC = () => {
                       >
                         {/* Chart 1: Category Cards Grid (Modern replacement for PieChart) */}
                         <div className="min-w-[85vw] snap-center">
-                          <GlassCard intensity="low">
+                          <PastelCard variant="default">
                             <CardHeader>
                               <div className="flex items-center justify-between">
                                 <CardTitle className="text-base flex items-center gap-2">
@@ -719,12 +719,12 @@ export const StatsPage: React.FC = () => {
                                 })}
                               </div>
                             </CardContent>
-                          </GlassCard>
+                          </PastelCard>
                         </div>
 
                         {/* Chart 2: LineChart */}
                         <div className="min-w-[85vw] snap-center">
-                          <GlassCard intensity="low">
+                          <PastelCard variant="default">
                             <CardHeader>
                               <div className="flex items-center justify-between">
                                 <CardTitle className="text-base flex items-center gap-2">
@@ -765,7 +765,7 @@ export const StatsPage: React.FC = () => {
                                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} opacity={0.5} />
                                   <XAxis dataKey="date" fontSize={11} />
                                   <YAxis fontSize={11} />
-                                  <Tooltip content={<CustomTooltip formatter={(value) => `${value} голосов`} />} />
+                                  <Tooltip />
                                   <Line
                                     type="monotone"
                                     dataKey="votes"
@@ -778,7 +778,7 @@ export const StatsPage: React.FC = () => {
                                 </LineChart>
                               </ResponsiveContainer>
                             </CardContent>
-                          </GlassCard>
+                          </PastelCard>
                         </div>
                       </div>
 
@@ -810,7 +810,7 @@ export const StatsPage: React.FC = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4, duration: 0.4 }}
                       >
-                        <GlassCard intensity="low">
+                        <PastelCard variant="default">
                           <CardHeader>
                             <div className="flex items-center justify-between">
                               <CardTitle className="text-base flex items-center gap-2">
@@ -883,7 +883,7 @@ export const StatsPage: React.FC = () => {
                               );
                             })}
                           </CardContent>
-                        </GlassCard>
+                        </PastelCard>
                       </motion.div>
                     )}
                   </>
@@ -962,7 +962,7 @@ export const StatsPage: React.FC = () => {
                 className="grid grid-cols-2 gap-3"
               >
                 {/* Всего блюд */}
-                <GlassCard intensity="low" hover>
+                <PastelCard variant="default">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="p-2 rounded-lg bg-secondary/20">
@@ -972,10 +972,10 @@ export const StatsPage: React.FC = () => {
                     <p className="text-2xl font-bold">{menuStats.total}</p>
                     <p className="text-xs text-muted-foreground">Всего блюд</p>
                   </CardContent>
-                </GlassCard>
+                </PastelCard>
 
                 {/* Активных */}
-                <GlassCard intensity="low" hover>
+                <PastelCard variant="default">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="p-2 rounded-lg bg-primary/20">
@@ -985,10 +985,10 @@ export const StatsPage: React.FC = () => {
                     <p className="text-2xl font-bold">{menuStats.active}</p>
                     <p className="text-xs text-muted-foreground">Активных</p>
                   </CardContent>
-                </GlassCard>
+                </PastelCard>
 
                 {/* Категорий */}
-                <GlassCard intensity="low" hover>
+                <PastelCard variant="default">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="p-2 rounded-lg bg-accent/20">
@@ -998,10 +998,10 @@ export const StatsPage: React.FC = () => {
                     <p className="text-2xl font-bold">{menuStats.categories}</p>
                     <p className="text-xs text-muted-foreground">Категорий</p>
                   </CardContent>
-                </GlassCard>
+                </PastelCard>
 
                 {/* Средняя цена */}
-                <GlassCard intensity="low" hover>
+                <PastelCard variant="default">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="p-2 rounded-lg bg-primary/20">
@@ -1011,7 +1011,7 @@ export const StatsPage: React.FC = () => {
                     <p className="text-2xl font-bold">{menuStats.averagePrice.toFixed(0)} ₽</p>
                     <p className="text-xs text-muted-foreground">Средняя цена</p>
                   </CardContent>
-                </GlassCard>
+                </PastelCard>
               </motion.div>
 
               {/* Category breakdown */}
@@ -1021,7 +1021,7 @@ export const StatsPage: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4, duration: 0.4 }}
                 >
-                  <GlassCard intensity="low">
+                  <PastelCard variant="default">
                     <CardHeader>
                       <CardTitle className="text-base">Блюда по категориям</CardTitle>
                     </CardHeader>
@@ -1040,7 +1040,7 @@ export const StatsPage: React.FC = () => {
                         </div>
                       ))}
                     </CardContent>
-                  </GlassCard>
+                  </PastelCard>
                 </motion.div>
               )}
             </TabsContent>

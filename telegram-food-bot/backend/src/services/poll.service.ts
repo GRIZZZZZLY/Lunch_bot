@@ -105,6 +105,8 @@ export class PollService {
   static async getTodayCompletedPoll(groupId: number): Promise<PollWithDetails | null> {
     try {
       const today = getStartOfToday();
+      
+      logger.info(`🔍 getTodayCompletedPoll: groupId=${groupId}, today=${today.toISOString()}`);
 
       const poll = await prisma.poll.findFirst({
         where: {
@@ -139,7 +141,49 @@ export class PollService {
         },
       });
 
-      return poll;
+      if (poll) {
+        logger.info(`✅ Found completed poll TODAY: id=${poll.id}, endedAt=${poll.endedAt?.toISOString()}`);
+        return poll;
+      }
+      
+      // Если сегодня нет завершённых - берём последнее вообще
+      logger.info('❌ No completed poll found today, fetching last completed poll...');
+      
+      const lastPoll = await prisma.poll.findFirst({
+        where: {
+          groupId,
+          status: 'COMPLETED',
+        },
+        orderBy: {
+          endedAt: 'desc',
+        },
+        include: {
+          group: true,
+          votes: {
+            include: {
+              user: true,
+              menuItem: true,
+            },
+          },
+          result: {
+            include: {
+              winnerMenuItem: true,
+              responsibleUser: true,
+            },
+          },
+          _count: {
+            select: {
+              votes: true,
+            },
+          },
+        },
+      });
+      
+      if (lastPoll) {
+        logger.info(`✅ Found LAST completed poll: id=${lastPoll.id}, endedAt=${lastPoll.endedAt?.toISOString()}`);
+      }
+
+      return lastPoll;
     } catch (error) {
       logger.error('Error getting today completed poll:', error);
       throw new Error('Failed to get today completed poll');

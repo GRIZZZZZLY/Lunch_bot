@@ -102,6 +102,7 @@ class PollService {
     static async getTodayCompletedPoll(groupId) {
         try {
             const today = (0, date_1.getStartOfToday)();
+            logger_1.logger.info(`🔍 getTodayCompletedPoll: groupId=${groupId}, today=${today.toISOString()}`);
             const poll = await client_2.prisma.poll.findFirst({
                 where: {
                     groupId,
@@ -134,7 +135,44 @@ class PollService {
                     },
                 },
             });
-            return poll;
+            if (poll) {
+                logger_1.logger.info(`✅ Found completed poll TODAY: id=${poll.id}, endedAt=${poll.endedAt?.toISOString()}`);
+                return poll;
+            }
+            logger_1.logger.info('❌ No completed poll found today, fetching last completed poll...');
+            const lastPoll = await client_2.prisma.poll.findFirst({
+                where: {
+                    groupId,
+                    status: 'COMPLETED',
+                },
+                orderBy: {
+                    endedAt: 'desc',
+                },
+                include: {
+                    group: true,
+                    votes: {
+                        include: {
+                            user: true,
+                            menuItem: true,
+                        },
+                    },
+                    result: {
+                        include: {
+                            winnerMenuItem: true,
+                            responsibleUser: true,
+                        },
+                    },
+                    _count: {
+                        select: {
+                            votes: true,
+                        },
+                    },
+                },
+            });
+            if (lastPoll) {
+                logger_1.logger.info(`✅ Found LAST completed poll: id=${lastPoll.id}, endedAt=${lastPoll.endedAt?.toISOString()}`);
+            }
+            return lastPoll;
         }
         catch (error) {
             logger_1.logger.error('Error getting today completed poll:', error);

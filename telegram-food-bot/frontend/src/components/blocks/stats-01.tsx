@@ -18,11 +18,11 @@ interface Stats01Props {
 }
 
 const variantStyles = {
-  peach: "border-pastel-peach-200 bg-pastel-peach-50 dark:border-pastel-peach-700 dark:bg-pastel-peach-950",
-  lavender: "border-pastel-lavender-200 bg-pastel-lavender-50 dark:border-pastel-lavender-700 dark:bg-pastel-lavender-950",
-  sky: "border-pastel-sky-200 bg-pastel-sky-50 dark:border-pastel-sky-700 dark:bg-pastel-sky-950",
-  sage: "border-pastel-sage-200 bg-pastel-sage-50 dark:border-pastel-sage-700 dark:bg-pastel-sage-950",
-  rose: "border-pastel-rose-200 bg-pastel-rose-50 dark:border-pastel-rose-700 dark:bg-pastel-rose-950",
+  peach: "border-pastel-peach-200 bg-pastel-peach-50 dark:border-gray-700 dark:bg-gray-800",
+  lavender: "border-pastel-lavender-200 bg-pastel-lavender-50 dark:border-gray-700 dark:bg-gray-800",
+  sky: "border-pastel-sky-200 bg-pastel-sky-50 dark:border-gray-700 dark:bg-gray-800",
+  sage: "border-pastel-sage-200 bg-pastel-sage-50 dark:border-gray-700 dark:bg-gray-800 dark:shadow-[0_0_20px_rgba(140,224,185,0.15)]",
+  rose: "border-pastel-rose-200 bg-pastel-rose-50 dark:border-gray-700 dark:bg-gray-800 dark:shadow-[0_0_20px_rgba(252,165,165,0.15)]",
   default: "border-border bg-card dark:border-border dark:bg-card",
 }
 
