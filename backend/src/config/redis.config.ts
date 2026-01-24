@@ -5,14 +5,15 @@ import { logger } from '../utils/logger';
  * Redis Configuration
  *
  * Environment variables:
+ * - REDIS_ENABLED: Enable/disable Redis (default: false)
  * - REDIS_HOST: Redis server host (default: localhost)
  * - REDIS_PORT: Redis server port (default: 6379)
  * - REDIS_PASSWORD: Redis password (optional)
  * - REDIS_DB: Redis database number (default: 0)
  */
 
-// Redis можно отключить для dev режима
-export const REDIS_ENABLED = process.env.REDIS_ENABLED !== 'false';
+// Redis ВЫКЛЮЧЕН по умолчанию - нужно явно включить через REDIS_ENABLED=true
+export const REDIS_ENABLED = process.env.REDIS_ENABLED === 'true';
 
 const redisConfig = {
   host: process.env.REDIS_HOST || 'localhost',
@@ -22,9 +23,13 @@ const redisConfig = {
 
   // Connection options
   retryStrategy: (times: number) => {
-    // В dev режиме с отключенным Redis прекращаем попытки после 5 раз
-    if (!REDIS_ENABLED && times > 5) {
-      logger.info('⚠️ Redis disabled in dev mode, stopping reconnection attempts');
+    // Если Redis отключен - не пытаемся переподключаться
+    if (!REDIS_ENABLED) {
+      return null;
+    }
+    // Максимум 5 попыток переподключения
+    if (times > 5) {
+      logger.error('❌ Redis max retries exceeded, giving up');
       return null;
     }
     const delay = Math.min(times * 50, 2000);
@@ -35,14 +40,14 @@ const redisConfig = {
   // Connection timeout
   connectTimeout: 10000,
 
-  // Lazy connection (don't connect on startup)
-  lazyConnect: false,
+  // Lazy connection - НЕ подключаемся при старте если Redis отключен
+  lazyConnect: !REDIS_ENABLED,
 
-  // Enable offline queue
+  // Enable offline queue only if Redis enabled
   enableOfflineQueue: REDIS_ENABLED,
 
   // Max retry attempts
-  maxRetriesPerRequest: REDIS_ENABLED ? 3 : 1,
+  maxRetriesPerRequest: REDIS_ENABLED ? 3 : null,
 };
 
 /**

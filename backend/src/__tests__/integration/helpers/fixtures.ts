@@ -3,12 +3,44 @@ import { MenuItem, User, Group, Poll } from '@prisma/client';
 
 /**
  * Очищает тестовую базу данных
+ * ВАЖНО: Удаляем в порядке зависимостей (от зависимых к независимым)
  */
 export async function cleanDatabase() {
-  await prisma.vote.deleteMany();
+  // 1. Удаляем данные с внешними ключами (самые зависимые)
+  await prisma.paymentReminder.deleteMany();
+  await prisma.transaction.deleteMany();
+  await prisma.xPHistory.deleteMany();
+  await prisma.userStats.deleteMany();
+  await prisma.adminReminder.deleteMany();
+  await prisma.groupMember.deleteMany();
+  await prisma.menuSuggestion.deleteMany();
+  await prisma.userAchievement.deleteMany();
+  await prisma.userQuest.deleteMany();
+  await prisma.userChallengeProgress.deleteMany();
+  await prisma.userProgress.deleteMany();
+  
+  // 2. Удаляем результаты голосований и ответственных
+  await prisma.responsibleSelection.deleteMany();
+  await prisma.pollOrderCosts.deleteMany();
   await prisma.pollResult.deleteMany();
+  
+  // 3. Удаляем голоса
+  await prisma.vote.deleteMany();
+  
+  // 4. Удаляем голосования и recurring polls
   await prisma.poll.deleteMany();
+  await prisma.recurringPoll.deleteMany();
+  
+  // 5. Удаляем блюда (зависят от user через createdBy)
   await prisma.menuItem.deleteMany();
+  
+  // 6. Удаляем standalone tables (no user/group FK dependencies)
+  await prisma.achievement.deleteMany();
+  await prisma.quest.deleteMany();
+  await prisma.challenge.deleteMany();
+  await prisma.season.deleteMany();
+  
+  // 7. Удаляем пользователей и группы (независимые)
   await prisma.user.deleteMany();
   await prisma.group.deleteMany();
 }

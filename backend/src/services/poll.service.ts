@@ -1,4 +1,5 @@
 import { Poll, Vote, PollResult, Prisma, MenuItem, User } from '@prisma/client';
+import { LRUCache } from 'lru-cache';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreatePollData, PollWithDetails, PollStats } from '../types/poll.types';
@@ -30,14 +31,23 @@ export function initializePollServiceBot(bot: any): void {
   logger.info('PollService bot instance initialized');
 }
 
-// Кэш количества участников групп (TTL 2 часа)
-const memberCountCache = new Map<number, {
-  count: number;
-  timestamp: number;
-  source: 'telegram_api' | 'history';
-}>();
-
+// Константы для кеширования
 const MEMBER_COUNT_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 часа
+const MEMBER_COUNT_CACHE_MAX = 500; // Максимум 500 групп в кеше
+
+// Тип для записи в кеше
+interface MemberCountCacheEntry {
+  count: number;
+  source: 'telegram_api' | 'history';
+}
+
+// LRU-кэш количества участников групп (с автоматическим TTL и ограничением размера)
+const memberCountCache = new LRUCache<number, MemberCountCacheEntry>({
+  max: MEMBER_COUNT_CACHE_MAX,
+  ttl: MEMBER_COUNT_CACHE_TTL,
+  updateAgeOnGet: false, // Не обновляем TTL при чтении
+  updateAgeOnHas: false,
+});
 
 export class PollService {
   /**
@@ -265,19 +275,36 @@ export class PollService {
         }
       }
       
-      // Закрываем истекшие голосования в фоне (не блокируем ответ)
+      // Закрываем истекшие голосования синхронно с проверкой статуса (fix race condition)
       if (expiredPollIds.length > 0) {
-        prisma.poll.updateMany({
-          where: { id: { in: expiredPollIds } },
-          data: {
-            status: 'COMPLETED',
-            endedAt: now()
-          }
-        }).then(() => {
-          logger.info(`✅ Auto-closed ${expiredPollIds.length} expired polls: ${expiredPollIds.join(', ')}`);
-        }).catch((err) => {
+        try {
+          // Используем транзакцию для атомарного обновления
+          await prisma.$transaction(async (tx) => {
+            // Проверяем статус каждого poll перед обновлением
+            const stillActivePolls = await tx.poll.findMany({
+              where: {
+                id: { in: expiredPollIds },
+                status: 'ACTIVE', // Только если всё ещё активен
+              },
+              select: { id: true },
+            });
+
+            const idsToClose = stillActivePolls.map(p => p.id);
+            
+            if (idsToClose.length > 0) {
+              await tx.poll.updateMany({
+                where: { id: { in: idsToClose } },
+                data: {
+                  status: 'COMPLETED',
+                  endedAt: now(),
+                },
+              });
+              logger.info(`✅ Auto-closed ${idsToClose.length} expired polls: ${idsToClose.join(', ')}`);
+            }
+          });
+        } catch (err) {
           logger.error(`❌ Failed to auto-close expired polls:`, err);
-        });
+        }
       }
       
       logger.info(`✅ Returning ${activePolls.length} active polls`);
@@ -302,79 +329,83 @@ export class PollService {
 
   /**
    * Завершение голосования
+   * Использует транзакцию с проверкой статуса для предотвращения race condition
    */
   static async completePoll(pollId: number): Promise<PollResult> {
     try {
-      // Получаем голосование с голосами
-      const poll = await prisma.poll.findUnique({
-        where: { id: pollId },
-        include: {
-          votes: {
-            include: {
-              menuItem: true,
-              user: true,
+      // Используем транзакцию для атомарной операции (fix race condition)
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. Получаем голосование с блокировкой и проверяем статус внутри транзакции
+        const poll = await tx.poll.findUnique({
+          where: { id: pollId },
+          include: {
+            votes: {
+              include: {
+                menuItem: true,
+                user: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      if (!poll) {
-        throw new Error('Poll not found');
-      }
-      if (poll.status !== 'ACTIVE') {
-        throw new Error('Poll is already completed');
-      }
-
-      // Подсчитываем голоса
-      const voteCount = new Map<number, { count: number; menuItem: any }>();
-      poll.votes.forEach(vote => {
-        // Skip votes without menuItemId
-        if (!vote.menuItemId || !vote.menuItem) return;
-        
-        const current = voteCount.get(vote.menuItemId) || { count: 0, menuItem: vote.menuItem };
-        voteCount.set(vote.menuItemId, { count: current.count + 1, menuItem: vote.menuItem });
-      });
-
-      // Определяем победителя
-      let winnerMenuItemId: number | null = null;
-      let maxVotes = 0;
-
-      for (const [itemId, data] of voteCount.entries()) {
-        if (data.count > maxVotes) {
-          maxVotes = data.count;
-          winnerMenuItemId = itemId;
+        if (!poll) {
+          throw new Error('Poll not found');
         }
-      }
+        
+        // Проверка статуса ВНУТРИ транзакции - ключевое исправление
+        if (poll.status !== 'ACTIVE') {
+          throw new Error(`Poll is already ${poll.status.toLowerCase()}`);
+        }
 
-      // Завершаем голосование в транзакции
-      const result = await prisma.$transaction(async (tx) => {
-        // Обновляем статус голосования
+        // 2. Подсчитываем голоса
+        const voteCount = new Map<number, { count: number; menuItem: any }>();
+        poll.votes.forEach(vote => {
+          if (!vote.menuItemId || !vote.menuItem) return;
+          
+          const current = voteCount.get(vote.menuItemId) || { count: 0, menuItem: vote.menuItem };
+          voteCount.set(vote.menuItemId, { count: current.count + 1, menuItem: vote.menuItem });
+        });
+
+        // 3. Определяем победителя
+        let winnerMenuItemId: number | null = null;
+        let maxVotes = 0;
+
+        for (const [itemId, data] of voteCount.entries()) {
+          if (data.count > maxVotes) {
+            maxVotes = data.count;
+            winnerMenuItemId = itemId;
+          }
+        }
+
+        // 4. Обновляем статус голосования
         await tx.poll.update({
           where: { id: pollId },
           data: {
             status: 'COMPLETED',
-            endedAt: now()
+            endedAt: now(),
           },
         });
 
-        // Создаем результат голосования
-        // responsibleUserId будет обновлен после запуска рулетки
+        // 5. Создаем результат голосования
         const pollResult = await tx.pollResult.create({
           data: {
             pollId,
             winnerMenuItemId,
             totalVotes: poll.votes.length,
-            responsibleUserId: poll.createdBy, // Временно используем создателя, обновится после рулетки
+            responsibleUserId: poll.createdBy,
           },
         });
 
-        return pollResult;
+        // Сохраняем данные poll для использования после транзакции
+        return { pollResult, poll };
       });
+
+      const { pollResult, poll } = result;
 
       // Инвалидируем кэш после завершения голосования
       CacheInvalidator.invalidatePoll(pollId, poll.groupId);
       
-      logger.info(`Poll completed: ${pollId}, winner: ${winnerMenuItemId}, total votes: ${poll.votes.length}`);
+      logger.info(`Poll completed: ${pollId}, winner: ${pollResult.winnerMenuItemId}, total votes: ${poll.votes.length}`);
 
       // Sprint 6: XP интеграция за создание опроса
       try {
@@ -404,7 +435,7 @@ export class PollService {
       }
       
       // Возвращаем результат с деталями
-      return await this.getPollResult(result.id);
+      return await this.getPollResult(pollResult.id);
     } catch (error) {
       if (error instanceof Error) {
         logger.error('Error completing poll:', error);
@@ -431,6 +462,10 @@ export class PollService {
           endedAt: now()
         },
       });
+
+      // Инвалидируем кэш активных голосований
+      CacheInvalidator.invalidatePoll(pollId, poll.groupId);
+      logger.info(`Cache invalidated for cancelled poll ${pollId} in group ${poll.groupId}`);
 
       // Отправляем уведомления об отмене
       const user = await prisma.user.findUnique({
@@ -1255,19 +1290,19 @@ export class PollService {
   }
 
   /**
-   * Получение ожидаемого количества участников с кэшем
-   * Приоритеты: 1) Кэш, 2) Telegram API, 3) Settings, 4) История
+   * Получение ожидаемого количества участников с LRU-кэшем
+   * Приоритеты: 1) Кэш (с автоматическим TTL), 2) Telegram API, 3) Settings, 4) История
+   * 
+   * Использует LRU-cache для предотвращения утечки памяти (макс. 500 групп, TTL 2 часа)
    */
   private static async getExpectedParticipants(
     groupId: number,
     groupTelegramId: bigint,
     settings: any
   ): Promise<{ count: number; source: string }> {
-    const now = Date.now();
-    
-    // 1️⃣ Проверяем кэш
+    // 1️⃣ Проверяем LRU-кэш (автоматически проверяет TTL)
     const cached = memberCountCache.get(groupId);
-    if (cached && (now - cached.timestamp) < MEMBER_COUNT_CACHE_TTL) {
+    if (cached) {
       logger.debug(`Using cached member count for group ${groupId}: ${cached.count} (${cached.source})`);
       return { count: cached.count, source: `cached_${cached.source}` };
     }
@@ -1279,11 +1314,10 @@ export class PollService {
     );
     
     if (realCount !== null) {
-      // Сохраняем в кэш
+      // Сохраняем в LRU-кэш (автоматически вытеснит старые записи)
       memberCountCache.set(groupId, {
         count: realCount,
-        timestamp: now,
-        source: 'telegram_api'
+        source: 'telegram_api',
       });
       
       logger.info(`📊 Updated member count for group ${groupId}: ${realCount} (from Telegram API)`);
@@ -1291,7 +1325,7 @@ export class PollService {
       // Сохраняем в БД асинхронно (не ждем)
       GroupService.updateGroupSettings(groupId, {
         ...settings,
-        expectedParticipants: realCount
+        expectedParticipants: realCount,
       }).catch(err => logger.error('Error saving expectedParticipants:', err));
       
       return { count: realCount, source: 'telegram_api' };
@@ -1299,21 +1333,20 @@ export class PollService {
     
     // 3️⃣ Fallback к настройкам или истории
     let fallbackCount: number;
-    let fallbackSource: string;
+    let fallbackSource: 'telegram_api' | 'history';
     
     if (settings.expectedParticipants) {
       fallbackCount = settings.expectedParticipants;
-      fallbackSource = 'settings';
+      fallbackSource = 'history'; // Считаем настройки как "history" для типизации
     } else {
       fallbackCount = await GroupService.getActiveParticipants(groupId);
       fallbackSource = 'history';
     }
     
-    // Сохраняем fallback в кэш
+    // Сохраняем fallback в LRU-кэш
     memberCountCache.set(groupId, {
       count: fallbackCount,
-      timestamp: now,
-      source: 'history'
+      source: fallbackSource,
     });
     
     logger.warn(`⚠️ Using fallback member count for group ${groupId}: ${fallbackCount} (${fallbackSource})`);

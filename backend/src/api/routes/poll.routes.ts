@@ -1,6 +1,7 @@
 import express from 'express';
 import { pollController } from '../controllers/poll.controller';
 import { telegramAuthMiddleware, adminMiddleware } from '../middleware/telegram-auth';
+import { voteLimiter, pollCreationLimiter, heavyOperationLimiter } from '../middleware/rate-limiter';
 
 const router = express.Router();
 
@@ -26,7 +27,7 @@ router.get('/history', telegramAuthMiddleware, pollController.getPollHistory);
  * GET /api/polls/stats
  * Получение статистики голосований
  */
-router.get('/stats', telegramAuthMiddleware, pollController.getPollStats);
+router.get('/stats', telegramAuthMiddleware, heavyOperationLimiter, pollController.getPollStats);
 
 /**
  * GET /api/polls/user-stats/my
@@ -92,6 +93,7 @@ router.post(
   '/',
   telegramAuthMiddleware,
   adminMiddleware,
+  pollCreationLimiter,
   pollController.createPoll
 );
 
@@ -103,6 +105,7 @@ router.post(
   '/create-from-webapp',
   telegramAuthMiddleware,
   adminMiddleware,
+  pollCreationLimiter,
   pollController.createPollFromWebApp
 );
 
@@ -156,6 +159,7 @@ router.patch(
 router.post(
   '/:id/vote',
   telegramAuthMiddleware,
+  voteLimiter,
   pollController.vote
 );
 
@@ -166,6 +170,7 @@ router.post(
 router.post(
   '/:id/vote-multiple',
   telegramAuthMiddleware,
+  voteLimiter,
   pollController.voteMultiple
 );
 

@@ -290,13 +290,14 @@ export const ProfilePage: React.FC = () => {
         )}
 
         {/* My Suggestions Access - для всех пользователей */}
+        {/* Мои предложения / Предложка */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: user?.isAdmin ? 0.4 : 0.3, duration: 0.4 }}
         >
           <button
-            onClick={() => navigate('/my-suggestions')}
+            onClick={() => navigate(user?.isAdmin ? '/admin/suggestions' : '/my-suggestions')}
             className="w-full p-5 rounded-2xl bg-gradient-to-br from-peach-50 to-coral-100 dark:from-peach-900/20 dark:to-coral-800/20 border-2 border-peach-200 dark:border-peach-700 hover:shadow-lg transition-all"
           >
             <div className="flex items-center justify-between">
@@ -306,10 +307,10 @@ export const ProfilePage: React.FC = () => {
                 </div>
                 <div className="text-left">
                   <div className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
-                    Мои предложения
+                    {user?.isAdmin ? 'Предложка' : 'Мои предложения'}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-                    История предложенных блюд для меню
+                    {user?.isAdmin ? 'Модерация предложений от пользователей' : 'История предложенных блюд для меню'}
                   </div>
                 </div>
               </div>

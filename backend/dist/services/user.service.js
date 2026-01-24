@@ -5,6 +5,7 @@ const client_1 = require("@prisma/client");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
 const date_1 = require("../utils/date");
+const encryption_1 = require("../utils/encryption");
 class UserService {
     static async createUser(data) {
         try {
@@ -220,16 +221,29 @@ class UserService {
     }
     static async updatePaymentInfo(userId, data) {
         try {
+            const encryptedData = {
+                updatedAt: (0, date_1.now)(),
+            };
+            if (data.paymentCard !== undefined) {
+                encryptedData.paymentCard = data.paymentCard
+                    ? encryption_1.EncryptionService.encrypt(data.paymentCard)
+                    : data.paymentCard;
+            }
+            if (data.paymentPhone !== undefined) {
+                encryptedData.paymentPhone = data.paymentPhone
+                    ? encryption_1.EncryptionService.encrypt(data.paymentPhone)
+                    : data.paymentPhone;
+            }
+            if (data.paymentDetails !== undefined) {
+                encryptedData.paymentDetails = data.paymentDetails
+                    ? encryption_1.EncryptionService.encrypt(data.paymentDetails)
+                    : data.paymentDetails;
+            }
             const user = await client_2.prisma.user.update({
                 where: { id: userId },
-                data: {
-                    paymentCard: data.paymentCard,
-                    paymentPhone: data.paymentPhone,
-                    paymentDetails: data.paymentDetails,
-                    updatedAt: (0, date_1.now)(),
-                },
+                data: encryptedData,
             });
-            logger_1.logger.info(`Payment info updated for user: ${user.id}`);
+            logger_1.logger.info(`Payment info updated for user: ${user.id} (encrypted)`);
             return user;
         }
         catch (error) {
@@ -252,10 +266,53 @@ class UserService {
                     paymentDetails: true,
                 },
             });
-            return user;
+            if (!user) {
+                return null;
+            }
+            return {
+                paymentCard: user.paymentCard
+                    ? encryption_1.EncryptionService.decrypt(user.paymentCard)
+                    : user.paymentCard,
+                paymentPhone: user.paymentPhone
+                    ? encryption_1.EncryptionService.decrypt(user.paymentPhone)
+                    : user.paymentPhone,
+                paymentDetails: user.paymentDetails
+                    ? encryption_1.EncryptionService.decrypt(user.paymentDetails)
+                    : user.paymentDetails,
+            };
         }
         catch (error) {
             logger_1.logger.error('Error getting payment info:', error);
+            throw new Error('Failed to get payment info');
+        }
+    }
+    static async getMaskedPaymentInfo(userId) {
+        try {
+            const user = await client_2.prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    paymentCard: true,
+                    paymentPhone: true,
+                    paymentDetails: true,
+                },
+            });
+            if (!user) {
+                return null;
+            }
+            return {
+                paymentCard: user.paymentCard
+                    ? encryption_1.EncryptionService.maskCardNumber(user.paymentCard)
+                    : null,
+                paymentPhone: user.paymentPhone
+                    ? encryption_1.EncryptionService.maskPhone(user.paymentPhone)
+                    : null,
+                paymentDetails: user.paymentDetails
+                    ? encryption_1.EncryptionService.decrypt(user.paymentDetails)
+                    : null,
+            };
+        }
+        catch (error) {
+            logger_1.logger.error('Error getting masked payment info:', error);
             throw new Error('Failed to get payment info');
         }
     }

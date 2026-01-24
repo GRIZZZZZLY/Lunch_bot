@@ -10,6 +10,7 @@ jest.mock('../../database/client', () => ({
       create: jest.fn(),
       update: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       groupBy: jest.fn(),
       count: jest.fn(),
@@ -66,6 +67,8 @@ describe('VoteService', () => {
 
       const mockCreatedVote = createMockVote(mockData);
 
+      // Мокаем findFirst (проверка существующего голоса) - возвращаем null
+      (prisma.vote.findFirst as jest.Mock).mockResolvedValue(null);
       (prisma.vote.create as jest.Mock).mockResolvedValue(mockCreatedVote);
 
       const result = await VoteService.createVote(mockData);
@@ -89,6 +92,8 @@ describe('VoteService', () => {
         menuItemId: 2,
       };
 
+      // Мокаем findFirst (проверка существующего голоса) - возвращаем null
+      (prisma.vote.findFirst as jest.Mock).mockResolvedValue(null);
       (prisma.vote.create as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       await expect(VoteService.createVote(mockData)).rejects.toThrow('Failed to create vote');
@@ -230,16 +235,16 @@ describe('VoteService', () => {
     it('should return user vote if exists', async () => {
       const mockVote = createMockVote();
 
-      (prisma.vote.findUnique as jest.Mock).mockResolvedValue(mockVote);
+      // getUserVoteInPoll calls getUserVotes which uses findMany
+      (prisma.vote.findMany as jest.Mock).mockResolvedValue([mockVote]);
 
       const result = await VoteService.getUserVoteInPoll(1, 1);
 
-      expect(prisma.vote.findUnique).toHaveBeenCalledWith({
+      expect(prisma.vote.findMany).toHaveBeenCalledWith({
         where: {
-          pollId_userId: {
-            pollId: 1,
-            userId: 1,
-          },
+          pollId: 1,
+          userId: 1,
+          menuItemId: { not: null },
         },
         include: {
           menuItem: true,
@@ -250,7 +255,8 @@ describe('VoteService', () => {
     });
 
     it('should return null if user has not voted', async () => {
-      (prisma.vote.findUnique as jest.Mock).mockResolvedValue(null);
+      // getUserVoteInPoll calls getUserVotes which uses findMany
+      (prisma.vote.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await VoteService.getUserVoteInPoll(1, 1);
 
@@ -287,7 +293,8 @@ describe('VoteService', () => {
     it('should return true if user has voted', async () => {
       const mockVote = createMockVote();
 
-      (prisma.vote.findUnique as jest.Mock).mockResolvedValue(mockVote);
+      // hasUserVoted calls getUserVotes which uses findMany
+      (prisma.vote.findMany as jest.Mock).mockResolvedValue([mockVote]);
 
       const result = await VoteService.hasUserVoted(1, 1);
 
@@ -295,7 +302,8 @@ describe('VoteService', () => {
     });
 
     it('should return false if user has not voted', async () => {
-      (prisma.vote.findUnique as jest.Mock).mockResolvedValue(null);
+      // hasUserVoted calls getUserVotes which uses findMany
+      (prisma.vote.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await VoteService.hasUserVoted(1, 1);
 
@@ -335,7 +343,8 @@ describe('VoteService', () => {
       const mockPoll = { id: 1, status: 'ACTIVE' };
 
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue(mockPoll);
-      (prisma.vote.delete as jest.Mock).mockResolvedValue(createMockVote());
+      // removeVote uses deleteMany, not delete
+      (prisma.vote.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
 
       await VoteService.removeVote(1, 1);
 
@@ -344,12 +353,10 @@ describe('VoteService', () => {
         select: { id: true, status: true },
       });
 
-      expect(prisma.vote.delete).toHaveBeenCalledWith({
+      expect(prisma.vote.deleteMany).toHaveBeenCalledWith({
         where: {
-          pollId_userId: {
-            pollId: 1,
-            userId: 1,
-          },
+          pollId: 1,
+          userId: 1,
         },
       });
     });

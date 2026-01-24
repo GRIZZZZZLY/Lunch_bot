@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import path from 'path';
 import { corsMiddleware } from './middleware/cors';
 import { errorHandler, notFoundHandler, requestLogger } from './middleware/error-handler';
+import { generalLimiter, authLimiter } from './middleware/rate-limiter';
 import { apiConfig } from '../config/api.config';
 import { logger } from '../utils/logger';
 
@@ -68,6 +69,12 @@ export function createApiServer(): express.Application {
 
   // CORS только для API роутов
   app.use('/api', corsMiddleware);
+
+  // Rate limiting для всех API запросов (Sprint 2 Security)
+  app.use('/api', generalLimiter);
+
+  // Строгий rate limiting для аутентификации
+  app.use('/api/auth', authLimiter);
 
   // API routes с префиксом /api
   app.use('/api/auth', authRoutes);

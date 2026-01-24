@@ -54,7 +54,7 @@ async function menuCommand(ctx) {
             text += '• Категории и поиск\n\n';
             text += '💡 *Для редактирования требуются права администратора*\n\n';
         }
-        const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+        const webappUrl = process.env.WEBAPP_URL || 'https://ergodic-genevieve-unsulphurized.ngrok-free.dev';
         const botUsername = ctx.me.username;
         const keyboard = {
             inline_keyboard: isGroup ? [
@@ -175,7 +175,7 @@ async function handleShowMenuList(ctx) {
         });
         await ctx.answerCallbackQuery();
         const isGroup = ctx.chat?.type !== 'private';
-        const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+        const webappUrl = process.env.WEBAPP_URL || 'https://ergodic-genevieve-unsulphurized.ngrok-free.dev';
         await ctx.reply(text, {
             parse_mode: 'Markdown',
             reply_markup: {

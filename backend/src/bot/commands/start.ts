@@ -27,7 +27,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
 
     // Обработка deep links (параметры после /start)
     const startParam = ctx.match; // Например: "menu_-1001234567"
-    const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+    const webappUrl = process.env.WEBAPP_URL || 'https://ergodic-genevieve-unsulphurized.ngrok-free.dev';
 
     // Deep link для меню группы: /start menu_GROUP_ID
     if (startParam && startParam.toString().startsWith('menu_')) {

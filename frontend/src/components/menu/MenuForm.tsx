@@ -224,7 +224,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
               value={formData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
               className={cn(
-                "bg-background/50 border-mint-200 focus-visible:ring-mint-500",
+                "bg-background/50 border-border focus-visible:ring-peach-500 dark:focus-visible:ring-purple-500",
                 errors.name && "border-red-500"
               )}
               maxLength={100}
@@ -248,7 +248,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
               className={cn(
-                "bg-background/50 border-mint-200 focus-visible:ring-mint-500 resize-none",
+                "bg-background/50 border-border focus-visible:ring-peach-500 dark:focus-visible:ring-purple-500 resize-none",
                 errors.description && "border-red-500"
               )}
               maxLength={500}
@@ -275,7 +275,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
               value={formData.price || ''}
               onChange={(e) => handleInputChange('price', e.target.value ? Number(e.target.value) : undefined)}
               className={cn(
-                "bg-background/50 border-mint-200 focus-visible:ring-mint-500",
+                "bg-background/50 border-border focus-visible:ring-peach-500 dark:focus-visible:ring-purple-500",
                 errors.price && "border-red-500"
               )}
               min={0}
@@ -301,7 +301,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
               value={formData.category}
               onChange={(e) => handleInputChange('category', e.target.value)}
               className={cn(
-                "bg-background/50 border-mint-200 focus-visible:ring-mint-500",
+                "bg-background/50 border-border focus-visible:ring-peach-500 dark:focus-visible:ring-purple-500",
                 errors.category && "border-red-500"
               )}
               maxLength={50}
@@ -331,7 +331,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
                         }}
                         className={cn(
                           "flex-shrink-0 min-h-11 gap-1.5",
-                          isSelected && "bg-gradient-to-r from-mint-500 to-mint-600 text-white border-mint-600 hover:from-mint-600 hover:to-mint-700"
+                          isSelected && "bg-gradient-to-r from-peach-500 to-coral-500 dark:from-purple-500 dark:to-violet-500 text-white border-peach-600 dark:border-purple-600 hover:from-peach-600 hover:to-coral-600 dark:hover:from-purple-600 dark:hover:to-violet-600"
                         )}
                       >
                         <span className="text-base">{getCategoryIcon(category)}</span>
@@ -345,7 +345,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
             
             {loadingCategories && (
               <div className="flex items-center gap-2">
-                <div className={`${ICON_SIZES.sm} animate-spin rounded-full  border-2 border-mint-500 border-t-transparent`} />
+                <div className={`${ICON_SIZES.sm} animate-spin rounded-full  border-2 border-peach-500 dark:border-purple-500 border-t-transparent`} />
                 <span className="text-xs text-muted-foreground">Загрузка категорий...</span>
               </div>
             )}
@@ -365,7 +365,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
               value={formData.imageUrl}
               onChange={(e) => handleInputChange('imageUrl', e.target.value)}
               className={cn(
-                "bg-background/50 border-mint-200 focus-visible:ring-mint-500",
+                "bg-background/50 border-border focus-visible:ring-peach-500 dark:focus-visible:ring-purple-500",
                 errors.imageUrl && "border-red-500"
               )}
             />
@@ -426,13 +426,13 @@ export const MenuForm: React.FC<MenuFormProps> = ({
                   Будет участвовать в голосованиях
                 </p>
               </div>
-              <Switch
+               <Switch
                 id="isActive"
                 checked={formData.isActive}
                 onCheckedChange={(checked) => {
                   handleInputChange('isActive', checked);
                 }}
-                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-mint-500 data-[state=checked]:to-mint-600"
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-peach-500 data-[state=checked]:to-coral-500 dark:data-[state=checked]:from-purple-500 dark:data-[state=checked]:to-violet-500"
               />
             </div>
           </GlassCardContent>
@@ -452,7 +452,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
           </Button>
           
           <GradientButton 
-            variant="mint"
+            variant="peach"
             onClick={handleSubmit}
             disabled={!formData.name.trim() || loading}
             className="flex-1 min-h-11"

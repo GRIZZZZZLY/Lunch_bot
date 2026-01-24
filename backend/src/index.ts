@@ -7,9 +7,14 @@ import { createBot, startPolling, setupWebhook, stopBot } from './bot/bot';
 import { createApiServer, startApiServer } from './api/server';
 import { initializePollServiceBot } from './services/poll.service.extensions';
 import { feedbackService } from './services/feedback.service';
+import { runSecurityChecks } from './utils/security-checks';
 
 // Загружаем переменные окружения
 dotenv.config();
+
+// 🔐 Sprint 3: Критические проверки безопасности
+// В production приложение НЕ запустится с небезопасными настройками
+runSecurityChecks();
 
 // Инициализируем Sentry (должно быть сразу после dotenv.config)
 initSentry();

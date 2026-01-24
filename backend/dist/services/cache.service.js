@@ -8,26 +8,24 @@ const ACTIVE_POLLS_TTL = 30;
 const MENU_TTL = 300;
 const STATS_TTL = 120;
 class CacheService {
-    client;
+    client = null;
     hits = 0;
     misses = 0;
     enabled;
     constructor() {
         this.enabled = redis_config_1.REDIS_ENABLED;
-        if (this.enabled) {
-            try {
-                this.client = (0, redis_config_1.createRedisClient)();
-                logger_1.logger.info('✅ Cache service initialized with Redis');
-            }
-            catch (error) {
-                logger_1.logger.warn('⚠️ Failed to initialize Redis, running without cache', error);
-                this.client = null;
-                this.enabled = false;
-            }
+        if (!this.enabled) {
+            logger_1.logger.info('ℹ️ Cache service: Redis disabled (REDIS_ENABLED=false), using no-cache mode');
+            return;
         }
-        else {
-            logger_1.logger.warn('⚠️ Redis disabled via REDIS_ENABLED=false, running without cache');
+        try {
+            this.client = (0, redis_config_1.createRedisClient)();
+            logger_1.logger.info('✅ Cache service initialized with Redis');
+        }
+        catch (error) {
+            logger_1.logger.warn('⚠️ Failed to initialize Redis, running without cache', error);
             this.client = null;
+            this.enabled = false;
         }
     }
     isAvailable() {

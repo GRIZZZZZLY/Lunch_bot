@@ -97,8 +97,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-gradient-to-br from-pastel-rose-500 to-pastel-rose-600 flex items-center justify-center">
-              <MessageCircle className={`${ICON_SIZES.md} text-white`} />
+            <div className="size-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 dark:from-purple-500 dark:to-violet-500 flex items-center justify-center shadow-lg shadow-orange-500/30 dark:shadow-purple-500/30">
+              <MessageCircle className={`${ICON_SIZES.md} text-white`} strokeWidth={2.5} />
             </div>
             <div>
               <DialogTitle>Обратная связь</DialogTitle>
@@ -122,7 +122,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
               rows={5}
               maxLength={1000}
               disabled={isSending}
-              className="w-full px-4 py-3 rounded-xl border border-border bg-background/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-pastel-rose-500/50 resize-none transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-orange-500/50 dark:focus:ring-purple-500/50 focus:border-orange-500 dark:focus:border-purple-500 resize-none transition-all"
             />
             <p className="text-xs text-muted-foreground mt-1">
               {message.length}/1000 символов
@@ -143,7 +143,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             <Button
               type="submit"
               disabled={isSending || !message.trim()}
-              className="flex-1 bg-pastel-rose-500 hover:bg-pastel-rose-600 text-white"
+              className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 dark:from-purple-500 dark:to-violet-500 hover:from-orange-600 hover:to-red-600 dark:hover:from-purple-600 dark:hover:to-violet-600 text-white shadow-lg shadow-orange-500/30 dark:shadow-purple-500/30 hover:shadow-orange-500/50 dark:hover:shadow-purple-500/50 transition-all"
             >
               {isSending ? (
                 <>Отправка...</>

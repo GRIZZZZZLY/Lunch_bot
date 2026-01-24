@@ -86,13 +86,13 @@ export const RecurringPollBadge: React.FC<RecurringPollBadgeProps> = ({
             'rounded-xl p-4 border-2 transition-all duration-300',
             // Фон: как у карточки с результатами голосования
             'bg-white dark:bg-gray-800',
-            // Для админа: лавандовая обводка + glow + курсор
+            // Для админа: лавандовая обводка + насыщенный glow + курсор
             isAdmin && [
-              'border-pastel-lavender-400',
-              'shadow-[0_0_15px_rgba(196,181,253,0.4)]',
-              'hover:shadow-[0_0_25px_rgba(196,181,253,0.6)]',
+              'border-violet-400',
+              'shadow-[0_0_12px_rgba(139,92,246,0.6)]',
+              'hover:shadow-[0_0_18px_rgba(139,92,246,0.75)]',
               'cursor-pointer',
-              'hover:border-pastel-lavender-500',
+              'hover:border-violet-500',
             ],
             // Для юзера: нейтральная обводка без glow
             !isAdmin && [

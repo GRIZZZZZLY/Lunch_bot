@@ -18,7 +18,7 @@ const STATS_TTL = 120; // 2 минуты для статистики
  * В dev режиме если Redis не доступен - работает без кэша
  */
 class CacheService {
-  private client: Redis | null;
+  private client: Redis | null = null;
   private hits = 0;
   private misses = 0;
   private enabled: boolean;
@@ -26,18 +26,18 @@ class CacheService {
   constructor() {
     this.enabled = REDIS_ENABLED;
     
-    if (this.enabled) {
-      try {
-        this.client = createRedisClient();
-        logger.info('✅ Cache service initialized with Redis');
-      } catch (error) {
-        logger.warn('⚠️ Failed to initialize Redis, running without cache', error);
-        this.client = null;
-        this.enabled = false;
-      }
-    } else {
-      logger.warn('⚠️ Redis disabled via REDIS_ENABLED=false, running without cache');
+    if (!this.enabled) {
+      logger.info('ℹ️ Cache service: Redis disabled (REDIS_ENABLED=false), using no-cache mode');
+      return;
+    }
+    
+    try {
+      this.client = createRedisClient();
+      logger.info('✅ Cache service initialized with Redis');
+    } catch (error) {
+      logger.warn('⚠️ Failed to initialize Redis, running without cache', error);
       this.client = null;
+      this.enabled = false;
     }
   }
   

@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PollService = void 0;
 exports.initializePollServiceBot = initializePollServiceBot;
 const client_1 = require("@prisma/client");
+const lru_cache_1 = require("lru-cache");
 const client_2 = require("../database/client");
 const logger_1 = require("../utils/logger");
 const group_service_1 = require("./group.service");
@@ -46,8 +47,14 @@ function initializePollServiceBot(bot) {
     botInstance = bot;
     logger_1.logger.info('PollService bot instance initialized');
 }
-const memberCountCache = new Map();
 const MEMBER_COUNT_CACHE_TTL = 2 * 60 * 60 * 1000;
+const MEMBER_COUNT_CACHE_MAX = 500;
+const memberCountCache = new lru_cache_1.LRUCache({
+    max: MEMBER_COUNT_CACHE_MAX,
+    ttl: MEMBER_COUNT_CACHE_TTL,
+    updateAgeOnGet: false,
+    updateAgeOnHas: false,
+});
 class PollService {
     static async createPoll(data) {
         try {
@@ -238,17 +245,31 @@ class PollService {
                 }
             }
             if (expiredPollIds.length > 0) {
-                client_2.prisma.poll.updateMany({
-                    where: { id: { in: expiredPollIds } },
-                    data: {
-                        status: 'COMPLETED',
-                        endedAt: (0, date_1.now)()
-                    }
-                }).then(() => {
-                    logger_1.logger.info(`✅ Auto-closed ${expiredPollIds.length} expired polls: ${expiredPollIds.join(', ')}`);
-                }).catch((err) => {
+                try {
+                    await client_2.prisma.$transaction(async (tx) => {
+                        const stillActivePolls = await tx.poll.findMany({
+                            where: {
+                                id: { in: expiredPollIds },
+                                status: 'ACTIVE',
+                            },
+                            select: { id: true },
+                        });
+                        const idsToClose = stillActivePolls.map(p => p.id);
+                        if (idsToClose.length > 0) {
+                            await tx.poll.updateMany({
+                                where: { id: { in: idsToClose } },
+                                data: {
+                                    status: 'COMPLETED',
+                                    endedAt: (0, date_1.now)(),
+                                },
+                            });
+                            logger_1.logger.info(`✅ Auto-closed ${idsToClose.length} expired polls: ${idsToClose.join(', ')}`);
+                        }
+                    });
+                }
+                catch (err) {
                     logger_1.logger.error(`❌ Failed to auto-close expired polls:`, err);
-                });
+                }
             }
             logger_1.logger.info(`✅ Returning ${activePolls.length} active polls`);
             const serializedPolls = activePolls.map(poll => ({
@@ -267,44 +288,44 @@ class PollService {
     }
     static async completePoll(pollId) {
         try {
-            const poll = await client_2.prisma.poll.findUnique({
-                where: { id: pollId },
-                include: {
-                    votes: {
-                        include: {
-                            menuItem: true,
-                            user: true,
+            const result = await client_2.prisma.$transaction(async (tx) => {
+                const poll = await tx.poll.findUnique({
+                    where: { id: pollId },
+                    include: {
+                        votes: {
+                            include: {
+                                menuItem: true,
+                                user: true,
+                            },
                         },
                     },
-                },
-            });
-            if (!poll) {
-                throw new Error('Poll not found');
-            }
-            if (poll.status !== 'ACTIVE') {
-                throw new Error('Poll is already completed');
-            }
-            const voteCount = new Map();
-            poll.votes.forEach(vote => {
-                if (!vote.menuItemId || !vote.menuItem)
-                    return;
-                const current = voteCount.get(vote.menuItemId) || { count: 0, menuItem: vote.menuItem };
-                voteCount.set(vote.menuItemId, { count: current.count + 1, menuItem: vote.menuItem });
-            });
-            let winnerMenuItemId = null;
-            let maxVotes = 0;
-            for (const [itemId, data] of voteCount.entries()) {
-                if (data.count > maxVotes) {
-                    maxVotes = data.count;
-                    winnerMenuItemId = itemId;
+                });
+                if (!poll) {
+                    throw new Error('Poll not found');
                 }
-            }
-            const result = await client_2.prisma.$transaction(async (tx) => {
+                if (poll.status !== 'ACTIVE') {
+                    throw new Error(`Poll is already ${poll.status.toLowerCase()}`);
+                }
+                const voteCount = new Map();
+                poll.votes.forEach(vote => {
+                    if (!vote.menuItemId || !vote.menuItem)
+                        return;
+                    const current = voteCount.get(vote.menuItemId) || { count: 0, menuItem: vote.menuItem };
+                    voteCount.set(vote.menuItemId, { count: current.count + 1, menuItem: vote.menuItem });
+                });
+                let winnerMenuItemId = null;
+                let maxVotes = 0;
+                for (const [itemId, data] of voteCount.entries()) {
+                    if (data.count > maxVotes) {
+                        maxVotes = data.count;
+                        winnerMenuItemId = itemId;
+                    }
+                }
                 await tx.poll.update({
                     where: { id: pollId },
                     data: {
                         status: 'COMPLETED',
-                        endedAt: (0, date_1.now)()
+                        endedAt: (0, date_1.now)(),
                     },
                 });
                 const pollResult = await tx.pollResult.create({
@@ -315,10 +336,11 @@ class PollService {
                         responsibleUserId: poll.createdBy,
                     },
                 });
-                return pollResult;
+                return { pollResult, poll };
             });
+            const { pollResult, poll } = result;
             cache_service_1.CacheInvalidator.invalidatePoll(pollId, poll.groupId);
-            logger_1.logger.info(`Poll completed: ${pollId}, winner: ${winnerMenuItemId}, total votes: ${poll.votes.length}`);
+            logger_1.logger.info(`Poll completed: ${pollId}, winner: ${pollResult.winnerMenuItemId}, total votes: ${poll.votes.length}`);
             try {
                 const { GamificationService } = await Promise.resolve().then(() => __importStar(require('./gamification.service.js')));
                 const { getXPReward } = await Promise.resolve().then(() => __importStar(require('../constants/xp-constants.js')));
@@ -337,7 +359,7 @@ class PollService {
             catch (notifError) {
                 logger_1.logger.error('Error sending completion notifications:', notifError);
             }
-            return await this.getPollResult(result.id);
+            return await this.getPollResult(pollResult.id);
         }
         catch (error) {
             if (error instanceof Error) {
@@ -357,6 +379,8 @@ class PollService {
                     endedAt: (0, date_1.now)()
                 },
             });
+            cache_service_1.CacheInvalidator.invalidatePoll(pollId, poll.groupId);
+            logger_1.logger.info(`Cache invalidated for cancelled poll ${pollId} in group ${poll.groupId}`);
             const user = await client_2.prisma.user.findUnique({
                 where: { id: cancelledBy }
             });
@@ -1005,9 +1029,8 @@ class PollService {
         }
     }
     static async getExpectedParticipants(groupId, groupTelegramId, settings) {
-        const now = Date.now();
         const cached = memberCountCache.get(groupId);
-        if (cached && (now - cached.timestamp) < MEMBER_COUNT_CACHE_TTL) {
+        if (cached) {
             logger_1.logger.debug(`Using cached member count for group ${groupId}: ${cached.count} (${cached.source})`);
             return { count: cached.count, source: `cached_${cached.source}` };
         }
@@ -1015,13 +1038,12 @@ class PollService {
         if (realCount !== null) {
             memberCountCache.set(groupId, {
                 count: realCount,
-                timestamp: now,
-                source: 'telegram_api'
+                source: 'telegram_api',
             });
             logger_1.logger.info(`📊 Updated member count for group ${groupId}: ${realCount} (from Telegram API)`);
             group_service_1.GroupService.updateGroupSettings(groupId, {
                 ...settings,
-                expectedParticipants: realCount
+                expectedParticipants: realCount,
             }).catch(err => logger_1.logger.error('Error saving expectedParticipants:', err));
             return { count: realCount, source: 'telegram_api' };
         }
@@ -1029,7 +1051,7 @@ class PollService {
         let fallbackSource;
         if (settings.expectedParticipants) {
             fallbackCount = settings.expectedParticipants;
-            fallbackSource = 'settings';
+            fallbackSource = 'history';
         }
         else {
             fallbackCount = await group_service_1.GroupService.getActiveParticipants(groupId);
@@ -1037,8 +1059,7 @@ class PollService {
         }
         memberCountCache.set(groupId, {
             count: fallbackCount,
-            timestamp: now,
-            source: 'history'
+            source: fallbackSource,
         });
         logger_1.logger.warn(`⚠️ Using fallback member count for group ${groupId}: ${fallbackCount} (${fallbackSource})`);
         return { count: fallbackCount, source: fallbackSource };

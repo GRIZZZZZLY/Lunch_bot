@@ -27,15 +27,7 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({ onInviteFriend }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
     >
-      <PastelCard variant="peach" className="relative overflow-hidden">
-        {/* Gradient background */}
-        <div 
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: `linear-gradient(135deg, ${gradientColors.from}, ${gradientColors.to})`,
-            opacity: 0.15
-          }}
-        />
+      <PastelCard variant="default" className="relative overflow-hidden border-l-4 border-orange-500">
         
         <CardContent className="relative py-6 px-6 space-y-4">
           {/* Emoji */}
@@ -45,7 +37,7 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({ onInviteFriend }) => {
           
           {/* Title */}
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-foreground">
+            <h2 className="text-2xl font-semibold text-foreground">
               Добро пожаловать!
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -83,7 +75,7 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({ onInviteFriend }) => {
 
           {/* Invite button */}
           <Button 
-            className="w-full bg-pastel-sage hover:bg-pastel-sage-400 text-foreground"
+            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-[0_0_20px_rgba(249,115,22,0.5)] hover:shadow-[0_0_30px_rgba(249,115,22,0.7)] transition-all duration-200 ease-out"
             size="lg"
             onClick={onInviteFriend}
           >

@@ -30,5 +30,10 @@ export declare class UserService {
         paymentPhone?: string | null;
         paymentDetails?: string | null;
     } | null>;
+    static getMaskedPaymentInfo(userId: number): Promise<{
+        paymentCard?: string | null;
+        paymentPhone?: string | null;
+        paymentDetails?: string | null;
+    } | null>;
 }
 //# sourceMappingURL=user.service.d.ts.map

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useHaptic } from '../../hooks/useHaptic';
+import { useConfetti } from '../../hooks/useConfetti';
 import { useUI } from '../../store/useAppStore';
 import { useTelegram } from '../../hooks/useTelegram';
 import { trackEvent, ANALYTICS_EVENTS } from '../../lib/analytics';
@@ -22,11 +23,16 @@ import { pollsService, PollWithDetails, Vote } from '../../services/polls.servic
 import { menuService, MenuItem } from '../../services/menu.service';
 import { cn } from '../../lib/utils';
 import { ICON_SIZES } from '../../lib/design-tokens';
+import { TYPOGRAPHY_DISPLAY, TYPOGRAPHY_H3, TYPOGRAPHY_BODY, TYPOGRAPHY_SMALL } from '../../lib/typography';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { VotersAvatars } from './VotersAvatars';
 import { Skeleton } from '../ui/skeleton';
 import { useCountdownTimer } from '../../hooks/useCountdownTimer';
 import { NumberTicker } from '../ui/number-ticker';
+import { AnimatedCheckmarkWithText } from '../ui/animated-checkmark';
+import { CircularProgressTimer } from '../ui/circular-progress-timer';
+import { getSuccessVoteMessage } from '../../lib/contextual-messages';
+import { recordVote } from '../../services/insights.service';
 
 interface InlineVotingCardProps {
   poll: PollWithDetails;
@@ -89,6 +95,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
 }) => {
   const { user } = useAuth();
   const haptic = useHaptic();
+  const confetti = useConfetti();
   const { addNotification } = useUI();
   const { colorScheme } = useTelegram();
   const isDark = colorScheme === 'dark';
@@ -100,6 +107,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   
   // UX: Показать ещё паттерн для скролла
   const INITIAL_ITEMS_COUNT = 5;
@@ -192,7 +200,22 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           console.warn('[InlineVotingCard] ⚠️ No selectedMenuItemIds in poll, showing all items');
         }
         
-        setMenuItems(items);
+        // Добавляем специальную опцию "Еда с собой" (всегда последняя)
+        const takeawayOption: MenuItem = {
+          id: -1,
+          name: 'Еда с собой',
+          description: 'Принесу еду из дома',
+          price: 0,
+          category: null,
+          imageUrl: null,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        
+        const updatedItems = [...items, takeawayOption];
+        console.log('[InlineVotingCard] ✅ Added takeaway option:', updatedItems.map(i => i.name));
+        setMenuItems(updatedItems);
       }
     } catch (error) {
       console.error('Error loading poll data:', error);
@@ -295,6 +318,9 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
       if (response.success) {
         haptic.success();
         
+        // Celebration: confetti при успешном голосовании
+        confetti.mini();
+        
         // P1.2.4: Track vote event
         trackEvent(ANALYTICS_EVENTS.VOTE_SUBMITTED, {
           pollId: poll.id,
@@ -302,11 +328,32 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           count: selectedItemIds.length,
           pollType: 'inline',
         });
+
+        // Записываем голоса в историю для инсайтов
+        if (user?.id) {
+          selectedItemIds.forEach(itemId => {
+            const item = menuItems.find(m => m.id === itemId);
+            if (item) {
+              recordVote(user.id, item.id, item.name, poll.id);
+            }
+          });
+        }
         
-        addNotification({
-          type: 'success',
-          message: `✓ Голоса учтены! Выбрано блюд: ${selectedItemIds.length}`,
-        });
+        // Показываем анимированную галочку
+        setShowSuccessAnimation(true);
+        
+        // Проверяем это первый голос пользователя
+        const isFirstVote = userVotes.length === 0 && !poll.votes?.some(v => v.userId === user?.id);
+        const successMessage = getSuccessVoteMessage(isFirstVote);
+        
+        // Скрываем анимацию через 2 секунды
+        setTimeout(() => {
+          setShowSuccessAnimation(false);
+          addNotification({
+            type: 'success',
+            message: successMessage.message,
+          });
+        }, 2000);
         
         // Небольшая задержка для синхронизации
         await new Promise(resolve => setTimeout(resolve, 300));
@@ -439,13 +486,41 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
   const leadingItemId = getLeadingItemId();
 
   return (
-    <motion.div
-      ref={cardRef}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-gradient-to-br from-pastel-peach-50 via-white to-pastel-lavender-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 rounded-2xl p-6 shadow-xl border border-pastel-peach-200 dark:border-gray-700"
-    >
+    <>
+      {/* Success Animation Overlay */}
+      <AnimatePresence>
+        {showSuccessAnimation && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowSuccessAnimation(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-2xl max-w-sm mx-4"
+            >
+              <AnimatedCheckmarkWithText
+                title={getSuccessVoteMessage(userVotes.length === 0).title}
+                message={getSuccessVoteMessage(userVotes.length === 0).message}
+                size="xl"
+                color="success"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.div
+        ref={cardRef}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border-l-4 border-orange-500 border-t border-r border-b border-gray-200 dark:border-gray-700"
+      >
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
@@ -454,40 +529,30 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
               <Sparkles size={18} className="text-white" />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                 {userVotes.length > 0 ? 'Вы проголосовали!' : 'Голосование активно'}
               </h3>
-              {/* НОВЫЙ ТАЙМЕР В ЗАГОЛОВКЕ - большой и заметный */}
+              {/* КРУГОВОЙ ТАЙМЕР - компактный */}
               {(() => {
-                console.log('[InlineVotingCard] Timer check:', {
-                  status: poll.status,
-                  endTime: poll.endTime,
-                  endedAt: poll.endedAt,
-                  startedAt: poll.startedAt,
-                  duration: poll.duration,
-                  shouldShow: poll.status === 'ACTIVE' && (poll.endTime || poll.endedAt)
-                });
-                
                 // Используем endTime если есть, иначе вычисляем из startedAt + duration
                 const endTimeToUse = poll.endTime || poll.endedAt;
                 
                 if (poll.status === 'ACTIVE' && endTimeToUse) {
-                  return <CountdownBadge endTime={endTimeToUse} isDark={isDark} />;
+                  return <CircularProgressTimer endTime={endTimeToUse} size="sm" />;
                 }
                 
                 // Если endTime нет, вычисляем на лету (fallback)
                 if (poll.status === 'ACTIVE' && poll.startedAt && poll.duration) {
                   const calculatedEndTime = new Date(poll.startedAt);
                   calculatedEndTime.setMinutes(calculatedEndTime.getMinutes() + poll.duration);
-                  console.log('[InlineVotingCard] Using calculated endTime:', calculatedEndTime.toISOString());
-                  return <CountdownBadge endTime={calculatedEndTime.toISOString()} isDark={isDark} />;
+                  return <CircularProgressTimer endTime={calculatedEndTime.toISOString()} size="sm" />;
                 }
                 
                 return null;
               })()}
             </div>
           </div>
-          <p className="text-gray-600 dark:text-gray-400 text-sm ml-9">Выберите блюдо на обед</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 ml-9">Выберите блюдо</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -575,15 +640,12 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
                 onClick={() => handleSelectItem(item.id)}
                 disabled={userVotes.length > 0 || submitting} // ИЗМЕНЕНО
                 className={cn(
-                  'w-full relative overflow-hidden rounded-xl p-4 text-left transition-all duration-300',
+                  'w-full relative overflow-hidden rounded-xl p-4 text-left transition-all duration-200 ease-out',
                   'disabled:cursor-not-allowed',
                   userVotes.length === 0 && 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]',
-                  // Выбранный вариант - адаптивный gradient с пульсацией
-                  isSelected && userVotes.length === 0 && (
-                    isDark
-                      ? 'bg-gradient-to-r from-pastel-lavender-400 to-pastel-lavender-500 text-white animate-pulse-selection shadow-lg shadow-pastel-lavender-500/50'
-                      : 'bg-gradient-to-r from-pastel-peach-400 to-pastel-peach-500 text-white animate-pulse-selection shadow-lg shadow-pastel-peach-500/50'
-                  ),
+                  // Выбранный вариант - лавандовый gradient с glow эффектом
+                  isSelected && userVotes.length === 0 && 
+                    'bg-gradient-to-r from-violet-500 to-purple-600 text-white animate-pulse-selection shadow-[0_0_20px_rgba(139,92,246,0.5)] ring-2 ring-violet-400/50',
                   // Проголосованный вариант - neutral gray с галочкой
                   isVoted && 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-2 border-gray-300 dark:border-gray-600',
                   // Обычный вариант - белая карточка
@@ -622,7 +684,8 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className={cn(
-                          "font-medium truncate",
+                          TYPOGRAPHY_BODY.weight,
+                          "truncate",
                           (isSelected || isVoted) && "drop-shadow-sm"
                         )}>{item.name}</span>
                         {isLeading && (
@@ -733,7 +796,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           whileTap={{ scale: 0.98 }}
           onClick={handleVote}
           disabled={submitting}
-          className="w-full mt-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl py-3 px-4 font-bold transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 shadow-[0_0_20px_rgba(249,115,22,0.5)] hover:shadow-[0_0_30px_rgba(249,115,22,0.7)]"
+          className="w-full mt-4 min-h-[44px] bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl py-3 px-4 font-semibold transition-all duration-200 ease-out flex items-center justify-center gap-2 disabled:opacity-50 shadow-[0_0_20px_rgba(249,115,22,0.5)] hover:shadow-[0_0_30px_rgba(249,115,22,0.7)]"
         >
           {submitting ? (
             <>
@@ -748,6 +811,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           )}
         </motion.button>
       )}
-    </motion.div>
+      </motion.div>
+    </>
   );
 };

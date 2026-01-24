@@ -52,88 +52,42 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         // ========================================
-        // 🎨 PASTEL HARMONY PALETTE (5 Core Colors)
-        // Requirement: Orange, Purple, Blue, Green, Red
+        // 🎨 UNIFIED SEMANTIC COLORS (для темной темы #17212b)
         // ========================================
         
-        // 🍑 PASTEL PEACH (Primary - Orange family)
-        'pastel-peach': {
-          50: '#FFF5F0',   // Lightest background
-          100: '#FFE4D6',  // Light background
-          200: '#FFCCAD',  // Border/divider
-          300: '#FFB899',  // DEFAULT - Main UI color
-          400: '#FFA380',  // Hover state
-          500: '#FF8F66',  // Active/pressed state
-          600: '#E67550',  // Dark accent
-          700: '#CC5C3B',  // Darker accent
-          800: '#B34427',  // Darkest
-          900: '#4D1F12',  // Very dark for dark mode
-          950: '#2A1109',  // Ultra dark for dark mode backgrounds
-          DEFAULT: '#FFB899',
+        // 🍑 PEACH (Primary/Orange - используется для CTA и акцентов)
+        'peach': {
+          400: '#FF9D66',  // Dark mode primary
+          500: '#FF8F4F',  // Light mode primary  
+          600: '#EA580C',  // Hover/pressed
         },
         
-        // 💜 PASTEL LAVENDER (Accent - Purple family)
-        'pastel-lavender': {
-          50: '#F8F6FF',   // Lightest background
-          100: '#EDE9FE',  // Light background
-          200: '#DDD6FE',  // Border/divider
-          300: '#C4B5FD',  // DEFAULT - Main UI color
-          400: '#B19BFC',  // Hover state
-          500: '#9E81FA',  // Active/pressed state
-          600: '#8B67E8',  // Dark accent
-          700: '#7850D6',  // Darker accent
-          800: '#6539C4',  // Darkest
-          900: '#2D1854',  // Very dark for dark mode
-          950: '#1A0E2E',  // Ultra dark for dark mode backgrounds
-          DEFAULT: '#C4B5FD',
+        // 💜 LAVENDER (Accent/Highlights - для навигации темной темы)
+        'lavender': {
+          400: '#A78BFA',  // Dark mode accent
+          500: '#8B5CF6',  // Light mode accent
+          600: '#7C3AED',  // Hover
         },
         
-        // 🌊 PASTEL SKY (Info - Blue family)
-        'pastel-sky': {
-          50: '#F0F9FF',   // Lightest background
-          100: '#E0F2FE',  // Light background
-          200: '#BAE6FD',  // Border/divider
-          300: '#7DD3FC',  // DEFAULT - Main UI color
-          400: '#5BC5FA',  // Hover state
-          500: '#38B7F8',  // Active/pressed state
-          600: '#1FA3E6',  // Dark accent
-          700: '#0E8FD4',  // Darker accent
-          800: '#037BC2',  // Darkest
-          900: '#01334D',  // Very dark for dark mode
-          950: '#011D2A',  // Ultra dark for dark mode backgrounds
-          DEFAULT: '#7DD3FC',
+        // 🌿 MINT (Success - единый зелёный для всех success состояний)
+        'mint': {
+          400: '#34D399',  // Dark mode success
+          500: '#22C55E',  // Light mode success  
+          600: '#16A34A',  // Hover
         },
         
-        // 🌿 PASTEL SAGE (Success - Green family)
-        'pastel-sage': {
-          50: '#F2FCF8',   // Lightest background
-          100: '#D9F5E8',  // Light background
-          200: '#B3EBD1',  // Border/divider
-          300: '#8CE0B9',  // DEFAULT - Main UI color
-          400: '#70D6A8',  // Hover state
-          500: '#54CC97',  // Active/pressed state
-          600: '#3BB882',  // Dark accent
-          700: '#28A46D',  // Darker accent
-          800: '#1A9058',  // Darkest
-          900: '#0D3826',  // Very dark for dark mode
-          950: '#072016',  // Ultra dark for dark mode backgrounds
-          DEFAULT: '#8CE0B9',
+        // 🌺 CORAL (Error/Destructive - единый красный для ошибок)
+        'coral': {
+          400: '#F87171',  // Dark mode error
+          500: '#EF4444',  // Light mode error
+          600: '#DC2626',  // Hover
         },
         
-        // 🌺 PASTEL ROSE (Error/Warning - Red family)
-        'pastel-rose': {
-          50: '#FFF5F5',   // Lightest background
-          100: '#FEE2E2',  // Light background
-          200: '#FECACA',  // Border/divider
-          300: '#FCA5A5',  // DEFAULT - Main UI color
-          400: '#F87171',  // Hover state
-          500: '#EF4444',  // Active/pressed state
-          600: '#DC2626',  // Dark accent
-          700: '#B91C1C',  // Darker accent
-          800: '#991B1B',  // Darkest
-          900: '#3D0A0A',  // Very dark for dark mode
-          950: '#220606',  // Ultra dark for dark mode backgrounds
-          DEFAULT: '#FCA5A5',
+        // 🟡 BUTTER (Warning - единый желтый для предупреждений)
+        'butter': {
+          400: '#FBBF24',  // Dark mode warning
+          500: '#F59E0B',  // Light mode warning
+          600: '#D97706',  // Hover
         },
         // Desaturated Success (приглушенный зеленый для dark mode)
         'success-soft': {
@@ -218,6 +172,7 @@ export default {
         'slide-down': 'slideDown 0.3s ease-out',
         'bounce-light': 'bounceLight 0.6s ease-in-out',
         'skeleton-wave': 'skeletonWave 1.5s ease-in-out infinite',
+        'shimmer': 'shimmer 2s infinite',
         'scale-in': 'scaleIn 0.2s ease-out',
         'wiggle': 'wiggle 0.5s ease-in-out',
         'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
@@ -261,6 +216,10 @@ export default {
         skeletonWave: {
           '0%': { transform: 'translateX(-100%)' },
           '50%': { transform: 'translateX(100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(100%)' },
         },
         scaleIn: {

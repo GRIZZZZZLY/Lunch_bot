@@ -49,16 +49,16 @@ import {
 import { ParallaxLayer } from '../components/effects';
 
 // REMOVED: Gamification stats components (folder deleted)
-// import {
-//   CustomTooltip,
-//   CountUp,
-//   PersonalHeroCard,
-//   FavoriteDishesCarousel,
-//   AchievementBadgesGrid,
-//   Leaderboard,
-//   ChallengesPanel,
-//   BudgetInsightsWidget,
-// } from '../components/stats';
+import {
+  CustomTooltip,
+  CountUp,
+  PersonalHeroCard,
+  FavoriteDishesCarousel,
+  AchievementBadgesGrid,
+  Leaderboard,
+  ChallengesPanel,
+  BudgetInsightsWidget,
+} from '../components/stats';
 
 // Budget components
 import { BudgetWidgetCompact } from '../components/budget';
@@ -443,7 +443,7 @@ export const StatsPage: React.FC = () => {
               </AnimatePresence>
 
               {/* Achievement Badges Grid (Sprint 3.1) */}
-              {/* <AnimatePresence mode="wait">
+              <AnimatePresence mode="wait">
                 {pollsLoading ? (
                   <Skeleton className="h-[400px] rounded-xl" />
                 ) : (
@@ -452,7 +452,7 @@ export const StatsPage: React.FC = () => {
                     confetti.achievement(achievement.rarity);
                   }} />
                 )}
-              </AnimatePresence> */}
+              </AnimatePresence>
 
               {/* Challenges Panel (Sprint 3.3) */}
               <AnimatePresence mode="wait">
@@ -489,14 +489,7 @@ export const StatsPage: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4 }}
                 >
-                  <PastelCard variant="sky" className="relative overflow-hidden">
-                    {/* Gradient overlay - Theme aware (UPDATED: peach/coral) */}
-                    <div className={cn(
-                      "absolute inset-0 bg-gradient-to-br",
-                      isDark
-                        ? "from-lavender-500/20 to-mint-500/20"
-                        : "from-peach-500/10 to-coral-500/15"
-                    )} />
+                  <PastelCard variant="default" className="relative overflow-hidden border-l-4 border-orange-500">
 
                     <CardContent className="relative p-4">
                       {/* Compact layout */}

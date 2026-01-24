@@ -533,12 +533,12 @@ export class BudgetService {
 
   /**
    * Маскирование номера карты
+   * Sprint 1: Используем EncryptionService для обработки зашифрованных данных
    */
   private static maskCardNumber(cardNumber: string): string {
-    const cleaned = cardNumber.replace(/\D/g, '');
-    if (cleaned.length < 4) return cardNumber;
-    const lastFour = cleaned.slice(-4);
-    return `**** **** **** ${lastFour}`;
+    // Импортируем динамически чтобы избежать циклических зависимостей
+    const { EncryptionService } = require('../utils/encryption');
+    return EncryptionService.maskCardNumber(cardNumber);
   }
 
   /**

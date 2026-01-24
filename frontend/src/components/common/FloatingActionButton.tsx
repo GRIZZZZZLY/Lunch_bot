@@ -44,17 +44,18 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
       className={cn(
         'fixed bottom-24 sm:bottom-20 right-4 z-40',
         'size-16 rounded-full',
-        'bg-gradient-to-br from-pastel-rose-500 to-pastel-rose-600',
-        'shadow-2xl',
+        'bg-gradient-to-br from-orange-500 to-red-500',
+        'dark:bg-gradient-to-br dark:from-purple-500 dark:to-violet-500',
+        'shadow-2xl shadow-orange-500/40',
+        'dark:shadow-purple-500/40',
         'flex items-center justify-center',
         'cursor-pointer',
         'transition-all duration-200',
-        'hover:shadow-coral-500/50',
+        'hover:shadow-orange-500/60',
+        'dark:hover:shadow-purple-500/60',
+        'border-2 border-white/20',
         className
       )}
-      style={{
-        boxShadow: '0 10px 40px rgba(239, 68, 68, 0.3)',
-      }}
       whileHover={{ 
         scale: 1.1,
       }}
@@ -73,7 +74,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
       }}
       aria-label={tooltipText}
     >
-      <MessageCircle className={`${ICON_SIZES.lg} text-white`} />
+      <MessageCircle className={`${ICON_SIZES.lg} text-white drop-shadow-md`} strokeWidth={2.5} />
     </motion.button>
         </TooltipTrigger>
         <TooltipContent side="left" className="font-medium">
