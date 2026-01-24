@@ -55,6 +55,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { getContextualGreeting, getEmptyStateMessage } from '../lib/contextual-messages';
+import { getHumanErrorMessage } from '../lib/error-messages';
 import { StreakCard } from '../components/streaks/StreakCard';
 import { StreakBadge } from '../components/streaks/StreakBadge';
 import { getUserStreak, updateStreakAfterVote } from '../services/streak.service';
@@ -226,6 +227,10 @@ export const HomePage: React.FC = () => {
         });
       } else {
         console.warn('[HomePage] ⚠️ Deep link poll not found:', requestedPollId);
+        addNotification({
+          type: 'warning',
+          message: '⚠️ Голосование не найдено или уже завершено'
+        });
         // Fallback на первое голосование
         selectedPoll = activePolls[0] as PollWithDetails;
       }
@@ -475,10 +480,9 @@ export const HomePage: React.FC = () => {
         });
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message || 'Не удалось отправить напоминание';
       addNotification({
         type: 'error',
-        message: errorMessage,
+        message: getHumanErrorMessage(error),
       });
     }
   };
@@ -515,7 +519,7 @@ export const HomePage: React.FC = () => {
       console.error('Error loading top dish:', error);
       addNotification({
         type: 'error',
-        message: '❌ Не удалось загрузить статистику',
+        message: getHumanErrorMessage(error),
       });
       haptic.error();
     } finally {
@@ -627,7 +631,7 @@ export const HomePage: React.FC = () => {
       haptic.error();
       addNotification({
         type: 'error',
-        message: error.message || '❌ Ошибка создания голосования',
+        message: getHumanErrorMessage(error),
       });
     } finally {
       setIsRepeatLoading(false);

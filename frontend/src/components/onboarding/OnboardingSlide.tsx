@@ -29,9 +29,9 @@ export const OnboardingSlide = ({
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-        className={`w-24 h-24 rounded-full ${iconBgColor} flex items-center justify-center mb-6`}
+        className={`w-24 h-24 rounded-full ${iconBgColor} flex items-center justify-center mb-6 shadow-lg`}
       >
-        <Icon className={ICON_SIZES['2xl']} />
+        <Icon className={`${ICON_SIZES['2xl']} ${iconColor}`} />
       </motion.div>
 
       {/* Title */}

@@ -487,18 +487,20 @@ export const MenuPage: React.FC = () => {
                     <Search className={`${ICON_SIZES.sm} absolute left-3 top-1/2 -translate-y-1/2  text-muted-foreground pointer-events-none`} />
                     <Input
                       ref={searchInputRef}
-                      placeholder="🔍 Поиск блюд..."
+                      placeholder="Поиск блюд..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10 bg-background/50 border-none focus-visible:ring-1 focus-visible:ring-peach-500 h-11"
                     />
                     {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <X className={ICON_SIZES.sm} />
-                      </button>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 p-2 -m-2">
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <X className={ICON_SIZES.sm} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </CardContent>

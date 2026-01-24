@@ -62,6 +62,7 @@ export const ProfilePage: React.FC = () => {
   // Автосохранение
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const isInitialLoadRef = useRef(true);
 
@@ -127,14 +128,19 @@ export const ProfilePage: React.FC = () => {
       clearTimeout(saveTimeoutRef.current);
     }
     
+    // Устанавливаем флаг несохранённых изменений
+    setHasUnsavedChanges(true);
+    
     // Устанавливаем новый таймер на 2 секунды
     saveTimeoutRef.current = setTimeout(() => {
       // Валидация перед сохранением
       if (!validateForm(data)) {
+        setHasUnsavedChanges(false);
         return; // Не сохраняем невалидные данные
       }
       
       setIsSaving(true);
+      setHasUnsavedChanges(false);
       updatePaymentInfo(data, {
         onSuccess: () => {
           setIsSaving(false);
@@ -334,6 +340,12 @@ export const ProfilePage: React.FC = () => {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Платёжные данные
               </h2>
+              {hasUnsavedChanges && !isSaving && (
+                <span className="text-sm text-butter-600 dark:text-butter-400 flex items-center gap-1">
+                  <span className="size-2 rounded-full bg-butter-500 animate-pulse"></span>
+                  Несохранённые изменения...
+                </span>
+              )}
               {isSaving && (
                 <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                   <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -343,7 +355,7 @@ export const ProfilePage: React.FC = () => {
                   Сохранение...
                 </span>
               )}
-              {!isSaving && lastSaved && (
+              {!isSaving && !hasUnsavedChanges && lastSaved && (
                 <span className="text-sm text-mint-500 dark:text-mint-300">
                   ✓ Сохранено {lastSaved.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                 </span>

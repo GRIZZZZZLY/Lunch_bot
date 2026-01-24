@@ -27,7 +27,7 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({ onInviteFriend }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
     >
-      <PastelCard variant="default" className="relative overflow-hidden border-l-4 border-orange-500">
+      <PastelCard variant="default" className="relative overflow-hidden border-l-4 border-orange-500 dark:border-purple-500">
         
         <CardContent className="relative py-6 px-6 space-y-4">
           {/* Emoji */}

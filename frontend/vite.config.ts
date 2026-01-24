@@ -183,114 +183,16 @@ export default defineConfig({
         warn(warning);
       },
       output: {
-        // Production: оптимальная стратегия chunk splitting для кэширования
+        // ВРЕМЕННО УПРОЩЕНО для отладки - минимальный chunk splitting
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // 1. React Core - ТОЛЬКО react и react-dom (никаких других react-*)
-            // КРИТИЧНО: Строго проверяем ТОЛЬКО базовый React
-            if (
-              id.includes('/react/') || 
-              id.includes('/react-dom/') ||
-              id.includes('\\react\\') || 
-              id.includes('\\react-dom\\')
-            ) {
+            // React и react-dom должны быть ПЕРВЫМИ в одном chunk
+            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') ||
+                id.includes('node_modules\\react\\') || id.includes('node_modules\\react-dom\\') ||
+                id.includes('node_modules/scheduler/') || id.includes('node_modules\\scheduler\\')) {
               return 'react-vendor';
             }
-
-            // 2. React Router - навигация (~80 KB)
-            if (id.includes('@remix-run/router')) {
-              return 'react-router';
-            }
-
-            // 3. React Query - data fetching (~80 KB)
-            if (id.includes('@tanstack/react-query')) {
-              return 'react-query';
-            }
-
-            // 4. Framer Motion - анимации (~100 KB)
-            if (id.includes('framer-motion')) {
-              return 'framer-motion';
-            }
-
-            // 5. UI Components - Radix UI + Lucide Icons (~120 KB)
-            if (
-              id.includes('@radix-ui') ||
-              id.includes('lucide-react')
-            ) {
-              return 'ui-components';
-            }
-
-            // 6. Date utilities - date-fns (~50 KB)
-            if (id.includes('date-fns')) {
-              return 'date-fns';
-            }
-
-            // 7. React utilities - hooks, virtualization, etc (~50 KB)
-            if (
-              id.includes('react-window') ||
-              id.includes('react-use') ||
-              id.includes('react-swipeable') ||
-              id.includes('react-confetti') ||
-              id.includes('react-day-picker') ||
-              id.includes('react-hook-form') ||
-              id.includes('react-virtualized-auto-sizer') ||
-              id.includes('react-router-dom') ||
-              id.includes('scheduler')
-            ) {
-              return 'react-utils';
-            }
-
-            // 8. State + HTTP - zustand + axios (~40 KB)
-            if (id.includes('axios') || id.includes('zustand')) {
-              return 'state-http';
-            }
-
-            // 9. CSS utilities - clsx, tailwind-merge, etc (~20 KB)
-            if (
-              id.includes('clsx') ||
-              id.includes('tailwind-merge') ||
-              id.includes('class-variance-authority')
-            ) {
-              return 'css-utils';
-            }
-
-            // 10. Telegram SDK (~30 KB)
-            if (id.includes('@twa-dev/sdk')) {
-              return 'telegram-sdk';
-            }
-
-            // 11. Sentry - error tracking + session replay (~200-300 KB)
-            if (id.includes('@sentry/')) {
-              return 'sentry';
-            }
-
-            // 12. Charts - recharts (~100 KB)
-            if (id.includes('recharts')) {
-              return 'charts';
-            }
-
-            // 13. Validation - zod schemas (~50 KB)
-            if (id.includes('zod')) {
-              return 'validation';
-            }
-
-            // 14. Carousel - embla-carousel (~30-40 KB)
-            if (id.includes('embla-carousel')) {
-              return 'carousel';
-            }
-
-            // 15. UI extras - toast, drawer, command, sanitize (~40-50 KB)
-            if (
-              id.includes('sonner') ||
-              id.includes('vaul') ||
-              id.includes('cmdk') ||
-              id.includes('dompurify') ||
-              id.includes('localforage')
-            ) {
-              return 'ui-extras';
-            }
-
-            // Остальное в vendor
+            // Всё остальное в vendor
             return 'vendor';
           }
         },

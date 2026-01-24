@@ -7,7 +7,9 @@ import {
   Vote, 
   BarChart3, 
   CheckCircle,
-  X
+  X,
+  Compass,
+  Soup
 } from 'lucide-react';
 import { OnboardingSlide } from './OnboardingSlide';
 import { SlideIndicator } from './SlideIndicator';
@@ -20,40 +22,53 @@ interface WelcomeModalProps {
 }
 
 const slides = [
+  // Слайд 1: Приветствие - жёлтый/янтарный
   {
     icon: Sparkles,
-    iconColor: 'text-yellow-500',
-    iconBgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+    iconColor: 'text-white',
+    iconBgColor: 'bg-gradient-to-br from-amber-400 to-orange-500',
     title: 'Добро пожаловать!',
-    description: 'Заказывайте вкусный обед вместе с вашей командой. Голосуйте за блюда и делите расходы - все просто и удобно!'
+    description: 'Это приложение поможет вашей команде выбирать, что заказать на обед. Голосуйте, смотрите статистику и управляйте заказами вместе!'
   },
+  // Слайд 2: Навигация - изумрудный
+  {
+    icon: Compass,
+    iconColor: 'text-white',
+    iconBgColor: 'bg-gradient-to-br from-emerald-400 to-teal-500',
+    title: 'Навигация',
+    description: 'Внизу экрана — меню: Главная (голосования), Меню (все блюда), Статистика и Профиль. Исследуйте!'
+  },
+  // Слайд 3: Голосование - оранжевый
   {
     icon: Vote,
-    iconColor: 'text-peach-500',
-    iconBgColor: 'bg-peach-50 dark:bg-peach-900/20',
-    title: 'Голосуйте вместе',
-    description: 'Выбирайте блюда из меню, голосуйте, и мы автоматически определим победителя и ответственного за заказ'
+    iconColor: 'text-white',
+    iconBgColor: 'bg-gradient-to-br from-orange-400 to-red-500',
+    title: 'Как голосовать?',
+    description: 'Когда начнётся голосование, выберите блюда из списка. Можно выбрать несколько блюд!'
   },
+  // Слайд 4: Выбор блюда - фиолетовый
   {
-    icon: UtensilsCrossed,
-    iconColor: 'text-mint-600',
-    iconBgColor: 'bg-mint-50 dark:bg-mint-900/20',
-    title: 'Бюджет-трекер',
-    description: 'Следите за долгами и кредитами. Отмечайте оплату одним нажатием через СБП или другие способы'
+    icon: Soup,
+    iconColor: 'text-white',
+    iconBgColor: 'bg-gradient-to-br from-violet-400 to-purple-600',
+    title: 'Выберите блюдо',
+    description: 'Нажмите на карточку блюда, которое вам нравится. Выбранные блюда подсветятся фиолетовым.'
   },
+  // Слайд 5: Статистика - синий
   {
     icon: BarChart3,
-    iconColor: 'text-lavender-500',
-    iconBgColor: 'bg-lavender-50 dark:bg-lavender-900/20',
-    title: 'Статистика и друзья',
-    description: 'Смотрите популярные блюда, приглашайте друзей и зарабатывайте XP за активность'
+    iconColor: 'text-white',
+    iconBgColor: 'bg-gradient-to-br from-blue-400 to-indigo-500',
+    title: 'Статистика',
+    description: 'Смотрите популярные блюда, историю голосований и личную статистику в разделе "Статистика".'
   },
+  // Слайд 6: Готово - зелёный
   {
     icon: CheckCircle,
-    iconColor: 'text-mint-500',
-    iconBgColor: 'bg-mint-50 dark:bg-mint-900/20',
+    iconColor: 'text-white',
+    iconBgColor: 'bg-gradient-to-br from-green-400 to-emerald-500',
     title: 'Всё готово!',
-    description: 'Теперь вы готовы начать. Свайпните карточки на главной странице и начните голосование!'
+    description: 'Теперь вы знаете всё необходимое. Приятного аппетита!'
   }
 ];
 

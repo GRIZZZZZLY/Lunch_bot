@@ -21,6 +21,7 @@ import { useUI } from '../store/useAppStore';
 import { pollsService, PollWithDetails, Vote } from '../services/polls.service';
 import { menuService, MenuItem } from '../services/menu.service';
 import { cn } from '../lib/utils';
+import { getHumanErrorMessage } from '../lib/error-messages';
 import { FirstTimeVotingTutorial } from '../components/voting/FirstTimeVotingTutorial';
 import { VotersAvatars } from '../components/voting/VotersAvatars';
 import { AdminControls } from '../components/voting/AdminControls';
@@ -233,7 +234,7 @@ export const VotingPage: React.FC = () => {
       if (!silent) {
         addNotification({
           type: 'error',
-          message: 'Ошибка загрузки голосования',
+          message: getHumanErrorMessage(error),
         });
         navigate('/');
       }
@@ -306,7 +307,7 @@ export const VotingPage: React.FC = () => {
       hapticFeedback.notificationOccurred('error');
       addNotification({
         type: 'error',
-        message: 'Ошибка при голосовании',
+        message: getHumanErrorMessage(error),
       });
     } finally {
       setSubmitting(false);
@@ -356,7 +357,7 @@ export const VotingPage: React.FC = () => {
       }
     } catch (error) {
       console.error('[VotingPage] Error completing poll:', error);
-      addNotification({ type: 'error', message: 'Ошибка завершения голосования' });
+      addNotification({ type: 'error', message: getHumanErrorMessage(error) });
       hapticFeedback.notificationOccurred('error');
     }
   };
@@ -369,7 +370,7 @@ export const VotingPage: React.FC = () => {
       await loadPollData(false);
     } catch (error) {
       console.error('[VotingPage] Error extending poll:', error);
-      addNotification({ type: 'error', message: 'Ошибка продления голосования' });
+      addNotification({ type: 'error', message: getHumanErrorMessage(error) });
       hapticFeedback.notificationOccurred('error');
     }
   };

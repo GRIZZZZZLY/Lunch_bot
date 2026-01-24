@@ -11,6 +11,9 @@ import {
   ScrollText, 
   Star, 
   Search,
+  Lightbulb,
+  CheckCircle2,
+  AlertCircle,
   type LucideIcon 
 } from 'lucide-react';
 
@@ -21,7 +24,10 @@ export type EmptyStateType =
   | 'no-stats'
   | 'no-history'
   | 'no-favorites'
-  | 'no-results';
+  | 'no-results'
+  | 'no-suggestions'
+  | 'poll-completed'
+  | 'loading-error';
 
 interface EmptyStateProps {
   type: EmptyStateType;
@@ -87,6 +93,27 @@ const EMPTY_STATE_CONFIGS: Record<EmptyStateType, EmptyStateConfig> = {
     description: 'Попробуйте изменить параметры поиска или фильтры',
     actionLabel: 'Сбросить фильтры',
     gradient: 'from-lavender-500 to-mint-500',
+  },
+  'no-suggestions': {
+    icon: Lightbulb,
+    title: 'Нет предложений',
+    description: 'Предложите новое блюдо для меню! Ваша идея может стать хитом',
+    actionLabel: 'Предложить блюдо',
+    gradient: 'from-butter-500 to-peach-500',
+  },
+  'poll-completed': {
+    icon: CheckCircle2,
+    title: 'Голосование завершено',
+    description: 'Результаты уже подведены. Посмотрите, что выбрала команда!',
+    actionLabel: 'Посмотреть результаты',
+    gradient: 'from-mint-500 to-mint-600',
+  },
+  'loading-error': {
+    icon: AlertCircle,
+    title: 'Не удалось загрузить',
+    description: 'Проверьте подключение к интернету и попробуйте снова',
+    actionLabel: 'Попробовать снова',
+    gradient: 'from-coral-500 to-coral-600',
   },
 };
 
