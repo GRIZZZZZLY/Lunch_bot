@@ -40,7 +40,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
 import { useMenu as useMenuHook, useUI, useAppStore } from '../store/useAppStore';
 import { menuService, MenuItem } from '../services/menu.service';
-import { useMenuItems, useMenuCategories, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '../hooks/queries';
+import { useMenuItems, useMenuCategories, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem, useToggleMenuItemStatus } from '../hooks/queries';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import { mockApiService } from '../services/mockApi.service';
 import { usePendingCount } from '../hooks/useSuggestions';
@@ -54,6 +54,7 @@ import { ThemeToggle } from '../components/ui/theme-toggle';
 // import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { cn } from '../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
+import { TYPOGRAPHY_H2, TYPOGRAPHY_TINY } from '../lib/typography';
 
 /**
  * Страница управления меню
@@ -78,6 +79,7 @@ export const MenuPage: React.FC = () => {
   const { mutate: createItemMutation, isPending: isCreating } = useCreateMenuItem();
   const { mutate: updateItemMutation, isPending: isUpdating } = useUpdateMenuItem();
   const { mutate: deleteItemMutation, isPending: isDeleting } = useDeleteMenuItem();
+  const { mutate: toggleStatusMutation, isPending: isToggling } = useToggleMenuItemStatus();
   
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -283,25 +285,23 @@ export const MenuPage: React.FC = () => {
   };
 
   const handleToggleStatus = async (id: number) => {
-    try {
-      const response = await menuService.toggleItemStatus(id);
-      
-      if (response.success && response.data) {
-        // updateMenuItem(id, { isActive: response.data.isActive }); // TODO: Re-add optimistic update
+    toggleStatusMutation(id, {
+      onSuccess: (data) => {
         addNotification({
           type: 'success',
-          message: `Блюдо ${response.data.isActive ? 'активировано' : 'деактивировано'}`,
+          message: `Блюдо ${data?.isActive ? 'активировано' : 'деактивировано'}`,
         });
-      } else {
-        throw new Error(response.error || 'Failed to toggle status');
-      }
-    } catch (error) {
-      console.error('Error toggling item status:', error);
-      addNotification({
-        type: 'error',
-        message: 'Ошибка изменения статуса',
-      });
-    }
+        haptic.success();
+      },
+      onError: (error) => {
+        console.error('Error toggling item status:', error);
+        addNotification({
+          type: 'error',
+          message: 'Ошибка изменения статуса',
+        });
+        haptic.error();
+      },
+    });
   };
 
   // Container animation variants
@@ -379,16 +379,16 @@ export const MenuPage: React.FC = () => {
         {/* 2. Stats Grid with Glassmorphism */}
         {!menuLoading && menuItems.length > 0 && (
           <motion.div variants={itemVariants}>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {/* Total Items */}
-              <PastelCard variant="sky" className="overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-peach-500/10 dark:bg-peach-500/20">
-                      <Utensils className={`${ICON_SIZES.md} text-peach-500`} />
+              <PastelCard variant="default" className="overflow-hidden border-l-4 border-orange-500 dark:border-purple-500">
+                <CardContent className="p-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-peach-500/10 dark:bg-peach-500/20">
+                      <Utensils className={`${ICON_SIZES.sm} text-peach-500`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-2xl font-bold text-foreground">{totalCount}</div>
+                      <div className="text-xl font-bold text-foreground">{totalCount}</div>
                       <div className="text-xs text-muted-foreground">Всего блюд</div>
                     </div>
                   </div>
@@ -396,14 +396,14 @@ export const MenuPage: React.FC = () => {
               </PastelCard>
 
               {/* Categories */}
-              <PastelCard variant="sky" className="overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-blue-500/10 dark:bg-blue-500/20">
-                      <Tag className={`${ICON_SIZES.md} text-blue-500`} />
+              <PastelCard variant="default" className="overflow-hidden border-l-4 border-blue-500">
+                <CardContent className="p-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-blue-500/10 dark:bg-blue-500/20">
+                      <Tag className={`${ICON_SIZES.sm} text-blue-500`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-2xl font-bold text-foreground">{categories.length}</div>
+                      <div className="text-xl font-bold text-foreground">{categories.length}</div>
                       <div className="text-xs text-muted-foreground">Категорий</div>
                     </div>
                   </div>
@@ -419,32 +419,32 @@ export const MenuPage: React.FC = () => {
                     haptic.light();
                   }}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-xl bg-butter-500/10 dark:bg-butter-500/20 relative">
-                        <Sparkles className={`${ICON_SIZES.md} text-butter-500`} />
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-butter-500/10 dark:bg-butter-500/20 relative">
+                        <Sparkles className={`${ICON_SIZES.sm} text-butter-500`} />
                         {pendingCount > 0 && (
-                          <div className={`${ICON_SIZES.md} absolute -top-1 -right-1  rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center`}>
+                          <div className="size-4 absolute -top-1 -right-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
                             {pendingCount}
                           </div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-2xl font-bold text-foreground">{pendingCount}</div>
+                        <div className="text-xl font-bold text-foreground">{pendingCount}</div>
                         <div className="text-xs text-muted-foreground">Ожидают</div>
                       </div>
                     </div>
                   </CardContent>
                 </PastelCard>
               ) : (
-                <PastelCard variant="sky" className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-xl bg-mint-500/10 dark:bg-mint-500/20">
-                        <Sparkles className={`${ICON_SIZES.md} text-mint-500`} />
+                <PastelCard variant="default" className="overflow-hidden border-l-4 border-green-500">
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-mint-500/10 dark:bg-mint-500/20">
+                        <Sparkles className={`${ICON_SIZES.sm} text-mint-500`} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-2xl font-bold text-foreground">{activeCount}/{totalCount}</div>
+                        <div className="text-xl font-bold text-foreground">{activeCount}/{totalCount}</div>
                         <div className="text-xs text-muted-foreground">Активных</div>
                       </div>
                     </div>
@@ -454,14 +454,14 @@ export const MenuPage: React.FC = () => {
 
               {/* Average Price */}
               {avgPrice > 0 && (
-                <PastelCard variant="sky" className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-xl bg-butter-500/10 dark:bg-butter-500/20">
-                        <span className="text-xl">💰</span>
+                <PastelCard variant="default" className="overflow-hidden border-l-4 border-amber-500">
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-butter-500/10 dark:bg-butter-500/20">
+                        <span className="text-lg">💰</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-2xl font-bold text-foreground">₽{avgPrice}</div>
+                        <div className="text-xl font-bold text-foreground">₽{avgPrice}</div>
                         <div className="text-xs text-muted-foreground">Средняя цена</div>
                       </div>
                     </div>
@@ -545,8 +545,6 @@ export const MenuPage: React.FC = () => {
           ) : (
             <EmptyState
               type="no-menu"
-              onAction={user?.isAdmin ? openBottomSheet : () => setSuggestFormOpen(true)}
-              actionLabel={user?.isAdmin ? 'Добавить блюдо' : 'Предложить блюдо'}
             />
           )
         ) : (
@@ -577,34 +575,32 @@ export const MenuPage: React.FC = () => {
         )}
       </motion.div>
 
-      {/* 6. Contextual FAB */}
-      {user?.isAdmin ? (
-        <motion.button
-          className="fixed bottom-24 sm:bottom-20 right-4 z-30 flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/30 font-medium"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => {
+      {/* 6. Contextual FAB - Single unified button */}
+      <motion.button
+        className="fixed bottom-24 sm:bottom-20 right-4 z-30 flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-peach-500 to-coral-500 dark:from-purple-500 dark:to-violet-500 text-white shadow-lg shadow-peach-500/30 dark:shadow-purple-500/30 font-medium"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => {
+          if (user?.isAdmin) {
             openBottomSheet();
-            haptic.medium();
-          }}
-        >
-          <Plus className={ICON_SIZES.md} />
-          <span>Добавить</span>
-        </motion.button>
-      ) : (
-        <motion.button
-          className="fixed bottom-24 sm:bottom-20 right-4 z-30 flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/30 font-medium"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => {
+          } else {
             setSuggestFormOpen(true);
-            haptic.medium();
-          }}
-        >
-          <Sparkles className={ICON_SIZES.md} />
-          <span>Предложить</span>
-        </motion.button>
-      )}
+          }
+          haptic.medium();
+        }}
+      >
+        {user?.isAdmin ? (
+          <>
+            <Plus className={ICON_SIZES.md} />
+            <span>Добавить блюдо</span>
+          </>
+        ) : (
+          <>
+            <Sparkles className={ICON_SIZES.md} />
+            <span>Предложить блюдо</span>
+          </>
+        )}
+      </motion.button>
 
       {/* Bottom Sheets */}
       <BottomSheet

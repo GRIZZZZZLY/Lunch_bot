@@ -185,11 +185,14 @@ class VoteService {
                 return [];
             }
             const menuItemIds = voteGroups.map(g => g.menuItemId);
+            const realMenuItemIds = menuItemIds.filter(id => id > 0);
             const [menuItems, voters] = await Promise.all([
-                client_2.prisma.menuItem.findMany({
-                    where: { id: { in: menuItemIds } },
-                    select: { id: true, name: true },
-                }),
+                realMenuItemIds.length > 0
+                    ? client_2.prisma.menuItem.findMany({
+                        where: { id: { in: realMenuItemIds } },
+                        select: { id: true, name: true },
+                    })
+                    : Promise.resolve([]),
                 client_2.prisma.vote.findMany({
                     where: {
                         pollId,
@@ -223,9 +226,13 @@ class VoteService {
                 .map(group => {
                 const menuItem = menuItems.find(mi => mi.id === group.menuItemId);
                 const voters = votersByMenuItem.get(group.menuItemId) || [];
+                let menuItemName = menuItem?.name || 'Unknown';
+                if (group.menuItemId === -1) {
+                    menuItemName = 'Еда с собой';
+                }
                 return {
                     menuItemId: group.menuItemId,
-                    menuItemName: menuItem?.name || 'Unknown',
+                    menuItemName,
                     votes: group._count.menuItemId,
                     percentage: totalVotes > 0 ? Math.round((group._count.menuItemId / totalVotes) * 100) : 0,
                     voters,

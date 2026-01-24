@@ -256,11 +256,16 @@ export class VoteService {
       // Получаем информацию о блюдах и голосующих параллельно
       const menuItemIds = voteGroups.map(g => g.menuItemId!);
       
+      // Фильтруем ID для запроса в БД (исключаем специальные ID как -1)
+      const realMenuItemIds = menuItemIds.filter(id => id > 0);
+      
       const [menuItems, voters] = await Promise.all([
-        prisma.menuItem.findMany({
-          where: { id: { in: menuItemIds } },
-          select: { id: true, name: true },
-        }),
+        realMenuItemIds.length > 0 
+          ? prisma.menuItem.findMany({
+              where: { id: { in: realMenuItemIds } },
+              select: { id: true, name: true },
+            })
+          : Promise.resolve([]),
         prisma.vote.findMany({
           where: {
             pollId,
@@ -302,9 +307,16 @@ export class VoteService {
         .map(group => {
           const menuItem = menuItems.find(mi => mi.id === group.menuItemId);
           const voters = votersByMenuItem.get(group.menuItemId!) || [];
+          
+          // Обработка специальных опций (например, "Еда с собой" с id: -1)
+          let menuItemName = menuItem?.name || 'Unknown';
+          if (group.menuItemId === -1) {
+            menuItemName = 'Еда с собой';
+          }
+          
           return {
             menuItemId: group.menuItemId!,
-            menuItemName: menuItem?.name || 'Unknown',
+            menuItemName,
             votes: group._count.menuItemId,
             percentage: totalVotes > 0 ? Math.round((group._count.menuItemId / totalVotes) * 100) : 0,
             voters,

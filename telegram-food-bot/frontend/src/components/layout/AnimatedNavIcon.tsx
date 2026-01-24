@@ -8,6 +8,7 @@ interface AnimatedNavIconProps {
   isActive: boolean;
   type: NavIconType;
   className?: string;
+  isDark?: boolean;
 }
 
 /**
@@ -25,6 +26,7 @@ export const AnimatedNavIcon: React.FC<AnimatedNavIconProps> = ({
   isActive,
   type,
   className,
+  isDark = false,
 }) => {
   // Специфичные анимации для каждого типа
   const animations: Record<NavIconType, any> = {
@@ -57,11 +59,17 @@ export const AnimatedNavIcon: React.FC<AnimatedNavIconProps> = ({
   };
 
   // Дополнительная анимация для активной иконки (пульсация при активации)
+  // Темная тема: лавандовый glow
+  // Светлая тема: оранжевый glow
   const glowAnimation = isActive ? {
-    filter: [
-      'drop-shadow(0 0 0px currentColor)',
-      'drop-shadow(0 0 6px currentColor)',
-      'drop-shadow(0 0 0px currentColor)',
+    filter: isDark ? [
+      'drop-shadow(0 0 0px rgb(167, 139, 250))',
+      'drop-shadow(0 0 8px rgb(167, 139, 250))',
+      'drop-shadow(0 0 0px rgb(167, 139, 250))',
+    ] : [
+      'drop-shadow(0 0 0px rgb(251, 146, 60))',
+      'drop-shadow(0 0 8px rgb(251, 146, 60))',
+      'drop-shadow(0 0 0px rgb(251, 146, 60))',
     ],
   } : {};
 

@@ -22,7 +22,7 @@ async function appCommand(ctx) {
             });
             return;
         }
-        const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+        const webappUrl = process.env.WEBAPP_URL || 'https://ergodic-genevieve-unsulphurized.ngrok-free.dev';
         const isGroup = ctx.chat?.type !== 'private';
         const isAdmin = dbUser.isAdmin;
         let text = '🚀 **Telegram Food Bot - Mini App**\n\n';

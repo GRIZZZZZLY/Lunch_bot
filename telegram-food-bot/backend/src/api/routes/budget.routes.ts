@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { BudgetController } from '../controllers/budget.controller';
 import { BudgetService } from '../../services/budget.service';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
+import { reminderLimiter, writeLimiter } from '../middleware/rate-limiter';
 
 const router = Router();
 
@@ -23,11 +24,11 @@ router.get('/order-costs/:pollId', (req, res) => budgetController.getOrderCosts(
 router.get('/poll-breakdown/:pollId', (req, res) => budgetController.getPollCostBreakdown(req, res));
 
 // POST routes
-router.post('/mark-paid', (req, res) => budgetController.markAsPaid(req, res));
-router.post('/confirm-payment', (req, res) => budgetController.confirmPayment(req, res));
-router.post('/cancel-mark', (req, res) => budgetController.cancelMark(req, res));
-router.post('/send-reminder', (req, res) => budgetController.sendReminder(req, res));
-router.post('/send-reminders-all', (req, res) => budgetController.sendRemindersAll(req, res));
+router.post('/mark-paid', writeLimiter, (req, res) => budgetController.markAsPaid(req, res));
+router.post('/confirm-payment', writeLimiter, (req, res) => budgetController.confirmPayment(req, res));
+router.post('/cancel-mark', writeLimiter, (req, res) => budgetController.cancelMark(req, res));
+router.post('/send-reminder', reminderLimiter, (req, res) => budgetController.sendReminder(req, res));
+router.post('/send-reminders-all', reminderLimiter, (req, res) => budgetController.sendRemindersAll(req, res));
 
 // Cost splitting POST routes
 router.post('/order-costs/:pollId', (req, res) => budgetController.setOrderCosts(req, res));

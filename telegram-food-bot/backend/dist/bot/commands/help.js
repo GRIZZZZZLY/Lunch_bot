@@ -12,7 +12,7 @@ async function helpCommand(ctx) {
     const helpText = isGroup
         ? await getGroupHelpText(isAdmin)
         : await getPrivateHelpText(isAdmin);
-    const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+    const webappUrl = process.env.WEBAPP_URL || 'https://ergodic-genevieve-unsulphurized.ngrok-free.dev';
     const keyboard = {
         inline_keyboard: isGroup ? [
             [

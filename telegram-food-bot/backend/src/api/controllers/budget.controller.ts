@@ -1,6 +1,39 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { BudgetService } from '../../services/budget.service';
 import { logger } from '../../utils/logger';
+
+// Zod схемы валидации (Sprint 1)
+const TransactionIdSchema = z.object({
+  transactionId: z.number().int().positive('transactionId must be a positive integer'),
+});
+
+const PollIdParamSchema = z.object({
+  pollId: z.string().regex(/^\d+$/, 'pollId must be numeric').transform(Number),
+});
+
+const SendRemindersAllSchema = z.object({
+  pollId: z.number().int().positive('pollId must be a positive integer'),
+});
+
+const StatusQuerySchema = z.object({
+  status: z.enum(['PENDING', 'PAID', 'CONFIRMED']).optional(),
+});
+
+const DateRangeQuerySchema = z.object({
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+}).refine(
+  data => !(data.from && data.to && new Date(data.from) > new Date(data.to)),
+  { message: 'from date must be before to date' }
+);
+
+const SetOrderCostsSchema = z.object({
+  deliveryCost: z.number().min(0).max(100000, 'deliveryCost max 100000'),
+  serviceFee: z.number().min(0).max(100000, 'serviceFee max 100000'),
+  tip: z.number().min(0).max(100000, 'tip max 100000'),
+  notes: z.string().max(500).optional(),
+});
 
 export class BudgetController {
   private budgetService: BudgetService;
@@ -63,18 +96,25 @@ export class BudgetController {
    */
   async markAsPaid(req: Request, res: Response): Promise<void> {
     try {
-      const { transactionId } = req.body;
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
-        res.status(401).json({ error: 'Authentication required' });
+        res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
         return;
       }
 
-      if (!transactionId) {
-        res.status(400).json({ error: 'transactionId is required' });
+      // Zod валидация
+      const parseResult = TransactionIdSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        res.status(400).json({
+          error: 'Validation error',
+          code: 'VALIDATION_ERROR',
+          details: parseResult.error.errors,
+        });
         return;
       }
+
+      const { transactionId } = parseResult.data;
 
       // ✅ FIX IDOR: Проверяем что пользователь - должник (fromUserId)
       const transaction = await this.budgetService.getTransactionById(transactionId);
@@ -107,18 +147,25 @@ export class BudgetController {
    */
   async confirmPayment(req: Request, res: Response): Promise<void> {
     try {
-      const { transactionId } = req.body;
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
-        res.status(401).json({ error: 'Authentication required' });
+        res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
         return;
       }
 
-      if (!transactionId) {
-        res.status(400).json({ error: 'transactionId is required' });
+      // Zod валидация
+      const parseResult = TransactionIdSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        res.status(400).json({
+          error: 'Validation error',
+          code: 'VALIDATION_ERROR',
+          details: parseResult.error.errors,
+        });
         return;
       }
+
+      const { transactionId } = parseResult.data;
 
       // ✅ FIX IDOR: Проверяем что пользователь - кредитор/ответственный (toUserId)
       const transaction = await this.budgetService.getTransactionById(transactionId);
@@ -151,18 +198,25 @@ export class BudgetController {
    */
   async cancelMark(req: Request, res: Response): Promise<void> {
     try {
-      const { transactionId } = req.body;
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
-        res.status(401).json({ error: 'Authentication required' });
+        res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
         return;
       }
 
-      if (!transactionId) {
-        res.status(400).json({ error: 'transactionId is required' });
+      // Zod валидация
+      const parseResult = TransactionIdSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        res.status(400).json({
+          error: 'Validation error',
+          code: 'VALIDATION_ERROR',
+          details: parseResult.error.errors,
+        });
         return;
       }
+
+      const { transactionId } = parseResult.data;
 
       // ✅ FIX IDOR: Проверяем что пользователь - должник (fromUserId)
       const transaction = await this.budgetService.getTransactionById(transactionId);

@@ -73,7 +73,7 @@ export const BottomNavigation: React.FC = () => {
       path: '/', 
       icon: Home, 
       label: 'Главная',
-      badge: activePollsCount > 0 ? activePollsCount : null, // Badge с pulse анимацией
+      badge: null,
     },
     { 
       path: '/menu', 
@@ -125,12 +125,13 @@ export const BottomNavigation: React.FC = () => {
         'border-t',
         'overflow-hidden',
         isDark 
-          ? 'bg-background/80 border-border/50' 
+          ? 'border-zinc-800/50' 
           : 'bg-background/90 border-border/30'
       )}
       style={{
+        backgroundColor: isDark ? '#000000' : undefined,
         boxShadow: isDark
-          ? '0 -4px 20px rgba(0, 0, 0, 0.3)'
+          ? '0 -4px 20px rgba(0, 0, 0, 0.5)'
           : '0 -4px 20px rgba(0, 0, 0, 0.08)',
       }}
     >
@@ -178,6 +179,11 @@ export const BottomNavigation: React.FC = () => {
                     : 'bg-gradient-to-br from-peach-500/10 to-coral-500/10 focus-visible:outline-peach-600'
                   : 'focus-visible:outline-gray-400'
               )}
+              style={isActive ? {
+                boxShadow: isDark
+                  ? '0 0 20px rgba(167, 139, 250, 0.3), 0 0 10px rgba(139, 92, 246, 0.2)' // Lavender glow for active button in dark theme
+                  : '0 0 20px rgba(251, 146, 60, 0.25), 0 0 10px rgba(249, 115, 22, 0.15)', // Orange glow for active button in light theme
+              } : undefined}
             >
               {/* Icon container with badge */}
               <div className="relative">

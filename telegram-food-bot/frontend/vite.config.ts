@@ -129,8 +129,8 @@ export default defineConfig({
       '@/utils': path.resolve(__dirname, './src/utils'),
       '@/styles': path.resolve(__dirname, './src/styles'),
     },
-    // Гарантируем использование только одной версии React
-    dedupe: ['react', 'react-dom'],
+    // КРИТИЧНО: Гарантируем использование только одной версии React
+    dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'scheduler'],
   },
   server: {
     port: 5173,
@@ -154,9 +154,9 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: false, // Отключаем sourcemaps в production для уменьшения размера
+    sourcemap: false, // Production: отключаем sourcemaps (безопасность + размер)
     // Оптимизация для production
-    minify: 'terser',
+    minify: 'terser', // Production: включаем минификацию
     terserOptions: {
       compress: {
         drop_console: true, // Удаляем console.log в production
@@ -174,13 +174,26 @@ export default defineConfig({
     reportCompressedSize: true,
     rollupOptions: {
       external: [],
+      // Принудительно используем одну версию React
+      onwarn(warning, warn) {
+        // Игнорируем warnings о дублировании React
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
+          return;
+        }
+        warn(warning);
+      },
       output: {
-        // Оптимизированная стратегия разделения на чанки (11 chunks)
+        // Production: оптимальная стратегия chunk splitting для кэширования
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // 1. React Core - ВСЁ что связано с React в ОДИН chunk
-            // КРИТИЧНО: Никаких разделений React!
-            if (id.includes('react')) {
+            // 1. React Core - ТОЛЬКО react и react-dom (никаких других react-*)
+            // КРИТИЧНО: Строго проверяем ТОЛЬКО базовый React
+            if (
+              id.includes('/react/') || 
+              id.includes('/react-dom/') ||
+              id.includes('\\react\\') || 
+              id.includes('\\react-dom\\')
+            ) {
               return 'react-vendor';
             }
 
@@ -220,7 +233,9 @@ export default defineConfig({
               id.includes('react-confetti') ||
               id.includes('react-day-picker') ||
               id.includes('react-hook-form') ||
-              id.includes('react-virtualized-auto-sizer')
+              id.includes('react-virtualized-auto-sizer') ||
+              id.includes('react-router-dom') ||
+              id.includes('scheduler')
             ) {
               return 'react-utils';
             }

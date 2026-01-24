@@ -1,11 +1,28 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { VoteService } from '../../services/vote.service';
 import { logger } from '../../utils/logger';
 
 /**
  * Vote Controller
  * Обработка голосований с поддержкой множественного выбора
+ * Sprint 1: Добавлена Zod валидация
  */
+
+// Zod схемы валидации
+const CreateMultipleVotesSchema = z.object({
+  pollId: z.number().int().positive('pollId must be a positive integer'),
+  menuItemIds: z.array(z.number().int().positive()).min(0).max(20, 'Maximum 20 items allowed'),
+});
+
+const DeleteVoteParamsSchema = z.object({
+  pollId: z.string().regex(/^\d+$/, 'pollId must be numeric').transform(Number),
+  menuItemId: z.string().regex(/^\d+$/, 'menuItemId must be numeric').transform(Number),
+});
+
+const PollIdParamsSchema = z.object({
+  pollId: z.string().regex(/^\d+$/, 'pollId must be numeric').transform(Number),
+});
 
 /**
  * POST /api/votes/multiple
@@ -14,24 +31,35 @@ import { logger } from '../../utils/logger';
  */
 export async function createMultipleVotes(req: Request, res: Response): Promise<void> {
   try {
-    const { pollId, menuItemIds } = req.body;
     const userId = req.user?.id;
 
     if (!userId) {
       res.status(401).json({
         success: false,
         error: 'Unauthorized',
+        code: 'UNAUTHORIZED',
+        timestamp: new Date().toISOString(),
       });
       return;
     }
 
-    if (!pollId || !Array.isArray(menuItemIds)) {
+    // Валидация входных данных с Zod
+    const parseResult = CreateMultipleVotesSchema.safeParse(req.body);
+    if (!parseResult.success) {
       res.status(400).json({
         success: false,
-        error: 'pollId and menuItemIds array required',
+        error: 'Validation error',
+        code: 'VALIDATION_ERROR',
+        details: parseResult.error.errors.map(e => ({
+          field: e.path.join('.'),
+          message: e.message,
+        })),
+        timestamp: new Date().toISOString(),
       });
       return;
     }
+
+    const { pollId, menuItemIds } = parseResult.data;
 
     // 1. Получаем текущие голоса пользователя
     const currentVotes = await VoteService.getUserVotes(pollId, userId);
@@ -81,18 +109,33 @@ export async function createMultipleVotes(req: Request, res: Response): Promise<
  */
 export async function getUserVotes(req: Request, res: Response): Promise<void> {
   try {
-    const { pollId } = req.params;
     const userId = req.user?.id;
 
     if (!userId) {
       res.status(401).json({
         success: false,
         error: 'Unauthorized',
+        code: 'UNAUTHORIZED',
+        timestamp: new Date().toISOString(),
       });
       return;
     }
 
-    const votes = await VoteService.getUserVotes(parseInt(pollId), userId);
+    // Валидация params с Zod
+    const parseResult = PollIdParamsSchema.safeParse(req.params);
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid pollId parameter',
+        code: 'VALIDATION_ERROR',
+        details: parseResult.error.errors,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const { pollId } = parseResult.data;
+    const votes = await VoteService.getUserVotes(pollId, userId);
 
     res.json({
       success: true,
@@ -114,18 +157,33 @@ export async function getUserVotes(req: Request, res: Response): Promise<void> {
  */
 export async function deleteVote(req: Request, res: Response): Promise<void> {
   try {
-    const { pollId, menuItemId } = req.params;
     const userId = req.user?.id;
 
     if (!userId) {
       res.status(401).json({
         success: false,
         error: 'Unauthorized',
+        code: 'UNAUTHORIZED',
+        timestamp: new Date().toISOString(),
       });
       return;
     }
 
-    await VoteService.deleteVote(parseInt(pollId), userId, parseInt(menuItemId));
+    // Валидация params с Zod
+    const parseResult = DeleteVoteParamsSchema.safeParse(req.params);
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid parameters',
+        code: 'VALIDATION_ERROR',
+        details: parseResult.error.errors,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const { pollId, menuItemId } = parseResult.data;
+    await VoteService.deleteVote(pollId, userId, menuItemId);
 
     res.json({
       success: true,

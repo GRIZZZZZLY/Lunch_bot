@@ -3,6 +3,7 @@ import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreateUserData, UpdateUserData } from '../types/user.types';
 import { now } from '../utils/date';
+import { EncryptionService } from '../utils/encryption';
 
 export class UserService {
   /**
@@ -271,6 +272,7 @@ export class UserService {
 
   /**
    * Обновление платёжных данных пользователя
+   * Sprint 1: Данные шифруются перед сохранением
    */
   static async updatePaymentInfo(
     userId: number,
@@ -281,17 +283,40 @@ export class UserService {
     }
   ): Promise<User> {
     try {
+      // Шифруем чувствительные данные перед сохранением
+      const encryptedData: {
+        paymentCard?: string;
+        paymentPhone?: string;
+        paymentDetails?: string;
+        updatedAt: Date;
+      } = {
+        updatedAt: now(),
+      };
+
+      if (data.paymentCard !== undefined) {
+        encryptedData.paymentCard = data.paymentCard 
+          ? EncryptionService.encrypt(data.paymentCard)
+          : data.paymentCard; // null или пустая строка остаются как есть
+      }
+
+      if (data.paymentPhone !== undefined) {
+        encryptedData.paymentPhone = data.paymentPhone
+          ? EncryptionService.encrypt(data.paymentPhone)
+          : data.paymentPhone;
+      }
+
+      if (data.paymentDetails !== undefined) {
+        encryptedData.paymentDetails = data.paymentDetails
+          ? EncryptionService.encrypt(data.paymentDetails)
+          : data.paymentDetails;
+      }
+
       const user = await prisma.user.update({
         where: { id: userId },
-        data: {
-          paymentCard: data.paymentCard,
-          paymentPhone: data.paymentPhone,
-          paymentDetails: data.paymentDetails,
-          updatedAt: now(),
-        },
+        data: encryptedData,
       });
 
-      logger.info(`Payment info updated for user: ${user.id}`);
+      logger.info(`Payment info updated for user: ${user.id} (encrypted)`);
       return user;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -306,6 +331,7 @@ export class UserService {
 
   /**
    * Получение платёжных данных пользователя
+   * Sprint 1: Данные расшифровываются при получении
    */
   static async getPaymentInfo(userId: number): Promise<{
     paymentCard?: string | null;
@@ -322,9 +348,64 @@ export class UserService {
         },
       });
 
-      return user;
+      if (!user) {
+        return null;
+      }
+
+      // Расшифровываем данные (EncryptionService.decrypt обрабатывает legacy данные)
+      return {
+        paymentCard: user.paymentCard 
+          ? EncryptionService.decrypt(user.paymentCard) 
+          : user.paymentCard,
+        paymentPhone: user.paymentPhone 
+          ? EncryptionService.decrypt(user.paymentPhone) 
+          : user.paymentPhone,
+        paymentDetails: user.paymentDetails 
+          ? EncryptionService.decrypt(user.paymentDetails) 
+          : user.paymentDetails,
+      };
     } catch (error) {
       logger.error('Error getting payment info:', error);
+      throw new Error('Failed to get payment info');
+    }
+  }
+
+  /**
+   * Получение маскированных платёжных данных (для отображения)
+   * Показывает только последние 4 цифры карты/телефона
+   */
+  static async getMaskedPaymentInfo(userId: number): Promise<{
+    paymentCard?: string | null;
+    paymentPhone?: string | null;
+    paymentDetails?: string | null;
+  } | null> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          paymentCard: true,
+          paymentPhone: true,
+          paymentDetails: true,
+        },
+      });
+
+      if (!user) {
+        return null;
+      }
+
+      return {
+        paymentCard: user.paymentCard 
+          ? EncryptionService.maskCardNumber(user.paymentCard)
+          : null,
+        paymentPhone: user.paymentPhone 
+          ? EncryptionService.maskPhone(user.paymentPhone)
+          : null,
+        paymentDetails: user.paymentDetails 
+          ? EncryptionService.decrypt(user.paymentDetails) 
+          : null,
+      };
+    } catch (error) {
+      logger.error('Error getting masked payment info:', error);
       throw new Error('Failed to get payment info');
     }
   }

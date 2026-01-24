@@ -11,6 +11,7 @@ const helmet_1 = __importDefault(require("helmet"));
 const path_1 = __importDefault(require("path"));
 const cors_1 = require("./middleware/cors");
 const error_handler_1 = require("./middleware/error-handler");
+const rate_limiter_1 = require("./middleware/rate-limiter");
 const api_config_1 = require("../config/api.config");
 const logger_1 = require("../utils/logger");
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
@@ -57,6 +58,8 @@ function createApiServer() {
     app.use(metrics_1.metricsMiddleware);
     app.use('/health', health_routes_1.default);
     app.use('/api', cors_1.corsMiddleware);
+    app.use('/api', rate_limiter_1.generalLimiter);
+    app.use('/api/auth', rate_limiter_1.authLimiter);
     app.use('/api/auth', auth_routes_1.default);
     app.use('/api/menu', menu_routes_1.default);
     app.use('/api/suggestions', menu_suggestion_routes_1.default);

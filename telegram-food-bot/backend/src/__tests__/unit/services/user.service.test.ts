@@ -1,6 +1,7 @@
 import { prismaMock } from '../../mocks/prisma';
 import { UserService } from '../../../services/user.service';
 import { User } from '@prisma/client';
+import { EncryptionService } from '../../../utils/encryption';
 
 // Mock prisma client
 jest.mock('../../../database/client', () => ({
@@ -626,18 +627,24 @@ describe('UserService', () => {
       // Act
       const result = await UserService.updatePaymentInfo(userId, paymentData);
 
-      // Assert
+      // Assert - Sprint 1: now data is encrypted before saving
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: userId },
         data: {
-          paymentCard: paymentData.paymentCard,
-          paymentPhone: paymentData.paymentPhone,
-          paymentDetails: paymentData.paymentDetails,
+          // Values should be encrypted (format: IV:AuthTag:CipherText)
+          paymentCard: expect.stringMatching(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/),
+          paymentPhone: expect.stringMatching(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/),
+          paymentDetails: expect.stringMatching(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/),
           updatedAt: expect.any(Date),
         },
       });
       expect(result).toEqual(expectedUser);
-      expect(result.paymentCard).toBe(paymentData.paymentCard);
+      
+      // Verify encrypted data can be decrypted back to original
+      const updateCall = (prisma.user.update as jest.Mock).mock.calls[0][0];
+      expect(EncryptionService.decrypt(updateCall.data.paymentCard)).toBe(paymentData.paymentCard);
+      expect(EncryptionService.decrypt(updateCall.data.paymentPhone)).toBe(paymentData.paymentPhone);
+      expect(EncryptionService.decrypt(updateCall.data.paymentDetails)).toBe(paymentData.paymentDetails);
     });
 
     it('should throw error when user not found', async () => {

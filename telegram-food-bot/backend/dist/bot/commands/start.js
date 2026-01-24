@@ -53,7 +53,7 @@ async function startCommand(ctx) {
         const isNewUser = ctx.session?.step !== 'registered';
         ctx.session.step = 'registered';
         const startParam = ctx.match;
-        const webappUrl = process.env.WEBAPP_URL || 'https://2072f129141b.ngrok-free.app';
+        const webappUrl = process.env.WEBAPP_URL || 'https://ergodic-genevieve-unsulphurized.ngrok-free.dev';
         if (startParam && startParam.toString().startsWith('menu_')) {
             const groupId = startParam.toString().replace('menu_', '');
             await ctx.reply('🍽 *Открываю управление меню...*\n\n' +

@@ -8,8 +8,8 @@ const gradientButtonVariants = cva(
   {
     variants: {
       variant: {
-        // 🍑 Peach gradient (Food primary)
-        peach: "bg-gradient-to-r from-peach-500 to-coral-500 text-white hover:shadow-[0_10px_30px_rgba(255,120,81,0.4)] dark:from-peach-300 dark:to-coral-300 dark:text-black",
+        // 🍑 Peach gradient (Food primary) - персиковый для светлой темы, фиолетовый для тёмной
+        peach: "bg-gradient-to-r from-peach-500 to-coral-500 text-white hover:shadow-[0_10px_30px_rgba(255,120,81,0.4)] dark:from-purple-500 dark:to-violet-500 dark:hover:shadow-[0_10px_30px_rgba(139,92,246,0.4)]",
         
         // 🌿 Mint gradient (Success)
         mint: "bg-gradient-to-r from-mint-500 to-mint-600 text-white hover:shadow-[0_10px_30px_rgba(92,174,135,0.4)] dark:from-mint-300 dark:to-mint-400 dark:text-black",

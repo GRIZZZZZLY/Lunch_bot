@@ -155,26 +155,15 @@ export const MenuList: React.FC<MenuListProps> = ({
                   damping: 25
                 }}
               >
-                {showActions ? (
-                  // Admin view - with swipe actions
-                  <SwipeableMenuItem
-                    item={item}
-                    onEdit={onEdit}
-                    onDelete={onDelete ? () => handleDelete(item.id) : undefined}
-                    onToggle={onToggleStatus ? () => handleToggleStatus(item) : undefined}
-                    loading={deletingId === item.id}
-                  />
-                ) : (
-                  // Regular user view - simple card
-                  <MenuItemCard
-                    item={item}
-                    onEdit={onEdit}
-                    onDelete={onDelete ? () => handleDelete(item.id) : undefined}
-                    onToggle={onToggleStatus ? () => handleToggleStatus(item) : undefined}
-                    showActions={false}
-                    loading={deletingId === item.id}
-                  />
-                )}
+                {/* Show card with action buttons for both admin and users */}
+                <MenuItemCard
+                  item={item}
+                  onEdit={onEdit}
+                  onDelete={onDelete ? () => handleDelete(item.id) : undefined}
+                  onToggle={onToggleStatus ? () => handleToggleStatus(item) : undefined}
+                  showActions={showActions}
+                  loading={deletingId === item.id}
+                />
               </motion.div>
             ))}
           </div>

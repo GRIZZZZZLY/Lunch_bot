@@ -6,6 +6,7 @@ import {
   RotateCcw,
   Sparkles,
   UserPlus,
+  Flame,
 } from 'lucide-react';
 
 // New shadcn/ui components
@@ -48,10 +49,17 @@ import { useMenuItems } from '../hooks/queries';
 import { useUserGroups } from '../hooks/queries/useUserQueries';
 import { useTodayCompletedPoll } from '../hooks/useTodayCompletedPoll';
 import { cn, formatRelativeTime } from '../lib/utils';
+import { TYPOGRAPHY_H1, TYPOGRAPHY_H2 } from '../lib/typography';
 import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
 import { ICON_SIZES } from '@/lib/design-tokens';
+import { getContextualGreeting, getEmptyStateMessage } from '../lib/contextual-messages';
+import { StreakCard } from '../components/streaks/StreakCard';
+import { StreakBadge } from '../components/streaks/StreakBadge';
+import { getUserStreak, updateStreakAfterVote } from '../services/streak.service';
+import { InsightsCard } from '../components/insights/InsightsCard';
+import { generatePersonalInsights } from '../services/insights.service';
 
 /**
  * HomePage - Умная адаптивная главная страница
@@ -150,12 +158,43 @@ export const HomePage: React.FC = () => {
     // Обновляем ref для следующего цикла
     prevActivePollRef.current = activePoll;
   }, [activePoll, todayCompletedPoll, showCelebration]);
+
+  // Проверяем проголосовал ли пользователь
+  const hasVoted = activePoll?.votes?.some(vote => vote.userId === user?.id) || false;
+  
+  // Проверяем осталось ли меньше 5 минут до закрытия
+  const isPollEnding = activePoll ? (() => {
+    const endTime = new Date(activePoll.endTime);
+    const now = new Date();
+    const minutesLeft = (endTime.getTime() - now.getTime()) / (1000 * 60);
+    return minutesLeft < 5 && minutesLeft > 0;
+  })() : false;
+
+  // Получаем контекстное приветствие
+  const contextualGreeting = getContextualGreeting({
+    timeOfDay: gradientColors.timeOfDay,
+    hasActivePoll: !!activePoll,
+    hasVoted,
+    isPollEnding,
+    hasCompletedPoll: !!todayCompletedPoll,
+    userName: user?.firstName,
+  });
   
   // Модалки
   const [isTopDishModalOpen, setIsTopDishModalOpen] = useState(false);
   const [topDishData, setTopDishData] = useState<any>(null);
   const [loadingTopDish, setLoadingTopDish] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+
+  // Streak система
+  const [userStreak, setUserStreak] = useState(getUserStreak(user?.id || 0));
+  const [showStreakMilestone, setShowStreakMilestone] = useState(false);
+  const [achievedMilestone, setAchievedMilestone] = useState<any>(null);
+
+  // Персональные инсайты
+  const [personalInsights, setPersonalInsights] = useState(
+    generatePersonalInsights(user?.id || 0)
+  );
   
   // NOTE: userPollCount и Welcome Card удалены - инструкция показывается только при первом запуске
   
@@ -624,24 +663,24 @@ export const HomePage: React.FC = () => {
         animate="show"
         className="space-y-8 min-h-screen"
       >
-        {/* Header Section */}
+        {/* Header Section - Компактное приветствие */}
         <motion.div variants={itemVariants}>
-          <PastelCard variant="peach" className="overflow-hidden">
-            <CardContent className="relative pt-6">
+          <PastelCard variant="default" className="overflow-hidden border-l-4 border-orange-500 dark:border-purple-500">
+            <CardContent className="relative py-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="text-4xl">{timeIcon}</div>
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="text-4xl">{contextualGreeting.emoji}</div>
                   <div>
-                    <h1 className="text-xl font-bold text-foreground">
-                      Привет, {user?.firstName || 'Гость'}!
+                    <h1 className="text-xl font-semibold text-foreground leading-tight">
+                      {contextualGreeting.greeting}
                     </h1>
-                    <p className="text-sm text-muted-foreground">
-                      Время перекуса 🍽️
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {contextualGreeting.message}
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <ThemeToggle variant="ghost" size="sm" />
                   <div
                     className="cursor-pointer"
@@ -661,6 +700,68 @@ export const HomePage: React.FC = () => {
           </PastelCard>
         </motion.div>
 
+        {/* Streak Section */}
+        {userStreak.currentStreak > 0 && (
+          <motion.div variants={itemVariants}>
+            <StreakCard
+              currentStreak={userStreak.currentStreak}
+              longestStreak={userStreak.longestStreak}
+              totalVotes={userStreak.totalVotes}
+              showConfetti={showStreakMilestone}
+              compact
+            />
+          </motion.div>
+        )}
+
+        {/* Milestone Achievement Overlay */}
+        <AnimatePresence>
+          {showStreakMilestone && achievedMilestone && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+              onClick={() => setShowStreakMilestone(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                transition={{ type: 'spring', damping: 15 }}
+                className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-2xl max-w-md mx-4 text-center"
+              >
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 0.6 }}
+                  className="text-8xl mb-4"
+                >
+                  {achievedMilestone.emoji}
+                </motion.div>
+                
+                <h2 className="text-3xl font-bold text-foreground mb-2">
+                  {achievedMilestone.title}!
+                </h2>
+                
+                <p className="text-lg text-muted-foreground mb-6">
+                  {achievedMilestone.message}
+                </p>
+                
+                <div className="flex items-center justify-center gap-2 text-orange-500 font-bold text-2xl">
+                  <Flame size={32} className="fill-current" />
+                  <span>{userStreak.currentStreak} дней подряд</span>
+                </div>
+                
+                <button
+                  onClick={() => setShowStreakMilestone(false)}
+                  className="mt-6 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:scale-105 transition-transform"
+                >
+                  Продолжить 🚀
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Hero Section - Active Poll Widget */}
         <AnimatePresence mode="wait">
           {isLoading ? (
@@ -670,7 +771,7 @@ export const HomePage: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <PastelCard variant="lavender" className="p-6">
+              <PastelCard variant="default" className="p-6 border-l-4 border-gray-300 dark:border-gray-600">
                 <Skeleton className="h-8 w-2/3 mb-4" />
                 <Skeleton className="h-4 w-full mb-2" />
                 <Skeleton className="h-4 w-3/4" />
@@ -687,7 +788,25 @@ export const HomePage: React.FC = () => {
               <InlineVotingCard
                 poll={activePoll}
                 onPollClosed={handlePollClosed}
-                onVoteSuccess={() => refetch()}
+                onVoteSuccess={() => {
+                  // Обновляем streak после голосования
+                  if (user?.id) {
+                    const { streak, milestoneAchieved, newMilestone } = updateStreakAfterVote(user.id);
+                    setUserStreak(streak);
+                    
+                    if (milestoneAchieved && newMilestone) {
+                      setAchievedMilestone(newMilestone);
+                      setShowStreakMilestone(true);
+                      haptic.success();
+                      
+                      // Скрываем через 5 секунд
+                      setTimeout(() => {
+                        setShowStreakMilestone(false);
+                      }, 5000);
+                    }
+                  }
+                  refetch();
+                }}
               />
             </motion.div>
           ) : loadingCompletedPoll ? (
@@ -697,7 +816,7 @@ export const HomePage: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <PastelCard variant="sky" className="p-6">
+              <PastelCard variant="default" className="p-6 border-l-4 border-gray-300 dark:border-gray-600">
                 <Skeleton className="h-8 w-2/3 mb-4" />
                 <Skeleton className="h-4 w-full mb-2" />
                 <Skeleton className="h-4 w-3/4" />
@@ -723,7 +842,7 @@ export const HomePage: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <PastelCard variant="sage" className="p-6">
+              <PastelCard variant="default" className="p-6 border-l-4 border-green-500">
                 <div className="text-center space-y-4">
                   <div className="text-6xl">🎉</div>
                   <Skeleton className="h-8 w-2/3 mx-auto mb-4" />
@@ -741,19 +860,26 @@ export const HomePage: React.FC = () => {
             >
               <PastelCard variant="default" className="overflow-hidden">
                 <CardContent className="relative py-8 px-6 text-center space-y-6">
-                  <div className="text-6xl">🍽️</div>
+                  {(() => {
+                    const emptyState = getEmptyStateMessage(gradientColors.timeOfDay, !!todayCompletedPoll);
+                    return (
+                      <>
+                        <div className="text-6xl">{emptyState.emoji}</div>
 
-                  <div className="space-y-2">
-                    <h2 className="text-2xl font-bold text-foreground">
-                      Нет активного голосования
-                    </h2>
-                    <p className="text-muted-foreground">
-                      {user?.isAdmin
-                        ? 'Создайте новое голосование для группы'
-                        : 'Пока нет активных голосований, но скоро появятся!'
-                      }
-                    </p>
-                  </div>
+                        <div className="space-y-2">
+                          <h2 className={cn(TYPOGRAPHY_H2.className, "text-foreground")}>
+                            {emptyState.title}
+                          </h2>
+                          <p className="text-muted-foreground">
+                            {user?.isAdmin
+                              ? 'Создайте новое голосование для группы'
+                              : emptyState.description
+                            }
+                          </p>
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   {user?.isAdmin && (
                     <div className="flex flex-col gap-3">
@@ -789,15 +915,15 @@ export const HomePage: React.FC = () => {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={handleRemindAdmin}
-                      className="w-full bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all mt-4"
+                      className="w-full bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 ease-out mt-4"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-pastel-peach-50 dark:bg-pastel-peach-900/20">
-                            <Bell className={cn(ICON_SIZES.md, "text-pastel-peach-500")} />
+                          <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
+                            <Bell className={cn(ICON_SIZES.md, "text-orange-600 dark:text-orange-400")} />
                           </div>
                           <div className="text-left">
-                            <p className="font-medium text-gray-900 dark:text-white">
+                            <p className="font-semibold text-gray-900 dark:text-white">
                               Напомнить админу
                             </p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -814,6 +940,13 @@ export const HomePage: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Personal Insights Section */}
+        {personalInsights.length > 0 && (
+          <motion.div variants={itemVariants}>
+            <InsightsCard insights={personalInsights} />
+          </motion.div>
+        )}
 
 
 
@@ -843,12 +976,7 @@ export const HomePage: React.FC = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleInviteFriend}
-            className={cn(
-              "relative w-full rounded-xl p-4 shadow-lg hover:shadow-xl transition-all",
-              isDark
-                ? "bg-gradient-to-r from-pastel-lavender-500 to-pastel-mint-500"
-                : "bg-gradient-to-r from-pastel-peach-500 to-pastel-coral-500"
-            )}
+            className="relative w-full rounded-xl p-4 bg-gradient-to-r from-violet-500 to-purple-600 shadow-[0_0_15px_rgba(139,92,246,0.5)] hover:shadow-[0_0_25px_rgba(139,92,246,0.65)] transition-all"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -856,7 +984,7 @@ export const HomePage: React.FC = () => {
                   <UserPlus className={cn(ICON_SIZES.lg, "text-white")} />
                 </div>
                 <div className="text-left">
-                  <p className="font-bold text-white text-lg">
+                  <p className="font-semibold text-white text-lg">
                     Пригласить друга
                   </p>
                   <p className="text-sm text-white/80">

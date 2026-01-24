@@ -18,11 +18,11 @@ interface Stats01Props {
 }
 
 const variantStyles = {
-  peach: "border-pastel-peach-200 bg-pastel-peach-50 dark:border-gray-700 dark:bg-gray-800",
-  lavender: "border-pastel-lavender-200 bg-pastel-lavender-50 dark:border-gray-700 dark:bg-gray-800",
-  sky: "border-pastel-sky-200 bg-pastel-sky-50 dark:border-gray-700 dark:bg-gray-800",
-  sage: "border-pastel-sage-200 bg-pastel-sage-50 dark:border-gray-700 dark:bg-gray-800 dark:shadow-[0_0_20px_rgba(140,224,185,0.15)]",
-  rose: "border-pastel-rose-200 bg-pastel-rose-50 dark:border-gray-700 dark:bg-gray-800 dark:shadow-[0_0_20px_rgba(252,165,165,0.15)]",
+  peach: "border-l-4 border-orange-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
+  lavender: "border-l-4 border-purple-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
+  sky: "border-l-4 border-blue-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
+  sage: "border-l-4 border-green-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
+  rose: "border-l-4 border-red-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
   default: "border-border bg-card dark:border-border dark:bg-card",
 }
 
@@ -48,7 +48,7 @@ export const Stats01: React.FC<Stats01Props> = ({
               {title}
             </p>
             <div className="flex items-baseline gap-2">
-              <h3 className="text-3xl font-bold tracking-tight">
+              <h3 className="text-3xl font-semibold tracking-tight">
                 {value}
               </h3>
               {trend && (

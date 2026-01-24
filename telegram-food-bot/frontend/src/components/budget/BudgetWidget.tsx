@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBudgetWidget } from '../../hooks/useBudgetWidget';
 import { PastelCard } from '../ui/pastel-card';
@@ -8,10 +8,11 @@ import { WaitingConfirmationView } from './WaitingConfirmationView';
 import { SuccessMessageView } from './SuccessMessageView';
 import { ResponsibleView } from './ResponsibleView';
 import { OverviewView } from './OverviewView';
-import { Wallet, AlertCircle, CheckCircle2, Crown, TrendingUp } from 'lucide-react';
+import { Wallet, AlertCircle, CheckCircle2, Crown, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { ICON_SIZES } from '@/lib/design-tokens';
+import { useHaptic } from '../../hooks/useHaptic';
 
 /**
  * Стили для разных сценариев
@@ -98,7 +99,7 @@ class BudgetWidgetErrorBoundary extends React.Component<
 
 /**
  * Адаптивный виджет бюджет-трекера
- * Меняется в зависимости от контекста (6 сценариев)
+ * Всегда видимый, раскрываемый/сворачиваемый
  */
 const BudgetWidgetContent: React.FC = () => {
   const {
@@ -113,186 +114,170 @@ const BudgetWidgetContent: React.FC = () => {
   } = useBudgetWidget();
 
   const queryClient = useQueryClient();
+  const haptic = useHaptic();
   
-  // Debug logging
+  // Состояние свёрнут/развёрнут (по умолчанию свёрнут если нет активных долгов)
+  const [isExpanded, setIsExpanded] = useState(() => {
+    // Автоматически разворачиваем если есть активные долги или кредиты
+    return scenario !== 'hidden' && scenario !== 'overview';
+  });
+
+  // Автоматически разворачиваем при появлении срочных долгов
   useEffect(() => {
-    console.log('🔵 [BudgetWidget] Render:', {
-      scenario,
-      isLoading,
-      debtsCount: otherDebts.length,
-      creditsCount: credits.length,
-      totalDebts,
-      totalCredits,
-      currentDebt: currentDebt?.id,
-      otherDebts: otherDebts.map(d => ({ id: d.id, amount: d.amount, menuItem: d.menuItem?.name })),
-      credits: credits.map(c => ({ id: c.id, amount: c.amount, fromUser: c.fromUser.firstName })),
-    });
-  }, [scenario, isLoading, otherDebts, credits, totalDebts, totalCredits, currentDebt]);
+    if (scenario === 'urgent-debt' || scenario === 'responsible-view') {
+      setIsExpanded(true);
+    }
+  }, [scenario]);
   
   // Auto-hide для success-message через 3 секунды
   useEffect(() => {
     if (scenario === 'success-message') {
       const timer = setTimeout(() => {
-        // Invalidate queries чтобы обновить данные и перейти к следующему состоянию
         queryClient.invalidateQueries({ queryKey: ['budget'] });
       }, 3000);
-      
       return () => clearTimeout(timer);
     }
   }, [scenario, queryClient]);
-  
-  // DEBUG MODE - показываем информацию для отладки
-  const DEBUG_MODE = false;
-  
-  // Скрываем виджет если нет данных
-  if (scenario === 'hidden' || isLoading) {
-    if (DEBUG_MODE) {
-      return (
-        <PastelCard variant="rose" className="p-4">
-          <div className="text-xs space-y-2 font-mono">
-            <div className="font-bold text-red-500">🔍 DEBUG: Widget Hidden</div>
-            <div>Scenario: {scenario}</div>
-            <div>Loading: {isLoading ? 'YES' : 'NO'}</div>
-            <div>Debts count: {otherDebts.length}</div>
-            <div>Credits count: {credits.length}</div>
-            <div>Total debts: {totalDebts}₽</div>
-            <div>Total credits: {totalCredits}₽</div>
-          </div>
-        </PastelCard>
-      );
+
+  const toggleExpanded = () => {
+    haptic.light();
+    setIsExpanded(!isExpanded);
+  };
+
+  // Определяем отображаемый стиль
+  const displayScenario = scenario === 'hidden' ? 'overview' : scenario;
+  const style = scenarioStyles[displayScenario];
+
+  // Краткая сводка для свёрнутого состояния
+  const getSummary = () => {
+    if (totalDebts > 0 && totalCredits > 0) {
+      return `Долг: ${totalDebts}₽ · Вам должны: ${totalCredits}₽`;
     }
-    return null;
+    if (totalDebts > 0) {
+      return `Ваш долг: ${totalDebts}₽`;
+    }
+    if (totalCredits > 0) {
+      return `Вам должны: ${totalCredits}₽`;
+    }
+    return 'Нет активных долгов';
+  };
+
+  // Определяем есть ли что показывать в развёрнутом виде
+  const hasContent = scenario !== 'hidden' || otherDebts.length > 0 || credits.length > 0;
+  
+  if (isLoading) {
+    return (
+      <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+          <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </div>
+      </div>
+    );
   }
   
-  const style = scenarioStyles[scenario];
-  
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={scenario}
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -20, scale: 0.95 }}
-        transition={{ 
-          type: "spring", 
-          stiffness: 300, 
-          damping: 25,
-          duration: 0.3 
-        }}
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div
+        className={cn(
+          "rounded-xl overflow-hidden transition-all duration-200",
+          "bg-white dark:bg-gray-800 border-2",
+          // Цветные обводки для разных сценариев
+          displayScenario === 'urgent-debt' && 'border-rose-300 dark:border-rose-700',
+          displayScenario === 'waiting-confirmation' && 'border-sky-300 dark:border-sky-700',
+          displayScenario === 'success-message' && 'border-emerald-300 dark:border-emerald-700',
+          displayScenario === 'responsible-view' && 'border-amber-300 dark:border-amber-700',
+          displayScenario === 'overview' && 'border-gray-200 dark:border-gray-700'
+        )}
       >
-        <div
-          className={cn(
-            "rounded-xl overflow-hidden hover:scale-[1.01] transition-transform",
-            "bg-white dark:bg-gray-800 border-2",
-            // Цветные обводки для разных сценариев
-            scenario === 'urgent-debt' && 'border-pastel-rose-300 dark:border-pastel-rose-700',
-            scenario === 'waiting-confirmation' && 'border-pastel-sky-300 dark:border-pastel-sky-700',
-            scenario === 'success-message' && 'border-pastel-sage-300 dark:border-pastel-sage-700',
-            scenario === 'responsible-view' && 'border-pastel-peach-300 dark:border-pastel-peach-700',
-            scenario === 'overview' && 'border-gray-200 dark:border-gray-700'
-          )}
+        {/* Header - всегда видимый, кликабельный */}
+        <button
+          onClick={toggleExpanded}
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
         >
-          {/* DEBUG INFO */}
-          {DEBUG_MODE && (
-            <div className="bg-yellow-100 dark:bg-yellow-900/20 p-2 text-xs font-mono space-y-1 max-h-96 overflow-y-auto">
-              <div className="font-bold">🔍 DEBUG INFO:</div>
-              <div>Scenario: {scenario}</div>
-              <div>Debts: {otherDebts.length} items, Total: {totalDebts}₽</div>
-              <div>Credits: {credits.length} items, Total: {totalCredits}₽</div>
-              {currentDebt && <div>Current debt: #{currentDebt.id}, {currentDebt.amount}₽</div>}
-              <div>Is Responsible: {isResponsible ? 'YES' : 'NO'}</div>
-              
-              {/* Детальная информация о долгах */}
-              {otherDebts.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-yellow-300">
-                  <div className="font-bold">📋 Debts Details:</div>
-                  {otherDebts.map((debt, idx) => (
-                    <div key={debt.id} className="ml-2 mt-1 pl-2 border-l-2 border-yellow-400">
-                      <div>#{idx + 1}: ID={debt.id}, Amount={debt.amount}₽</div>
-                      <div>Item: {debt.menuItem?.name || 'N/A'}</div>
-                      <div>To: {debt.toUser?.firstName || 'Unknown'} (ID: {debt.toUserId})</div>
-                      <div>From: {debt.fromUser?.firstName || 'Unknown'} (ID: {debt.fromUserId})</div>
-                      <div>Status: {debt.status}</div>
-                      <div>PollId: {debt.pollId}</div>
-                      <div>Created: {new Date(debt.createdAt).toLocaleString()}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Детальная информация о кредитах */}
-              {credits.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-yellow-300">
-                  <div className="font-bold">💰 Credits Details:</div>
-                  {credits.map((credit, idx) => (
-                    <div key={credit.id} className="ml-2 mt-1 pl-2 border-l-2 border-yellow-400">
-                      <div>#{idx + 1}: ID={credit.id}, Amount={credit.amount}₽</div>
-                      <div>From: {credit.fromUser?.firstName || 'Unknown'} (ID: {credit.fromUserId})</div>
-                      <div>Status: {credit.status}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Header - компактный стиль как в BudgetWidgetCompact */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              {style.icon}
-              <h3 className="font-semibold text-base text-foreground">
+          <div className="flex items-center gap-2">
+            {style.icon}
+            <div className="text-left">
+              <h3 className="font-semibold text-sm text-foreground">
                 {style.title}
               </h3>
+              {!isExpanded && (
+                <p className="text-xs text-muted-foreground">
+                  {getSummary()}
+                </p>
+              )}
             </div>
+          </div>
+          <div className="flex items-center gap-2">
             {style.badge && (
               <Badge variant={style.badge.variant} className="text-xs">
                 {style.badge.text}
               </Badge>
             )}
-          </div>
-          
-          {/* Content - стандартный padding */}
-          <div className="px-4 py-4">
-            {/* Добавляем дополнительные проверки для предотвращения крашей */}
-            {scenario === 'urgent-debt' && currentDebt && (
-              <UrgentDebtView 
-                debt={currentDebt}
-                otherDebts={otherDebts || []}
-                credits={credits || []}
-              />
-            )}
-            
-            {scenario === 'waiting-confirmation' && currentDebt && (
-              <WaitingConfirmationView
-                debt={currentDebt}
-                otherDebts={otherDebts || []}
-                credits={credits || []}
-              />
-            )}
-            
-            {scenario === 'success-message' && currentDebt && (
-              <SuccessMessageView debt={currentDebt} />
-            )}
-            
-            {scenario === 'responsible-view' && credits && credits.length > 0 && (
-              <ResponsibleView
-                credits={credits}
-                otherDebts={otherDebts || []}
-              />
-            )}
-            
-            {scenario === 'overview' && (
-              <OverviewView
-                debts={otherDebts || []}
-                credits={credits || []}
-                totalDebts={totalDebts || 0}
-                totalCredits={totalCredits || 0}
-              />
+            {isExpanded ? (
+              <ChevronUp className={cn(ICON_SIZES.sm, "text-muted-foreground")} />
+            ) : (
+              <ChevronDown className={cn(ICON_SIZES.sm, "text-muted-foreground")} />
             )}
           </div>
-        </div>
-      </motion.div>
-    </AnimatePresence>
+        </button>
+        
+        {/* Content - раскрываемый */}
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 py-4 border-t border-border/50">
+                {scenario === 'urgent-debt' && currentDebt && (
+                  <UrgentDebtView 
+                    debt={currentDebt}
+                    otherDebts={otherDebts || []}
+                    credits={credits || []}
+                  />
+                )}
+                
+                {scenario === 'waiting-confirmation' && currentDebt && (
+                  <WaitingConfirmationView
+                    debt={currentDebt}
+                    otherDebts={otherDebts || []}
+                    credits={credits || []}
+                  />
+                )}
+                
+                {scenario === 'success-message' && currentDebt && (
+                  <SuccessMessageView debt={currentDebt} />
+                )}
+                
+                {scenario === 'responsible-view' && credits && credits.length > 0 && (
+                  <ResponsibleView
+                    credits={credits}
+                    otherDebts={otherDebts || []}
+                  />
+                )}
+                
+                {(scenario === 'overview' || scenario === 'hidden') && (
+                  <OverviewView
+                    debts={otherDebts || []}
+                    credits={credits || []}
+                    totalDebts={totalDebts || 0}
+                    totalCredits={totalCredits || 0}
+                  />
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
   );
 };
 
