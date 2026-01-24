@@ -12,6 +12,7 @@ import { Layout } from './components/layout/Layout';
 import { BottomNavigation } from './components/layout/BottomNavigation';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { PWAUpdatePrompt } from './components/common/PWAUpdatePrompt';
+import { NavigationProgress } from './components/common/NavigationProgress';
 import { WelcomeModal } from './components/onboarding';
 import { useOnboarding } from './hooks/useOnboarding';
 import { useAppStore } from './store/useAppStore';
@@ -272,6 +273,7 @@ function App() {
               info: undefined,
             }}
           />
+          <NavigationProgress />
           <OfflineIndicator />
           <PWAUpdatePrompt />
           <WebVitals />

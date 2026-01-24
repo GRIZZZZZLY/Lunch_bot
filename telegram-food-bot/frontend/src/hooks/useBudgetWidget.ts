@@ -47,16 +47,14 @@ export function useBudgetWidget(): BudgetWidgetData {
       }
     },
     enabled: !!user,
-    staleTime: 0, // Данные всегда устаревшие - нет кэширования
-    gcTime: 0, // Не хранить в кэше
-    refetchInterval: 10000, // Обновляем каждые 10 секунд
-    refetchOnMount: 'always', // Всегда перезагружать при монтировании
-    refetchOnWindowFocus: true, // Перезагружать при фокусе окна
-    retry: 1, // Одна попытка повтора
+    staleTime: 30000, // Данные актуальны 30 секунд
+    gcTime: 60000, // Хранить в кэше 1 минуту
+    refetchInterval: 60000, // Обновляем каждые 60 секунд (было 10)
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 1,
     retryDelay: 2000,
-    // CRITICAL: Отключаем показ ошибок через React Query Error Boundary
     throwOnError: false,
-    // Отключаем логирование ошибок в консоль от React Query
     meta: {
       errorMessage: 'Failed to fetch debts',
     },
@@ -72,21 +70,18 @@ export function useBudgetWidget(): BudgetWidgetData {
         return result || [];
       } catch (error) {
         console.error('[useBudgetWidget] ❌ Credits fetch error:', error);
-        // Возвращаем пустой массив вместо throw для graceful degradation
         return [];
       }
     },
     enabled: !!user,
-    staleTime: 0, // Данные всегда устаревшие - нет кэширования
-    gcTime: 0, // Не хранить в кэше
-    refetchInterval: 10000,
-    refetchOnMount: 'always', // Всегда перезагружать при монтировании
-    refetchOnWindowFocus: true, // Перезагружать при фокусе окна
+    staleTime: 30000, // Данные актуальны 30 секунд
+    gcTime: 60000, // Хранить в кэше 1 минуту
+    refetchInterval: 60000, // Обновляем каждые 60 секунд (было 10)
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     retry: 1,
     retryDelay: 2000,
-    // CRITICAL: Отключаем показ ошибок через React Query Error Boundary
     throwOnError: false,
-    // Отключаем логирование ошибок в консоль от React Query
     meta: {
       errorMessage: 'Failed to fetch credits',
     },

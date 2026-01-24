@@ -27,12 +27,16 @@ import { TYPOGRAPHY_DISPLAY, TYPOGRAPHY_H3, TYPOGRAPHY_BODY, TYPOGRAPHY_SMALL } 
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { VotersAvatars } from './VotersAvatars';
 import { Skeleton } from '../ui/skeleton';
+import { VotingCardSkeleton } from '../common/Skeletons';
 import { useCountdownTimer } from '../../hooks/useCountdownTimer';
 import { NumberTicker } from '../ui/number-ticker';
 import { AnimatedCheckmarkWithText } from '../ui/animated-checkmark';
 import { CircularProgressTimer } from '../ui/circular-progress-timer';
 import { getSuccessVoteMessage } from '../../lib/contextual-messages';
 import { recordVote } from '../../services/insights.service';
+import { getHumanErrorMessage } from '../../lib/error-messages';
+import { PollStatusBadge } from './PollStatusBadge';
+import { ConfirmDialog } from '../modals/ConfirmDialog';
 
 interface InlineVotingCardProps {
   poll: PollWithDetails;
@@ -108,6 +112,8 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [closing, setClosing] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [removingVote, setRemovingVote] = useState(false);
   
   // UX: Показать ещё паттерн для скролла
   const INITIAL_ITEMS_COUNT = 5;
@@ -370,7 +376,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
       haptic.error();
       addNotification({
         type: 'error',
-        message: 'Ошибка при голосовании',
+        message: getHumanErrorMessage(error),
       });
     } finally {
       setSubmitting(false);
@@ -378,8 +384,10 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
   };
 
   const handleClosePoll = async () => {
-    if (!window.confirm('Отменить голосование? Результаты будут подведены.')) return;
-
+    setShowConfirmClose(true);
+  };
+  
+  const confirmClosePoll = async () => {
     try {
       setClosing(true);
       haptic.impact();
@@ -399,10 +407,41 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
       haptic.error();
       addNotification({
         type: 'error',
-        message: error.message || 'Не удалось завершить',
+        message: getHumanErrorMessage(error),
       });
     } finally {
       setClosing(false);
+    }
+  };
+
+  // Отменить свой голос
+  const handleRemoveVote = async () => {
+    try {
+      setRemovingVote(true);
+      haptic.light();
+
+      const response = await pollsService.removeVote(poll.id);
+      if (response.success) {
+        haptic.success();
+        addNotification({
+          type: 'success',
+          message: '✅ Ваш голос отменён. Можете проголосовать заново!',
+        });
+        // Обновляем данные
+        await loadPollData(true);
+        // Сбрасываем выбранные элементы
+        setSelectedItemIds([]);
+      } else {
+        throw new Error(response.error);
+      }
+    } catch (error: any) {
+      haptic.error();
+      addNotification({
+        type: 'error',
+        message: getHumanErrorMessage(error),
+      });
+    } finally {
+      setRemovingVote(false);
     }
   };
 
@@ -466,19 +505,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
 
   // P1: Skeleton loading вместо спиннера
   if (loading) {
-    return (
-      <div className="bg-gradient-to-br from-lavender-50 via-white to-lavender-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 rounded-2xl p-6 shadow-xl border border-lavender-100 dark:border-gray-700">
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-          <div className="space-y-2 mt-6">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-xl" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <VotingCardSkeleton />;
   }
 
   // Количество УНИКАЛЬНЫХ пользователей (один пользователь = один голос)
@@ -494,14 +521,17 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm cursor-pointer"
             onClick={() => setShowSuccessAnimation(false)}
+            role="button"
+            aria-label="Закрыть уведомление"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-2xl max-w-sm mx-4"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-2xl max-w-sm mx-4 relative"
+              onClick={(e) => e.stopPropagation()}
             >
               <AnimatedCheckmarkWithText
                 title={getSuccessVoteMessage(userVotes.length === 0).title}
@@ -509,6 +539,16 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
                 size="xl"
                 color="success"
               />
+              
+              {/* Hint: tap to close */}
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="text-center text-xs text-muted-foreground mt-4"
+              >
+                Нажмите в любом месте, чтобы закрыть
+              </motion.p>
             </motion.div>
           </motion.div>
         )}
@@ -519,7 +559,10 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border-l-4 border-orange-500 border-t border-r border-b border-gray-200 dark:border-gray-700"
+        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border-l-4 border-orange-500 dark:border-purple-500 border-t border-r border-b border-gray-200 dark:border-gray-700"
+        role="region"
+        aria-label={`Голосование: ${poll.title || 'Выберите блюдо'}`}
+        aria-live="polite"
       >
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
@@ -530,8 +573,13 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                {userVotes.length > 0 ? 'Вы проголосовали!' : 'Голосование активно'}
+                Голосование
               </h3>
+              <PollStatusBadge 
+                status={poll.status as 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'PENDING' | 'PAUSED'} 
+                hasVoted={userVotes.length > 0}
+                size="sm"
+              />
               {/* КРУГОВОЙ ТАЙМЕР - компактный */}
               {(() => {
                 // Используем endTime если есть, иначе вычисляем из startedAt + duration
@@ -615,10 +663,27 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         </motion.div>
       )}
 
-
+      {/* Hint: Multiple selection - показывается только если пользователь ещё не голосовал */}
+      {userVotes.length === 0 && menuItems.length > 1 && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 mb-3"
+        >
+          <Sparkles className={cn(ICON_SIZES.sm, "text-blue-600 dark:text-blue-400 flex-shrink-0")} />
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            <strong>Можно выбрать несколько блюд</strong> — нажмите на те, что хотите заказать
+          </p>
+        </motion.div>
+      )}
 
       {/* Menu items */}
-      <div className="space-y-2">
+      <div 
+        className="space-y-2" 
+        role="listbox" 
+        aria-label="Список блюд для голосования"
+        aria-multiselectable="true"
+      >
         <AnimatePresence mode="popLayout">
           {displayedItems.map((item, index) => {
             const isSelected = selectedItemIds.includes(item.id); // ИЗМЕНЕНО: проверка массива
@@ -638,7 +703,11 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
                   duration: 0.2
                 }}
                 onClick={() => handleSelectItem(item.id)}
-                disabled={userVotes.length > 0 || submitting} // ИЗМЕНЕНО
+                disabled={userVotes.length > 0 || submitting}
+                role="option"
+                aria-selected={isSelected || isVoted}
+                aria-label={`${item.name}${item.price ? `, ${item.price} ₸` : ''}${isVoted ? ', вы проголосовали за это блюдо' : ''}`}
+                tabIndex={0}
                 className={cn(
                   'w-full relative overflow-hidden rounded-xl p-4 text-left transition-all duration-200 ease-out',
                   'disabled:cursor-not-allowed',
@@ -787,7 +856,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
         </motion.button>
       )}
 
-      {/* Vote button - ИЗМЕНЕНО: показывается только если есть выбранные */}
+      {/* Vote button - показывается только если есть выбранные */}
       {userVotes.length === 0 && selectedItemIds.length > 0 && (
         <motion.button
           initial={{ opacity: 0, y: 10 }}
@@ -811,7 +880,44 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           )}
         </motion.button>
       )}
+      
+      {/* Кнопка отмены голоса - показывается после голосования */}
+      {userVotes.length > 0 && poll.status === 'ACTIVE' && (
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleRemoveVote}
+          disabled={removingVote}
+          className="w-full mt-4 min-h-[44px] bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl py-3 px-4 font-medium transition-all duration-200 ease-out flex items-center justify-center gap-2 disabled:opacity-50 border border-gray-300 dark:border-gray-600"
+        >
+          {removingVote ? (
+            <>
+              <LoadingSpinner size="sm" />
+              Отмена...
+            </>
+          ) : (
+            <>
+              <XCircle className={ICON_SIZES.md} />
+              Отменить голос и выбрать заново
+            </>
+          )}
+        </motion.button>
+      )}
       </motion.div>
+      
+      {/* Confirm Dialog для завершения голосования */}
+      <ConfirmDialog
+        isOpen={showConfirmClose}
+        onClose={() => setShowConfirmClose(false)}
+        onConfirm={confirmClosePoll}
+        title="Завершить голосование?"
+        description="Голосование будет завершено и результаты будут подведены. Это действие нельзя отменить."
+        confirmLabel="Завершить"
+        cancelLabel="Отмена"
+        variant="warning"
+      />
     </>
   );
 };

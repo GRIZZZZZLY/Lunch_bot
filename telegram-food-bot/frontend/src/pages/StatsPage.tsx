@@ -489,7 +489,7 @@ export const StatsPage: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4 }}
                 >
-                  <PastelCard variant="default" className="relative overflow-hidden border-l-4 border-orange-500">
+                  <PastelCard variant="default" className="relative overflow-hidden border-l-4 border-orange-500 dark:border-purple-500">
 
                     <CardContent className="relative p-4">
                       {/* Compact layout */}

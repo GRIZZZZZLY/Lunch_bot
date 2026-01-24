@@ -18,11 +18,11 @@ interface Stats01Props {
 }
 
 const variantStyles = {
-  peach: "border-l-4 border-orange-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
-  lavender: "border-l-4 border-purple-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
-  sky: "border-l-4 border-blue-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
-  sage: "border-l-4 border-green-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
-  rose: "border-l-4 border-red-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
+  peach: "border-l-4 border-orange-500 dark:border-purple-500 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
+  lavender: "border-l-4 border-purple-500 dark:border-purple-400 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
+  sky: "border-l-4 border-blue-500 dark:border-blue-400 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
+  sage: "border-l-4 border-green-500 dark:border-green-400 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
+  rose: "border-l-4 border-red-500 dark:border-red-400 bg-white dark:bg-gray-800 border-t border-r border-b border-gray-200 dark:border-gray-700",
   default: "border-border bg-card dark:border-border dark:bg-card",
 }
 

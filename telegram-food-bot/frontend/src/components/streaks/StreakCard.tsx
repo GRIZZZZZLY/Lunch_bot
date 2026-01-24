@@ -97,7 +97,7 @@ export const StreakCard: React.FC<StreakCardProps> = ({
         animate={{ opacity: 1, scale: 1 }}
         className={cn(
           'bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl',
-          'border-l-4 border-orange-500',
+          'border-l-4 border-orange-500 dark:border-purple-500',
           className
         )}
       >
