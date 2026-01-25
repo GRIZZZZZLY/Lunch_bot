@@ -1,3 +1,4 @@
+import { sanitizeURL } from '../lib/sanitize';
 import { apiService } from './api.service';
 
 export interface Transaction {
@@ -197,12 +198,17 @@ class BudgetService {
     // Формируем ссылку на СБП
     const cleanPhone = phone.replace(/\D/g, '');
     const sbpUrl = `https://qr.nspk.ru/proxyapp.html?type=02&bank=100000000111&sum=${amount}&cur=RUB&payeeId=${cleanPhone}`;
+    const safeUrl = sanitizeURL(sbpUrl);
+
+    if (!safeUrl) {
+      return;
+    }
     
     // Открываем в новом окне или текущем (в зависимости от платформы)
     if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.openLink(sbpUrl);
+      window.Telegram.WebApp.openLink(safeUrl);
     } else {
-      window.open(sbpUrl, '_blank');
+      window.open(safeUrl, '_blank');
     }
   }
 

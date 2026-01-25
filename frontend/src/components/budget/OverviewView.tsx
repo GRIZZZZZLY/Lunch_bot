@@ -29,11 +29,29 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const haptic = useHaptic();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<string>("debts");
+
+  const safeFormatRelativeTime = (value?: string | Date | null): string => {
+    if (!value) return '—';
+    const dateValue = typeof value === 'string' ? new Date(value) : value;
+
+    if (Number.isNaN(dateValue.getTime())) return '—';
+
+    return formatRelativeTime(dateValue);
+  };
   
   const safeDebts = debts || [];
   const safeCredits = credits || [];
   const safeTotalDebts = totalDebts || 0;
   const safeTotalCredits = totalCredits || 0;
+
+  const getUserName = (user?: { firstName?: string; lastName?: string | null }) => {
+    if (!user) return 'Пользователь';
+    return [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Пользователь';
+  };
+
+  const getMenuItemName = (menuItem?: { name?: string | null }) => {
+    return menuItem?.name || 'Блюдо';
+  };
   
   const displayDebts = safeDebts.slice(0, 2);
   const displayCredits = safeCredits.slice(0, 2);
@@ -112,13 +130,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="font-medium text-sm">
-                      {debt.menuItem?.name || 'Блюдо'} — {debt.amount}₽
+                      {getMenuItemName(debt.menuItem)} — {debt.amount ?? 0}₽
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      → {debt.toUser.firstName} {debt.toUser.lastName || ''}
+                      → {getUserName(debt.toUser)}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {formatRelativeTime(debt.createdAt)}
+                      {safeFormatRelativeTime(debt.createdAt)}
                     </div>
                   </div>
                   
@@ -187,7 +205,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                     {credit.fromUser.firstName} {credit.fromUser.lastName || ''}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {credit.amount}₽ • {formatRelativeTime(credit.createdAt)}
+                    {credit.amount ?? 0}₽ • {safeFormatRelativeTime(credit.createdAt)}
                   </div>
                 </div>
                 

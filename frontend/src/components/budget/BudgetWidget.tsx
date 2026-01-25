@@ -88,9 +88,16 @@ class BudgetWidgetErrorBoundary extends React.Component<
 
   render() {
     if (this.state.hasError) {
-      // Graceful degradation - скрываем виджет при ошибке
-      console.warn('[BudgetWidget] ⚠️ Widget hidden due to error');
-      return null;
+      // Graceful degradation - показываем компактный fallback
+      console.warn('[BudgetWidget] ⚠️ Widget fallback due to error');
+      return (
+        <div className="rounded-xl bg-white dark:bg-gray-800 border border-rose-200 dark:border-rose-700 p-4">
+          <div className="text-sm font-semibold text-foreground">Финансы</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Не удалось загрузить детали. Обновите страницу.
+          </div>
+        </div>
+      );
     }
 
     return this.props.children;

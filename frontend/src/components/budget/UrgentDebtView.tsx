@@ -50,7 +50,7 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
   const handleOpenSBP = () => {
     haptic.impact();
     
-    if (!debt.toUser.paymentPhone) {
+    if (!debt.toUser?.paymentPhone) {
       toast.error('Номер телефона не указан');
       return;
     }
@@ -59,7 +59,7 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
   };
   
   // Маскирование номера карты
-  const maskCard = (card: string | null) => {
+  const maskCard = (card?: string | null) => {
     if (!card) return 'Не указана';
     const cleaned = card.replace(/\D/g, '');
     if (cleaned.length < 4) return card;
@@ -67,10 +67,14 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
   };
   
   // Форматирование телефона
-  const formatPhone = (phone: string | null) => {
+  const formatPhone = (phone?: string | null) => {
     if (!phone) return 'Не указан';
     return phone;
   };
+
+  const userName = [debt.toUser?.firstName, debt.toUser?.lastName]
+    .filter(Boolean)
+    .join(' ');
   
   return (
     <div className="space-y-4">
@@ -91,7 +95,7 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">👤 Ответственный:</span>
           <span className="font-medium">
-            {debt.toUser.firstName} {debt.toUser.lastName || ''}
+            {userName || 'Ответственный'}
           </span>
         </div>
       </div>
@@ -104,7 +108,7 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
         </div>
         
         <div className="space-y-1.5 text-sm">
-          {debt.toUser.paymentCard && (
+          {debt.toUser?.paymentCard && (
             <div className="flex items-center gap-2">
               <CreditCard className={`${ICON_SIZES.sm} text-muted-foreground`} />
               <span className="text-muted-foreground">Карта:</span>
@@ -112,7 +116,7 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
             </div>
           )}
           
-          {debt.toUser.paymentPhone && (
+          {debt.toUser?.paymentPhone && (
             <div className="flex items-center gap-2">
               <Phone className={`${ICON_SIZES.sm} text-muted-foreground`} />
               <span className="text-muted-foreground">Телефон:</span>
@@ -120,13 +124,13 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
             </div>
           )}
           
-          {debt.toUser.paymentDetails && (
+          {debt.toUser?.paymentDetails && (
             <div className="text-xs text-muted-foreground mt-2">
               {debt.toUser.paymentDetails}
             </div>
           )}
           
-          {!debt.toUser.paymentCard && !debt.toUser.paymentPhone && (
+          {!debt.toUser?.paymentCard && !debt.toUser?.paymentPhone && (
             <div className="text-xs text-muted-foreground">
               Реквизиты не указаны. Свяжитесь с ответственным.
             </div>
@@ -145,7 +149,7 @@ export const UrgentDebtView: React.FC<UrgentDebtViewProps> = ({ debt, otherDebts
           {markAsPaidMutation.isPending ? 'Отмечаю...' : 'Оплатил(а)'}
         </Button>
         
-        {debt.toUser.paymentPhone && (
+        {debt.toUser?.paymentPhone && (
           <Button
             onClick={handleOpenSBP}
             variant="outline"

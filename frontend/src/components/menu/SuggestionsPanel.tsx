@@ -23,6 +23,7 @@ import {
 } from '@/hooks/useSuggestions';
 import { MenuSuggestion } from '@/services/suggestion.service';
 import { useTelegram } from '@/hooks/useTelegram';
+import { sanitizeURL } from '@/lib/sanitize';
 import { cn } from '@/lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
@@ -342,11 +343,20 @@ function SuggestionCard({
                   <span>{suggestion.category}</span>
                 </div>
               )}
-              {suggestion.imageUrl && (
+              {(() => {
+                const safeImageUrl = suggestion.imageUrl
+                  ? sanitizeURL(suggestion.imageUrl)
+                  : '';
+
+                if (!safeImageUrl) {
+                  return null;
+                }
+
+                return (
                 <div className="flex items-center gap-1.5">
                   <ImageIcon className={`${ICON_SIZES.sm} text-green-500`} />
                   <a
-                    href={suggestion.imageUrl}
+                    href={safeImageUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 hover:underline"
@@ -354,7 +364,8 @@ function SuggestionCard({
                     Фото
                   </a>
                 </div>
-              )}
+                );
+              })()}
             </div>
           </div>
 

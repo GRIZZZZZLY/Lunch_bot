@@ -7,6 +7,7 @@ import {
   Sparkles,
   UserPlus,
   Flame,
+  Repeat,
 } from 'lucide-react';
 
 // New shadcn/ui components
@@ -56,8 +57,6 @@ import { queryKeys } from '../lib/queryClient';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { getContextualGreeting, getEmptyStateMessage } from '../lib/contextual-messages';
 import { getHumanErrorMessage } from '../lib/error-messages';
-import { StreakCard } from '../components/streaks/StreakCard';
-import { StreakBadge } from '../components/streaks/StreakBadge';
 import { getUserStreak, updateStreakAfterVote } from '../services/streak.service';
 import { InsightsCard } from '../components/insights/InsightsCard';
 import { generatePersonalInsights } from '../services/insights.service';
@@ -96,6 +95,7 @@ export const HomePage: React.FC = () => {
   // State - ВАЖНО: объявляем ДО использования в React Query hooks
   const [activePoll, setActivePoll] = useState<PollWithDetails | null>(null);
   const [isCreatingPoll, setIsCreatingPoll] = useState(false);
+  const [createPollTab, setCreatePollTab] = useState<'single' | 'recurring'>('single');
   const [isRepeatLoading, setIsRepeatLoading] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [justCompletedPollId, setJustCompletedPollId] = useState<number | null>(null);
@@ -686,17 +686,25 @@ export const HomePage: React.FC = () => {
                 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <ThemeToggle variant="ghost" size="sm" />
-                  <div
-                    className="cursor-pointer"
-                    onClick={() => navigate('/profile')}
-                  >
-                    <UserAvatar
-                      userId={user?.id}
-                      firstName={user?.firstName || 'User'}
-                      lastName={user?.lastName}
-                      size="md"
-                      className="ring-2 ring-primary/20"
-                    />
+                  <div className="flex flex-col items-center gap-1">
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => navigate('/profile')}
+                    >
+                      <UserAvatar
+                        userId={user?.id}
+                        firstName={user?.firstName || 'User'}
+                        lastName={user?.lastName}
+                        size="md"
+                        className="ring-2 ring-primary/20"
+                      />
+                    </div>
+                    {userStreak.currentStreak > 0 && (
+                      <div className="streak-mini-badge inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold text-white shadow-sm whitespace-nowrap">
+                        <Flame className="size-3.5 fill-current" />
+                        <span>{userStreak.currentStreak} дн. подряд</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -704,18 +712,7 @@ export const HomePage: React.FC = () => {
           </PastelCard>
         </motion.div>
 
-        {/* Streak Section */}
-        {userStreak.currentStreak > 0 && (
-          <motion.div variants={itemVariants}>
-            <StreakCard
-              currentStreak={userStreak.currentStreak}
-              longestStreak={userStreak.longestStreak}
-              totalVotes={userStreak.totalVotes}
-              showConfetti={showStreakMilestone}
-              compact
-            />
-          </motion.div>
-        )}
+        {/* Streak Section removed - integrated into header */}
 
         {/* Milestone Achievement Overlay */}
         <AnimatePresence>
@@ -893,11 +890,26 @@ export const HomePage: React.FC = () => {
                         className="w-full"
                         onClick={() => {
                           haptic.impact();
+                          setCreatePollTab('single');
                           setIsCreatingPoll(true);
                         }}
                       >
                         <Sparkles className={`${ICON_SIZES.md} mr-2`} />
                         Создать голосование
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="default"
+                        className="w-full"
+                        onClick={() => {
+                          haptic.impact();
+                          setCreatePollTab('recurring');
+                          setIsCreatingPoll(true);
+                        }}
+                      >
+                        <Repeat className={`${ICON_SIZES.sm} mr-2`} />
+                        Автоматическое голосование
                       </Button>
 
                       <Button
@@ -966,6 +978,7 @@ export const HomePage: React.FC = () => {
               groupId={userGroupId}
               onClick={() => {
                 haptic.impact();
+                setCreatePollTab('recurring');
                 setIsCreatingPoll(true);
                 // TODO: переключить на вкладку "Автоматическое" при открытии
               }}
@@ -975,6 +988,34 @@ export const HomePage: React.FC = () => {
 
         {/* Actions Section - Vertical list */}
         <motion.div variants={itemVariants} className="space-y-3">
+          {user?.isAdmin && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                haptic.impact();
+                setCreatePollTab('recurring');
+                setIsCreatingPoll(true);
+              }}
+              className="relative w-full rounded-xl p-4 bg-gradient-to-r from-emerald-500 to-teal-600 shadow-[0_0_15px_rgba(16,185,129,0.35)] hover:shadow-[0_0_25px_rgba(13,148,136,0.5)] transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                    <Repeat className={cn(ICON_SIZES.lg, 'text-white')} />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold text-white text-lg">
+                      Автоголосование
+                    </p>
+                    <p className="text-sm text-white/80">
+                      Запуск по расписанию
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.button>
+          )}
           {/* Invite Friend Button - High priority CTA */}
           <motion.button
             whileHover={{ scale: 1.02 }}
@@ -1034,6 +1075,7 @@ export const HomePage: React.FC = () => {
             onSuccess={handlePollCreated}
             onCancel={() => setIsCreatingPoll(false)}
             compact={true}
+            initialTab={createPollTab}
           />
         </DialogContent>
       </Dialog>
