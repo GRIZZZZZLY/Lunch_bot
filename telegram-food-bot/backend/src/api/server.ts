@@ -1,6 +1,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import path from 'path';
+import crypto from 'crypto';
 import { corsMiddleware } from './middleware/cors';
 import { errorHandler, notFoundHandler, requestLogger } from './middleware/error-handler';
 import { generalLimiter, authLimiter } from './middleware/rate-limiter';
@@ -31,6 +32,7 @@ import { metricsMiddleware } from './middleware/metrics';
  */
 export function createApiServer(): express.Application {
   const app = express();
+  const isProduction = process.env.NODE_ENV === 'production';
 
   // Глобальный фикс для BigInt сериализации
   (BigInt.prototype as any).toJSON = function() {
@@ -38,18 +40,59 @@ export function createApiServer(): express.Application {
   };
 
   // Базовые middleware
+  app.use((req, res, next) => {
+    res.locals.cspNonce = crypto.randomBytes(16).toString('base64');
+    next();
+  });
+
+  const scriptSrc = [
+    "'self'",
+    'https://telegram.org',
+    (_req: any, res: any) => `'nonce-${res.locals.cspNonce}'`,
+  ];
+
+  if (!isProduction) {
+    scriptSrc.push("'unsafe-eval'");
+  }
+
+  const connectSrc = [
+    "'self'",
+    'https://telegram.org',
+    'https://t.me',
+    'https://api.telegram.org',
+    'https://*.sentry.io',
+  ];
+
+  if (!isProduction) {
+    connectSrc.push(
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5173',
+      'ws://localhost:3000',
+      'ws://localhost:3001',
+      'ws://localhost:5173'
+    );
+  }
+
+  const cspReportUri = process.env.CSP_REPORT_URI;
+  const cspDirectives: Record<string, any> = {
+    defaultSrc: ["'self'", 'https://telegram.org'],
+    scriptSrc,
+    styleSrc: ["'self'", "'unsafe-inline'"],
+    fontSrc: ["'self'", 'data:', 'https:'], // Разрешаем загрузку шрифтов
+    imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+    connectSrc,
+    frameSrc: ["'self'", 'https://telegram.org'],
+  };
+
+  if (cspReportUri) {
+    cspDirectives.reportUri = [cspReportUri];
+  }
+
   app.use(helmet({
     contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'", 'https://telegram.org'],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://telegram.org'],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        fontSrc: ["'self'", 'data:', 'https:'], // Разрешаем загрузку шрифтов
-        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-        connectSrc: ["'self'", 'https:', 'wss:', 'ws:'],
-        frameSrc: ["'self'", 'https://telegram.org'],
-      },
-    },
+      directives: cspDirectives,
+    } as any,
     crossOriginEmbedderPolicy: false, // Для iframe интеграции
   }));
 
@@ -70,11 +113,15 @@ export function createApiServer(): express.Application {
   // CORS только для API роутов
   app.use('/api', corsMiddleware);
 
-  // Rate limiting для всех API запросов (Sprint 2 Security)
-  app.use('/api', generalLimiter);
+  if (apiConfig.security.enableRateLimit) {
+    // Rate limiting для всех API запросов (Sprint 2 Security)
+    app.use('/api', generalLimiter);
 
-  // Строгий rate limiting для аутентификации
-  app.use('/api/auth', authLimiter);
+    // Строгий rate limiting для аутентификации
+    app.use('/api/auth', authLimiter);
+  } else {
+    logger.warn('Rate limiting disabled via configuration');
+  }
 
   // API routes с префиксом /api
   app.use('/api/auth', authRoutes);

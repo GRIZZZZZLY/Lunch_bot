@@ -2,7 +2,7 @@
  * Утилиты для проверки версии приложения и управления обновлениями
  */
 
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.0.2';
 const VERSION_CHECK_INTERVAL = 60000; // Проверка каждую минуту
 const VERSION_STORAGE_KEY = 'app_version';
 
@@ -56,6 +56,12 @@ export async function clearAppCache(): Promise<void> {
       await Promise.all(
         cacheNames.map(cacheName => caches.delete(cacheName))
       );
+    }
+
+    // Снимаем регистрации Service Worker
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.unregister()));
     }
     
     console.log('App cache cleared successfully');

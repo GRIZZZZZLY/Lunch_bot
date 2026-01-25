@@ -1,4 +1,14 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  createContext,
+  useContext,
+  createElement,
+} from 'react';
+import type { FC, ReactNode } from 'react';
 import { useTelegram } from './useTelegram';
 import { authService } from '../services/auth.service';
 import { setUserContext, clearUserContext } from '../lib/sentry';
@@ -25,11 +35,28 @@ export interface UseAuthReturn {
   refresh: () => Promise<void>;
 }
 
+const AuthContext = createContext<UseAuthReturn | null>(null);
+
+const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = `${base64}${'='.repeat((4 - (base64.length % 4)) % 4)}`;
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+};
+
 /**
  * Хук для управления аутентификацией
  * ✅ ИСПРАВЛЕНО: Добавлены useCallback и cleanup для предотвращения race conditions
  */
-export const useAuth = (): UseAuthReturn => {
+export const AuthProvider: FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const { initData, user: tgUser, isReady } = useTelegram();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -398,28 +425,48 @@ export const useAuth = (): UseAuthReturn => {
       return;
     }
 
-    // ПРИОРИТЕТ 2: Telegram авторизация (если есть initData)
+    // ПРИОРИТЕТ 2: Сохраненный токен (если соответствует текущему Telegram user)
+    if (existingToken) {
+      if (isReady && hasValidInitData && tgUser) {
+        const tokenPayload = decodeJwtPayload(existingToken);
+        const tokenTelegramId = tokenPayload?.telegramId;
+        const tokenMatchesUser =
+          tokenTelegramId !== undefined &&
+          String(tokenTelegramId) === String(tgUser.id);
+
+        if (import.meta.env.DEV) {
+          console.log('[useAuth] Token match check:', {
+            tokenHasPayload: !!tokenPayload,
+            tokenTelegramId,
+            telegramId: tgUser.id,
+            tokenMatchesUser,
+          });
+        }
+
+        if (!tokenMatchesUser) {
+          if (import.meta.env.DEV) {
+            console.warn('[useAuth] Token belongs to another user, reauthenticating');
+          }
+          authService.clearToken();
+          login();
+          return;
+        }
+      }
+
+      if (import.meta.env.DEV) {
+        console.log('[useAuth] Using existing token');
+      }
+      loadUserWithToken();
+      return;
+    }
+
+    // ПРИОРИТЕТ 3: Telegram авторизация (если есть initData)
     if (isReady && hasValidInitData && tgUser) {
       if (import.meta.env.DEV) {
         console.log('[useAuth] Using Telegram authentication with initData');
       }
 
-      if (existingToken) {
-        if (import.meta.env.DEV) {
-          console.log('[useAuth] Clearing old token - using fresh Telegram initData');
-        }
-        authService.clearToken();
-      }
       login();
-      return;
-    }
-
-    // ПРИОРИТЕТ 3: Сохраненный токен (fallback)
-    if (existingToken) {
-      if (import.meta.env.DEV) {
-        console.log('[useAuth] No Telegram initData - using existing token');
-      }
-      loadUserWithToken();
       return;
     }
 
@@ -435,13 +482,28 @@ export const useAuth = (): UseAuthReturn => {
 
   const isAuthenticated = useMemo(() => user !== null, [user]);
 
-  return {
-    user,
-    isAuthenticated,
-    isLoading,
-    error,
-    login,
-    logout,
-    refresh,
-  };
+  const value = useMemo(
+    () => ({
+      user,
+      isAuthenticated,
+      isLoading,
+      error,
+      login,
+      logout,
+      refresh,
+    }),
+    [user, isAuthenticated, isLoading, error, login, logout, refresh]
+  );
+
+  return createElement(AuthContext.Provider, { value }, children);
+};
+
+export const useAuth = (): UseAuthReturn => {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+
+  return context;
 };

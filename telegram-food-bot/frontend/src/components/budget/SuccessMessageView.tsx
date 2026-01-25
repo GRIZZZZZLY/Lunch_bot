@@ -28,6 +28,10 @@ export const SuccessMessageView: React.FC<SuccessMessageViewProps> = ({ debt }) 
     
     return () => clearTimeout(timer);
   }, []);
+
+  const userName = [debt.toUser?.firstName, debt.toUser?.lastName]
+    .filter(Boolean)
+    .join(' ');
   
   return (
     <div className="relative">
@@ -53,7 +57,7 @@ export const SuccessMessageView: React.FC<SuccessMessageViewProps> = ({ debt }) 
         </h3>
         
         <p className="text-lg font-semibold text-mint-500 dark:text-mint-300 mb-1">
-          {debt.toUser.firstName} получил(а) {debt.amount}₽
+          {userName || 'Ответственный'} получил(а) {debt.amount ?? 0}₽
         </p>
         
         <p className="text-sm text-muted-foreground">

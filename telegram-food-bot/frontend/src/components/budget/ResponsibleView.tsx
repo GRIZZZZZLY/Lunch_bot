@@ -45,7 +45,7 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
   });
   
   // Рассчитываем суммы
-  const totalToReceive = currentCredits.reduce((sum, c) => sum + c.amount, 0);
+  const totalToReceive = currentCredits.reduce((sum, c) => sum + (c.amount || 0), 0);
   const myShare = pollTotals?.responsibleShare || 0;
   const totalPaid = pollTotals?.totalOrder || 0;
   
@@ -149,9 +149,11 @@ export const ResponsibleView: React.FC<ResponsibleViewProps> = ({ credits, other
               <div className="flex items-center gap-3 flex-1">
                 <User className={`${ICON_SIZES.md} text-muted-foreground`} />
                 <div>
-                  <div className="font-medium text-sm">
-                    {credit.fromUser.firstName} {credit.fromUser.lastName || ''}
-                  </div>
+              <div className="font-medium text-sm">
+                {[credit.fromUser?.firstName, credit.fromUser?.lastName]
+                  .filter(Boolean)
+                  .join(' ') || 'Пользователь'}
+              </div>
                   <div className="text-xs text-muted-foreground">
                     {credit.amount}₽
                   </div>

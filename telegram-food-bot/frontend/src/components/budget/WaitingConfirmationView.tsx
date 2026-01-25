@@ -50,6 +50,19 @@ export const WaitingConfirmationView: React.FC<WaitingConfirmationViewProps> = (
     cancelMarkMutation.mutate();
   };
   
+  const safeFormatRelativeTime = (value?: string | Date | null): string => {
+    if (!value) return '—';
+    const dateValue = typeof value === 'string' ? new Date(value) : value;
+
+    if (Number.isNaN(dateValue.getTime())) return '—';
+
+    return formatRelativeTime(dateValue);
+  };
+
+  const userName = [debt.toUser?.firstName, debt.toUser?.lastName]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <div className="space-y-4">
       {/* Статус */}
@@ -65,12 +78,12 @@ export const WaitingConfirmationView: React.FC<WaitingConfirmationViewProps> = (
           {debt.menuItem?.name || 'Блюдо'} — {debt.amount}₽
         </h4>
         <p className="text-sm text-muted-foreground">
-          {debt.toUser.firstName} проверит платеж
+          {userName || 'Ответственный'} проверит платеж
         </p>
         
         {debt.paidAt && (
           <p className="text-xs text-muted-foreground mt-2">
-            Отмечено {formatRelativeTime(debt.paidAt)}
+            Отмечено {safeFormatRelativeTime(debt.paidAt)}
           </p>
         )}
       </div>

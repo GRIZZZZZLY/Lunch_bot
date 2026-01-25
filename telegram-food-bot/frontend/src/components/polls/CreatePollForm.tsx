@@ -46,12 +46,14 @@ interface CreatePollFormProps {
   onSuccess?: (pollId: number) => void;
   onCancel?: () => void;
   compact?: boolean;
+  initialTab?: 'single' | 'recurring';
 }
 
 export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   onSuccess,
   onCancel,
   compact = true,
+  initialTab = 'single',
 }) => {
   const { user } = useAuth();
   const haptic = useHaptic();
@@ -79,7 +81,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   }, [colorScheme, themeParams]);
 
   // State
-  const [activeTab, setActiveTab] = useState<'single' | 'recurring'>('single');
+  const [activeTab, setActiveTab] = useState<'single' | 'recurring'>(initialTab);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [duration, setDuration] = useState(30);
@@ -95,6 +97,10 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const loadData = async () => {
     try {

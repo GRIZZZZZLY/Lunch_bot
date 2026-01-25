@@ -9,6 +9,7 @@ exports.stopApiServer = stopApiServer;
 const express_1 = __importDefault(require("express"));
 const helmet_1 = __importDefault(require("helmet"));
 const path_1 = __importDefault(require("path"));
+const crypto_1 = __importDefault(require("crypto"));
 const cors_1 = require("./middleware/cors");
 const error_handler_1 = require("./middleware/error-handler");
 const rate_limiter_1 = require("./middleware/rate-limiter");
@@ -31,20 +32,48 @@ const recurring_poll_routes_1 = __importDefault(require("./routes/recurring-poll
 const metrics_1 = require("./middleware/metrics");
 function createApiServer() {
     const app = (0, express_1.default)();
+    const isProduction = process.env.NODE_ENV === 'production';
     BigInt.prototype.toJSON = function () {
         return this.toString();
     };
+    app.use((req, res, next) => {
+        res.locals.cspNonce = crypto_1.default.randomBytes(16).toString('base64');
+        next();
+    });
+    const scriptSrc = [
+        "'self'",
+        'https://telegram.org',
+        (_req, res) => `'nonce-${res.locals.cspNonce}'`,
+    ];
+    if (!isProduction) {
+        scriptSrc.push("'unsafe-eval'");
+    }
+    const connectSrc = [
+        "'self'",
+        'https://telegram.org',
+        'https://t.me',
+        'https://api.telegram.org',
+        'https://*.sentry.io',
+    ];
+    if (!isProduction) {
+        connectSrc.push('http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'ws://localhost:3000', 'ws://localhost:3001', 'ws://localhost:5173');
+    }
+    const cspReportUri = process.env.CSP_REPORT_URI;
+    const cspDirectives = {
+        defaultSrc: ["'self'", 'https://telegram.org'],
+        scriptSrc,
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        fontSrc: ["'self'", 'data:', 'https:'],
+        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+        connectSrc,
+        frameSrc: ["'self'", 'https://telegram.org'],
+    };
+    if (cspReportUri) {
+        cspDirectives.reportUri = [cspReportUri];
+    }
     app.use((0, helmet_1.default)({
         contentSecurityPolicy: {
-            directives: {
-                defaultSrc: ["'self'", 'https://telegram.org'],
-                scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://telegram.org'],
-                styleSrc: ["'self'", "'unsafe-inline'"],
-                fontSrc: ["'self'", 'data:', 'https:'],
-                imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-                connectSrc: ["'self'", 'https:', 'wss:', 'ws:'],
-                frameSrc: ["'self'", 'https://telegram.org'],
-            },
+            directives: cspDirectives,
         },
         crossOriginEmbedderPolicy: false,
     }));
@@ -58,8 +87,13 @@ function createApiServer() {
     app.use(metrics_1.metricsMiddleware);
     app.use('/health', health_routes_1.default);
     app.use('/api', cors_1.corsMiddleware);
-    app.use('/api', rate_limiter_1.generalLimiter);
-    app.use('/api/auth', rate_limiter_1.authLimiter);
+    if (api_config_1.apiConfig.security.enableRateLimit) {
+        app.use('/api', rate_limiter_1.generalLimiter);
+        app.use('/api/auth', rate_limiter_1.authLimiter);
+    }
+    else {
+        logger_1.logger.warn('Rate limiting disabled via configuration');
+    }
     app.use('/api/auth', auth_routes_1.default);
     app.use('/api/menu', menu_routes_1.default);
     app.use('/api/suggestions', menu_suggestion_routes_1.default);

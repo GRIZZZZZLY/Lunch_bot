@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { metricsService } from '../../services/metrics.service';
 import { logger } from '../../utils/logger';
+import { adminMiddleware, telegramAuthMiddleware } from '../middleware/telegram-auth';
 
 const router = Router();
+
+router.use(telegramAuthMiddleware);
+router.use(adminMiddleware);
 
 /**
  * GET /api/metrics

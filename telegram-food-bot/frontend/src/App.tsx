@@ -15,8 +15,44 @@ import { PWAUpdatePrompt } from './components/common/PWAUpdatePrompt';
 import { NavigationProgress } from './components/common/NavigationProgress';
 import { WelcomeModal } from './components/onboarding';
 import { useOnboarding } from './hooks/useOnboarding';
+import { AuthProvider } from './hooks/useAuth';
 import { useAppStore } from './store/useAppStore';
 import { WebVitals, PerformanceMonitor } from './components/performance/WebVitals';
+import { HomePage } from './pages/HomePage';
+import { StatsPage } from './pages/StatsPage';
+
+const isChunkLoadError = (error: unknown): boolean => {
+  if (!error) return false;
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('Loading chunk') ||
+    message.includes('ChunkLoadError')
+  );
+};
+
+const tryRecoverChunkLoad = async () => {
+  const retryKey = 'lazy-import-retry';
+  const alreadyRetried = sessionStorage.getItem(retryKey);
+
+  if (alreadyRetried) {
+    sessionStorage.removeItem(retryKey);
+    return;
+  }
+
+  sessionStorage.setItem(retryKey, '1');
+
+  if ('serviceWorker' in navigator) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.unregister()));
+    } catch {
+      // Ignore SW cleanup errors
+    }
+  }
+
+  window.location.reload();
+};
 
 // ✅ ИСПРАВЛЕНО: Lazy load с обработкой ошибок
 const createLazyComponent = <T extends React.ComponentType<any>>(
@@ -28,6 +64,9 @@ const createLazyComponent = <T extends React.ComponentType<any>>(
       .then(module => ({ default: module[exportName] as T }))
       .catch(error => {
         console.error(`Failed to load component ${exportName}:`, error);
+        if (isChunkLoadError(error)) {
+          tryRecoverChunkLoad();
+        }
         // Возвращаем fallback компонент при ошибке загрузки
         return {
           default: (() => (
@@ -49,10 +88,8 @@ const createLazyComponent = <T extends React.ComponentType<any>>(
   );
 };
 
-const HomePage = createLazyComponent(() => import('./pages/HomePage'), 'HomePage');
 const MenuPage = createLazyComponent(() => import('./pages/MenuPage'), 'MenuPage');
 // VotingPage УДАЛЁН - функционал перенесён в InlineVotingCard на главной странице
-const StatsPage = createLazyComponent(() => import('./pages/StatsPage'), 'StatsPage');
 const PollHistoryPage = createLazyComponent(() => import('./pages/PollHistoryPage'), 'PollHistoryPage');
 const PollResultsPage = createLazyComponent(() => import('./pages/PollResultsPage'), 'PollResultsPage');
 const ProfilePage = createLazyComponent(() => import('./pages/ProfilePage'), 'ProfilePage');
@@ -256,30 +293,32 @@ function App() {
         client={queryClient}
         persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000 }} // 24 hours
       >
-        <BrowserRouter
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true,
-          }}
-        >
-          <Toaster 
-            position="top-center" 
-            richColors 
-            closeButton 
-            icons={{
-              success: undefined,
-              error: undefined,
-              warning: undefined,
-              info: undefined,
+        <AuthProvider>
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
             }}
-          />
-          <NavigationProgress />
-          <OfflineIndicator />
-          <PWAUpdatePrompt />
-          <WebVitals />
-          <PerformanceMonitor />
-          <AppContent />
-        </BrowserRouter>
+          >
+            <Toaster 
+              position="top-center" 
+              richColors 
+              closeButton 
+              icons={{
+                success: undefined,
+                error: undefined,
+                warning: undefined,
+                info: undefined,
+              }}
+            />
+            <NavigationProgress />
+            <OfflineIndicator />
+            <PWAUpdatePrompt />
+            <WebVitals />
+            <PerformanceMonitor />
+            <AppContent />
+          </BrowserRouter>
+        </AuthProvider>
         {/* ✅ ИСПРАВЛЕНО: React Query Devtools включены в dev режиме */}
         {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
       </PersistQueryClientProvider>

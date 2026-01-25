@@ -168,6 +168,7 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           
           // ИЗМЕНЕНО: ищем ВСЕ голоса пользователя, а не только первый
           const existingVotes = pollResponse.data.votes?.filter(v => v.userId === user.id) || [];
+          const hadVotes = userVotes.length > 0;
           
           console.log('[InlineVotingCard] 🎯 User votes result:', {
             found: existingVotes.length,
@@ -177,7 +178,11 @@ export const InlineVotingCard: React.FC<InlineVotingCardProps> = ({
           });
           
           setUserVotes(existingVotes);
-          setSelectedItemIds(existingVotes.map(v => v.menuItemId));
+          if (existingVotes.length > 0) {
+            setSelectedItemIds(existingVotes.map(v => v.menuItemId));
+          } else if (hadVotes) {
+            setSelectedItemIds([]);
+          }
         }
       }
 
