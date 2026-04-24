@@ -23,7 +23,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
 }) => {
   const [localValue, setLocalValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const { hapticFeedback } = useTelegram();
 

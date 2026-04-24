@@ -13,8 +13,8 @@ export const NavigationProgress: React.FC = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [progress, setProgress] = useState(0);
   const prevPathRef = useRef(location.pathname);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Отслеживаем изменение location
   useEffect(() => {

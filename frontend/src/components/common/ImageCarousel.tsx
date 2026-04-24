@@ -28,7 +28,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { hapticFeedback } = useTelegram();
 
   // Автопроигрывание

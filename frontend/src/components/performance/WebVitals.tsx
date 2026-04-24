@@ -44,7 +44,7 @@ const reportWebVitals = (metric: Metric) => {
   });
 
   // В production отправляем в analytics
-  if (process.env.NODE_ENV === 'production') {
+  if (import.meta.env.PROD) {
     // Google Analytics example:
     // window.gtag?.('event', metric.name, {
     //   value: Math.round(metric.value),
@@ -97,7 +97,7 @@ export const PerformanceMonitor: React.FC = () => {
 
   useEffect(() => {
     // Только в dev mode
-    if (process.env.NODE_ENV !== 'development') return;
+    if (!import.meta.env.DEV) return;
 
     // Показывать при нажатии Ctrl+Shift+P
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -131,7 +131,7 @@ export const PerformanceMonitor: React.FC = () => {
     };
   }, []);
 
-  if (!isVisible || process.env.NODE_ENV !== 'development') return null;
+  if (!isVisible || !import.meta.env.DEV) return null;
 
   const getRatingColor = (rating: string) => {
     switch (rating) {
