@@ -173,6 +173,7 @@ export function createApiServer(): express.Application {
   app.use('/api/metrics', metricsRoutes);
   app.use('/api/feedback', feedbackRoutes);
   app.use('/api/notifications', require('./routes/notification.routes').default);
+  app.use('/api/store-runs', require('./routes/store-run.routes').default);
   app.use('/api/gamification', gamificationRoutes);
   app.use('/api/seasons', seasonRoutes);
   app.use('/api/insights', insightsRoutes);
