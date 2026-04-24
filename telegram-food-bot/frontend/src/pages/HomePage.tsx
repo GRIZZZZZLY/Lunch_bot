@@ -30,6 +30,7 @@ import { RecurringPollBadge } from '../components/polls/RecurringPollBadge';
 import { HomeEmptyStateCard } from '../components/home/HomeEmptyStateCard';
 import { HomeHeroCard } from '../components/home/HomeHeroCard';
 import { HomeActionsSection } from '../components/home/HomeActionsSection';
+import { ActiveStoreRunsSection } from '../components/store-run/ActiveStoreRunsSection';
 
 // Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
@@ -860,6 +861,14 @@ export const HomePage: React.FC = () => {
             }}
             onInviteFriend={handleInviteFriend}
             onAddToGroup={handleAddToGroup}
+          />
+        </motion.div>
+
+        {/* Store Run Section — "Иду в магазин" */}
+        <motion.div variants={itemVariants}>
+          <ActiveStoreRunsSection
+            groupId={userGroupId ?? null}
+            currentUserId={user?.id}
           />
         </motion.div>
 
