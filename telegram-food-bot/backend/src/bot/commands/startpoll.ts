@@ -7,8 +7,6 @@ import { PollReminderService } from '../../services/poll-reminder.service';
 import { prisma } from '../../database/client';
 import { logger } from '../../utils/logger';
 import { 
-  createPollKeyboard, 
-  createPollMessage, 
   createCompactPollMessage, 
   createCompactPollKeyboard 
 } from '../keyboards/poll.keyboard';
@@ -296,8 +294,8 @@ async function autoRunRoulette(
           0,
           {
             status: 'with_responsible',
-            breakdown: breakdown,
-            responsibleUser: responsibleUser
+            breakdown,
+            responsibleUser
           }
         );
 

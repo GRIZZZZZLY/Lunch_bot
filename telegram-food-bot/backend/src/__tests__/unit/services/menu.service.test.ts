@@ -1,5 +1,5 @@
 import { MenuService } from '../../../services/menu.service';
-import { MenuItem } from '@prisma/client';
+import { MenuItem, Prisma } from '@prisma/client';
 
 // Mock dependencies
 jest.mock('../../../database/client', () => ({
@@ -32,7 +32,6 @@ jest.mock('../../../services/cache.service', () => ({
   },
   CACHE_KEYS: {
     MENU_ITEMS_ACTIVE: 'menu_items_active',
-    MENU_ITEMS_BY_CATEGORY: (category: string) => `menu_items_by_category_${category}`,
   },
   CACHE_TTL: {
     MENU: 300,
@@ -42,6 +41,8 @@ jest.mock('../../../services/cache.service', () => ({
 // Import mocked dependencies
 import { prisma } from '../../../database/client';
 import { cacheService, CacheInvalidator } from '../../../services/cache.service';
+
+const d = (value: number): Prisma.Decimal => new Prisma.Decimal(value);
 
 describe('MenuService', () => {
   beforeEach(() => {
@@ -55,7 +56,6 @@ describe('MenuService', () => {
         name: 'Pizza Margherita',
         description: 'Classic Italian pizza',
         price: 12.99,
-        category: 'Main Course',
         imageUrl: 'https://example.com/pizza.jpg',
         isActive: true,
         createdBy: 1,
@@ -65,8 +65,7 @@ describe('MenuService', () => {
         id: 1,
         name: createData.name,
         description: createData.description,
-        price: createData.price,
-        category: createData.category,
+        price: d(createData.price),
         imageUrl: createData.imageUrl,
         isActive: true,
         createdBy: createData.createdBy,
@@ -85,7 +84,6 @@ describe('MenuService', () => {
           name: createData.name,
           description: createData.description,
           price: createData.price,
-          category: createData.category,
           imageUrl: createData.imageUrl,
           isActive: true,
           createdBy: createData.createdBy,
@@ -107,7 +105,6 @@ describe('MenuService', () => {
         name: createData.name,
         description: null,
         price: null,
-        category: null,
         imageUrl: null,
         isActive: true,
         createdBy: createData.createdBy,
@@ -146,8 +143,7 @@ describe('MenuService', () => {
         id: menuItemId,
         name: 'Pizza',
         description: 'Delicious pizza',
-        price: 10.99,
-        category: 'Main Course',
+        price: d(10.99),
         imageUrl: 'pizza.jpg',
         isActive: true,
         createdBy: 1,
@@ -200,8 +196,7 @@ describe('MenuService', () => {
         id: menuItemId,
         name: updateData.name,
         description: 'Delicious pizza',
-        price: updateData.price,
-        category: 'Main Course',
+        price: d(updateData.price),
         imageUrl: 'pizza.jpg',
         isActive: true,
         createdBy: 1,
@@ -261,8 +256,7 @@ describe('MenuService', () => {
         id: menuItemId,
         name: 'Pizza',
         description: 'Delicious',
-        price: 10.99,
-        category: 'Main',
+        price: d(10.99),
         imageUrl: null,
         isActive: true,
         createdBy: 1,
@@ -307,8 +301,7 @@ describe('MenuService', () => {
         id: menuItemId,
         name: 'Pizza',
         description: 'Delicious',
-        price: 10.99,
-        category: 'Main',
+        price: d(10.99),
         imageUrl: null,
         isActive: true,
         createdBy: 1,
@@ -374,8 +367,7 @@ describe('MenuService', () => {
           id: 1,
           name: 'Apple Pie',
           description: null,
-          price: 5.99,
-          category: 'Dessert',
+          price: d(5.99),
           imageUrl: null,
           isActive: true,
           createdBy: 1,
@@ -386,8 +378,7 @@ describe('MenuService', () => {
           id: 2,
           name: 'Burger',
           description: null,
-          price: 8.99,
-          category: 'Main',
+          price: d(8.99),
           imageUrl: null,
           isActive: false,
           createdBy: 1,
@@ -428,8 +419,7 @@ describe('MenuService', () => {
           id: 1,
           name: 'Pizza',
           description: 'Delicious',
-          price: 10.99,
-          category: 'Main',
+          price: d(10.99),
           imageUrl: null,
           isActive: true,
           createdBy: 1,
@@ -457,44 +447,6 @@ describe('MenuService', () => {
     });
   });
 
-  describe('getMenuItemsByCategory', () => {
-    it('should return menu items by category from cache', async () => {
-      // Arrange
-      const category = 'Main Course';
-      const expectedItems: MenuItem[] = [
-        {
-          id: 1,
-          name: 'Pizza',
-          description: 'Delicious',
-          price: 10.99,
-          category,
-          imageUrl: null,
-          isActive: true,
-          createdBy: 1,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ];
-
-      (cacheService.getOrSet as jest.Mock).mockResolvedValue(expectedItems);
-
-      // Act
-      const result = await MenuService.getMenuItemsByCategory(category);
-
-      // Assert
-      expect(cacheService.getOrSet).toHaveBeenCalled();
-      expect(result).toEqual(expectedItems);
-    });
-
-    it('should throw error when operation fails', async () => {
-      // Arrange
-      (cacheService.getOrSet as jest.Mock).mockRejectedValue(new Error('Cache error'));
-
-      // Act & Assert
-      await expect(MenuService.getMenuItemsByCategory('Main')).rejects.toThrow('Failed to get menu items by category');
-    });
-  });
-
   describe('searchMenuItems', () => {
     it('should search menu items by name or description', async () => {
       // Arrange
@@ -504,8 +456,7 @@ describe('MenuService', () => {
           id: 1,
           name: 'Pizza Margherita',
           description: 'Classic pizza',
-          price: 10.99,
-          category: 'Main',
+          price: d(10.99),
           imageUrl: null,
           isActive: true,
           createdBy: 1,
@@ -551,8 +502,7 @@ describe('MenuService', () => {
         id: menuItemId,
         name: 'Pizza',
         description: null,
-        price: 10.99,
-        category: null,
+        price: d(10.99),
         imageUrl: null,
         isActive: false,
         createdBy: 1,
@@ -610,8 +560,7 @@ describe('MenuService', () => {
           id: 1,
           name: 'Pizza',
           description: 'Delicious',
-          price: 10.99,
-          category: 'Main',
+          price: d(10.99),
           imageUrl: null,
           isActive: true,
           createdBy: 1,
@@ -660,42 +609,12 @@ describe('MenuService', () => {
     });
   });
 
-  describe('getCategories', () => {
-    it('should return sorted categories from cache', async () => {
-      // Arrange
-      const expectedCategories = ['Appetizer', 'Dessert', 'Main Course'];
-
-      (cacheService.getOrSet as jest.Mock).mockResolvedValue(expectedCategories);
-
-      // Act
-      const result = await MenuService.getCategories();
-
-      // Assert
-      expect(cacheService.getOrSet).toHaveBeenCalled();
-      expect(result).toEqual(expectedCategories);
-    });
-
-    it('should throw error when operation fails', async () => {
-      // Arrange
-      (cacheService.getOrSet as jest.Mock).mockRejectedValue(new Error('Cache error'));
-
-      // Act & Assert
-      await expect(MenuService.getCategories()).rejects.toThrow('Failed to get categories');
-    });
-  });
-
   describe('getMenuStats', () => {
     it('should return menu statistics successfully', async () => {
       // Arrange
       (prisma.menuItem.count as jest.Mock)
         .mockResolvedValueOnce(100) // total
         .mockResolvedValueOnce(85); // active
-
-      (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([
-        { category: 'Main' },
-        { category: 'Dessert' },
-        { category: 'Appetizer' },
-      ]);
 
       (prisma.menuItem.aggregate as jest.Mock).mockResolvedValue({
         _avg: { price: 12.5 },
@@ -709,7 +628,6 @@ describe('MenuService', () => {
       expect(result).toEqual({
         total: 100,
         active: 85,
-        categories: 3,
         averagePrice: 12.5,
       });
     });

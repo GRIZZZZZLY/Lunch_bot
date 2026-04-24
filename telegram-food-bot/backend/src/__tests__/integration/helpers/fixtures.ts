@@ -1,5 +1,5 @@
 import { prisma } from '../../../database/client';
-import { MenuItem, User, Group, Poll } from '@prisma/client';
+import { MenuItem, User, Group, Poll, Prisma } from '@prisma/client';
 
 /**
  * Очищает тестовую базу данных
@@ -77,7 +77,12 @@ export async function createTestGroup(overrides?: Partial<Group>): Promise<Group
 /**
  * Создаёт тестовое блюдо
  */
-export async function createTestMenuItem(overrides?: Partial<MenuItem> & { createdBy?: number }): Promise<MenuItem> {
+type TestMenuItemOverrides = Omit<Partial<MenuItem>, 'price'> & {
+  createdBy?: number;
+  price?: number | Prisma.Decimal | null;
+};
+
+export async function createTestMenuItem(overrides?: TestMenuItemOverrides): Promise<MenuItem> {
   // Если не передан createdBy, создаем временного пользователя
   let createdBy = overrides?.createdBy;
   if (!createdBy) {
@@ -88,7 +93,6 @@ export async function createTestMenuItem(overrides?: Partial<MenuItem> & { creat
   return await prisma.menuItem.create({
     data: {
       name: overrides?.name || 'Test Dish',
-      category: overrides?.category || 'Основное',
       price: overrides?.price || 300,
       description: overrides?.description || 'Test description',
       imageUrl: overrides?.imageUrl || null,

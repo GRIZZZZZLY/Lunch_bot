@@ -227,7 +227,7 @@ export function useMenuItemsWithUndo() {
     redo,
     canUndo,
     canRedo,
-  } = useUndo<any[]>([], {
+  } = useUndo<unknown[]>([], {
     maxHistorySize: 20,
     onUndo: (state) => {
       console.log('Undo to state:', state.length, 'items');

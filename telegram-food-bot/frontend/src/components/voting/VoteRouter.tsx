@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { pollsService } from '../../services/polls.service';
+import { pollsService, Poll } from '../../services/polls.service';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { logger } from '../../utils/logger';
 
@@ -10,7 +10,7 @@ const CACHE_KEY = 'active-polls-cache';
 const CACHE_TTL = 10000; // 10 секунд
 
 interface CachedPolls {
-  data: any[];
+  data: Poll[];
   timestamp: number;
 }
 
@@ -27,16 +27,12 @@ interface CachedPolls {
  * 2. Если кэш валиден → мгновенный редирект
  * 3. Иначе → запрос к API + сохранение в кэш
  */
-export const VoteRouter: React.FC = () => {
+export const VoteRouter = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
 
-  useEffect(() => {
-    checkActivePolls();
-  }, [user]);
-
-  const checkActivePolls = async () => {
+  const checkActivePolls = useCallback(async () => {
     try {
       setChecking(true);
       
@@ -114,7 +110,11 @@ export const VoteRouter: React.FC = () => {
     } finally {
       setChecking(false);
     }
-  };
+  }, [navigate, user]);
+
+  useEffect(() => {
+    checkActivePolls();
+  }, [checkActivePolls]);
 
   // Показываем loader пока проверяем
   if (checking) {

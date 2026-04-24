@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 
 declare global {
   interface Window {
@@ -17,6 +17,9 @@ declare global {
           message: string;
           buttons?: Array<{id: string; type?: string; text: string;}>;
         }, callback?: (buttonId: string) => void) => void;
+        setHeaderColor?: (color: string) => void;
+        setBackgroundColor?: (color: string) => void;
+        setBottomBarColor?: (color: string) => void;
       };
     };
   }

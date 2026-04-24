@@ -9,10 +9,8 @@
  *   npm run make-admin 987654321
  */
 
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma, disconnect } from '../database/client';
 
 async function makeAdmin(telegramId: string) {
   try {
@@ -85,7 +83,7 @@ async function makeAdmin(telegramId: string) {
     
     logger.info(`Admin rights granted to user ${telegramId}`, {
       userId: updatedUser.id,
-      telegramId: updatedUser.telegramId,
+      telegramId: updatedUser.telegramId.toString(),
       username: updatedUser.username,
     });
 
@@ -103,7 +101,7 @@ async function makeAdmin(telegramId: string) {
     console.error(`\n❌ Error:`, error);
     process.exit(1);
   } finally {
-    await prisma.$disconnect();
+    await disconnect();
   }
 }
 

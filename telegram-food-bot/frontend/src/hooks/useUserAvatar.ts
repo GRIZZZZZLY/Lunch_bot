@@ -4,17 +4,31 @@
  * Кеширование аватарок с localStorage и API
  */
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryClient';
 import { userService, type UserAvatar } from '@/services/user.service';
-import { useMemo } from 'react';
 
 /**
  * Локальный кеш аватарок в localStorage
  * Срок хранения: 24 часа
+ * Лимит записей: 200
  */
 const AVATAR_CACHE_KEY = 'user_avatars_cache';
 const AVATAR_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 часа
+
+const parseAvatarCacheLimit = (): number => {
+  const rawLimit = import.meta.env.VITE_AVATAR_CACHE_LIMIT;
+  const parsed = Number(rawLimit);
+
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.floor(parsed);
+  }
+
+  return 200;
+};
+
+const MAX_AVATAR_CACHE_ENTRIES = parseAvatarCacheLimit();
 
 interface CachedAvatar {
   avatarUrl: string | null;
@@ -23,50 +37,105 @@ interface CachedAvatar {
 
 type AvatarCache = Record<string, CachedAvatar>;
 
+const avatarCacheMemory: AvatarCache = {};
+let avatarCacheLoaded = false;
+
+const pruneAvatarCache = (cache: AvatarCache, now = Date.now()): boolean => {
+  let changed = false;
+
+  Object.keys(cache).forEach((key) => {
+    const cached = cache[key];
+    if (!cached || now - cached.timestamp > AVATAR_CACHE_TTL) {
+      delete cache[key];
+      changed = true;
+    }
+  });
+
+  const keys = Object.keys(cache);
+  if (keys.length > MAX_AVATAR_CACHE_ENTRIES) {
+    const entries = keys
+      .map((key) => ({ key, timestamp: cache[key]?.timestamp ?? 0 }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    const excess = entries.length - MAX_AVATAR_CACHE_ENTRIES;
+    for (let i = 0; i < excess; i += 1) {
+      delete cache[entries[i].key];
+      changed = true;
+    }
+  }
+
+  return changed;
+};
+
+const ensureAvatarCache = (): AvatarCache => {
+  if (avatarCacheLoaded) {
+    return avatarCacheMemory;
+  }
+
+  avatarCacheLoaded = true;
+
+  try {
+    const cache = localStorage.getItem(AVATAR_CACHE_KEY);
+    if (!cache) return avatarCacheMemory;
+
+    const parsed: AvatarCache = JSON.parse(cache);
+    Object.assign(avatarCacheMemory, parsed);
+  } catch (error) {
+    console.error('[useUserAvatar] Error reading from localStorage:', error);
+  }
+
+  if (pruneAvatarCache(avatarCacheMemory)) {
+    persistAvatarCache(avatarCacheMemory);
+  }
+
+  return avatarCacheMemory;
+};
+
+const persistAvatarCache = (cache: AvatarCache): void => {
+  try {
+    localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify(cache));
+  } catch (error) {
+    console.error('[useUserAvatar] Error writing to localStorage:', error);
+  }
+};
+
 /**
  * Получить аватарку из localStorage кеша
  */
 function getCachedAvatar(userId: number): string | null {
-  try {
-    const cache = localStorage.getItem(AVATAR_CACHE_KEY);
-    if (!cache) return null;
+  const avatarCache = ensureAvatarCache();
+  const cached = avatarCache[userId.toString()];
 
-    const avatarCache: AvatarCache = JSON.parse(cache);
-    const cached = avatarCache[userId.toString()];
+  if (!cached) return null;
 
-    if (!cached) return null;
-
-    // Проверяем срок действия кеша
-    const now = Date.now();
-    if (now - cached.timestamp > AVATAR_CACHE_TTL) {
-      // Кеш устарел
-      return null;
-    }
-
-    return cached.avatarUrl;
-  } catch (error) {
-    console.error('[useUserAvatar] Error reading from localStorage:', error);
+  // Проверяем срок действия кеша
+  const now = Date.now();
+  if (now - cached.timestamp > AVATAR_CACHE_TTL) {
+    delete avatarCache[userId.toString()];
+    persistAvatarCache(avatarCache);
     return null;
   }
+
+  return cached.avatarUrl;
 }
 
 /**
  * Сохранить аватарку в localStorage кеш
  */
 function setCachedAvatar(userId: number, avatarUrl: string | null): void {
-  try {
-    const cache = localStorage.getItem(AVATAR_CACHE_KEY);
-    const avatarCache: AvatarCache = cache ? JSON.parse(cache) : {};
+  const avatarCache = ensureAvatarCache();
 
-    avatarCache[userId.toString()] = {
-      avatarUrl,
-      timestamp: Date.now(),
-    };
+  avatarCache[userId.toString()] = {
+    avatarUrl,
+    timestamp: Date.now(),
+  };
 
-    localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify(avatarCache));
-  } catch (error) {
-    console.error('[useUserAvatar] Error writing to localStorage:', error);
+  if (pruneAvatarCache(avatarCache)) {
+    persistAvatarCache(avatarCache);
+    return;
   }
+
+  persistAvatarCache(avatarCache);
 }
 
 /**

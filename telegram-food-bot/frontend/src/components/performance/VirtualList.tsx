@@ -13,8 +13,8 @@
  * - Список пользователей
  */
 
-import { FC, ReactElement } from 'react';
-// @ts-ignore - types issue with react-window
+import type { ReactElement } from 'react';
+// @ts-expect-error - types issue with react-window
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import { useWindowSize } from 'react-use';
 
@@ -47,7 +47,7 @@ export function VirtualList<T>({
   }
 
   // Высота списка: viewport - header - bottom navigation
-  const listHeight = height - 120; // 60px header + 60px bottom nav
+  const listHeight = Math.max(240, height - 120); // 60px header + 60px bottom nav
 
   // Row renderer
   const Row = ({ index, style }: ListChildComponentProps) => {
@@ -100,7 +100,7 @@ export function VirtualGrid<T>({
     rows.push(items.slice(i, i + columns));
   }
 
-  const listHeight = height - 120;
+  const listHeight = Math.max(240, height - 120);
   const rowHeight = itemHeight + gap;
 
   const Row = ({ index, style }: ListChildComponentProps) => {

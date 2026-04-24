@@ -1,6 +1,6 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosProgressEvent } from 'axios';
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -22,6 +22,7 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 class ApiService {
   private client: AxiosInstance;
   private token: string | null = null;
+  private readonly tokenKey = 'auth_token';
 
   constructor() {
     // В production используем относительный путь (т.к. frontend раздается с того же сервера)
@@ -42,8 +43,16 @@ class ApiService {
       },
     });
 
-    // Загружаем токен из localStorage при инициализации
-    this.token = localStorage.getItem('auth_token');
+    // Используем sessionStorage для снижения риска долгоживущего XSS-перехвата
+    this.token = sessionStorage.getItem(this.tokenKey);
+    if (!this.token) {
+      const legacyToken = localStorage.getItem(this.tokenKey);
+      if (legacyToken) {
+        this.token = legacyToken;
+        sessionStorage.setItem(this.tokenKey, legacyToken);
+        localStorage.removeItem(this.tokenKey);
+      }
+    }
 
     this.setupInterceptors();
   }
@@ -111,7 +120,8 @@ class ApiService {
    */
   setToken(token: string) {
     this.token = token;
-    localStorage.setItem('auth_token', token);
+    sessionStorage.setItem(this.tokenKey, token);
+    localStorage.removeItem(this.tokenKey);
   }
 
   /**
@@ -119,7 +129,7 @@ class ApiService {
    */
   getToken(): string | null {
     if (!this.token) {
-      this.token = localStorage.getItem('auth_token');
+      this.token = sessionStorage.getItem(this.tokenKey);
     }
     return this.token;
   }
@@ -129,13 +139,14 @@ class ApiService {
    */
   clearToken() {
     this.token = null;
-    localStorage.removeItem('auth_token');
+    sessionStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.tokenKey);
   }
 
   /**
    * GET запрос
    */
-  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     if (import.meta.env.DEV) {
       console.log(`🌐 [API] GET ${url}`, { hasToken: !!this.token });
     }
@@ -145,13 +156,16 @@ class ApiService {
         console.log(`✅ [API] GET ${url} success`, { status: response.status });
       }
       return response.data;
-    } catch (error: any) {
-      console.error(`❌ [API] GET ${url} failed`, {
-        success: error.success,
-        error: error.error,
-        code: error.code,
-        status: error.status
-      });
+    } catch (error: unknown) {
+      const errorDetails = error as { success?: boolean; error?: string; code?: string; status?: number };
+      if (import.meta.env.DEV) {
+        console.error(`❌ [API] GET ${url} failed`, {
+          success: errorDetails.success,
+          error: errorDetails.error,
+          code: errorDetails.code,
+          status: errorDetails.status,
+        });
+      }
       throw error;
     }
   }
@@ -159,14 +173,14 @@ class ApiService {
   /**
    * POST запрос
    */
-  async post<T = any>(
+  async post<T = unknown>(
     url: string, 
-    data?: any, 
+    data?: unknown, 
     config?: AxiosRequestConfig
   ): Promise<ApiResponse<T>> {
     if (import.meta.env.DEV) {
       console.log(`🌐 [API] POST ${url}`, {
-        data: data,
+        data,
         hasToken: !!this.token
       });
     }
@@ -179,13 +193,16 @@ class ApiService {
         });
       }
       return response.data;
-    } catch (error: any) {
-      console.error(`❌ [API] POST ${url} failed`, {
-        success: error.success,
-        error: error.error,
-        code: error.code,
-        status: error.status
-      });
+    } catch (error: unknown) {
+      const errorDetails = error as { success?: boolean; error?: string; code?: string; status?: number };
+      if (import.meta.env.DEV) {
+        console.error(`❌ [API] POST ${url} failed`, {
+          success: errorDetails.success,
+          error: errorDetails.error,
+          code: errorDetails.code,
+          status: errorDetails.status,
+        });
+      }
       throw error;
     }
   }
@@ -193,90 +210,70 @@ class ApiService {
   /**
    * PUT запрос
    */
-  async put<T = any>(
+  async put<T = unknown>(
     url: string, 
-    data?: any, 
+    data?: unknown, 
     config?: AxiosRequestConfig
   ): Promise<ApiResponse<T>> {
-    try {
-      const response = await this.client.put<ApiResponse<T>>(url, data, config);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await this.client.put<ApiResponse<T>>(url, data, config);
+    return response.data;
   }
 
   /**
    * PATCH запрос
    */
-  async patch<T = any>(
+  async patch<T = unknown>(
     url: string, 
-    data?: any, 
+    data?: unknown, 
     config?: AxiosRequestConfig
   ): Promise<ApiResponse<T>> {
-    try {
-      const response = await this.client.patch<ApiResponse<T>>(url, data, config);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await this.client.patch<ApiResponse<T>>(url, data, config);
+    return response.data;
   }
 
   /**
    * DELETE запрос
    */
-  async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    try {
-      const response = await this.client.delete<ApiResponse<T>>(url, config);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+  async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+    const response = await this.client.delete<ApiResponse<T>>(url, config);
+    return response.data;
   }
 
   /**
    * GET запрос с пагинацией
    */
-  async getPaginated<T = any>(
+  async getPaginated<T = unknown>(
     url: string, 
     params?: {
       limit?: number;
       offset?: number;
       page?: number;
-      [key: string]: any;
+      [key: string]: string | number | boolean | undefined;
     }
   ): Promise<PaginatedResponse<T>> {
-    try {
-      const response = await this.client.get<PaginatedResponse<T>>(url, { params });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await this.client.get<PaginatedResponse<T>>(url, { params });
+    return response.data;
   }
 
   /**
    * Загрузка файла
    */
-  async uploadFile<T = any>(
+  async uploadFile<T = unknown>(
     url: string,
     file: File,
-    onUploadProgress?: (progressEvent: any) => void
+    onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
   ): Promise<ApiResponse<T>> {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+    const formData = new FormData();
+    formData.append('file', file);
 
-      const response = await this.client.post<ApiResponse<T>>(url, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress,
-      });
+    const response = await this.client.post<ApiResponse<T>>(url, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress,
+    });
 
-      return this.handleResponse<T>(response);
-    } catch (error) {
-      throw error;
-    }
+    return this.handleResponse<T>(response);
   }
 
   /**
@@ -290,25 +287,21 @@ class ApiService {
    * Скачивание файла
    */
   async downloadFile(url: string, filename?: string): Promise<void> {
-    try {
-      const response = await this.client.get(url, {
-        responseType: 'blob',
-      });
+    const response = await this.client.get(url, {
+      responseType: 'blob',
+    });
 
-      const blob = new Blob([response.data]);
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      
-      link.href = downloadUrl;
-      link.download = filename || 'download';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-      throw error;
-    }
+    const blob = new Blob([response.data]);
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    link.href = downloadUrl;
+    link.download = filename || 'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    window.URL.revokeObjectURL(downloadUrl);
   }
 
   /**
@@ -327,7 +320,7 @@ class ApiService {
       
       const response = await axios.get(healthUrl, { timeout: 5000 });
       return response.data;
-    } catch (error) {
+    } catch {
       throw {
         success: false,
         error: 'Server is not available',

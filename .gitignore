@@ -1,0 +1,11 @@
+# Local Claude Code permissions (per-developer)
+.claude/settings.local.json
+
+# Runtime artifacts (process captures, pid files)
+*.pid
+stderr.txt
+stdout.txt
+
+# OS
+Thumbs.db
+.DS_Store

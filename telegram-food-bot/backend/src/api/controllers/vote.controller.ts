@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { VoteService } from '../../services/vote.service';
+import { PollService } from '../../services/poll.service';
+import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 
 /**
@@ -23,6 +25,48 @@ const DeleteVoteParamsSchema = z.object({
 const PollIdParamsSchema = z.object({
   pollId: z.string().regex(/^\d+$/, 'pollId must be numeric').transform(Number),
 });
+
+async function requirePollAccess(req: Request, res: Response, pollId: number): Promise<boolean> {
+  const user = req.user as { id?: number; isAdmin?: boolean } | undefined;
+
+  if (!user?.id) {
+    res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      code: 'UNAUTHORIZED',
+      timestamp: new Date().toISOString(),
+    });
+    return false;
+  }
+
+  const pollGroupId = await PollService.getPollGroupId(pollId);
+  if (!pollGroupId) {
+    res.status(404).json({
+      success: false,
+      error: 'Poll not found',
+      code: 'POLL_NOT_FOUND',
+      timestamp: new Date().toISOString(),
+    });
+    return false;
+  }
+
+  if (user.isAdmin) {
+    return true;
+  }
+
+  const hasAccess = await GroupService.isUserGroupMember(user.id, pollGroupId);
+  if (!hasAccess) {
+    res.status(403).json({
+      success: false,
+      error: 'Access denied',
+      code: 'FORBIDDEN',
+      timestamp: new Date().toISOString(),
+    });
+    return false;
+  }
+
+  return true;
+}
 
 /**
  * POST /api/votes/multiple
@@ -60,14 +104,54 @@ export async function createMultipleVotes(req: Request, res: Response): Promise<
     }
 
     const { pollId, menuItemIds } = parseResult.data;
+    const uniqueMenuItemIds = [...new Set(menuItemIds)];
+
+    const hasAccess = await requirePollAccess(req, res, pollId);
+    if (!hasAccess) return;
+
+    const poll = await PollService.getPollById(pollId);
+    if (!poll) {
+      res.status(404).json({
+        success: false,
+        error: 'Poll not found',
+        code: 'POLL_NOT_FOUND',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const isMultiSelectMode = poll.isMultiSelect !== false;
+    const maxAllowedSelections = isMultiSelectMode
+      ? Math.max(1, Math.min(poll.maxSelections || 3, 3))
+      : 1;
+
+    if (!isMultiSelectMode && uniqueMenuItemIds.length > 1) {
+      res.status(400).json({
+        success: false,
+        error: 'This poll allows only single selection',
+        code: 'SINGLE_SELECTION_ONLY',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (uniqueMenuItemIds.length > maxAllowedSelections) {
+      res.status(400).json({
+        success: false,
+        error: `Maximum ${maxAllowedSelections} selections allowed`,
+        code: 'MAX_SELECTIONS_EXCEEDED',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
 
     // 1. Получаем текущие голоса пользователя
     const currentVotes = await VoteService.getUserVotes(pollId, userId);
     const currentMenuItemIds = currentVotes.map(v => v.menuItemId!);
 
     // 2. Определяем, какие голоса добавить, а какие удалить
-    const toAdd = menuItemIds.filter(id => !currentMenuItemIds.includes(id));
-    const toRemove = currentMenuItemIds.filter(id => !menuItemIds.includes(id));
+    const toAdd = uniqueMenuItemIds.filter(id => !currentMenuItemIds.includes(id));
+    const toRemove = currentMenuItemIds.filter(id => !uniqueMenuItemIds.includes(id));
 
     // 3. Удаляем голоса за неотмеченные блюда
     for (const menuItemId of toRemove) {
@@ -91,7 +175,7 @@ export async function createMultipleVotes(req: Request, res: Response): Promise<
     res.json({
       success: true,
       votes: updatedVotes,
-      message: `Votes updated: ${menuItemIds.length} selected`,
+      message: `Votes updated: ${uniqueMenuItemIds.length} selected`,
     });
   } catch (error: any) {
     logger.error('[VoteController] Error creating multiple votes:', error);
@@ -135,6 +219,10 @@ export async function getUserVotes(req: Request, res: Response): Promise<void> {
     }
 
     const { pollId } = parseResult.data;
+
+    const hasAccess = await requirePollAccess(req, res, pollId);
+    if (!hasAccess) return;
+
     const votes = await VoteService.getUserVotes(pollId, userId);
 
     res.json({
@@ -183,6 +271,10 @@ export async function deleteVote(req: Request, res: Response): Promise<void> {
     }
 
     const { pollId, menuItemId } = parseResult.data;
+
+    const hasAccess = await requirePollAccess(req, res, pollId);
+    if (!hasAccess) return;
+
     await VoteService.deleteVote(pollId, userId, menuItemId);
 
     res.json({

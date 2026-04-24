@@ -2,6 +2,7 @@ import { BotContext } from '../../types/bot.types';
 import { Bot } from 'grammy';
 import { logger } from '../../utils/logger';
 import { GroupService } from '../../services/group.service';
+import { UserService } from '../../services/user.service';
 
 /**
  * Настройка обработчиков событий группы
@@ -42,19 +43,14 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
           const deepLink = `https://t.me/${ctx.me.username}?start=menu_${chat.id}`;
           
           await ctx.reply(
-            '👋 *Привет! Я Rocket Lunch Bot*\n\n' +
-            'Я помогу организовать обед для вашей команды:\n' +
-            '• 🗳 Голосование за блюда\n' +
-            '• 🎲 Рулетка для выбора ответственного\n' +
-            '• 📊 Статистика и история\n\n' +
-            '🚀 Настройте меню один раз и пользуйтесь!',
+            '👋 Бот активен. Откройте Mini App для меню и голосований.',
             {
               parse_mode: 'Markdown',
               reply_markup: {
                 inline_keyboard: [
                   [
                     {
-                      text: '🍽 Настроить меню',
+                      text: '🍽 Открыть Mini App',
                       url: deepLink,
                     },
                   ],
@@ -94,6 +90,9 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
   bot.on('chat_member', async (ctx) => {
     try {
       const chat = ctx.chat;
+      const oldStatus = ctx.chatMember.old_chat_member.status;
+      const newStatus = ctx.chatMember.new_chat_member.status;
+      const memberUser = ctx.chatMember.new_chat_member.user;
       
       // Если изменилось название группы
       if (chat.type === 'group' || chat.type === 'supergroup') {
@@ -102,6 +101,28 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
           await GroupService.updateGroup(group.id, {
             title: chat.title,
           });
+
+          if (memberUser?.id) {
+            const user = await UserService.getUserByTelegramId(
+              BigInt(memberUser.id)
+            );
+
+            if (user) {
+              if (
+                (oldStatus === 'member' || oldStatus === 'administrator') &&
+                (newStatus === 'left' || newStatus === 'kicked')
+              ) {
+                await GroupService.removeMemberFromGroup(group.id, user.id);
+              }
+
+              if (
+                (oldStatus === 'left' || oldStatus === 'kicked') &&
+                (newStatus === 'member' || newStatus === 'administrator')
+              ) {
+                await GroupService.addMemberToGroup(group.id, user.id);
+              }
+            }
+          }
         }
       }
     } catch (error) {
@@ -121,7 +142,7 @@ export async function setupMenuButtonForGroup(bot: Bot<BotContext>, chatId: numb
       chat_id: chatId,
       menu_button: {
         type: 'web_app',
-        text: '🍽 Меню',
+        text: '🍽 Обед',
         web_app: {
           url: `${webappUrl}?groupId=${chatId}`,
         },
@@ -150,7 +171,7 @@ export async function setupDefaultMenuButton(bot: Bot<BotContext>) {
     await bot.api.setChatMenuButton({
       menu_button: {
         type: 'web_app',
-        text: '📋 Мои группы',
+        text: '🍽 Обед',
         web_app: {
           url: webappUrl,
         },

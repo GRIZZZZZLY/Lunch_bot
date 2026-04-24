@@ -3,6 +3,7 @@ import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreateMenuItemData, UpdateMenuItemData, MenuItemWithStats } from '../types/menu.types';
 import { cacheService, CACHE_KEYS, CACHE_TTL, CacheInvalidator } from './cache.service';
+import { toNumber } from '../utils/decimal';
 
 export class MenuService {
   /**
@@ -15,7 +16,6 @@ export class MenuService {
           name: data.name,
           description: data.description,
           price: data.price,
-          category: data.category,
           imageUrl: data.imageUrl,
           isActive: data.isActive ?? true,
           createdBy: data.createdBy,
@@ -206,7 +206,6 @@ export class MenuService {
               name: true,
               description: true,
               price: true,
-              category: true,
               imageUrl: true,
               isActive: true,
               createdBy: true,
@@ -232,41 +231,6 @@ export class MenuService {
     }
   }
 
-  /**
-   * Получение блюд по категории (С КЭШИРОВАНИЕМ)
-   */
-  static async getMenuItemsByCategory(category: string): Promise<MenuItem[]> {
-    try {
-      return await cacheService.getOrSet(
-        CACHE_KEYS.MENU_ITEMS_BY_CATEGORY(category),
-        async () => {
-          return await prisma.menuItem.findMany({
-            where: {
-              category,
-              isActive: true,
-            },
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              price: true,
-              category: true,
-              imageUrl: true,
-              isActive: true,
-              createdBy: true,
-              createdAt: true,
-              updatedAt: true,
-            },
-            orderBy: { name: 'asc' },
-          });
-        },
-        CACHE_TTL.MENU
-      );
-    } catch (error) {
-      logger.error('Error getting menu items by category:', error);
-      throw new Error('Failed to get menu items by category');
-    }
-  }
 
   /**
    * Поиск блюд по названию
@@ -365,44 +329,17 @@ export class MenuService {
 
       return popularItems.map(item => ({
         ...item,
+        price: item.price ? toNumber(item.price) : null,
         voteCount: item._count.votes,
         winCount: item._count.pollResults,
-      }));
+      })) as MenuItemWithStats[];
     } catch (error) {
       logger.error('Error getting popular menu items:', error);
       throw new Error('Failed to get popular menu items');
     }
   }
 
-  /**
-   * Получение всех категорий (С КЭШИРОВАНИЕМ)
-   */
-  static async getCategories(): Promise<string[]> {
-    try {
-      return await cacheService.getOrSet(
-        'menu_categories',
-        async () => {
-          const categories = await prisma.menuItem.findMany({
-            where: {
-              category: { not: null },
-              isActive: true,
-            },
-            select: { category: true },
-            distinct: ['category'],
-          });
 
-          return categories
-            .map(item => item.category!)
-            .filter(Boolean)
-            .sort();
-        },
-        CACHE_TTL.MENU
-      );
-    } catch (error) {
-      logger.error('Error getting categories:', error);
-      throw new Error('Failed to get categories');
-    }
-  }
 
   /**
    * Получение статистики меню
@@ -410,18 +347,12 @@ export class MenuService {
   static async getMenuStats(): Promise<{
     total: number;
     active: number;
-    categories: number;
     averagePrice: number;
   }> {
     try {
-      const [total, active, categoriesResult, avgPriceResult] = await Promise.all([
+      const [total, active, avgPriceResult] = await Promise.all([
         prisma.menuItem.count(),
         prisma.menuItem.count({ where: { isActive: true } }),
-        prisma.menuItem.findMany({
-          where: { category: { not: null } },
-          select: { category: true },
-          distinct: ['category'],
-        }),
         prisma.menuItem.aggregate({
           where: {
             price: { not: null },
@@ -431,13 +362,11 @@ export class MenuService {
         }),
       ]);
 
-      const categories = categoriesResult.length;
-      const averagePrice = avgPriceResult._avg.price || 0;
+      const averagePrice = toNumber(avgPriceResult._avg.price);
 
       return {
         total,
         active,
-        categories,
         averagePrice: Math.round(averagePrice * 100) / 100,
       };
     } catch (error) {

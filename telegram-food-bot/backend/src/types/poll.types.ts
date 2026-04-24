@@ -1,4 +1,27 @@
-import { Poll, Vote, PollResult, Group, User, MenuItem } from '@prisma/client';
+import { Poll, Vote, PollResult, Group, User, MenuItem, Prisma } from '@prisma/client';
+
+/**
+ * Публичные поля User, которые безопасно отдавать через API.
+ * НЕ включает: email, paymentCard, paymentPhone, paymentDetails, isActive, createdAt и т.п.
+ *
+ * Используется для votes[].user, чтобы не утекали PII (платёжные данные)
+ * других участников голосования при GET /api/polls/:id.
+ */
+export type VotePublicUser = Pick<
+  User,
+  'id' | 'telegramId' | 'firstName' | 'lastName' | 'username' | 'photoUrl' | 'avatarUrl' | 'isAdmin'
+>;
+
+export const votePublicUserSelect = {
+  id: true,
+  telegramId: true,
+  firstName: true,
+  lastName: true,
+  username: true,
+  photoUrl: true,
+  avatarUrl: true,
+  isAdmin: true,
+} as const satisfies Prisma.UserSelect;
 
 export interface CreatePollData {
   groupId: number;
@@ -7,6 +30,8 @@ export interface CreatePollData {
   title?: string;
   description?: string;
   selectedMenuItemIds?: string;
+  isMultiSelect?: boolean;
+  maxSelections?: number;
 }
 
 export interface UpdatePollData {
@@ -27,7 +52,7 @@ export interface PollWithDetails extends Poll {
 }
 
 export interface VoteWithDetails extends Vote {
-  user: User;
+  user: VotePublicUser;
   menuItem: MenuItem | null;
 }
 

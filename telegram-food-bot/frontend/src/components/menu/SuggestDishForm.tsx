@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Utensils, DollarSign, Tag, Image, Check } from 'lucide-react';
-import Confetti from 'react-confetti';
+import { X, Sparkles, Utensils, DollarSign, Image, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+// Lazy load react-confetti
+const Confetti = lazy(() => import('react-confetti'));
 import { Input } from '@/components/ui/input';
 import { GlassCard, GlassCardContent } from '@/components/ui/glass-card';
 import { useCreateSuggestion } from '@/hooks/useSuggestions';
@@ -26,7 +28,6 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('');
   const [imageUrl, setImageUrl] = useState('');
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -58,7 +59,6 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
         name: name.trim(),
         description: description.trim() || undefined,
         price: price ? parseFloat(price) : undefined,
-        category: category.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined,
       },
       {
@@ -80,7 +80,6 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
     setName('');
     setDescription('');
     setPrice('');
-    setCategory('');
     setImageUrl('');
     setErrors({});
     onClose();
@@ -92,13 +91,15 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
         <>
           {/* Confetti on success */}
           {showSuccess && (
-            <Confetti
-              width={width}
-              height={height}
-              recycle={false}
-              numberOfPieces={200}
-              gravity={0.3}
-            />
+            <Suspense fallback={null}>
+              <Confetti
+                width={width}
+                height={height}
+                recycle={false}
+                numberOfPieces={200}
+                gravity={0.3}
+              />
+            </Suspense>
           )}
 
           {/* Backdrop */}
@@ -170,6 +171,9 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  <p className="text-xs text-muted-foreground">
+                    Поля со звездочкой (*) обязательны для заполнения
+                  </p>
                   {/* Name */}
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -177,6 +181,7 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
                       Название блюда *
                     </label>
                     <Input
+                      required
                       value={name}
                       onChange={(e) => {
                         setName(e.target.value);
@@ -228,20 +233,6 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
                     {errors.price && (
                       <p className="text-xs text-red-500">{errors.price}</p>
                     )}
-                  </div>
-
-                  {/* Category */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <Tag className={`${ICON_SIZES.sm} text-peach-500`} />
-                      Категория
-                    </label>
-                    <Input
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      placeholder="Первые блюда"
-                      className="bg-background/50"
-                    />
                   </div>
 
                   {/* Image URL */}

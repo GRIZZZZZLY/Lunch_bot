@@ -1,5 +1,4 @@
 import { apiService, ApiResponse } from './api.service';
-import { mockApiService } from './mockApi.service';
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true';
 
@@ -15,6 +14,8 @@ export interface Poll {
   endTime?: string; // Alias for endedAt (used in frontend)
   messageId?: number;
   selectedMenuItemIds?: string; // JSON array of menu item IDs selected for this poll
+  isMultiSelect?: boolean;
+  maxSelections?: number;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -30,6 +31,7 @@ export interface PollWithDetails extends Poll {
   };
   votes: Vote[];
   results: PollResult[];
+  result?: PollResult;
 }
 
 export interface Vote {
@@ -127,7 +129,6 @@ export interface Winner {
   menuItemName: string;
   menuItemSnapshot: {
     price?: number;
-    category?: string;
     imageUrl?: string;
   };
   voterIds: number[];
@@ -180,6 +181,7 @@ class PollsService {
    */
   async getAllPolls(): Promise<ApiResponse<Poll[]>> {
     if (USE_MOCK_API) {
+      const { mockApiService } = await import('./mockApi.service');
       return await mockApiService.getAllPolls();
     }
     return await apiService.get<Poll[]>('/polls');
@@ -219,6 +221,8 @@ class PollsService {
     duration: number;
     selectedMenuItems?: number[];
     title?: string;
+    isMultiSelect?: boolean;
+    maxSelections?: number;
   }): Promise<ApiResponse<{
     pollId: number;
     messageId: number;
@@ -351,6 +355,7 @@ class PollsService {
    */
   async getPollResults(pollId: number): Promise<ApiResponse<PollResult>> {
     if (USE_MOCK_API) {
+      const { mockApiService } = await import('./mockApi.service');
       return await mockApiService.getPollResults(pollId);
     }
     return await apiService.get<PollResult>(`/polls/${pollId}/results`);
@@ -361,6 +366,7 @@ class PollsService {
    */
   async getPollVoteBreakdown(pollId: number): Promise<ApiResponse<VoteBreakdown[]>> {
     if (USE_MOCK_API) {
+      const { mockApiService } = await import('./mockApi.service');
       return await mockApiService.getPollVoteBreakdown(pollId);
     }
     return await apiService.get<VoteBreakdown[]>(`/polls/${pollId}/breakdown`);
@@ -377,11 +383,13 @@ class PollsService {
   /**
    * Получение статистики голосований
    */
-  async getPollStats(): Promise<ApiResponse<PollStats>> {
+  async getPollStats(groupId?: number): Promise<ApiResponse<PollStats>> {
     if (USE_MOCK_API) {
+      const { mockApiService } = await import('./mockApi.service');
       return await mockApiService.getPollStats();
     }
-    return await apiService.get<PollStats>('/polls/stats');
+    const url = groupId ? `/polls/stats?groupId=${groupId}` : '/polls/stats';
+    return await apiService.get<PollStats>(url);
   }
 
   /**
@@ -389,6 +397,7 @@ class PollsService {
    */
   async getPopularItems(limit: number = 10): Promise<ApiResponse<PopularItem[]>> {
     if (USE_MOCK_API) {
+      const { mockApiService } = await import('./mockApi.service');
       return await mockApiService.getPopularItems();
     }
     return await apiService.get<PopularItem[]>(`/polls/popular-items?limit=${limit}`);
@@ -595,12 +604,12 @@ class PollsService {
           bValue = new Date(b.createdAt);
           break;
         case 'votes':
-          aValue = a._count.votes;
-          bValue = b._count.votes;
+          aValue = a._count?.votes || 0;
+          bValue = b._count?.votes || 0;
           break;
         case 'title':
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
+          aValue = (a.title || '').toLowerCase();
+          bValue = (b.title || '').toLowerCase();
           break;
         default:
           return 0;
@@ -618,6 +627,7 @@ class PollsService {
   async createPoll(data: { groupId: number; duration?: number; title?: string }): Promise<ApiResponse<Poll>> {
     try {
       if (USE_MOCK_API) {
+        const { mockApiService } = await import('./mockApi.service');
         return await mockApiService.createPoll(data);
       }
 
@@ -634,6 +644,7 @@ class PollsService {
   async closePoll(pollId: number): Promise<ApiResponse<PollResult>> {
     try {
       if (USE_MOCK_API) {
+        const { mockApiService } = await import('./mockApi.service');
         return await mockApiService.closePoll(pollId);
       }
 
@@ -650,6 +661,7 @@ class PollsService {
   async vote(pollId: number, menuItemId: number): Promise<ApiResponse<Vote>> {
     try {
       if (USE_MOCK_API) {
+        const { mockApiService } = await import('./mockApi.service');
         return await mockApiService.vote(pollId, menuItemId);
       }
 

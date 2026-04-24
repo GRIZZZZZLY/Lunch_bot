@@ -1,5 +1,9 @@
+import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { logger } from '../utils/logger';
+
+dotenv.config();
 
 // Глобальная переменная для Prisma Client (предотвращает множественные подключения)
 const globalForPrisma = globalThis as unknown as {
@@ -8,66 +12,15 @@ const globalForPrisma = globalThis as unknown as {
 
 // Создание Prisma Client с настройками
 const createPrismaClient = (): PrismaClient => {
-  const prisma = new PrismaClient({
-    log: [
-      {
-        emit: 'event',
-        level: 'query',
-      },
-      {
-        emit: 'event',
-        level: 'error',
-      },
-      {
-        emit: 'event',
-        level: 'info',
-      },
-      {
-        emit: 'event',
-        level: 'warn',
-      },
-    ],
-    errorFormat: 'pretty',
-  });
+  const databaseUrl = process.env.DATABASE_URL;
 
-  // Логирование SQL запросов в development
-  if (process.env.NODE_ENV === 'development') {
-    prisma.$on('query', (e) => {
-      logger.debug('Prisma Query:', {
-        query: e.query,
-        params: e.params,
-        duration: `${e.duration}ms`,
-        target: e.target,
-      });
-    });
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL environment variable is required');
   }
 
-  // Логирование ошибок
-  prisma.$on('error', (e) => {
-    logger.error('Prisma Error:', {
-      message: e.message,
-      target: e.target,
-      timestamp: e.timestamp,
-    });
-  });
+  const adapter = new PrismaBetterSqlite3({ url: databaseUrl });
 
-  // Логирование информационных сообщений
-  prisma.$on('info', (e) => {
-    logger.info('Prisma Info:', {
-      message: e.message,
-      target: e.target,
-      timestamp: e.timestamp,
-    });
-  });
-
-  // Логирование предупреждений
-  prisma.$on('warn', (e) => {
-    logger.warn('Prisma Warning:', {
-      message: e.message,
-      target: e.target,
-      timestamp: e.timestamp,
-    });
-  });
+  const prisma = new PrismaClient({ adapter });
 
   return prisma;
 };

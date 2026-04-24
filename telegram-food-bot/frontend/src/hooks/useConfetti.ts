@@ -1,10 +1,9 @@
 import { useCallback } from 'react';
-import confetti from 'canvas-confetti';
 import { useHaptic } from './useHaptic';
 
 /**
  * Hook для запуска конфетти с разными пресетами
- * Использует canvas-confetti для визуальных эффектов
+ * Использует canvas-confetti для визуальных эффектов (async loaded)
  */
 export function useConfetti() {
   const haptic = useHaptic();
@@ -12,8 +11,9 @@ export function useConfetti() {
   /**
    * Базовый конфетти эффект
    */
-  const basic = useCallback(() => {
+  const basic = useCallback(async () => {
     haptic.impact();
+    const confetti = (await import('canvas-confetti')).default;
     confetti({
       particleCount: 100,
       spread: 70,
@@ -25,8 +25,9 @@ export function useConfetti() {
    * Конфетти при разблокировке достижения
    * Золотые и цветные частицы с боков экрана
    */
-  const achievement = useCallback((rarity: 'common' | 'rare' | 'epic' | 'legendary' = 'rare') => {
+  const achievement = useCallback(async (rarity: 'common' | 'rare' | 'epic' | 'legendary' = 'rare') => {
     haptic.impact();
+    const confetti = (await import('canvas-confetti')).default;
 
     const colors = {
       common: ['#6b7280', '#9ca3af', '#d1d5db'],
@@ -95,8 +96,9 @@ export function useConfetti() {
    * Конфетти при повышении уровня
    * Взрыв снизу вверх по центру
    */
-  const levelUp = useCallback(() => {
+  const levelUp = useCallback(async () => {
     haptic.impact();
+    const confetti = (await import('canvas-confetti')).default;
 
     const duration = 3000;
     const animationEnd = Date.now() + duration;
@@ -139,8 +141,9 @@ export function useConfetti() {
    * Мини-конфетти для небольших успехов
    * Быстрый короткий всплеск
    */
-  const mini = useCallback(() => {
+  const mini = useCallback(async () => {
     haptic.medium();
+    const confetti = (await import('canvas-confetti')).default;
     confetti({
       particleCount: 30,
       spread: 45,
@@ -154,8 +157,9 @@ export function useConfetti() {
    * Конфетти-фейерверк (для топ-1 в лидерборде)
    * Множественные взрывы по экрану
    */
-  const fireworks = useCallback(() => {
+  const fireworks = useCallback(async () => {
     haptic.impact();
+    const confetti = (await import('canvas-confetti')).default;
 
     const duration = 4000;
     const animationEnd = Date.now() + duration;
@@ -191,8 +195,9 @@ export function useConfetti() {
   /**
    * Школьная пушка (стрельба снизу)
    */
-  const cannon = useCallback(() => {
+  const cannon = useCallback(async () => {
     haptic.impact();
+    const confetti = (await import('canvas-confetti')).default;
 
     const colors = ['#fbbf24', '#f59e0b', '#fb923c', '#f97316', '#ef4444'];
 
@@ -215,8 +220,9 @@ export function useConfetti() {
   /**
    * Звёзды падают сверху (для нового места в топе)
    */
-  const stars = useCallback(() => {
+  const stars = useCallback(async () => {
     haptic.medium();
+    const confetti = (await import('canvas-confetti')).default;
 
     const duration = 2000;
     const end = Date.now() + duration;
@@ -247,8 +253,9 @@ export function useConfetti() {
   /**
    * Конфетти при оплате (зелёные деньги 💰)
    */
-  const payment = useCallback(() => {
+  const payment = useCallback(async () => {
     haptic.medium();
+    const confetti = (await import('canvas-confetti')).default;
     confetti({
       particleCount: 60,
       spread: 70,
@@ -261,7 +268,8 @@ export function useConfetti() {
   /**
    * Остановить все активные конфетти
    */
-  const stop = useCallback(() => {
+  const stop = useCallback(async () => {
+    const confetti = (await import('canvas-confetti')).default;
     confetti.reset();
   }, []);
 

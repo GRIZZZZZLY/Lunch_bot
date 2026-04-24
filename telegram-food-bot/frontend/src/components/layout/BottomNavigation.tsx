@@ -1,13 +1,7 @@
-import React from 'react';
+import { useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Home,
-  Vote,
-  UtensilsCrossed,
-  BarChart3,
-  User,
-} from 'lucide-react';
+import { Home, UtensilsCrossed, BarChart3, User } from 'lucide-react';
 import { useTelegram } from '../../hooks/useTelegram';
 import { useAuth } from '../../hooks/useAuth';
 import { useActivePollsCount, startPollsAutoUpdate, stopPollsAutoUpdate } from '../../store/usePollsStore';
@@ -34,30 +28,30 @@ interface NavItem {
 export const BottomNavigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { hapticFeedback, colorScheme } = useTelegram();
+  const { colorScheme } = useTelegram();
   const { user } = useAuth();
-  const { activeCount: activePollsCount } = useActivePollsCount();
+  useActivePollsCount();
 
   const isDark = colorScheme === 'dark';
 
   // Debug logging
-  React.useEffect(() => {
+  useEffect(() => {
     console.log('[BottomNavigation] Mounted', {
       pathname: location.pathname,
       colorScheme,
       isDark,
       userExists: !!user,
     });
-  }, []);
+  }, [colorScheme, isDark, location.pathname, user]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     console.log('[BottomNavigation] Route changed:', location.pathname);
   }, [location.pathname]);
 
   // Start auto-update on mount
-  React.useEffect(() => {
+  useEffect(() => {
     console.log('[BottomNavigation] Starting polls auto-update');
-    startPollsAutoUpdate(30000); // Update every 30 seconds
+    startPollsAutoUpdate(60000); // Update every 60 seconds
     
     return () => {
       console.log('[BottomNavigation] Stopping polls auto-update');
@@ -101,7 +95,7 @@ export const BottomNavigation: React.FC = () => {
   };
 
   // Prefetch для оптимизации /vote перехода
-  const prefetchVoteData = React.useCallback(() => {
+  const prefetchVoteData = useCallback(() => {
     // Prefetch активных голосований для мгновенного перехода
     pollsService.getActivePolls().catch(() => {
       // Ignore errors on prefetch
@@ -121,18 +115,15 @@ export const BottomNavigation: React.FC = () => {
       }}
       className={cn(
         'fixed bottom-0 left-0 right-0 z-50',
-        'backdrop-blur-xl saturate-180',
-        'border-t',
+        'backdrop-blur-xl saturate-150',
+        'border-t border-border/60 dark:border-white/[0.07]',
         'overflow-hidden',
-        isDark 
-          ? 'border-zinc-800/50' 
-          : 'bg-background/90 border-border/30'
+        'bg-card'
       )}
       style={{
-        backgroundColor: isDark ? '#000000' : undefined,
         boxShadow: isDark
-          ? '0 -4px 20px rgba(0, 0, 0, 0.5)'
-          : '0 -4px 20px rgba(0, 0, 0, 0.08)',
+          ? '0 -1px 0 rgba(255,255,255,0.06)'
+          : '0 -4px 16px rgba(33,20,10,0.06)',
       }}
     >
       <div className="flex items-center justify-center gap-1 h-16 max-w-2xl mx-auto px-6">
@@ -170,20 +161,13 @@ export const BottomNavigation: React.FC = () => {
               }}
               className={cn(
                 'relative flex flex-col items-center justify-center gap-1',
-                'flex-1 h-14 rounded-xl transition-all',
+                'flex-1 h-16 rounded-xl transition-all',
                 'px-2 py-1.5',
                 'focus-visible:outline-2 focus-visible:outline-offset-2',
                 isActive
-                  ? isDark
-                    ? 'bg-gradient-to-br from-lavender-500/10 to-lavender-600/10 focus-visible:outline-lavender-400'
-                    : 'bg-gradient-to-br from-peach-500/10 to-coral-500/10 focus-visible:outline-peach-600'
-                  : 'focus-visible:outline-gray-400'
+                  ? 'focus-visible:outline-primary'
+                  : 'focus-visible:outline-primary/40'
               )}
-              style={isActive ? {
-                boxShadow: isDark
-                  ? '0 0 20px rgba(167, 139, 250, 0.3), 0 0 10px rgba(139, 92, 246, 0.2)' // Lavender glow for active button in dark theme
-                  : '0 0 20px rgba(251, 146, 60, 0.25), 0 0 10px rgba(249, 115, 22, 0.15)', // Orange glow for active button in light theme
-              } : undefined}
             >
               {/* Icon container with badge */}
               <div className="relative">
@@ -192,9 +176,9 @@ export const BottomNavigation: React.FC = () => {
                     'icon-nav transition-all duration-200',
                     isActive
                       ? isDark
-                        ? 'text-lavender-400 scale-110'
-                        : 'text-peach-600 scale-110'
-                      : 'text-muted-foreground scale-100'
+                        ? 'text-primary scale-110'
+                        : 'text-primary scale-110'
+                      : isDark ? 'text-muted-foreground scale-100' : 'text-foreground/84 scale-100'
                   )}
                 />
 
@@ -251,22 +235,20 @@ export const BottomNavigation: React.FC = () => {
                   'text-xs leading-tight text-center max-w-full truncate',
                   isActive
                     ? isDark
-                      ? 'text-lavender-400'
-                      : 'text-peach-600'
-                    : 'text-muted-foreground'
+                      ? 'text-primary'
+                      : 'text-primary'
+                    : isDark ? 'text-muted-foreground' : 'text-foreground/82'
                 )}
               >
                 {item.label}
               </motion.span>
 
-              {/* Active indicator - positioned at bottom inside button */}
+              {/* Active indicator — dot-top (redesign 2026-04-24) */}
               {isActive && (
                 <motion.div
                   className={cn(
-                    'absolute bottom-1.5 left-0 right-0 mx-auto h-0.5 w-8 rounded-full',
-                    isDark
-                      ? 'bg-gradient-to-r from-lavender-400 to-lavender-500'
-                      : 'bg-gradient-to-r from-peach-500 to-coral-500'
+                    'absolute top-0 left-0 right-0 mx-auto h-[3px] w-6 rounded-b-full',
+                    'bg-primary'
                   )}
                   initial={{ opacity: 0, scaleX: 0 }}
                   animate={{ opacity: 1, scaleX: 1 }}

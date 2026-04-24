@@ -3,14 +3,16 @@
  * Показывает прогресс, следующий milestone, мотивационные сообщения
  */
 
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { lazy, Suspense } from 'react';
+import { motion } from 'framer-motion';
 import { Flame, TrendingUp, Trophy, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Progress } from '../ui/progress';
 import { getProgressToNextMilestone, STREAK_MILESTONES } from '@/types/streak.types';
-import Confetti from 'react-confetti';
 import { useWindowSize } from 'react-use';
+
+// Lazy load react-confetti
+const Confetti = lazy(() => import('react-confetti'));
 
 interface StreakCardProps {
   currentStreak: number;
@@ -90,7 +92,11 @@ export const StreakCard: React.FC<StreakCardProps> = ({
 
   return (
     <>
-      {showConfetti && <Confetti width={width} height={height} recycle={false} numberOfPieces={200} />}
+      {showConfetti && (
+        <Suspense fallback={null}>
+          <Confetti width={width} height={height} recycle={false} numberOfPieces={200} />
+        </Suspense>
+      )}
       
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}

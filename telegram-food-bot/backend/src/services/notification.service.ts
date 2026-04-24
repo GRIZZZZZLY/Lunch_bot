@@ -1,4 +1,4 @@
-﻿import { Bot } from 'grammy';
+import { Bot } from 'grammy';
 import { logger } from '../utils/logger';
 import { prisma } from '../database/client';
 import {
@@ -13,6 +13,7 @@ import {
   NotificationTemplate,
 } from '../types/notification.types';
 import { User } from '@prisma/client';
+import { toNumber } from '../utils/decimal';
 import { now } from '../utils/date';
 
 /**
@@ -124,7 +125,7 @@ export class NotificationService {
           if (data.winnerItem) {
             message += `🏆 *Победитель:* ${data.winnerItem.name}\n`;
             if (data.winnerItem.price) {
-              message += `💰 Цена: ${data.winnerItem.price} руб.\n`;
+              message += `💰 Цена: ${toNumber(data.winnerItem.price).toFixed(2)} руб.\n`;
             }
           }
 
@@ -156,7 +157,7 @@ export class NotificationService {
         if (data.winnerItem) {
           message += `рџЌЅпёЏ *Р—Р°РєР°Р·С‹РІР°РµРј:* ${data.winnerItem.name}\n`;
           if (data.winnerItem.price) {
-            message += `рџ’° *Р¦РµРЅР°:* ${data.winnerItem.price} СЂСѓР±.\n`;
+            message += `рџ'° *Р¦РµРЅР°:* ${toNumber(data.winnerItem.price).toFixed(2)} СЂСѓР±.\n`;
           }
           if (data.winnerItem.description) {
             message += `рџ“ќ ${data.winnerItem.description}\n`;
@@ -209,7 +210,7 @@ export class NotificationService {
         if (data.voters.length > 0) {
           message += `\n✅ Участники:\n`;
           data.voters.slice(0, 10).forEach(v => {
-            message += `• ${v.firstName}${v.lastName ? ' ' + v.lastName : ''}\n`;
+            message += `• ${v.firstName}${v.lastName ? ` ${  v.lastName}` : ''}\n`;
           });
           
           if (data.voters.length > 10) {
@@ -436,7 +437,9 @@ export class NotificationService {
       
       if (poll.result.rouletteData) {
         try {
-          resultData = JSON.parse(poll.result.rouletteData);
+          resultData = typeof poll.result.rouletteData === 'string'
+            ? JSON.parse(poll.result.rouletteData)
+            : poll.result.rouletteData;
           if (resultData?.mode === 'multi-winner') {
             mode = 'multi-winner';
           }
@@ -474,7 +477,7 @@ export class NotificationService {
                 id: item.id,
                 name: item.name,
                 description: item.description || undefined,
-                price: item.price || undefined,
+                price: item.price ? toNumber(item.price) : undefined,
               },
               votes,
               percentage: Math.round((votes / poll.votes.length) * 100)
@@ -492,7 +495,7 @@ export class NotificationService {
             id: poll.result.winnerMenuItem.id,
             name: poll.result.winnerMenuItem.name,
             description: poll.result.winnerMenuItem.description || undefined,
-            price: poll.result.winnerMenuItem.price || undefined,
+            price: poll.result.winnerMenuItem.price ? toNumber(poll.result.winnerMenuItem.price) : undefined,
           } : undefined,
           topItems: topItems as any,
         };
@@ -503,22 +506,7 @@ export class NotificationService {
       // Отправляем уведомления голосовавшим
       const results = await this.sendPollEndedNotification(voterIds, data);
 
-      // Отправляем уведомление в группу
-      if (poll.chatId && this.bot) {
-        try {
-          const template = this.templates.get(NotificationType.POLL_ENDED);
-          if (template) {
-            await this.bot.api.sendMessage(
-              Number(poll.chatId),
-              template.getMessage(data),
-              { parse_mode: template.parseMode }
-            );
-            logger.info(`Completion notification sent to group ${poll.chatId}`);
-          }
-        } catch (error) {
-          logger.error('Error sending completion notification to group:', error);
-        }
-      }
+      // Групповые сообщения отключены для снижения шума
 
       return results;
 
@@ -688,19 +676,7 @@ export class NotificationService {
         voters
       };
 
-      // Отправляем в группу
-      if (poll.chatId) {
-        try {
-          await this.bot.api.sendMessage(
-            poll.chatId,
-            template.getMessage(data),
-            { parse_mode: template.parseMode }
-          );
-          logger.info(`Cancelled notification sent to group ${poll.chatId}`);
-        } catch (error) {
-          logger.error('Error sending cancelled notification to group:', error);
-        }
-      }
+      // Групповые сообщения отключены для снижения шума
 
       // Отправляем личные уведомления всем голосовавшим
       for (const voter of voters) {

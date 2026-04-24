@@ -27,18 +27,23 @@ export interface JwtPayload {
 /**
  * JWT Configuration
  */
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production';
+const JWT_SECRET = process.env.JWT_SECRET?.trim() || '';
 const JWT_EXPIRATION = '7d'; // Access token - 7 дней
 const JWT_REFRESH_EXPIRATION = '30d'; // Refresh token - 30 дней
 
-// 🔐 CRITICAL: Проверка что JWT_SECRET не дефолтный в production
-if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'dev_jwt_secret_change_in_production') {
-  logger.error('🚨 CRITICAL SECURITY ERROR: JWT_SECRET is default value in PRODUCTION!');
-  throw new Error('CRITICAL: JWT_SECRET must be changed in production!');
+if (!JWT_SECRET) {
+  logger.error('🚨 CRITICAL SECURITY ERROR: JWT_SECRET is not configured');
+  throw new Error('CRITICAL: JWT_SECRET is required');
 }
 
-// 🔐 SECURITY: Проверка силы JWT_SECRET
-if (JWT_SECRET.length < 32) {
+// 🔐 SECURITY: В production требуем сильный секрет (>=64 символов).
+// Слабый секрет позволяет brute-force подделку токенов.
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction && JWT_SECRET.length < 64) {
+  logger.error(`🚨 CRITICAL: JWT_SECRET too weak in production (${JWT_SECRET.length} chars, need >=64)`);
+  throw new Error('CRITICAL: JWT_SECRET must be >=64 characters in production');
+}
+if (!isProduction && JWT_SECRET.length < 32) {
   logger.warn('⚠️ WARNING: JWT_SECRET is too short! Recommended: 64+ characters');
 }
 

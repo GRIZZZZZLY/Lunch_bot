@@ -3,6 +3,7 @@ import { UserService } from '../../services/user.service';
 import { GroupService } from '../../services/group.service';
 import { AvatarService } from '../../services/avatar.service';
 import { logger } from '../../utils/logger';
+import { getParam } from '../../utils/request-params';
 
 export class UserController {
   /**
@@ -174,29 +175,21 @@ export class UserController {
         return;
       }
 
-      // ✅ FIX: Возвращаем ВСЕ активные группы где есть бот
-      // Проверка прав админа будет при создании голосования
-      const { prisma } = await import('../../database/client.js');
-      
-      const groups = await prisma.group.findMany({
-        where: {
-          isActive: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      const memberships = await GroupService.getGroupsForUser(user.id, true);
 
-      logger.info(`User ${user.id} requested groups list, found ${groups.length} groups`);
+      logger.info(`User ${user.id} requested groups list, found ${memberships.length} groups`);
 
       res.json({
         success: true,
-        data: groups.map(group => ({
-          id: typeof group.id === 'bigint' ? Number(group.id) : group.id,
-          title: group.title,
-          telegramId: typeof group.telegramId === 'bigint' ? group.telegramId.toString() : group.telegramId,
-          type: group.type,
-          isActive: group.isActive,
+        data: memberships.map((membership) => ({
+          id: membership.group.id,
+          title: membership.group.title,
+          telegramId: membership.group.telegramId.toString(),
+          type: membership.group.type,
+          isActive: membership.group.isActive,
+          role: membership.role,
         })),
-        total: groups.length,
+        total: memberships.length,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
@@ -215,7 +208,7 @@ export class UserController {
    */
   static async getUserAvatar(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = getParam(req.params, 'userId');
 
       if (!userId) {
         res.status(400).json({

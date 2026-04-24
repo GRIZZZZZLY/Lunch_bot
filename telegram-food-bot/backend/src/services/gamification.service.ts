@@ -88,7 +88,7 @@ export class GamificationService {
           reason,
           category,
           seasonId: currentSeason?.id || null, // Link to current season
-          metadata: metadata ? JSON.stringify(metadata) : null,
+          metadata: metadata ? JSON.stringify(metadata) : undefined,
         },
       });
 
@@ -280,7 +280,9 @@ export class GamificationService {
         if (alreadyUnlocked) continue;
 
         // Parse requirement
-        const req: AchievementRequirement = JSON.parse(achievement.requirement);
+        const req: AchievementRequirement = typeof achievement.requirement === 'string'
+          ? JSON.parse(achievement.requirement)
+          : achievement.requirement as unknown as AchievementRequirement;
 
         // Check if requirement met
         const unlocked = this.checkAchievementRequirement(stats, req);

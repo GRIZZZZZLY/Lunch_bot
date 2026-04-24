@@ -70,7 +70,8 @@ describe('POST /api/auth/validate', () => {
       expect(response.body).toHaveProperty('error');
     });
 
-    it('should return 400 if initData is invalid', async () => {
+    it('should return 401 if initData has invalid signature', async () => {
+      // Подделанная подпись — это не bad request, а провал аутентификации (401)
       process.env.SKIP_TELEGRAM_VALIDATION = 'false';
 
       const invalidInitData = generateInvalidInitData();
@@ -78,7 +79,7 @@ describe('POST /api/auth/validate', () => {
       const response = await request(app)
         .post('/api/auth/validate')
         .send({ initData: invalidInitData })
-        .expect(400);
+        .expect(401);
 
       expect(response.body).toHaveProperty('success', false);
     });

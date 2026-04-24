@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 
 interface StaggerContainerProps {
@@ -23,12 +22,12 @@ interface StaggerContainerProps {
  *   ))}
  * </StaggerContainer>
  */
-export const StaggerContainer: React.FC<StaggerContainerProps> = ({
+export const StaggerContainer = ({
   children,
   className = '',
   staggerDelay = 0.1,
   initialDelay = 0,
-}) => {
+}: StaggerContainerProps) => {
   return (
     <motion.div
       className={className}
@@ -50,55 +49,23 @@ export const StaggerContainer: React.FC<StaggerContainerProps> = ({
   );
 };
 
-/**
- * Preset variants for stagger children
- * Use these with motion components inside StaggerContainer
- */
 export const staggerChildVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: 'spring',
-      stiffness: 300,
-      damping: 24,
-    },
-  },
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0 },
 };
 
 export const staggerChildFadeVariants = {
   hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      duration: 0.4,
-    },
-  },
+  visible: { opacity: 1 },
 };
 
 export const staggerChildScaleVariants = {
-  hidden: { opacity: 0, scale: 0.8 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: {
-      type: 'spring',
-      stiffness: 400,
-      damping: 25,
-    },
-  },
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: { opacity: 1, scale: 1 },
 };
 
 export const staggerChildSlideVariants = {
-  hidden: { opacity: 0, x: -20 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: {
-      type: 'spring',
-      stiffness: 300,
-      damping: 24,
-    },
-  },
+  hidden: { opacity: 0, x: -12 },
+  visible: { opacity: 1, x: 0 },
 };
+

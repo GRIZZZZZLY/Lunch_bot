@@ -81,7 +81,7 @@ export function pluralize(count: number, words: [string, string, string]): strin
  */
 export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
-  return text.slice(0, maxLength) + '...'
+  return `${text.slice(0, maxLength)  }...`
 }
 
 /**

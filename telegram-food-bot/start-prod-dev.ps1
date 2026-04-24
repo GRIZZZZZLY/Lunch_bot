@@ -7,10 +7,15 @@
 # - Watch mode (auto-rebuild on changes)
 
 param(
-    [switch]$SkipChecks
+    [switch]$SkipChecks,
+    [switch]$OldFrontend
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Frontend selector: -OldFrontend toggles between new (default) and legacy
+$frontendDir = if ($OldFrontend) { 'frontend' } else { 'frontend-new' }
+Write-Host "Frontend directory: $frontendDir" -ForegroundColor Cyan
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -62,9 +67,9 @@ if (-not (Test-Path "backend\node_modules")) {
     Set-Location ..
 }
 
-if (-not (Test-Path "frontend\node_modules")) {
-    Write-Host "Installing frontend dependencies..." -ForegroundColor Yellow
-    Set-Location frontend
+if (-not (Test-Path "$frontendDir\node_modules")) {
+    Write-Host "Installing $frontendDir dependencies..." -ForegroundColor Yellow
+    Set-Location $frontendDir
     npm install
     Set-Location ..
 }
@@ -87,16 +92,30 @@ if (Test-Path "backend\.env.prod-dev") {
     Write-Host "WARNING: backend/.env.prod-dev not found!" -ForegroundColor Yellow
 }
 
-# Frontend
-if (Test-Path "frontend\.env") {
-    Copy-Item "frontend\.env" "frontend\.env.backup" -Force
-    Write-Host "OK Backed up frontend/.env" -ForegroundColor Gray
+# Frontend env
+if (Test-Path "$frontendDir\.env") {
+    Copy-Item "$frontendDir\.env" "$frontendDir\.env.backup" -Force
+    Write-Host "OK Backed up $frontendDir/.env" -ForegroundColor Gray
 }
-if (Test-Path "frontend\.env.prod-dev") {
-    Copy-Item "frontend\.env.prod-dev" "frontend\.env" -Force
-    Write-Host "OK Loaded frontend/.env.prod-dev" -ForegroundColor Green
-} else {
-    Write-Host "WARNING: frontend/.env.prod-dev not found!" -ForegroundColor Yellow
+if (Test-Path "$frontendDir\.env.prod-dev") {
+    Copy-Item "$frontendDir\.env.prod-dev" "$frontendDir\.env" -Force
+    Write-Host "OK Loaded $frontendDir/.env.prod-dev" -ForegroundColor Green
+} elseif (Test-Path "$frontendDir\.env.development") {
+    Copy-Item "$frontendDir\.env.development" "$frontendDir\.env" -Force
+    Write-Host "OK Loaded $frontendDir/.env.development (fallback)" -ForegroundColor Green
+}
+
+# Ensure backend serves the new frontend
+$envFile = "backend\.env"
+if (Test-Path $envFile) {
+    $envContent = Get-Content $envFile -Raw
+    if ($envContent -notmatch 'FRONTEND_DIR=') {
+        Add-Content $envFile "`nFRONTEND_DIR=$frontendDir"
+        Write-Host "OK Added FRONTEND_DIR=$frontendDir to backend/.env" -ForegroundColor Green
+    } else {
+        (Get-Content $envFile) -replace '^FRONTEND_DIR=.*', "FRONTEND_DIR=$frontendDir" | Set-Content $envFile
+        Write-Host "OK Set FRONTEND_DIR=$frontendDir in backend/.env" -ForegroundColor Green
+    }
 }
 
 Write-Host ""
@@ -107,123 +126,119 @@ Write-Host ""
 
 $projectRoot = Get-Location
 
-# Window 1: Backend (production build with watch mode)
+# Clean up stale tunnel log
+$tunnelLog = "$projectRoot\.cloudflared.log"
+if (Test-Path $tunnelLog) { Remove-Item $tunnelLog -Force }
+
+# -------------------------------------------------------------
+# Step 1: Start Cloudflare Tunnel (Window 1)
+# -------------------------------------------------------------
+Write-Host "Starting Cloudflare Tunnel..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
-Write-Host ''; 
-Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host '  BACKEND PROD-DEV' -ForegroundColor Cyan; 
-Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host ''; 
-Write-Host 'Building TypeScript...' -ForegroundColor Yellow; 
-Write-Host ''; 
-cd '$projectRoot\backend'; 
-npm run build; 
-Write-Host ''; 
-Write-Host 'OK Build completed' -ForegroundColor Green; 
-Write-Host 'Starting backend...' -ForegroundColor Yellow; 
-Write-Host ''; 
-Write-Host 'Port: 3001' -ForegroundColor White; 
-Write-Host 'API:  http://localhost:3001/api' -ForegroundColor White; 
-Write-Host 'Web:  http://localhost:3001' -ForegroundColor White; 
-Write-Host ''; 
-Write-Host 'OK Production build' -ForegroundColor Green; 
-Write-Host 'OK Serving static from dist/' -ForegroundColor Green; 
-Write-Host 'OK SKIP_TELEGRAM_VALIDATION' -ForegroundColor Green; 
-Write-Host ''; 
+Write-Host '';
+Write-Host '========================================' -ForegroundColor Cyan;
+Write-Host '  CLOUDFLARE TUNNEL' -ForegroundColor Cyan;
+Write-Host '========================================' -ForegroundColor Cyan;
+Write-Host '';
+Write-Host 'Tunneling: http://localhost:3001' -ForegroundColor White;
+Write-Host 'URL is auto-injected into backend/.env before backend starts' -ForegroundColor Yellow;
+Write-Host '';
+cmd /c 'cloudflared tunnel --url http://localhost:3001 2>&1' | Tee-Object -FilePath '$tunnelLog'
+"@
+
+# -------------------------------------------------------------
+# Step 2: Wait for tunnel URL and update backend/.env
+#   (synchronous in main script so backend starts with fresh URL)
+# -------------------------------------------------------------
+Write-Host "Waiting for tunnel URL..." -ForegroundColor Yellow
+$tunnelUrl = $null
+for ($i = 0; $i -lt 60; $i++) {
+    Start-Sleep -Seconds 1
+    if (Test-Path $tunnelLog) {
+        $content = Get-Content $tunnelLog -Raw -ErrorAction SilentlyContinue
+        if ($content -match 'https://[a-z0-9\-]+\.trycloudflare\.com') {
+            $tunnelUrl = $matches[0]
+            break
+        }
+    }
+}
+
+if (-not $tunnelUrl) {
+    Write-Host ""
+    Write-Host "ERROR: Tunnel URL not detected in 60s." -ForegroundColor Red
+    Write-Host "Check the Cloudflare Tunnel window. Install if missing:" -ForegroundColor Yellow
+    Write-Host "  winget install --id Cloudflare.cloudflared" -ForegroundColor Gray
+    exit 1
+}
+
+Write-Host ""
+Write-Host "OK Tunnel URL: $tunnelUrl" -ForegroundColor Green
+
+# Update backend/.env
+$envPath = Join-Path $projectRoot 'backend\.env'
+if (Test-Path $envPath) {
+    $nl = [char]10
+    $envRaw = Get-Content $envPath -Raw
+    if ($envRaw -match '(?m)^WEBAPP_URL=') {
+        $envRaw = [regex]::Replace($envRaw, '(?m)^WEBAPP_URL=.*', ('WEBAPP_URL=' + $tunnelUrl))
+    } else {
+        $envRaw = $envRaw.TrimEnd() + $nl + 'WEBAPP_URL=' + $tunnelUrl + $nl
+    }
+    $corsValue = 'CORS_ORIGIN=http://localhost:5173,http://localhost:3001,' + $tunnelUrl
+    if ($envRaw -match '(?m)^CORS_ORIGIN=') {
+        $envRaw = [regex]::Replace($envRaw, '(?m)^CORS_ORIGIN=.*', $corsValue)
+    } else {
+        $envRaw = $envRaw.TrimEnd() + $nl + $corsValue + $nl
+    }
+    Set-Content -Path $envPath -Value $envRaw -NoNewline
+    Write-Host "OK backend/.env updated (WEBAPP_URL, CORS_ORIGIN)" -ForegroundColor Green
+} else {
+    Write-Host "ERROR: backend/.env not found at $envPath" -ForegroundColor Red
+    exit 1
+}
+
+# -------------------------------------------------------------
+# Step 3: Start Backend (Window 2) — now reads fresh WEBAPP_URL.
+#   setupDefaultMenuButton at bot startup will set the menu button
+#   to the new tunnel URL with text "🍽 Обед" (see group-events.ts).
+# -------------------------------------------------------------
+Write-Host ""
+Write-Host "Starting Backend..." -ForegroundColor Yellow
+Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
+Write-Host '';
+Write-Host '========================================' -ForegroundColor Cyan;
+Write-Host '  BACKEND PROD-DEV' -ForegroundColor Cyan;
+Write-Host '========================================' -ForegroundColor Cyan;
+Write-Host '';
+Write-Host 'WEBAPP_URL: $tunnelUrl' -ForegroundColor White;
+Write-Host 'Port: 3001' -ForegroundColor White;
+Write-Host '';
+Write-Host 'Building TypeScript...' -ForegroundColor Yellow;
+cd '$projectRoot\backend';
+npm run build;
+Write-Host '';
+Write-Host 'OK Build completed' -ForegroundColor Green;
+Write-Host 'Starting backend (will set menu button on bot startup)...' -ForegroundColor Yellow;
+Write-Host '';
 npm start
 "@
 
 Start-Sleep -Seconds 2
 
-# Window 2: Frontend (Vite build watch mode)
+# -------------------------------------------------------------
+# Step 4: Start Frontend (Window 3)
+# -------------------------------------------------------------
+Write-Host "Starting Frontend..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
-Write-Host ''; 
-Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host '  FRONTEND PROD-DEV (Watch Mode)' -ForegroundColor Cyan; 
-Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host ''; 
-Write-Host 'Output: dist/' -ForegroundColor White; 
-Write-Host ''; 
-Write-Host 'OK Production build' -ForegroundColor Green; 
-Write-Host 'OK Source maps enabled' -ForegroundColor Green; 
-Write-Host 'OK Console.log preserved' -ForegroundColor Green; 
-Write-Host 'OK Watch mode' -ForegroundColor Green; 
-Write-Host ''; 
-Write-Host 'Building...' -ForegroundColor Yellow; 
-cd '$projectRoot\frontend'; 
+Write-Host '';
+Write-Host '========================================' -ForegroundColor Cyan;
+Write-Host '  FRONTEND PROD-DEV (Watch Mode)' -ForegroundColor Cyan;
+Write-Host '========================================' -ForegroundColor Cyan;
+Write-Host '';
+Write-Host 'Output: dist/  (served by backend at $tunnelUrl)' -ForegroundColor White;
+Write-Host '';
+cd '$projectRoot\$frontendDir';
 npm run build:prod-dev
-"@
-
-Start-Sleep -Seconds 2
-
-# Window 3: ngrok
-Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
-Write-Host ''; 
-Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host '  NGROK TUNNEL' -ForegroundColor Cyan; 
-Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host ''; 
-Write-Host 'Tunneling: http://localhost:3001' -ForegroundColor White; 
-Write-Host ''; 
-Write-Host 'Copy the HTTPS URL below and paste it in Window 4!' -ForegroundColor Yellow; 
-Write-Host ''; 
-ngrok http 3001
-"@
-
-Start-Sleep -Seconds 2
-
-# Window 4: URL Updater (автоматически обновляет ngrok URL)
-Start-Process powershell -ArgumentList "-NoExit", "-Command", @"
-Write-Host ''; 
-Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host '  URL UPDATER' -ForegroundColor Cyan; 
-Write-Host '========================================' -ForegroundColor Cyan; 
-Write-Host ''; 
-Write-Host 'Waiting for ngrok to start...' -ForegroundColor Yellow; 
-Start-Sleep -Seconds 5; 
-Write-Host ''; 
-Write-Host 'Fetching ngrok URL...' -ForegroundColor Yellow; 
-try {
-    `$ngrokApi = Invoke-RestMethod -Uri 'http://127.0.0.1:4040/api/tunnels' -ErrorAction Stop;
-    `$ngrokUrl = `$ngrokApi.tunnels[0].public_url;
-    if (`$ngrokUrl) {
-        Write-Host ''; 
-        Write-Host '[OK] Found ngrok URL:' -ForegroundColor Green; 
-        Write-Host '  ' `$ngrokUrl -ForegroundColor White; 
-        Write-Host ''; 
-        Write-Host 'Updating .env files...' -ForegroundColor Yellow; 
-        cd '$projectRoot';
-        `$output = .\update-urls.ps1 -NgrokUrl `$ngrokUrl -Auto;
-        Write-Host ''; 
-        Write-Host '[OK] URLs updated successfully!' -ForegroundColor Green; 
-        Write-Host ''; 
-        Write-Host '========================================' -ForegroundColor Green; 
-        Write-Host '  READY TO TEST!' -ForegroundColor Green; 
-        Write-Host '========================================' -ForegroundColor Green; 
-        Write-Host ''; 
-        Write-Host 'Open @rocket_lunch_bot in Telegram' -ForegroundColor White; 
-        Write-Host 'Mini App URL: ' `$ngrokUrl -ForegroundColor Cyan; 
-        Write-Host ''; 
-    } else {
-        Write-Host ''; 
-        Write-Host '[ERROR] Could not get ngrok URL' -ForegroundColor Red; 
-        Write-Host ''; 
-        Write-Host 'Manual steps:' -ForegroundColor Yellow; 
-        Write-Host '  1. Copy ngrok URL from Window 3' -ForegroundColor Gray; 
-        Write-Host '  2. Run: .\update-urls.ps1' -ForegroundColor Gray; 
-        Write-Host ''; 
-    }
-} catch {
-    Write-Host ''; 
-    Write-Host '[ERROR] Failed to connect to ngrok API' -ForegroundColor Red; 
-    Write-Host ''; 
-    Write-Host 'Manual steps:' -ForegroundColor Yellow; 
-    Write-Host '  1. Copy ngrok URL from Window 3' -ForegroundColor Gray; 
-    Write-Host '  2. Run: .\update-urls.ps1' -ForegroundColor Gray; 
-    Write-Host ''; 
-}
-Write-Host 'Press Ctrl+C to close' -ForegroundColor DarkGray; 
-while (`$true) { Start-Sleep -Seconds 60 }
 "@
 
 Write-Host ""
@@ -231,25 +246,16 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host "  OK All Services Started!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "4 Windows opened:" -ForegroundColor Cyan
-Write-Host "  1. Backend PROD-DEV (build + run)" -ForegroundColor White
-Write-Host "  2. Frontend PROD-DEV (watch mode)" -ForegroundColor White
-Write-Host "  3. ngrok Tunnel (port 3001)" -ForegroundColor White
-Write-Host "  4. URL Updater (auto-updates ngrok URL)" -ForegroundColor White
+Write-Host "3 Windows opened:" -ForegroundColor Cyan
+Write-Host "  1. Cloudflare Tunnel" -ForegroundColor White
+Write-Host "  2. Backend PROD-DEV (build + run, sets menu button on startup)" -ForegroundColor White
+Write-Host "  3. Frontend PROD-DEV (watch mode)" -ForegroundColor White
 Write-Host ""
-Write-Host "Architecture:" -ForegroundColor Yellow
-Write-Host "  Telegram -> ngrok -> Backend:3001 -+- /api -> API" -ForegroundColor Gray
-Write-Host "                                      +- /    -> Static (dist/)" -ForegroundColor Gray
+Write-Host "Mini App URL: $tunnelUrl" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "ngrok URL will be auto-detected and updated in ~10 seconds..." -ForegroundColor Cyan
-Write-Host "Check Window 4 (URL Updater) for status!" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "Features:" -ForegroundColor Yellow
-Write-Host "  OK Production optimization" -ForegroundColor Green
-Write-Host "  OK Auto-rebuild on file changes" -ForegroundColor Green
-Write-Host "  OK Console.log for debugging" -ForegroundColor Green
-Write-Host "  OK Source maps for debugging" -ForegroundColor Green
-Write-Host "  OK SKIP_TELEGRAM_VALIDATION" -ForegroundColor Green
+Write-Host "Telegram cache note:" -ForegroundColor Yellow
+Write-Host "  If menu button still shows the old URL in Telegram Desktop," -ForegroundColor Gray
+Write-Host "  fully quit via tray (right-click -> Quit) and reopen." -ForegroundColor Gray
 Write-Host ""
 Write-Host "Press Ctrl+C in each window to stop" -ForegroundColor DarkGray
 Write-Host ""

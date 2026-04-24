@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils"
 
 export interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
-   * Intensity of glassmorphism effect (low, medium, high) or solid gradient
+   * Intensity of glassmorphism effect (low, medium, high, ultra) or solid gradient
    */
-  intensity?: "low" | "medium" | "high" | "solid"
+  intensity?: "low" | "medium" | "high" | "ultra" | "solid"
   /**
    * Enable hover animation
    */
@@ -24,9 +24,10 @@ export interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
 export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
   ({ className, intensity = "medium", hover = false, children, ...props }, ref) => {
     const intensityClasses = {
-      low: "bg-white/5 dark:bg-black/10 backdrop-blur-sm border-white/10",
-      medium: "bg-white/10 dark:bg-black/20 backdrop-blur-md border-white/15",
-      high: "bg-white/20 dark:bg-black/30 backdrop-blur-xl border-white/20",
+      low: "bg-white/55 dark:bg-card/55 backdrop-blur-sm border-white/30 dark:border-white/5",
+      medium: "bg-white/72 dark:bg-card/72 backdrop-blur-md border-border/60",
+      high: "bg-white/86 dark:bg-card/84 backdrop-blur-lg border-border/70",
+      ultra: "bg-white/78 dark:bg-card/80 backdrop-blur-xl border-border/60",
       solid: "bg-card dark:bg-card border-border",
     }
 
@@ -34,14 +35,13 @@ export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
       <div
         ref={ref}
         className={cn(
-          // Base styles - улучшенные тени и радиусы
-          "rounded-card-lg border transition-all duration-300",
-          // Улучшенные тени для эффекта "всплытия"
-          "shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3)]",
+          // Base styles — унифицировано в redesign 2026-04-24
+          "rounded-[12px] border border-border/80 dark:border-white/[0.07] transition-all duration-150",
+          "shadow-[0_2px_8px_rgba(33,20,10,0.07)] dark:shadow-none",
           // Glassmorphism effect or solid gradient
           intensityClasses[intensity],
-          // Hover effect с улучшенной тенью
-          hover && "hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:shadow-primary/15",
+          // Hover effect — без translate, только тень/border
+          hover && "hover:shadow-[0_4px_14px_rgba(33,20,10,0.10)] dark:hover:border-white/[0.11]",
           // Custom classes
           className
         )}
@@ -96,7 +96,7 @@ export const GlassCardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h3
     ref={ref}
-    className={cn("text-2xl font-bold leading-none tracking-tight", className)}
+    className={cn("text-xl font-semibold leading-tight tracking-tight", className)}
     {...props}
   />
 ))

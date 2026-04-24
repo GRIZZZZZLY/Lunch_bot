@@ -8,7 +8,8 @@ import { LoadingSpinner } from '../common/LoadingSpinner';
 import { PaymentMethod, DonationAmount } from '../../types/donation.types';
 import { PastelCard, CardContent } from '../ui/pastel-card';
 import { GradientButton } from '../ui/gradient-button';
-import { DONATION_THEME } from '../../styles/donation.theme';
+import { DONATION_THEME, getDonationStyles } from '../../styles/donation.theme';
+import { useAppStore } from '../../store/useAppStore';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface DonationModalProps {
@@ -58,6 +59,8 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState<{ amount: number; currency: string } | null>(null);
+  const isDark = useAppStore((s) => s.theme) === 'dark';
+  const styles = getDonationStyles(isDark);
 
   const currentMethod = paymentMethods.find(m => m.id === selectedMethod);
 
@@ -130,11 +133,11 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
             ) : (
               <>
                 {/* Header */}
-                <div 
-                  className="rounded-t-3xl rounded-b-none overflow-hidden sticky top-0 z-10"
+                <div
+                  className="sticky top-0 z-10 overflow-hidden rounded-t-3xl rounded-b-none"
                   style={{
-                    background: DONATION_THEME.gradients.modalHeader,
-                    boxShadow: DONATION_THEME.shadow.bar,
+                    background: styles.gradients.modalHeader,
+                    boxShadow: styles.shadow.bar,
                   }}
                 >
                   <div className="relative p-6">
@@ -147,7 +150,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                       </div>
                     </button>
 
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="mb-2 flex items-center gap-3">
                       <motion.div
                         animate={{ 
                           scale: [1, 1.1, 1],
@@ -164,11 +167,11 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                           style={{ color: 'white' }}
                         />
                       </motion.div>
-                      <h2 className="text-2xl font-bold text-gray-200">
+                      <h2 className="text-2xl font-semibold text-white">
                         Поддержите проект
                       </h2>
                     </div>
-                    <p className="text-sm text-gray-300">
+                    <p className="text-sm text-white/85">
                       Помогите развитию бота - выберите способ оплаты
                     </p>
                   </div>
@@ -246,7 +249,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                   )}
 
                   {/* Info */}
-                  <PastelCard variant="lavender" className="overflow-hidden">
+                  <PastelCard variant="glass" className="overflow-hidden">
                     <CardContent className="p-4 pt-4">
                       <p className="text-sm text-foreground">
                         💡 <strong>Важно:</strong> Все средства идут на развитие и поддержку проекта. Спасибо за вашу щедрость!

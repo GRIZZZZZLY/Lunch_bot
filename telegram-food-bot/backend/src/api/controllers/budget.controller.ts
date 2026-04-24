@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { BudgetService } from '../../services/budget.service';
 import { logger } from '../../utils/logger';
+import { getParam } from '../../utils/request-params';
+import { toNumber } from '../../utils/decimal';
+import { serializeBigInt as serializeData } from '../../utils/serialize';
 
 // Zod схемы валидации (Sprint 1)
 const TransactionIdSchema = z.object({
@@ -56,10 +59,15 @@ export class BudgetController {
       }
 
       const status = req.query.status as 'PENDING' | 'PAID' | 'CONFIRMED' | undefined;
+      const activeOnly = req.query.activeOnly === 'true';
 
-      const debts = await this.budgetService.getUserDebts(authenticatedUser.id, status);
+      const debts = await this.budgetService.getUserDebts(
+        authenticatedUser.id,
+        status,
+        activeOnly
+      );
 
-      res.json({ success: true, data: debts });
+      res.json({ success: true, data: serializeData(debts) });
     } catch (error) {
       logger.error('[BudgetController] Error getting debts:', error);
       res.status(500).json({ error: 'Failed to get debts' });
@@ -80,10 +88,15 @@ export class BudgetController {
       }
 
       const status = req.query.status as 'PENDING' | 'PAID' | 'CONFIRMED' | undefined;
+      const activeOnly = req.query.activeOnly === 'true';
 
-      const credits = await this.budgetService.getUserCredits(authenticatedUser.id, status);
+      const credits = await this.budgetService.getUserCredits(
+        authenticatedUser.id,
+        status,
+        activeOnly
+      );
 
-      res.json({ success: true, data: credits });
+      res.json({ success: true, data: serializeData(credits) });
     } catch (error) {
       logger.error('[BudgetController] Error getting credits:', error);
       res.status(500).json({ error: 'Failed to get credits' });
@@ -265,7 +278,7 @@ export class BudgetController {
         to ? new Date(to) : undefined
       );
 
-      res.json({ success: true, data: stats });
+      res.json({ success: true, data: serializeData(stats) });
     } catch (error) {
       logger.error('[BudgetController] Error getting stats:', error);
       res.status(500).json({ error: 'Failed to get stats' });
@@ -278,7 +291,6 @@ export class BudgetController {
    */
   async sendReminder(req: Request, res: Response): Promise<void> {
     try {
-      const { transactionId } = req.body;
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
@@ -286,12 +298,17 @@ export class BudgetController {
         return;
       }
 
-      if (!transactionId) {
-        res.status(400).json({ error: 'transactionId is required' });
+      const parsed = TransactionIdSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          success: false,
+          error: parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+          code: 'VALIDATION_ERROR',
+        });
         return;
       }
 
-      await this.budgetService.sendReminder(transactionId, authenticatedUser.id);
+      await this.budgetService.sendReminder(parsed.data.transactionId, authenticatedUser.id);
 
       res.json({ success: true, message: 'Reminder sent' });
     } catch (error: any) {
@@ -340,7 +357,7 @@ export class BudgetController {
    */
   async getPollTotals(req: Request, res: Response): Promise<void> {
     try {
-      const { pollId } = req.params;
+      const pollId = getParam(req.params, 'pollId');
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
@@ -358,7 +375,7 @@ export class BudgetController {
         authenticatedUser.id
       );
 
-      res.json({ success: true, data: totals });
+      res.json({ success: true, data: serializeData(totals) });
     } catch (error: any) {
       logger.error('[BudgetController] Error getting poll totals:', error);
       res.status(500).json({ error: error.message || 'Failed to get poll totals' });
@@ -375,7 +392,7 @@ export class BudgetController {
    */
   async setOrderCosts(req: Request, res: Response): Promise<void> {
     try {
-      const { pollId } = req.params;
+      const pollId = getParam(req.params, 'pollId');
       const { deliveryCost, serviceFee, tip, notes } = req.body;
       const authenticatedUser = (req as any).user;
 
@@ -411,7 +428,7 @@ export class BudgetController {
         { deliveryCost, serviceFee, tip, notes }
       );
 
-      res.json({ success: true, data: orderCosts });
+      res.json({ success: true, data: serializeData(orderCosts) });
     } catch (error: any) {
       logger.error('[BudgetController] Error setting order costs:', error);
 
@@ -435,7 +452,7 @@ export class BudgetController {
    */
   async getOrderCosts(req: Request, res: Response): Promise<void> {
     try {
-      const { pollId } = req.params;
+      const pollId = getParam(req.params, 'pollId');
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
@@ -455,7 +472,7 @@ export class BudgetController {
         return;
       }
 
-      res.json({ success: true, data: orderCosts });
+      res.json({ success: true, data: serializeData(orderCosts) });
     } catch (error: any) {
       logger.error('[BudgetController] Error getting order costs:', error);
       res.status(500).json({ error: 'Failed to get order costs' });
@@ -468,7 +485,7 @@ export class BudgetController {
    */
   async getPollCostBreakdown(req: Request, res: Response): Promise<void> {
     try {
-      const { pollId } = req.params;
+      const pollId = getParam(req.params, 'pollId');
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
@@ -483,7 +500,7 @@ export class BudgetController {
 
       const breakdown = await this.budgetService.getPollCostBreakdown(parseInt(pollId));
 
-      res.json({ success: true, data: breakdown });
+      res.json({ success: true, data: serializeData(breakdown) });
     } catch (error: any) {
       logger.error('[BudgetController] Error getting poll breakdown:', error);
       res.status(500).json({ error: 'Failed to get poll breakdown' });

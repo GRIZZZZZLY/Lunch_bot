@@ -156,7 +156,7 @@ telegram-food-bot/
 **1. Hybrid Communication Flow:**
 - Group Chat → Deep Link → Personal Chat → Mini App
 - Minimizes group spam (3 messages max per poll)
-- 100% fallback compatibility (works without Mini App via `/vote` command)
+- Mini App first approach (all interactions through web interface)
 
 **2. Data Flow:**
 ```
@@ -298,12 +298,12 @@ Push notifications via Telegram API:
 - Triggers: poll started, poll reminder, poll closed
 - Uses `bot.api.sendMessage()` with deep links
 
-### 5. Fallback Mechanisms
+### 5. Mini App First Approach
 
-For users without Mini App support:
-- `/vote` command in group → inline keyboard with menu items
-- Direct callback query handling in bot
-- No external URLs, pure Telegram UI
+All user interactions through Mini App:
+- Deep linking for poll access from groups
+- Rich UI with real-time updates
+- No fallback commands needed (99%+ compatibility)
 
 ## Testing
 
@@ -465,40 +465,26 @@ Backend serves frontend static files from `frontend/dist/` in production.
 
 ## Documentation
 
-### Main Documentation (Root)
+Документация структурирована в `../docs/` (на уровень выше `telegram-food-bot/`):
 
-⚠️ **Note:** Most documentation is in root folder (70+ .md files), NOT in a `docs/` folder
+**В корне `telegram-food-bot/`:**
+- [README.md](README.md) — обзор проекта
+- [CLAUDE.md](CLAUDE.md) — этот файл
+- [AGENTS.md](AGENTS.md) — гайд для AI-агентов
+- [CHANGELOG.md](CHANGELOG.md) — история версий
+- [DEPLOYMENT.md](DEPLOYMENT.md) — основной deploy-гайд
+- [MIGRATION_RUNBOOK.md](MIGRATION_RUNBOOK.md) — план миграции на PostgreSQL
 
-**Start here:**
-- [START_HERE.md](START_HERE.md) - Main entry point for deployment
-- [README.md](README.md) - Project overview
-- [CLAUDE.md](CLAUDE.md) - This file
-
-**Deployment:**
-- [QUICK_VPS_DEPLOY.md](QUICK_VPS_DEPLOY.md) - Quick reference
-- [VPS_DEPLOYMENT_GUIDE_NEW.md](VPS_DEPLOYMENT_GUIDE_NEW.md) - Full guide
-- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) - Checklist
-- [DEPLOYMENT_FILES_README.md](DEPLOYMENT_FILES_README.md) - File descriptions
-- [GIT_BRANCH_INFO.md](GIT_BRANCH_INFO.md) - Git workflow
-
-**Development:**
-- [telegram-food-bot/PROD-DEV-MODE.md](telegram-food-bot/PROD-DEV-MODE.md) - PROD-DEV mode
-- [telegram-food-bot/MODES-COMPARISON.md](telegram-food-bot/MODES-COMPARISON.md) - Mode comparison
-- [telegram-food-bot/DEV_START_CHECKLIST.md](telegram-food-bot/DEV_START_CHECKLIST.md) - Dev checklist
-
-**Features:**
-- [BUDGET_TRACKER_IMPLEMENTATION.md](BUDGET_TRACKER_IMPLEMENTATION.md) - Budget tracker
-- [ENGAGEMENT_STRATEGY.md](ENGAGEMENT_STRATEGY.md) - Monetization/gamification plan (2300+ lines)
-- [GAMIFICATION_REMOVAL_SUMMARY.md](GAMIFICATION_REMOVAL_SUMMARY.md) - Why removed
-
-**Testing:**
-- [TESTING_INSTRUCTIONS.md](TESTING_INSTRUCTIONS.md) - Testing guide
-- [QUICK_TEST_CHECKLIST.md](QUICK_TEST_CHECKLIST.md) - Quick checklist
-- [telegram-food-bot/TESTING_TOOLS_SUMMARY.md](telegram-food-bot/TESTING_TOOLS_SUMMARY.md) - Tools overview
-
-**Session summaries:**
-- [SESSION_SUMMARY_2025-10-24.md](SESSION_SUMMARY_2025-10-24.md) - CI/CD + features
-- [telegram-food-bot/SESSION_SUMMARY_2025-01-12.md](telegram-food-bot/SESSION_SUMMARY_2025-01-12.md) - Cache fixes
+**`../docs/` структура:**
+- [docs/AUDIT_REPORT_2026-04-17.md](../docs/AUDIT_REPORT_2026-04-17.md) — последний аудит проекта
+- [docs/SECURITY_TODO.md](../docs/SECURITY_TODO.md) — ⚠️ отложенные security-действия (ротация секретов)
+- [docs/00-start/](../docs/00-start/) — точка входа
+- [docs/01-deployment/](../docs/01-deployment/) — VPS, deploy, git workflow
+- [docs/02-monitoring/](../docs/02-monitoring/) — Sentry, Glitchtip, Redis, GitHub Secrets
+- [docs/03-testing/](../docs/03-testing/) — testing guides, mobile troubleshooting
+- [docs/04-features/](../docs/04-features/) — Budget Tracker, Engagement Strategy, Countdown, Smart Homepage, дизайн-система
+- [docs/05-production/](../docs/05-production/) — production checklists, build modes
+- [docs/99-archive/](../docs/99-archive/) — исторические отчёты, старые fix-report'ы
 
 Always check docs before making architectural changes.
 
@@ -527,9 +513,9 @@ Always check docs before making architectural changes.
 - ⚠️ SQLite in production → Plan migration to PostgreSQL
 
 **By design:**
-- 💡 Deep links may fail on very old Telegram versions → Fallback to `/vote` command
+- 💡 Deep links work in 99%+ Telegram versions
 - 💡 ngrok URLs change on restart → Run URL updater script after restart
-- 💡 Telegram Mini App not available in some regions → Fallback mechanisms handle this
+- 💡 Mini App requires HTTPS (use ngrok or production domain)
 
 **Documentation:**
 - [PERSISTENT_CACHE_FIX.md](telegram-food-bot/PERSISTENT_CACHE_FIX.md) - Poll caching fix
@@ -557,7 +543,7 @@ Always check docs before making architectural changes.
 **Mini App not opening:**
 1. Verify `WEBAPP_URL` matches ngrok URL
 2. Check menu button is set in BotFather
-3. Try alternative: `/vote` command
+3. Ensure HTTPS (not HTTP)
 4. Check browser console for errors
 
 **Database errors:**
@@ -657,3 +643,70 @@ Always check docs before making architectural changes.
 
 **Last updated:** 2025-10-29
 **Status:** ✅ Production Ready - Ready for VPS deployment
+"" 
+"" 
+# CLAUDE.md
+
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

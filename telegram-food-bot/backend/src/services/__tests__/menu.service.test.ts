@@ -45,27 +45,41 @@ jest.mock('../cache.service', () => ({
   },
   CACHE_KEYS: {
     MENU_ITEMS_ACTIVE: 'menu_items_active',
-    MENU_ITEMS_BY_CATEGORY: (category: string) => `menu_items_category_${category}`,
   },
   CACHE_TTL: {
     MENU: 300,
   },
 }));
 
+type MenuItemOverrides = Omit<Partial<MenuItem>, 'price'> & {
+  price?: number | Prisma.Decimal | null;
+};
+
+const toDecimal = (value: number | Prisma.Decimal): Prisma.Decimal =>
+  value instanceof Prisma.Decimal ? value : new Prisma.Decimal(value);
+
 // Helper function to create mock menu item
-const createMockMenuItem = (overrides?: Partial<MenuItem>): MenuItem => ({
-  id: 1,
-  name: 'Test Dish',
-  description: 'Test Description',
-  price: 100,
-  category: 'Main',
-  imageUrl: 'https://example.com/image.jpg',
-  isActive: true,
-  createdBy: 1,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  ...overrides,
-});
+const createMockMenuItem = (overrides?: MenuItemOverrides): MenuItem => {
+  const { price, ...restOverrides } = overrides || {};
+
+  return {
+    id: 1,
+    name: 'Test Dish',
+    description: 'Test Description',
+    price:
+      price === undefined
+        ? new Prisma.Decimal(100)
+        : price === null
+        ? null
+        : toDecimal(price),
+    imageUrl: 'https://example.com/image.jpg',
+    isActive: true,
+    createdBy: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...restOverrides,
+  };
+};
 
 describe('MenuService', () => {
   beforeEach(() => {
@@ -78,7 +92,6 @@ describe('MenuService', () => {
         name: 'Pizza',
         description: 'Delicious pizza',
         price: 500,
-        category: 'Main',
         imageUrl: 'https://example.com/pizza.jpg',
         isActive: true,
         createdBy: 1,
@@ -95,7 +108,6 @@ describe('MenuService', () => {
           name: mockData.name,
           description: mockData.description,
           price: mockData.price,
-          category: mockData.category,
           imageUrl: mockData.imageUrl,
           isActive: mockData.isActive,
           createdBy: mockData.createdBy,
@@ -328,27 +340,6 @@ describe('MenuService', () => {
     });
   });
 
-  describe('getMenuItemsByCategory', () => {
-    it('should return menu items by category from cache or database', async () => {
-      const category = 'Main';
-      const mockItems = [
-        createMockMenuItem({ id: 1, name: 'Pizza', category: 'Main' }),
-        createMockMenuItem({ id: 2, name: 'Pasta', category: 'Main' }),
-      ];
-
-      (cacheService.getOrSet as jest.Mock).mockImplementation(async (key, fetchFn) => {
-        return await fetchFn();
-      });
-
-      (prisma.menuItem.findMany as jest.Mock).mockResolvedValue(mockItems);
-
-      const result = await MenuService.getMenuItemsByCategory(category);
-
-      expect(cacheService.getOrSet).toHaveBeenCalled();
-      expect(result).toEqual(mockItems);
-    });
-  });
-
   describe('searchMenuItems', () => {
     it('should search menu items by name or description', async () => {
       const mockItems = [
@@ -466,37 +457,11 @@ describe('MenuService', () => {
     });
   });
 
-  describe('getCategories', () => {
-    it('should return sorted list of categories', async () => {
-      const mockCategories = [
-        { category: 'Desserts' },
-        { category: 'Main' },
-        { category: 'Appetizers' },
-      ];
-
-      (cacheService.getOrSet as jest.Mock).mockImplementation(async (key, fetchFn) => {
-        return await fetchFn();
-      });
-
-      (prisma.menuItem.findMany as jest.Mock).mockResolvedValue(mockCategories);
-
-      const result = await MenuService.getCategories();
-
-      expect(result).toEqual(['Appetizers', 'Desserts', 'Main']);
-    });
-  });
-
   describe('getMenuStats', () => {
     it('should return menu statistics', async () => {
       (prisma.menuItem.count as jest.Mock)
         .mockResolvedValueOnce(50) // total
         .mockResolvedValueOnce(40); // active
-
-      (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([
-        { category: 'Main' },
-        { category: 'Desserts' },
-        { category: 'Appetizers' },
-      ]);
 
       (prisma.menuItem.aggregate as jest.Mock).mockResolvedValue({
         _avg: {
@@ -509,7 +474,6 @@ describe('MenuService', () => {
       expect(result).toEqual({
         total: 50,
         active: 40,
-        categories: 3,
         averagePrice: 350.5,
       });
     });
@@ -518,10 +482,6 @@ describe('MenuService', () => {
       (prisma.menuItem.count as jest.Mock)
         .mockResolvedValueOnce(10)
         .mockResolvedValueOnce(8);
-
-      (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([
-        { category: 'Main' },
-      ]);
 
       (prisma.menuItem.aggregate as jest.Mock).mockResolvedValue({
         _avg: {

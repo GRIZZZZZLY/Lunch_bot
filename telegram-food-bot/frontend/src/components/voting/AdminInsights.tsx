@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   TrendingUp, 
@@ -27,10 +26,10 @@ interface AdminInsightsProps {
  * - Скорость голосования
  * - Тренды и паттерны
  */
-export const AdminInsights: React.FC<AdminInsightsProps> = ({
+export const AdminInsights = ({
   poll,
   totalMembers = 15, // default значение
-}) => {
+}: AdminInsightsProps) => {
   // Подсчет метрик
   const votedCount = poll._count?.votes || poll.votes?.length || 0;
   const notVotedCount = totalMembers - votedCount;
@@ -115,7 +114,7 @@ export const AdminInsights: React.FC<AdminInsightsProps> = ({
         <GlassCardContent>
           {voters.length > 0 ? (
             <div className="space-y-2">
-              {voters.map((vote: Vote, index: number) => (
+              {voters.map((vote: Vote) => (
                 <div 
                   key={vote.id}
                   className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50"

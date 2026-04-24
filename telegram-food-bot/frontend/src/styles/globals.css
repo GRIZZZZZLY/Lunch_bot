@@ -5,75 +5,110 @@
 /* 🎨 REFINED DESIGN SYSTEM - Контрастные цвета для #17212b */
 @layer base {
   :root {
-    /* ☀️ LIGHT THEME - Orange Primary + Clean Grays */
-    --background: 0 0% 90%; /* #E5E5E5 - Gray background (карточки отлично выделяются) */
-    --foreground: 0 0% 4%; /* #0A0A0A - Almost black text */
-    
-    --card: 0 0% 100%; /* #FFFFFF - White cards (контрастируют с фоном) */
-    --card-foreground: 0 0% 4%;
-    
+    /* ☀️ LIGHT THEME — Warm Ink + Burnt Sienna (redesign 2026-04-24) */
+    --background: 36 28% 94%; /* #f4f0ea — мягкое тёплое бежевое */
+    --foreground: 26 60% 8%; /* #1a1008 — warm ink */
+
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 26 60% 8%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 4%;
-    
-    /* 🟠 PRIMARY - Vibrant Orange (main accent) */
-    --primary: 25 95% 40%; /* #C84A00 - Dark Orange (WCAG AA контраст с белым) */
-    --primary-foreground: 0 0% 100%; /* White text */
-    
-    /* 🟢 SECONDARY - Success Green */
-    --secondary: 142 76% 47%; /* #22C55E - Green-500 */
+    --popover-foreground: 26 60% 8%;
+
+    /* 🟠 PRIMARY — Burnt sienna для всех CTA */
+    --primary: 22 76% 42%; /* #c9581c — 4.7:1 WCAG AA ✓ */
+    --primary-foreground: 0 0% 100%;
+    --primary-text: 21 72% 38%; /* #9A4410 — text-only variant, 5.8:1 ✓ */
+
+    /* 🟢 SECONDARY */
+    --secondary: 152 68% 42%; /* mint */
     --secondary-foreground: 0 0% 100%;
-    
-    --muted: 0 0% 96%; /* #F5F5F5 - Very light gray */
-    --muted-foreground: 0 0% 40%; /* #666666 - Medium gray */
-    
-    /* 💜 ACCENT - Lavender for highlights */
-    --accent: 258 90% 66%; /* #8B5CF6 - Violet-500 */
+
+    --muted: 36 22% 92%;
+    --muted-foreground: 28 12% 36%; /* #5e4f3e — 7.1:1 ✓ */
+
+    /* 💜 ACCENT — декоративный, НЕ для CTA */
+    --accent: 252 68% 56%; /* #6147c8 — тёмнее, 5.2:1 ✓ */
     --accent-foreground: 0 0% 100%;
-    
-    /* 🔴 DESTRUCTIVE - Error Red */
-    --destructive: 0 84% 60%; /* #EF4444 - Red-500 */
+
+    /* 🔴 DESTRUCTIVE */
+    --destructive: 4 80% 50%; /* #dc2a1c — 4.6:1 ✓ */
     --destructive-foreground: 0 0% 100%;
-    
-    --border: 0 0% 90%; /* #E5E5E5 */
-    --input: 0 0% 94%; /* #F0F0F0 */
-    --ring: 25 95% 60%; /* Orange ring focus */
-    
+
+    /* 🟢 SUCCESS — новый токен */
+    --success: 152 72% 32%; /* #1a8c4e — 5.4:1 ✓ */
+    --success-foreground: 0 0% 100%;
+
+    /* 🟡 WARNING — новый токен */
+    --warning: 42 96% 36%; /* #b87800 — 4.8:1 ✓ */
+    --warning-foreground: 0 0% 100%;
+
+    --border: 34 20% 86%; /* #e3dbd0 */
+    --input: 36 24% 96%;
+    --ring: 22 76% 42%;
+
     --radius: 0.75rem; /* 12px */
+
+    /* Typography scale (block 2) */
+    --text-hero: 1.75rem;       /* 28px */
+    --text-h1: 1.375rem;        /* 22px */
+    --text-h2: 1.0625rem;       /* 17px */
+    --text-body: 0.9375rem;     /* 15px — было 14px */
+    --text-caption: 0.8125rem;  /* 13px */
+    --text-label: 0.6875rem;    /* 11px */
+
+    --lh-tight: 1.1;
+    --lh-snug: 1.3;
+    --lh-normal: 1.6;
+    --lh-loose: 1.75;
+
+    /* Layout tokens */
+    --nav-height: 64px;
+    --fab-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 12px);
   }
 
   .dark {
-    /* 🌙 DARK THEME - Контрастные цвета для #17212b */
-    --background: 210 24% 13%; /* #17212b - Dark navy blue */
-    --foreground: 0 0% 98%; /* #FAFAFA - Near white text */
-    
-    --card: 210 20% 18%; /* #1f2a36 - Slightly lighter than bg */
-    --card-foreground: 0 0% 98%;
-    
-    --popover: 210 20% 18%;
-    --popover-foreground: 0 0% 98%;
-    
-    /* 🟠 PRIMARY - Bright Orange для темного фона */
-    --primary: 25 100% 65%; /* #FF9D66 - Более яркий Orange */
-    --primary-foreground: 210 24% 13%; /* Dark text */
-    
-    /* 🟢 SECONDARY - Bright Green для темного фона */
-    --secondary: 142 70% 55%; /* #34D399 - Emerald-400 */
-    --secondary-foreground: 210 24% 13%;
-    
-    --muted: 210 15% 20%; /* #252f3a - Темнее чем card */
-    --muted-foreground: 0 0% 65%; /* #A6A6A6 - Light gray */
-    
-    /* 💜 ACCENT - Bright Lavender */
-    --accent: 258 90% 70%; /* #A78BFA - Violet-400 */
-    --accent-foreground: 210 24% 13%;
-    
-    /* 🔴 DESTRUCTIVE - Bright Red */
-    --destructive: 0 84% 65%; /* #F87171 - Red-400 */
-    --destructive-foreground: 210 24% 13%;
-    
-    --border: 210 15% 25%; /* #2d3946 - Заметная граница */
-    --input: 210 15% 22%; /* #272f3c */
-    --ring: 25 100% 65%; /* Bright Orange ring */
+    /* 🌙 DARK THEME — Cool Slate + Purple Primary (redesign 2026-04-24) */
+    --background: 220 26% 11%; /* #161c26 — cool slate */
+    --foreground: 216 30% 94%; /* #e8edf7 */
+
+    --card: 218 22% 17%; /* #212c3f */
+    --card-foreground: 216 30% 94%;
+
+    --popover: 218 22% 17%;
+    --popover-foreground: 216 30% 94%;
+
+    /* 💜 PRIMARY — Purple для всех CTA, nav, FAB */
+    --primary: 252 78% 68%; /* #7c6cf0 */
+    --primary-foreground: 0 0% 100%; /* белый текст на фиолетовом */
+    --primary-text: 252 84% 78%; /* для text-only использования */
+
+    /* 🟢 SECONDARY */
+    --secondary: 152 68% 52%; /* #29c97a */
+    --secondary-foreground: 220 26% 11%;
+
+    --muted: 218 20% 20%; /* #283144 */
+    --muted-foreground: 216 14% 68%; /* #8a9ab5 — 4.6:1 ✓ AA */
+
+    /* 🟠 ACCENT — Orange, иконки и вторичные highlights (не CTA!) */
+    --accent: 26 100% 63%; /* #ff8c42 */
+    --accent-foreground: 220 26% 11%;
+
+    /* 🔴 DESTRUCTIVE */
+    --destructive: 4 88% 68%; /* #f45c4c */
+    --destructive-foreground: 0 0% 100%;
+
+    /* 🟢 SUCCESS */
+    --success: 152 68% 52%; /* #29c97a */
+    --success-foreground: 220 26% 11%;
+
+    /* 🟡 WARNING */
+    --warning: 42 100% 58%; /* #ffaa00 */
+    --warning-foreground: 220 26% 11%;
+
+    --border: 218 20% 24%; /* #2a3448 */
+    --input: 218 20% 22%;
+    --ring: 252 78% 68%;
   }
   
   * {
@@ -83,10 +118,11 @@
   
   body {
     @apply text-foreground bg-background min-h-screen;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "rlig" 1, "calt" 1;
+    font-variant-numeric: tabular-nums;
   }
   
   #root {
@@ -136,6 +172,85 @@
   
   .card-hover {
     @apply card transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98];
+  }
+
+  .admin-tab-rail {
+    @apply relative flex flex-nowrap gap-2 overflow-x-auto overflow-y-hidden rounded-2xl border border-border bg-card p-1.5 shadow-sm;
+    @apply scrollbar-thin;
+    scroll-snap-type: x proximity;
+  }
+
+  .admin-tab {
+    @apply flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
+    @apply text-foreground;
+    opacity: 0.72;
+    @apply transition-all duration-150;
+    scroll-snap-align: start;
+    will-change: transform;
+  }
+
+  .admin-tab:hover {
+    @apply bg-muted text-foreground;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(33, 24, 13, 0.06);
+  }
+
+  .admin-tab--active:hover {
+    @apply text-primary;
+    background-color: hsl(var(--primary) / 0.12);
+    transform: none;
+    box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.18);
+  }
+
+  .admin-tab:active {
+    transform: scale(0.98);
+  }
+
+  .admin-tab:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  .admin-tab--active {
+    @apply text-primary shadow-none;
+    background-color: hsl(var(--primary) / 0.12);
+    box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.18);
+  }
+
+  .admin-icon-pill {
+    @apply inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-foreground;
+    opacity: 0.8;
+    @apply transition-all duration-150;
+    will-change: transform;
+  }
+
+  .admin-icon-pill:hover {
+    @apply bg-muted text-foreground;
+    box-shadow: 0 8px 18px rgba(33, 24, 13, 0.06);
+  }
+
+  .admin-action-btn {
+    @apply inline-flex items-center justify-center gap-1 rounded-[10px] border border-border bg-card px-3 text-xs font-semibold text-foreground transition-all duration-150;
+    @apply hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary/30;
+    min-width: 44px;
+    min-height: 44px;
+    @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
+  }
+
+  .admin-action-btn:disabled {
+    @apply opacity-60 cursor-not-allowed;
+  }
+
+  .admin-action-btn--accent {
+    @apply border-primary/30 text-primary;
+  }
+
+  .admin-action-btn--danger {
+    @apply border-destructive/40 text-destructive;
+  }
+
+  .admin-action-btn--success {
+    @apply border-mint-500/40 text-mint-600 dark:text-mint-500;
   }
   
   /* Loading skeleton */

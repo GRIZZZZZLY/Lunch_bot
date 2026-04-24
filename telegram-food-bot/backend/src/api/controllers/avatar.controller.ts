@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import https from 'https';
 import { logger } from '../../utils/logger';
 import { getBotInstance } from '../../bot/bot';
+import { getParam } from '../../utils/request-params';
 
 /**
  * Avatar Controller
@@ -15,8 +16,9 @@ import { getBotInstance } from '../../bot/bot';
  * Загружает аватарку из Telegram API и возвращает как изображение
  */
 export async function getAvatarByFileId(req: Request, res: Response): Promise<void> {
+  const fileId = getParam(req.params, 'fileId');
+
   try {
-    const { fileId } = req.params;
 
     if (!fileId) {
       res.status(400).json({
@@ -83,7 +85,7 @@ export async function getAvatarByFileId(req: Request, res: Response): Promise<vo
 
   } catch (error: any) {
     logger.error('[AvatarController] Error fetching avatar:', {
-      fileId: req.params.fileId,
+      fileId,
       error: error.message,
       stack: error.stack,
     });

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { suggestionService, CreateSuggestionData, MenuSuggestion } from '../services/suggestion.service';
+import { suggestionService, CreateSuggestionData } from '../services/suggestion.service';
 import { useAppStore } from '../store/useAppStore';
 
 /**
@@ -19,7 +19,8 @@ export function useSuggestions(params?: {
       }
       return response.data;
     },
-    staleTime: 30000, // 30 seconds
+    staleTime: 0, // No caching - always fresh data for real-time updates
+    refetchInterval: 10000, // Refetch every 10 seconds as backup
   });
 }
 
@@ -56,7 +57,12 @@ export function useCreateSuggestion() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+      // Invalidate ALL suggestion queries
+      queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-count'] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
       addNotification({
         type: 'success',
         message: 'Предложение отправлено на рассмотрение',
@@ -87,9 +93,13 @@ export function useApproveSuggestion() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+      // Invalidate ALL suggestion queries (admin and user views)
+      queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['menu'] });
       queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-count'] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
       addNotification({
         type: 'success',
         message: 'Предложение одобрено и добавлено в меню',
@@ -120,8 +130,12 @@ export function useRejectSuggestion() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+      // Invalidate ALL suggestion queries (admin and user views)
+      queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-count'] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
       addNotification({
         type: 'info',
         message: 'Предложение отклонено',
@@ -149,6 +163,8 @@ export function useSuggestionStats() {
       }
       return response.data;
     },
+    staleTime: 0, // No caching - always fresh data
+    refetchInterval: 10000, // Refetch every 10 seconds
   });
 }
 
@@ -187,8 +203,12 @@ export function useDeleteSuggestion() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+      // Invalidate ALL suggestion queries (admin and user views)
+      queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-count'] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
       addNotification({
         type: 'success',
         message: 'Предложение удалено',

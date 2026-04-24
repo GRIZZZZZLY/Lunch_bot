@@ -149,30 +149,20 @@ async function seedMenu() {
     // Создаем блюда
     const created = [];
     for (const item of testMenuItems) {
+      const { category: _category, ...itemData } = item;
       const menuItem = await prisma.menuItem.create({
         data: {
-          ...item,
+          ...itemData,
           createdBy: adminUser.id,
           isActive: true,
         },
       });
       created.push(menuItem);
-      logger.info(`Created menu item: ${menuItem.name} (${menuItem.category})`);
+      logger.info(`Created menu item: ${menuItem.name}`);
     }
 
     logger.info(`✅ Successfully seeded ${created.length} menu items!`);
     
-    // Вывод статистики по категориям
-    const categories = await prisma.menuItem.groupBy({
-      by: ['category'],
-      _count: true,
-    });
-    
-    logger.info('Menu items by category:');
-    categories.forEach(cat => {
-      logger.info(`  ${cat.category}: ${cat._count} items`);
-    });
-
   } catch (error) {
     logger.error('Error seeding menu:', error);
     throw error;

@@ -1,13 +1,12 @@
-import { PrismaClient, MenuSuggestion, Prisma } from '@prisma/client';
+import { MenuSuggestion, Prisma } from '@prisma/client';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../database/client';
+import { toNumber } from '../utils/decimal';
 
 export interface CreateSuggestionDTO {
   name: string;
   description?: string;
   price?: number;
-  category?: string;
   imageUrl?: string;
   suggestedBy: number;
 }
@@ -34,7 +33,6 @@ export class MenuSuggestionService {
         name: data.name,
         description: data.description,
         price: data.price,
-        category: data.category,
         imageUrl: data.imageUrl,
         suggestedBy: data.suggestedBy,
         status: 'PENDING',
@@ -154,8 +152,7 @@ export class MenuSuggestionService {
       data: {
         name: suggestion.name,
         description: suggestion.description,
-        price: suggestion.price,
-        category: suggestion.category,
+        price: suggestion.price ? toNumber(suggestion.price) : null,
         imageUrl: suggestion.imageUrl,
         createdBy: reviewerId, // Админ становится создателем
         isActive: true,

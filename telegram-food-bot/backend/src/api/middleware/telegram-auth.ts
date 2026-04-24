@@ -16,6 +16,15 @@ export async function telegramAuthMiddleware(
     // ⚠️ SKIP_TELEGRAM_VALIDATION - отключает проверку подписи Telegram
     // Используем РЕАЛЬНЫЙ ID пользователя из initData
     if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      if (
+        process.env.NODE_ENV === 'production' &&
+        process.env.ALLOW_SKIP_VALIDATION_IN_PROD !== 'true'
+      ) {
+        logger.error('🚨 SKIP_TELEGRAM_VALIDATION blocked in production');
+        throw new Error(
+          'SECURITY: SKIP_TELEGRAM_VALIDATION cannot be used in production'
+        );
+      }
       logger.warn('⚠️ SECURITY: SKIP_TELEGRAM_VALIDATION enabled - DEVELOPMENT ONLY!');
       logger.info('🔓 SKIP_TELEGRAM_VALIDATION mode - extracting REAL user from initData');
       
@@ -32,7 +41,6 @@ export async function telegramAuthMiddleware(
         logger.info('🔍 SKIP mode: analyzing token', {
           isJWT,
           tokenLength: token.length,
-          tokenPreview: token.substring(0, 50)
         });
         
         if (isJWT) {
@@ -291,6 +299,15 @@ export async function validateInitDataMiddleware(
     // ⚠️ SKIP_TELEGRAM_VALIDATION - отключает проверку подписи Telegram
     // Используем РЕАЛЬНЫЕ данные пользователя из initData
     if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      if (
+        process.env.NODE_ENV === 'production' &&
+        process.env.ALLOW_SKIP_VALIDATION_IN_PROD !== 'true'
+      ) {
+        logger.error('🚨 SKIP_TELEGRAM_VALIDATION blocked in production');
+        throw new Error(
+          'SECURITY: SKIP_TELEGRAM_VALIDATION cannot be used in production'
+        );
+      }
       logger.warn('⚠️ SECURITY: SKIP_TELEGRAM_VALIDATION enabled - DEVELOPMENT ONLY!');
       const { initData } = req.body;
       

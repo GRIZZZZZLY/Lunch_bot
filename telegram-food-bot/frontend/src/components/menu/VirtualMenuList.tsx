@@ -8,13 +8,10 @@
  * - FPS: 60 стабильно
  */
 
-import React, { useRef, useEffect, useState } from 'react';
-import { List } from 'react-window';
+import { useState } from 'react';
+import type { CSSProperties, UIEvent } from 'react';
+import { List, useListRef } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
-
-import type { ListProps } from 'react-window';
-
-type ListOnScrollProps = any;
 import { MenuItem } from '@/services/menu.service';
 import { MenuItemCard } from './MenuItemCard';
 import { useHaptic } from '@/hooks/useHaptic';
@@ -26,7 +23,6 @@ export interface VirtualMenuListProps {
   onEdit?: (item: MenuItem) => void;
   onDelete?: (id: number) => void;
   onToggleStatus?: (id: number) => void;
-  selectedCategory?: string | null;
 }
 
 /**
@@ -39,18 +35,10 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   onEdit,
   onDelete,
   onToggleStatus,
-  selectedCategory,
 }) => {
   const haptic = useHaptic();
-  const listRef = useRef<any>(null);
+  const listRef = useListRef();
   const [scrollOffset, setScrollOffset] = useState(0);
-
-  // Автоскролл наверх при изменении категории
-  useEffect(() => {
-    if (listRef.current) {
-      listRef.current.scrollToItem(0, 'start');
-    }
-  }, [selectedCategory]);
 
   // Высота одного item (фиксированная для лучшей производительности)
   const ITEM_HEIGHT = 140; // px
@@ -61,7 +49,19 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   /**
    * Render функция для каждого item
    */
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+  const Row = ({
+    index,
+    style,
+    ariaAttributes,
+  }: {
+    index: number;
+    style: CSSProperties;
+    ariaAttributes: {
+      'aria-posinset': number;
+      'aria-setsize': number;
+      role: 'listitem';
+    };
+  }) => {
     const item = items[index];
 
     // Добавляем padding между items
@@ -72,7 +72,11 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
     };
 
     return (
-      <div style={adjustedStyle} className="px-4">
+      <div
+        style={adjustedStyle}
+        className="px-4"
+        {...ariaAttributes}
+      >
         <MenuItemCard
           item={item}
           showActions={isAdmin}
@@ -84,24 +88,22 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
     );
   };
 
-  // Performance optimization: запоминаем Row компонент
-  const MemoizedRow = React.memo(Row);
-
   /**
    * P1.3.5: Handle scroll для haptic feedback + analytics
    */
-  const handleScroll = (props: any) => {
+  const handleScroll = (event: UIEvent<HTMLDivElement>) => {
+    const nextOffset = event.currentTarget.scrollTop;
     const previousOffset = scrollOffset;
-    
+
     // Haptic на каждые 100px скролла
-    if (Math.abs(props.scrollOffset - previousOffset) > 100) {
+    if (Math.abs(nextOffset - previousOffset) > 100) {
       haptic.selection();
-      setScrollOffset(props.scrollOffset);
+      setScrollOffset(nextOffset);
     }
-    
+
     // P1.3.5: Track deep scrolling для analytics
-    const scrollPercentage = (scrollOffset / (items.length * ITEM_HEIGHT)) * 100;
-    
+    const scrollPercentage = (nextOffset / (items.length * ITEM_HEIGHT)) * 100;
+
     if (scrollPercentage > 50 && previousOffset < (items.length * ITEM_HEIGHT * 0.5)) {
       trackEvent(ANALYTICS_EVENTS.MENU_VIEWED, {
         scrollDepth: '50%',
@@ -109,7 +111,7 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
         virtualList: true,
       });
     }
-    
+
     if (scrollPercentage > 90 && previousOffset < (items.length * ITEM_HEIGHT * 0.9)) {
       trackEvent(ANALYTICS_EVENTS.MENU_VIEWED, {
         scrollDepth: '90%',
@@ -141,24 +143,19 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   return (
     <div className="h-full w-full">
       <AutoSizer>
-        {({ height, width }) => {
-          const ListComponent = List as any;
-          return (
-            <ListComponent
-              ref={listRef}
-              height={height}
-              rowCount={items.length}
-              rowHeight={ITEM_HEIGHT}
-              width={width}
-              onScroll={handleScroll}
-              // Оптимизации
-              overscanCount={3} // Рендерим 3 extra items за viewport
-              useIsScrolling // Показываем placeholder при быстром скролле
-            >
-              {MemoizedRow}
-            </ListComponent>
-          );
-        }}
+        {({ height, width }) => (
+          <List
+            listRef={listRef}
+            rowCount={items.length}
+            rowHeight={ITEM_HEIGHT}
+            onScroll={handleScroll}
+            style={{ height, width }}
+            // Оптимизации
+            overscanCount={3} // Рендерим 3 extra items за viewport
+            rowComponent={Row}
+            rowProps={{}}
+          />
+        )}
       </AutoSizer>
 
       {/* Debug info (только в dev) */}

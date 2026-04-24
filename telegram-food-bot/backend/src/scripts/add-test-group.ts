@@ -48,7 +48,7 @@ async function addTestGroup() {
     const group = await prisma.group.create({
       data: {
         telegramId: BigInt(chatId),
-        title: title,
+        title,
         type: 'group',
         isActive: true,
       }

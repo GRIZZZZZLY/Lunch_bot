@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, ChevronRight } from 'lucide-react';
-import { GlassCard, GlassCardContent } from '../ui/glass-card';
 import { DonationModal } from './DonationModal';
 import { useHaptic } from '../../hooks/useHaptic';
-import { DONATION_THEME } from '../../styles/donation.theme';
+import { DONATION_THEME, getDonationStyles } from '../../styles/donation.theme';
+import { useAppStore } from '../../store/useAppStore';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 const DONATION_CONFIG = {
@@ -30,6 +30,8 @@ export const DonationBar: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const haptic = useHaptic();
+  const isDark = useAppStore((s) => s.theme) === 'dark';
+  const styles = getDonationStyles(isDark);
 
   // Логика появления через интервалы
   useEffect(() => {
@@ -104,9 +106,9 @@ export const DonationBar: React.FC = () => {
             <div
               className="overflow-hidden cursor-pointer rounded-2xl transition-all duration-300 hover:scale-[1.02]"
               style={{
-                background: DONATION_THEME.gradients.bar,
-                boxShadow: DONATION_THEME.shadow.bar,
-                border: DONATION_THEME.border.default,
+                background: styles.gradients.bar,
+                boxShadow: styles.shadow.bar,
+                border: styles.border.default,
               }}
               onClick={handleTap}
             >
@@ -133,10 +135,10 @@ export const DonationBar: React.FC = () => {
                     </motion.div>
                     
                     <div className="flex-1">
-                      <p className="font-bold text-base text-gray-200">
+                      <p className="font-bold text-base text-white">
                         Поддержите проект
                       </p>
-                      <p className="text-xs mt-0.5 text-gray-300">
+                      <p className="text-xs mt-0.5 text-white/85">
                         Свайп в сторону чтобы скрыть
                       </p>
                     </div>

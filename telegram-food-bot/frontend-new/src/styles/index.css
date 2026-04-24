@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Rocket Lunch — Design System Tokens
+   Ported from docs/design-prompts/exports/Rocket Lunch Design System.html
+   ============================================================ */
+
+:root {
+  /* Brand */
+  --peach-400: #ff9d66;
+  --peach-500: #d86a2c;
+  --peach-600: #b84d12;
+  --lav-400: #a78bfa;
+  --lav-500: #8b5cf6;
+  --mint-400: #34d399;
+  --mint-500: #22b573;
+  --coral-400: #f87171;
+  --coral-500: #e55a4f;
+  --butter-400: #f4c15d;
+  --butter-500: #e6a93d;
+  --succ-soft: #9fd4b3;
+  --warn-soft: #d9d394;
+  --err-soft: #d4a5a5;
+
+  /* Pastel gradients */
+  --g-peach: linear-gradient(135deg, #f3c4a7, #f7d5c1);
+  --g-lav: linear-gradient(135deg, #d1c1fc, #e5ddfe);
+  --g-sage: linear-gradient(135deg, #8ce0b9, #b3ebd1);
+  --g-sky: linear-gradient(135deg, #7dd3fc, #bae6fd);
+  --g-rose: linear-gradient(135deg, #fca5a5, #fecaca);
+  --g-butter: linear-gradient(135deg, #fde7a6, #f9d978);
+  --g-coral: linear-gradient(135deg, #fca5a5, #f87171);
+  --g-mint: linear-gradient(135deg, #8ce0b9, #b3ebd1);
+  --g-peachlav: linear-gradient(135deg, #f3c4a7, #d1c1fc);
+
+  /* Aliases used by ported budget.css */
+  --page-ink: #2b2118;
+  --page-muted: #9c8b79;
+  --page-line: rgba(43, 33, 24, 0.08);
+
+  /* Typography */
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* LIGHT theme defaults (applied to :root when no .dark class) */
+  --surface: #fffdf9;
+  --surface-2: #f6efe5;
+  --ink: #2b2118;
+  --ink-2: #6b5d4f;
+  --ink-3: #9c8b79;
+  --line: rgba(43, 33, 24, 0.08);
+  --line-2: rgba(43, 33, 24, 0.14);
+  --pri: var(--peach-500);
+  --pri-ink: #ffffff;
+  --card-grad: linear-gradient(180deg, #fffdf9, #f6efe5);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-elev: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --page-bg: linear-gradient(180deg, #f2eadf, #fbf7f1);
+}
+
+.dark {
+  --surface: #2a1f1a;
+  --surface-2: #1e1612;
+  --ink: #f4ece3;
+  --ink-2: #c9b7a4;
+  --ink-3: #8a7867;
+  --line: rgba(255, 220, 190, 0.08);
+  --line-2: rgba(255, 220, 190, 0.14);
+  --pri: var(--peach-400);
+  --pri-ink: #1a0f08;
+  --card-grad: linear-gradient(180deg, #2a1f1a, #1e1612);
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.35);
+  --shadow-elev: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --page-bg: linear-gradient(180deg, #1f1712, #140e0a);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  min-height: 100dvh;
+}
+
+html {
+  background: #fbf7f1;
+  background: var(--page-bg);
+}
+
+html.dark {
+  background: #1f1712;
+  background: var(--page-bg);
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--page-bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  background: var(--page-bg);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* ============================================================
+   Keyframes
+   ============================================================ */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.anim-hero { animation: fadeInUp 400ms ease-out both; }
+.anim-pop { animation: popIn 280ms cubic-bezier(.2,.7,.2,1) both; }

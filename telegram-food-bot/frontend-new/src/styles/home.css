@@ -1,0 +1,353 @@
+/* ============================================================
+   HomePage — Rocket Lunch
+   Ported verbatim from exports/Rocket Lunch Home.html
+   ============================================================ */
+
+.home-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+}
+
+/* -------- Hero -------- */
+.home-hero {
+  position: relative;
+  border-radius: 18px;
+  padding: 20px;
+  overflow: hidden;
+  min-height: 108px;
+  box-shadow: var(--shadow-elev);
+}
+.home-hero.morning   { background: var(--g-peach);  color: #3D2012; }
+.home-hero.afternoon { background: var(--g-butter); color: #4A3508; }
+.home-hero.evening   { background: var(--g-lav);    color: #2E1F56; }
+
+.home-hero .deco {
+  position: absolute; right: -40px; bottom: -40px;
+  width: 180px; height: 180px; border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.45), transparent 60%);
+  pointer-events: none;
+}
+.home-hero .eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.65;
+  font-weight: 600;
+}
+.home-hero h1 {
+  margin: 6px 0 2px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.home-hero .sub { font-size: 13px; opacity: 0.8; }
+
+.avatars { position: absolute; right: 18px; top: 20px; display: flex; }
+.av {
+  width: 32px; height: 32px; border-radius: 999px;
+  display: grid; place-items: center;
+  font-size: 14px; font-weight: 700;
+  margin-left: -8px;
+  border: 2px solid rgba(255,253,249,0.9);
+  background: rgba(255,255,255,0.55);
+  color: #3D2012;
+}
+.av.more { font-size: 11px; }
+
+.chip-row { margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(8px);
+  font-size: 11px; font-weight: 600;
+  padding: 4px 9px; border-radius: 999px;
+}
+
+/* -------- Vote card -------- */
+.vote-card {
+  background: var(--card-grad);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: var(--shadow-card);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.vote-card.peach {
+  background: linear-gradient(180deg, color-mix(in oklab, #F3C4A7 30%, var(--surface)), var(--surface));
+  border-color: color-mix(in oklab, var(--peach-400) 25%, var(--line));
+}
+
+.vc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.vc-title { display: flex; align-items: center; gap: 8px; }
+.vc-title .ic {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: color-mix(in oklab, var(--peach-400) 20%, var(--surface));
+  display: grid; place-items: center; font-size: 16px;
+}
+.vc-title .t { font-size: 14px; font-weight: 700; color: var(--ink); }
+.vc-title .s { font-size: 11px; color: var(--ink-2); font-family: var(--mono); }
+
+.vc-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; color: var(--ink-2); font-family: var(--mono);
+  padding: 8px 10px; border-radius: 10px;
+  background: color-mix(in oklab, var(--ink) 4%, transparent);
+}
+
+.countdown {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 999px;
+  background: color-mix(in oklab, var(--peach-400) 25%, transparent);
+  color: var(--peach-500);
+  font-weight: 700; font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.countdown.urgent {
+  background: color-mix(in oklab, var(--coral-500) 25%, transparent);
+  color: var(--coral-500);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.live { display: inline-flex; align-items: center; gap: 5px; color: var(--mint-500); }
+.pip {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: currentColor;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* -------- Options (voting rows) -------- */
+.opt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  cursor: pointer; position: relative;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.opt.selected {
+  border-color: var(--pri);
+  background: color-mix(in oklab, var(--peach-400) 8%, var(--surface));
+}
+.opt.result { cursor: default; }
+
+.emj {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: grid; place-items: center;
+  font-size: 20px; flex-shrink: 0;
+}
+
+.opt .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.opt .info .n { font-size: 14px; font-weight: 600; color: var(--ink); }
+.opt .info .m {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.radio {
+  width: 22px; height: 22px; border-radius: 999px;
+  border: 2px solid var(--line-2);
+  flex-shrink: 0; display: grid; place-items: center;
+  transition: all 150ms ease;
+}
+.opt.selected .radio {
+  border-color: var(--pri);
+  background: var(--pri);
+}
+.opt.selected .radio::after {
+  content: '';
+  width: 8px; height: 8px; border-radius: 999px;
+  background: #fff;
+}
+
+/* -------- Results bars -------- */
+.opt.result.mine {
+  background: color-mix(in oklab, var(--mint-400) 10%, var(--surface));
+  border-color: color-mix(in oklab, var(--mint-400) 30%, var(--line));
+}
+
+.bar-wrap { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bar-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.bar-head .n { font-size: 13px; font-weight: 600; color: var(--ink); }
+.bar-track {
+  height: 6px; border-radius: 999px;
+  background: var(--line-2);
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--peach-400), var(--peach-500));
+  transform-origin: left;
+  animation: grow 600ms cubic-bezier(.2,.7,.2,1) both;
+}
+.pct { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--ink-2); }
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 999px;
+  background: color-mix(in oklab, var(--mint-400) 30%, transparent);
+  color: #0A3F26;
+}
+
+/* -------- Empty vote card -------- */
+.empty-vc {
+  text-align: center;
+  padding: 24px 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.blob {
+  width: 88px; height: 88px; border-radius: 999px;
+  background: var(--g-peach);
+  display: grid; place-items: center; font-size: 36px;
+  box-shadow: 0 12px 28px rgba(216,106,44,0.25);
+  position: relative;
+}
+.empty-vc .t { font-size: 15px; font-weight: 700; color: var(--ink); }
+.empty-vc .s { font-size: 12px; color: var(--ink-2); max-width: 260px; }
+
+/* -------- Voted footer -------- */
+.voted-footer {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 12px;
+  background: color-mix(in oklab, var(--mint-400) 15%, var(--surface));
+  border: 1px solid color-mix(in oklab, var(--mint-400) 30%, var(--line));
+  font-size: 13px; color: var(--ink);
+}
+.voted-footer .txt { flex: 1; }
+.check {
+  width: 20px; height: 20px; border-radius: 999px;
+  background: var(--mint-500); color: #fff;
+  display: grid; place-items: center;
+  font-weight: 700; font-size: 12px; flex-shrink: 0;
+}
+.change {
+  color: var(--pri); font-weight: 600; font-size: 12px;
+  background: transparent; border: 0; cursor: pointer;
+  padding: 4px 8px; border-radius: 8px;
+  flex-shrink: 0;
+}
+.voted-actions {
+  display: flex; align-items: center; gap: 4px;
+  flex-shrink: 0;
+}
+.change.withdraw {
+  color: var(--coral-500, #c2410c);
+}
+.change.withdraw:hover {
+  background: color-mix(in oklab, var(--coral-500, #c2410c) 10%, transparent);
+}
+
+/* -------- Winner expandable results -------- */
+.winner-toggle {
+  margin-top: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, var(--butter-500, #d4a036) 35%, var(--line));
+  background: color-mix(in oklab, var(--butter-400, #f4d58b) 20%, var(--surface));
+  color: var(--ink);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
+.winner-toggle:hover {
+  background: color-mix(in oklab, var(--butter-400, #f4d58b) 35%, var(--surface));
+}
+.winner-results {
+  margin-top: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+/* -------- Winner card -------- */
+.winner-card {
+  background: linear-gradient(135deg, #FFE1A8, #F4C15D);
+  color: #4A3508;
+  border-radius: 16px; padding: 18px;
+  text-align: center; position: relative;
+  box-shadow: var(--shadow-elev);
+}
+.crown { font-size: 42px; line-height: 1; }
+.winner-card .t { font-size: 18px; font-weight: 700; margin-top: 6px; }
+.winner-card .s { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+.res {
+  margin-top: 12px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(255,255,255,0.55);
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; font-weight: 600;
+}
+.duty-banner {
+  margin-top: 10px; padding: 10px 12px; border-radius: 12px;
+  background: var(--g-lav); color: #2E1F56;
+  display: flex; align-items: center; gap: 10px; font-size: 13px;
+}
+.duty-banner .t { font-weight: 700; }
+.duty-banner .s { font-size: 11px; opacity: 0.8; }
+
+/* -------- Debt card -------- */
+.debt-card {
+  background: linear-gradient(135deg, color-mix(in oklab, var(--coral-400) 30%, var(--surface)), var(--surface));
+  border: 1px solid color-mix(in oklab, var(--coral-400) 30%, var(--line));
+  border-radius: 14px; padding: 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.debt-card .ic {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--coral-500); color: #fff;
+  display: grid; place-items: center;
+  font-weight: 700; font-size: 16px;
+  flex-shrink: 0;
+}
+.debt-card .info { flex: 1; min-width: 0; }
+.debt-card .lbl { font-size: 11px; color: var(--ink-2); font-family: var(--mono); }
+.debt-card .amt { font-size: 17px; font-weight: 700; color: var(--ink); }
+.pay {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 8px 12px; border-radius: 10px;
+  background: var(--coral-500); color: #fff;
+  font-weight: 600; font-size: 12px;
+  border: 0; cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* -------- Actions grid -------- */
+.act-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.act {
+  height: 96px; border-radius: 14px; padding: 12px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  position: relative; overflow: hidden;
+  font-weight: 700; font-size: 14px;
+  cursor: pointer;
+  transition: transform 150ms ease;
+  border: 0;
+  text-align: left;
+}
+.act:hover { transform: translateY(-2px); }
+.act.peach { background: var(--g-peach); color: #3D2012; }
+.act.lav   { background: var(--g-lav);   color: #2E1F56; }
+.act.sage  { background: var(--g-sage);  color: #0E3D26; }
+.act.sky   { background: var(--g-sky);   color: #083855; }
+.act .ic {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: rgba(255,255,255,0.55);
+  display: grid; place-items: center;
+}
+.act .lbl { display: flex; align-items: center; justify-content: space-between; }
+
+/* -------- Buttons (local, page-scoped) -------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: inherit; font-weight: 600; font-size: 14px;
+  border-radius: 12px; border: 1px solid transparent; cursor: pointer;
+  padding: 12px 16px; line-height: 1; user-select: none;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+.btn:hover { filter: brightness(1.05); }
+.btn:active { transform: scale(0.98); }
+.btn.primary {
+  background: linear-gradient(135deg, var(--peach-400), var(--peach-500));
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(216,106,44,0.35);
+}
+.btn.wide { width: 100%; }

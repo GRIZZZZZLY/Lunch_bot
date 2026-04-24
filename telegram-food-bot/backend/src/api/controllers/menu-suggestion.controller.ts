@@ -2,22 +2,33 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../../types/api.types';
 import { MenuSuggestionService } from '../../services/menu-suggestion.service';
 import { logger } from '../../utils/logger';
+import { getParam } from '../../utils/request-params';
 
 /**
  * Создать новое предложение блюда
  */
 export async function createSuggestion(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const { name, description, price, category, imageUrl } = req.body;
+    const { name, description, price, imageUrl } = req.body;
     const userId = req.user?.id;
 
     if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        code: 'UNAUTHORIZED',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
     if (!name || name.trim().length === 0) {
-      res.status(400).json({ error: 'Название блюда обязательно' });
+      res.status(400).json({
+        success: false,
+        error: 'Название блюда обязательно',
+        code: 'VALIDATION_ERROR',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
@@ -25,17 +36,25 @@ export async function createSuggestion(req: AuthenticatedRequest, res: Response)
       name: name.trim(),
       description: description?.trim(),
       price: price ? parseFloat(price) : undefined,
-      category: category?.trim(),
       imageUrl: imageUrl?.trim(),
       suggestedBy: userId,
     });
 
     logger.info(`Suggestion created by user ${userId}: ${suggestion.id}`);
 
-    res.status(201).json(suggestion);
+    res.status(201).json({
+      success: true,
+      data: suggestion,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     logger.error('Error creating suggestion:', error);
-    res.status(500).json({ error: 'Failed to create suggestion' });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create suggestion',
+      code: 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 
@@ -47,6 +66,16 @@ export async function getSuggestions(req: AuthenticatedRequest, res: Response): 
     const { status, limit, offset } = req.query;
     const userId = req.user?.id;
     const isAdmin = req.user?.isAdmin;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        code: 'UNAUTHORIZED',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
 
     // Обычные пользователи видят только свои предложения
     const filters: any = {};
@@ -69,10 +98,19 @@ export async function getSuggestions(req: AuthenticatedRequest, res: Response): 
 
     const suggestions = await MenuSuggestionService.getSuggestions(filters);
 
-    res.json(suggestions);
+    res.json({
+      success: true,
+      data: suggestions,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     logger.error('Error getting suggestions:', error);
-    res.status(500).json({ error: 'Failed to get suggestions' });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get suggestions',
+      code: 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 
@@ -81,29 +119,58 @@ export async function getSuggestions(req: AuthenticatedRequest, res: Response): 
  */
 export async function getSuggestionById(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const userId = req.user?.id;
     const isAdmin = req.user?.isAdmin;
 
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        code: 'UNAUTHORIZED',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
     const suggestion = await MenuSuggestionService.getSuggestionById(
-      parseInt(id)
+      parseInt(id, 10)
     );
 
     if (!suggestion) {
-      res.status(404).json({ error: 'Suggestion not found' });
+      res.status(404).json({
+        success: false,
+        error: 'Suggestion not found',
+        code: 'NOT_FOUND',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
     // Обычные пользователи видят только свои предложения
     if (!isAdmin && suggestion.suggestedBy !== userId) {
-      res.status(403).json({ error: 'Forbidden' });
+      res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        code: 'FORBIDDEN',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
-    res.json(suggestion);
+    res.json({
+      success: true,
+      data: suggestion,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     logger.error('Error getting suggestion:', error);
-    res.status(500).json({ error: 'Failed to get suggestion' });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get suggestion',
+      code: 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 
@@ -112,32 +179,51 @@ export async function getSuggestionById(req: AuthenticatedRequest, res: Response
  */
 export async function approveSuggestion(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const userId = req.user?.id;
     const isAdmin = req.user?.isAdmin;
 
     if (!isAdmin) {
-      res.status(403).json({ error: 'Only admins can approve suggestions' });
+      res.status(403).json({
+        success: false,
+        error: 'Only admins can approve suggestions',
+        code: 'FORBIDDEN',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
     if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        code: 'UNAUTHORIZED',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
     const result = await MenuSuggestionService.approveSuggestion(
-      parseInt(id),
+      parseInt(id, 10),
       userId
     );
 
     // Отправить уведомление пользователю (опционально через бота)
     // TODO: Integrate with notification service
 
-    res.json(result);
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error: any) {
     logger.error('Error approving suggestion:', error);
-    res.status(500).json({ error: error.message || 'Failed to approve suggestion' });
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to approve suggestion',
+      code: 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 
@@ -146,23 +232,33 @@ export async function approveSuggestion(req: AuthenticatedRequest, res: Response
  */
 export async function rejectSuggestion(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const { reason } = req.body;
     const userId = req.user?.id;
     const isAdmin = req.user?.isAdmin;
 
     if (!isAdmin) {
-      res.status(403).json({ error: 'Only admins can reject suggestions' });
+      res.status(403).json({
+        success: false,
+        error: 'Only admins can reject suggestions',
+        code: 'FORBIDDEN',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
     if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        code: 'UNAUTHORIZED',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
     const suggestion = await MenuSuggestionService.rejectSuggestion(
-      parseInt(id),
+      parseInt(id, 10),
       userId,
       reason
     );
@@ -170,10 +266,19 @@ export async function rejectSuggestion(req: AuthenticatedRequest, res: Response)
     // Отправить уведомление пользователю (опционально через бота)
     // TODO: Integrate with notification service
 
-    res.json(suggestion);
+    res.json({
+      success: true,
+      data: suggestion,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error: any) {
     logger.error('Error rejecting suggestion:', error);
-    res.status(500).json({ error: error.message || 'Failed to reject suggestion' });
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to reject suggestion',
+      code: 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 
@@ -185,16 +290,30 @@ export async function getStats(req: AuthenticatedRequest, res: Response): Promis
     const isAdmin = req.user?.isAdmin;
 
     if (!isAdmin) {
-      res.status(403).json({ error: 'Only admins can view stats' });
+      res.status(403).json({
+        success: false,
+        error: 'Only admins can view stats',
+        code: 'FORBIDDEN',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
     const stats = await MenuSuggestionService.getStats();
 
-    res.json(stats);
+    res.json({
+      success: true,
+      data: stats,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     logger.error('Error getting stats:', error);
-    res.status(500).json({ error: 'Failed to get stats' });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get stats',
+      code: 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 
@@ -206,16 +325,30 @@ export async function getPendingCount(req: AuthenticatedRequest, res: Response):
     const isAdmin = req.user?.isAdmin;
 
     if (!isAdmin) {
-      res.status(403).json({ error: 'Only admins can view pending count' });
+      res.status(403).json({
+        success: false,
+        error: 'Only admins can view pending count',
+        code: 'FORBIDDEN',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
     const count = await MenuSuggestionService.getPendingCount();
 
-    res.json({ count });
+    res.json({
+      success: true,
+      data: { count },
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     logger.error('Error getting pending count:', error);
-    res.status(500).json({ error: 'Failed to get pending count' });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get pending count',
+      code: 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 
@@ -224,19 +357,33 @@ export async function getPendingCount(req: AuthenticatedRequest, res: Response):
  */
 export async function deleteSuggestion(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const isAdmin = req.user?.isAdmin;
 
     if (!isAdmin) {
-      res.status(403).json({ error: 'Only admins can delete suggestions' });
+      res.status(403).json({
+        success: false,
+        error: 'Only admins can delete suggestions',
+        code: 'FORBIDDEN',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
-    await MenuSuggestionService.deleteSuggestion(parseInt(id));
+    await MenuSuggestionService.deleteSuggestion(parseInt(id, 10));
 
-    res.status(204).send();
+    res.status(200).json({
+      success: true,
+      message: 'Suggestion deleted',
+      timestamp: new Date().toISOString(),
+    });
   } catch (error: any) {
     logger.error('Error deleting suggestion:', error);
-    res.status(500).json({ error: error.message || 'Failed to delete suggestion' });
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete suggestion',
+      code: 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString(),
+    });
   }
 }

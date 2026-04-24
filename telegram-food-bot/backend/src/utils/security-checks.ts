@@ -75,12 +75,21 @@ export function runSecurityChecks(): void {
  */
 function checkSkipTelegramValidation(isProduction: boolean): SecurityCheckResult {
   const skipValidation = process.env.SKIP_TELEGRAM_VALIDATION === 'true';
+  const allowSkipInProd = process.env.ALLOW_SKIP_VALIDATION_IN_PROD === 'true';
 
-  if (skipValidation && isProduction) {
+  if (skipValidation && isProduction && !allowSkipInProd) {
     return {
       passed: false,
       critical: true,
       message: 'SKIP_TELEGRAM_VALIDATION=true in PRODUCTION! Anyone can impersonate any user!',
+    };
+  }
+
+  if (skipValidation && isProduction && allowSkipInProd) {
+    return {
+      passed: false,
+      critical: false, // NOT critical when explicitly allowed
+      message: 'SKIP_TELEGRAM_VALIDATION=true in PRODUCTION (ALLOWED via ALLOW_SKIP_VALIDATION_IN_PROD) - USE FOR TESTING ONLY!',
     };
   }
 
@@ -122,10 +131,18 @@ function checkJwtSecret(isProduction: boolean): SecurityCheckResult {
     };
   }
 
+  if (isProduction && jwtSecret.length < 64) {
+    return {
+      passed: false,
+      critical: true,
+      message: `JWT_SECRET too weak in PRODUCTION (${jwtSecret.length} chars, need >=64). Tokens can be brute-forced!`,
+    };
+  }
+
   if (jwtSecret.length < 32) {
     return {
       passed: false,
-      critical: isProduction,
+      critical: false,
       message: `JWT_SECRET too short (${jwtSecret.length} chars). Recommended: 64+ chars`,
     };
   }

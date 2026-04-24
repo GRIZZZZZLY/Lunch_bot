@@ -9,7 +9,7 @@
  * - Превью следующего запуска
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock,
@@ -30,17 +30,14 @@ import { PastelCard, CardContent } from '../ui/pastel-card';
 import { cn } from '@/lib/utils';
 import { useHaptic } from '@/hooks/useHaptic';
 import { MenuItem } from '@/services/menu.service';
-import { Group } from '@/services/user.service';
 import { recurringPollService, RecurringPoll } from '@/services/recurring-poll.service';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface RecurringPollFormProps {
-  groups: Group[];
   menuItems: MenuItem[];
   selectedGroupId: number | null;
   onSuccess?: () => void;
   onCancel?: () => void;
-  compact?: boolean;
 }
 
 const DAYS_OF_WEEK = [
@@ -53,15 +50,46 @@ const DAYS_OF_WEEK = [
   { value: 0, label: 'Вс', fullLabel: 'Воскресенье' },
 ];
 
-export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
-  groups,
+export const RecurringPollForm = ({
   menuItems,
   selectedGroupId,
   onSuccess,
   onCancel,
-  compact = true,
-}) => {
+}: RecurringPollFormProps) => {
   const haptic = useHaptic();
+  
+  // Определяем тему: проверяем CSS класс 'dark' на документе
+  const [isDark, setIsDark] = useState(() => {
+    return document.documentElement.classList.contains('dark');
+  });
+
+  // Следим за изменениями темы через MutationObserver
+  useEffect(() => {
+    const updateTheme = () => {
+      const newIsDark = document.documentElement.classList.contains('dark');
+      setIsDark(newIsDark);
+      console.log('🎨 [RecurringPollForm] Theme changed:', newIsDark ? 'dark' : 'light');
+    };
+
+    // Обновляем сразу
+    updateTheme();
+
+    // Наблюдаем за изменениями класса на html
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          updateTheme();
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   // State
   const [existingSchedule, setExistingSchedule] = useState<RecurringPoll | null>(null);
@@ -77,11 +105,7 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
   const [useAllItems, setUseAllItems] = useState(true);
 
   // Load existing schedule
-  useEffect(() => {
-    loadSchedule();
-  }, [selectedGroupId]);
-
-  const loadSchedule = async () => {
+  const loadSchedule = useCallback(async () => {
     if (!selectedGroupId) {
       setLoading(false);
       return;
@@ -116,7 +140,11 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [menuItems, selectedGroupId]);
+
+  useEffect(() => {
+    loadSchedule();
+  }, [loadSchedule]);
 
   const canSaveSchedule = (): boolean => {
     return (
@@ -167,12 +195,13 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
       } else {
         throw new Error(response.error || 'Failed to save schedule');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[RecurringPollForm] Error saving schedule:', err);
 
       let errorMessage = 'Ошибка сохранения расписания';
 
-      const errorText = err.error || err.message || '';
+      const errorObj = err as { error?: string; message?: string };
+      const errorText = errorObj?.error || errorObj?.message || '';
 
       if (errorText.includes('already has a recurring poll')) {
         errorMessage = 'У этой группы уже есть расписание. Обновите существующее.';
@@ -244,11 +273,6 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
     haptic.impact();
   };
 
-  const selectWeekend = () => {
-    setSelectedDays(new Set([6, 0]));
-    haptic.impact();
-  };
-
   const selectEveryDay = () => {
     setSelectedDays(new Set([0, 1, 2, 3, 4, 5, 6]));
     haptic.impact();
@@ -261,7 +285,7 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
     const [hours, minutes] = timeOfDay.split(':').map(Number);
 
     // Находим ближайший день
-    let nextDate = new Date(now);
+    const nextDate = new Date(now);
     nextDate.setHours(hours, minutes, 0, 0);
 
     // Если сегодняшнее время уже прошло, начинаем с завтра
@@ -313,17 +337,29 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
   return (
     <div className="space-y-6 p-6">
       {/* Preview Banner */}
-      <PastelCard variant="lavender" className="border-pastel-lavender-400">
+      <PastelCard variant="lavender" className={cn(
+        "border-l-4",
+        isDark ? "border-lavender-500" : "border-peach-500"
+      )}>
         <CardContent className="p-4 pt-4">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-              <Sparkles className={`${ICON_SIZES.md} text-purple-500`} />
+            <div className={cn(
+              "size-10 rounded-full flex items-center justify-center",
+              isDark ? "bg-lavender-500/20" : "bg-peach-500/20"
+            )}>
+              <Sparkles className={cn(
+                ICON_SIZES.md,
+                isDark ? "text-lavender-500" : "text-peach-500"
+              )} />
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">
                 Следующее голосование:
               </p>
-              <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+              <p className={cn(
+                "text-lg font-bold",
+                isDark ? "text-lavender-600 dark:text-lavender-400" : "text-peach-600 dark:text-peach-400"
+              )}>
                 {getNextRunPreview()}
               </p>
             </div>
@@ -358,20 +394,25 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
 
         <div className="grid grid-cols-7 gap-2">
           {DAYS_OF_WEEK.map(day => (
-            <button
+            <motion.button
               key={day.value}
               type="button"
               onClick={() => toggleDay(day.value)}
+              whileTap={{ scale: 0.9 }}
+              animate={selectedDays.has(day.value) ? { scale: [1, 1.05, 1] } : {}}
+              transition={{ duration: 0.2 }}
               className={cn(
                 'aspect-square rounded-xl font-medium text-sm transition-all',
                 'flex items-center justify-center',
                 selectedDays.has(day.value)
-                  ? 'bg-purple-500 text-white shadow-lg scale-105'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                  ? isDark
+                    ? 'bg-gradient-to-br from-lavender-500 to-lavender-600 text-white shadow-lg'
+                    : 'bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
               )}
             >
               {day.label}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -386,7 +427,12 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
           type="time"
           value={timeOfDay}
           onChange={(e) => setTimeOfDay(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className={cn(
+            "w-full px-4 py-3 rounded-xl border bg-white dark:bg-gray-800 text-foreground focus:outline-none focus:ring-2 transition-colors",
+            isDark
+              ? "border-gray-700 focus:ring-lavender-500"
+              : "border-gray-200 focus:ring-peach-500"
+          )}
         />
       </div>
 
@@ -397,7 +443,10 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
             <RotateCcw className={ICON_SIZES.sm} />
             Длительность
           </label>
-          <span className="text-sm font-bold text-purple-600 dark:text-purple-400">
+          <span className={cn(
+            "text-sm font-bold",
+            isDark ? "text-lavender-600 dark:text-lavender-400" : "text-peach-600 dark:text-peach-400"
+          )}>
             {duration} мин
           </span>
         </div>
@@ -408,7 +457,13 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
           step="5"
           value={duration}
           onChange={(e) => setDuration(parseInt(e.target.value))}
-          className="w-full"
+          className="w-full adaptive-slider"
+          style={{
+            '--slider-progress': `${Math.min(
+              100,
+              Math.max(0, ((duration - 5) / 175) * 100)
+            )}%`,
+          } as CSSProperties}
         />
         <div className="flex justify-between text-xs text-gray-400 dark:text-gray-400">
           <span>5 мин</span>
@@ -449,14 +504,20 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
               type="button"
               onClick={() => toggleItem(item.id)}
               className={cn(
-                'p-3 rounded-xl text-left transition-all flex items-center gap-3',
+                'p-3 rounded-xl text-left transition-all flex items-center gap-3 border-2',
                 selectedItems.has(item.id)
-                  ? 'bg-purple-500/10 border border-purple-500/30'
-                  : 'bg-gray-100 dark:bg-gray-800 border border-transparent'
+                  ? isDark
+                    ? 'bg-lavender-500/10 border-lavender-500'
+                    : 'bg-peach-50 border-peach-500'
+                  : 'bg-background border-border'
               )}
             >
               {selectedItems.has(item.id) ? (
-                <CheckCircle2 className={`${ICON_SIZES.md} text-purple-500 flex-shrink-0`} />
+                <CheckCircle2 className={cn(
+                  ICON_SIZES.md,
+                  "flex-shrink-0",
+                  isDark ? "text-lavender-500" : "text-peach-500"
+                )} />
               ) : (
                 <Circle className={`${ICON_SIZES.md} text-gray-400 flex-shrink-0`} />
               )}
@@ -476,11 +537,11 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
       </div>
 
       {/* Info */}
-      <PastelCard variant="sky" className="border-pastel-sky-400">
+      <PastelCard variant="sky" className="border-l-4 border-blue-400">
         <CardContent className="p-4 pt-4">
           <div className="flex gap-3">
-            <Info className={`${ICON_SIZES.md} text-blue-500 flex-shrink-0 mt-0.5`} />
-            <div className="text-sm text-blue-600 dark:text-blue-400 space-y-1">
+            <Info className={cn(ICON_SIZES.md, "flex-shrink-0 mt-0.5", isDark ? "text-blue-400" : "text-blue-600")} />
+            <div className={cn("text-sm space-y-1", isDark ? "text-blue-300" : "text-blue-800")}>
               <p>
                 <strong>Автоматический запуск:</strong> Голосования будут создаваться в выбранные дни и время.
               </p>
@@ -525,7 +586,14 @@ export const RecurringPollForm: React.FC<RecurringPollFormProps> = ({
           type="button"
           onClick={handleSave}
           disabled={!canSaveSchedule() || saving}
-          className="flex-1 py-3 rounded-xl font-medium bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className={cn(
+            "flex-1 py-3 rounded-xl font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2",
+            canSaveSchedule() && !saving
+              ? isDark
+                ? "bg-gradient-to-r from-lavender-500 to-lavender-600 hover:from-lavender-600 hover:to-lavender-700"
+                : "bg-gradient-to-r from-peach-500 to-coral-500 hover:from-peach-600 hover:to-coral-600"
+              : "bg-gray-300 dark:bg-gray-700"
+          )}
         >
           {saving ? (
             <>

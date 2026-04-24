@@ -12,7 +12,9 @@ const developmentFormat = winston.format.combine(
     let logMessage = `${timestamp} [${level}]: ${message}`;
     
     if (Object.keys(meta).length > 0) {
-      logMessage += ` ${JSON.stringify(meta)}`;
+      logMessage += ` ${JSON.stringify(meta, (_key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      )}`;
     }
     
     if (stack) {
@@ -23,11 +25,15 @@ const developmentFormat = winston.format.combine(
   })
 );
 
+// Сериализатор BigInt для JSON
+const bigIntReplacer = (_key: string, value: unknown) =>
+  typeof value === 'bigint' ? value.toString() : value;
+
 // Формат для production
 const productionFormat = winston.format.combine(
   winston.format.timestamp(),
   winston.format.errors({ stack: true }),
-  winston.format.json()
+  winston.format.printf((info) => JSON.stringify(info, bigIntReplacer))
 );
 
 // Выбор формата в зависимости от окружения

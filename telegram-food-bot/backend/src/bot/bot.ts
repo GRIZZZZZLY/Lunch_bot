@@ -3,24 +3,17 @@ import { BotContext, SessionData } from '../types/bot.types';
 import { botConfig } from '../config/bot.config';
 import { logger } from '../utils/logger';
 import { setupErrorHandlers } from '../utils/error';
-import { UserService } from '../services/user.service';
 import { notificationService } from '../services/notification.service';
 import { PollReminderService } from '../services/poll-reminder.service';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 
-const userService = new UserService();
 
 // Module-level bot instance for access from services
 let botInstance: Bot<BotContext> | null = null;
 
 // Middleware
-import { 
-  authMiddleware,
-  adminMiddleware,
-  groupOnlyMiddleware,
-  privateOnlyMiddleware
-} from './middleware/auth';
+import { authMiddleware } from './middleware/auth';
 import { 
   loggingMiddleware,
   statsMiddleware,
@@ -31,20 +24,14 @@ import {
 import { startCommand } from './commands/start';
 import { helpCommand } from './commands/help';
 import { menuCommand } from './commands/menu';
-import { startPollCommand } from './commands/startpoll';
-import { voteCommand } from './commands/vote';
-import { quickVoteCommand, resultsCommand } from './commands/quick';
+import { appCommand } from './commands/app';
+import { setBotInstance } from './bot-instance';
 
 // Handlers
 import { 
-  handleVote, 
-  handleShowResults, 
   handleCancelPoll, 
   handleRunRoulette,
   handleCompletePoll,
-  handleRefreshPoll,
-  handleBringOwnVote,
-  handleSkipVote,
   handleOpenPollButton
 } from './handlers/poll.handlers';
 
@@ -57,6 +44,20 @@ function initial(): SessionData {
     step: undefined,
     tempData: undefined,
   };
+}
+
+function parseCallbackId(data: string, index: number): number | null {
+  const value = data.split(':')[index];
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
 }
 
 /**
@@ -112,6 +113,9 @@ export function createBot(): Bot<BotContext> {
   botInstance = new Bot<BotContext>(botConfig.token, gramBotConfig);
   const bot = botInstance;
 
+  // Регистрируем типизированный синглтон — все сервисы читают из него
+  setBotInstance(bot);
+
   // Настройка обработки ошибок
   setupErrorHandlers();
 
@@ -120,17 +124,9 @@ export function createBot(): Bot<BotContext> {
   
   // Инициализация poll reminder service
   PollReminderService.initialize(bot);
-  
-  // 🚀 НОВОЕ: Инициализация ResponsibleService и BudgetService
-  const { initializeResponsibleServiceBot } = require('../services/responsible.service');
-  const { initializeBudgetServiceBot } = require('../services/budget.service');
-  initializeResponsibleServiceBot(bot);
-  initializeBudgetServiceBot(bot);
-  
-  // ⚡ НОВОЕ: Инициализация RecurringPollService и Scheduler
-  const { initializeRecurringPollServiceBot } = require('../services/recurring-poll.service');
+
+  // ⚡ Инициализация Scheduler (использует синглтон через getBotInstance)
   const { PollSchedulerService } = require('../services/poll-scheduler.service');
-  initializeRecurringPollServiceBot(bot);
   PollSchedulerService.initialize(bot);
 
   // Глобальные middleware (применяются ко всем обновлениям)
@@ -144,14 +140,7 @@ export function createBot(): Bot<BotContext> {
   bot.command('start', startCommand);
   bot.command('help', helpCommand);
   bot.command('menu', menuCommand);
-  bot.command('vote', voteCommand); // Fallback для голосования без web_app
-  bot.command('startpoll', groupOnlyMiddleware, adminMiddleware(), startPollCommand);
-  bot.command('q', groupOnlyMiddleware, quickVoteCommand);
-  bot.command('r', groupOnlyMiddleware, resultsCommand);
-
-  bot.command('history', async (ctx: BotContext) => {
-    await ctx.reply('🚧 История голосований в разработке!');
-  });
+  bot.command('app', appCommand);
 
   // Обработка callback queries
   bot.on('callback_query:data', async (ctx) => {
@@ -160,94 +149,86 @@ export function createBot(): Bot<BotContext> {
     try {
       // Обработка кнопки "Проголосовать" (Deep Linking)
       if (data.startsWith('openpoll:')) {
-        const pollId = parseInt(data.split(':')[1]);
+        const pollId = parseCallbackId(data, 1);
+        if (!pollId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          return;
+        }
         await handleOpenPollButton(ctx as any, pollId);
         return;
       }
 
-      // Обработка fallback кнопки "Альтернативный способ"
-      if (data.startsWith('vote_fallback:')) {
-        const pollId = parseInt(data.split(':')[1]);
-        await ctx.answerCallbackQuery();
-        await ctx.reply(
-          '💡 **Альтернативные способы голосования:**\n\n' +
-          `1️⃣ Используйте команду: \`/vote ${pollId}\`\n\n` +
-          `2️⃣ Откройте бота в личных сообщениях и нажмите на кнопку Web App\n\n` +
-          '📱 Выберите удобный для вас способ!',
-          { parse_mode: 'Markdown' }
-        );
-        return;
-      }
 
-      // Обработка голосования
-      if (data.startsWith('vote:')) {
-        const parts = data.split(':');
-        if (parts[1] === 'bring_own') {
-          // Голосование "Принесу из дома"
-          const pollId = parseInt(parts[2]);
-          await handleBringOwnVote(ctx as any, pollId);
-          return;
-        } else if (parts[1] === 'skip') {
-          // Голосование "Не обедаю"
-          const pollId = parseInt(parts[2]);
-          await handleSkipVote(ctx as any, pollId);
-          return;
-        } else {
-          // Обычное голосование за блюдо
-          const pollId = parseInt(parts[1]);
-          const menuItemId = parseInt(parts[2]);
-          await handleVote(ctx as any, pollId, menuItemId);
-          return;
-        }
-      }
-
-      // Обработка результатов голосования
-      if (data.startsWith('show_results:')) {
-        const pollId = parseInt(data.split(':')[1]);
-        await handleShowResults(ctx as any, pollId);
-        return;
-      }
 
       // Отмена голосования
       if (data.startsWith('cancel_poll:')) {
-        const pollId = parseInt(data.split(':')[1]);
+        const pollId = parseCallbackId(data, 1);
+        if (!pollId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          return;
+        }
         await handleCancelPoll(ctx as any, pollId);
         return;
       }
 
       // Запуск рулетки
       if (data.startsWith('run_roulette:')) {
-        const pollId = parseInt(data.split(':')[1]);
+        const pollId = parseCallbackId(data, 1);
+        if (!pollId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          return;
+        }
         await handleRunRoulette(ctx as any, pollId);
         return;
       }
 
       // Завершение голосования
       if (data.startsWith('complete_poll:')) {
-        const pollId = parseInt(data.split(':')[1]);
+        const pollId = parseCallbackId(data, 1);
+        if (!pollId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          return;
+        }
         await handleCompletePoll(ctx as any, pollId);
-        return;
-      }
-
-      // Обновление голосования
-      if (data.startsWith('refresh_poll:')) {
-        const pollId = parseInt(data.split(':')[1]);
-        await handleRefreshPoll(ctx as any, pollId);
         return;
       }
 
       // 🚀 НОВОЕ: Бюджет-трекер - Добровольный выбор ответственного
       if (data.startsWith('volunteer:')) {
-        const pollId = parseInt(data.split(':')[1]);
+        const pollId = parseCallbackId(data, 1);
+        if (!pollId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          return;
+        }
         const { ResponsibleService } = await import('../services/responsible.service.js');
         await ResponsibleService.handleVolunteer(pollId, ctx.from.id);
         await ctx.answerCallbackQuery('✅ Спасибо! Вы выбраны ответственным');
         return;
       }
 
+      // 🚀 НОВОЕ: Multi-category - Добровольный выбор для категории
+      if (data.startsWith('volunteer_category:')) {
+        const categoryOrderId = parseCallbackId(data, 1);
+        if (!categoryOrderId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор категории');
+          return;
+        }
+        const { MultiCategoryResponsibleService } = await import('../services/multi-category-responsible.service.js');
+        await MultiCategoryResponsibleService.handleVolunteerForCategory(
+          categoryOrderId,
+          BigInt(ctx.from.id)
+        );
+        await ctx.answerCallbackQuery('✅ Спасибо! Вы ответственный за эту категорию');
+        return;
+      }
+
       // 🚀 НОВОЕ: Бюджет-трекер - Отметить оплату
       if (data.startsWith('budget:mark_paid:')) {
-        const txId = parseInt(data.split(':')[2]);
+        const txId = parseCallbackId(data, 2);
+        if (!txId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор транзакции');
+          return;
+        }
         const { BudgetService } = await import('../services/budget.service.js');
         const { prisma } = await import('../database/client.js');
         
@@ -269,15 +250,22 @@ export function createBot(): Bot<BotContext> {
         
         await BudgetService.markAsPaid(txId, ctx.from.id);
         await ctx.answerCallbackQuery('✅ Отмечено как оплачено');
+        // Edit the message: remove button and add pending status line
         try {
-          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
-        } catch (e) { /* ignore */ }
+          const originalText = ctx.callbackQuery.message?.text ?? '';
+          const updatedText = originalText + '\n\n⏳ Ожидаем подтверждения от ответственного...';
+          await ctx.editMessageText(updatedText, { reply_markup: { inline_keyboard: [] } });
+        } catch (e) { /* ignore if edit fails */ }
         return;
       }
 
       // 🚀 НОВОЕ: Бюджет-трекер - Подтвердить оплату
       if (data.startsWith('budget:confirm:')) {
-        const txId = parseInt(data.split(':')[2]);
+        const txId = parseCallbackId(data, 2);
+        if (!txId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор транзакции');
+          return;
+        }
         const { BudgetService } = await import('../services/budget.service.js');
         const { prisma } = await import('../database/client.js');
         
@@ -305,9 +293,64 @@ export function createBot(): Bot<BotContext> {
         return;
       }
 
+      // Бюджет-трекер - Ответственный подтверждает что все оплатили
+      if (data.startsWith('budget:all_paid:')) {
+        const pollId = parseCallbackId(data, 2);
+        if (!pollId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          return;
+        }
+        const { BudgetService } = await import('../services/budget.service.js');
+        const { prisma } = await import('../database/client.js');
+
+        // Проверяем что нажавший — ответственный (кредитор) по этому poll
+        const tx = await prisma.transaction.findFirst({
+          where: { pollId, toUser: { telegramId: BigInt(ctx.from.id) } },
+        });
+        if (!tx) {
+          await ctx.answerCallbackQuery('❌ Вы не являетесь ответственным по этому заказу');
+          return;
+        }
+
+        await BudgetService.markAllPaidByResponsible(pollId, tx.toUserId);
+        await ctx.answerCallbackQuery('✅ Все транзакции подтверждены');
+        try {
+          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
+        } catch (e) { /* ignore */ }
+        return;
+      }
+
+      // Бюджет-трекер - Ответственный отправляет напоминания должникам
+      if (data.startsWith('budget:remind:')) {
+        const pollId = parseCallbackId(data, 2);
+        if (!pollId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          return;
+        }
+        const { BudgetService } = await import('../services/budget.service.js');
+        const { prisma } = await import('../database/client.js');
+
+        // Проверяем что нажавший — ответственный по этому poll
+        const tx = await prisma.transaction.findFirst({
+          where: { pollId, toUser: { telegramId: BigInt(ctx.from.id) } },
+        });
+        if (!tx) {
+          await ctx.answerCallbackQuery('❌ Вы не являетесь ответственным по этому заказу');
+          return;
+        }
+
+        const resultMessage = await BudgetService.remindAllDebtors(pollId, tx.toUserId);
+        await ctx.answerCallbackQuery(resultMessage.substring(0, 200)); // Telegram limit 200 chars
+        return;
+      }
+
       // ⚡ НОВОЕ: Recurring Polls - Отключить расписание
       if (data.startsWith('recurring:disable:')) {
-        const scheduleId = parseInt(data.split(':')[2]);
+        const scheduleId = parseCallbackId(data, 2);
+        if (!scheduleId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор расписания');
+          return;
+        }
         const { PollSchedulerService } = await import('../services/poll-scheduler.service.js');
         
         try {
@@ -326,88 +369,12 @@ export function createBot(): Bot<BotContext> {
         case 'help':
           await helpCommand(ctx);
           break;
-        case 'start_new_poll':
-          await ctx.answerCallbackQuery('Используйте команду /startpoll для запуска нового голосования');
-          break;
-        case 'show_history':
-          await ctx.answerCallbackQuery('🚧 История в разработке!');
-          break;
-        case 'show_admins':
-          const admins = await UserService.getAdmins();
-          const adminList = admins.map((admin: any) => 
-            `👑 ${admin.firstName}${admin.lastName ? ` ${admin.lastName}` : ''}${admin.username ? ` (@${admin.username})` : ''}`
-          ).join('\n');
-          
-          await ctx.answerCallbackQuery();
-          await ctx.reply(
-            '👑 *Администраторы бота:*\n\n' + 
-            (adminList || 'Администраторы не назначены'),
-            { parse_mode: 'Markdown' }
-          );
-          break;
-        case 'about':
-          await ctx.answerCallbackQuery();
-          await ctx.reply(
-            '🤖 *Telegram Food Bot*\n\n' +
-            'Бот для организации голосований за еду в коллективе.\n\n' +
-            '✨ *Возможности:*\n' +
-            '• Управление меню блюд\n' +
-            '• Голосование за блюда\n' +
-            '• Рулетка для выбора ответственного\n' +
-            '• Статистика и история\n\n' +
-            '🔧 Версия: 1.0.0\n' +
-            '📅 Создан: 2024',
-            { parse_mode: 'Markdown' }
-          );
-          break;
-        case 'menu_stats':
-          await ctx.answerCallbackQuery('🚧 Статистика в разработке!');
-          break;
-        case 'menu_help':
-          await ctx.answerCallbackQuery();
-          await ctx.reply(
-            '❓ *Помощь по меню*\n\n' +
-            '🍽️ *Как добавить блюдо:*\n' +
-            '1. Нажмите "Открыть Mini App"\n' +
-            '2. Используйте кнопку "Добавить блюдо"\n' +
-            '3. Заполните название и описание\n' +
-            '4. Сохраните изменения\n\n' +
-            '⚙️ *Управление блюдами:*\n' +
-            '• Редактирование - нажмите на блюдо\n' +
-            '• Активация/деактивация - переключатель\n' +
-            '• Удаление - кнопка удаления\n\n' +
-            '💡 *Советы:*\n' +
-            '• Активные блюда участвуют в голосовании\n' +
-            '• Используйте категории для группировки\n' +
-            '• Добавляйте цены для удобства',
-            { parse_mode: 'Markdown' }
-          );
-          break;
         default:
           await ctx.answerCallbackQuery('🤷‍♂️ Неизвестная команда');
       }
     } catch (error) {
       logger.error('Ошибка обработки callback query:', error);
       await ctx.answerCallbackQuery('❌ Произошла ошибка');
-    }
-  });
-
-  // Обработка неизвестных команд
-  bot.on('message:text', async (ctx) => {
-    const text = ctx.message.text;
-    
-    if (text.startsWith('/')) {
-      await ctx.reply(
-        '❓ Неизвестная команда.\n\n' +
-        'Используйте /help для получения списка доступных команд.',
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '📖 Показать команды', callback_data: 'help' }]
-            ]
-          }
-        }
-      );
     }
   });
 

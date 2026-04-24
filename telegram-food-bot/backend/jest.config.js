@@ -1,6 +1,11 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  globals: {
+    'ts-jest': {
+      tsconfig: 'tsconfig.test.json',
+    },
+  },
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   collectCoverageFrom: [
@@ -21,4 +26,5 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
+  globalSetup: '<rootDir>/src/__tests__/globalSetup.ts',
 };

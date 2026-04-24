@@ -2,11 +2,11 @@ import { Poll, Vote, PollResult, Prisma, MenuItem, User } from '@prisma/client';
 import { LRUCache } from 'lru-cache';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
-import { CreatePollData, PollWithDetails, PollStats } from '../types/poll.types';
-import { createPollKeyboard, createPollMessage } from '../bot/keyboards/poll.keyboard';
+import { CreatePollData, PollWithDetails, PollStats, votePublicUserSelect, VotePublicUser } from '../types/poll.types';
 import { GroupService } from './group.service';
 import { NotificationService } from './notification.service';
 import { cacheService, CACHE_KEYS, CACHE_TTL, CacheInvalidator } from './cache.service';
+import { toNumber } from '../utils/decimal';
 import {
   now,
   getStartOfToday,
@@ -20,16 +20,15 @@ import {
 // Тип Vote с включенными связями для корректной типизации
 type VoteWithRelations = Vote & {
   menuItem: MenuItem | null;
-  user: User;
+  user: VotePublicUser;
 };
 
-// Bot instance будет инициализирован из bot.ts
-let botInstance: any = null;
+import { getBotInstance } from '../bot/bot-instance';
 
-export function initializePollServiceBot(bot: any): void {
-  botInstance = bot;
-  logger.info('PollService bot instance initialized');
-}
+/** @deprecated No-op: bot is now accessed via the shared singleton */
+export function initializePollServiceBot(_bot: unknown): void {}
+
+function botInstance() { return getBotInstance(); }
 
 // Константы для кеширования
 const MEMBER_COUNT_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 часа
@@ -61,6 +60,8 @@ export class PollService {
           status: 'ACTIVE',
           duration: data.duration || 30,
           createdBy: data.createdBy,
+          isMultiSelect: data.isMultiSelect ?? true,
+          maxSelections: data.maxSelections ?? 3,
         },
       });
 
@@ -86,7 +87,7 @@ export class PollService {
           group: true,
           votes: {
             include: {
-              user: true,
+              user: { select: votePublicUserSelect },
               menuItem: true,
             },
           },
@@ -105,6 +106,20 @@ export class PollService {
       });
     } catch (error) {
       logger.error('Error getting poll by ID:', error);
+      throw new Error('Failed to get poll');
+    }
+  }
+
+  static async getPollGroupId(id: number): Promise<number | null> {
+    try {
+      const poll = await prisma.poll.findUnique({
+        where: { id },
+        select: { groupId: true },
+      });
+
+      return poll?.groupId ?? null;
+    } catch (error) {
+      logger.error('Error getting poll group ID:', error);
       throw new Error('Failed to get poll');
     }
   }
@@ -133,7 +148,7 @@ export class PollService {
           group: true,
           votes: {
             include: {
-              user: true,
+              user: { select: votePublicUserSelect },
               menuItem: true,
             },
           },
@@ -171,7 +186,7 @@ export class PollService {
           group: true,
           votes: {
             include: {
-              user: true,
+              user: { select: votePublicUserSelect },
               menuItem: true,
             },
           },
@@ -229,18 +244,52 @@ export class PollService {
   /**
    * Получение всех активных голосований (С КЭШИРОВАНИЕМ)
    */
-  static async getActivePolls(): Promise<any[]> {
+  static async getActivePolls(groupIds?: number[]): Promise<any[]> {
     try {
       logger.info('🔍 Fetching active polls...');
+
+      if (groupIds && groupIds.length === 0) {
+        return [];
+      }
+
+      const where: Prisma.PollWhereInput = {
+        status: 'ACTIVE',
+        ...(groupIds ? { groupId: { in: groupIds } } : {}),
+      };
       
       const polls = await prisma.poll.findMany({
-        where: { status: 'ACTIVE' },
+        where,
         include: {
-          group: true,
+          group: {
+            select: {
+              id: true,
+              title: true,
+              telegramId: true,
+            },
+          },
           votes: {
-            include: {
-              user: true,
-              menuItem: true,
+            select: {
+              id: true,
+              pollId: true,
+              userId: true,
+              menuItemId: true,
+              createdAt: true,
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  username: true,
+                },
+              },
+              menuItem: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  price: true,
+                },
+              },
             },
           },
           _count: {
@@ -256,10 +305,10 @@ export class PollService {
       
       logger.info(`📊 Found ${polls.length} polls with ACTIVE status`);
       
-      // Фильтруем и автоматически закрываем истекшие голосования
+      // Фильтруем только реально активные голосования (без side effects)
       const nowDate = now();
       const activePolls = [];
-      const expiredPollIds: number[] = [];
+      let expiredCount = 0;
 
       for (const poll of polls) {
         const endsAt = poll.endedAt || calculatePollEndTime(poll.startedAt, poll.duration);
@@ -269,42 +318,13 @@ export class PollService {
         if (isActive) {
           activePolls.push(poll);
         } else {
-          // Голосование истекло - закрываем автоматически
-          expiredPollIds.push(poll.id);
-          logger.info(`⏰ Poll ${poll.id} expired, auto-closing...`);
+          expiredCount++;
+          logger.info(`⏰ Poll ${poll.id} expired and excluded from active list`);
         }
       }
-      
-      // Закрываем истекшие голосования синхронно с проверкой статуса (fix race condition)
-      if (expiredPollIds.length > 0) {
-        try {
-          // Используем транзакцию для атомарного обновления
-          await prisma.$transaction(async (tx) => {
-            // Проверяем статус каждого poll перед обновлением
-            const stillActivePolls = await tx.poll.findMany({
-              where: {
-                id: { in: expiredPollIds },
-                status: 'ACTIVE', // Только если всё ещё активен
-              },
-              select: { id: true },
-            });
 
-            const idsToClose = stillActivePolls.map(p => p.id);
-            
-            if (idsToClose.length > 0) {
-              await tx.poll.updateMany({
-                where: { id: { in: idsToClose } },
-                data: {
-                  status: 'COMPLETED',
-                  endedAt: now(),
-                },
-              });
-              logger.info(`✅ Auto-closed ${idsToClose.length} expired polls: ${idsToClose.join(', ')}`);
-            }
-          });
-        } catch (err) {
-          logger.error(`❌ Failed to auto-close expired polls:`, err);
-        }
+      if (expiredCount > 0) {
+        logger.info(`ℹ️ Excluded ${expiredCount} expired poll(s) from active response`);
       }
       
       logger.info(`✅ Returning ${activePolls.length} active polls`);
@@ -342,7 +362,7 @@ export class PollService {
             votes: {
               include: {
                 menuItem: true,
-                user: true,
+                user: { select: votePublicUserSelect },
               },
             },
           },
@@ -358,7 +378,7 @@ export class PollService {
         }
 
         // 2. Подсчитываем голоса
-        const voteCount = new Map<number, { count: number; menuItem: any }>();
+        const voteCount = new Map<number, { count: number; menuItem: MenuItem }>();
         poll.votes.forEach(vote => {
           if (!vote.menuItemId || !vote.menuItem) return;
           
@@ -530,7 +550,7 @@ export class PollService {
               group: true,
               votes: {
                 include: {
-                  user: true,
+                  user: { select: votePublicUserSelect },
                   menuItem: true,
                 },
               },
@@ -588,7 +608,7 @@ export class PollService {
         include: {
           votes: {
             include: {
-              user: true,
+              user: { select: votePublicUserSelect },
             },
           },
         },
@@ -645,14 +665,22 @@ export class PollService {
    * Получение истории голосований (ОПТИМИЗИРОВАНО с select)
    */
   static async getPollHistory(
-    groupId?: number,
+    groupId?: number | number[],
     limit: number = 20,
     offset: number = 0
   ): Promise<{ polls: any[]; total: number }> {
     try {
-      const where = {
+      if (Array.isArray(groupId) && groupId.length === 0) {
+        return { polls: [], total: 0 };
+      }
+
+      const where: Prisma.PollWhereInput = {
         status: 'COMPLETED',
-        ...(groupId && { groupId }),
+        ...(Array.isArray(groupId)
+          ? { groupId: { in: groupId } }
+          : groupId
+          ? { groupId }
+          : {}),
       };
 
       const [polls, total] = await Promise.all([
@@ -725,11 +753,19 @@ export class PollService {
    * Получение последнего завершённого голосования
    * Используется для функции "Повторить вчерашнее"
    */
-  static async getLastCompletedPoll(groupId?: number): Promise<Poll | null> {
+  static async getLastCompletedPoll(groupId?: number | number[]): Promise<Poll | null> {
     try {
+      if (Array.isArray(groupId) && groupId.length === 0) {
+        return null;
+      }
+
       const where: Prisma.PollWhereInput = {
         status: 'COMPLETED',
-        ...(groupId && { groupId }),
+        ...(Array.isArray(groupId)
+          ? { groupId: { in: groupId } }
+          : groupId
+          ? { groupId }
+          : {}),
       };
 
       const poll = await prisma.poll.findFirst({
@@ -750,28 +786,36 @@ export class PollService {
   /**
    * Получение статистики голосований
    */
-  static async getPollStats(groupId?: number): Promise<PollStats> {
+  static async getPollStats(groupId?: number | number[]): Promise<PollStats> {
     try {
-      const where = groupId ? { groupId } : {};
+      if (Array.isArray(groupId) && groupId.length === 0) {
+        return {
+          totalPolls: 0,
+          activePolls: 0,
+          completedPolls: 0,
+          totalVotes: 0,
+          averageParticipants: 0,
+        };
+      }
+
+      const where: Prisma.PollWhereInput = Array.isArray(groupId)
+        ? { groupId: { in: groupId } }
+        : groupId
+        ? { groupId }
+        : {};
 
       const [totalPolls, activePolls, completedPolls, totalVotes] = await Promise.all([
         prisma.poll.count({ where }),
         prisma.poll.count({ where: { ...where, status: 'ACTIVE' } }),
         prisma.poll.count({ where: { ...where, status: 'COMPLETED' } }),
         prisma.vote.count({
-          where: groupId ? {
-            poll: { groupId }
-          } : undefined
+          where: Array.isArray(groupId)
+            ? { poll: { groupId: { in: groupId } } }
+            : groupId
+            ? { poll: { groupId } }
+            : undefined,
         }),
       ]);
-
-      // Получаем среднее количество участников в голосовании
-      const avgParticipants = await prisma.poll.aggregate({
-        where: { ...where, status: 'COMPLETED' },
-        _avg: {
-          id: true, // Это будет пересчитано ниже
-        },
-      });
 
       // Получаем данные для подсчета среднего количества участников
       const pollsWithVoteCounts = await prisma.poll.findMany({
@@ -931,7 +975,7 @@ export class PollService {
         include: {
           votes: {
             include: {
-              user: true,
+              user: { select: votePublicUserSelect },
               menuItem: true,
             },
           },
@@ -1062,7 +1106,7 @@ export class PollService {
         include: {
           votes: {
             include: {
-              user: true,
+              user: { select: votePublicUserSelect },
               menuItem: true,
             },
           },
@@ -1122,8 +1166,7 @@ export class PollService {
             menuItemId: itemId,
             menuItemName: menuItem.name,
             menuItemSnapshot: {
-              price: menuItem.price ?? undefined,
-              category: menuItem.category ?? undefined,
+              price: menuItem.price ? toNumber(menuItem.price) : undefined,
               imageUrl: menuItem.imageUrl ?? undefined,
             },
             voterIds: votes.map(v => v.userId),
@@ -1146,7 +1189,7 @@ export class PollService {
 
       // 4. Тай-брейк: Определяем primaryWinner
       let primaryWinnerId: number | null = null;
-      let tieBreak: any = undefined;
+      let tieBreak: { method: string; appliedTo: number[]; reason: string } | undefined;
 
       if (winners.length > 0) {
         const maxVotes = winners[0].voteCount;
@@ -1224,6 +1267,35 @@ export class PollService {
 
       // 7. Транзакция: Обновляем poll + создаем result
       const result = await prisma.$transaction(async (tx) => {
+        const currentPoll = await tx.poll.findUnique({
+          where: { id: pollId },
+          select: { status: true },
+        });
+
+        if (!currentPoll) {
+          throw new Error('Poll not found');
+        }
+
+        if (currentPoll.status === 'COMPLETED') {
+          const existingResult = await tx.pollResult.findUnique({
+            where: { pollId },
+            include: {
+              winnerMenuItem: true,
+              responsibleUser: true,
+            },
+          });
+
+          if (existingResult) {
+            return existingResult;
+          }
+
+          throw new Error('Poll is already completed');
+        }
+
+        if (currentPoll.status !== 'ACTIVE') {
+          throw new Error('Poll is not active');
+        }
+
         await tx.poll.update({
           where: { id: pollId },
           data: {
@@ -1267,13 +1339,21 @@ export class PollService {
         logger.error('Error sending completion notifications:', notifError);
       }
 
-      // 🚀 ИНТЕГРАЦИЯ: Запускаем выбор ответственного
+      // 🚀 ИНТЕГРАЦИЯ: Создаем CategoryOrders и запускаем выбор ответственных
       try {
-        const { ResponsibleService } = await import('./responsible.service.js');
-        await ResponsibleService.startResponsibleSelection(pollId);
-        logger.info(`Responsible selection started for poll ${pollId}`);
-      } catch (responsibleError) {
-        logger.error('Error starting responsible selection:', responsibleError);
+        const { CategoryOrderService } = await import('./category-order.service.js');
+        const { MultiCategoryResponsibleService } = await import('./multi-category-responsible.service.js');
+        
+        // Create CategoryOrders from poll votes grouped by category
+        const categoryOrders = await CategoryOrderService.createCategoryOrders(pollId);
+        logger.info(`Created ${categoryOrders.length} CategoryOrders for poll ${pollId}`);
+        
+        // Start multi-category responsible selection
+        await MultiCategoryResponsibleService.startMultiCategorySelection(pollId);
+        logger.info(`Multi-category responsible selection started for poll ${pollId}`);
+      } catch (categoryError) {
+        logger.error('Error in category order creation/selection:', categoryError);
+        // Don't throw - poll is already completed, this is post-processing
       }
 
       return result;
@@ -1298,7 +1378,7 @@ export class PollService {
   private static async getExpectedParticipants(
     groupId: number,
     groupTelegramId: bigint,
-    settings: any
+    settings: Record<string, unknown> | { expectedParticipants?: number; autoCompleteEnabled?: boolean }
   ): Promise<{ count: number; source: string }> {
     // 1️⃣ Проверяем LRU-кэш (автоматически проверяет TTL)
     const cached = memberCountCache.get(groupId);
@@ -1336,7 +1416,7 @@ export class PollService {
     let fallbackSource: 'telegram_api' | 'history';
     
     if (settings.expectedParticipants) {
-      fallbackCount = settings.expectedParticipants;
+      fallbackCount = settings.expectedParticipants as number;
       fallbackSource = 'history'; // Считаем настройки как "history" для типизации
     } else {
       fallbackCount = await GroupService.getActiveParticipants(groupId);

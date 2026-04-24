@@ -2,15 +2,29 @@ import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { PollService } from './poll.service';
 import { UserService } from './user.service';
-import { Prisma, Transaction, User } from '@prisma/client';
-import { now, toLocaleDateString } from '../utils/date';
+import { Prisma, Transaction, User, MenuItem } from '@prisma/client';
 
-let botInstance: any = null;
-
-export function initializeBudgetServiceBot(bot: any): void {
-  botInstance = bot;
-  logger.info('BudgetService bot instance initialized');
+// Локальные типы для замены any
+interface TransactionWithUsers extends Transaction {
+  fromUser: User;
+  toUser: User;
+  menuItem?: MenuItem | null;
 }
+
+interface ResponsibleTotals {
+  totalOrder: number;
+  responsibleShare: number;
+  totalToReturn: number;
+}
+import { now, toLocaleDateString } from '../utils/date';
+import { toNumber, formatCurrency, sumDecimals, multiply } from '../utils/decimal';
+import { getBotInstance } from '../bot/bot-instance';
+
+/** @deprecated No-op: bot is now accessed via the shared singleton in bot-instance.ts */
+export function initializeBudgetServiceBot(_bot: unknown): void {}
+
+// Helper used throughout this file — replaces the old `let botInstance: any = null`
+function botInstance() { return getBotInstance(); }
 
 // Типы для результатов отправки напоминаний
 interface SendReminderResult {
@@ -62,6 +76,54 @@ function classifyTelegramError(error: any): { errorCode: SendReminderResult['err
 }
 
 export class BudgetService {
+  private async filterTransactionsByActiveMembers(
+    transactions: Array<Transaction & { poll?: { groupId?: number | null } | null }>,
+    relatedUser: 'from' | 'to'
+  ) {
+    const groupIds = Array.from(
+      new Set(transactions.map((tx) => tx.poll?.groupId).filter(Boolean))
+    ) as number[];
+
+    if (groupIds.length === 0) {
+      return transactions;
+    }
+
+    const memberships = await prisma.groupMember.findMany({
+      where: {
+        groupId: { in: groupIds },
+        isActive: true,
+      },
+      select: { groupId: true, userId: true },
+    });
+
+    if (memberships.length === 0) {
+      return transactions;
+    }
+
+    const membershipByGroup = new Map<number, Set<number>>();
+    memberships.forEach((member) => {
+      const existing = membershipByGroup.get(member.groupId) || new Set<number>();
+      existing.add(member.userId);
+      membershipByGroup.set(member.groupId, existing);
+    });
+
+    return transactions.filter((transaction) => {
+      const groupId = transaction.poll?.groupId;
+      if (!groupId) return true;
+
+      const groupMembers = membershipByGroup.get(groupId);
+      if (!groupMembers) {
+        return true;
+      }
+
+      const relatedUserId =
+        relatedUser === 'from'
+          ? transaction.fromUserId
+          : transaction.toUserId;
+
+      return groupMembers.has(relatedUserId);
+    });
+  }
   /**
    * Обработка выбранного ответственного
    */
@@ -101,7 +163,7 @@ export class BudgetService {
 
       // Для каждого winner создаем транзакции
       for (const winner of resultData.winners) {
-        const price = winner.menuItemSnapshot.price || 0;
+        const price = toNumber(winner.menuItemSnapshot.price);
 
         for (const voter of winner.voters) {
           // Ответственный не платит себе
@@ -146,7 +208,7 @@ export class BudgetService {
         where: { pollId, toUserId: responsibleUserId },
       });
 
-      const totalToReturn = transactions.reduce((sum, tx) => sum + tx.amount, 0);
+      const totalToReturn = sumDecimals(transactions.map(tx => tx.amount));
 
       const poll = await PollService.getPollById(pollId) as any;
       if (!poll?.result?.rouletteData) {
@@ -156,14 +218,14 @@ export class BudgetService {
       const resultData = JSON.parse(poll.result.rouletteData);
 
       const totalOrder = resultData.winners.reduce(
-        (sum: number, w: any) => sum + (w.menuItemSnapshot.price || 0) * w.voteCount,
+        (sum: number, w: any) => sum + multiply(w.menuItemSnapshot.price, w.voteCount),
         0
       );
 
       const responsibleItem = resultData.winners.find((w: any) =>
         w.voters.some((v: any) => v.userId === responsibleUserId)
       );
-      const responsibleShare = responsibleItem?.menuItemSnapshot.price || 0;
+      const responsibleShare = toNumber(responsibleItem?.menuItemSnapshot.price);
 
       return {
         totalOrder,
@@ -224,8 +286,8 @@ export class BudgetService {
   static async sendResponsibleNotification(
     pollId: number,
     responsible: User,
-    transactions: any[],
-    totals: any
+    transactions: TransactionWithUsers[],
+    totals: ResponsibleTotals
   ): Promise<void> {
     try {
       const poll = await PollService.getPollById(pollId) as any;
@@ -241,8 +303,8 @@ export class BudgetService {
       message += `🍽️ *Заказы:*\n`;
       resultData.winners.forEach((w: any, i: number) => {
         const voterNames = w.voters.map((v: any) => v.firstName).join(', ');
-        const total = (w.menuItemSnapshot.price || 0) * w.voteCount;
-        message += `${i + 1}. ${w.menuItemName} — ${w.voteCount} чел. (${total}₽)\n`;
+        const total = multiply(w.menuItemSnapshot.price, w.voteCount);
+        message += `${i + 1}. ${w.menuItemName} — ${w.voteCount} чел. (${total.toFixed(2)}₽)\n`;
         message += `   • ${voterNames}\n\n`;
       });
 
@@ -253,15 +315,15 @@ export class BudgetService {
 
       // Финансы
       message += `💵 *ФИНАНСЫ:*\n\n`;
-      message += `Общая сумма: ${totals.totalOrder}₽\n`;
-      message += `Ваша доля: ${totals.responsibleShare}₽\n`;
-      message += `Вернут вам: ${totals.totalToReturn}₽\n\n`;
+      message += `Общая сумма: ${totals.totalOrder.toFixed(2)}₽\n`;
+      message += `Ваша доля: ${totals.responsibleShare.toFixed(2)}₽\n`;
+      message += `Вернут вам: ${totals.totalToReturn.toFixed(2)}₽\n\n`;
 
       // Кто должен перевести
       if (pending.length > 0) {
         message += `💳 *ПЕРЕВОДЫ ОЖИДАЮТСЯ ОТ:*\n\n`;
         pending.forEach((tx: any, i: number) => {
-          message += `${i + 1}. ${tx.fromUser.firstName} → ${tx.amount}₽\n`;
+          message += `${i + 1}. ${tx.fromUser.firstName} → ${formatCurrency(tx.amount)}\n`;
           if (tx.fromUser.username) {
             message += `   📱 @${tx.fromUser.username}\n`;
           }
@@ -292,7 +354,7 @@ export class BudgetService {
         ],
       };
 
-      await botInstance.api.sendMessage(Number(responsible.telegramId), message, {
+      await botInstance()!.api.sendMessage(Number(responsible.telegramId), message, {
         parse_mode: 'Markdown',
         reply_markup: keyboard,
       });
@@ -316,7 +378,7 @@ export class BudgetService {
 
       let message = `🍽️ *Результаты голосования*\n\n`;
       message += `Ваш заказ: ${transaction.menuItem.name}\n`;
-      message += `💰 *Ваша сумма: ${transaction.amount}₽*\n\n`;
+      message += `💰 *Ваша сумма: ${formatCurrency(transaction.amount)}*\n\n`;
       message += `👤 *Ответственный:* ${responsible.firstName}`;
       if (responsible.lastName) message += ` ${responsible.lastName}`;
       message += `\n\n`;
@@ -346,7 +408,7 @@ export class BudgetService {
         ],
       };
 
-      await botInstance.api.sendMessage(Number(transaction.fromUser.telegramId), message, {
+      await botInstance()!.api.sendMessage(Number(transaction.fromUser.telegramId), message, {
         parse_mode: 'Markdown',
         reply_markup: keyboard,
       });
@@ -375,20 +437,20 @@ export class BudgetService {
 
       message += `📊 *ЗАКАЗЫ:*\n`;
       resultData.winners.forEach((w: any) => {
-        const total = (w.menuItemSnapshot.price || 0) * w.voteCount;
-        message += `• ${w.menuItemName} — ${w.voteCount} чел. (${total}₽)\n`;
+        const total = multiply(w.menuItemSnapshot.price, w.voteCount);
+        message += `• ${w.menuItemName} — ${w.voteCount} чел. (${total.toFixed(2)}₽)\n`;
       });
 
       if (resultData.bringOwn.count > 0) {
         message += `🥪 Принесут своё — ${resultData.bringOwn.count} чел.\n`;
       }
 
-      message += `\n💰 *Общая сумма: ${totals.totalOrder}₽*\n`;
+      message += `\n💰 *Общая сумма: ${totals.totalOrder.toFixed(2)}₽*\n`;
       message += `👥 Участников: ${resultData.winners.reduce((s: number, w: any) => s + w.voteCount, 0)}\n\n`;
       message += `_Детали и реквизиты отправлены всем в личные сообщения._`;
 
       if (selection?.messageId && selection.chatId) {
-        await botInstance.api.editMessageText(
+        await botInstance()!.api.editMessageText(
           Number(selection.chatId),
           selection.messageId,
           message,
@@ -431,10 +493,10 @@ export class BudgetService {
       logger.info('Transaction marked as paid', { txId });
 
       // Уведомляем ответственного
-      if (botInstance) {
-        await botInstance.api.sendMessage(
+      if (botInstance()) {
+        await botInstance()!.api.sendMessage(
           Number(tx.toUser.telegramId),
-          `💳 *Получена оплата!*\n\n${tx.fromUser.firstName} отметил(а) оплату ${tx.amount}₽`,
+          `💳 *Получена оплата!*\n\n${tx.fromUser.firstName} отметил(а) оплату ${formatCurrency(tx.amount)}`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
@@ -479,13 +541,34 @@ export class BudgetService {
 
       logger.info('Transaction confirmed', { txId });
 
-      // Уведомляем участника
-      if (botInstance) {
-        await botInstance.api.sendMessage(
-          Number(tx.fromUser.telegramId),
-          `✅ *Оплата подтверждена!*\n\n${tx.toUser.firstName} подтвердил(а) получение ${tx.amount}₽\n\nСпасибо! 🎉`,
-          { parse_mode: 'Markdown' }
-        );
+      // Уведомляем участника — редактируем существующее долговое сообщение если есть,
+      // иначе отправляем новое
+      if (botInstance()) {
+        const confirmedText =
+          `✅ Оплата подтверждена!\n\n` +
+          `${tx.toUser.firstName} подтвердил(а) получение ${formatCurrency(tx.amount)}\n\n` +
+          `Спасибо! 🎉`;
+
+        let edited = false;
+        if (tx.debtMessageId && tx.debtChatId) {
+          try {
+            await botInstance()!.api.editMessageText(
+              tx.debtChatId,
+              tx.debtMessageId,
+              confirmedText,
+              { reply_markup: { inline_keyboard: [] } }
+            );
+            edited = true;
+          } catch (e) {
+            logger.warn('Could not edit debt message on confirm, sending new one', { txId });
+          }
+        }
+        if (!edited) {
+          await botInstance()!.api.sendMessage(
+            Number(tx.fromUser.telegramId),
+            confirmedText
+          );
+        }
       }
 
       // Проверяем, все ли оплатили
@@ -494,6 +577,108 @@ export class BudgetService {
       return tx;
     } catch (error) {
       logger.error('Error confirming payment:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Принудительно подтвердить все транзакции по pollId (кнопка "Все оплатили")
+   */
+  static async markAllPaidByResponsible(pollId: number, responsibleUserId: number): Promise<void> {
+    try {
+      const transactions = await prisma.transaction.findMany({
+        where: {
+          pollId,
+          toUserId: responsibleUserId,
+          status: { in: ['PENDING', 'PAID'] },
+        },
+        include: { fromUser: true, toUser: true },
+      });
+
+      if (transactions.length === 0) {
+        logger.info('markAllPaidByResponsible: no pending transactions', { pollId });
+        return;
+      }
+
+      for (const tx of transactions) {
+        await prisma.transaction.update({
+          where: { id: tx.id },
+          data: { status: 'CONFIRMED', confirmedAt: now() },
+        });
+
+        // Уведомляем каждого должника
+        if (botInstance()) {
+          const confirmedText =
+            `✅ Оплата подтверждена!\n\n` +
+            `${tx.toUser.firstName} подтвердил(а) получение ${formatCurrency(tx.amount)}\n\n` +
+            `Спасибо! 🎉`;
+
+          let edited = false;
+          if (tx.debtMessageId && tx.debtChatId) {
+            try {
+              await botInstance()!.api.editMessageText(
+                tx.debtChatId,
+                tx.debtMessageId,
+                confirmedText,
+                { reply_markup: { inline_keyboard: [] } }
+              );
+              edited = true;
+            } catch (e) {
+              logger.warn('Could not edit debt message on markAllPaid', { txId: tx.id });
+            }
+          }
+          if (!edited) {
+            await botInstance()!.api.sendMessage(
+              Number(tx.fromUser.telegramId),
+              confirmedText
+            );
+          }
+        }
+      }
+
+      logger.info('All transactions confirmed by responsible', { pollId, count: transactions.length });
+
+      // Отправляем итоговое сообщение ответственному
+      if (botInstance && transactions.length > 0) {
+        const totalReceived = sumDecimals(transactions.map(tx => tx.amount));
+        await botInstance()!.api.sendMessage(
+          Number(transactions[0].toUser.telegramId),
+          `🎊 *Все оплатили!*\n\n` +
+          `Вы подтвердили оплату от всех участников\n\n` +
+          `💰 Итого получено: ${totalReceived.toFixed(2)}₽\n\n` +
+          `*Детали:*\n` +
+          transactions.map(tx => `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`).join('\n') +
+          `\n\nСпасибо за организацию! 🙏`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+    } catch (error) {
+      logger.error('Error in markAllPaidByResponsible:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Отправить напоминания всем PENDING должникам (кнопка "Напомнить должникам")
+   * Статический враппер над instance-методом sendRemindersToAll
+   */
+  static async remindAllDebtors(pollId: number, responsibleUserId: number): Promise<string> {
+    try {
+      const instance = new BudgetService();
+      const result = await instance.sendRemindersToAll(pollId, responsibleUserId);
+
+      if (result.totalCount === 0) {
+        return '✅ Все уже оплатили — напоминать некому!';
+      }
+
+      let reply = `🔔 Напоминания отправлены: ${result.sentCount} из ${result.totalCount}`;
+      if (result.failedCount > 0) {
+        const names = result.failedUsers.map(u => u.firstName).join(', ');
+        reply += `\n⚠️ Не удалось отправить: ${names}`;
+      }
+      return reply;
+    } catch (error) {
+      logger.error('Error in remindAllDebtors:', error);
       throw error;
     }
   }
@@ -511,16 +696,16 @@ export class BudgetService {
       const allConfirmed = allTx.every((tx) => tx.status === 'CONFIRMED');
 
       if (allConfirmed && allTx.length > 0 && botInstance) {
-        const totalReceived = allTx.reduce((sum, tx) => sum + tx.amount, 0);
+        const totalReceived = sumDecimals(allTx.map(tx => tx.amount));
 
-        await botInstance.api.sendMessage(
+        await botInstance()!.api.sendMessage(
           Number(allTx[0].toUser.telegramId),
           `🎊 *Все оплатили!*\n\n` +
             `Все участники подтвердили оплату\n\n` +
-            `💰 Получено: ${totalReceived}₽\n\n` +
-            `*Подробности:*\n` +
-            allTx.map((tx) => `✅ ${tx.fromUser.firstName} — ${tx.amount}₽`).join('\n') +
-            `\n\nСпасибо за организацию! 🙏`,
+            `💰 Получено: ${totalReceived.toFixed(2)}₽\n\n` +
+            `*Подробности:*\n${ 
+            allTx.map((tx) => `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`).join('\n') 
+            }\n\nСпасибо за организацию! 🙏`,
           { parse_mode: 'Markdown' }
         );
 
@@ -564,11 +749,17 @@ export class BudgetService {
   /**
    * Получить все долги пользователя
    */
-  async getUserDebts(userId: number, status?: 'PENDING' | 'PAID' | 'CONFIRMED') {
+  async getUserDebts(
+    userId: number,
+    status?: 'PENDING' | 'PAID' | 'CONFIRMED',
+    activeOnly: boolean = false
+  ) {
     try {
       const where: any = { fromUserId: userId };
       if (status) {
         where.status = status;
+      } else if (activeOnly) {
+        where.status = { in: ['PENDING', 'PAID'] };
       }
 
       const debts = await prisma.transaction.findMany({
@@ -586,7 +777,11 @@ export class BudgetService {
         orderBy: { createdAt: 'desc' },
       });
 
-      return debts;
+      if (!activeOnly) {
+        return debts;
+      }
+
+      return await this.filterTransactionsByActiveMembers(debts, 'to');
     } catch (error) {
       logger.error('Error getting user debts:', error);
       throw error;
@@ -596,11 +791,17 @@ export class BudgetService {
   /**
    * Получить все кредиты пользователя (кто ему должен)
    */
-  async getUserCredits(userId: number, status?: 'PENDING' | 'PAID' | 'CONFIRMED') {
+  async getUserCredits(
+    userId: number,
+    status?: 'PENDING' | 'PAID' | 'CONFIRMED',
+    activeOnly: boolean = false
+  ) {
     try {
       const where: any = { toUserId: userId };
       if (status) {
         where.status = status;
+      } else if (activeOnly) {
+        where.status = { in: ['PENDING', 'PAID'] };
       }
 
       const credits = await prisma.transaction.findMany({
@@ -617,7 +818,11 @@ export class BudgetService {
         orderBy: { createdAt: 'desc' },
       });
 
-      return credits;
+      if (!activeOnly) {
+        return credits;
+      }
+
+      return await this.filterTransactionsByActiveMembers(credits, 'from');
     } catch (error) {
       logger.error('Error getting user credits:', error);
       throw error;
@@ -694,8 +899,8 @@ export class BudgetService {
       logger.info('Transaction mark cancelled', { transactionId });
 
       // Уведомляем ответственного
-      if (botInstance) {
-        await botInstance.api.sendMessage(
+      if (botInstance()) {
+        await botInstance()!.api.sendMessage(
           Number(tx.toUser.telegramId),
           `⚠️ *Отменена отметка оплаты*\n\n${tx.fromUser.firstName} отменил(а) отметку оплаты ${tx.amount}₽`,
           { parse_mode: 'Markdown' }
@@ -733,8 +938,8 @@ export class BudgetService {
       const debts = transactions.filter((tx) => tx.fromUserId === userId);
       const credits = transactions.filter((tx) => tx.toUserId === userId);
 
-      const totalSpent = debts.reduce((sum, tx) => sum + tx.amount, 0);
-      const totalReceived = credits.reduce((sum, tx) => sum + tx.amount, 0);
+      const totalSpent = sumDecimals(debts.map(tx => tx.amount));
+      const totalReceived = sumDecimals(credits.map(tx => tx.amount));
       const balance = totalReceived - totalSpent;
 
       const confirmedDebts = debts.filter((tx) => tx.status === 'CONFIRMED');
@@ -755,7 +960,7 @@ export class BudgetService {
           acc[key] = { name: key, count: 0, total: 0 };
         }
         acc[key].count++;
-        acc[key].total += tx.amount;
+        acc[key].total += toNumber(tx.amount);
         return acc;
       }, {});
 
@@ -832,7 +1037,7 @@ export class BudgetService {
       }
 
       // Формируем сообщение
-      const amount = transaction.amount.toFixed(2);
+      const amount = toNumber(transaction.amount).toFixed(2);
       const creditorName = transaction.toUser.firstName;
       const groupName = transaction.poll?.group?.title || 'группа';
 
@@ -851,7 +1056,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
 
       // Отправляем уведомление
       try {
-        await botInstance.api.sendMessage(transaction.fromUser.telegramId, message);
+        await botInstance()!.api.sendMessage(Number(transaction.fromUser.telegramId), message);
         
         // Сохраняем запись о напоминании
         await prisma.paymentReminder.create({
@@ -1070,13 +1275,13 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
 
       // Calculate per-person shares
       const participantsCount = transactions.length;
-      const deliveryShare = orderCosts.deliveryCost / participantsCount;
-      const serviceShare = orderCosts.serviceFee / participantsCount;
-      const tipShare = orderCosts.tip / participantsCount;
+      const deliveryShare = toNumber(orderCosts.deliveryCost) / participantsCount;
+      const serviceShare = toNumber(orderCosts.serviceFee) / participantsCount;
+      const tipShare = toNumber(orderCosts.tip) / participantsCount;
 
       // Update each transaction
       for (const tx of transactions) {
-        const itemPrice = tx.menuItem?.price || 0;
+        const itemPrice = toNumber(tx.menuItem?.price);
         const newAmount = itemPrice + deliveryShare + serviceShare + tipShare;
 
         await prisma.transaction.update({
@@ -1124,18 +1329,18 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         userId: tx.fromUserId,
         userName: tx.fromUser.firstName,
         menuItemName: tx.menuItem?.name || 'Unknown',
-        itemPrice: tx.itemPrice || 0,
-        deliveryShare: tx.deliveryShare || 0,
-        serviceShare: tx.serviceShare || 0,
-        tipShare: tx.tipShare || 0,
-        totalAmount: tx.amount,
+        itemPrice: toNumber(tx.itemPrice),
+        deliveryShare: toNumber(tx.deliveryShare),
+        serviceShare: toNumber(tx.serviceShare),
+        tipShare: toNumber(tx.tipShare),
+        totalAmount: toNumber(tx.amount),
         status: tx.status as 'PENDING' | 'PAID' | 'CONFIRMED',
       }));
 
       const totalItemsCost = transactionBreakdowns.reduce((sum, tx) => sum + tx.itemPrice, 0);
-      const totalDeliveryCost = orderCosts?.deliveryCost || 0;
-      const totalServiceFee = orderCosts?.serviceFee || 0;
-      const totalTip = orderCosts?.tip || 0;
+      const totalDeliveryCost = toNumber(orderCosts?.deliveryCost);
+      const totalServiceFee = toNumber(orderCosts?.serviceFee);
+      const totalTip = toNumber(orderCosts?.tip);
       const grandTotal = totalItemsCost + totalDeliveryCost + totalServiceFee + totalTip;
 
       return {
@@ -1151,9 +1356,9 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
           ? {
               id: orderCosts.id,
               pollId: orderCosts.pollId,
-              deliveryCost: orderCosts.deliveryCost,
-              serviceFee: orderCosts.serviceFee,
-              tip: orderCosts.tip,
+              deliveryCost: toNumber(orderCosts.deliveryCost),
+              serviceFee: toNumber(orderCosts.serviceFee),
+              tip: toNumber(orderCosts.tip),
               notes: orderCosts.notes,
               enteredBy: orderCosts.enteredBy,
               enteredAt: orderCosts.enteredAt.toISOString(),

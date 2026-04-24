@@ -36,15 +36,15 @@ export function getContextualGreeting(options: ContextualMessageOptions): {
       if (isPollEnding) {
         return {
           greeting: `${name}, последние минуты!`,
-          message: 'Твой голос учтён. Скоро узнаем победителя! 🎯',
-          emoji: '⏰'
+          message: 'Твой голос учтён. Скоро узнаем победителя.',
+          emoji: ''
         };
       }
       
       return {
         greeting: `Отлично, ${name}!`,
-        message: 'Твой голос учтён. Можешь расслабиться ☕',
-        emoji: '✅'
+        message: 'Твой голос учтён. Можешь расслабиться.',
+        emoji: ''
       };
     }
 
@@ -52,8 +52,8 @@ export function getContextualGreeting(options: ContextualMessageOptions): {
     if (isPollEnding) {
       return {
         greeting: `${name}, спешите!`,
-        message: 'Осталось меньше 5 минут. Не упусти шанс! 🏃',
-        emoji: '⚡'
+        message: 'Осталось меньше 5 минут. Не упусти шанс.',
+        emoji: ''
       };
     }
 
@@ -62,29 +62,29 @@ export function getContextualGreeting(options: ContextualMessageOptions): {
       case 'morning':
         return {
           greeting: `Доброе утро, ${name}!`,
-          message: 'Голосование открыто. Что выберешь сегодня? ☕',
-          emoji: '🌅'
+          message: 'Голосование открыто. Что выберешь сегодня?',
+          emoji: ''
         };
       
       case 'afternoon':
         return {
           greeting: `Время обеда, ${name}!`,
-          message: 'Голосование активно. Сделай свой выбор! 🍽️',
-          emoji: '☀️'
+          message: 'Голосование активно. Сделай свой выбор.',
+          emoji: ''
         };
       
       case 'evening':
         return {
           greeting: `Добрый вечер, ${name}!`,
-          message: 'Еще можно проголосовать. Не упусти момент! 🌆',
-          emoji: '🌆'
+          message: 'Еще можно проголосовать. Не упусти момент.',
+          emoji: ''
         };
       
       case 'night':
         return {
           greeting: `${name}, ты не спишь?`,
-          message: 'Голосование все еще открыто. Может проголосуешь? 🌙',
-          emoji: '🌙'
+          message: 'Голосование все еще открыто. Может проголосуешь?',
+          emoji: ''
         };
     }
   }
@@ -96,22 +96,22 @@ export function getContextualGreeting(options: ContextualMessageOptions): {
       case 'afternoon':
         return {
           greeting: `${name}, обед выбран!`,
-          message: 'Результаты уже известны. Приятного аппетита! 🍽️',
-          emoji: '🏆'
+          message: 'Результаты уже известны. Приятного аппетита.',
+          emoji: ''
         };
       
       case 'evening':
         return {
           greeting: `Как прошел обед, ${name}?`,
-          message: 'Надеюсь, было вкусно! До завтра 😊',
-          emoji: '⭐'
+          message: 'Надеюсь, было вкусно. До завтра.',
+          emoji: ''
         };
       
       case 'night':
         return {
           greeting: `Спокойной ночи, ${name}!`,
-          message: 'Обед был сегодня. Увидимся завтра! 🌙',
-          emoji: '😴'
+          message: 'Обед был сегодня. Увидимся завтра.',
+          emoji: ''
         };
     }
   }
@@ -121,29 +121,29 @@ export function getContextualGreeting(options: ContextualMessageOptions): {
     case 'morning':
       return {
         greeting: `Доброе утро, ${name}!`,
-        message: 'Обед еще не скоро. Пока можно расслабиться ☕',
-        emoji: '🌅'
+        message: 'Обед еще не скоро. Пока можно расслабиться.',
+        emoji: ''
       };
     
     case 'afternoon':
       return {
-        greeting: `${name}, где голосование?`,
-        message: 'Похоже, админ еще не запустил опрос 🤔',
-        emoji: '⏰'
+        greeting: `Добрый день, ${name}!`,
+        message: 'Сейчас нет активного голосования',
+        emoji: ''
       };
     
     case 'evening':
       return {
         greeting: `Добрый вечер, ${name}!`,
-        message: 'Сегодня не было голосования. До завтра! 🌆',
-        emoji: '🌆'
+        message: 'На сегодня голосование завершено',
+        emoji: ''
       };
     
     case 'night':
       return {
         greeting: `Спокойной ночи, ${name}!`,
-        message: 'Отдыхай. Завтра новый день и новый обед 🌙',
-        emoji: '😴'
+        message: 'Завтра будет новое голосование',
+        emoji: ''
       };
   }
 }
@@ -161,7 +161,7 @@ export function getEmptyStateMessage(timeOfDay: TimeOfDay, hasCompletedPoll: boo
     return {
       title: 'Голосование завершено',
       description: 'Результаты уже известны. Увидимся завтра!',
-      emoji: '✅'
+      emoji: ''
     };
   }
 
@@ -171,28 +171,28 @@ export function getEmptyStateMessage(timeOfDay: TimeOfDay, hasCompletedPoll: boo
       return {
         title: 'Обед еще не скоро',
         description: 'Голосование откроется ближе к обеду',
-        emoji: '☕'
+        emoji: ''
       };
     
     case 'afternoon':
       return {
         title: 'Где голосование?',
         description: 'Администратор скоро запустит опрос',
-        emoji: '⏰'
+        emoji: ''
       };
     
     case 'evening':
       return {
         title: 'Сегодня отдыхаем',
         description: 'Голосования не было. До завтра!',
-        emoji: '🌆'
+        emoji: ''
       };
     
     case 'night':
       return {
         title: 'Спокойной ночи!',
         description: 'Завтра будет новый обед',
-        emoji: '🌙'
+        emoji: ''
       };
   }
 }
@@ -206,16 +206,16 @@ export function getSuccessVoteMessage(isFirstVote: boolean): {
 } {
   if (isFirstVote) {
     return {
-      title: '🎉 Первый голос!',
+      title: 'Первый голос!',
       message: 'Отлично! Теперь ты часть команды. Так держать!'
     };
   }
 
   const messages = [
-    { title: '✅ Голос учтён!', message: 'Отлично! Теперь можешь расслабиться ☕' },
-    { title: '👍 Готово!', message: 'Твой выбор зафиксирован. Ждём результатов!' },
-    { title: '🎯 Записали!', message: 'Голос принят. Скоро узнаем победителя!' },
-    { title: '⭐ Супер!', message: 'Ты проголосовал! Посмотрим кто еще выберет это блюдо' },
+    { title: 'Голос учтён!', message: 'Отлично! Теперь можешь расслабиться.' },
+    { title: 'Готово!', message: 'Твой выбор зафиксирован. Ждём результатов!' },
+    { title: 'Записали!', message: 'Голос принят. Скоро узнаем победителя!' },
+    { title: 'Супер!', message: 'Ты проголосовал! Посмотрим кто еще выберет это блюдо' },
   ];
 
   return messages[Math.floor(Math.random() * messages.length)];
@@ -226,10 +226,10 @@ export function getSuccessVoteMessage(isFirstVote: boolean): {
  */
 export function getPollClosedMessage(hasVoted: boolean): string {
   if (hasVoted) {
-    return '🏁 Голосование завершено! Скоро узнаем победителя';
+    return 'Голосование завершено! Скоро узнаем победителя';
   }
   
-  return '⏰ Время истекло! В следующий раз не пропусти голосование';
+  return 'Время истекло! В следующий раз не пропусти голосование';
 }
 
 /**
@@ -237,12 +237,12 @@ export function getPollClosedMessage(hasVoted: boolean): string {
  */
 export function getMotivationalMessage(daysAway: number): string {
   if (daysAway === 1) {
-    return 'Рады видеть снова! Вчера тебя не хватало 😊';
+    return 'Рады видеть снова! Вчера тебя не хватало.';
   }
   
   if (daysAway <= 3) {
-    return `С возвращением! Ты пропустил ${daysAway} обеда. Не теряйся! 👋`;
+    return `С возвращением! Ты пропустил ${daysAway} обеда. Не теряйся.`;
   }
   
-  return `Ого! Тебя не было ${daysAway} дней. Команда скучала! 🤗`;
+  return `Ого! Тебя не было ${daysAway} дней. Команда скучала.`;
 }

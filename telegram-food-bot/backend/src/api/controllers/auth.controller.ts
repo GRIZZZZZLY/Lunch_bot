@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
+import { User } from '@prisma/client';
 import { UserService } from '../../services/user.service';
 import { validateTelegramInitData } from '../../utils/telegram-auth';
 import { logger } from '../../utils/logger';
 import { JwtService } from '../../services/jwt.service';
+
+type JwtUserInput = Pick<User, 'id' | 'telegramId' | 'username' | 'isAdmin'>;
 
 export class AuthController {
   /**
@@ -55,9 +58,16 @@ export class AuthController {
         return;
       }
 
-      // ⚠️ SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи
+      const isProduction = process.env.NODE_ENV === 'production';
+      const skipTelegramValidation = process.env.SKIP_TELEGRAM_VALIDATION === 'true';
+
+      if (isProduction && skipTelegramValidation) {
+        logger.warn('⚠️ SKIP_TELEGRAM_VALIDATION is ignored in production');
+      }
+
+      // ⚠️ SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи (только не в production)
       // Используем РЕАЛЬНЫЙ ID пользователя из initData
-      if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      if (!isProduction && skipTelegramValidation) {
         logger.info('🔓 SKIP_TELEGRAM_VALIDATION: extracting REAL user from initData');
         
         // Пробуем извлечь реальные данные пользователя
@@ -137,14 +147,10 @@ export class AuthController {
         nodeEnv: process.env.NODE_ENV,
       });
 
-      // Валидируем initData от Telegram
-      // Сначала проверяем формат (400 для format errors, 401 для signature errors)
-      try {
-        const { parse } = await import('@telegram-apps/init-data-node');
-        parse(initData); // Если формат невалиден - выбросит ошибку
-      } catch (parseError) {
-        // Формат данных невалидный -> 400 Bad Request
-        logger.error('❌ InitData format is invalid:', parseError);
+      // Проверяем наличие обязательных полей (hash или signature)
+      const params = new URLSearchParams(initData);
+      if (!params.has('hash') && !params.has('signature')) {
+        logger.error('❌ InitData missing hash/signature field');
         res.status(400).json({
           success: false,
           error: 'Invalid initData format',
@@ -153,7 +159,7 @@ export class AuthController {
         return;
       }
 
-      // Теперь валидируем подпись
+      // Валидируем подпись (поддерживает оба формата: hash и signature)
       const userData = validateTelegramInitData(initData);
       if (!userData) {
         // Формат валиден, но подпись неправильная -> 401 Unauthorized
@@ -343,11 +349,11 @@ export class AuthController {
  * 🔐 Генерация пары токенов (access + refresh)
  * ✅ FIX: Возвращаем ОБА токена для правильной работы refresh механизма
  */
-function generateJWT(user: any): { accessToken: string; refreshToken: string; expiresIn: number } {
+function generateJWT(user: JwtUserInput): { accessToken: string; refreshToken: string; expiresIn: number } {
   const payload = {
-    userId: typeof user.id === 'bigint' ? Number(user.id) : user.id,
-    telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
-    username: user.username,
+    userId: user.id,
+    telegramId: user.telegramId.toString(),
+    username: user.username ?? undefined,
     isAdmin: user.isAdmin,
   };
   

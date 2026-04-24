@@ -1,5 +1,4 @@
-import { apiService, ApiResponse } from './api.service';
-import { mockApiService } from './mockApi.service';
+import { apiService, type ApiResponse } from './api.service';
 import type { User } from '../hooks/useAuth';
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true';
@@ -11,6 +10,25 @@ export interface AuthResponse {
   error?: string;
 }
 
+interface AuthValidateResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+interface AuthRefreshResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+}
+
+interface AuthStatusData {
+  authenticated: boolean;
+  user: User;
+  timestamp: string;
+}
+
 export interface AuthStatusResponse {
   success: boolean;
   authenticated: boolean;
@@ -19,12 +37,36 @@ export interface AuthStatusResponse {
 }
 
 class AuthService {
+  private extractAuthPayload<T extends { user: User; accessToken: string }>(
+    response: ApiResponse<T>
+  ): { user?: User; accessToken?: string } {
+    const data = response.data;
+
+    if (data && typeof data === 'object') {
+      return {
+        user: data.user,
+        accessToken: data.accessToken,
+      };
+    }
+
+    const topLevel = response as unknown as {
+      user?: User;
+      accessToken?: string;
+    };
+
+    return {
+      user: topLevel.user,
+      accessToken: topLevel.accessToken,
+    };
+  }
+
   /**
    * Валидация initData от Telegram
    */
   async validateInitData(initData: string): Promise<AuthResponse> {
     try {
       if (USE_MOCK_API) {
+        const { mockApiService } = await import('./mockApi.service');
         const response = await mockApiService.validateInitData(initData);
         if (response.success && response.data) {
           return {
@@ -44,26 +86,29 @@ class AuthService {
         initDataPreview: initData?.substring(0, 100) || 'empty'
       });
       
-      const response = await apiService.post<{ user: User; accessToken: string; refreshToken: string; expiresIn: number }>('/auth/validate', {
+      const response = await apiService.post<AuthValidateResponse>('/auth/validate', {
         initData: initData || ''
       });
 
-      // ✅ ИСПРАВЛЕНО: Backend возвращает accessToken и refreshToken, используем accessToken
-      if (response.success && (response as any).user && (response as any).accessToken) {
+      const { user, accessToken } = this.extractAuthPayload(response);
+
+      // ✅ ИСПРАВЛЕНО: Backend может возвращать payload без data-обертки
+      if (response.success && user && accessToken) {
         return {
           success: true,
-          user: (response as any).user,
-          token: (response as any).accessToken, // ✅ Используем accessToken
+          user,
+          token: accessToken,
         };
       }
 
       throw new Error(response.error || 'Validation failed');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorObj = error as { error?: string; message?: string };
       return {
         success: false,
         user: {} as User,
         token: '',
-        error: error.error || error.message || 'Authentication failed',
+        error: errorObj.error || errorObj.message || 'Authentication failed',
       };
     }
   }
@@ -72,11 +117,7 @@ class AuthService {
    * Получение информации о текущем пользователе
    */
   async getCurrentUser(): Promise<ApiResponse<User>> {
-    try {
-      return await apiService.get<User>('/auth/me');
-    } catch (error) {
-      throw error;
-    }
+    return apiService.get<User>('/auth/me');
   }
 
   /**
@@ -84,15 +125,15 @@ class AuthService {
    */
   async getAuthStatus(): Promise<AuthStatusResponse> {
     try {
-      const response = await apiService.get<{ authenticated: boolean; user: User; timestamp: string }>('/auth/status');
+      const response = await apiService.get<AuthStatusData>('/auth/status');
 
       // ApiService возвращает response.data напрямую
-      if (response.success && (response as any).authenticated !== undefined) {
+      if (response.success && response.data?.authenticated !== undefined) {
         return {
           success: true,
-          authenticated: (response as any).authenticated,
-          user: (response as any).user,
-          timestamp: (response as any).timestamp || new Date().toISOString(),
+          authenticated: response.data.authenticated,
+          user: response.data.user,
+          timestamp: response.data.timestamp || new Date().toISOString(),
         };
       }
 
@@ -101,7 +142,7 @@ class AuthService {
         authenticated: false,
         timestamp: new Date().toISOString(),
       };
-    } catch (error: any) {
+    } catch {
       return {
         success: false,
         authenticated: false,
@@ -115,24 +156,27 @@ class AuthService {
    */
   async refreshAuth(): Promise<AuthResponse> {
     try {
-      const response = await apiService.post<{ user: User; accessToken: string; refreshToken: string }>('/auth/refresh');
+      const response = await apiService.post<AuthRefreshResponse>('/auth/refresh');
 
-      // ✅ ИСПРАВЛЕНО: Backend возвращает accessToken и refreshToken
-      if (response.success && (response as any).user && (response as any).accessToken) {
+      const { user, accessToken } = this.extractAuthPayload(response);
+
+      // ✅ ИСПРАВЛЕНО: Backend может возвращать payload без data-обертки
+      if (response.success && user && accessToken) {
         return {
           success: true,
-          user: (response as any).user,
-          token: (response as any).accessToken, // ✅ Используем accessToken
+          user,
+          token: accessToken,
         };
       }
 
       throw new Error(response.error || 'Refresh failed');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorObj = error as { error?: string; message?: string };
       return {
         success: false,
         user: {} as User,
         token: '',
-        error: error.error || error.message || 'Refresh failed',
+        error: errorObj.error || errorObj.message || 'Refresh failed',
       };
     }
   }

@@ -1,5 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
+import compression from 'compression';
 import path from 'path';
 import crypto from 'crypto';
 import { corsMiddleware } from './middleware/cors';
@@ -23,6 +24,9 @@ import gamificationRoutes from './routes/gamification.routes';
 import seasonRoutes from './routes/season.routes';
 import insightsRoutes from './routes/insights.routes';
 import recurringPollRoutes from './routes/recurring-poll.routes';
+import adminRoutes from './routes/admin.routes';
+import categoryOrderRoutes from './routes/category-order.routes';
+import sseRoutes from './routes/sse.routes';
 
 // Импорт middleware
 import { metricsMiddleware } from './middleware/metrics';
@@ -33,11 +37,24 @@ import { metricsMiddleware } from './middleware/metrics';
 export function createApiServer(): express.Application {
   const app = express();
   const isProduction = process.env.NODE_ENV === 'production';
+  const bodyLimit = process.env.API_BODY_LIMIT || '1mb';
+  const trustProxyConfig = process.env.TRUST_PROXY ?? (isProduction ? '1' : 'false');
 
-  // Глобальный фикс для BigInt сериализации
-  (BigInt.prototype as any).toJSON = function() {
-    return this.toString();
-  };
+  if (trustProxyConfig === 'true') {
+    app.set('trust proxy', true);
+  } else if (trustProxyConfig === 'false') {
+    app.set('trust proxy', false);
+  } else {
+    const trustProxyHops = Number.parseInt(trustProxyConfig, 10);
+    app.set('trust proxy', Number.isNaN(trustProxyHops) ? 1 : trustProxyHops);
+  }
+
+  app.set('json replacer', (_key: string, value: unknown) => {
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+    return value;
+  });
 
   // Базовые middleware
   app.use((req, res, next) => {
@@ -102,8 +119,27 @@ export function createApiServer(): express.Application {
     next();
   });
 
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // Compression (Brotli/Gzip) - добавляем ДО body parser
+  app.use(compression({
+    // Brotli compression (лучше gzip на 15-20%)
+    filter: (req, res) => {
+      // Не сжимаем SSE stream — это ломает стриминг
+      if (req.path.includes('/stream')) {
+        return false;
+      }
+      // Не сжимаем если клиент не поддерживает или уже сжато
+      if (req.headers['x-no-compression']) {
+        return false;
+      }
+      // Используем стандартный фильтр compression
+      return compression.filter(req, res);
+    },
+    threshold: 1024, // Сжимаем только файлы > 1KB
+    level: 6, // Баланс между скоростью и степенью сжатия (0-9)
+  }));
+
+  app.use(express.json({ limit: bodyLimit }));
+  app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
   app.use(requestLogger);
   app.use(metricsMiddleware); // Отслеживание response time
 
@@ -112,6 +148,9 @@ export function createApiServer(): express.Application {
 
   // CORS только для API роутов
   app.use('/api', corsMiddleware);
+
+  // SSE route — подключаем ДО rate-limit (долгоживущие соединения)
+  app.use('/api', sseRoutes);
 
   if (apiConfig.security.enableRateLimit) {
     // Rate limiting для всех API запросов (Sprint 2 Security)
@@ -139,6 +178,8 @@ export function createApiServer(): express.Application {
   app.use('/api/insights', insightsRoutes);
   app.use('/api/avatar', require('./routes/avatar.routes').default);
   app.use('/api/recurring', recurringPollRoutes);
+  app.use('/api/admin', adminRoutes); // Admin panel endpoints
+  app.use('/api', categoryOrderRoutes); // Category order endpoints
 
   // Test endpoints (только для dev/staging)
   if (process.env.NODE_ENV !== 'production') {
@@ -168,20 +209,26 @@ export function createApiServer(): express.Application {
   const isInBackendDir = cwd.endsWith('backend') || cwd.endsWith('backend\\');
   const projectRoot = isInBackendDir ? path.join(cwd, '..') : cwd;
 
-  const frontendDistPath = path.join(projectRoot, 'frontend', 'dist');
+  const frontendDir = process.env.FRONTEND_DIR || 'frontend';
+  const frontendDistPath = path.join(projectRoot, frontendDir, 'dist');
   const frontendDistExists = require('fs').existsSync(frontendDistPath);
 
   logger.info(`CWD: ${cwd}`);
   logger.info(`Project root: ${projectRoot}`);
+  logger.info(`Frontend dir: ${frontendDir}`);
   logger.info(`Frontend static path: ${frontendDistPath}`);
   logger.info(`Frontend dist exists: ${frontendDistExists}`);
 
-  // КРИТИЧНО: Проверяем что frontend/dist существует
   if (!frontendDistExists) {
-    logger.error('❌ ОШИБКА: frontend/dist не найдена!');
-    logger.error('Запустите сборку frontend: cd frontend && npm run build');
+    logger.error(`❌ ОШИБКА: ${frontendDir}/dist не найдена!`);
+    logger.error(`Запустите сборку frontend: cd ${frontendDir} && npm run build`);
     throw new Error(`Frontend dist directory not found: ${frontendDistPath}`);
   }
+
+  app.get('/manifest.webmanifest', (req, res) => {
+    res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+    res.sendFile(path.join(frontendDistPath, 'manifest.webmanifest'));
+  });
 
   // Настройка кеширования для статических файлов
   app.use((req, res, next) => {
@@ -223,7 +270,10 @@ export function createApiServer(): express.Application {
   }));
 
   // Fallback на index.html для React Router (SPA)
-  app.get('*', (req, res, next) => {
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') {
+      return next();
+    }
     // Пропускаем API запросы
     if (req.path.startsWith('/api/')) {
       return next();
@@ -246,6 +296,7 @@ export function createApiServer(): express.Application {
     corsOrigin: apiConfig.corsOrigin,
     uploadPath: apiConfig.uploadPath,
     maxFileSize: `${apiConfig.maxFileSizeMB}MB`,
+    trustProxy: app.get('trust proxy'),
   });
 
   return app;
@@ -273,6 +324,7 @@ export function startApiServer(app: express.Application): void {
     logger.info('  GET  /api/menu - список блюд');
     logger.info('  GET  /api/polls/active - активные голосования');
     logger.info('  GET  /api/budget/debts - долги пользователя');
+    logger.info('  GET  /api/polls/:id/stream - SSE real-time updates');
     logger.info('');
     if (process.env.NODE_ENV !== 'production') {
       logger.info('🧪 Test endpoints (dev/staging):');

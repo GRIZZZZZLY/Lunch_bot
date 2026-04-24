@@ -41,40 +41,23 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
         <TooltipTrigger asChild>
           <motion.button
       onClick={handleClick}
+      style={{ bottom: 'var(--fab-bottom, calc(64px + env(safe-area-inset-bottom, 0px) + 12px))' }}
       className={cn(
-        'fixed bottom-24 sm:bottom-20 right-4 z-40',
-        'size-16 rounded-full',
-        'bg-gradient-to-br from-orange-500 to-red-500',
-        'dark:bg-gradient-to-br dark:from-purple-500 dark:to-violet-500',
-        'shadow-2xl shadow-orange-500/40',
-        'dark:shadow-purple-500/40',
+        'fixed right-4 z-30',
+        'size-14 rounded-[18px]',
+        'bg-primary',
+        'shadow-[0_8px_24px_hsl(var(--primary)/0.35)]',
         'flex items-center justify-center',
         'cursor-pointer',
-        'transition-all duration-200',
-        'hover:shadow-orange-500/60',
-        'dark:hover:shadow-purple-500/60',
-        'border-2 border-white/20',
+        'transition-all duration-150',
+        'ring-1 ring-white/10',
         className
       )}
-      whileHover={{ 
-        scale: 1.1,
-      }}
-      whileTap={{ 
-        scale: 0.95 
-      }}
-      animate={{
-        scale: [1, 1.05, 1],
-      }}
-      transition={{
-        scale: {
-          duration: 2,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        },
-      }}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
       aria-label={tooltipText}
     >
-      <MessageCircle className={`${ICON_SIZES.lg} text-white drop-shadow-md`} strokeWidth={2.5} />
+      <MessageCircle className={`${ICON_SIZES.md} text-primary-foreground`} strokeWidth={2.5} />
     </motion.button>
         </TooltipTrigger>
         <TooltipContent side="left" className="font-medium">

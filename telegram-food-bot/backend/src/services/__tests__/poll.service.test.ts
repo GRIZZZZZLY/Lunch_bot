@@ -75,6 +75,9 @@ const createMockPoll = (overrides?: Partial<Poll>): Poll => ({
   messageId: null,
   chatId: null,
   selectedMenuItemIds: null,
+  isMultiSelect: false,
+  maxSelections: 1,
+  isAutomatic: false,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
@@ -117,6 +120,8 @@ describe('PollService', () => {
           status: 'ACTIVE',
           duration: mockData.duration,
           createdBy: mockData.createdBy,
+          isMultiSelect: true,
+          maxSelections: 3,
         },
       });
 
@@ -180,7 +185,7 @@ describe('PollService', () => {
           group: true,
           votes: {
             include: {
-              user: true,
+              user: { select: expect.any(Object) },
               menuItem: true,
             },
           },
@@ -269,11 +274,36 @@ describe('PollService', () => {
       expect(prisma.poll.findMany).toHaveBeenCalledWith({
         where: { status: 'ACTIVE' },
         include: {
-          group: true,
+          group: {
+            select: {
+              id: true,
+              title: true,
+              telegramId: true,
+            },
+          },
           votes: {
-            include: {
-              user: true,
-              menuItem: true,
+            select: {
+              id: true,
+              pollId: true,
+              userId: true,
+              menuItemId: true,
+              createdAt: true,
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  username: true,
+                },
+              },
+              menuItem: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  price: true,
+                },
+              },
             },
           },
           _count: {
@@ -436,7 +466,7 @@ describe('PollService', () => {
               group: true,
               votes: {
                 include: {
-                  user: true,
+                  user: { select: expect.any(Object) },
                   menuItem: true,
                 },
               },

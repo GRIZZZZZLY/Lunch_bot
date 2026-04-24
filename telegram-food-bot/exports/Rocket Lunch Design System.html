@@ -1,0 +1,1730 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Rocket Lunch — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<template id="__bundler_thumbnail" data-bg-color="#0E141B">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="tg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#F3C4A7"/>
+        <stop offset="1" stop-color="#D86A2C"/>
+      </linearGradient>
+    </defs>
+    <rect width="1200" height="800" fill="#0E141B"/>
+    <rect x="460" y="220" width="280" height="360" rx="40" fill="url(#tg)"/>
+    <text x="600" y="430" text-anchor="middle" font-family="system-ui" font-size="160" font-weight="800" fill="#0E141B">🚀</text>
+  </svg>
+</template>
+<style>
+  :root {
+    /* Brand tokens */
+    --peach-400:#FF9D66; --peach-500:#D86A2C; --peach-600:#B84D12;
+    --lav-400:#A78BFA; --lav-500:#8B5CF6;
+    --mint-400:#34D399; --mint-500:#22B573;
+    --coral-400:#F87171; --coral-500:#E55A4F;
+    --butter-400:#F4C15D; --butter-500:#E6A93D;
+    --succ-soft:#9FD4B3; --warn-soft:#D9D394; --err-soft:#D4A5A5;
+
+    /* Pastel gradients */
+    --g-peach: linear-gradient(135deg,#F3C4A7,#F7D5C1);
+    --g-lav:   linear-gradient(135deg,#D1C1FC,#E5DDFE);
+    --g-sage:  linear-gradient(135deg,#8CE0B9,#B3EBD1);
+    --g-sky:   linear-gradient(135deg,#7DD3FC,#BAE6FD);
+    --g-rose:  linear-gradient(135deg,#FCA5A5,#FECACA);
+
+    /* Page chrome (the guide itself, neutral) */
+    --page-bg:#0E141B;
+    --page-ink:#E6EDF3;
+    --page-muted:#8B97A6;
+    --page-line:rgba(255,255,255,0.08);
+    --page-card:#141C25;
+
+    /* Mono + sans */
+    --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--sans);
+    background:var(--page-bg);
+    color:var(--page-ink);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    min-height:100vh;
+  }
+
+  /* ============ PAGE CHROME ============ */
+  .page-head{
+    position:sticky; top:0; z-index:50;
+    background:rgba(14,20,27,0.85);
+    backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--page-line);
+  }
+  .page-head-inner{
+    max-width:1280px; margin:0 auto;
+    padding:18px 32px;
+    display:flex; align-items:center; justify-content:space-between; gap:24px;
+  }
+  .brand{
+    display:flex; align-items:center; gap:12px;
+  }
+  .brand-mark{
+    width:36px; height:36px; border-radius:10px;
+    background:var(--g-peach);
+    display:grid; place-items:center;
+    box-shadow:0 6px 20px rgba(216,106,44,0.35);
+    font-size:18px;
+  }
+  .brand-txt{line-height:1.1}
+  .brand-txt .n{font-weight:700;font-size:15px;letter-spacing:-0.01em}
+  .brand-txt .s{font-family:var(--mono);font-size:11px;color:var(--page-muted);margin-top:2px}
+
+  .meta{display:flex; gap:8px; align-items:center; font-family:var(--mono); font-size:11px; color:var(--page-muted)}
+  .meta .dot{width:6px;height:6px;border-radius:999px;background:var(--mint-400);box-shadow:0 0 8px var(--mint-400)}
+  .theme-toggle{
+    display:inline-flex; padding:4px; border:1px solid var(--page-line);
+    border-radius:999px; background:rgba(255,255,255,0.02);
+    font-family:var(--mono); font-size:11px;
+  }
+  .theme-toggle button{
+    border:0; background:transparent; color:var(--page-muted);
+    padding:6px 14px; border-radius:999px; cursor:pointer;
+    font-family:inherit; font-size:inherit; letter-spacing:0.02em;
+  }
+  .theme-toggle button.on{background:var(--peach-500); color:#fff}
+
+  /* ============ LAYOUT ============ */
+  main{max-width:1280px; margin:0 auto; padding:48px 32px 120px}
+
+  .hero{
+    display:grid; grid-template-columns: 1.2fr 1fr; gap:48px; align-items:end;
+    padding-bottom:48px; border-bottom:1px solid var(--page-line);
+    margin-bottom:56px;
+  }
+  .hero h1{
+    font-size:72px; line-height:0.95; letter-spacing:-0.035em;
+    font-weight:800; margin:0;
+  }
+  .hero h1 em{font-style:normal; background:var(--g-peach); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .hero p{
+    color:var(--page-muted); max-width:50ch; font-size:15px; line-height:1.6;
+    margin:20px 0 0;
+  }
+  .hero-meta{
+    display:flex; flex-direction:column; gap:10px;
+    font-family:var(--mono); font-size:11px; color:var(--page-muted);
+  }
+  .hero-meta .row{display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px dashed var(--page-line)}
+  .hero-meta .row:last-child{border-bottom:0}
+  .hero-meta .v{color:var(--page-ink)}
+
+  section{margin-bottom:96px}
+  .sec-head{
+    display:grid; grid-template-columns: 80px 1fr auto; gap:24px; align-items:baseline;
+    padding-bottom:20px; margin-bottom:28px;
+    border-bottom:1px solid var(--page-line);
+  }
+  .sec-num{font-family:var(--mono); font-size:11px; color:var(--page-muted)}
+  .sec-title{font-size:28px; font-weight:700; letter-spacing:-0.02em; margin:0}
+  .sec-sub{font-family:var(--mono); font-size:11px; color:var(--page-muted); text-align:right}
+
+  /* Split = dark | light phone frames */
+  .split{display:grid; grid-template-columns:1fr 1fr; gap:24px}
+  .frame-wrap{
+    position:relative;
+    border:1px solid var(--page-line);
+    border-radius:20px; padding:20px;
+    background:rgba(255,255,255,0.015);
+  }
+  .frame-tag{
+    position:absolute; top:-10px; left:16px;
+    background:var(--page-bg); padding:0 8px;
+    font-family:var(--mono); font-size:10px; letter-spacing:0.08em;
+    text-transform:uppercase; color:var(--page-muted);
+  }
+  .frame-tag.dark::before{content:"◉ "; color:var(--lav-400)}
+  .frame-tag.light::before{content:"◎ "; color:var(--peach-500)}
+
+  /* The phone canvas */
+  .tg{
+    margin:0 auto;
+    width:100%; max-width:375px;
+    border-radius:28px;
+    overflow:hidden;
+    position:relative;
+    font-family:var(--sans);
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  .tg.dark{
+    background:#17212B;
+    color:#E6EDF3;
+    --surface:#1F2A36;
+    --surface-2:#17212B;
+    --ink:#E6EDF3;
+    --ink-2:#9AA7B4;
+    --ink-3:#6B7683;
+    --line:rgba(255,255,255,0.07);
+    --line-2:rgba(255,255,255,0.12);
+    --pri:var(--peach-400);
+    --pri-ink:#1A0F08;
+    --card-grad:linear-gradient(180deg,#1F2A36,#17212B);
+    --shadow-card:0 2px 12px rgba(0,0,0,0.3);
+    --shadow-elev:0 8px 32px rgba(0,0,0,0.5);
+  }
+  .tg.light{
+    background:linear-gradient(180deg,#F2EADF,#FBF7F1);
+    color:#2B2118;
+    --surface:#FFFDF9;
+    --surface-2:#F6EFE5;
+    --ink:#2B2118;
+    --ink-2:#6B5D4F;
+    --ink-3:#9C8B79;
+    --line:rgba(43,33,24,0.08);
+    --line-2:rgba(43,33,24,0.14);
+    --pri:var(--peach-500);
+    --pri-ink:#FFFFFF;
+    --card-grad:linear-gradient(180deg,#FFFDF9,#F6EFE5);
+    --shadow-card:0 2px 8px rgba(0,0,0,0.04);
+    --shadow-elev:0 8px 24px rgba(0,0,0,0.08);
+  }
+
+  /* ============ TELEGRAM CHROME inside frame ============ */
+  .tg-status{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 18px 6px; font-size:13px; font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+  .tg-status .icons{display:flex; gap:5px; opacity:0.9}
+  .tg-body{padding:12px 16px 20px}
+
+  /* Top header component */
+  .tg-hdr{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px; height:56px;
+    background:color-mix(in oklab, var(--surface) 70%, transparent);
+    backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--line);
+    position:relative;
+  }
+  .tg-hdr .l{display:flex; align-items:center; gap:10px}
+  .tg-hdr .bot{
+    width:30px; height:30px; border-radius:9px;
+    background:var(--g-peach);
+    display:grid; place-items:center;
+    font-size:16px;
+  }
+  .tg-hdr .ttl{font-size:16px; font-weight:700; letter-spacing:-0.01em}
+  .tg-hdr .sub{font-size:11px; color:var(--ink-2); margin-top:1px}
+  .tg-hdr .r{display:flex; gap:4px}
+  .tg-ico-btn{
+    width:36px; height:36px; border-radius:10px;
+    display:grid; place-items:center;
+    color:var(--ink-2);
+    background:transparent; border:0; cursor:pointer;
+  }
+  .tg-ico-btn:hover{background:var(--line)}
+
+  /* ============ BUTTONS ============ */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    font-family:inherit; font-weight:600; font-size:14px;
+    border-radius:12px; border:1px solid transparent; cursor:pointer;
+    padding:10px 16px; line-height:1;
+    transition:transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
+    user-select:none;
+  }
+  .btn:active{transform:scale(0.97)}
+  .btn.sm{padding:7px 12px; font-size:12px; border-radius:10px}
+  .btn.lg{padding:14px 20px; font-size:15px; border-radius:14px}
+  .btn.primary{
+    background:linear-gradient(135deg,var(--peach-400),var(--peach-500));
+    color:#fff;
+    box-shadow:0 6px 18px rgba(216,106,44,0.35);
+  }
+  .tg.light .btn.primary{background:linear-gradient(135deg,#FFB080,var(--peach-500))}
+  .btn.primary:hover{filter:brightness(1.05)}
+  .btn.secondary{
+    background:transparent; color:var(--ink);
+    border-color:var(--line-2);
+  }
+  .btn.ghost{background:transparent; color:var(--pri); border-color:transparent}
+  .btn.danger{background:var(--coral-500); color:#fff}
+  .tg.dark .btn.danger{background:var(--coral-400); color:#2A0E0C}
+  .btn.disabled,.btn:disabled{opacity:0.45; cursor:not-allowed; transform:none; filter:none}
+  .btn.loading{pointer-events:none}
+  .spinner{
+    width:12px; height:12px; border-radius:999px;
+    border:2px solid rgba(255,255,255,0.35); border-top-color:#fff;
+    animation:spin 0.7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ============ CARDS ============ */
+  .card{
+    background:var(--card-grad);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:var(--shadow-card);
+    padding:14px;
+  }
+  .card .ch{display:flex; align-items:center; gap:10px; margin-bottom:8px}
+  .card .ch .ic{
+    width:32px; height:32px; border-radius:10px;
+    background:var(--g-lav); display:grid; place-items:center; font-size:16px;
+  }
+  .card .ch .tt{font-weight:600; font-size:14px; letter-spacing:-0.005em}
+  .card .cs{font-size:12px; color:var(--ink-2); margin-top:1px}
+  .card .cb{font-size:13px; color:var(--ink-2); line-height:1.45}
+  .card .cf{
+    margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:11px; color:var(--ink-3); font-family:var(--mono);
+  }
+
+  .card.pastel{
+    background:var(--g-peach);
+    border-color:transparent;
+    color:#3D2012;
+  }
+  .card.pastel.lav{background:var(--g-lav); color:#2E1F56}
+  .card.pastel.sage{background:var(--g-sage); color:#0E3D26}
+  .card.pastel.sky{background:var(--g-sky); color:#083855}
+  .card.pastel.rose{background:var(--g-rose); color:#5C1414}
+  .card.pastel .cs,.card.pastel .cb{color:inherit; opacity:0.75}
+  .card.pastel .cf{color:inherit; opacity:0.6; border-color:rgba(0,0,0,0.1)}
+
+  .card.glass{
+    background:color-mix(in oklab, var(--surface) 55%, transparent);
+    border:1px solid var(--line-2);
+    backdrop-filter:blur(24px);
+    -webkit-backdrop-filter:blur(24px);
+  }
+
+  /* ============ BADGES ============ */
+  .badge{
+    display:inline-flex; align-items:center; gap:5px;
+    padding:4px 9px; border-radius:999px;
+    font-size:11px; font-weight:600; letter-spacing:0.01em;
+    white-space:nowrap;
+  }
+  .badge .pip{width:5px;height:5px;border-radius:999px;background:currentColor}
+  .badge.active{color:#0A3F26; background:color-mix(in oklab, var(--mint-400) 40%, transparent)}
+  .tg.light .badge.active{color:#0A3F26; background:color-mix(in oklab, var(--mint-400) 45%, white 10%)}
+  .badge.done{color:#2D1B5C; background:color-mix(in oklab, var(--lav-400) 40%, transparent)}
+  .tg.light .badge.done{color:#2D1B5C; background:color-mix(in oklab, var(--lav-400) 40%, white 10%)}
+  .badge.urgent{color:#5B1410; background:color-mix(in oklab, var(--coral-400) 40%, transparent)}
+  .tg.light .badge.urgent{color:#5B1410; background:color-mix(in oklab, var(--coral-400) 40%, white 10%)}
+  .badge.pending{color:#4A3508; background:color-mix(in oklab, var(--butter-400) 40%, transparent)}
+  .tg.light .badge.pending{color:#4A3508; background:color-mix(in oklab, var(--butter-400) 45%, white 10%)}
+
+  /* ============ INPUTS ============ */
+  .input{
+    display:flex; align-items:center; gap:8px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px 12px;
+    transition:border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .input:focus-within{
+    border-color:var(--pri);
+    box-shadow:0 0 0 3px color-mix(in oklab, var(--pri) 25%, transparent);
+  }
+  .input input{
+    flex:1; background:transparent; border:0; outline:none;
+    color:var(--ink); font-family:inherit; font-size:14px;
+  }
+  .input input::placeholder{color:var(--ink-3)}
+  .input .iic{color:var(--ink-3); display:grid; place-items:center}
+  .input .clr{
+    width:18px; height:18px; border-radius:999px;
+    background:var(--line-2); color:var(--ink-2);
+    display:grid; place-items:center; cursor:pointer; border:0;
+  }
+  .stepper{
+    display:flex; align-items:center; gap:2px;
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; padding:4px;
+  }
+  .stepper button{
+    width:30px; height:30px; border:0; border-radius:9px;
+    background:transparent; color:var(--ink); font-size:16px; font-weight:600;
+    cursor:pointer;
+  }
+  .stepper button:hover{background:var(--line)}
+  .stepper .n{
+    min-width:32px; text-align:center; font-variant-numeric:tabular-nums;
+    font-size:14px; font-weight:600;
+  }
+
+  /* ============ TABS ============ */
+  .tabs{
+    display:flex; gap:0; border-bottom:1px solid var(--line);
+  }
+  .tabs .tab{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:10px 8px; color:var(--ink-2);
+    font-size:12px; font-weight:500; cursor:pointer;
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+  }
+  .tabs .tab.on{color:var(--pri); border-color:var(--pri); font-weight:600}
+
+  /* ============ PROGRESS ============ */
+  .prg{
+    height:6px; border-radius:999px; background:var(--line-2);
+    overflow:hidden; position:relative;
+  }
+  .prg > i{
+    display:block; height:100%; width:62%;
+    background:linear-gradient(90deg,var(--peach-400),var(--peach-500));
+    border-radius:999px;
+  }
+  .prg.shimmer > i{
+    width:100%;
+    background:linear-gradient(90deg,
+      var(--line-2) 0%, var(--line-2) 40%,
+      color-mix(in oklab, var(--ink) 18%, transparent) 50%,
+      var(--line-2) 60%, var(--line-2) 100%);
+    background-size:200% 100%;
+    animation:shimmer 1.5s linear infinite;
+  }
+  @keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+  /* ============ BOTTOM SHEET ============ */
+  .sheet{
+    background:var(--surface);
+    border-top-left-radius:16px; border-top-right-radius:16px;
+    box-shadow:var(--shadow-elev);
+    padding:10px 16px 18px;
+    border:1px solid var(--line);
+    border-bottom:0;
+  }
+  .sheet .grab{width:36px;height:4px;border-radius:999px;background:var(--line-2);margin:0 auto 12px}
+  .sheet .st{font-weight:700; font-size:17px; letter-spacing:-0.01em}
+  .sheet .sd{font-size:13px; color:var(--ink-2); margin-top:4px; line-height:1.45}
+  .sheet .sa{display:flex; gap:8px; margin-top:14px}
+  .sheet .sa .btn{flex:1}
+
+  /* ============ SKELETON ============ */
+  .sk{
+    background:var(--line-2); border-radius:8px; overflow:hidden; position:relative;
+  }
+  .sk::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(90deg, transparent,
+      color-mix(in oklab, var(--ink) 12%, transparent), transparent);
+    transform:translateX(-100%);
+    animation:sk 1.5s linear infinite;
+  }
+  @keyframes sk{100%{transform:translateX(100%)}}
+  .sk.line{height:12px}
+  .sk.line.w70{width:70%}
+  .sk.line.w40{width:40%}
+  .sk.circ{width:40px;height:40px;border-radius:999px}
+
+  /* ============ EMPTY STATE ============ */
+  .empty{
+    display:flex; flex-direction:column; align-items:center; gap:12px;
+    padding:28px 16px;
+  }
+  .empty .blob{
+    width:96px; height:96px; border-radius:999px;
+    background:var(--g-peach);
+    display:grid; place-items:center;
+    box-shadow:0 12px 32px rgba(216,106,44,0.25);
+    font-size:40px;
+    position:relative;
+  }
+  .empty .blob::after{
+    content:""; position:absolute; inset:-8px;
+    border-radius:999px; border:1px dashed var(--line-2);
+  }
+  .empty .et{font-size:17px; font-weight:700; margin-top:6px}
+  .empty .es{font-size:13px; color:var(--ink-2); text-align:center; max-width:28ch; line-height:1.45}
+
+  /* ============ BOTTOM NAV ============ */
+  .bnav{
+    display:flex; align-items:center; justify-content:space-around;
+    padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+    background:color-mix(in oklab, var(--surface) 70%, transparent);
+    backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
+    border-top:1px solid var(--line);
+  }
+  .bnav .nb{
+    flex:1;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:8px 4px; border-radius:12px;
+    color:var(--ink-2); cursor:pointer;
+    font-size:10px; font-weight:500;
+    transition:background 150ms ease;
+  }
+  .bnav .nb.on{
+    color:var(--pri-ink);
+    background:var(--pri);
+    font-weight:600;
+  }
+  .tg.dark .bnav .nb.on{color:#1A0F08}
+
+  /* ============ TOAST ============ */
+  .toast{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:9px 14px; border-radius:999px;
+    background:var(--surface); color:var(--ink);
+    border:1px solid var(--line);
+    box-shadow:var(--shadow-elev);
+    font-size:13px; font-weight:500;
+  }
+  .toast .tic{
+    width:18px; height:18px; border-radius:999px;
+    display:grid; place-items:center; color:#fff;
+    font-size:11px; font-weight:700;
+  }
+  .toast.success .tic{background:var(--mint-500)}
+  .toast.error .tic{background:var(--coral-500)}
+  .toast.info .tic{background:var(--lav-500)}
+
+  /* ============ SECTION INTERNALS ============ */
+  .row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+  .row.col{flex-direction:column; align-items:stretch}
+  .col{display:flex; flex-direction:column; gap:10px}
+  .lbl{
+    font-family:var(--mono); font-size:10px; letter-spacing:0.06em;
+    text-transform:uppercase; color:var(--ink-3); margin-bottom:6px;
+  }
+
+  /* Token swatches */
+  .swatch-grid{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:10px;
+  }
+  .sw{
+    border:1px solid var(--page-line); border-radius:12px; overflow:hidden;
+    background:var(--page-card);
+  }
+  .sw .box{aspect-ratio:2/1}
+  .sw .meta{padding:8px 10px; font-family:var(--mono); font-size:10px}
+  .sw .meta .name{color:var(--page-ink); font-weight:600}
+  .sw .meta .hex{color:var(--page-muted); margin-top:2px}
+
+  .grad-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:10px}
+  .gr{border-radius:12px; overflow:hidden; border:1px solid var(--page-line)}
+  .gr .box{height:72px}
+  .gr .meta{padding:8px 10px; font-family:var(--mono); font-size:10px; background:var(--page-card)}
+  .gr .meta .n{color:var(--page-ink); font-weight:600}
+  .gr .meta .h{color:var(--page-muted); margin-top:2px; font-size:9px}
+
+  .type-scale{display:grid; grid-template-columns:120px 1fr 180px; gap:16px; align-items:baseline; padding:14px 0; border-bottom:1px dashed var(--page-line)}
+  .type-scale:last-child{border-bottom:0}
+  .type-scale .n{font-family:var(--mono); font-size:11px; color:var(--page-muted)}
+  .type-scale .spec{font-family:var(--mono); font-size:10px; color:var(--page-muted); text-align:right}
+
+  .radii-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px}
+  .rbox{
+    aspect-ratio:1/1; background:var(--g-peach);
+    display:grid; place-items:end start; padding:10px;
+    font-family:var(--mono); font-size:10px; color:#3D2012; font-weight:600;
+  }
+  .shad-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+  .shbox{
+    aspect-ratio:3/2; background:#FFFDF9; border-radius:16px;
+    display:flex; align-items:flex-end; padding:12px;
+    font-family:var(--mono); font-size:10px; color:#2B2118;
+  }
+  .shbox.a{box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+  .shbox.b{box-shadow:0 8px 24px rgba(0,0,0,0.12)}
+  .shbox.c{box-shadow:0 8px 32px rgba(0,0,0,0.18); backdrop-filter:blur(24px)}
+
+  /* ============ SAMPLE SCREEN ============ */
+  .sample .tg{max-width:375px}
+  .sample-content{padding:14px 16px 80px; display:flex; flex-direction:column; gap:14px; min-height:480px}
+  .sample .hero-card{
+    background:var(--g-peach);
+    border-radius:16px; padding:16px; color:#3D2012;
+    box-shadow:var(--shadow-elev);
+  }
+  .sample .hero-card .eyebrow{font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; opacity:0.7}
+  .sample .hero-card .ttl{font-size:22px; font-weight:700; letter-spacing:-0.015em; margin-top:4px}
+  .sample .hero-card .sub{font-size:13px; opacity:0.8; margin-top:4px}
+  .sample .hero-card .row{margin-top:14px; justify-content:space-between}
+  .sample .hero-card .chip{
+    background:rgba(255,255,255,0.5); backdrop-filter:blur(10px);
+    padding:6px 10px; border-radius:999px; font-size:11px; font-weight:600;
+  }
+  .sample .vote-item{
+    display:flex; align-items:center; gap:12px; padding:12px;
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:14px;
+  }
+  .sample .vote-item .ph{
+    width:44px;height:44px;border-radius:12px;
+    background:var(--g-sage);
+    display:grid; place-items:center; font-size:22px;
+  }
+  .sample .vote-item .info{flex:1; min-width:0}
+  .sample .vote-item .n{font-weight:600; font-size:14px; line-height:1.2}
+  .sample .vote-item .m{font-size:11px; color:var(--ink-2); margin-top:3px; font-family:var(--mono)}
+  .sample .vote-item .vt{
+    display:flex; align-items:center; gap:6px;
+    font-size:12px; font-weight:700; color:var(--pri);
+  }
+  .sample .bnav-wrap{position:absolute; left:0; right:0; bottom:0}
+
+  /* Annotation band */
+  .anno{
+    margin-top:18px; padding:10px 12px;
+    font-family:var(--mono); font-size:10px; color:var(--page-muted);
+    border:1px dashed var(--page-line); border-radius:8px;
+    display:grid; grid-template-columns:1fr 1fr; gap:4px 16px;
+  }
+  .anno b{color:var(--page-ink); font-weight:500}
+
+  /* Helpers */
+  .util-row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .grow{flex:1}
+  .col-2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+
+  /* Footer */
+  .page-foot{
+    border-top:1px solid var(--page-line);
+    padding:32px;
+    font-family:var(--mono); font-size:11px; color:var(--page-muted);
+    display:flex; justify-content:space-between; max-width:1280px; margin:0 auto;
+  }
+
+  /* Icon baseline (inline SVG uses currentColor) */
+  svg{display:block}
+
+  /* Scoped ensure phone frames don't overflow */
+  .phone{
+    width:100%; max-width:375px; margin:0 auto;
+    border-radius:28px; overflow:hidden; position:relative;
+    min-height:0;
+  }
+
+  /* Responsive */
+  @media (max-width:960px){
+    .hero{grid-template-columns:1fr}
+    .split{grid-template-columns:1fr}
+    .sec-head{grid-template-columns:auto 1fr}
+    .sec-sub{display:none}
+    .hero h1{font-size:52px}
+    .swatch-grid{grid-template-columns:repeat(2,1fr)}
+    .grad-grid{grid-template-columns:repeat(2,1fr)}
+    .radii-grid{grid-template-columns:repeat(2,1fr)}
+    .shad-grid{grid-template-columns:1fr}
+    main{padding:32px 20px 80px}
+    .page-head-inner{padding:14px 20px}
+  }
+</style>
+</head>
+<body>
+
+<!-- Reusable SVG icons -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11h3V3H5zm3-8c1.7 0 3 1.3 3 3v5M19 3v18M22 3v7a2 2 0 0 1-2 2h-1"/></symbol>
+    <symbol id="i-vote" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h18M8 21h8M5 14V7l7-4 7 4v7M9 10h6"/></symbol>
+    <symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 21a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-fire" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s5 5 5 10a5 5 0 1 1-10 0c0-2 1-3 2-4-1 2 1 3 2 3 1-2-1-4 1-9"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 10 18 20 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></symbol>
+  </defs>
+</svg>
+
+<header class="page-head">
+  <div class="page-head-inner">
+    <div class="brand">
+      <div class="brand-mark">🚀</div>
+      <div class="brand-txt">
+        <div class="n">Rocket Lunch</div>
+        <div class="s">design-system · v0.1 · 2026.04</div>
+      </div>
+    </div>
+    <div class="meta">
+      <span class="dot"></span>
+      <span>living document</span>
+      <span style="opacity:0.4">·</span>
+      <span>telegram-mini-app</span>
+    </div>
+    <div class="theme-toggle" role="tablist" aria-label="Viewing mode">
+      <button class="on" data-mode="both">both</button>
+      <button data-mode="dark">dark</button>
+      <button data-mode="light">light</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <div class="hero">
+    <div>
+      <h1>A system for <em>group lunch chaos</em>, contained.</h1>
+      <p>Rocket Lunch is a Telegram Mini App for deciding what a work chat eats. This is its visual backbone — tokens, primitives, and chrome — shown in both dark and light modes side-by-side so nothing drifts. Mobile-first, 375×667 base, max 430px. Warm peach + lavender + pastel food tones.</p>
+    </div>
+    <div class="hero-meta">
+      <div class="row"><span>viewport.base</span><span class="v">375 × 667</span></div>
+      <div class="row"><span>viewport.max</span><span class="v">430 px</span></div>
+      <div class="row"><span>grid.padding</span><span class="v">16 px</span></div>
+      <div class="row"><span>scale.base</span><span class="v">4 px</span></div>
+      <div class="row"><span>font.family</span><span class="v">Inter · JetBrains Mono</span></div>
+      <div class="row"><span>theme</span><span class="v">dark · light (sync TG)</span></div>
+    </div>
+  </div>
+
+  <!-- 01 COLOR -->
+  <section id="color">
+    <div class="sec-head">
+      <div class="sec-num">01 / 16</div>
+      <h2 class="sec-title">Color</h2>
+      <div class="sec-sub">hsl · hex · pastel gradients</div>
+    </div>
+
+    <div class="lbl">Brand · semantic</div>
+    <div class="swatch-grid" style="margin-bottom:24px">
+      <div class="sw"><div class="box" style="background:#FF9D66"></div><div class="meta"><div class="name">peach-400</div><div class="hex">#FF9D66 · dark primary</div></div></div>
+      <div class="sw"><div class="box" style="background:#D86A2C"></div><div class="meta"><div class="name">peach-500</div><div class="hex">#D86A2C · light primary</div></div></div>
+      <div class="sw"><div class="box" style="background:#B84D12"></div><div class="meta"><div class="name">peach-600</div><div class="hex">#B84D12 · pressed</div></div></div>
+      <div class="sw"><div class="box" style="background:#A78BFA"></div><div class="meta"><div class="name">lavender-400</div><div class="hex">#A78BFA · accent</div></div></div>
+      <div class="sw"><div class="box" style="background:#8B5CF6"></div><div class="meta"><div class="name">lavender-500</div><div class="hex">#8B5CF6 · nav</div></div></div>
+      <div class="sw"><div class="box" style="background:#34D399"></div><div class="meta"><div class="name">mint-400</div><div class="hex">#34D399 · success</div></div></div>
+      <div class="sw"><div class="box" style="background:#22B573"></div><div class="meta"><div class="name">mint-500</div><div class="hex">#22B573 · success</div></div></div>
+      <div class="sw"><div class="box" style="background:#F87171"></div><div class="meta"><div class="name">coral-400</div><div class="hex">#F87171 · error</div></div></div>
+      <div class="sw"><div class="box" style="background:#E55A4F"></div><div class="meta"><div class="name">coral-500</div><div class="hex">#E55A4F · error</div></div></div>
+      <div class="sw"><div class="box" style="background:#F4C15D"></div><div class="meta"><div class="name">butter-400</div><div class="hex">#F4C15D · warning</div></div></div>
+      <div class="sw"><div class="box" style="background:#E6A93D"></div><div class="meta"><div class="name">butter-500</div><div class="hex">#E6A93D · warning</div></div></div>
+      <div class="sw"><div class="box" style="background:linear-gradient(90deg,#9FD4B3 33%,#D9D394 33%,#D9D394 66%,#D4A5A5 66%)"></div><div class="meta"><div class="name">soft-300 trio</div><div class="hex">success · warning · error</div></div></div>
+    </div>
+
+    <div class="lbl">Surfaces</div>
+    <div class="swatch-grid" style="margin-bottom:24px">
+      <div class="sw"><div class="box" style="background:#17212B"></div><div class="meta"><div class="name">bg.dark</div><div class="hex">#17212B · TG native</div></div></div>
+      <div class="sw"><div class="box" style="background:linear-gradient(180deg,#1F2A36,#17212B)"></div><div class="meta"><div class="name">card.dark</div><div class="hex">#1F2A36 → #17212B</div></div></div>
+      <div class="sw"><div class="box" style="background:linear-gradient(180deg,#F2EADF,#FBF7F1)"></div><div class="meta"><div class="name">bg.light</div><div class="hex">#F2EADF → #FBF7F1</div></div></div>
+      <div class="sw"><div class="box" style="background:linear-gradient(180deg,#FFFDF9,#F6EFE5)"></div><div class="meta"><div class="name">card.light</div><div class="hex">#FFFDF9 → #F6EFE5</div></div></div>
+    </div>
+
+    <div class="lbl">Signature pastel gradients · 135°</div>
+    <div class="grad-grid">
+      <div class="gr"><div class="box" style="background:linear-gradient(135deg,#F3C4A7,#F7D5C1)"></div><div class="meta"><div class="n">peach</div><div class="h">F3C4A7 → F7D5C1</div></div></div>
+      <div class="gr"><div class="box" style="background:linear-gradient(135deg,#D1C1FC,#E5DDFE)"></div><div class="meta"><div class="n">lavender</div><div class="h">D1C1FC → E5DDFE</div></div></div>
+      <div class="gr"><div class="box" style="background:linear-gradient(135deg,#8CE0B9,#B3EBD1)"></div><div class="meta"><div class="n">sage</div><div class="h">8CE0B9 → B3EBD1</div></div></div>
+      <div class="gr"><div class="box" style="background:linear-gradient(135deg,#7DD3FC,#BAE6FD)"></div><div class="meta"><div class="n">sky</div><div class="h">7DD3FC → BAE6FD</div></div></div>
+      <div class="gr"><div class="box" style="background:linear-gradient(135deg,#FCA5A5,#FECACA)"></div><div class="meta"><div class="n">rose</div><div class="h">FCA5A5 → FECACA</div></div></div>
+    </div>
+  </section>
+
+  <!-- 02 TYPE -->
+  <section id="type">
+    <div class="sec-head">
+      <div class="sec-num">02 / 16</div>
+      <h2 class="sec-title">Type</h2>
+      <div class="sec-sub">inter · mono · 1.4 / 1.2</div>
+    </div>
+    <div class="type-scale"><div class="n">H1 / display</div><div style="font:700 28px/1.2 var(--sans); letter-spacing:-0.02em">Обед сегодня в 13:00</div><div class="spec">28 · 700 · −0.02em · lh 1.2</div></div>
+    <div class="type-scale"><div class="n">H2</div><div style="font:600 22px/1.2 var(--sans); letter-spacing:-0.015em">Выбираем вместе</div><div class="spec">22 · 600 · lh 1.2</div></div>
+    <div class="type-scale"><div class="n">Subtitle</div><div style="font:500 18px/1.3 var(--sans)">Проголосовали 6 из 9</div><div class="spec">18 · 500 · lh 1.3</div></div>
+    <div class="type-scale"><div class="n">Body</div><div style="font:400 15px/1.4 var(--sans)">Команда устала и хочет супа. Добавьте вариант и отправьте голосование в чат за 30 секунд.</div><div class="spec">15 · 400 · lh 1.4</div></div>
+    <div class="type-scale"><div class="n">Caption</div><div style="font:500 13px/1.4 var(--sans); color:var(--page-muted)">до конца голосования · 04:12</div><div class="spec">13 · 500 · lh 1.4</div></div>
+    <div class="type-scale"><div class="n">Tiny / label</div><div style="font:500 11px/1.4 var(--mono); letter-spacing:0.06em; text-transform:uppercase; color:var(--page-muted)">VOTING · 6 / 9 · CHAT 142</div><div class="spec">11 mono · 500 · +0.06em</div></div>
+  </section>
+
+  <!-- 03 RADII + SHADOWS + SPACING -->
+  <section id="shape">
+    <div class="sec-head">
+      <div class="sec-num">03 / 16</div>
+      <h2 class="sec-title">Shape, elevation, rhythm</h2>
+      <div class="sec-sub">4px scale · radii · shadow</div>
+    </div>
+
+    <div class="lbl">Radii</div>
+    <div class="radii-grid" style="margin-bottom:28px">
+      <div class="rbox" style="border-radius:12px">12 · card · button</div>
+      <div class="rbox" style="border-radius:16px; background:var(--g-lav); color:#2E1F56">16 · modal · hero</div>
+      <div class="rbox" style="border-radius:999px; background:var(--g-sage); color:#0E3D26">999 · pill · badge</div>
+      <div class="rbox" style="border-radius:8px; background:var(--g-sky); color:#083855">8 · input inner</div>
+    </div>
+
+    <div class="lbl">Shadows</div>
+    <div class="shad-grid" style="margin-bottom:28px">
+      <div class="shbox a">rest · 0 2 8 / .04</div>
+      <div class="shbox b">elevated · 0 8 24 / .08</div>
+      <div class="shbox c" style="background:rgba(255,253,249,0.55)">glass · blur(24)</div>
+    </div>
+
+    <div class="lbl">Spacing scale — 4px base</div>
+    <div style="display:flex; align-items:flex-end; gap:12px; font-family:var(--mono); font-size:10px; color:var(--page-muted)">
+      <div><div style="width:4px;height:24px;background:var(--peach-400);border-radius:2px"></div><div style="margin-top:6px">4</div></div>
+      <div><div style="width:8px;height:32px;background:var(--peach-400);border-radius:2px"></div><div style="margin-top:6px">8</div></div>
+      <div><div style="width:12px;height:40px;background:var(--peach-400);border-radius:2px"></div><div style="margin-top:6px">12</div></div>
+      <div><div style="width:16px;height:48px;background:var(--peach-500);border-radius:2px"></div><div style="margin-top:6px">16 · screen</div></div>
+      <div><div style="width:20px;height:56px;background:var(--peach-500);border-radius:2px"></div><div style="margin-top:6px">20</div></div>
+      <div><div style="width:24px;height:64px;background:var(--peach-500);border-radius:2px"></div><div style="margin-top:6px">24</div></div>
+      <div><div style="width:32px;height:80px;background:var(--peach-600);border-radius:2px"></div><div style="margin-top:6px">32</div></div>
+      <div><div style="width:40px;height:96px;background:var(--peach-600);border-radius:2px"></div><div style="margin-top:6px">40</div></div>
+    </div>
+  </section>
+
+  <!-- 04 BUTTONS -->
+  <section id="buttons">
+    <div class="sec-head">
+      <div class="sec-num">04 / 16</div>
+      <h2 class="sec-title">Buttons</h2>
+      <div class="sec-sub">primary · secondary · ghost · destructive</div>
+    </div>
+    <div class="split">
+      <!-- DARK -->
+      <div class="frame-wrap themed-dark">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone">
+          <div class="tg-body">
+            <div class="lbl" style="color:var(--ink-3)">variants</div>
+            <div class="row" style="margin-bottom:14px">
+              <button class="btn primary">Start vote</button>
+              <button class="btn secondary">Cancel</button>
+              <button class="btn ghost">Skip</button>
+              <button class="btn danger">End</button>
+            </div>
+            <div class="lbl" style="color:var(--ink-3)">sizes</div>
+            <div class="row" style="margin-bottom:14px">
+              <button class="btn primary sm">sm</button>
+              <button class="btn primary">md</button>
+              <button class="btn primary lg">lg · Order now</button>
+            </div>
+            <div class="lbl" style="color:var(--ink-3)">states</div>
+            <div class="row">
+              <button class="btn primary">default</button>
+              <button class="btn primary" style="filter:brightness(1.08)">hover</button>
+              <button class="btn primary" style="transform:scale(0.96); box-shadow:0 2px 6px rgba(216,106,44,0.4)">pressed</button>
+              <button class="btn primary" disabled>disabled</button>
+              <button class="btn primary loading"><span class="spinner"></span>loading</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- LIGHT -->
+      <div class="frame-wrap themed-light">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone">
+          <div class="tg-body">
+            <div class="lbl" style="color:var(--ink-3)">variants</div>
+            <div class="row" style="margin-bottom:14px">
+              <button class="btn primary">Start vote</button>
+              <button class="btn secondary">Cancel</button>
+              <button class="btn ghost">Skip</button>
+              <button class="btn danger">End</button>
+            </div>
+            <div class="lbl" style="color:var(--ink-3)">sizes</div>
+            <div class="row" style="margin-bottom:14px">
+              <button class="btn primary sm">sm</button>
+              <button class="btn primary">md</button>
+              <button class="btn primary lg">lg · Order now</button>
+            </div>
+            <div class="lbl" style="color:var(--ink-3)">states</div>
+            <div class="row">
+              <button class="btn primary">default</button>
+              <button class="btn primary" style="filter:brightness(1.05)">hover</button>
+              <button class="btn primary" style="transform:scale(0.96)">pressed</button>
+              <button class="btn primary" disabled>disabled</button>
+              <button class="btn primary loading"><span class="spinner"></span>loading</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="anno">
+      <div><b>radius</b> 12 / 10 sm / 14 lg</div>
+      <div><b>press</b> scale(0.97) · 120ms</div>
+      <div><b>primary fill</b> linear 135° peach-400 → 500</div>
+      <div><b>shadow</b> 0 6 18 rgba(peach, .35)</div>
+    </div>
+  </section>
+
+  <!-- 05 CARDS -->
+  <section id="cards">
+    <div class="sec-head">
+      <div class="sec-num">05 / 16</div>
+      <h2 class="sec-title">Cards</h2>
+      <div class="sec-sub">standard · pastel · glass</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone">
+          <div class="tg-body" style="display:flex;flex-direction:column;gap:12px">
+            <div class="card">
+              <div class="ch">
+                <div class="ic">🍜</div>
+                <div><div class="tt">Суп дня · Фо Бо</div><div class="cs">доставка 25 мин</div></div>
+              </div>
+              <div class="cb">Горячий куриный бульон с рисовой лапшой, мятой и лаймом.</div>
+              <div class="cf"><span>550₽ · 340 kcal</span><span>4 голоса</span></div>
+            </div>
+            <div class="card pastel lav">
+              <div class="ch">
+                <div class="ic" style="background:rgba(255,255,255,0.5)">🗳</div>
+                <div><div class="tt">Голосование открыто</div><div class="cs">до 12:30 · осталось 4 минуты</div></div>
+              </div>
+              <div class="cb">Команда продукта выбирает между 3 вариантами. 6 из 9 уже проголосовали.</div>
+            </div>
+            <div class="card glass">
+              <div class="ch">
+                <div class="ic" style="background:var(--g-sky)">📈</div>
+                <div><div class="tt">Статистика недели</div><div class="cs">glass · blur(24)</div></div>
+              </div>
+              <div class="cb">Самое популярное: роллы (×4). Меньше всего: пельмени (×1).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone">
+          <div class="tg-body" style="display:flex;flex-direction:column;gap:12px">
+            <div class="card">
+              <div class="ch">
+                <div class="ic">🍜</div>
+                <div><div class="tt">Суп дня · Фо Бо</div><div class="cs">доставка 25 мин</div></div>
+              </div>
+              <div class="cb">Горячий куриный бульон с рисовой лапшой, мятой и лаймом.</div>
+              <div class="cf"><span>550₽ · 340 kcal</span><span>4 голоса</span></div>
+            </div>
+            <div class="card pastel">
+              <div class="ch">
+                <div class="ic" style="background:rgba(255,255,255,0.5)">🗳</div>
+                <div><div class="tt">Голосование открыто</div><div class="cs">до 12:30 · осталось 4 минуты</div></div>
+              </div>
+              <div class="cb">Команда продукта выбирает между 3 вариантами. 6 из 9 уже проголосовали.</div>
+            </div>
+            <div class="card glass">
+              <div class="ch">
+                <div class="ic" style="background:var(--g-sky)">📈</div>
+                <div><div class="tt">Статистика недели</div><div class="cs">glass · blur(24)</div></div>
+              </div>
+              <div class="cb">Самое популярное: роллы (×4). Меньше всего: пельмени (×1).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 BADGES -->
+  <section id="badges">
+    <div class="sec-head">
+      <div class="sec-num">06 / 16</div>
+      <h2 class="sec-title">Badges</h2>
+      <div class="sec-sub">pill · 11px · 8px hpad</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone"><div class="tg-body">
+          <div class="row" style="gap:8px; flex-wrap:wrap">
+            <span class="badge active"><span class="pip"></span>Active</span>
+            <span class="badge done"><span class="pip"></span>Completed</span>
+            <span class="badge urgent"><span class="pip"></span>Urgent · 2 min</span>
+            <span class="badge pending"><span class="pip"></span>Pending</span>
+          </div>
+          <div class="lbl" style="margin-top:18px; color:var(--ink-3)">inline examples</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex; align-items:center; gap:8px; font-size:14px"><span>Пиццерия «Дюжина»</span><span class="badge active">open</span></div>
+            <div style="display:flex; align-items:center; gap:8px; font-size:14px"><span>Голосование #142</span><span class="badge done">closed</span></div>
+            <div style="display:flex; align-items:center; gap:8px; font-size:14px"><span>Заказ опаздывает</span><span class="badge urgent">late</span></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="frame-wrap">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone"><div class="tg-body">
+          <div class="row" style="gap:8px; flex-wrap:wrap">
+            <span class="badge active"><span class="pip"></span>Active</span>
+            <span class="badge done"><span class="pip"></span>Completed</span>
+            <span class="badge urgent"><span class="pip"></span>Urgent · 2 min</span>
+            <span class="badge pending"><span class="pip"></span>Pending</span>
+          </div>
+          <div class="lbl" style="margin-top:18px; color:var(--ink-3)">inline examples</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex; align-items:center; gap:8px; font-size:14px"><span>Пиццерия «Дюжина»</span><span class="badge active">open</span></div>
+            <div style="display:flex; align-items:center; gap:8px; font-size:14px"><span>Голосование #142</span><span class="badge done">closed</span></div>
+            <div style="display:flex; align-items:center; gap:8px; font-size:14px"><span>Заказ опаздывает</span><span class="badge urgent">late</span></div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 INPUTS -->
+  <section id="inputs">
+    <div class="sec-head">
+      <div class="sec-num">07 / 16</div>
+      <h2 class="sec-title">Inputs</h2>
+      <div class="sec-sub">text · search · stepper</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone"><div class="tg-body col" style="display:flex;flex-direction:column;gap:14px">
+          <div><div class="lbl" style="color:var(--ink-3)">text input</div>
+          <div class="input"><input placeholder="Название места" value="Pho & Roll" /></div></div>
+          <div><div class="lbl" style="color:var(--ink-3)">text · focus state</div>
+          <div class="input" style="border-color:var(--pri); box-shadow:0 0 0 3px color-mix(in oklab, var(--pri) 25%, transparent)"><input value="Pho & Roll" /><button class="clr" aria-label="clear"><svg width="10" height="10"><use href="#i-x"/></svg></button></div></div>
+          <div><div class="lbl" style="color:var(--ink-3)">search</div>
+          <div class="input"><span class="iic"><svg width="16" height="16"><use href="#i-search"/></svg></span><input placeholder="Поиск по ресторанам"/></div></div>
+          <div><div class="lbl" style="color:var(--ink-3)">number · stepper</div>
+          <div class="util-row"><div class="stepper"><button aria-label="decrease"><svg width="14" height="14"><use href="#i-minus"/></svg></button><span class="n">3</span><button aria-label="increase"><svg width="14" height="14"><use href="#i-plus"/></svg></button></div><span style="font-size:13px; color:var(--ink-2)">порций</span></div></div>
+        </div></div>
+      </div>
+      <div class="frame-wrap">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone"><div class="tg-body col" style="display:flex;flex-direction:column;gap:14px">
+          <div><div class="lbl" style="color:var(--ink-3)">text input</div>
+          <div class="input"><input placeholder="Название места" value="Pho & Roll" /></div></div>
+          <div><div class="lbl" style="color:var(--ink-3)">text · focus state</div>
+          <div class="input" style="border-color:var(--pri); box-shadow:0 0 0 3px color-mix(in oklab, var(--pri) 25%, transparent)"><input value="Pho & Roll" /><button class="clr" aria-label="clear"><svg width="10" height="10"><use href="#i-x"/></svg></button></div></div>
+          <div><div class="lbl" style="color:var(--ink-3)">search</div>
+          <div class="input"><span class="iic"><svg width="16" height="16"><use href="#i-search"/></svg></span><input placeholder="Поиск по ресторанам"/></div></div>
+          <div><div class="lbl" style="color:var(--ink-3)">number · stepper</div>
+          <div class="util-row"><div class="stepper"><button aria-label="decrease"><svg width="14" height="14"><use href="#i-minus"/></svg></button><span class="n">3</span><button aria-label="increase"><svg width="14" height="14"><use href="#i-plus"/></svg></button></div><span style="font-size:13px; color:var(--ink-2)">порций</span></div></div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 TABS + PROGRESS -->
+  <section id="navprog">
+    <div class="sec-head">
+      <div class="sec-num">08 / 16</div>
+      <h2 class="sec-title">Tabs · progress · shimmer</h2>
+      <div class="sec-sub">underline · 6px track</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone"><div class="tg-body">
+          <div class="tabs" style="margin-bottom:18px">
+            <div class="tab on"><svg width="16" height="16"><use href="#i-vote"/></svg><span>Vote</span></div>
+            <div class="tab"><svg width="16" height="16"><use href="#i-menu"/></svg><span>Menu</span></div>
+            <div class="tab"><svg width="16" height="16"><use href="#i-trend"/></svg><span>Stats</span></div>
+            <div class="tab"><svg width="16" height="16"><use href="#i-user"/></svg><span>Me</span></div>
+          </div>
+          <div class="lbl" style="color:var(--ink-3)">progress · 62%</div>
+          <div class="prg" style="margin-bottom:16px"><i></i></div>
+          <div class="lbl" style="color:var(--ink-3)">shimmer · skeleton</div>
+          <div class="prg shimmer"><i></i></div>
+        </div></div>
+      </div>
+      <div class="frame-wrap">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone"><div class="tg-body">
+          <div class="tabs" style="margin-bottom:18px">
+            <div class="tab on"><svg width="16" height="16"><use href="#i-vote"/></svg><span>Vote</span></div>
+            <div class="tab"><svg width="16" height="16"><use href="#i-menu"/></svg><span>Menu</span></div>
+            <div class="tab"><svg width="16" height="16"><use href="#i-trend"/></svg><span>Stats</span></div>
+            <div class="tab"><svg width="16" height="16"><use href="#i-user"/></svg><span>Me</span></div>
+          </div>
+          <div class="lbl" style="color:var(--ink-3)">progress · 62%</div>
+          <div class="prg" style="margin-bottom:16px"><i></i></div>
+          <div class="lbl" style="color:var(--ink-3)">shimmer · skeleton</div>
+          <div class="prg shimmer"><i></i></div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 09 BOTTOM SHEET + SKELETON -->
+  <section id="sheet">
+    <div class="sec-head">
+      <div class="sec-num">09 / 16</div>
+      <h2 class="sec-title">Bottom sheet · skeletons</h2>
+      <div class="sec-sub">16 radius · 36×4 grab</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone"><div class="tg-body">
+          <div class="lbl" style="color:var(--ink-3)">skeleton · list item</div>
+          <div style="display:flex;flex-direction:column;gap:14px; margin-bottom:18px">
+            <div style="display:flex; gap:12px; align-items:center">
+              <div class="sk circ"></div>
+              <div style="flex:1; display:flex;flex-direction:column;gap:6px"><div class="sk line w70"></div><div class="sk line w40"></div></div>
+            </div>
+            <div style="display:flex; gap:12px; align-items:center">
+              <div class="sk circ"></div>
+              <div style="flex:1; display:flex;flex-direction:column;gap:6px"><div class="sk line w70"></div><div class="sk line w40"></div></div>
+            </div>
+          </div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="st">Закончить голосование?</div>
+            <div class="sd">Проголосовало 6 из 9. Можно подождать или зафиксировать результат сейчас.</div>
+            <div class="sa">
+              <button class="btn secondary">Подождать</button>
+              <button class="btn primary">Закончить</button>
+            </div>
+          </div>
+        </div></div>
+      </div>
+      <div class="frame-wrap">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone"><div class="tg-body">
+          <div class="lbl" style="color:var(--ink-3)">skeleton · list item</div>
+          <div style="display:flex;flex-direction:column;gap:14px; margin-bottom:18px">
+            <div style="display:flex; gap:12px; align-items:center">
+              <div class="sk circ"></div>
+              <div style="flex:1; display:flex;flex-direction:column;gap:6px"><div class="sk line w70"></div><div class="sk line w40"></div></div>
+            </div>
+            <div style="display:flex; gap:12px; align-items:center">
+              <div class="sk circ"></div>
+              <div style="flex:1; display:flex;flex-direction:column;gap:6px"><div class="sk line w70"></div><div class="sk line w40"></div></div>
+            </div>
+          </div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="st">Закончить голосование?</div>
+            <div class="sd">Проголосовало 6 из 9. Можно подождать или зафиксировать результат сейчас.</div>
+            <div class="sa">
+              <button class="btn secondary">Подождать</button>
+              <button class="btn primary">Закончить</button>
+            </div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 EMPTY STATE -->
+  <section id="empty">
+    <div class="sec-head">
+      <div class="sec-num">10 / 16</div>
+      <h2 class="sec-title">Empty state</h2>
+      <div class="sec-sub">96 blob · CTA</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone"><div class="tg-body">
+          <div class="empty">
+            <div class="blob" style="background:var(--g-lav)">🍽</div>
+            <div class="et">Пока ни одного голосования</div>
+            <div class="es">Запустите первое и команда начнёт выбирать обед вместе. Это занимает 30 секунд.</div>
+            <button class="btn primary lg" style="margin-top:8px">Создать голосование</button>
+          </div>
+        </div></div>
+      </div>
+      <div class="frame-wrap">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone"><div class="tg-body">
+          <div class="empty">
+            <div class="blob" style="background:var(--g-lav)">🍽</div>
+            <div class="et">Пока ни одного голосования</div>
+            <div class="es">Запустите первое и команда начнёт выбирать обед вместе. Это занимает 30 секунд.</div>
+            <button class="btn primary lg" style="margin-top:8px">Создать голосование</button>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 HEADER + BOTTOM NAV + TOAST -->
+  <section id="chrome">
+    <div class="sec-head">
+      <div class="sec-num">11 / 16</div>
+      <h2 class="sec-title">Chrome · header · bottom nav · toasts</h2>
+      <div class="sec-sub">glass · safe-area</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone">
+          <div class="tg-hdr">
+            <div class="l">
+              <div class="bot">🚀</div>
+              <div><div class="ttl">Rocket Lunch</div><div class="sub">chat #142 · 9 people</div></div>
+            </div>
+            <div class="r">
+              <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-bell"/></svg></button>
+              <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-settings"/></svg></button>
+            </div>
+          </div>
+          <div class="tg-body" style="padding-top:18px; padding-bottom:12px">
+            <div class="col" style="display:flex; flex-direction:column; gap:8px; align-items:center">
+              <div class="toast success"><span class="tic"><svg width="11" height="11"><use href="#i-check"/></svg></span>Голос принят · лапша</div>
+              <div class="toast error"><span class="tic"><svg width="10" height="10"><use href="#i-x"/></svg></span>Не удалось отправить</div>
+              <div class="toast info"><span class="tic">i</span>Голосование закроется через 2 минуты</div>
+            </div>
+          </div>
+          <div class="bnav">
+            <div class="nb"><svg width="20" height="20"><use href="#i-home"/></svg><span>Home</span></div>
+            <div class="nb"><svg width="20" height="20"><use href="#i-menu"/></svg><span>Menu</span></div>
+            <div class="nb on"><svg width="20" height="20"><use href="#i-vote"/></svg><span>Vote</span></div>
+            <div class="nb"><svg width="20" height="20"><use href="#i-trend"/></svg><span>Stats</span></div>
+            <div class="nb"><svg width="20" height="20"><use href="#i-user"/></svg><span>Me</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone">
+          <div class="tg-hdr">
+            <div class="l">
+              <div class="bot">🚀</div>
+              <div><div class="ttl">Rocket Lunch</div><div class="sub">chat #142 · 9 people</div></div>
+            </div>
+            <div class="r">
+              <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-bell"/></svg></button>
+              <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-settings"/></svg></button>
+            </div>
+          </div>
+          <div class="tg-body" style="padding-top:18px; padding-bottom:12px">
+            <div class="col" style="display:flex; flex-direction:column; gap:8px; align-items:center">
+              <div class="toast success"><span class="tic"><svg width="11" height="11"><use href="#i-check"/></svg></span>Голос принят · лапша</div>
+              <div class="toast error"><span class="tic"><svg width="10" height="10"><use href="#i-x"/></svg></span>Не удалось отправить</div>
+              <div class="toast info"><span class="tic">i</span>Голосование закроется через 2 минуты</div>
+            </div>
+          </div>
+          <div class="bnav">
+            <div class="nb"><svg width="20" height="20"><use href="#i-home"/></svg><span>Home</span></div>
+            <div class="nb"><svg width="20" height="20"><use href="#i-menu"/></svg><span>Menu</span></div>
+            <div class="nb on"><svg width="20" height="20"><use href="#i-vote"/></svg><span>Vote</span></div>
+            <div class="nb"><svg width="20" height="20"><use href="#i-trend"/></svg><span>Stats</span></div>
+            <div class="nb"><svg width="20" height="20"><use href="#i-user"/></svg><span>Me</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 SAMPLE SCREEN -->
+  <section id="sample" class="sample">
+    <div class="sec-head">
+      <div class="sec-num">12 / 16</div>
+      <h2 class="sec-title">Full chrome · sample screen</h2>
+      <div class="sec-sub">header + scroll + bottom nav</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark · assembled</span>
+        <div class="tg dark phone" style="position:relative">
+          <div class="tg-status">
+            <span>9:41</span>
+            <span class="icons">
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><rect x="0" y="4" width="2" height="6" rx="0.5"/><rect x="4" y="2" width="2" height="8" rx="0.5"/><rect x="8" y="0" width="2" height="10" rx="0.5"/><rect x="12" y="0" width="2" height="10" rx="0.5" opacity="0.4"/></svg>
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 5c2-3 10-3 12 0M3 7c1.3-1.5 6.7-1.5 8 0"/><circle cx="7" cy="9" r="0.8" fill="currentColor"/></svg>
+              <svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="18" height="9" rx="2"/><rect x="2" y="2" width="14" height="6" rx="1" fill="currentColor"/><rect x="19.5" y="3" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="tg-hdr">
+            <div class="l">
+              <div class="bot">🚀</div>
+              <div><div class="ttl">Today's lunch</div><div class="sub">closes in 04:12</div></div>
+            </div>
+            <div class="r">
+              <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-bell"/></svg></button>
+              <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-settings"/></svg></button>
+            </div>
+          </div>
+          <div class="sample-content">
+            <div class="hero-card">
+              <div class="eyebrow">vote · #142</div>
+              <div class="ttl">Что едим в 13:00?</div>
+              <div class="sub">Выбрал 6 из 9 человек. Лидирует вьетнамский суп.</div>
+              <div class="row">
+                <span class="chip">🍜 лидер</span>
+                <span class="chip">3 варианта</span>
+                <span class="chip">⏱ 04:12</span>
+              </div>
+            </div>
+
+            <div class="vote-item">
+              <div class="ph">🍜</div>
+              <div class="info">
+                <div class="n">Фо Бо · Pho &amp; Roll</div>
+                <div class="m">550₽ · 25 min · 4 votes</div>
+              </div>
+              <div class="vt"><svg width="14" height="14"><use href="#i-fire"/></svg>44%</div>
+            </div>
+            <div class="vote-item">
+              <div class="ph" style="background:var(--g-rose)">🍕</div>
+              <div class="info">
+                <div class="n">Пицца «Дюжина»</div>
+                <div class="m">640₽ · 35 min · 2 votes</div>
+              </div>
+              <div class="vt" style="color:var(--ink-2)">22%</div>
+            </div>
+            <div class="vote-item">
+              <div class="ph" style="background:var(--g-lav)">🥗</div>
+              <div class="info">
+                <div class="n">Поке-боул · FishBowl</div>
+                <div class="m">480₽ · 20 min · 0 votes</div>
+              </div>
+              <div class="vt" style="color:var(--ink-3)">0%</div>
+            </div>
+            <button class="btn secondary" style="justify-content:flex-start; gap:10px"><svg width="16" height="16"><use href="#i-plus"/></svg>Добавить вариант</button>
+          </div>
+          <div class="bnav-wrap">
+            <div class="bnav">
+              <div class="nb"><svg width="20" height="20"><use href="#i-home"/></svg><span>Home</span></div>
+              <div class="nb"><svg width="20" height="20"><use href="#i-menu"/></svg><span>Menu</span></div>
+              <div class="nb on"><svg width="20" height="20"><use href="#i-vote"/></svg><span>Vote</span></div>
+              <div class="nb"><svg width="20" height="20"><use href="#i-trend"/></svg><span>Stats</span></div>
+              <div class="nb"><svg width="20" height="20"><use href="#i-user"/></svg><span>Me</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <span class="frame-tag light">light · assembled</span>
+        <div class="tg light phone" style="position:relative">
+          <div class="tg-status">
+            <span>9:41</span>
+            <span class="icons">
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><rect x="0" y="4" width="2" height="6" rx="0.5"/><rect x="4" y="2" width="2" height="8" rx="0.5"/><rect x="8" y="0" width="2" height="10" rx="0.5"/><rect x="12" y="0" width="2" height="10" rx="0.5" opacity="0.4"/></svg>
+              <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 5c2-3 10-3 12 0M3 7c1.3-1.5 6.7-1.5 8 0"/><circle cx="7" cy="9" r="0.8" fill="currentColor"/></svg>
+              <svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="18" height="9" rx="2"/><rect x="2" y="2" width="14" height="6" rx="1" fill="currentColor"/><rect x="19.5" y="3" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="tg-hdr">
+            <div class="l">
+              <div class="bot">🚀</div>
+              <div><div class="ttl">Today's lunch</div><div class="sub">closes in 04:12</div></div>
+            </div>
+            <div class="r">
+              <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-bell"/></svg></button>
+              <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-settings"/></svg></button>
+            </div>
+          </div>
+          <div class="sample-content">
+            <div class="hero-card">
+              <div class="eyebrow">vote · #142</div>
+              <div class="ttl">Что едим в 13:00?</div>
+              <div class="sub">Выбрал 6 из 9 человек. Лидирует вьетнамский суп.</div>
+              <div class="row">
+                <span class="chip">🍜 лидер</span>
+                <span class="chip">3 варианта</span>
+                <span class="chip">⏱ 04:12</span>
+              </div>
+            </div>
+
+            <div class="vote-item">
+              <div class="ph">🍜</div>
+              <div class="info">
+                <div class="n">Фо Бо · Pho &amp; Roll</div>
+                <div class="m">550₽ · 25 min · 4 votes</div>
+              </div>
+              <div class="vt"><svg width="14" height="14"><use href="#i-fire"/></svg>44%</div>
+            </div>
+            <div class="vote-item">
+              <div class="ph" style="background:var(--g-rose)">🍕</div>
+              <div class="info">
+                <div class="n">Пицца «Дюжина»</div>
+                <div class="m">640₽ · 35 min · 2 votes</div>
+              </div>
+              <div class="vt" style="color:var(--ink-2)">22%</div>
+            </div>
+            <div class="vote-item">
+              <div class="ph" style="background:var(--g-lav)">🥗</div>
+              <div class="info">
+                <div class="n">Поке-боул · FishBowl</div>
+                <div class="m">480₽ · 20 min · 0 votes</div>
+              </div>
+              <div class="vt" style="color:var(--ink-3)">0%</div>
+            </div>
+            <button class="btn secondary" style="justify-content:flex-start; gap:10px"><svg width="16" height="16"><use href="#i-plus"/></svg>Добавить вариант</button>
+          </div>
+          <div class="bnav-wrap">
+            <div class="bnav">
+              <div class="nb"><svg width="20" height="20"><use href="#i-home"/></svg><span>Home</span></div>
+              <div class="nb"><svg width="20" height="20"><use href="#i-menu"/></svg><span>Menu</span></div>
+              <div class="nb on"><svg width="20" height="20"><use href="#i-vote"/></svg><span>Vote</span></div>
+              <div class="nb"><svg width="20" height="20"><use href="#i-trend"/></svg><span>Stats</span></div>
+              <div class="nb"><svg width="20" height="20"><use href="#i-user"/></svg><span>Me</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13 DESTRUCTIVE BUTTON -->
+  <section id="destructive">
+    <div class="sec-head">
+      <div class="sec-num">13 / 16</div>
+      <h2 class="sec-title">Destructive button · full matrix</h2>
+      <div class="sec-sub">coral-500 · sizes · states</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone"><div class="tg-body">
+          <div class="lbl" style="color:var(--ink-3)">sizes</div>
+          <div class="row" style="margin-bottom:14px">
+            <button class="btn danger sm">sm · End</button>
+            <button class="btn danger">md · End vote</button>
+            <button class="btn danger lg">lg · Отменить заказ</button>
+          </div>
+          <div class="lbl" style="color:var(--ink-3)">states</div>
+          <div class="row" style="gap:8px">
+            <button class="btn danger">default</button>
+            <button class="btn danger" style="filter:brightness(1.08)">hover</button>
+            <button class="btn danger" style="transform:scale(0.96); box-shadow:0 2px 6px rgba(229,90,79,0.4)">pressed</button>
+            <button class="btn danger" disabled>disabled</button>
+            <button class="btn danger loading"><span class="spinner"></span>loading</button>
+          </div>
+          <div class="lbl" style="color:var(--ink-3); margin-top:14px">in context</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px; background:var(--surface); border:1px solid var(--line); border-radius:12px">
+            <div>
+              <div style="font-size:14px; font-weight:600">Удалить голосование #142?</div>
+              <div style="font-size:11px; color:var(--ink-2); margin-top:2px">Это действие необратимо</div>
+            </div>
+            <button class="btn danger sm">Удалить</button>
+          </div>
+        </div></div>
+      </div>
+      <div class="frame-wrap">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone"><div class="tg-body">
+          <div class="lbl" style="color:var(--ink-3)">sizes</div>
+          <div class="row" style="margin-bottom:14px">
+            <button class="btn danger sm">sm · End</button>
+            <button class="btn danger">md · End vote</button>
+            <button class="btn danger lg">lg · Отменить заказ</button>
+          </div>
+          <div class="lbl" style="color:var(--ink-3)">states</div>
+          <div class="row" style="gap:8px">
+            <button class="btn danger">default</button>
+            <button class="btn danger" style="filter:brightness(1.05)">hover</button>
+            <button class="btn danger" style="transform:scale(0.96)">pressed</button>
+            <button class="btn danger" disabled>disabled</button>
+            <button class="btn danger loading"><span class="spinner"></span>loading</button>
+          </div>
+          <div class="lbl" style="color:var(--ink-3); margin-top:14px">in context</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px; background:var(--surface); border:1px solid var(--line); border-radius:12px">
+            <div>
+              <div style="font-size:14px; font-weight:600">Удалить голосование #142?</div>
+              <div style="font-size:11px; color:var(--ink-2); margin-top:2px">Это действие необратимо</div>
+            </div>
+            <button class="btn danger sm">Удалить</button>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <div class="anno">
+      <div><b>fill</b> coral-500 #E55A4F · dark uses coral-400</div>
+      <div><b>press</b> scale(0.96) · shadow collapses</div>
+      <div><b>ink</b> white on light · dark-coral on dark</div>
+      <div><b>pair with</b> secondary "Cancel" at 1:1 width</div>
+    </div>
+  </section>
+
+  <!-- 14 TOP HEADER ISOLATED -->
+  <section id="header-iso">
+    <div class="sec-head">
+      <div class="sec-num">14 / 16</div>
+      <h2 class="sec-title">Top header — isolated</h2>
+      <div class="sec-sub">56px · glass · notif dot</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone">
+          <div class="tg-hdr">
+            <div class="l">
+              <div class="bot">🚀</div>
+              <div><div class="ttl" style="font-size:17px">Rocket Lunch</div><div class="sub">chat #142 · 9 people</div></div>
+            </div>
+            <div class="r">
+              <button class="tg-ico-btn" style="position:relative">
+                <svg width="18" height="18"><use href="#i-bell"/></svg>
+                <span style="position:absolute; top:7px; right:8px; width:8px; height:8px; border-radius:999px; background:var(--coral-400); border:2px solid var(--surface-2)"></span>
+              </button>
+              <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-settings"/></svg></button>
+            </div>
+          </div>
+          <div class="tg-body" style="padding-top:24px">
+            <div class="lbl" style="color:var(--ink-3)">scrolled state (elevation bumps)</div>
+            <div class="tg-hdr" style="border-radius:0; box-shadow:0 4px 16px rgba(0,0,0,0.3); margin:0 -16px">
+              <div class="l">
+                <div class="bot">🚀</div>
+                <div><div class="ttl" style="font-size:17px">Rocket Lunch</div><div class="sub">scrolled · 68% opacity</div></div>
+              </div>
+              <div class="r">
+                <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-bell"/></svg></button>
+                <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-settings"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone">
+          <div class="tg-hdr">
+            <div class="l">
+              <div class="bot">🚀</div>
+              <div><div class="ttl" style="font-size:17px">Rocket Lunch</div><div class="sub">chat #142 · 9 people</div></div>
+            </div>
+            <div class="r">
+              <button class="tg-ico-btn" style="position:relative">
+                <svg width="18" height="18"><use href="#i-bell"/></svg>
+                <span style="position:absolute; top:7px; right:8px; width:8px; height:8px; border-radius:999px; background:var(--coral-500); border:2px solid var(--surface)"></span>
+              </button>
+              <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-settings"/></svg></button>
+            </div>
+          </div>
+          <div class="tg-body" style="padding-top:24px">
+            <div class="lbl" style="color:var(--ink-3)">scrolled state (elevation bumps)</div>
+            <div class="tg-hdr" style="border-radius:0; box-shadow:0 4px 16px rgba(0,0,0,0.08); margin:0 -16px">
+              <div class="l">
+                <div class="bot">🚀</div>
+                <div><div class="ttl" style="font-size:17px">Rocket Lunch</div><div class="sub">scrolled · 68% opacity</div></div>
+              </div>
+              <div class="r">
+                <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-bell"/></svg></button>
+                <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-settings"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="anno">
+      <div><b>height</b> 56px</div>
+      <div><b>bg</b> surface @ 70% + backdrop-blur(20)</div>
+      <div><b>mark</b> 30×30 · radius 9 · peach gradient</div>
+      <div><b>notif dot</b> 8×8 · 2px ring of surface</div>
+    </div>
+  </section>
+
+  <!-- 15 BOTTOM NAV ISOLATED -->
+  <section id="bnav-iso">
+    <div class="sec-head">
+      <div class="sec-num">15 / 16</div>
+      <h2 class="sec-title">Bottom navigation — isolated</h2>
+      <div class="sec-sub">72px · glass · peach-soft pill</div>
+    </div>
+    <div class="split">
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark</span>
+        <div class="tg dark phone">
+          <div class="tg-body" style="min-height:120px; display:flex; align-items:center; justify-content:center; color:var(--ink-3); font-family:var(--mono); font-size:11px">
+            · content region ·
+          </div>
+          <div class="bnav" style="padding-bottom:20px; min-height:72px">
+            <div class="nb"><svg width="22" height="22"><use href="#i-home"/></svg><span>Home</span></div>
+            <div class="nb"><svg width="22" height="22"><use href="#i-menu"/></svg><span>Menu</span></div>
+            <div class="nb on"><svg width="22" height="22"><use href="#i-vote"/></svg><span>Vote</span></div>
+            <div class="nb"><svg width="22" height="22"><use href="#i-trend"/></svg><span>Stats</span></div>
+            <div class="nb"><svg width="22" height="22"><use href="#i-user"/></svg><span>Profile</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <span class="frame-tag light">light</span>
+        <div class="tg light phone">
+          <div class="tg-body" style="min-height:120px; display:flex; align-items:center; justify-content:center; color:var(--ink-3); font-family:var(--mono); font-size:11px">
+            · content region ·
+          </div>
+          <div class="bnav" style="padding-bottom:20px; min-height:72px">
+            <div class="nb"><svg width="22" height="22"><use href="#i-home"/></svg><span>Home</span></div>
+            <div class="nb"><svg width="22" height="22"><use href="#i-menu"/></svg><span>Menu</span></div>
+            <div class="nb on"><svg width="22" height="22"><use href="#i-vote"/></svg><span>Vote</span></div>
+            <div class="nb"><svg width="22" height="22"><use href="#i-trend"/></svg><span>Stats</span></div>
+            <div class="nb"><svg width="22" height="22"><use href="#i-user"/></svg><span>Profile</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="anno">
+      <div><b>height</b> 72px + safe-area (20px bottom)</div>
+      <div><b>bg</b> surface @ 60% + backdrop-blur(24)</div>
+      <div><b>icons</b> lucide · home · utensils · check-square · trending-up · user</div>
+      <div><b>active</b> peach pill + dark ink · inactive: ink-2</div>
+    </div>
+  </section>
+
+  <!-- 16 FULL SCREEN STACK -->
+  <section id="fullscreen">
+    <div class="sec-head">
+      <div class="sec-num">16 / 16</div>
+      <h2 class="sec-title">Full screen stack · 375 × 812</h2>
+      <div class="sec-sub">header → scroll → bnav</div>
+    </div>
+    <div class="split">
+      <!-- DARK -->
+      <div class="frame-wrap">
+        <span class="frame-tag dark">dark · 375 × 812</span>
+        <div style="position:relative; max-width:375px; margin:0 auto">
+          <div class="tg dark phone" style="min-height:812px; display:flex; flex-direction:column">
+            <!-- region: header -->
+            <div style="position:relative">
+              <div class="tg-status">
+                <span>9:41</span>
+                <span class="icons">
+                  <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><rect x="0" y="4" width="2" height="6" rx="0.5"/><rect x="4" y="2" width="2" height="8" rx="0.5"/><rect x="8" y="0" width="2" height="10" rx="0.5"/><rect x="12" y="0" width="2" height="10" rx="0.5" opacity="0.4"/></svg>
+                  <svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="18" height="9" rx="2"/><rect x="2" y="2" width="14" height="6" rx="1" fill="currentColor"/><rect x="19.5" y="3" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+                </span>
+              </div>
+              <div class="tg-hdr">
+                <div class="l">
+                  <div class="bot">🚀</div>
+                  <div><div class="ttl">Rocket Lunch</div><div class="sub">chat #142 · 9 people</div></div>
+                </div>
+                <div class="r">
+                  <button class="tg-ico-btn" style="position:relative">
+                    <svg width="18" height="18"><use href="#i-bell"/></svg>
+                    <span style="position:absolute; top:7px; right:8px; width:8px; height:8px; border-radius:999px; background:var(--coral-400); border:2px solid var(--surface-2)"></span>
+                  </button>
+                  <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-settings"/></svg></button>
+                </div>
+              </div>
+              <span style="position:absolute; right:10px; top:36px; font-family:var(--mono); font-size:9px; color:var(--ink-3); letter-spacing:0.08em">← HEADER · 56</span>
+            </div>
+            <!-- region: scroll -->
+            <div style="flex:1; padding:16px; display:flex; flex-direction:column; gap:12px; position:relative">
+              <span style="position:absolute; right:10px; top:4px; font-family:var(--mono); font-size:9px; color:var(--ink-3); letter-spacing:0.08em">SCROLL →</span>
+              <div class="card pastel">
+                <div class="ch">
+                  <div class="ic" style="background:rgba(255,255,255,0.5)">🍜</div>
+                  <div><div class="tt">Голосование дня</div><div class="cs">до 12:30 · 6 / 9 проголосовали</div></div>
+                </div>
+                <div class="cb">Лидирует вьетнамский суп. У вас есть 4 минуты, чтобы добавить вариант.</div>
+                <div class="cf"><span>vote · #142</span><span>⏱ 04:12</span></div>
+              </div>
+              <div class="card pastel lav">
+                <div class="ch">
+                  <div class="ic" style="background:rgba(255,255,255,0.5)">📈</div>
+                  <div><div class="tt">На этой неделе</div><div class="cs">команда съела 37 блюд</div></div>
+                </div>
+                <div class="cb">Роллы лидируют — 4 раза. Пельмени набрали меньше всех голосов.</div>
+              </div>
+            </div>
+            <!-- region: bnav -->
+            <div style="position:relative">
+              <span style="position:absolute; right:10px; top:-14px; font-family:var(--mono); font-size:9px; color:var(--ink-3); letter-spacing:0.08em">BOTTOM NAV · 72 + safe →</span>
+              <div class="bnav" style="padding-bottom:20px; min-height:72px">
+                <div class="nb"><svg width="22" height="22"><use href="#i-home"/></svg><span>Home</span></div>
+                <div class="nb"><svg width="22" height="22"><use href="#i-menu"/></svg><span>Menu</span></div>
+                <div class="nb on"><svg width="22" height="22"><use href="#i-vote"/></svg><span>Vote</span></div>
+                <div class="nb"><svg width="22" height="22"><use href="#i-trend"/></svg><span>Stats</span></div>
+                <div class="nb"><svg width="22" height="22"><use href="#i-user"/></svg><span>Profile</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIGHT -->
+      <div class="frame-wrap">
+        <span class="frame-tag light">light · 375 × 812</span>
+        <div style="position:relative; max-width:375px; margin:0 auto">
+          <div class="tg light phone" style="min-height:812px; display:flex; flex-direction:column">
+            <div style="position:relative">
+              <div class="tg-status">
+                <span>9:41</span>
+                <span class="icons">
+                  <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><rect x="0" y="4" width="2" height="6" rx="0.5"/><rect x="4" y="2" width="2" height="8" rx="0.5"/><rect x="8" y="0" width="2" height="10" rx="0.5"/><rect x="12" y="0" width="2" height="10" rx="0.5" opacity="0.4"/></svg>
+                  <svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="18" height="9" rx="2"/><rect x="2" y="2" width="14" height="6" rx="1" fill="currentColor"/><rect x="19.5" y="3" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+                </span>
+              </div>
+              <div class="tg-hdr">
+                <div class="l">
+                  <div class="bot">🚀</div>
+                  <div><div class="ttl">Rocket Lunch</div><div class="sub">chat #142 · 9 people</div></div>
+                </div>
+                <div class="r">
+                  <button class="tg-ico-btn" style="position:relative">
+                    <svg width="18" height="18"><use href="#i-bell"/></svg>
+                    <span style="position:absolute; top:7px; right:8px; width:8px; height:8px; border-radius:999px; background:var(--coral-500); border:2px solid var(--surface)"></span>
+                  </button>
+                  <button class="tg-ico-btn"><svg width="18" height="18"><use href="#i-settings"/></svg></button>
+                </div>
+              </div>
+              <span style="position:absolute; right:10px; top:36px; font-family:var(--mono); font-size:9px; color:var(--ink-3); letter-spacing:0.08em">← HEADER · 56</span>
+            </div>
+            <div style="flex:1; padding:16px; display:flex; flex-direction:column; gap:12px; position:relative">
+              <span style="position:absolute; right:10px; top:4px; font-family:var(--mono); font-size:9px; color:var(--ink-3); letter-spacing:0.08em">SCROLL →</span>
+              <div class="card pastel">
+                <div class="ch">
+                  <div class="ic" style="background:rgba(255,255,255,0.5)">🍜</div>
+                  <div><div class="tt">Голосование дня</div><div class="cs">до 12:30 · 6 / 9 проголосовали</div></div>
+                </div>
+                <div class="cb">Лидирует вьетнамский суп. У вас есть 4 минуты, чтобы добавить вариант.</div>
+                <div class="cf"><span>vote · #142</span><span>⏱ 04:12</span></div>
+              </div>
+              <div class="card pastel lav">
+                <div class="ch">
+                  <div class="ic" style="background:rgba(255,255,255,0.5)">📈</div>
+                  <div><div class="tt">На этой неделе</div><div class="cs">команда съела 37 блюд</div></div>
+                </div>
+                <div class="cb">Роллы лидируют — 4 раза. Пельмени набрали меньше всех голосов.</div>
+              </div>
+            </div>
+            <div style="position:relative">
+              <span style="position:absolute; right:10px; top:-14px; font-family:var(--mono); font-size:9px; color:var(--ink-3); letter-spacing:0.08em">BOTTOM NAV · 72 + safe →</span>
+              <div class="bnav" style="padding-bottom:20px; min-height:72px">
+                <div class="nb"><svg width="22" height="22"><use href="#i-home"/></svg><span>Home</span></div>
+                <div class="nb"><svg width="22" height="22"><use href="#i-menu"/></svg><span>Menu</span></div>
+                <div class="nb on"><svg width="22" height="22"><use href="#i-vote"/></svg><span>Vote</span></div>
+                <div class="nb"><svg width="22" height="22"><use href="#i-trend"/></svg><span>Stats</span></div>
+                <div class="nb"><svg width="22" height="22"><use href="#i-user"/></svg><span>Profile</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="page-foot">
+  <div>rocket-lunch · design-system · 16 sections · original work</div>
+  <div>made for telegram mini app · 375 max 430</div>
+</footer>
+
+<script>
+  // Theme toggle: hides one side at a time. Both by default.
+  const buttons = document.querySelectorAll('.theme-toggle button');
+  const root = document.documentElement;
+  function apply(mode){
+    document.querySelectorAll('.frame-wrap').forEach(el=>{
+      const isDark = el.querySelector('.frame-tag.dark');
+      const isLight = el.querySelector('.frame-tag.light');
+      if(mode==='both'){ el.style.display=''; }
+      else if(mode==='dark'){ el.style.display = isDark ? '' : 'none'; }
+      else if(mode==='light'){ el.style.display = isLight ? '' : 'none'; }
+    });
+    // When showing single mode, let the remaining frame span the full width
+    document.querySelectorAll('.split').forEach(s=>{
+      s.style.gridTemplateColumns = (mode==='both') ? '' : '1fr';
+      s.style.maxWidth = (mode==='both') ? '' : '420px';
+      s.style.margin = (mode==='both') ? '' : '0 auto';
+    });
+  }
+  buttons.forEach(b=>b.addEventListener('click',()=>{
+    buttons.forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    apply(b.dataset.mode);
+  }));
+</script>
+</body>
+</html>

@@ -8,6 +8,7 @@ import { createApiServer, startApiServer } from './api/server';
 import { initializePollServiceBot } from './services/poll.service.extensions';
 import { feedbackService } from './services/feedback.service';
 import { runSecurityChecks } from './utils/security-checks';
+import { initDebtReminderJob } from './jobs/debt-reminder.job';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -28,6 +29,9 @@ initializePollServiceBot(bot);
 
 // Инициализация FeedbackService с экземпляром бота
 feedbackService.initialize(bot);
+
+// Инициализация cron job для автоматических напоминаний о долгах
+initDebtReminderJob();
 
 // Graceful shutdown
 process.on('SIGINT', async () => {

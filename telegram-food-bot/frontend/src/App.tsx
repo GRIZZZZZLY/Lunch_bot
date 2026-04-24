@@ -1,9 +1,17 @@
-import { useState, useEffect, lazy, Suspense, startTransition } from 'react';
+import { useEffect, useMemo, lazy, Suspense } from 'react';
+import type { ComponentType } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { QueryClientProvider } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { queryClient, persister, cacheUtils } from './lib/queryClient';
+import { queryClient, persister } from './lib/queryClient';
+
+// Lazy load React Query Devtools only in development
+const ReactQueryDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import('@tanstack/react-query-devtools').then((m) => ({
+        default: m.ReactQueryDevtools,
+      }))
+    )
+  : null;
 import { initCache } from './lib/cacheUtils';
 import { ErrorBoundary } from './lib/sentry';
 import { Toaster } from 'sonner';
@@ -18,8 +26,7 @@ import { useOnboarding } from './hooks/useOnboarding';
 import { AuthProvider } from './hooks/useAuth';
 import { useAppStore } from './store/useAppStore';
 import { WebVitals, PerformanceMonitor } from './components/performance/WebVitals';
-import { HomePage } from './pages/HomePage';
-import { StatsPage } from './pages/StatsPage';
+import { ToastProvider } from './components/common/ToastManager';
 
 const isChunkLoadError = (error: unknown): boolean => {
   if (!error) return false;
@@ -55,8 +62,8 @@ const tryRecoverChunkLoad = async () => {
 };
 
 // ✅ ИСПРАВЛЕНО: Lazy load с обработкой ошибок
-const createLazyComponent = <T extends React.ComponentType<any>>(
-  importFn: () => Promise<{ [key: string]: T }>,
+const createLazyComponent = <T extends ComponentType<unknown>>(
+  importFn: () => Promise<Record<string, T>>,
   exportName: string
 ) => {
   return lazy(() =>
@@ -88,6 +95,10 @@ const createLazyComponent = <T extends React.ComponentType<any>>(
   );
 };
 
+// ✅ ОПТИМИЗАЦИЯ: Lazy load для HomePage и StatsPage (было синхронно)
+const HomePage = createLazyComponent(() => import('./pages/HomePage'), 'HomePage');
+const StatsPage = createLazyComponent(() => import('./pages/StatsPage'), 'StatsPage');
+
 const MenuPage = createLazyComponent(() => import('./pages/MenuPage'), 'MenuPage');
 // VotingPage УДАЛЁН - функционал перенесён в InlineVotingCard на главной странице
 const PollHistoryPage = createLazyComponent(() => import('./pages/PollHistoryPage'), 'PollHistoryPage');
@@ -98,16 +109,7 @@ const SuggestionsPage = createLazyComponent(() => import('./pages/SuggestionsPag
 const MySuggestionsPage = createLazyComponent(() => import('./pages/MySuggestionsPage'), 'MySuggestionsPage');
 const UserStatsPage = createLazyComponent(() => import('./pages/UserStatsPage'), 'UserStatsPage');
 
-// Dev/Debug pages - удалены из сборки, так как вызывают ошибки импортов
-// Если нужны, исправьте импорты в __dev__ файлах на относительные пути с ../../
-// const HomePageDiagnostic = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/HomePageDiagnostic').then(module => ({ default: module.HomePageDiagnostic }))) : null;
-// const HomePageSimple = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/HomePageSimple').then(module => ({ default: module.HomePageSimple }))) : null;
-// const TestIconsPage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/TestIconsPage').then(module => ({ default: module.TestIconsPage }))) : null;
-// const ColorDemoPage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/ColorDemoPage').then(module => ({ default: module.ColorDemoPage }))) : null;
-// const ColorTestPage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/ColorTestPage').then(module => ({ default: module.ColorTestPage }))) : null;
-// const DebugHomePage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/DebugHomePage').then(module => ({ default: module.DebugHomePage }))) : null;
-// const SimpleHomePage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/SimpleHomePage').then(module => ({ default: module.SimpleHomePage }))) : null;
-// const TestPage = import.meta.env.DEV ? lazy(() => import('./pages/__dev__/TestPage').then(module => ({ default: module.TestPage }))) : null;
+
 
 function AppContent() {
   const location = useLocation();
@@ -138,6 +140,20 @@ function AppContent() {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+    }
+
+    // Синхронизируем цвета шапки/фона Telegram Mini App с темой проекта
+    // Цвета совпадают с --background из styles/globals.css
+    const bgColor = theme === 'dark' ? '#161c26' : '#f4f0ea';
+    const tgWebApp = typeof window !== 'undefined' ? window.Telegram?.WebApp : undefined;
+    if (tgWebApp) {
+      try {
+        tgWebApp.setHeaderColor?.(bgColor);
+        tgWebApp.setBackgroundColor?.(bgColor);
+        tgWebApp.setBottomBarColor?.(bgColor);
+      } catch {
+        // Старые версии Telegram могут не поддерживать — игнорируем
+      }
     }
   }, [theme]);
 
@@ -256,15 +272,7 @@ function AppContent() {
               {/* User Suggestions Route */}
               <Route path="/my-suggestions" element={<MySuggestionsPage />} />
 
-              {/* Dev/Debug Routes - закомментированы, так как компоненты не используются */}
-              {/* {import.meta.env.DEV && HomePageSimple && <Route path="/debug-simple" element={<HomePageSimple />} />}
-              {import.meta.env.DEV && HomePageDiagnostic && <Route path="/debug-diagnostic" element={<HomePageDiagnostic />} />}
-              {import.meta.env.DEV && DebugHomePage && <Route path="/debug" element={<DebugHomePage />} />}
-              {import.meta.env.DEV && TestIconsPage && <Route path="/test-icons" element={<TestIconsPage />} />}
-              {import.meta.env.DEV && ColorDemoPage && <Route path="/color-demo" element={<ColorDemoPage />} />}
-              {import.meta.env.DEV && ColorTestPage && <Route path="/color-test" element={<ColorTestPage />} />}
-              {import.meta.env.DEV && TestPage && <Route path="/test" element={<TestPage />} />}
-              {import.meta.env.DEV && SimpleHomePage && <Route path="/simple" element={<SimpleHomePage />} />} */}
+
             </Routes>
           </Suspense>
         </div>
@@ -278,49 +286,68 @@ function AppContent() {
 }
 
 function App() {
+  const persistOptions = useMemo(
+    () => ({ persister, maxAge: 24 * 60 * 60 * 1000 }),
+    []
+  );
+
   return (
-    <ErrorBoundary
-      fallback={({ error, resetError }) => (
-        <div style={{ padding: '20px', textAlign: 'center' }}>
-          <h2>⚠️ Что-то пошло не так</h2>
-          <p>{error && typeof error === 'object' && 'message' in error ? String((error as any).message) : 'Произошла ошибка'}</p>
-          <button onClick={resetError}>Попробовать снова</button>
-        </div>
-      )}
-      showDialog={false}
-    >
+      <ErrorBoundary
+        fallback={({ error, componentStack, resetError }) => (
+          <div style={{ padding: '20px', textAlign: 'center' }}>
+            <h2>⚠️ Что-то пошло не так</h2>
+            <p>{error instanceof Error ? error.message : 'Произошла ошибка'}</p>
+            {componentStack ? (
+              <pre
+                style={{
+                  marginTop: 12,
+                  textAlign: 'left',
+                  whiteSpace: 'pre-wrap',
+                  fontSize: 12,
+                  color: '#666',
+                }}
+              >
+                {componentStack}
+              </pre>
+            ) : null}
+            <button onClick={resetError}>Попробовать снова</button>
+          </div>
+        )}
+        showDialog={false}
+      >
       <PersistQueryClientProvider 
         client={queryClient}
-        persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000 }} // 24 hours
+        persistOptions={persistOptions} // 24 hours
       >
         <AuthProvider>
-          <BrowserRouter
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true,
-            }}
-          >
-            <Toaster 
-              position="top-center" 
-              richColors 
-              closeButton 
-              icons={{
-                success: undefined,
-                error: undefined,
-                warning: undefined,
-                info: undefined,
-              }}
-            />
-            <NavigationProgress />
-            <OfflineIndicator />
-            <PWAUpdatePrompt />
-            <WebVitals />
-            <PerformanceMonitor />
-            <AppContent />
-          </BrowserRouter>
+          <ToastProvider>
+            <BrowserRouter>
+              <Toaster 
+                position="top-center" 
+                richColors 
+                closeButton 
+                icons={{
+                  success: undefined,
+                  error: undefined,
+                  warning: undefined,
+                  info: undefined,
+                }}
+              />
+              <NavigationProgress />
+              <OfflineIndicator />
+              <PWAUpdatePrompt />
+              <WebVitals />
+              <PerformanceMonitor />
+              <AppContent />
+            </BrowserRouter>
+          </ToastProvider>
         </AuthProvider>
-        {/* ✅ ИСПРАВЛЕНО: React Query Devtools включены в dev режиме */}
-        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+        {/* ✅ ИСПРАВЛЕНО: React Query Devtools включены в dev режиме (lazy loaded) */}
+        {import.meta.env.DEV && ReactQueryDevtools && (
+          <Suspense fallback={null}>
+            <ReactQueryDevtools initialIsOpen={false} />
+          </Suspense>
+        )}
       </PersistQueryClientProvider>
     </ErrorBoundary>
   );

@@ -7,13 +7,13 @@ import { RouletteService } from './roulette.service';
 import { GamificationService } from './gamification.service';
 import { getXPReward } from '../constants/xp-constants';
 import { now, addMinutesToDate, getTimestamp } from '../utils/date';
+import { toNumber, multiply } from '../utils/decimal';
+import { getBotInstance } from '../bot/bot-instance';
 
-let botInstance: any = null;
+/** @deprecated No-op: bot is now accessed via the shared singleton */
+export function initializeResponsibleServiceBot(_bot: unknown): void {}
 
-export function initializeResponsibleServiceBot(bot: any): void {
-  botInstance = bot;
-  logger.info('ResponsibleService bot instance initialized');
-}
+function botInstance() { return getBotInstance(); }
 
 export class ResponsibleService {
   /**
@@ -79,7 +79,7 @@ export class ResponsibleService {
 
       // Рассчитываем общую сумму
       const totalAmount = resultData.winners.reduce(
-        (sum: number, w: any) => sum + (w.menuItemSnapshot.price || 0) * w.voteCount,
+        (sum: number, w: any) => sum + multiply(w.menuItemSnapshot.price, w.voteCount),
         0
       );
 
@@ -91,7 +91,7 @@ export class ResponsibleService {
 ${resultData.winners
   .map(
     (w: any, i: number) =>
-      `${i + 1}. ${w.menuItemName} — ${w.voteCount} чел. (${(w.menuItemSnapshot.price || 0) * w.voteCount}₽)`
+      `${i + 1}. ${w.menuItemName} — ${w.voteCount} чел. (${multiply(w.menuItemSnapshot.price, w.voteCount).toFixed(2)}₽)`
   )
   .join('\n')}
 
@@ -110,18 +110,31 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
         inline_keyboard: [[{ text: '🙋‍♂️ Я оформлю!', callback_data: `volunteer:${pollId}` }]],
       };
 
-      const sentMessage = await botInstance.api.sendMessage(Number(poll.chatId), message, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard,
-      });
+      let messageId = poll.messageId ?? undefined;
+      const chatId = poll.chatId ? Number(poll.chatId) : null;
 
-      // Сохраняем messageId
-      await prisma.responsibleSelection.update({
-        where: { id: selection.id },
-        data: { messageId: sentMessage.message_id },
-      });
+      if (chatId && messageId && botInstance) {
+        await botInstance()!.api.editMessageText(chatId, messageId, message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard,
+        });
+        logger.info('Volunteer prompt updated in poll message', { pollId, messageId });
+      } else if (chatId && botInstance) {
+        const sentMessage = await botInstance()!.api.sendMessage(chatId, message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard,
+        });
+        messageId = sentMessage.message_id;
+        logger.info('Volunteer prompt sent', { pollId, messageId });
+      }
 
-      logger.info('Volunteer prompt sent', { pollId, messageId: sentMessage.message_id });
+      if (messageId) {
+        // Сохраняем messageId
+        await prisma.responsibleSelection.update({
+          where: { id: selection.id },
+          data: { messageId },
+        });
+      }
 
       // Устанавливаем таймаут
       setTimeout(() => this.handleVolunteerTimeout(pollId), (selection.timeoutMinutes || 3) * 60 * 1000);
@@ -182,7 +195,7 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
       // Обновляем сообщение в группе
       if (selection.messageId && selection.chatId && botInstance) {
         try {
-          await botInstance.api.editMessageText(
+          await botInstance()!.api.editMessageText(
             Number(selection.chatId),
             selection.messageId,
             `✅ *Голосование завершено!*\n\n🎯 *Ответственный:* ${user.firstName}\n\n💰 Детали заказа и реквизиты отправлены всем в личные сообщения.`,
@@ -224,7 +237,7 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
 
       if (selection.messageId && selection.chatId && botInstance) {
         try {
-          await botInstance.api.editMessageText(
+          await botInstance()!.api.editMessageText(
             Number(selection.chatId),
             selection.messageId,
             `⏰ *Время истекло!*\n\n🎲 Никто не откликнулся, запускаем рулетку...`,
@@ -251,13 +264,13 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
       const rouletteService = new RouletteService();
       const result = await rouletteService.runRoulette(pollId);
 
-      // Сохраняем результат (существующая логика)
-      await PollService.savePollResult({
-        pollId,
-        winnerMenuItemId: result.winnerMenuItemId,
-        responsibleUserId: result.responsibleUserId,
-        totalVotes: result.totalVotes,
-        rouletteData: JSON.stringify(result.animationData),
+      // Обновляем только ответственного, не перезаписываем rouletteData
+      // rouletteData содержит результаты голосования (multi-winner) и нужен для расчета транзакций
+      await prisma.pollResult.update({
+        where: { pollId },
+        data: {
+          responsibleUserId: result.responsibleUserId,
+        },
       });
 
       await prisma.responsibleSelection.update({
@@ -271,6 +284,28 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
       });
 
       logger.info('Roulette completed', { pollId, responsibleUserId: result.responsibleUserId });
+
+      // Обновляем сообщение в группе (если было сообщение выбора)
+      const selection = await prisma.responsibleSelection.findUnique({
+        where: { pollId },
+      });
+
+      if (selection?.messageId && selection.chatId && botInstance) {
+        try {
+          await botInstance()!.api.editMessageText(
+            Number(selection.chatId),
+            selection.messageId,
+            `🎲 *Рулетка выбрала ответственного!*
+
+🎯 *Ответственный:* ${result.responsibleUserName}
+
+💰 Детали заказа и реквизиты отправлены всем в личные сообщения.`,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (editError) {
+          logger.error('Error editing roulette result message:', editError);
+        }
+      }
 
       // Sprint 6: XP интеграция за выбор рулеткой
       try {

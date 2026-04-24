@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 import { logger } from '../utils/logger';
 import { RecurringPollService } from './recurring-poll.service';
 
@@ -7,7 +7,7 @@ import { RecurringPollService } from './recurring-poll.service';
  * Проверяет каждую минуту наличие запланированных голосований
  */
 export class PollSchedulerService {
-  private static cronJob: cron.ScheduledTask | null = null;
+  private static cronJob: ScheduledTask | null = null;
   private static isRunning = false;
   private static botInstance: any = null;
 

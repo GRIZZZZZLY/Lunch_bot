@@ -82,6 +82,70 @@ services:
       timeout: 10s
       retries: 3
 
+  # Redis (required for GlitchTip)
+  redis:
+    image: redis:7-alpine
+    container_name: foodbot-redis
+    restart: unless-stopped
+    networks:
+      - foodbot-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # GlitchTip (Sentry-compatible error tracking)
+  glitchtip:
+    image: glitchtip/glitchtip:latest
+    container_name: foodbot-glitchtip
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-foodbot}:${POSTGRES_PASSWORD:-foodbot_password}@postgres:5432/${GLITCHTIP_DB:-glitchtip_db}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:-change-me-in-production}
+      PORT: 8000
+      EMAIL_URL: ${EMAIL_URL:-consolemail://}
+      GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:-http://localhost:8000}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@glitchtip.local}
+      CELERY_WORKER_AUTOSCALE: ${CELERY_WORKER_AUTOSCALE:-4,1}
+      CELERY_WORKER_MAX_TASKS_PER_CHILD: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-10000}
+    ports:
+      - "${GLITCHTIP_PORT:-8000}:8000"
+    networks:
+      - foodbot-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # GlitchTip Worker (background tasks)
+  glitchtip-worker:
+    image: glitchtip/glitchtip:latest
+    container_name: foodbot-glitchtip-worker
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+      - glitchtip
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-foodbot}:${POSTGRES_PASSWORD:-foodbot_password}@postgres:5432/${GLITCHTIP_DB:-glitchtip_db}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:-change-me-in-production}
+      EMAIL_URL: ${EMAIL_URL:-consolemail://}
+      CELERY_WORKER_AUTOSCALE: ${CELERY_WORKER_AUTOSCALE:-4,1}
+      CELERY_WORKER_MAX_TASKS_PER_CHILD: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-10000}
+    command: ./bin/run-celery-with-beat.sh
+    networks:
+      - foodbot-network
+
 volumes:
   postgres_data:
     driver: local

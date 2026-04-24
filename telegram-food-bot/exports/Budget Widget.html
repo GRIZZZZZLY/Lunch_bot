@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rocket Lunch — BudgetWidget (priority-driven)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKENS — reused verbatim from Rocket Lunch Design System
+   (colors, gradients, radii, shadows, ink, surfaces, pri)
+   ============================================================ */
+:root{
+  --peach-400:#FF9D66; --peach-500:#D86A2C; --peach-600:#B84D12;
+  --lav-400:#A78BFA;   --lav-500:#8B5CF6;
+  --mint-400:#34D399;  --mint-500:#22B573;
+  --coral-400:#F87171; --coral-500:#E55A4F;
+  --butter-400:#F4C15D;--butter-500:#E6A93D;
+  --succ-soft:#9FD4B3; --warn-soft:#D9D394; --err-soft:#D4A5A5;
+
+  --g-peach: linear-gradient(135deg,#F3C4A7,#F7D5C1);
+  --g-lav:   linear-gradient(135deg,#D1C1FC,#E5DDFE);
+  --g-sage:  linear-gradient(135deg,#8CE0B9,#B3EBD1);
+  --g-sky:   linear-gradient(135deg,#7DD3FC,#BAE6FD);
+  --g-rose:  linear-gradient(135deg,#FCA5A5,#FECACA);
+  --g-butter:linear-gradient(135deg,#FFE1A8,#F4C15D);
+  --g-coral: linear-gradient(135deg,#FCA5A5,#F87171);
+
+  --page-bg:#0E141B;
+  --page-ink:#E6EDF3;
+  --page-muted:#8B97A6;
+  --page-line:rgba(255,255,255,0.08);
+  --page-card:#141C25;
+
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+/* ============ THEME SCOPES (applied to phone frames) ============ */
+.tg.dark{
+  background:#17212B; color:#E6EDF3;
+  --surface:#1F2A36; --surface-2:#17212B;
+  --ink:#E6EDF3;     --ink-2:#9AA7B4; --ink-3:#6B7683;
+  --line:rgba(255,255,255,0.07); --line-2:rgba(255,255,255,0.12);
+  --pri:var(--peach-400); --pri-ink:#1A0F08;
+  --card-grad:linear-gradient(180deg,#1F2A36,#17212B);
+  --shadow-card:0 2px 12px rgba(0,0,0,0.3);
+  --shadow-elev:0 8px 32px rgba(0,0,0,0.5);
+}
+.tg.light{
+  background:linear-gradient(180deg,#F2EADF,#FBF7F1);
+  color:#2B2118;
+  --surface:#FFFDF9; --surface-2:#F6EFE5;
+  --ink:#2B2118;     --ink-2:#6B5D4F; --ink-3:#9C8B79;
+  --line:rgba(43,33,24,0.08); --line-2:rgba(43,33,24,0.14);
+  --pri:var(--peach-500); --pri-ink:#FFFFFF;
+  --card-grad:linear-gradient(180deg,#FFFDF9,#F6EFE5);
+  --shadow-card:0 2px 8px rgba(0,0,0,0.04);
+  --shadow-elev:0 8px 24px rgba(0,0,0,0.08);
+}
+
+/* ============ PAGE CHROME ============ */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--sans);
+  background:var(--page-bg); color:var(--page-ink);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  line-height:1.45;
+}
+.wrap{max-width:1240px; margin:0 auto; padding:48px 32px 120px}
+
+/* hero */
+.brand{display:flex; align-items:center; gap:14px; margin-bottom:28px}
+.brand .mark{
+  width:40px;height:40px;border-radius:11px;background:var(--g-peach);
+  display:grid;place-items:center;font-size:20px;
+  box-shadow:0 8px 22px rgba(216,106,44,0.35);
+}
+.brand .txt{line-height:1.1}
+.brand .n{font-weight:700;font-size:15px;letter-spacing:-0.01em}
+.brand .s{font-family:var(--mono);font-size:11px;color:var(--page-muted);margin-top:3px}
+
+.hero h1{
+  font-size:60px; line-height:0.96; letter-spacing:-0.035em;
+  font-weight:800; margin:0; max-width:22ch;
+}
+.hero h1 em{
+  font-style:normal;
+  background:var(--g-peach);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.hero p{
+  color:var(--page-muted); max-width:68ch; font-size:15px; line-height:1.6;
+  margin:18px 0 0;
+}
+.hero-meta{
+  display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:22px;
+  font-family:var(--mono); font-size:11px; color:var(--page-muted);
+}
+.hero-meta .tok{
+  padding:6px 10px; border:1px solid var(--page-line); border-radius:999px;
+  letter-spacing:0.02em;
+}
+.hero-meta .tok b{color:var(--page-ink); font-weight:600}
+
+/* ============ FLOWCHART ============ */
+.flow{
+  margin-top:44px;
+  border:1px solid var(--page-line);
+  border-radius:20px; padding:28px;
+  background:rgba(255,255,255,0.015);
+  position:relative; overflow:hidden;
+}
+.flow::before{
+  content:"PRIORITY RESOLUTION";
+  position:absolute; top:-10px; left:20px;
+  background:var(--page-bg); padding:0 10px;
+  font-family:var(--mono); font-size:10px; letter-spacing:0.1em; color:var(--page-muted);
+}
+.flow-caption{
+  font-family:var(--mono); font-size:11px; color:var(--page-muted);
+  letter-spacing:0.02em; margin-bottom:18px; max-width:80ch; line-height:1.6;
+}
+.flow-caption b{color:var(--page-ink); font-weight:600}
+.flow-diagram{
+  display:grid;
+  grid-template-columns: 200px 1fr;
+  gap:16px 0;
+  align-items:stretch;
+}
+.flow-gate{
+  grid-column: 1;
+  display:flex; align-items:center; gap:10px;
+  font-family:var(--mono); font-size:11px; letter-spacing:0.02em;
+  color:var(--page-ink); font-weight:600;
+  padding:12px 14px; border-radius:10px;
+  background:rgba(255,255,255,0.03); border:1px solid var(--page-line);
+}
+.flow-gate .rank{
+  min-width:22px; height:22px; border-radius:999px;
+  display:grid; place-items:center;
+  font-size:10px; color:var(--page-bg);
+  background:var(--peach-400);
+}
+.flow-gate.g2 .rank{background:var(--lav-400)}
+.flow-gate.g3 .rank{background:var(--coral-400)}
+.flow-gate.g4 .rank{background:var(--page-muted); color:var(--page-bg)}
+.flow-branches{
+  grid-column: 2;
+  display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+  padding-left:22px; border-left:1px dashed var(--page-line);
+}
+.flow-node{
+  display:inline-flex; flex-direction:column; gap:2px;
+  padding:8px 12px; border-radius:10px;
+  background:rgba(255,255,255,0.02); border:1px solid var(--page-line);
+  font-family:var(--mono); font-size:11px; color:var(--page-ink);
+  min-width:170px;
+}
+.flow-node .tag{font-size:9px; color:var(--page-muted); letter-spacing:0.08em; text-transform:uppercase}
+.flow-node.peach{border-color:rgba(255,157,102,0.45); background:rgba(255,157,102,0.06)}
+.flow-node.mint {border-color:rgba(52,211,153,0.4);  background:rgba(52,211,153,0.06)}
+.flow-node.lav  {border-color:rgba(167,139,250,0.4); background:rgba(167,139,250,0.06)}
+.flow-node.butter{border-color:rgba(244,193,93,0.4); background:rgba(244,193,93,0.06)}
+.flow-node.coral{border-color:rgba(248,113,113,0.45);background:rgba(248,113,113,0.06)}
+.flow-arrow{
+  font-family:var(--mono); color:var(--page-muted);
+  font-size:12px; margin:0 4px;
+}
+
+/* ============ SECTIONS ============ */
+.section{margin-top:72px}
+.sec-head{
+  display:grid; grid-template-columns:auto 1fr auto; gap:16px;
+  align-items:end; padding-bottom:16px;
+  border-bottom:1px solid var(--page-line);
+  margin-bottom:28px;
+}
+.sec-num{font-family:var(--mono); font-size:11px; color:var(--page-muted); letter-spacing:0.06em}
+.sec-title{font-size:26px; font-weight:700; letter-spacing:-0.02em; margin:0}
+.sec-sub{font-family:var(--mono); font-size:11px; color:var(--page-muted); text-align:right}
+
+/* side-by-side dark+light pair */
+.pair{
+  display:grid; grid-template-columns: 1fr 1fr 320px;
+  gap:20px; align-items:start;
+  margin-bottom:32px;
+}
+.frame{
+  position:relative;
+  border:1px solid var(--page-line);
+  border-radius:22px; padding:16px;
+  background:rgba(255,255,255,0.015);
+  min-height:100%;
+}
+.frame::before{
+  content:attr(data-theme);
+  position:absolute; top:-10px; left:14px;
+  background:var(--page-bg); padding:0 8px;
+  font-family:var(--mono); font-size:10px; letter-spacing:0.1em;
+  color:var(--page-muted); text-transform:uppercase;
+}
+.tg{
+  font-family:var(--sans);
+  margin:0 auto;
+  width:100%; max-width:340px;
+  border-radius:20px;
+  padding:16px 14px;
+  position:relative;
+}
+.anno{
+  padding:4px 4px 4px 4px; font-family:var(--mono); font-size:11px;
+  color:var(--page-muted); line-height:1.65;
+}
+.anno .ah{
+  color:var(--page-ink); font-weight:600; letter-spacing:-0.005em;
+  font-family:var(--sans); font-size:13px; margin-bottom:6px;
+}
+.anno .row{
+  display:flex; justify-content:space-between; gap:10px;
+  padding:5px 0; border-bottom:1px dashed var(--page-line);
+}
+.anno .row:last-child{border-bottom:0}
+.anno .k{color:var(--page-muted)}
+.anno .v{color:var(--page-ink); text-align:right; max-width:60%}
+.anno .note{
+  margin-top:10px; padding:10px; border-radius:10px;
+  background:rgba(255,255,255,0.02); border:1px solid var(--page-line);
+  color:var(--page-ink); line-height:1.55;
+}
+.anno .note b{color:var(--peach-400)}
+
+/* ============================================================
+   WIDGET CARD — the actual BudgetWidget
+   ============================================================ */
+.bw{
+  position:relative;
+  border-radius:16px;
+  padding:16px;
+  overflow:hidden;
+  color:#2B2118;
+}
+.bw.compact{padding:14px 16px}
+
+/* backgrounds by scenario */
+.bw.peach   {background:var(--g-peach)}
+.bw.mint    {background:var(--g-sage)}
+.bw.lav     {background:var(--g-lav)}
+.bw.butter  {background:var(--g-butter)}
+.bw.coral   {background:var(--g-coral); color:#4A0808}
+
+/* Dark-theme override: slightly deeper pastels + readable ink */
+.tg.dark .bw.peach   {background:linear-gradient(135deg,#E6A888,#EBBFA4); color:#2E1808}
+.tg.dark .bw.mint    {background:linear-gradient(135deg,#6FC89C,#8AD8B2); color:#052E1C}
+.tg.dark .bw.lav     {background:linear-gradient(135deg,#B3A2F0,#C6B6F5); color:#1F1247}
+.tg.dark .bw.butter  {background:linear-gradient(135deg,#E5C478,#EAD198); color:#3A2A05}
+.tg.dark .bw.coral   {background:linear-gradient(135deg,#E58080,#EF9595); color:#3A0505}
+
+.bw .crown-wm{
+  position:absolute; right:-8px; top:-8px;
+  font-size:84px; opacity:0.18; pointer-events:none;
+  line-height:1; transform:rotate(12deg);
+}
+.bw .avatar-wm{
+  position:absolute; right:14px; top:14px;
+  width:40px;height:40px;border-radius:999px;
+  background:rgba(255,255,255,0.7); color:#2B2118;
+  display:grid;place-items:center; font-weight:700; font-size:14px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.08);
+  border:2px solid rgba(255,255,255,0.55);
+}
+.bw .emoji-wm{
+  position:absolute; right:14px; top:14px;
+  font-size:28px; opacity:0.6; line-height:1;
+}
+
+/* role strip + headers */
+.bw .role-row{
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--mono); font-size:10px; letter-spacing:0.1em;
+  text-transform:uppercase; opacity:0.7;
+}
+.bw .role-row .dot{
+  width:6px;height:6px;border-radius:999px; background:currentColor;
+}
+.bw .title{
+  font-weight:700; font-size:17px; letter-spacing:-0.01em;
+  margin:8px 0 2px; line-height:1.2;
+}
+.bw .sub{
+  font-size:13px; opacity:0.78; line-height:1.4; max-width:28ch;
+}
+
+/* Big money number */
+.bw .money-hero{
+  display:flex; align-items:baseline; gap:8px;
+  margin-top:14px;
+}
+.bw .money-hero .val{
+  font-weight:800; font-size:34px; letter-spacing:-0.025em;
+  line-height:1; font-variant-numeric:tabular-nums;
+}
+.bw .money-hero .unit{
+  font-weight:600; font-size:18px; opacity:0.6;
+}
+.bw .money-hero .lbl{
+  font-size:12px; opacity:0.65; margin-left:auto;
+}
+
+/* progress */
+.bw-prg{
+  margin-top:12px;
+  height:8px; border-radius:999px;
+  background:rgba(255,255,255,0.55); overflow:hidden;
+}
+.bw-prg > i{
+  display:block; height:100%;
+  background:linear-gradient(90deg,var(--mint-500),var(--mint-400));
+  border-radius:999px;
+  transition:width 600ms cubic-bezier(.2,.8,.2,1);
+}
+.bw-prg.coral > i{
+  background:linear-gradient(90deg,var(--coral-500),var(--coral-400));
+}
+.bw-prg.butter > i{
+  background:linear-gradient(90deg,var(--butter-500),var(--butter-400));
+}
+.bw-prg-meta{
+  display:flex; justify-content:space-between;
+  font-family:var(--mono); font-size:11px; opacity:0.75;
+  margin-top:6px; letter-spacing:0.02em;
+}
+
+/* debtor rows */
+.bw-debtors{
+  margin-top:14px;
+  background:rgba(255,255,255,0.45);
+  border-radius:12px;
+  padding:4px;
+}
+.tg.dark .bw-debtors{background:rgba(255,255,255,0.18)}
+.bw-debt{
+  display:flex; align-items:center; gap:10px;
+  padding:8px 10px; border-radius:10px;
+}
+.bw-debt + .bw-debt{
+  border-top:1px dashed rgba(43,33,24,0.12);
+}
+.tg.dark .bw-debt + .bw-debt{border-top-color:rgba(255,255,255,0.14)}
+.bw-debt .av{
+  width:32px; height:32px; border-radius:999px;
+  display:grid; place-items:center; font-weight:700; font-size:12px;
+  color:#2B2118; flex-shrink:0;
+}
+.bw-debt .name{
+  font-weight:600; font-size:13px; letter-spacing:-0.005em;
+  line-height:1.2;
+}
+.bw-debt .amt{
+  font-family:var(--mono); font-size:11px; opacity:0.7;
+  margin-top:1px;
+}
+.bw-debt .mid{flex:1; min-width:0}
+.bw-debt .pill{
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 8px; border-radius:999px;
+  font-size:10px; font-weight:600; letter-spacing:0.02em;
+  white-space:nowrap;
+}
+.bw-debt .pill.ok  {background:rgba(52,211,153,0.35); color:#0A3F26}
+.bw-debt .pill.wait{background:rgba(244,193,93,0.45); color:#4A3308}
+.bw-debt .pill.late{background:rgba(248,113,113,0.4); color:#4A0808}
+.tg.dark .bw-debt .pill.ok{background:rgba(52,211,153,0.55); color:#052E1C}
+.tg.dark .bw-debt .pill.wait{background:rgba(244,193,93,0.6); color:#3A2A05}
+.tg.dark .bw-debt .pill.late{background:rgba(248,113,113,0.55); color:#3A0505}
+
+.bw-debt .remind{
+  margin-left:8px;
+  border:0; background:transparent; cursor:pointer;
+  color:inherit; font-family:var(--sans); font-size:11px; font-weight:600;
+  padding:4px 8px; border-radius:8px;
+  opacity:0.7;
+}
+.bw-debt .remind:hover{opacity:1; background:rgba(255,255,255,0.4)}
+
+/* CTAs */
+.bw-ctas{display:flex; gap:8px; margin-top:14px}
+.bw-btn{
+  flex:1;
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  font-family:inherit; font-weight:600; font-size:13px;
+  border-radius:12px; border:1px solid transparent; cursor:pointer;
+  padding:11px 14px; line-height:1;
+  transition:transform 120ms ease, background 120ms ease;
+}
+.bw-btn:active{transform:scale(0.97)}
+.bw-btn.solid{
+  background:rgba(43,33,24,0.9);
+  color:#FFFDF9;
+}
+.tg.dark .bw-btn.solid{background:#1A0F08; color:#F7D5C1}
+.bw-btn.white{
+  background:#FFFDF9;
+  color:#2B2118;
+  box-shadow:0 2px 10px rgba(0,0,0,0.08);
+}
+.tg.dark .bw-btn.white{background:#FFFDF9; color:#2B2118}
+.bw-btn.ghost{
+  background:transparent;
+  color:inherit;
+  border-color:rgba(43,33,24,0.25);
+}
+.tg.dark .bw-btn.ghost{border-color:rgba(255,255,255,0.3)}
+.bw-btn.ghost:hover{background:rgba(255,255,255,0.25)}
+
+/* Countdown ring / urgency */
+.bw-urgent-row{
+  display:flex; align-items:center; gap:8px;
+  margin-bottom:4px;
+}
+.bw-urgent-pill{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:5px 10px; border-radius:999px;
+  background:rgba(43,33,24,0.85); color:#FFE1DD;
+  font-family:var(--mono); font-size:10px; font-weight:700;
+  letter-spacing:0.08em; text-transform:uppercase;
+  animation:pulse 1.4s ease-in-out infinite;
+}
+.tg.dark .bw-urgent-pill{background:#1A0505; color:#FFD5D5}
+@keyframes pulse{
+  0%,100%{transform:scale(1); box-shadow:0 0 0 0 rgba(248,113,113,0.55)}
+  50%    {transform:scale(1.04);box-shadow:0 0 0 8px rgba(248,113,113,0)}
+}
+.bw-countdown{
+  display:flex; align-items:center; gap:6px;
+  margin-top:8px;
+  font-family:var(--mono); font-size:12px; font-weight:600;
+  opacity:0.85;
+}
+
+/* success — check icon */
+.bw-check{
+  width:56px;height:56px;border-radius:999px;
+  display:grid;place-items:center;
+  background:#FFFDF9; color:var(--mint-500);
+  font-size:28px; font-weight:700;
+  box-shadow:0 6px 16px rgba(5,46,28,0.2);
+  margin:4px auto 12px;
+  position:relative;
+}
+.bw-check::before,
+.bw-check::after{
+  content:""; position:absolute; inset:-8px;
+  border-radius:999px; border:2px solid rgba(255,255,255,0.55);
+  animation:ring 2.4s ease-out infinite;
+}
+.bw-check::after{animation-delay:0.8s; inset:-14px}
+@keyframes ring{
+  0%{transform:scale(0.6); opacity:0.9}
+  100%{transform:scale(1); opacity:0}
+}
+.bw .success-center{text-align:center}
+.bw .success-center .title{margin-top:2px; font-size:18px; font-weight:800}
+.bw .success-center .sub{margin:6px auto 0; max-width:26ch}
+
+/* confetti burst */
+.confetti{position:absolute; inset:0; pointer-events:none; overflow:hidden}
+.confetti i{
+  position:absolute; width:7px; height:10px; border-radius:2px;
+  opacity:0; animation:fall 2.8s ease-in forwards;
+}
+.confetti i:nth-child(1) {left:12%;top:10%;background:var(--peach-400);transform:rotate(15deg);animation-delay:0s}
+.confetti i:nth-child(2) {left:28%;top:5%; background:var(--lav-400);  transform:rotate(-25deg);animation-delay:.1s}
+.confetti i:nth-child(3) {left:48%;top:2%; background:var(--butter-400);transform:rotate(45deg);animation-delay:.05s}
+.confetti i:nth-child(4) {left:68%;top:6%; background:var(--coral-400); transform:rotate(-10deg);animation-delay:.2s}
+.confetti i:nth-child(5) {left:82%;top:12%;background:var(--mint-400);  transform:rotate(30deg);animation-delay:.15s}
+.confetti i:nth-child(6) {left:18%;top:18%;background:var(--mint-500);  transform:rotate(-40deg);animation-delay:.25s}
+.confetti i:nth-child(7) {left:58%;top:14%;background:var(--peach-500); transform:rotate(25deg);animation-delay:.3s}
+.confetti i:nth-child(8) {left:72%;top:22%;background:var(--lav-500);   transform:rotate(-5deg);animation-delay:.12s}
+@keyframes fall{
+  0%  {opacity:0; transform:translateY(-20px) rotate(0deg)}
+  15% {opacity:1}
+  100%{opacity:0; transform:translateY(280px) rotate(720deg)}
+}
+
+/* ========== LAV spinner (admin) ========== */
+.bw-spinner{
+  width:36px; height:36px; border-radius:999px;
+  border:3px solid rgba(43,33,24,0.15);
+  border-top-color:var(--lav-500);
+  animation:spin 1s linear infinite;
+  flex-shrink:0;
+}
+.tg.dark .bw-spinner{border-color:rgba(255,255,255,0.2); border-top-color:var(--lav-400)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.bw-slow-clock{
+  width:36px; height:36px; border-radius:999px;
+  background:rgba(255,255,255,0.55);
+  display:grid; place-items:center;
+  font-size:20px;
+  animation:slowspin 8s linear infinite;
+  flex-shrink:0;
+}
+.tg.dark .bw-slow-clock{background:rgba(255,255,255,0.25)}
+@keyframes slowspin{to{transform:rotate(360deg)}}
+
+.bw-media-row{
+  display:flex; align-items:center; gap:12px;
+}
+.bw-media-row .tx{flex:1; min-width:0}
+.bw-media-row .tx .title{margin-top:0}
+
+/* hidden-state pill */
+.bw-hidden-pill{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:10px 14px;
+  border-radius:999px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  color:var(--ink-2);
+  font-size:12px; font-weight:500;
+  letter-spacing:0.01em;
+}
+.bw-hidden-pill .em{opacity:0.8}
+.bw-hidden-pill .tiny-pip{
+  width:6px; height:6px; border-radius:999px;
+  background:var(--mint-500);
+  box-shadow:0 0 8px var(--mint-400);
+}
+
+/* compact mint success pill */
+.bw-mint-pill{
+  display:flex; align-items:center; gap:8px;
+  padding:10px 14px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#8CE0B9,#B3EBD1);
+  color:#052E1C;
+  font-size:13px; font-weight:600;
+}
+.tg.dark .bw-mint-pill{background:linear-gradient(135deg,#6FC89C,#8AD8B2)}
+.bw-mint-pill .tic{
+  width:18px;height:18px;border-radius:999px;
+  background:var(--mint-500); color:#fff;
+  display:grid; place-items:center; font-size:11px; font-weight:700;
+}
+
+/* ========== CALCULATOR MODAL ========== */
+.modal-frame{
+  width:100%; max-width:340px;
+  margin:0 auto;
+  border-radius:20px;
+  background:var(--surface-2);
+  padding:14px;
+  position:relative;
+  min-height:540px;
+  overflow:hidden;
+}
+.modal-dim{
+  position:absolute; inset:0; border-radius:20px;
+  background:rgba(0,0,0,0.45);
+}
+.tg.light .modal-dim{background:rgba(43,33,24,0.3)}
+.sheet{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  background:var(--surface);
+  border-top-left-radius:20px; border-top-right-radius:20px;
+  box-shadow:var(--shadow-elev);
+  padding:10px 16px 18px;
+  color:var(--ink);
+  max-height:92%;
+  display:flex; flex-direction:column;
+}
+.sheet .grab{width:36px;height:4px;border-radius:999px;background:var(--line-2);margin:0 auto 12px}
+.sheet .st{font-weight:700; font-size:17px; letter-spacing:-0.01em; color:var(--ink)}
+.sheet .sd{font-size:12px; color:var(--ink-2); margin-top:4px; line-height:1.4}
+
+.calc-label{
+  display:block;
+  font-family:var(--mono); font-size:10px; letter-spacing:0.08em;
+  text-transform:uppercase; color:var(--ink-3);
+  margin-top:14px; margin-bottom:6px;
+}
+.calc-input{
+  display:flex; align-items:center; gap:6px;
+  background:var(--surface-2);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:12px 14px;
+}
+.calc-input input{
+  flex:1; background:transparent; border:0; outline:none;
+  color:var(--ink); font-family:inherit;
+  font-size:22px; font-weight:700; letter-spacing:-0.01em;
+  font-variant-numeric:tabular-nums;
+}
+.calc-input .unit{
+  font-size:18px; font-weight:600; color:var(--ink-2);
+}
+
+.calc-mode{
+  display:flex; gap:6px; padding:4px;
+  background:var(--surface-2); border-radius:12px;
+  border:1px solid var(--line);
+  margin-top:12px;
+}
+.calc-mode button{
+  flex:1; border:0; background:transparent;
+  padding:8px 10px; border-radius:9px;
+  color:var(--ink-2); font-family:inherit; font-size:12px; font-weight:600;
+  cursor:pointer;
+}
+.calc-mode button.on{
+  background:var(--pri); color:var(--pri-ink);
+}
+
+.calc-plist{
+  margin-top:10px;
+  max-height:190px; overflow-y:auto;
+  border:1px solid var(--line); border-radius:12px;
+  background:var(--surface-2);
+}
+.calc-prow{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px;
+}
+.calc-prow + .calc-prow{border-top:1px dashed var(--line)}
+.calc-prow .chk{
+  width:20px; height:20px; border-radius:6px;
+  border:2px solid var(--line-2);
+  display:grid; place-items:center;
+  flex-shrink:0;
+}
+.calc-prow.on .chk{
+  background:var(--pri); border-color:var(--pri); color:var(--pri-ink);
+}
+.calc-prow.on .chk::before{content:"✓"; font-size:11px; font-weight:800}
+.calc-prow .pav{
+  width:26px; height:26px; border-radius:999px;
+  display:grid; place-items:center; font-weight:700; font-size:11px;
+  color:#2B2118; flex-shrink:0;
+}
+.calc-prow .pn{
+  flex:1; font-size:13px; font-weight:500; color:var(--ink);
+}
+.calc-prow .pa{
+  font-family:var(--mono); font-size:12px; font-weight:600;
+  color:var(--ink); font-variant-numeric:tabular-nums;
+}
+.calc-prow.off{opacity:0.5}
+.calc-prow.off .pa{text-decoration:line-through; color:var(--ink-3)}
+
+.calc-preview{
+  display:flex; justify-content:space-between; align-items:baseline;
+  padding:12px 14px; margin-top:12px;
+  background:var(--surface-2); border:1px solid var(--line);
+  border-radius:12px;
+}
+.calc-preview .pl{font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:0.06em; text-transform:uppercase}
+.calc-preview .pv{font-size:20px; font-weight:800; letter-spacing:-0.01em; color:var(--ink); font-variant-numeric:tabular-nums}
+
+.calc-cta{
+  margin-top:14px;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  font-family:inherit; font-weight:700; font-size:14px;
+  border-radius:14px; border:0; cursor:pointer;
+  padding:14px 20px; line-height:1;
+  background:linear-gradient(135deg,var(--peach-400),var(--peach-500));
+  color:#1A0F08;
+  box-shadow:0 8px 24px rgba(216,106,44,0.35);
+  width:100%;
+}
+.tg.light .calc-cta{color:#FFFFFF}
+
+/* responsive tidy */
+@media (max-width: 1040px){
+  .pair{grid-template-columns:1fr 1fr; }
+  .pair .anno{grid-column:1/-1}
+  .hero h1{font-size:44px}
+}
+@media (max-width: 720px){
+  .pair{grid-template-columns:1fr}
+  .flow-diagram{grid-template-columns:1fr}
+  .flow-gate{margin-top:8px}
+  .flow-branches{padding-left:0; border-left:0}
+  .wrap{padding:24px 16px 80px}
+}
+
+/* host tab bar context shown above widget */
+.host-chrome{
+  background:var(--surface-2); border:1px solid var(--line);
+  border-radius:14px; padding:10px 12px;
+  margin-bottom:10px;
+  display:flex; align-items:center; gap:10px;
+  color:var(--ink-2);
+}
+.host-chrome .bot{
+  width:28px;height:28px;border-radius:9px;
+  background:var(--g-peach); display:grid; place-items:center;
+  font-size:14px; flex-shrink:0;
+}
+.host-chrome .hh{flex:1; min-width:0}
+.host-chrome .ht{font-size:13px; font-weight:700; color:var(--ink); letter-spacing:-0.005em}
+.host-chrome .hs{font-size:11px; color:var(--ink-3); margin-top:1px; font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div class="brand">
+      <div class="mark">🚀</div>
+      <div class="txt">
+        <div class="n">Rocket Lunch</div>
+        <div class="s">mini-app · home widget</div>
+      </div>
+    </div>
+
+    <h1>One widget, <em>seven states</em>, resolved by priority.</h1>
+    <p>
+      <b>BudgetWidgetWithCalculator</b> is the single component that occupies the post-poll slot on HomePage.
+      The backend exposes <code style="font-family:var(--mono);color:var(--page-ink)">{role, txState}</code> and the widget walks the priority ladder below
+      to pick the highest-applicable scenario. It never renders two at once.
+    </p>
+
+    <div class="hero-meta">
+      <div class="tok"><b>Tokens</b> · peach · lavender · mint · butter · coral · Inter · JetBrains Mono</div>
+      <div class="tok"><b>Radii</b> · 16 (card) · 12 (btn/input) · 999 (pill)</div>
+      <div class="tok"><b>Viewport</b> · 375 / 430 · Telegram Mini App</div>
+      <div class="tok"><b>Widget w</b> · 340 px</div>
+    </div>
+  </header>
+
+  <!-- ============ FLOWCHART ============ -->
+  <section class="flow">
+    <div class="flow-caption">
+      <b>Resolve(role, txState) → Scenario.</b> The first gate that matches wins; later gates are never evaluated.
+      A scenario only exists on HomePage <b>after a poll closes</b>. If none match, the widget collapses to a pill or is omitted entirely.
+    </div>
+
+    <div class="flow-diagram">
+      <div class="flow-gate g1"><span class="rank">1</span>role = responsible</div>
+      <div class="flow-branches">
+        <div class="flow-node peach"><span class="tag">1a · compact</span>CompactResponsibleBanner</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node peach"><span class="tag">1b · expanded</span>ResponsibleView</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node mint"><span class="tag">1c · settled</span>SuccessResponsibleView</div>
+      </div>
+
+      <div class="flow-gate g2"><span class="rank">2</span>role = admin · pending</div>
+      <div class="flow-branches">
+        <div class="flow-node lav"><span class="tag">2a · rolling</span>SelectionInProgressCard</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node butter"><span class="tag">2b · awaiting</span>WaitingForCalculationCard</div>
+      </div>
+
+      <div class="flow-gate g3"><span class="rank">3</span>role = participant · has debt</div>
+      <div class="flow-branches">
+        <div class="flow-node coral"><span class="tag">3a · &lt; 5 min</span>UrgentDebtView</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node butter"><span class="tag">3b · sent</span>WaitingConfirmationView</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node mint"><span class="tag">3c · ok</span>SuccessMessageView (5s auto-collapse)</div>
+      </div>
+
+      <div class="flow-gate g4"><span class="rank">∅</span>fallback</div>
+      <div class="flow-branches">
+        <div class="flow-node"><span class="tag">hidden</span>thin pill · or omitted</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       P1a — CompactResponsibleBanner
+       ================================================================= -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">P1a / 07</div>
+      <h2 class="sec-title">Responsible — awaiting calculation</h2>
+      <div class="sec-sub">peach · 88 px · single CTA</div>
+    </div>
+
+    <div class="pair">
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="host-chrome">
+            <div class="bot">🚀</div>
+            <div class="hh"><div class="ht">Сегодня: Фо Бо</div><div class="hs">закрыт · 5 участников</div></div>
+          </div>
+          <div class="bw peach compact" style="min-height:88px; display:flex; flex-direction:column; justify-content:center">
+            <div class="role-row"><span class="dot"></span>ответственный сегодня</div>
+            <div style="display:flex; align-items:center; gap:12px; margin-top:6px;">
+              <div style="font-size:26px; line-height:1">👑</div>
+              <div style="flex:1; min-width:0">
+                <div class="title" style="font-size:15px; margin:0">Вы ответственный</div>
+                <div class="sub" style="font-size:12px">Рассчитайте расходы после получения заказа</div>
+              </div>
+              <button class="bw-btn solid" style="flex:0 0 auto; padding:9px 14px">Рассчитать</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="host-chrome">
+            <div class="bot">🚀</div>
+            <div class="hh"><div class="ht">Сегодня: Фо Бо</div><div class="hs">закрыт · 5 участников</div></div>
+          </div>
+          <div class="bw peach compact" style="min-height:88px; display:flex; flex-direction:column; justify-content:center">
+            <div class="role-row"><span class="dot"></span>ответственный сегодня</div>
+            <div style="display:flex; align-items:center; gap:12px; margin-top:6px;">
+              <div style="font-size:26px; line-height:1">👑</div>
+              <div style="flex:1; min-width:0">
+                <div class="title" style="font-size:15px; margin:0">Вы ответственный</div>
+                <div class="sub" style="font-size:12px">Рассчитайте расходы после получения заказа</div>
+              </div>
+              <button class="bw-btn solid" style="flex:0 0 auto; padding:9px 14px">Рассчитать</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">P1a · CompactResponsibleBanner</div>
+        <div class="row"><span class="k">trigger</span><span class="v">role=responsible · txState=null</span></div>
+        <div class="row"><span class="k">bg</span><span class="v">--g-peach</span></div>
+        <div class="row"><span class="k">height</span><span class="v">88 px</span></div>
+        <div class="row"><span class="k">CTA</span><span class="v">"Рассчитать" → opens CalculatorModal</span></div>
+        <div class="note"><b>Collapsed form.</b> Lives directly under winner card on HomePage; expands to P1b once calculator fires.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       P1b — ResponsibleView
+       ================================================================= -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">P1b / 07</div>
+      <h2 class="sec-title">Responsible — awaiting payments</h2>
+      <div class="sec-sub">peach · mint progress · debtors list</div>
+    </div>
+
+    <div class="pair">
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="bw peach">
+            <div class="crown-wm">👑</div>
+            <div class="role-row"><span class="dot"></span>ответственный сегодня</div>
+            <div class="title">Вы ответственный сегодня 👑</div>
+
+            <div class="money-hero">
+              <span class="val">1 800</span>
+              <span class="unit">₽</span>
+              <span class="lbl">вы заплатили</span>
+            </div>
+
+            <div class="bw-prg"><i style="width:50%"></i></div>
+            <div class="bw-prg-meta">
+              <span>получено 900 ₽</span>
+              <span>из 1 800 ₽ · 50%</span>
+            </div>
+
+            <div class="bw-debtors">
+              <div class="bw-debt">
+                <div class="av" style="background:#8CE0B9">М</div>
+                <div class="mid">
+                  <div class="name">Маша</div>
+                  <div class="amt">450 ₽</div>
+                </div>
+                <span class="pill ok"><span style="font-size:9px">●</span> Оплачено</span>
+              </div>
+              <div class="bw-debt">
+                <div class="av" style="background:#D1C1FC; color:#2E1F56">К</div>
+                <div class="mid">
+                  <div class="name">Костя</div>
+                  <div class="amt">450 ₽</div>
+                </div>
+                <span class="pill ok"><span style="font-size:9px">●</span> Оплачено</span>
+              </div>
+              <div class="bw-debt">
+                <div class="av" style="background:#FCA5A5">А</div>
+                <div class="mid">
+                  <div class="name">Аня</div>
+                  <div class="amt">450 ₽</div>
+                </div>
+                <span class="pill wait">Ожидание</span>
+                <button class="remind">Напомнить</button>
+              </div>
+              <div class="bw-debt">
+                <div class="av" style="background:#FFE1A8">Д</div>
+                <div class="mid">
+                  <div class="name">Дима</div>
+                  <div class="amt">450 ₽ · просрочено 12 мин</div>
+                </div>
+                <span class="pill late">Просрочено</span>
+                <button class="remind">Напомнить</button>
+              </div>
+            </div>
+
+            <div class="bw-ctas">
+              <button class="bw-btn solid">Поделиться реквизитами СБП</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="bw peach">
+            <div class="crown-wm">👑</div>
+            <div class="role-row"><span class="dot"></span>ответственный сегодня</div>
+            <div class="title">Вы ответственный сегодня 👑</div>
+
+            <div class="money-hero">
+              <span class="val">1 800</span>
+              <span class="unit">₽</span>
+              <span class="lbl">вы заплатили</span>
+            </div>
+
+            <div class="bw-prg"><i style="width:50%"></i></div>
+            <div class="bw-prg-meta">
+              <span>получено 900 ₽</span>
+              <span>из 1 800 ₽ · 50%</span>
+            </div>
+
+            <div class="bw-debtors">
+              <div class="bw-debt">
+                <div class="av" style="background:#8CE0B9">М</div>
+                <div class="mid">
+                  <div class="name">Маша</div>
+                  <div class="amt">450 ₽</div>
+                </div>
+                <span class="pill ok">Оплачено</span>
+              </div>
+              <div class="bw-debt">
+                <div class="av" style="background:#D1C1FC; color:#2E1F56">К</div>
+                <div class="mid">
+                  <div class="name">Костя</div>
+                  <div class="amt">450 ₽</div>
+                </div>
+                <span class="pill ok">Оплачено</span>
+              </div>
+              <div class="bw-debt">
+                <div class="av" style="background:#FCA5A5">А</div>
+                <div class="mid">
+                  <div class="name">Аня</div>
+                  <div class="amt">450 ₽</div>
+                </div>
+                <span class="pill wait">Ожидание</span>
+                <button class="remind">Напомнить</button>
+              </div>
+              <div class="bw-debt">
+                <div class="av" style="background:#FFE1A8">Д</div>
+                <div class="mid">
+                  <div class="name">Дима</div>
+                  <div class="amt">450 ₽ · просрочено 12 мин</div>
+                </div>
+                <span class="pill late">Просрочено</span>
+                <button class="remind">Напомнить</button>
+              </div>
+            </div>
+
+            <div class="bw-ctas">
+              <button class="bw-btn solid">Поделиться реквизитами СБП</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">P1b · ResponsibleView</div>
+        <div class="row"><span class="k">trigger</span><span class="v">role=responsible · has pending debtors</span></div>
+        <div class="row"><span class="k">bg</span><span class="v">--g-peach · crown wm 👑 (opacity .18)</span></div>
+        <div class="row"><span class="k">progress</span><span class="v">mint gradient · 500ms grow</span></div>
+        <div class="row"><span class="k">pills</span><span class="v">mint=ok · butter=wait · coral=late</span></div>
+        <div class="row"><span class="k">remind</span><span class="v">ghost link-style · fires DM nudge</span></div>
+        <div class="note"><b>Real-time.</b> Each incoming payment replays the bar-grow and updates the pill via optimistic UI; no page refresh.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       P1c — SuccessResponsibleView
+       ================================================================= -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">P1c / 07</div>
+      <h2 class="sec-title">Responsible — everyone paid</h2>
+      <div class="sec-sub">mint · auto-collapse 5s</div>
+    </div>
+
+    <div class="pair">
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="bw mint">
+            <div class="confetti">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <div class="success-center">
+              <div class="bw-check">✓</div>
+              <div class="title">Все оплатили! 🎉</div>
+              <div class="sub">1 800 ₽ получено от 5 участников</div>
+            </div>
+            <div style="margin-top:14px; display:flex; align-items:center; justify-content:center; gap:6px; font-family:var(--mono); font-size:10px; opacity:0.6; letter-spacing:0.08em; text-transform:uppercase">
+              <span>свернётся через 5s</span>
+              <div style="flex:0 0 60px; height:3px; border-radius:999px; background:rgba(5,46,28,0.2); overflow:hidden">
+                <div style="height:100%; background:rgba(5,46,28,0.5); width:64%; border-radius:999px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="bw mint">
+            <div class="confetti">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <div class="success-center">
+              <div class="bw-check">✓</div>
+              <div class="title">Все оплатили! 🎉</div>
+              <div class="sub">1 800 ₽ получено от 5 участников</div>
+            </div>
+            <div style="margin-top:14px; display:flex; align-items:center; justify-content:center; gap:6px; font-family:var(--mono); font-size:10px; opacity:0.6; letter-spacing:0.08em; text-transform:uppercase">
+              <span>свернётся через 5s</span>
+              <div style="flex:0 0 60px; height:3px; border-radius:999px; background:rgba(5,46,28,0.2); overflow:hidden">
+                <div style="height:100%; background:rgba(5,46,28,0.5); width:64%; border-radius:999px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">P1c · SuccessResponsibleView</div>
+        <div class="row"><span class="k">trigger</span><span class="v">all debts in state=confirmed</span></div>
+        <div class="row"><span class="k">bg</span><span class="v">--g-sage</span></div>
+        <div class="row"><span class="k">motion</span><span class="v">confetti burst 2.8s · ring pulse loop</span></div>
+        <div class="row"><span class="k">auto</span><span class="v">collapse to HiddenState after 5s</span></div>
+        <div class="note"><b>Terminal success.</b> This is the only scenario that transitions the widget to HiddenState — everything else waits for state change.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       P2a — SelectionInProgressCard
+       ================================================================= -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">P2a / 07</div>
+      <h2 class="sec-title">Admin — roulette selecting responsible</h2>
+      <div class="sec-sub">lavender · spinner · watchful</div>
+    </div>
+
+    <div class="pair">
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="bw lav">
+            <div class="bw-media-row">
+              <div class="bw-spinner"></div>
+              <div class="tx">
+                <div class="role-row"><span class="dot"></span>админ · наблюдение</div>
+                <div class="title">Выбираем ответственного</div>
+                <div class="sub">Рулетка запущена, подождите…</div>
+              </div>
+            </div>
+            <div style="margin-top:14px; display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10px; opacity:0.65; letter-spacing:0.06em">
+              <span style="width:6px;height:6px;border-radius:999px;background:#1F1247;animation:pulse 1.4s ease-in-out infinite"></span>
+              спин ≈ 4 сек · далее уведомление в чате
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="bw lav">
+            <div class="bw-media-row">
+              <div class="bw-spinner"></div>
+              <div class="tx">
+                <div class="role-row"><span class="dot"></span>админ · наблюдение</div>
+                <div class="title">Выбираем ответственного</div>
+                <div class="sub">Рулетка запущена, подождите…</div>
+              </div>
+            </div>
+            <div style="margin-top:14px; display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10px; opacity:0.65; letter-spacing:0.06em">
+              <span style="width:6px;height:6px;border-radius:999px;background:#1F1247;animation:pulse 1.4s ease-in-out infinite"></span>
+              спин ≈ 4 сек · далее уведомление в чате
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">P2a · SelectionInProgressCard</div>
+        <div class="row"><span class="k">trigger</span><span class="v">role=admin · roulette=spinning</span></div>
+        <div class="row"><span class="k">bg</span><span class="v">--g-lav</span></div>
+        <div class="row"><span class="k">motion</span><span class="v">spinner 1s linear · dot pulse</span></div>
+        <div class="note"><b>Non-interactive.</b> Admin is a spectator — no CTA. Auto-transitions to P2b once roulette emits a winner.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       P2b — WaitingForCalculationCard
+       ================================================================= -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">P2b / 07</div>
+      <h2 class="sec-title">Admin — waiting for responsible to calculate</h2>
+      <div class="sec-sub">butter-soft · slow-spin clock</div>
+    </div>
+
+    <div class="pair">
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="bw butter">
+            <div class="bw-media-row">
+              <div class="bw-slow-clock">⏰</div>
+              <div class="tx">
+                <div class="role-row"><span class="dot"></span>админ · ждём</div>
+                <div class="title">Ожидаем расчёт</div>
+                <div class="sub">Аня получает заказ и скоро рассчитает расходы</div>
+              </div>
+            </div>
+            <div class="bw-ctas" style="margin-top:12px">
+              <button class="bw-btn ghost">Написать Ане</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="bw butter">
+            <div class="bw-media-row">
+              <div class="bw-slow-clock">⏰</div>
+              <div class="tx">
+                <div class="role-row"><span class="dot"></span>админ · ждём</div>
+                <div class="title">Ожидаем расчёт</div>
+                <div class="sub">Аня получает заказ и скоро рассчитает расходы</div>
+              </div>
+            </div>
+            <div class="bw-ctas" style="margin-top:12px">
+              <button class="bw-btn ghost">Написать Ане</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">P2b · WaitingForCalculationCard</div>
+        <div class="row"><span class="k">trigger</span><span class="v">role=admin · responsible picked · calc=null</span></div>
+        <div class="row"><span class="k">bg</span><span class="v">--g-butter (warn-soft)</span></div>
+        <div class="row"><span class="k">clock</span><span class="v">slow rotate 8s linear infinite</span></div>
+        <div class="row"><span class="k">CTA</span><span class="v">ghost "Написать &lt;Имя&gt;" · opens TG chat</span></div>
+        <div class="note"><b>Nudge only.</b> Admin can't compute for someone else, but can DM the responsible via Telegram deep-link.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       P3a — UrgentDebtView
+       ================================================================= -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">P3a / 07</div>
+      <h2 class="sec-title">Participant — urgent debt (&lt; 5 min window)</h2>
+      <div class="sec-sub">coral · countdown · dual CTA</div>
+    </div>
+
+    <div class="pair">
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="bw coral">
+            <div class="avatar-wm">А</div>
+            <div class="bw-urgent-row">
+              <span class="bw-urgent-pill">🔥 Срочно</span>
+            </div>
+
+            <div class="money-hero" style="margin-top:10px">
+              <span class="val">450</span>
+              <span class="unit">₽</span>
+            </div>
+            <div class="sub" style="margin-top:2px">Вы должны <b>Анне</b> за обед</div>
+
+            <div class="bw-countdown">⏱ Оплатите в течение <span style="font-weight:800">4:23</span></div>
+            <div class="bw-prg coral" style="margin-top:8px"><i style="width:86%"></i></div>
+
+            <div class="bw-ctas" style="margin-top:14px">
+              <button class="bw-btn white">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h3v3h-3zm4 4h3v3h-3zm0-4h-1v1h1z" stroke="currentColor" stroke-width="1.8"/></svg>
+                Оплатить через СБП
+              </button>
+            </div>
+            <div class="bw-ctas" style="margin-top:8px">
+              <button class="bw-btn ghost">Отметить как оплачено</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="bw coral">
+            <div class="avatar-wm">А</div>
+            <div class="bw-urgent-row">
+              <span class="bw-urgent-pill">🔥 Срочно</span>
+            </div>
+
+            <div class="money-hero" style="margin-top:10px">
+              <span class="val">450</span>
+              <span class="unit">₽</span>
+            </div>
+            <div class="sub" style="margin-top:2px">Вы должны <b>Анне</b> за обед</div>
+
+            <div class="bw-countdown">⏱ Оплатите в течение <span style="font-weight:800">4:23</span></div>
+            <div class="bw-prg coral" style="margin-top:8px"><i style="width:86%"></i></div>
+
+            <div class="bw-ctas" style="margin-top:14px">
+              <button class="bw-btn white">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h3v3h-3zm4 4h3v3h-3zm0-4h-1v1h1z" stroke="currentColor" stroke-width="1.8"/></svg>
+                Оплатить через СБП
+              </button>
+            </div>
+            <div class="bw-ctas" style="margin-top:8px">
+              <button class="bw-btn ghost">Отметить как оплачено</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">P3a · UrgentDebtView</div>
+        <div class="row"><span class="k">trigger</span><span class="v">role=participant · debt · age &lt; 5 min</span></div>
+        <div class="row"><span class="k">bg</span><span class="v">--g-coral</span></div>
+        <div class="row"><span class="k">urgent pill</span><span class="v">pulse 1.4s · ring shadow</span></div>
+        <div class="row"><span class="k">countdown</span><span class="v">depletes right→left · coral prg</span></div>
+        <div class="row"><span class="k">CTAs</span><span class="v">white=СБП primary · ghost=manual mark</span></div>
+        <div class="row"><span class="k">avatar</span><span class="v">creditor 40px · top-right context</span></div>
+        <div class="note"><b>High-attention.</b> This is the only state that breaks the softer pastel rhythm with a deeper saturation — deliberate dopamine nudge.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       P3b — WaitingConfirmationView
+       ================================================================= -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">P3b / 07</div>
+      <h2 class="sec-title">Participant — marked paid, awaiting confirm</h2>
+      <div class="sec-sub">butter-soft · patient</div>
+    </div>
+
+    <div class="pair">
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="bw butter">
+            <div class="bw-media-row">
+              <div class="bw-slow-clock">⏰</div>
+              <div class="tx">
+                <div class="role-row"><span class="dot"></span>участник · ожидание</div>
+                <div class="title">Ожидаем подтверждения</div>
+                <div class="sub">Вы отметили оплату <b>450 ₽</b> Анне. Ждём подтверждения.</div>
+              </div>
+            </div>
+            <div style="margin-top:12px; padding:10px 12px; background:rgba(255,255,255,0.45); border-radius:10px; display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px">
+              <span style="opacity:0.65">отмечено</span>
+              <span style="font-weight:600">2 минуты назад</span>
+            </div>
+            <div class="bw-ctas" style="margin-top:12px">
+              <button class="bw-btn ghost">Отменить отметку</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="bw butter">
+            <div class="bw-media-row">
+              <div class="bw-slow-clock">⏰</div>
+              <div class="tx">
+                <div class="role-row"><span class="dot"></span>участник · ожидание</div>
+                <div class="title">Ожидаем подтверждения</div>
+                <div class="sub">Вы отметили оплату <b>450 ₽</b> Анне. Ждём подтверждения.</div>
+              </div>
+            </div>
+            <div style="margin-top:12px; padding:10px 12px; background:rgba(255,255,255,0.6); border-radius:10px; display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px">
+              <span style="opacity:0.65">отмечено</span>
+              <span style="font-weight:600">2 минуты назад</span>
+            </div>
+            <div class="bw-ctas" style="margin-top:12px">
+              <button class="bw-btn ghost">Отменить отметку</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">P3b · WaitingConfirmationView</div>
+        <div class="row"><span class="k">trigger</span><span class="v">debt.state = marked_paid</span></div>
+        <div class="row"><span class="k">bg</span><span class="v">--g-butter (warn-soft)</span></div>
+        <div class="row"><span class="k">timestamp</span><span class="v">auto-ticks · "2 мин назад"</span></div>
+        <div class="row"><span class="k">escape</span><span class="v">ghost · reverts to P3a/urgent if cancelled</span></div>
+        <div class="note"><b>Patience state.</b> Only the responsible can flip this to P3c by confirming receipt.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       P3c — SuccessMessageView + auto-collapsed pill
+       ================================================================= -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">P3c / 07</div>
+      <h2 class="sec-title">Participant — confirmed (expanded + collapsed)</h2>
+      <div class="sec-sub">mint · confetti · then pill</div>
+    </div>
+
+    <div class="pair">
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="bw mint" style="margin-bottom:10px">
+            <div class="confetti"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="success-center">
+              <div class="bw-check">✓</div>
+              <div class="title">Оплата подтверждена! 🎉</div>
+              <div class="sub">Анна получила 450 ₽</div>
+            </div>
+          </div>
+
+          <div style="font-family:var(--mono); font-size:10px; color:var(--ink-3); letter-spacing:0.06em; text-transform:uppercase; padding:8px 4px 6px">после 5 сек · свёрнутый вид</div>
+
+          <div class="bw-mint-pill">
+            <span class="tic">✓</span>
+            <span>450 ₽ оплачено Анне</span>
+            <span style="margin-left:auto; opacity:0.6; font-family:var(--mono); font-size:11px; font-weight:500">12:42</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="bw mint" style="margin-bottom:10px">
+            <div class="confetti"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="success-center">
+              <div class="bw-check">✓</div>
+              <div class="title">Оплата подтверждена! 🎉</div>
+              <div class="sub">Анна получила 450 ₽</div>
+            </div>
+          </div>
+
+          <div style="font-family:var(--mono); font-size:10px; color:var(--ink-3); letter-spacing:0.06em; text-transform:uppercase; padding:8px 4px 6px">после 5 сек · свёрнутый вид</div>
+
+          <div class="bw-mint-pill">
+            <span class="tic">✓</span>
+            <span>450 ₽ оплачено Анне</span>
+            <span style="margin-left:auto; opacity:0.6; font-family:var(--mono); font-size:11px; font-weight:500">12:42</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">P3c · SuccessMessageView</div>
+        <div class="row"><span class="k">trigger</span><span class="v">debt.state = confirmed</span></div>
+        <div class="row"><span class="k">bg</span><span class="v">--g-sage</span></div>
+        <div class="row"><span class="k">motion</span><span class="v">confetti 2.8s · ring pulse 2.4s</span></div>
+        <div class="row"><span class="k">after 5s</span><span class="v">collapse → mint pill (persistent)</span></div>
+        <div class="note"><b>Two-stage.</b> The expanded view celebrates; the collapsed pill stays for the rest of the day so the user has a receipt.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       HiddenState
+       ================================================================= -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">∅ / 07</div>
+      <h2 class="sec-title">HiddenState — no active debts</h2>
+      <div class="sec-sub">thin pill · or omitted</div>
+    </div>
+
+    <div class="pair">
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div style="font-family:var(--mono); font-size:10px; color:var(--ink-3); letter-spacing:0.06em; text-transform:uppercase; padding:4px 4px 8px">variant a · omitted</div>
+          <div style="padding:22px 12px; border:1px dashed var(--line-2); border-radius:14px; text-align:center; color:var(--ink-3); font-family:var(--mono); font-size:11px; letter-spacing:0.04em">
+            {/* widget not rendered */}
+          </div>
+
+          <div style="font-family:var(--mono); font-size:10px; color:var(--ink-3); letter-spacing:0.06em; text-transform:uppercase; padding:18px 4px 8px">variant b · quiet pill</div>
+          <div class="bw-hidden-pill">
+            <span class="tiny-pip"></span>
+            <span>Бюджет в балансе · долгов нет</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div style="font-family:var(--mono); font-size:10px; color:var(--ink-3); letter-spacing:0.06em; text-transform:uppercase; padding:4px 4px 8px">variant a · omitted</div>
+          <div style="padding:22px 12px; border:1px dashed var(--line-2); border-radius:14px; text-align:center; color:var(--ink-3); font-family:var(--mono); font-size:11px; letter-spacing:0.04em">
+            {/* widget not rendered */}
+          </div>
+
+          <div style="font-family:var(--mono); font-size:10px; color:var(--ink-3); letter-spacing:0.06em; text-transform:uppercase; padding:18px 4px 8px">variant b · quiet pill</div>
+          <div class="bw-hidden-pill">
+            <span class="tiny-pip"></span>
+            <span>Бюджет в балансе · долгов нет</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">HiddenState</div>
+        <div class="row"><span class="k">trigger</span><span class="v">no matching gate</span></div>
+        <div class="row"><span class="k">variant a</span><span class="v">null return · zero vertical space</span></div>
+        <div class="row"><span class="k">variant b</span><span class="v">pill · bottom of HomePage · neutral</span></div>
+        <div class="note"><b>Default: variant a.</b> Variant b only when the user has history in the group (≥ 1 past poll) — gives gentle continuity without demanding attention.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================================================================
+       CALCULATOR MODAL
+       ================================================================= -->
+  <section class="section">
+    <div class="sec-head">
+      <div class="sec-num">✦ / 07</div>
+      <h2 class="sec-title">CalculatorModal — bottom sheet</h2>
+      <div class="sec-sub">from P1a · split mode + per-person</div>
+    </div>
+
+    <div class="pair">
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="modal-frame">
+            <div class="modal-dim"></div>
+            <div class="sheet">
+              <div class="grab"></div>
+              <div class="st">Рассчитать расходы</div>
+              <div class="sd">Введите общую сумму и выберите, кого включить.</div>
+
+              <div class="calc-label">Общая сумма заказа</div>
+              <div class="calc-input">
+                <input value="1 800" />
+                <span class="unit">₽</span>
+              </div>
+
+              <div class="calc-mode">
+                <button class="on">Разделить поровну</button>
+                <button>Ввести вручную</button>
+              </div>
+
+              <div class="calc-label">Участники · 4 выбрано</div>
+              <div class="calc-plist">
+                <div class="calc-prow on">
+                  <div class="chk"></div>
+                  <div class="pav" style="background:#8CE0B9">М</div>
+                  <div class="pn">Маша</div>
+                  <div class="pa">450 ₽</div>
+                </div>
+                <div class="calc-prow on">
+                  <div class="chk"></div>
+                  <div class="pav" style="background:#D1C1FC; color:#2E1F56">К</div>
+                  <div class="pn">Костя</div>
+                  <div class="pa">450 ₽</div>
+                </div>
+                <div class="calc-prow on">
+                  <div class="chk"></div>
+                  <div class="pav" style="background:#FCA5A5">А</div>
+                  <div class="pn">Аня</div>
+                  <div class="pa">450 ₽</div>
+                </div>
+                <div class="calc-prow on">
+                  <div class="chk"></div>
+                  <div class="pav" style="background:#FFE1A8">Д</div>
+                  <div class="pn">Дима</div>
+                  <div class="pa">450 ₽</div>
+                </div>
+                <div class="calc-prow off">
+                  <div class="chk"></div>
+                  <div class="pav" style="background:#7DD3FC">Л</div>
+                  <div class="pn">Лера · не ела</div>
+                  <div class="pa">0 ₽</div>
+                </div>
+              </div>
+
+              <div class="calc-preview">
+                <div class="pl">по 450 ₽ × 4</div>
+                <div class="pv">1 800 ₽</div>
+              </div>
+
+              <button class="calc-cta">Создать транзакции →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="modal-frame">
+            <div class="modal-dim"></div>
+            <div class="sheet">
+              <div class="grab"></div>
+              <div class="st">Рассчитать расходы</div>
+              <div class="sd">Введите общую сумму и выберите, кого включить.</div>
+
+              <div class="calc-label">Общая сумма заказа</div>
+              <div class="calc-input">
+                <input value="1 800" />
+                <span class="unit">₽</span>
+              </div>
+
+              <div class="calc-mode">
+                <button class="on">Разделить поровну</button>
+                <button>Ввести вручную</button>
+              </div>
+
+              <div class="calc-label">Участники · 4 выбрано</div>
+              <div class="calc-plist">
+                <div class="calc-prow on">
+                  <div class="chk"></div>
+                  <div class="pav" style="background:#8CE0B9">М</div>
+                  <div class="pn">Маша</div>
+                  <div class="pa">450 ₽</div>
+                </div>
+                <div class="calc-prow on">
+                  <div class="chk"></div>
+                  <div class="pav" style="background:#D1C1FC; color:#2E1F56">К</div>
+                  <div class="pn">Костя</div>
+                  <div class="pa">450 ₽</div>
+                </div>
+                <div class="calc-prow on">
+                  <div class="chk"></div>
+                  <div class="pav" style="background:#FCA5A5">А</div>
+                  <div class="pn">Аня</div>
+                  <div class="pa">450 ₽</div>
+                </div>
+                <div class="calc-prow on">
+                  <div class="chk"></div>
+                  <div class="pav" style="background:#FFE1A8">Д</div>
+                  <div class="pn">Дима</div>
+                  <div class="pa">450 ₽</div>
+                </div>
+                <div class="calc-prow off">
+                  <div class="chk"></div>
+                  <div class="pav" style="background:#7DD3FC">Л</div>
+                  <div class="pn">Лера · не ела</div>
+                  <div class="pa">0 ₽</div>
+                </div>
+              </div>
+
+              <div class="calc-preview">
+                <div class="pl">по 450 ₽ × 4</div>
+                <div class="pv">1 800 ₽</div>
+              </div>
+
+              <button class="calc-cta">Создать транзакции →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">CalculatorModal</div>
+        <div class="row"><span class="k">trigger</span><span class="v">P1a · CTA "Рассчитать"</span></div>
+        <div class="row"><span class="k">kind</span><span class="v">bottom sheet · grab-bar · shadow-elev</span></div>
+        <div class="row"><span class="k">mode</span><span class="v">even split (default) / manual</span></div>
+        <div class="row"><span class="k">list</span><span class="v">participants pre-checked · uncheck → skip</span></div>
+        <div class="row"><span class="k">preview</span><span class="v">live total · per-person breakdown</span></div>
+        <div class="row"><span class="k">CTA</span><span class="v">gradient primary · creates tx records</span></div>
+        <div class="note"><b>On submit.</b> Widget flips from P1a → P1b with live progress bar; DMs fire to each debtor with СБП deep-link.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER NOTES ============ -->
+  <section class="section" style="margin-top:96px">
+    <div class="sec-head">
+      <div class="sec-num">meta</div>
+      <h2 class="sec-title">State machine notes</h2>
+      <div class="sec-sub">for dev handoff</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; font-family:var(--mono); font-size:12px; color:var(--page-muted); line-height:1.7">
+      <div style="padding:16px; border:1px solid var(--page-line); border-radius:12px; background:rgba(255,255,255,0.015)">
+        <div style="color:var(--page-ink); font-family:var(--sans); font-weight:600; font-size:13px; letter-spacing:-0.005em; margin-bottom:8px">transition triggers</div>
+        <div>P1a → P1b &nbsp;&nbsp;calc submitted</div>
+        <div>P1b → P1c &nbsp;&nbsp;all debts confirmed</div>
+        <div>P2a → P2b &nbsp;&nbsp;roulette resolved</div>
+        <div>P2b → P1* &nbsp;&nbsp;(if admin also becomes responsible)</div>
+        <div>P3a → P3b &nbsp;&nbsp;user marks paid</div>
+        <div>P3b → P3a &nbsp;&nbsp;user cancels mark</div>
+        <div>P3b → P3c &nbsp;&nbsp;responsible confirms</div>
+        <div>P3c → ∅&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; after 5s · pill receipt persists</div>
+      </div>
+      <div style="padding:16px; border:1px solid var(--page-line); border-radius:12px; background:rgba(255,255,255,0.015)">
+        <div style="color:var(--page-ink); font-family:var(--sans); font-weight:600; font-size:13px; letter-spacing:-0.005em; margin-bottom:8px">priority gotchas</div>
+        <div>· P1 always wins over P3 even if responsible also owes someone from yesterday — yesterday's debt moves to history tab</div>
+        <div>· P2 and P3 are mutually exclusive by role</div>
+        <div>· HiddenState is the only gate that renders nothing</div>
+        <div>· widget is keyed by <code style="color:var(--page-ink)">poll_id</code>; new poll = fresh resolution</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

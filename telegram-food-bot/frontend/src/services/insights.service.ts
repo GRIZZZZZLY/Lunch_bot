@@ -23,7 +23,7 @@ export interface PersonalInsight {
 /**
  * Получить историю голосов пользователя из localStorage
  */
-function getVoteHistory(userId: number): UserVoteHistory[] {
+export function getStoredVoteHistory(userId: number): UserVoteHistory[] {
   const key = `vote_history_${userId}`;
   const stored = localStorage.getItem(key);
   return stored ? JSON.parse(stored) : [];
@@ -38,7 +38,7 @@ export function recordVote(
   menuItemName: string,
   pollId: number
 ): void {
-  const history = getVoteHistory(userId);
+  const history = getStoredVoteHistory(userId);
   
   history.push({
     menuItemId,
@@ -60,7 +60,7 @@ export function getFavoriteDishes(userId: number, limit: number = 3): Array<{
   count: number;
   percentage: number;
 }> {
-  const history = getVoteHistory(userId);
+  const history = getStoredVoteHistory(userId);
   
   if (history.length === 0) return [];
 
@@ -89,7 +89,7 @@ export function getWeekdayPattern(userId: number): {
   weekday: string;
   pattern: string;
 } | null {
-  const history = getVoteHistory(userId);
+  const history = getStoredVoteHistory(userId);
   
   if (history.length < 10) return null; // Минимум 10 голосов для анализа
 
@@ -155,7 +155,7 @@ export function getTasteMatch(userId: number): {
   // В реальности будет API запрос для сравнения с другими пользователями
   // Сейчас возвращаем mock данные если есть достаточно голосов
   
-  const history = getVoteHistory(userId);
+  const history = getStoredVoteHistory(userId);
   if (history.length < 5) return null;
 
   // Mock: случайный процент совпадения
@@ -218,7 +218,7 @@ export function generatePersonalInsights(userId: number): PersonalInsight[] {
   }
 
   // 4. Разнообразие выбора
-  const history = getVoteHistory(userId);
+  const history = getStoredVoteHistory(userId);
   const uniqueDishes = new Set(history.map(v => v.menuItemName)).size;
   if (uniqueDishes >= 10) {
     insights.push({
@@ -262,7 +262,7 @@ export function getQuickStats(userId: number): {
   uniqueDishes: number;
   topDish: string | null;
 } {
-  const history = getVoteHistory(userId);
+  const history = getStoredVoteHistory(userId);
   const favorites = getFavoriteDishes(userId, 1);
   
   return {
@@ -270,4 +270,277 @@ export function getQuickStats(userId: number): {
     uniqueDishes: new Set(history.map(v => v.menuItemName)).size,
     topDish: favorites[0]?.name || null,
   };
+}
+
+// ============================================
+// РЕКОМЕНДАЦИИ (3 алгоритма с ежедневной ротацией)
+// ============================================
+
+export interface Recommendation {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  algorithm: 'category' | 'collaborative' | 'diversity';
+}
+
+/**
+ * Определить "категорию" блюда по ключевым словам
+ */
+function inferDishCategory(name: string): string {
+  const lower = name.toLowerCase();
+
+  if (lower.includes('пицца') || lower.includes('паста') || lower.includes('спагетти') || lower.includes('ризотто'))
+    return 'Итальянская кухня';
+  if (lower.includes('суши') || lower.includes('ролл') || lower.includes('рамен') || lower.includes('вок'))
+    return 'Азиатская кухня';
+  if (lower.includes('бургер') || lower.includes('стейк') || lower.includes('фри'))
+    return 'Фастфуд';
+  if (lower.includes('салат') || lower.includes('овощ') || lower.includes('боул'))
+    return 'Здоровое питание';
+  if (lower.includes('суп') || lower.includes('борщ') || lower.includes('щи') || lower.includes('солянка'))
+    return 'Супы';
+  if (lower.includes('шаурма') || lower.includes('гирос') || lower.includes('кебаб') || lower.includes('фалафель'))
+    return 'Стрит-фуд';
+  if (lower.includes('курица') || lower.includes('мясо') || lower.includes('свинина') || lower.includes('говядина'))
+    return 'Мясные блюда';
+
+  return 'Другое';
+}
+
+/**
+ * Алгоритм А: Рекомендации по категории
+ * "Вы часто выбираете итальянскую кухню — попробуйте новое итальянское блюдо"
+ */
+function getRecommendationsByCategory(
+  userId: number
+): Recommendation[] {
+  const history = getStoredVoteHistory(userId);
+  if (history.length < 1) return [];
+
+  const categoryCounts: Record<string, number> = {};
+  history.forEach(vote => {
+    const cat = inferDishCategory(vote.menuItemName);
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  });
+
+  const sorted = Object.entries(categoryCounts)
+    .filter(([cat]) => cat !== 'Другое')
+    .sort((a, b) => b[1] - a[1]);
+
+  if (sorted.length === 0) return [];
+
+  const [topCategory, topCount] = sorted[0];
+  const percentage = Math.round((topCount / history.length) * 100);
+
+  const recommendations: Recommendation[] = [
+    {
+      id: 'cat_top',
+      title: `Фанат: ${topCategory}`,
+      description: `${percentage}% ваших голосов — ${topCategory.toLowerCase()}. Попробуйте что-то новое в этой категории!`,
+      icon: getCategoryEmoji(topCategory),
+      algorithm: 'category',
+    },
+  ];
+
+  if (sorted.length >= 2) {
+    const [secondCategory] = sorted[1];
+    recommendations.push({
+      id: 'cat_second',
+      title: `Также нравится: ${secondCategory}`,
+      description: `Ваш второй фаворит. Может, сегодня попробовать что-то отсюда?`,
+      icon: getCategoryEmoji(secondCategory),
+      algorithm: 'category',
+    });
+  }
+
+  return recommendations;
+}
+
+/**
+ * Алгоритм Б: Collaborative filtering (mock)
+ * "Пользователи с похожими вкусами также выбирали..."
+ */
+function getRecommendationsByPeers(
+  userId: number
+): Recommendation[] {
+  const history = getStoredVoteHistory(userId);
+  if (history.length < 1) return [];
+
+  const favorites = getFavoriteDishes(userId, 3);
+  if (favorites.length === 0) return [];
+
+  // Стабильный "случайный" выбор на основе дня
+  const today = new Date();
+  const dayHash = today.getFullYear() * 1000 + today.getMonth() * 31 + today.getDate();
+
+  const mockPeerDishes = [
+    'Том Ям', 'Цезарь с курицей', 'Фо Бо',
+    'Карбонара', 'Греческий салат', 'Бургер Классик',
+    'Рамен', 'Шаурма XL', 'Боул с лососем',
+  ];
+
+  const mockPeerNames = [
+    'Иван', 'Мария', 'Алексей', 'Анна', 'Дмитрий',
+  ];
+
+  // Исключаем блюда, которые пользователь уже выбирал
+  const userDishNames = new Set(
+    history.map(v => v.menuItemName.toLowerCase())
+  );
+  const newDishes = mockPeerDishes.filter(
+    d => !userDishNames.has(d.toLowerCase())
+  );
+
+  if (newDishes.length === 0) return [];
+
+  const peerName = mockPeerNames[dayHash % mockPeerNames.length];
+  const suggestedDish = newDishes[dayHash % newDishes.length];
+
+  return [
+    {
+      id: 'peer_suggest',
+      title: `${peerName} рекомендует`,
+      description: `Коллеги с похожими вкусами часто выбирают "${suggestedDish}"`,
+      icon: '👥',
+      algorithm: 'collaborative',
+    },
+    {
+      id: 'peer_popular',
+      title: 'Популярно у единомышленников',
+      description: `Те, кто любит ${favorites[0].name}, также выбирают "${newDishes[(dayHash + 1) % newDishes.length]}"`,
+      icon: '🔥',
+      algorithm: 'collaborative',
+    },
+  ];
+}
+
+/**
+ * Алгоритм В: Разнообразие
+ * "Вы давно не пробовали азиатскую кухню"
+ */
+function getRecommendationsByDiversity(
+  userId: number
+): Recommendation[] {
+  const history = getStoredVoteHistory(userId);
+  if (history.length < 1) return [];
+
+  // Считаем давность последнего голоса по категориям
+  const lastVoteByCategory: Record<string, Date> = {};
+  history.forEach(vote => {
+    const cat = inferDishCategory(vote.menuItemName);
+    const voteDate = new Date(vote.votedAt);
+    if (!lastVoteByCategory[cat] || voteDate > lastVoteByCategory[cat]) {
+      lastVoteByCategory[cat] = voteDate;
+    }
+  });
+
+  const allCategories = [
+    'Итальянская кухня', 'Азиатская кухня', 'Фастфуд',
+    'Здоровое питание', 'Супы', 'Стрит-фуд', 'Мясные блюда',
+  ];
+
+  const now = new Date();
+  const recommendations: Recommendation[] = [];
+
+  // Категории, которые пользователь никогда не пробовал
+  const neverTried = allCategories.filter(
+    cat => !lastVoteByCategory[cat]
+  );
+
+  if (neverTried.length > 0) {
+    const dayHash = now.getDate();
+    const suggested = neverTried[dayHash % neverTried.length];
+    recommendations.push({
+      id: 'div_new',
+      title: `Новый опыт: ${suggested}`,
+      description: `Вы ещё не пробовали ${suggested.toLowerCase()}. Время для эксперимента!`,
+      icon: '✨',
+      algorithm: 'diversity',
+    });
+  }
+
+  // Категории, которые давно не выбирали (> 7 дней)
+  const stale = Object.entries(lastVoteByCategory)
+    .filter(([cat, date]) => {
+      const daysSince = Math.floor(
+        (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return daysSince > 7 && cat !== 'Другое';
+    })
+    .sort((a, b) => a[1].getTime() - b[1].getTime());
+
+  if (stale.length > 0) {
+    const [staleCat, staleDate] = stale[0];
+    const daysSince = Math.floor(
+      (now.getTime() - staleDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    recommendations.push({
+      id: 'div_stale',
+      title: `Давно не пробовали`,
+      description: `${staleCat} — уже ${daysSince} дней. Может, вернуться?`,
+      icon: '🔄',
+      algorithm: 'diversity',
+    });
+  }
+
+  // Общая статистика разнообразия
+  const triedCount = Object.keys(lastVoteByCategory).filter(
+    c => c !== 'Другое'
+  ).length;
+  const totalCategories = allCategories.length;
+
+  if (triedCount < totalCategories) {
+    recommendations.push({
+      id: 'div_progress',
+      title: `Разнообразие: ${triedCount}/${totalCategories}`,
+      description: `Вы попробовали ${triedCount} из ${totalCategories} категорий. Продолжайте исследовать!`,
+      icon: '🗺️',
+      algorithm: 'diversity',
+    });
+  }
+
+  return recommendations;
+}
+
+/**
+ * Получить эмодзи для категории
+ */
+function getCategoryEmoji(category: string): string {
+  const map: Record<string, string> = {
+    'Итальянская кухня': '🇮🇹',
+    'Азиатская кухня': '🥢',
+    'Фастфуд': '🍔',
+    'Здоровое питание': '🥗',
+    'Супы': '🍲',
+    'Стрит-фуд': '🌯',
+    'Мясные блюда': '🥩',
+  };
+  return map[category] || '🍽️';
+}
+
+/**
+ * Получить рекомендации с ежедневной ротацией алгоритмов
+ *
+ * Каждый день используется другой алгоритм:
+ * - День 0, 3, 6... → По категории (А)
+ * - День 1, 4, 7... → Collaborative filtering (Б)
+ * - День 2, 5, 8... → Разнообразие (В)
+ */
+export function getRotatingRecommendations(
+  userId: number
+): Recommendation[] {
+  const dayOfYear = Math.floor(
+    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
+    (1000 * 60 * 60 * 24)
+  );
+
+  const algorithms = [
+    getRecommendationsByCategory,
+    getRecommendationsByPeers,
+    getRecommendationsByDiversity,
+  ];
+
+  const selectedAlgorithm = algorithms[dayOfYear % 3];
+  return selectedAlgorithm(userId);
 }

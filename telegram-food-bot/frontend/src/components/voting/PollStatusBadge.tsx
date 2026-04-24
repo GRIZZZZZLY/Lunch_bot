@@ -1,12 +1,10 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   Clock, 
   CheckCircle2, 
   XCircle, 
   PlayCircle,
-  Pause,
-  AlertCircle
+  Pause
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -93,14 +91,14 @@ const sizeClasses = {
  * Компонент статус-бейджа для голосования
  * Показывает текущий статус с чёткой цветовой кодировкой
  */
-export const PollStatusBadge: React.FC<PollStatusBadgeProps> = ({
+export const PollStatusBadge = ({
   status,
   hasVoted = false,
   size = 'md',
   showIcon = true,
   showLabel = true,
   className,
-}) => {
+}: PollStatusBadgeProps) => {
   const config = statusConfigs[status] || statusConfigs.PENDING;
   const Icon = config.icon;
   const sizes = sizeClasses[size];

@@ -3,20 +3,23 @@ import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { logger } from '../utils/logger';
 
 /**
- * Инициализация Sentry для мониторинга ошибок в production
+ * Инициализация Sentry/GlitchTip для мониторинга ошибок в production
+ * 
+ * GlitchTip совместим с Sentry SDK, поэтому используем тот же код.
+ * Просто укажите SENTRY_DSN с URL GlitchTip вместо Sentry.
  */
 export function initSentry() {
-  const sentryDsn = process.env.SENTRY_DSN;
+  const sentryDsn = process.env.SENTRY_DSN || process.env.GLITCHTIP_DSN;
   const environment = process.env.NODE_ENV || 'development';
-  const enableSentry = process.env.ENABLE_SENTRY === 'true';
+  const enableSentry = process.env.ENABLE_SENTRY === 'true' || process.env.ENABLE_GLITCHTIP === 'true';
 
   if (!enableSentry) {
-    logger.info('Sentry мониторинг отключен');
+    logger.info('Error tracking (Sentry/GlitchTip) отключен');
     return;
   }
 
   if (!sentryDsn) {
-    logger.warn('SENTRY_DSN не установлен. Sentry мониторинг недоступен.');
+    logger.warn('SENTRY_DSN или GLITCHTIP_DSN не установлен. Error tracking недоступен.');
     return;
   }
 
@@ -70,14 +73,16 @@ export function initSentry() {
     },
   });
 
-  logger.info(`✅ Sentry инициализирован для окружения: ${environment}`);
+  const serviceName = sentryDsn.includes('glitchtip') ? 'GlitchTip' : 'Sentry';
+  logger.info(`✅ ${serviceName} инициализирован для окружения: ${environment}`);
 }
 
 /**
- * Capture exception в Sentry
+ * Capture exception в Sentry/GlitchTip
  */
 export function captureException(error: Error, context?: Record<string, any>) {
-  if (process.env.ENABLE_SENTRY === 'true') {
+  const enabled = process.env.ENABLE_SENTRY === 'true' || process.env.ENABLE_GLITCHTIP === 'true';
+  if (enabled) {
     Sentry.captureException(error, {
       extra: context,
     });
@@ -87,10 +92,11 @@ export function captureException(error: Error, context?: Record<string, any>) {
 }
 
 /**
- * Capture message в Sentry
+ * Capture message в Sentry/GlitchTip
  */
 export function captureMessage(message: string, level: Sentry.SeverityLevel = 'info', context?: Record<string, any>) {
-  if (process.env.ENABLE_SENTRY === 'true') {
+  const enabled = process.env.ENABLE_SENTRY === 'true' || process.env.ENABLE_GLITCHTIP === 'true';
+  if (enabled) {
     Sentry.captureMessage(message, {
       level,
       extra: context,
@@ -103,7 +109,8 @@ export function captureMessage(message: string, level: Sentry.SeverityLevel = 'i
  * Set user context
  */
 export function setUserContext(userId: number, username?: string) {
-  if (process.env.ENABLE_SENTRY === 'true') {
+  const enabled = process.env.ENABLE_SENTRY === 'true' || process.env.ENABLE_GLITCHTIP === 'true';
+  if (enabled) {
     Sentry.setUser({
       id: userId.toString(),
       username,
@@ -115,7 +122,8 @@ export function setUserContext(userId: number, username?: string) {
  * Clear user context
  */
 export function clearUserContext() {
-  if (process.env.ENABLE_SENTRY === 'true') {
+  const enabled = process.env.ENABLE_SENTRY === 'true' || process.env.ENABLE_GLITCHTIP === 'true';
+  if (enabled) {
     Sentry.setUser(null);
   }
 }

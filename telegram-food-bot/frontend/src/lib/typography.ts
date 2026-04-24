@@ -6,38 +6,42 @@
  */
 
 /**
- * Display - Главный заголовок на странице (Hero text)
- * Использование: "ГОЛОСОВАНИЕ АКТИВНО", главные заголовки страниц
+ * Display / Hero - Главный эмоциональный заголовок (Greeting)
+ * Использование: "Доброе утро, Иван!", hero-тайтлы
+ * Redesign 2026-04-24: 28px / 800 / -0.7px / 1.1
  */
 export const TYPOGRAPHY_DISPLAY = {
-  size: 'text-4xl',        // 40px (2.5rem)
-  lineHeight: 'leading-tight', // 1.2
-  weight: 'font-semibold', // 600
-  letterSpacing: 'tracking-tight', // -0.02em
-  className: 'text-4xl leading-tight font-semibold tracking-tight',
+  size: 'text-[28px]',
+  lineHeight: 'leading-[1.1]',
+  weight: 'font-extrabold',
+  letterSpacing: 'tracking-[-0.7px]',
+  className: 'text-[28px] leading-[1.1] font-extrabold tracking-[-0.7px]',
 } as const;
+
+export const TYPOGRAPHY_HERO = TYPOGRAPHY_DISPLAY;
 
 /**
  * H1 - Page Title
- * Использование: Заголовки страниц (Статистика, Меню, Профиль)
+ * Redesign: 22px / 700 / -0.4px / snug
  */
 export const TYPOGRAPHY_H1 = {
-  size: 'text-3xl',        // 32px (2rem)
-  lineHeight: 'leading-tight', // 1.2
-  weight: 'font-semibold', // 600
-  letterSpacing: 'tracking-tight', // -0.01em
-  className: 'text-3xl leading-tight font-semibold tracking-tight',
+  size: 'text-[22px]',
+  lineHeight: 'leading-snug',
+  weight: 'font-bold',
+  letterSpacing: 'tracking-[-0.4px]',
+  className: 'text-[22px] leading-snug font-bold tracking-[-0.4px]',
 } as const;
 
 /**
  * H2 - Section Title
- * Использование: Заголовки секций (Completed Polls, Budget)
+ * Redesign: 17px / 600 / -0.2px
  */
 export const TYPOGRAPHY_H2 = {
-  size: 'text-2xl',        // 24px (1.5rem)
-  lineHeight: 'leading-snug', // 1.3
-  weight: 'font-semibold', // 600
-  className: 'text-2xl leading-snug font-semibold',
+  size: 'text-[17px]',
+  lineHeight: 'leading-snug',
+  weight: 'font-semibold',
+  letterSpacing: 'tracking-[-0.2px]',
+  className: 'text-[17px] leading-snug font-semibold tracking-[-0.2px]',
 } as const;
 
 /**
@@ -53,24 +57,45 @@ export const TYPOGRAPHY_H3 = {
 
 /**
  * Body - Default текст
- * Использование: Основной текст, descriptions, paragraphs
+ * Redesign: 15px / 1.6 — минимальный комфортный размер body в mobile
  */
 export const TYPOGRAPHY_BODY = {
-  size: 'text-base',       // 16px (1rem)
-  lineHeight: 'leading-relaxed', // 1.5
-  weight: 'font-normal',   // 400
-  className: 'text-base leading-relaxed font-normal',
+  size: 'text-[15px]',
+  lineHeight: 'leading-[1.6]',
+  weight: 'font-normal',
+  className: 'text-[15px] leading-[1.6] font-normal',
 } as const;
 
 /**
- * Small - Secondary текст
- * Использование: Метаинформация, captions, labels
+ * Small / Caption
+ * Redesign: 13px
  */
 export const TYPOGRAPHY_SMALL = {
-  size: 'text-sm',         // 14px (0.875rem)
-  lineHeight: 'leading-normal', // 1.4
-  weight: 'font-normal',   // 400
-  className: 'text-sm leading-normal font-normal',
+  size: 'text-[13px]',
+  lineHeight: 'leading-[1.5]',
+  weight: 'font-normal',
+  className: 'text-[13px] leading-[1.5] font-normal',
+} as const;
+
+/**
+ * Label — UPPERCASE helpers (платёжные данные, секции)
+ * Redesign: 11px 700 0.8px uppercase
+ */
+export const TYPOGRAPHY_LABEL = {
+  size: 'text-[11px]',
+  lineHeight: 'leading-[1.4]',
+  weight: 'font-bold',
+  letterSpacing: 'tracking-[0.8px]',
+  className: 'text-[11px] leading-[1.4] font-bold tracking-[0.8px] uppercase',
+} as const;
+
+/**
+ * Mono-num — цифры в статистике, ценах
+ */
+export const TYPOGRAPHY_NUM = {
+  size: 'text-base',
+  weight: 'font-bold',
+  className: 'font-mono font-bold tabular-nums',
 } as const;
 
 /**

@@ -1,21 +1,102 @@
 import { useEffect, useState, useMemo } from 'react';
 
+interface TelegramPopupButton {
+  id?: string;
+  type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive';
+  text: string;
+}
+
+interface TelegramPopupParams {
+  title?: string;
+  message: string;
+  buttons?: TelegramPopupButton[];
+}
+
+interface TelegramThemeParams {
+  bg_color?: string;
+  text_color?: string;
+  hint_color?: string;
+  link_color?: string;
+  button_color?: string;
+  button_text_color?: string;
+  secondary_bg_color?: string;
+}
+
+interface TelegramMainButton {
+  text: string;
+  color: string;
+  textColor: string;
+  isVisible: boolean;
+  isProgressVisible: boolean;
+  isActive: boolean;
+  setText: (text: string) => void;
+  onClick: (callback: () => void) => void;
+  show: () => void;
+  hide: () => void;
+  enable: () => void;
+  disable: () => void;
+  showProgress: () => void;
+  hideProgress: () => void;
+}
+
+interface TelegramBackButton {
+  isVisible: boolean;
+  onClick: (callback: () => void) => void;
+  show: () => void;
+  hide: () => void;
+}
+
+interface TelegramHapticFeedback {
+  impactOccurred: (style: string) => void;
+  notificationOccurred: (type: string) => void;
+  selectionChanged: () => void;
+}
+
+interface TelegramWebApp {
+  initData: string;
+  initDataUnsafe: {
+    query_id?: string;
+    user?: TelegramUser;
+  };
+  version?: string;
+  platform?: string;
+  colorScheme?: 'light' | 'dark';
+  themeParams: TelegramThemeParams;
+  isExpanded: boolean;
+  viewportHeight: number;
+  viewportStableHeight: number;
+  MainButton: TelegramMainButton;
+  BackButton: TelegramBackButton;
+  HapticFeedback: TelegramHapticFeedback;
+  showAlert: (message: string, callback?: () => void) => void;
+  showConfirm: (message: string, callback?: (confirmed: boolean) => void) => void;
+  showPopup: (params: TelegramPopupParams, callback?: (buttonId: string) => void) => void;
+  ready: () => void;
+  close: () => void;
+  expand: () => void;
+  sendData: (data: string) => void;
+  enableClosingConfirmation?: () => void;
+  disableClosingConfirmation?: () => void;
+  onEvent?: (eventName: string, callback: () => void) => void;
+  offEvent?: (eventName: string, callback: () => void) => void;
+}
+
 // Mock Telegram WebApp для тестирования без Telegram
-const createMockWebApp = () => ({
+const createMockWebApp = (): TelegramWebApp => ({
   initData: 'query_id=mock&user=%7B%22id%22%3A123456789%2C%22first_name%22%3A%22Test%22%2C%22username%22%3A%22testuser%22%7D',
   initDataUnsafe: {
     query_id: 'mock',
     user: {
       id: 123456789,
       first_name: 'Тест',
-      last_name: 'Пользователь', 
+      last_name: 'Пользователь',
       username: 'testuser',
       language_code: 'ru',
     },
   },
   version: '6.9',
   platform: 'web',
-  colorScheme: 'light' as const,
+  colorScheme: 'light',
   themeParams: {
     bg_color: '#ffffff',
     text_color: '#000000',
@@ -65,7 +146,7 @@ const createMockWebApp = () => ({
     const result = confirm(message);
     callback?.(result);
   },
-  showPopup: (params: any, callback?: (buttonId: string) => void) => {
+  showPopup: (params: TelegramPopupParams, callback?: (buttonId: string) => void) => {
     console.log('WebApp.showPopup:', params);
     alert(params.message);
     callback?.('ok');
@@ -81,7 +162,7 @@ const createMockWebApp = () => ({
 const isMockMode = import.meta.env.VITE_USE_MOCK_API === 'true';
 
 // Динамический импорт WebApp SDK или использование mock
-let WebApp: any;
+let WebApp: TelegramWebApp;
 
 // ✅ ИСПРАВЛЕНО: console.log обёрнуты в DEV проверку
 if (isMockMode) {
@@ -99,11 +180,11 @@ if (isMockMode) {
 } else {
   if (import.meta.env.DEV) {
     console.log('✅ Telegram WebApp SDK loaded successfully');
-    const tgWebApp = window.Telegram.WebApp as any;
+    const tgWebApp = window.Telegram.WebApp as TelegramWebApp;
     console.log('📱 User:', tgWebApp.initDataUnsafe?.user);
     console.log('📱 initData length:', tgWebApp.initData?.length || 0);
   }
-  WebApp = window.Telegram.WebApp as any;
+  WebApp = window.Telegram.WebApp as TelegramWebApp;
 }
 
 export interface TelegramUser {
@@ -120,24 +201,16 @@ export interface UseTelegramReturn {
   webApp: typeof WebApp;
   user: TelegramUser | null;
   initData: string;
-  initDataUnsafe: any;
+  initDataUnsafe: TelegramWebApp['initDataUnsafe'];
   isReady: boolean;
   colorScheme: 'light' | 'dark';
-  themeParams: typeof WebApp.themeParams;
-  mainButton: typeof WebApp.MainButton;
-  backButton: typeof WebApp.BackButton;
-  hapticFeedback: typeof WebApp.HapticFeedback;
+  themeParams: TelegramThemeParams;
+  mainButton: TelegramMainButton;
+  backButton: TelegramBackButton;
+  hapticFeedback: TelegramHapticFeedback;
   showAlert: (message: string, callback?: () => void) => void;
   showConfirm: (message: string, callback?: (confirmed: boolean) => void) => void;
-  showPopup: (params: {
-    title?: string;
-    message: string;
-    buttons?: Array<{
-      id?: string;
-      type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive';
-      text: string;
-    }>;
-  }, callback?: (buttonId: string) => void) => void;
+  showPopup: (params: TelegramPopupParams, callback?: (buttonId: string) => void) => void;
   close: () => void;
   expand: () => void;
   sendData: (data: string) => void;
@@ -152,6 +225,14 @@ export interface UseTelegramReturn {
 export const useTelegram = (): UseTelegramReturn => {
   const [isReady, setIsReady] = useState(false);
   const [colorScheme, setColorScheme] = useState<'light' | 'dark'>(WebApp.colorScheme || 'light');
+  const [themeParams, setThemeParams] = useState<TelegramThemeParams>(
+    WebApp.themeParams || {}
+  );
+  const [initData, setInitData] = useState(WebApp.initData || '');
+  const [initDataUnsafe, setInitDataUnsafe] = useState(WebApp.initDataUnsafe || null);
+  const [user, setUser] = useState<TelegramUser | null>(
+    WebApp.initDataUnsafe?.user || null
+  );
 
   useEffect(() => {
     // Инициализация WebApp
@@ -168,6 +249,10 @@ export const useTelegram = (): UseTelegramReturn => {
 
     // Устанавливаем начальную тему
     setColorScheme(WebApp.colorScheme || 'light');
+    setThemeParams(WebApp.themeParams || {});
+    setInitData(WebApp.initData || '');
+    setInitDataUnsafe(WebApp.initDataUnsafe || null);
+    setUser(WebApp.initDataUnsafe?.user || null);
     
     // Слушаем изменения темы
     const onThemeChanged = () => {
@@ -176,6 +261,7 @@ export const useTelegram = (): UseTelegramReturn => {
         console.log('🎨 Theme changed:', newScheme);
       }
       setColorScheme(newScheme);
+      setThemeParams(WebApp.themeParams || {});
     };
     
     if (WebApp.onEvent) {
@@ -198,10 +284,6 @@ export const useTelegram = (): UseTelegramReturn => {
         WebApp.offEvent('themeChanged', onThemeChanged);
       }
     };
-  }, []);
-
-  const user = useMemo(() => {
-    return WebApp.initDataUnsafe.user || null;
   }, []);
 
   const showAlert = useMemo(() => (message: string, callback?: () => void) => {
@@ -258,11 +340,11 @@ export const useTelegram = (): UseTelegramReturn => {
   return {
     webApp: WebApp,
     user,
-    initData: WebApp.initData,
-    initDataUnsafe: WebApp.initDataUnsafe,
-    isReady,
-    colorScheme,
-    themeParams: WebApp.themeParams,
+    initData,
+    initDataUnsafe,
+      isReady,
+      colorScheme,
+      themeParams,
     mainButton: WebApp.MainButton,
     backButton: WebApp.BackButton,
     hapticFeedback: WebApp.HapticFeedback,
