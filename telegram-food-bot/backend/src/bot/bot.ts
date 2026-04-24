@@ -142,6 +142,18 @@ export function createBot(): Bot<BotContext> {
   bot.command('menu', menuCommand);
   bot.command('app', appCommand);
 
+  // Личные сообщения с заказами в магазинный забег ("Иду в магазин")
+  bot.on('message:text', async (ctx, next) => {
+    try {
+      const { handleStoreRunTextMessage } = await import('./handlers/store-run.handlers');
+      const consumed = await handleStoreRunTextMessage(ctx as any);
+      if (!consumed) await next();
+    } catch (err) {
+      logger.error('store-run text handler failed', { err });
+      await next();
+    }
+  });
+
   // Обработка callback queries
   bot.on('callback_query:data', async (ctx) => {
     const data = ctx.callbackQuery.data;
@@ -190,6 +202,18 @@ export function createBot(): Bot<BotContext> {
           return;
         }
         await handleCompletePoll(ctx as any, pollId);
+        return;
+      }
+
+      // Store run: добавить позиции из кэшированного текста
+      if (data.startsWith('storerun_addto:')) {
+        const runId = parseCallbackId(data, 1);
+        if (!runId) {
+          await ctx.answerCallbackQuery('❌ Некорректный идентификатор забега');
+          return;
+        }
+        const { handleStoreRunAddToCallback } = await import('./handlers/store-run.handlers');
+        await handleStoreRunAddToCallback(ctx as any, runId);
         return;
       }
 

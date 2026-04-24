@@ -9,6 +9,7 @@ import { initializePollServiceBot } from './services/poll.service.extensions';
 import { feedbackService } from './services/feedback.service';
 import { runSecurityChecks } from './utils/security-checks';
 import { initDebtReminderJob } from './jobs/debt-reminder.job';
+import { initStoreRunAutoCloseJob } from './jobs/store-run-autoclose.job';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -32,6 +33,9 @@ feedbackService.initialize(bot);
 
 // Инициализация cron job для автоматических напоминаний о долгах
 initDebtReminderJob();
+
+// Cron для авто-закрытия магазинных забегов ("Иду в магазин") по истечении таймера
+initStoreRunAutoCloseJob();
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
