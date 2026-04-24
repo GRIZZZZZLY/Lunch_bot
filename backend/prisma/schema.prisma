@@ -7,83 +7,86 @@ datasource db {
 }
 
 model User {
-  id               Int          @id @default(autoincrement())
-  telegramId       BigInt       @unique @map("telegram_id")
-  username         String?
-  firstName        String       @map("first_name")
-  lastName         String?      @map("last_name")
-  photoUrl         String?      @map("photo_url")
-  avatarUrl        String?      @map("avatar_url")
-  avatarUpdatedAt  DateTime?    @map("avatar_updated_at")
-  isAdmin          Boolean      @default(false) @map("is_admin")
-  isActive         Boolean      @default(true) @map("is_active")
-  paymentCard      String?      @map("payment_card")
-  paymentPhone     String?      @map("payment_phone")
-  paymentDetails   String?      @map("payment_details")
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
-  createdMenuItems MenuItem[]
-  responsiblePolls PollResult[]
-  createdPolls     Poll[]       @relation("PollCreator")
-  votes            Vote[]
-  debts                   Transaction[]           @relation("UserDebts")
-  credits                 Transaction[]           @relation("UserCredits")
-  responsibleSelections   ResponsibleSelection[]  @relation("ResponsibleUser")
-  volunteerSelections     ResponsibleSelection[]  @relation("VolunteerUser")
-  rouletteWins            ResponsibleSelection[]  @relation("RouletteWinner")
-  sentReminders           PaymentReminder[]
-  adminReminders          AdminReminder[]
-  groupMemberships        GroupMember[]
-  menuSuggestions         MenuSuggestion[]        @relation("SuggestionCreator")
-  reviewedSuggestions     MenuSuggestion[]        @relation("SuggestionReviewer")
-  progress                UserProgress?
-  stats                   UserStats?             @relation("UserStats")
-  achievements            UserAchievement[]
-  challengeProgress       UserChallengeProgress[]
-  quests                  UserQuest[]            @relation("UserQuests")
-  createdRecurringPolls   RecurringPoll[]
-  xpHistory               XPHistory[]            @relation("UserXPHistory")
-  createdReminderSettings DebtReminderSettings[] @relation("ReminderSettingsCreator")
-  responsibleCategoryOrders CategoryOrder[]      @relation("ResponsibleCategoryOrders")
-  orderedItems            OrderItem[]            @relation("OrderItemUser")
-  enteredItems            OrderItem[]            @relation("OrderItemEnteredBy")
-  editLogs                OrderItemEditLog[]     @relation("OrderItemEditor")
+  id                        Int                     @id @default(autoincrement())
+  telegramId                BigInt                  @unique @map("telegram_id")
+  username                  String?
+  firstName                 String                  @map("first_name")
+  lastName                  String?                 @map("last_name")
+  photoUrl                  String?                 @map("photo_url")
+  avatarUrl                 String?                 @map("avatar_url")
+  avatarUpdatedAt           DateTime?               @map("avatar_updated_at")
+  isAdmin                   Boolean                 @default(false) @map("is_admin")
+  isActive                  Boolean                 @default(true) @map("is_active")
+  paymentCard               String?                 @map("payment_card")
+  paymentPhone              String?                 @map("payment_phone")
+  paymentDetails            String?                 @map("payment_details")
+  createdAt                 DateTime                @default(now()) @map("created_at")
+  updatedAt                 DateTime                @updatedAt @map("updated_at")
+  createdMenuItems          MenuItem[]
+  responsiblePolls          PollResult[]
+  createdPolls              Poll[]                  @relation("PollCreator")
+  votes                     Vote[]
+  debts                     Transaction[]           @relation("UserDebts")
+  credits                   Transaction[]           @relation("UserCredits")
+  responsibleSelections     ResponsibleSelection[]  @relation("ResponsibleUser")
+  volunteerSelections       ResponsibleSelection[]  @relation("VolunteerUser")
+  rouletteWins              ResponsibleSelection[]  @relation("RouletteWinner")
+  sentReminders             PaymentReminder[]
+  adminReminders            AdminReminder[]
+  groupMemberships          GroupMember[]
+  menuSuggestions           MenuSuggestion[]        @relation("SuggestionCreator")
+  reviewedSuggestions       MenuSuggestion[]        @relation("SuggestionReviewer")
+  progress                  UserProgress?
+  stats                     UserStats?              @relation("UserStats")
+  achievements              UserAchievement[]
+  challengeProgress         UserChallengeProgress[]
+  quests                    UserQuest[]             @relation("UserQuests")
+  createdRecurringPolls     RecurringPoll[]
+  xpHistory                 XPHistory[]             @relation("UserXPHistory")
+  createdReminderSettings   DebtReminderSettings[]  @relation("ReminderSettingsCreator")
+  responsibleCategoryOrders CategoryOrder[]         @relation("ResponsibleCategoryOrders")
+  orderedItems              OrderItem[]             @relation("OrderItemUser")
+  enteredItems              OrderItem[]             @relation("OrderItemEnteredBy")
+  editLogs                  OrderItemEditLog[]      @relation("OrderItemEditor")
+  initiatedStoreRuns        StoreRun[]              @relation("StoreRunInitiator")
+  storeItems                StoreItem[]             @relation("StoreItemOwner")
 
   @@map("users")
 }
 
 model Group {
-  id         Int      @id @default(autoincrement())
-  telegramId BigInt   @unique @map("telegram_id")
-  title      String
-  type       String   @default("group")
-  isActive   Boolean  @default(true) @map("is_active")
-  settings   String?  @map("settings_json")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  polls      Poll[]
-  adminReminders AdminReminder[]
-  members    GroupMember[]
-  recurringPolls RecurringPoll[]
-  reminderSettings DebtReminderSettings?
+  id                        Int                        @id @default(autoincrement())
+  telegramId                BigInt                     @unique @map("telegram_id")
+  title                     String
+  type                      String                     @default("group")
+  isActive                  Boolean                    @default(true) @map("is_active")
+  settings                  String?                    @map("settings_json")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  polls                     Poll[]
+  adminReminders            AdminReminder[]
+  members                   GroupMember[]
+  recurringPolls            RecurringPoll[]
+  reminderSettings          DebtReminderSettings?
   adminNotificationSettings AdminNotificationSettings?
+  storeRuns                 StoreRun[]
 
   @@map("groups")
 }
 
 model MenuItem {
-  id          Int          @id @default(autoincrement())
-  name        String
-  description String?
-  price       Decimal?
-  imageUrl    String?      @map("image_url")
-  isActive    Boolean      @default(true) @map("is_active")
-  createdBy   Int          @map("created_by")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  creator     User         @relation(fields: [createdBy], references: [id])
-  pollResults PollResult[]
-  votes       Vote[]
+  id           Int           @id @default(autoincrement())
+  name         String
+  description  String?
+  price        Decimal?
+  imageUrl     String?       @map("image_url")
+  isActive     Boolean       @default(true) @map("is_active")
+  createdBy    Int           @map("created_by")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  creator      User          @relation(fields: [createdBy], references: [id])
+  pollResults  PollResult[]
+  votes        Vote[]
   transactions Transaction[]
 
   @@index([isActive])
@@ -91,24 +94,24 @@ model MenuItem {
 }
 
 model Poll {
-  id                   Int         @id @default(autoincrement())
-  groupId              Int         @map("group_id")
-  status               String      @default("ACTIVE")
-  duration             Int         @default(30)
-  startedAt            DateTime    @default(now()) @map("started_at")
-  endedAt              DateTime?   @map("ended_at")
-  createdBy            Int         @map("created_by")
-  messageId            Int?        @map("message_id")
-  chatId               BigInt?     @map("chat_id")
-  selectedMenuItemIds  String?     @map("selected_menu_item_ids")
-  isMultiSelect        Boolean     @default(true) @map("is_multi_select")
-  maxSelections        Int         @default(3) @map("max_selections")
-  isAutomatic          Boolean     @default(false) @map("is_automatic")
-  createdAt            DateTime    @default(now()) @map("created_at")
-  updatedAt            DateTime    @updatedAt @map("updated_at")
+  id                   Int                   @id @default(autoincrement())
+  groupId              Int                   @map("group_id")
+  status               String                @default("ACTIVE")
+  duration             Int                   @default(30)
+  startedAt            DateTime              @default(now()) @map("started_at")
+  endedAt              DateTime?             @map("ended_at")
+  createdBy            Int                   @map("created_by")
+  messageId            Int?                  @map("message_id")
+  chatId               BigInt?               @map("chat_id")
+  selectedMenuItemIds  String?               @map("selected_menu_item_ids")
+  isMultiSelect        Boolean               @default(true) @map("is_multi_select")
+  maxSelections        Int                   @default(3) @map("max_selections")
+  isAutomatic          Boolean               @default(false) @map("is_automatic")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
   result               PollResult?
-  creator              User        @relation("PollCreator", fields: [createdBy], references: [id])
-  group                Group       @relation(fields: [groupId], references: [id])
+  creator              User                  @relation("PollCreator", fields: [createdBy], references: [id])
+  group                Group                 @relation(fields: [groupId], references: [id])
   votes                Vote[]
   transactions         Transaction[]
   responsibleSelection ResponsibleSelection?
@@ -123,17 +126,17 @@ model Poll {
 }
 
 model Vote {
-  id           Int      @id @default(autoincrement())
-  pollId       Int      @map("poll_id")
-  userId       Int      @map("user_id")
-  menuItemId   Int?     @map("menu_item_id")
-  voteType     String   @default("MENU_ITEM") @map("vote_type")
-  customOption String?  @map("custom_option")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id           Int       @id @default(autoincrement())
+  pollId       Int       @map("poll_id")
+  userId       Int       @map("user_id")
+  menuItemId   Int?      @map("menu_item_id")
+  voteType     String    @default("MENU_ITEM") @map("vote_type")
+  customOption String?   @map("custom_option")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
   menuItem     MenuItem? @relation(fields: [menuItemId], references: [id])
-  user         User     @relation(fields: [userId], references: [id])
-  poll         Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id])
+  poll         Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
 
   @@unique([pollId, userId, menuItemId])
   @@index([pollId])
@@ -162,12 +165,14 @@ model PollResult {
 
 model Transaction {
   id              Int       @id @default(autoincrement())
-  pollId          Int       @map("poll_id")
+  pollId          Int?      @map("poll_id")
+  storeRunId      Int?      @map("store_run_id")
   fromUserId      Int       @map("from_user_id")
   toUserId        Int       @map("to_user_id")
   amount          Decimal
   menuItemId      Int?      @map("menu_item_id")
   categoryOrderId Int?      @map("category_order_id")
+  storeItemId     Int?      @map("store_item_id")
   itemPrice       Decimal?  @map("item_price")
   deliveryShare   Decimal?  @map("delivery_share")
   serviceShare    Decimal?  @map("service_share")
@@ -178,19 +183,22 @@ model Transaction {
   disputedReason  String?   @map("disputed_reason")
   reminderCount   Int       @default(0) @map("reminder_count")
   lastReminderAt  DateTime? @map("last_reminder_at")
-  debtMessageId   Int?      @map("debt_message_id")   // Telegram message_id of debt notification
-  debtChatId      String?   @map("debt_chat_id")       // Telegram chat_id of debt notification
+  debtMessageId   Int?      @map("debt_message_id") // Telegram message_id of debt notification
+  debtChatId      String?   @map("debt_chat_id") // Telegram chat_id of debt notification
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  poll            Poll           @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  fromUser        User           @relation("UserDebts", fields: [fromUserId], references: [id])
-  toUser          User           @relation("UserCredits", fields: [toUserId], references: [id])
-  menuItem        MenuItem?      @relation(fields: [menuItemId], references: [id])
-  categoryOrder   CategoryOrder? @relation(fields: [categoryOrderId], references: [id])
-  reminders       PaymentReminder[]
+  poll          Poll?             @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  storeRun      StoreRun?         @relation(fields: [storeRunId], references: [id], onDelete: Cascade)
+  storeItem     StoreItem?        @relation(fields: [storeItemId], references: [id])
+  fromUser      User              @relation("UserDebts", fields: [fromUserId], references: [id])
+  toUser        User              @relation("UserCredits", fields: [toUserId], references: [id])
+  menuItem      MenuItem?         @relation(fields: [menuItemId], references: [id])
+  categoryOrder CategoryOrder?    @relation(fields: [categoryOrderId], references: [id])
+  reminders     PaymentReminder[]
 
   @@index([pollId])
+  @@index([storeRunId])
   @@index([fromUserId, status])
   @@index([toUserId, status])
   @@index([categoryOrderId])
@@ -198,55 +206,55 @@ model Transaction {
 }
 
 model PollOrderCosts {
-  id              Int       @id @default(autoincrement())
-  pollId          Int       @unique @map("poll_id")
-  deliveryCost    Decimal   @default(0) @map("delivery_cost")
-  serviceFee      Decimal   @default(0) @map("service_fee")
-  tip             Decimal   @default(0)
-  notes           String?
-  enteredBy       Int       @map("entered_by")
-  enteredAt       DateTime  @default(now()) @map("entered_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id           Int      @id @default(autoincrement())
+  pollId       Int      @unique @map("poll_id")
+  deliveryCost Decimal  @default(0) @map("delivery_cost")
+  serviceFee   Decimal  @default(0) @map("service_fee")
+  tip          Decimal  @default(0)
+  notes        String?
+  enteredBy    Int      @map("entered_by")
+  enteredAt    DateTime @default(now()) @map("entered_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  poll            Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
 
   @@map("poll_order_costs")
 }
 
 model ResponsibleSelection {
-  id                  Int       @id @default(autoincrement())
-  pollId              Int       @unique @map("poll_id")
-  mode                String
-  status              String    @default("WAITING")
-  selectedUserId      Int?      @map("selected_user_id")
-  volunteerUserId     Int?      @map("volunteer_user_id")
-  rouletteWinnerId    Int?      @map("roulette_winner_id")
-  timeoutAt           DateTime? @map("timeout_at")
-  timeoutMinutes      Int       @default(3) @map("timeout_minutes")
-  completedAt         DateTime? @map("completed_at")
-  messageId           Int?      @map("message_id")
-  chatId              BigInt?   @map("chat_id")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  id               Int       @id @default(autoincrement())
+  pollId           Int       @unique @map("poll_id")
+  mode             String
+  status           String    @default("WAITING")
+  selectedUserId   Int?      @map("selected_user_id")
+  volunteerUserId  Int?      @map("volunteer_user_id")
+  rouletteWinnerId Int?      @map("roulette_winner_id")
+  timeoutAt        DateTime? @map("timeout_at")
+  timeoutMinutes   Int       @default(3) @map("timeout_minutes")
+  completedAt      DateTime? @map("completed_at")
+  messageId        Int?      @map("message_id")
+  chatId           BigInt?   @map("chat_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  poll                Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  selectedUser        User?     @relation("ResponsibleUser", fields: [selectedUserId], references: [id])
-  volunteerUser       User?     @relation("VolunteerUser", fields: [volunteerUserId], references: [id])
-  rouletteWinner      User?     @relation("RouletteWinner", fields: [rouletteWinnerId], references: [id])
+  poll           Poll  @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  selectedUser   User? @relation("ResponsibleUser", fields: [selectedUserId], references: [id])
+  volunteerUser  User? @relation("VolunteerUser", fields: [volunteerUserId], references: [id])
+  rouletteWinner User? @relation("RouletteWinner", fields: [rouletteWinnerId], references: [id])
 
   @@map("responsible_selections")
 }
 
 model PaymentReminder {
-  id              Int       @id @default(autoincrement())
-  transactionId   Int       @map("transaction_id")
-  type            String    @default("AUTO")
-  sentBy          Int?      @map("sent_by")
-  message         String?
-  sentAt          DateTime  @default(now()) @map("sent_at")
+  id            Int      @id @default(autoincrement())
+  transactionId Int      @map("transaction_id")
+  type          String   @default("AUTO")
+  sentBy        Int?     @map("sent_by")
+  message       String?
+  sentAt        DateTime @default(now()) @map("sent_at")
 
-  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  sender          User?       @relation(fields: [sentBy], references: [id])
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  sender      User?       @relation(fields: [sentBy], references: [id])
 
   @@map("payment_reminders")
 }
@@ -257,8 +265,8 @@ model AdminReminder {
   groupId   Int
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@index([userId, groupId])
   @@index([createdAt])
@@ -266,16 +274,16 @@ model AdminReminder {
 }
 
 model GroupMember {
-  id        Int      @id @default(autoincrement())
-  groupId   Int      @map("group_id")
-  userId    Int      @map("user_id")
-  role      String   @default("MEMBER")
-  joinedAt  DateTime @default(now()) @map("joined_at")
-  leftAt    DateTime? @map("left_at")
-  isActive  Boolean  @default(true) @map("is_active")
+  id       Int       @id @default(autoincrement())
+  groupId  Int       @map("group_id")
+  userId   Int       @map("user_id")
+  role     String    @default("MEMBER")
+  joinedAt DateTime  @default(now()) @map("joined_at")
+  leftAt   DateTime? @map("left_at")
+  isActive Boolean   @default(true) @map("is_active")
 
-  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
   @@index([groupId, isActive])
@@ -284,22 +292,22 @@ model GroupMember {
 }
 
 model MenuSuggestion {
-  id              Int       @id @default(autoincrement())
-  name            String
-  description     String?
-  price           Float?
-  imageUrl        String?   @map("image_url")
-  status          String    @default("PENDING")
-  suggestedBy     Int       @map("suggested_by")
-  reviewedBy      Int?      @map("reviewed_by")
-  reviewedAt      DateTime? @map("reviewed_at")
-  rejectionReason String?   @map("rejection_reason")
-  createdMenuItemId Int?    @map("created_menu_item_id")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id                Int       @id @default(autoincrement())
+  name              String
+  description       String?
+  price             Float?
+  imageUrl          String?   @map("image_url")
+  status            String    @default("PENDING")
+  suggestedBy       Int       @map("suggested_by")
+  reviewedBy        Int?      @map("reviewed_by")
+  reviewedAt        DateTime? @map("reviewed_at")
+  rejectionReason   String?   @map("rejection_reason")
+  createdMenuItemId Int?      @map("created_menu_item_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
-  suggester       User      @relation("SuggestionCreator", fields: [suggestedBy], references: [id])
-  reviewer        User?     @relation("SuggestionReviewer", fields: [reviewedBy], references: [id])
+  suggester User  @relation("SuggestionCreator", fields: [suggestedBy], references: [id])
+  reviewer  User? @relation("SuggestionReviewer", fields: [reviewedBy], references: [id])
 
   @@index([status])
   @@index([suggestedBy])
@@ -313,31 +321,31 @@ model MenuSuggestion {
 // ============================================
 
 model CategoryOrder {
-  id                      Int       @id @default(autoincrement())
-  pollId                  Int       @map("poll_id")
-  category                String
-  responsibleUserId       Int?      @map("responsible_user_id")
-  selectionStatus         String    @default("PENDING") @map("selection_status")
-  calculationStatus       String    @default("PENDING") @map("calculation_status")
-  selectionMode           String?   @map("selection_mode")
-  participantCount        Int       @default(0) @map("participant_count")
-  deliveryCost            Decimal?  @default(0) @map("delivery_cost")
-  serviceFee              Decimal?  @default(0) @map("service_fee")
-  tip                     Decimal?  @default(0)
-  notes                   String?
-  totalItemsAmount        Decimal?  @default(0) @map("total_items_amount")
-  totalAdditionalCosts    Decimal?  @default(0) @map("total_additional_costs")
-  totalAmount             Decimal?  @map("total_amount")
-  createdAt               DateTime  @default(now()) @map("created_at")
-  updatedAt               DateTime  @updatedAt @map("updated_at")
-  calculationStartedAt    DateTime? @map("calculation_started_at")
-  calculationCompletedAt  DateTime? @map("calculation_completed_at")
-  participantMessages     String?   @map("participant_messages") // JSON: {userId: {messageId, chatId}}
+  id                     Int       @id @default(autoincrement())
+  pollId                 Int       @map("poll_id")
+  category               String
+  responsibleUserId      Int?      @map("responsible_user_id")
+  selectionStatus        String    @default("PENDING") @map("selection_status")
+  calculationStatus      String    @default("PENDING") @map("calculation_status")
+  selectionMode          String?   @map("selection_mode")
+  participantCount       Int       @default(0) @map("participant_count")
+  deliveryCost           Decimal?  @default(0) @map("delivery_cost")
+  serviceFee             Decimal?  @default(0) @map("service_fee")
+  tip                    Decimal?  @default(0)
+  notes                  String?
+  totalItemsAmount       Decimal?  @default(0) @map("total_items_amount")
+  totalAdditionalCosts   Decimal?  @default(0) @map("total_additional_costs")
+  totalAmount            Decimal?  @map("total_amount")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  calculationStartedAt   DateTime? @map("calculation_started_at")
+  calculationCompletedAt DateTime? @map("calculation_completed_at")
+  participantMessages    String?   @map("participant_messages") // JSON: {userId: {messageId, chatId}}
 
-  poll                    Poll          @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  responsibleUser         User?         @relation("ResponsibleCategoryOrders", fields: [responsibleUserId], references: [id])
-  orderItems              OrderItem[]
-  transactions            Transaction[]
+  poll            Poll          @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  responsibleUser User?         @relation("ResponsibleCategoryOrders", fields: [responsibleUserId], references: [id])
+  orderItems      OrderItem[]
+  transactions    Transaction[]
 
   @@unique([pollId, category])
   @@index([pollId])
@@ -348,20 +356,20 @@ model CategoryOrder {
 }
 
 model OrderItem {
-  id              Int       @id @default(autoincrement())
-  categoryOrderId Int       @map("category_order_id")
-  userId          Int       @map("user_id")
-  itemName        String    @map("item_name")
+  id              Int      @id @default(autoincrement())
+  categoryOrderId Int      @map("category_order_id")
+  userId          Int      @map("user_id")
+  itemName        String   @map("item_name")
   price           Decimal
   notes           String?
-  enteredBy       Int       @map("entered_by")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  enteredBy       Int      @map("entered_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  categoryOrder   CategoryOrder     @relation(fields: [categoryOrderId], references: [id], onDelete: Cascade)
-  user            User              @relation("OrderItemUser", fields: [userId], references: [id])
-  enteredByUser   User              @relation("OrderItemEnteredBy", fields: [enteredBy], references: [id])
-  editLogs        OrderItemEditLog[]
+  categoryOrder CategoryOrder      @relation(fields: [categoryOrderId], references: [id], onDelete: Cascade)
+  user          User               @relation("OrderItemUser", fields: [userId], references: [id])
+  enteredByUser User               @relation("OrderItemEnteredBy", fields: [enteredBy], references: [id])
+  editLogs      OrderItemEditLog[]
 
   @@unique([categoryOrderId, userId])
   @@index([categoryOrderId])
@@ -371,17 +379,17 @@ model OrderItem {
 }
 
 model OrderItemEditLog {
-  id            Int       @id @default(autoincrement())
-  orderItemId   Int       @map("order_item_id")
-  editedBy      Int       @map("edited_by")
-  fieldChanged  String    @map("field_changed")
-  oldValue      String?   @map("old_value")
-  newValue      String?   @map("new_value")
-  reason        String?
-  timestamp     DateTime  @default(now())
+  id           Int      @id @default(autoincrement())
+  orderItemId  Int      @map("order_item_id")
+  editedBy     Int      @map("edited_by")
+  fieldChanged String   @map("field_changed")
+  oldValue     String?  @map("old_value")
+  newValue     String?  @map("new_value")
+  reason       String?
+  timestamp    DateTime @default(now())
 
-  orderItem     OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  editor        User      @relation("OrderItemEditor", fields: [editedBy], references: [id])
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  editor    User      @relation("OrderItemEditor", fields: [editedBy], references: [id])
 
   @@index([orderItemId])
   @@index([editedBy])
@@ -394,38 +402,38 @@ model OrderItemEditLog {
 // ============================================
 
 model UserStats {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique @map("user_id")
-  totalXP   Int      @default(0) @map("total_xp")
-  level     Int      @default(1)
-  rank      String   @default("Новичок")
-  gastroRating       Int      @default(0) @map("gastro_rating")
-  responsibleRating  Int      @default(0) @map("responsible_rating")
-  socialRating       Int      @default(0) @map("social_rating")
-  explorerRating     Int      @default(0) @map("explorer_rating")
-  currentStreak      Int      @default(0) @map("current_streak")
-  longestStreak      Int      @default(0) @map("longest_streak")
-  lastVoteDate       DateTime? @map("last_vote_date")
-  pollsParticipated  Int      @default(0) @map("polls_participated")
-  pollsWon           Int      @default(0) @map("polls_won")
-  totalVotes         Int      @default(0) @map("total_votes")
-  correctPredictions Int      @default(0) @map("correct_predictions")
-  timesResponsible   Int      @default(0) @map("times_responsible")
-  timesVolunteer     Int      @default(0) @map("times_volunteer")
-  ordersReceived     Int      @default(0) @map("orders_received")
-  paymentsOnTime     Int      @default(0) @map("payments_on_time")
-  totalSpent         Decimal  @default(0) @map("total_spent")
-  totalOrders        Int      @default(0) @map("total_orders")
-  newDishesDiscovered Int     @default(0) @map("new_dishes_discovered")
-  categoriesTried     Int     @default(0) @map("categories_tried")
-  menuItemsAdded      Int     @default(0) @map("menu_items_added")
-  referralsCount     Int      @default(0) @map("referrals_count")
-  randomChoices      Int      @default(0) @map("random_choices")
-  winStreak          Int      @default(0) @map("win_streak")
-  maxWinStreak       Int      @default(0) @map("max_win_streak")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  user      User     @relation("UserStats", fields: [userId], references: [id], onDelete: Cascade)
+  id                  Int       @id @default(autoincrement())
+  userId              Int       @unique @map("user_id")
+  totalXP             Int       @default(0) @map("total_xp")
+  level               Int       @default(1)
+  rank                String    @default("Новичок")
+  gastroRating        Int       @default(0) @map("gastro_rating")
+  responsibleRating   Int       @default(0) @map("responsible_rating")
+  socialRating        Int       @default(0) @map("social_rating")
+  explorerRating      Int       @default(0) @map("explorer_rating")
+  currentStreak       Int       @default(0) @map("current_streak")
+  longestStreak       Int       @default(0) @map("longest_streak")
+  lastVoteDate        DateTime? @map("last_vote_date")
+  pollsParticipated   Int       @default(0) @map("polls_participated")
+  pollsWon            Int       @default(0) @map("polls_won")
+  totalVotes          Int       @default(0) @map("total_votes")
+  correctPredictions  Int       @default(0) @map("correct_predictions")
+  timesResponsible    Int       @default(0) @map("times_responsible")
+  timesVolunteer      Int       @default(0) @map("times_volunteer")
+  ordersReceived      Int       @default(0) @map("orders_received")
+  paymentsOnTime      Int       @default(0) @map("payments_on_time")
+  totalSpent          Decimal   @default(0) @map("total_spent")
+  totalOrders         Int       @default(0) @map("total_orders")
+  newDishesDiscovered Int       @default(0) @map("new_dishes_discovered")
+  categoriesTried     Int       @default(0) @map("categories_tried")
+  menuItemsAdded      Int       @default(0) @map("menu_items_added")
+  referralsCount      Int       @default(0) @map("referrals_count")
+  randomChoices       Int       @default(0) @map("random_choices")
+  winStreak           Int       @default(0) @map("win_streak")
+  maxWinStreak        Int       @default(0) @map("max_win_streak")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  user                User      @relation("UserStats", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([totalXP])
   @@index([level])
@@ -447,8 +455,8 @@ model XPHistory {
   metadata  String?
   createdAt DateTime @default(now()) @map("created_at")
 
-  user      User     @relation("UserXPHistory", fields: [userId], references: [id], onDelete: Cascade)
-  season    Season?  @relation(fields: [seasonId], references: [id])
+  user   User    @relation("UserXPHistory", fields: [userId], references: [id], onDelete: Cascade)
+  season Season? @relation(fields: [seasonId], references: [id])
 
   @@index([userId])
   @@index([seasonId])
@@ -459,22 +467,22 @@ model XPHistory {
 }
 
 model UserProgress {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique @map("user_id")
-  xp        Int      @default(0)
-  level     Int      @default(1)
-  rank      String   @default("Новичок")
-  totalVotes        Int      @default(0) @map("total_votes")
-  totalOrders       Int      @default(0) @map("total_orders")
-  totalSpent        Decimal  @default(0) @map("total_spent")
-  winStreak         Int      @default(0) @map("win_streak")
-  maxWinStreak      Int      @default(0) @map("max_win_streak")
-  categoriesTried   Int      @default(0) @map("categories_tried")
-  randomChoices     Int      @default(0) @map("random_choices")
-  correctPredictions Int     @default(0) @map("correct_predictions")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 Int      @id @default(autoincrement())
+  userId             Int      @unique @map("user_id")
+  xp                 Int      @default(0)
+  level              Int      @default(1)
+  rank               String   @default("Новичок")
+  totalVotes         Int      @default(0) @map("total_votes")
+  totalOrders        Int      @default(0) @map("total_orders")
+  totalSpent         Decimal  @default(0) @map("total_spent")
+  winStreak          Int      @default(0) @map("win_streak")
+  maxWinStreak       Int      @default(0) @map("max_win_streak")
+  categoriesTried    Int      @default(0) @map("categories_tried")
+  randomChoices      Int      @default(0) @map("random_choices")
+  correctPredictions Int      @default(0) @map("correct_predictions")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([xp])
   @@index([level])
@@ -483,19 +491,19 @@ model UserProgress {
 }
 
 model Achievement {
-  id          Int      @id @default(autoincrement())
-  key         String   @unique
+  id          Int               @id @default(autoincrement())
+  key         String            @unique
   title       String
   description String
   icon        String
   category    String
-  rarity      String   @default("COMMON")
-  xpReward    Int      @default(0) @map("xp_reward")
+  rarity      String            @default("COMMON")
+  xpReward    Int               @default(0) @map("xp_reward")
   requirement String
-  isHidden    Boolean  @default(false) @map("is_hidden")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  isHidden    Boolean           @default(false) @map("is_hidden")
+  isActive    Boolean           @default(true) @map("is_active")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
   unlockedBy  UserAchievement[]
 
   @@index([key])
@@ -506,14 +514,14 @@ model Achievement {
 }
 
 model UserAchievement {
-  id            Int         @id @default(autoincrement())
-  userId        Int         @map("user_id")
-  achievementId Int         @map("achievement_id")
-  progress      Int         @default(100)
-  unlockedAt    DateTime    @default(now()) @map("unlocked_at")
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  achievementId Int      @map("achievement_id")
+  progress      Int      @default(100)
+  unlockedAt    DateTime @default(now()) @map("unlocked_at")
 
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
 
   @@unique([userId, achievementId])
   @@index([userId])
@@ -523,20 +531,20 @@ model UserAchievement {
 }
 
 model Quest {
-  id          Int       @id @default(autoincrement())
-  key         String    @unique
+  id          Int         @id @default(autoincrement())
+  key         String      @unique
   title       String
   description String
   type        String
   category    String
   icon        String
-  xpReward    Int       @default(0) @map("xp_reward")
+  xpReward    Int         @default(0) @map("xp_reward")
   requirement String
-  duration    Int       @default(1)
-  rarity      String    @default("COMMON")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  duration    Int         @default(1)
+  rarity      String      @default("COMMON")
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
   userQuests  UserQuest[]
 
   @@index([key])
@@ -557,8 +565,8 @@ model UserQuest {
   completedAt DateTime? @map("completed_at")
   expiresAt   DateTime  @map("expires_at")
 
-  user        User      @relation("UserQuests", fields: [userId], references: [id], onDelete: Cascade)
-  quest       Quest     @relation(fields: [questId], references: [id], onDelete: Cascade)
+  user  User  @relation("UserQuests", fields: [userId], references: [id], onDelete: Cascade)
+  quest Quest @relation(fields: [questId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questId, startedAt])
   @@index([userId, status])
@@ -569,20 +577,20 @@ model UserQuest {
 }
 
 model Challenge {
-  id          Int       @id @default(autoincrement())
+  id          Int                     @id @default(autoincrement())
   title       String
   description String
   type        String
-  rarity      String    @default("common")
+  rarity      String                  @default("common")
   icon        String
   target      String
   reward      String
   deadline    DateTime?
-  isActive    Boolean   @default(true) @map("is_active")
-  startDate   DateTime  @default(now()) @map("start_date")
-  endDate     DateTime? @map("end_date")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  isActive    Boolean                 @default(true) @map("is_active")
+  startDate   DateTime                @default(now()) @map("start_date")
+  endDate     DateTime?               @map("end_date")
+  createdAt   DateTime                @default(now()) @map("created_at")
+  updatedAt   DateTime                @updatedAt @map("updated_at")
   progress    UserChallengeProgress[]
 
   @@index([type])
@@ -593,16 +601,16 @@ model Challenge {
 }
 
 model UserChallengeProgress {
-  id           Int       @id @default(autoincrement())
-  userId       Int       @map("user_id")
-  challengeId  Int       @map("challenge_id")
-  progress     Int       @default(0)
-  isCompleted  Boolean   @default(false) @map("is_completed")
-  completedAt  DateTime? @map("completed_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  challenge    Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  challengeId Int       @map("challenge_id")
+  progress    Int       @default(0)
+  isCompleted Boolean   @default(false) @map("is_completed")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
 
   @@unique([userId, challengeId])
   @@index([userId])
@@ -612,18 +620,18 @@ model UserChallengeProgress {
 }
 
 model Season {
-  id          Int       @id @default(autoincrement())
-  number      Int       @unique
-  name        String
-  theme       String?
-  startDate   DateTime  @map("start_date")
-  endDate     DateTime  @map("end_date")
-  isActive    Boolean   @default(false) @map("is_active")
-  rewards     String?
-  metadata    String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  xpHistory   XPHistory[]
+  id        Int         @id @default(autoincrement())
+  number    Int         @unique
+  name      String
+  theme     String?
+  startDate DateTime    @map("start_date")
+  endDate   DateTime    @map("end_date")
+  isActive  Boolean     @default(false) @map("is_active")
+  rewards   String?
+  metadata  String?
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  xpHistory XPHistory[]
 
   @@index([isActive])
   @@index([startDate, endDate])
@@ -650,8 +658,8 @@ model RecurringPoll {
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  group               Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  creator             User      @relation(fields: [createdBy], references: [id])
+  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator User  @relation(fields: [createdBy], references: [id])
 
   @@unique([groupId])
   @@index([isEnabled, nextRunAt])
@@ -660,34 +668,84 @@ model RecurringPoll {
 }
 
 model DebtReminderSettings {
-  id                  Int       @id @default(autoincrement())
-  groupId             Int       @unique @map("group_id")
-  isEnabled           Boolean   @default(true) @map("is_enabled")
-  intervalDays        Int       @default(3) @map("interval_days")
-  messageTemplate     String    @map("message_template")
-  minDebtAge          Int       @default(1) @map("min_debt_age")
-  maxReminders        Int       @default(5) @map("max_reminders")
-  createdBy           Int       @map("created_by")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  id              Int      @id @default(autoincrement())
+  groupId         Int      @unique @map("group_id")
+  isEnabled       Boolean  @default(true) @map("is_enabled")
+  intervalDays    Int      @default(3) @map("interval_days")
+  messageTemplate String   @map("message_template")
+  minDebtAge      Int      @default(1) @map("min_debt_age")
+  maxReminders    Int      @default(5) @map("max_reminders")
+  createdBy       Int      @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  group               Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  creator             User      @relation("ReminderSettingsCreator", fields: [createdBy], references: [id])
+  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator User  @relation("ReminderSettingsCreator", fields: [createdBy], references: [id])
 
   @@map("debt_reminder_settings")
 }
 
 model AdminNotificationSettings {
-  id                  Int       @id @default(autoincrement())
-  groupId             Int       @unique @map("group_id")
-  notifyOnNewUser     Boolean   @default(true) @map("notify_on_new_user")
-  notifyOnNewPoll     Boolean   @default(false) @map("notify_on_new_poll")
-  notifyOnPollEnd     Boolean   @default(false) @map("notify_on_poll_end")
-  notifyOnDebtPaid    Boolean   @default(false) @map("notify_on_debt_paid")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  id               Int      @id @default(autoincrement())
+  groupId          Int      @unique @map("group_id")
+  notifyOnNewUser  Boolean  @default(true) @map("notify_on_new_user")
+  notifyOnNewPoll  Boolean  @default(false) @map("notify_on_new_poll")
+  notifyOnPollEnd  Boolean  @default(false) @map("notify_on_poll_end")
+  notifyOnDebtPaid Boolean  @default(false) @map("notify_on_debt_paid")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
-  group               Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@map("admin_notification_settings")
+}
+
+// ============================================
+// STORE RUN (Иду в магазин)
+// ============================================
+
+model StoreRun {
+  id           Int       @id @default(autoincrement())
+  groupId      Int       @map("group_id")
+  initiatorId  Int       @map("initiator_id")
+  storeName    String    @map("store_name")
+  status       String    @default("COLLECTING") // COLLECTING | SHOPPING | SETTLED | CANCELLED
+  collectUntil DateTime  @map("collect_until")
+  shoppingAt   DateTime? @map("shopping_at")
+  settledAt    DateTime? @map("settled_at")
+  cancelledAt  DateTime? @map("cancelled_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  initiator    User          @relation("StoreRunInitiator", fields: [initiatorId], references: [id])
+  items        StoreItem[]
+  transactions Transaction[]
+
+  @@index([groupId, status])
+  @@index([status, collectUntil])
+  @@index([initiatorId, status])
+  @@map("store_runs")
+}
+
+model StoreItem {
+  id         Int      @id @default(autoincrement())
+  storeRunId Int      @map("store_run_id")
+  userId     Int      @map("user_id")
+  name       String
+  quantity   Int      @default(1)
+  notes      String?
+  price      Decimal?
+  status     String   @default("REQUESTED") // REQUESTED | BOUGHT | NOT_FOUND
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  storeRun     StoreRun      @relation(fields: [storeRunId], references: [id], onDelete: Cascade)
+  user         User          @relation("StoreItemOwner", fields: [userId], references: [id])
+  transactions Transaction[]
+
+  @@index([storeRunId])
+  @@index([userId])
+  @@index([storeRunId, userId])
+  @@map("store_items")
 }
