@@ -146,6 +146,33 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       return;
     }
 
+    // Deep link для магазинного забега: /start storerun_<STORE_RUN_ID>
+    if (startParam && startParam.toString().startsWith('storerun_')) {
+      const storeRunIdStr = startParam.toString().replace('storerun_', '');
+      const storeRunId = parseInt(storeRunIdStr);
+
+      if (isNaN(storeRunId)) {
+        await ctx.reply('❌ Неверная ссылка на забег', { parse_mode: 'Markdown' });
+        return;
+      }
+
+      await ctx.reply(
+        '🛒 Открываю заказ...',
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              {
+                text: '📱 Заполнить заказ',
+                web_app: { url: `${webappUrl}?storeRunId=${storeRunId}` },
+              },
+            ]],
+          },
+        },
+      );
+      logger.info(`Direct deep link: Store run Mini App button sent for run ${storeRunId}, user ${user.id}`);
+      return;
+    }
+
     // Deep link для быстрого голосования: /start poll_GROUP_ID
     if (startParam && startParam.toString().startsWith('poll_')) {
       const groupId = startParam.toString().replace('poll_', '');
