@@ -98,6 +98,7 @@ const createLazyComponent = <T extends ComponentType<unknown>>(
 // ✅ ОПТИМИЗАЦИЯ: Lazy load для HomePage и StatsPage (было синхронно)
 const HomePage = createLazyComponent(() => import('./pages/HomePage'), 'HomePage');
 const StatsPage = createLazyComponent(() => import('./pages/StatsPage'), 'StatsPage');
+const StoreRunPage = createLazyComponent(() => import('./pages/StoreRunPage'), 'StoreRunPage');
 
 const MenuPage = createLazyComponent(() => import('./pages/MenuPage'), 'MenuPage');
 // VotingPage УДАЛЁН - функционал перенесён в InlineVotingCard на главной странице
@@ -170,9 +171,21 @@ function AppContent() {
         console.log('[Deep Link] Poll ID detected on HomePage:', pollId);
         console.log('[Deep Link] InlineVotingCard will handle poll display');
       }
-      
+
       // НЕ делаем navigate - InlineVotingCard сам покажет нужное голосование
       // Параметр ?pollId=X остаётся в URL для HomePage
+    }
+  }, [location.search, location.pathname, navigate]);
+
+  // Deep Link: storeRunId — переход на страницу конкретного забега
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const storeRunId = searchParams.get('storeRunId');
+    if (storeRunId && location.pathname === '/') {
+      if (import.meta.env.DEV) {
+        console.log('[Deep Link] Store run ID detected:', storeRunId);
+      }
+      navigate(`/store-run/${storeRunId}`, { replace: true });
     }
   }, [location.search, location.pathname, navigate]);
 
@@ -261,6 +274,9 @@ function AppContent() {
                   Оставлено для backwards compatibility, но редиректит на главную */}
               <Route path="/poll/:pollId" element={<HomePage />} />
               <Route path="/vote/:pollId" element={<HomePage />} />
+
+              {/* Store Run ("Иду в магазин") */}
+              <Route path="/store-run/:id" element={<StoreRunPage />} />
               
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/user/stats" element={<UserStatsPage />} />
