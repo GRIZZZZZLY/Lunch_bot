@@ -112,3 +112,12 @@ backend/prisma/*.db.backup-*
 
 # Scratch SQL
 backend/check.sql
+
+# Runtime artifacts (process captures, pid files)
+backend.pid
+*.pid
+stderr.txt
+stdout.txt
+
+# Local Claude Code permissions (per-developer)
+.claude/settings.local.json
