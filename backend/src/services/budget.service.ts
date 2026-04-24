@@ -2,7 +2,7 @@ import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { PollService } from './poll.service';
 import { UserService } from './user.service';
-import { Prisma, Transaction, User, MenuItem } from '@prisma/client';
+import { Prisma, Transaction, User, MenuItem, StoreItem } from '@prisma/client';
 
 // Локальные типы для замены any
 interface TransactionWithUsers extends Transaction {
@@ -1370,6 +1370,79 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       };
     } catch (error) {
       logger.error('Error getting poll cost breakdown:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Создать транзакции по завершённому магазинному забегу.
+   * Одна транзакция на каждый StoreItem со статусом BOUGHT.
+   * Позиции инициатора (он сам себе купил) пропускаются — долга нет.
+   * Идемпотентно: если для данного storeRunId транзакции уже есть — возвращает существующие.
+   */
+  static async createTransactionsForStoreRun(
+    storeRunId: number,
+  ): Promise<Transaction[]> {
+    try {
+      const storeRun = await prisma.storeRun.findUnique({
+        where: { id: storeRunId },
+        include: {
+          items: true,
+        },
+      });
+      if (!storeRun) {
+        throw new Error(`Store run ${storeRunId} not found`);
+      }
+
+      const existing = await prisma.transaction.findMany({
+        where: { storeRunId },
+      });
+      if (existing.length > 0) {
+        logger.info('Store run transactions already exist, skipping', {
+          storeRunId,
+          count: existing.length,
+        });
+        return existing;
+      }
+
+      const boughtItems = storeRun.items.filter(
+        (item: StoreItem) =>
+          item.status === 'BOUGHT' &&
+          item.price != null &&
+          item.userId !== storeRun.initiatorId,
+      );
+
+      if (boughtItems.length === 0) {
+        logger.info('No billable items for store run', { storeRunId });
+        return [];
+      }
+
+      const created: Transaction[] = [];
+      for (const item of boughtItems) {
+        const amount = item.price as Prisma.Decimal;
+        const tx = await prisma.transaction.create({
+          data: {
+            storeRunId,
+            storeItemId: item.id,
+            fromUserId: item.userId,
+            toUserId: storeRun.initiatorId,
+            amount,
+            itemPrice: amount,
+            status: 'PENDING',
+          },
+        });
+        created.push(tx);
+      }
+
+      logger.info('Store run transactions created', {
+        storeRunId,
+        count: created.length,
+        initiatorId: storeRun.initiatorId,
+      });
+
+      return created;
+    } catch (error) {
+      logger.error('Error creating transactions for store run:', error);
       throw error;
     }
   }

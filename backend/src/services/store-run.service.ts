@@ -1,6 +1,7 @@
 import { Prisma, StoreRun, StoreItem } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
+import { BudgetService } from './budget.service';
 
 export type StoreRunStatus = 'COLLECTING' | 'SHOPPING' | 'SETTLED' | 'CANCELLED';
 export type StoreItemStatus = 'REQUESTED' | 'BOUGHT' | 'NOT_FOUND';
@@ -386,8 +387,9 @@ export class StoreRunService {
   }
 
   /**
-   * Инициатор: финализировать забег — перейти в SETTLED.
-   * Созданием транзакций занимается BudgetService.
+   * Инициатор: финализировать забег.
+   * Сначала создаются транзакции (идемпотентно), затем статус переводится в SETTLED.
+   * Если создание транзакций упало — статус остаётся SHOPPING, можно повторить.
    */
   static async settle(storeRunId: number, initiatorId: number): Promise<StoreRun> {
     const run = await this.requireInitiator(storeRunId, initiatorId);
@@ -398,10 +400,20 @@ export class StoreRunService {
       );
     }
 
-    return prisma.storeRun.update({
+    const transactions = await BudgetService.createTransactionsForStoreRun(storeRunId);
+
+    const updated = await prisma.storeRun.update({
       where: { id: storeRunId },
       data: { status: 'SETTLED', settledAt: new Date() },
     });
+
+    logger.info('Store run settled', {
+      storeRunId,
+      initiatorId,
+      transactionsCreated: transactions.length,
+    });
+
+    return updated;
   }
 
   /**
