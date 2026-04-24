@@ -3,7 +3,9 @@ import { apiService } from './api.service';
 
 export interface Transaction {
   id: number;
-  pollId: number;
+  pollId: number | null;
+  storeRunId?: number | null;
+  storeItemId?: number | null;
   fromUserId: number;
   toUserId: number;
   amount: number;
@@ -40,6 +42,16 @@ export interface Transaction {
     price: number;
     category: string;
   } | null;
+  storeItem?: {
+    id: number;
+    name: string;
+    quantity: number;
+  } | null;
+  storeRun?: {
+    id: number;
+    storeName: string;
+    status: string;
+  } | null;
   poll: {
     id: number;
     groupId: number;
@@ -51,7 +63,7 @@ export interface Transaction {
       telegramId: string;
       title: string;
     };
-  };
+  } | null;
 }
 
 export interface FailedUser {

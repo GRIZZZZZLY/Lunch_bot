@@ -4,7 +4,7 @@ import { Transaction, budgetService } from '../../services/budget.service';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { CheckCircle, Bell, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { CheckCircle, Bell, TrendingDown, TrendingUp, Wallet, ShoppingBag, Utensils } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
 import { toast } from 'sonner';
 import { cn, formatRelativeTime } from '../../lib/utils';
@@ -45,6 +45,20 @@ export const OverviewView = ({
 
   const getMenuItemName = (menuItem?: { name?: string | null }) => {
     return menuItem?.name || 'Блюдо';
+  };
+
+  const getItemLabel = (tx: Transaction) => {
+    if (tx.storeRunId != null) {
+      return tx.storeItem?.name || 'Товар';
+    }
+    return getMenuItemName(tx.menuItem);
+  };
+
+  const getSourceIcon = (tx: Transaction) => {
+    if (tx.storeRunId != null) {
+      return <ShoppingBag className="h-3.5 w-3.5 text-mint-600 dark:text-mint-400" aria-label="Магазин" />;
+    }
+    return <Utensils className="h-3.5 w-3.5 text-peach-600 dark:text-peach-400" aria-label="Обед" />;
   };
   
   const displayDebts = safeDebts.slice(0, 2);
@@ -123,8 +137,9 @@ export const OverviewView = ({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <div className="font-medium text-sm">
-                      {getMenuItemName(debt.menuItem)} — {debt.amount ?? 0}₽
+                    <div className="flex items-center gap-1.5 font-medium text-sm">
+                      {getSourceIcon(debt)}
+                      <span>{getItemLabel(debt)} — {debt.amount ?? 0}₽</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       → {getUserName(debt.toUser)}
@@ -195,8 +210,9 @@ export const OverviewView = ({
                 )}
               >
                 <div className="flex-1">
-                  <div className="font-medium text-sm">
-                    {credit.fromUser.firstName} {credit.fromUser.lastName || ''}
+                  <div className="flex items-center gap-1.5 font-medium text-sm">
+                    {getSourceIcon(credit)}
+                    <span>{credit.fromUser.firstName} {credit.fromUser.lastName || ''}</span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {credit.amount ?? 0}₽ • {safeFormatRelativeTime(credit.createdAt)}
