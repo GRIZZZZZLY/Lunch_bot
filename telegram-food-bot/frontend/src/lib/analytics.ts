@@ -302,7 +302,7 @@ function sendToGoogleAnalytics(
  * Отправляем пачками каждые 5 секунд
  */
 let eventQueue: any[] = [];
-let flushTimeout: NodeJS.Timeout | null = null;
+let flushTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export function trackEventBatched(
   event: AnalyticsEvent,

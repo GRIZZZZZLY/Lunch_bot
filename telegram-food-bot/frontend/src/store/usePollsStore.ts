@@ -79,7 +79,7 @@ export const usePollsStore = create<PollsState>((set, get) => ({
 }));
 
 // Auto-update механизм (опционально, можно включить/выключить)
-let autoUpdateInterval: NodeJS.Timeout | null = null;
+let autoUpdateInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Запустить автоматическое обновление счетчика

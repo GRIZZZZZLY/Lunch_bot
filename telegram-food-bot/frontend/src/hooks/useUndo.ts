@@ -178,7 +178,7 @@ export function useUndoWithAutoSave<T>(
   const { autoSaveDelay = 1000, ...undoOptions } = options;
   
   const undo = useUndo(initialState, undoOptions);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pendingStateRef = useRef<T | null>(null);
 
   /**

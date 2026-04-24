@@ -22,7 +22,7 @@ export function useOrderCalculation({
 }: UseOrderCalculationOptions) {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const autoSaveTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
+  const autoSaveTimeoutsRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const inFlightSavesRef = useRef<Map<number, number>>(new Map());
   const [pendingSaves, setPendingSaves] = useState<Set<number>>(new Set());
   const pendingSavesRef = useRef<Set<number>>(new Set());

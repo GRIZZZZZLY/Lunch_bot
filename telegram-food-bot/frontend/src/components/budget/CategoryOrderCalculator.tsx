@@ -32,7 +32,7 @@ export function CategoryOrderCalculator({
   );
   const [tip, setTip] = useState(categoryOrder.tip ? categoryOrder.tip.toString() : '');
   
-  const updateCostsTimeoutRef = useRef<NodeJS.Timeout>();
+  const updateCostsTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const {
     orderItems,
