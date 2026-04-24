@@ -9,6 +9,8 @@ frontend/node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*
+!**/.env.example
 
 # Build outputs
 dist/
@@ -28,15 +30,20 @@ lerna-debug.log*
 
 # Database
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 backend/prisma/*.db
 backend/prisma/*.db-journal
+backend/prisma/*.db-shm
+backend/prisma/*.db-wal
 
 # Testing
 coverage/
 .nyc_output/
 *.lcov
+test-*.js
 
 # IDE
 .vscode/
@@ -50,9 +57,12 @@ coverage/
 tmp/
 temp/
 *.tmp
+migrate-simple.ts
 
 # Backups
 backups/
+backup-*.sql
+backup-*.sql.gz
 *.bak
 *.backup
 
@@ -82,3 +92,23 @@ backend/prisma/migrations/**/migration.sql
 .worktrees/
 .security-key
 logs/security/
+
+# AI tooling data (designs, prompts, generated agent artifacts)
+.agent/
+ai-docs/
+
+# Design state snapshots (redesign HTML captures)
+.tmp-*-states/
+
+# Ad-hoc lint/build report artifacts
+backend_out.txt
+backend/backend_out.txt
+eslint-*-report.json
+backend/eslint-*-report.json
+
+# Timestamped DB backups (e.g. prod.db.backup-2026-02-03T...)
+*.db.backup-*
+backend/prisma/*.db.backup-*
+
+# Scratch SQL
+backend/check.sql
