@@ -35,7 +35,7 @@ async function checkRecentItems() {
         : `${Math.floor(timeAgo / 3600)}ч назад`;
 
       console.log(
-        `${index + 1}. [${item.id}] ${item.name} (${item.category || 'Без категории'})`
+        `${index + 1}. [${item.id}] ${item.name}`
       );
       console.log(
         `   Создано: ${createdAt.toLocaleString('ru-RU')} (${timeStr})`

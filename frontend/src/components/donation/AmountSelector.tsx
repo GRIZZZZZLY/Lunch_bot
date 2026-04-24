@@ -67,13 +67,13 @@ export const AmountSelector = ({
             className={cn(
               'relative px-4 py-3 rounded-xl font-semibold transition-all',
               selectedAmount === amount.value && !isCustom
-                ? 'bg-gradient-to-r from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/30'
-                : 'bg-muted/50 text-foreground hover:bg-muted'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-card text-foreground border border-border/70 hover:bg-muted/45'
             )}
           >
             {amount.popular && (
-              <div className="absolute -top-2 -right-2 bg-coral-500 text-white text-xs px-2 py-0.5 rounded-full">
-                🔥
+              <div className="absolute -top-2 -right-2 rounded-full bg-lavender-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                Популярно
               </div>
             )}
             <div className="text-lg">
@@ -94,9 +94,9 @@ export const AmountSelector = ({
         onClick={handleCustomClick}
         className={cn(
           'w-full px-4 py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2',
-          isCustom
-            ? 'bg-gradient-to-r from-lavender-500 to-lavender-600 text-white shadow-lg shadow-lavender-500/30'
-            : 'bg-muted/50 text-foreground hover:bg-muted'
+            isCustom
+              ? 'bg-lavender-500 text-white shadow-sm'
+              : 'bg-card text-foreground border border-border/70 hover:bg-muted/45'
         )}
       >
         <Edit3 size={16} />
@@ -118,7 +118,7 @@ export const AmountSelector = ({
               value={customValue}
               onChange={(e) => handleCustomChange(e.target.value)}
               placeholder={`Введите сумму`}
-              className="w-full px-4 py-3 rounded-xl border-2 border-peach-300 dark:border-peach-600 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-peach-500 text-center text-lg font-semibold"
+              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-lg font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               autoFocus
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">

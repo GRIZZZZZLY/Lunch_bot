@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { MenuItem } from '../../services/menu.service';
 import { MenuItemCard } from './MenuItemCard';
-import { Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Edit2, Trash2 } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { ICON_SIZES } from '@/lib/design-tokens';
 

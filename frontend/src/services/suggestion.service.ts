@@ -5,7 +5,6 @@ export interface MenuSuggestion {
   name: string;
   description?: string;
   price?: number;
-  category?: string;
   imageUrl?: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   suggestedBy: number;
@@ -33,7 +32,6 @@ export interface CreateSuggestionData {
   name: string;
   description?: string;
   price?: number;
-  category?: string;
   imageUrl?: string;
 }
 
@@ -71,7 +69,7 @@ class SuggestionService {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.offset) queryParams.append('offset', params.offset.toString());
 
-    const url = `/suggestions${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const url = `/suggestions${queryParams.toString() ? `?${  queryParams.toString()}` : ''}`;
     return await apiService.get<MenuSuggestion[]>(url);
   }
 

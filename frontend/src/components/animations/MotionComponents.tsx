@@ -1,38 +1,25 @@
 import React from 'react';
+import type { ReactNode } from 'react';
 import { motion, MotionProps } from 'framer-motion';
 
 /**
  * Hover анимации
  */
-export const hoverScale = {
-  whileHover: { scale: 1.05 },
-  whileTap: { scale: 0.95 },
-  transition: { duration: 0.2 },
-};
-
-export const hoverLift = {
-  whileHover: { y: -4, transition: { duration: 0.2 } },
-  whileTap: { scale: 0.98 },
-};
-
-export const hoverGlow = {
-  whileHover: {
-    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)',
-    transition: { duration: 0.2 },
-  },
-};
-
 /**
  * Компонент кнопки с анимацией
  */
-export const AnimatedButton: React.FC<
-  {
-    children: React.ReactNode;
-    onClick?: () => void;
-    className?: string;
-    disabled?: boolean;
-  } & Partial<MotionProps>
-> = ({ children, onClick, className = '', disabled = false, ...motionProps }) => {
+export const AnimatedButton = ({
+  children,
+  onClick,
+  className = '',
+  disabled = false,
+  ...motionProps
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  className?: string;
+  disabled?: boolean;
+} & Partial<MotionProps>) => {
   return (
     <motion.button
       onClick={onClick}
@@ -51,13 +38,16 @@ export const AnimatedButton: React.FC<
 /**
  * Компонент карточки с анимацией
  */
-export const AnimatedCard: React.FC<
-  {
-    children: React.ReactNode;
-    onClick?: () => void;
-    className?: string;
-  } & Partial<MotionProps>
-> = ({ children, onClick, className = '', ...motionProps }) => {
+export const AnimatedCard = ({
+  children,
+  onClick,
+  className = '',
+  ...motionProps
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  className?: string;
+} & Partial<MotionProps>) => {
   return (
     <motion.div
       onClick={onClick}
@@ -75,16 +65,20 @@ export const AnimatedCard: React.FC<
 /**
  * Shake анимация (для ошибок)
  */
-export const shakeAnimation = {
+const shakeAnimation = {
   x: [0, -10, 10, -10, 10, 0],
   transition: { duration: 0.5 },
 };
 
-export const ShakeOnError: React.FC<{
-  children: React.ReactNode;
+export const ShakeOnError = ({
+  children,
+  error = false,
+  className = '',
+}: {
+  children: ReactNode;
   error?: boolean;
   className?: string;
-}> = ({ children, error = false, className = '' }) => {
+}) => {
   return (
     <motion.div
       animate={error ? shakeAnimation : {}}
@@ -98,10 +92,13 @@ export const ShakeOnError: React.FC<{
 /**
  * Pulse анимация
  */
-export const PulseAnimation: React.FC<{
-  children: React.ReactNode;
+export const PulseAnimation = ({
+  children,
+  className = '',
+}: {
+  children: ReactNode;
   className?: string;
-}> = ({ children, className = '' }) => {
+}) => {
   return (
     <motion.div
       animate={{

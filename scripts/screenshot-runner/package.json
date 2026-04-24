@@ -1,0 +1,12 @@
+{
+  "name": "screenshot-runner",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "run": "node screenshot-all.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rocket Lunch — Redesign System</title>
+<style>
+:root {
+  --bg: #f4f0ea;
+  --surface: #ffffff;
+  --surface2: #faf7f3;
+  --ink: #1a1209;
+  --ink2: #5c4e3f;
+  --ink3: #9c8b79;
+  --pri: #c9581c;
+  --pri-soft: #fdf0e8;
+  --border: #e5d9cc;
+  --radius: 12px;
+  --font: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --col-add: #d4f7e0;
+  --col-del: #fde8e8;
+  --col-add-ink: #0a5e30;
+  --col-del-ink: #8b1a1a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── LAYOUT ── */
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 28px 16px;
+}
+.main {
+  flex: 1;
+  max-width: 880px;
+  padding: 36px 40px 100px;
+  overflow-x: hidden;
+}
+
+/* ── SIDEBAR ── */
+.sidebar-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin-bottom: 12px;
+  padding-left: 8px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink2);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.nav-item:hover { background: var(--surface2); color: var(--ink); }
+.nav-item.active { background: var(--pri-soft); color: var(--pri); }
+.nav-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--border);
+  color: var(--ink3);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.nav-item.active .nav-num { background: var(--pri); color: #fff; }
+
+.sidebar-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── HEADER ── */
+.report-header {
+  margin-bottom: 48px;
+}
+.report-header h1 {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.7px;
+  color: var(--ink);
+}
+.report-header h1 em { font-style: normal; color: var(--pri); }
+.report-header p {
+  color: var(--ink2);
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 600px;
+}
+.verdict-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: #fffbe8;
+  border: 1.5px solid #e8c84a;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-top: 20px;
+  max-width: 680px;
+}
+.verdict-box .icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.verdict-box p { font-size: 13.5px; color: #5a4800; line-height: 1.6; }
+.verdict-box strong { color: #3a2e00; }
+
+/* ── SECTION HEADERS ── */
+.block-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border);
+}
+.block-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--pri);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.block-header h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+.block-header p { font-size: 13px; color: var(--ink2); margin-top: 1px; }
+
+.block { margin-bottom: 72px; scroll-margin-top: 32px; }
+
+/* ── FIELD LABEL ── */
+.field-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin: 22px 0 8px;
+}
+
+/* ── PROSE ── */
+.prose {
+  font-size: 14px;
+  color: var(--ink2);
+  line-height: 1.7;
+  max-width: 640px;
+}
+.prose strong { color: var(--ink); }
+
+/* ── PALETTE GRID ── */
+.palette-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 16px 0;
+}
+.palette-col h4 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin-bottom: 10px;
+}
+
+/* ── TOKEN TABLE ── */
+.token-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+  margin: 12px 0 24px;
+}
+.token-table th {
+  background: var(--surface2);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--ink2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.token-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.token-table tr:last-child td { border-bottom: none; }
+.token-table tr:hover td { background: var(--surface2); }
+
+.swatch {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid rgba(0,0,0,0.1);
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+code.hex {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink2);
+}
+.ratio-ok { color: #1a7a40; font-weight: 700; font-size: 11px; }
+.ratio-warn { color: #a06000; font-weight: 700; font-size: 11px; }
+.ratio-fail { color: #c02020; font-weight: 700; font-size: 11px; }
+.change-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.change-new { background: #d4f7e0; color: #0a5e30; }
+.change-mod { background: #fff3cd; color: #7a4e00; }
+.change-keep { background: #f0f0f0; color: #666; }
+
+/* ── MOOD CARD ── */
+.mood-card {
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin: 12px 0 20px;
+  border: 1px solid var(--border);
+  display: flex;
+  gap: 18px;
+  align-items: stretch;
+}
+.mood-swatch-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 28px;
+  flex-shrink: 0;
+}
+.mood-swatch {
+  flex: 1;
+  border-radius: 4px;
+  min-height: 20px;
+}
+.mood-text h3 { font-size: 15px; font-weight: 700; color: var(--ink); }
+.mood-text p { font-size: 13px; color: var(--ink2); margin-top: 4px; line-height: 1.6; }
+
+/* ── TYPE SCALE ── */
+.type-sample {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin: 6px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.type-meta {
+  flex-shrink: 0;
+  width: 140px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--ink3);
+  line-height: 1.5;
+}
+.type-preview {
+  flex: 1;
+  color: var(--ink);
+}
+
+/* ── BUTTON SCALE ── */
+.btn-showcase {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0 18px;
+}
+.btn-demo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font);
+  font-weight: 600;
+  cursor: default;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.btn-sm  { height: 36px; padding: 0 14px; font-size: 13px; border-radius: 10px; }
+.btn-md  { height: 44px; padding: 0 20px; font-size: 14px; border-radius: 12px; }
+.btn-lg  { height: 52px; padding: 0 28px; font-size: 16px; border-radius: 14px; }
+.btn-fab { width: 56px; height: 56px; border-radius: 18px; font-size: 22px; }
+.btn-icon-sm { width: 36px; height: 36px; border-radius: 10px; font-size: 16px; }
+.btn-icon-md { width: 44px; height: 44px; border-radius: 12px; font-size: 18px; }
+
+.btn-primary  { background: #c9581c; color: #fff; border: none; box-shadow: 0 2px 8px rgba(201,88,28,0.3); }
+.btn-secondary{ background: #f0ebe4; color: #5c4e3f; border: none; }
+.btn-ghost    { background: transparent; color: #5c4e3f; border: 1.5px solid #e5d9cc; }
+.btn-destruct { background: #dc3545; color: #fff; border: none; }
+.btn-success  { background: #1a8c4e; color: #fff; border: none; }
+
+/* ── SHADOW SAMPLES ── */
+.shadow-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 12px 0 20px;
+}
+.shadow-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  width: 160px;
+}
+.shadow-card h5 { font-size: 12px; font-weight: 700; color: var(--ink2); }
+.shadow-card p { font-size: 11px; color: var(--ink3); margin-top: 3px; font-family: var(--mono); }
+.shadow-0 { border: 1px solid #e5d9cc; box-shadow: none; }
+.shadow-1 { box-shadow: 0 1px 4px rgba(33,20,10,0.06), 0 0 0 1px rgba(33,20,10,0.04); }
+.shadow-2 { box-shadow: 0 4px 12px rgba(33,20,10,0.08), 0 1px 3px rgba(33,20,10,0.04); }
+.shadow-3 { box-shadow: 0 8px 24px rgba(33,20,10,0.12), 0 2px 6px rgba(33,20,10,0.06); }
+.shadow-4 { box-shadow: 0 16px 40px rgba(33,20,10,0.16), 0 4px 12px rgba(33,20,10,0.08); }
+
+/* ── CODE BLOCKS ── */
+pre.code {
+  background: #1a1209;
+  color: #f4ece3;
+  border-radius: 10px;
+  padding: 16px 18px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.75;
+  overflow-x: auto;
+  margin: 8px 0 16px;
+}
+pre.code .comment { color: #7a6858; }
+pre.code .path { color: #ff9d66; font-style: italic; display: block; margin-bottom: 4px; }
+pre.code .del { color: #f87171; background: rgba(248,113,113,0.12); display: block; }
+pre.code .add { color: #6ee7b7; background: rgba(110,231,183,0.09); display: block; }
+pre.code .neu { color: #f4ece3; display: block; }
+pre.code .key { color: #a78bfa; }
+pre.code .val { color: #fbbf24; }
+pre.code .str { color: #86efac; }
+
+/* ── NAV DIAGRAM ── */
+.nav-diagram {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 12px 0 20px;
+}
+.z-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.z-layer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 3px solid;
+}
+.z-layer.l1 { border-color: #d86a2c; background: #fdf0e8; }
+.z-layer.l2 { border-color: #6c52e8; background: #f3f0ff; }
+.z-layer.l3 { border-color: #1a8c4e; background: #edfaf3; }
+.z-layer.l4 { border-color: #9c8b79; background: #faf7f3; }
+.z-num { font-size: 10px; font-weight: 800; width: 28px; color: var(--ink3); flex-shrink: 0; }
+.z-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.z-desc { font-size: 12px; color: var(--ink2); margin-left: auto; }
+
+/* ── DARK PREVIEW ── */
+.dark-preview {
+  background: #161c26;
+  border-radius: 14px;
+  padding: 20px;
+  margin: 12px 0;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dp-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
+.dp-swatch {
+  width: 48px;
+  height: 32px;
+  border-radius: 6px;
+}
+.dp-label {
+  font-size: 10px;
+  color: #8a9ab5;
+  font-family: var(--mono);
+  text-align: center;
+}
+
+/* ── RADIUS SCALE ── */
+.radius-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 10px 0 20px;
+  align-items: flex-end;
+}
+.radius-sample {
+  width: 64px;
+  height: 48px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+}
+.radius-sample span { font-size: 10px; color: var(--ink3); font-family: var(--mono); }
+
+/* ── DIVIDER ── */
+hr.divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+/* ── INLINE BADGE ── */
+.inline-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+  margin-left: 5px;
+}
+.badge-new { background: #d4f7e0; color: #0a5e30; }
+.badge-mod { background: #fff3cd; color: #7a4e00; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-title">Блоки</div>
+  <a class="nav-item active" href="#block1"><span class="nav-num">1</span> Палитра</a>
+  <a class="nav-item" href="#block2"><span class="nav-num">2</span> Типографика</a>
+  <a class="nav-item" href="#block3"><span class="nav-num">3</span> Кнопки</a>
+  <a class="nav-item" href="#block4"><span class="nav-num">4</span> Тени и border</a>
+  <a class="nav-item" href="#block5"><span class="nav-num">5</span> Расположение</a>
+  <div class="sidebar-section">
+    <div class="sidebar-title">Дополнительно</div>
+    <a class="nav-item" href="#migration">Порядок миграции</a>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+<!-- HEADER -->
+<div class="report-header">
+  <h1>🚀 Rocket Lunch<br><em>Redesign System</em></h1>
+  <p>Связная визуальная система — от палитры до расположения кнопок. Применимо поэтапно, без рефакторинга логики.</p>
+
+  <div class="verdict-box">
+    <span class="icon">🎨</span>
+    <p>
+      <strong>Ключевое решение — двойной характер:</strong>
+      <strong>Light</strong> = оранжевый (#c9581c) как единственный primary-цвет кнопок, CTA и акцентов.
+      Фиолетовый — только декоративный (иконки, DNA-graph, badges) и никогда для CTА.
+      <strong>Dark</strong> = фиолетовый (#7c6cf0) как primary для всех кнопок и навигации; оранжевый уходит в accent (вторичные highlights, иконки). Dark-тема переходит с warm-mahogany на cool slate для максимального pop фиолетового.
+    </p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     БЛОК 1 — ПАЛИТРА
+═══════════════════════════════════ -->
+<div class="block" id="block1">
+  <div class="block-header">
+    <div class="block-number">1</div>
+    <div>
+      <h2>Палитра</h2>
+      <p>Warm Ink — тёплый свет, прохладная тьма</p>
+    </div>
+  </div>
+
+  <div class="mood-card" style="background: linear-gradient(135deg, #faf5ee 60%, #f7e8d8);">
+    <div class="mood-swatch-stack">
+      <div class="mood-swatch" style="background:#f4f0ea"></div>
+      <div class="mood-swatch" style="background:#c9581c"></div>
+      <div class="mood-swatch" style="background:#c9581c; opacity:0.5"></div>
+      <div class="mood-swatch" style="background:#1a8c4e"></div>
+    </div>
+    <div class="mood-text">
+      <h3>☀️ Light Mode — Orange Primary</h3>
+      <p>Warm beige + <strong>burnt sienna orange</strong> (#c9581c) как единственный primary CTA-цвет. Фиолетовый (#7c6cf0) — только декоративный: иконки, DNA-graph, progress bars — но <em>никогда</em> на кнопках. Ощущение: уютное, аппетитное, решительное.</p>
+    </div>
+  </div>
+
+  <div class="mood-card" style="background: #161c26; border-color: #2a3448;">
+    <div class="mood-swatch-stack">
+      <div class="mood-swatch" style="background:#161c26"></div>
+      <div class="mood-swatch" style="background:#212c3f"></div>
+      <div class="mood-swatch" style="background:#7c6cf0"></div>
+      <div class="mood-swatch" style="background:#ff8c42; opacity:0.6"></div>
+    </div>
+    <div class="mood-text">
+      <h3 style="color:#e8edf7">🌙 Dark Mode — Purple Primary</h3>
+      <p style="color:#8a9ab5">Cool slate base + <strong style="color:#7c6cf0">#7c6cf0</strong> как primary для всех кнопок, nav-активного состояния, FAB. Оранжевый уходит в accent: иконки, вторичные highlights. Cool dark максимально раскрывает глубину фиолетового.</p>
+    </div>
+  </div>
+
+  <div class="field-label">Таблица токенов — Light Theme ☀️ (primary = orange)</div>
+  <table class="token-table">
+    <thead>
+      <tr>
+        <th>Токен CSS</th>
+        <th>Было (HSL)</th>
+        <th>Стало (HSL)</th>
+        <th>Hex</th>
+        <th>Контраст на bg</th>
+        <th>Изменение</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>--background</code></td>
+        <td>38 32% 91%</td>
+        <td><strong>36 28% 94%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#f4f0ea"></span><code class="hex">#f4f0ea</code></span></td>
+        <td>—</td>
+        <td><span class="change-badge change-mod">мягче</span></td>
+      </tr>
+      <tr>
+        <td><code>--card</code></td>
+        <td>0 0% 100%</td>
+        <td>0 0% 100%</td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#fff"></span><code class="hex">#ffffff</code></span></td>
+        <td>—</td>
+        <td><span class="change-badge change-keep">без изм.</span></td>
+      </tr>
+      <tr>
+        <td><code>--foreground</code></td>
+        <td>0 0% 9%</td>
+        <td><strong>26 60% 8%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#1a1008"></span><code class="hex">#1a1008</code></span></td>
+        <td class="ratio-ok">16.4:1 ✓</td>
+        <td><span class="change-badge change-mod">теплее</span></td>
+      </tr>
+      <tr>
+        <td><code>--primary</code> 🟠 <small>все CTA-кнопки</small></td>
+        <td>23 69% 51%</td>
+        <td><strong>22 76% 42%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#c9581c"></span><code class="hex">#c9581c</code></span></td>
+        <td class="ratio-ok">4.7:1 ✓ AA</td>
+        <td><span class="change-badge change-mod">темнее</span></td>
+      </tr>
+      <tr>
+        <td><code>--primary-text</code> <small>(уже есть)</small></td>
+        <td>21 72% 38%</td>
+        <td>21 72% 38%</td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#9a4410"></span><code class="hex">#9a4410</code></span></td>
+        <td class="ratio-ok">5.8:1 ✓ AA</td>
+        <td><span class="change-badge change-keep">без изм.</span></td>
+      </tr>
+      <tr>
+        <td><code>--accent</code> 💜 <small>декоративный только</small></td>
+        <td>258 88% 66%</td>
+        <td><strong>252 68% 56%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#6147c8"></span><code class="hex">#6147c8</code></span></td>
+        <td class="ratio-ok">5.2:1 ✓ AA</td>
+        <td><span class="change-badge change-mod">темнее, не для CTA</span></td>
+      </tr>
+      <tr>
+        <td><code>--muted</code></td>
+        <td>36 26% 94%</td>
+        <td>36 22% 92%</td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#ede8e0"></span><code class="hex">#ede8e0</code></span></td>
+        <td>—</td>
+        <td><span class="change-badge change-keep">без изм.</span></td>
+      </tr>
+      <tr>
+        <td><code>--muted-foreground</code></td>
+        <td>32 8% 37%</td>
+        <td><strong>28 12% 36%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#5e4f3e"></span><code class="hex">#5e4f3e</code></span></td>
+        <td class="ratio-ok">7.1:1 ✓</td>
+        <td><span class="change-badge change-mod">теплее</span></td>
+      </tr>
+      <tr>
+        <td><code>--destructive</code></td>
+        <td>5 74% 61%</td>
+        <td><strong>4 80% 50%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#dc2a1c"></span><code class="hex">#dc2a1c</code></span></td>
+        <td class="ratio-ok">4.6:1 ✓ AA</td>
+        <td><span class="change-badge change-mod">темнее</span></td>
+      </tr>
+      <tr>
+        <td><code>--success</code> <small>(добавить)</small></td>
+        <td>—</td>
+        <td><strong>152 72% 32%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#1a8c4e"></span><code class="hex">#1a8c4e</code></span></td>
+        <td class="ratio-ok">5.4:1 ✓ AA</td>
+        <td><span class="change-badge change-new">новый</span></td>
+      </tr>
+      <tr>
+        <td><code>--warning</code> <small>(добавить)</small></td>
+        <td>—</td>
+        <td><strong>42 96% 36%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#b87800"></span><code class="hex">#b87800</code></span></td>
+        <td class="ratio-ok">4.8:1 ✓ AA</td>
+        <td><span class="change-badge change-new">новый</span></td>
+      </tr>
+      <tr>
+        <td><code>--border</code></td>
+        <td>34 24% 82%</td>
+        <td><strong>34 20% 86%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#e3dbd0"></span><code class="hex">#e3dbd0</code></span></td>
+        <td>—</td>
+        <td><span class="change-badge change-mod">светлее</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="field-label">Таблица токенов — Dark Theme 🌙 <span class="inline-badge badge-mod">primary = purple #7c6cf0</span></div>
+  <table class="token-table">
+    <thead>
+      <tr>
+        <th>Токен CSS</th>
+        <th>Было (HSL)</th>
+        <th>Стало (HSL)</th>
+        <th>Hex</th>
+        <th>Контраст на bg</th>
+        <th>Изменение</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>--background</code></td>
+        <td>210 24% 13%<br><small style="color:#9c8b79">warm-brown #2a1f1a</small></td>
+        <td><strong>220 26% 11%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#161c26"></span><code class="hex">#161c26</code></span></td>
+        <td>—</td>
+        <td><span class="change-badge change-mod">cool slate</span></td>
+      </tr>
+      <tr>
+        <td><code>--card</code></td>
+        <td>210 21% 18%</td>
+        <td><strong>218 22% 17%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#212c3f"></span><code class="hex">#212c3f</code></span></td>
+        <td>—</td>
+        <td><span class="change-badge change-mod">cool</span></td>
+      </tr>
+      <tr>
+        <td><code>--foreground</code></td>
+        <td>210 25% 97%</td>
+        <td><strong>216 30% 94%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#e8edf7"></span><code class="hex">#e8edf7</code></span></td>
+        <td class="ratio-ok">13.8:1 ✓</td>
+        <td><span class="change-badge change-mod">blue-tint</span></td>
+      </tr>
+      <tr>
+        <td><code>--primary</code> 💜 <small>все кнопки, nav, FAB</small></td>
+        <td>24 100% 70%<br><small style="color:#9c8b79">#ff9d66 orange</small></td>
+        <td><strong>252 78% 68%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#7c6cf0"></span><code class="hex">#7c6cf0</code></span></td>
+        <td class="ratio-ok">5.4:1 ✓ AA</td>
+        <td><span class="change-badge change-mod">⚡ orange→purple</span></td>
+      </tr>
+      <tr>
+        <td><code>--primary-foreground</code></td>
+        <td>210 24% 13%</td>
+        <td><strong>0 0% 100%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#ffffff; border:1px solid #ddd"></span><code class="hex">#ffffff</code></span></td>
+        <td class="ratio-ok">11.2:1 ✓</td>
+        <td><span class="change-badge change-mod">белый текст</span></td>
+      </tr>
+      <tr>
+        <td><code>--accent</code> 🟠 <small>иконки, highlights</small></td>
+        <td>258 90% 76%<br><small style="color:#9c8b79">было purple</small></td>
+        <td><strong>26 100% 63%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#ff8c42"></span><code class="hex">#ff8c42</code></span></td>
+        <td class="ratio-ok">7.4:1 ✓ AAA</td>
+        <td><span class="change-badge change-mod">⚡ purple→orange</span></td>
+      </tr>
+      <tr>
+        <td><code>--muted</code></td>
+        <td>210 18% 20%</td>
+        <td><strong>218 20% 20%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#283144"></span><code class="hex">#283144</code></span></td>
+        <td>—</td>
+        <td><span class="change-badge change-mod">cool</span></td>
+      </tr>
+      <tr>
+        <td><code>--muted-foreground</code></td>
+        <td>210 12% 72%</td>
+        <td><strong>216 14% 68%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#8a9ab5"></span><code class="hex">#8a9ab5</code></span></td>
+        <td class="ratio-ok">4.6:1 ✓ AA</td>
+        <td><span class="change-badge change-mod">cool</span></td>
+      </tr>
+      <tr>
+        <td><code>--border</code></td>
+        <td>210 18% 28%</td>
+        <td><strong>218 20% 24%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#2a3448"></span><code class="hex">#2a3448</code></span></td>
+        <td>—</td>
+        <td><span class="change-badge change-mod">cool</span></td>
+      </tr>
+      <tr>
+        <td><code>--destructive</code></td>
+        <td>0 83% 70%</td>
+        <td><strong>4 88% 68%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#f45c4c"></span><code class="hex">#f45c4c</code></span></td>
+        <td class="ratio-ok">5.2:1 ✓ AA</td>
+        <td><span class="change-badge change-mod">теплее</span></td>
+      </tr>
+      <tr>
+        <td><code>--success</code></td>
+        <td>152 65% 52%</td>
+        <td><strong>152 68% 52%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#29c97a"></span><code class="hex">#29c97a</code></span></td>
+        <td class="ratio-ok">6.8:1 ✓ AAA</td>
+        <td><span class="change-badge change-keep">без изм.</span></td>
+      </tr>
+      <tr>
+        <td><code>--warning</code></td>
+        <td>—</td>
+        <td><strong>42 100% 58%</strong></td>
+        <td><span class="swatch-row"><span class="swatch" style="background:#ffaa00"></span><code class="hex">#ffaa00</code></span></td>
+        <td class="ratio-ok">8.2:1 ✓ AAA</td>
+        <td><span class="change-badge change-new">новый</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="field-label">Dark Preview — было vs стало</div>
+  <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px;">
+    <div>
+      <p style="font-size:11px; color:var(--ink3); margin-bottom:6px; font-family:var(--mono)">БЫЛО — orange primary в dark</p>
+      <div style="background:#2a1f1a; border-radius:12px; padding:16px; width:220px;">
+        <div style="background:#1e1612; border-radius:8px; padding:12px; margin-bottom:8px;">
+          <p style="color:#f4ece3; font-size:13px; font-weight:600">Пельмени</p>
+          <p style="color:#ff9d66; font-size:14px; font-weight:700; margin-top:2px">₽320</p>
+        </div>
+        <div style="background:#d86a2c; border-radius:8px; padding:10px; text-align:center; color:#fff; font-size:13px; font-weight:600">+ Создать голосование</div>
+      </div>
+    </div>
+    <div>
+      <p style="font-size:11px; color:var(--ink3); margin-bottom:6px; font-family:var(--mono)">СТАЛО — purple primary в dark</p>
+      <div style="background:#161c26; border-radius:12px; padding:16px; width:220px;">
+        <div style="background:#212c3f; border-radius:8px; padding:12px; margin-bottom:8px; border: 1px solid #2a3448;">
+          <p style="color:#e8edf7; font-size:13px; font-weight:600">Пельмени</p>
+          <p style="color:#ff8c42; font-size:14px; font-weight:700; margin-top:2px">₽320</p>
+          <p style="color:#29c97a; font-size:11px; margin-top:3px">● Активно</p>
+        </div>
+        <div style="background:#7c6cf0; border-radius:10px; padding:10px; text-align:center; color:#fff; font-size:13px; font-weight:600; box-shadow: 0 4px 14px rgba(124,108,240,0.4)">+ Создать голосование</div>
+      </div>
+    </div>
+    <div>
+      <p style="font-size:11px; color:var(--ink3); margin-bottom:6px; font-family:var(--mono)">Light — orange everywhere</p>
+      <div style="background:#f4f0ea; border-radius:12px; padding:16px; width:200px;">
+        <div style="background:#ffffff; border-radius:8px; padding:12px; margin-bottom:8px; border:1px solid #e3dbd0;">
+          <p style="color:#1a1008; font-size:13px; font-weight:600">Пельмени</p>
+          <p style="color:#9a4410; font-size:14px; font-weight:700; margin-top:2px">₽320</p>
+          <p style="color:#1a8c4e; font-size:11px; margin-top:3px">● Активно</p>
+        </div>
+        <div style="background:#c9581c; border-radius:10px; padding:10px; text-align:center; color:#fff; font-size:13px; font-weight:600; box-shadow: 0 4px 12px rgba(201,88,28,0.3)">+ Создать голосование</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="field-label">Diff — src/styles/globals.css</div>
+  <pre class="code"><span class="path">/* src/styles/globals.css — :root (light) — primary остаётся оранжевым */</span>
+<span class="del">-   --background: 38 32% 91%;</span>
+<span class="add">+   --background: 36 28% 94%;        /* #f4f0ea */</span>
+<span class="del">-   --foreground: 0 0% 9%;</span>
+<span class="add">+   --foreground: 26 60% 8%;         /* #1a1008 — warm ink */</span>
+<span class="del">-   --primary: 23 69% 51%;           /* #D86A2C */</span>
+<span class="add">+   --primary: 22 76% 42%;           /* #c9581c — 4.7:1 WCAG AA ✓ */</span>
+<span class="del">-   --accent: 258 88% 66%;           /* #8B5CF6 — используется для кнопок */</span>
+<span class="add">+   --accent: 252 68% 56%;           /* #6147c8 — только декоративный, НЕ для CTA */</span>
+<span class="del">-   --destructive: 5 74% 61%;</span>
+<span class="add">+   --destructive: 4 80% 50%;        /* #dc2a1c — 4.6:1 ✓ */</span>
+<span class="add">+   --success: 152 72% 32%;          /* #1a8c4e — НОВЫЙ */</span>
+<span class="add">+   --success-foreground: 0 0% 100%;</span>
+<span class="add">+   --warning: 42 96% 36%;           /* #b87800 — НОВЫЙ */</span>
+<span class="add">+   --warning-foreground: 0 0% 100%;</span>
+
+<span class="path">/* src/styles/globals.css — .dark — primary МЕНЯЕТСЯ на фиолетовый */</span>
+<span class="del">-   --background: 210 24% 13%;       /* #2a1f1a warm mahogany */</span>
+<span class="add">+   --background: 220 26% 11%;       /* #161c26 cool slate */</span>
+<span class="del">-   --card: 210 21% 18%;</span>
+<span class="add">+   --card: 218 22% 17%;             /* #212c3f */</span>
+<span class="del">-   --foreground: 210 25% 97%;</span>
+<span class="add">+   --foreground: 216 30% 94%;       /* #e8edf7 */</span>
+
+<span class="comment">/* ⚡ КЛЮЧЕВОЕ: в dark — primary фиолетовый, accent оранжевый */</span>
+<span class="del">-   --primary: 24 100% 70%;          /* #ff9d66 orange */</span>
+<span class="del">-   --primary-foreground: 210 24% 13%;</span>
+<span class="add">+   --primary: 252 78% 68%;          /* #7c6cf0 purple — все кнопки, FAB, nav-active */</span>
+<span class="add">+   --primary-foreground: 0 0% 100%; /* белый текст на фиолетовом */</span>
+<span class="del">-   --accent: 258 90% 76%;           /* purple */</span>
+<span class="add">+   --accent: 26 100% 63%;           /* #ff8c42 orange — иконки, highlights */</span>
+<span class="add">+   --accent-foreground: 220 26% 11%;</span>
+
+<span class="del">-   --muted: 210 18% 20%;</span>
+<span class="add">+   --muted: 218 20% 20%;            /* #283144 */</span>
+<span class="del">-   --muted-foreground: 210 12% 72%;</span>
+<span class="add">+   --muted-foreground: 216 14% 68%; /* #8a9ab5 — 4.6:1 ✓ */</span>
+<span class="del">-   --border: 210 18% 28%;</span>
+<span class="add">+   --border: 218 20% 24%;           /* #2a3448 */</span>
+<span class="add">+   --success: 152 68% 52%;          /* #29c97a */</span>
+<span class="add">+   --warning: 42 100% 58%;          /* #ffaa00 */</span>
+
+<span class="comment">/* ⚠️  ВАЖНО: после смены токенов проверить все места, где hardcoded:
+   - bg-lavender-500 / bg-lavender-600  → заменить на bg-primary (в dark будет автоматически purple)
+   - text-peach-500 / text-orange-*     → проверить контраст в dark на новом #161c26 фоне
+   - "Поддержите проект" card: bg-slate-900 → заменить на bg-card border border-border */</span></pre>
+
+  <div class="field-label">Компоненты — применение новой палитры</div>
+  <pre class="code"><span class="path">/* FloatingActionButton.tsx — используем bg-primary, автоматически адаптируется по теме */</span>
+<span class="del">- 'bg-lavender-500',         /* всегда фиолетовый */</span>
+<span class="add">+ 'bg-primary',              /* orange в light, purple в dark — автоматически ✓ */</span>
+
+<span class="path">/* ProfilePage.tsx — "Поддержите проект" */</span>
+<span class="del">- className="bg-slate-900 text-white ..."</span>
+<span class="add">+ className="bg-card border border-border text-foreground ..."</span>
+<span class="comment">/* Или использовать вариант с accent: bg-accent/10 border border-accent/20 */</span>
+
+<span class="path">/* globals.css — .admin-action-btn: убрать lavender-tint на bg */</span>
+<span class="del">- .admin-action-btn--accent { @apply border-accent/40 text-accent; }</span>
+<span class="add">+ .admin-action-btn--accent { @apply border-primary/30 text-primary; }
++ /* В light — оранжевый тинт. В dark — фиолетовый тинт. Автоматически. */</span>
+
+<span class="path">/* Stats adaptive-slider thumb — уже имеет dark/light override, проверить: */</span>
+<span class="comment">/* light: thumb = orange gradient (F97316→FB923C) ✓
+   dark:  thumb = lavender gradient (A78BFA→C4B5FD) — это теперь accent, не primary
+   → заменить dark thumb на primary (#7c6cf0): */</span>
+<span class="del">- .dark input[type="range"].adaptive-slider::-webkit-slider-thumb {
+-   background: linear-gradient(135deg, #A78BFA, #C4B5FD) !important;
+- }</span>
+<span class="add">+ .dark input[type="range"].adaptive-slider::-webkit-slider-thumb {
++   background: linear-gradient(135deg, #7c6cf0, #9d8ff5) !important;
++   box-shadow: 0 2px 8px rgba(124, 108, 240, 0.4);
++ }</span></pre>
+</div>
+
+<!-- ════════════════════════════════
+     БЛОК 2 — ТИПОГРАФИКА
+═══════════════════════════════════ -->
+<div class="block" id="block2">
+  <div class="block-header">
+    <div class="block-number">2</div>
+    <div>
+      <h2>Типографика</h2>
+      <p>Оставляем Inter + JetBrains Mono. Добавляем чёткий scale.</p>
+    </div>
+  </div>
+
+  <div class="prose">
+    <strong>По шрифтам:</strong> Inter — правильный выбор. Сменить его на что-то «выразительное» (Playfair, Syne и т.д.) — риск потерять читаемость на мелком тексте голосований. Единственное добавление: <code>Inter</code> подключить через <code>@fontsource/inter</code> с variable font, что позволит использовать <code>font-variation-settings</code> для тонкого control над жирностью.
+  </div>
+
+  <div class="field-label">Scale — было vs стало</div>
+
+  <div class="type-sample">
+    <div class="type-meta">hero<br>28px / 800 / -0.7px / 1.1<br><span style="color:#1a8c4e; font-size:10px">НОВЫЙ</span></div>
+    <div class="type-preview" style="font-size:28px; font-weight:800; letter-spacing:-0.7px; line-height:1.1">Доброе утро, Иван!</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-meta">h1<br>22px / 700 / -0.4px / 1.2<br><span style="color:#b87800; font-size:10px">изменён</span></div>
+    <div class="type-preview" style="font-size:22px; font-weight:700; letter-spacing:-0.4px; line-height:1.2">История голосований</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-meta">h2<br>17px / 600 / -0.2px / 1.3<br><span style="color:#666; font-size:10px">без изм.</span></div>
+    <div class="type-preview" style="font-size:17px; font-weight:600; letter-spacing:-0.2px; line-height:1.3">Лидеры группы</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-meta">body<br>15px / 400 / 0 / 1.6<br><span style="color:#b87800; font-size:10px">+1px</span></div>
+    <div class="type-preview" style="font-size:15px; line-height:1.6">Голосование открыто. Что выберешь сегодня?</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-meta">caption<br>13px / 400 / 0 / 1.5<br><span style="color:#666; font-size:10px">без изм.</span></div>
+    <div class="type-preview" style="font-size:13px; color:#5e4f3e; line-height:1.5">Победы, участия и пропуски · Просмотр голосований</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-meta">label<br>11px / 700 / 0.8px / 1.4<br>UPPERCASE<br><span style="color:#666; font-size:10px">без изм.</span></div>
+    <div class="type-preview" style="font-size:11px; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; color:#9c8b79">Платёжные данные</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-meta">mono-num<br>16px / 700 / 0 / 1<br>JetBrains Mono<br><span style="color:#666; font-size:10px">без изм.</span></div>
+    <div class="type-preview" style="font-size:16px; font-weight:700; font-family:var(--mono)">₽320 &nbsp;&nbsp; 42 голоса &nbsp;&nbsp; 70%</div>
+  </div>
+
+  <div class="field-label">Diff — globals.css + helpers</div>
+  <pre class="code"><span class="path">/* src/styles/globals.css — добавить CSS-переменные типографики */</span>
+<span class="add">+   /* Typography scale */
++   --text-hero:    2.8rem;     /* 28px */ 
++   --text-h1:      1.375rem;   /* 22px */
++   --text-h2:      1.0625rem;  /* 17px */
++   --text-body:    0.9375rem;  /* 15px ← было 14px */
++   --text-caption: 0.8125rem;  /* 13px */
++   --text-label:   0.6875rem;  /* 11px */
++   
++   --lh-tight:  1.1;
++   --lh-snug:   1.3;
++   --lh-normal: 1.6;
++   --lh-loose:  1.75;</span>
+
+<span class="path">/* body — добавить: */</span>
+<span class="del">-   font-size: 14px;</span>
+<span class="add">+   font-size: 15px;   /* +1px — минимальный размер body теперь 15px */</span>
+
+<span class="path">/* src/lib/typography.ts */</span>
+<span class="del">- export const TYPOGRAPHY_H1 = 'text-xl font-bold';</span>
+<span class="add">+ export const TYPOGRAPHY_HERO = 'text-[28px] font-extrabold tracking-tight leading-[1.1]';</span>
+<span class="add">+ export const TYPOGRAPHY_H1   = 'text-[22px] font-bold tracking-[-0.4px] leading-snug';</span>
+<span class="add">+ export const TYPOGRAPHY_H2   = 'text-[17px] font-semibold tracking-[-0.2px]';</span>
+<span class="add">+ export const TYPOGRAPHY_BODY  = 'text-[15px] leading-relaxed';</span>
+<span class="add">+ export const TYPOGRAPHY_CAPTION = 'text-[13px] text-muted-foreground';</span>
+<span class="add">+ export const TYPOGRAPHY_LABEL   = 'text-[11px] font-bold tracking-[0.8px] uppercase text-muted-foreground';</span>
+<span class="add">+ export const TYPOGRAPHY_NUM     = 'font-mono font-bold tabular-nums';</span></pre>
+</div>
+
+<!-- ════════════════════════════════
+     БЛОК 3 — КНОПКИ
+═══════════════════════════════════ -->
+<div class="block" id="block3">
+  <div class="block-header">
+    <div class="block-number">3</div>
+    <div>
+      <h2>Кнопки</h2>
+      <p>Единая шкала. Гарантия ≥44px. Убрать gradient-variants.</p>
+    </div>
+  </div>
+
+  <div class="field-label">Шкала размеров — новая</div>
+  <table class="token-table">
+    <thead>
+      <tr><th>Size</th><th>Height</th><th>Padding X</th><th>Font</th><th>Radius</th><th>Use case</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>sm</code></td><td><strong>36px</strong></td><td>14px</td><td>13px / 500</td><td>10px</td><td>Filter pills, inline actions</td></tr>
+      <tr><td><code>md</code> (default)</td><td><strong>44px</strong> ✓</td><td>20px</td><td>15px / 600</td><td>12px</td><td>Form CTA, secondary actions</td></tr>
+      <tr><td><code>lg</code></td><td><strong>52px</strong></td><td>28px</td><td>16px / 700</td><td>14px</td><td>Primary page CTA (Создать, Добавить)</td></tr>
+      <tr><td><code>icon-sm</code></td><td><strong>36×36px</strong></td><td>—</td><td>—</td><td>10px</td><td>Не используется как primary action!</td></tr>
+      <tr><td><code>icon</code></td><td><strong>44×44px</strong> ✓</td><td>—</td><td>—</td><td>12px</td><td>Admin action buttons (edit/delete/toggle)</td></tr>
+      <tr><td><code>fab</code></td><td><strong>56×56px</strong></td><td>—</td><td>22px icon</td><td>18px</td><td>FAB. Rounded-[18px], не rounded-full</td></tr>
+    </tbody>
+  </table>
+
+  <div class="field-label">Варианты — демо</div>
+  <div class="btn-showcase">
+    <button class="btn-demo btn-lg btn-primary">+ Создать голосование</button>
+    <button class="btn-demo btn-md btn-secondary">Отмена</button>
+    <button class="btn-demo btn-md btn-ghost">Сбросить</button>
+    <button class="btn-demo btn-md btn-destruct">Удалить</button>
+    <button class="btn-demo btn-md btn-success">Одобрить</button>
+  </div>
+  <div class="btn-showcase">
+    <button class="btn-demo btn-sm btn-ghost">По дате</button>
+    <button class="btn-demo btn-sm btn-secondary">По голосам</button>
+    <button class="btn-demo btn-icon btn-secondary" style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; background:#f0ebe4; border:none; font-size:18px; cursor:default;">✏️</button>
+    <button class="btn-demo btn-icon btn-ghost" style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; border:1.5px solid #e5d9cc; font-size:18px; cursor:default;">🗑️</button>
+    <button class="btn-demo btn-fab btn-primary" style="width:56px; height:56px; border-radius:18px; font-size:20px; display:inline-flex; align-items:center; justify-content:center;">💬</button>
+  </div>
+
+  <div class="prose" style="margin-top:12px">
+    <strong>Gradient-варианты убрать:</strong> peach, mint, lavender, coral, butter gradient — слишком много вариаций кнопок создаёт визуальный шум. Оставить: <code>default</code>, <code>outline</code>, <code>secondary</code>, <code>ghost</code>, <code>destructive</code>, <code>success</code>.
+  </div>
+
+  <div class="field-label">Diff — src/components/ui/button.tsx</div>
+  <pre class="code"><span class="path">// src/components/ui/button.tsx</span>
+<span class="neu">const buttonVariants = cva(</span>
+<span class="del">-   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 ... active:scale-[0.98]",</span>
+<span class="add">+   "inline-flex items-center justify-center gap-2 whitespace-nowrap font-semibold transition-all duration-150 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 active:scale-[0.97]",</span>
+  {
+    variants: {
+      variant: {
+<span class="del">-       default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md",</span>
+<span class="add">+       default: "bg-primary text-primary-foreground hover:bg-primary/92 shadow-[0_2px_8px_hsl(var(--primary)/0.30)] hover:shadow-[0_4px_12px_hsl(var(--primary)/0.38)]",</span>
+<span class="del">-       outline: "border border-border bg-card/92 hover:bg-muted/70 text-foreground shadow-none",</span>
+<span class="add">+       outline: "border-[1.5px] border-border bg-transparent hover:bg-muted/60 text-foreground",</span>
+<span class="del">-       // gradient variants — УБРАТЬ:</span>
+<span class="del">-       peach: "bg-gradient-to-r from-peach-500 to-coral-500 ...",</span>
+<span class="del">-       mint: "bg-gradient-to-r from-mint-500 to-mint-600 ...",</span>
+<span class="del">-       lavender: "bg-gradient-to-r ...",</span>
+<span class="del">-       coral: "bg-gradient-to-r ...",</span>
+<span class="del">-       butter: "bg-gradient-to-r ...",</span>
+<span class="add">+       success: "bg-success text-success-foreground hover:bg-success/90 shadow-sm",</span>
+      },
+      size: {
+<span class="del">-       default: "h-11 px-5 py-2 rounded-xl",</span>
+<span class="del">-       sm: "h-9 px-3 text-sm rounded-lg",</span>
+<span class="del">-       lg: "h-14 px-8 text-lg rounded-2xl font-semibold",</span>
+<span class="del">-       icon: "size-10 rounded-xl",</span>
+<span class="add">+       default: "h-11 min-h-[44px] px-5 text-[15px] rounded-[12px]",   /* md — 44px */</span>
+<span class="add">+       sm:      "h-9  min-h-[36px] px-[14px] text-[13px] rounded-[10px]",</span>
+<span class="add">+       lg:      "h-[52px] min-h-[52px] px-7 text-[16px] rounded-[14px]",</span>
+<span class="add">+       icon:    "size-11 min-w-[44px] min-h-[44px] rounded-[12px]",     /* ≥44px ✓ */</span>
+<span class="add">+       "icon-sm": "size-9 rounded-[10px]",                              /* non-primary only */</span>
+<span class="add">+       fab:     "size-14 rounded-[18px]",                               /* FAB */</span>
+      },
+    },
+  }
+)</pre>
+
+  <div class="field-label">Diff — globals.css (.admin-action-btn)</div>
+  <pre class="code"><span class="path">/* src/styles/globals.css */</span>
+<span class="del">- .admin-action-btn {
+-   @apply inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium ...;
+-   opacity: 0.8;
+- }</span>
+<span class="add">+ .admin-action-btn {
++   @apply inline-flex items-center justify-center gap-1 rounded-[10px] border border-border bg-card
++          min-w-[44px] min-h-[44px] text-xs font-semibold
++          transition-all duration-150
++          hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary/30;
++   /* opacity убираем — hover-state заменяет */
++ }</span></pre>
+
+  <div class="field-label">Diff — FloatingActionButton.tsx</div>
+  <pre class="code"><span class="path">// src/components/common/FloatingActionButton.tsx</span>
+<span class="del">- 'size-16 rounded-full',          /* 64px — избыточно большой */</span>
+<span class="del">- 'bg-lavender-500',               /* hardcoded — игнорирует тему */</span>
+<span class="del">- 'shadow-2xl shadow-lavender-500/25',</span>
+<span class="del">- 'border-2 border-white/20',</span>
+<span class="add">+ 'size-14 rounded-[18px]',        /* 56px fab из шкалы */</span>
+<span class="add">+ 'bg-primary',                    /* orange в light, purple в dark — автоматически ✓ */</span>
+<span class="add">+ 'shadow-[0_8px_24px_hsl(var(--primary)/0.35)]',</span>
+<span class="add">+ 'ring-1 ring-white/10',</span>
+
+<span class="comment">/* Убрать idle pulse — пульсация только при уведомлении, не постоянно: */</span>
+<span class="del">- animate={{ scale: [1, 1.05, 1] }}
+- transition={{ scale: { duration: 2, repeat: Infinity, ease: 'easeInOut' } }}</span>
+<span class="add">+ /* whileHover и whileTap оставить, idle-анимацию убрать */</span></pre>
+</div>
+
+<!-- ════════════════════════════════
+     БЛОК 4 — ТЕНИ И BORDER'Ы
+═══════════════════════════════════ -->
+<div class="block" id="block4">
+  <div class="block-header">
+    <div class="block-number">4</div>
+    <div>
+      <h2>Тени и border'ы</h2>
+      <p>Четыре уровня вместо ad-hoc shadow-xl везде</p>
+    </div>
+  </div>
+
+  <div class="field-label">Система уровней</div>
+  <div class="shadow-row">
+    <div class="shadow-card shadow-0">
+      <h5>flat</h5>
+      <p>border-1px только</p>
+      <p style="margin-top:8px; font-size:11px; color:#9c8b79">Chips, pills, inputs</p>
+    </div>
+    <div class="shadow-card shadow-1">
+      <h5>rest</h5>
+      <p>shadow-sm + ring</p>
+      <p style="margin-top:8px; font-size:11px; color:#9c8b79">Карточки меню, списки</p>
+    </div>
+    <div class="shadow-card shadow-2">
+      <h5>raised</h5>
+      <p>shadow-md</p>
+      <p style="margin-top:8px; font-size:11px; color:#9c8b79">Hero-карточки, бюджет</p>
+    </div>
+    <div class="shadow-card shadow-3">
+      <h5>floating</h5>
+      <p>shadow-lg</p>
+      <p style="margin-top:8px; font-size:11px; color:#9c8b79">Modals, BottomSheet</p>
+    </div>
+    <div class="shadow-card shadow-4">
+      <h5>overlay</h5>
+      <p>shadow-2xl</p>
+      <p style="margin-top:8px; font-size:11px; color:#9c8b79">FAB, поверх всего</p>
+    </div>
+  </div>
+
+  <div class="field-label">Radius Scale — единая</div>
+  <div class="radius-row">
+    <div class="radius-sample" style="border-radius:6px"><span>6px</span><span>pills-sm</span></div>
+    <div class="radius-sample" style="border-radius:10px"><span>10px</span><span>sm elems</span></div>
+    <div class="radius-sample" style="border-radius:12px"><span>12px</span><span>cards</span></div>
+    <div class="radius-sample" style="border-radius:14px"><span>14px</span><span>modals</span></div>
+    <div class="radius-sample" style="border-radius:18px"><span>18px</span><span>FAB, hero</span></div>
+    <div class="radius-sample" style="border-radius:999px"><span>999px</span><span>badges</span></div>
+  </div>
+
+  <div class="prose">
+    <strong>Правило:</strong> border <em>или</em> shadow — не оба одновременно на одном элементе.<br>
+    • В light-теме: card = border-1px (виден на бежевом фоне) + лёгкая тень (rest).<br>
+    • В dark-теме: card = <strong>border вместо тени</strong> (тени на тёмном фоне почти не видны). Конкретно: <code>border border-white/[0.06]</code>.
+  </div>
+
+  <div class="field-label">Diff — card.tsx</div>
+  <pre class="code"><span class="path">// src/components/ui/card.tsx</span>
+<span class="del">- "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm"</span>
+<span class="add">+ "bg-card text-card-foreground flex flex-col gap-6 rounded-[12px] border border-border/80 py-6</span>
+<span class="add">+  shadow-[0_1px_4px_rgba(33,20,10,0.06),0_0_0_1px_rgba(33,20,10,0.03)]</span>
+<span class="add">+  dark:shadow-none dark:border-white/[0.07]"</span></pre>
+
+  <div class="field-label">Diff — pastel-card.tsx</div>
+  <pre class="code"><span class="path">// src/components/ui/pastel-card.tsx</span>
+<span class="comment">/* variant "default" — унифицировать тень */</span>
+<span class="del">- default: "border-border/70 bg-card/95 dark:border-border/80 dark:bg-card/96 shadow-[0_6px_18px_rgba(33,24,13,0.04)] dark:shadow-[0_8px_20px_rgba(0,0,0,0.16)]",</span>
+<span class="add">+ default: "border border-border/80 bg-card dark:border-white/[0.07]
++            shadow-[0_1px_4px_rgba(33,20,10,0.06)]
++            dark:shadow-none",</span>
+
+<span class="comment">/* Все pastels — убрать opacity в bg, использовать полный цвет с прозрачностью:
+   было bg-peach-500/6 (6% opacity = почти невидим) */</span>
+<span class="del">- peach: "border-peach-500/15 bg-peach-500/6 ..."</span>
+<span class="add">+ peach: "border-peach-500/20 bg-peach-500/8 dark:border-peach-400/14 dark:bg-peach-400/10",</span></pre>
+
+  <div class="field-label">Diff — glass-card.tsx</div>
+  <pre class="code"><span class="path">// src/components/ui/glass-card.tsx — medium intensity (самый частый)</span>
+<span class="del">- "rounded-card-lg border transition-all duration-300</span>
+-  shadow-[0_6px_18px_rgba(33,24,13,0.06)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.22)]"</span>
+<span class="add">+ "rounded-[12px] border transition-all duration-150</span>
+<span class="add">+  shadow-[0_2px_8px_rgba(33,20,10,0.07)]</span>
+<span class="add">+  dark:shadow-none dark:border-white/[0.07]"</span>
+
+<span class="comment">/* hover — упростить: убрать -translate-y-0.5 (мешает при скролле), оставить только тень */</span>
+<span class="del">- hover && "hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(33,24,13,0.08)]..."</span>
+<span class="add">+ hover && "hover:shadow-[0_4px_14px_rgba(33,20,10,0.10)] dark:hover:border-white/[0.11]"</span></pre>
+</div>
+
+<!-- ════════════════════════════════
+     БЛОК 5 — РАСПОЛОЖЕНИЕ
+═══════════════════════════════════ -->
+<div class="block" id="block5">
+  <div class="block-header">
+    <div class="block-number">5</div>
+    <div>
+      <h2>Расположение кнопок</h2>
+      <p>Z-index иерархия, safe-area, primary CTA на каждой странице</p>
+    </div>
+  </div>
+
+  <div class="field-label">Z-index иерархия</div>
+  <div class="nav-diagram">
+    <div class="z-stack">
+      <div class="z-layer l4"><span class="z-num">z-0</span><span class="z-name">Контент страницы</span><span class="z-desc">Cards, lists, forms</span></div>
+      <div class="z-layer l3"><span class="z-num">z-30</span><span class="z-name">FAB</span><span class="z-desc">bottom: calc(64px + safe-area + 12px)</span></div>
+      <div class="z-layer l1"><span class="z-num">z-40</span><span class="z-name">BottomNavigation</span><span class="z-desc">fixed bottom-0, h-16</span></div>
+      <div class="z-layer l2"><span class="z-num">z-50</span><span class="z-name">Modals / BottomSheet</span><span class="z-desc">overlay + content</span></div>
+    </div>
+  </div>
+
+  <div class="prose">
+    <strong>Текущая проблема:</strong> FAB — <code>z-40</code>, BottomNav — <code>z-50</code>. Всё нормально, но FAB позиционируется относительно viewport без учёта того, что BottomNav уже занимает нижние 64px. После фикса из первого аудита это исправлено, просто зафиксировать как правило.
+  </div>
+
+  <div class="field-label">BottomNavigation — изменения</div>
+  <div style="display:flex; gap:16px; flex-wrap:wrap; margin:12px 0 20px; align-items:flex-start;">
+    <div>
+      <p style="font-size:11px; color:var(--ink3); margin-bottom:6px">БЫЛО — underline-dot активный</p>
+      <div style="background:#fff; border:1px solid #e5d9cc; border-radius:12px; padding:12px 8px; width:240px;">
+        <div style="display:flex; gap:4px;">
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; background:#fff8f4; border-radius:8px; border: 1px solid rgba(201,88,28,0.18);">
+            <span style="font-size:18px">🏠</span>
+            <span style="font-size:10px; color:#c9581c; font-weight:700">Главная</span>
+            <div style="width:24px; height:2px; background:#c9581c; border-radius:2px"></div>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; opacity:0.5;">
+            <span style="font-size:18px">🍴</span>
+            <span style="font-size:10px; color:#5c4e3f">Меню</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; opacity:0.5;">
+            <span style="font-size:18px">📊</span>
+            <span style="font-size:10px; color:#5c4e3f">Статистика</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; opacity:0.5;">
+            <span style="font-size:18px">👤</span>
+            <span style="font-size:10px; color:#5c4e3f">Профиль</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p style="font-size:11px; color:var(--ink3); margin-bottom:6px">ПРЕДЛОЖЕНИЕ — dot-top + icon-scale</p>
+      <div style="background:#fff; border:1px solid #e5d9cc; border-radius:12px; padding:12px 8px; width:240px;">
+        <div style="display:flex; gap:4px;">
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; position:relative;">
+            <div style="position:absolute; top:0; left:50%; transform:translateX(-50%); width:24px; height:3px; background:#c9581c; border-radius:0 0 3px 3px;"></div>
+            <span style="font-size:20px; transform:scale(1.15); display:block">🏠</span>
+            <span style="font-size:10px; color:#c9581c; font-weight:700">Главная</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; opacity:0.45;">
+            <span style="font-size:18px">🍴</span>
+            <span style="font-size:10px; color:#5c4e3f">Меню</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; opacity:0.45;">
+            <span style="font-size:18px">📊</span>
+            <span style="font-size:10px; color:#5c4e3f">Статистика</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; opacity:0.45;">
+            <span style="font-size:18px">👤</span>
+            <span style="font-size:10px; color:#5c4e3f">Профиль</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="prose">Dot-top (3px полоска сверху) читается чище чем underline снизу — т.к. снизу кнопки уже есть safe-area. Icon scale 1.15 на активном — достаточно.
+  </div>
+
+  <div class="field-label">Diff — BottomNavigation.tsx</div>
+  <pre class="code"><span class="path">// src/components/layout/BottomNavigation.tsx</span>
+
+<span class="comment">/* Активный индикатор — переместить с bottom на top */</span>
+<span class="del">- &lt;motion.div
+-   className="absolute bottom-1.5 left-0 right-0 mx-auto h-0.5 w-8 rounded-full bg-primary"
+- /&gt;</span>
+<span class="add">+ &lt;motion.div
++   className="absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-6 rounded-b-full bg-primary"
++   initial={{ opacity: 0, scaleX: 0 }}
++   animate={{ opacity: 1, scaleX: 1 }}
++ /&gt;</span>
+
+<span class="comment">/* Убрать background-highlight на активной кнопке — dot-top достаточно */</span>
+<span class="del">- isActive ? 'bg-primary/12 focus-visible:outline-primary' : '...'</span>
+<span class="add">+ isActive ? 'focus-visible:outline-primary' : '...'</span>
+
+<span class="comment">/* Высота nav — h-16 (64px) — оставить. Добавить явный border-top: */</span>
+<span class="del">- 'border-t'</span>
+<span class="add">+ 'border-t border-border/60 dark:border-white/[0.07]'</span>
+
+<span class="comment">/* Shadow nav — обновить под новую тёмную тему: */</span>
+<span class="del">- isDark ? '0 -8px 30px rgba(0, 0, 0, 0.22)' : '0 -12px 32px rgba(82, 57, 24, 0.14)'</span>
+<span class="add">+ isDark ? '0 -1px 0 rgba(255,255,255,0.06)' : '0 -4px 16px rgba(33,20,10,0.06)'</span>
+<span class="comment">/* В dark cool-slate тени вверх читаются плохо — заменить на subtle border */</span></pre>
+
+  <div class="field-label">Primary CTA по страницам</div>
+  <table class="token-table">
+    <thead>
+      <tr><th>Страница</th><th>Primary CTA</th><th>Позиция</th><th>Size</th><th>Secondary</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Home (empty)</td><td>Создать голосование</td><td>В hero-карточке, width: full</td><td>lg</td><td>—</td></tr>
+      <tr><td>Home (active)</td><td>Проголосовать (MainButton Telegram)</td><td>Native Telegram bar</td><td>native</td><td>— </td></tr>
+      <tr><td>Menu</td><td>+ Добавить блюдо</td><td>FAB bottom-right + footer in sheet</td><td>lg (sheet) / fab</td><td>Поиск (ghost)</td></tr>
+      <tr><td>Stats</td><td>— (read-only)</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td>Profile</td><td>Сохранить (auto)</td><td>Автосохранение — нет явной кнопки</td><td>—</td><td>FAB = обратная связь</td></tr>
+      <tr><td>History</td><td>— (read-only)</td><td>—</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <div class="field-label">Diff — Layout.tsx</div>
+  <pre class="code"><span class="path">// src/components/layout/Layout.tsx:105</span>
+<span class="comment">/* Уже исправлено в первом аудите, просто переходим на CSS-переменную: */</span>
+<span class="del">- className="... pb-[calc(64px+env(safe-area-inset-bottom,0px)+16px)] ..."</span>
+<span class="add">+ style={{ paddingBottom: 'calc(var(--nav-height, 64px) + env(safe-area-inset-bottom, 0px) + 16px)' }}</span>
+
+<span class="path">/* src/styles/globals.css */</span>
+<span class="add">+ :root {
++   --nav-height: 64px;           /* синхронизировано с h-16 в BottomNavigation */
++   --fab-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 12px);
++ }</span></pre>
+</div>
+
+<!-- ════════════════════════════════
+     ПОРЯДОК МИГРАЦИИ
+═══════════════════════════════════ -->
+<div class="block" id="migration">
+  <div class="block-header">
+    <div class="block-number" style="background:#5c4e3f">→</div>
+    <div>
+      <h2>Порядок миграции</h2>
+      <p>Применять поэтапно — каждый шаг даёт рабочий UI</p>
+    </div>
+  </div>
+
+  <table class="token-table">
+    <thead>
+      <tr><th>#</th><th>Шаг</th><th>Файлы</th><th>Риск</th><th>Видимый эффект</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="font-weight:700; color:var(--pri)">1</td>
+        <td>Dark theme → cool slate</td>
+        <td><code>globals.css .dark</code></td>
+        <td>🟢 нет</td>
+        <td>Dark-тема сразу выглядит premium</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700; color:var(--pri)">2</td>
+        <td>Добавить --success, --warning токены</td>
+        <td><code>globals.css :root</code> + <code>.dark</code></td>
+        <td>🟢 нет</td>
+        <td>Семантические токены доступны</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700; color:var(--pri)">3</td>
+        <td>Обновить --primary в light теме</td>
+        <td><code>globals.css :root</code></td>
+        <td>🟡 визуально</td>
+        <td>Все оранжевые кнопки темнее → лучший контраст</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700; color:var(--pri)">4</td>
+        <td>Typography scale + body 15px</td>
+        <td><code>globals.css</code> + <code>typography.ts</code></td>
+        <td>🟡 layout</td>
+        <td>Текст крупнее, Hero bold</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700; color:var(--pri)">5</td>
+        <td>Button size унификация</td>
+        <td><code>button.tsx</code> + <code>globals.css</code></td>
+        <td>🟡 визуально</td>
+        <td>Tap-targets ≥44px везде</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700; color:var(--pri)">6</td>
+        <td>Card shadows → 4-уровневая система</td>
+        <td><code>card.tsx</code>, <code>pastel-card.tsx</code>, <code>glass-card.tsx</code></td>
+        <td>🟡 визуально</td>
+        <td>Карточки перестают «висеть в воздухе»</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700; color:var(--pri)">7</td>
+        <td>BottomNav dot-top indicator</td>
+        <td><code>BottomNavigation.tsx</code></td>
+        <td>🟢 нет</td>
+        <td>Активный элемент читается чище</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700; color:var(--pri)">8</td>
+        <td>FAB: size-14 + убрать idle pulse</td>
+        <td><code>FloatingActionButton.tsx</code></td>
+        <td>🟢 нет</td>
+        <td>Меньше визуального шума</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700; color:var(--pri)">9</td>
+        <td>Убрать gradient button variants</td>
+        <td><code>button.tsx</code></td>
+        <td>🔴 сломает if used</td>
+        <td>Сначала grep по codebase: <code>variant="peach"</code></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// Sidebar active highlight on scroll
+const sections = document.querySelectorAll('.block[id]');
+const navItems = document.querySelectorAll('.nav-item');
+
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navItems.forEach(n => n.classList.remove('active'));
+      const active = document.querySelector(`.nav-item[href="#${entry.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+
+sections.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

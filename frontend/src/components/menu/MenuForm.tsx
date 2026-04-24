@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Check } from 'lucide-react';
 
@@ -7,7 +7,6 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { Badge } from '../ui/badge';
 import { Switch } from '../ui/switch';
 import { GlassCard, GlassCardContent } from '../ui/glass-card';
 import { GradientButton } from '../ui/gradient-button';
@@ -18,7 +17,7 @@ import { LoadingSpinner } from '../common/LoadingSpinner';
 // Hooks
 import { useTelegram } from '../../hooks/useTelegram';
 import { useHaptic } from '../../hooks/useHaptic';
-import { menuService, MenuItem } from '../../services/menu.service';
+import { MenuItem } from '../../services/menu.service';
 import { cn } from '../../lib/utils';
 import { sanitizeText, sanitizeURL } from '../../lib/sanitize';
 import { ICON_SIZES } from '@/lib/design-tokens';
@@ -27,7 +26,6 @@ export interface MenuFormData {
   name: string;
   description?: string;
   price?: number;
-  category?: string;
   imageUrl?: string;
   isActive: boolean;
 }
@@ -56,14 +54,11 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     name: '',
     description: '',
     price: undefined,
-    category: '',
     imageUrl: '',
     isActive: true,
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [categories, setCategories] = useState<string[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(false);
 
   // Инициализация формы
   useEffect(() => {
@@ -72,31 +67,11 @@ export const MenuForm: React.FC<MenuFormProps> = ({
         name: item.name,
         description: item.description || '',
         price: item.price || undefined,
-        category: item.category || '',
         imageUrl: item.imageUrl || '',
         isActive: item.isActive,
       });
     }
   }, [item]);
-
-  // Загрузка категорий
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  const loadCategories = async () => {
-    try {
-      setLoadingCategories(true);
-      const response = await menuService.getCategories();
-      if (response.success && response.data) {
-        setCategories(response.data);
-      }
-    } catch (error) {
-      console.error('Error loading categories:', error);
-    } finally {
-      setLoadingCategories(false);
-    }
-  };
 
   const validateForm = (): { isValid: boolean; errors: Record<string, string> } => {
     const newErrors: Record<string, string> = {};
@@ -113,10 +88,6 @@ export const MenuForm: React.FC<MenuFormProps> = ({
 
     if (formData.price !== undefined && formData.price < 0) {
       newErrors.price = 'Цена не может быть отрицательной';
-    }
-
-    if (formData.category && formData.category.length > 50) {
-      newErrors.category = 'Название категории не должно превышать 50 символов';
     }
 
     if (formData.imageUrl && !isValidUrl(formData.imageUrl)) {
@@ -156,7 +127,10 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     }
   };
 
-  const handleInputChange = (field: keyof MenuFormData, value: any) => {
+  const handleInputChange = (
+    field: keyof MenuFormData,
+    value: string | number | boolean
+  ) => {
     // 🔒 SECURITY: Sanitize text inputs
     let sanitizedValue = value;
     
@@ -164,7 +138,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
       if (field === 'imageUrl') {
         // Очистка URL
         sanitizedValue = sanitizeURL(value);
-      } else if (field === 'name' || field === 'description' || field === 'category') {
+      } else if (field === 'name' || field === 'description') {
         // Очистка текстовых полей от HTML/XSS
         sanitizedValue = sanitizeText(value);
       }
@@ -176,30 +150,6 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-  };
-
-  const getCategoryIcon = (category: string): string => {
-    const icons: Record<string, string> = {
-      'первые блюда': '🍲',
-      'вторые блюда': '🍖',
-      'салаты': '🥗',
-      'десерты': '🍰',
-      'напитки': '🥤',
-      'закуски': '🥨',
-      'супы': '🍜',
-      'мясо': '🥩',
-      'рыба': '🐟',
-      'овощи': '🥬',
-      'паста': '🍝',
-      'пицца': '🍕',
-      'бургеры': '🍔',
-      'азиатская': '🍜',
-      'итальянская': '🍝',
-      'японская': '🍣',
-      'default': '🍽️'
-    };
-    const lowerCategory = category.toLowerCase();
-    return icons[lowerCategory] || icons.default;
   };
 
   return (
@@ -283,71 +233,6 @@ export const MenuForm: React.FC<MenuFormProps> = ({
             />
             {errors.price && (
               <p className="text-sm text-red-500">{errors.price}</p>
-            )}
-          </GlassCardContent>
-        </GlassCard>
-
-        {/* Category - Improved with horizontal scroll */}
-        <GlassCard intensity="low">
-          <GlassCardContent className="p-4 space-y-3">
-            <Label htmlFor="category" className="text-foreground">
-              Категория
-            </Label>
-            
-            {/* Input */}
-            <Input
-              id="category"
-              placeholder="Введите или выберите категорию"
-              value={formData.category}
-              onChange={(e) => handleInputChange('category', e.target.value)}
-              className={cn(
-                "bg-background/50 border-border focus-visible:ring-peach-500 dark:focus-visible:ring-purple-500",
-                errors.category && "border-red-500"
-              )}
-              maxLength={50}
-            />
-            
-            {errors.category && (
-              <p className="text-sm text-red-500">{errors.category}</p>
-            )}
-            
-            {/* Existing categories - Horizontal scroll */}
-            {categories.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-xs text-muted-foreground">
-                  Существующие категории:
-                </span>
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-                  {categories.map(category => {
-                    const isSelected = formData.category === category;
-                    return (
-                      <Button
-                        key={category}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          handleInputChange('category', category);
-                        }}
-                        className={cn(
-                          "flex-shrink-0 min-h-11 gap-1.5",
-                          isSelected && "bg-gradient-to-r from-peach-500 to-coral-500 dark:from-purple-500 dark:to-violet-500 text-white border-peach-600 dark:border-purple-600 hover:from-peach-600 hover:to-coral-600 dark:hover:from-purple-600 dark:hover:to-violet-600"
-                        )}
-                      >
-                        <span className="text-base">{getCategoryIcon(category)}</span>
-                        <span className="capitalize">{category}</span>
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            
-            {loadingCategories && (
-              <div className="flex items-center gap-2">
-                <div className={`${ICON_SIZES.sm} animate-spin rounded-full  border-2 border-peach-500 dark:border-purple-500 border-t-transparent`} />
-                <span className="text-xs text-muted-foreground">Загрузка категорий...</span>
-              </div>
             )}
           </GlassCardContent>
         </GlassCard>

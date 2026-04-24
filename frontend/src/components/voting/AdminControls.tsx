@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   StopCircle, 
@@ -6,12 +6,10 @@ import {
   Crown,
   Settings
 } from 'lucide-react';
-import { PollWithDetails } from '../../services/polls.service';
 import { cn } from '../../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface AdminControlsProps {
-  poll: PollWithDetails;
   onComplete: (mode: 'single' | 'multi') => void;
   onExtend: (minutes: number) => void;
 }
@@ -24,11 +22,10 @@ interface AdminControlsProps {
  * - ⚙️ Выбрать режим завершения (опционально)
  * - Продлить время на +15 мин
  */
-export const AdminControls: React.FC<AdminControlsProps> = ({
-  poll,
+export const AdminControls = ({
   onComplete,
   onExtend,
-}) => {
+}: AdminControlsProps) => {
   const [loading, setLoading] = useState<string | null>(null);
   const [showModeSelector, setShowModeSelector] = useState(false);
   const [selectedMode, setSelectedMode] = useState<'single' | 'multi'>('multi');

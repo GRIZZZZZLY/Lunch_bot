@@ -89,11 +89,18 @@ class BudgetService {
   /**
    * Получить все долги пользователя
    */
-  async getDebts(userId: number, status?: 'PENDING' | 'PAID' | 'CONFIRMED'): Promise<Transaction[]> {
+  async getDebts(
+    userId: number,
+    status?: 'PENDING' | 'PAID' | 'CONFIRMED',
+    options?: { activeOnly?: boolean }
+  ): Promise<Transaction[]> {
     try {
       const params = new URLSearchParams({ userId: String(userId) });
       if (status) {
         params.append('status', status);
+      }
+      if (options?.activeOnly) {
+        params.append('activeOnly', 'true');
       }
       
       const response = await apiService.get<Transaction[]>(`/budget/debts?${params}`);
@@ -120,11 +127,18 @@ class BudgetService {
   /**
    * Получить все кредиты (кто должен пользователю)
    */
-  async getCredits(userId: number, status?: 'PENDING' | 'PAID' | 'CONFIRMED'): Promise<Transaction[]> {
+  async getCredits(
+    userId: number,
+    status?: 'PENDING' | 'PAID' | 'CONFIRMED',
+    options?: { activeOnly?: boolean }
+  ): Promise<Transaction[]> {
     try {
       const params = new URLSearchParams({ userId: String(userId) });
       if (status) {
         params.append('status', status);
+      }
+      if (options?.activeOnly) {
+        params.append('activeOnly', 'true');
       }
       
       const response = await apiService.get<Transaction[]>(`/budget/credits?${params}`);

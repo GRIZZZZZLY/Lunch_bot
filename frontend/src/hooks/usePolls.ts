@@ -5,8 +5,9 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryClient';
-import { pollsService, type PollWithDetails } from '@/services/polls.service';
+import { pollsService, type Poll, type PollWithDetails } from '@/services/polls.service';
 import { useUI } from '@/store/useAppStore';
+import { useSSE } from './useSSE';
 
 /**
  * Hook для получения активных polls
@@ -23,17 +24,27 @@ export function useActivePolls(options?: {
   refetchInterval?: number;
   enabled?: boolean;
 }) {
-  return useQuery({
+  return useQuery<Poll[]>({
     queryKey: queryKeys.polls.active(),
     queryFn: async () => {
       const response = await pollsService.getActivePolls();
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch active polls');
       }
-      return response.data;
+      return response.data || [];
     },
     // Auto-refresh каждые 10 секунд (опционально)
-    refetchInterval: options?.refetchInterval,
+    refetchInterval: (query) => {
+      const status = (query.state.error as { status?: number } | null)?.status;
+      if (status === 429) return false;
+      return options?.refetchInterval;
+    },
+    retry: (failureCount, error) => {
+      const status = (error as { status?: number } | null)?.status;
+      if (status === 429) return false;
+      return failureCount < 2;
+    },
+    retryDelay: 2000,
     enabled: options?.enabled ?? true,
   });
 }
@@ -51,6 +62,14 @@ export function useActivePolls(options?: {
  * ```
  */
 export function usePoll(pollId: number | undefined, silent = false) {
+  // SSE подписка — real-time обновления через EventSource.
+  // При получении события автоматически инвалидирует кеш polls.detail и polls.active.
+  // Polling остаётся как fallback на случай обрыва SSE.
+  useSSE({
+    pollId,
+    enabled: !!pollId,
+  });
+
   return useQuery({
     queryKey: queryKeys.polls.detail(pollId!),
     queryFn: async () => {
@@ -127,7 +146,14 @@ export function useVote() {
                 pollId,
                 userId: 0, // will be updated from server
                 createdAt: new Date().toISOString(),
-                user: {} as any,
+                user: {
+                  id: 0,
+                  firstName: 'Вы',
+                },
+                menuItem: {
+                  id: menuItemId,
+                  name: '',
+                },
               },
             ];
 

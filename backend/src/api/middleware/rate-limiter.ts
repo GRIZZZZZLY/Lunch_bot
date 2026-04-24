@@ -84,10 +84,12 @@ export const generalLimiter: RateLimitRequestHandler =
         keyGenerator,
         handler: rateLimitResponse,
         skip: (req) => {
-          // Пропускаем health check endpoints
-          return req.path.startsWith('/health');
+          // Пропускаем health check, SSE stream и polling endpoints
+          return req.path.startsWith('/health')
+            || req.path.includes('/stream')
+            || (req.method === 'GET' && req.path.includes('/category-orders'));
         },
-        validate: { xForwardedForHeader: false }, // Отключаем валидацию IPv6
+        validate: { xForwardedForHeader: true },
       })
     : noopLimiter;
 
@@ -99,12 +101,11 @@ export const generalLimiter: RateLimitRequestHandler =
 export const authLimiter: RateLimitRequestHandler =
   apiConfig.security.enableRateLimit
     ? rateLimit({
-        windowMs:
-          process.env.NODE_ENV === 'production' ? 15 * 60 * 1000 : 5 * 60 * 1000,
-        max: process.env.NODE_ENV === 'production' ? 10 : 50,
+        windowMs: apiConfig.security.authRateLimitWindowMs,
+        max: apiConfig.security.authRateLimitMax,
         standardHeaders: true,
         legacyHeaders: false,
-        keyGenerator: ipKeyGenerator, // Только по IP для auth
+        keyGenerator, // По userId если авторизован, иначе по IP
         handler: (req, res) => {
           logger.warn('Auth rate limit exceeded', {
             ip: req.ip,
@@ -112,7 +113,9 @@ export const authLimiter: RateLimitRequestHandler =
             environment: process.env.NODE_ENV,
           });
 
-          const waitMinutes = process.env.NODE_ENV === 'production' ? 15 : 5;
+          const waitMinutes = Math.ceil(
+            apiConfig.security.authRateLimitWindowMs / (60 * 1000)
+          );
           res.status(429).json({
             success: false,
             error: 'Too many authentication attempts',
@@ -122,7 +125,7 @@ export const authLimiter: RateLimitRequestHandler =
             timestamp: new Date().toISOString(),
           });
         },
-        validate: { xForwardedForHeader: false },
+        validate: { xForwardedForHeader: true },
       })
     : noopLimiter;
 
@@ -143,7 +146,7 @@ export const writeLimiter: RateLimitRequestHandler =
           // Применяем только к методам записи
           return !['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
         },
-        validate: { xForwardedForHeader: false },
+        validate: { xForwardedForHeader: true },
       })
     : noopLimiter;
 
@@ -174,7 +177,7 @@ export const voteLimiter: RateLimitRequestHandler =
             timestamp: new Date().toISOString(),
           });
         },
-        validate: { xForwardedForHeader: false },
+        validate: { xForwardedForHeader: true },
       })
     : noopLimiter;
 
@@ -205,7 +208,7 @@ export const pollCreationLimiter: RateLimitRequestHandler =
             timestamp: new Date().toISOString(),
           });
         },
-        validate: { xForwardedForHeader: false },
+        validate: { xForwardedForHeader: true },
       })
     : noopLimiter;
 
@@ -236,7 +239,7 @@ export const reminderLimiter: RateLimitRequestHandler =
             timestamp: new Date().toISOString(),
           });
         },
-        validate: { xForwardedForHeader: false },
+        validate: { xForwardedForHeader: true },
       })
     : noopLimiter;
 
@@ -253,6 +256,6 @@ export const heavyOperationLimiter: RateLimitRequestHandler =
         legacyHeaders: false,
         keyGenerator,
         handler: rateLimitResponse,
-        validate: { xForwardedForHeader: false },
+        validate: { xForwardedForHeader: true },
       })
     : noopLimiter;

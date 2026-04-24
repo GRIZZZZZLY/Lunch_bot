@@ -66,12 +66,6 @@ export class PollReminderService {
 
       await this.botInstance.api.sendMessage(Number(chatId), message, {
         parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📱 Проголосовать', callback_data: `openpoll:${pollId}` }],
-            [{ text: '📊 Результаты', callback_data: `show_results:${pollId}` }]
-          ]
-        }
       });
 
       logger.info(`Sent ${minutesRemaining}-minute reminder for poll ${pollId}`);
@@ -108,11 +102,6 @@ export class PollReminderService {
 
       await this.botInstance.api.sendMessage(Number(chatId), message, {
         parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '⚡ Проголосовать СЕЙЧАС', callback_data: `openpoll:${pollId}` }]
-          ]
-        }
       });
 
       logger.info(`Sent final call notification for poll ${pollId}`);

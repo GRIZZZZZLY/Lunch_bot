@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSwipeable } from 'react-swipeable';
 import { 
   Sparkles, 
-  UtensilsCrossed, 
   Vote, 
   BarChart3, 
   CheckCircle,

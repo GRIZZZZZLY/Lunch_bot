@@ -65,7 +65,7 @@ router.get('/today-completed/:groupId', telegramAuthMiddleware, pollController.g
  * Повторить голосование (создать копию с теми же параметрами)
  * Доступно только для админов
  */
-router.post('/repeat/:id', telegramAuthMiddleware, adminMiddleware, pollController.repeatPoll);
+router.post('/repeat/:id', telegramAuthMiddleware, pollController.repeatPoll);
 
 /**
  * GET /api/polls/:id
@@ -92,7 +92,6 @@ router.get('/:id/votes', telegramAuthMiddleware, pollController.getPollVotes);
 router.post(
   '/',
   telegramAuthMiddleware,
-  adminMiddleware,
   pollCreationLimiter,
   pollController.createPoll
 );
@@ -104,7 +103,6 @@ router.post(
 router.post(
   '/create-from-webapp',
   telegramAuthMiddleware,
-  adminMiddleware,
   pollCreationLimiter,
   pollController.createPollFromWebApp
 );
@@ -126,7 +124,6 @@ router.get(
 router.patch(
   '/:id/complete',
   telegramAuthMiddleware,
-  adminMiddleware,
   pollController.completePoll
 );
 
@@ -137,7 +134,6 @@ router.patch(
 router.patch(
   '/:id/complete-multi',
   telegramAuthMiddleware,
-  adminMiddleware,
   pollController.completePollMultiWinner
 );
 
@@ -148,7 +144,6 @@ router.patch(
 router.patch(
   '/:id/cancel',
   telegramAuthMiddleware,
-  adminMiddleware,
   pollController.cancelPoll
 );
 
@@ -191,7 +186,6 @@ router.delete(
 router.post(
   '/:id/roulette',
   telegramAuthMiddleware,
-  adminMiddleware,
   pollController.runRoulette
 );
 

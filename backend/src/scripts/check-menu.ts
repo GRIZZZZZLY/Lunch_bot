@@ -19,7 +19,7 @@ async function checkMenu() {
       });
       
       items.forEach(item => {
-        console.log(`  ${item.isActive ? '✅' : '❌'} ${item.name} (${item.category}) - ID: ${item.id}`);
+        console.log(`  ${item.isActive ? '✅' : '❌'} ${item.name} - ID: ${item.id}`);
       });
     } else {
       console.log('\n⚠️ No menu items found in database!');

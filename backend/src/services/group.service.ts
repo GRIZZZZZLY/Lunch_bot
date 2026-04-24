@@ -215,6 +215,102 @@ export class GroupService {
   }
 
   /**
+   * Получить список групп для пользователя
+   */
+  static async getGroupsForUser(userId: number, activeOnly: boolean = true): Promise<any[]> {
+    try {
+      return await prisma.groupMember.findMany({
+        where: {
+          userId,
+          ...(activeOnly ? { isActive: true } : {}),
+        },
+        include: {
+          group: true,
+        },
+        orderBy: {
+          joinedAt: 'desc',
+        },
+      });
+    } catch (error) {
+      logger.error('Error getting groups for user:', error);
+      throw new Error('Failed to get user groups');
+    }
+  }
+
+  /**
+   * Проверка, что пользователь состоит в группе
+   */
+  static async isUserGroupMember(userId: number, groupId: number): Promise<boolean> {
+    try {
+      const member = await prisma.groupMember.findFirst({
+        where: {
+          userId,
+          groupId,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      return !!member;
+    } catch (error) {
+      logger.error('Error checking group membership:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Проверка, что пользователь админ группы
+   */
+  static async isUserGroupAdmin(userId: number, groupId: number): Promise<boolean> {
+    try {
+      const member = await prisma.groupMember.findFirst({
+        where: {
+          userId,
+          groupId,
+          isActive: true,
+          role: {
+            in: ['ADMIN', 'CREATOR'],
+          },
+        },
+        select: { id: true },
+      });
+
+      return !!member;
+    } catch (error) {
+      logger.error('Error checking group admin access:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Изменить роль участника группы
+   */
+  static async setMemberRole(groupId: number, userId: number, role: string): Promise<any> {
+    try {
+      const existingMember = await prisma.groupMember.findUnique({
+        where: {
+          groupId_userId: {
+            groupId,
+            userId,
+          },
+        },
+      });
+
+      if (!existingMember) {
+        throw new Error('Group member not found');
+      }
+
+      return await prisma.groupMember.update({
+        where: { id: existingMember.id },
+        data: { role },
+      });
+    } catch (error) {
+      logger.error('Error updating group member role:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Получить пользователей группы (только User объекты)
    */
   static async getUsersByGroupId(groupId: number, activeOnly: boolean = true): Promise<any[]> {
@@ -440,7 +536,9 @@ export class GroupService {
         };
       }
 
-      return JSON.parse(group.settings) as GroupSettings;
+      return (typeof group.settings === 'string' 
+        ? JSON.parse(group.settings) 
+        : group.settings) as GroupSettings;
     } catch (error) {
       logger.error('Error getting group settings:', error);
       return {

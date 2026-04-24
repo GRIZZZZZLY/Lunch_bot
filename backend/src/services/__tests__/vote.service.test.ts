@@ -6,8 +6,10 @@ import { VoteType } from '../../types/vote.types';
 // Mock prisma client
 jest.mock('../../database/client', () => ({
   prisma: {
+    $transaction: jest.fn(),
     vote: {
       create: jest.fn(),
+      createMany: jest.fn(),
       update: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
@@ -55,6 +57,12 @@ const createMockVote = (overrides?: Partial<Vote>): Vote => ({
 describe('VoteService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (prisma.$transaction as jest.Mock).mockImplementation(async (callback: any) =>
+      callback({
+        vote: prisma.vote,
+        poll: prisma.poll,
+      })
+    );
   });
 
   describe('createVote', () => {
@@ -163,6 +171,56 @@ describe('VoteService', () => {
     });
   });
 
+  describe('createMultipleVotes', () => {
+    it('should create only new votes and return all selected votes', async () => {
+      const awardVoteXpSpy = jest
+        .spyOn(VoteService as any, 'awardVoteXp')
+        .mockResolvedValue(undefined);
+
+      const existingVote = createMockVote({ pollId: 1, userId: 10, menuItemId: 2 });
+      const allVotes = [
+        createMockVote({ id: 101, pollId: 1, userId: 10, menuItemId: 2 }),
+        createMockVote({ id: 102, pollId: 1, userId: 10, menuItemId: 3 }),
+      ];
+
+      (prisma.vote.findMany as jest.Mock)
+        .mockResolvedValueOnce([existingVote])
+        .mockResolvedValueOnce(allVotes);
+      (prisma.vote.createMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+      const result = await VoteService.createMultipleVotes(1, 10, [2, 3, 3]);
+
+      expect(prisma.vote.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            pollId: 1,
+            userId: 10,
+            menuItemId: 3,
+            voteType: VoteType.MENU_ITEM,
+          },
+        ],
+      });
+      expect(awardVoteXpSpy).toHaveBeenCalledWith(10, 1, 3);
+      expect(result).toEqual(allVotes);
+
+      awardVoteXpSpy.mockRestore();
+    });
+
+    it('should return existing votes when all selected items already voted', async () => {
+      const existingVotes = [
+        createMockVote({ id: 201, pollId: 1, userId: 20, menuItemId: 5 }),
+        createMockVote({ id: 202, pollId: 1, userId: 20, menuItemId: 6 }),
+      ];
+
+      (prisma.vote.findMany as jest.Mock).mockResolvedValue(existingVotes);
+
+      const result = await VoteService.createMultipleVotes(1, 20, [5, 6]);
+
+      expect(prisma.vote.createMany).not.toHaveBeenCalled();
+      expect(result).toEqual(existingVotes);
+    });
+  });
+
   describe('updateVote', () => {
     it('should update vote successfully', async () => {
       const mockUpdatedVote = createMockVote({ menuItemId: 3 });
@@ -186,6 +244,75 @@ describe('VoteService', () => {
       (prisma.vote.update as jest.Mock).mockRejectedValue(new Error('Vote not found'));
 
       await expect(VoteService.updateVote(999, 3)).rejects.toThrow('Failed to update vote');
+    });
+  });
+
+  describe('upsertVote', () => {
+    it('should replace previous user votes in transaction', async () => {
+      const poll = { id: 1, status: 'ACTIVE', endedAt: null };
+      const createdVote = createMockVote({ pollId: 1, userId: 7, menuItemId: 9 });
+
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue(poll);
+      (prisma.vote.deleteMany as jest.Mock).mockResolvedValue({ count: 2 });
+      (prisma.vote.create as jest.Mock).mockResolvedValue(createdVote);
+
+      const result = await VoteService.upsertVote({ pollId: 1, userId: 7, menuItemId: 9 });
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.vote.deleteMany).toHaveBeenCalledWith({
+        where: { pollId: 1, userId: 7 },
+      });
+      expect(prisma.vote.create).toHaveBeenCalledWith({
+        data: {
+          pollId: 1,
+          userId: 7,
+          menuItemId: 9,
+          voteType: VoteType.MENU_ITEM,
+        },
+      });
+      expect(result).toEqual(createdVote);
+    });
+
+    it('should throw if poll is not active', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ id: 1, status: 'COMPLETED', endedAt: null });
+
+      await expect(VoteService.upsertVote({ pollId: 1, userId: 7, menuItemId: 9 })).rejects.toThrow('Poll is not active');
+    });
+  });
+
+  describe('upsertVoteWithType', () => {
+    it('should upsert vote with custom voteType in transaction', async () => {
+      const poll = { id: 1, status: 'ACTIVE', endedAt: null };
+      const createdVote = createMockVote({
+        pollId: 1,
+        userId: 8,
+        voteType: VoteType.BRING_OWN,
+        menuItemId: null,
+        customOption: 'Домашнее',
+      });
+
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue(poll);
+      (prisma.vote.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.vote.create as jest.Mock).mockResolvedValue(createdVote);
+
+      const result = await VoteService.upsertVoteWithType({
+        pollId: 1,
+        userId: 8,
+        voteType: VoteType.BRING_OWN,
+        customOption: 'Домашнее',
+      });
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.vote.create).toHaveBeenCalledWith({
+        data: {
+          pollId: 1,
+          userId: 8,
+          voteType: VoteType.BRING_OWN,
+          menuItemId: undefined,
+          customOption: 'Домашнее',
+        },
+      });
+      expect(result).toEqual(createdVote);
     });
   });
 
@@ -279,7 +406,7 @@ describe('VoteService', () => {
       expect(prisma.vote.findMany).toHaveBeenCalledWith({
         where: { pollId: 1 },
         include: {
-          user: true,
+          user: { select: expect.any(Object) },
           menuItem: true,
         },
         orderBy: { createdAt: 'desc' },

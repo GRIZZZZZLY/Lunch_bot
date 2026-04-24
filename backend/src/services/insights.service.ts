@@ -186,18 +186,17 @@ export class InsightsService {
         },
       });
 
-      // Группируем по категориям
+      // Группируем по названиям блюд (категории удалены)
       const categoryStats = new Map<string, { count: number; items: string[] }>();
       votes.forEach((vote) => {
-        if (vote.menuItem && vote.menuItem.category && vote.menuItem.name) {
-          const category = vote.menuItem.category;
+        if (vote.menuItem && vote.menuItem.name) {
           const name = vote.menuItem.name;
-          const current = categoryStats.get(category) || { count: 0, items: [] };
+          const current = categoryStats.get(name) || { count: 0, items: [] };
           current.count++;
           if (!current.items.includes(name)) {
             current.items.push(name);
           }
-          categoryStats.set(category, current);
+          categoryStats.set(name, current);
         }
       });
 

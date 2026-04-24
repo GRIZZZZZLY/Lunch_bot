@@ -1,32 +1,16 @@
 import express from 'express';
 import { authController } from '../controllers/auth.controller';
 import { telegramAuthMiddleware, refreshTokenMiddleware } from '../middleware/telegram-auth';
+import { authLimiter } from '../middleware/rate-limiter';
 
 const router = express.Router();
 
-/**
- * POST /api/auth/validate
- * Валидация initData от Telegram WebApp
- */
-router.post('/validate', authController.validateInitData);
+router.post('/validate', authLimiter, authController.validateInitData);
 
-/**
- * GET /api/auth/me
- * Получение информации о текущем пользователе
- */
 router.get('/me', telegramAuthMiddleware, authController.getCurrentUser);
 
-/**
- * GET /api/auth/status
- * Проверка статуса авторизации
- */
 router.get('/status', telegramAuthMiddleware, authController.getAuthStatus);
 
-/**
- * POST /api/auth/refresh
- * Обновление токена авторизации
- * ✅ FIX: Используем refreshTokenMiddleware вместо telegramAuthMiddleware
- */
-router.post('/refresh', refreshTokenMiddleware, authController.refreshAuth);
+router.post('/refresh', authLimiter, refreshTokenMiddleware, authController.refreshAuth);
 
 export default router;

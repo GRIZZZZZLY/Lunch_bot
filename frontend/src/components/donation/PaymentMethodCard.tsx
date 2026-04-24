@@ -25,17 +25,6 @@ const getMethodIcon = (method: PaymentMethod) => {
   }
 };
 
-const getMethodColor = (method: PaymentMethod) => {
-  switch (method) {
-    case 'stars':
-      return 'from-butter-500/20 to-butter-600/20';
-    case 'sbp':
-      return 'from-mint-500/20 to-mint-600/20';
-    case 'crypto':
-      return 'from-coral-500/20 to-coral-600/20';
-  }
-};
-
 export const PaymentMethodCard = ({
   method,
   name,
@@ -50,15 +39,11 @@ export const PaymentMethodCard = ({
       whileTap={enabled ? { scale: 0.98 } : {}}
     >
       <PastelCard
-        variant={
-          method === 'stars' ? 'peach' :
-          method === 'sbp' ? 'sage' :
-          'lavender'
-        }
+        variant="default"
         className={cn(
           'cursor-pointer transition-all relative overflow-hidden',
           !enabled && 'opacity-50 cursor-not-allowed',
-          selected && 'ring-2 ring-pastel-peach-500'
+          selected && 'ring-2 ring-primary/25 border-primary/25 bg-primary/6'
         )}
         onClick={enabled ? onClick : undefined}
       >
@@ -69,9 +54,9 @@ export const PaymentMethodCard = ({
               <div className={cn(
                 'p-2 rounded-lg',
                 selected
-                  ? 'bg-background/80'
-                  : 'bg-muted/50'
-              )}>
+                  ? 'bg-card shadow-sm'
+                  : 'bg-muted/60'
+               )}>
                 {getMethodIcon(method)}
               </div>
 
@@ -88,14 +73,13 @@ export const PaymentMethodCard = ({
 
             {/* Arrow */}
             {enabled && (
-              <ChevronRight className={ICON_SIZES.md}
-              />
+              <ChevronRight className={cn(ICON_SIZES.md, selected ? 'text-primary' : 'text-muted-foreground')} />
             )}
           </div>
 
           {/* Coming Soon Badge */}
           {!enabled && (
-            <div className="absolute top-2 right-2 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+            <div className="absolute top-2 right-2 rounded-full border border-border/60 bg-card px-2 py-1 text-xs text-muted-foreground">
               Скоро
             </div>
           )}

@@ -6,7 +6,7 @@
  * Swipe left → view details
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, PanInfo } from 'framer-motion';
 import { Check, Info } from 'lucide-react';
 import { MenuItem } from '@/services/menu.service';
@@ -34,13 +34,13 @@ interface SwipeableMenuItemProps {
  * />
  * ```
  */
-export const SwipeableMenuItem: React.FC<SwipeableMenuItemProps> = ({
+export const SwipeableMenuItem = ({
   item,
   onVote,
   onViewDetails,
   isSelected = false,
   disabled = false,
-}) => {
+}: SwipeableMenuItemProps) => {
   const [dragX, setDragX] = useState(0);
   const [actionTriggered, setActionTriggered] = useState<'vote' | 'details' | null>(null);
   const haptic = useHaptic();
@@ -48,7 +48,10 @@ export const SwipeableMenuItem: React.FC<SwipeableMenuItemProps> = ({
   const SWIPE_THRESHOLD = 100; // px
   const MAX_SWIPE = 150; // максимальное смещение
 
-  const handleDragEnd = (_event: any, info: PanInfo) => {
+  const handleDragEnd = (
+    _event: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo
+  ) => {
     const offset = info.offset.x;
 
     if (Math.abs(offset) > SWIPE_THRESHOLD) {
@@ -76,7 +79,10 @@ export const SwipeableMenuItem: React.FC<SwipeableMenuItemProps> = ({
     setDragX(0);
   };
 
-  const handleDrag = (_event: any, info: PanInfo) => {
+  const handleDrag = (
+    _event: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo
+  ) => {
     const offset = info.offset.x;
     
     // Haptic feedback при достижении threshold
@@ -166,9 +172,6 @@ export const SwipeableMenuItem: React.FC<SwipeableMenuItemProps> = ({
             <div className="mt-1 flex items-center gap-2">
               <span className="text-sm font-medium text-primary">
                 {item.price} ₽
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {item.category}
               </span>
             </div>
           </div>

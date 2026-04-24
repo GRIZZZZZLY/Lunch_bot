@@ -1,81 +1,74 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import {
-  Bell,
-  RotateCcw,
-  Sparkles,
-  UserPlus,
-  Flame,
-  Repeat,
-} from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { X } from 'lucide-react';
 
 // New shadcn/ui components
-import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 
 // Custom components
-import { PastelCard, CardContent } from '../components/ui/pastel-card';
-import { ThemeToggle } from '../components/ui/theme-toggle';
+import { PastelCard } from '../components/ui/pastel-card';
+import { GlassCard } from '../components/ui/glass-card';
 // import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
-import { BottomNavigation } from '../components/layout/BottomNavigation';
+// BottomNavigation rendered globally in App.tsx — не импортируем здесь
 
 // Poll components
 import { InlineVotingCard } from '../components/voting/InlineVotingCard';
+import { RouletteRevealOverlay } from '../components/voting/RouletteRevealOverlay';
 import { CreatePollForm } from '../components/polls/CreatePollForm';
 import { CompletedPollWidget } from '../components/polls/CompletedPollWidget';
 import { TopDishModal } from '../components/modals/TopDishModal';
 
 // Budget components
-import { BudgetWidget } from '../components/budget';
+import { BudgetWidgetWithCalculator } from '../components/budget/BudgetWidgetWithCalculator';
+import { CalculatorModal } from '../components/budget/CalculatorModal';
 
 // Recurring Polls components
 import { RecurringPollBadge } from '../components/polls/RecurringPollBadge';
 
 // New components
-import { FloatingActionButton } from '../components/common/FloatingActionButton';
-import { UserAvatar } from '../components/common/UserAvatar';
-import { FeedbackModal } from '../components/modals/FeedbackModal';
+import { HomeEmptyStateCard } from '../components/home/HomeEmptyStateCard';
+import { HomeHeroCard } from '../components/home/HomeHeroCard';
+import { HomeActionsSection } from '../components/home/HomeActionsSection';
 
 // Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
 import { useAuth } from '../hooks/useAuth';
 import { useHaptic } from '../hooks/useHaptic';
-import { useAppStore, useUI } from '../store/useAppStore';
+import { useAppStore } from '../store/useAppStore';
 import { pollsService, PollWithDetails } from '../services/polls.service';
 import { notificationService } from '../services/notification.service';
 import { useActivePolls } from '../hooks/usePolls';
 import { useMenuItems } from '../hooks/queries';
 import { useUserGroups } from '../hooks/queries/useUserQueries';
 import { useTodayCompletedPoll } from '../hooks/useTodayCompletedPoll';
-import { cn, formatRelativeTime } from '../lib/utils';
+import { formatRelativeTime } from '../lib/utils';
 import { TYPOGRAPHY_H1, TYPOGRAPHY_H2 } from '../lib/typography';
 import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
 import { ICON_SIZES } from '@/lib/design-tokens';
-import { getContextualGreeting, getEmptyStateMessage } from '../lib/contextual-messages';
+import { getContextualGreeting } from '../lib/contextual-messages';
 import { getHumanErrorMessage } from '../lib/error-messages';
 import { getUserStreak, updateStreakAfterVote } from '../services/streak.service';
-import { InsightsCard } from '../components/insights/InsightsCard';
-import { generatePersonalInsights } from '../services/insights.service';
+// InsightsCard moved to StatsPage (Insights tab)
 
 /**
  * HomePage - Умная адаптивная главная страница
  * 
  * Особенности:
  * - Welcome Card для новых пользователей (0-2 голосования)
- * - Floating Action Button для обратной связи (всегда видна)
+ * - Обратная связь перенесена на страницу профиля
  * - Чистый минималистичный дизайн
  */
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const telegram = useTelegram();
   const { colorScheme } = telegram;
   const { user } = useAuth();
   const haptic = useHaptic();
-  const { addNotification } = useUI();
+  const addNotification = useAppStore((state) => state.addNotification);
   const theme = useAppStore((state) => state.theme);
   const isDark = colorScheme === 'dark';
   
@@ -84,28 +77,104 @@ export const HomePage: React.FC = () => {
   
   // Time-based gradient and greeting
   const gradientColors = useTimeBasedGradient(theme === 'dark');
-  const timeIcons = {
-    morning: '🌅',
-    afternoon: '☀️',
-    evening: '🌆',
-    night: '🌙'
-  } as const;
-  const timeIcon = timeIcons[gradientColors.timeOfDay];
 
   // State - ВАЖНО: объявляем ДО использования в React Query hooks
-  const [activePoll, setActivePoll] = useState<PollWithDetails | null>(null);
+  const [activePollOverride, setActivePollOverride] = useState<PollWithDetails | null>(null);
   const [isCreatingPoll, setIsCreatingPoll] = useState(false);
   const [createPollTab, setCreatePollTab] = useState<'single' | 'recurring'>('single');
-  const [isRepeatLoading, setIsRepeatLoading] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [justCompletedPollId, setJustCompletedPollId] = useState<number | null>(null);
+  const [showRouletteOverlay, setShowRouletteOverlay] = useState(false);
+  const [rouletteParticipants, setRouletteParticipants] = useState<Array<{ id: number; firstName: string; lastName?: string }>>([]);
+  const [rouletteWinner, setRouletteWinner] = useState<{ id: number; firstName: string; lastName?: string } | null>(null);
+  const [lastRoulettePollId, setLastRoulettePollId] = useState<number | null>(null);
+  const rouletteDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Calculator modal state
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [selectedCategoryOrder, setSelectedCategoryOrder] = useState<any>(null);
+  const missingPollNotificationRef = useRef<string | null>(null);
+  const [showAdminChecklist, setShowAdminChecklist] = useState(false);
 
   // ✅ ПАРАЛЛЕЛЬНАЯ ЗАГРУЗКА: Все 3 запроса идут одновременно
   // React Query: Load active polls with caching
-  const { data: activePolls = [], isLoading: pollsLoading, refetch } = useActivePolls();
+  const { data: activePolls = [], isLoading: pollsLoading, refetch } = useActivePolls({
+    refetchInterval: 30000, // Авто-обновление каждые 30 секунд
+  });
 
   // React Query: Load user groups (параллельно с polls)
   const { data: userGroups = [], isLoading: groupsLoading } = useUserGroups();
+
+  const activePollsSignature = activePolls.map(p => p.id).join(',');
+
+  const derivedActivePoll = useMemo(() => {
+    if (activePolls.length === 0) {
+      return null;
+    }
+
+    const searchParams = new URLSearchParams(location.search);
+    const requestedPollId = searchParams.get('pollId');
+
+    let selectedPoll: PollWithDetails | null = null;
+
+    if (requestedPollId) {
+      const targetPoll = activePolls.find(p => p.id === parseInt(requestedPollId));
+      selectedPoll = (targetPoll || activePolls[0]) as PollWithDetails;
+    } else {
+      selectedPoll = activePolls[0] as PollWithDetails;
+    }
+
+    const endTime = selectedPoll.endedAt ||
+      (selectedPoll.startedAt ?
+        new Date(new Date(selectedPoll.startedAt).getTime() + (selectedPoll.duration || 30) * 60 * 1000).toISOString() :
+        new Date(Date.now() + 30 * 60 * 1000).toISOString());
+
+    return {
+      ...selectedPoll,
+      title: 'Голосование на обед',
+      endTime,
+      voteCount: selectedPoll._count?.votes || 0,
+    } as PollWithDetails;
+  }, [activePollsSignature, location.search]);
+
+  const activePoll = activePollOverride ?? derivedActivePoll;
+
+  useEffect(() => {
+    if (activePollOverride && derivedActivePoll && activePollOverride.id === derivedActivePoll.id) {
+      setActivePollOverride(null);
+    }
+  }, [activePollOverride, derivedActivePoll]);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const requestedPollId = searchParams.get('pollId');
+
+    if (!requestedPollId) {
+      if (missingPollNotificationRef.current) {
+        missingPollNotificationRef.current = null;
+      }
+      return;
+    }
+
+    if (activePolls.length === 0) {
+      return;
+    }
+
+    const targetPoll = activePolls.find(p => p.id === parseInt(requestedPollId));
+    if (targetPoll) {
+      if (missingPollNotificationRef.current === requestedPollId) {
+        missingPollNotificationRef.current = null;
+      }
+      return;
+    }
+
+    if (missingPollNotificationRef.current !== requestedPollId) {
+      addNotification({
+        type: 'warning',
+        message: '⚠️ Голосование не найдено или уже завершено'
+      });
+      missingPollNotificationRef.current = requestedPollId;
+    }
+  }, [activePollsSignature, location.search, addNotification]);
 
   // ВАЖНО: userGroupId ДОЛЖЕН быть объявлен ПОСЛЕ activePolls и userGroups
   // Используем groupId из активного голосования или первой группы пользователя
@@ -116,6 +185,8 @@ export const HomePage: React.FC = () => {
     userGroupId,
     !!userGroupId // Всегда загружаем если есть groupId (не зависит от activePoll)
   );
+
+  const hasAnyPoll = !!activePoll || !!todayCompletedPoll;
 
   // Общий loading state - показываем loading только если ВСЕ запросы в процессе
   const isLoading = pollsLoading || groupsLoading || loadingCompletedPoll;
@@ -142,6 +213,14 @@ export const HomePage: React.FC = () => {
     }
   }, [showCelebration]);
 
+  useEffect(() => {
+    return () => {
+      if (rouletteDelayTimerRef.current) {
+        clearTimeout(rouletteDelayTimerRef.current);
+      }
+    };
+  }, []);
+
   // Отслеживаем автоматическое завершение голосования
   const prevActivePollRef = useRef<PollWithDetails | null>(null);
   
@@ -150,6 +229,12 @@ export const HomePage: React.FC = () => {
     const hadActivePoll = prevActivePollRef.current !== null;
     const nowHasNoPoll = activePoll === null;
     
+    if (hadActivePoll && nowHasNoPoll) {
+      setTimeout(() => {
+        refetchCompleted();
+      }, 400);
+    }
+
     if (hadActivePoll && nowHasNoPoll && todayCompletedPoll && !showCelebration) {
       console.log('🎉 [HomePage] Detected auto-completed poll, triggering celebration');
       setJustCompletedPollId(todayCompletedPoll.id);
@@ -158,7 +243,26 @@ export const HomePage: React.FC = () => {
     
     // Обновляем ref для следующего цикла
     prevActivePollRef.current = activePoll;
-  }, [activePoll, todayCompletedPoll, showCelebration]);
+  }, [activePoll, todayCompletedPoll, showCelebration, refetchCompleted]);
+
+  useEffect(() => {
+    if (!activePoll?.endTime) return;
+
+    const endTimestamp = new Date(activePoll.endTime).getTime();
+    if (Number.isNaN(endTimestamp)) return;
+
+    const now = Date.now();
+    const delay = Math.max(endTimestamp - now + 1000, 0);
+
+    const timer = setTimeout(() => {
+      refetch();
+      setTimeout(() => {
+        refetchCompleted();
+      }, 400);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [activePoll?.id, activePoll?.endTime, refetch, refetchCompleted]);
 
   // Проверяем проголосовал ли пользователь
   const hasVoted = activePoll?.votes?.some(vote => vote.userId === user?.id) || false;
@@ -180,93 +284,31 @@ export const HomePage: React.FC = () => {
     hasCompletedPoll: !!todayCompletedPoll,
     userName: user?.firstName,
   });
-  
+
   // Модалки
   const [isTopDishModalOpen, setIsTopDishModalOpen] = useState(false);
   const [topDishData, setTopDishData] = useState<any>(null);
   const [loadingTopDish, setLoadingTopDish] = useState(false);
-  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
   // Streak система
   const [userStreak, setUserStreak] = useState(getUserStreak(user?.id || 0));
-  const [showStreakMilestone, setShowStreakMilestone] = useState(false);
-  const [achievedMilestone, setAchievedMilestone] = useState<any>(null);
 
-  // Персональные инсайты
-  const [personalInsights, setPersonalInsights] = useState(
-    generatePersonalInsights(user?.id || 0)
-  );
+  // Персональные инсайты перенесены на StatsPage (вкладка "Инсайты")
+
+  const adminEmptyGreeting = useMemo(() => {
+    const map = {
+      morning: 'Доброе утро',
+      afternoon: 'Добрый день',
+      evening: 'Добрый вечер',
+      night: 'Спокойной ночи',
+    } as const;
+
+    return map[gradientColors.timeOfDay];
+  }, [gradientColors.timeOfDay]);
   
   // NOTE: userPollCount и Welcome Card удалены - инструкция показывается только при первом запуске
   
   // ИЗМЕНЕНО: Set active poll based on URL param OR first poll
-  useEffect(() => {
-    console.log('🚀 [HomePage] Active polls loaded:', activePolls.length);
-    
-    if (activePolls.length === 0) {
-      console.log('⚠️ [HomePage] No active polls found');
-      setActivePoll(null);
-      return;
-    }
-
-    // Проверяем URL параметр pollId (deep link support)
-    const searchParams = new URLSearchParams(window.location.search);
-    const requestedPollId = searchParams.get('pollId');
-
-    let selectedPoll: PollWithDetails | null = null;
-
-    if (requestedPollId) {
-      // Deep link: Ищем конкретное голосование по ID
-      const targetPoll = activePolls.find(p => p.id === parseInt(requestedPollId));
-      if (targetPoll) {
-        selectedPoll = targetPoll as PollWithDetails;
-        console.log('✅ [HomePage] Deep link poll found:', {
-          id: targetPoll.id,
-          status: targetPoll.status,
-          groupId: targetPoll.groupId
-        });
-      } else {
-        console.warn('[HomePage] ⚠️ Deep link poll not found:', requestedPollId);
-        addNotification({
-          type: 'warning',
-          message: '⚠️ Голосование не найдено или уже завершено'
-        });
-        // Fallback на первое голосование
-        selectedPoll = activePolls[0] as PollWithDetails;
-      }
-    } else {
-      // Обычный режим: показываем первое активное голосование
-      selectedPoll = activePolls[0] as PollWithDetails;
-      console.log('✅ [HomePage] Showing first active poll:', {
-        id: selectedPoll.id,
-        status: selectedPoll.status,
-        groupId: selectedPoll.groupId
-      });
-    }
-
-    // Вычисляем endTime на основе startedAt + duration
-    const endTime = selectedPoll.endedAt || 
-      (selectedPoll.startedAt ? 
-        new Date(new Date(selectedPoll.startedAt).getTime() + (selectedPoll.duration || 30) * 60 * 1000).toISOString() : 
-        new Date(Date.now() + 30 * 60 * 1000).toISOString());
-
-    console.log('📊 [HomePage] Poll time calculation:', {
-      pollId: selectedPoll.id,
-      startedAt: selectedPoll.startedAt,
-      duration: selectedPoll.duration,
-      endedAt: selectedPoll.endedAt,
-      calculatedEndTime: endTime
-    });
-
-    const transformedPoll = {
-      ...selectedPoll,
-      title: 'Голосование на обед',
-      endTime,
-      voteCount: selectedPoll._count?.votes || 0,
-    };
-    
-    setActivePoll(transformedPoll as any);
-  }, [activePolls]);
 
   // Auto-refresh
   useEffect(() => {
@@ -284,12 +326,7 @@ export const HomePage: React.FC = () => {
       telegram.disableClosingConfirmation();
     }
     
-    const refreshInterval = setInterval(() => {
-      refetch(); // React Query auto-refetch
-    }, 10000);
-
     return () => {
-      clearInterval(refreshInterval);
       // При размонтировании восстанавливаем подтверждение
       if (telegram.enableClosingConfirmation) {
         telegram.enableClosingConfirmation();
@@ -313,6 +350,76 @@ export const HomePage: React.FC = () => {
     }, 500); // 500ms задержка
   };
 
+  const handleCelebrationEnd = () => {
+    setShowCelebration(false);
+
+    if (!todayCompletedPoll || justCompletedPollId !== todayCompletedPoll.id) {
+      return;
+    }
+
+    tryShowRouletteOverlay(todayCompletedPoll, 5000);
+  };
+
+  const tryShowRouletteOverlay = (poll: PollWithDetails, delayMs: number) => {
+    if (lastRoulettePollId === poll.id) {
+      return;
+    }
+
+    const result =
+      poll.results?.[0] ||
+      (poll as PollWithDetails & { result?: PollWithDetails['results'][number] }).result;
+    const winner = result?.responsible;
+    if (!winner) {
+      return;
+    }
+
+    const participantsMap = new Map<number, { id: number; firstName: string; lastName?: string }>();
+    (poll.votes || []).forEach(vote => {
+      if (!participantsMap.has(vote.user.id)) {
+        participantsMap.set(vote.user.id, {
+          id: vote.user.id,
+          firstName: vote.user.firstName,
+          lastName: vote.user.lastName,
+        });
+      }
+    });
+
+    if (!participantsMap.has(winner.id)) {
+      participantsMap.set(winner.id, {
+        id: winner.id,
+        firstName: winner.firstName,
+        lastName: winner.lastName,
+      });
+    }
+
+    setRouletteWinner({
+      id: winner.id,
+      firstName: winner.firstName,
+      lastName: winner.lastName,
+    });
+    setRouletteParticipants(Array.from(participantsMap.values()));
+
+    if (rouletteDelayTimerRef.current) {
+      clearTimeout(rouletteDelayTimerRef.current);
+    }
+
+    rouletteDelayTimerRef.current = setTimeout(() => {
+      setShowRouletteOverlay(true);
+      setLastRoulettePollId(poll.id);
+      haptic.medium();
+      rouletteDelayTimerRef.current = null;
+    }, delayMs);
+  };
+
+  useEffect(() => {
+    if (!todayCompletedPoll || showCelebration) {
+      return;
+    }
+
+    tryShowRouletteOverlay(todayCompletedPoll, 1200);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayCompletedPoll?.id, showCelebration]);
+
   const queryClient = useQueryClient();
 
   // Инвалидация polls кэша при смене пользователя
@@ -322,11 +429,28 @@ export const HomePage: React.FC = () => {
       
       // Инвалидируем все polls queries
       queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
-      
-      // Рефетчим активные polls
-      refetch();
     }
-  }, [user?.id, queryClient, refetch]);
+  }, [user?.id, queryClient]);
+
+  useEffect(() => {
+    if (!user?.isAdmin || hasAnyPoll) {
+      setShowAdminChecklist(false);
+      return;
+    }
+
+    if (isLoading || typeof window === 'undefined') {
+      return;
+    }
+
+    const key = `admin_home_checklist_seen_${user.id}`;
+    if (localStorage.getItem(key)) {
+      setShowAdminChecklist(false);
+      return;
+    }
+
+    localStorage.setItem(key, 'true');
+    setShowAdminChecklist(true);
+  }, [user?.id, user?.isAdmin, hasAnyPoll, isLoading]);
 
   const handlePollCreated = async (pollId: number) => {
     console.log('✅ [HomePage] Poll created:', pollId);
@@ -450,6 +574,21 @@ export const HomePage: React.FC = () => {
     }
   };
 
+  // Добавить бота в группу через deep-link ?startgroup=true
+  const handleAddToGroup = () => {
+    haptic.impact();
+    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'rocket_lunch_bot';
+    const url = `https://t.me/${botUsername}?startgroup=true`;
+    const webApp = window.Telegram?.WebApp;
+    if (webApp?.openTelegramLink) {
+      webApp.openTelegramLink(url);
+    } else if (webApp?.openLink) {
+      webApp.openLink(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  };
+
   // Напомнить админу о создании голосования
   const handleRemindAdmin = async () => {
     // Используем первую группу пользователя (приоритет выше чем activePoll)
@@ -529,115 +668,6 @@ export const HomePage: React.FC = () => {
   
   // УДАЛЕНО: handleShowUserStats - кнопка убрана из Quick Actions (доступна через Bottom Nav)
 
-  // 12. Повторить вчерашнее голосование (только для админов)
-  const handleRepeatYesterday = async () => {
-    console.log('🔄 [handleRepeatYesterday] Функция вызвана');
-    
-    try {
-      haptic.light();
-      console.log('🔄 [handleRepeatYesterday] Haptic feedback отправлен');
-
-      // 1. Получить последнее завершённое голосование
-      console.log('🔄 [handleRepeatYesterday] Запрос последнего poll...');
-      const response = await pollsService.getLastCompleted();
-      console.log('🔄 [handleRepeatYesterday] Ответ получен:', response);
-
-      if (!response.success || !response.data) {
-        console.log('❌ [handleRepeatYesterday] Нет завершённых polls');
-        addNotification({
-          type: 'error',
-          message: '❌ Нет завершённых голосований для повтора',
-        });
-        haptic.error();
-        return;
-      }
-
-      const lastPoll = response.data;
-      console.log('✅ [handleRepeatYesterday] Последний poll:', lastPoll);
-
-      // 2. Подтверждение
-      const endDate = lastPoll.endedAt ? new Date(lastPoll.endedAt).toLocaleDateString('ru-RU') : 'неизвестно';
-      console.log('🔄 [handleRepeatYesterday] Показываем confirm для даты:', endDate);
-      const confirmed = window.confirm(
-        `Повторить голосование от ${endDate}?`
-      );
-      console.log('🔄 [handleRepeatYesterday] Подтверждение:', confirmed);
-
-      if (!confirmed) {
-        console.log('❌ [handleRepeatYesterday] Пользователь отменил');
-        return;
-      }
-
-      // 3. Создать копию
-      console.log('🔄 [handleRepeatYesterday] Создаём копию poll ID:', lastPoll.id);
-      setIsRepeatLoading(true);
-      const repeatResponse = await pollsService.repeatPoll(lastPoll.id);
-      console.log('✅ [handleRepeatYesterday] Ответ от repeatPoll:', repeatResponse);
-
-      if (repeatResponse.success && repeatResponse.data) {
-        console.log('✅ [handleRepeatYesterday] Poll создан успешно!');
-        const newPollId = repeatResponse.data.id;
-        
-        haptic.success();
-        addNotification({
-          type: 'success',
-          message: '✅ Голосование создано и отправлено!',
-        });
-
-        // Очищаем кэш
-        console.log('🔄 [handleRepeatYesterday] Очищаем кэш...');
-        await queryClient.invalidateQueries({ 
-          queryKey: queryKeys.polls.active(),
-          refetchType: 'active' 
-        });
-        
-        // Задержка для backend
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Загружаем новое голосование напрямую
-        try {
-          const newPollResponse = await pollsService.getPollById(newPollId);
-          if (newPollResponse.success && newPollResponse.data) {
-            console.log('✅ [handleRepeatYesterday] Новый poll загружен:', newPollResponse.data);
-            console.log('📋 [handleRepeatYesterday] selectedMenuItemIds:', newPollResponse.data.selectedMenuItemIds);
-            
-            setActivePoll({
-              ...newPollResponse.data,
-              title: 'Голосование на обед',
-              endTime: newPollResponse.data.endedAt || 
-                (newPollResponse.data.startedAt ? 
-                  new Date(new Date(newPollResponse.data.startedAt).getTime() + (newPollResponse.data.duration || 30) * 60 * 1000).toISOString() : 
-                  new Date(Date.now() + 30 * 60 * 1000).toISOString()),
-              voteCount: newPollResponse.data._count?.votes || 0,
-            } as any);
-          }
-        } catch (error) {
-          console.error('❌ [handleRepeatYesterday] Ошибка загрузки нового poll:', error);
-        }
-        
-        // Также обновляем React Query кэш
-        console.log('🔄 [handleRepeatYesterday] Обновляем React Query кэш...');
-        await refetch();
-        console.log('✅ [handleRepeatYesterday] Список polls обновлён');
-      } else {
-        console.log('❌ [handleRepeatYesterday] Ошибка создания:', repeatResponse);
-        addNotification({
-          type: 'error',
-          message: '❌ Ошибка создания голосования',
-        });
-      }
-    } catch (error: any) {
-      console.error('❌ [handleRepeatYesterday] Exception:', error);
-      haptic.error();
-      addNotification({
-        type: 'error',
-        message: getHumanErrorMessage(error),
-      });
-    } finally {
-      setIsRepeatLoading(false);
-      console.log('🔄 [handleRepeatYesterday] Функция завершена');
-    }
-  };
   
 
   
@@ -669,99 +699,16 @@ export const HomePage: React.FC = () => {
       >
         {/* Header Section - Компактное приветствие */}
         <motion.div variants={itemVariants}>
-          <PastelCard variant="default" className="overflow-hidden border-l-4 border-orange-500 dark:border-purple-500">
-            <CardContent className="relative py-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="text-4xl">{contextualGreeting.emoji}</div>
-                  <div>
-                    <h1 className="text-xl font-semibold text-foreground leading-tight">
-                      {contextualGreeting.greeting}
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {contextualGreeting.message}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <ThemeToggle variant="ghost" size="sm" />
-                  <div className="flex flex-col items-center gap-1">
-                    <div
-                      className="cursor-pointer"
-                      onClick={() => navigate('/profile')}
-                    >
-                      <UserAvatar
-                        userId={user?.id}
-                        firstName={user?.firstName || 'User'}
-                        lastName={user?.lastName}
-                        size="md"
-                        className="ring-2 ring-primary/20"
-                      />
-                    </div>
-                    {userStreak.currentStreak > 0 && (
-                      <div className="streak-mini-badge inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold text-white shadow-sm whitespace-nowrap">
-                        <Flame className="size-3.5 fill-current" />
-                        <span>{userStreak.currentStreak} дн. подряд</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </PastelCard>
+          <HomeHeroCard
+            greeting={contextualGreeting.greeting}
+            message={contextualGreeting.message}
+            currentStreak={userStreak.currentStreak}
+            user={user}
+            onAvatarClick={() => navigate('/profile')}
+          />
         </motion.div>
 
         {/* Streak Section removed - integrated into header */}
-
-        {/* Milestone Achievement Overlay */}
-        <AnimatePresence>
-          {showStreakMilestone && achievedMilestone && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-              onClick={() => setShowStreakMilestone(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.5, opacity: 0 }}
-                transition={{ type: 'spring', damping: 15 }}
-                className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-2xl max-w-md mx-4 text-center"
-              >
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
-                  transition={{ duration: 0.6 }}
-                  className="text-8xl mb-4"
-                >
-                  {achievedMilestone.emoji}
-                </motion.div>
-                
-                <h2 className="text-3xl font-bold text-foreground mb-2">
-                  {achievedMilestone.title}!
-                </h2>
-                
-                <p className="text-lg text-muted-foreground mb-6">
-                  {achievedMilestone.message}
-                </p>
-                
-                <div className="flex items-center justify-center gap-2 text-orange-500 font-bold text-2xl">
-                  <Flame size={32} className="fill-current" />
-                  <span>{userStreak.currentStreak} дней подряд</span>
-                </div>
-                
-                <button
-                  onClick={() => setShowStreakMilestone(false)}
-                  className="mt-6 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:scale-105 transition-transform"
-                >
-                  Продолжить 🚀
-                </button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Hero Section - Active Poll Widget */}
         <AnimatePresence mode="wait">
@@ -790,21 +737,10 @@ export const HomePage: React.FC = () => {
                 poll={activePoll}
                 onPollClosed={handlePollClosed}
                 onVoteSuccess={() => {
-                  // Обновляем streak после голосования
+                  // Обновляем streak после голосования (без модалки — её заменяет рулетка)
                   if (user?.id) {
-                    const { streak, milestoneAchieved, newMilestone } = updateStreakAfterVote(user.id);
+                    const { streak } = updateStreakAfterVote(user.id);
                     setUserStreak(streak);
-                    
-                    if (milestoneAchieved && newMilestone) {
-                      setAchievedMilestone(newMilestone);
-                      setShowStreakMilestone(true);
-                      haptic.success();
-                      
-                      // Скрываем через 5 секунд
-                      setTimeout(() => {
-                        setShowStreakMilestone(false);
-                      }, 5000);
-                    }
                   }
                   refetch();
                 }}
@@ -833,7 +769,7 @@ export const HomePage: React.FC = () => {
               <CompletedPollWidget
                 poll={todayCompletedPoll}
                 showCelebration={showCelebration && justCompletedPollId === todayCompletedPoll.id}
-                onCelebrationEnd={() => setShowCelebration(false)}
+                onCelebrationEnd={handleCelebrationEnd}
               />
             </motion.div>
           ) : showCelebration ? (
@@ -859,120 +795,47 @@ export const HomePage: React.FC = () => {
               initial="hidden"
               animate="show"
             >
-              <PastelCard variant="default" className="overflow-hidden">
-                <CardContent className="relative py-8 px-6 text-center space-y-6">
-                  {(() => {
-                    const emptyState = getEmptyStateMessage(gradientColors.timeOfDay, !!todayCompletedPoll);
-                    return (
-                      <>
-                        <div className="text-6xl">{emptyState.emoji}</div>
+              {(() => {
+                const title = user?.isAdmin
+                  ? `${adminEmptyGreeting}! Голосования ещё нет`
+                  : 'Пока нет активного голосования';
+                const description = user?.isAdmin
+                  ? 'Создайте вручную или включите авто-запуск'
+                  : 'Мы уведомим, когда начнётся. Пока можно предложить блюдо на странице "Меню".';
 
-                        <div className="space-y-2">
-                          <h2 className={cn(TYPOGRAPHY_H2.className, "text-foreground")}>
-                            {emptyState.title}
-                          </h2>
-                          <p className="text-muted-foreground">
-                            {user?.isAdmin
-                              ? 'Создайте новое голосование для группы'
-                              : emptyState.description
-                            }
-                          </p>
-                        </div>
-                      </>
-                    );
-                  })()}
-
-                  {user?.isAdmin && (
-                    <div className="flex flex-col gap-3">
-                      <Button
-                        variant="mint"
-                        size="lg"
-                        className="w-full"
-                        onClick={() => {
-                          haptic.impact();
-                          setCreatePollTab('single');
-                          setIsCreatingPoll(true);
-                        }}
-                      >
-                        <Sparkles className={`${ICON_SIZES.md} mr-2`} />
-                        Создать голосование
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="default"
-                        className="w-full"
-                        onClick={() => {
-                          haptic.impact();
-                          setCreatePollTab('recurring');
-                          setIsCreatingPoll(true);
-                        }}
-                      >
-                        <Repeat className={`${ICON_SIZES.sm} mr-2`} />
-                        Автоматическое голосование
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="default"
-                        className="w-full"
-                        onClick={handleRepeatYesterday}
-                        disabled={isRepeatLoading}
-                      >
-                        <RotateCcw className={`${ICON_SIZES.sm} mr-2`} />
-                        Повторить вчерашнее
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Remind Admin - только для НЕ-админов когда нет голосования */}
-                  {!user?.isAdmin && userGroupId && (
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleRemindAdmin}
-                      className="w-full bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 ease-out mt-4"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
-                            <Bell className={cn(ICON_SIZES.md, "text-orange-600 dark:text-orange-400")} />
-                          </div>
-                          <div className="text-left">
-                            <p className="font-semibold text-gray-900 dark:text-white">
-                              Напомнить админу
-                            </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              Попросить создать голосование
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-gray-400 dark:text-gray-600">›</div>
-                      </div>
-                    </motion.button>
-                  )}
-                </CardContent>
-              </PastelCard>
+                return (
+                  <HomeEmptyStateCard
+                    title={title}
+                    description={description}
+                    isAdmin={!!user?.isAdmin}
+                    showAdminChecklist={showAdminChecklist}
+                    showRemindAdmin={!user?.isAdmin && !!userGroupId}
+                    onCreatePoll={() => {
+                      haptic.impact();
+                      setCreatePollTab('single');
+                      setIsCreatingPoll(true);
+                    }}
+                    onRemindAdmin={handleRemindAdmin}
+                  />
+                );
+              })()}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Personal Insights Section */}
-        {personalInsights.length > 0 && (
-          <motion.div variants={itemVariants}>
-            <InsightsCard insights={personalInsights} />
-          </motion.div>
-        )}
-
-
-
         {/* Budget Widget - адаптивный виджет бюджет-трекера (conditional) */}
         <motion.div variants={itemVariants}>
-          <BudgetWidget />
+          <BudgetWidgetWithCalculator
+            pollId={activePoll?.id || todayCompletedPoll?.id}
+            onOpenCalculator={(categoryOrder) => {
+              setSelectedCategoryOrder(categoryOrder);
+              setIsCalculatorOpen(true);
+            }}
+          />
         </motion.div>
 
-        {/* Recurring Poll Badge - индикатор автоматических голосований */}
-        {user?.isAdmin && (
+        {/* Recurring Poll Badge - индикатор автоматических голосований (только если нет активного poll) */}
+        {user?.isAdmin && !activePoll && (
           <motion.div variants={itemVariants}>
             <RecurringPollBadge
               groupId={userGroupId}
@@ -987,76 +850,37 @@ export const HomePage: React.FC = () => {
         )}
 
         {/* Actions Section - Vertical list */}
-        <motion.div variants={itemVariants} className="space-y-3">
-          {user?.isAdmin && (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                haptic.impact();
-                setCreatePollTab('recurring');
-                setIsCreatingPoll(true);
-              }}
-              className="relative w-full rounded-xl p-4 bg-gradient-to-r from-emerald-500 to-teal-600 shadow-[0_0_15px_rgba(16,185,129,0.35)] hover:shadow-[0_0_25px_rgba(13,148,136,0.5)] transition-all"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
-                    <Repeat className={cn(ICON_SIZES.lg, 'text-white')} />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-semibold text-white text-lg">
-                      Автоголосование
-                    </p>
-                    <p className="text-sm text-white/80">
-                      Запуск по расписанию
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </motion.button>
-          )}
-          {/* Invite Friend Button - High priority CTA */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleInviteFriend}
-            className="relative w-full rounded-xl p-4 bg-gradient-to-r from-violet-500 to-purple-600 shadow-[0_0_15px_rgba(139,92,246,0.5)] hover:shadow-[0_0_25px_rgba(139,92,246,0.65)] transition-all"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
-                  <UserPlus className={cn(ICON_SIZES.lg, "text-white")} />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-white text-lg">
-                    Пригласить друга
-                  </p>
-                  <p className="text-sm text-white/80">
-                    Поделитесь ботом с коллегами
-                  </p>
-                </div>
-              </div>
-            </div>
-          </motion.button>
+        <motion.div variants={itemVariants}>
+          <HomeActionsSection
+            showAdminAction={!!user?.isAdmin && hasAnyPoll}
+            onCreatePoll={() => {
+              haptic.impact();
+              setCreatePollTab('single');
+              setIsCreatingPoll(true);
+            }}
+            onInviteFriend={handleInviteFriend}
+            onAddToGroup={handleAddToGroup}
+          />
         </motion.div>
 
-        {/* Bottom padding for BottomNavigation */}
-        <div className="h-20" />
+        {/* Bottom padding for BottomNavigation + safe-area */}
+        <div style={{ height: 'calc(64px + env(safe-area-inset-bottom, 0px) + 16px)' }} />
 
       </motion.div>
 
-      {/* BottomNavigation - Sticky navigation bar */}
-      <BottomNavigation />
-
-      {/* Floating Action Button - всегда видна */}
-      <FloatingActionButton onClick={() => setIsFeedbackModalOpen(true)} />
-
-      {/* Feedback Modal */}
-      <FeedbackModal
-        isOpen={isFeedbackModalOpen}
-        onClose={() => setIsFeedbackModalOpen(false)}
+      <RouletteRevealOverlay
+        isOpen={showRouletteOverlay}
+        participants={rouletteParticipants}
+        winner={rouletteWinner}
+        onClose={() => {
+          setShowRouletteOverlay(false);
+          if (rouletteDelayTimerRef.current) {
+            clearTimeout(rouletteDelayTimerRef.current);
+          }
+        }}
       />
+
+      {/* BottomNavigation rendered globally in App.tsx — не дублируем */}
 
       {/* Top Dish Modal */}
       <TopDishModal
@@ -1065,20 +889,66 @@ export const HomePage: React.FC = () => {
         topDish={topDishData}
       />
 
-      {/* Create Poll Modal */}
-      <Dialog open={isCreatingPoll} onOpenChange={setIsCreatingPoll}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Создание голосования</DialogTitle>
-          </DialogHeader>
-          <CreatePollForm
-            onSuccess={handlePollCreated}
-            onCancel={() => setIsCreatingPoll(false)}
-            compact={true}
-            initialTab={createPollTab}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Create Poll Modal - Glass Morphism Center Modal */}
+      <AnimatePresence>
+        {isCreatingPoll && (
+          <>
+            {/* Backdrop with blur */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCreatingPoll(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            />
+            
+            {/* Center Modal with Glass Effect */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            >
+              <div className="w-full max-w-2xl max-h-[90vh] pointer-events-auto"
+            >
+              <GlassCard intensity="solid" className="overflow-hidden shadow-2xl">
+                <div className="max-h-[90vh] overflow-y-auto">
+                  {/* Sticky Header with Close button */}
+                  <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold text-foreground">Создание голосования</h2>
+                      <button
+                        onClick={() => setIsCreatingPoll(false)}
+                        className="p-2 rounded-lg hover:bg-muted transition-colors"
+                        aria-label="Закрыть"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Content */}
+                  <CreatePollForm
+                    onSuccess={handlePollCreated}
+                    onCancel={() => setIsCreatingPoll(false)}
+                    compact={true}
+                    initialTab={createPollTab}
+                  />
+                </div>
+              </GlassCard>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Calculator Modal - Center Modal for Order Calculation */}
+      <CalculatorModal
+        isOpen={isCalculatorOpen}
+        onClose={() => setIsCalculatorOpen(false)}
+        categoryOrder={selectedCategoryOrder}
+      />
 
     </>
   );

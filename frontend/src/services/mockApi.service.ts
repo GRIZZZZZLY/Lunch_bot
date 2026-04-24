@@ -26,7 +26,7 @@ const MOCK_USERS: User[] = [
   },
 ];
 
-const MOCK_MENU_ITEMS: MenuItem[] = [
+const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   // Пицца
   {
     id: 1,
@@ -429,28 +429,15 @@ class MockApiService {
     return this.createSuccessResponse(item);
   }
 
-  async getMenuCategories(): Promise<ApiResponse<string[]>> {
-    await this.delay(300);
-    
-    const categories = [...new Set(MOCK_MENU_ITEMS
-      .filter(item => item.category)
-      .map(item => item.category!)
-    )];
-    
-    return this.createSuccessResponse(categories);
-  }
-
   async getMenuStats(): Promise<ApiResponse<MenuStats>> {
     await this.delay(500);
     
     const active = MOCK_MENU_ITEMS.filter(item => item.isActive);
-    const categories = new Set(MOCK_MENU_ITEMS.filter(item => item.category).map(item => item.category));
     const totalPrice = MOCK_MENU_ITEMS.reduce((sum, item) => sum + (item.price || 0), 0);
 
     const stats: MenuStats = {
       total: MOCK_MENU_ITEMS.length,
       active: active.length,
-      categories: categories.size,
       averagePrice: MOCK_MENU_ITEMS.length > 0 ? totalPrice / MOCK_MENU_ITEMS.length : 0,
     };
 
@@ -549,22 +536,6 @@ class MockApiService {
     })).filter(item => item.voteCount > 0);
 
     return this.createSuccessResponse(breakdown);
-  }
-
-  /**
-   * Получение категорий с подсчетом блюд
-   */
-  async getMenuCategoriesWithCount(): Promise<ApiResponse<Record<string, number>>> {
-    await this.delay(300);
-    
-    const categoryCounts: Record<string, number> = {};
-    MOCK_MENU_ITEMS.forEach(item => {
-      if (item.category && item.isActive) {
-        categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
-      }
-    });
-    
-    return this.createSuccessResponse(categoryCounts);
   }
 
   /**

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
 interface TiltCardProps {
@@ -50,9 +50,6 @@ export const TiltCard: React.FC<TiltCardProps> = ({
     if (disabled || !ref.current) return;
 
     const rect = ref.current.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-
     // Нормализуем координаты от 0 до 1
     const normalizedX = (event.clientX - rect.left) / rect.width;
     const normalizedY = (event.clientY - rect.top) / rect.height;

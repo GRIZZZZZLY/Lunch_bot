@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { User } from './database.types';
 
 // Simplified user type for authentication
@@ -21,12 +21,10 @@ export interface AuthenticatedRequestFull extends Request {
 }
 
 // Extend Express Request type globally
-declare global {
-  namespace Express {
-    interface Request {
-      user?: RequestUser;
-      telegramInitData?: TelegramInitData;
-    }
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: RequestUser;
+    telegramInitData?: TelegramInitData;
   }
 }
 

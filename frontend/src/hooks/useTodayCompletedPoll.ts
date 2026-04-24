@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { pollsService, PollWithDetails } from '../services/polls.service';
+import { pollsService } from '../services/polls.service';
 import { queryKeys } from '../lib/queryClient';
 
 /**

@@ -1,10 +1,10 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
  * Варианты анимаций для страниц
  */
-export const pageTransitions = {
+const pageTransitions = {
   // Fade - простое затухание
   fade: {
     initial: { opacity: 0 },
@@ -55,7 +55,7 @@ export const pageTransitions = {
 };
 
 interface AnimatedPageProps {
-  children: React.ReactNode;
+  children: ReactNode;
   variant?: keyof typeof pageTransitions;
   className?: string;
 }
@@ -63,11 +63,11 @@ interface AnimatedPageProps {
 /**
  * Компонент для анимированных страниц
  */
-export const AnimatedPage: React.FC<AnimatedPageProps> = ({
+export const AnimatedPage = ({
   children,
   variant = 'fade',
   className = '',
-}) => {
+}: AnimatedPageProps) => {
   const transition = pageTransitions[variant];
 
   return (
@@ -86,17 +86,18 @@ export const AnimatedPage: React.FC<AnimatedPageProps> = ({
 /**
  * Обёртка для AnimatePresence
  */
-export const PageTransition: React.FC<{
-  children: React.ReactNode;
+export const PageTransition = ({
+  children,
+  mode = 'wait',
+}: {
+  children: ReactNode;
   mode?: 'wait' | 'sync' | 'popLayout';
-}> = ({ children, mode = 'wait' }) => {
-  return <AnimatePresence mode={mode}>{children}</AnimatePresence>;
-};
+}) => <AnimatePresence mode={mode}>{children}</AnimatePresence>;
 
 /**
  * Stagger анимация для списков
  */
-export const staggerContainer = {
+const staggerContainer = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -106,50 +107,52 @@ export const staggerContainer = {
   },
 };
 
-export const staggerItem = {
+const staggerItem = {
   hidden: { opacity: 0, y: 20 },
   show: {
     opacity: 1,
     y: 0,
-    transition: {
-      duration: 0.3,
-      ease: [0.4, 0, 0.2, 1] as any,
+      transition: {
+        duration: 0.3,
+        ease: [0.4, 0, 0.2, 1] as const,
+      },
     },
-  },
 };
 
 /**
  * Компонент для stagger анимации списков
  */
-export const StaggerList: React.FC<{
-  children: React.ReactNode;
+export const StaggerList = ({
+  children,
+  className = '',
+}: {
+  children: ReactNode;
   className?: string;
-}> = ({ children, className = '' }) => {
-  return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      animate="show"
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-};
+}) => (
+  <motion.div
+    variants={staggerContainer}
+    initial="hidden"
+    animate="show"
+    className={className}
+  >
+    {children}
+  </motion.div>
+);
 
 /**
  * Компонент для элементов stagger списка
  */
-export const StaggerItem: React.FC<{
-  children: React.ReactNode;
+export const StaggerItem = ({
+  children,
+  className = '',
+}: {
+  children: ReactNode;
   className?: string;
-}> = ({ children, className = '' }) => {
-  return (
-    <motion.div variants={staggerItem} className={className}>
-      {children}
-    </motion.div>
-  );
-};
+}) => (
+  <motion.div variants={staggerItem} className={className}>
+    {children}
+  </motion.div>
+);
 
 /**
  * Пример использования:

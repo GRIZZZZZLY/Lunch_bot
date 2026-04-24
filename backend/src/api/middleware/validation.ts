@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { logger } from '../../utils/logger';
+import { getParam } from '../../utils/request-params';
 
 // Схемы валидации для меню
 const createMenuItemSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
   description: z.string().max(500, 'Description too long').optional().or(z.literal('')),
   price: z.number().min(0, 'Price cannot be negative').optional(),
-  category: z.string().max(50, 'Category name too long').optional().or(z.literal('')),
   imageUrl: z.string().url('Invalid image URL').optional().or(z.literal('')),
   isActive: z.boolean().optional(),
 });
@@ -154,7 +154,7 @@ export function validateVoteData(
 export function validateIdParam(paramName: string = 'id') {
   return function(req: Request, res: Response, next: NextFunction): void {
     try {
-      const id = parseInt(req.params[paramName]);
+      const id = parseInt(getParam(req.params, paramName), 10);
 
       if (isNaN(id) || id <= 0) {
         res.status(400).json({

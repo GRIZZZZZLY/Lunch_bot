@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rocket Lunch — Profile & Poll History</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --peach-400:#FF9D66; --peach-500:#D86A2C;
+  --lav-400:#A78BFA;   --lav-500:#8B5CF6;
+  --mint-400:#34D399;  --mint-500:#22B573;
+  --coral-400:#F87171; --coral-500:#E55A4F;
+  --butter-400:#F4C15D;--butter-500:#E6A93D;
+  --g-peach: linear-gradient(135deg,#F3C4A7,#F7D5C1);
+  --g-lav:   linear-gradient(135deg,#D1C1FC,#E5DDFE);
+  --g-sage:  linear-gradient(135deg,#8CE0B9,#B3EBD1);
+  --g-rose:  linear-gradient(135deg,#FCA5A5,#FECACA);
+  --g-butter:linear-gradient(135deg,#FFE1A8,#F4C15D);
+  --page-bg:#0E141B; --page-ink:#E6EDF3; --page-muted:#8B97A6;
+  --page-line:rgba(255,255,255,0.08);
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+.tg.dark{
+  background:#17212B;color:#E6EDF3;
+  --surface:#1F2A36;--surface-2:#17212B;
+  --ink:#E6EDF3;--ink-2:#9AA7B4;--ink-3:#6B7683;
+  --line:rgba(255,255,255,0.07);--line-2:rgba(255,255,255,0.12);
+  --pri:var(--peach-400);--pri-ink:#1A0F08;
+  --card-grad:linear-gradient(180deg,#1F2A36,#17212B);
+  --shadow-card:0 2px 12px rgba(0,0,0,0.3);
+  --shadow-elev:0 8px 32px rgba(0,0,0,0.5);
+}
+.tg.light{
+  background:linear-gradient(180deg,#F2EADF,#FBF7F1);color:#2B2118;
+  --surface:#FFFDF9;--surface-2:#F6EFE5;
+  --ink:#2B2118;--ink-2:#6B5D4F;--ink-3:#9C8B79;
+  --line:rgba(43,33,24,0.08);--line-2:rgba(43,33,24,0.14);
+  --pri:var(--peach-500);--pri-ink:#FFFFFF;
+  --card-grad:linear-gradient(180deg,#FFFDF9,#F6EFE5);
+  --shadow-card:0 2px 8px rgba(0,0,0,0.04);
+  --shadow-elev:0 8px 24px rgba(0,0,0,0.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--sans);background:var(--page-bg);color:var(--page-ink);-webkit-font-smoothing:antialiased;line-height:1.45}
+.wrap{max-width:1280px;margin:0 auto;padding:40px 28px 100px}
+.brand{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.brand .mark{width:38px;height:38px;border-radius:10px;background:var(--g-peach);display:grid;place-items:center;font-size:18px;box-shadow:0 8px 22px rgba(216,106,44,0.35)}
+.brand .n{font-weight:700;font-size:14px;letter-spacing:-0.01em}
+.brand .s{font-family:var(--mono);font-size:11px;color:var(--page-muted);margin-top:2px}
+.hero h1{font-size:48px;line-height:0.98;letter-spacing:-0.035em;font-weight:800;margin:0;max-width:24ch}
+.hero h1 em{font-style:normal;background:var(--g-peach);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--page-muted);max-width:72ch;font-size:14px;line-height:1.6;margin:14px 0 0}
+
+.sec-head{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:end;padding-bottom:14px;border-bottom:1px solid var(--page-line);margin:56px 0 24px}
+.sec-num{font-family:var(--mono);font-size:11px;color:var(--page-muted);letter-spacing:0.06em}
+.sec-title{font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0}
+.sec-sub{font-family:var(--mono);font-size:11px;color:var(--page-muted);text-align:right}
+
+.pair{display:grid;grid-template-columns:1fr 1fr 300px;gap:18px;align-items:start;margin-bottom:20px}
+.frame{position:relative;border:1px solid var(--page-line);border-radius:20px;padding:14px;background:rgba(255,255,255,0.015)}
+.frame::before{content:attr(data-theme);position:absolute;top:-10px;left:14px;background:var(--page-bg);padding:0 8px;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;color:var(--page-muted);text-transform:uppercase}
+.tg{font-family:var(--sans);margin:0 auto;width:100%;max-width:375px;border-radius:24px;position:relative;overflow:hidden}
+
+.anno{padding:4px;font-family:var(--mono);font-size:11px;color:var(--page-muted);line-height:1.6}
+.anno .ah{color:var(--page-ink);font-weight:600;font-family:var(--sans);font-size:13px;margin-bottom:6px;letter-spacing:-0.005em}
+.anno .row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px dashed var(--page-line)}
+.anno .row:last-child{border-bottom:0}
+.anno .k{color:var(--page-muted)}
+.anno .v{color:var(--page-ink);text-align:right;max-width:60%}
+.anno .note{margin-top:10px;padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid var(--page-line);color:var(--page-ink);line-height:1.5}
+.anno .note b{color:var(--peach-400)}
+
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 18px 4px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)}
+.top-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 12px;gap:10px}
+.top-hdr .ttl{font-size:20px;font-weight:800;letter-spacing:-0.02em;color:var(--ink);flex:1;min-width:0}
+.top-hdr .act{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--ink-2);font-size:14px;cursor:pointer}
+.top-hdr .back{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:16px;cursor:pointer}
+
+.content{padding:10px 16px 20px;display:flex;flex-direction:column;gap:12px}
+
+/* Profile hero */
+.phero{
+  background:var(--g-lav);border-radius:18px;padding:20px 18px;
+  text-align:center;position:relative;overflow:hidden;color:#2B2118;
+}
+.tg.dark .phero{background:linear-gradient(135deg,#B3A2F0,#C6B6F5);color:#1F1247}
+.phero .deco{position:absolute;inset:0;pointer-events:none;opacity:0.25}
+.phero .deco::before,.phero .deco::after{content:"";position:absolute;border-radius:999px;filter:blur(30px)}
+.phero .deco::before{width:140px;height:140px;background:#F3C4A7;top:-40px;left:-30px}
+.phero .deco::after{width:160px;height:160px;background:#8CE0B9;bottom:-60px;right:-40px}
+.phero .avatar{
+  position:relative;z-index:1;
+  width:96px;height:96px;border-radius:999px;margin:0 auto 12px;
+  background:#FFE1A8;color:#4A3508;
+  display:grid;place-items:center;
+  font-weight:800;font-size:38px;letter-spacing:-0.02em;
+  border:3px solid var(--peach-400);
+  box-shadow:0 10px 28px rgba(216,106,44,0.3), 0 0 0 6px rgba(255,255,255,0.35);
+}
+.phero .nm{font-size:22px;font-weight:800;letter-spacing:-0.02em;line-height:1.1;position:relative;z-index:1}
+.phero .un{font-family:var(--mono);font-size:12px;opacity:0.7;margin-top:4px;position:relative;z-index:1}
+.phero .pills{display:flex;justify-content:center;gap:6px;margin-top:12px;position:relative;z-index:1}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.01em;white-space:nowrap}
+.pill.peach{background:rgba(216,106,44,0.25);color:#4A2108}
+.pill.mint{background:rgba(52,211,153,0.35);color:#0A3F26}
+.pill.muted{background:rgba(43,33,24,0.12);color:#2B2118}
+.tg.dark .pill.peach{background:rgba(255,157,102,0.35);color:#2E1808}
+.tg.dark .pill.mint{background:rgba(52,211,153,0.45);color:#052E1C}
+.tg.dark .pill.muted{background:rgba(255,255,255,0.2);color:#F7D5C1}
+.phero .joined{margin-top:10px;font-family:var(--mono);font-size:10px;opacity:0.7;letter-spacing:0.04em;position:relative;z-index:1}
+
+/* Stats summary */
+.card{background:var(--card-grad);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow-card)}
+.stats3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px}
+.stats3 .col{text-align:center;padding:6px 4px}
+.stats3 .col + .col{border-left:1px dashed var(--line)}
+.stats3 .n{font-size:22px;font-weight:800;letter-spacing:-0.02em;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
+.stats3 .l{font-size:10px;color:var(--ink-3);margin-top:5px;font-family:var(--mono);letter-spacing:0.04em;text-transform:uppercase}
+
+/* Section titles */
+.sec{display:flex;align-items:center;justify-content:space-between;margin:2px 2px -4px}
+.sec .tt{font-size:13px;font-weight:700;color:var(--ink);letter-spacing:-0.005em}
+.sec .lnk{font-size:12px;font-weight:600;color:var(--pri);cursor:pointer;background:transparent;border:0;padding:0;font-family:inherit}
+
+/* Poll preview rows */
+.poll-row{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px}
+.poll-row + .poll-row{border-top:1px dashed var(--line)}
+.poll-row .pic{
+  width:40px;height:40px;border-radius:11px;
+  display:grid;place-items:center;font-size:20px;flex-shrink:0;
+  background:var(--g-peach);
+}
+.poll-row .pic.lav{background:var(--g-lav)}
+.poll-row .pic.sage{background:var(--g-sage)}
+.poll-row .pic.butter{background:var(--g-butter)}
+.poll-row .pic.rose{background:var(--g-rose)}
+.poll-row .md{flex:1;min-width:0}
+.poll-row .d{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:0.04em;text-transform:uppercase}
+.poll-row .nm{font-size:13px;font-weight:600;color:var(--ink);letter-spacing:-0.005em;margin-top:2px;line-height:1.25}
+.poll-row .rb{font-size:10px;font-weight:700;padding:3px 7px;border-radius:999px;flex-shrink:0;white-space:nowrap}
+.poll-row .rb.ok{background:rgba(52,211,153,0.25);color:#0A3F26}
+.poll-row .rb.no{background:rgba(43,33,24,0.1);color:var(--ink-3)}
+.tg.dark .poll-row .rb.ok{background:rgba(52,211,153,0.35);color:#052E1C}
+.tg.dark .poll-row .rb.no{background:rgba(255,255,255,0.1);color:var(--ink-3)}
+
+/* Settings list */
+.settings{background:var(--card-grad);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.set-row{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer}
+.set-row + .set-row{border-top:1px dashed var(--line)}
+.set-row .ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:15px;flex-shrink:0;background:var(--surface-2)}
+.set-row .tx{flex:1;min-width:0}
+.set-row .tx .l{font-size:13px;font-weight:600;color:var(--ink);letter-spacing:-0.005em}
+.set-row .tx .v{font-size:11px;color:var(--ink-3);margin-top:2px;font-family:var(--mono)}
+.set-row .ch{color:var(--ink-3);font-size:18px}
+/* toggle */
+.toggle{width:38px;height:22px;border-radius:999px;background:var(--line-2);position:relative;flex-shrink:0;transition:background 150ms ease}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:999px;background:#fff;transition:transform 150ms ease;box-shadow:0 2px 4px rgba(0,0,0,0.2)}
+.toggle.on{background:var(--pri)}
+.toggle.on::after{transform:translateX(16px)}
+
+/* Feedback */
+.fb-card{background:var(--card-grad);border:1px solid var(--line);border-radius:14px;padding:14px}
+.fb-ta{
+  width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+  padding:10px 12px;color:var(--ink);font-family:inherit;font-size:13px;
+  min-height:72px;resize:none;outline:none;
+}
+.fb-ta::placeholder{color:var(--ink-3)}
+.fb-actions{display:flex;gap:8px;margin-top:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;font-weight:600;font-size:13px;border-radius:12px;border:1px solid transparent;cursor:pointer;padding:10px 14px;line-height:1;transition:transform 120ms ease}
+.btn:active{transform:scale(0.97)}
+.btn.primary{background:linear-gradient(135deg,var(--peach-400),var(--peach-500));color:#1A0F08;box-shadow:0 6px 18px rgba(216,106,44,0.35);flex:1}
+.tg.light .btn.primary{color:#fff}
+.btn.ghost{background:transparent;color:var(--ink-2);border-color:var(--line-2)}
+
+/* Footer actions */
+.foot{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 4px 4px}
+.foot .logout{
+  background:transparent;color:var(--coral-500);border:1px solid var(--line-2);
+  font-family:inherit;font-size:13px;font-weight:600;padding:10px 18px;border-radius:12px;cursor:pointer;
+}
+.tg.dark .foot .logout{color:var(--coral-400)}
+.foot .ver{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:0.06em}
+
+/* Bottom nav */
+.bnav{display:flex;gap:4px;padding:8px 10px 12px;background:var(--surface);border-top:1px solid var(--line)}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:12px;color:var(--ink-2);cursor:pointer;font-size:10px;font-weight:500}
+.nb .em{font-size:18px;line-height:1}
+.nb.on{background:var(--pri);color:var(--pri-ink);font-weight:700}
+.tg.dark .nb.on{color:#1A0F08}
+
+/* === History === */
+.chips{display:flex;gap:6px;padding:0 16px 4px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  padding:7px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);
+  color:var(--ink-2);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;
+}
+.chip.on{background:var(--pri);color:var(--pri-ink);border-color:transparent}
+.tg.dark .chip.on{color:#1A0F08}
+
+.day-head{
+  font-family:var(--mono);font-size:10px;color:var(--ink-3);
+  letter-spacing:0.08em;text-transform:uppercase;
+  padding:12px 4px 6px;margin:0;position:sticky;top:0;
+  background:linear-gradient(180deg,var(--surface-2) 70%,transparent);z-index:2;
+}
+
+.hist-card{
+  display:flex;align-items:center;gap:12px;padding:12px;
+  background:var(--card-grad);border:1px solid var(--line);border-radius:14px;
+  cursor:pointer;transition:transform 150ms ease;
+}
+.hist-card:hover{transform:translateY(-1px)}
+.hist-card .disc{
+  width:48px;height:48px;border-radius:999px;
+  display:grid;place-items:center;font-size:24px;flex-shrink:0;
+  background:var(--g-peach);box-shadow:0 4px 12px rgba(216,106,44,0.15);
+}
+.hist-card .disc.lav{background:var(--g-lav)}
+.hist-card .disc.sage{background:var(--g-sage)}
+.hist-card .disc.rose{background:var(--g-rose)}
+.hist-card .disc.butter{background:var(--g-butter)}
+.hist-card .md{flex:1;min-width:0}
+.hist-card .nm{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-0.005em;line-height:1.2}
+.hist-card .ct{font-size:11px;color:var(--ink-3);margin-top:3px;font-family:var(--mono);letter-spacing:0.02em}
+.hist-card .rib{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 7px;border-radius:999px;
+  font-size:10px;font-weight:700;margin-top:5px;
+}
+.hist-card .rib.ok{background:rgba(52,211,153,0.25);color:#0A3F26}
+.hist-card .rib.no{background:rgba(43,33,24,0.1);color:var(--ink-3)}
+.tg.dark .hist-card .rib.ok{background:rgba(52,211,153,0.35);color:#052E1C}
+.tg.dark .hist-card .rib.no{background:rgba(255,255,255,0.12);color:var(--ink-3)}
+.hist-card .rt{
+  display:flex;flex-direction:column;align-items:flex-end;gap:4px;color:var(--ink-3);
+}
+.hist-card .rt .chev{font-size:16px}
+.hist-card .rt .cnt{font-family:var(--mono);font-size:10px;letter-spacing:0.04em;color:var(--ink-3)}
+
+/* Skeletons */
+.sk{background:var(--line-2);border-radius:10px;overflow:hidden;position:relative}
+.sk::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);animation:sheen 1.4s linear infinite}
+.tg.light .sk::after{background:linear-gradient(90deg,transparent,rgba(43,33,24,0.06),transparent)}
+@keyframes sheen{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.sk.bar{height:14px}
+.sk.circ{width:48px;height:48px;border-radius:999px}
+
+/* Empty */
+.empty-st{display:flex;flex-direction:column;align-items:center;gap:10px;padding:44px 20px;text-align:center}
+.empty-st .blob{width:96px;height:96px;border-radius:999px;background:var(--g-peach);display:grid;place-items:center;font-size:38px;box-shadow:0 12px 32px rgba(216,106,44,0.22);position:relative}
+.empty-st .blob::after{content:"";position:absolute;inset:-8px;border-radius:999px;border:1px dashed var(--line-2)}
+.empty-st .et{font-size:17px;font-weight:700;color:var(--ink)}
+.empty-st .es{font-size:13px;color:var(--ink-2);max-width:28ch;line-height:1.45}
+.empty-st .ec{margin-top:6px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 18px;border-radius:14px;background:linear-gradient(135deg,var(--peach-400),var(--peach-500));color:#1A0F08;font-weight:700;font-size:14px;cursor:pointer;border:0;box-shadow:0 8px 24px rgba(216,106,44,0.3)}
+.tg.light .empty-st .ec{color:#fff}
+
+@media (max-width:1100px){
+  .pair{grid-template-columns:1fr 1fr}
+  .pair .anno{grid-column:1/-1}
+  .hero h1{font-size:38px}
+}
+@media (max-width:720px){
+  .pair{grid-template-columns:1fr}
+  .wrap{padding:22px 14px 60px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="brand">
+      <div class="mark">🚀</div>
+      <div>
+        <div class="n">Rocket Lunch</div>
+        <div class="s">mini-app · profile · history</div>
+      </div>
+    </div>
+    <h1>Identity, <em>history</em>, settings.</h1>
+    <p>Two screens in one artifact. Profile is the user's personal shrine — hero card, stats, recent polls, settings and feedback. PollHistoryPage is the archive — filter chips + sticky day headers + card rows that deep-link to PollResultsPage.</p>
+  </header>
+
+  <!-- ======================= PROFILE ======================= -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">A · profile</div>
+      <h2 class="sec-title">ProfilePage — default</h2>
+      <div class="sec-sub">lavender hero · settings · feedback</div>
+    </div>
+
+    <div class="pair">
+      <!-- DARK -->
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div class="top-hdr">
+            <div class="ttl">Профиль</div>
+            <div class="act">⚙</div>
+          </div>
+          <div class="content">
+            <div class="phero">
+              <div class="deco"></div>
+              <div class="avatar">И</div>
+              <div class="nm">Игорь Кравцов</div>
+              <div class="un">@grizzzzly</div>
+              <div class="pills">
+                <span class="pill peach">👑 Админ</span>
+                <span class="pill mint">🏆 12 побед</span>
+              </div>
+              <div class="joined">В команде с января 2026</div>
+            </div>
+
+            <div class="card">
+              <div class="stats3">
+                <div class="col"><div class="n">47</div><div class="l">опросов</div></div>
+                <div class="col"><div class="n">12</div><div class="l">побед</div></div>
+                <div class="col"><div class="n">71%</div><div class="l">активность</div></div>
+              </div>
+            </div>
+
+            <div class="sec"><div class="tt">Ваша история голосований</div><button class="lnk">Вся история →</button></div>
+            <div class="card" style="padding:4px">
+              <div class="poll-row">
+                <div class="pic">🥟</div>
+                <div class="md"><div class="d">15 апр</div><div class="nm">Пельмени с бульоном</div></div>
+                <span class="rb ok">Вы выбрали ✓</span>
+              </div>
+              <div class="poll-row">
+                <div class="pic lav">🍜</div>
+                <div class="md"><div class="d">14 апр</div><div class="nm">Рамен с уткой</div></div>
+                <span class="rb no">Вы пропустили</span>
+              </div>
+              <div class="poll-row">
+                <div class="pic sage">🥗</div>
+                <div class="md"><div class="d">12 апр</div><div class="nm">Цезарь с курицей</div></div>
+                <span class="rb ok">Вы выбрали ✓</span>
+              </div>
+            </div>
+
+            <div class="sec" style="margin-top:4px"><div class="tt">Настройки</div></div>
+            <div class="settings">
+              <div class="set-row">
+                <div class="ic">🔔</div>
+                <div class="tx"><div class="l">Уведомления</div><div class="v">5 мин до закрытия</div></div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="set-row">
+                <div class="ic">🌙</div>
+                <div class="tx"><div class="l">Тёмная тема</div><div class="v">как в Telegram</div></div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="set-row">
+                <div class="ic">💳</div>
+                <div class="tx"><div class="l">Реквизиты СБП</div><div class="v">+7 *** 42</div></div>
+                <div class="ch">›</div>
+              </div>
+              <div class="set-row">
+                <div class="ic">🌐</div>
+                <div class="tx"><div class="l">Язык</div><div class="v">Русский</div></div>
+                <div class="ch">›</div>
+              </div>
+            </div>
+
+            <div class="sec" style="margin-top:4px"><div class="tt">Обратная связь</div></div>
+            <div class="fb-card">
+              <textarea class="fb-ta" placeholder="Ваше мнение… что улучшить?"></textarea>
+              <div class="fb-actions">
+                <button class="btn primary">Отправить</button>
+                <button class="btn ghost">Сообщить об ошибке</button>
+              </div>
+            </div>
+
+            <div class="foot">
+              <button class="logout">Выйти из аккаунта</button>
+              <div class="ver">v2.0.0 · build 1842</div>
+            </div>
+          </div>
+          <div class="bnav">
+            <div class="nb"><span class="em">🏠</span>Главная</div>
+            <div class="nb"><span class="em">📋</span>Меню</div>
+            <div class="nb"><span class="em">📊</span>Статистика</div>
+            <div class="nb on"><span class="em">👤</span>Профиль</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIGHT -->
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div class="top-hdr">
+            <div class="ttl">Профиль</div>
+            <div class="act">⚙</div>
+          </div>
+          <div class="content">
+            <div class="phero">
+              <div class="deco"></div>
+              <div class="avatar">И</div>
+              <div class="nm">Игорь Кравцов</div>
+              <div class="un">@grizzzzly</div>
+              <div class="pills">
+                <span class="pill peach">👑 Админ</span>
+                <span class="pill mint">🏆 12 побед</span>
+              </div>
+              <div class="joined">В команде с января 2026</div>
+            </div>
+
+            <div class="card">
+              <div class="stats3">
+                <div class="col"><div class="n">47</div><div class="l">опросов</div></div>
+                <div class="col"><div class="n">12</div><div class="l">побед</div></div>
+                <div class="col"><div class="n">71%</div><div class="l">активность</div></div>
+              </div>
+            </div>
+
+            <div class="sec"><div class="tt">Ваша история голосований</div><button class="lnk">Вся история →</button></div>
+            <div class="card" style="padding:4px">
+              <div class="poll-row">
+                <div class="pic">🥟</div>
+                <div class="md"><div class="d">15 апр</div><div class="nm">Пельмени с бульоном</div></div>
+                <span class="rb ok">Вы выбрали ✓</span>
+              </div>
+              <div class="poll-row">
+                <div class="pic lav">🍜</div>
+                <div class="md"><div class="d">14 апр</div><div class="nm">Рамен с уткой</div></div>
+                <span class="rb no">Вы пропустили</span>
+              </div>
+              <div class="poll-row">
+                <div class="pic sage">🥗</div>
+                <div class="md"><div class="d">12 апр</div><div class="nm">Цезарь с курицей</div></div>
+                <span class="rb ok">Вы выбрали ✓</span>
+              </div>
+            </div>
+
+            <div class="sec" style="margin-top:4px"><div class="tt">Настройки</div></div>
+            <div class="settings">
+              <div class="set-row">
+                <div class="ic">🔔</div>
+                <div class="tx"><div class="l">Уведомления</div><div class="v">5 мин до закрытия</div></div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="set-row">
+                <div class="ic">🌙</div>
+                <div class="tx"><div class="l">Тёмная тема</div><div class="v">как в Telegram</div></div>
+                <div class="toggle"></div>
+              </div>
+              <div class="set-row">
+                <div class="ic">💳</div>
+                <div class="tx"><div class="l">Реквизиты СБП</div><div class="v">+7 *** 42</div></div>
+                <div class="ch">›</div>
+              </div>
+              <div class="set-row">
+                <div class="ic">🌐</div>
+                <div class="tx"><div class="l">Язык</div><div class="v">Русский</div></div>
+                <div class="ch">›</div>
+              </div>
+            </div>
+
+            <div class="sec" style="margin-top:4px"><div class="tt">Обратная связь</div></div>
+            <div class="fb-card">
+              <textarea class="fb-ta" placeholder="Ваше мнение… что улучшить?"></textarea>
+              <div class="fb-actions">
+                <button class="btn primary">Отправить</button>
+                <button class="btn ghost">Сообщить об ошибке</button>
+              </div>
+            </div>
+
+            <div class="foot">
+              <button class="logout">Выйти из аккаунта</button>
+              <div class="ver">v2.0.0 · build 1842</div>
+            </div>
+          </div>
+          <div class="bnav">
+            <div class="nb"><span class="em">🏠</span>Главная</div>
+            <div class="nb"><span class="em">📋</span>Меню</div>
+            <div class="nb"><span class="em">📊</span>Статистика</div>
+            <div class="nb on"><span class="em">👤</span>Профиль</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">Profile · default</div>
+        <div class="row"><span class="k">hero</span><span class="v">g-lav · avatar 96 · peach ring = admin</span></div>
+        <div class="row"><span class="k">pills</span><span class="v">peach admin · mint wins</span></div>
+        <div class="row"><span class="k">stats3</span><span class="v">3-col card · dashed dividers</span></div>
+        <div class="row"><span class="k">polls</span><span class="v">rotating pastel disc · ribbon badge</span></div>
+        <div class="row"><span class="k">settings</span><span class="v">toggle · chevron · mono sub-value</span></div>
+        <div class="row"><span class="k">feedback</span><span class="v">textarea + primary + ghost</span></div>
+        <div class="row"><span class="k">logout</span><span class="v">coral-500 text · line-2 border</span></div>
+        <div class="note"><b>Admin marker.</b> The peach ring on the avatar + "👑 Админ" pill are the only role affordances; for a regular user both disappear, no ring.</div>
+      </div>
+    </div>
+
+    <!-- Profile states: loading + empty -->
+    <div class="pair">
+      <div class="frame" data-theme="dark · loading">
+        <div class="tg dark">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div class="top-hdr"><div class="ttl">Профиль</div><div class="act">⚙</div></div>
+          <div class="content">
+            <div class="phero" style="background:var(--card-grad);border:1px solid var(--line)">
+              <div class="sk circ" style="margin:0 auto 10px;width:96px;height:96px"></div>
+              <div class="sk bar" style="width:60%;height:18px;margin:0 auto"></div>
+              <div class="sk bar" style="width:40%;height:12px;margin:8px auto 0"></div>
+              <div style="display:flex;justify-content:center;gap:6px;margin-top:12px">
+                <div class="sk" style="width:60px;height:22px;border-radius:999px"></div>
+                <div class="sk" style="width:80px;height:22px;border-radius:999px"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                <div class="sk" style="height:46px"></div>
+                <div class="sk" style="height:46px"></div>
+                <div class="sk" style="height:46px"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="sk bar" style="width:40%;margin-bottom:10px"></div>
+              <div class="sk" style="height:60px;border-radius:12px"></div>
+              <div class="sk" style="height:60px;border-radius:12px;margin-top:8px"></div>
+            </div>
+          </div>
+          <div class="bnav">
+            <div class="nb"><span class="em">🏠</span>Главная</div>
+            <div class="nb"><span class="em">📋</span>Меню</div>
+            <div class="nb"><span class="em">📊</span>Статистика</div>
+            <div class="nb on"><span class="em">👤</span>Профиль</div>
+          </div>
+        </div>
+      </div>
+      <div class="frame" data-theme="light · empty (new user)">
+        <div class="tg light">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div class="top-hdr"><div class="ttl">Профиль</div><div class="act">⚙</div></div>
+          <div class="content">
+            <div class="phero">
+              <div class="deco"></div>
+              <div class="avatar" style="border-color:var(--line-2);background:#F7D5C1">И</div>
+              <div class="nm">Игорь Кравцов</div>
+              <div class="un">@grizzzzly</div>
+              <div class="pills"><span class="pill muted">Новичок</span></div>
+              <div class="joined">В команде с сегодня</div>
+            </div>
+            <div class="empty-st">
+              <div class="blob">📊</div>
+              <div class="et">Пока нет истории</div>
+              <div class="es">Проголосуйте в первом опросе — и история будет жить здесь.</div>
+              <button class="ec">К голосованию →</button>
+            </div>
+          </div>
+          <div class="bnav">
+            <div class="nb"><span class="em">🏠</span>Главная</div>
+            <div class="nb"><span class="em">📋</span>Меню</div>
+            <div class="nb"><span class="em">📊</span>Статистика</div>
+            <div class="nb on"><span class="em">👤</span>Профиль</div>
+          </div>
+        </div>
+      </div>
+      <div class="anno">
+        <div class="ah">Profile · states</div>
+        <div class="row"><span class="k">loading</span><span class="v">hero + stats3 + 2 card skeletons · 1.4s sheen</span></div>
+        <div class="row"><span class="k">empty</span><span class="v">hero still renders · history replaced</span></div>
+        <div class="row"><span class="k">new user</span><span class="v">"Новичок" muted pill · no ring</span></div>
+        <div class="note"><b>Hero always present.</b> Even first-run users see their avatar/handle — only the data-heavy sections collapse. Keeps the page feeling inhabited.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= HISTORY ======================= -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">B · history</div>
+      <h2 class="sec-title">PollHistoryPage — default</h2>
+      <div class="sec-sub">filter chips · sticky day · card rows</div>
+    </div>
+
+    <div class="pair">
+      <!-- DARK -->
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div class="top-hdr">
+            <div class="back">‹</div>
+            <div class="ttl">История голосований</div>
+            <div class="act">⚙</div>
+          </div>
+          <div class="chips">
+            <span class="chip on">Все</span>
+            <span class="chip">Я победил</span>
+            <span class="chip">Я участвовал</span>
+            <span class="chip">Пропустил</span>
+          </div>
+          <div class="content">
+            <div class="day-head">Сегодня, 16 апреля</div>
+            <div class="hist-card">
+              <div class="disc">🥟</div>
+              <div class="md">
+                <div class="nm">Пельмени с бульоном</div>
+                <div class="ct">Победитель из 4 вариантов</div>
+                <span class="rib ok">✓ Вы выбрали</span>
+              </div>
+              <div class="rt"><span class="chev">›</span><span class="cnt">5 голосов</span></div>
+            </div>
+
+            <div class="day-head">Вчера, 15 апреля</div>
+            <div class="hist-card">
+              <div class="disc lav">🍜</div>
+              <div class="md">
+                <div class="nm">Рамен с уткой</div>
+                <div class="ct">Победитель из 5 вариантов</div>
+                <span class="rib no">✗ Не совпало</span>
+              </div>
+              <div class="rt"><span class="chev">›</span><span class="cnt">9 голосов</span></div>
+            </div>
+            <div class="hist-card">
+              <div class="disc sage">🥗</div>
+              <div class="md">
+                <div class="nm">Цезарь с курицей</div>
+                <div class="ct">Победитель из 3 вариантов</div>
+                <span class="rib ok">✓ Вы выбрали</span>
+              </div>
+              <div class="rt"><span class="chev">›</span><span class="cnt">7 голосов</span></div>
+            </div>
+
+            <div class="day-head">14 апреля</div>
+            <div class="hist-card">
+              <div class="disc butter">🍕</div>
+              <div class="md">
+                <div class="nm">Пицца Маргарита</div>
+                <div class="ct">Победитель из 6 вариантов</div>
+                <span class="rib no">✗ Не совпало</span>
+              </div>
+              <div class="rt"><span class="chev">›</span><span class="cnt">8 голосов</span></div>
+            </div>
+            <div class="hist-card">
+              <div class="disc rose">🌯</div>
+              <div class="md">
+                <div class="nm">Шаурма по-домашнему</div>
+                <div class="ct">Победитель из 4 вариантов</div>
+                <span class="rib ok">✓ Вы выбрали</span>
+              </div>
+              <div class="rt"><span class="chev">›</span><span class="cnt">6 голосов</span></div>
+            </div>
+
+            <!-- Load more skeleton -->
+            <div class="hist-card" style="opacity:0.7">
+              <div class="sk circ"></div>
+              <div class="md" style="display:flex;flex-direction:column;gap:6px">
+                <div class="sk bar" style="width:80%;height:12px"></div>
+                <div class="sk bar" style="width:55%;height:10px"></div>
+              </div>
+              <div class="sk bar" style="width:40px;height:10px"></div>
+            </div>
+          </div>
+          <div class="bnav">
+            <div class="nb"><span class="em">🏠</span>Главная</div>
+            <div class="nb"><span class="em">📋</span>Меню</div>
+            <div class="nb"><span class="em">📊</span>Статистика</div>
+            <div class="nb on"><span class="em">👤</span>Профиль</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIGHT -->
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div class="top-hdr">
+            <div class="back">‹</div>
+            <div class="ttl">История голосований</div>
+            <div class="act">⚙</div>
+          </div>
+          <div class="chips">
+            <span class="chip on">Все</span>
+            <span class="chip">Я победил</span>
+            <span class="chip">Я участвовал</span>
+            <span class="chip">Пропустил</span>
+          </div>
+          <div class="content">
+            <div class="day-head">Сегодня, 16 апреля</div>
+            <div class="hist-card">
+              <div class="disc">🥟</div>
+              <div class="md">
+                <div class="nm">Пельмени с бульоном</div>
+                <div class="ct">Победитель из 4 вариантов</div>
+                <span class="rib ok">✓ Вы выбрали</span>
+              </div>
+              <div class="rt"><span class="chev">›</span><span class="cnt">5 голосов</span></div>
+            </div>
+
+            <div class="day-head">Вчера, 15 апреля</div>
+            <div class="hist-card">
+              <div class="disc lav">🍜</div>
+              <div class="md">
+                <div class="nm">Рамен с уткой</div>
+                <div class="ct">Победитель из 5 вариантов</div>
+                <span class="rib no">✗ Не совпало</span>
+              </div>
+              <div class="rt"><span class="chev">›</span><span class="cnt">9 голосов</span></div>
+            </div>
+            <div class="hist-card">
+              <div class="disc sage">🥗</div>
+              <div class="md">
+                <div class="nm">Цезарь с курицей</div>
+                <div class="ct">Победитель из 3 вариантов</div>
+                <span class="rib ok">✓ Вы выбрали</span>
+              </div>
+              <div class="rt"><span class="chev">›</span><span class="cnt">7 голосов</span></div>
+            </div>
+
+            <div class="day-head">14 апреля</div>
+            <div class="hist-card">
+              <div class="disc butter">🍕</div>
+              <div class="md">
+                <div class="nm">Пицца Маргарита</div>
+                <div class="ct">Победитель из 6 вариантов</div>
+                <span class="rib no">✗ Не совпало</span>
+              </div>
+              <div class="rt"><span class="chev">›</span><span class="cnt">8 голосов</span></div>
+            </div>
+            <div class="hist-card">
+              <div class="disc rose">🌯</div>
+              <div class="md">
+                <div class="nm">Шаурма по-домашнему</div>
+                <div class="ct">Победитель из 4 вариантов</div>
+                <span class="rib ok">✓ Вы выбрали</span>
+              </div>
+              <div class="rt"><span class="chev">›</span><span class="cnt">6 голосов</span></div>
+            </div>
+
+            <div class="hist-card" style="opacity:0.7">
+              <div class="sk circ"></div>
+              <div class="md" style="display:flex;flex-direction:column;gap:6px">
+                <div class="sk bar" style="width:80%;height:12px"></div>
+                <div class="sk bar" style="width:55%;height:10px"></div>
+              </div>
+              <div class="sk bar" style="width:40px;height:10px"></div>
+            </div>
+          </div>
+          <div class="bnav">
+            <div class="nb"><span class="em">🏠</span>Главная</div>
+            <div class="nb"><span class="em">📋</span>Меню</div>
+            <div class="nb"><span class="em">📊</span>Статистика</div>
+            <div class="nb on"><span class="em">👤</span>Профиль</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">History · default</div>
+        <div class="row"><span class="k">chips</span><span class="v">horizontal scroll · peach active</span></div>
+        <div class="row"><span class="k">day head</span><span class="v">sticky · mono uppercase · fade bg</span></div>
+        <div class="row"><span class="k">row</span><span class="v">48px disc · title + caption + ribbon</span></div>
+        <div class="row"><span class="k">disc bg</span><span class="v">rotates through 5 pastel gradients</span></div>
+        <div class="row"><span class="k">tap</span><span class="v">→ PollResultsPage · chevron affordance</span></div>
+        <div class="row"><span class="k">load more</span><span class="v">shimmer row at list tail</span></div>
+        <div class="note"><b>Ribbon economy.</b> Mint "Вы выбрали" only fires when the user voted AND for the winner — matches the HomePage "Voted" state logic.</div>
+      </div>
+    </div>
+
+    <!-- History states: loading + empty -->
+    <div class="pair">
+      <div class="frame" data-theme="dark · loading">
+        <div class="tg dark">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div class="top-hdr"><div class="back">‹</div><div class="ttl">История голосований</div><div class="act">⚙</div></div>
+          <div class="chips">
+            <span class="chip on">Все</span><span class="chip">Я победил</span><span class="chip">Я участвовал</span><span class="chip">Пропустил</span>
+          </div>
+          <div class="content">
+            <div class="day-head">Сегодня</div>
+            <div class="hist-card">
+              <div class="sk circ"></div>
+              <div class="md" style="display:flex;flex-direction:column;gap:6px">
+                <div class="sk bar" style="width:70%;height:14px"></div>
+                <div class="sk bar" style="width:50%;height:10px"></div>
+                <div class="sk" style="width:80px;height:18px;border-radius:999px;margin-top:3px"></div>
+              </div>
+              <div class="sk bar" style="width:40px;height:10px"></div>
+            </div>
+            <div class="hist-card">
+              <div class="sk circ"></div>
+              <div class="md" style="display:flex;flex-direction:column;gap:6px">
+                <div class="sk bar" style="width:60%;height:14px"></div>
+                <div class="sk bar" style="width:45%;height:10px"></div>
+                <div class="sk" style="width:70px;height:18px;border-radius:999px;margin-top:3px"></div>
+              </div>
+              <div class="sk bar" style="width:40px;height:10px"></div>
+            </div>
+            <div class="hist-card">
+              <div class="sk circ"></div>
+              <div class="md" style="display:flex;flex-direction:column;gap:6px">
+                <div class="sk bar" style="width:80%;height:14px"></div>
+                <div class="sk bar" style="width:55%;height:10px"></div>
+                <div class="sk" style="width:90px;height:18px;border-radius:999px;margin-top:3px"></div>
+              </div>
+              <div class="sk bar" style="width:40px;height:10px"></div>
+            </div>
+          </div>
+          <div class="bnav">
+            <div class="nb"><span class="em">🏠</span>Главная</div>
+            <div class="nb"><span class="em">📋</span>Меню</div>
+            <div class="nb"><span class="em">📊</span>Статистика</div>
+            <div class="nb on"><span class="em">👤</span>Профиль</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-theme="light · empty">
+        <div class="tg light">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div class="top-hdr"><div class="back">‹</div><div class="ttl">История голосований</div><div class="act">⚙</div></div>
+          <div class="chips">
+            <span class="chip on">Все</span><span class="chip">Я победил</span><span class="chip">Я участвовал</span><span class="chip">Пропустил</span>
+          </div>
+          <div class="content">
+            <div class="empty-st">
+              <div class="blob">📜</div>
+              <div class="et">История пуста</div>
+              <div class="es">Здесь появятся все закрытые опросы — ваши победы, промахи и пропуски.</div>
+              <button class="ec">Участвуйте в первом опросе →</button>
+            </div>
+          </div>
+          <div class="bnav">
+            <div class="nb"><span class="em">🏠</span>Главная</div>
+            <div class="nb"><span class="em">📋</span>Меню</div>
+            <div class="nb"><span class="em">📊</span>Статистика</div>
+            <div class="nb on"><span class="em">👤</span>Профиль</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">History · states</div>
+        <div class="row"><span class="k">loading</span><span class="v">3 shimmer rows under day-head</span></div>
+        <div class="row"><span class="k">empty</span><span class="v">g-peach blob · primary CTA</span></div>
+        <div class="row"><span class="k">filter empty</span><span class="v">if chip returns 0 · swap copy to "По фильтру ничего нет"</span></div>
+        <div class="note"><b>Infinite scroll.</b> The tail-of-list shimmer stays visible until the API confirms end-of-history; then it's replaced by a muted "Больше нет записей" divider.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

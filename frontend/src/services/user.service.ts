@@ -30,6 +30,7 @@ export interface Group {
   telegramId: string;
   type: string;
   isActive: boolean;
+  role?: string;
 }
 
 class UserService {

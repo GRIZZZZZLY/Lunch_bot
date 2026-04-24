@@ -7,40 +7,93 @@ import { logger } from '../../utils/logger';
 import { CreatePollData, CreateVoteData } from '../../types/poll.types';
 import { createPollFromWebApp } from '../../services/poll.service.extensions';
 import { calculatePollEndTime } from '../../utils/date';
+import { getParam } from '../../utils/request-params';
+import { serializeBigInt } from '../../utils/serialize';
 
-/**
- * Converts BigInt values to strings and Date to ISO strings recursively in an object
- * This is needed because JSON.stringify can't serialize BigInt values
- */
-function serializeBigInt(obj: any): any {
-  if (obj === null || obj === undefined) {
-    return obj;
+interface AuthUser {
+  id: number;
+  isAdmin?: boolean;
+}
+
+function getAuthUser(req: Request, res: Response): AuthUser | null {
+  const user = (req as any).user as AuthUser | undefined;
+
+  if (!user) {
+    res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      code: 'UNAUTHORIZED',
+    });
+    return null;
   }
-  
-  if (typeof obj === 'bigint') {
-    return obj.toString();
+
+  return user;
+}
+
+async function requireGroupMember(
+  req: Request,
+  res: Response,
+  groupId: number
+): Promise<boolean> {
+  const user = getAuthUser(req, res);
+  if (!user) return false;
+
+  if (user.isAdmin) {
+    return true;
   }
-  
-  // Handle Date objects
-  if (obj instanceof Date) {
-    return obj.toISOString();
+
+  const hasAccess = await GroupService.isUserGroupMember(user.id, groupId);
+  if (!hasAccess) {
+    res.status(403).json({
+      success: false,
+      error: 'Access denied',
+      code: 'FORBIDDEN',
+    });
+    return false;
   }
-  
-  if (Array.isArray(obj)) {
-    return obj.map(serializeBigInt);
+
+  return true;
+}
+
+async function requireGroupAdmin(
+  req: Request,
+  res: Response,
+  groupId: number
+): Promise<boolean> {
+  const user = getAuthUser(req, res);
+  if (!user) return false;
+
+  if (user.isAdmin) {
+    return true;
   }
-  
-  if (typeof obj === 'object') {
-    const result: any = {};
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        result[key] = serializeBigInt(obj[key]);
-      }
-    }
-    return result;
+
+  const hasAccess = await GroupService.isUserGroupAdmin(user.id, groupId);
+  if (!hasAccess) {
+    res.status(403).json({
+      success: false,
+      error: 'Access denied',
+      code: 'FORBIDDEN',
+    });
+    return false;
   }
-  
-  return obj;
+
+  return true;
+}
+
+async function getAccessibleGroupIds(
+  req: Request,
+  res: Response
+): Promise<number[] | undefined | null> {
+  const user = getAuthUser(req, res);
+  if (!user) return null;
+
+  if (user.isAdmin) {
+    return undefined;
+  }
+
+  const memberships = await GroupService.getGroupsForUser(user.id, true);
+  const groupIds = memberships.map(member => member.groupId);
+  return Array.from(new Set(groupIds));
 }
 
 export class PollController {
@@ -50,7 +103,10 @@ export class PollController {
    */
   static async getActivePolls(req: Request, res: Response): Promise<void> {
     try {
-      const polls = await PollService.getActivePolls();
+      const groupIds = await getAccessibleGroupIds(req, res);
+      if (groupIds === null) return;
+
+      const polls = await PollService.getActivePolls(groupIds);
       
       // Добавляем вычисленное endTime для каждого активного голосования
       const pollsWithEndTime = polls.map(poll => {
@@ -97,7 +153,17 @@ export class PollController {
         return;
       }
 
-      const result = await PollService.getPollHistory(groupId, limit, offset);
+      const groupIds = await getAccessibleGroupIds(req, res);
+      if (groupIds === null) return;
+
+      let result;
+      if (groupId) {
+        const hasAccess = await requireGroupMember(req, res, groupId);
+        if (!hasAccess) return;
+        result = await PollService.getPollHistory(groupId, limit, offset);
+      } else {
+        result = await PollService.getPollHistory(groupIds, limit, offset);
+      }
 
       res.json({
         success: true,
@@ -128,10 +194,26 @@ export class PollController {
    */
   static async getLastCompleted(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
       const groupId = req.query.groupId ? parseInt(req.query.groupId as string) : undefined;
 
-      const poll = await PollService.getLastCompletedPoll(groupId);
+      if (groupId && isNaN(groupId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid groupId parameter',
+          code: 'INVALID_GROUP_ID',
+        });
+        return;
+      }
+
+      const groupIds = await getAccessibleGroupIds(req, res);
+      if (groupIds === null) return;
+
+      if (groupId) {
+        const hasAccess = await requireGroupMember(req, res, groupId);
+        if (!hasAccess) return;
+      }
+
+      const poll = await PollService.getLastCompletedPoll(groupId ?? groupIds);
 
       res.json({
         success: true,
@@ -153,7 +235,7 @@ export class PollController {
    */
   static async getTodayCompletedPoll(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseInt(req.params.groupId);
+      const groupId = parseInt(getParam(req.params, 'groupId'), 10);
       
       if (isNaN(groupId)) {
         res.status(400).json({
@@ -163,6 +245,9 @@ export class PollController {
         });
         return;
       }
+
+      const hasAccess = await requireGroupMember(req, res, groupId);
+      if (!hasAccess) return;
 
       const poll = await PollService.getTodayCompletedPoll(groupId);
       
@@ -189,7 +274,7 @@ export class PollController {
   static async repeatPoll(req: Request, res: Response): Promise<void> {
     try {
       const user = (req as any).user;
-      const pollId = parseInt(req.params.id);
+      const pollId = parseInt(getParam(req.params, 'id'), 10);
 
       logger.info(`🔄 Repeating poll ${pollId} by user ${user.id}`);
 
@@ -213,6 +298,9 @@ export class PollController {
         });
         return;
       }
+
+      const hasAccess = await requireGroupAdmin(req, res, sourcePoll.groupId);
+      if (!hasAccess) return;
 
       logger.info(`✅ Source poll found: ${pollId}`, {
         groupId: sourcePoll.groupId,
@@ -296,7 +384,17 @@ export class PollController {
         return;
       }
 
-      const stats = await PollService.getPollStats(groupId);
+      const groupIds = await getAccessibleGroupIds(req, res);
+      if (groupIds === null) return;
+
+      let stats;
+      if (groupId) {
+        const hasAccess = await requireGroupMember(req, res, groupId);
+        if (!hasAccess) return;
+        stats = await PollService.getPollStats(groupId);
+      } else {
+        stats = await PollService.getPollStats(groupIds);
+      }
 
       res.json({
         success: true,
@@ -346,7 +444,7 @@ export class PollController {
    */
   static async getUserStatsByUserId(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = parseInt(getParam(req.params, 'userId'), 10);
 
       if (isNaN(userId)) {
         res.status(400).json({
@@ -381,7 +479,7 @@ export class PollController {
    */
   static async getPollById(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(getParam(req.params, 'id'), 10);
 
       if (isNaN(id)) {
         res.status(400).json({
@@ -402,6 +500,9 @@ export class PollController {
         });
         return;
       }
+
+      const hasAccess = await requireGroupMember(req, res, poll.groupId);
+      if (!hasAccess) return;
 
       // Добавляем вычисленное endTime для активного голосования
       const endTime = poll.endedAt || calculatePollEndTime(poll.startedAt, poll.duration);
@@ -456,7 +557,7 @@ export class PollController {
    */
   static async getPollResults(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(getParam(req.params, 'id'), 10);
 
       if (isNaN(id)) {
         res.status(400).json({
@@ -466,6 +567,19 @@ export class PollController {
         });
         return;
       }
+
+      const pollGroupId = await PollService.getPollGroupId(id);
+      if (!pollGroupId) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      const hasAccess = await requireGroupMember(req, res, pollGroupId);
+      if (!hasAccess) return;
 
       const result = await PollService.getPollResultByPollId(id);
 
@@ -506,7 +620,7 @@ export class PollController {
    */
   static async getPollVotes(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(getParam(req.params, 'id'), 10);
 
       if (isNaN(id)) {
         res.status(400).json({
@@ -516,6 +630,19 @@ export class PollController {
         });
         return;
       }
+
+      const pollGroupId = await PollService.getPollGroupId(id);
+      if (!pollGroupId) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      const hasAccess = await requireGroupMember(req, res, pollGroupId);
+      if (!hasAccess) return;
 
       const votes = await VoteService.getPollVotes(id);
       const voteCount = await VoteService.getVoteCountByMenuItem(id);
@@ -547,11 +674,26 @@ export class PollController {
   static async createPoll(req: Request, res: Response): Promise<void> {
     try {
       const data: CreatePollData = req.body;
-      const user = (req as any).user;
+      const user = getAuthUser(req, res);
+      if (!user) return;
+
+      const groupId = Number(data.groupId);
+      if (!groupId || Number.isNaN(groupId)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid group ID',
+          code: 'INVALID_GROUP_ID',
+        });
+        return;
+      }
+
+      const hasAccess = await requireGroupAdmin(req, res, groupId);
+      if (!hasAccess) return;
 
       // ✅ FIX: Используем userId из аутентифицированного пользователя, игнорируем createdBy из body
       const pollData = {
         ...data,
+        groupId,
         createdBy: user.id, // Всегда используем ID аутентифицированного пользователя
       };
 
@@ -588,7 +730,7 @@ export class PollController {
     try {
       logger.info('🚀 START createPollFromWebApp');
       
-      const { groupId, duration, selectedMenuItems, title } = req.body;
+      const { groupId, duration, selectedMenuItems, title, isMultiSelect, maxSelections } = req.body;
       const user = (req as any).user;
 
       // Детальное логирование для отладки
@@ -597,6 +739,8 @@ export class PollController {
         duration,
         selectedMenuItems,
         title,
+        isMultiSelect,
+        maxSelections,
         userId: user?.id,
         body: req.body
       });
@@ -636,6 +780,14 @@ export class PollController {
         });
         return;
       }
+
+      const parsedIsMultiSelect = typeof isMultiSelect === 'boolean' ? isMultiSelect : true;
+      const parsedMaxSelections = parsedIsMultiSelect
+        ? Math.max(1, Math.min(parseInt(maxSelections) || 3, 3))
+        : 1;
+
+      const hasAccess = await requireGroupAdmin(req, res, parsedGroupId);
+      if (!hasAccess) return;
 
       // Проверяем активное голосование
       const existingPoll = await PollService.getActivePollInGroup(parsedGroupId);
@@ -699,7 +851,9 @@ export class PollController {
         createdBy: user.id,
         title: title || undefined,
         menuItems,
-        selectedMenuItemIds: menuItems.map(item => item.id) // Сохраняем IDs выбранных блюд
+        selectedMenuItemIds: menuItems.map(item => item.id), // Сохраняем IDs выбранных блюд
+        isMultiSelect: parsedIsMultiSelect,
+        maxSelections: parsedMaxSelections,
       });
 
       logger.info('Poll created from WebApp and sent to group', {
@@ -751,7 +905,7 @@ export class PollController {
    */
   static async getActivePollInGroup(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseInt(req.params.groupId);
+      const groupId = parseInt(getParam(req.params, 'groupId'), 10);
 
       if (isNaN(groupId)) {
         res.status(400).json({
@@ -761,6 +915,9 @@ export class PollController {
         });
         return;
       }
+
+      const hasAccess = await requireGroupMember(req, res, groupId);
+      if (!hasAccess) return;
 
       const poll = await PollService.getActivePollInGroup(groupId);
 
@@ -796,7 +953,7 @@ export class PollController {
    */
   static async completePoll(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(getParam(req.params, 'id'), 10);
       const user = (req as any).user;
 
       if (isNaN(id)) {
@@ -807,6 +964,19 @@ export class PollController {
         });
         return;
       }
+
+      const pollGroupId = await PollService.getPollGroupId(id);
+      if (!pollGroupId) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      const hasAccess = await requireGroupAdmin(req, res, pollGroupId);
+      if (!hasAccess) return;
 
       const result = await PollService.completePoll(id);
 
@@ -859,7 +1029,7 @@ export class PollController {
    */
   static async cancelPoll(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(getParam(req.params, 'id'), 10);
       const user = (req as any).user;
 
       if (isNaN(id)) {
@@ -870,6 +1040,19 @@ export class PollController {
         });
         return;
       }
+
+      const pollGroupId = await PollService.getPollGroupId(id);
+      if (!pollGroupId) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      const hasAccess = await requireGroupAdmin(req, res, pollGroupId);
+      if (!hasAccess) return;
 
       // Получаем причину отмены из тела запроса (опционально)
       const { reason } = req.body || {};
@@ -914,7 +1097,7 @@ export class PollController {
    */
   static async vote(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = parseInt(req.params.id);
+      const pollId = parseInt(getParam(req.params, 'id'), 10);
       const { menuItemId } = req.body;
       const user = (req as any).user;
 
@@ -945,6 +1128,19 @@ export class PollController {
         });
         return;
       }
+
+      const pollGroupId = await PollService.getPollGroupId(pollId);
+      if (!pollGroupId) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      const hasAccess = await requireGroupMember(req, res, pollGroupId);
+      if (!hasAccess) return;
 
       const voteData: CreateVoteData = {
         pollId,
@@ -1015,7 +1211,7 @@ export class PollController {
    */
   static async voteMultiple(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = parseInt(req.params.id);
+      const pollId = parseInt(getParam(req.params, 'id'), 10);
       const { menuItemIds } = req.body;
       const user = (req as any).user;
 
@@ -1060,8 +1256,54 @@ export class PollController {
         return;
       }
 
-      // Преобразуем все ID в числа
-      const numericMenuItemIds = menuItemIds.map(id => parseInt(id));
+      // Преобразуем все ID в числа и убираем дубли
+      const numericMenuItemIds = [...new Set(menuItemIds.map(id => parseInt(id)))];
+
+      const pollGroupId = await PollService.getPollGroupId(pollId);
+      if (!pollGroupId) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      const hasAccess = await requireGroupMember(req, res, pollGroupId);
+      if (!hasAccess) return;
+
+      const poll = await PollService.getPollById(pollId);
+      if (!poll) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      const isMultiSelectMode = poll.isMultiSelect !== false;
+      const maxAllowedSelections = isMultiSelectMode
+        ? Math.max(1, Math.min(poll.maxSelections || 3, 3))
+        : 1;
+
+      if (!isMultiSelectMode && numericMenuItemIds.length > 1) {
+        res.status(400).json({
+          success: false,
+          error: 'This poll allows only single selection',
+          code: 'SINGLE_SELECTION_ONLY'
+        });
+        return;
+      }
+
+      if (numericMenuItemIds.length > maxAllowedSelections) {
+        res.status(400).json({
+          success: false,
+          error: `Maximum ${maxAllowedSelections} selections allowed`,
+          code: 'MAX_SELECTIONS_EXCEEDED'
+        });
+        return;
+      }
 
       // Создаём множественные голоса
       const votes = await VoteService.createMultipleVotes(pollId, user.id, numericMenuItemIds);
@@ -1127,7 +1369,7 @@ export class PollController {
    */
   static async removeVote(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = parseInt(req.params.id);
+      const pollId = parseInt(getParam(req.params, 'id'), 10);
       const user = (req as any).user;
 
       if (isNaN(pollId)) {
@@ -1138,6 +1380,19 @@ export class PollController {
         });
         return;
       }
+
+      const pollGroupId = await PollService.getPollGroupId(pollId);
+      if (!pollGroupId) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      const hasAccess = await requireGroupMember(req, res, pollGroupId);
+      if (!hasAccess) return;
 
       await VoteService.removeVote(pollId, user.id);
 
@@ -1187,7 +1442,7 @@ export class PollController {
    */
   static async runRoulette(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(getParam(req.params, 'id'), 10);
       const user = (req as any).user;
 
       if (isNaN(id)) {
@@ -1198,6 +1453,19 @@ export class PollController {
         });
         return;
       }
+
+      const pollGroupId = await PollService.getPollGroupId(id);
+      if (!pollGroupId) {
+        res.status(404).json({
+          success: false,
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+
+      const hasAccess = await requireGroupAdmin(req, res, pollGroupId);
+      if (!hasAccess) return;
 
       const result = await PollService.runRoulette(id);
 
@@ -1298,7 +1566,7 @@ export class PollController {
         return;
       }
 
-      const pollId = parseInt(req.params.id);
+      const pollId = parseInt(getParam(req.params, 'id'), 10);
       const user = (req as any).user;
 
       if (isNaN(pollId)) {
@@ -1310,14 +1578,18 @@ export class PollController {
         return;
       }
 
-      if (!user.isAdmin) {
-        res.status(403).json({
+      const pollGroupId = await PollService.getPollGroupId(pollId);
+      if (!pollGroupId) {
+        res.status(404).json({
           success: false,
-          error: 'Admin access required',
-          code: 'FORBIDDEN',
+          error: 'Poll not found',
+          code: 'POLL_NOT_FOUND',
         });
         return;
       }
+
+      const hasAccess = await requireGroupAdmin(req, res, pollGroupId);
+      if (!hasAccess) return;
 
       const {
         minVotes = 1,
@@ -1363,7 +1635,9 @@ export class PollController {
         { minVotes, maxWinners, tieBreakMethod }
       );
 
-      const resultData = JSON.parse(result.rouletteData || '{}');
+      const resultData = typeof result.rouletteData === 'string'
+        ? JSON.parse(result.rouletteData)
+        : result.rouletteData || {};
 
       logger.info('Poll completed with multi-winner via API', {
         pollId,

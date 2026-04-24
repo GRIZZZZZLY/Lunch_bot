@@ -50,18 +50,25 @@ import { ParallaxLayer } from '../components/effects';
 
 // REMOVED: Gamification stats components (folder deleted)
 import {
-  CustomTooltip,
-  CountUp,
-  PersonalHeroCard,
-  FavoriteDishesCarousel,
-  AchievementBadgesGrid,
+  LunchDnaCard,
   Leaderboard,
-  ChallengesPanel,
   BudgetInsightsWidget,
 } from '../components/stats';
 
 // Budget components
 import { BudgetWidgetCompact } from '../components/budget';
+
+// Insights components (moved from HomePage)
+import { InsightsCard } from '../components/insights/InsightsCard';
+import { RecommendationsCard } from '../components/stats/RecommendationsCard';
+import {
+  generatePersonalInsights,
+  getQuickStats,
+  getFavoriteDishes,
+  getRotatingRecommendations,
+  getStoredVoteHistory,
+} from '../services/insights.service';
+import { buildLunchDna } from '../services/lunch-dna.service';
 
 // Old components (for polls list)
 import { PollCard } from '../components/polls/PollCard';
@@ -71,9 +78,10 @@ import { PollResults } from '../components/polls/PollResults';
 import { useTelegram } from '../hooks/useTelegram';
 import { useConfetti } from '../hooks/useConfetti';
 import { useHaptic } from '../hooks/useHaptic';
-import { usePolls, useUI, useMenu } from '../store/useAppStore';
+import { useAuth } from '../hooks/useAuth';
+import { useAppStore } from '../store/useAppStore';
 import { pollsService, Poll, PollStats, PopularItem } from '../services/polls.service';
-import { menuService } from '../services/menu.service';
+import { menuService, type MenuItem } from '../services/menu.service';
 import { cn } from '../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
@@ -110,19 +118,34 @@ type ViewMode = 'overview' | 'results';
  */
 export const StatsPage: React.FC = () => {
   const { backButton, colorScheme } = useTelegram();
-  const { addNotification } = useUI();
-  const { menuItems, setMenuItems } = useMenu();
+  const addNotification = useAppStore((state) => state.addNotification);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const haptic = useHaptic();
   const confetti = useConfetti();
 
   const isDark = colorScheme === 'dark';
+  const { user } = useAuth();
 
-  const {
-    polls,
-    pollsLoading,
-    setPolls,
-    setPollsLoading,
-  } = usePolls();
+  // Personal insights data (moved from HomePage)
+  const personalInsights = useMemo(
+    () => generatePersonalInsights(user?.id || 0),
+    [user?.id]
+  );
+  const quickStats = useMemo(
+    () => getQuickStats(user?.id || 0),
+    [user?.id]
+  );
+  const favoriteDishes = useMemo(
+    () => getFavoriteDishes(user?.id || 0, 5),
+    [user?.id]
+  );
+  const recommendations = useMemo(
+    () => getRotatingRecommendations(user?.id || 0),
+    [user?.id]
+  );
+
+  const [polls, setPolls] = useState<Poll[]>([]);
+  const [pollsLoading, setPollsLoading] = useState(false);
 
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
   const [selectedPoll, setSelectedPoll] = useState<Poll | null>(null);
@@ -130,6 +153,15 @@ export const StatsPage: React.FC = () => {
   const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
   const [activeTab, setActiveTab] = useState<'personal' | 'group' | 'global' | 'insights'>('personal');
   const [activeChartSlide, setActiveChartSlide] = useState(0);
+
+  const lunchDnaProfile = useMemo(
+    () => buildLunchDna({
+      voteHistory: getStoredVoteHistory(user?.id || 0),
+      popularItems,
+      totalPolls: stats?.totalPolls || 0,
+    }),
+    [user?.id, popularItems, stats?.totalPolls]
+  );
 
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -211,44 +243,6 @@ export const StatsPage: React.FC = () => {
     return isDark ? CHART_COLORS[type].dark : CHART_COLORS[type].light;
   };
 
-  // Category data для PieChart
-  const categoryData = useMemo(() => {
-    const themeColors = isDark ? 'dark' : 'light';
-    
-    if (!menuItems || menuItems.length === 0) {
-      return [
-        { name: 'Супы', value: 8, color: CHART_COLORS.primary[themeColors][0] },
-        { name: 'Салаты', value: 5, color: CHART_COLORS.secondary[themeColors][0] },
-        { name: 'Горячее', value: 12, color: CHART_COLORS.accent[themeColors][0] },
-        { name: 'Десерты', value: 4, color: CHART_COLORS.primary[themeColors][1] },
-        { name: 'Напитки', value: 3, color: CHART_COLORS.secondary[themeColors][1] },
-      ];
-    }
-
-    const categoryCounts: Record<string, number> = {};
-    menuItems.forEach((item) => {
-      const category = item.category || 'Другое';
-      categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-    });
-
-    const colors = [
-      CHART_COLORS.primary[themeColors][0],
-      CHART_COLORS.secondary[themeColors][0],
-      CHART_COLORS.accent[themeColors][0],
-      CHART_COLORS.primary[themeColors][1],
-      CHART_COLORS.secondary[themeColors][1],
-    ];
-
-    return Object.entries(categoryCounts)
-      .map(([name, value], index) => ({
-        name,
-        value,
-        color: colors[index % colors.length],
-      }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
-  }, [menuItems, isDark]);
-
   // Activity data для LineChart
   const activityData = useMemo(() => {
     return [
@@ -282,20 +276,17 @@ export const StatsPage: React.FC = () => {
       return {
         total: 0,
         active: 0,
-        categories: 0,
         averagePrice: 0,
       };
     }
 
     const active = menuItems.filter((item) => item.isActive).length;
-    const categories = new Set(menuItems.map((item) => item.category).filter(Boolean)).size;
     const totalPrice = menuItems.reduce((sum, item) => sum + (item.price || 0), 0);
     const averagePrice = menuItems.length > 0 ? totalPrice / menuItems.length : 0;
 
     return {
       total: menuItems.length,
       active,
-      categories,
       averagePrice,
     };
   }, [menuItems]);
@@ -330,7 +321,7 @@ export const StatsPage: React.FC = () => {
         <div className="flex items-center justify-between h-11 px-4">
           <div className="flex items-center gap-2">
             <BarChart3 className={`${ICON_SIZES.md} text-primary`} />
-            <h1 className="text-lg font-semibold">Статистика</h1>
+            <h1 className="text-lg font-semibold text-foreground">Статистика</h1>
           </div>
           <ThemeToggle />
         </div>
@@ -351,16 +342,22 @@ export const StatsPage: React.FC = () => {
             }}
             className="w-full"
           >
-            <TabsList className="w-full grid grid-cols-4 h-12 bg-muted/50 backdrop-blur-sm">
+            <TabsList className="grid h-12 w-full grid-cols-4 gap-2 bg-transparent border-0 p-0 rounded-none">
               <TabsTrigger
                 value="personal"
                 className={cn(
-                  'flex flex-col gap-0.5 py-1.5 text-xs',
-                  'data-[state=active]:bg-gradient-to-r',
-                  isDark
-                    ? 'data-[state=active]:from-lavender-500 data-[state=active]:to-mint-500'
-                    : 'data-[state=active]:from-peach-500 data-[state=active]:to-coral-500',
-                  'data-[state=active]:text-white data-[state=active]:shadow-md',
+                  'flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl',
+                  // Inactive — плоская кнопка с лёгким фоном
+                  'bg-muted/40 dark:bg-card/60',
+                  'border border-border/40 dark:border-white/[0.06]',
+                  'text-muted-foreground',
+                  // Active — градиент + акцентная обводка
+                  'data-[state=active]:bg-gradient-to-br',
+                  'data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10',
+                  'data-[state=active]:!bg-transparent',
+                  'data-[state=active]:text-primary',
+                  'data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50',
+                  'data-[state=active]:shadow-sm',
                   'transition-all duration-200'
                 )}
               >
@@ -370,12 +367,18 @@ export const StatsPage: React.FC = () => {
               <TabsTrigger
                 value="group"
                 className={cn(
-                  'flex flex-col gap-0.5 py-1.5 text-xs',
-                  'data-[state=active]:bg-gradient-to-r',
-                  isDark
-                    ? 'data-[state=active]:from-lavender-500 data-[state=active]:to-mint-500'
-                    : 'data-[state=active]:from-peach-500 data-[state=active]:to-coral-500',
-                  'data-[state=active]:text-white data-[state=active]:shadow-md',
+                  'flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl',
+                  // Inactive — плоская кнопка с лёгким фоном
+                  'bg-muted/40 dark:bg-card/60',
+                  'border border-border/40 dark:border-white/[0.06]',
+                  'text-muted-foreground',
+                  // Active — градиент + акцентная обводка
+                  'data-[state=active]:bg-gradient-to-br',
+                  'data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10',
+                  'data-[state=active]:!bg-transparent',
+                  'data-[state=active]:text-primary',
+                  'data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50',
+                  'data-[state=active]:shadow-sm',
                   'transition-all duration-200'
                 )}
               >
@@ -385,12 +388,18 @@ export const StatsPage: React.FC = () => {
               <TabsTrigger
                 value="global"
                 className={cn(
-                  'flex flex-col gap-0.5 py-1.5 text-xs',
-                  'data-[state=active]:bg-gradient-to-r',
-                  isDark
-                    ? 'data-[state=active]:from-lavender-500 data-[state=active]:to-mint-500'
-                    : 'data-[state=active]:from-peach-500 data-[state=active]:to-coral-500',
-                  'data-[state=active]:text-white data-[state=active]:shadow-md',
+                  'flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl',
+                  // Inactive — плоская кнопка с лёгким фоном
+                  'bg-muted/40 dark:bg-card/60',
+                  'border border-border/40 dark:border-white/[0.06]',
+                  'text-muted-foreground',
+                  // Active — градиент + акцентная обводка
+                  'data-[state=active]:bg-gradient-to-br',
+                  'data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10',
+                  'data-[state=active]:!bg-transparent',
+                  'data-[state=active]:text-primary',
+                  'data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50',
+                  'data-[state=active]:shadow-sm',
                   'transition-all duration-200'
                 )}
               >
@@ -400,12 +409,18 @@ export const StatsPage: React.FC = () => {
               <TabsTrigger
                 value="insights"
                 className={cn(
-                  'flex flex-col gap-0.5 py-1.5 text-xs',
-                  'data-[state=active]:bg-gradient-to-r',
-                  isDark
-                    ? 'data-[state=active]:from-lavender-500 data-[state=active]:to-mint-500'
-                    : 'data-[state=active]:from-peach-500 data-[state=active]:to-coral-500',
-                  'data-[state=active]:text-white data-[state=active]:shadow-md',
+                  'flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl',
+                  // Inactive — плоская кнопка с лёгким фоном
+                  'bg-muted/40 dark:bg-card/60',
+                  'border border-border/40 dark:border-white/[0.06]',
+                  'text-muted-foreground',
+                  // Active — градиент + акцентная обводка
+                  'data-[state=active]:bg-gradient-to-br',
+                  'data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10',
+                  'data-[state=active]:!bg-transparent',
+                  'data-[state=active]:text-primary',
+                  'data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50',
+                  'data-[state=active]:shadow-sm',
                   'transition-all duration-200'
                 )}
               >
@@ -418,18 +433,9 @@ export const StatsPage: React.FC = () => {
             <TabsContent value="personal" className="mt-4 space-y-4">
               <AnimatePresence mode="wait">
                 {pollsLoading ? (
-                  <Skeleton className="h-[200px] rounded-xl" />
+                  <Skeleton className="h-[420px] rounded-xl" />
                 ) : (
-                  <PersonalHeroCard isDark={isDark} />
-                )}
-              </AnimatePresence>
-
-              {/* Favorite Dishes Carousel (Sprint 2.3) */}
-              <AnimatePresence mode="wait">
-                {pollsLoading ? (
-                  <Skeleton className="h-[240px] rounded-xl" />
-                ) : (
-                  <FavoriteDishesCarousel isDark={isDark} />
+                  <LunchDnaCard profile={lunchDnaProfile} />
                 )}
               </AnimatePresence>
 
@@ -438,42 +444,7 @@ export const StatsPage: React.FC = () => {
                 {pollsLoading ? (
                   <Skeleton className="h-[200px] rounded-xl" />
                 ) : (
-                  <BudgetWidgetCompact isDark={isDark} />
-                )}
-              </AnimatePresence>
-
-              {/* Achievement Badges Grid (Sprint 3.1) */}
-              <AnimatePresence mode="wait">
-                {pollsLoading ? (
-                  <Skeleton className="h-[400px] rounded-xl" />
-                ) : (
-                  <AchievementBadgesGrid isDark={isDark} onAchievementClick={(achievement) => {
-                    // Запускаем confetti при клике на achievement
-                    confetti.achievement(achievement.rarity);
-                  }} />
-                )}
-              </AnimatePresence>
-
-              {/* Challenges Panel (Sprint 3.3) */}
-              <AnimatePresence mode="wait">
-                {pollsLoading ? (
-                  <Skeleton className="h-[600px] rounded-xl" />
-                ) : (
-                  <ChallengesPanel 
-                    isDark={isDark} 
-                    onChallengeComplete={(challenge) => {
-                      if (challenge.rarity === 'legendary') {
-                        confetti.fireworks();
-                      } else if (challenge.rarity === 'epic') {
-                        confetti.cannon();
-                      } else if (challenge.rarity === 'rare') {
-                        confetti.stars();
-                      } else {
-                        confetti.achievement();
-                      }
-                      haptic.medium();
-                    }} 
-                  />
+                  <BudgetWidgetCompact />
                 )}
               </AnimatePresence>
             </TabsContent>
@@ -489,7 +460,7 @@ export const StatsPage: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4 }}
                 >
-                  <PastelCard variant="default" className="relative overflow-hidden border-l-4 border-orange-500 dark:border-purple-500">
+                  <PastelCard variant="default" className="relative overflow-hidden">
 
                     <CardContent className="relative p-4">
                       {/* Compact layout */}
@@ -508,12 +479,7 @@ export const StatsPage: React.FC = () => {
                               </UITooltip>
                             </TooltipProvider>
                           </div>
-                          <div className={cn(
-                            "text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent",
-                            isDark
-                              ? "from-lavender-400 to-mint-500"
-                              : "from-peach-500 to-coral-500"
-                          )}>
+                          <div className="text-3xl font-semibold text-foreground">
                             {stats?.totalVotes || 0}
                           </div>
                         </div>
@@ -522,11 +488,11 @@ export const StatsPage: React.FC = () => {
                         <div className="grid grid-cols-2 gap-3 text-right">
                           <div>
                             <p className="text-xs text-muted-foreground">Активных</p>
-                            <p className="text-lg font-bold text-secondary">{stats?.activePolls || 0}</p>
+                            <p className="text-lg font-semibold text-mint-600 dark:text-mint-400">{stats?.activePolls || 0}</p>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Всего</p>
-                            <p className="text-lg font-bold text-primary">{stats?.totalPolls || 0}</p>
+                            <p className="text-lg font-semibold text-primary">{stats?.totalPolls || 0}</p>
                           </div>
                         </div>
                       </div>
@@ -537,12 +503,7 @@ export const StatsPage: React.FC = () => {
                           <TooltipTrigger asChild>
                             <div className="relative h-2 rounded-full bg-muted/30 overflow-hidden cursor-help">
                               <motion.div
-                                className={cn(
-                                  "absolute inset-y-0 left-0 rounded-full bg-gradient-to-r",
-                                  isDark
-                                    ? "from-lavender-500 to-mint-500"
-                                    : "from-peach-500 to-coral-500"
-                                )}
+                                className="absolute inset-y-0 left-0 rounded-full bg-primary"
                                 initial={{ width: 0 }}
                                 animate={{
                                   width: stats?.totalPolls
@@ -608,113 +569,6 @@ export const StatsPage: React.FC = () => {
                         onScroll={handleCarouselScroll}
                         className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
                       >
-                        {/* Chart 1: Category Cards Grid (Modern replacement for PieChart) */}
-                        <div className="min-w-[85vw] snap-center">
-                          <PastelCard variant="default">
-                            <CardHeader>
-                              <div className="flex items-center justify-between">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                  <ChefHat className={`${ICON_SIZES.sm} text-secondary`} />
-                                  Популярные категории
-                                </CardTitle>
-                                <TooltipProvider>
-                                  <UITooltip>
-                                    <TooltipTrigger asChild>
-                                      <HelpCircle className={`${ICON_SIZES.sm} text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-help`} />
-                                    </TooltipTrigger>
-                                    <TooltipContent side="left" className="max-w-[220px]">
-                                      <p className="text-xs">Категории с наибольшим количеством блюд в меню. Прогресс показывает долю от самой популярной категории.</p>
-                                    </TooltipContent>
-                                  </UITooltip>
-                                </TooltipProvider>
-                              </div>
-                              <CardDescription>Топ-4 по количеству блюд</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              {/* 2x2 Grid of Category Cards */}
-                              <div className="grid grid-cols-2 gap-3">
-                                {categoryData.slice(0, 4).map((category, index) => {
-                                  const maxValue = Math.max(...categoryData.map(c => c.value));
-                                  const percentage = (category.value / maxValue) * 100;
-                                  
-                                  // Emojis for categories (can be dynamic later)
-                                  const categoryEmojis: Record<string, string> = {
-                                    'Пицца': '🍕',
-                                    'Суп': '🍜',
-                                    'Супы': '🍜',
-                                    'Салат': '🥗',
-                                    'Салаты': '🥗',
-                                    'Азиатское': '🍛',
-                                    'Шаурма': '🌯',
-                                    'Бургеры': '🍔',
-                                    'Десерты': '🍰',
-                                    'Напитки': '🥤',
-                                    'Горячее': '🍲',
-                                    'Закуски': '🍟',
-                                  };
-                                  
-                                  const emoji = categoryEmojis[category.name] || '🍽️';
-                                  
-                                  return (
-                                    <motion.div
-                                      key={category.name}
-                                      initial={{ opacity: 0, scale: 0.9 }}
-                                      animate={{ opacity: 1, scale: 1 }}
-                                      transition={{ delay: index * 0.1, duration: 0.3 }}
-                                      whileHover={{ scale: 1.02 }}
-                                      whileTap={{ scale: 0.98 }}
-                                      className="relative p-3 rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 border border-border/50 hover:border-primary/30 transition-all cursor-pointer overflow-hidden"
-                                      onClick={() => haptic.light()}
-                                    >
-                                      {/* Background gradient accent */}
-                                      <div 
-                                        className="absolute inset-0 opacity-5"
-                                        style={{ 
-                                          background: `linear-gradient(135deg, ${category.color} 0%, transparent 100%)`
-                                        }}
-                                      />
-                                      
-                                      {/* Content */}
-                                      <div className="relative">
-                                        {/* Emoji Icon */}
-                                        <div className="text-3xl mb-2">{emoji}</div>
-                                        
-                                        {/* Category Name */}
-                                        <p className="font-semibold text-sm mb-1 truncate">
-                                          {category.name}
-                                        </p>
-                                        
-                                        {/* Count */}
-                                        <p className="text-lg font-bold mb-2">
-                                          {category.value} блюд
-                                        </p>
-                                        
-                                        {/* Progress Bar */}
-                                        <div className="relative h-1.5 rounded-full bg-muted/50 overflow-hidden">
-                                          <motion.div
-                                            className="absolute inset-y-0 left-0 rounded-full"
-                                            style={{ backgroundColor: category.color }}
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${percentage}%` }}
-                                            transition={{ delay: 0.5 + index * 0.1, duration: 0.8, ease: 'easeOut' }}
-                                          />
-                                        </div>
-                                        
-                                        {/* Trend indicator (mock data for now) */}
-                                        <div className="flex items-center gap-1 mt-2">
-                                          <span className="text-xs text-muted-foreground">
-                                            {percentage > 80 ? '↗️ Популярно' : percentage > 50 ? '→ Средне' : '↘️ Редко'}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </motion.div>
-                                  );
-                                })}
-                              </div>
-                            </CardContent>
-                          </PastelCard>
-                        </div>
-
                         {/* Chart 2: LineChart */}
                         <div className="min-w-[85vw] snap-center">
                           <PastelCard variant="default">
@@ -741,19 +595,10 @@ export const StatsPage: React.FC = () => {
                               <ResponsiveContainer width="100%" height={200}>
                                 <LineChart data={activityData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                                   <defs>
-                                    <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                                      {isDark ? (
-                                        <>
-                                          <stop offset="0%" stopColor="#A78BFA" /> {/* Lavender */}
-                                          <stop offset="100%" stopColor="#86C9A8" /> {/* Mint */}
-                                        </>
-                                      ) : (
-                                        <>
-                                          <stop offset="0%" stopColor="#ff6b6b" /> {/* Peach */}
-                                          <stop offset="100%" stopColor="#5CAE87" /> {/* Mint */}
-                                        </>
-                                      )}
-                                    </linearGradient>
+                                     <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
+                                       <stop offset="0%" stopColor="#D86A2C" />
+                                       <stop offset="100%" stopColor="#8B5CF6" />
+                                     </linearGradient>
                                   </defs>
                                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} opacity={0.5} />
                                   <XAxis dataKey="date" fontSize={11} />
@@ -782,7 +627,7 @@ export const StatsPage: React.FC = () => {
                             key={i}
                             className={cn(
                               'h-1.5 rounded-full transition-all duration-300',
-                              activeChartSlide === i ? 'bg-lavender-500 w-6' : 'bg-muted-foreground/30 w-1.5'
+                               activeChartSlide === i ? 'bg-primary w-6' : 'bg-muted-foreground/30 w-1.5'
                             )}
                             onClick={() => {
                               if (carouselRef.current) {
@@ -841,9 +686,9 @@ export const StatsPage: React.FC = () => {
                                   <div
                                     className={cn(
                                       'size-8 rounded-full flex items-center justify-center font-bold flex-shrink-0',
-                                      index < 3
-                                        ? 'bg-gradient-to-br from-primary/20 to-accent/20 text-lg'
-                                        : 'bg-muted/50 text-muted-foreground text-sm'
+                                       index < 3
+                                         ? 'bg-primary/12 text-primary text-lg'
+                                         : 'bg-muted/50 text-muted-foreground text-sm'
                                     )}
                                   >
                                     {index < 3 ? medals[index] : index + 1}
@@ -859,12 +704,7 @@ export const StatsPage: React.FC = () => {
                                   <div className="flex items-center gap-2 flex-shrink-0">
                                     <div className="w-16 h-2 rounded-full bg-muted/50 overflow-hidden">
                                       <motion.div
-                                        className={cn(
-                                          "h-full rounded-full bg-gradient-to-r",
-                                          isDark
-                                            ? "from-lavender-500 to-mint-500"
-                                            : "from-peach-500 to-coral-500"
-                                        )}
+                                        className="h-full rounded-full bg-primary"
                                         initial={{ width: 0 }}
                                         animate={{ width: `${percentage}%` }}
                                         transition={{ delay: 0.6 + index * 0.05, duration: 0.6, ease: 'easeOut' }}
@@ -980,19 +820,6 @@ export const StatsPage: React.FC = () => {
                   </CardContent>
                 </PastelCard>
 
-                {/* Категорий */}
-                <PastelCard variant="default">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="p-2 rounded-lg bg-accent/20">
-                        <ChefHat className={`${ICON_SIZES.sm} text-accent`} />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold">{menuStats.categories}</p>
-                    <p className="text-xs text-muted-foreground">Категорий</p>
-                  </CardContent>
-                </PastelCard>
-
                 {/* Средняя цена */}
                 <PastelCard variant="default">
                   <CardContent className="p-4">
@@ -1001,41 +828,12 @@ export const StatsPage: React.FC = () => {
                         <Trophy className={`${ICON_SIZES.sm} text-primary`} />
                       </div>
                     </div>
-                    <p className="text-2xl font-bold">{menuStats.averagePrice.toFixed(0)} ₽</p>
+                    <p className="text-2xl font-bold">{(menuStats?.averagePrice ?? 0).toFixed(0)} ₽</p>
                     <p className="text-xs text-muted-foreground">Средняя цена</p>
                   </CardContent>
                 </PastelCard>
               </motion.div>
 
-              {/* Category breakdown */}
-              {categoryData.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4, duration: 0.4 }}
-                >
-                  <PastelCard variant="default">
-                    <CardHeader>
-                      <CardTitle className="text-base">Блюда по категориям</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {categoryData.map((category) => (
-                        <div
-                          key={category.name}
-                          className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors cursor-pointer"
-                          onClick={() => haptic.light()}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className={`${ICON_SIZES.xs} rounded-full`} style={{ backgroundColor: category.color }} />
-                            <span className="text-sm font-medium">{category.name}</span>
-                          </div>
-                          <Badge variant="secondary">{category.value}</Badge>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </PastelCard>
-                </motion.div>
-              )}
             </TabsContent>
 
             {/* Tab: Инсайты (Insights) - Sprint 5 */}
@@ -1048,13 +846,82 @@ export const StatsPage: React.FC = () => {
                   transition={{ duration: 0.3 }}
                   className="space-y-4"
                 >
-                  {/* Budget Insights Widget - Sprint 5.2 */}
+                  {/* Quick Stats Cards (2 columns) */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Favorite Dishes Card */}
+                    <PastelCard variant="default" className="overflow-hidden">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className={cn(
+                            'p-1.5 rounded-lg bg-gradient-to-br',
+                            isDark
+                              ? 'from-lavender-500/20 to-purple-500/20'
+                              : 'from-peach-500/20 to-coral-500/20'
+                          )}>
+                            <ChefHat className={`${ICON_SIZES.sm} text-primary`} />
+                          </div>
+                          <span className="text-xs font-medium text-muted-foreground">Любимые</span>
+                        </div>
+                        {favoriteDishes.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {favoriteDishes.slice(0, 3).map((dish, i) => (
+                              <div key={dish.name} className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground w-4">{i + 1}.</span>
+                                <span className="text-xs font-medium truncate flex-1">{dish.name}</span>
+                                <span className="text-xs text-muted-foreground">{dish.count}x</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Проголосуйте, чтобы увидеть
+                          </p>
+                        )}
+                      </CardContent>
+                    </PastelCard>
+
+                    {/* Stats Card */}
+                    <PastelCard variant="default" className="overflow-hidden">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className={cn(
+                            'p-1.5 rounded-lg bg-gradient-to-br',
+                            isDark
+                              ? 'from-mint-500/20 to-emerald-500/20'
+                              : 'from-mint-500/20 to-green-500/20'
+                          )}>
+                            <TrendingUp className={`${ICON_SIZES.sm} text-secondary`} />
+                          </div>
+                          <span className="text-xs font-medium text-muted-foreground">Статистика</span>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Голосований</span>
+                            <span className="text-sm font-bold">{quickStats.totalVotes}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Уникальных блюд</span>
+                            <span className="text-sm font-bold">{quickStats.uniqueDishes}</span>
+                          </div>
+                          {quickStats.topDish && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">Топ блюдо</span>
+                              <span className="text-xs font-medium truncate max-w-[80px]">{quickStats.topDish}</span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </PastelCard>
+                  </div>
+
+                  {/* Personal Insights (moved from HomePage) */}
+                  <InsightsCard insights={personalInsights} />
+
+                  {/* Rotating Recommendations */}
+                  <RecommendationsCard recommendations={recommendations} />
+
+                  {/* Budget Insights Widget */}
                   <BudgetInsightsWidget />
-                  
-                  {/* Низкий приоритет - ожидание реализации */}
-                  {/* <NutritionBalanceWidget compact={false} /> */}
-                  {/* <PersonalizedRecommendations isDark={isDark} /> */}
-                  {/* <TrendsPredictions isDark={isDark} /> */}
                 </motion.div>
               </AnimatePresence>
             </TabsContent>

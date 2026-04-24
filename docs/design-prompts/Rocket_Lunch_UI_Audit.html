@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rocket Lunch — UI Audit</title>
+
+<template id="__bundler_thumbnail" data-bg-color="#f5f1eb">
+  <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+    <rect width="120" height="80" fill="#f5f1eb"/>
+    <!-- header bar -->
+    <rect x="8" y="8" width="104" height="14" rx="4" fill="#d86a2c" opacity="0.9"/>
+    <rect x="14" y="13" width="40" height="4" rx="2" fill="#fff" opacity="0.8"/>
+    <!-- issue rows -->
+    <rect x="8" y="28" width="104" height="10" rx="3" fill="#fff" stroke="#e8ddd2" stroke-width="0.5"/>
+    <rect x="12" y="31" width="8" height="4" rx="2" fill="#e03d2e" opacity="0.8"/>
+    <rect x="24" y="31" width="50" height="4" rx="2" fill="#6b5a4a" opacity="0.4"/>
+    <rect x="8" y="42" width="104" height="10" rx="3" fill="#fff" stroke="#e8ddd2" stroke-width="0.5"/>
+    <rect x="12" y="45" width="8" height="4" rx="2" fill="#c98a00" opacity="0.8"/>
+    <rect x="24" y="45" width="44" height="4" rx="2" fill="#6b5a4a" opacity="0.4"/>
+    <rect x="8" y="56" width="104" height="10" rx="3" fill="#fff" stroke="#e8ddd2" stroke-width="0.5"/>
+    <rect x="12" y="59" width="8" height="4" rx="2" fill="#1d8a4f" opacity="0.8"/>
+    <rect x="24" y="59" width="36" height="4" rx="2" fill="#6b5a4a" opacity="0.4"/>
+  </svg>
+</template>
+<style>
+  :root {
+    --bg: #f5f1eb;
+    --surface: #ffffff;
+    --surface2: #faf7f3;
+    --ink: #1c1410;
+    --ink2: #6b5a4a;
+    --ink3: #9c8b79;
+    --pri: #d86a2c;
+    --pri-soft: #fdf0e8;
+    --red: #e03d2e;
+    --red-soft: #fef2f1;
+    --yellow: #c98a00;
+    --yellow-soft: #fefae8;
+    --green: #1d8a4f;
+    --green-soft: #edfaf3;
+    --border: #e8ddd2;
+    --radius: 12px;
+    --font: 'Inter', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ─── LAYOUT ──────────────────────────────── */
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+  }
+
+  /* ─── HEADER ──────────────────────────────── */
+  .report-header {
+    margin-bottom: 36px;
+  }
+  .report-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--ink);
+  }
+  .report-header h1 span { color: var(--pri); }
+  .report-header p {
+    color: var(--ink2);
+    margin-top: 6px;
+    font-size: 14px;
+  }
+  .meta-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  .meta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--ink2);
+    font-weight: 500;
+  }
+  .meta-pill .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-red { background: var(--red); }
+  .dot-yellow { background: var(--yellow); }
+  .dot-green { background: var(--green); }
+
+  /* ─── FILTER BAR ──────────────────────────── */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .filter-btn {
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--ink2);
+    border-radius: 999px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font);
+  }
+  .filter-btn:hover { border-color: var(--pri); color: var(--pri); }
+  .filter-btn.active {
+    background: var(--pri);
+    border-color: var(--pri);
+    color: #fff;
+  }
+
+  /* ─── SECTION LABEL ───────────────────────── */
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 32px 0 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--ink3);
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ─── ISSUE CARD ──────────────────────────── */
+  .issue {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: box-shadow 0.15s;
+  }
+  .issue:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.07); }
+  .issue[data-priority="blocker"] { border-left: 3px solid var(--red); }
+  .issue[data-priority="important"] { border-left: 3px solid var(--yellow); }
+  .issue[data-priority="nice"] { border-left: 3px solid var(--green); }
+
+  .issue-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 18px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .issue-badge {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    margin-top: 2px;
+  }
+  .badge-blocker { background: var(--red-soft); color: var(--red); }
+  .badge-important { background: var(--yellow-soft); color: var(--yellow); }
+  .badge-nice { background: var(--green-soft); color: var(--green); }
+
+  .issue-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+  .issue-meta {
+    font-size: 12px;
+    color: var(--ink3);
+    margin-top: 2px;
+    font-weight: 400;
+  }
+  .issue-chevron {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    color: var(--ink3);
+    transition: transform 0.2s;
+    margin-top: 2px;
+  }
+  .issue.open .issue-chevron { transform: rotate(180deg); }
+
+  .issue-body {
+    display: none;
+    padding: 0 18px 18px;
+    border-top: 1px solid var(--border);
+  }
+  .issue.open .issue-body { display: block; }
+
+  /* ─── ISSUE BODY INTERNALS ────────────────── */
+  .screenshots-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 16px 0 12px;
+  }
+  .screen-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 11.5px;
+    color: var(--ink2);
+    font-family: var(--mono);
+  }
+
+  .field-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin: 14px 0 6px;
+  }
+
+  .desc-text {
+    font-size: 13.5px;
+    color: var(--ink2);
+    line-height: 1.65;
+  }
+
+  pre.code-block {
+    background: #1c1410;
+    color: #f4ece3;
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin: 8px 0;
+  }
+  pre.code-block .comment { color: #8a7867; }
+  pre.code-block .del { color: #f87171; background: rgba(248,113,113,0.12); display: block; }
+  pre.code-block .add { color: #34d399; background: rgba(52,211,153,0.1); display: block; }
+  pre.code-block .neu { color: #f4ece3; display: block; }
+  pre.code-block .path { color: #ff9d66; font-style: italic; }
+  pre.code-block .key { color: #a78bfa; }
+  pre.code-block .val { color: #f4c15d; }
+
+  .contrast-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 8px 0;
+  }
+  .contrast-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+  }
+  .contrast-swatch {
+    width: 28px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+  .ratio-fail { color: var(--red); font-weight: 700; }
+  .ratio-pass { color: var(--green); font-weight: 700; }
+
+  /* ─── SUMMARY TABLE ───────────────────────── */
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    margin-top: 16px;
+  }
+  .summary-table th {
+    background: var(--surface2);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--ink2);
+    border-bottom: 1px solid var(--border);
+  }
+  .summary-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--ink);
+    vertical-align: top;
+  }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table tr:hover td { background: var(--surface2); }
+  .t-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .t-category {
+    color: var(--ink3);
+    font-size: 12px;
+  }
+  .t-file {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink2);
+  }
+
+  /* Hide/show by filter */
+  .issue[data-hidden] { display: none; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="report-header">
+    <h1>🚀 Rocket Lunch — <span>UI Audit</span></h1>
+    <p>Полировка без редизайна: вёрстка, контраст, типографика, мелочи.</p>
+    <div class="meta-row">
+      <span class="meta-pill"><span class="dot dot-red"></span>3 блокера</span>
+      <span class="meta-pill"><span class="dot dot-yellow"></span>8 важных</span>
+      <span class="meta-pill"><span class="dot dot-green"></span>5 nice-to-have</span>
+      <span class="meta-pill">Viewport 430 × 932 px</span>
+      <span class="meta-pill">48 скриншотов · 16 замечаний</span>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterIssues('all')">Все</button>
+    <button class="filter-btn" onclick="filterIssues('layout')">Вёрстка</button>
+    <button class="filter-btn" onclick="filterIssues('color')">Цвет / Контраст</button>
+    <button class="filter-btn" onclick="filterIssues('type')">Типографика</button>
+    <button class="filter-btn" onclick="filterIssues('ux')">UX / Мелочи</button>
+    <button class="filter-btn" onclick="filterIssues('crash')">🔴 Краши</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       BLOCKER SECTION
+  ══════════════════════════════════════════════════ -->
+  <div class="section-label">🔴 Блокеры</div>
+
+  <!-- B1 -->
+  <div class="issue open" data-priority="blocker" data-tags="layout crash">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-blocker">БЛОКЕР</span>
+      <div>
+        <div class="issue-title">B1 — Двойная BottomNavigation на главной странице</div>
+        <div class="issue-meta">layout · App.tsx + HomePage.tsx</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 home_loading_light</span>
+        <span class="screen-chip">📱 home_loading_dark</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        <code>HomePage.tsx</code> импортирует и рендерит <code>&lt;BottomNavigation /&gt;</code> напрямую (строка 1 файла — в импортах видно). При этом <code>App.tsx:224</code> тоже рендерит <code>{showNavigation && &lt;BottomNavigation /&gt;}</code>.
+        В результате на главной — два навбара поверх друг друга. На скриншоте <code>home_loading_light</code> нижняя панель отображается дважды и поглощает ~128px контента снизу.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">// src/pages/HomePage.tsx — убрать прямой импорт и рендер</span>
+<span class="del">- import { BottomNavigation } from '../components/layout/BottomNavigation';</span>
+
+<span class="comment">// Внутри JSX HomePage — найти и удалить:</span>
+<span class="del">- &lt;BottomNavigation /&gt;</span>
+
+<span class="comment">// App.tsx уже рендерит его условно — этого достаточно:</span>
+<span class="neu">  {showNavigation && &lt;BottomNavigation /&gt;}  // оставить как есть</span></pre>
+    </div>
+  </div>
+
+  <!-- B2 -->
+  <div class="issue" data-priority="blocker" data-tags="layout">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-blocker">БЛОКЕР</span>
+      <div>
+        <div class="issue-title">B2 — BottomNavigation перекрывает скроллируемый контент</div>
+        <div class="issue-meta">layout · Layout.tsx:main · stats_personal, stats_group, home_active, profile_regular</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 stats_personal_light</span>
+        <span class="screen-chip">📱 stats_group_dark</span>
+        <span class="screen-chip">📱 home_active_dark</span>
+        <span class="screen-chip">📱 profile_regular_dark</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        <code>Layout.tsx:105</code> устанавливает <code>pb-32</code> (128px) на <code>&lt;main&gt;</code>. Но BottomNavigation высотой <code>h-16</code> (64px) + iOS safe-area (~34px на iPhone 14) = ~98px. Отступ должен быть именно таким.
+        Проблема: ряд страниц (<code>StatsPage</code>, <code>HomePage</code> в активном состоянии) рендерит прокручиваемые контейнеры <em>поверх</em> <code>&lt;main&gt;</code> или использует собственный overflow-контейнер без нижнего отступа. Видно на <code>stats_personal_light</code>: последняя карточка уходит за навбар.
+        На <code>home_active_dark</code> плитки «Меню / История / Статистика / Пригласить» обрезаются нижней навигацией.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">// src/components/layout/Layout.tsx:105</span>
+<span class="del">- className="container mx-auto px-4 pt-4 pb-32 max-w-2xl ..."</span>
+<span class="add">+ className="container mx-auto px-4 pt-4 pb-[calc(64px+env(safe-area-inset-bottom,0px)+16px)] max-w-2xl ..."</span>
+
+<span class="comment">// Для страниц с собственным overflow (StatsPage, ProfilePage)
+// убедиться что внутренний scroll-контейнер тоже имеет отступ:</span>
+<span class="neu">  &lt;div className="overflow-y-auto pb-4"&gt; ... &lt;/div&gt;</span>
+
+<span class="comment">// Альтернативно — CSS переменная для безопасного отступа снизу:</span>
+<span class="add">+ /* globals.css */
++ :root { --nav-height: 64px; --safe-bottom: env(safe-area-inset-bottom, 0px); }
++ .page-scroll-padding { padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px); }</span></pre>
+    </div>
+  </div>
+
+  <!-- B3 -->
+  <div class="issue" data-priority="blocker" data-tags="crash">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-blocker">БЛОКЕР</span>
+      <div>
+        <div class="issue-title">B3 — Runtime-крэши на двух страницах</div>
+        <div class="issue-meta">crash · MySuggestionsPage.tsx:881 · StatsPage.tsx:73</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 my-suggestions_light</span>
+        <span class="screen-chip">📱 my-suggestions_dark</span>
+        <span class="screen-chip">📱 stats_global_light</span>
+        <span class="screen-chip">📱 stats_global_dark</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        <strong>MySuggestionsPage</strong>: <code>n.filter is not a function</code> — данные приходят не массивом, <code>.filter()</code> вызывается на <code>undefined</code> или объекте. Нет защитного дефолта.<br><br>
+        <strong>StatsPage (вкладка Глобально)</strong>: <code>Cannot read properties of undefined (reading 'votes')</code> в <code>StatsPage-C4Ys2Ny.js:73</code> — обращение к <code>item.votes</code> без проверки, что <code>item</code> существует.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">// MySuggestionsPage.tsx — защита от не-массива</span>
+<span class="del">- const filtered = suggestions.filter(s => s.status === activeTab);</span>
+<span class="add">+ const filtered = Array.isArray(suggestions) ? suggestions.filter(s => s.status === activeTab) : [];</span>
+
+<span class="path">// StatsPage.tsx ~строка 73 — безопасный доступ</span>
+<span class="del">- const totalVotes = item.votes.reduce(...);</span>
+<span class="add">+ const totalVotes = (item?.votes ?? []).reduce(...);</span>
+
+<span class="comment">// Также добавить обработку в useQuery:
+// данные из API обернуть в нормализатор или задать initialData: []</span></pre>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       IMPORTANT SECTION
+  ══════════════════════════════════════════════════ -->
+  <div class="section-label">🟡 Важные</div>
+
+  <!-- I1 -->
+  <div class="issue" data-priority="important" data-tags="layout">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-important">ВАЖНОЕ</span>
+      <div>
+        <div class="issue-title">I1 — Дублирование заголовка «История голосований»</div>
+        <div class="issue-meta">layout · PollHistoryPage.tsx · PageHeader</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 history_empty_light</span>
+        <span class="screen-chip">📱 history_empty_dark</span>
+        <span class="screen-chip">📱 history_with-polls_light</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        На странице истории заголовок «История голосований» отображается <strong>дважды</strong>: первый раз через компонент <code>&lt;PageHeader&gt;</code> (вверху страницы), второй — как <code>&lt;h1&gt;</code> внутри тела страницы. Визуальный вес страницы нарушен, первый экран занят двумя идентичными надписями.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">// PollHistoryPage.tsx — убрать внутренний дублирующий h1</span>
+<span class="del">- &lt;h1 className="text-2xl font-bold"&gt;История голосований&lt;/h1&gt;</span>
+<span class="comment">// Достаточно PageHeader с title="История голосований"
+// subtitle можно перенести в PageHeader subtitle prop</span></pre>
+    </div>
+  </div>
+
+  <!-- I2 -->
+  <div class="issue" data-priority="important" data-tags="layout ux">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-important">ВАЖНОЕ</span>
+      <div>
+        <div class="issue-title">I2 — FloatingActionButton перекрывает BottomNavigation на ProfilePage</div>
+        <div class="issue-meta">layout · ProfilePage.tsx · FloatingActionButton.tsx</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 profile_regular_dark</span>
+        <span class="screen-chip">📱 profile_admin_light</span>
+        <span class="screen-chip">📱 profile_admin_dark</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        FAB (кнопка-пузырь с иконкой обратной связи) расположен <code>fixed bottom-4 right-4</code> — это 16px от нижнего края экрана. BottomNavigation занимает нижние ~64px. Итого FAB визуально «сидит» прямо на навбаре, а при тапе перехватывает часть кликабельной зоны «Профиль».
+        Кроме того, на профиле admin одновременно видны два фиолетовых элемента: FAB и кнопка «Поддержать проект» — конкурируют за внимание.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">// src/components/common/FloatingActionButton.tsx</span>
+<span class="del">- className="fixed bottom-4 right-4 ..."</span>
+<span class="add">+ className="fixed right-4 ..." 
++ style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px) + 12px)' }}</span>
+
+<span class="comment">// Либо вынести в CSS-переменную --fab-bottom
+// и переиспользовать на всех страницах с FAB</span></pre>
+    </div>
+  </div>
+
+  <!-- I3 -->
+  <div class="issue" data-priority="important" data-tags="color">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-important">ВАЖНОЕ</span>
+      <div>
+        <div class="issue-title">I3 — Оранжевый текст цены не проходит WCAG AA в light-теме</div>
+        <div class="issue-meta">color · globals.css --primary · MenuPage, DishCard</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 menu_with-items_light</span>
+        <span class="screen-chip">📱 menu_search_light</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <div class="contrast-row">
+        <div class="contrast-chip">
+          <div class="contrast-swatch" style="background:#d86a2c"></div>
+          <div class="contrast-swatch" style="background:#ffffff; border: 1px solid #ddd"></div>
+          <span>#D86A2C on #FFF — <span class="ratio-fail">3.1:1 ✗</span></span>
+        </div>
+        <div class="contrast-chip">
+          <div class="contrast-swatch" style="background:#d86a2c"></div>
+          <div class="contrast-swatch" style="background:#faf7f3; border: 1px solid #ddd"></div>
+          <span>#D86A2C on #FAF7F3 — <span class="ratio-fail">2.9:1 ✗</span></span>
+        </div>
+        <div class="contrast-chip">
+          <div class="contrast-swatch" style="background:#b85520"></div>
+          <div class="contrast-swatch" style="background:#ffffff; border: 1px solid #ddd"></div>
+          <span>#B85520 on #FFF — <span class="ratio-pass">4.7:1 ✓</span></span>
+        </div>
+      </div>
+      <p class="desc-text">
+        Цена блюда (₽280, ₽320 и т.д.) рендерится в <code>text-primary</code> = <code>--primary: 23 69% 51%</code> = <code>#D86A2C</code>. На белых и бежевых карточках контраст 3.1:1 — ниже WCAG AA (требуется 4.5:1 для обычного текста). Особенно критично для шрифта 14–16px без bold.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">/* src/styles/globals.css — light theme */</span>
+<span class="del">- --primary: 23 69% 51%; /* #D86A2C */</span>
+<span class="add">+ --primary: 21 72% 42%; /* #B85520 — контраст 4.7:1 на белом */</span>
+
+<span class="comment">/* Все оранжевые CTA-кнопки (bg-primary) затронутся —
+   но на белом тексте кнопок контраст только улучшится.
+   
+   Альтернатива: не трогать --primary, но для текста цены
+   использовать отдельный токен --price-ink: */</span>
+<span class="add">+ --price-ink: 21 72% 38%; /* тёмный оранж для текста */</span>
+
+<span class="path">/* DishCard.tsx — в компоненте цены */</span>
+<span class="del">- &lt;span className="text-primary font-semibold"&gt;₽{price}&lt;/span&gt;</span>
+<span class="add">+ &lt;span className="font-bold tabular-nums" style={{color:'hsl(var(--price-ink))'}} &gt;₽{price}&lt;/span&gt;</span></pre>
+    </div>
+  </div>
+
+  <!-- I4 -->
+  <div class="issue" data-priority="important" data-tags="color">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-important">ВАЖНОЕ</span>
+      <div>
+        <div class="issue-title">I4 — Badge «Завершено» сливается с фоном карточки в light-теме</div>
+        <div class="issue-meta">color · PollHistoryPage · history_with-polls_light</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 history_with-polls_light</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <div class="contrast-row">
+        <div class="contrast-chip">
+          <div class="contrast-swatch" style="background:#9ca3af"></div>
+          <div class="contrast-swatch" style="background:#f3f4f6; border:1px solid #ddd"></div>
+          <span>Gray-400 on Gray-100 — <span class="ratio-fail">~1.8:1 ✗</span></span>
+        </div>
+        <div class="contrast-chip">
+          <div class="contrast-swatch" style="background:#4b5563"></div>
+          <div class="contrast-swatch" style="background:#e5e7eb; border:1px solid #ddd"></div>
+          <span>Gray-600 on Gray-200 — <span class="ratio-pass">4.8:1 ✓</span></span>
+        </div>
+      </div>
+      <p class="desc-text">
+        Бейдж «Завершено» в light-теме использует серый текст на сером фоне — почти невидим. Статусные бейджи должны читаться с первого взгляда, иначе пользователь не понимает состояние голосования.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">/* Для бейджа "Завершено" — использовать нейтральный, но читаемый вариант */</span>
+<span class="del">- className="bg-gray-100 text-gray-400 ..."</span>
+<span class="add">+ className="bg-gray-100 text-gray-600 border border-gray-200 ..."</span>
+
+<span class="comment">/* Или использовать семантику через переменные globals.css:
+   --badge-neutral-bg: hsl(var(--muted));
+   --badge-neutral-ink: hsl(var(--muted-foreground));   →  contrast OK */</span></pre>
+    </div>
+  </div>
+
+  <!-- I5 -->
+  <div class="issue" data-priority="important" data-tags="layout ux">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-important">ВАЖНОЕ</span>
+      <div>
+        <div class="issue-title">I5 — Кнопки действий в DishCard меньше минимального тап-таргета 44px</div>
+        <div class="issue-meta">layout · MenuPage · MenuList/DishCard компонент</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 menu_with-items_light</span>
+        <span class="screen-chip">📱 menu_with-items_dark</span>
+        <span class="screen-chip">📱 menu_search_light</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        Три кнопки-иконки (✏️ редактировать / 🗑️ удалить / ✓ активировать) на карточке блюда визуально занимают ~32×32px. Telegram требует минимум 44×44px для touch-зон. При промахе пользователь случайно нажмёт не ту кнопку — особенно критично для «Удалить».
+        Иконки используют <code>.admin-action-btn</code> из <code>globals.css</code> с <code>px-2.5 py-1.5</code> = ~28px высоты.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">/* src/styles/globals.css — .admin-action-btn */</span>
+<span class="del">- @apply inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs ...</span>
+<span class="add">+ @apply inline-flex items-center justify-center gap-1 rounded-xl border border-border bg-card 
++        min-w-[44px] min-h-[44px] text-xs ...</span>
+
+<span class="comment">/* Если иконки без текста — достаточно size-11 (44px) на кнопке:
+   className="flex items-center justify-center size-11 rounded-xl border bg-card" */</span></pre>
+    </div>
+  </div>
+
+  <!-- I6 -->
+  <div class="issue" data-priority="important" data-tags="color">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-important">ВАЖНОЕ</span>
+      <div>
+        <div class="issue-title">I6 — «Бюджет и аналитика» в Инсайтах выглядит disabled в dark-теме</div>
+        <div class="issue-meta">color · StatsPage · BudgetInsightsWidget.tsx</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 stats_insights_dark</span>
+        <span class="screen-chip">📱 stats_insights_light</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        В dark-теме карточка «Бюджет и аналитика» полностью сливается с фоном: серые иконки (~30% opacity) на тёмном фоне, слабый текст. Пользователь интерпретирует карточку как заблокированную/недоступную, хотя она функциональна.
+        Проблема в том, что emoji-иконки (🔄, 🐷) в тёмном режиме отображаются с <code>opacity-30</code> или через CSS-фильтр, теряя яркость.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">/* BudgetInsightsWidget.tsx — иконки в карточке */</span>
+<span class="del">- className="opacity-30 ..."</span>
+<span class="add">+ className="opacity-70 dark:opacity-90 ..."</span>
+
+<span class="comment">/* Для карточки-контейнера добавить визуальный разрыв с фоном: */</span>
+<span class="add">+ className="... border border-border dark:border-white/10 dark:bg-card"</span>
+
+<span class="comment">/* Заголовок карточки сделать чётче: */</span>
+<span class="add">+ className="font-semibold text-foreground" // вместо text-muted-foreground</span></pre>
+    </div>
+  </div>
+
+  <!-- I7 -->
+  <div class="issue" data-priority="important" data-tags="layout ux">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-important">ВАЖНОЕ</span>
+      <div>
+        <div class="issue-title">I7 — Кнопка «Поддержать» перекрывает контент профиля admin</div>
+        <div class="issue-meta">layout · ProfilePage.tsx · DonationButton / FAB конкурируют</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 profile_admin_light</span>
+        <span class="screen-chip">📱 profile_admin_dark</span>
+        <span class="screen-chip">📱 profile_donation-modal_light</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        На профиле администратора внизу страницы присутствует секция «Поддержите проект» в виде карточки. При этом плавающий FAB (кнопка 💬) расположен прямо поверх этой секции.
+        Итог: два действия «поддержать» (встроенная карточка + modal через FAB) конкурируют. Визуально — скученность в нижней части. На light-версии кнопка «Поддержать» в темной обёртке (<code>bg-slate-900</code>) резко выбивается из палитры warm-beige.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">// ProfilePage.tsx — унифицировать: оставить только карточку или только FAB</span>
+<span class="comment">// Вариант A: убрать FAB с ProfilePage, т.к. карточка уже есть</span>
+<span class="del">- {location.pathname === '/profile' && &lt;FloatingActionButton /&gt;}</span>
+
+<span class="comment">// Вариант B: убрать карточку, оставить FAB — тогда исправить цвет карточки "Поддержать":
+// Заменить тёмный фон на warm-neutral из палитры:</span>
+<span class="del">- className="bg-slate-900 text-white ..."</span>
+<span class="add">+ className="bg-card border border-border text-foreground ..."</span></pre>
+    </div>
+  </div>
+
+  <!-- I8 -->
+  <div class="issue" data-priority="important" data-tags="color ux">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-important">ВАЖНОЕ</span>
+      <div>
+        <div class="issue-title">I8 — Кнопка «+ Добавить» в bottom sheet сливается в light-теме</div>
+        <div class="issue-meta">color · menu_add-sheet · MenuForm / BottomSheet</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 menu_add-sheet_light</span>
+        <span class="screen-chip">📱 menu_add-sheet_dark</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <div class="contrast-row">
+        <div class="contrast-chip">
+          <div class="contrast-swatch" style="background:#eeb99a"></div>
+          <div class="contrast-swatch" style="background:#f5ede6; border:1px solid #ddd"></div>
+          <span>Peach-300 on Beige — <span class="ratio-fail">~1.5:1 ✗</span></span>
+        </div>
+        <div class="contrast-chip">
+          <div class="contrast-swatch" style="background:#d86a2c"></div>
+          <div class="contrast-swatch" style="background:#ffffff; border:1px solid #ddd"></div>
+          <span>#D86A2C on White — <span class="ratio-fail">3.1:1 ✗</span></span>
+        </div>
+      </div>
+      <p class="desc-text">
+        Primary action кнопка «+ Добавить» в bottom sheet меню в light-теме выглядит бледно: peach-цвет на бежевом фоне почти неотличим от фона. В dark-теме фиолетовый цвет кнопки работает. Проблема в том, что <code>bg-primary</code> в light-теме — недостаточно насыщенный оранжевый на светлом фоне листа.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">/* MenuForm.tsx или BottomSheet footer */</span>
+<span class="comment">/* Кнопка должна быть явным primary CTA — усилить фон и тень: */</span>
+<span class="del">- className="bg-primary text-primary-foreground ..."</span>
+<span class="add">+ className="bg-primary text-white font-semibold shadow-md 
++             active:scale-95 transition-transform ..."</span>
+
+<span class="comment">/* Если --primary в light режиме всё равно блёкнет — использовать
+   hsl(21 72% 42%) напрямую для важных CTA или добавить токен:
+   --cta-bg: 21 72% 42%;  /* чуть темнее primary */</span></pre>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       NICE-TO-HAVE SECTION
+  ══════════════════════════════════════════════════ -->
+  <div class="section-label">🟢 Nice-to-have</div>
+
+  <!-- N1 -->
+  <div class="issue" data-priority="nice" data-tags="type">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-nice">КОСМЕТИКА</span>
+      <div>
+        <div class="issue-title">N1 — Hero-приветствие мало для эмоционального импакта</div>
+        <div class="issue-meta">type · HomePage · HomeHeroCard · WelcomeCard</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 home_empty_light</span>
+        <span class="screen-chip">📱 home_empty_dark</span>
+        <span class="screen-chip">📱 home_active_light</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        «Доброе утро, Иван!» — это главный эмоциональный момент приложения, которое видят каждый день. Сейчас это <code>text-xl font-semibold</code> (~20px 600-weight). Для hero-строки в мобильном приложении это скромно — конкурирует по весу с карточкой голосования ниже.
+        <code>TYPOGRAPHY_H1</code> из <code>src/lib/typography.ts</code> судя по использованию в HomePage должен давать чуть больший размер, но в итоге на скриншоте текст читается как обычный заголовок карточки.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">// src/components/home/WelcomeCard.tsx или HomeHeroCard.tsx</span>
+<span class="del">- className="text-xl font-semibold tracking-tight"</span>
+<span class="add">+ className="text-2xl font-bold tracking-tight leading-snug"</span>
+
+<span class="comment">// Подзаголовок ("Голосование открыто...") — чуть контрастнее:
+// было text-muted-foreground → добавить opacity-80 dark:opacity-90</span>
+
+<span class="path">// src/lib/typography.ts</span>
+<span class="add">+ export const TYPOGRAPHY_HERO = 'text-2xl font-bold tracking-tight';</span></pre>
+    </div>
+  </div>
+
+  <!-- N2 -->
+  <div class="issue" data-priority="nice" data-tags="type layout">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-nice">КОСМЕТИКА</span>
+      <div>
+        <div class="issue-title">N2 — Числа в статистике смешивают пропорциональные и tabular-nums</div>
+        <div class="issue-meta">type · StatsPage · UserStatsPage · globals.css</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 stats_personal_light</span>
+        <span class="screen-chip">📱 user-stats_light</span>
+        <span class="screen-chip">📱 stats_group_light</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        В <code>globals.css</code> уже есть <code>font-variant-numeric: tabular-nums</code> глобально на body — хорошо. Но в ряде компонентов (CountUp, лидерборд, процентные бейджи) используется JetBrains Mono через className, а в других — Inter без явного указания. Это создаёт разнобой: цифра «320» в hero stat — моноширинная, «28%» в бейдже предпочтений — пропорциональная. Столбец дёргается при обновлении.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">/* globals.css — уже есть: font-variant-numeric: tabular-nums ✓
+   Нужно убедиться что JetBrains Mono применяется только для моно-контекстов */</span>
+
+<span class="path">// src/components/stats/CountUp.tsx</span>
+<span class="add">+ className="font-mono tabular-nums" // JetBrains Mono для числовых hero</span>
+
+<span class="path">// Процентные бейджи в FavoriteDishes, UserStats:</span>
+<span class="del">- className="text-xs font-bold"</span>
+<span class="add">+ className="text-xs font-bold tabular-nums font-mono"</span></pre>
+    </div>
+  </div>
+
+  <!-- N3 -->
+  <div class="issue" data-priority="nice" data-tags="ux">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-nice">КОСМЕТИКА</span>
+      <div>
+        <div class="issue-title">N3 — Пустое значение «% Одобрений» в 4-й карточке AdminSuggestions</div>
+        <div class="issue-meta">ux · SuggestionsPage · admin stats grid</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 admin_suggestions_light</span>
+        <span class="screen-chip">📱 admin_suggestions_dark</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        Три из четырёх стат-карточек показывают числа: «0 Всего», «0 Ожидают», «0 Одобрено». Четвёртая — «% Одобрений» — показывает только лейбл без значения. Это выглядит как баг/незаконченная карточка. Скорее всего, при 0 голосованиях деление на ноль даёт <code>NaN</code> или <code>undefined</code>, которые скрываются.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">// SuggestionsPage.tsx — вычисление процента одобрений</span>
+<span class="del">- const approvalRate = (approved / total) * 100;</span>
+<span class="add">+ const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;</span>
+
+<span class="comment">// Рендер значения — явно показывать "0%" при пустом состоянии:</span>
+<span class="del">- &lt;span&gt;{approvalRate}&lt;/span&gt;</span>
+<span class="add">+ &lt;span&gt;{approvalRate}%&lt;/span&gt;</span></pre>
+    </div>
+  </div>
+
+  <!-- N4 -->
+  <div class="issue" data-priority="nice" data-tags="ux layout">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-nice">КОСМЕТИКА</span>
+      <div>
+        <div class="issue-title">N4 — Точки-пагинатор (.●●) разного цвета между light и dark</div>
+        <div class="issue-meta">ux · EmptyState · history_empty, menu_search-empty</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 history_empty_dark</span>
+        <span class="screen-chip">📱 history_empty_light</span>
+        <span class="screen-chip">📱 menu_search-empty_dark</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        Три точки (●●●) в нижней части empty-состояний отображаются зелёным/серым в dark-теме и оранжевым в light. Это не семантично и непоследовательно. Скорее всего, разные компоненты used разные hardcoded классы.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">// src/components/common/EmptyState.tsx — унифицировать dots</span>
+<span class="del">- &lt;span className="w-2 h-2 rounded-full bg-green-400"&gt;</span>
+<span class="del">- &lt;span className="w-2 h-2 rounded-full bg-gray-300"&gt;</span>
+<span class="add">+ &lt;span className="w-2 h-2 rounded-full bg-muted-foreground/30"&gt;
++ &lt;span className="w-2 h-2 rounded-full bg-muted-foreground/15"&gt;
++ &lt;span className="w-2 h-2 rounded-full bg-muted-foreground/10"&gt;</span>
+
+<span class="comment">// Или убрать dots совсем — они не несут смысла в empty-state</span></pre>
+    </div>
+  </div>
+
+  <!-- N5 -->
+  <div class="issue" data-priority="nice" data-tags="type ux">
+    <div class="issue-header" onclick="toggleIssue(this)">
+      <span class="issue-badge badge-nice">КОСМЕТИКА</span>
+      <div>
+        <div class="issue-title">N5 — Pill «Перейти к голосованию» использует фиолетовый (accent) вместо primary</div>
+        <div class="issue-meta">color · history_empty · PollHistoryPage CTA кнопка</div>
+      </div>
+      <svg class="issue-chevron" viewBox="0 0 20 20"><path d="M5 7l5 5 5-5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="issue-body">
+      <div class="screenshots-row">
+        <span class="screen-chip">📱 history_empty_light</span>
+        <span class="screen-chip">📱 history_empty_dark</span>
+        <span class="screen-chip">📱 menu_search-empty_light</span>
+      </div>
+
+      <div class="field-label">Что не так</div>
+      <p class="desc-text">
+        CTA-кнопки «Перейти к голосованию» и «Сбросить фильтры» в empty-state используют фиолетовый <code>bg-accent</code>. Остальные CTA в приложении (главная, меню) — оранжевый <code>bg-primary</code>. Одновременно используются два конкурирующих «главных» цвета — это нарушает иерархию. Фиолетовый лучше оставить для второстепенных действий.
+      </p>
+
+      <div class="field-label">Решение</div>
+      <pre class="code-block"><span class="path">// EmptyState.tsx — CTA кнопки</span>
+<span class="del">- className="bg-accent text-accent-foreground ..."</span>
+<span class="add">+ className="bg-primary text-primary-foreground ..."</span>
+
+<span class="comment">// Исключение: кнопка "Сбросить фильтры" может остаться outlined/secondary,
+// чтобы не конкурировать с "+ Добавить блюдо" (FAB)</span></pre>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       SUMMARY TABLE
+  ══════════════════════════════════════════════════ -->
+  <div class="section-label">📋 Сводная таблица</div>
+
+  <table class="summary-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Приоритет</th>
+        <th>Замечание</th>
+        <th>Категория</th>
+        <th>Файл / токен</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>B1</td>
+        <td><span class="t-badge badge-blocker">БЛОКЕР</span></td>
+        <td>Двойная BottomNavigation на главной</td>
+        <td class="t-category">Вёрстка</td>
+        <td class="t-file">HomePage.tsx · App.tsx:224</td>
+      </tr>
+      <tr>
+        <td>B2</td>
+        <td><span class="t-badge badge-blocker">БЛОКЕР</span></td>
+        <td>Nav перекрывает скроллируемый контент</td>
+        <td class="t-category">Вёрстка</td>
+        <td class="t-file">Layout.tsx:105 pb-32</td>
+      </tr>
+      <tr>
+        <td>B3</td>
+        <td><span class="t-badge badge-blocker">БЛОКЕР</span></td>
+        <td>Runtime crashes на 2 страницах</td>
+        <td class="t-category">Краш</td>
+        <td class="t-file">MySuggestionsPage.tsx:881 · StatsPage.tsx:73</td>
+      </tr>
+      <tr>
+        <td>I1</td>
+        <td><span class="t-badge badge-important">ВАЖНОЕ</span></td>
+        <td>Двойной заголовок «История голосований»</td>
+        <td class="t-category">Вёрстка</td>
+        <td class="t-file">PollHistoryPage.tsx</td>
+      </tr>
+      <tr>
+        <td>I2</td>
+        <td><span class="t-badge badge-important">ВАЖНОЕ</span></td>
+        <td>FAB поверх BottomNavigation на Profile</td>
+        <td class="t-category">Вёрстка</td>
+        <td class="t-file">FloatingActionButton.tsx bottom-4</td>
+      </tr>
+      <tr>
+        <td>I3</td>
+        <td><span class="t-badge badge-important">ВАЖНОЕ</span></td>
+        <td>Цена ₽ не проходит WCAG AA (3.1:1 < 4.5:1)</td>
+        <td class="t-category">Контраст</td>
+        <td class="t-file">globals.css --primary: 23 69% 51%</td>
+      </tr>
+      <tr>
+        <td>I4</td>
+        <td><span class="t-badge badge-important">ВАЖНОЕ</span></td>
+        <td>Badge «Завершено» сливается с фоном</td>
+        <td class="t-category">Контраст</td>
+        <td class="t-file">PollHistoryPage badge styles</td>
+      </tr>
+      <tr>
+        <td>I5</td>
+        <td><span class="t-badge badge-important">ВАЖНОЕ</span></td>
+        <td>Tap-таргеты DishCard < 44px</td>
+        <td class="t-category">Вёрстка / UX</td>
+        <td class="t-file">globals.css .admin-action-btn</td>
+      </tr>
+      <tr>
+        <td>I6</td>
+        <td><span class="t-badge badge-important">ВАЖНОЕ</span></td>
+        <td>«Бюджет и аналитика» выглядит disabled в dark</td>
+        <td class="t-category">Цвет</td>
+        <td class="t-file">BudgetInsightsWidget.tsx opacity-30</td>
+      </tr>
+      <tr>
+        <td>I7</td>
+        <td><span class="t-badge badge-important">ВАЖНОЕ</span></td>
+        <td>«Поддержать» перекрывает контент + цвет вне палитры</td>
+        <td class="t-category">Вёрстка</td>
+        <td class="t-file">ProfilePage.tsx · DonationButton bg-slate-900</td>
+      </tr>
+      <tr>
+        <td>I8</td>
+        <td><span class="t-badge badge-important">ВАЖНОЕ</span></td>
+        <td>CTA «+ Добавить» в bottom sheet бледная</td>
+        <td class="t-category">Контраст</td>
+        <td class="t-file">MenuForm.tsx bg-primary light</td>
+      </tr>
+      <tr>
+        <td>N1</td>
+        <td><span class="t-badge badge-nice">МЕЛОЧЬ</span></td>
+        <td>Hero-приветствие недостаточно жирное</td>
+        <td class="t-category">Типографика</td>
+        <td class="t-file">WelcomeCard / HomeHeroCard text-xl → text-2xl bold</td>
+      </tr>
+      <tr>
+        <td>N2</td>
+        <td><span class="t-badge badge-nice">МЕЛОЧЬ</span></td>
+        <td>Числа смешивают tabular-nums и пропорциональные</td>
+        <td class="t-category">Типографика</td>
+        <td class="t-file">CountUp.tsx · FavoriteDishes font-mono</td>
+      </tr>
+      <tr>
+        <td>N3</td>
+        <td><span class="t-badge badge-nice">МЕЛОЧЬ</span></td>
+        <td>«% Одобрений» пустое при 0 данных</td>
+        <td class="t-category">UX</td>
+        <td class="t-file">SuggestionsPage.tsx approvalRate NaN</td>
+      </tr>
+      <tr>
+        <td>N4</td>
+        <td><span class="t-badge badge-nice">МЕЛОЧЬ</span></td>
+        <td>Точки-пагинатор разного цвета в light/dark</td>
+        <td class="t-category">UX</td>
+        <td class="t-file">EmptyState.tsx bg-green-400 / bg-gray-300</td>
+      </tr>
+      <tr>
+        <td>N5</td>
+        <td><span class="t-badge badge-nice">МЕЛОЧЬ</span></td>
+        <td>CTA empty-state фиолетовая вместо primary</td>
+        <td class="t-category">Цвет</td>
+        <td class="t-file">EmptyState.tsx bg-accent → bg-primary</td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>
+
+<script>
+function toggleIssue(header) {
+  header.parentElement.classList.toggle('open');
+}
+
+function filterIssues(tag) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+
+  document.querySelectorAll('.issue').forEach(issue => {
+    if (tag === 'all') {
+      issue.removeAttribute('data-hidden');
+    } else {
+      const tags = issue.getAttribute('data-tags') || '';
+      if (tags.includes(tag)) {
+        issue.removeAttribute('data-hidden');
+      } else {
+        issue.setAttribute('data-hidden', '1');
+      }
+    }
+  });
+
+  // Update section labels visibility
+  document.querySelectorAll('.section-label').forEach(label => {
+    const next = label.nextElementSibling;
+    // Check if any visible issue follows this label
+    let sibling = next;
+    let hasVisible = false;
+    while (sibling && !sibling.classList.contains('section-label')) {
+      if (sibling.classList.contains('issue') && !sibling.hasAttribute('data-hidden')) {
+        hasVisible = true;
+        break;
+      }
+      sibling = sibling.nextElementSibling;
+    }
+    label.style.display = hasVisible ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

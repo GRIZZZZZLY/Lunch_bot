@@ -85,7 +85,7 @@ let autoUpdateInterval: NodeJS.Timeout | null = null;
  * Запустить автоматическое обновление счетчика
  * @param intervalMs - интервал обновления в миллисекундах (по умолчанию 30 секунд)
  */
-export const startPollsAutoUpdate = (intervalMs: number = 30000) => {
+export const startPollsAutoUpdate = (intervalMs: number = 60000) => {
   if (autoUpdateInterval) {
     console.log('[PollsStore] Auto-update already running');
     return;

@@ -15,6 +15,8 @@ export async function startCommand(ctx: BotContext): Promise<void> {
     }
 
     // Создаем или обновляем пользователя в БД
+    // isNewUser определяется по createdAt: если запись создана менее 10 секунд назад — новый пользователь.
+    // Это надёжнее сессии, которая сбрасывается при рестарте бота.
     const dbUser = await UserService.upsertUser({
       telegramId: user.id.toString(),
       username: user.username,
@@ -22,12 +24,15 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       lastName: user.last_name,
     });
 
-    const isNewUser = ctx.session?.step !== 'registered';
-    ctx.session.step = 'registered';
+    const ageMs = Date.now() - new Date(dbUser.createdAt).getTime();
+    const isNewUser = ageMs < 10_000; // менее 10 секунд назад — только что создан
 
     // Обработка deep links (параметры после /start)
     const startParam = ctx.match; // Например: "menu_-1001234567"
-    const webappUrl = process.env.WEBAPP_URL || 'https://ergodic-genevieve-unsulphurized.ngrok-free.dev';
+    const webappUrl = process.env.WEBAPP_URL ?? '';
+    if (!webappUrl) {
+      logger.warn('WEBAPP_URL is not set — web_app buttons will be unavailable');
+    }
 
     // Deep link для меню группы: /start menu_GROUP_ID
     if (startParam && startParam.toString().startsWith('menu_')) {
@@ -189,7 +194,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
         '💡 **Для начала:**\n' +
         '1. Добавьте меня в группу\n' +
         '2. Дайте мне права администратора\n' +
-        '3. Используйте /help для списка команд'
+        '3. Откройте Mini App через кнопку Menu'
       : `👋 С возвращением, ${user.first_name}!`;
 
     const isGroup = ctx.chat?.type !== 'private';
@@ -200,50 +205,22 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       !webappUrl.includes('localhost');
     
     // В группах web_app кнопки не работают (ограничение Telegram)
-    const keyboard = {
-      inline_keyboard: isGroup ? [
-        // Для групп - обычные кнопки
-        [
-          { text: '🍽️ Меню', callback_data: 'menu' },
-          { text: '📖 Команды', callback_data: 'help' }
-        ],
-        [
-          { text: '👥 О боте', callback_data: 'about' },
-          { text: '👑 Админы', callback_data: 'show_admins' }
-        ]
-      ] : isWebAppAvailable ? [
-        // Для личных чатов с HTTPS - с кнопкой Mini App
-        [
-          {
-            text: '🚀 Открыть Mini App',
-            web_app: { url: webappUrl }
-          }
-        ],
-        [
-          { text: '🍽️ Меню', callback_data: 'menu' },
-          { text: '📖 Команды', callback_data: 'help' }
-        ],
-        [
-          { text: '👥 О боте', callback_data: 'about' },
-          { text: '👑 Админы', callback_data: 'show_admins' }
-        ]
-      ] : [
-        // Для личных чатов без HTTPS - только обычные кнопки
-        [
-          { text: '🍽️ Меню', callback_data: 'menu' },
-          { text: '📖 Команды', callback_data: 'help' }
-        ],
-        [
-          { text: '👥 О боте', callback_data: 'about' },
-          { text: '👑 Админы', callback_data: 'show_admins' }
-        ]
-      ]
-    };
+    const replyOptions: any = { parse_mode: 'Markdown' };
 
-    await ctx.reply(welcomeText, {
-      parse_mode: 'Markdown',
-      reply_markup: keyboard
-    });
+    if (!isGroup && isWebAppAvailable) {
+      replyOptions.reply_markup = {
+        inline_keyboard: [
+          [
+            {
+              text: '🚀 Открыть Mini App',
+              web_app: { url: webappUrl },
+            },
+          ],
+        ],
+      };
+    }
+
+    await ctx.reply(welcomeText, replyOptions);
 
     // Логируем регистрацию
     logger.info('User started bot', {
@@ -253,25 +230,6 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       firstName: user.first_name,
       isNewUser
     });
-
-    // Если это группа, объясняем функционал
-    if (isGroup) {
-      setTimeout(async () => {
-        await ctx.reply(
-          '👥 **Групповой режим активирован!**\n\n' +
-          '🔧 **Для полного функционала:**\n' +
-          '1. Сделайте меня администратором группы\n' +
-          '2. Используйте /startpoll для запуска голосования\n' +
-          '3. Участники смогут голосовать за блюда\n\n' +
-          '📱 **Для управления меню:**\n' +
-          '• Откройте бота [@rocket_lunch_bot](https://t.me/rocket_lunch_bot) в личных сообщениях\n' +
-          '• Нажмите на кнопку Menu внизу экрана\n' +
-          '• Или используйте команду /menu в личке\n\n' +
-          '⚡ Попробуйте /help для списка команд',
-          { parse_mode: 'Markdown' }
-        );
-      }, 1000);
-    }
 
   } catch (error) {
     logger.error('Error in start command:', error);

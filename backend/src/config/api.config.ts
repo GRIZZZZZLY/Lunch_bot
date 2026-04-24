@@ -4,6 +4,8 @@ import path from 'path';
 // Загружаем переменные окружения
 dotenv.config();
 
+const jwtSecret = process.env.JWT_SECRET?.trim() || '';
+
 export const apiConfig = {
   // Сервер
   host: process.env.API_HOST || '0.0.0.0',
@@ -31,14 +33,30 @@ export const apiConfig = {
     enableRateLimit: process.env.ENABLE_RATE_LIMIT !== 'false',
     
     // Максимальное количество запросов в минуту на IP
-    rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100'),
+    rateLimitMax: parseInt(
+      process.env.RATE_LIMIT_MAX ||
+        (process.env.NODE_ENV === 'production' ? '300' : '100')
+    ),
     
     // Окно для rate limiting (минуты)
     rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW || '15') * 60 * 1000,
+
+    // Лимиты для auth endpoints (по IP)
+    authRateLimitMax: parseInt(
+      process.env.AUTH_RATE_LIMIT_MAX ||
+        (process.env.NODE_ENV === 'production' ? '120' : '50')
+    ),
+    authRateLimitWindowMs:
+      parseInt(
+        process.env.AUTH_RATE_LIMIT_WINDOW ||
+          (process.env.NODE_ENV === 'production' ? '15' : '5')
+      ) *
+      60 *
+      1000,
     
     // JWT настройки
     jwt: {
-      secret: process.env.JWT_SECRET || process.env.BOT_TOKEN || 'fallback-secret',
+      secret: jwtSecret,
       expiresIn: process.env.JWT_EXPIRES_IN || '24h',
     },
   },
@@ -195,13 +213,23 @@ function validateApiConfig() {
   if (apiConfig.upload.maxSizeMB < 1) {
     errors.push('MAX_FILE_SIZE_MB must be at least 1');
   }
+
+  if (apiConfig.security.rateLimitMax < 1) {
+    errors.push('RATE_LIMIT_MAX must be at least 1');
+  }
+
+  if (apiConfig.security.authRateLimitMax < 1) {
+    errors.push('AUTH_RATE_LIMIT_MAX must be at least 1');
+  }
   
   if (apiConfig.pagination.defaultLimit > apiConfig.pagination.maxLimit) {
     errors.push('DEFAULT_PAGE_LIMIT cannot be greater than MAX_PAGE_LIMIT');
   }
   
-  if (!apiConfig.security.jwt.secret || apiConfig.security.jwt.secret === 'fallback-secret') {
-    console.warn('Warning: Using fallback JWT secret. Set JWT_SECRET in production.');
+  if (!apiConfig.security.jwt.secret) {
+    errors.push('JWT_SECRET is required');
+  } else if (apiConfig.security.jwt.secret.length < 32) {
+    errors.push('JWT_SECRET must be at least 32 characters');
   }
   
   if (errors.length > 0) {

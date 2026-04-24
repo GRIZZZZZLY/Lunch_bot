@@ -9,6 +9,10 @@ set -e
 
 echo "🔄 Starting quick update..."
 
+# Frontend directory (switch between frontend / frontend-new without rename)
+FRONTEND_DIR="${FRONTEND_DIR:-frontend}"
+echo "🎨 Frontend dir: $FRONTEND_DIR"
+
 # ===============================================
 # 1. Pull Latest Changes
 # ===============================================
@@ -53,7 +57,7 @@ echo "✅ Backend updated"
 # ===============================================
 echo "🎨 Updating frontend..."
 
-cd frontend
+cd "$FRONTEND_DIR"
 
 # Install new dependencies if any
 npm install
@@ -63,7 +67,7 @@ npm run build
 
 cd ..
 
-echo "✅ Frontend updated"
+echo "✅ Frontend updated ($FRONTEND_DIR)"
 
 # ===============================================
 # 4. Reload Application (zero-downtime)

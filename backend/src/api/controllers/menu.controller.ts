@@ -1,7 +1,15 @@
 import { Request, Response } from 'express';
 import { MenuService } from '../../services/menu.service';
 import { logger } from '../../utils/logger';
+import { getParam } from '../../utils/request-params';
 import { CreateMenuItemData, UpdateMenuItemData } from '../../types/menu.types';
+import { toNumber } from '../../utils/decimal';
+
+function serializeMenuItem(item: any): any {
+  if (!item) return item;
+  if (item.price === null || item.price === undefined) return item;
+  return { ...item, price: toNumber(item.price) };
+}
 
 export class MenuController {
   /**
@@ -14,7 +22,7 @@ export class MenuController {
 
       res.json({
         success: true,
-        data: items,
+        data: items.map(serializeMenuItem),
         count: items.length,
         timestamp: new Date().toISOString(),
       });
@@ -51,7 +59,7 @@ export class MenuController {
 
       res.json({
         success: true,
-        data: items,
+        data: items.map(serializeMenuItem),
         count: items.length,
         timestamp: new Date().toISOString(),
       });
@@ -66,30 +74,7 @@ export class MenuController {
     }
   }
 
-  /**
-   * GET /api/menu/categories
-   * Получение списка категорий
-   */
-  static async getCategories(req: Request, res: Response): Promise<void> {
-    try {
-      const categories = await MenuService.getCategories();
 
-      res.json({
-        success: true,
-        data: categories,
-        count: categories.length,
-        timestamp: new Date().toISOString(),
-      });
-
-    } catch (error) {
-      logger.error('Error getting categories:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get categories',
-        code: 'INTERNAL_ERROR'
-      });
-    }
-  }
 
   /**
    * GET /api/menu/popular
@@ -102,7 +87,7 @@ export class MenuController {
 
       res.json({
         success: true,
-        data: items,
+        data: items.map(serializeMenuItem),
         count: items.length,
         limit,
         timestamp: new Date().toISOString(),
@@ -163,7 +148,7 @@ export class MenuController {
 
       res.json({
         success: true,
-        data: items,
+        data: items.map(serializeMenuItem),
         count: items.length,
         query: query.trim(),
         timestamp: new Date().toISOString(),
@@ -185,7 +170,7 @@ export class MenuController {
    */
   static async getItemById(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(getParam(req.params, 'id'), 10);
       
       if (isNaN(id)) {
         res.status(400).json({
@@ -209,7 +194,7 @@ export class MenuController {
 
       res.json({
         success: true,
-        data: item,
+        data: serializeMenuItem(item),
         timestamp: new Date().toISOString(),
       });
 
@@ -240,7 +225,6 @@ export class MenuController {
           name: data.name,
           description: data.description?.substring(0, 50),
           price: data.price,
-          category: data.category,
           isActive: data.isActive,
         },
       });
@@ -256,15 +240,14 @@ export class MenuController {
       logger.info('✅ MENU ITEM CREATED SUCCESSFULLY', {
         itemId: item.id,
         name: item.name,
-        category: item.category,
-        price: item.price,
+        price: item.price === null || item.price === undefined ? item.price : toNumber(item.price),
         createdBy: user.id,
         createdByUsername: user.username,
       });
 
       res.status(201).json({
         success: true,
-        data: item,
+        data: serializeMenuItem(item),
         message: 'Menu item created successfully',
         timestamp: new Date().toISOString(),
       });
@@ -290,7 +273,7 @@ export class MenuController {
    */
   static async updateItem(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(getParam(req.params, 'id'), 10);
       const data: UpdateMenuItemData = req.body;
       const user = (req as any).user;
 
@@ -313,7 +296,7 @@ export class MenuController {
 
       res.json({
         success: true,
-        data: item,
+        data: serializeMenuItem(item),
         message: 'Menu item updated successfully',
         timestamp: new Date().toISOString(),
       });
@@ -343,7 +326,7 @@ export class MenuController {
    */
   static async toggleItemStatus(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(getParam(req.params, 'id'), 10);
       const user = (req as any).user;
 
       if (isNaN(id)) {
@@ -366,7 +349,7 @@ export class MenuController {
 
       res.json({
         success: true,
-        data: item,
+        data: serializeMenuItem(item),
         message: `Menu item ${item.isActive ? 'activated' : 'deactivated'} successfully`,
         timestamp: new Date().toISOString(),
       });
@@ -396,7 +379,7 @@ export class MenuController {
    */
   static async deleteItem(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(req.params.id);
+      const id = parseInt(getParam(req.params, 'id'), 10);
       const user = (req as any).user;
 
       if (isNaN(id)) {

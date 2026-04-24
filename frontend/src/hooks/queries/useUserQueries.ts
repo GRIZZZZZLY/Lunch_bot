@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '../../services/user.service';
 import { queryKeys } from '../../lib/react-query';
-import { useToast } from '../../components/common/ToastManager';
+import { useToast } from '../../components/common/toast-context';
 
 /**
  * Хук для получения текущего пользователя

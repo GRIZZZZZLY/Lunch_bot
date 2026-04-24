@@ -208,7 +208,9 @@ export class SeasonService {
         return;
       }
 
-      const rewards = season.rewards ? JSON.parse(season.rewards) : null;
+      const rewards = season.rewards 
+        ? (typeof season.rewards === 'string' ? JSON.parse(season.rewards) : season.rewards)
+        : null;
       if (!rewards) {
         logger.warn('No rewards configured for season', { seasonId });
         return;

@@ -37,7 +37,9 @@ export function useBudgetWidget(): BudgetWidgetData {
     queryFn: async () => {
       try {
         console.log('[useBudgetWidget] Fetching debts for user:', user?.id);
-        const result = await budgetService.getDebts(user!.id);
+        const result = await budgetService.getDebts(user!.id, undefined, {
+          activeOnly: true,
+        });
         console.log('[useBudgetWidget] ✅ Debts fetched:', result?.length || 0);
         return result || [];
       } catch (error) {
@@ -65,7 +67,9 @@ export function useBudgetWidget(): BudgetWidgetData {
     queryFn: async () => {
       try {
         console.log('[useBudgetWidget] Fetching credits for user:', user?.id);
-        const result = await budgetService.getCredits(user!.id);
+        const result = await budgetService.getCredits(user!.id, undefined, {
+          activeOnly: true,
+        });
         console.log('[useBudgetWidget] ✅ Credits fetched:', result?.length || 0);
         return result || [];
       } catch (error) {
@@ -120,20 +124,8 @@ export function useBudgetWidget(): BudgetWidgetData {
     }
   }, [user, allDebts, credits, isLoading, activePoll, debtsError, creditsError]);
   
-  // 1. Фильтруем старые CONFIRMED долги (подтверждённые более 2 минут назад)
   const recentDebts = useMemo(() => {
-    return allDebts.filter(debt => {
-      // Если не CONFIRMED, показываем всегда
-      if (debt.status !== 'CONFIRMED') return true;
-      
-      // Если CONFIRMED, показываем только если подтверждено менее 2 минут назад
-      if (debt.confirmedAt) {
-        const minutesSinceConfirmed = (Date.now() - new Date(debt.confirmedAt).getTime()) / 1000 / 60;
-        return minutesSinceConfirmed <= 2;
-      }
-      
-      return false;
-    });
+    return allDebts;
   }, [allDebts]);
   
   // 2. Определяем временной контекст (голосование завершено менее 5 минут назад)
@@ -188,7 +180,7 @@ export function useBudgetWidget(): BudgetWidgetData {
     
     // Все остальные случаи → обзор всех финансов
     return 'overview';
-  }, [recentDebts, credits, currentDebt, currentCredit, isResponsible, pollJustCompleted]);
+  }, [recentDebts, credits, currentDebt, isResponsible, pollJustCompleted]);
   
   // 5. Разделяем долги на текущие и старые
   const otherDebts = useMemo(() => {

@@ -175,28 +175,3 @@ export const PerformanceMonitor: React.FC = () => {
   );
 };
 
-// Hook для использования web vitals в компонентах
-export const useWebVitals = () => {
-  const [vitals, setVitals] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    if ('PerformanceObserver' in window) {
-      import('web-vitals').then(({ onCLS, onINP, onFCP, onLCP, onTTFB }) => {
-        const updateVital = (metric: Metric) => {
-          setVitals(prev => ({
-            ...prev,
-            [metric.name]: metric.value,
-          }));
-        };
-
-        onCLS(updateVital);
-        onINP(updateVital);
-        onFCP(updateVital);
-        onLCP(updateVital);
-        onTTFB(updateVital);
-      });
-    }
-  }, []);
-
-  return vitals;
-};

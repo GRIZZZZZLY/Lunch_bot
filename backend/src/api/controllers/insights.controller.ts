@@ -7,6 +7,7 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../../types/api.types';
 import { InsightsService } from '../../services/insights.service';
 import { logger } from '../../utils/logger';
+import { getParam } from '../../utils/request-params';
 
 /**
  * GET /api/insights/budget
@@ -43,7 +44,7 @@ export async function getBudgetInsights(req: AuthenticatedRequest, res: Response
 export async function getBudgetInsightsByUserId(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const requestingUserId = req.user?.id;
-    const targetUserId = parseInt(req.params.userId);
+    const targetUserId = parseInt(getParam(req.params, 'userId'), 10);
 
     if (!requestingUserId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { logger } from '../../utils/logger';
 import { prisma } from '../../database/client';
 import { notificationService } from '../../services/notification.service';
+import { getParam } from '../../utils/request-params';
 
 class NotificationController {
   /**
@@ -164,7 +165,7 @@ class NotificationController {
   async getCooldownStatus(req: Request, res: Response) {
     try {
       const userId = (req as any).user?.id;
-      const groupId = parseInt(req.params.groupId);
+      const groupId = parseInt(getParam(req.params, 'groupId'), 10);
 
       if (!userId) {
         return res.status(401).json({ 

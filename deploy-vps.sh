@@ -26,9 +26,15 @@ fi
 # ===============================================
 echo "📦 Setting up environment..."
 
+# Frontend directory (switch between frontend / frontend-new without rename)
+FRONTEND_DIR="${FRONTEND_DIR:-frontend}"
+echo "🎨 Frontend dir: $FRONTEND_DIR"
+
 # Copy production environment files
 cp backend/.env.production backend/.env
-cp frontend/.env.production frontend/.env
+if [ -f "$FRONTEND_DIR/.env.production" ]; then
+  cp "$FRONTEND_DIR/.env.production" "$FRONTEND_DIR/.env"
+fi
 
 echo "✅ Environment files configured"
 
@@ -43,7 +49,7 @@ npm ci --only=production
 cd ..
 
 # Frontend dependencies (needed for build)
-cd frontend
+cd "$FRONTEND_DIR"
 npm ci
 cd ..
 
@@ -54,11 +60,11 @@ echo "✅ Dependencies installed"
 # ===============================================
 echo "🏗️  Building frontend..."
 
-cd frontend
+cd "$FRONTEND_DIR"
 npm run build
 cd ..
 
-echo "✅ Frontend built successfully"
+echo "✅ Frontend built successfully ($FRONTEND_DIR)"
 
 # ===============================================
 # 4. Build Backend

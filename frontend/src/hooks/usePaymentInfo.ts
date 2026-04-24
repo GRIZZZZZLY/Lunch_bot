@@ -6,7 +6,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryClient';
 import { userService, type PaymentInfo } from '@/services/user.service';
-import { useUI } from '@/store/useAppStore';
+import { useAppStore } from '@/store/useAppStore';
 import { useAuth } from '@/hooks/useAuth';
 
 /**
@@ -47,7 +47,7 @@ export function usePaymentInfo() {
 export function useUpdatePaymentInfo() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { addNotification } = useUI();
+  const addNotification = useAppStore((state) => state.addNotification);
 
   return useMutation({
     mutationFn: async (data: PaymentInfo) => {

@@ -1,96 +1,159 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
   postgres:
-    image: postgres:15-alpine
-    container_name: rocket_lunch_db
+    image: postgres:16-alpine
+    container_name: foodbot-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: rocket_lunch_db
-      POSTGRES_USER: rocket_lunch_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-foodbot_db}
+      POSTGRES_USER: ${POSTGRES_USER:-foodbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-foodbot_password}
+      GLITCHTIP_DB: ${GLITCHTIP_DB:-glitchtip_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
-      - rocket_lunch_network
+      - foodbot-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rocket_lunch_user -d rocket_lunch_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-foodbot}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Backend API + Bot
+  redis:
+    image: redis:7-alpine
+    container_name: foodbot-redis
+    restart: unless-stopped
+    networks:
+      - foodbot-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile.production
-    container_name: rocket_lunch_backend
+    container_name: foodbot-backend
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://rocket_lunch_user:${POSTGRES_PASSWORD}@postgres:5432/rocket_lunch_db
-      - BOT_TOKEN=${BOT_TOKEN}
-      - BOT_USERNAME=${BOT_USERNAME}
-      - BOT_MODE=webhook
-      - BOT_WEBHOOK_URL=${BOT_WEBHOOK_URL}
-      - TELEGRAM_SECRET_KEY=${BOT_TOKEN}
-      - WEBAPP_URL=${WEBAPP_URL}
-      - API_PORT=3001
-      - API_HOST=0.0.0.0
-      - JWT_SECRET=${JWT_SECRET}
-      - CORS_ORIGIN=${WEBAPP_URL}
-      - ADMIN_USER_IDS=${ADMIN_USER_IDS}
-      - NOTIFICATION_ENABLED=true
-      - NOTIFICATION_DELAY_MINUTES=5
-      - POLL_DURATION_MINUTES=30
-      - AUTO_ROULETTE_ENABLED=true
-      - SKIP_TELEGRAM_VALIDATION=false
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-foodbot}:${POSTGRES_PASSWORD:-foodbot_password}@postgres:5432/${POSTGRES_DB:-foodbot_db}
+      BOT_TOKEN: ${BOT_TOKEN}
+      BOT_USERNAME: ${BOT_USERNAME}
+      BOT_MODE: ${BOT_MODE:-webhook}
+      BOT_WEBHOOK_URL: ${BOT_WEBHOOK_URL:-}
+      TELEGRAM_SECRET_KEY: ${TELEGRAM_SECRET_KEY}
+      WEBAPP_URL: ${WEBAPP_URL}
+      API_PORT: ${API_PORT:-3001}
+      API_HOST: ${API_HOST:-0.0.0.0}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CORS_ORIGIN: ${CORS_ORIGIN:-${WEBAPP_URL}}
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS:-}
+      POLL_DURATION_MINUTES: ${POLL_DURATION_MINUTES:-30}
+      AUTO_ROULETTE_ENABLED: ${AUTO_ROULETTE_ENABLED:-true}
+      ENABLE_GLITCHTIP: ${ENABLE_GLITCHTIP:-false}
+      GLITCHTIP_DSN: ${GLITCHTIP_DSN:-}
     ports:
-      - "3001:3001"
+      - "${API_PORT:-3001}:3001"
     volumes:
       - ./backend/logs:/app/logs
       - ./backend/uploads:/app/uploads
     networks:
-      - rocket_lunch_network
+      - foodbot-network
+    command: sh -c "npx prisma migrate deploy && node dist/index.js"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
-  # Nginx Reverse Proxy + Frontend
-  nginx:
-    image: nginx:alpine
-    container_name: rocket_lunch_nginx
+  glitchtip:
+    image: glitchtip/glitchtip:latest
+    container_name: foodbot-glitchtip
     restart: unless-stopped
     depends_on:
-      - backend
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-foodbot}:${POSTGRES_PASSWORD:-foodbot_password}@postgres:5432/${GLITCHTIP_DB:-glitchtip_db}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY}
+      PORT: ${GLITCHTIP_PORT:-8000}
+      EMAIL_URL: ${EMAIL_URL:-consolemail://}
+      GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@glitchtip.local}
+      CELERY_WORKER_AUTOSCALE: ${CELERY_WORKER_AUTOSCALE:-1,3}
+      CELERY_WORKER_MAX_TASKS_PER_CHILD: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-10000}
     ports:
-      - "80:80"
-      - "443:443"
+      - "${GLITCHTIP_PORT:-8000}:8000"
     volumes:
-      - ./frontend/dist:/usr/share/nginx/html
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - nginx_logs:/var/log/nginx
+      - glitchtip_uploads:/code/uploads
     networks:
-      - rocket_lunch_network
+      - foodbot-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
+
+  glitchtip-worker:
+    image: glitchtip/glitchtip:latest
+    container_name: foodbot-glitchtip-worker
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+      - glitchtip
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-foodbot}:${POSTGRES_PASSWORD:-foodbot_password}@postgres:5432/${GLITCHTIP_DB:-glitchtip_db}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY}
+      EMAIL_URL: ${EMAIL_URL:-consolemail://}
+      CELERY_WORKER_AUTOSCALE: ${CELERY_WORKER_AUTOSCALE:-1,3}
+      CELERY_WORKER_MAX_TASKS_PER_CHILD: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-10000}
+    command: ./bin/run-celery-with-beat.sh
+    volumes:
+      - glitchtip_uploads:/code/uploads
+    networks:
+      - foodbot-network
+
+  glitchtip-migrate:
+    image: glitchtip/glitchtip:latest
+    container_name: foodbot-glitchtip-migrate
+    restart: "no"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-foodbot}:${POSTGRES_PASSWORD:-foodbot_password}@postgres:5432/${GLITCHTIP_DB:-glitchtip_db}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY}
+      EMAIL_URL: ${EMAIL_URL:-consolemail://}
+      GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@glitchtip.local}
+    command: ./bin/run-migrate.sh
+    volumes:
+      - glitchtip_uploads:/code/uploads
+    networks:
+      - foodbot-network
 
 volumes:
   postgres_data:
     driver: local
-  nginx_logs:
+  glitchtip_uploads:
     driver: local
 
 networks:
-  rocket_lunch_network:
+  foodbot-network:
     driver: bridge

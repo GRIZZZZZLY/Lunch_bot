@@ -74,6 +74,9 @@ declare global {
         disableClosingConfirmation: () => void;
         openLink: (url: string) => void;
         shareLink: (url: string, text?: string) => Promise<void>;
+        setHeaderColor?: (color: string) => void;
+        setBackgroundColor?: (color: string) => void;
+        setBottomBarColor?: (color: string) => void;
       };
     };
   }

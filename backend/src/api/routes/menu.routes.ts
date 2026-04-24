@@ -18,12 +18,6 @@ router.get('/', telegramAuthMiddleware, menuController.getAllItems);
 router.get('/active', telegramAuthMiddleware, menuController.getActiveItems);
 
 /**
- * GET /api/menu/categories
- * Получение списка категорий
- */
-router.get('/categories', telegramAuthMiddleware, menuController.getCategories);
-
-/**
  * GET /api/menu/popular
  * Получение популярных блюд
  */

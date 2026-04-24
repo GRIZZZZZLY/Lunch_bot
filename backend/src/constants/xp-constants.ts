@@ -47,6 +47,7 @@ export const XP_REWARDS = {
   WIN_VOTE: { amount: XP_AMOUNTS.GASTRO.WIN_VOTE, category: 'GASTRO' as const, reason: 'Предложение победило' },
   SELECTED_RESPONSIBLE: { amount: XP_AMOUNTS.RESPONSIBLE.SELECTED_ROULETTE, category: 'RESPONSIBLE' as const, reason: 'Выбран ответственным' },
   VOLUNTEER_RESPONSIBLE: { amount: XP_AMOUNTS.RESPONSIBLE.VOLUNTEER, category: 'RESPONSIBLE' as const, reason: 'Стал волонтёром' },
+  ROULETTE_RESPONSIBLE: { amount: XP_AMOUNTS.RESPONSIBLE.SELECTED_ROULETTE, category: 'RESPONSIBLE' as const, reason: 'Выбран рулеткой' },
   TRY_NEW_DISH: { amount: XP_AMOUNTS.GASTRO.TRY_NEW_DISH, category: 'GASTRO' as const, reason: 'Попробовал новое блюдо' },
   NEW_CATEGORY: { amount: XP_AMOUNTS.EXPLORER.NEW_CATEGORY, category: 'EXPLORER' as const, reason: 'Открыл новую категорию' },
 } as const;

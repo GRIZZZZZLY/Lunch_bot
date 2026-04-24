@@ -6,6 +6,11 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    include: ['tests/**/*.{test,spec}.{ts,tsx,js,jsx}'],
+    exclude: ['**/node_modules/**', 'tests/e2e/**'],
+  },
   plugins: [
     react(),
     VitePWA({
@@ -161,8 +166,8 @@ export default defineConfig({
       compress: {
         drop_console: true, // Удаляем console.log в production
         drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug'], // Удаляем все console методы
-        passes: 2, // Дополнительный проход для лучшего минифицирования
+        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.trace'], // Удаляем все console методы
+        passes: 2, // Безопасное количество проходов (откатили с 3 до 2 из-за ReferenceError)
       },
       mangle: {
         safari10: true, // Safari 10 compatibility
@@ -183,16 +188,26 @@ export default defineConfig({
         warn(warning);
       },
       output: {
-        // ВРЕМЕННО УПРОЩЕНО для отладки - минимальный chunk splitting
+        // Safe chunk splitting - tested to avoid circular dependencies
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // React и react-dom должны быть ПЕРВЫМИ в одном chunk
-            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') ||
-                id.includes('node_modules\\react\\') || id.includes('node_modules\\react-dom\\') ||
-                id.includes('node_modules/scheduler/') || id.includes('node_modules\\scheduler\\')) {
-              return 'react-vendor';
+            // Charts - lazy loaded with StatsPage only
+            if (id.includes('/recharts/') || id.includes('\\recharts\\')) {
+              return 'charts';
             }
-            // Всё остальное в vendor
+            // Framer Motion - animation library (~100 KB)
+            if (id.includes('/framer-motion/') || id.includes('\\framer-motion\\')) {
+              return 'animations';
+            }
+            // Radix UI - component library (~50 KB)
+            if (id.includes('/@radix-ui/') || id.includes('\\@radix-ui\\')) {
+              return 'ui-libs';
+            }
+            // React Query - data fetching library (~45 KB)
+            if (id.includes('/@tanstack/react-query') || id.includes('\\@tanstack\\react-query')) {
+              return 'query-libs';
+            }
+            // Everything else (including React) in vendor chunk
             return 'vendor';
           }
         },
@@ -228,8 +243,13 @@ export default defineConfig({
       'axios',
       'react-window',
       'react-virtualized-auto-sizer',
+      'dayjs',
     ],
-    exclude: ['@storybook/*'], // Исключаем storybook из dev build
+    exclude: [
+      '@storybook/*',
+      '@tanstack/react-query-devtools', // Exclude devtools from optimization
+      'lucide-react', // Exclude для лучшего tree-shaking в production
+    ],
   },
   define: {
     // Telegram WebApp глобальные переменные

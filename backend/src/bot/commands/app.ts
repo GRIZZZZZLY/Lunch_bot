@@ -31,7 +31,10 @@ export async function appCommand(ctx: BotContext): Promise<void> {
       return;
     }
 
-    const webappUrl = process.env.WEBAPP_URL || 'https://ergodic-genevieve-unsulphurized.ngrok-free.dev';
+    const webappUrl = process.env.WEBAPP_URL ?? '';
+    if (!webappUrl) {
+      logger.warn('WEBAPP_URL is not set — web_app buttons will be unavailable');
+    }
     const isGroup = ctx.chat?.type !== 'private';
     const isAdmin = dbUser.isAdmin;
 

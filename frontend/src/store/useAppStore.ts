@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import { devtools, persist } from 'zustand/middleware';
 import type { User } from '../hooks/useAuth';
 import type { MenuItem } from '../services/menu.service';
@@ -113,6 +114,19 @@ export interface AppActions {
   reset: () => void;
 }
 
+export interface UISlice {
+  loading: boolean;
+  error: string | null;
+  theme: 'light' | 'dark';
+  notifications: AppState['notifications'];
+  setLoading: AppActions['setLoading'];
+  setError: AppActions['setError'];
+  setTheme: AppActions['setTheme'];
+  addNotification: AppActions['addNotification'];
+  removeNotification: AppActions['removeNotification'];
+  clearNotifications: AppActions['clearNotifications'];
+}
+
 const initialState: AppState = {
   // Auth
   user: null,
@@ -207,7 +221,8 @@ export const useAppStore = create<AppState & AppActions>()(
         // UI actions
         setLoading: (loading) => set({ loading }),
         setError: (error) => set({ error }),
-        setTheme: (theme) => set({ theme }),
+        setTheme: (theme) =>
+          set((state) => (state.theme === theme ? state : { theme })),
         
         // Notification actions
         addNotification: (notification) => {
@@ -251,52 +266,72 @@ export const useAppStore = create<AppState & AppActions>()(
 );
 
 // Селекторы для удобства
-export const useAuth = () => useAppStore((state) => ({
-  user: state.user,
-  isAuthenticated: state.isAuthenticated,
-  setUser: state.setUser,
-  setAuthenticated: state.setAuthenticated,
-}));
+export const useAuth = () =>
+  useAppStore(
+    useShallow(
+    (state) => ({
+      user: state.user,
+      isAuthenticated: state.isAuthenticated,
+      setUser: state.setUser,
+      setAuthenticated: state.setAuthenticated,
+    })
+    )
+  );
 
-export const useMenu = () => useAppStore((state) => ({
-  menuItems: state.menuItems,
-  selectedCategory: state.selectedCategory,
-  menuLoading: state.menuLoading,
-  setMenuItems: state.setMenuItems,
-  addMenuItem: state.addMenuItem,
-  updateMenuItem: state.updateMenuItem,
-  removeMenuItem: state.removeMenuItem,
-  setSelectedCategory: state.setSelectedCategory,
-  setMenuLoading: state.setMenuLoading,
-}));
+export const useMenu = () =>
+  useAppStore(
+    useShallow(
+    (state) => ({
+      menuItems: state.menuItems,
+      selectedCategory: state.selectedCategory,
+      menuLoading: state.menuLoading,
+      setMenuItems: state.setMenuItems,
+      addMenuItem: state.addMenuItem,
+      updateMenuItem: state.updateMenuItem,
+      removeMenuItem: state.removeMenuItem,
+      setSelectedCategory: state.setSelectedCategory,
+      setMenuLoading: state.setMenuLoading,
+    })
+    )
+  );
 
-export const usePolls = () => useAppStore((state) => ({
-  currentPoll: state.currentPoll,
-  polls: state.polls,
-  votes: state.votes,
-  pollResults: state.pollResults,
-  pollsLoading: state.pollsLoading,
-  setCurrentPoll: state.setCurrentPoll,
-  setPolls: state.setPolls,
-  addPoll: state.addPoll,
-  updatePoll: state.updatePoll,
-  setVotes: state.setVotes,
-  addVote: state.addVote,
-  updateVote: state.updateVote,
-  setPollResults: state.setPollResults,
-  addPollResult: state.addPollResult,
-  setPollsLoading: state.setPollsLoading,
-}));
+export const usePolls = () =>
+  useAppStore(
+    useShallow(
+    (state) => ({
+      currentPoll: state.currentPoll,
+      polls: state.polls,
+      votes: state.votes,
+      pollResults: state.pollResults,
+      pollsLoading: state.pollsLoading,
+      setCurrentPoll: state.setCurrentPoll,
+      setPolls: state.setPolls,
+      addPoll: state.addPoll,
+      updatePoll: state.updatePoll,
+      setVotes: state.setVotes,
+      addVote: state.addVote,
+      updateVote: state.updateVote,
+      setPollResults: state.setPollResults,
+      addPollResult: state.addPollResult,
+      setPollsLoading: state.setPollsLoading,
+    })
+    )
+  );
 
-export const useUI = () => useAppStore((state) => ({
-  loading: state.loading,
-  error: state.error,
-  theme: state.theme,
-  notifications: state.notifications,
-  setLoading: state.setLoading,
-  setError: state.setError,
-  setTheme: state.setTheme,
-  addNotification: state.addNotification,
-  removeNotification: state.removeNotification,
-  clearNotifications: state.clearNotifications,
-}));
+export const useUI = (): UISlice =>
+  useAppStore(
+    useShallow(
+    (state) => ({
+      loading: state.loading,
+      error: state.error,
+      theme: state.theme,
+      notifications: state.notifications,
+      setLoading: state.setLoading,
+      setError: state.setError,
+      setTheme: state.setTheme,
+      addNotification: state.addNotification,
+      removeNotification: state.removeNotification,
+      clearNotifications: state.clearNotifications,
+    })
+    )
+  ) as UISlice;

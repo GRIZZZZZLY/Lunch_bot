@@ -225,7 +225,18 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({
         console.log('[useAuth] 🔄 Attempting fallback authentication...');
       }
 
-      const tg = window.Telegram?.WebApp as any;
+      const tg = window.Telegram?.WebApp as
+        | {
+            initDataUnsafe?: {
+              user?: {
+                id: number;
+                username?: string;
+                first_name?: string;
+                last_name?: string;
+              };
+            };
+          }
+        | undefined;
       if (tg && tg.initDataUnsafe?.user) {
         const tgUser = tg.initDataUnsafe.user;
 

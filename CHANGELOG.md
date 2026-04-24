@@ -6,6 +6,28 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-02-03
+
+### Важно (Breaking)
+- **Миграция базы данных**: SQLite → PostgreSQL 16
+- **Точность денег**: все финансовые поля переведены на `Decimal(10,2)`
+- **JSON-поля**: `String` → `Json/JSONB`
+
+### Добавлено
+- **PostgreSQL адаптер Prisma** (`@prisma/adapter-pg`, `pg`)
+- **Утилиты Decimal** (`backend/src/utils/decimal.ts`)
+- **Скрипты бэкапа/восстановления** (PowerShell + Bash)
+- **Скрипт управления админами** (`backend/make-admin.js`)
+
+### Изменено
+- **Prisma** обновлён до 7.3.0
+- **DATABASE_URL** теперь PostgreSQL
+- Обновлены сервисы для работы с Decimal
+
+### Исправлено
+- 36 ошибок типизации TypeScript
+- Проблемы форматирования цен и сумм
+
 ## [2.0.1] - 2025-01-12
 
 ### Исправлено (Critical)
@@ -73,107 +95,6 @@
 
 ---
 
-## [1.9.0] - 2025-01-10
-
-### Добавлено
-- **Admin система** - роль isAdmin, middleware, Admin Dashboard
-- **UX аудит** - полный анализ и план улучшений
-- **Документация**:
-  - `UX_AUDIT_REPORT.md`
-  - `UX_ACTION_PLAN.md`
-  - `ADMIN_SYSTEM_IMPLEMENTATION.md`
-
-### Исправлено
-- **Poll фильтрация** - исправлена фильтрация menu items по selectedMenuItemIds
-- **Voting режим** - добавлена поддержка multi-winner и single-winner
-- **TypeScript ошибки** - исправлены все критичные ошибки типизации
-
 ---
 
-## [1.8.0] - 2025-01-09
-
-### Добавлено
-- **Security аудит** - проверка на уязвимости
-- **Production готовность** - чек-лист для деплоя
-- **Документация**:
-  - `SECURITY_AUDIT_REPORT.md`
-  - `SECURITY_FIXES_APPLIED.md`
-  - `PRODUCTION_READINESS_CHECKLIST.md`
-
-### Исправлено
-- **Authentication** - усилена валидация initData
-- **CORS** - правильная конфигурация для production
-- **Environment variables** - защита sensitive данных
-
----
-
-## [1.7.0] - 2025-01-08
-
-### Добавлено
-- **Redesign** - новый современный UI с glassmorphism
-- **Quick Actions** - быстрые действия на HomePage
-- **Time-based gradients** - адаптивные цвета по времени суток
-- **Документация**:
-  - Полная структура docs/ (01-07 разделы)
-  - Миграция старых документов в archive/
-
-### Изменено
-- **Homepage** - полностью переработан дизайн
-- **VotingPage** - улучшен UX голосования
-- **MenuPage** - grid layout вместо списка
-
----
-
-## [1.6.0] - 2025-01-07
-
-### Добавлено
-- **Deep linking** - прямые ссылки на голосования
-- **Push notifications** - уведомления через Telegram
-- **Haptic feedback** - тактильная обратная связь
-- **Fallback механизмы** - 100% совместимость
-
-### Исправлено
-- **Mobile авторизация** - работа на iOS/Android
-- **Mini App кнопки** - корректное отображение
-- **Telegram API** - улучшена работа с Bot API
-
----
-
-## [1.5.0] - 2025-01-06
-
-### Добавлено
-- **React Query** - кэширование и оптимизация запросов
-- **Zustand** - state management
-- **Framer Motion** - плавные анимации
-- **Real-time updates** - автообновление данных
-
----
-
-## [1.0.0] - 2025-01-01
-
-### Добавлено
-- Первый релиз
-- Базовая функциональность бота
-- Mini App на React
-- Система голосований
-- Prisma ORM + SQLite
-- Express REST API
-- Grammy.js Bot Framework
-
----
-
-## Форматы версий
-
-- **Major.Minor.Patch** (Semantic Versioning)
-  - **Major** - breaking changes
-  - **Minor** - новые features
-  - **Patch** - bug fixes
-
-## Типы изменений
-
-- **Добавлено** - новые features
-- **Изменено** - изменения существующей функциональности
-- **Устарело** - features которые скоро будут удалены
-- **Удалено** - удалённые features
-- **Исправлено** - bug fixes
-- **Безопасность** - исправления уязвимостей
+История до 2025-01-10 доступна в git-истории.

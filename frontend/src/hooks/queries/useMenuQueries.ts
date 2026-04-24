@@ -37,47 +37,6 @@ export const useMenuItem = (id: number, options?: { enabled?: boolean }) => {
 };
 
 /**
- * Хук для получения категорий
- */
-export const useMenuCategories = () => {
-  return useQuery({
-    queryKey: queryKeys.menu.categories(),
-    queryFn: async () => {
-      const response = await menuService.getCategories();
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to fetch categories');
-      }
-      return response.data || [];
-    },
-    staleTime: 1000 * 60 * 10, // 10 минут - категории меняются редко
-  });
-};
-
-/**
- * Хук для получения количества блюд по категориям
- */
-export const useCategoryCounts = () => {
-  const { data: menuItems } = useMenuItems();
-  
-  return useQuery({
-    queryKey: queryKeys.menu.categoryCounts(),
-    queryFn: async () => {
-      // Вычисляем counts из menuItems
-      if (!menuItems) return {};
-      
-      const counts: Record<string, number> = {};
-      menuItems.forEach(item => {
-        if (item.category) {
-          counts[item.category] = (counts[item.category] || 0) + 1;
-        }
-      });
-      return counts;
-    },
-    enabled: !!menuItems,
-  });
-};
-
-/**
  * Хук для создания блюда
  */
 export const useCreateMenuItem = () => {
@@ -91,11 +50,9 @@ export const useCreateMenuItem = () => {
       }
       return response.data;
     },
-    onSuccess: (data) => {
+    onSuccess: (_data) => {
       // Инвалидация кэша меню
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.categories() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.categoryCounts() });
     },
     onError: (error: Error) => {
       console.error('[useCreateMenuItem] Error:', error.message);
@@ -152,8 +109,6 @@ export const useDeleteMenuItem = () => {
       
       // Инвалидация списка
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.categories() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.categoryCounts() });
       
       console.log('[useDeleteMenuItem] Success: item deleted', id);
     },

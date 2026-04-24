@@ -2,7 +2,7 @@
  * Утилиты для проверки версии приложения и управления обновлениями
  */
 
-const APP_VERSION = '2.0.2';
+const APP_VERSION = '2.0.18';
 const VERSION_CHECK_INTERVAL = 60000; // Проверка каждую минуту
 const VERSION_STORAGE_KEY = 'app_version';
 
@@ -45,7 +45,7 @@ export async function clearAppCache(): Promise<void> {
     const allKeys = Object.keys(localStorage);
     
     allKeys.forEach(key => {
-      if (!keysToKeep.includes(key)) {
+      if (!keysToKeep.includes(key) && !key.startsWith('vote_history_')) {
         localStorage.removeItem(key);
       }
     });

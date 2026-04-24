@@ -31,16 +31,10 @@ interface UseMenuReturn {
   
   // Utility
   refresh: () => Promise<void>;
-  setFilters: (filters: Partial<UseMenuOptions>) => void;
 }
 
 export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
   const {
-    page = 1,
-    limit = 10,
-    category,
-    isActive,
-    search,
     autoFetch = true
   } = options;
 
@@ -54,21 +48,9 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
     pages: number;
   } | null>(null);
 
-  const [filters, setFiltersState] = useState({
-    page,
-    limit,
-    category,
-    isActive,
-    search
-  });
-
-  const setFilters = useCallback((newFilters: Partial<UseMenuOptions>) => {
-    setFiltersState(prev => ({
-      ...prev,
-      ...newFilters,
-      page: newFilters.page !== undefined ? newFilters.page : 1 // Reset page when filters change
-    }));
-  }, []);
+  const getErrorMessage = (err: unknown, fallback: string): string => {
+    return err instanceof Error ? err.message : fallback;
+  };
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -83,13 +65,13 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
       } else {
         setError(response.error || 'Ошибка загрузки меню');
       }
-    } catch (err: any) {
-      setError(err.message || 'Произошла ошибка при загрузке меню');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Произошла ошибка при загрузке меню'));
       console.error('Error fetching menu items:', err);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   const createItem = useCallback(async (data: CreateMenuItemData): Promise<MenuItem | null> => {
     setLoading(true);
@@ -106,8 +88,8 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
         setError(response.error || 'Ошибка создания блюда');
         return null;
       }
-    } catch (err: any) {
-      setError(err.message || 'Произошла ошибка при создании блюда');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Произошла ошибка при создании блюда'));
       console.error('Error creating menu item:', err);
       return null;
     } finally {
@@ -132,8 +114,8 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
         setError(response.error || 'Ошибка обновления блюда');
         return null;
       }
-    } catch (err: any) {
-      setError(err.message || 'Произошла ошибка при обновлении блюда');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Произошла ошибка при обновлении блюда'));
       console.error('Error updating menu item:', err);
       return null;
     } finally {
@@ -156,8 +138,8 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
         setError(response.error || 'Ошибка удаления блюда');
         return false;
       }
-    } catch (err: any) {
-      setError(err.message || 'Произошла ошибка при удалении блюда');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Произошла ошибка при удалении блюда'));
       console.error('Error deleting menu item:', err);
       return false;
     } finally {
@@ -182,8 +164,8 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
         setError(response.error || 'Ошибка переключения статуса блюда');
         return null;
       }
-    } catch (err: any) {
-      setError(err.message || 'Произошла ошибка при переключении статуса блюда');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Произошла ошибка при переключении статуса блюда'));
       console.error('Error toggling menu item:', err);
       return null;
     } finally {
@@ -204,8 +186,8 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
         setError(response.error || 'Ошибка получения блюда');
         return null;
       }
-    } catch (err: any) {
-      setError(err.message || 'Произошла ошибка при получении блюда');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Произошла ошибка при получении блюда'));
       console.error('Error getting menu item:', err);
       return null;
     } finally {
@@ -235,7 +217,6 @@ export function useMenu(options: UseMenuOptions = {}): UseMenuReturn {
     toggleItem,
     getItem,
     
-    refresh,
-    setFilters
+    refresh
   };
 }

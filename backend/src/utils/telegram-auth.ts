@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { validate, parse } from '@telegram-apps/init-data-node';
+import { validate, parse, isValid } from '@telegram-apps/init-data-node';
 import { logger } from './logger';
 
 interface TelegramUser {
@@ -23,7 +23,7 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
   try {
     logger.info('🔐 Validating Telegram initData with @telegram-apps/init-data-node', {
       initDataLength: initData?.length || 0,
-      initDataPreview: initData?.substring(0, 50) + '...'
+      initDataPreview: `${initData?.substring(0, 50)  }...`
     });
 
     const botToken = process.env.BOT_TOKEN;
@@ -39,8 +39,15 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
     if (skipValidation) {
       logger.warn('⚠️ SKIP_TELEGRAM_VALIDATION enabled - parsing without validation');
       try {
-        const parsed = parse(initData);
-        const rawUser = parsed.user as any;
+        // Извлекаем пользователя напрямую из URLSearchParams (без вызова parse()
+        // который в v2 требует оба поля hash+signature)
+        const skipParams = new URLSearchParams(initData);
+        const userStr = skipParams.get('user');
+        if (!userStr) {
+          logger.warn('⚠️ No user field in initData (skip mode)');
+          return null;
+        }
+        const rawUser = JSON.parse(userStr);
 
         logger.info('✅ initData parsed (validation skipped)', {
           userId: rawUser?.id,
@@ -66,6 +73,55 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
     }
 
     // ✅ Валидация с помощью официальной библиотеки
+    // Определяем формат: старый (hash) или новый (signature/Ed25519)
+    const params = new URLSearchParams(initData);
+    const hasHash = params.has('hash');
+    const hasSignature = params.has('signature');
+
+    if (!hasHash && !hasSignature) {
+      logger.error('❌ InitData missing both hash and signature fields');
+      return null;
+    }
+
+    if (hasHash && !hasSignature) {
+      // Старый формат Telegram WebApp (HMAC-SHA256 с hash)
+      // Используем ручную проверку HMAC, т.к. @telegram-apps/init-data-node v2
+      // требует оба поля (hash + signature) для parse()
+      logger.info('🔐 Using legacy HMAC-SHA256 validation (hash-only format)');
+      const isValidHmac = validateLegacyHmac(initData, botToken);
+      if (!isValidHmac) {
+        logger.error('❌ Legacy HMAC validation failed');
+        return null;
+      }
+      // Извлекаем пользователя напрямую из URLSearchParams
+      const userStr = params.get('user');
+      if (!userStr) {
+        logger.error('❌ No user field in initData');
+        return null;
+      }
+      try {
+        const rawUser = JSON.parse(userStr);
+        logger.info('✅ Legacy initData validated successfully', {
+          userId: rawUser?.id,
+          username: rawUser?.username,
+        });
+        return rawUser ? {
+          id: rawUser.id as number,
+          first_name: rawUser.first_name as string,
+          last_name: rawUser.last_name as string | undefined,
+          username: rawUser.username as string | undefined,
+          photo_url: rawUser.photo_url as string | undefined,
+          language_code: rawUser.language_code as string | undefined,
+          is_premium: rawUser.is_premium as boolean | undefined,
+          allows_write_to_pm: rawUser.allows_write_to_pm as boolean | undefined,
+        } : null;
+      } catch (e) {
+        logger.error('❌ Failed to parse user JSON from initData:', e);
+        return null;
+      }
+    }
+
+    // Новый формат (signature) или оба поля — используем библиотеку
     // expiresIn: 86400 секунд = 24 часа (Telegram официальный TTL)
     validate(initData, botToken, { expiresIn: 86400 });
 
@@ -110,7 +166,7 @@ export function generateTestInitData(userId: number, firstName: string, username
   const user = {
     id: userId,
     first_name: firstName,
-    username: username,
+    username,
     language_code: 'ru',
   };
 
@@ -173,6 +229,59 @@ export function extractUserFromInitData(initData: string): TelegramUser | null {
 }
 
 /**
+ * Валидация initData в старом формате Telegram WebApp (HMAC-SHA256 с полем hash)
+ * Используется для совместимости с @telegram-apps/init-data-node v2,
+ * который требует оба поля hash+signature для parse().
+ * 
+ * Алгоритм: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
+ */
+function validateLegacyHmac(initData: string, botToken: string): boolean {
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return false;
+
+    // Проверяем auth_date (не старше 24 часов)
+    const authDate = parseInt(params.get('auth_date') || '0', 10);
+    const now = Math.floor(Date.now() / 1000);
+    if (now - authDate > 86400) {
+      logger.warn('⚠️ initData expired', { authDate, now, age: now - authDate });
+      return false;
+    }
+
+    // Строим data-check-string: все поля кроме hash, отсортированные по ключу
+    params.delete('hash');
+    const dataCheckString = Array.from(params.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+
+    // Вычисляем HMAC
+    const secretKey = crypto
+      .createHmac('sha256', 'WebAppData')
+      .update(botToken)
+      .digest();
+
+    const expectedHash = crypto
+      .createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+
+    const isValid = expectedHash === hash;
+    if (!isValid) {
+      logger.warn('⚠️ HMAC mismatch', {
+        expected: expectedHash.substring(0, 16) + '...',
+        received: hash.substring(0, 16) + '...',
+      });
+    }
+    return isValid;
+  } catch (error) {
+    logger.error('❌ Error in validateLegacyHmac:', error);
+    return false;
+  }
+}
+
+/**
  * Парсинг initData БЕЗ валидации подписи (только для development!)
  * В dev режиме извлекает реальные данные пользователя из Telegram initData,
  * но пропускает проверку HMAC подписи для удобства разработки.
@@ -183,6 +292,11 @@ export function extractUserFromInitData(initData: string): TelegramUser | null {
  * @throws {Error} Если вызвана в production окружении
  */
 export function parseInitDataUnsafe(initData: string): TelegramUser | null {
+  if (process.env.NODE_ENV === 'production') {
+    logger.error('🚨 parseInitDataUnsafe is not allowed in production');
+    throw new Error('parseInitDataUnsafe should not be used in production');
+  }
+
   // ⚠️ SKIP_TELEGRAM_VALIDATION - позволяет использовать parseInitDataUnsafe
   // Извлекает данные пользователя из initData без проверки подписи
   logger.info('🔓 parseInitDataUnsafe called', {

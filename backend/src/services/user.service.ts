@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { CreateUserData, UpdateUserData } from '../types/user.types';
 import { now } from '../utils/date';
 import { EncryptionService } from '../utils/encryption';
+import { getBotInstance } from '../bot/bot';
 
 export class UserService {
   /**
@@ -32,8 +33,15 @@ export class UserService {
   /**
    * Создание или обновление пользователя
    */
-  static async upsertUser(data: CreateUserData): Promise<User> {
+  static async upsertUser(data: CreateUserData, groupId?: number): Promise<User> {
     try {
+      // Проверяем существует ли пользователь
+      const existingUser = await prisma.user.findUnique({
+        where: { telegramId: BigInt(data.telegramId) },
+      });
+
+      const isNewUser = !existingUser;
+
       const user = await prisma.user.upsert({
         where: { telegramId: BigInt(data.telegramId) },
         update: {
@@ -55,10 +63,83 @@ export class UserService {
       });
 
       logger.info(`User upserted: ${user.telegramId} (${user.firstName})${data.photoUrl ? ' with photo' : ''}`);
+
+      // Если это новый пользователь и указана группа, отправляем уведомления админам
+      if (isNewUser && groupId) {
+        this.notifyAdminsAboutNewUser(user, groupId).catch((error) => {
+          logger.error('Error sending new user notifications:', error);
+        });
+      }
+
       return user;
     } catch (error) {
       logger.error('Error upserting user:', error);
       throw new Error('Failed to create or update user');
+    }
+  }
+
+  /**
+   * Отправка уведомлений администраторам о новом пользователе
+   */
+  private static async notifyAdminsAboutNewUser(user: User, groupId: number): Promise<void> {
+    try {
+      // Получаем настройки уведомлений для группы
+      const notificationSettings = await prisma.adminNotificationSettings.findUnique({
+        where: { groupId },
+      });
+
+      // Если уведомления о новых пользователях отключены, выходим
+      if (notificationSettings && !notificationSettings.notifyOnNewUser) {
+        logger.info(`[UserService] New user notifications disabled for group ${groupId}`);
+        return;
+      }
+
+      // Получаем всех активных админов группы
+      const groupAdmins = await prisma.user.findMany({
+        where: {
+          isAdmin: true,
+          isActive: true,
+          groupMemberships: {
+            some: {
+              groupId,
+              isActive: true,
+            },
+          },
+        },
+      });
+
+      if (groupAdmins.length === 0) {
+        logger.info(`[UserService] No admins found for group ${groupId}`);
+        return;
+      }
+
+      const bot = getBotInstance();
+      if (!bot) {
+        logger.error('[UserService] Bot instance not available');
+        return;
+      }
+
+      const message = `🆕 *Новый пользователь*\n\n` +
+        `👤 ${user.firstName}${user.lastName ? ` ${  user.lastName}` : ''}` +
+        `${user.username ? ` (@${user.username})` : ''}`;
+
+      // Отправляем уведомления всем админам
+      let sent = 0;
+      for (const admin of groupAdmins) {
+        try {
+          await bot.api.sendMessage(String(admin.telegramId), message, {
+            parse_mode: 'Markdown',
+          });
+          sent++;
+        } catch (error) {
+          logger.error(`[UserService] Failed to notify admin ${admin.id}:`, error);
+        }
+      }
+
+      logger.info(`[UserService] Sent new user notifications to ${sent}/${groupAdmins.length} admins`);
+    } catch (error) {
+      logger.error('[UserService] Error in notifyAdminsAboutNewUser:', error);
+      throw error;
     }
   }
 
@@ -213,7 +294,7 @@ export class UserService {
           isActive: true,
           groupMemberships: {
             some: {
-              groupId: groupId,
+              groupId,
               isActive: true,
             },
           },

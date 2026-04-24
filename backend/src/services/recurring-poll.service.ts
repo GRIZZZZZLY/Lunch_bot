@@ -40,12 +40,12 @@ interface RecurringPollWithRelations extends RecurringPoll {
 
 type RunStatus = 'SUCCESS' | 'SKIPPED_CONFLICT' | 'FAILED_NO_MENU' | 'FAILED_BOT_REMOVED' | 'FAILED_ERROR';
 
-let botInstance: any = null;
+import { getBotInstance } from '../bot/bot-instance';
 
-export function initializeRecurringPollServiceBot(bot: any): void {
-  botInstance = bot;
-  logger.info('RecurringPollService bot instance initialized');
-}
+/** @deprecated No-op: bot is now accessed via the shared singleton */
+export function initializeRecurringPollServiceBot(_bot: unknown): void {}
+
+function botInstance() { return getBotInstance(); }
 
 export class RecurringPollService {
   /**
@@ -383,23 +383,24 @@ export class RecurringPollService {
         createdBy: recurring.createdBy,
       });
 
-      // Сохраняем selectedMenuItemIds в poll
+      // Сохраняем selectedMenuItemIds и помечаем как автоматически созданный
       await prisma.poll.update({
         where: { id: poll.id },
         data: {
           selectedMenuItemIds: JSON.stringify(menuItemIds),
+          isAutomatic: true,
         },
       });
 
       // 5. Отправить сообщение в группу (если есть bot instance)
-      if (botInstance) {
+      if (botInstance()) {
         try {
           const { createCompactPollMessage, createCompactPollKeyboard } = await import('../bot/keyboards/poll.keyboard');
           
           const message = createCompactPollMessage(poll, menuItemIds.length, 0);
           const keyboard = createCompactPollKeyboard(poll.id);
 
-          const sentMessage = await botInstance.api.sendMessage(
+          const sentMessage = await botInstance()!.api.sendMessage(
             Number(recurring.group.telegramId),
             message,
             {
@@ -559,10 +560,10 @@ export class RecurringPollService {
       const polls = await prisma.poll.findMany({
         where: {
           groupId,
+          isAutomatic: true,
           createdAt: {
             gte: startDate,
           },
-          // TODO: добавить поле isAutomatic в Poll модель для фильтрации
         },
         orderBy: {
           createdAt: 'desc',

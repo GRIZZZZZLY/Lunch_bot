@@ -35,7 +35,6 @@ export async function menuCommand(ctx: BotContext): Promise<void> {
     text += `📊 **Статистика:**\n`;
     text += `• Всего блюд: ${menuStats.total}\n`;
     text += `• Активных: ${menuStats.active}\n`;
-    text += `• Категорий: ${menuStats.categories}\n`;
     if (menuStats.averagePrice > 0) {
       text += `• Средняя цена: ${menuStats.averagePrice}₽\n`;
     }
@@ -60,12 +59,15 @@ export async function menuCommand(ctx: BotContext): Promise<void> {
       text += '👀 **Доступен просмотр:**\n';
       text += '• Список всех блюд\n';
       text += '• Статистика популярности\n';
-      text += '• Категории и поиск\n\n';
+      text += '• Поиск\n\n';
       text += '💡 *Для редактирования требуются права администратора*\n\n';
     }
 
     // Кнопки для управления
-    const webappUrl = process.env.WEBAPP_URL || 'https://ergodic-genevieve-unsulphurized.ngrok-free.dev';
+    const webappUrl = process.env.WEBAPP_URL ?? '';
+    if (!webappUrl) {
+      logger.warn('WEBAPP_URL is not set — web_app buttons will be unavailable');
+    }
     const botUsername = ctx.me.username;
     
     const keyboard = {
@@ -195,29 +197,17 @@ export async function handleShowMenuList(ctx: any): Promise<void> {
     }
 
     let text = '🍽️ **Список блюд** (активные)\n\n';
-    
-    // Группируем по категориям
-    const itemsByCategory = activeItems.reduce((acc, item) => {
-      const category = item.category || 'Без категории';
-      if (!acc[category]) acc[category] = [];
-      acc[category].push(item);
-      return acc;
-    }, {} as Record<string, any[]>);
 
-    Object.entries(itemsByCategory).forEach(([category, items]) => {
-      text += `📂 **${category}:**\n`;
-      items.forEach((item, index) => {
-        text += `${index + 1}. ${item.name}`;
-        if (item.price) text += ` - ${item.price}₽`;
-        if (item.description) text += `\n   _${item.description}_`;
-        text += '\n';
-      });
+    activeItems.forEach((item, index) => {
+      text += `${index + 1}. ${item.name}`;
+      if (item.price) text += ` - ${item.price}₽`;
+      if (item.description) text += `\n   _${item.description}_`;
       text += '\n';
     });
 
     await ctx.answerCallbackQuery();
     const isGroup = ctx.chat?.type !== 'private';
-    const webappUrl = process.env.WEBAPP_URL || 'https://ergodic-genevieve-unsulphurized.ngrok-free.dev';
+    const webappUrl = process.env.WEBAPP_URL ?? '';
     
     await ctx.reply(text, {
       parse_mode: 'Markdown',

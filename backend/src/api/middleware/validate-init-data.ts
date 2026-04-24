@@ -19,102 +19,61 @@ export async function validateInitDataMiddleware(
 ): Promise<void> {
   try {
     const authHeader = req.headers.authorization;
-    
-    // В development режиме можно пропустить валидацию ПОЛНОСТЬЮ
-    if (process.env.NODE_ENV === 'development' && process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
-      // Если нет заголовка авторизации вообще - создаём тестового пользователя
+
+    if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
+      if (
+        process.env.NODE_ENV === 'production' &&
+        process.env.ALLOW_SKIP_VALIDATION_IN_PROD !== 'true'
+      ) {
+        logger.error('🚨 SKIP_TELEGRAM_VALIDATION blocked in production');
+        throw new Error(
+          'SECURITY: SKIP_TELEGRAM_VALIDATION cannot be used in production'
+        );
+      }
+
+      logger.warn('⚠️  SKIP_TELEGRAM_VALIDATION active - signature validation disabled');
+
       if (!authHeader) {
-        logger.warn('⚠️  SKIP_TELEGRAM_VALIDATION: No auth header - using test user');
-        
-        const testUserId = process.env.TEST_USER_ID || '123456789';
-        const dbUser = await userService.createOrUpdate({
-          telegramId: BigInt(testUserId).toString(),
-          username: 'dev_user',
-          firstName: 'Dev',
-          lastName: 'User',
-        });
-        
-        req.user = dbUser;
-        req.telegramInitData = {
-          user: {
-            id: Number(testUserId),
-            first_name: 'Dev',
-            last_name: 'User',
-            username: 'dev_user',
-          },
-        } as any;
-        
-        logger.info('✅ Dev user authenticated via SKIP_TELEGRAM_VALIDATION (no auth header)', {
-          userId: dbUser.id,
-          telegramId: testUserId
-        });
-        
-        return next();
+        throw new AuthenticationError(
+          'Telegram authentication required. Open the app via Telegram.'
+        );
       }
-      
-      // Если заголовок есть - пробуем распарсить, но не валидируем хэш
-      logger.warn('⚠️  SKIP_TELEGRAM_VALIDATION активен - валидация отключена!');
-      logger.debug('Request from:', {
-        origin: req.headers.origin,
-        userAgent: req.headers['user-agent'],
-        authorization: 'present'
-      });
-      
+
       const initData = extractAuthHeader(authHeader);
-      
-      if (initData) {
-        // Пробуем распарсить данные (без проверки хэша)
-        const telegramUser = validateTelegramInitData(initData);
-
-        if (telegramUser) {
-          // Используем реальные данные Telegram если есть
-          const dbUser = await userService.createOrUpdate({
-            telegramId: telegramUser.id.toString(),
-            username: telegramUser.username,
-            firstName: telegramUser.first_name,
-            lastName: telegramUser.last_name,
-          });
-
-          req.user = dbUser;
-          req.telegramInitData = { user: telegramUser };
-
-          logger.info('✅ Real Telegram user (validation skipped)', {
-            userId: dbUser.id,
-            telegramId: dbUser.telegramId.toString(),
-            username: dbUser.username
-          });
-
-          return next();
-        }
+      if (!initData) {
+        throw new AuthenticationError('Неверный формат заголовка Authorization');
       }
-      
-      // Если не смогли распарсить - используем тестового пользователя
-      const testUserId = process.env.TEST_USER_ID || '123456789';
+
+      let telegramUser = validateTelegramInitData(initData);
+      if (!telegramUser) {
+        const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
+        const unsafeUser = parseInitDataUnsafe(initData);
+        if (!unsafeUser?.id) {
+          throw new AuthenticationError(
+            'Cannot extract Telegram user from initData (SKIP mode requires real initData)'
+          );
+        }
+        telegramUser = unsafeUser;
+      }
+
       const dbUser = await userService.createOrUpdate({
-        telegramId: BigInt(testUserId).toString(),
-        username: 'dev_user',
-        firstName: 'Dev',
-        lastName: 'User',
+        telegramId: telegramUser.id.toString(),
+        username: telegramUser.username,
+        firstName: telegramUser.first_name,
+        lastName: telegramUser.last_name,
       });
-      
+
       req.user = dbUser;
-      req.telegramInitData = {
-        user: {
-          id: Number(testUserId),
-          first_name: 'Dev',
-          last_name: 'User',
-          username: 'dev_user',
-        },
-      } as any;
-      
-      logger.info('✅ Dev user authenticated via SKIP_TELEGRAM_VALIDATION (fallback)', {
+      req.telegramInitData = { user: telegramUser };
+
+      logger.info('✅ SKIP mode: authenticated with REAL Telegram ID', {
         userId: dbUser.id,
-        telegramId: testUserId
+        telegramId: dbUser.telegramId.toString(),
       });
-      
+
       return next();
     }
-    
+
     if (!authHeader) {
       throw new AuthenticationError('Отсутствует заголовок Authorization');
     }

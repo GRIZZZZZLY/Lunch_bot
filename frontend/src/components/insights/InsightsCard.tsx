@@ -54,7 +54,7 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
       >
         <div className="text-center text-muted-foreground">
           <p className="text-sm">
-            Проголосуй несколько раз, чтобы увидеть свои паттерны! 📊
+            Как только пройдёт первое голосование, мы покажем ваши привычки и любимые блюда.
           </p>
         </div>
       </motion.div>

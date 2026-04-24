@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rocket Lunch — Admin & Poll Creation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --peach-400:#FF9D66; --peach-500:#D86A2C; --peach-600:#B84D12;
+  --lav-400:#A78BFA;   --lav-500:#8B5CF6;
+  --mint-400:#34D399;  --mint-500:#22B573;
+  --coral-400:#F87171; --coral-500:#E55A4F;
+  --butter-400:#F4C15D;--butter-500:#E6A93D;
+  --g-peach: linear-gradient(135deg,#F3C4A7,#F7D5C1);
+  --g-lav:   linear-gradient(135deg,#D1C1FC,#E5DDFE);
+  --g-sage:  linear-gradient(135deg,#8CE0B9,#B3EBD1);
+  --g-rose:  linear-gradient(135deg,#FCA5A5,#FECACA);
+  --g-butter:linear-gradient(135deg,#FFE1A8,#F4C15D);
+  --g-sky:   linear-gradient(135deg,#7DD3FC,#BAE6FD);
+  --g-coral: linear-gradient(135deg,#F87171,#E55A4F);
+  --page-bg:#0E141B; --page-ink:#E6EDF3; --page-muted:#8B97A6;
+  --page-line:rgba(255,255,255,0.08);
+  --sans:'Inter',system-ui,-apple-system,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+.tg.dark{
+  background:#17212B;color:#E6EDF3;
+  --surface:#1F2A36;--surface-2:#17212B;
+  --ink:#E6EDF3;--ink-2:#9AA7B4;--ink-3:#6B7683;
+  --line:rgba(255,255,255,0.07);--line-2:rgba(255,255,255,0.12);
+  --pri:var(--peach-400);--pri-ink:#1A0F08;
+  --card-grad:linear-gradient(180deg,#1F2A36,#17212B);
+  --shadow-card:0 2px 12px rgba(0,0,0,0.3);
+  --shadow-elev:0 8px 32px rgba(0,0,0,0.5);
+}
+.tg.light{
+  background:linear-gradient(180deg,#F2EADF,#FBF7F1);color:#2B2118;
+  --surface:#FFFDF9;--surface-2:#F6EFE5;
+  --ink:#2B2118;--ink-2:#6B5D4F;--ink-3:#9C8B79;
+  --line:rgba(43,33,24,0.08);--line-2:rgba(43,33,24,0.14);
+  --pri:var(--peach-500);--pri-ink:#FFFFFF;
+  --card-grad:linear-gradient(180deg,#FFFDF9,#F6EFE5);
+  --shadow-card:0 2px 8px rgba(0,0,0,0.04);
+  --shadow-elev:0 8px 24px rgba(0,0,0,0.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--sans);background:var(--page-bg);color:var(--page-ink);-webkit-font-smoothing:antialiased;line-height:1.45}
+.wrap{max-width:1280px;margin:0 auto;padding:40px 28px 100px}
+.brand{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.brand .mark{width:38px;height:38px;border-radius:10px;background:var(--g-peach);display:grid;place-items:center;font-size:18px;box-shadow:0 8px 22px rgba(216,106,44,0.35)}
+.brand .n{font-weight:700;font-size:14px;letter-spacing:-0.01em}
+.brand .s{font-family:var(--mono);font-size:11px;color:var(--page-muted);margin-top:2px}
+.hero h1{font-size:44px;line-height:1;letter-spacing:-0.035em;font-weight:800;margin:0;max-width:24ch}
+.hero h1 em{font-style:normal;background:var(--g-peach);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--page-muted);max-width:72ch;font-size:14px;line-height:1.6;margin:14px 0 0}
+.tokens{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:20px;padding:14px;border:1px solid var(--page-line);border-radius:14px;background:rgba(255,255,255,0.02)}
+.tokens .t{font-family:var(--mono);font-size:11px;color:var(--page-muted)}
+.tokens .t b{color:var(--page-ink);font-weight:600}
+
+.sec-head{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:end;padding-bottom:14px;border-bottom:1px solid var(--page-line);margin:56px 0 24px}
+.sec-num{font-family:var(--mono);font-size:11px;color:var(--page-muted);letter-spacing:0.06em}
+.sec-title{font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0}
+.sec-sub{font-family:var(--mono);font-size:11px;color:var(--page-muted);text-align:right}
+
+.pair{display:grid;grid-template-columns:1fr 1fr 280px;gap:18px;align-items:start;margin-bottom:20px}
+.frame{position:relative;border:1px solid var(--page-line);border-radius:20px;padding:14px;background:rgba(255,255,255,0.015)}
+.frame::before{content:attr(data-theme);position:absolute;top:-10px;left:14px;background:var(--page-bg);padding:0 8px;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;color:var(--page-muted);text-transform:uppercase}
+.tg{font-family:var(--sans);margin:0 auto;width:100%;max-width:375px;border-radius:24px;position:relative;overflow:hidden}
+
+.anno{padding:4px;font-family:var(--mono);font-size:11px;color:var(--page-muted);line-height:1.6}
+.anno .ah{color:var(--page-ink);font-weight:600;font-family:var(--sans);font-size:13px;margin-bottom:6px;letter-spacing:-0.005em}
+.anno .row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px dashed var(--page-line)}
+.anno .row:last-child{border-bottom:0}
+.anno .k{color:var(--page-muted)}
+.anno .v{color:var(--page-ink);text-align:right;max-width:60%}
+.anno .note{margin-top:10px;padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid var(--page-line);color:var(--page-ink);line-height:1.5}
+.anno .note b{color:var(--peach-400)}
+
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 18px 4px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)}
+.top-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 12px;gap:10px}
+.top-hdr .ttl{font-size:20px;font-weight:800;letter-spacing:-0.02em;color:var(--ink);flex:1;min-width:0}
+.top-hdr .ttl .badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(216,106,44,0.2);color:var(--peach-500);margin-left:8px;letter-spacing:0.02em;vertical-align:middle}
+.tg.dark .top-hdr .ttl .badge{background:rgba(255,157,102,0.25);color:var(--peach-400)}
+.top-hdr .act,.top-hdr .back{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--ink-2);font-size:14px;cursor:pointer}
+.top-hdr .back{color:var(--ink);font-size:18px}
+
+.content{padding:6px 16px 20px;display:flex;flex-direction:column;gap:14px}
+
+/* Admin checklist hero */
+.admin-hero{
+  background:var(--g-peach);border-radius:16px;padding:16px;color:#2B1308;
+  position:relative;overflow:hidden;box-shadow:0 8px 22px rgba(216,106,44,0.25);
+}
+.tg.dark .admin-hero{color:#2B1308}
+.admin-hero::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:999px;background:rgba(255,255,255,0.25);filter:blur(20px)}
+.admin-hero .h1{font-size:16px;font-weight:800;letter-spacing:-0.02em;line-height:1.1;position:relative}
+.admin-hero .h2{font-family:var(--mono);font-size:11px;opacity:0.72;margin-top:4px;letter-spacing:0.04em;position:relative}
+.admin-hero .clist{margin-top:12px;display:flex;flex-direction:column;gap:2px;position:relative}
+.cl-row{display:flex;align-items:center;gap:10px;padding:10px 2px;cursor:pointer}
+.cl-row + .cl-row{border-top:1px dashed rgba(43,19,8,0.15)}
+.cl-row .cb{width:18px;height:18px;border-radius:5px;border:1.5px solid rgba(43,19,8,0.4);background:rgba(255,255,255,0.5);flex-shrink:0}
+.cl-row .cl-t{flex:1;font-size:13px;font-weight:600;letter-spacing:-0.005em;line-height:1.25}
+.cl-row .ch{font-size:18px;color:rgba(43,19,8,0.55)}
+.cl-row.urgent .ch{color:var(--coral-500)}
+.cl-row.urgent .cl-t::after{content:"";display:inline-block;width:6px;height:6px;border-radius:999px;background:var(--coral-500);margin-left:8px;vertical-align:middle;animation:pulse 1.6s ease infinite}
+@keyframes pulse{50%{transform:scale(0.6);opacity:0.5}}
+
+/* Quick actions grid */
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qa{
+  border-radius:14px;padding:14px;min-height:96px;
+  display:flex;flex-direction:column;justify-content:space-between;
+  cursor:pointer;position:relative;overflow:hidden;
+  color:#2B1308;font-weight:700;
+}
+.qa.lav{background:var(--g-lav);color:#1F0F47}
+.qa.peach{background:var(--g-peach);color:#2B1308}
+.qa.sage{background:var(--g-sage);color:#0A3F26}
+.qa.rose{background:var(--g-rose);color:#5B0F0F}
+.qa .qi{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,0.55);display:grid;place-items:center;font-size:18px}
+.qa .qt{font-size:14px;letter-spacing:-0.01em;line-height:1.2}
+.qa .qs{font-size:10px;font-weight:500;opacity:0.7;margin-top:2px;font-family:var(--mono);letter-spacing:0.03em}
+
+/* Sec title */
+.sec{display:flex;align-items:center;justify-content:space-between;margin:6px 2px -4px}
+.sec .tt{font-size:13px;font-weight:700;color:var(--ink);letter-spacing:-0.005em}
+.sec .lnk{font-size:12px;font-weight:600;color:var(--pri);cursor:pointer;background:transparent;border:0;padding:0;font-family:inherit}
+
+/* Card base */
+.card{background:var(--card-grad);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow-card)}
+
+/* Stat tiles row */
+.stiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.st{background:var(--card-grad);border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center}
+.st .n{font-size:18px;font-weight:800;letter-spacing:-0.02em;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
+.st .l{font-size:9px;color:var(--ink-3);margin-top:4px;font-family:var(--mono);letter-spacing:0.04em;text-transform:uppercase;line-height:1.2}
+
+/* Bar chart */
+.chart{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;height:100px;padding:4px 2px}
+.chart .bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%}
+.chart .bar .v{
+  width:100%;border-radius:8px 8px 2px 2px;
+  background:linear-gradient(180deg,var(--peach-400),var(--peach-500));
+  position:relative;transition:height 300ms ease;
+}
+.chart .bar .v.muted{background:linear-gradient(180deg,var(--line-2),var(--line))}
+.chart .bar .v.peak::after{content:"★";position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--peach-400)}
+.chart .bar .dl{font-family:var(--mono);font-size:9px;color:var(--ink-3);letter-spacing:0.04em;text-transform:uppercase}
+
+/* Alert */
+.alert{
+  display:flex;gap:10px;padding:12px;border-radius:12px;
+  background:linear-gradient(135deg,rgba(244,193,93,0.2),rgba(248,113,113,0.15));
+  border:1px solid rgba(244,193,93,0.3);
+}
+.alert .ai{width:28px;height:28px;border-radius:8px;background:var(--g-butter);display:grid;place-items:center;font-size:14px;flex-shrink:0}
+.alert .at{flex:1}
+.alert .at .t{font-size:12px;font-weight:700;color:var(--ink)}
+.alert .at .s{font-size:11px;color:var(--ink-2);margin-top:2px;line-height:1.3}
+
+/* User list */
+.input{
+  width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+  padding:10px 12px 10px 34px;color:var(--ink);font-family:inherit;font-size:13px;outline:none;
+  background-image:radial-gradient(circle at 14px 50%,var(--ink-3) 0 0);background-size:14px 14px;background-repeat:no-repeat;
+}
+.u-row{display:flex;align-items:center;gap:10px;padding:10px 0}
+.u-row + .u-row{border-top:1px dashed var(--line)}
+.u-row .av{width:34px;height:34px;border-radius:999px;background:var(--g-peach);color:#2B1308;display:grid;place-items:center;font-weight:700;font-size:13px;flex-shrink:0}
+.u-row .av.lav{background:var(--g-lav);color:#1F0F47}
+.u-row .av.sage{background:var(--g-sage);color:#0A3F26}
+.u-row .av.rose{background:var(--g-rose);color:#5B0F0F}
+.u-row .av.butter{background:var(--g-butter);color:#3E2A05}
+.u-row .md{flex:1;min-width:0}
+.u-row .nm{font-size:13px;font-weight:600;color:var(--ink);line-height:1.2}
+.u-row .rl{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-top:2px}
+.u-row .rb{font-size:10px;font-weight:700;padding:3px 7px;border-radius:999px;white-space:nowrap}
+.u-row .rb.admin{background:rgba(216,106,44,0.2);color:var(--peach-500)}
+.tg.dark .u-row .rb.admin{background:rgba(255,157,102,0.25);color:var(--peach-400)}
+.u-row .rb.banned{background:rgba(229,90,79,0.2);color:var(--coral-500)}
+.tg.dark .u-row .rb.banned{background:rgba(248,113,113,0.25);color:var(--coral-400)}
+.u-row .act-mini{font-size:11px;font-weight:600;padding:5px 9px;border-radius:9px;border:1px solid var(--line-2);background:transparent;color:var(--ink-2);cursor:pointer;font-family:inherit;white-space:nowrap}
+.u-row .act-mini.danger{color:var(--coral-500);border-color:rgba(229,90,79,0.35)}
+.tg.dark .u-row .act-mini.danger{color:var(--coral-400)}
+
+.pg{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;padding-top:8px;border-top:1px dashed var(--line)}
+.pg .pt{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-family:var(--mono);font-size:11px;color:var(--ink-2);cursor:pointer}
+.pg .pt.on{background:var(--pri);color:var(--pri-ink)}
+.tg.dark .pg .pt.on{color:#1A0F08}
+
+/* Poll management row */
+.p-row{display:flex;align-items:center;gap:10px;padding:10px 0}
+.p-row + .p-row{border-top:1px dashed var(--line)}
+.p-row .pi{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:17px;flex-shrink:0}
+.p-row .pi.peach{background:var(--g-peach)}
+.p-row .pi.lav{background:var(--g-lav)}
+.p-row .md{flex:1;min-width:0}
+.p-row .tt{font-size:13px;font-weight:600;color:var(--ink);line-height:1.2}
+.p-row .st2{display:flex;align-items:center;gap:6px;margin-top:3px}
+.p-row .pill-tiny{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase}
+.p-row .pill-tiny.act{background:rgba(52,211,153,0.22);color:#0A3F26}
+.p-row .pill-tiny.sch{background:rgba(167,139,250,0.25);color:#1F0F47}
+.tg.dark .p-row .pill-tiny.act{background:rgba(52,211,153,0.32);color:#052E1C}
+.tg.dark .p-row .pill-tiny.sch{background:rgba(167,139,250,0.35);color:#E0D6FC}
+.p-row .pill-tiny::before{content:"";width:5px;height:5px;border-radius:999px;background:currentColor}
+.p-row .t-mono{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:0.03em}
+.p-row .menu-btn{width:26px;height:26px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2);display:grid;place-items:center;cursor:pointer;font-size:12px;flex-shrink:0}
+
+/* Bottom nav */
+.bnav{display:flex;gap:4px;padding:8px 10px 12px;background:var(--surface);border-top:1px solid var(--line)}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:12px;color:var(--ink-2);cursor:pointer;font-size:10px;font-weight:500}
+.nb .em{font-size:18px;line-height:1}
+.nb.on{background:var(--pri);color:var(--pri-ink);font-weight:700}
+.tg.dark .nb.on{color:#1A0F08}
+
+/* === Poll create form === */
+.sheet-hdr{
+  position:relative;padding:8px 16px 10px;
+}
+.sheet-hdr .grab{width:40px;height:4px;border-radius:999px;background:var(--line-2);margin:0 auto 10px}
+.sheet-hdr .r{display:flex;align-items:center;justify-content:space-between}
+.sheet-hdr .tt{font-size:17px;font-weight:800;letter-spacing:-0.02em}
+.sheet-hdr .x{width:28px;height:28px;border-radius:10px;background:var(--surface-2);color:var(--ink-2);display:grid;place-items:center;cursor:pointer;font-size:16px}
+
+.form-sec{display:flex;flex-direction:column;gap:8px}
+.form-sec .l{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:0.08em;text-transform:uppercase;margin:4px 2px 2px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field > .lbl{font-size:12px;font-weight:600;color:var(--ink-2)}
+.field.err .tin,.field.err .chips-row{border-color:var(--coral-500)!important;box-shadow:0 0 0 3px rgba(229,90,79,0.15)}
+.field .emsg{font-size:11px;color:var(--coral-500);font-weight:600;margin-top:2px}
+.tg.dark .field .emsg{color:var(--coral-400)}
+.tin{
+  width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+  padding:12px 14px;color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;outline:none;
+  transition:border-color 120ms ease;
+}
+.tin:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(216,106,44,0.15)}
+.tin::placeholder{color:var(--ink-3);font-weight:400}
+.chips-row{display:flex;gap:6px;flex-wrap:wrap}
+.c-chip{
+  padding:8px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);
+  color:var(--ink-2);font-size:12px;font-weight:600;cursor:pointer;
+}
+.c-chip.on{background:var(--pri);color:var(--pri-ink);border-color:transparent}
+.tg.dark .c-chip.on{color:#1A0F08}
+
+.toggle-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;
+}
+.toggle-row .tx{flex:1}
+.toggle-row .tx .tl{font-size:13px;font-weight:600;color:var(--ink)}
+.toggle-row .tx .ts{font-size:11px;color:var(--ink-3);font-family:var(--mono);margin-top:2px}
+.toggle{width:38px;height:22px;border-radius:999px;background:var(--line-2);position:relative;flex-shrink:0;cursor:pointer;transition:background 150ms}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:999px;background:#fff;transition:transform 150ms;box-shadow:0 2px 4px rgba(0,0,0,0.2)}
+.toggle.on{background:var(--pri)}
+.toggle.on::after{transform:translateX(16px)}
+
+.recur-sub{
+  display:flex;flex-direction:column;gap:8px;padding:10px 12px;
+  margin-top:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+}
+
+/* Menu multi-select */
+.count-pill{
+  position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  font-family:var(--mono);font-size:11px;letter-spacing:0.04em;
+}
+.count-pill .num{color:var(--pri);font-weight:700}
+.mi-row{display:flex;align-items:center;gap:10px;padding:10px 2px;cursor:pointer}
+.mi-row + .mi-row{border-top:1px dashed var(--line)}
+.mi-row .cb{
+  width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line-2);
+  flex-shrink:0;position:relative;background:var(--surface-2);transition:all 120ms;
+}
+.mi-row.on .cb{background:var(--pri);border-color:var(--pri)}
+.mi-row.on .cb::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:var(--pri-ink);font-size:12px;font-weight:800}
+.tg.dark .mi-row.on .cb::after{color:#1A0F08}
+.mi-row .ic{width:34px;height:34px;border-radius:10px;background:var(--g-peach);display:grid;place-items:center;font-size:16px;flex-shrink:0}
+.mi-row .ic.lav{background:var(--g-lav)}
+.mi-row .ic.sage{background:var(--g-sage)}
+.mi-row .ic.butter{background:var(--g-butter)}
+.mi-row .ic.rose{background:var(--g-rose)}
+.mi-row .ic.sky{background:var(--g-sky)}
+.mi-row .md{flex:1;min-width:0}
+.mi-row .nm{font-size:13px;font-weight:600;color:var(--ink);line-height:1.2}
+.mi-row .mt{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-top:2px}
+
+.add-manual{
+  padding:10px 12px;border:1px dashed var(--line-2);border-radius:12px;margin-top:8px;
+  display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+}
+.add-manual .l{font-size:12px;font-weight:600;color:var(--ink-2)}
+.add-manual .p{font-size:16px;color:var(--pri);font-weight:700}
+
+/* Radio group */
+.radio{display:flex;align-items:center;gap:10px;padding:10px 0}
+.radio + .radio{border-top:1px dashed var(--line)}
+.radio .rr{
+  width:18px;height:18px;border-radius:999px;border:1.5px solid var(--line-2);flex-shrink:0;position:relative;
+}
+.radio.on .rr{border-color:var(--pri)}
+.radio.on .rr::after{content:"";position:absolute;inset:3px;border-radius:999px;background:var(--pri)}
+.radio .l{flex:1;font-size:13px;font-weight:600;color:var(--ink)}
+.radio .s{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+
+/* Preview card */
+.prev-card{
+  background:var(--card-grad);border:1px dashed var(--line-2);border-radius:14px;padding:14px;
+  position:relative;
+}
+.prev-card::before{
+  content:"ПРЕДПРОСМОТР";position:absolute;top:-8px;left:12px;background:var(--surface);
+  padding:2px 8px;border-radius:999px;font-family:var(--mono);font-size:9px;letter-spacing:0.1em;color:var(--ink-3);
+  border:1px solid var(--line);
+}
+.prev-card .pt{font-size:14px;font-weight:800;letter-spacing:-0.01em;color:var(--ink);margin-bottom:6px}
+.prev-card .ps{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-bottom:10px}
+.prev-card .pl{display:flex;flex-direction:column;gap:6px}
+.prev-card .pl .pli{display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface-2);border-radius:10px;border:1px solid var(--line);font-size:12px;color:var(--ink);font-weight:500}
+.prev-card .pl .pli .em{font-size:16px}
+
+/* Sticky footer */
+.sticky-foot{
+  position:sticky;bottom:0;padding:12px 16px 14px;
+  background:linear-gradient(180deg,transparent,var(--surface) 30%);
+  border-top:1px solid var(--line);
+  backdrop-filter:blur(6px);
+}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;font-weight:700;font-size:14px;border-radius:14px;border:0;cursor:pointer;padding:14px 18px;line-height:1;transition:transform 120ms ease}
+.btn:active{transform:scale(0.98)}
+.btn.primary{background:linear-gradient(135deg,var(--peach-400),var(--peach-500));color:#1A0F08;box-shadow:0 10px 28px rgba(216,106,44,0.35);width:100%}
+.tg.light .btn.primary{color:#fff}
+.btn.primary.loading{pointer-events:none}
+.btn .sp{width:14px;height:14px;border-radius:999px;border:2px solid currentColor;border-right-color:transparent;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Success sheet */
+.succ{text-align:center;padding:30px 22px 14px}
+.succ .rocket{font-size:56px;display:inline-block;animation:launch 2.4s ease infinite}
+@keyframes launch{0%,100%{transform:translateY(0) rotate(-10deg)}50%{transform:translateY(-10px) rotate(5deg)}}
+.succ .st{font-size:22px;font-weight:800;letter-spacing:-0.02em;margin:8px 0 4px}
+.succ .ss{font-size:13px;color:var(--ink-2);max-width:30ch;margin:0 auto 16px;line-height:1.45}
+.succ .confetti{height:4px;margin:10px 0;background:repeating-linear-gradient(90deg,var(--peach-400) 0 12px,transparent 12px 14px,var(--mint-400) 14px 26px,transparent 26px 28px,var(--lav-400) 28px 40px,transparent 40px 42px);border-radius:999px;opacity:0.7}
+
+/* Quick-create BS */
+.bs-quick{
+  background:var(--surface);border-top-left-radius:16px;border-top-right-radius:16px;
+  padding-bottom:14px;
+}
+.bs-quick .qrow{padding:6px 16px}
+
+/* Sheet backdrop */
+.bs-frame{position:relative;background:rgba(0,0,0,0.35)}
+.tg.light.bs-frame{background:rgba(43,33,24,0.2)}
+
+/* scroll hint */
+.scroll-cap{height:14px;background:linear-gradient(180deg,var(--surface),transparent);position:sticky;top:60px;z-index:1;margin:-14px 0 0;pointer-events:none}
+
+@media (max-width:1100px){
+  .pair{grid-template-columns:1fr 1fr}
+  .pair .anno{grid-column:1/-1}
+  .hero h1{font-size:36px}
+}
+@media (max-width:720px){
+  .pair{grid-template-columns:1fr}
+  .wrap{padding:22px 14px 60px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="brand">
+      <div class="mark">🚀</div>
+      <div>
+        <div class="n">Rocket Lunch</div>
+        <div class="s">mini-app · admin · poll creation</div>
+      </div>
+    </div>
+    <h1>Admin surfaces &mdash; <em>dashboard</em> + <em>poll creation</em>.</h1>
+    <p>Two sections in one artifact. AdminDashboard: checklist hero → quick actions → insights → user roster → poll management. CreatePollForm: single-scroll form (not a 3-step wizard) with live preview and sticky launch CTA. Plus quick-create bottom sheet, validation, loading, success.</p>
+    <div class="tokens">
+      <div class="t"><b>tokens reused</b> · g-peach/lav/sage/rose/butter/sky · Inter + JetBrains Mono</div>
+      <div class="t"><b>radii</b> · 16 sheet · 14 card · 12 input · 999 pill</div>
+      <div class="t"><b>shadows</b> · --shadow-card · --shadow-elev · peach glow 0.35α</div>
+      <div class="t"><b>semantic</b> · peach=primary · coral=danger · mint=active · lav=scheduled · butter=warn</div>
+    </div>
+  </header>
+
+  <!-- ======================= A · ADMIN DASHBOARD ======================= -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">A · admin</div>
+      <h2 class="sec-title">AdminDashboardPage</h2>
+      <div class="sec-sub">checklist · quick actions · insights · roster · polls</div>
+    </div>
+
+    <div class="pair">
+      <!-- DARK -->
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div class="top-hdr">
+            <div class="ttl">Админ-панель <span class="badge">ТОЛЬКО ДЛЯ АДМИНОВ</span></div>
+            <div class="act">⚙</div>
+          </div>
+          <div class="content">
+
+            <div class="admin-hero">
+              <div class="h1">3 задачи требуют внимания</div>
+              <div class="h2">обновлено 2 мин назад</div>
+              <div class="clist">
+                <div class="cl-row">
+                  <div class="cb"></div>
+                  <div class="cl-t">Подтвердить 2 новые заявки</div>
+                  <div class="ch">›</div>
+                </div>
+                <div class="cl-row urgent">
+                  <div class="cb"></div>
+                  <div class="cl-t">Закрыть просроченный опрос</div>
+                  <div class="ch">›</div>
+                </div>
+                <div class="cl-row">
+                  <div class="cb"></div>
+                  <div class="cl-t">Добавить меню на понедельник</div>
+                  <div class="ch">›</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="qa-grid">
+              <div class="qa peach"><div class="qi">✚</div><div><div class="qt">Создать опрос</div><div class="qs">от FAB · 3 шага</div></div></div>
+              <div class="qa lav"><div class="qi">📢</div><div><div class="qt">Рассылка</div><div class="qs">всем участникам</div></div></div>
+              <div class="qa sage"><div class="qi">🍽</div><div><div class="qt">Управление меню</div><div class="qs">42 блюда</div></div></div>
+              <div class="qa rose"><div class="qi">🛡</div><div><div class="qt">Модерация</div><div class="qs">2 жалобы</div></div></div>
+            </div>
+
+            <div class="sec"><div class="tt">Инсайты</div><button class="lnk">Отчёт →</button></div>
+            <div class="stiles">
+              <div class="st"><div class="n">24</div><div class="l">актив.<br>польз.</div></div>
+              <div class="st"><div class="n">71%</div><div class="l">средн.<br>явка</div></div>
+              <div class="st"><div class="n">18</div><div class="l">опросов<br>/ месяц</div></div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+                <div style="font-size:12px;font-weight:700;color:var(--ink)">Явка по дням недели</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--ink-3)">последние 4 недели</div>
+              </div>
+              <div class="chart">
+                <div class="bar"><div class="v" style="height:68%"></div><div class="dl">Пн</div></div>
+                <div class="bar"><div class="v" style="height:82%"></div><div class="dl">Вт</div></div>
+                <div class="bar"><div class="v peak" style="height:94%"></div><div class="dl">Ср</div></div>
+                <div class="bar"><div class="v" style="height:76%"></div><div class="dl">Чт</div></div>
+                <div class="bar"><div class="v" style="height:88%"></div><div class="dl">Пт</div></div>
+                <div class="bar"><div class="v muted" style="height:28%"></div><div class="dl">Сб</div></div>
+                <div class="bar"><div class="v muted" style="height:18%"></div><div class="dl">Вс</div></div>
+              </div>
+            </div>
+            <div class="alert">
+              <div class="ai">⚠</div>
+              <div class="at">
+                <div class="t">Подозрительная активность</div>
+                <div class="s">@fake_user проголосовал в 4 опросах за 12 мин — проверить?</div>
+              </div>
+            </div>
+
+            <div class="sec"><div class="tt">Участники · 24</div><button class="lnk">Все →</button></div>
+            <div class="card">
+              <input class="input" placeholder="Найти участника…">
+              <div style="margin-top:6px">
+                <div class="u-row">
+                  <div class="av">И</div>
+                  <div class="md"><div class="nm">Игорь Кравцов</div><div class="rl">@grizzzzly · 47 опросов</div></div>
+                  <span class="rb admin">👑 Админ</span>
+                </div>
+                <div class="u-row">
+                  <div class="av lav">А</div>
+                  <div class="md"><div class="nm">Анна Белова</div><div class="rl">@anya_b · 38 опросов</div></div>
+                  <button class="act-mini">Сделать админом</button>
+                </div>
+                <div class="u-row">
+                  <div class="av sage">М</div>
+                  <div class="md"><div class="nm">Максим Орлов</div><div class="rl">@maks · 29 опросов</div></div>
+                  <button class="act-mini danger">Заблокировать</button>
+                </div>
+                <div class="u-row">
+                  <div class="av rose">К</div>
+                  <div class="md"><div class="nm">Катя Ли</div><div class="rl">@katyali · 22 опросa</div></div>
+                  <button class="act-mini">Сделать админом</button>
+                </div>
+                <div class="u-row">
+                  <div class="av butter">Д</div>
+                  <div class="md"><div class="nm">Денис Хан</div><div class="rl">@d_khan · заблокирован</div></div>
+                  <span class="rb banned">Бан</span>
+                </div>
+              </div>
+              <div class="pg">
+                <div class="pt">‹</div>
+                <div class="pt on">1</div>
+                <div class="pt">2</div>
+                <div class="pt">3</div>
+                <div class="pt">›</div>
+              </div>
+            </div>
+
+            <div class="sec"><div class="tt">Опросы</div><button class="lnk">История →</button></div>
+            <div class="card">
+              <div class="form-sec">
+                <div class="l">Активные · 1</div>
+                <div class="p-row">
+                  <div class="pi peach">🥟</div>
+                  <div class="md">
+                    <div class="tt">Обед 15 апреля</div>
+                    <div class="st2"><span class="pill-tiny act">Активен</span><span class="t-mono">закр. через 18 мин</span></div>
+                  </div>
+                  <div class="menu-btn">⋯</div>
+                </div>
+              </div>
+              <div class="form-sec" style="margin-top:10px">
+                <div class="l">Запланированы · 2</div>
+                <div class="p-row">
+                  <div class="pi lav">🍜</div>
+                  <div class="md">
+                    <div class="tt">Обед 16 апреля</div>
+                    <div class="st2"><span class="pill-tiny sch">Запланирован</span><span class="t-mono">завтра · 12:00</span></div>
+                  </div>
+                  <div class="menu-btn">⋯</div>
+                </div>
+                <div class="p-row">
+                  <div class="pi lav">🥗</div>
+                  <div class="md">
+                    <div class="tt">Обед 17 апреля</div>
+                    <div class="st2"><span class="pill-tiny sch">Запланирован</span><span class="t-mono">пт · 12:00</span></div>
+                  </div>
+                  <div class="menu-btn">⋯</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="bnav">
+            <div class="nb"><span class="em">🏠</span>Главная</div>
+            <div class="nb"><span class="em">📋</span>Меню</div>
+            <div class="nb on"><span class="em">📊</span>Статистика</div>
+            <div class="nb"><span class="em">👤</span>Профиль</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIGHT -->
+      <div class="frame" data-theme="light">
+        <div class="tg light">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div class="top-hdr">
+            <div class="ttl">Админ-панель <span class="badge">ТОЛЬКО ДЛЯ АДМИНОВ</span></div>
+            <div class="act">⚙</div>
+          </div>
+          <div class="content">
+            <div class="admin-hero">
+              <div class="h1">3 задачи требуют внимания</div>
+              <div class="h2">обновлено 2 мин назад</div>
+              <div class="clist">
+                <div class="cl-row"><div class="cb"></div><div class="cl-t">Подтвердить 2 новые заявки</div><div class="ch">›</div></div>
+                <div class="cl-row urgent"><div class="cb"></div><div class="cl-t">Закрыть просроченный опрос</div><div class="ch">›</div></div>
+                <div class="cl-row"><div class="cb"></div><div class="cl-t">Добавить меню на понедельник</div><div class="ch">›</div></div>
+              </div>
+            </div>
+
+            <div class="qa-grid">
+              <div class="qa peach"><div class="qi">✚</div><div><div class="qt">Создать опрос</div><div class="qs">от FAB · 3 шага</div></div></div>
+              <div class="qa lav"><div class="qi">📢</div><div><div class="qt">Рассылка</div><div class="qs">всем участникам</div></div></div>
+              <div class="qa sage"><div class="qi">🍽</div><div><div class="qt">Управление меню</div><div class="qs">42 блюда</div></div></div>
+              <div class="qa rose"><div class="qi">🛡</div><div><div class="qt">Модерация</div><div class="qs">2 жалобы</div></div></div>
+            </div>
+
+            <div class="sec"><div class="tt">Инсайты</div><button class="lnk">Отчёт →</button></div>
+            <div class="stiles">
+              <div class="st"><div class="n">24</div><div class="l">актив.<br>польз.</div></div>
+              <div class="st"><div class="n">71%</div><div class="l">средн.<br>явка</div></div>
+              <div class="st"><div class="n">18</div><div class="l">опросов<br>/ месяц</div></div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+                <div style="font-size:12px;font-weight:700;color:var(--ink)">Явка по дням недели</div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--ink-3)">последние 4 недели</div>
+              </div>
+              <div class="chart">
+                <div class="bar"><div class="v" style="height:68%"></div><div class="dl">Пн</div></div>
+                <div class="bar"><div class="v" style="height:82%"></div><div class="dl">Вт</div></div>
+                <div class="bar"><div class="v peak" style="height:94%"></div><div class="dl">Ср</div></div>
+                <div class="bar"><div class="v" style="height:76%"></div><div class="dl">Чт</div></div>
+                <div class="bar"><div class="v" style="height:88%"></div><div class="dl">Пт</div></div>
+                <div class="bar"><div class="v muted" style="height:28%"></div><div class="dl">Сб</div></div>
+                <div class="bar"><div class="v muted" style="height:18%"></div><div class="dl">Вс</div></div>
+              </div>
+            </div>
+            <div class="alert">
+              <div class="ai">⚠</div>
+              <div class="at">
+                <div class="t">Подозрительная активность</div>
+                <div class="s">@fake_user проголосовал в 4 опросах за 12 мин — проверить?</div>
+              </div>
+            </div>
+
+            <div class="sec"><div class="tt">Участники · 24</div><button class="lnk">Все →</button></div>
+            <div class="card">
+              <input class="input" placeholder="Найти участника…">
+              <div style="margin-top:6px">
+                <div class="u-row">
+                  <div class="av">И</div>
+                  <div class="md"><div class="nm">Игорь Кравцов</div><div class="rl">@grizzzzly · 47 опросов</div></div>
+                  <span class="rb admin">👑 Админ</span>
+                </div>
+                <div class="u-row">
+                  <div class="av lav">А</div>
+                  <div class="md"><div class="nm">Анна Белова</div><div class="rl">@anya_b · 38 опросов</div></div>
+                  <button class="act-mini">Сделать админом</button>
+                </div>
+                <div class="u-row">
+                  <div class="av sage">М</div>
+                  <div class="md"><div class="nm">Максим Орлов</div><div class="rl">@maks · 29 опросов</div></div>
+                  <button class="act-mini danger">Заблокировать</button>
+                </div>
+                <div class="u-row">
+                  <div class="av rose">К</div>
+                  <div class="md"><div class="nm">Катя Ли</div><div class="rl">@katyali · 22 опросa</div></div>
+                  <button class="act-mini">Сделать админом</button>
+                </div>
+                <div class="u-row">
+                  <div class="av butter">Д</div>
+                  <div class="md"><div class="nm">Денис Хан</div><div class="rl">@d_khan · заблокирован</div></div>
+                  <span class="rb banned">Бан</span>
+                </div>
+              </div>
+              <div class="pg">
+                <div class="pt">‹</div><div class="pt on">1</div><div class="pt">2</div><div class="pt">3</div><div class="pt">›</div>
+              </div>
+            </div>
+
+            <div class="sec"><div class="tt">Опросы</div><button class="lnk">История →</button></div>
+            <div class="card">
+              <div class="form-sec">
+                <div class="l">Активные · 1</div>
+                <div class="p-row">
+                  <div class="pi peach">🥟</div>
+                  <div class="md"><div class="tt">Обед 15 апреля</div>
+                    <div class="st2"><span class="pill-tiny act">Активен</span><span class="t-mono">закр. через 18 мин</span></div>
+                  </div>
+                  <div class="menu-btn">⋯</div>
+                </div>
+              </div>
+              <div class="form-sec" style="margin-top:10px">
+                <div class="l">Запланированы · 2</div>
+                <div class="p-row">
+                  <div class="pi lav">🍜</div>
+                  <div class="md"><div class="tt">Обед 16 апреля</div>
+                    <div class="st2"><span class="pill-tiny sch">Запланирован</span><span class="t-mono">завтра · 12:00</span></div>
+                  </div>
+                  <div class="menu-btn">⋯</div>
+                </div>
+                <div class="p-row">
+                  <div class="pi lav">🥗</div>
+                  <div class="md"><div class="tt">Обед 17 апреля</div>
+                    <div class="st2"><span class="pill-tiny sch">Запланирован</span><span class="t-mono">пт · 12:00</span></div>
+                  </div>
+                  <div class="menu-btn">⋯</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="bnav">
+            <div class="nb"><span class="em">🏠</span>Главная</div>
+            <div class="nb"><span class="em">📋</span>Меню</div>
+            <div class="nb on"><span class="em">📊</span>Статистика</div>
+            <div class="nb"><span class="em">👤</span>Профиль</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">AdminDashboard · structure</div>
+        <div class="row"><span class="k">hero</span><span class="v">g-peach checklist · urgent row = coral pulse dot</span></div>
+        <div class="row"><span class="k">quick act</span><span class="v">2×2 · peach/lav/sage/rose pastels</span></div>
+        <div class="row"><span class="k">insights</span><span class="v">3 stiles + weekday bar chart (Wed peak ★)</span></div>
+        <div class="row"><span class="k">alert</span><span class="v">butter→coral gradient only if anomaly exists</span></div>
+        <div class="row"><span class="k">users</span><span class="v">search · 5/page · admin pill vs ghost/danger actions</span></div>
+        <div class="row"><span class="k">polls</span><span class="v">mint Активен · lav Запланирован · ⋯ menu</span></div>
+        <div class="note"><b>Entry point.</b> Non-admins never see this page — the Stats tab shows their user-facing stats instead. The peach "ТОЛЬКО ДЛЯ АДМИНОВ" badge in the header is a breadcrumb of privilege, not a toggle.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= B · CREATE POLL FORM ======================= -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">B · create poll</div>
+      <h2 class="sec-title">CreatePollForm — full form (single scroll)</h2>
+      <div class="sec-sub">основное · блюда · участники · предпросмотр · запуск</div>
+    </div>
+
+    <div class="pair">
+      <!-- DARK full form -->
+      <div class="frame" data-theme="dark">
+        <div class="tg dark">
+          <div class="sheet-hdr">
+            <div class="grab"></div>
+            <div class="r">
+              <div class="tt">Создать опрос</div>
+              <div class="x">✕</div>
+            </div>
+          </div>
+          <div class="content" style="padding-top:0">
+
+            <div class="form-sec">
+              <div class="l">Основное</div>
+              <div class="field">
+                <div class="lbl">Название</div>
+                <input class="tin" value="Обед 15 апреля">
+              </div>
+              <div class="field">
+                <div class="lbl">Длительность</div>
+                <div class="chips-row">
+                  <span class="c-chip">15 мин</span>
+                  <span class="c-chip on">30 мин</span>
+                  <span class="c-chip">1 час</span>
+                  <span class="c-chip">Кастомное</span>
+                </div>
+              </div>
+              <div class="toggle-row">
+                <div class="tx">
+                  <div class="tl">Повторяющийся опрос</div>
+                  <div class="ts">каждую рабочую неделю</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="recur-sub">
+                <div class="lbl" style="font-size:11px;color:var(--ink-3);font-family:var(--mono);letter-spacing:0.06em;text-transform:uppercase">Дни</div>
+                <div class="chips-row">
+                  <span class="c-chip on">Пн</span>
+                  <span class="c-chip on">Вт</span>
+                  <span class="c-chip on">Ср</span>
+                  <span class="c-chip on">Чт</span>
+                  <span class="c-chip on">Пт</span>
+                  <span class="c-chip">Сб</span>
+                  <span class="c-chip">Вс</span>
+                </div>
+                <div class="lbl" style="font-size:11px;color:var(--ink-3);font-family:var(--mono);letter-spacing:0.06em;text-transform:uppercase;margin-top:6px">Время запуска</div>
+                <input class="tin" value="12:00" style="font-family:var(--mono);letter-spacing:0.05em">
+              </div>
+            </div>
+
+            <div class="form-sec">
+              <div class="l">Блюда</div>
+              <div class="count-pill">
+                <span>ВЫБРАНО <span class="num">4 из 6</span></span>
+                <span style="color:var(--ink-3)">макс. 6</span>
+              </div>
+              <div style="background:var(--card-grad);border:1px solid var(--line);border-radius:14px;padding:4px 12px">
+                <div class="mi-row on">
+                  <div class="cb"></div><div class="ic">🥟</div>
+                  <div class="md"><div class="nm">Пельмени с бульоном</div><div class="mt">Сибирские · 420 ₽</div></div>
+                </div>
+                <div class="mi-row on">
+                  <div class="cb"></div><div class="ic lav">🍜</div>
+                  <div class="md"><div class="nm">Рамен с уткой</div><div class="mt">Wagamama · 560 ₽</div></div>
+                </div>
+                <div class="mi-row on">
+                  <div class="cb"></div><div class="ic sage">🥗</div>
+                  <div class="md"><div class="nm">Цезарь с курицей</div><div class="mt">КулинаЛавка · 380 ₽</div></div>
+                </div>
+                <div class="mi-row on">
+                  <div class="cb"></div><div class="ic butter">🍕</div>
+                  <div class="md"><div class="nm">Пицца Маргарита</div><div class="mt">Додо · 520 ₽</div></div>
+                </div>
+                <div class="mi-row">
+                  <div class="cb"></div><div class="ic rose">🌯</div>
+                  <div class="md"><div class="nm">Шаурма по-домашнему</div><div class="mt">У Ашота · 340 ₽</div></div>
+                </div>
+                <div class="mi-row">
+                  <div class="cb"></div><div class="ic sky">🥞</div>
+                  <div class="md"><div class="nm">Сырники со сметаной</div><div class="mt">Теремок · 290 ₽</div></div>
+                </div>
+              </div>
+              <div class="add-manual">
+                <span class="l">Добавить вручную</span>
+                <span class="p">+</span>
+              </div>
+            </div>
+
+            <div class="form-sec">
+              <div class="l">Участники</div>
+              <div style="background:var(--card-grad);border:1px solid var(--line);border-radius:14px;padding:4px 12px">
+                <div class="radio on">
+                  <div class="rr"></div>
+                  <div class="l" style="color:var(--ink);font-size:13px;font-weight:600">Все</div>
+                  <div class="s">24 чел.</div>
+                </div>
+                <div class="radio">
+                  <div class="rr"></div>
+                  <div class="l" style="color:var(--ink);font-size:13px;font-weight:600">Только постоянные</div>
+                  <div class="s">≥ 30 опросов · 14 чел.</div>
+                </div>
+                <div class="radio">
+                  <div class="rr"></div>
+                  <div class="l" style="color:var(--ink);font-size:13px;font-weight:600">Выбрать вручную</div>
+                  <div class="s">›</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="prev-card">
+              <div class="pt">🚀 Обед 15 апреля</div>
+              <div class="ps">30 МИН · 24 УЧАСТНИКА · ЗАКР. 12:30</div>
+              <div class="pl">
+                <div class="pli"><span class="em">🥟</span>Пельмени с бульоном</div>
+                <div class="pli"><span class="em">🍜</span>Рамен с уткой</div>
+                <div class="pli"><span class="em">🥗</span>Цезарь с курицей</div>
+                <div class="pli"><span class="em">🍕</span>Пицца Маргарита</div>
+              </div>
+            </div>
+
+          </div>
+          <div class="sticky-foot">
+            <button class="btn primary">Запустить опрос 🚀</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIGHT full form with validation error -->
+      <div class="frame" data-theme="light · validation error">
+        <div class="tg light">
+          <div class="sheet-hdr">
+            <div class="grab"></div>
+            <div class="r">
+              <div class="tt">Создать опрос</div>
+              <div class="x">✕</div>
+            </div>
+          </div>
+          <div class="content" style="padding-top:0">
+
+            <div class="form-sec">
+              <div class="l">Основное</div>
+              <div class="field err">
+                <div class="lbl">Название</div>
+                <input class="tin" placeholder="Обязательное поле" value="">
+                <div class="emsg">✗ Укажите название — участники увидят его в чате</div>
+              </div>
+              <div class="field">
+                <div class="lbl">Длительность</div>
+                <div class="chips-row">
+                  <span class="c-chip">15 мин</span>
+                  <span class="c-chip on">30 мин</span>
+                  <span class="c-chip">1 час</span>
+                  <span class="c-chip">Кастомное</span>
+                </div>
+              </div>
+              <div class="toggle-row">
+                <div class="tx">
+                  <div class="tl">Повторяющийся опрос</div>
+                  <div class="ts">запланировать на несколько дней</div>
+                </div>
+                <div class="toggle"></div>
+              </div>
+            </div>
+
+            <div class="form-sec">
+              <div class="l">Блюда</div>
+              <div class="count-pill" style="border-color:var(--coral-500);box-shadow:0 0 0 3px rgba(229,90,79,0.15)">
+                <span style="color:var(--coral-500)">ВЫБРАНО <span style="font-weight:700">1 из 6</span> — минимум 2</span>
+                <span style="color:var(--ink-3)">макс. 6</span>
+              </div>
+              <div style="background:var(--card-grad);border:1px solid var(--line);border-radius:14px;padding:4px 12px">
+                <div class="mi-row on">
+                  <div class="cb"></div><div class="ic">🥟</div>
+                  <div class="md"><div class="nm">Пельмени с бульоном</div><div class="mt">Сибирские · 420 ₽</div></div>
+                </div>
+                <div class="mi-row">
+                  <div class="cb"></div><div class="ic lav">🍜</div>
+                  <div class="md"><div class="nm">Рамен с уткой</div><div class="mt">Wagamama · 560 ₽</div></div>
+                </div>
+                <div class="mi-row">
+                  <div class="cb"></div><div class="ic sage">🥗</div>
+                  <div class="md"><div class="nm">Цезарь с курицей</div><div class="mt">КулинаЛавка · 380 ₽</div></div>
+                </div>
+                <div class="mi-row">
+                  <div class="cb"></div><div class="ic butter">🍕</div>
+                  <div class="md"><div class="nm">Пицца Маргарита</div><div class="mt">Додо · 520 ₽</div></div>
+                </div>
+              </div>
+              <div class="add-manual">
+                <span class="l">Добавить вручную</span>
+                <span class="p">+</span>
+              </div>
+            </div>
+
+            <div class="form-sec">
+              <div class="l">Участники</div>
+              <div style="background:var(--card-grad);border:1px solid var(--line);border-radius:14px;padding:4px 12px">
+                <div class="radio on">
+                  <div class="rr"></div>
+                  <div class="l" style="color:var(--ink);font-size:13px;font-weight:600">Все</div>
+                  <div class="s">24 чел.</div>
+                </div>
+                <div class="radio">
+                  <div class="rr"></div>
+                  <div class="l" style="color:var(--ink);font-size:13px;font-weight:600">Только постоянные</div>
+                  <div class="s">14 чел.</div>
+                </div>
+                <div class="radio">
+                  <div class="rr"></div>
+                  <div class="l" style="color:var(--ink);font-size:13px;font-weight:600">Выбрать вручную</div>
+                  <div class="s">›</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="prev-card" style="opacity:0.55">
+              <div class="pt">🚀 Без названия</div>
+              <div class="ps">30 МИН · 24 УЧАСТНИКА · —</div>
+              <div class="pl">
+                <div class="pli"><span class="em">🥟</span>Пельмени с бульоном</div>
+                <div style="font-family:var(--mono);font-size:11px;color:var(--ink-3);text-align:center;padding:6px">добавьте ещё 1 блюдо…</div>
+              </div>
+            </div>
+
+          </div>
+          <div class="sticky-foot">
+            <button class="btn primary" style="opacity:0.5;pointer-events:none;box-shadow:none">Запустить опрос 🚀</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">Create · full form</div>
+        <div class="row"><span class="k">layout</span><span class="v">single scroll · not 3-step wizard</span></div>
+        <div class="row"><span class="k">sections</span><span class="v">Основное · Блюда · Участники</span></div>
+        <div class="row"><span class="k">duration</span><span class="v">4 chips · peach active</span></div>
+        <div class="row"><span class="k">recurring</span><span class="v">toggle expands to Пн–Вс + time</span></div>
+        <div class="row"><span class="k">menu multi</span><span class="v">sticky counter 4/6 · 2–6 range</span></div>
+        <div class="row"><span class="k">participants</span><span class="v">radio · last reveals picker</span></div>
+        <div class="row"><span class="k">preview</span><span class="v">dashed border · live update · opacity when invalid</span></div>
+        <div class="row"><span class="k">footer</span><span class="v">single CTA · disabled until valid</span></div>
+        <div class="note"><b>Validation.</b> Inline only — name: required; dishes: ≥ 2 selected; participants: ≥ 1. CTA stays disabled (opacity 0.5, no shadow) until all pass; no global error banner.</div>
+      </div>
+    </div>
+
+    <!-- States: loading on submit + success + quick create + alt proposal -->
+    <div class="sec-head">
+      <div class="sec-num">B · states</div>
+      <h2 class="sec-title">Loading · Success · Quick-create · Alt proposal</h2>
+      <div class="sec-sub">variants and edge states</div>
+    </div>
+
+    <div class="pair">
+      <!-- dark loading -->
+      <div class="frame" data-theme="dark · submitting">
+        <div class="tg dark">
+          <div class="sheet-hdr"><div class="grab"></div><div class="r"><div class="tt">Создать опрос</div><div class="x">✕</div></div></div>
+          <div class="content" style="padding-top:0">
+            <div class="form-sec">
+              <div class="l">Основное</div>
+              <div class="field"><div class="lbl">Название</div><input class="tin" value="Обед 15 апреля" disabled></div>
+              <div class="field"><div class="lbl">Длительность</div><div class="chips-row"><span class="c-chip">15 мин</span><span class="c-chip on">30 мин</span><span class="c-chip">1 час</span></div></div>
+            </div>
+            <div class="form-sec">
+              <div class="l">Блюда · 4/6</div>
+              <div style="background:var(--card-grad);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--ink-3);text-align:center">🥟 Пельмени · 🍜 Рамен · 🥗 Цезарь · 🍕 Пицца</div>
+            </div>
+            <div class="prev-card">
+              <div class="pt">🚀 Обед 15 апреля</div>
+              <div class="ps">30 МИН · 24 УЧАСТНИКА · ЗАКР. 12:30</div>
+              <div class="pl">
+                <div class="pli"><span class="em">🥟</span>Пельмени с бульоном</div>
+                <div class="pli"><span class="em">🍜</span>Рамен с уткой</div>
+                <div class="pli"><span class="em">🥗</span>Цезарь с курицей</div>
+                <div class="pli"><span class="em">🍕</span>Пицца Маргарита</div>
+              </div>
+            </div>
+          </div>
+          <div class="sticky-foot">
+            <button class="btn primary loading"><span class="sp"></span>Запускаем…</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- light success sheet -->
+      <div class="frame" data-theme="light · success sheet">
+        <div class="tg light bs-frame">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <!-- faded page behind -->
+          <div class="top-hdr" style="opacity:0.3;pointer-events:none">
+            <div class="ttl">Админ-панель</div>
+            <div class="act">⚙</div>
+          </div>
+          <div class="content" style="opacity:0.3;pointer-events:none;padding-top:0">
+            <div class="admin-hero">
+              <div class="h1">3 задачи требуют внимания</div>
+              <div class="h2">обновлено 2 мин назад</div>
+            </div>
+            <div class="qa-grid">
+              <div class="qa peach"><div class="qi">✚</div><div><div class="qt">Создать опрос</div></div></div>
+              <div class="qa lav"><div class="qi">📢</div><div><div class="qt">Рассылка</div></div></div>
+            </div>
+          </div>
+          <!-- success sheet -->
+          <div style="position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top-left-radius:18px;border-top-right-radius:18px;box-shadow:var(--shadow-elev);padding-bottom:12px">
+            <div class="sheet-hdr"><div class="grab"></div></div>
+            <div class="succ">
+              <div class="rocket">🚀</div>
+              <div class="st">Опрос запущен!</div>
+              <div class="ss">24 участника получили уведомление. Голосование закроется в 12:30.</div>
+              <div class="confetti"></div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;padding:0 14px">
+                <button class="btn primary">Поделиться в чате</button>
+                <button class="btn" style="background:transparent;color:var(--ink-2);border:1px solid var(--line-2);width:100%">К опросу</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">Submit states</div>
+        <div class="row"><span class="k">loading</span><span class="v">spinner + "Запускаем…" · fields disabled</span></div>
+        <div class="row"><span class="k">success</span><span class="v">rocket bounce · confetti stripe · 2 CTAs</span></div>
+        <div class="row"><span class="k">share</span><span class="v">primary · opens Telegram share sheet</span></div>
+        <div class="row"><span class="k">к опросу</span><span class="v">secondary · deep-links HomePage</span></div>
+        <div class="note"><b>Haptic.</b> On success: medium impact + soft confetti stripe animating 0.4s left→right. Bg page stays faded behind at 0.3 opacity so admin feels they can still see their dashboard.</div>
+      </div>
+    </div>
+
+    <!-- Quick create + alt proposal -->
+    <div class="pair">
+      <!-- dark quick-create -->
+      <div class="frame" data-theme="dark · quick-create BS">
+        <div class="tg dark bs-frame">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <!-- faded home behind -->
+          <div class="top-hdr" style="opacity:0.25;pointer-events:none">
+            <div class="ttl">Главная</div>
+            <div class="act">🔔</div>
+          </div>
+          <div class="content" style="opacity:0.25;pointer-events:none;padding-top:0">
+            <div class="card">
+              <div style="text-align:center;padding:30px 20px">
+                <div style="font-size:38px">🌅</div>
+                <div style="font-size:15px;font-weight:700;margin-top:8px">Утро, опросов пока нет</div>
+              </div>
+            </div>
+          </div>
+          <!-- quick create BS -->
+          <div style="position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top-left-radius:18px;border-top-right-radius:18px;box-shadow:var(--shadow-elev);padding-bottom:14px">
+            <div class="sheet-hdr">
+              <div class="grab"></div>
+              <div class="r"><div class="tt">Быстрый старт</div><div class="x">✕</div></div>
+            </div>
+            <div class="content" style="padding-top:2px;gap:10px">
+              <div class="field">
+                <div class="lbl">Название</div>
+                <input class="tin" placeholder="Обед 15 апреля">
+              </div>
+              <div class="field">
+                <div class="lbl">Длительность</div>
+                <div class="chips-row">
+                  <span class="c-chip">15 мин</span>
+                  <span class="c-chip on">30 мин</span>
+                  <span class="c-chip">1 час</span>
+                </div>
+              </div>
+              <div class="add-manual" style="margin-top:2px">
+                <span class="l">Выбрать из меню</span>
+                <span style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">0 выбрано</span>
+                <span class="p" style="font-size:18px">›</span>
+              </div>
+              <button class="btn primary" style="margin-top:8px">Запустить с последним меню</button>
+              <button class="btn" style="background:transparent;color:var(--ink-2);border:1px solid var(--line-2);width:100%">Настроить подробно →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alt proposal: 3-step wizard thumb -->
+      <div class="frame" data-theme="light · alt proposal (3-step wizard thumb)">
+        <div class="tg light">
+          <div class="status-bar"><span>9:41</span><span>●●● 5G 100%</span></div>
+          <div style="padding:14px 16px;border-bottom:1px dashed var(--line)">
+            <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.12em;color:var(--ink-3);text-transform:uppercase">Alt proposal · NOT used</div>
+            <div style="font-size:15px;font-weight:800;letter-spacing:-0.02em;margin-top:2px">3-step wizard variant</div>
+            <div style="font-size:11px;color:var(--ink-2);margin-top:2px;line-height:1.3">Rejected — too many steps for a 30-sec action.</div>
+          </div>
+          <div class="content" style="gap:10px">
+            <!-- progress -->
+            <div style="display:flex;gap:6px;align-items:center">
+              <div style="flex:1;height:4px;border-radius:999px;background:linear-gradient(90deg,var(--peach-400),var(--peach-500))"></div>
+              <div style="flex:1;height:4px;border-radius:999px;background:var(--line-2)"></div>
+              <div style="flex:1;height:4px;border-radius:999px;background:var(--line-2)"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;letter-spacing:0.08em;color:var(--ink-3);text-transform:uppercase">
+              <span>1 · Основа</span><span>2 · Блюда</span><span>3 · Люди</span>
+            </div>
+
+            <div class="field">
+              <div class="lbl">Название</div>
+              <input class="tin" value="Обед 15 апреля">
+            </div>
+            <div class="field">
+              <div class="lbl">Длительность</div>
+              <div class="chips-row">
+                <span class="c-chip">15 мин</span>
+                <span class="c-chip on">30 мин</span>
+                <span class="c-chip">1 час</span>
+              </div>
+            </div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--ink-3);text-align:center;padding:20px 10px;border:1px dashed var(--line-2);border-radius:12px">
+              … ещё 2 экрана впереди
+            </div>
+          </div>
+          <div class="sticky-foot" style="display:flex;gap:10px">
+            <button class="btn" style="background:transparent;color:var(--ink-2);border:1px solid var(--line-2);flex:0 0 auto;width:auto;padding:14px 18px">Назад</button>
+            <button class="btn primary">Далее →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="anno">
+        <div class="ah">Quick-create &amp; alt</div>
+        <div class="row"><span class="k">quick BS</span><span class="v">name + duration + menu chevron</span></div>
+        <div class="row"><span class="k">fast path</span><span class="v">"Запустить с последним меню" = 1 tap</span></div>
+        <div class="row"><span class="k">escape</span><span class="v">"Настроить подробно →" opens full form</span></div>
+        <div class="row"><span class="k">alt wiz</span><span class="v">3 steps · progress bar · Назад/Далее</span></div>
+        <div class="row"><span class="k">why rejected</span><span class="v">added 2 taps for 0 clarity</span></div>
+        <div class="note"><b>Recommendation.</b> Ship the single-scroll form as primary surface; keep quick-create BS on HomePage empty state for 1-tap re-runs. 3-step wizard stays in the design file as a reference, not in the app.</div>
+      </div>
+    </div>
+
+  </section>
+
+</div>
+</body>
+</html>

@@ -76,7 +76,6 @@ export interface CreateMenuItemData {
   name: string;
   description?: string;
   price?: number;
-  category?: string;
   imageUrl?: string;
   createdBy: number;
 }
@@ -85,7 +84,6 @@ export interface UpdateMenuItemData {
   name?: string;
   description?: string;
   price?: number;
-  category?: string;
   imageUrl?: string;
   isActive?: boolean;
 }
@@ -144,7 +142,6 @@ export interface GroupFilters {
 
 export interface MenuItemFilters {
   name?: string;
-  category?: string;
   isActive?: boolean;
   createdBy?: number;
 }

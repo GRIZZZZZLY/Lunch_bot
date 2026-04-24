@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
 }
 
 model User {
@@ -44,6 +43,11 @@ model User {
   quests                  UserQuest[]            @relation("UserQuests")
   createdRecurringPolls   RecurringPoll[]
   xpHistory               XPHistory[]            @relation("UserXPHistory")
+  createdReminderSettings DebtReminderSettings[] @relation("ReminderSettingsCreator")
+  responsibleCategoryOrders CategoryOrder[]      @relation("ResponsibleCategoryOrders")
+  orderedItems            OrderItem[]            @relation("OrderItemUser")
+  enteredItems            OrderItem[]            @relation("OrderItemEnteredBy")
+  editLogs                OrderItemEditLog[]     @relation("OrderItemEditor")
 
   @@map("users")
 }
@@ -61,6 +65,8 @@ model Group {
   adminReminders AdminReminder[]
   members    GroupMember[]
   recurringPolls RecurringPoll[]
+  reminderSettings DebtReminderSettings?
+  adminNotificationSettings AdminNotificationSettings?
 
   @@map("groups")
 }
@@ -69,8 +75,7 @@ model MenuItem {
   id          Int          @id @default(autoincrement())
   name        String
   description String?
-  price       Float?
-  category    String?
+  price       Decimal?
   imageUrl    String?      @map("image_url")
   isActive    Boolean      @default(true) @map("is_active")
   createdBy   Int          @map("created_by")
@@ -82,8 +87,6 @@ model MenuItem {
   transactions Transaction[]
 
   @@index([isActive])
-  @@index([category])
-  @@index([isActive, category]) // Составной индекс для фильтрации активного меню по категориям
   @@map("menu_items")
 }
 
@@ -97,21 +100,25 @@ model Poll {
   createdBy            Int         @map("created_by")
   messageId            Int?        @map("message_id")
   chatId               BigInt?     @map("chat_id")
-  selectedMenuItemIds  String?     @map("selected_menu_item_ids") // JSON array of menu item IDs
+  selectedMenuItemIds  String?     @map("selected_menu_item_ids")
+  isMultiSelect        Boolean     @default(true) @map("is_multi_select")
+  maxSelections        Int         @default(3) @map("max_selections")
+  isAutomatic          Boolean     @default(false) @map("is_automatic")
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
   result               PollResult?
   creator              User        @relation("PollCreator", fields: [createdBy], references: [id])
   group                Group       @relation(fields: [groupId], references: [id])
   votes                Vote[]
-  transactions          Transaction[]
-  responsibleSelection  ResponsibleSelection?
+  transactions         Transaction[]
+  responsibleSelection ResponsibleSelection?
   orderCosts           PollOrderCosts?
+  categoryOrders       CategoryOrder[]
 
   @@index([status])
   @@index([startedAt])
-  @@index([status, startedAt]) // Составной индекс для поиска истекших активных голосований
-  @@index([groupId, status]) // Составной индекс для getActivePollInGroup
+  @@index([status, startedAt])
+  @@index([groupId, status])
   @@map("polls")
 }
 
@@ -128,15 +135,13 @@ model Vote {
   user         User     @relation(fields: [userId], references: [id])
   poll         Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
 
-  // ИЗМЕНЕНО: Убрали @@unique([pollId, userId]) для поддержки множественного выбора
-  // Теперь один пользователь может голосовать за несколько блюд в одном poll
-  @@unique([pollId, userId, menuItemId]) // Один пользователь не может дважды выбрать одно блюдо
+  @@unique([pollId, userId, menuItemId])
   @@index([pollId])
   @@index([userId])
   @@index([voteType])
-  @@index([pollId, userId]) // Составной индекс для быстрого поиска всех голосов пользователя
-  @@index([createdAt]) // Индекс для фильтрации по дате
-  @@index([menuItemId]) // Индекс для группировки по блюдам
+  @@index([pollId, userId])
+  @@index([createdAt])
+  @@index([menuItemId])
   @@map("votes")
 }
 
@@ -160,42 +165,46 @@ model Transaction {
   pollId          Int       @map("poll_id")
   fromUserId      Int       @map("from_user_id")
   toUserId        Int       @map("to_user_id")
-  amount          Float
+  amount          Decimal
   menuItemId      Int?      @map("menu_item_id")
-  // Cost breakdown fields
-  itemPrice       Float?    @map("item_price")       // Price of menu item only
-  deliveryShare   Float?    @map("delivery_share")   // Equal share of delivery cost
-  serviceShare    Float?    @map("service_share")    // Equal share of service fees
-  tipShare        Float?    @map("tip_share")        // Equal share of tips
+  categoryOrderId Int?      @map("category_order_id")
+  itemPrice       Decimal?  @map("item_price")
+  deliveryShare   Decimal?  @map("delivery_share")
+  serviceShare    Decimal?  @map("service_share")
+  tipShare        Decimal?  @map("tip_share")
   status          String    @default("PENDING")
   paidAt          DateTime? @map("paid_at")
   confirmedAt     DateTime? @map("confirmed_at")
   disputedReason  String?   @map("disputed_reason")
   reminderCount   Int       @default(0) @map("reminder_count")
   lastReminderAt  DateTime? @map("last_reminder_at")
+  debtMessageId   Int?      @map("debt_message_id")   // Telegram message_id of debt notification
+  debtChatId      String?   @map("debt_chat_id")       // Telegram chat_id of debt notification
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  poll            Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  fromUser        User      @relation("UserDebts", fields: [fromUserId], references: [id])
-  toUser          User      @relation("UserCredits", fields: [toUserId], references: [id])
-  menuItem        MenuItem? @relation(fields: [menuItemId], references: [id])
+  poll            Poll           @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  fromUser        User           @relation("UserDebts", fields: [fromUserId], references: [id])
+  toUser          User           @relation("UserCredits", fields: [toUserId], references: [id])
+  menuItem        MenuItem?      @relation(fields: [menuItemId], references: [id])
+  categoryOrder   CategoryOrder? @relation(fields: [categoryOrderId], references: [id])
   reminders       PaymentReminder[]
 
   @@index([pollId])
   @@index([fromUserId, status])
   @@index([toUserId, status])
+  @@index([categoryOrderId])
   @@map("transactions")
 }
 
 model PollOrderCosts {
   id              Int       @id @default(autoincrement())
   pollId          Int       @unique @map("poll_id")
-  deliveryCost    Float     @default(0) @map("delivery_cost")    // Total delivery cost
-  serviceFee      Float     @default(0) @map("service_fee")      // Service fees (commission, etc)
-  tip             Float     @default(0)                          // Optional tip
-  notes           String?                                        // Optional notes from responsible
-  enteredBy       Int       @map("entered_by")                   // User who entered costs
+  deliveryCost    Decimal   @default(0) @map("delivery_cost")
+  serviceFee      Decimal   @default(0) @map("service_fee")
+  tip             Decimal   @default(0)
+  notes           String?
+  enteredBy       Int       @map("entered_by")
   enteredAt       DateTime  @default(now()) @map("entered_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
@@ -235,10 +244,10 @@ model PaymentReminder {
   sentBy          Int?      @map("sent_by")
   message         String?
   sentAt          DateTime  @default(now()) @map("sent_at")
-  
+
   transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   sender          User?       @relation(fields: [sentBy], references: [id])
-  
+
   @@map("payment_reminders")
 }
 
@@ -247,10 +256,10 @@ model AdminReminder {
   userId    Int
   groupId   Int
   createdAt DateTime @default(now())
-  
+
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId, groupId])
   @@index([createdAt])
   @@map("admin_reminders")
@@ -279,7 +288,6 @@ model MenuSuggestion {
   name            String
   description     String?
   price           Float?
-  category        String?
   imageUrl        String?   @map("image_url")
   status          String    @default("PENDING")
   suggestedBy     Int       @map("suggested_by")
@@ -301,61 +309,122 @@ model MenuSuggestion {
 }
 
 // ============================================
-// GAMIFICATION MODELS (Sprint 6 - Enhanced)
+// CATEGORY ORDER SYSTEM
+// ============================================
+
+model CategoryOrder {
+  id                      Int       @id @default(autoincrement())
+  pollId                  Int       @map("poll_id")
+  category                String
+  responsibleUserId       Int?      @map("responsible_user_id")
+  selectionStatus         String    @default("PENDING") @map("selection_status")
+  calculationStatus       String    @default("PENDING") @map("calculation_status")
+  selectionMode           String?   @map("selection_mode")
+  participantCount        Int       @default(0) @map("participant_count")
+  deliveryCost            Decimal?  @default(0) @map("delivery_cost")
+  serviceFee              Decimal?  @default(0) @map("service_fee")
+  tip                     Decimal?  @default(0)
+  notes                   String?
+  totalItemsAmount        Decimal?  @default(0) @map("total_items_amount")
+  totalAdditionalCosts    Decimal?  @default(0) @map("total_additional_costs")
+  totalAmount             Decimal?  @map("total_amount")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+  calculationStartedAt    DateTime? @map("calculation_started_at")
+  calculationCompletedAt  DateTime? @map("calculation_completed_at")
+  participantMessages     String?   @map("participant_messages") // JSON: {userId: {messageId, chatId}}
+
+  poll                    Poll          @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  responsibleUser         User?         @relation("ResponsibleCategoryOrders", fields: [responsibleUserId], references: [id])
+  orderItems              OrderItem[]
+  transactions            Transaction[]
+
+  @@unique([pollId, category])
+  @@index([pollId])
+  @@index([responsibleUserId])
+  @@index([calculationStatus])
+  @@index([pollId, calculationStatus])
+  @@map("category_orders")
+}
+
+model OrderItem {
+  id              Int       @id @default(autoincrement())
+  categoryOrderId Int       @map("category_order_id")
+  userId          Int       @map("user_id")
+  itemName        String    @map("item_name")
+  price           Decimal
+  notes           String?
+  enteredBy       Int       @map("entered_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  categoryOrder   CategoryOrder     @relation(fields: [categoryOrderId], references: [id], onDelete: Cascade)
+  user            User              @relation("OrderItemUser", fields: [userId], references: [id])
+  enteredByUser   User              @relation("OrderItemEnteredBy", fields: [enteredBy], references: [id])
+  editLogs        OrderItemEditLog[]
+
+  @@unique([categoryOrderId, userId])
+  @@index([categoryOrderId])
+  @@index([userId])
+  @@index([enteredBy])
+  @@map("order_items")
+}
+
+model OrderItemEditLog {
+  id            Int       @id @default(autoincrement())
+  orderItemId   Int       @map("order_item_id")
+  editedBy      Int       @map("edited_by")
+  fieldChanged  String    @map("field_changed")
+  oldValue      String?   @map("old_value")
+  newValue      String?   @map("new_value")
+  reason        String?
+  timestamp     DateTime  @default(now())
+
+  orderItem     OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  editor        User      @relation("OrderItemEditor", fields: [editedBy], references: [id])
+
+  @@index([orderItemId])
+  @@index([editedBy])
+  @@index([timestamp])
+  @@map("order_item_edit_logs")
+}
+
+// ============================================
+// GAMIFICATION MODELS
 // ============================================
 
 model UserStats {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique @map("user_id")
-
-  // XP and Level System
   totalXP   Int      @default(0) @map("total_xp")
   level     Int      @default(1)
-  rank      String   @default("Новичок") // Новичок, Гурман, Эксперт, Мастер, Легенда
-
-  // Multi-Category Ratings
+  rank      String   @default("Новичок")
   gastroRating       Int      @default(0) @map("gastro_rating")
   responsibleRating  Int      @default(0) @map("responsible_rating")
   socialRating       Int      @default(0) @map("social_rating")
   explorerRating     Int      @default(0) @map("explorer_rating")
-
-  // Streak System
   currentStreak      Int      @default(0) @map("current_streak")
   longestStreak      Int      @default(0) @map("longest_streak")
   lastVoteDate       DateTime? @map("last_vote_date")
-
-  // Voting Stats
   pollsParticipated  Int      @default(0) @map("polls_participated")
   pollsWon           Int      @default(0) @map("polls_won")
   totalVotes         Int      @default(0) @map("total_votes")
   correctPredictions Int      @default(0) @map("correct_predictions")
-
-  // Responsible Stats
   timesResponsible   Int      @default(0) @map("times_responsible")
   timesVolunteer     Int      @default(0) @map("times_volunteer")
   ordersReceived     Int      @default(0) @map("orders_received")
-
-  // Financial Stats
   paymentsOnTime     Int      @default(0) @map("payments_on_time")
-  totalSpent         Float    @default(0) @map("total_spent")
+  totalSpent         Decimal  @default(0) @map("total_spent")
   totalOrders        Int      @default(0) @map("total_orders")
-
-  // Explorer Stats
   newDishesDiscovered Int     @default(0) @map("new_dishes_discovered")
   categoriesTried     Int     @default(0) @map("categories_tried")
   menuItemsAdded      Int     @default(0) @map("menu_items_added")
-
-  // Social Stats
   referralsCount     Int      @default(0) @map("referrals_count")
-
-  // Legacy fields (keep for backward compatibility)
   randomChoices      Int      @default(0) @map("random_choices")
   winStreak          Int      @default(0) @map("win_streak")
   maxWinStreak       Int      @default(0) @map("max_win_streak")
-
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
   user      User     @relation("UserStats", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([totalXP])
@@ -371,11 +440,11 @@ model UserStats {
 model XPHistory {
   id        Int      @id @default(autoincrement())
   userId    Int      @map("user_id")
-  amount    Int      // Can be positive or negative
+  amount    Int
   reason    String
-  category  String   // GASTRO, RESPONSIBLE, SOCIAL, EXPLORER
-  seasonId  Int?     @map("season_id") // NULL for pre-season XP
-  metadata  String?  // JSON with additional context
+  category  String
+  seasonId  Int?     @map("season_id")
+  metadata  String?
   createdAt DateTime @default(now()) @map("created_at")
 
   user      User     @relation("UserXPHistory", fields: [userId], references: [id], onDelete: Cascade)
@@ -385,11 +454,10 @@ model XPHistory {
   @@index([seasonId])
   @@index([createdAt])
   @@index([category])
-  @@index([userId, seasonId]) // For season-specific leaderboards
+  @@index([userId, seasonId])
   @@map("xp_history")
 }
 
-// Keep UserProgress for backward compatibility (can be deprecated later)
 model UserProgress {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique @map("user_id")
@@ -398,7 +466,7 @@ model UserProgress {
   rank      String   @default("Новичок")
   totalVotes        Int      @default(0) @map("total_votes")
   totalOrders       Int      @default(0) @map("total_orders")
-  totalSpent        Float    @default(0) @map("total_spent")
+  totalSpent        Decimal  @default(0) @map("total_spent")
   winStreak         Int      @default(0) @map("win_streak")
   maxWinStreak      Int      @default(0) @map("max_win_streak")
   categoriesTried   Int      @default(0) @map("categories_tried")
@@ -416,15 +484,15 @@ model UserProgress {
 
 model Achievement {
   id          Int      @id @default(autoincrement())
-  key         String   @unique // Unique identifier like "FIRST_VOTE", "TASTE_EXPERT"
+  key         String   @unique
   title       String
   description String
-  icon        String   // Emoji like "🍽️", "🎯"
-  category    String   // GASTRO, RESPONSIBLE, SOCIAL, EXPLORER
-  rarity      String   @default("COMMON") // COMMON, RARE, EPIC, LEGENDARY
+  icon        String
+  category    String
+  rarity      String   @default("COMMON")
   xpReward    Int      @default(0) @map("xp_reward")
-  requirement String   // JSON: {"type": "stat_gte", "stat": "pollsParticipated", "value": 1}
-  isHidden    Boolean  @default(false) @map("is_hidden") // Easter egg achievements
+  requirement String
+  isHidden    Boolean  @default(false) @map("is_hidden")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -441,7 +509,7 @@ model UserAchievement {
   id            Int         @id @default(autoincrement())
   userId        Int         @map("user_id")
   achievementId Int         @map("achievement_id")
-  progress      Int         @default(100) // 0-100, for progressive achievements
+  progress      Int         @default(100)
   unlockedAt    DateTime    @default(now()) @map("unlocked_at")
 
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -456,20 +524,19 @@ model UserAchievement {
 
 model Quest {
   id          Int       @id @default(autoincrement())
-  key         String    @unique // Unique identifier like "DAILY_VOTE", "WEEK_STREAK"
+  key         String    @unique
   title       String
   description String
-  type        String    // DAILY, WEEKLY, RANDOM, EVENT
-  category    String    // GASTRO, RESPONSIBLE, SOCIAL, EXPLORER
-  icon        String    // Emoji
+  type        String
+  category    String
+  icon        String
   xpReward    Int       @default(0) @map("xp_reward")
-  requirement String    // JSON: {"type": "vote_count", "target": 1}
-  duration    Int       @default(1) // Days quest is active (1 for daily, 7 for weekly)
-  rarity      String    @default("COMMON") // COMMON, RARE, EPIC, LEGENDARY
+  requirement String
+  duration    Int       @default(1)
+  rarity      String    @default("COMMON")
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
-
   userQuests  UserQuest[]
 
   @@index([key])
@@ -483,9 +550,9 @@ model UserQuest {
   id          Int       @id @default(autoincrement())
   userId      Int       @map("user_id")
   questId     Int       @map("quest_id")
-  status      String    @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED
+  status      String    @default("ACTIVE")
   progress    Int       @default(0)
-  target      Int       // Target value for completion (e.g., 5 votes)
+  target      Int
   startedAt   DateTime  @default(now()) @map("started_at")
   completedAt DateTime? @map("completed_at")
   expiresAt   DateTime  @map("expires_at")
@@ -493,7 +560,7 @@ model UserQuest {
   user        User      @relation("UserQuests", fields: [userId], references: [id], onDelete: Cascade)
   quest       Quest     @relation(fields: [questId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, questId, startedAt]) // Allow same quest multiple times on different days
+  @@unique([userId, questId, startedAt])
   @@index([userId, status])
   @@index([questId])
   @@index([expiresAt])
@@ -501,17 +568,16 @@ model UserQuest {
   @@map("user_quests")
 }
 
-// Keep Challenge models for backward compatibility (can be deprecated later)
 model Challenge {
   id          Int       @id @default(autoincrement())
   title       String
   description String
-  type        String    // daily, weekly, monthly, special
-  rarity      String    @default("common") // common, rare, epic, legendary
+  type        String
+  rarity      String    @default("common")
   icon        String
-  target      String    // JSON: {"type": "votes", "count": 7}
-  reward      String    // JSON: {"xp": 300, "badge": "Активист", "discount": 10}
-  deadline    DateTime? // Optional deadline
+  target      String
+  reward      String
+  deadline    DateTime?
   isActive    Boolean   @default(true) @map("is_active")
   startDate   DateTime  @default(now()) @map("start_date")
   endDate     DateTime? @map("end_date")
@@ -547,18 +613,17 @@ model UserChallengeProgress {
 
 model Season {
   id          Int       @id @default(autoincrement())
-  number      Int       @unique // Season number (1, 2, 3, ...)
-  name        String    // "Зимний сезон", "Весенний сезон"
-  theme       String?   // Optional theme color/identifier
+  number      Int       @unique
+  name        String
+  theme       String?
   startDate   DateTime  @map("start_date")
   endDate     DateTime  @map("end_date")
   isActive    Boolean   @default(false) @map("is_active")
-  rewards     String?   // JSON: Top player rewards, badges, etc
-  metadata    String?   // JSON: Additional season info
+  rewards     String?
+  metadata    String?
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  xpHistory   XPHistory[] // XP earned during this season
+  xpHistory   XPHistory[]
 
   @@index([isActive])
   @@index([startDate, endDate])
@@ -566,39 +631,63 @@ model Season {
 }
 
 // ============================================
-// RECURRING POLLS (Auto-scheduled voting)
+// RECURRING POLLS
 // ============================================
 
 model RecurringPoll {
   id                  Int       @id @default(autoincrement())
   groupId             Int       @map("group_id")
   isEnabled           Boolean   @default(true) @map("is_enabled")
-  
-  // Schedule (Europe/Moscow, UTC+3)
-  daysOfWeek          String    @map("days_of_week") // JSON: "[1,2,3,4,5]" (Mon-Fri)
-  timeOfDay           String    @map("time_of_day") // "11:00"
-  duration            Int       @default(30) // minutes
-  
-  // Menu items
-  selectedMenuItemIds String?   @map("selected_menu_item_ids") // JSON: "[1,5,8]" or null (all active)
-  
-  // Tracking
+  daysOfWeek          String    @map("days_of_week")
+  timeOfDay           String    @map("time_of_day")
+  duration            Int       @default(30)
+  selectedMenuItemIds String?   @map("selected_menu_item_ids")
   lastRunAt           DateTime? @map("last_run_at")
-  nextRunAt           DateTime? @map("next_run_at") // Cached for performance
-  lastRunStatus       String?   @map("last_run_status") // SUCCESS, SKIPPED_CONFLICT, FAILED_NO_MENU, FAILED_ERROR
-  lastRunMessage      String?   @map("last_run_message") // Error details if failed
-  
-  // Metadata
+  nextRunAt           DateTime? @map("next_run_at")
+  lastRunStatus       String?   @map("last_run_status")
+  lastRunMessage      String?   @map("last_run_message")
   createdBy           Int       @map("created_by")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
-  
-  // Relations
+
   group               Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
   creator             User      @relation(fields: [createdBy], references: [id])
-  
-  @@unique([groupId]) // One schedule per group
-  @@index([isEnabled, nextRunAt]) // For scheduler queries
+
+  @@unique([groupId])
+  @@index([isEnabled, nextRunAt])
   @@index([groupId, isEnabled])
   @@map("recurring_polls")
+}
+
+model DebtReminderSettings {
+  id                  Int       @id @default(autoincrement())
+  groupId             Int       @unique @map("group_id")
+  isEnabled           Boolean   @default(true) @map("is_enabled")
+  intervalDays        Int       @default(3) @map("interval_days")
+  messageTemplate     String    @map("message_template")
+  minDebtAge          Int       @default(1) @map("min_debt_age")
+  maxReminders        Int       @default(5) @map("max_reminders")
+  createdBy           Int       @map("created_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  group               Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator             User      @relation("ReminderSettingsCreator", fields: [createdBy], references: [id])
+
+  @@map("debt_reminder_settings")
+}
+
+model AdminNotificationSettings {
+  id                  Int       @id @default(autoincrement())
+  groupId             Int       @unique @map("group_id")
+  notifyOnNewUser     Boolean   @default(true) @map("notify_on_new_user")
+  notifyOnNewPoll     Boolean   @default(false) @map("notify_on_new_poll")
+  notifyOnPollEnd     Boolean   @default(false) @map("notify_on_poll_end")
+  notifyOnDebtPaid    Boolean   @default(false) @map("notify_on_debt_paid")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  group               Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("admin_notification_settings")
 }

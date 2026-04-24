@@ -1,13 +1,47 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { RecurringPollService } from '../../services/recurring-poll.service';
 import { logger } from '../../utils/logger';
+import { getParam } from '../../utils/request-params';
+
+// ── Zod schemas ──────────────────────────────────────────────────────────────
+
+const DaysOfWeekSchema = z
+  .array(z.number().int().min(0).max(6))
+  .min(1, 'At least one day must be selected')
+  .max(7);
+
+const TimeOfDaySchema = z
+  .string()
+  .regex(/^\d{2}:\d{2}$/, 'timeOfDay must be in HH:MM format')
+  .refine(val => {
+    const [h, m] = val.split(':').map(Number);
+    return h >= 0 && h <= 23 && m >= 0 && m <= 59;
+  }, 'timeOfDay must be a valid time (00:00–23:59)');
+
+const CreateScheduleSchema = z.object({
+  groupId: z.number().int().positive('groupId must be a positive integer'),
+  daysOfWeek: DaysOfWeekSchema,
+  timeOfDay: TimeOfDaySchema,
+  duration: z.number().int().min(1, 'duration must be at least 1 minute').max(1440),
+  selectedMenuItemIds: z.array(z.number().int().positive()).nullable().optional(),
+});
+
+const UpdateScheduleSchema = z.object({
+  groupId: z.number().int().positive('groupId must be a positive integer'),
+  daysOfWeek: DaysOfWeekSchema.optional(),
+  timeOfDay: TimeOfDaySchema.optional(),
+  duration: z.number().int().min(1).max(1440).optional(),
+  selectedMenuItemIds: z.array(z.number().int().positive()).nullable().optional(),
+  isEnabled: z.boolean().optional(),
+});
 
 /**
  * Получение расписания группы
  */
 export const getGroupSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
-    const groupId = parseInt(req.params.groupId);
+    const groupId = parseInt(getParam(req.params, 'groupId'), 10);
     const userId = (req as any).user?.id;
 
     if (!userId) {
@@ -54,16 +88,17 @@ export const createSchedule = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const { groupId, daysOfWeek, timeOfDay, duration, selectedMenuItemIds } = req.body;
-
-    // Валидация
-    if (!groupId || !daysOfWeek || !timeOfDay || !duration) {
+    const parsed = CreateScheduleSchema.safeParse(req.body);
+    if (!parsed.success) {
       res.status(400).json({
         success: false,
-        error: 'Missing required fields: groupId, daysOfWeek, timeOfDay, duration',
+        error: parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+        code: 'VALIDATION_ERROR',
       });
       return;
     }
+
+    const { groupId, daysOfWeek, timeOfDay, duration, selectedMenuItemIds } = parsed.data;
 
     // Проверка прав доступа
     const hasAccess = await RecurringPollService.checkAdminAccess(userId, groupId);
@@ -77,7 +112,7 @@ export const createSchedule = async (req: Request, res: Response): Promise<void>
       daysOfWeek,
       timeOfDay,
       duration,
-      selectedMenuItemIds: selectedMenuItemIds || null,
+      selectedMenuItemIds: selectedMenuItemIds ?? null,
       createdBy: userId,
     });
 
@@ -114,7 +149,7 @@ export const createSchedule = async (req: Request, res: Response): Promise<void>
 export const updateSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
-    const scheduleId = parseInt(req.params.id);
+    const scheduleId = parseInt(getParam(req.params, 'id'), 10);
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -126,8 +161,20 @@ export const updateSchedule = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    const parsed = UpdateScheduleSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        error: parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+        code: 'VALIDATION_ERROR',
+      });
+      return;
+    }
+
+    const { groupId: bodyGroupId, daysOfWeek, timeOfDay, duration, selectedMenuItemIds, isEnabled } = parsed.data;
+
     // Получаем текущее расписание для проверки прав
-    const existing = await RecurringPollService.getByGroupId(req.body.groupId);
+    const existing = await RecurringPollService.getByGroupId(bodyGroupId);
     if (!existing || existing.id !== scheduleId) {
       res.status(404).json({ success: false, error: 'Schedule not found' });
       return;
@@ -139,8 +186,6 @@ export const updateSchedule = async (req: Request, res: Response): Promise<void>
       res.status(403).json({ success: false, error: 'Access denied. Admin rights required.' });
       return;
     }
-
-    const { daysOfWeek, timeOfDay, duration, selectedMenuItemIds, isEnabled } = req.body;
 
     const updated = await RecurringPollService.updateRecurring(scheduleId, {
       daysOfWeek,
@@ -183,7 +228,7 @@ export const updateSchedule = async (req: Request, res: Response): Promise<void>
 export const deleteSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
-    const scheduleId = parseInt(req.params.id);
+    const scheduleId = parseInt(getParam(req.params, 'id'), 10);
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -230,7 +275,7 @@ export const deleteSchedule = async (req: Request, res: Response): Promise<void>
 export const toggleSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
-    const scheduleId = parseInt(req.params.id);
+    const scheduleId = parseInt(getParam(req.params, 'id'), 10);
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -277,7 +322,7 @@ export const toggleSchedule = async (req: Request, res: Response): Promise<void>
 export const getExecutionHistory = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
-    const groupId = parseInt(req.params.groupId);
+    const groupId = parseInt(getParam(req.params, 'groupId'), 10);
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });

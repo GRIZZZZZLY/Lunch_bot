@@ -8,12 +8,13 @@ const pastelCardVariants = cva(
   {
     variants: {
       variant: {
-        peach: "border-pastel-peach-200 bg-pastel-peach-50 dark:border-pastel-peach-700 dark:bg-pastel-peach-950",
-        lavender: "border-pastel-lavender-200 bg-pastel-lavender-50 dark:border-pastel-lavender-700 dark:bg-pastel-lavender-950",
-        sky: "border-pastel-sky-200 bg-pastel-sky-50 dark:border-pastel-sky-700 dark:bg-pastel-sky-950",
-        sage: "border-pastel-sage-200 bg-pastel-sage-50 dark:border-pastel-sage-700 dark:bg-pastel-sage-950",
-        rose: "border-pastel-rose-200 bg-pastel-rose-50 dark:border-pastel-rose-700 dark:bg-pastel-rose-950",
-        default: "border-border bg-card dark:border-border dark:bg-card",
+        peach: "border-peach-500/20 bg-peach-500/8 dark:border-peach-400/14 dark:bg-peach-400/10",
+        lavender: "border-lavender-500/20 bg-lavender-500/8 dark:border-lavender-400/14 dark:bg-lavender-400/10",
+        sky: "border-sky-400/20 bg-sky-400/8 dark:border-sky-300/14 dark:bg-sky-300/10",
+        sage: "border-mint-500/20 bg-mint-500/8 dark:border-mint-400/14 dark:bg-mint-400/10",
+        rose: "border-coral-500/20 bg-coral-500/8 dark:border-coral-400/14 dark:bg-coral-400/10",
+        glass: "bg-white/70 dark:bg-card/72 backdrop-blur-md border-border/60",
+        default: "border border-border/80 bg-card dark:border-white/[0.07] shadow-[0_1px_4px_rgba(33,20,10,0.06)] dark:shadow-none",
       },
     },
     defaultVariants: {
@@ -37,4 +38,4 @@ const PastelCard = React.forwardRef<HTMLDivElement, PastelCardProps>(
 )
 PastelCard.displayName = "PastelCard"
 
-export { PastelCard, pastelCardVariants, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
+export { PastelCard, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }

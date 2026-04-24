@@ -7,7 +7,6 @@ import {
   Sparkles,
   User,
   DollarSign,
-  Tag,
   Image as ImageIcon,
   Trash2,
 } from 'lucide-react';
@@ -29,18 +28,15 @@ import { ICON_SIZES } from '@/lib/design-tokens';
 
 type TabType = 'PENDING' | 'APPROVED' | 'REJECTED';
 
-const tabs: { value: TabType; label: string; icon: any; color: string }[] = [
-  { value: 'PENDING', label: 'Ожидают', icon: Clock, color: 'text-amber-500' },
-  { value: 'APPROVED', label: 'Одобрено', icon: CheckCircle, color: 'text-green-500' },
-  { value: 'REJECTED', label: 'Отклонено', icon: XCircle, color: 'text-red-500' },
-];
+export interface SuggestionsPanelProps {
+  selectedTab?: TabType;
+}
 
 /**
  * Админ панель для обработки предложений блюд
  */
-export function SuggestionsPanel() {
+export function SuggestionsPanel({ selectedTab = 'PENDING' }: SuggestionsPanelProps) {
   const { hapticFeedback } = useTelegram();
-  const [selectedTab, setSelectedTab] = useState<TabType>('PENDING');
   const [itemToDelete, setItemToDelete] = useState<{ id: number; name: string } | null>(null);
   const [itemToReject, setItemToReject] = useState<{ id: number; name: string } | null>(null);
 
@@ -89,26 +85,15 @@ export function SuggestionsPanel() {
 
   return (
     <div className="space-y-6 pb-24">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-peach-500/10 dark:bg-peach-500/20">
-          <Sparkles className={`${ICON_SIZES.lg} text-peach-500`} />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Предложения</h1>
-          <p className="text-sm text-muted-foreground">Обработка краудсорсинга меню</p>
-        </div>
-      </div>
-
       {/* Stats */}
       {!statsLoading && stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <GlassCard intensity="low" hover className="overflow-hidden">
+          <GlassCard intensity="solid" hover className="overflow-hidden">
             <GlassCardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/20">
-                  <Sparkles className={`${ICON_SIZES.md} text-blue-500`} />
-                </div>
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                    <Sparkles className={`${ICON_SIZES.md}`} />
+                  </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-2xl font-bold text-foreground">{stats.total}</div>
                   <div className="text-xs text-muted-foreground">Всего</div>
@@ -120,9 +105,9 @@ export function SuggestionsPanel() {
           <GlassCard intensity="low" hover className="overflow-hidden">
             <GlassCardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10 dark:bg-amber-500/20">
-                  <Clock className={`${ICON_SIZES.md} text-amber-500`} />
-                </div>
+                  <div className="p-2 rounded-xl bg-butter-500/10 text-butter-600 dark:text-butter-400">
+                    <Clock className={`${ICON_SIZES.md}`} />
+                  </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-2xl font-bold text-foreground">{stats.pending}</div>
                   <div className="text-xs text-muted-foreground">Ожидают</div>
@@ -134,9 +119,9 @@ export function SuggestionsPanel() {
           <GlassCard intensity="low" hover className="overflow-hidden">
             <GlassCardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10 dark:bg-green-500/20">
-                  <CheckCircle className={`${ICON_SIZES.md} text-green-500`} />
-                </div>
+                  <div className="p-2 rounded-xl bg-mint-500/10 text-mint-600 dark:text-mint-400">
+                    <CheckCircle className={`${ICON_SIZES.md}`} />
+                  </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-2xl font-bold text-foreground">{stats.approved}</div>
                   <div className="text-xs text-muted-foreground">Одобрено</div>
@@ -145,7 +130,7 @@ export function SuggestionsPanel() {
             </GlassCardContent>
           </GlassCard>
 
-          <GlassCard intensity="low" hover className="overflow-hidden">
+          <GlassCard intensity="medium" hover className="overflow-hidden">
             <GlassCardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-peach-500/10 dark:bg-peach-500/20">
@@ -162,44 +147,10 @@ export function SuggestionsPanel() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => {
-              setSelectedTab(tab.value);
-              hapticFeedback?.selectionChanged();
-            }}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap',
-              selectedTab === tab.value
-                ? 'bg-peach-500 text-white shadow-lg'
-                : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-            )}
-          >
-            <tab.icon className={cn(ICON_SIZES.sm, selectedTab === tab.value ? 'text-white' : tab.color)} />
-            <span className="font-medium">{tab.label}</span>
-            {!statsLoading && stats && (
-              <span className={cn(
-                'px-2 py-0.5 rounded-full text-xs font-bold',
-                selectedTab === tab.value
-                  ? 'bg-white/20 text-white'
-                  : 'bg-background/50'
-              )}>
-                {tab.value === 'PENDING' && stats.pending}
-                {tab.value === 'APPROVED' && stats.approved}
-                {tab.value === 'REJECTED' && stats.rejected}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
       {/* Suggestions List */}
       <div className="space-y-4">
         {suggestionsLoading ? (
-          <div className="text-center py-8 text-muted-foreground">Загрузка...</div>
+          <div className="py-8 text-center text-muted-foreground">Загрузка...</div>
         ) : suggestions && suggestions.length > 0 ? (
           <AnimatePresence mode="popLayout">
             {suggestions.map((suggestion, index) => (
@@ -217,7 +168,7 @@ export function SuggestionsPanel() {
             ))}
           </AnimatePresence>
         ) : (
-          <div className="text-center py-12">
+          <div className="py-12 text-center">
             <div className="text-6xl mb-4">🎉</div>
             <h3 className="text-lg font-semibold text-foreground mb-2">
               {selectedTab === 'PENDING' && 'Нет ожидающих предложений'}
@@ -290,7 +241,7 @@ function SuggestionCard({
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
     >
-      <GlassCard intensity="low" hover className="overflow-hidden">
+      <GlassCard intensity="medium" hover className="overflow-hidden">
         <GlassCardContent className="p-5 space-y-4">
           {/* Header */}
           <div className="flex items-start justify-between gap-3">
@@ -311,10 +262,10 @@ function SuggestionCard({
             {/* Status Badge */}
             <div className={cn(
               'px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5',
-              isPending && 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-              isApproved && 'bg-green-500/10 text-green-600 dark:text-green-400',
-              isRejected && 'bg-red-500/10 text-red-600 dark:text-red-400'
-            )}>
+               isPending && 'bg-butter-500/10 text-butter-700 dark:text-butter-400',
+               isApproved && 'bg-mint-500/10 text-mint-700 dark:text-mint-400',
+               isRejected && 'bg-coral-500/10 text-coral-700 dark:text-coral-400'
+             )}>
               {isPending && <Clock className={ICON_SIZES.xs} />}
               {isApproved && <CheckCircle className={ICON_SIZES.xs} />}
               {isRejected && <XCircle className={ICON_SIZES.xs} />}
@@ -333,14 +284,8 @@ function SuggestionCard({
             <div className="flex flex-wrap gap-3 text-sm">
               {suggestion.price && (
                 <div className="flex items-center gap-1.5">
-                  <DollarSign className={`${ICON_SIZES.sm} text-peach-500`} />
+                  <DollarSign className={`${ICON_SIZES.sm} text-primary`} />
                   <span className="font-semibold">₽{suggestion.price}</span>
-                </div>
-              )}
-              {suggestion.category && (
-                <div className="flex items-center gap-1.5">
-                  <Tag className={`${ICON_SIZES.sm} text-blue-500`} />
-                  <span>{suggestion.category}</span>
                 </div>
               )}
               {(() => {
@@ -354,12 +299,12 @@ function SuggestionCard({
 
                 return (
                 <div className="flex items-center gap-1.5">
-                  <ImageIcon className={`${ICON_SIZES.sm} text-green-500`} />
+                  <ImageIcon className={`${ICON_SIZES.sm} text-lavender-500`} />
                   <a
                     href={safeImageUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-500 hover:underline"
+                    className="text-lavender-600 hover:underline dark:text-lavender-400"
                   >
                     Фото
                   </a>
@@ -379,7 +324,7 @@ function SuggestionCard({
                 </span>
               </div>
               {suggestion.rejectionReason && (
-                <div className="mt-1 text-red-600 dark:text-red-400">
+                <div className="mt-1 text-coral-600 dark:text-coral-400">
                   Причина: {suggestion.rejectionReason}
                 </div>
               )}
@@ -392,7 +337,8 @@ function SuggestionCard({
               <Button
                 onClick={() => onApprove(suggestion.id)}
                 disabled={isApproving || isRejecting}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                variant="success"
+                className="flex-1"
                 size="sm"
               >
                 <CheckCircle className={`${ICON_SIZES.sm} mr-2`} />

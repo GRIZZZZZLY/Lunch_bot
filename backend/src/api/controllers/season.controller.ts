@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { SeasonService } from '../../services/season.service';
 import { logger } from '../../utils/logger';
+import { getParam } from '../../utils/request-params';
 
 /**
  * Season Controller - API endpoints для сезонной системы
@@ -65,7 +66,7 @@ export class SeasonController {
    */
   static async getSeasonById(req: Request, res: Response): Promise<void> {
     try {
-      const seasonId = parseInt(req.params.id);
+      const seasonId = parseInt(getParam(req.params, 'id'), 10);
 
       if (isNaN(seasonId)) {
         res.status(400).json({
@@ -104,7 +105,7 @@ export class SeasonController {
    */
   static async getSeasonLeaderboard(req: Request, res: Response): Promise<void> {
     try {
-      const seasonId = parseInt(req.params.id);
+      const seasonId = parseInt(getParam(req.params, 'id'), 10);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
 
       if (isNaN(seasonId)) {
@@ -136,8 +137,8 @@ export class SeasonController {
    */
   static async getUserSeasonStats(req: Request, res: Response): Promise<void> {
     try {
-      const seasonId = parseInt(req.params.id);
-      const userId = parseInt(req.params.userId);
+      const seasonId = parseInt(getParam(req.params, 'id'), 10);
+      const userId = parseInt(getParam(req.params, 'userId'), 10);
 
       if (isNaN(seasonId) || isNaN(userId)) {
         res.status(400).json({
@@ -251,7 +252,7 @@ export class SeasonController {
    */
   static async getCurrentSeasonUserStats(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = parseInt(getParam(req.params, 'userId'), 10);
 
       if (isNaN(userId)) {
         res.status(400).json({
