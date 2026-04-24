@@ -55,6 +55,13 @@ export const queryKeys = {
     all: ['votes'] as const,
     byPoll: (pollId: number) => [...queryKeys.votes.all, 'poll', pollId] as const,
   },
+
+  // Store runs ("Иду в магазин")
+  storeRuns: {
+    all: ['storeRuns'] as const,
+    active: () => [...queryKeys.storeRuns.all, 'active'] as const,
+    detail: (id: number) => [...queryKeys.storeRuns.all, 'detail', id] as const,
+  },
 } as const;
 
 export type QueryKeys = typeof queryKeys;
