@@ -10,6 +10,8 @@ export enum NotificationType {
   POLL_CANCELLED = 'poll_cancelled',
   ROULETTE_WINNER = 'roulette_winner',
   ORDER_REMINDER = 'order_reminder',
+  STORE_RUN_STARTED = 'store_run_started',
+  STORE_RUN_SHOPPING = 'store_run_shopping',
   CUSTOM = 'custom',
 }
 

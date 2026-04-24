@@ -728,6 +728,142 @@ export class NotificationService {
       };
     }
   }
+
+  // ==================================================================
+  // STORE RUN notifications ("Иду в магазин")
+  // ==================================================================
+
+  /**
+   * Уведомить всех членов группы (кроме инициатора) о новом магазинном забеге.
+   * Отправляется в личку с web_app кнопкой + инструкцией про текстовый ответ.
+   */
+  async notifyGroupMembersAboutStoreRun(
+    storeRunId: number,
+  ): Promise<NotificationResult[]> {
+    const storeRun = await prisma.storeRun.findUnique({
+      where: { id: storeRunId },
+      include: { initiator: true },
+    });
+    if (!storeRun) {
+      logger.warn('notifyGroupMembersAboutStoreRun: run not found', { storeRunId });
+      return [];
+    }
+
+    const members = await prisma.groupMember.findMany({
+      where: {
+        groupId: storeRun.groupId,
+        isActive: true,
+        userId: { not: storeRun.initiatorId },
+      },
+      include: { user: true },
+    });
+    if (members.length === 0) return [];
+
+    const webappUrl = process.env.WEBAPP_URL ?? '';
+    const initiatorName = storeRun.initiator.firstName;
+    const storeName = storeRun.storeName;
+    const collectUntilStr = storeRun.collectUntil.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const message =
+      `🛒 <b>${this.escapeHtml(initiatorName)}</b> идёт в «${this.escapeHtml(storeName)}»\n\n` +
+      `Напиши что тебе взять — сбор до ${collectUntilStr}\n\n` +
+      `<i>Или просто ответь мне сообщением: что взять, через запятую.</i>`;
+
+    const replyMarkup = webappUrl
+      ? {
+          inline_keyboard: [
+            [
+              {
+                text: '📱 Заполнить заказ',
+                web_app: { url: `${webappUrl}?storeRunId=${storeRunId}` },
+              },
+            ],
+          ],
+        }
+      : undefined;
+
+    const results: NotificationResult[] = [];
+    for (const member of members) {
+      const result = await this.send({
+        userId: Number(member.user.telegramId),
+        type: NotificationType.STORE_RUN_STARTED,
+        priority: NotificationPriority.NORMAL,
+        message,
+        parseMode: 'HTML',
+        replyMarkup,
+      });
+      results.push(result);
+    }
+
+    logger.info('Store run start notifications sent', {
+      storeRunId,
+      recipients: members.length,
+      successful: results.filter((r) => r.success).length,
+    });
+
+    return results;
+  }
+
+  /**
+   * Уведомить участников, уже добавивших позиции, что инициатор в магазине
+   * и приём заказов закрыт.
+   */
+  async notifyShoppingStarted(storeRunId: number): Promise<NotificationResult[]> {
+    const storeRun = await prisma.storeRun.findUnique({
+      where: { id: storeRunId },
+      include: { initiator: true },
+    });
+    if (!storeRun) return [];
+
+    const items = await prisma.storeItem.findMany({
+      where: { storeRunId },
+      select: { userId: true },
+    });
+    const participantIds = Array.from(
+      new Set(items.map((i) => i.userId).filter((id) => id !== storeRun.initiatorId)),
+    );
+    if (participantIds.length === 0) return [];
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: participantIds } },
+      select: { id: true, telegramId: true },
+    });
+
+    const initiatorName = storeRun.initiator.firstName;
+    const storeName = storeRun.storeName;
+    const message =
+      `🛍 <b>${this.escapeHtml(initiatorName)}</b> пошёл в «${this.escapeHtml(storeName)}».\n` +
+      `Сбор заказов закрыт, скоро будут цены.`;
+
+    const results: NotificationResult[] = [];
+    for (const u of users) {
+      const result = await this.send({
+        userId: Number(u.telegramId),
+        type: NotificationType.STORE_RUN_SHOPPING,
+        priority: NotificationPriority.NORMAL,
+        message,
+        parseMode: 'HTML',
+      });
+      results.push(result);
+    }
+
+    logger.info('Store run shopping-started notifications sent', {
+      storeRunId,
+      recipients: users.length,
+    });
+
+    return results;
+  }
+
+  private escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
 }
 
 export const notificationService = new NotificationService();
