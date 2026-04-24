@@ -571,8 +571,10 @@ export class BudgetService {
         }
       }
 
-      // Проверяем, все ли оплатили
-      await this.checkAllPaid(tx.pollId, tx.toUserId);
+      // Проверяем, все ли оплатили (только для poll-транзакций; у store-run своя финализация)
+      if (tx.pollId != null) {
+        await this.checkAllPaid(tx.pollId, tx.toUserId);
+      }
 
       return tx;
     } catch (error) {

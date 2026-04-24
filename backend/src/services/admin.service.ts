@@ -37,7 +37,7 @@ interface DebtorInfo {
     id: number;
     amount: Decimal;
     createdAt: Date;
-    pollId: number;
+    pollId: number | null;
     toUser: {
       id: number;
       firstName: string;
