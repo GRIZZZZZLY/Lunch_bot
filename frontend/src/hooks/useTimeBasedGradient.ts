@@ -6,7 +6,6 @@ export interface TimeColors {
   border: string;   // rgba for border colour
   overlay: string;  // CSS linear-gradient for overlay div
   shadow: string;   // box-shadow value
-  glow: string;     // rgba base for ring/badge accents (append opacity + ")")
 }
 
 export interface GradientColors {
@@ -25,25 +24,21 @@ const TIME_COLORS: Record<TimeOfDay, TimeColors> = {
     border: 'rgba(251,146,60,0.28)',
     overlay: 'linear-gradient(135deg,rgba(251,146,60,0.12) 0%,rgba(234,88,12,0.06) 100%)',
     shadow: '0 8px 20px rgba(251,146,60,0.10)',
-    glow: 'rgba(251,146,60,',
   },
   afternoon: {
     border: 'rgba(92,174,135,0.28)',
     overlay: 'linear-gradient(135deg,rgba(92,174,135,0.12) 0%,rgba(52,211,153,0.06) 100%)',
     shadow: '0 8px 20px rgba(92,174,135,0.10)',
-    glow: 'rgba(92,174,135,',
   },
   evening: {
     border: 'rgba(139,92,246,0.28)',
     overlay: 'linear-gradient(135deg,rgba(139,92,246,0.12) 0%,rgba(109,40,217,0.06) 100%)',
     shadow: '0 8px 20px rgba(139,92,246,0.10)',
-    glow: 'rgba(139,92,246,',
   },
   night: {
     border: 'rgba(255,191,31,0.28)',
     overlay: 'linear-gradient(135deg,rgba(255,191,31,0.10) 0%,rgba(234,179,8,0.05) 100%)',
     shadow: '0 8px 20px rgba(255,191,31,0.08)',
-    glow: 'rgba(255,191,31,',
   },
 };
 
