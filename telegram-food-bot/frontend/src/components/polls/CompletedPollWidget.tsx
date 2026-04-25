@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDown,
+  ChevronUp,
   Trophy,
   Clock,
   Users,
   Utensils,
+  X,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { PollWithDetails, Vote } from '../../services/polls.service';
@@ -21,19 +23,26 @@ interface CompletedPollWidgetProps {
   showCelebration?: boolean;
   onCelebrationEnd?: () => void;
   className?: string;
+  /** Свернуть в pill-режим по умолчанию (Home — true, отдельные экраны — false) */
+  defaultCollapsed?: boolean;
+  /** Колбэк для кнопки × (скрыть виджет полностью) */
+  onDismiss?: () => void;
 }
 
 /**
  * Компонент для отображения завершённого голосования
- * Timeline-view с expandable результатами
+ * Timeline-view с expandable результатами + pill-режим (collapsed)
  */
 export const CompletedPollWidget = ({
   poll,
   showCelebration = false,
   onCelebrationEnd,
   className,
+  defaultCollapsed = false,
+  onDismiss,
 }: CompletedPollWidgetProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const { colorScheme } = useTelegram();
   const isDark = colorScheme === 'dark';
 
@@ -95,6 +104,13 @@ export const CompletedPollWidget = ({
     dishPrice: v.menuItem?.price || 0,
     dishEmoji: (v.menuItem as { emoji?: string } | undefined)?.emoji,
   }));
+
+  // Celebration всегда показываем в развёрнутом виде (confetti на pill не падает)
+  useEffect(() => {
+    if (showCelebration) {
+      setIsCollapsed(false);
+    }
+  }, [showCelebration]);
 
   // Запускаем confetti при celebration (async loaded)
   useEffect(() => {
@@ -213,8 +229,76 @@ export const CompletedPollWidget = ({
           </motion.div>
         )}
 
+        {/* Pill (collapsed) — компактная плашка для Home */}
+        {!showCelebration && isCollapsed && (
+          <motion.div
+            key="pill"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setIsCollapsed(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setIsCollapsed(false);
+                }
+              }}
+              className="group relative flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-3 cursor-pointer transition-colors hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
+                <Trophy className={ICON_SIZES.sm} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="truncate text-sm font-semibold text-foreground">
+                  {winnerDish?.name ?? topDishes[0]?.dish.name ?? 'Голосование завершено'}
+                </div>
+                <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                  {showTotalAmount && (
+                    <span className="font-medium text-foreground">{totalAmount} ₽</span>
+                  )}
+                  {pollResult?.responsible && (
+                    <>
+                      {showTotalAmount && <span className="opacity-50">·</span>}
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-lavender-400 to-lavender-600 text-[10px] font-semibold text-white">
+                          {pollResult.responsible.firstName?.[0]?.toUpperCase() ?? '?'}
+                        </span>
+                        <span className="truncate">{pollResult.responsible.firstName}</span>
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <ChevronDown
+                className={cn(
+                  ICON_SIZES.sm,
+                  'flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-y-0.5'
+                )}
+              />
+              {onDismiss && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDismiss();
+                  }}
+                  aria-label="Скрыть виджет"
+                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                >
+                  <X className={ICON_SIZES.xs} />
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+
         {/* Menu Summary Card (после celebration) */}
-        {!showCelebration && (
+        {!showCelebration && !isCollapsed && (
           <motion.div
             key="menu-summary"
             initial={{ opacity: 0, y: 20 }}
@@ -251,6 +335,16 @@ export const CompletedPollWidget = ({
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 Голосование завершено
               </span>
+              {defaultCollapsed && (
+                <button
+                  type="button"
+                  onClick={() => setIsCollapsed(true)}
+                  aria-label="Свернуть"
+                  className="ml-auto flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                >
+                  <ChevronUp className={ICON_SIZES.xs} />
+                </button>
+              )}
             </div>
 
             {/* Заголовок секции меню */}

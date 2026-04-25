@@ -30,11 +30,40 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
 
         // Сохраняем группу в базу данных
         if (chat.type === 'group' || chat.type === 'supergroup') {
-          await GroupService.upsertGroup({
+          const group = await GroupService.upsertGroup({
             telegramId: chat.id.toString(),
             title: chat.title || 'Unknown Group',
             type: chat.type,
           });
+
+          // Сразу регистрируем админов и создателя группы.
+          // Bot API не даёт получить полный список участников — только админов.
+          // Остальных подхватим через chat_member / new_chat_members / authMiddleware.
+          try {
+            const admins = await ctx.api.getChatAdministrators(chat.id);
+            let synced = 0;
+            for (const admin of admins) {
+              if (admin.user.is_bot) continue;
+              const dbUser = await UserService.upsertUser({
+                telegramId: admin.user.id.toString(),
+                username: admin.user.username,
+                firstName: admin.user.first_name,
+                lastName: admin.user.last_name,
+              });
+              await GroupService.addMemberToGroup(group.id, dbUser.id);
+              synced++;
+            }
+            logger.info('Synced group admins on bot join', {
+              chatId: chat.id,
+              syncedCount: synced,
+              totalAdmins: admins.length,
+            });
+          } catch (adminError) {
+            logger.warn('Failed to sync group admins on bot join', {
+              chatId: chat.id,
+              error: adminError instanceof Error ? adminError.message : String(adminError),
+            });
+          }
 
           // Настраиваем Menu Button для этой группы
           await setupMenuButtonForGroup(bot, chat.id);
@@ -85,48 +114,108 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
   });
 
   /**
-   * Обработка изменений в группе (название, участники и т.д.)
+   * Обработка изменений статуса участников группы.
+   * Требует подписки `chat_member` в allowed_updates (см. bot.ts) +
+   * админский статус бота — иначе Telegram не присылает событие.
+   *
+   * Регистрирует приглашённых участников в БД (upsert), даже если они
+   * никогда не писали сообщений и не нажимали /start.
    */
   bot.on('chat_member', async (ctx) => {
     try {
       const chat = ctx.chat;
+      if (chat.type !== 'group' && chat.type !== 'supergroup') return;
+
       const oldStatus = ctx.chatMember.old_chat_member.status;
       const newStatus = ctx.chatMember.new_chat_member.status;
       const memberUser = ctx.chatMember.new_chat_member.user;
-      
-      // Если изменилось название группы
-      if (chat.type === 'group' || chat.type === 'supergroup') {
-        const group = await GroupService.getGroupByTelegramId(chat.id.toString());
-        if (group) {
-          await GroupService.updateGroup(group.id, {
-            title: chat.title,
+      if (!memberUser?.id || memberUser.is_bot) return;
+
+      // Гарантируем существование группы (на случай пропущенного my_chat_member)
+      const group = await GroupService.upsertGroup({
+        telegramId: chat.id.toString(),
+        title: chat.title || 'Unknown Group',
+        type: chat.type,
+      });
+
+      // Обновим название, если изменилось
+      if (chat.title) {
+        await GroupService.updateGroup(group.id, { title: chat.title });
+      }
+
+      const ACTIVE_STATUSES = ['member', 'administrator', 'creator', 'restricted'];
+      const INACTIVE_STATUSES = ['left', 'kicked'];
+
+      const isJoining =
+        INACTIVE_STATUSES.includes(oldStatus) && ACTIVE_STATUSES.includes(newStatus);
+      const isLeaving =
+        ACTIVE_STATUSES.includes(oldStatus) && INACTIVE_STATUSES.includes(newStatus);
+
+      if (isJoining) {
+        const dbUser = await UserService.upsertUser({
+          telegramId: memberUser.id.toString(),
+          username: memberUser.username,
+          firstName: memberUser.first_name,
+          lastName: memberUser.last_name,
+        });
+        await GroupService.addMemberToGroup(group.id, dbUser.id);
+        logger.info('Member joined group via chat_member', {
+          chatId: chat.id,
+          userId: memberUser.id,
+          username: memberUser.username,
+        });
+      } else if (isLeaving) {
+        const dbUser = await UserService.getUserByTelegramId(BigInt(memberUser.id));
+        if (dbUser) {
+          await GroupService.removeMemberFromGroup(group.id, dbUser.id);
+          logger.info('Member left group via chat_member', {
+            chatId: chat.id,
+            userId: memberUser.id,
           });
-
-          if (memberUser?.id) {
-            const user = await UserService.getUserByTelegramId(
-              BigInt(memberUser.id)
-            );
-
-            if (user) {
-              if (
-                (oldStatus === 'member' || oldStatus === 'administrator') &&
-                (newStatus === 'left' || newStatus === 'kicked')
-              ) {
-                await GroupService.removeMemberFromGroup(group.id, user.id);
-              }
-
-              if (
-                (oldStatus === 'left' || oldStatus === 'kicked') &&
-                (newStatus === 'member' || newStatus === 'administrator')
-              ) {
-                await GroupService.addMemberToGroup(group.id, user.id);
-              }
-            }
-          }
         }
       }
     } catch (error) {
       logger.error('Error handling chat_member event:', error);
+    }
+  });
+
+  /**
+   * Резервный путь регистрации: сервисное сообщение new_chat_members.
+   * Срабатывает при добавлении участника через "Add Member" — даже если
+   * у бота нет прав на chat_member updates. Требует privacy mode OFF
+   * у бота (через @BotFather: /setprivacy → Disable).
+   */
+  bot.on('message:new_chat_members', async (ctx) => {
+    try {
+      const chat = ctx.chat;
+      if (chat.type !== 'group' && chat.type !== 'supergroup') return;
+
+      const newMembers = ctx.message.new_chat_members ?? [];
+      if (newMembers.length === 0) return;
+
+      const group = await GroupService.upsertGroup({
+        telegramId: chat.id.toString(),
+        title: chat.title || 'Unknown Group',
+        type: chat.type,
+      });
+
+      for (const memberUser of newMembers) {
+        if (memberUser.is_bot) continue;
+        const dbUser = await UserService.upsertUser({
+          telegramId: memberUser.id.toString(),
+          username: memberUser.username,
+          firstName: memberUser.first_name,
+          lastName: memberUser.last_name,
+        });
+        await GroupService.addMemberToGroup(group.id, dbUser.id);
+        logger.info('Member joined group via new_chat_members', {
+          chatId: chat.id,
+          userId: memberUser.id,
+          username: memberUser.username,
+        });
+      }
+    } catch (error) {
+      logger.error('Error handling new_chat_members:', error);
     }
   });
 }
