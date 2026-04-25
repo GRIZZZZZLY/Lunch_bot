@@ -5,47 +5,54 @@
 /* 🎨 REFINED DESIGN SYSTEM - Контрастные цвета для #17212b */
 @layer base {
   :root {
-    /* ☀️ LIGHT THEME — Warm Ink + Burnt Sienna (redesign 2026-04-24) */
-    --background: 36 28% 94%; /* #f4f0ea — мягкое тёплое бежевое */
-    --foreground: 26 60% 8%; /* #1a1008 — warm ink */
+    /* ☀️ LIGHT THEME — "Молочный димм" (Milky Dimmed, redesign 2026-04-25) */
+    /* Фон: тёплый димм-беж #ECE9E4 (середина градиента #E8E4DF → #F0EDE8) */
+    --background: 33 15% 91%; /* #ECE9E4 — solid fallback, gradient на body */
+    --background-gradient-from: 30 16% 89%; /* #E8E4DF — top */
+    --background-gradient-to: 37 21% 93%;   /* #F0EDE8 — bottom */
+    --foreground: 30 24% 13%; /* #2A221A — warm dark brown, не чёрный */
 
-    --card: 0 0% 100%; /* #FFFFFF */
-    --card-foreground: 26 60% 8%;
+    /* Карточки: на ступень светлее фона, без чистого белого */
+    --card: 34 26% 95%; /* #F5F2EE — muted milk */
+    --card-foreground: 30 24% 13%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 26 60% 8%;
+    --popover: 34 26% 95%; /* #F5F2EE */
+    --popover-foreground: 30 24% 13%;
 
-    /* 🟠 PRIMARY — Burnt sienna для всех CTA */
-    --primary: 22 76% 42%; /* #c9581c — 4.7:1 WCAG AA ✓ */
+    /* 🟠 PRIMARY — Brand orange-terracotta, без изменений */
+    --primary: 19 67% 49%; /* #D06528 — фирменный акцент */
     --primary-foreground: 0 0% 100%;
-    --primary-text: 21 72% 38%; /* #9A4410 — text-only variant, 5.8:1 ✓ */
+    --primary-text: 21 72% 34%; /* #9A4410 — для текста, AA на димм-фоне */
 
     /* 🟢 SECONDARY */
     --secondary: 152 68% 42%; /* mint */
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 36 22% 92%;
-    --muted-foreground: 28 12% 36%; /* #5e4f3e — 7.1:1 ✓ */
+    /* Вторичные поверхности (вложенные блоки, строки списков) */
+    --muted: 36 20% 90%; /* #EAE6E0 — на ступень темнее карточки */
+    --muted-foreground: 28 14% 37%; /* #6A5C50 — secondary text, тёплый серо-коричневый */
+    --muted-foreground-tertiary: 27 15% 55%; /* #9C8C7E — tertiary/disabled */
 
     /* 💜 ACCENT — декоративный, НЕ для CTA */
-    --accent: 252 68% 56%; /* #6147c8 — тёмнее, 5.2:1 ✓ */
+    --accent: 252 68% 56%; /* #6147c8 */
     --accent-foreground: 0 0% 100%;
 
     /* 🔴 DESTRUCTIVE */
-    --destructive: 4 80% 50%; /* #dc2a1c — 4.6:1 ✓ */
+    --destructive: 4 80% 50%; /* #dc2a1c */
     --destructive-foreground: 0 0% 100%;
 
-    /* 🟢 SUCCESS — новый токен */
-    --success: 152 72% 32%; /* #1a8c4e — 5.4:1 ✓ */
+    /* 🟢 SUCCESS */
+    --success: 152 72% 32%; /* #1a8c4e */
     --success-foreground: 0 0% 100%;
 
-    /* 🟡 WARNING — новый токен */
-    --warning: 42 96% 36%; /* #b87800 — 4.8:1 ✓ */
+    /* 🟡 WARNING */
+    --warning: 42 96% 36%; /* #b87800 */
     --warning-foreground: 0 0% 100%;
 
-    --border: 34 20% 86%; /* #e3dbd0 */
-    --input: 36 24% 96%;
-    --ring: 22 76% 42%;
+    /* Разделители: едва заметные, как rgba(42,34,26,0.09) на фоне */
+    --border: 37 10% 84%; /* ≈ #DAD7D2 */
+    --input: 34 26% 95%; /* #F5F2EE */
+    --ring: 19 67% 49%; /* #D06528 */
 
     --radius: 0.75rem; /* 12px */
 
@@ -124,9 +131,23 @@
     font-feature-settings: "rlig" 1, "calt" 1;
     font-variant-numeric: tabular-nums;
   }
-  
+
+  /* Светлая тема: тёплый димм-градиент (parchment look) */
+  :root:not(.dark) body {
+    background-image: linear-gradient(
+      to bottom,
+      hsl(var(--background-gradient-from)),
+      hsl(var(--background-gradient-to))
+    );
+    background-attachment: fixed;
+  }
+
   #root {
     @apply min-h-screen bg-background;
+  }
+
+  :root:not(.dark) #root {
+    background: transparent;
   }
 }
 

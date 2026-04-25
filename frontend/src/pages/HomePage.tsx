@@ -43,6 +43,7 @@ import { useActivePolls } from '../hooks/usePolls';
 import { useMenuItems } from '../hooks/queries';
 import { useUserGroups } from '../hooks/queries/useUserQueries';
 import { useTodayCompletedPoll } from '../hooks/useTodayCompletedPoll';
+import { useCompletedPollVisibility } from '../hooks/useCompletedPollVisibility';
 import { formatRelativeTime } from '../lib/utils';
 import { TYPOGRAPHY_H1, TYPOGRAPHY_H2 } from '../lib/typography';
 import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
@@ -186,6 +187,10 @@ export const HomePage: React.FC = () => {
     userGroupId,
     !!userGroupId // Всегда загружаем если есть groupId (не зависит от activePoll)
   );
+
+  // Видимость pill завершённого опроса (15 мин таймер + localStorage dismiss)
+  const { visible: completedVisible, dismiss: dismissCompletedPoll } =
+    useCompletedPollVisibility(todayCompletedPoll ?? null);
 
   const hasAnyPoll = !!activePoll || !!todayCompletedPoll;
 
@@ -747,32 +752,6 @@ export const HomePage: React.FC = () => {
                 }}
               />
             </motion.div>
-          ) : loadingCompletedPoll ? (
-            <motion.div
-              key="loading-completed"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <PastelCard variant="default" className="p-6 border-l-4 border-gray-300 dark:border-gray-600">
-                <Skeleton className="h-8 w-2/3 mb-4" />
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-3/4" />
-              </PastelCard>
-            </motion.div>
-          ) : todayCompletedPoll ? (
-            <motion.div
-              key="completed-poll"
-              variants={itemVariants}
-              initial="hidden"
-              animate="show"
-            >
-              <CompletedPollWidget
-                poll={todayCompletedPoll}
-                showCelebration={showCelebration && justCompletedPollId === todayCompletedPoll.id}
-                onCelebrationEnd={handleCelebrationEnd}
-              />
-            </motion.div>
           ) : showCelebration ? (
             <motion.div
               key="celebration-loading"
@@ -789,7 +768,7 @@ export const HomePage: React.FC = () => {
                 </div>
               </PastelCard>
             </motion.div>
-          ) : (
+          ) : todayCompletedPoll && completedVisible ? null : (
             <motion.div
               key="no-poll"
               variants={itemVariants}
@@ -820,6 +799,35 @@ export const HomePage: React.FC = () => {
                   />
                 );
               })()}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Store Run Section — "Иду в магазин" + активные забеги */}
+        <motion.div variants={itemVariants}>
+          <ActiveStoreRunsSection
+            groupId={userGroupId ?? null}
+            currentUserId={user?.id}
+          />
+        </motion.div>
+
+        {/* Завершённое голосование — компактный pill (15 мин или до dismiss) */}
+        <AnimatePresence>
+          {todayCompletedPoll && completedVisible && (
+            <motion.div
+              key="completed-poll-pill"
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+              exit={{ opacity: 0, y: -8 }}
+            >
+              <CompletedPollWidget
+                poll={todayCompletedPoll}
+                showCelebration={showCelebration && justCompletedPollId === todayCompletedPoll.id}
+                onCelebrationEnd={handleCelebrationEnd}
+                defaultCollapsed
+                onDismiss={dismissCompletedPoll}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -861,14 +869,6 @@ export const HomePage: React.FC = () => {
             }}
             onInviteFriend={handleInviteFriend}
             onAddToGroup={handleAddToGroup}
-          />
-        </motion.div>
-
-        {/* Store Run Section — "Иду в магазин" */}
-        <motion.div variants={itemVariants}>
-          <ActiveStoreRunsSection
-            groupId={userGroupId ?? null}
-            currentUserId={user?.id}
           />
         </motion.div>
 

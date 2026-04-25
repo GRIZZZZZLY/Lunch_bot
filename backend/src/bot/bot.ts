@@ -441,11 +441,23 @@ export async function startPolling(bot: Bot<BotContext>): Promise<void> {
     }
     
     await bot.start({
+      // Явно подписываемся на chat_member и chat_join_request — иначе Telegram
+      // не присылает события о вступлении/выходе других участников группы.
+      // Без этого приглашённый пользователь не попадает в GroupMember, пока
+      // не напишет сообщение (см. authMiddleware).
+      allowed_updates: [
+        'message',
+        'edited_message',
+        'callback_query',
+        'my_chat_member',
+        'chat_member',
+        'chat_join_request',
+      ],
       onStart: (botInfo) => {
         logger.info('🚀 Бот запущен в polling режиме', {
           username: botInfo.username,
         });
-        
+
         // ⚡ НОВОЕ: Запускаем scheduler для автоматических голосований
         const { PollSchedulerService } = require('../services/poll-scheduler.service');
         PollSchedulerService.start();
@@ -465,6 +477,16 @@ export async function setupWebhook(bot: Bot<BotContext>, webhookUrl: string): Pr
   try {
     await bot.api.setWebhook(webhookUrl, {
       drop_pending_updates: true,
+      // Те же allowed_updates, что и для polling — нужно явно запрашивать
+      // chat_member, иначе Telegram не присылает события о членах группы.
+      allowed_updates: [
+        'message',
+        'edited_message',
+        'callback_query',
+        'my_chat_member',
+        'chat_member',
+        'chat_join_request',
+      ],
     });
     
     logger.info('🌐 Webhook установлен', { webhookUrl });
