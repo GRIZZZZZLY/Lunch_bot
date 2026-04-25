@@ -8,13 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Current Status:** ✅ Production Ready
 **Version:** 2.0.0
-**Git Branch:** `feature/new_version` (NOT main - important!)
+**Git Branch:** `feature/store-run` (active deploy branch — NOT main, NOT feature/new_version)
 **Domain:** rocket-lunch.duckdns.org
 **Bot:** @rocket_lunch_bot
-**Tests:** 197/202 passing (97.5%)
+**Tests:** 258/258 passing (100%)
 
 ### Recent Major Features
 - ✅ **Budget Tracker** - Adaptive widget with 6 scenarios, СБП integration
+- ✅ **Store Run** - Initiator/participant flows, deep links, auto-close cron
+- ✅ **Poll Participant Exclusion + Auto-close** - Permanent `participatesInPolls` flag + per-poll override; poll auto-completes when all expected voters voted (см. ниже)
 - ✅ **VPS Deployment** - Full automation scripts, zero-downtime updates
 - ✅ **CI/CD Pipeline** - GitHub Actions, Docker builds, automated tests
 - ⚠️ **Gamification Removed** - Simplified UX (removed from dev build)
@@ -182,15 +184,17 @@ All business logic in services (`backend/src/services/`):
 ### Database Schema (Prisma)
 
 Core models:
-- `User` - Telegram users with admin flags
+- `User` - Telegram users (`isAdmin`, `isActive`, `participatesInPolls` — постоянный флаг «обедает в офисе»)
 - `Group` - Telegram groups
 - `MenuItem` - Food items with categories
 - `Poll` - Voting sessions (status: ACTIVE/COMPLETED/CANCELLED)
 - `Vote` - User votes (one per user per poll)
+- `PollParticipant` - Снимок ожидаемых участников голосования (status: EXPECTED/EXCLUDED). Создаётся при `createPoll`, изоморфен составу группы на момент старта; per-poll override хранится здесь же. Используется для авто-закрытия по кворуму.
 - `PollResult` - Final results with winner and responsible person
 - `Transaction` - Budget tracking (PENDING → PAID → CONFIRMED)
 - `ResponsibleSelection` - Track who was responsible (volunteer/roulette)
 - `PaymentReminder` - Automated payment reminders
+- `StoreRun` / `StoreItem` / `OrderItem` / `CategoryOrder` - Магазинный сценарий (закупки группой)
 
 Key relationships:
 - Poll → Group (many-to-one)
@@ -240,6 +244,25 @@ Key relationships:
 - `POST /api/budget/mark-paid` - mark as paid
 - `POST /api/budget/confirm-payment` - confirm payment
 - `POST /api/budget/cancel-mark` - cancel mark
+
+### Poll Participant Exclusion + Auto-close
+
+**Проблема:** голосование «дотикивает» весь таймер, даже если все, кто реально обедает, проголосовали — мешают удалёнщики/отпускники, не голосующие никогда.
+
+**Решение:**
+1. Постоянный флаг `User.participatesInPolls` (default true). Управляется в админ-панели → таб «Пользователи» → кнопка «Перевести на удалёнку» / «Вернуть в офис».
+2. Снимок участников при создании голосования: `PollService.createParticipantSnapshot()` создаёт `PollParticipant` для каждого active члена группы (status=EXPECTED/EXCLUDED по флагу). Изменения флага после старта не влияют на активные голосования.
+3. Per-poll override: на виджете активного голосования у админа есть collapsible-секция «Участники» с кнопками «Исключить» / «Вернуть» — меняет статус только в этом голосовании.
+4. Авто-закрытие: после каждого голоса (`vote.controller.ts`) и после per-poll override (`admin.controller.ts`) вызывается `PollService.checkQuorumAndComplete(pollId)` — если все EXPECTED проголосовали, дёргает `completePoll` (рулетка, результат в группу).
+5. Edge case: если `EXPECTED` пуст — не закрываем, логируем warn (админ закрывает вручную).
+
+**Files:**
+- `backend/src/services/poll.service.ts:createParticipantSnapshot, checkQuorumAndComplete`
+- `backend/src/services/admin.service.ts:toggleParticipatesInPolls, getPollParticipants, setPollParticipantStatus`
+- `backend/src/api/routes/admin.routes.ts` — 3 endpoints: `PUT /users/:id/participates-in-polls`, `GET /polls/:id/participants`, `PUT /polls/:id/participants/:userId`
+- `backend/scripts/backfill-poll-participants.ts` — идемпотентный backfill для активных polls (запускать один раз после деплоя миграции)
+- `frontend/src/components/admin/UserManagementCard.tsx` — кнопка/бейдж в Users tab
+- `frontend/src/components/polls/PollParticipantsAdminSection.tsx` — admin-only секция на ActivePollWidget
 
 ### Environment Modes
 
@@ -325,15 +348,13 @@ All user interactions through Mini App:
 
 ### Automated Tests
 
-**Backend:** 197/202 tests passing (97.5%)
+**Backend:** 258/258 tests passing (100%)
 ```bash
 cd telegram-food-bot/backend
 npm test                # Run all tests
 npm run test:coverage   # With coverage (~85%)
 npm run test:flow       # Run flow tests (9 tests, 100% success)
 ```
-
-**Known issues:** 5 integration auth tests need fixing (low priority)
 
 **Frontend:** Minimal coverage (needs expansion)
 ```bash
@@ -369,14 +390,27 @@ npm test                # Run Vitest
 ### Modifying Database Schema
 
 1. Edit `backend/prisma/schema.prisma`
-2. Run migration:
+2. Apply locally — **dev workflow uses `db push`, not `migrate dev`** (исторически так сложилось):
    ```bash
    cd backend
-   npm run db:migrate
+   npm run db:push
    ```
 3. Generate Prisma Client: `npm run db:generate`
-4. Update TypeScript types if needed
-5. Update seeders if needed
+4. **Перед PR/деплоем** обязательно сгенерировать миграцию через diff и положить в `prisma/migrations/`, иначе `migrate deploy` на VPS не подхватит изменения:
+   ```bash
+   # Генерируем дельту от текущей migration history к актуальной schema.prisma
+   npx prisma migrate diff --from-migrations ./prisma/migrations \
+     --to-schema ./prisma/schema.prisma --script -o /tmp/migration.sql
+   # Создаём папку миграции и переносим
+   TS=$(date +%Y%m%d%H%M%S)
+   mkdir -p prisma/migrations/${TS}_short_description
+   mv /tmp/migration.sql prisma/migrations/${TS}_short_description/migration.sql
+   # Помечаем как applied локально (БД уже накачена через db push)
+   npx prisma migrate resolve --applied ${TS}_short_description
+   npx prisma migrate status   # должно быть "up to date"
+   ```
+5. Update TypeScript types if needed
+6. Update seeders if needed
 
 ## Environment Variables
 
@@ -430,10 +464,11 @@ Start scripts automatically copy correct .env file.
 - [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) - Checklist
 
 **Important notes:**
-- ⚠️ Project is on `feature/new_version` branch (NOT main)
-- ✅ Scripts auto-switch to correct branch
+- ⚠️ Project is on `feature/store-run` branch (NOT main, NOT feature/new_version)
+- ⚠️ Deploy-скрипты могут ссылаться на `feature/new_version` — проверь перед запуском
 - ✅ Zero-downtime updates via PM2 reload
 - ✅ Configured for rocket-lunch.duckdns.org
+- ✅ Migration history восстановлена в prisma/migrations/ (init + baseline_drift_and_poll_participants) — `migrate deploy` сработает на проде
 
 ### Manual Deployment
 
@@ -452,7 +487,7 @@ Backend serves frontend static files from `frontend/dist/` in production.
 
 ## Important Notes
 
-- **Git Branch**: Project is on `feature/new_version` (NOT main) - deployment scripts handle this
+- **Git Branch**: Project is on `feature/store-run` (NOT main, NOT feature/new_version) — может потребоваться поправить deploy-скрипты под актуальную ветку
 - **Database location**: `backend/prisma/dev.db` (SQLite file) - production needs PostgreSQL
 - **Backup before migrations**: Database contains production data
 - **Proxy configuration**: Required for Telegram API in some regions (check `backend/src/config/bot.config.ts`)
@@ -508,7 +543,6 @@ Always check docs before making architectural changes.
 - ✅ Admin delete button → Fixed: now uses completePoll instead of delete
 
 **Active (low priority):**
-- ⚠️ 5 integration auth tests failing → Need fixing
 - ⚠️ Frontend test coverage low → Need expansion
 - ⚠️ SQLite in production → Plan migration to PostgreSQL
 
