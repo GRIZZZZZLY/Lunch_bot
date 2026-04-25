@@ -28,7 +28,7 @@ import { RecurringPollBadge } from '../components/polls/RecurringPollBadge';
 
 // New components
 import { HomeEmptyStateCard } from '../components/home/HomeEmptyStateCard';
-import { HomeHeroCard } from '../components/home/HomeHeroCard';
+import { HomeHeroCard, type PollStatus, type PollMeta } from '../components/home/HomeHeroCard';
 import { HomeActionsSection } from '../components/home/HomeActionsSection';
 import { ActiveStoreRunsSection } from '../components/store-run/ActiveStoreRunsSection';
 
@@ -187,6 +187,38 @@ export const HomePage: React.FC = () => {
     userGroupId,
     !!userGroupId // Всегда загружаем если есть groupId (не зависит от activePoll)
   );
+
+  // Derive hero card poll status from existing query data
+  const heroPollStatus: PollStatus = (() => {
+    if (activePoll) return 'active';
+    if (todayCompletedPoll) {
+      const result = (todayCompletedPoll as any).result;
+      if (result) return 'completed-result';
+      return 'completed';
+    }
+    return 'none';
+  })();
+
+  const heroPollMeta: PollMeta = (() => {
+    if (activePoll) {
+      const endDate = activePoll.endTime ? new Date(activePoll.endTime) : null;
+      const time = endDate
+        ? `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`
+        : undefined;
+      return { time };
+    }
+    if (todayCompletedPoll) {
+      const result = (todayCompletedPoll as any).result;
+      if (result) {
+        const winner = result.winnerItem?.name as string | undefined;
+        const responsible = result.responsibleUser
+          ? (result.responsibleUser.firstName as string)
+          : undefined;
+        return { winner, responsible };
+      }
+    }
+    return {};
+  })();
 
   // Видимость pill завершённого опроса (15 мин таймер + localStorage dismiss)
   const { visible: completedVisible, dismiss: dismissCompletedPoll } =
@@ -711,6 +743,9 @@ export const HomePage: React.FC = () => {
             currentStreak={userStreak.currentStreak}
             user={user}
             onAvatarClick={() => navigate('/profile')}
+            timeColors={gradientColors.colors}
+            pollStatus={heroPollStatus}
+            pollMeta={heroPollMeta}
           />
         </motion.div>
 
