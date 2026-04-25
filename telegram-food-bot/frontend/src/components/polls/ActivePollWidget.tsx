@@ -14,6 +14,7 @@ import { MenuItem, menuService } from '../../services/menu.service';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { cn } from '@/lib/utils';
 import { GlassCard } from '../ui/glass-card';
+import { PollParticipantsAdminSection } from './PollParticipantsAdminSection';
 
 interface ActivePollWidgetProps {
   poll: PollWithDetails;
@@ -304,6 +305,11 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
             Результаты обновляются в реальном времени
           </p>
         </div>
+      )}
+
+      {/* Admin: участники голосования */}
+      {user?.isAdmin && (
+        <PollParticipantsAdminSection pollId={poll.id} onAutoClosed={onPollClosed} />
       )}
 
       {/* Action Buttons */}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Shield, Ban, Check, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, Shield, Ban, Check, Clock, ChevronDown, ChevronUp, Home as HomeIcon, Coffee } from 'lucide-react';
 import { PastelCard } from '../ui/pastel-card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -16,6 +16,7 @@ interface UserManagementCardProps {
   users: UserWithActivity[];
   onToggleAdmin: (userId: number, isAdmin: boolean) => Promise<void>;
   onToggleActive: (userId: number, isActive: boolean) => Promise<void>;
+  onToggleParticipates: (userId: number, participates: boolean) => Promise<void>;
   loading?: boolean;
 }
 
@@ -23,6 +24,7 @@ export const UserManagementCard: React.FC<UserManagementCardProps> = ({
   users,
   onToggleAdmin,
   onToggleActive,
+  onToggleParticipates,
   loading = false,
 }) => {
   const [expandedUser, setExpandedUser] = useState<number | null>(null);
@@ -42,6 +44,15 @@ export const UserManagementCard: React.FC<UserManagementCardProps> = ({
     setActionLoading(userId);
     try {
       await onToggleActive(userId, !currentStatus);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleParticipates = async (userId: number, currentStatus: boolean) => {
+    setActionLoading(userId);
+    try {
+      await onToggleParticipates(userId, !currentStatus);
     } finally {
       setActionLoading(null);
     }
@@ -94,6 +105,12 @@ export const UserManagementCard: React.FC<UserManagementCardProps> = ({
                       Заблокирован
                     </Badge>
                   )}
+                  {!user.participatesInPolls && (
+                    <Badge variant="secondary" className="text-xs">
+                      <HomeIcon className={cn(ICON_SIZES.xs, 'mr-1')} />
+                      Удалённо
+                    </Badge>
+                  )}
                 </div>
                   <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                     <span>Голосов: {user.totalVotes}</span>
@@ -142,6 +159,27 @@ export const UserManagementCard: React.FC<UserManagementCardProps> = ({
                 id={`user-details-${user.id}`}
                   className="mt-3 border-t border-border/70 pt-3"
               >
+                <Button
+                  size="sm"
+                  variant={user.participatesInPolls ? 'secondary' : 'success'}
+                  onClick={() => handleToggleParticipates(user.id, user.participatesInPolls)}
+                  disabled={actionLoading === user.id || loading}
+                  className="mb-2 w-full justify-center text-xs"
+                  title="Если выключено, пользователь не учитывается в голосованиях (удалёнка/отпуск)"
+                >
+                  {user.participatesInPolls ? (
+                    <>
+                      <HomeIcon className={cn(ICON_SIZES.sm, 'mr-1')} />
+                      Перевести на удалёнку
+                    </>
+                  ) : (
+                    <>
+                      <Coffee className={cn(ICON_SIZES.sm, 'mr-1')} />
+                      Вернуть в офис
+                    </>
+                  )}
+                </Button>
+
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     size="sm"

@@ -8,6 +8,7 @@ export interface UserWithActivity {
   lastName: string | null;
   isAdmin: boolean;
   isActive: boolean;
+  participatesInPolls: boolean;
   createdAt: string;
   updatedAt: string;
   // Activity stats
@@ -16,6 +17,22 @@ export interface UserWithActivity {
   totalCredits: number;
   pendingDebts: number;
   lastActivity: string | null;
+}
+
+export interface PollParticipantInfo {
+  userId: number;
+  status: 'EXPECTED' | 'EXCLUDED';
+  reason: string | null;
+  hasVoted: boolean;
+  user: {
+    id: number;
+    telegramId: string;
+    username: string | null;
+    firstName: string;
+    lastName: string | null;
+    avatarUrl: string | null;
+    photoUrl: string | null;
+  };
 }
 
 export interface DebtorInfo {
@@ -108,6 +125,35 @@ class AdminService {
   ): Promise<ApiResponse<any>> {
     return apiService.put(`/admin/users/${userId}/active?groupId=${groupId}`, {
       isActive,
+    });
+  }
+
+  async toggleParticipatesInPolls(
+    userId: number,
+    participates: boolean,
+    groupId: number
+  ): Promise<ApiResponse<{ id: number; participatesInPolls: boolean; firstName: string; lastName: string | null }>> {
+    return apiService.put(
+      `/admin/users/${userId}/participates-in-polls?groupId=${groupId}`,
+      { participates }
+    );
+  }
+
+  // ===== Poll Participants (per-poll override) =====
+
+  async getPollParticipants(pollId: number): Promise<ApiResponse<PollParticipantInfo[]>> {
+    return apiService.get(`/admin/polls/${pollId}/participants`);
+  }
+
+  async setPollParticipantStatus(
+    pollId: number,
+    userId: number,
+    status: 'EXPECTED' | 'EXCLUDED',
+    reason?: string
+  ): Promise<ApiResponse<{ autoClosed: boolean; data: any }>> {
+    return apiService.put(`/admin/polls/${pollId}/participants/${userId}`, {
+      status,
+      reason,
     });
   }
 

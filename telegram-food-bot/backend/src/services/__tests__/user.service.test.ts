@@ -38,6 +38,7 @@ const createMockUser = (overrides?: Partial<User>): User => ({
   avatarUpdatedAt: null,
   isAdmin: false,
   isActive: true,
+  participatesInPolls: true,
   paymentCard: null,
   paymentPhone: null,
   paymentDetails: null,

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AdminService } from '../../services/admin.service';
 import { ReminderSettingsService } from '../../services/reminder-settings.service';
 import { GroupService } from '../../services/group.service';
+import { PollService } from '../../services/poll.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
 
@@ -225,7 +226,7 @@ export class AdminController {
       if (!hasAccess) return;
 
       const user = await this.adminService.toggleActive(userId, isActive, groupId);
-      
+
       res.json({
         success: true,
         data: user,
@@ -237,6 +238,136 @@ export class AdminController {
       res.status(500).json({
         success: false,
         error: 'Failed to toggle active',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+
+  /**
+   * PUT /api/admin/users/:userId/participates-in-polls
+   * Body: { participates: boolean }
+   */
+  async toggleParticipatesInPolls(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = parseInt(getParam(req.params, 'userId'), 10);
+      const { participates } = req.body;
+
+      if (isNaN(userId)) {
+        res.status(400).json({ success: false, error: 'Invalid user ID', code: 'INVALID_USER_ID' });
+        return;
+      }
+      if (typeof participates !== 'boolean') {
+        res.status(400).json({ success: false, error: 'participates must be boolean', code: 'INVALID_BODY' });
+        return;
+      }
+
+      const groupId = this.getGroupId(req, res);
+      if (!groupId) return;
+      const hasAccess = await this.requireGroupAdmin(req, res, groupId);
+      if (!hasAccess) return;
+
+      const user = await this.adminService.toggleParticipatesInPolls(userId, participates);
+      res.json({
+        success: true,
+        data: user,
+        message: participates
+          ? 'Пользователь участвует в голосованиях'
+          : 'Пользователь исключён из голосований',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('[AdminController] Error toggling participatesInPolls:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to toggle participatesInPolls',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+
+  /**
+   * GET /api/admin/polls/:pollId/participants
+   */
+  async getPollParticipants(req: Request, res: Response): Promise<void> {
+    try {
+      const pollId = parseInt(getParam(req.params, 'pollId'), 10);
+      if (isNaN(pollId)) {
+        res.status(400).json({ success: false, error: 'Invalid poll ID', code: 'INVALID_POLL_ID' });
+        return;
+      }
+
+      const pollGroupId = await PollService.getPollGroupId(pollId);
+      if (!pollGroupId) {
+        res.status(404).json({ success: false, error: 'Poll not found', code: 'POLL_NOT_FOUND' });
+        return;
+      }
+      const hasAccess = await this.requireGroupAdmin(req, res, pollGroupId);
+      if (!hasAccess) return;
+
+      const participants = await this.adminService.getPollParticipants(pollId);
+      res.json({ success: true, data: participants, timestamp: new Date().toISOString() });
+    } catch (error) {
+      logger.error('[AdminController] Error getting poll participants:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get poll participants',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+
+  /**
+   * PUT /api/admin/polls/:pollId/participants/:userId
+   * Body: { status: 'EXPECTED' | 'EXCLUDED', reason?: string }
+   */
+  async setPollParticipantStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const pollId = parseInt(getParam(req.params, 'pollId'), 10);
+      const userId = parseInt(getParam(req.params, 'userId'), 10);
+      const { status, reason } = req.body;
+
+      if (isNaN(pollId) || isNaN(userId)) {
+        res.status(400).json({ success: false, error: 'Invalid IDs', code: 'INVALID_PARAMS' });
+        return;
+      }
+      if (status !== 'EXPECTED' && status !== 'EXCLUDED') {
+        res.status(400).json({
+          success: false,
+          error: 'status must be EXPECTED or EXCLUDED',
+          code: 'INVALID_BODY',
+        });
+        return;
+      }
+
+      const pollGroupId = await PollService.getPollGroupId(pollId);
+      if (!pollGroupId) {
+        res.status(404).json({ success: false, error: 'Poll not found', code: 'POLL_NOT_FOUND' });
+        return;
+      }
+      const hasAccess = await this.requireGroupAdmin(req, res, pollGroupId);
+      if (!hasAccess) return;
+
+      const result = await this.adminService.setPollParticipantStatus(
+        pollId,
+        userId,
+        status,
+        typeof reason === 'string' ? reason : undefined
+      );
+
+      // Проверяем кворум — если исключили последнего невыпаленного, голосование закроется
+      const autoClosed = await PollService.checkQuorumAndComplete(pollId);
+
+      res.json({
+        success: true,
+        data: result,
+        autoClosed,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('[AdminController] Error setting poll participant status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to set poll participant status',
         code: 'INTERNAL_ERROR',
       });
     }

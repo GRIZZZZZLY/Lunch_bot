@@ -16,6 +16,7 @@ interface UserWithActivity {
   lastName: string | null;
   isAdmin: boolean;
   isActive: boolean;
+  participatesInPolls: boolean;
   createdAt: Date;
   updatedAt: Date;
   // Activity stats
@@ -106,6 +107,7 @@ export class AdminService {
           username: true,
           firstName: true,
           lastName: true,
+          participatesInPolls: true,
           createdAt: true,
           updatedAt: true,
           _count: {
@@ -145,6 +147,7 @@ export class AdminService {
           lastName: user.lastName,
           isAdmin: ['ADMIN', 'CREATOR'].includes(role),
           isActive: membership?.isActive ?? true,
+          participatesInPolls: user.participatesInPolls,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
           totalVotes: user._count.votes,
@@ -308,6 +311,100 @@ export class AdminService {
       return { ...member, isActive };
     } catch (error) {
       logger.error('[AdminService] Error toggling active:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Переключение постоянного флага «участвует в голосованиях».
+   * Не влияет на уже активные голосования (они работают по снимку PollParticipant).
+   */
+  async toggleParticipatesInPolls(userId: number, participates: boolean) {
+    try {
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: { participatesInPolls: participates },
+        select: { id: true, participatesInPolls: true, firstName: true, lastName: true },
+      });
+      logger.info(
+        `[AdminService] User ${userId} participatesInPolls -> ${participates}`
+      );
+      return user;
+    } catch (error) {
+      logger.error('[AdminService] Error toggling participatesInPolls:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Список участников конкретного голосования (снимок).
+   */
+  async getPollParticipants(pollId: number) {
+    try {
+      const participants = await prisma.pollParticipant.findMany({
+        where: { pollId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              telegramId: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              photoUrl: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      const voterIds = new Set(
+        (
+          await prisma.vote.findMany({
+            where: { pollId },
+            select: { userId: true },
+            distinct: ['userId'],
+          })
+        ).map(v => v.userId)
+      );
+
+      return participants.map(p => ({
+        userId: p.userId,
+        status: p.status,
+        reason: p.reason,
+        hasVoted: voterIds.has(p.userId),
+        user: p.user,
+      }));
+    } catch (error) {
+      logger.error('[AdminService] Error getting poll participants:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Per-poll override: пометить участника EXPECTED или EXCLUDED.
+   * Если такой записи нет (например, юзера добавили в группу после старта голосования),
+   * запись создаётся.
+   */
+  async setPollParticipantStatus(
+    pollId: number,
+    userId: number,
+    status: 'EXPECTED' | 'EXCLUDED',
+    reason?: string
+  ) {
+    try {
+      const result = await prisma.pollParticipant.upsert({
+        where: { pollId_userId: { pollId, userId } },
+        update: { status, reason: reason ?? null },
+        create: { pollId, userId, status, reason: reason ?? null },
+      });
+      logger.info(
+        `[AdminService] Poll ${pollId} participant ${userId} -> ${status}${reason ? ` (${reason})` : ''}`
+      );
+      return result;
+    } catch (error) {
+      logger.error('[AdminService] Error setting poll participant status:', error);
       throw error;
     }
   }

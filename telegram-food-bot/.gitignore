@@ -75,7 +75,7 @@ ngrok.exe
 ngrok.yml
 
 # Prisma
-backend/prisma/migrations/**/migration.sql
+# NB: migration.sql files MUST be committed — required for `prisma migrate deploy` on prod
 
 # Production secrets
 *.pem
