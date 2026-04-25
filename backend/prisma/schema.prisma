@@ -17,6 +17,7 @@ model User {
   avatarUpdatedAt           DateTime?               @map("avatar_updated_at")
   isAdmin                   Boolean                 @default(false) @map("is_admin")
   isActive                  Boolean                 @default(true) @map("is_active")
+  participatesInPolls       Boolean                 @default(true) @map("participates_in_polls")
   paymentCard               String?                 @map("payment_card")
   paymentPhone              String?                 @map("payment_phone")
   paymentDetails            String?                 @map("payment_details")
@@ -50,6 +51,7 @@ model User {
   editLogs                  OrderItemEditLog[]      @relation("OrderItemEditor")
   initiatedStoreRuns        StoreRun[]              @relation("StoreRunInitiator")
   storeItems                StoreItem[]             @relation("StoreItemOwner")
+  pollParticipations        PollParticipant[]
 
   @@map("users")
 }
@@ -117,12 +119,30 @@ model Poll {
   responsibleSelection ResponsibleSelection?
   orderCosts           PollOrderCosts?
   categoryOrders       CategoryOrder[]
+  participants         PollParticipant[]
 
   @@index([status])
   @@index([startedAt])
   @@index([status, startedAt])
   @@index([groupId, status])
   @@map("polls")
+}
+
+model PollParticipant {
+  id        Int                   @id @default(autoincrement())
+  pollId    Int                   @map("poll_id")
+  userId    Int                   @map("user_id")
+  status    String                @default("EXPECTED")
+  reason    String?
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@index([pollId, status])
+  @@map("poll_participants")
 }
 
 model Vote {

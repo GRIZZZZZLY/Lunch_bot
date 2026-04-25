@@ -22,9 +22,18 @@ jest.mock('../../database/client', () => ({
     },
     vote: {
       count: jest.fn(),
+      findMany: jest.fn(),
     },
     user: {
       findUnique: jest.fn(),
+    },
+    groupMember: {
+      findMany: jest.fn(),
+    },
+    pollParticipant: {
+      createMany: jest.fn(),
+      findMany: jest.fn(),
+      upsert: jest.fn(),
     },
     $transaction: jest.fn(),
   },
@@ -785,6 +794,115 @@ describe('PollService', () => {
       });
 
       expect(result).toEqual(updatedResult);
+    });
+  });
+
+  describe('createParticipantSnapshot', () => {
+    it('marks active members with participatesInPolls=true as EXPECTED, others as EXCLUDED', async () => {
+      (prisma.groupMember.findMany as jest.Mock).mockResolvedValue([
+        { user: { id: 1, isActive: true, participatesInPolls: true } },
+        { user: { id: 2, isActive: true, participatesInPolls: false } },
+        { user: { id: 3, isActive: true, participatesInPolls: true } },
+      ]);
+      (prisma.pollParticipant.createMany as jest.Mock).mockResolvedValue({ count: 3 });
+
+      await PollService.createParticipantSnapshot(42, 7);
+
+      expect(prisma.groupMember.findMany).toHaveBeenCalledWith({
+        where: { groupId: 7, isActive: true },
+        include: { user: { select: { id: true, isActive: true, participatesInPolls: true } } },
+      });
+      expect(prisma.pollParticipant.createMany).toHaveBeenCalledWith({
+        data: [
+          { pollId: 42, userId: 1, status: 'EXPECTED' },
+          { pollId: 42, userId: 2, status: 'EXCLUDED' },
+          { pollId: 42, userId: 3, status: 'EXPECTED' },
+        ],
+      });
+    });
+
+    it('skips users with isActive=false', async () => {
+      (prisma.groupMember.findMany as jest.Mock).mockResolvedValue([
+        { user: { id: 1, isActive: true, participatesInPolls: true } },
+        { user: { id: 2, isActive: false, participatesInPolls: true } },
+      ]);
+      (prisma.pollParticipant.createMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+      await PollService.createParticipantSnapshot(42, 7);
+
+      expect(prisma.pollParticipant.createMany).toHaveBeenCalledWith({
+        data: [{ pollId: 42, userId: 1, status: 'EXPECTED' }],
+      });
+    });
+
+    it('does not call createMany when there are no eligible members', async () => {
+      (prisma.groupMember.findMany as jest.Mock).mockResolvedValue([]);
+
+      await PollService.createParticipantSnapshot(42, 7);
+
+      expect(prisma.pollParticipant.createMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('checkQuorumAndComplete', () => {
+    it('does nothing if poll is not ACTIVE', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'COMPLETED' });
+
+      const result = await PollService.checkQuorumAndComplete(42);
+
+      expect(result).toBe(false);
+      expect(prisma.pollParticipant.findMany).not.toHaveBeenCalled();
+    });
+
+    it('does not auto-close when not all expected voted', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'ACTIVE' });
+      (prisma.pollParticipant.findMany as jest.Mock).mockResolvedValue([
+        { userId: 1 },
+        { userId: 2 },
+        { userId: 3 },
+      ]);
+      (prisma.vote.findMany as jest.Mock).mockResolvedValue([
+        { userId: 1 },
+        { userId: 2 },
+      ]);
+      const completeSpy = jest.spyOn(PollService, 'completePoll').mockResolvedValue({} as any);
+
+      const result = await PollService.checkQuorumAndComplete(42);
+
+      expect(result).toBe(false);
+      expect(completeSpy).not.toHaveBeenCalled();
+      completeSpy.mockRestore();
+    });
+
+    it('auto-closes when all expected voted', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'ACTIVE' });
+      (prisma.pollParticipant.findMany as jest.Mock).mockResolvedValue([
+        { userId: 1 },
+        { userId: 2 },
+      ]);
+      (prisma.vote.findMany as jest.Mock).mockResolvedValue([
+        { userId: 1 },
+        { userId: 2 },
+      ]);
+      const completeSpy = jest.spyOn(PollService, 'completePoll').mockResolvedValue({} as any);
+
+      const result = await PollService.checkQuorumAndComplete(42);
+
+      expect(result).toBe(true);
+      expect(completeSpy).toHaveBeenCalledWith(42);
+      completeSpy.mockRestore();
+    });
+
+    it('does not auto-close when expected list is empty (everyone excluded)', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'ACTIVE' });
+      (prisma.pollParticipant.findMany as jest.Mock).mockResolvedValue([]);
+      const completeSpy = jest.spyOn(PollService, 'completePoll').mockResolvedValue({} as any);
+
+      const result = await PollService.checkQuorumAndComplete(42);
+
+      expect(result).toBe(false);
+      expect(completeSpy).not.toHaveBeenCalled();
+      completeSpy.mockRestore();
     });
   });
 });

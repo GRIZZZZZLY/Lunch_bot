@@ -303,6 +303,29 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  const handleToggleParticipates = async (userId: number, participates: boolean) => {
+    try {
+      if (!selectedGroupId) return;
+      const response = await adminService.toggleParticipatesInPolls(
+        userId,
+        participates,
+        selectedGroupId
+      );
+      if (response.success) {
+        addNotification({
+          type: 'success',
+          message: response.message || (participates ? 'В офисе' : 'На удалёнке'),
+        });
+        await loadAdminData();
+      }
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        message: 'Ошибка изменения участия в голосованиях',
+      });
+    }
+  };
+
   // Debt management handlers
   const handleForgiveDebt = async (debtId: number) => {
     try {
@@ -644,6 +667,7 @@ export const AdminDashboardPage: React.FC = () => {
             users={users}
             onToggleAdmin={handleToggleAdmin}
             onToggleActive={handleToggleActive}
+            onToggleParticipates={handleToggleParticipates}
             loading={refreshing}
           />
         </motion.div>

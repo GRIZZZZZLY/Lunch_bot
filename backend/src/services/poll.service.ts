@@ -65,6 +65,15 @@ export class PollService {
         },
       });
 
+      try {
+        await PollService.createParticipantSnapshot(poll.id, poll.groupId);
+      } catch (snapshotError) {
+        logger.error(
+          `createPoll: failed to create participant snapshot for poll ${poll.id}; poll exists but auto-close-on-quorum will be unavailable until backfilled`,
+          snapshotError
+        );
+      }
+
       // Инвалидируем кэш активных голосований
       CacheInvalidator.invalidatePoll(poll.id, poll.groupId);
 
@@ -73,6 +82,76 @@ export class PollService {
     } catch (error) {
       logger.error('Error creating poll:', error);
       throw new Error('Failed to create poll');
+    }
+  }
+
+  /**
+   * Снимок ожидаемых участников на момент старта голосования.
+   * Все active члены группы получают запись: EXPECTED, если у юзера participatesInPolls=true,
+   * иначе EXCLUDED. Изменения User.participatesInPolls после старта не влияют на этот снимок.
+   */
+  static async createParticipantSnapshot(pollId: number, groupId: number): Promise<void> {
+    const members = await prisma.groupMember.findMany({
+      where: { groupId, isActive: true },
+      include: { user: { select: { id: true, isActive: true, participatesInPolls: true } } },
+    });
+
+    const rows = members
+      .filter(m => m.user.isActive)
+      .map(m => ({
+        pollId,
+        userId: m.user.id,
+        status: m.user.participatesInPolls ? 'EXPECTED' : 'EXCLUDED',
+      }));
+
+    if (rows.length === 0) {
+      logger.warn(`createParticipantSnapshot: no active members for poll ${pollId} in group ${groupId}`);
+      return;
+    }
+
+    await prisma.pollParticipant.createMany({ data: rows });
+    logger.info(
+      `Poll ${pollId}: snapshot ${rows.filter(r => r.status === 'EXPECTED').length} expected / ${rows.filter(r => r.status === 'EXCLUDED').length} excluded`
+    );
+  }
+
+  /**
+   * Проверить, проголосовали ли все ожидаемые участники, и если да — закрыть голосование.
+   * Безопасен для повторных вызовов: completePoll фильтрует по status='ACTIVE'.
+   */
+  static async checkQuorumAndComplete(pollId: number): Promise<boolean> {
+    const poll = await prisma.poll.findUnique({
+      where: { id: pollId },
+      select: { status: true },
+    });
+    if (!poll || poll.status !== 'ACTIVE') return false;
+
+    const expected = await prisma.pollParticipant.findMany({
+      where: { pollId, status: 'EXPECTED' },
+      select: { userId: true },
+    });
+    if (expected.length === 0) {
+      logger.warn(`checkQuorumAndComplete: poll ${pollId} has no EXPECTED participants — not auto-closing`);
+      return false;
+    }
+
+    const voters = await prisma.vote.findMany({
+      where: { pollId },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+    const votedSet = new Set(voters.map(v => v.userId));
+    const allVoted = expected.every(p => votedSet.has(p.userId));
+
+    if (!allVoted) return false;
+
+    logger.info(`Poll ${pollId}: quorum reached (${expected.length} expected voters), auto-completing`);
+    try {
+      await PollService.completePoll(pollId);
+      return true;
+    } catch (error) {
+      logger.error(`checkQuorumAndComplete: failed to auto-complete poll ${pollId}`, error);
+      return false;
     }
   }
 

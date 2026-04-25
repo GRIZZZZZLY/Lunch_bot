@@ -41,6 +41,30 @@ router.put('/users/:userId/admin', writeLimiter, (req, res) => adminController.t
  */
 router.put('/users/:userId/active', writeLimiter, (req, res) => adminController.toggleActive(req, res));
 
+/**
+ * PUT /api/admin/users/:userId/participates-in-polls
+ * Переключение постоянного флага «участвует в голосованиях»
+ */
+router.put('/users/:userId/participates-in-polls', writeLimiter, (req, res) =>
+  adminController.toggleParticipatesInPolls(req, res)
+);
+
+/**
+ * GET /api/admin/polls/:pollId/participants
+ * Список участников конкретного голосования (снимок + статус голосования)
+ */
+router.get('/polls/:pollId/participants', (req, res) =>
+  adminController.getPollParticipants(req, res)
+);
+
+/**
+ * PUT /api/admin/polls/:pollId/participants/:userId
+ * Per-poll override: исключить/вернуть участника. Триггерит проверку кворума.
+ */
+router.put('/polls/:pollId/participants/:userId', writeLimiter, (req, res) =>
+  adminController.setPollParticipantStatus(req, res)
+);
+
 // ===== Debt Management Routes =====
 
 /**

@@ -172,6 +172,13 @@ export async function createMultipleVotes(req: Request, res: Response): Promise<
     // 5. Возвращаем обновленный список голосов
     const updatedVotes = await VoteService.getUserVotes(pollId, userId);
 
+    // 6. Проверяем кворум — все ли ожидаемые проголосовали (авто-закрытие)
+    try {
+      await PollService.checkQuorumAndComplete(pollId);
+    } catch (error) {
+      logger.error(`[VoteController] checkQuorumAndComplete failed for poll ${pollId}:`, error);
+    }
+
     res.json({
       success: true,
       votes: updatedVotes,
