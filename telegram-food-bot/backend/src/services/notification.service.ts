@@ -754,10 +754,24 @@ export class NotificationService {
         groupId: storeRun.groupId,
         isActive: true,
         userId: { not: storeRun.initiatorId },
+        user: {
+          isActive: true,
+          participatesInPolls: true,
+        },
       },
       include: { user: true },
     });
-    if (members.length === 0) return [];
+    if (members.length === 0) {
+      logger.warn('notifyGroupMembersAboutStoreRun: no eligible recipients', {
+        storeRunId,
+        groupId: storeRun.groupId,
+      });
+      return [];
+    }
+    if (!this.bot) {
+      logger.error('notifyGroupMembersAboutStoreRun: bot not initialized', { storeRunId });
+      return [];
+    }
 
     const webappUrl = process.env.WEBAPP_URL ?? '';
     const initiatorName = storeRun.initiator.firstName;
@@ -787,21 +801,33 @@ export class NotificationService {
 
     const results: NotificationResult[] = [];
     for (const member of members) {
+      const tgId = Number(member.user.telegramId);
       const result = await this.send({
-        userId: Number(member.user.telegramId),
+        userId: tgId,
         type: NotificationType.STORE_RUN_STARTED,
         priority: NotificationPriority.NORMAL,
         message,
         parseMode: 'HTML',
         replyMarkup,
       });
+      if (!result.success) {
+        logger.warn('Store run DM failed for user', {
+          storeRunId,
+          internalUserId: member.userId,
+          telegramId: tgId,
+          firstName: member.user.firstName,
+          error: result.error,
+        });
+      }
       results.push(result);
     }
 
+    const successful = results.filter((r) => r.success).length;
     logger.info('Store run start notifications sent', {
       storeRunId,
       recipients: members.length,
-      successful: results.filter((r) => r.success).length,
+      successful,
+      failed: members.length - successful,
     });
 
     return results;
@@ -828,9 +854,18 @@ export class NotificationService {
     if (participantIds.length === 0) return [];
 
     const users = await prisma.user.findMany({
-      where: { id: { in: participantIds } },
-      select: { id: true, telegramId: true },
+      where: {
+        id: { in: participantIds },
+        isActive: true,
+        participatesInPolls: true,
+      },
+      select: { id: true, telegramId: true, firstName: true },
     });
+    if (users.length === 0) return [];
+    if (!this.bot) {
+      logger.error('notifyShoppingStarted: bot not initialized', { storeRunId });
+      return [];
+    }
 
     const initiatorName = storeRun.initiator.firstName;
     const storeName = storeRun.storeName;

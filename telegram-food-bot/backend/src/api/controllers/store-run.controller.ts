@@ -85,9 +85,20 @@ export class StoreRunController {
         collectMinutes: parsed.data.collectMinutes,
       });
 
-      // Fire-and-forget DM broadcast to group members
+      // Fire-and-forget DM broadcast to group members.
+      // Logged with aggregate results so silent failures (e.g. user has not
+      // started the bot privately yet) are visible in server logs.
       notificationService
         .notifyGroupMembersAboutStoreRun(run.id)
+        .then((results) => {
+          const successful = results.filter((r) => r.success).length;
+          if (results.length > 0 && successful === 0) {
+            logger.warn('Store run created but no DMs were delivered', {
+              storeRunId: run.id,
+              attempted: results.length,
+            });
+          }
+        })
         .catch((err) =>
           logger.error('Failed to notify group about store run', { storeRunId: run.id, err }),
         );
