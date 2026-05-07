@@ -1,4 +1,5 @@
 import { Bot, session, BotConfig } from 'grammy';
+import { autoRetry } from '@grammyjs/auto-retry';
 import { BotContext, SessionData } from '../types/bot.types';
 import { botConfig } from '../config/bot.config';
 import { logger } from '../utils/logger';
@@ -113,6 +114,17 @@ export function createBot(): Bot<BotContext> {
   
   botInstance = new Bot<BotContext>(botConfig.token, gramBotConfig);
   const bot = botInstance;
+
+  // 🔁 Auto-retry on transient Telegram API failures.
+  // Honors RETRY_AFTER on 429 (flood limit) and retries 5xx / network errors
+  // with exponential backoff. Caps total retries so a poisoned call cannot
+  // hang a worker forever.
+  bot.api.config.use(
+    autoRetry({
+      maxRetryAttempts: 3,
+      maxDelaySeconds: 30,
+    }),
+  );
 
   // Регистрируем типизированный синглтон — все сервисы читают из него
   setBotInstance(bot);
