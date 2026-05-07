@@ -8,11 +8,17 @@ import { createApiServer, startApiServer } from './api/server';
 import { initializePollServiceBot } from './services/poll.service.extensions';
 import { feedbackService } from './services/feedback.service';
 import { runSecurityChecks } from './utils/security-checks';
+import { validateEnv } from './utils/env';
 import { initDebtReminderJob } from './jobs/debt-reminder.job';
 import { initStoreRunAutoCloseJob } from './jobs/store-run-autoclose.job';
 
 // Загружаем переменные окружения
 dotenv.config();
+
+// 🛡️ Boot-time env schema validation. Fails fast if required vars are
+// missing or malformed (e.g. non-numeric API_PORT, malformed BOT_TOKEN).
+// Must run AFTER dotenv.config() and BEFORE any module that reads env.
+validateEnv();
 
 // 🔐 Sprint 3: Критические проверки безопасности
 // В production приложение НЕ запустится с небезопасными настройками
