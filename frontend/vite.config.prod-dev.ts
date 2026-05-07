@@ -61,8 +61,23 @@ export default defineConfig({
     reportCompressedSize: true,
     rollupOptions: {
       output: {
-        // ⚠️ УПРОЩЕННАЯ стратегия - избегаем circular dependencies
-        manualChunks: undefined,
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('/recharts/') || id.includes('\\recharts\\')) {
+              return 'charts';
+            }
+            if (id.includes('/framer-motion/') || id.includes('\\framer-motion\\')) {
+              return 'animations';
+            }
+            if (id.includes('/@radix-ui/') || id.includes('\\@radix-ui\\')) {
+              return 'ui-libs';
+            }
+            if (id.includes('/@tanstack/react-query') || id.includes('\\@tanstack\\react-query')) {
+              return 'query-libs';
+            }
+            return 'vendor';
+          }
+        },
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
