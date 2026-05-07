@@ -55,13 +55,8 @@ export const disconnect = async (): Promise<void> => {
   }
 };
 
-// Обработка сигналов завершения процесса
-process.on('SIGINT', async () => {
-  await disconnect();
-});
-
-process.on('SIGTERM', async () => {
-  await disconnect();
-});
+// Note: SIGINT/SIGTERM handlers live in index.ts and call disconnect() as part
+// of the orchestrated shutdown sequence (stopBot → disconnect → exit). No
+// signal handlers here so we don't double-disconnect or race the orchestrator.
 
 export default prisma;

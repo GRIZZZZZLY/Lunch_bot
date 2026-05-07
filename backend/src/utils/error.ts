@@ -220,16 +220,28 @@ export function formatErrorForLogging(error: Error, context?: any) {
 
 // Обработчик необработанных ошибок
 export function setupErrorHandlers(): void {
+  // Crash-fast pattern: log the cause, give async log transports a moment to
+  // flush, then exit. Process supervisor (PM2/systemd) is expected to restart.
+  // Continuing in an unknown state is worse than restarting cleanly.
+  const fatalExit = (label: string, error: unknown): void => {
+    try {
+      const formatted =
+        error instanceof Error ? formatErrorForLogging(error) : { error };
+      logger.error(`${label}:`, formatted);
+    } catch {
+      // Last-resort fallback if logger itself fails
+      console.error(`${label}:`, error);
+    }
+    // 1s grace period for winston file transports to flush, then hard exit.
+    setTimeout(() => process.exit(1), 1_000).unref();
+  };
+
   process.on('uncaughtException', (error: Error) => {
-    logger.error('Uncaught Exception:', formatErrorForLogging(error));
-    process.exit(1);
+    fatalExit('Uncaught Exception', error);
   });
 
-  process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-    logger.error('Unhandled Rejection at:', {
-      promise,
-      reason: reason instanceof Error ? formatErrorForLogging(reason) : reason,
-    });
+  process.on('unhandledRejection', (reason: unknown) => {
+    fatalExit('Unhandled Rejection', reason);
   });
 }
 
