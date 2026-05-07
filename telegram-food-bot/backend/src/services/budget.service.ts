@@ -128,20 +128,29 @@ export class BudgetService {
    * Обработка выбранного ответственного
    */
   static async processResponsibleSelected(pollId: number, responsibleUserId: number): Promise<void> {
+    logger.info('Processing responsible selected', { pollId, responsibleUserId });
+
+    // Phase 1: DB writes (atomic). If this throws, caller can retry safely —
+    // transactions are idempotent on (pollId, fromUserId, toUserId, menuItemId).
+    let transactions: Awaited<ReturnType<typeof BudgetService.createTransactionsFromPoll>>;
     try {
-      logger.info('Processing responsible selected', { pollId, responsibleUserId });
-
-      // 1. Создаем транзакции
-      const transactions = await this.createTransactionsFromPoll(pollId, responsibleUserId);
-
+      transactions = await this.createTransactionsFromPoll(pollId, responsibleUserId);
       logger.info('Transactions created', { pollId, count: transactions.length });
+    } catch (dbError) {
+      logger.error('Failed to create transactions for poll', { pollId, dbError });
+      throw dbError;
+    }
 
-      // 2. Отправляем уведомления с реквизитами
+    // Phase 2: notifications (best-effort). DB state already committed; partial
+    // notification failures recover via the daily debt reminder cron.
+    try {
       await this.sendBudgetNotifications(pollId, responsibleUserId, transactions);
-
       logger.info('Budget notifications sent', { pollId });
-    } catch (error) {
-      logger.error('Error processing responsible selected:', error);
+    } catch (notifError) {
+      logger.error('Budget notifications partially failed (DB state OK)', {
+        pollId,
+        notifError,
+      });
     }
   }
 
@@ -180,18 +189,29 @@ export class BudgetService {
         }
       }
 
-      if (transactionsData.length > 0) {
-        await prisma.transaction.createMany({ data: transactionsData });
-      }
+      // Idempotency: if processResponsibleSelected is retried (network glitch,
+      // worker re-run), don't double-insert. Skip insert if any tx already exists
+      // for this poll. Atomic check inside a Prisma transaction.
+      return await prisma.$transaction(async (tx) => {
+        const existingCount = await tx.transaction.count({ where: { pollId } });
 
-      // Возвращаем с relations
-      return await prisma.transaction.findMany({
-        where: { pollId },
-        include: {
-          fromUser: true,
-          toUser: true,
-          menuItem: true,
-        },
+        if (existingCount === 0 && transactionsData.length > 0) {
+          await tx.transaction.createMany({ data: transactionsData });
+        } else if (existingCount > 0) {
+          logger.warn(
+            'Transactions already exist for poll, skipping insert (idempotent retry)',
+            { pollId, existingCount, attemptedCount: transactionsData.length },
+          );
+        }
+
+        return await tx.transaction.findMany({
+          where: { pollId },
+          include: {
+            fromUser: true,
+            toUser: true,
+            menuItem: true,
+          },
+        });
       });
     } catch (error) {
       logger.error('Error creating transactions:', error);
@@ -1202,29 +1222,59 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         throw new Error('Only responsible person can set order costs');
       }
 
-      // Create or update order costs
-      const orderCosts = await prisma.pollOrderCosts.upsert({
-        where: { pollId },
-        create: {
-          pollId,
-          deliveryCost: costs.deliveryCost,
-          serviceFee: costs.serviceFee,
-          tip: costs.tip,
-          notes: costs.notes,
-          enteredBy: userId,
-        },
-        update: {
-          deliveryCost: costs.deliveryCost,
-          serviceFee: costs.serviceFee,
-          tip: costs.tip,
-          notes: costs.notes,
-        },
+      // Atomic: upsert costs + recalculate all transactions in a single tx.
+      // Without this, a crash between upsert and recalc leaves costs saved but
+      // transactions still at old amounts (silent state drift seen by users).
+      const orderCosts = await prisma.$transaction(async (tx) => {
+        const upserted = await tx.pollOrderCosts.upsert({
+          where: { pollId },
+          create: {
+            pollId,
+            deliveryCost: costs.deliveryCost,
+            serviceFee: costs.serviceFee,
+            tip: costs.tip,
+            notes: costs.notes,
+            enteredBy: userId,
+          },
+          update: {
+            deliveryCost: costs.deliveryCost,
+            serviceFee: costs.serviceFee,
+            tip: costs.tip,
+            notes: costs.notes,
+          },
+        });
+
+        const transactions = await tx.transaction.findMany({
+          where: { pollId },
+          include: { menuItem: true },
+        });
+
+        if (transactions.length > 0) {
+          const participantsCount = transactions.length;
+          const deliveryShare = toNumber(upserted.deliveryCost) / participantsCount;
+          const serviceShare = toNumber(upserted.serviceFee) / participantsCount;
+          const tipShare = toNumber(upserted.tip) / participantsCount;
+
+          for (const transaction of transactions) {
+            const itemPrice = toNumber(transaction.menuItem?.price);
+            const newAmount = itemPrice + deliveryShare + serviceShare + tipShare;
+            await tx.transaction.update({
+              where: { id: transaction.id },
+              data: {
+                itemPrice,
+                deliveryShare,
+                serviceShare,
+                tipShare,
+                amount: newAmount,
+              },
+            });
+          }
+        }
+
+        return upserted;
       });
 
-      // Recalculate all transactions with new breakdown
-      await this.recalculateTransactionsWithCosts(pollId);
-
-      logger.info('Order costs set and transactions recalculated', { pollId, orderCosts });
+      logger.info('Order costs set and transactions recalculated atomically', { pollId, orderCosts });
 
       return orderCosts;
     } catch (error) {
@@ -1247,69 +1297,6 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
     }
   }
 
-  /**
-   * Recalculate all transactions with cost breakdown
-   */
-  private async recalculateTransactionsWithCosts(pollId: number) {
-    try {
-      // Get order costs
-      const orderCosts = await prisma.pollOrderCosts.findUnique({
-        where: { pollId },
-      });
-
-      if (!orderCosts) {
-        logger.warn('No order costs found for poll', { pollId });
-        return;
-      }
-
-      // Get all transactions for this poll
-      const transactions = await prisma.transaction.findMany({
-        where: { pollId },
-        include: {
-          menuItem: true,
-        },
-      });
-
-      if (transactions.length === 0) {
-        logger.warn('No transactions found for poll', { pollId });
-        return;
-      }
-
-      // Calculate per-person shares
-      const participantsCount = transactions.length;
-      const deliveryShare = toNumber(orderCosts.deliveryCost) / participantsCount;
-      const serviceShare = toNumber(orderCosts.serviceFee) / participantsCount;
-      const tipShare = toNumber(orderCosts.tip) / participantsCount;
-
-      // Update each transaction
-      for (const tx of transactions) {
-        const itemPrice = toNumber(tx.menuItem?.price);
-        const newAmount = itemPrice + deliveryShare + serviceShare + tipShare;
-
-        await prisma.transaction.update({
-          where: { id: tx.id },
-          data: {
-            itemPrice,
-            deliveryShare,
-            serviceShare,
-            tipShare,
-            amount: newAmount,
-          },
-        });
-      }
-
-      logger.info('Transactions recalculated with cost breakdown', {
-        pollId,
-        participantsCount,
-        deliveryShare,
-        serviceShare,
-        tipShare,
-      });
-    } catch (error) {
-      logger.error('Error recalculating transactions:', error);
-      throw error;
-    }
-  }
 
   /**
    * Get detailed cost breakdown for a poll

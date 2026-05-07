@@ -219,20 +219,13 @@ export class OrderCalculationService {
       const serviceShare = toNumber(categoryOrder.serviceFee) / participantCount;
       const tipShare = toNumber(categoryOrder.tip) / participantCount;
 
-      // Create transactions for each participant (except responsible)
-      const transactions: Transaction[] = [];
-
-      for (const orderItem of categoryOrder.orderItems) {
-        // Skip if this is the responsible person
-        if (orderItem.userId === responsibleUserId) {
-          continue;
-        }
-
-        const itemPrice = toNumber(orderItem.price);
-        const totalAmount = itemPrice + deliveryShare + serviceShare + tipShare;
-
-        const transaction = await prisma.transaction.create({
-          data: {
+      // Build transaction payloads for batch insert (N+1 → single createMany)
+      const txData = categoryOrder.orderItems
+        .filter((orderItem: any) => orderItem.userId !== responsibleUserId)
+        .map((orderItem: any) => {
+          const itemPrice = toNumber(orderItem.price);
+          const totalAmount = itemPrice + deliveryShare + serviceShare + tipShare;
+          return {
             pollId: categoryOrder.pollId,
             fromUserId: orderItem.userId,
             toUserId: responsibleUserId,
@@ -242,24 +235,45 @@ export class OrderCalculationService {
             deliveryShare,
             serviceShare,
             tipShare,
-            status: 'PENDING',
-          },
+            status: 'PENDING' as const,
+          };
         });
 
-        transactions.push(transaction);
+      // Atomic: insert all transactions + flip CategoryOrder status in one tx.
+      // Idempotency: if any transactions for this categoryOrder exist, skip insert.
+      // Crash anywhere → both insert and status flip rolled back together.
+      const transactions = await prisma.$transaction(async (tx) => {
+        const existingCount = await tx.transaction.count({
+          where: { categoryOrderId: categoryOrder.id },
+        });
 
-        logger.info(
-          `Created transaction ${transaction.id}: ${orderItem.userId} → ${responsibleUserId} = ${totalAmount.toFixed(2)}₽`
-        );
-      }
+        if (existingCount === 0 && txData.length > 0) {
+          await tx.transaction.createMany({ data: txData });
+        } else if (existingCount > 0) {
+          logger.warn(
+            'Transactions already exist for CategoryOrder, skipping insert (idempotent retry)',
+            { categoryOrderId: categoryOrder.id, existingCount, attemptedCount: txData.length },
+          );
+        }
 
-      // Update CategoryOrder status to COMPLETED
-      await CategoryOrderService.updateCalculationStatus(
-        categoryOrderId,
-        'COMPLETED'
+        const inserted = await tx.transaction.findMany({
+          where: { categoryOrderId: categoryOrder.id },
+        });
+
+        // Status update inside same tx — atomic with insert.
+        await tx.categoryOrder.update({
+          where: { id: categoryOrder.id },
+          data: { calculationStatus: 'COMPLETED' },
+        });
+
+        return inserted;
+      });
+
+      logger.info(
+        `Atomic finalize for CategoryOrder ${categoryOrderId}: ${transactions.length} transactions + status=COMPLETED committed`,
       );
 
-      // Send notifications to all participants
+      // Notifications outside tx — DB state already committed, partial fails recoverable.
       await this.sendDebtNotifications(categoryOrder, transactions);
 
       logger.info(
