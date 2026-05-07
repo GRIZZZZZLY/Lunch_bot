@@ -432,8 +432,8 @@ export class GroupService {
       let botInstance = bot;
       if (!botInstance) {
         try {
-          const botModule = await import('../bot/bot');
-          botInstance = (botModule as any).getBotInstance?.();
+          const botModule = await import('../bot/bot-instance');
+          botInstance = botModule.getBotInstance();
         } catch (error) {
           logger.debug('Cannot import bot instance for getRealMemberCount');
         }

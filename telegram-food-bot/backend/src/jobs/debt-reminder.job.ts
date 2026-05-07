@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { prisma } from '../database/client';
 import { ReminderSettingsService } from '../services/reminder-settings.service';
-import { getBotInstance } from '../bot/bot';
+import { getBotInstance } from '../bot/bot-instance';
 import { logger } from '../utils/logger';
 
 /**
