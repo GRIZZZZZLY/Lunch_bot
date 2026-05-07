@@ -59,9 +59,11 @@ export class GamificationService {
     metadata?: Record<string, any>
   ): Promise<{ stats: any; leveledUp: boolean; oldLevel: number; newLevel: number }> {
     try {
-      // Get current season (if exists)
-      const { SeasonService } = await import('./season.service.js');
-      const currentSeason = await SeasonService.getCurrentSeason();
+      // Get current season (if exists). Inlined to avoid cycle with SeasonService.
+      const currentSeason = await prisma.season.findFirst({
+        where: { isActive: true },
+        orderBy: { number: 'desc' },
+      });
       
       // Get or create user stats
       let stats = await prisma.userStats.findUnique({
@@ -447,14 +449,15 @@ export class GamificationService {
     seasonId?: number | null
   ): Promise<any[]> {
     try {
-      const { SeasonService } = await import('./season.service.js');
-      
       // If seasonId is null, use all-time. If undefined, use current season.
       let actualSeasonId: number | null = null;
       if (seasonId === null) {
         actualSeasonId = null; // All-time
       } else if (seasonId === undefined) {
-        const currentSeason = await SeasonService.getCurrentSeason();
+        const currentSeason = await prisma.season.findFirst({
+          where: { isActive: true },
+          orderBy: { number: 'desc' },
+        });
         actualSeasonId = currentSeason?.id || null;
       } else {
         actualSeasonId = seasonId;

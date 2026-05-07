@@ -1,7 +1,7 @@
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { now } from '../utils/date';
-import { getBotInstance } from '../bot/bot';
+import { getBotInstance } from '../bot/bot-instance';
 import { GroupService } from './group.service';
 import { toNumber, sumDecimals } from '../utils/decimal';
 import type { Prisma } from '@prisma/client';

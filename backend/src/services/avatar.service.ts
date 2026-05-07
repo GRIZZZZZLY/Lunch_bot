@@ -1,7 +1,7 @@
 import { User } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
-import { getBotInstance } from '../bot/bot';
+import { getBotInstance } from '../bot/bot-instance';
 
 /**
  * Avatar Service

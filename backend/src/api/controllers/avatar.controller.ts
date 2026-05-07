@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import https from 'https';
 import { logger } from '../../utils/logger';
-import { getBotInstance } from '../../bot/bot';
+import { getBotInstance } from '../../bot/bot-instance';
 import { getParam } from '../../utils/request-params';
 
 /**

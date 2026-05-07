@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 import { CreateUserData, UpdateUserData } from '../types/user.types';
 import { now } from '../utils/date';
 import { EncryptionService } from '../utils/encryption';
-import { getBotInstance } from '../bot/bot';
+import { getBotInstance } from '../bot/bot-instance';
 
 export class UserService {
   /**
