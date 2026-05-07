@@ -5,6 +5,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { corsMiddleware } from './middleware/cors';
 import { errorHandler, notFoundHandler, requestLogger } from './middleware/error-handler';
+import { requestIdMiddleware } from './middleware/request-id';
 import { generalLimiter, authLimiter } from './middleware/rate-limiter';
 import { apiConfig } from '../config/api.config';
 import { logger } from '../utils/logger';
@@ -141,6 +142,7 @@ export function createApiServer(): express.Application {
 
   app.use(express.json({ limit: bodyLimit }));
   app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
+  app.use(requestIdMiddleware);
   app.use(requestLogger);
   app.use(metricsMiddleware); // Отслеживание response time
 

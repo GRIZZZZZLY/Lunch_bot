@@ -11,8 +11,11 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ): void {
-  // Логируем ошибку с контекстом
+  const requestId = req.requestId;
+
+  // Логируем ошибку с контекстом включая requestId для трассировки
   logger.error('API Error:', formatErrorForLogging(err, {
+    requestId,
     method: req.method,
     url: req.url,
     query: req.query,
@@ -32,6 +35,7 @@ export function errorHandler(
       success: false,
       error: err.message,
       code: err.code,
+      requestId,
       timestamp: new Date().toISOString(),
     });
     return;
@@ -44,6 +48,7 @@ export function errorHandler(
       error: 'Ошибка валидации данных',
       code: 'VALIDATION_ERROR',
       details: err.message,
+      requestId,
       timestamp: new Date().toISOString(),
     });
     return;
@@ -52,22 +57,24 @@ export function errorHandler(
   // Обрабатываем ошибки Prisma
   if (err.name === 'PrismaClientKnownRequestError') {
     const prismaError = err as any;
-    
+
     if (prismaError.code === 'P2002') {
       res.status(409).json({
         success: false,
         error: 'Запись с такими данными уже существует',
         code: 'DUPLICATE_ENTRY',
+        requestId,
         timestamp: new Date().toISOString(),
       });
       return;
     }
-    
+
     if (prismaError.code === 'P2025') {
       res.status(404).json({
         success: false,
         error: 'Запись не найдена',
         code: 'NOT_FOUND',
+        requestId,
         timestamp: new Date().toISOString(),
       });
       return;
@@ -77,10 +84,11 @@ export function errorHandler(
   // Общая ошибка сервера
   res.status(500).json({
     success: false,
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Внутренняя ошибка сервера' 
+    error: process.env.NODE_ENV === 'production'
+      ? 'Внутренняя ошибка сервера'
       : err.message,
     code: 'INTERNAL_ERROR',
+    requestId,
     timestamp: new Date().toISOString(),
     ...(process.env.NODE_ENV === 'development' && {
       stack: err.stack,
@@ -118,8 +126,9 @@ export function requestLogger(
   const originalSend = res.send;
   res.send = function(body) {
     const duration = Date.now() - startTime;
-    
+
     logger.info('API Request', {
+      requestId: req.requestId,
       method: req.method,
       url: req.url,
       statusCode: res.statusCode,
@@ -128,7 +137,7 @@ export function requestLogger(
       ip: req.ip,
       contentLength: res.get('Content-Length'),
     });
-    
+
     return originalSend.call(this, body);
   };
   
