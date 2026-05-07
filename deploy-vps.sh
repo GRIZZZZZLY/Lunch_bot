@@ -3,22 +3,30 @@
 # ===============================================
 # 🚀 VPS Deployment Script for Rocket Lunch Bot
 # ===============================================
-# Domain: rocket-lunch.duckdns.org
-# Branch: feature/new_version
-# This script deploys the application to production VPS
+# Configurable via env vars:
+#   BRANCH        — git branch to deploy (default: feature/store-run)
+#   DOMAIN        — public domain for webhook hint (default: rocket-lunch.duckdns.org)
+#   FRONTEND_DIR  — frontend / frontend-new (default: frontend)
+# Example:
+#   BRANCH=main DOMAIN=lunch.example.ru ./deploy-vps.sh
 
-set -e  # Exit on any error
+set -e
+
+BRANCH="${BRANCH:-feature/store-run}"
+DOMAIN="${DOMAIN:-rocket-lunch.duckdns.org}"
 
 echo "🚀 Starting deployment to VPS..."
+echo "   Branch: $BRANCH"
+echo "   Domain: $DOMAIN"
 
 # Check current branch
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 echo "📍 Current branch: $CURRENT_BRANCH"
 
-if [ "$CURRENT_BRANCH" != "feature/new_version" ]; then
-    echo "⚠️  Warning: Not on feature/new_version branch!"
-    echo "Switching to feature/new_version..."
-    git checkout feature/new_version
+if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
+    echo "⚠️  Not on $BRANCH branch — switching..."
+    git fetch origin "$BRANCH"
+    git checkout "$BRANCH"
 fi
 
 # ===============================================
@@ -87,8 +95,11 @@ cd backend
 # Generate Prisma Client
 npm run db:generate
 
-# Run migrations
-npm run db:push
+# Apply migrations (proper migration history — see prisma/migrations/)
+npm run db:migrate:prod
+
+# Backfill PollParticipant snapshots for any active polls (idempotent)
+npx tsx scripts/backfill-poll-participants.ts || echo "⚠️ Backfill failed (non-critical)"
 
 # Seed menu (optional - comment out if you want to preserve existing data)
 # npm run db:seed
@@ -138,7 +149,7 @@ echo "1. Configure nginx reverse proxy (see nginx.conf)"
 echo "2. Setup SSL certificate with certbot"
 echo "3. Configure Telegram webhook:"
 echo "   curl -X POST https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook \\"
-echo "     -d url=https://rocket-lunch.duckdns.org/webhook"
+echo "     -d url=https://$DOMAIN/webhook"
 echo ""
 echo "📝 Useful commands:"
 echo "  pm2 logs rocket-lunch-bot  - View logs"
