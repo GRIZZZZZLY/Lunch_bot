@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
+import { requestContext } from '../../utils/request-context';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -15,6 +16,9 @@ declare global {
  * Honors an inbound X-Request-ID header (proxy / client correlation), otherwise
  * generates a UUID v4. Also reflected back to the caller via response header so
  * a user-reported error can be traced to log lines + error responses.
+ *
+ * Wraps downstream middleware in AsyncLocalStorage scope so any logger.* call
+ * inside the request automatically inherits requestId without manual threading.
  */
 export function requestIdMiddleware(req: Request, res: Response, next: NextFunction): void {
   const inbound = req.get('X-Request-ID');
@@ -23,5 +27,5 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
   req.requestId = requestId;
   res.setHeader('X-Request-ID', requestId);
 
-  next();
+  requestContext.run({ requestId }, () => next());
 }

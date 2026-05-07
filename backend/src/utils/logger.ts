@@ -1,10 +1,29 @@
 import * as winston from 'winston';
+import { getRequestContext } from './request-context';
 
 const logLevel = process.env.LOG_LEVEL || 'info';
 const logFormat = process.env.LOG_FORMAT || 'combined';
 
+/**
+ * Winston format that merges AsyncLocalStorage request context into each log
+ * info object. Any logger.info/error/warn called during an HTTP request
+ * automatically carries requestId/userId without explicit threading.
+ */
+const requestContextFormat = winston.format((info) => {
+  const ctx = getRequestContext();
+  if (ctx) {
+    if (ctx.requestId && !info.requestId) info.requestId = ctx.requestId;
+    if (ctx.userId !== undefined && info.userId === undefined) info.userId = ctx.userId;
+    if (ctx.telegramId !== undefined && info.telegramId === undefined) {
+      info.telegramId = ctx.telegramId;
+    }
+  }
+  return info;
+});
+
 // Кастомный формат для красивых логов в development
 const developmentFormat = winston.format.combine(
+  requestContextFormat(),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
   winston.format.colorize(),
@@ -31,6 +50,7 @@ const bigIntReplacer = (_key: string, value: unknown) =>
 
 // Формат для production
 const productionFormat = winston.format.combine(
+  requestContextFormat(),
   winston.format.timestamp(),
   winston.format.errors({ stack: true }),
   winston.format.printf((info) => JSON.stringify(info, bigIntReplacer))
