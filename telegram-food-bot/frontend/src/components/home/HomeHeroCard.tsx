@@ -37,19 +37,19 @@ function PollBadge({ status, meta }: { status: PollStatus; meta: PollMeta }) {
   let color = '';
 
   if (status === 'active') {
-    text = meta.time ? `🗳 Голосование до ${meta.time}` : '🗳 Идёт голосование';
+    text = meta.time ? `Голосование до ${meta.time}` : 'Идёт голосование';
     bg = 'rgba(139,92,246,0.12)';
     border = 'rgba(139,92,246,0.30)';
     color = '#c4b5fd';
   } else if (status === 'completed-result') {
-    const parts = ['✅', meta.winner, meta.responsible ? `· Отв: ${meta.responsible}` : ''].filter(Boolean);
+    const parts = [meta.winner, meta.responsible ? `· Отв: ${meta.responsible}` : ''].filter(Boolean);
     text = parts.join(' ');
     bg = 'rgba(251,146,60,0.12)';
     border = 'rgba(251,146,60,0.28)';
     color = '#fb923c';
   } else {
     // completed
-    text = '✅ Голосование завершено';
+    text = 'Голосование завершено';
     bg = 'rgba(92,174,135,0.12)';
     border = 'rgba(92,174,135,0.28)';
     color = '#6ee7b7';
