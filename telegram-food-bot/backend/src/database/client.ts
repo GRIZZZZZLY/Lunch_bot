@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { logger } from '../utils/logger';
 
 dotenv.config();
@@ -10,7 +10,8 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Создание Prisma Client с настройками
+// Создание Prisma Client. PostgreSQL через @prisma/adapter-pg
+// (Prisma 7 client engine требует adapter или accelerateUrl).
 const createPrismaClient = (): PrismaClient => {
   const databaseUrl = process.env.DATABASE_URL;
 
@@ -18,11 +19,14 @@ const createPrismaClient = (): PrismaClient => {
     throw new Error('DATABASE_URL environment variable is required');
   }
 
-  const adapter = new PrismaBetterSqlite3({ url: databaseUrl });
+  if (!databaseUrl.startsWith('postgresql://') && !databaseUrl.startsWith('postgres://')) {
+    throw new Error(
+      'DATABASE_URL must be a PostgreSQL URL (postgresql://...). SQLite support has been removed.',
+    );
+  }
 
-  const prisma = new PrismaClient({ adapter });
-
-  return prisma;
+  const adapter = new PrismaPg({ connectionString: databaseUrl });
+  return new PrismaClient({ adapter });
 };
 
 // Singleton: используем один экземпляр Prisma Client

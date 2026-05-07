@@ -28,6 +28,70 @@ dotenv.config();
 
 // Import prisma client AFTER env is loaded
 import { prisma } from '../database/client';
+import { Prisma } from '@prisma/client';
+
+// ============================================================================
+// Schema-aware column mapping (uses Prisma DMMF as source of truth)
+// ============================================================================
+
+interface FieldMeta {
+  name: string;       // camelCase Prisma field
+  type: string;       // Boolean / Int / String / DateTime / Decimal / BigInt / Json
+  isList: boolean;
+}
+
+/**
+ * For each Prisma model, build dbColumn → FieldMeta lookup.
+ * Handles @@map / @map so totalXp (sqlite column total_xp) → totalXP (Prisma field).
+ */
+const buildSchemaCache = (): Map<string, Map<string, FieldMeta>> => {
+  const cache = new Map<string, Map<string, FieldMeta>>();
+  for (const model of Prisma.dmmf.datamodel.models) {
+    const fieldByDbColumn = new Map<string, FieldMeta>();
+    for (const field of model.fields) {
+      if (field.relationName) continue; // skip relation virtuals
+      const dbCol = (field as any).dbName ?? field.name;
+      fieldByDbColumn.set(dbCol, {
+        name: field.name,
+        type: field.type,
+        isList: field.isList,
+      });
+    }
+    cache.set(model.name, fieldByDbColumn);
+  }
+  return cache;
+};
+
+const SCHEMA_CACHE = buildSchemaCache();
+
+/**
+ * Map a single SQLite row to a Prisma createMany input object.
+ * Converts SQLite ints to booleans where the schema says Boolean.
+ * Skips columns the Prisma model doesn't know about.
+ */
+const mapRowForPrisma = (row: Record<string, any>, modelName: string) => {
+  const fieldMap = SCHEMA_CACHE.get(modelName);
+  if (!fieldMap) {
+    throw new Error(`No schema cache entry for model ${modelName}`);
+  }
+  const out: Record<string, any> = {};
+  for (const [dbCol, raw] of Object.entries(row)) {
+    const meta = fieldMap.get(dbCol);
+    if (!meta) continue; // column dropped from current schema
+    if (raw === null || raw === undefined) {
+      out[meta.name] = null;
+      continue;
+    }
+    if (meta.type === 'Boolean') {
+      out[meta.name] = raw === 1 || raw === '1' || raw === true;
+    } else if (meta.type === 'BigInt') {
+      out[meta.name] = typeof raw === 'bigint' ? raw : BigInt(raw as any);
+    } else {
+      out[meta.name] = raw;
+    }
+  }
+  return out;
+};
 
 // ============================================================================
 // Configuration
@@ -153,46 +217,56 @@ function mapSqliteValue(value: any, columnType: string): any {
 // Migration Order (respects FK dependencies)
 // ============================================================================
 
-const MIGRATION_ORDER = [
+/**
+ * [Prisma model name, SQLite/Postgres table name (@@map value)]
+ * Order matters — respects FK dependencies (parents before children).
+ */
+const MIGRATION_ORDER: Array<[string, string]> = [
   // 1. Independent tables (no FK dependencies)
-  'User',
-  'Group',
-  
+  ['User', 'users'],
+  ['Group', 'groups'],
+
   // 2. Tables depending on User/Group
-  'MenuItem',
-  'GroupMember',
-  'RecurringPoll',
-  'DebtReminderSettings',
-  'AdminNotificationSettings',
-  
+  ['MenuItem', 'menu_items'],
+  ['GroupMember', 'group_members'],
+  ['RecurringPoll', 'recurring_polls'],
+  ['DebtReminderSettings', 'debt_reminder_settings'],
+  ['AdminNotificationSettings', 'admin_notification_settings'],
+  ['Donation', 'donations'],
+
   // 3. Tables depending on MenuItem/Group
-  'Poll',
-  'MenuSuggestion',
-  
+  ['Poll', 'polls'],
+  ['MenuSuggestion', 'menu_suggestions'],
+
   // 4. Tables depending on Poll
-  'Vote',
-  'PollResult',
-  'ResponsibleSelection',
-  'PollOrderCosts',
-  'CategoryOrder',
-  
-  // 5. Tables depending on multiple entities
-  'Transaction',
-  'OrderItem',
-  'OrderItemEditLog',
-  'PaymentReminder',
-  'AdminReminder',
-  
-  // 6. User progress/stats
-  'UserProgress',
-  'UserStats',
-  'UserAchievement',
-  'UserChallengeProgress',
-  'UserQuest',
-  'XPHistory',
-  'Achievement',
-  'Challenge',
-  'Quest',
+  ['PollParticipant', 'poll_participants'],
+  ['Vote', 'votes'],
+  ['PollResult', 'poll_results'],
+  ['ResponsibleSelection', 'responsible_selections'],
+  ['PollOrderCosts', 'poll_order_costs'],
+  ['CategoryOrder', 'category_orders'],
+
+  // 5. Store run feature
+  ['StoreRun', 'store_runs'],
+  ['StoreItem', 'store_items'],
+
+  // 6. Tables depending on multiple entities
+  ['Transaction', 'transactions'],
+  ['OrderItem', 'order_items'],
+  ['OrderItemEditLog', 'order_item_edit_logs'],
+  ['PaymentReminder', 'payment_reminders'],
+  ['AdminReminder', 'admin_reminders'],
+
+  // 7. User progress/stats / gamification
+  ['UserProgress', 'user_progress'],
+  ['UserStats', 'user_stats'],
+  ['UserAchievement', 'user_achievements'],
+  ['UserChallengeProgress', 'user_challenge_progress'],
+  ['UserQuest', 'user_quests'],
+  ['XPHistory', 'xp_history'],
+  ['Achievement', 'achievements'],
+  ['Challenge', 'challenges'],
+  ['Quest', 'quests'],
 ];
 
 // ============================================================================
@@ -201,6 +275,7 @@ const MIGRATION_ORDER = [
 
 async function migrateTable(
   tableName: string,
+  sqliteTableName: string,
   sqlite: Database.Database,
   prisma: PrismaClient,
   config: MigrationConfig
@@ -215,11 +290,10 @@ async function migrateTable(
   };
 
   try {
-    // Get table name in snake_case for SQLite
-    const sqliteTableName = tableName
-      .replace(/([A-Z])/g, '_$1')
-      .toLowerCase()
-      .replace(/^_/, '');
+    // sqliteTableName is now passed in by caller (read from MIGRATION_ORDER tuple)
+    // — was previously derived via naive CamelCase→snake_case which missed
+    // pluralization (User → user, but real table is `users`).
+    // See migrateAll loop.
 
     // Check if table exists in SQLite
     const tableExists = sqlite
@@ -266,16 +340,9 @@ async function migrateTable(
 
       if (!config.dryRun) {
         try {
-          // Map values to proper types
-          const mappedBatch = batch.map((row: any) => {
-            const mapped: any = {};
-            for (const [key, value] of Object.entries(row)) {
-              // Convert snake_case to camelCase
-              const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-              mapped[camelKey] = mapSqliteValue(value, typeof value);
-            }
-            return mapped;
-          });
+          // Schema-aware mapping: use Prisma DMMF for column → field name and
+          // SQLite int → Boolean conversion.
+          const mappedBatch = batch.map((row: any) => mapRowForPrisma(row, tableName));
 
           // Insert batch
           await (prisma as any)[tableName.charAt(0).toLowerCase() + tableName.slice(1)].createMany({
@@ -285,7 +352,16 @@ async function migrateTable(
 
           stats.migratedCount += batch.length;
         } catch (error: any) {
-          console.error(`❌ Error in batch ${i + 1}/${batches}:`, error.message);
+          console.error(`❌ Error in batch ${i + 1}/${batches} of ${tableName}:`);
+          console.error('   message:', error.message || '<empty>');
+          console.error('   name:', error.name);
+          console.error('   code:', (error as any).code);
+          if ((error as any).meta) console.error('   meta:', JSON.stringify((error as any).meta, null, 2));
+          if (i === 0) {
+            // Dump first row of failing batch for diagnosis
+            console.error('   first row sample:', JSON.stringify(batch[0], (_k, v) =>
+              typeof v === 'bigint' ? v.toString() : v, 2));
+          }
           stats.errors += batch.length;
         }
       } else {
@@ -321,13 +397,8 @@ async function verifyMigration(
 
   let allValid = true;
 
-  for (const tableName of MIGRATION_ORDER) {
+  for (const [tableName, sqliteTableName] of MIGRATION_ORDER) {
     try {
-      const sqliteTableName = tableName
-        .replace(/([A-Z])/g, '_$1')
-        .toLowerCase()
-        .replace(/^_/, '');
-
       const tableExists = sqlite
         .prepare(
           `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
@@ -406,8 +477,8 @@ async function main() {
     // Migrate tables in order
     const allStats: MigrationStats[] = [];
 
-    for (const tableName of MIGRATION_ORDER) {
-      const stats = await migrateTable(tableName, sqlite, prisma, config);
+    for (const [tableName, sqliteTableName] of MIGRATION_ORDER) {
+      const stats = await migrateTable(tableName, sqliteTableName, sqlite, prisma, config);
       allStats.push(stats);
     }
 

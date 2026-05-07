@@ -4,6 +4,33 @@
 
 ---
 
+## Audit snapshot (актуально на 2026-05-07)
+
+**Состояние repo прямо сейчас:**
+
+| Компонент | Готово | Что делать |
+|---|---|---|
+| `docker-compose.yml` Postgres service | ✅ postgres:15-alpine, healthcheck, volume | – |
+| `prisma/schema.prisma` provider | ❌ всё ещё `sqlite` | менять в Этапе 1.2 |
+| `database/client.ts` adapter | ❌ зашит на `PrismaBetterSqlite3` | менять в Этапе 1.3 |
+| `prisma/migrations/` | ❌ 3 миграции SQLite-syntax (`AUTOINCREMENT`, `DATETIME`) — Postgres не примет | nuke + regen в Этапе 1.4 |
+| `migrate-sqlite-to-postgres.ts` | ✅ 468 строк, production-ready: батчинг + FK-порядок + dry-run + truncate | запускать в Этапе 2 |
+
+**Risk areas (поля где может тонко):**
+
+- **JSON-as-String** (`Group.settings`, `Poll.selectedMenuItemIds`, `PollResult.rouletteData`) — оставлены как `String` в schema. При миграции попадут в Postgres `TEXT`. Поведение кода не меняется. Upgrade до `Json` type — отдельная задача после миграции.
+- **BigInt** (`User.telegramId`, `Group.telegramId`, `Poll.chatId`) — Postgres имеет native `BIGINT`, переедет 1:1.
+- **Decimal?** (`MenuItem.price`, `Transaction.amount`) — Postgres `NUMERIC`, Prisma маппит сам.
+- **DateTime** (`@default(now())` + `@updatedAt`) — Prisma генерит правильный SQL для каждой DB.
+
+**Migration history решение:** старые SQLite-миграции **удаляются** (`rm -rf prisma/migrations`). Новый `_init` от чистой Postgres-схемы. Данные уже мигрированы скриптом — историю миграций сохранять не нужно (она была актуальна только для локальной dev.db, которую заменим).
+
+**Альтернатива:** оставить старые миграции как archive в отдельной папке + `migrate resolve --applied` для каждой + новый `0_init_postgres`. Сложнее, но сохраняет git-history для archeology.
+
+**Rollback стратегия (быстрый):** `git revert` коммита миграции + положить back `prisma/dev.db.backup-*` → `prisma/dev.db`. SQLite stack оживёт за 30 секунд.
+
+---
+
 ## Предварительные требования
 
 - [ ] Node.js 22+ установлен
