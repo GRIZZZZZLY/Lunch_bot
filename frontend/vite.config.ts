@@ -243,7 +243,6 @@ export default defineConfig({
       'axios',
       'react-window',
       'react-virtualized-auto-sizer',
-      'dayjs',
     ],
     exclude: [
       '@storybook/*',

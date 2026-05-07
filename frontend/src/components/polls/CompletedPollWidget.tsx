@@ -13,8 +13,7 @@ import { cn } from '../../lib/utils';
 import { PollWithDetails, Vote } from '../../services/polls.service';
 import { ParticipantsList } from './ParticipantsList';
 import { useTelegram } from '../../hooks/useTelegram';
-import dayjs from 'dayjs';
-import 'dayjs/locale/ru';
+import { format } from 'date-fns';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { GlassCard } from '../ui/glass-card';
 
@@ -90,9 +89,8 @@ export const CompletedPollWidget = ({
   const winnerPercentage = voteCount > 0 ? Math.round((winnerVoteCount / voteCount) * 100) : 0;
 
   // Форматируем время завершения
-  dayjs.locale('ru');
   const endTime = poll.endedAt || poll.endTime;
-  const formattedTime = endTime ? dayjs(endTime).format('HH:mm') : '';
+  const formattedTime = endTime ? format(new Date(endTime), 'HH:mm') : '';
 
   // Подготавливаем данные для ParticipantsList
   const participants = votes.map(v => ({
