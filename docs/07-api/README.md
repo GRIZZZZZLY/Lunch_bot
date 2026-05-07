@@ -15,12 +15,18 @@ Backend предоставляет REST API для Mini App. Все endpoints д
 
 ```http
 Content-Type: application/json
-X-Telegram-Init-Data: <telegram_init_data_string>
+Authorization: tma <telegram_init_data_string>
+```
+
+После `POST /api/auth/validate` сервер возвращает JWT — последующие запросы используют:
+
+```http
+Authorization: Bearer <jwt_access_token>
 ```
 
 ### Валидация
 
-Backend проверяет подпись `initData` с использованием Bot Token для обеспечения безопасности.
+Backend проверяет подпись `initData` через HMAC-SHA256 с Bot Token (`@telegram-apps/init-data-node`).
 
 ---
 
