@@ -7,10 +7,8 @@ import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { UserWithActivity } from '@/services/admin.service';
-import dayjs from 'dayjs';
-import 'dayjs/locale/ru';
-
-dayjs.locale('ru');
+import { format, formatDistanceToNow } from 'date-fns';
+import { ru } from 'date-fns/locale';
 
 interface UserManagementCardProps {
   users: UserWithActivity[];
@@ -122,7 +120,7 @@ export const UserManagementCard: React.FC<UserManagementCardProps> = ({
                   {user.lastActivity && (
                     <span className="flex items-center gap-1">
                       <Clock className={ICON_SIZES.xs} />
-                      {dayjs(user.lastActivity).fromNow()}
+                      {formatDistanceToNow(new Date(user.lastActivity), { addSuffix: true, locale: ru })}
                     </span>
                   )}
                 </div>
@@ -217,7 +215,7 @@ export const UserManagementCard: React.FC<UserManagementCardProps> = ({
                   <div>ID: {user.id}</div>
                   <div>Telegram ID: {user.telegramId}</div>
                   {user.username && <div>@{user.username}</div>}
-                  <div>Зарегистрирован: {dayjs(user.createdAt).format('DD.MM.YYYY')}</div>
+                  <div>Зарегистрирован: {format(new Date(user.createdAt), 'dd.MM.yyyy')}</div>
                 </div>
               </motion.div>
             )}

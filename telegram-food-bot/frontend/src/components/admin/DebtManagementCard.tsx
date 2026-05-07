@@ -6,12 +6,8 @@ import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { DebtorInfo, DebtStats } from '@/services/admin.service';
-import dayjs from 'dayjs';
-import 'dayjs/locale/ru';
-import relativeTime from 'dayjs/plugin/relativeTime';
-
-dayjs.extend(relativeTime);
-dayjs.locale('ru');
+import { formatDistanceToNow } from 'date-fns';
+import { ru } from 'date-fns/locale';
 
 interface DebtManagementCardProps {
   debtors: DebtorInfo[];
@@ -135,7 +131,7 @@ export const DebtManagementCard: React.FC<DebtManagementCardProps> = ({
                           {debtor.oldestDebt && (
                             <span className="flex items-center gap-1 text-coral-500">
                               <AlertCircle className={ICON_SIZES.xs} />
-                              {dayjs(debtor.oldestDebt).fromNow()}
+                              {formatDistanceToNow(new Date(debtor.oldestDebt), { addSuffix: true, locale: ru })}
                           </span>
                         )}
                       </div>
