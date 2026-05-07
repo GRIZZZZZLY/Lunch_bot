@@ -1,9 +1,53 @@
 import { Request, Response } from 'express';
 import { User } from '@prisma/client';
 import { UserService } from '../../services/user.service';
+import { GroupService } from '../../services/group.service';
 import { validateTelegramInitData } from '../../utils/telegram-auth';
 import { logger } from '../../utils/logger';
 import { JwtService } from '../../services/jwt.service';
+import { prisma } from '../../database/client';
+
+/**
+ * Resolve Telegram WebApp start_param to internal group.id.
+ * Accepts deep-link prefixes: vote_<pollId>, storerun_<id>, menu_<groupTgId>,
+ * add_<groupTgId>, poll_<groupTgId>. Returns null if unrecognized or not found.
+ */
+async function resolveGroupIdFromStartParam(startParam: string): Promise<number | null> {
+  try {
+    if (startParam.startsWith('vote_')) {
+      const pollId = parseInt(startParam.slice('vote_'.length), 10);
+      if (!Number.isFinite(pollId)) return null;
+      const poll = await prisma.poll.findUnique({ where: { id: pollId }, select: { groupId: true } });
+      return poll?.groupId ?? null;
+    }
+    if (startParam.startsWith('storerun_')) {
+      const runId = parseInt(startParam.slice('storerun_'.length), 10);
+      if (!Number.isFinite(runId)) return null;
+      const run = await prisma.storeRun.findUnique({ where: { id: runId }, select: { groupId: true } });
+      return run?.groupId ?? null;
+    }
+    for (const prefix of ['menu_', 'add_', 'poll_']) {
+      if (!startParam.startsWith(prefix)) continue;
+      const raw = startParam.slice(prefix.length);
+      if (!raw) return null;
+      let telegramId: bigint;
+      try {
+        telegramId = BigInt(raw);
+      } catch {
+        return null;
+      }
+      const group = await prisma.group.findUnique({
+        where: { telegramId },
+        select: { id: true },
+      });
+      return group?.id ?? null;
+    }
+    return null;
+  } catch (error) {
+    logger.warn('Failed to resolve start_param to group', { startParam, error });
+    return null;
+  }
+}
 
 type JwtUserInput = Pick<User, 'id' | 'telegramId' | 'username' | 'isAdmin'>;
 
@@ -191,6 +235,25 @@ export class AuthController {
         telegramId: userData.id.toString(),
         username: userData.username
       });
+
+      // Auto-add membership when launched via group deep-link.
+      // Covers users who only interact via Mini App and never wrote in group chat.
+      const startParam = params.get('start_param');
+      if (startParam) {
+        const groupId = await resolveGroupIdFromStartParam(startParam);
+        if (groupId) {
+          try {
+            await GroupService.addMemberToGroup(groupId, user.id);
+            logger.info('Auto-added membership via start_param', {
+              userId: user.id,
+              groupId,
+              startParam,
+            });
+          } catch (err) {
+            logger.warn('Membership auto-add failed', { userId: user.id, groupId, err });
+          }
+        }
+      }
 
       res.json({
         success: true,
