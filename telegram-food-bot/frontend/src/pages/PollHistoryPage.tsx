@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Header } from '../components/layout/Layout';
+import { Header } from '../components/layout/Header';
 import { PageHeader } from '../components/common/PageHeader';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PullToRefresh } from '../components/common/PullToRefresh';

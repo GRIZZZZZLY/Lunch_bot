@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { devtools, persist } from 'zustand/middleware';
-import type { User } from '../hooks/useAuth';
+import type { User } from '../types/auth.types';
 import type { MenuItem } from '../services/menu.service';
 
 export interface Poll {

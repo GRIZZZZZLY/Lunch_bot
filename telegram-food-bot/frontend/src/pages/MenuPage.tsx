@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Header } from '../components/layout/Layout';
+import { Header } from '../components/layout/Header';
 import { PageHeader } from '../components/common/PageHeader';
 import { MenuList } from '../components/menu/MenuList';
 import { VirtualMenuList } from '../components/menu/VirtualMenuList';

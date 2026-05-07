@@ -12,18 +12,9 @@ import type { FC, ReactNode } from 'react';
 import { useTelegram } from './useTelegram';
 import { authService } from '../services/auth.service';
 import { setUserContext, clearUserContext } from '../lib/sentry';
+import type { User } from '../types/auth.types';
 
-export interface User {
-  id: number;
-  telegramId: string;
-  username?: string;
-  firstName: string;
-  lastName?: string;
-  photoUrl?: string;
-  isAdmin: boolean;
-  isActive: boolean;
-  createdAt: string;
-}
+export type { User };
 
 export interface UseAuthReturn {
   user: User | null;
