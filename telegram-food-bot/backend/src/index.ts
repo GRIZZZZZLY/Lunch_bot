@@ -43,32 +43,37 @@ initDebtReminderJob();
 // Cron для авто-закрытия магазинных забегов ("Иду в магазин") по истечении таймера
 initStoreRunAutoCloseJob();
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  logger.info('Получен сигнал SIGINT, завершаем приложение...');
-  
-  try {
-    await stopBot(bot);
-    await disconnect();
-    process.exit(0);
-  } catch (error) {
-    logger.error('Ошибка при завершении приложения:', error);
-    process.exit(1);
-  }
-});
+// Graceful shutdown — single orchestrator, idempotent, hard-cap at 10s.
+let shuttingDown = false;
+const SHUTDOWN_TIMEOUT_MS = 10_000;
 
-process.on('SIGTERM', async () => {
-  logger.info('Получен сигнал SIGTERM, завершаем приложение...');
-  
+async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info(`Получен сигнал ${signal}, завершаем приложение...`);
+
+  // Force-exit after SHUTDOWN_TIMEOUT_MS so a stuck bot.stop() / DB
+  // disconnect cannot block the process forever (PM2/systemd then restart).
+  const forceTimer = setTimeout(() => {
+    logger.error(`Graceful shutdown exceeded ${SHUTDOWN_TIMEOUT_MS}ms, forcing exit`);
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+  forceTimer.unref();
+
   try {
     await stopBot(bot);
     await disconnect();
+    clearTimeout(forceTimer);
     process.exit(0);
   } catch (error) {
     logger.error('Ошибка при завершении приложения:', error);
+    clearTimeout(forceTimer);
     process.exit(1);
   }
-});
+}
+
+process.on('SIGINT', () => { void gracefulShutdown('SIGINT'); });
+process.on('SIGTERM', () => { void gracefulShutdown('SIGTERM'); });
 
 async function startApplication(): Promise<void> {
   try {
