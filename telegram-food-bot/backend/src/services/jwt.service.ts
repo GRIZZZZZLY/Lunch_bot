@@ -28,8 +28,8 @@ export interface JwtPayload {
  * JWT Configuration
  */
 const JWT_SECRET = process.env.JWT_SECRET?.trim() || '';
-const JWT_EXPIRATION = '7d'; // Access token - 7 дней
-const JWT_REFRESH_EXPIRATION = '30d'; // Refresh token - 30 дней
+const JWT_EXPIRATION = '1h'; // Access token - 1 час (короткое окно при XSS/leak)
+const JWT_REFRESH_EXPIRATION = '30d'; // Refresh token - 30 дней (frontend renews via /auth/refresh)
 
 if (!JWT_SECRET) {
   logger.error('🚨 CRITICAL SECURITY ERROR: JWT_SECRET is not configured');

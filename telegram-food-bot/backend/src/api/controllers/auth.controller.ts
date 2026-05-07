@@ -104,9 +104,18 @@ export class AuthController {
 
       const isProduction = process.env.NODE_ENV === 'production';
       const skipTelegramValidation = process.env.SKIP_TELEGRAM_VALIDATION === 'true';
+      const allowSkipInProd = process.env.ALLOW_SKIP_VALIDATION_IN_PROD === 'true';
 
-      if (isProduction && skipTelegramValidation) {
-        logger.warn('⚠️ SKIP_TELEGRAM_VALIDATION is ignored in production');
+      // 🚨 SECURITY: hard-fail SKIP_TELEGRAM_VALIDATION in production unless explicitly allowed.
+      // Without this, a misconfigured prod .env silently bypasses signature validation.
+      if (isProduction && skipTelegramValidation && !allowSkipInProd) {
+        logger.error('🚨 SKIP_TELEGRAM_VALIDATION blocked in production');
+        res.status(500).json({
+          success: false,
+          error: 'Server misconfiguration',
+          code: 'SECURITY_VIOLATION',
+        });
+        return;
       }
 
       // ⚠️ SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи (только не в production)

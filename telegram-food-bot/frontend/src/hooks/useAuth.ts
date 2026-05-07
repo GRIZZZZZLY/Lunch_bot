@@ -216,6 +216,12 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({
         console.log('[useAuth] 🔄 Attempting fallback authentication...');
       }
 
+      // 🔒 SECURITY: parsing initDataUnsafe.user without server validation lets anyone
+      // who can inject window.Telegram.WebApp impersonate any user.
+      // Allow only in dev with explicit opt-in env flag (VITE_ALLOW_BROWSER_MOCK=true).
+      const allowBrowserMock =
+        import.meta.env.DEV && import.meta.env.VITE_ALLOW_BROWSER_MOCK === 'true';
+
       const tg = window.Telegram?.WebApp as
         | {
             initDataUnsafe?: {
@@ -228,7 +234,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({
             };
           }
         | undefined;
-      if (tg && tg.initDataUnsafe?.user) {
+      if (allowBrowserMock && tg && tg.initDataUnsafe?.user) {
         const tgUser = tg.initDataUnsafe.user;
 
         if (!isMountedRef.current) return;
@@ -247,7 +253,9 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({
         setUser(fallbackUser);
 
         if (import.meta.env.DEV) {
-          console.log('[useAuth] ✅ Fallback authentication successful with Telegram data');
+          console.warn(
+            '[useAuth] ⚠️ Mock auth via VITE_ALLOW_BROWSER_MOCK — NEVER ship this flag to production',
+          );
         }
         setIsLoading(false);
         authInProgressRef.current = false;
