@@ -3,14 +3,15 @@
 # ===============================================
 # 🔄 Quick Update Script for VPS
 # ===============================================
-# Use this for fast updates without full redeployment
+# Configurable: BRANCH=feature/store-run (default), FRONTEND_DIR=frontend (default)
 
 set -e
 
-echo "🔄 Starting quick update..."
-
-# Frontend directory (switch between frontend / frontend-new without rename)
+BRANCH="${BRANCH:-feature/store-run}"
 FRONTEND_DIR="${FRONTEND_DIR:-frontend}"
+
+echo "🔄 Starting quick update..."
+echo "   Branch: $BRANCH"
 echo "🎨 Frontend dir: $FRONTEND_DIR"
 
 # ===============================================
@@ -18,17 +19,16 @@ echo "🎨 Frontend dir: $FRONTEND_DIR"
 # ===============================================
 echo "📥 Pulling latest changes from Git..."
 
-# Check current branch
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 echo "📍 Current branch: $CURRENT_BRANCH"
 
-if [ "$CURRENT_BRANCH" != "feature/new_version" ]; then
-    echo "⚠️  Warning: Not on feature/new_version branch!"
-    echo "Switching to feature/new_version..."
-    git checkout feature/new_version
+if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
+    echo "⚠️  Not on $BRANCH branch — switching..."
+    git fetch origin "$BRANCH"
+    git checkout "$BRANCH"
 fi
 
-git pull origin feature/new_version
+git pull origin "$BRANCH"
 
 echo "✅ Changes pulled"
 
@@ -45,8 +45,11 @@ npm install --only=production
 # Rebuild
 npm run build
 
-# Database migrations (if needed)
-npm run db:push
+# Database migrations (if any new ones in prisma/migrations/)
+npm run db:migrate:prod
+
+# Backfill PollParticipant snapshots (idempotent, safe to run on every update)
+npx tsx scripts/backfill-poll-participants.ts || echo "⚠️ Backfill failed (non-critical)"
 
 cd ..
 
