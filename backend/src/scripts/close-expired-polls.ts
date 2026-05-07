@@ -3,11 +3,7 @@
  * Использование: npm run close-expired-polls
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient({
-  log: ['query', 'info', 'warn', 'error'],
-});
+import { prisma } from '../database/client';
 
 async function closeExpiredPolls() {
   console.log('');
