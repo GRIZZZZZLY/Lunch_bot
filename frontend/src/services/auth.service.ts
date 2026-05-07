@@ -1,5 +1,5 @@
 import { apiService, type ApiResponse } from './api.service';
-import type { User } from '../hooks/useAuth';
+import type { User } from '../types/auth.types';
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true';
 

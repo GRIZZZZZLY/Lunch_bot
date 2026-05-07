@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Header } from '../components/layout/Layout';
+import { Header } from '../components/layout/Header';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PastelCard, CardHeader, CardContent } from '../components/ui/pastel-card';
 import { Badge } from '../components/ui/badge';

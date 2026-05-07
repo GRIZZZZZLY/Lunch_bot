@@ -1,6 +1,6 @@
 import { ApiResponse } from './api.service';
 import { MenuItem, MenuStats } from './menu.service';
-import { User } from '../hooks/useAuth';
+import type { User } from '../types/auth.types';
 import { Poll, PollStats, PopularItem } from './polls.service';
 
 // Mock данные для тестирования
