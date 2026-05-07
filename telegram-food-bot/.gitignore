@@ -65,6 +65,10 @@ backup-*.sql
 backup-*.sql.gz
 *.bak
 *.backup
+*.backup2
+*.broken
+*.old
+*.orig
 
 # OS
 Thumbs.db
@@ -96,6 +100,10 @@ logs/security/
 # AI tooling data (designs, prompts, generated agent artifacts)
 .agent/
 ai-docs/
+.superpowers/
+
+# Caveman compress backups
+*.original.md
 
 # Design state snapshots (redesign HTML captures)
 .tmp-*-states/

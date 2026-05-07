@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) working in this repo.
 
 ## Project Overview
 
-**Telegram Food Bot** - a production-ready Telegram bot with Mini App for organizing food voting in groups. Built with Grammy.js, Express, React, and Prisma ORM. Features deep linking, real-time updates, push notifications, budget tracking, and multiple fallback mechanisms.
+**Telegram Food Bot** — production Telegram bot + Mini App for group food voting. Stack: Grammy.js, Express, React, Prisma ORM. Features: deep linking, real-time updates, push notifications, budget tracking, multi-fallback.
 
 **Current Status:** ✅ Production Ready
 **Version:** 2.0.0
@@ -14,18 +14,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Tests:** 258/258 passing (100%)
 
 ### Recent Major Features
-- ✅ **Budget Tracker** - Adaptive widget with 6 scenarios, СБП integration
-- ✅ **Store Run** - Initiator/participant flows, deep links, auto-close cron
-- ✅ **Poll Participant Exclusion + Auto-close** - Permanent `participatesInPolls` flag + per-poll override; poll auto-completes when all expected voters voted (см. ниже)
-- ✅ **VPS Deployment** - Full automation scripts, zero-downtime updates
-- ✅ **CI/CD Pipeline** - GitHub Actions, Docker builds, automated tests
-- ⚠️ **Gamification Removed** - Simplified UX (removed from dev build)
+- ✅ **Budget Tracker** — adaptive widget, 6 scenarios, СБП integration
+- ✅ **Store Run** — initiator/participant flows, deep links, auto-close cron
+- ✅ **Poll Participant Exclusion + Auto-close** — permanent `participatesInPolls` flag + per-poll override; poll auto-completes when all expected voters voted (см. ниже)
+- ✅ **VPS Deployment** — full automation, zero-downtime updates
+- ✅ **CI/CD Pipeline** — GitHub Actions, Docker builds, automated tests
+- ⚠️ **Gamification Removed** — simplified UX (removed from dev build)
 
 ## Common Commands
 
 ### Development
 
-**Start development environment (recommended):**
+**Start dev env (recommended):**
 ```powershell
 cd telegram-food-bot
 .\start-dev.ps1
@@ -37,7 +37,7 @@ Opens 5 windows: Backend (3001), Frontend (5173), Proxy (8080), ngrok, URL Updat
 cd telegram-food-bot
 .\start-prod-dev.ps1
 ```
-Production builds with watch mode, console.log preserved, source maps enabled
+Production builds + watch mode, console.log preserved, source maps enabled
 
 **Start production mode:**
 ```powershell
@@ -158,7 +158,7 @@ telegram-food-bot/
 **1. Hybrid Communication Flow:**
 - Group Chat → Deep Link → Personal Chat → Mini App
 - Minimizes group spam (3 messages max per poll)
-- Mini App first approach (all interactions through web interface)
+- Mini App first (all interactions through web UI)
 
 **2. Data Flow:**
 ```
@@ -169,32 +169,32 @@ Frontend (React) → API (Express) → Services → Database (Prisma/SQLite)
 
 **3. Service Layer Pattern:**
 All business logic in services (`backend/src/services/`):
-- `poll.service.ts` - Poll CRUD, state management
-- `vote.service.ts` - Voting logic
-- `menu.service.ts` - Menu management
-- `user.service.ts` - User management
-- `notification.service.ts` - Push notifications
-- `responsible.service.ts` - Responsible person selection (roulette/volunteer)
-- `budget.service.ts` - Budget tracking, transactions, debts/credits
+- `poll.service.ts` — Poll CRUD, state management
+- `vote.service.ts` — Voting logic
+- `menu.service.ts` — Menu management
+- `user.service.ts` — User management
+- `notification.service.ts` — Push notifications
+- `responsible.service.ts` — Responsible person selection (roulette/volunteer)
+- `budget.service.ts` — Budget tracking, transactions, debts/credits
 
 **4. State Management:**
-- Frontend: Zustand (global state) + React Query (server state)
+- Frontend: Zustand (global) + React Query (server state)
 - Backend: Stateless services + SQLite persistence
 
 ### Database Schema (Prisma)
 
 Core models:
-- `User` - Telegram users (`isAdmin`, `isActive`, `participatesInPolls` — постоянный флаг «обедает в офисе»)
-- `Group` - Telegram groups
-- `MenuItem` - Food items with categories
-- `Poll` - Voting sessions (status: ACTIVE/COMPLETED/CANCELLED)
-- `Vote` - User votes (one per user per poll)
-- `PollParticipant` - Снимок ожидаемых участников голосования (status: EXPECTED/EXCLUDED). Создаётся при `createPoll`, изоморфен составу группы на момент старта; per-poll override хранится здесь же. Используется для авто-закрытия по кворуму.
-- `PollResult` - Final results with winner and responsible person
-- `Transaction` - Budget tracking (PENDING → PAID → CONFIRMED)
-- `ResponsibleSelection` - Track who was responsible (volunteer/roulette)
-- `PaymentReminder` - Automated payment reminders
-- `StoreRun` / `StoreItem` / `OrderItem` / `CategoryOrder` - Магазинный сценарий (закупки группой)
+- `User` — Telegram users (`isAdmin`, `isActive`, `participatesInPolls` — постоянный флаг «обедает в офисе»)
+- `Group` — Telegram groups
+- `MenuItem` — Food items + categories
+- `Poll` — Voting sessions (status: ACTIVE/COMPLETED/CANCELLED)
+- `Vote` — User votes (one per user per poll)
+- `PollParticipant` — Снимок ожидаемых участников голосования (status: EXPECTED/EXCLUDED). Создаётся при `createPoll`, изоморфен составу группы на момент старта; per-poll override хранится здесь же. �спользуется для авто-закрытия по кворуму.
+- `PollResult` — Final results + winner + responsible person
+- `Transaction` — Budget tracking (PENDING → PAID → CONFIRMED)
+- `ResponsibleSelection` — Track who was responsible (volunteer/roulette)
+- `PaymentReminder` — Automated payment reminders
+- `StoreRun` / `StoreItem` / `OrderItem` / `CategoryOrder` — Магазинный сценарий (закупки группой)
 
 Key relationships:
 - Poll → Group (many-to-one)
@@ -206,11 +206,11 @@ Key relationships:
 
 ### Deep Linking Flow
 
-1. **Poll Creation** → Message in group with "Проголосовать" button
-2. **Button Click** → Opens personal chat with bot via `t.me/<bot>?start=vote_<pollId>`
-3. **Bot /start** → Validates poll, sends Mini App button with `?pollId=<id>`
-4. **Mini App Launch** → Parses `pollId` from URL, navigates to `/poll/:id`
-5. **Voting** → User votes, results update in real-time
+1. **Poll Creation** → group message with "Проголосовать" button
+2. **Button Click** → opens personal chat via `t.me/<bot>?start=vote_<pollId>`
+3. **Bot /start** → validates poll, sends Mini App button with `?pollId=<id>`
+4. **Mini App Launch** → parses `pollId` from URL, navigates to `/poll/:id`
+5. **Voting** → user votes, results update real-time
 
 **Files involved:**
 - `backend/src/bot/handlers/poll.handlers.ts:handleOpenPollButton()`
@@ -223,13 +223,13 @@ Key relationships:
 **Workflow after poll completion:**
 1. Poll closes → `ResponsibleService` selects responsible person
 2. `BudgetService` creates transactions for all participants
-3. Frontend shows adaptive widget based on 6 scenarios:
-   - **Urgent Debt** (<5 min after poll) - with СБП quick pay
-   - **Waiting Confirmation** - user marked payment
-   - **Success Message** - payment confirmed (with confetti)
-   - **Overview** - all debts/credits summary
-   - **Responsible View** - for the person who paid
-   - **Hidden** - no active debts
+3. Frontend shows adaptive widget, 6 scenarios:
+   - **Urgent Debt** (<5 min after poll) — with СБП quick pay
+   - **Waiting Confirmation** — user marked payment
+   - **Success Message** — payment confirmed (with confetti)
+   - **Overview** — all debts/credits summary
+   - **Responsible View** — for the person who paid
+   - **Hidden** — no active debts
 
 **Files involved:**
 - `backend/src/services/budget.service.ts`
@@ -239,11 +239,11 @@ Key relationships:
 - `frontend/src/hooks/useBudgetWidget.ts`
 
 **API Endpoints:**
-- `GET /api/budget/debts` - get user debts
-- `GET /api/budget/credits` - get user credits
-- `POST /api/budget/mark-paid` - mark as paid
-- `POST /api/budget/confirm-payment` - confirm payment
-- `POST /api/budget/cancel-mark` - cancel mark
+- `GET /api/budget/debts` — get user debts
+- `GET /api/budget/credits` — get user credits
+- `POST /api/budget/mark-paid` — mark as paid
+- `POST /api/budget/confirm-payment` — confirm payment
+- `POST /api/budget/cancel-mark` — cancel mark
 
 ### Poll Participant Exclusion + Auto-close
 
@@ -251,8 +251,8 @@ Key relationships:
 
 **Решение:**
 1. Постоянный флаг `User.participatesInPolls` (default true). Управляется в админ-панели → таб «Пользователи» → кнопка «Перевести на удалёнку» / «Вернуть в офис».
-2. Снимок участников при создании голосования: `PollService.createParticipantSnapshot()` создаёт `PollParticipant` для каждого active члена группы (status=EXPECTED/EXCLUDED по флагу). Изменения флага после старта не влияют на активные голосования.
-3. Per-poll override: на виджете активного голосования у админа есть collapsible-секция «Участники» с кнопками «Исключить» / «Вернуть» — меняет статус только в этом голосовании.
+2. Снимок участников при создании голосования: `PollService.createParticipantSnapshot()` создаёт `PollParticipant` для каждого active члена группы (status=EXPECTED/EXCLUDED по флагу). �зменения флага после старта не влияют на активные голосования.
+3. Per-poll override: на виджете активного голосования у админа есть collapsible-секция «Участники» с кнопками «�сключить» / «Вернуть» — меняет статус только в этом голосовании.
 4. Авто-закрытие: после каждого голоса (`vote.controller.ts`) и после per-poll override (`admin.controller.ts`) вызывается `PollService.checkQuorumAndComplete(pollId)` — если все EXPECTED проголосовали, дёргает `completePoll` (рулетка, результат в группу).
 5. Edge case: если `EXPECTED` пуст — не закрываем, логируем warn (админ закрывает вручную).
 
@@ -267,24 +267,24 @@ Key relationships:
 ### Environment Modes
 
 **DEV Mode** (start-dev.ps1):
-- Frontend: Vite dev server with hot reload
+- Frontend: Vite dev server + hot reload
 - Backend: tsx watch mode
 - Proxy server unifies endpoints
-- ngrok for HTTPS tunneling
-- Best for: Active UI development
+- ngrok for HTTPS tunnel
+- Best for: active UI dev
 
 **PROD-DEV Mode** (start-prod-dev.ps1):
-- Frontend: Production build with watch mode
-- Backend: Compiled TypeScript with watch
+- Frontend: production build + watch mode
+- Backend: compiled TypeScript + watch
 - SKIP_TELEGRAM_VALIDATION enabled
 - Console.log preserved, source maps enabled
-- Best for: Testing production builds locally
+- Best for: testing prod builds locally
 
 **PRODUCTION Mode** (start-prod.ps1):
-- Frontend: Optimized build served by backend
-- Backend: Single server on port 3001
+- Frontend: optimized build served by backend
+- Backend: single server on port 3001
 - Full validation, no debug output
-- Best for: Final testing before deployment
+- Best for: final testing pre-deploy
 
 ## Critical Implementation Details
 
@@ -298,14 +298,14 @@ COMPLETED → roulette spins, winner selected
 Results posted to group
 ```
 
-**Never cache polls in localStorage** - always fetch fresh to avoid stale data. See `frontend/src/lib/queryClient.ts:cacheUtils.clearStalePollsCache()`.
+**Never cache polls in localStorage** — always fetch fresh, avoid stale data. See `frontend/src/lib/queryClient.ts:cacheUtils.clearStalePollsCache()`.
 
 ### 2. Telegram Authentication
 
 Backend validates `initData` from Telegram Mini App:
 - `backend/src/api/middleware/telegram-auth.ts:validateTelegramAuth()`
-- Uses HMAC-SHA256 with bot token as secret
-- Can be skipped in dev with `SKIP_TELEGRAM_VALIDATION=true`
+- HMAC-SHA256 with bot token as secret
+- Skip in dev with `SKIP_TELEGRAM_VALIDATION=true`
 
 ### 3. Real-time Updates
 
@@ -323,16 +323,16 @@ Push notifications via Telegram API:
 
 ### 5. Mini App First Approach
 
-All user interactions through Mini App:
+All user interactions via Mini App:
 - Deep linking for poll access from groups
-- Rich UI with real-time updates
+- Rich UI + real-time updates
 - No fallback commands needed (99%+ compatibility)
 
 ## Testing
 
 ### Manual Testing Flow
 
-1. Start dev environment: `.\start-dev.ps1`
+1. Start dev env: `.\start-dev.ps1`
 2. Get ngrok URL from window #4
 3. Paste in window #5 (URL Updater)
 4. Open @rocket_lunch_bot in Telegram
@@ -342,9 +342,9 @@ All user interactions through Mini App:
 8. Test voting flow in Mini App
 
 **Quick testing guides:**
-- [START_TESTING_UX.md](START_TESTING_UX.md) - UX testing checklist
-- [TESTING_INSTRUCTIONS.md](TESTING_INSTRUCTIONS.md) - Detailed instructions
-- [QUICK_TEST_CHECKLIST.md](QUICK_TEST_CHECKLIST.md) - Quick checklist
+- [START_TESTING_UX.md](START_TESTING_UX.md) — UX testing checklist
+- [TESTING_INSTRUCTIONS.md](TESTING_INSTRUCTIONS.md) — Detailed instructions
+- [QUICK_TEST_CHECKLIST.md](QUICK_TEST_CHECKLIST.md) — Quick checklist
 
 ### Automated Tests
 
@@ -384,7 +384,7 @@ npm test                # Run Vitest
 
 1. Create page: `frontend/src/pages/MyPage.tsx`
 2. Add route in `frontend/src/App.tsx`
-3. Add navigation item in `frontend/src/components/layout/BottomNavigation.tsx`
+3. Add nav item in `frontend/src/components/layout/BottomNavigation.tsx`
 4. Lazy load for code splitting: `const MyPage = lazy(() => import('./pages/MyPage'))`
 
 ### Modifying Database Schema
@@ -414,7 +414,7 @@ npm test                # Run Vitest
 
 ## Environment Variables
 
-Critical variables:
+Critical vars:
 
 **Backend (.env):**
 ```
@@ -432,39 +432,39 @@ VITE_API_URL=<backend URL>
 VITE_BOT_USERNAME=<bot username>
 ```
 
-Multiple .env files for different modes:
-- `.env.development` - DEV mode
-- `.env.prod-dev` - PROD-DEV mode
-- `.env.production` - PRODUCTION mode
+Multiple .env files per mode:
+- `.env.development` — DEV mode
+- `.env.prod-dev` — PROD-DEV mode
+- `.env.production` — PRODUCTION mode
 
-Start scripts automatically copy correct .env file.
+Start scripts auto-copy correct .env file.
 
 ## Production Deployment
 
 ### VPS Deployment (Recommended) ⭐
 
-**Quick start:** See [START_HERE.md](START_HERE.md) - main entry point
+**Quick start:** See [START_HERE.md](START_HERE.md) — main entry
 
 **Automated deployment scripts:**
-- `telegram-food-bot/deploy-vps.sh` - Full deployment
-- `telegram-food-bot/update-vps.sh` - Zero-downtime updates
-- `telegram-food-bot/backup-db.sh` - Database backup
-- `telegram-food-bot/setup-cron-backup.sh` - Auto-backups
+- `telegram-food-bot/deploy-vps.sh` — Full deployment
+- `telegram-food-bot/update-vps.sh` — Zero-downtime updates
+- `telegram-food-bot/backup-db.sh` — Database backup
+- `telegram-food-bot/setup-cron-backup.sh` — Auto-backups
 
-**Key steps (35-40 minutes):**
-1. Install dependencies (Node.js 22, PM2, Nginx, Certbot)
+**Key steps (35-40 min):**
+1. Install deps (Node.js 22, PM2, Nginx, Certbot)
 2. Clone repo → checkout `feature/new_version` branch
 3. Run `./deploy-vps.sh` (auto-installs, builds, starts)
-4. Configure Nginx + SSL certificate
-5. Set Telegram webhook and menu button
+4. Configure Nginx + SSL cert
+5. Set Telegram webhook + menu button
 
 **Deployment guides:**
-- [QUICK_VPS_DEPLOY.md](QUICK_VPS_DEPLOY.md) - Quick reference (5 min)
-- [VPS_DEPLOYMENT_GUIDE_NEW.md](VPS_DEPLOYMENT_GUIDE_NEW.md) - Full guide (20 min)
-- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) - Checklist
+- [QUICK_VPS_DEPLOY.md](QUICK_VPS_DEPLOY.md) — Quick reference (5 min)
+- [VPS_DEPLOYMENT_GUIDE_NEW.md](VPS_DEPLOYMENT_GUIDE_NEW.md) — Full guide (20 min)
+- [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) — Checklist
 
 **Important notes:**
-- ⚠️ Project is on `feature/store-run` branch (NOT main, NOT feature/new_version)
+- ⚠️ Project on `feature/store-run` branch (NOT main, NOT feature/new_version)
 - ⚠️ Deploy-скрипты могут ссылаться на `feature/new_version` — проверь перед запуском
 - ✅ Zero-downtime updates via PM2 reload
 - ✅ Configured for rocket-lunch.duckdns.org
@@ -477,26 +477,26 @@ Full guide: `telegram-food-bot/docs/04-deployment/README.md`
 Key steps:
 1. Build frontend: `cd frontend && npm run build`
 2. Build backend: `cd backend && npm run build`
-3. Set environment variables (production .env)
+3. Set env vars (production .env)
 4. Run migrations: `npm run db:migrate:prod`
 5. Start backend: `npm start` (serves API + static files)
-6. Configure webhook: Point to `https://yourdomain.com/webhook`
-7. Set menu button: Use BotFather or API
+6. Configure webhook: point to `https://yourdomain.com/webhook`
+7. Set menu button: BotFather or API
 
 Backend serves frontend static files from `frontend/dist/` in production.
 
 ## Important Notes
 
-- **Git Branch**: Project is on `feature/store-run` (NOT main, NOT feature/new_version) — может потребоваться поправить deploy-скрипты под актуальную ветку
-- **Database location**: `backend/prisma/dev.db` (SQLite file) - production needs PostgreSQL
-- **Backup before migrations**: Database contains production data
-- **Proxy configuration**: Required for Telegram API in some regions (check `backend/src/config/bot.config.ts`)
-- **ngrok auth**: Free tier has limitations, consider paid for stable URLs
-- **Poll expiration**: Polls auto-close after `duration` minutes (default 30)
-- **Admin users**: Set via `npm run make-admin` in backend
-- **Menu button**: Must be configured in BotFather settings
-- **Budget Tracker**: Automatically creates transactions after poll completion
-- **Zero-downtime updates**: Use `./update-vps.sh` for production updates
+- **Git Branch**: `feature/store-run` (NOT main, NOT feature/new_version) — может потребоваться поправить deploy-скрипты под актуальную ветку
+- **Database location**: `backend/prisma/dev.db` (SQLite) — production needs PostgreSQL
+- **Backup before migrations**: DB has production data
+- **Proxy config**: required for Telegram API in some regions (check `backend/src/config/bot.config.ts`)
+- **ngrok auth**: free tier limited, paid for stable URLs
+- **Poll expiration**: auto-close after `duration` minutes (default 30)
+- **Admin users**: set via `npm run make-admin` in backend
+- **Menu button**: must be configured in BotFather settings
+- **Budget Tracker**: auto-creates transactions after poll completion
+- **Zero-downtime updates**: use `./update-vps.sh` for prod updates
 
 ## Documentation
 
@@ -521,46 +521,46 @@ Backend serves frontend static files from `frontend/dist/` in production.
 - [docs/05-production/](../docs/05-production/) — production checklists, build modes
 - [docs/99-archive/](../docs/99-archive/) — исторические отчёты, старые fix-report'ы
 
-Always check docs before making architectural changes.
+Always check docs before architectural changes.
 
 ## Performance Considerations
 
 - Frontend uses React.lazy() for code splitting
 - Virtual scrolling for long menu lists
-- Aggressive React Query caching with smart invalidation
+- Aggressive React Query caching + smart invalidation
 - Optimistic updates for votes
 - Debounced search inputs
 - Image lazy loading
-- Service worker for PWA support
+- Service worker for PWA
 
 ## Known Issues & Solutions
 
 **Fixed:**
-- ✅ Poll caching causing stale data → Fixed: polls never cached in localStorage
+- ✅ Poll caching → stale data → Fixed: polls never cached in localStorage
 - ✅ Menu items filtering → Fixed: proper display after poll creation
 - ✅ Navigation after poll creation → Fixed: auto-redirect with cache clear
 - ✅ InlineVotingCard BigInt crash → Fixed: validation with try-catch
 - ✅ Admin delete button → Fixed: now uses completePoll instead of delete
 
 **Active (low priority):**
-- ⚠️ Frontend test coverage low → Need expansion
-- ⚠️ SQLite in production → Plan migration to PostgreSQL
+- ⚠️ Frontend test coverage low → needs expansion
+- ⚠️ SQLite in production → plan migration to PostgreSQL
 
 **By design:**
 - 💡 Deep links work in 99%+ Telegram versions
-- 💡 ngrok URLs change on restart → Run URL updater script after restart
-- 💡 Mini App requires HTTPS (use ngrok or production domain)
+- 💡 ngrok URLs change on restart → run URL updater script after restart
+- 💡 Mini App requires HTTPS (ngrok or production domain)
 
 **Documentation:**
-- [PERSISTENT_CACHE_FIX.md](telegram-food-bot/PERSISTENT_CACHE_FIX.md) - Poll caching fix
-- [CACHE_FIX_REPORT.md](telegram-food-bot/CACHE_FIX_REPORT.md) - Menu filtering fix
-- [INLINE_VOTING_AUDIT_REPORT.md](telegram-food-bot/INLINE_VOTING_AUDIT_REPORT.md) - Voting fixes
+- [PERSISTENT_CACHE_FIX.md](telegram-food-bot/PERSISTENT_CACHE_FIX.md) — Poll caching fix
+- [CACHE_FIX_REPORT.md](telegram-food-bot/CACHE_FIX_REPORT.md) — Menu filtering fix
+- [INLINE_VOTING_AUDIT_REPORT.md](telegram-food-bot/INLINE_VOTING_AUDIT_REPORT.md) — Voting fixes
 
 ## Security
 
 - NEVER commit `.env` files with real tokens
-- Telegram auth validation is critical (don't skip in production)
-- JWT tokens for API authentication
+- Telegram auth validation critical (don't skip in production)
+- JWT tokens for API auth
 - CORS configured for specific origins
 - Input validation via Zod schemas
 - SQL injection prevented by Prisma ORM
@@ -569,21 +569,21 @@ Always check docs before making architectural changes.
 ## Troubleshooting
 
 **Bot not responding:**
-1. Check if backend is running
+1. Check backend running
 2. Verify `TELEGRAM_BOT_TOKEN` in .env
 3. Check webhook status: `npm run check-webhook` (in backend)
 4. Delete webhook for polling: `..\delete-webhook.ps1`
 
 **Mini App not opening:**
 1. Verify `WEBAPP_URL` matches ngrok URL
-2. Check menu button is set in BotFather
+2. Check menu button set in BotFather
 3. Ensure HTTPS (not HTTP)
 4. Check browser console for errors
 
 **Database errors:**
 1. Run migrations: `npm run db:push`
 2. Generate Prisma Client: `npm run db:generate`
-3. Check database file exists: `backend/prisma/dev.db`
+3. Check DB file exists: `backend/prisma/dev.db`
 
 **Build errors:**
 1. Clear node_modules: `rm -rf node_modules && npm install`
@@ -595,8 +595,8 @@ Always check docs before making architectural changes.
 - TypeScript strict mode enabled
 - ESLint + Prettier configured
 - Use async/await over promises
-- Services should be stateless
-- Components should be functional (React hooks)
+- Services stateless
+- Components functional (React hooks)
 - Use Prisma Client, never raw SQL
 - Logger for all significant events: `logger.info()`, `logger.error()`
 - Error boundaries for React components
@@ -609,26 +609,26 @@ Always check docs before making architectural changes.
 
 **What's Working:**
 - ✅ All core features implemented
-- ✅ Budget tracker with 6 adaptive scenarios
+- ✅ Budget tracker — 6 adaptive scenarios
 - ✅ VPS deployment automation ready
 - ✅ 197/202 tests passing (97.5%)
 - ✅ CI/CD pipeline configured
-- ✅ Comprehensive documentation (70+ files)
-- ✅ Multiple environment modes (DEV/PROD-DEV/PROD)
+- ✅ Comprehensive docs (70+ files)
+- ✅ Multiple env modes (DEV/PROD-DEV/PROD)
 - ✅ Zero-downtime update scripts
 
 **Ready for Deployment:**
 - Domain: rocket-lunch.duckdns.org
 - Branch: feature/new_version
 - Scripts: `./deploy-vps.sh` and `./update-vps.sh`
-- Documentation: See [START_HERE.md](START_HERE.md)
+- Docs: see [START_HERE.md](START_HERE.md)
 
 ### 📋 Next Steps
 
 **Immediate (this week):**
-1. Deploy to VPS using automated scripts
+1. Deploy to VPS via automated scripts
 2. Configure Sentry DSN for monitoring
-3. Test in production environment
+3. Test in prod env
 4. Gather user feedback
 
 **Short-term (1-2 weeks):**
@@ -638,15 +638,15 @@ Always check docs before making architectural changes.
 8. Prepare PostgreSQL migration
 
 **Medium-term (1-2 months):**
-9. Implement monetization (plan ready in ENGAGEMENT_STRATEGY.md)
+9. Implement monetization (plan in ENGAGEMENT_STRATEGY.md)
 10. Add gamification (optional, plan ready)
 11. Multi-winner polls
 12. Integrations (Яндекс.Еда, etc.)
 
 ### 📊 Metrics
 
-- **Backend:** ~15,000 lines of TypeScript
-- **Frontend:** ~20,000 lines of TypeScript/React
+- **Backend:** ~15,000 lines TypeScript
+- **Frontend:** ~20,000 lines TypeScript/React
 - **Tests:** 202 total (197 passing)
 - **Coverage:** Backend ~85%, Frontend needs expansion
 - **Documentation:** 70+ markdown files
@@ -662,66 +662,66 @@ Always check docs before making architectural changes.
 - [Run tests](telegram-food-bot/backend/) → `npm test`
 
 **For Deployment:**
-- [START_HERE.md](START_HERE.md) - Main guide
-- [QUICK_VPS_DEPLOY.md](QUICK_VPS_DEPLOY.md) - Quick reference
+- [START_HERE.md](START_HERE.md) — Main guide
+- [QUICK_VPS_DEPLOY.md](QUICK_VPS_DEPLOY.md) — Quick reference
 - [Deploy script](telegram-food-bot/) → `./deploy-vps.sh`
 - [Update script](telegram-food-bot/) → `./update-vps.sh`
 
 **For Documentation:**
-- [README.md](README.md) - Project overview
-- [BUDGET_TRACKER_IMPLEMENTATION.md](BUDGET_TRACKER_IMPLEMENTATION.md) - Budget feature
-- [ENGAGEMENT_STRATEGY.md](ENGAGEMENT_STRATEGY.md) - Monetization plan
-- [Session summaries](.) - Check SESSION_SUMMARY_*.md files
+- [README.md](README.md) — Project overview
+- [BUDGET_TRACKER_IMPLEMENTATION.md](BUDGET_TRACKER_IMPLEMENTATION.md) — Budget feature
+- [ENGAGEMENT_STRATEGY.md](ENGAGEMENT_STRATEGY.md) — Monetization plan
+- [Session summaries](.) — check SESSION_SUMMARY_*.md files
 
 ---
 
 **Last updated:** 2025-10-29
-**Status:** ✅ Production Ready - Ready for VPS deployment
+**Status:** ✅ Production Ready — Ready for VPS deployment
 "" 
 "" 
 # CLAUDE.md
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+Behavioral guidelines to cut common LLM coding mistakes. Merge with project instructions as needed.
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+**Tradeoff:** Bias caution over speed. For trivial tasks, use judgment.
 
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+- State assumptions explicit. If uncertain, ask.
+- Multiple interpretations exist → present them, don't pick silently.
+- Simpler approach exists → say so. Push back when warranted.
+- Unclear → stop. Name what's confusing. Ask.
 
 ## 2. Simplicity First
 
-**Minimum code that solves the problem. Nothing speculative.**
+**Min code that solves problem. Nothing speculative.**
 
-- No features beyond what was asked.
+- No features beyond ask.
 - No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
+- No "flexibility" / "configurability" not requested.
 - No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+- 200 lines that could be 50 → rewrite.
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+Ask: "Would senior engineer say this overcomplicated?" Yes → simplify.
 
 ## 3. Surgical Changes
 
-**Touch only what you must. Clean up only your own mess.**
+**Touch only what you must. Clean only your own mess.**
 
 When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
+- Don't "improve" adjacent code, comments, formatting.
+- Don't refactor things not broken.
+- Match existing style, even if you'd do differently.
+- Notice unrelated dead code → mention, don't delete.
 
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
+When changes create orphans:
+- Remove imports/vars/funcs YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
-The test: Every changed line should trace directly to the user's request.
+Test: every changed line traces to user's request.
 
 ## 4. Goal-Driven Execution
 
@@ -732,15 +732,16 @@ Transform tasks into verifiable goals:
 - "Fix the bug" → "Write a test that reproduces it, then make it pass"
 - "Refactor X" → "Ensure tests pass before and after"
 
-For multi-step tasks, state a brief plan:
+Multi-step tasks → state brief plan:
 ```
 1. [Step] → verify: [check]
 2. [Step] → verify: [check]
 3. [Step] → verify: [check]
 ```
 
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+Strong success criteria → loop independently. Weak criteria ("make it work") → constant clarification.
 
 ---
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+**Guidelines working if:** fewer unnecessary changes in diffs, fewer rewrites from overcomplication, clarifying questions come before implementation not after mistakes.
+Пиши понятным русским языком без англицизмов и не переведенных слов за исключением ситуаций, где английский устоявшийся. Сложные темы старайся объяснять так, чтобы они хотя бы базово были понятны неспециалисту.
