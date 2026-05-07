@@ -319,7 +319,7 @@ export class NotificationService {
     const message = template.getMessage(data);
 
     return this.send({
-      userId: data.winner.id,
+      userId: Number(data.winner.telegramId),
       type: NotificationType.ROULETTE_WINNER,
       priority: template.priority,
       message,
@@ -607,13 +607,21 @@ export class NotificationService {
    * РџСЂРѕРІРµСЂРёС‚СЊ, Р·Р°РіР»СѓС€РµРЅ Р»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ
    */
   private async isUserMuted(userId: number): Promise<boolean> {
+    // userId здесь — Telegram chat ID (тот же, что уйдёт в bot.api.sendMessage),
+    // а НЕ внутренний User.id. Раньше lookup шёл по `id: userId` и для всех
+    // вызовов с настоящим telegramId (>10^8) возвращал null, из-за чего
+    // `!user?.isActive` = `!undefined` = true → каждое уведомление молча
+    // считалось "muted" и не отправлялось.
     try {
       const user = await prisma.user.findUnique({
-        where: { id: userId },
+        where: { telegramId: BigInt(userId) },
         select: { isActive: true },
       });
-
-      return !user?.isActive;
+      if (!user) {
+        // Нет такого пользователя в нашей БД — не муть, пусть bot.api отвечает за себя.
+        return false;
+      }
+      return !user.isActive;
     } catch (error) {
       logger.error('Error checking if user is muted', { userId, error });
       return false;
