@@ -116,28 +116,41 @@ class DonationService {
     }
     const donationId = match[1];
 
-    const donation = await prisma.donation.findUnique({
-      where: { id: donationId },
-    });
-
-    if (!donation) {
-      logger.error('Donation not found for confirmation', { donationId });
-      return;
-    }
-
-    if (donation.status === 'CONFIRMED') {
-      logger.info('Donation already confirmed (idempotent)', { donationId });
-      return;
-    }
-
-    await prisma.donation.update({
-      where: { id: donationId },
+    // Atomic conditional update — guarantees only ONE caller flips PENDING → CONFIRMED
+    // even if Telegram redelivers successful_payment (or two workers race).
+    // updateMany returns count of rows actually updated (0 if already CONFIRMED).
+    const updateResult = await prisma.donation.updateMany({
+      where: {
+        id: donationId,
+        status: { not: 'CONFIRMED' },
+      },
       data: {
         status: 'CONFIRMED',
         externalId: telegramChargeId,
         confirmedAt: new Date(),
       },
     });
+
+    if (updateResult.count === 0) {
+      // Donation either doesn't exist or is already CONFIRMED — no side effects.
+      const exists = await prisma.donation.findUnique({
+        where: { id: donationId },
+        select: { id: true, status: true },
+      });
+      if (!exists) {
+        logger.error('Donation not found for confirmation', { donationId });
+      } else {
+        logger.info('Donation already confirmed (idempotent)', { donationId });
+      }
+      return;
+    }
+
+    const donation = await prisma.donation.findUnique({ where: { id: donationId } });
+    if (!donation) {
+      // Should not happen — we just updated it. Log for forensics.
+      logger.error('Donation disappeared after confirm', { donationId });
+      return;
+    }
 
     logger.info('✅ Stars donation confirmed', {
       donationId,
@@ -146,7 +159,7 @@ class DonationService {
       amountStars: donation.amountStars,
     });
 
-    // Отправляем спасибо пользователю
+    // Thank-you DM fires exactly once — the only caller that won the atomic update.
     try {
       const user = await prisma.user.findUnique({
         where: { id: donation.userId },
