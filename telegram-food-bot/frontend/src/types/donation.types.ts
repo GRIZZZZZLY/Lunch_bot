@@ -10,6 +10,16 @@ export interface DonationAmount {
   popular?: boolean;
 }
 
+export const DONATION_AMOUNT_PRESETS: DonationAmount[] = [
+  { value: 100, label: 'Кофе' },
+  { value: 300, label: 'Обед', popular: true },
+  { value: 500, label: 'Ужин' },
+  { value: 1000, label: 'Щедро' },
+];
+
+export const DONATION_AMOUNT_MIN = 50;
+export const DONATION_AMOUNT_MAX = 10000;
+
 export interface PaymentMethodInfo {
   id: PaymentMethod;
   name: string;

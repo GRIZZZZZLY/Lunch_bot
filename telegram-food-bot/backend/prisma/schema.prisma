@@ -52,6 +52,7 @@ model User {
   initiatedStoreRuns        StoreRun[]              @relation("StoreRunInitiator")
   storeItems                StoreItem[]             @relation("StoreItemOwner")
   pollParticipations        PollParticipant[]
+  donations                 Donation[]
 
   @@map("users")
 }
@@ -746,6 +747,31 @@ model StoreRun {
   @@index([status, collectUntil])
   @@index([initiatorId, status])
   @@map("store_runs")
+}
+
+// ============================================
+// DONATIONS (Поддержите проект)
+// ============================================
+
+model Donation {
+  id           String    @id @default(cuid())
+  userId       Int       @map("user_id")
+  amountRub    Int       @map("amount_rub")
+  amountStars  Int?      @map("amount_stars")
+  amountCrypto String?   @map("amount_crypto")
+  method       String    // STARS | WALLET | SBP_MANUAL
+  status       String    @default("PENDING") // PENDING | PENDING_MANUAL | CONFIRMED | FAILED | EXPIRED
+  externalId   String?   @unique @map("external_id") // Stars chargeId / Wallet orderId
+  metadata     String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  confirmedAt  DateTime? @map("confirmed_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status, method])
+  @@index([createdAt])
+  @@map("donations")
 }
 
 model StoreItem {
