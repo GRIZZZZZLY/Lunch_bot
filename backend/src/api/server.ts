@@ -27,6 +27,7 @@ import recurringPollRoutes from './routes/recurring-poll.routes';
 import adminRoutes from './routes/admin.routes';
 import categoryOrderRoutes from './routes/category-order.routes';
 import sseRoutes from './routes/sse.routes';
+import donationRoutes from './routes/donation.routes';
 
 // Импорт middleware
 import { metricsMiddleware } from './middleware/metrics';
@@ -180,6 +181,7 @@ export function createApiServer(): express.Application {
   app.use('/api/avatar', require('./routes/avatar.routes').default);
   app.use('/api/recurring', recurringPollRoutes);
   app.use('/api/admin', adminRoutes); // Admin panel endpoints
+  app.use('/api/donations', donationRoutes); // Donation/support endpoints
   app.use('/api', categoryOrderRoutes); // Category order endpoints
 
   // Test endpoints (только для dev/staging)

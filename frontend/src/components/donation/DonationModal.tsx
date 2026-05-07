@@ -2,100 +2,120 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Heart } from 'lucide-react';
 import { PaymentMethodCard } from './PaymentMethodCard';
-import { AmountSelector } from './AmountSelector';
+import { StarsSlider } from './StarsSlider';
 import { PaymentSuccess } from './PaymentSuccess';
 import { LoadingSpinner } from '../common/LoadingSpinner';
-import { PaymentMethod, DonationAmount } from '../../types/donation.types';
-import { PastelCard, CardContent } from '../ui/pastel-card';
+import { PaymentMethod } from '../../types/donation.types';
 import { GradientButton } from '../ui/gradient-button';
 import { DONATION_THEME, getDonationStyles } from '../../styles/donation.theme';
 import { useAppStore } from '../../store/useAppStore';
 import { ICON_SIZES } from '@/lib/design-tokens';
+import { donationService } from '../../services/donation.service';
+import { useTelegram } from '../../hooks/useTelegram';
 
 interface DonationModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const paymentMethods = [
+const DEFAULT_STARS = 1;
+const MAX_STARS = 1000;
+
+const paymentMethods: Array<{
+  id: PaymentMethod;
+  name: string;
+  description: string;
+  enabled: boolean;
+}> = [
   {
-    id: 'stars' as PaymentMethod,
+    id: 'stars',
     name: 'Telegram Stars',
     description: 'Быстро и безопасно',
     enabled: true,
-    amounts: [
-      { value: 100, label: 'Кофе' },
-      { value: 250, label: 'Обед', popular: true },
-      { value: 500, label: 'Ужин' }
-    ] as DonationAmount[]
   },
   {
-    id: 'sbp' as PaymentMethod,
+    id: 'sbp',
     name: 'СБП',
-    description: 'Система Быстрых Платежей',
-    enabled: true,
-    amounts: [
-      { value: 100, label: 'Минимум' },
-      { value: 300, label: 'Оптимально', popular: true },
-      { value: 500, label: 'Щедро' }
-    ] as DonationAmount[]
+    description: 'Скоро — переводом по номеру',
+    enabled: false,
   },
   {
-    id: 'crypto' as PaymentMethod,
-    name: 'Криптовалюта',
-    description: 'BTC, USDT, TON',
-    enabled: false, // Coming soon
-    amounts: [
-      { value: 10, label: 'Мини' },
-      { value: 25, label: 'Стандарт', popular: true },
-      { value: 50, label: 'VIP' }
-    ] as DonationAmount[]
-  }
+    id: 'crypto',
+    name: 'Telegram Wallet',
+    description: 'Скоро — BTC, USDT, TON',
+    enabled: false,
+  },
 ];
 
 export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
-  const [selectedAmount, setSelectedAmount] = useState<number>(0);
+  const [stars, setStars] = useState<number>(DEFAULT_STARS);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState<{ amount: number; currency: string } | null>(null);
   const isDark = useAppStore((s) => s.theme) === 'dark';
   const styles = getDonationStyles(isDark);
+  const { webApp, showAlert } = useTelegram();
 
-  const currentMethod = paymentMethods.find(m => m.id === selectedMethod);
+  const canProceed = selectedMethod === 'stars' && stars >= 1 && stars <= MAX_STARS;
 
-  const handlePayment = async () => {
-    if (!selectedMethod || selectedAmount === 0) return;
-
+  const handlePayStars = async () => {
     setLoading(true);
-
+    setErrorMessage(null);
     try {
-      // Simulate payment processing (placeholder for future API integration)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await donationService.createStarsInvoice(stars);
+      if (!response.success || !response.data?.invoiceUrl) {
+        throw new Error(response.error || 'Не удалось создать инвойс');
+      }
 
-      // Show success
-      setSuccessData({
-        amount: selectedAmount,
-        currency: selectedMethod === 'stars' ? '⭐' : selectedMethod === 'sbp' ? '₽' : '$'
-      });
-      setShowSuccess(true);
-    } catch (error) {
-      console.error('Payment error:', error);
-      // Log error (toast/alert would be shown in production via separate notification system)
-    } finally {
+      const { invoiceUrl } = response.data;
+
+      // Telegram WebApp.openInvoice — открывает оплату Stars прямо в Telegram.
+      // Колбэк вернёт 'paid' | 'cancelled' | 'failed' | 'pending'.
+      const tg = webApp as any;
+      if (typeof tg?.openInvoice === 'function') {
+        tg.openInvoice(invoiceUrl, (status: string) => {
+          if (status === 'paid') {
+            setSuccessData({ amount: stars, currency: '⭐' });
+            setShowSuccess(true);
+          } else if (status === 'cancelled') {
+            setErrorMessage('Платёж отменён');
+          } else if (status === 'failed') {
+            setErrorMessage('Платёж не прошёл, попробуйте ещё раз');
+          }
+          // status === 'pending' — оставляем пользователя в модалке без ошибки
+          setLoading(false);
+        });
+      } else {
+        // Fallback вне Telegram (dev-режим) — открыть ссылку в новой вкладке
+        window.open(invoiceUrl, '_blank');
+        showAlert('Откройте Mini App в Telegram, чтобы оплатить через Stars');
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.error || err?.message || 'Ошибка создания платежа');
       setLoading(false);
     }
   };
 
+  const handlePayment = async () => {
+    if (!canProceed || !selectedMethod) return;
+    if (selectedMethod === 'stars') {
+      await handlePayStars();
+      return;
+    }
+    // sbp/crypto — пока disabled, сюда не должно попадать
+  };
+
   const handleClose = () => {
     setSelectedMethod(null);
-    setSelectedAmount(0);
+    setStars(DEFAULT_STARS);
+    setErrorMessage(null);
     setShowSuccess(false);
     setSuccessData(null);
     onClose();
   };
-
-  const canProceed = selectedMethod && selectedAmount > 0;
 
   return (
     <AnimatePresence>
@@ -152,7 +172,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
 
                     <div className="mb-2 flex items-center gap-3">
                       <motion.div
-                        animate={{ 
+                        animate={{
                           scale: [1, 1.1, 1],
                         }}
                         transition={{
@@ -161,8 +181,8 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                           ease: 'easeInOut',
                         }}
                       >
-                        <Heart 
-                          size={DONATION_THEME.spacing.iconSize.large} 
+                        <Heart
+                          size={DONATION_THEME.spacing.iconSize.large}
                           className="fill-white"
                           style={{ color: 'white' }}
                         />
@@ -172,7 +192,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                       </h2>
                     </div>
                     <p className="text-sm text-white/85">
-                      Помогите развитию бота - выберите способ оплаты
+                      Помогите развитию бота — выберите способ оплаты
                     </p>
                   </div>
                 </div>
@@ -194,29 +214,41 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                         enabled={method.enabled}
                         onClick={() => {
                           setSelectedMethod(method.id);
-                          setSelectedAmount(0);
+                          setStars(DEFAULT_STARS);
+                          setErrorMessage(null);
                         }}
                       />
                     ))}
                   </div>
 
-                  {/* Amount Selection */}
-                  {selectedMethod && currentMethod && (
+                  {/* Stars amount slider */}
+                  {selectedMethod === 'stars' && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-3"
                     >
                       <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                        Сумма
+                        Сколько Stars
                       </h3>
-                      <AmountSelector
-                        amounts={currentMethod.amounts}
-                        method={selectedMethod}
-                        selectedAmount={selectedAmount}
-                        onAmountChange={setSelectedAmount}
+                      <StarsSlider
+                        value={stars}
+                        onChange={setStars}
+                        min={1}
+                        max={MAX_STARS}
+                        checkpoints={[10, 50, 100, 500, 1000]}
                       />
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        ⚠️ Telegram удерживает комиссию ~30% за платежи через
+                        Stars. Для максимальной поддержки выбирайте СБП или
+                        Wallet (скоро).
+                      </p>
                     </motion.div>
+                  )}
+
+                  {/* Error message */}
+                  {errorMessage && (
+                    <p className="text-sm text-destructive">{errorMessage}</p>
                   )}
 
                   {/* Payment Button */}
@@ -241,7 +273,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                         ) : (
                           <>
                             <Heart className={ICON_SIZES.md} />
-                            <span>Поддержать ({selectedAmount})</span>
+                            <span>Поддержать</span>
                           </>
                         )}
                       </GradientButton>
@@ -249,13 +281,13 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                   )}
 
                   {/* Info */}
-                  <PastelCard variant="glass" className="overflow-hidden">
-                    <CardContent className="p-4 pt-4">
-                      <p className="text-sm text-foreground">
-                        💡 <strong>Важно:</strong> Все средства идут на развитие и поддержку проекта. Спасибо за вашу щедрость!
-                      </p>
-                    </CardContent>
-                  </PastelCard>
+                  <div className="rounded-2xl border border-border/50 bg-muted/40 p-4">
+                    <p className="text-sm text-muted-foreground">
+                      💡 <strong className="text-foreground">Важно:</strong>{' '}
+                      Все средства идут на развитие и поддержку проекта.
+                      Спасибо за вашу щедрость!
+                    </p>
+                  </div>
                 </div>
               </>
             )}

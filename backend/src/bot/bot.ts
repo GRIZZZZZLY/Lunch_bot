@@ -28,12 +28,13 @@ import { appCommand } from './commands/app';
 import { setBotInstance } from './bot-instance';
 
 // Handlers
-import { 
-  handleCancelPoll, 
+import {
+  handleCancelPoll,
   handleRunRoulette,
   handleCompletePoll,
   handleOpenPollButton
 } from './handlers/poll.handlers';
+import { registerPaymentHandlers } from './handlers/payments.handlers';
 
 // Events
 import { setupGroupEvents, setupDefaultMenuButton } from './events/group-events';
@@ -135,6 +136,9 @@ export function createBot(): Bot<BotContext> {
   bot.use(errorLoggingMiddleware);
   bot.use(authMiddleware);
   bot.use(statsMiddleware);
+
+  // Telegram Payments (Stars и т.п.) — регистрируем до message-handler'ов
+  registerPaymentHandlers(bot);
 
   // Команды
   bot.command('start', startCommand);
