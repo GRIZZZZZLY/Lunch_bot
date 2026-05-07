@@ -151,9 +151,6 @@ const BudgetWidgetContent: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Hover state для анимации границы
-  const [isHovered, setIsHovered] = useState(false);
-  
   // Состояние свёрнут/развёрнут (по умолчанию свёрнут если нет активных долгов)
   const [isExpanded, setIsExpanded] = useState(() => {
     // Автоматически разворачиваем если есть активные долги или кредиты
@@ -273,27 +270,19 @@ const BudgetWidgetContent: React.FC = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <GlassCard
         intensity={displayScenario === 'overview' && !isDark ? 'solid' : 'high'}
-        style={{
-          borderLeftWidth: isHovered ? '8px' : '6px',
-          transition: 'border-left-width 0.2s ease'
-        }}
         data-testid='budget-widget-card'
         className={cn(
           'relative overflow-hidden rounded-[28px] transition-all duration-200',
-          "border-t border-r border-b border-border",
+          'border border-border',
           displayScenario === 'overview' && !isDark && 'border-peach-500/32 bg-[linear-gradient(135deg,rgba(255,252,246,0.99),rgba(247,238,226,1))] shadow-[0_18px_34px_rgba(189,121,55,0.14)]',
-          // Левая граница - цветная для важных сценариев, адаптивная для обычного
-          "border-l-4",
-          displayScenario === 'urgent-debt' && 'border-l-rose-500',
-          displayScenario === 'waiting-confirmation' && 'border-l-lavender-500',
-          displayScenario === 'success-message' && 'border-l-mint-500',
-          displayScenario === 'responsible-view' && 'border-l-primary',
-           displayScenario === 'overview' && (isDark ? 'border-l-lavender-500 shadow-[0_12px_26px_rgba(139,92,246,0.16)]' : 'border-l-peach-500')
+          displayScenario === 'urgent-debt' && 'border-rose-500/28 shadow-[0_8px_20px_rgba(244,63,94,0.10)]',
+          displayScenario === 'waiting-confirmation' && 'border-lavender-500/28 shadow-[0_8px_20px_rgba(139,92,246,0.10)]',
+          displayScenario === 'success-message' && 'border-mint-500/28 shadow-[0_8px_20px_rgba(52,211,153,0.10)]',
+          displayScenario === 'responsible-view' && 'border-primary/28 shadow-[0_8px_20px_rgba(216,106,44,0.10)]',
+          displayScenario === 'overview' && isDark && 'border-lavender-500/20 shadow-[0_12px_26px_rgba(139,92,246,0.10)]',
         )}
       >
         {/* Animated gradient overlay */}
