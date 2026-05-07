@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PollService } from '../../services/poll.service';
+import { PollService, PollAlreadyActiveError } from '../../services/poll.service';
 import { VoteService } from '../../services/vote.service';
 import { MenuService } from '../../services/menu.service';
 import { GroupService } from '../../services/group.service';
@@ -713,6 +713,18 @@ export class PollController {
       });
 
     } catch (error) {
+      if (error instanceof PollAlreadyActiveError) {
+        logger.warn('createPoll race resolved by service-level guard', {
+          groupId: error.groupId,
+          existingPollId: error.existingPollId,
+        });
+        res.status(400).json({
+          success: false,
+          error: 'Group already has an active poll',
+          code: error.code,
+        });
+        return;
+      }
       logger.error('Error creating poll:', error);
       res.status(500).json({
         success: false,
@@ -880,6 +892,19 @@ export class PollController {
     } catch (error) {
       logger.error('Error creating poll from WebApp:', error);
       
+      if (error instanceof PollAlreadyActiveError) {
+        logger.warn('createPollFromWebApp race resolved by service-level guard', {
+          groupId: error.groupId,
+          existingPollId: error.existingPollId,
+        });
+        res.status(400).json({
+          success: false,
+          error: 'Group already has an active poll',
+          code: error.code,
+        });
+        return;
+      }
+
       if (error instanceof Error) {
         if (error.message.includes('Bot not initialized')) {
           res.status(503).json({

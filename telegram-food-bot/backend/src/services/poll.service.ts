@@ -23,6 +23,19 @@ type VoteWithRelations = Vote & {
   user: VotePublicUser;
 };
 
+/**
+ * Thrown when createPoll is called for a group that already has an ACTIVE poll.
+ * Caller (controller) should map this to HTTP 400 + code POLL_ALREADY_ACTIVE.
+ */
+export class PollAlreadyActiveError extends Error {
+  readonly code = 'POLL_ALREADY_ACTIVE';
+
+  constructor(public readonly groupId: number, public readonly existingPollId: number) {
+    super(`Group ${groupId} already has an active poll (#${existingPollId})`);
+    this.name = 'PollAlreadyActiveError';
+  }
+}
+
 import { getBotInstance } from '../bot/bot-instance';
 
 /** @deprecated No-op: bot is now accessed via the shared singleton */
@@ -54,25 +67,56 @@ export class PollService {
    */
   static async createPoll(data: CreatePollData): Promise<Poll> {
     try {
-      const poll = await prisma.poll.create({
-        data: {
-          groupId: data.groupId,
-          status: 'ACTIVE',
-          duration: data.duration || 30,
-          createdBy: data.createdBy,
-          isMultiSelect: data.isMultiSelect ?? true,
-          maxSelections: data.maxSelections ?? 3,
-        },
-      });
+      // Atomic: re-check no active poll exists for this group AND insert in same tx.
+      // Without this, two concurrent createPoll requests can both pass the
+      // controller-level guard and end up creating duplicate active polls.
+      // Snapshot creation also moves inside the tx so an existing poll always
+      // has its expected-voters set ready for auto-close-on-quorum.
+      const poll = await prisma.$transaction(async (tx) => {
+        const existing = await tx.poll.findFirst({
+          where: { groupId: data.groupId, status: 'ACTIVE' },
+          select: { id: true },
+        });
 
-      try {
-        await PollService.createParticipantSnapshot(poll.id, poll.groupId);
-      } catch (snapshotError) {
-        logger.error(
-          `createPoll: failed to create participant snapshot for poll ${poll.id}; poll exists but auto-close-on-quorum will be unavailable until backfilled`,
-          snapshotError
-        );
-      }
+        if (existing) {
+          throw new PollAlreadyActiveError(data.groupId, existing.id);
+        }
+
+        const newPoll = await tx.poll.create({
+          data: {
+            groupId: data.groupId,
+            status: 'ACTIVE',
+            duration: data.duration || 30,
+            createdBy: data.createdBy,
+            isMultiSelect: data.isMultiSelect ?? true,
+            maxSelections: data.maxSelections ?? 3,
+          },
+        });
+
+        // Inline snapshot creation so the EXPECTED/EXCLUDED rows commit with the poll.
+        const members = await tx.groupMember.findMany({
+          where: { groupId: data.groupId, isActive: true },
+          include: {
+            user: { select: { id: true, isActive: true, participatesInPolls: true } },
+          },
+        });
+
+        const participantRows = members
+          .filter(m => m.user.isActive)
+          .map(m => ({
+            pollId: newPoll.id,
+            userId: m.user.id,
+            status: m.user.participatesInPolls ? 'EXPECTED' : 'EXCLUDED',
+          }));
+
+        if (participantRows.length > 0) {
+          await tx.pollParticipant.createMany({ data: participantRows });
+        } else {
+          logger.warn(`createPoll: no active members for poll ${newPoll.id} in group ${data.groupId}`);
+        }
+
+        return newPoll;
+      });
 
       // Инвалидируем кэш активных голосований
       CacheInvalidator.invalidatePoll(poll.id, poll.groupId);
@@ -80,6 +124,7 @@ export class PollService {
       logger.info(`Poll created: ${poll.id} in group ${poll.groupId}`);
       return poll;
     } catch (error) {
+      if (error instanceof PollAlreadyActiveError) throw error;
       logger.error('Error creating poll:', error);
       throw new Error('Failed to create poll');
     }
@@ -150,6 +195,13 @@ export class PollService {
       await PollService.completePoll(pollId);
       return true;
     } catch (error) {
+      // Race-friendly: when two concurrent voters both trip quorum, the second
+      // call hits the status guard inside completePoll. Treat that as benign.
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.startsWith('Poll is already')) {
+        logger.debug(`checkQuorumAndComplete: poll ${pollId} already completed by concurrent caller`);
+        return false;
+      }
       logger.error(`checkQuorumAndComplete: failed to auto-complete poll ${pollId}`, error);
       return false;
     }
