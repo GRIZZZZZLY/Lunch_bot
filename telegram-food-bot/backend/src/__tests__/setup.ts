@@ -3,9 +3,12 @@
 
 // Set test environment
 process.env.NODE_ENV = 'test';
-// Используем отдельную SQLite-БД для тестов (рядом со schema.prisma в prisma/test.db).
-// Если CI/разработчик задал свой DATABASE_URL — уважаем его.
-process.env.DATABASE_URL = process.env.DATABASE_URL || 'file:./test.db';
+// Используем выделенную PostgreSQL test-БД (создаётся в globalSetup.ts).
+// TEST_DATABASE_URL имеет приоритет — для CI с собственным PG-сервисом.
+process.env.DATABASE_URL =
+  process.env.TEST_DATABASE_URL ||
+  process.env.DATABASE_URL ||
+  'postgresql://foodbot:foodbot_password@localhost:5432/foodbot_test_db';
 
 // Mock console methods to reduce noise in test output
 global.console = {
