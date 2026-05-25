@@ -496,6 +496,27 @@ async function main() {
     console.log(`Total errors: ${totalErrors}`);
     console.log(`Total duration: ${(totalDuration / 1000).toFixed(2)}s`);
 
+    // Sync Postgres sequences (otherwise next insert collides with migrated PKs)
+    if (!config.dryRun) {
+      console.log('\n🔧 Syncing Postgres sequences to MAX(id)+1...');
+      await prisma.$executeRawUnsafe(`
+        DO $$
+        DECLARE r RECORD;
+        BEGIN
+          FOR r IN SELECT table_name, column_name
+                   FROM information_schema.columns
+                   WHERE column_default LIKE 'nextval%' AND table_schema='public'
+          LOOP
+            EXECUTE format(
+              'SELECT setval(pg_get_serial_sequence(%L, %L), COALESCE((SELECT MAX(%I) FROM %I), 0) + 1, false)',
+              r.table_name, r.column_name, r.column_name, r.table_name
+            );
+          END LOOP;
+        END$$;
+      `);
+      console.log('✅ Sequences synchronized');
+    }
+
     // Verification
     if (!config.dryRun) {
       const isValid = await verifyMigration(sqlite, prisma);
