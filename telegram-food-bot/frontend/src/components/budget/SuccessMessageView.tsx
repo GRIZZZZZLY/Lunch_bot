@@ -1,7 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { Transaction } from '../../services/budget.service';
 import { Sparkles } from 'lucide-react';
-import { useWindowSize } from 'react-use';
+import { useWindowSize } from '@/hooks/useWindowSize';
 
 // Lazy load react-confetti
 const Confetti = lazy(() => import('react-confetti'));

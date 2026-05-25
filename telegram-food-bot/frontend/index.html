@@ -4,7 +4,30 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Food Bot - Управление меню</title>
-  
+
+  <!--
+    Content Security Policy (defense-in-depth XSS mitigation).
+    - script-src: 'self' (Vite bundles) + telegram.org (Telegram WebApp SDK).
+    - style-src: 'unsafe-inline' допущён — Tailwind/Radix/inline-стили React.
+    - img-src: data:+https: (аватарки/меню-фото с любых HTTPS-источников).
+    - connect-src: 'self' (backend в проде на том же origin) + api.telegram.org.
+    - object-src/base-uri/form-action ограничены, чтобы заблокировать XSS-эскалации.
+    Note: frame-ancestors здесь не задаётся (meta-тег его не поддерживает) —
+    при необходимости прописать на Nginx через заголовок Content-Security-Policy.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://telegram.org;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: https:;
+    font-src 'self' data:;
+    connect-src 'self' https://telegram.org https://api.telegram.org;
+    frame-src https://telegram.org;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+  ">
+
   <!-- Полностью отключаем кеширование HTML -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">

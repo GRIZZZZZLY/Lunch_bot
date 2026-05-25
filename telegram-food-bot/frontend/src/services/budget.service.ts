@@ -234,7 +234,7 @@ class BudgetService {
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.openLink(safeUrl);
     } else {
-      window.open(safeUrl, '_blank');
+      window.open(safeUrl, '_blank', 'noopener,noreferrer');
     }
   }
 
