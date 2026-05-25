@@ -12,12 +12,29 @@ class FeedbackController {
    */
   async send(req: Request, res: Response) {
     try {
+      const authUser = (req as any).user;
+      if (!authUser) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required',
+          code: 'UNAUTHORIZED',
+        });
+      }
+
+      // Анти-спуфинг: identity берётся ТОЛЬКО из аутентифицированного контекста.
+      // Поля userId/username/firstName из body игнорируются.
+      // Telegram ID хранится BigInt → конвертируем в number (Telegram ID < 2^53, безопасно).
+      const userId: number | undefined =
+        authUser.telegramId != null ? Number(authUser.telegramId) : authUser.id;
+      const username: string | undefined = authUser.username ?? undefined;
+      const firstName: string | undefined = authUser.firstName ?? undefined;
+
       logger.info('📨 [FeedbackController] Received feedback request', {
         hasMessage: !!req.body.message,
-        userId: req.body.userId,
+        userId,
       });
 
-      const { message, userId, username, firstName } = req.body;
+      const { message } = req.body;
 
       // Валидация
       if (!message || typeof message !== 'string' || !message.trim()) {
