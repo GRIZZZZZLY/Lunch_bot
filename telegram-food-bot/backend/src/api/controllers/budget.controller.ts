@@ -1,10 +1,40 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { BudgetService } from '../../services/budget.service';
+import { PollService } from '../../services/poll.service';
+import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
 import { toNumber } from '../../utils/decimal';
 import { serializeBigInt as serializeData } from '../../utils/serialize';
+
+/**
+ * Anti-IDOR: для read-эндпоинтов по pollId — допуск только участникам группы poll'а
+ * или админу. Возвращает true если доступ разрешён, иначе пишет ответ (404/403) и
+ * возвращает false. Зеркалит pattern из vote.controller.requirePollAccess.
+ */
+async function requirePollAccess(
+  res: Response,
+  user: { id?: number; isAdmin?: boolean } | undefined,
+  pollId: number
+): Promise<boolean> {
+  if (!user?.id) {
+    res.status(401).json({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    return false;
+  }
+  const pollGroupId = await PollService.getPollGroupId(pollId);
+  if (!pollGroupId) {
+    res.status(404).json({ success: false, error: 'Poll not found', code: 'POLL_NOT_FOUND' });
+    return false;
+  }
+  if (user.isAdmin) return true;
+  const isMember = await GroupService.isUserGroupMember(user.id, pollGroupId);
+  if (!isMember) {
+    res.status(403).json({ success: false, error: 'Access denied', code: 'FORBIDDEN' });
+    return false;
+  }
+  return true;
+}
 
 // Zod схемы валидации (Sprint 1)
 const TransactionIdSchema = z.object({
@@ -370,8 +400,11 @@ export class BudgetController {
         return;
       }
 
+      const pollIdNum = parseInt(pollId);
+      if (!(await requirePollAccess(res, authenticatedUser, pollIdNum))) return;
+
       const totals = await this.budgetService.calculateTotals(
-        parseInt(pollId),
+        pollIdNum,
         authenticatedUser.id
       );
 
@@ -465,7 +498,10 @@ export class BudgetController {
         return;
       }
 
-      const orderCosts = await this.budgetService.getOrderCosts(parseInt(pollId));
+      const pollIdNum = parseInt(pollId);
+      if (!(await requirePollAccess(res, authenticatedUser, pollIdNum))) return;
+
+      const orderCosts = await this.budgetService.getOrderCosts(pollIdNum);
 
       if (!orderCosts) {
         res.status(404).json({ error: 'Order costs not found for this poll' });
@@ -498,7 +534,10 @@ export class BudgetController {
         return;
       }
 
-      const breakdown = await this.budgetService.getPollCostBreakdown(parseInt(pollId));
+      const pollIdNum = parseInt(pollId);
+      if (!(await requirePollAccess(res, authenticatedUser, pollIdNum))) return;
+
+      const breakdown = await this.budgetService.getPollCostBreakdown(pollIdNum);
 
       res.json({ success: true, data: serializeData(breakdown) });
     } catch (error: any) {

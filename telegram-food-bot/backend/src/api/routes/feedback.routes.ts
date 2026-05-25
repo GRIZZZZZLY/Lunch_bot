@@ -1,13 +1,22 @@
 import { Router } from 'express';
 import { feedbackController } from '../controllers/feedback.controller';
+import { telegramAuthMiddleware } from '../middleware/telegram-auth';
+import { reminderLimiter } from '../middleware/rate-limiter';
 
 const router = Router();
 
 /**
  * @route POST /api/feedback
  * @desc Отправить обратную связь
- * @access Public (доступно всем пользователям)
+ * @access Private — требует Telegram auth; rate-limited (10/час) чтобы не превратить
+ *         endpoint в spam-канал к админскому Telegram. userId/username/firstName
+ *         берутся из req.user, body этих полей игнорируется (anti-spoof).
  */
-router.post('/', feedbackController.send.bind(feedbackController));
+router.post(
+  '/',
+  telegramAuthMiddleware,
+  reminderLimiter,
+  feedbackController.send.bind(feedbackController)
+);
 
 export default router;
