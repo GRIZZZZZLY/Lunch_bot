@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, Heart, Sparkles } from 'lucide-react';
-import { useWindowSize } from 'react-use';
+import { useWindowSize } from '@/hooks/useWindowSize';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { cn } from '@/lib/utils';
 

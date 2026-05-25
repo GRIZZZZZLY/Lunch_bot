@@ -623,7 +623,7 @@ export const HomePage: React.FC = () => {
     } else if (webApp?.openLink) {
       webApp.openLink(url);
     } else {
-      window.open(url, '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
 

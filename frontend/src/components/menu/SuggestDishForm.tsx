@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { GlassCard, GlassCardContent } from '@/components/ui/glass-card';
 import { useCreateSuggestion } from '@/hooks/useSuggestions';
 import { useTelegram } from '@/hooks/useTelegram';
-import { useWindowSize } from 'react-use';
+import { useWindowSize } from '@/hooks/useWindowSize';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface SuggestDishFormProps {

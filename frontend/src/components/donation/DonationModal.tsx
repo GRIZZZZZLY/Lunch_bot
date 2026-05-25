@@ -89,7 +89,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
         });
       } else {
         // Fallback вне Telegram (dev-режим) — открыть ссылку в новой вкладке
-        window.open(invoiceUrl, '_blank');
+        window.open(invoiceUrl, '_blank', 'noopener,noreferrer');
         showAlert('Откройте Mini App в Telegram, чтобы оплатить через Stars');
         setLoading(false);
       }
