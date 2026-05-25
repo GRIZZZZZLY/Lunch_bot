@@ -2,8 +2,12 @@ import { Router } from 'express';
 import { createMultipleVotes, getUserVotes, deleteVote } from '../controllers/vote.controller';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { voteLimiter } from '../middleware/rate-limiter';
+import { createIdempotencyMiddleware } from '../middleware/idempotency';
 
 const router = Router();
+
+// G0-8: дедупликация двойных POST'ов (double-tap по кнопке голосования).
+const voteIdempotency = createIdempotencyMiddleware({ scope: 'vote' });
 
 /**
  * Vote Routes - Multiple Vote Support
@@ -16,7 +20,7 @@ const router = Router();
 // All routes require authentication
 router.use(telegramAuthMiddleware);
 
-router.post('/multiple', voteLimiter, createMultipleVotes);
+router.post('/multiple', voteLimiter, voteIdempotency, createMultipleVotes);
 router.get('/:pollId/user', getUserVotes);
 router.delete('/:pollId/item/:menuItemId', voteLimiter, deleteVote);
 

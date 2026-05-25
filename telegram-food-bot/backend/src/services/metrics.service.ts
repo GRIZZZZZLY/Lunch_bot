@@ -29,6 +29,8 @@ class MetricsService {
   private votesCounter: Counter;
   private errorsCounter: Counter;
   private httpRequestsCounter: Counter;
+  private rateLimit429Counter: Counter;
+  private idempotencyReplayCounter: Counter;
 
   // Prometheus gauges
   private activePollsGauge: Gauge;
@@ -84,6 +86,25 @@ class MetricsService {
       name: 'food_bot_http_requests_total',
       help: 'Total number of HTTP requests',
       labelNames: ['method', 'route', 'status'],
+      registers: [this.registry],
+    });
+
+    // P0-8: 429-ответы перестают быть невидимым `logger.warn` —
+    // считаем по bucket'у, видим в Prometheus/Grafana, можем поставить алерт
+    // на «rate-limit срезает >0.5% запросов» как сигнал поднять лимит.
+    this.rateLimit429Counter = new Counter({
+      name: 'food_bot_rate_limit_429_total',
+      help: 'Total number of HTTP 429 responses from rate-limiter',
+      labelNames: ['bucket', 'route'],
+      registers: [this.registry],
+    });
+
+    // P0/G0-8: считаем, сколько раз idempotency middleware дедуплицировал
+    // запрос. Высокая цифра = клиент шлёт ретраи / double-tap часто.
+    this.idempotencyReplayCounter = new Counter({
+      name: 'food_bot_idempotency_replay_total',
+      help: 'Total number of idempotency replays (cache hits on Idempotency-Key)',
+      labelNames: ['scope', 'kind'], // kind: 'replay' | 'inflight'
       registers: [this.registry],
     });
 
@@ -227,6 +248,21 @@ class MetricsService {
     this.httpRequestsCounter.inc({ method, route, status: status.toString() });
     this.httpRequestDuration.observe({ method, route, status: status.toString() }, duration);
     this.recordResponseTime(duration);
+  }
+
+  /**
+   * P0-8: учёт 429 от rate-limit. bucket = логическое имя лимитера
+   * ('general' | 'auth' | 'vote' | 'poll-creation' | 'reminder' | 'heavy' | 'write').
+   */
+  incrementRateLimit429(bucket: string, route: string): void {
+    this.rateLimit429Counter.inc({ bucket, route });
+  }
+
+  /**
+   * P0/G0-8: учёт idempotency replays.
+   */
+  incrementIdempotencyReplay(scope: string, kind: 'replay' | 'inflight'): void {
+    this.idempotencyReplayCounter.inc({ scope, kind });
   }
 
   /**

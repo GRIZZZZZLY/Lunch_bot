@@ -1,19 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../../utils/logger';
-import { BaseError, formatErrorForLogging } from '../../utils/error';
+import { BaseError, formatErrorForLogging, ValidationError, RateLimitError } from '../../utils/error';
+import { sendProblem, makeProblem } from '../../utils/problem';
 
 /**
- * Middleware для обработки ошибок Express
+ * P1-6: Express error handler возвращает RFC 7807 problem+json.
+ * Внешний контракт: { type, title, status, detail, instance, code, traceId, ...extensions }.
+ * Legacy-поля (success: false, error) проставляются автоматически через makeProblem
+ * — фронт продолжает работать без миграции.
  */
 export function errorHandler(
   err: Error,
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): void {
   const requestId = req.requestId;
 
-  // Логируем ошибку с контекстом включая requestId для трассировки
   logger.error('API Error:', formatErrorForLogging(err, {
     requestId,
     method: req.method,
@@ -24,92 +27,127 @@ export function errorHandler(
     ip: req.ip,
   }));
 
-  // Если ответ уже отправлен, передаем ошибку дальше
   if (res.headersSent) {
     return next(err);
   }
 
-  // Обрабатываем кастомные ошибки
+  const instance = req.url;
+
+  // 1) Наши собственные ошибки (BaseError и потомки).
   if (err instanceof BaseError) {
-    res.status(err.statusCode).json({
-      success: false,
-      error: err.message,
-      code: err.code,
-      requestId,
-      timestamp: new Date().toISOString(),
-    });
+    const extensions: Record<string, unknown> = {};
+    if (err instanceof ValidationError) {
+      if (err.field !== undefined) extensions.field = err.field;
+      if (err.value !== undefined) extensions.value = err.value;
+    }
+    if (err instanceof RateLimitError) {
+      extensions.retryAfter = err.retryAfter;
+      res.setHeader('Retry-After', String(err.retryAfter));
+    }
+
+    sendProblem(
+      res,
+      makeProblem({
+        status: err.statusCode,
+        code: err.code,
+        title: err.name,
+        detail: err.message,
+        instance,
+        traceId: requestId,
+        extensions,
+      }),
+    );
     return;
   }
 
-  // Обрабатываем ошибки валидации Joi/Zod (если будут использоваться)
+  // 2) Zod / generic ValidationError по name (для legacy импортов).
   if (err.name === 'ValidationError') {
-    res.status(422).json({
-      success: false,
-      error: 'Ошибка валидации данных',
-      code: 'VALIDATION_ERROR',
-      details: err.message,
-      requestId,
-      timestamp: new Date().toISOString(),
-    });
+    sendProblem(
+      res,
+      makeProblem({
+        status: 422,
+        code: 'VALIDATION_ERROR',
+        title: 'Validation failed',
+        detail: err.message,
+        instance,
+        traceId: requestId,
+      }),
+    );
     return;
   }
 
-  // Обрабатываем ошибки Prisma
+  // 3) Prisma известные ошибки.
   if (err.name === 'PrismaClientKnownRequestError') {
     const prismaError = err as any;
 
     if (prismaError.code === 'P2002') {
-      res.status(409).json({
-        success: false,
-        error: 'Запись с такими данными уже существует',
-        code: 'DUPLICATE_ENTRY',
-        requestId,
-        timestamp: new Date().toISOString(),
-      });
+      sendProblem(
+        res,
+        makeProblem({
+          status: 409,
+          code: 'DUPLICATE_ENTRY',
+          title: 'Conflict',
+          detail: 'Record with these data already exists',
+          instance,
+          traceId: requestId,
+          extensions: { prismaCode: prismaError.code, target: prismaError.meta?.target },
+        }),
+      );
       return;
     }
 
     if (prismaError.code === 'P2025') {
-      res.status(404).json({
-        success: false,
-        error: 'Запись не найдена',
-        code: 'NOT_FOUND',
-        requestId,
-        timestamp: new Date().toISOString(),
-      });
+      sendProblem(
+        res,
+        makeProblem({
+          status: 404,
+          code: 'NOT_FOUND',
+          title: 'Not found',
+          detail: 'Record not found',
+          instance,
+          traceId: requestId,
+          extensions: { prismaCode: prismaError.code },
+        }),
+      );
       return;
     }
   }
 
-  // Общая ошибка сервера
-  res.status(500).json({
-    success: false,
-    error: process.env.NODE_ENV === 'production'
-      ? 'Внутренняя ошибка сервера'
-      : err.message,
-    code: 'INTERNAL_ERROR',
-    requestId,
-    timestamp: new Date().toISOString(),
-    ...(process.env.NODE_ENV === 'development' && {
-      stack: err.stack,
+  // 4) Fallback — 500.
+  sendProblem(
+    res,
+    makeProblem({
+      status: 500,
+      code: 'INTERNAL_ERROR',
+      title: 'Internal server error',
+      detail: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+      instance,
+      traceId: requestId,
+      extensions:
+        process.env.NODE_ENV === 'development' ? { stack: err.stack } : undefined,
     }),
-  });
+  );
 }
 
 /**
- * Middleware для обработки 404 ошибок
+ * Middleware для обработки 404 ошибок (роут не найден).
  */
 export function notFoundHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction,
 ): void {
-  res.status(404).json({
-    success: false,
-    error: `Маршрут ${req.method} ${req.url} не найден`,
-    code: 'NOT_FOUND',
-    timestamp: new Date().toISOString(),
-  });
+  sendProblem(
+    res,
+    makeProblem({
+      status: 404,
+      code: 'ROUTE_NOT_FOUND',
+      title: 'Not found',
+      detail: `Маршрут ${req.method} ${req.url} не найден`,
+      instance: req.url,
+      traceId: req.requestId,
+    }),
+  );
 }
 
 /**

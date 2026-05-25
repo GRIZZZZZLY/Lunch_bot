@@ -205,6 +205,86 @@ export class VoteService {
   }
 
   /**
+   * P1-4: Атомарная замена набора голосов пользователя в poll.
+   *
+   * Принимает целевой набор menuItemIds и одной транзакцией:
+   *   1) Удаляет голоса за блюда, которых нет в новом наборе.
+   *   2) Создаёт голоса за новые блюда (если их ещё нет).
+   *   3) Возвращает финальный набор + список новосозданных id (для XP).
+   *
+   * Заменяет N+1 паттерн в vote.controller (toRemove.forEach(await delete) +
+   * toAdd.forEach(await create)) на один round-trip к БД, race-safe.
+   */
+  static async replaceUserVotes(
+    pollId: number,
+    userId: number,
+    menuItemIds: number[],
+  ): Promise<{ votes: Vote[]; newlyCreatedItemIds: number[] }> {
+    const uniqueMenuItemIds = [...new Set(menuItemIds)];
+
+    const { allVotes, newlyCreatedItemIds } = await prisma.$transaction(async (tx) => {
+      const existingVotes = await tx.vote.findMany({
+        where: { pollId, userId, menuItemId: { not: null } },
+        select: { menuItemId: true },
+      });
+
+      const existingIds = new Set(
+        existingVotes
+          .map((v) => v.menuItemId)
+          .filter((id): id is number => id !== null),
+      );
+
+      const targetSet = new Set(uniqueMenuItemIds);
+
+      const toRemove = [...existingIds].filter((id) => !targetSet.has(id));
+      const toAdd = uniqueMenuItemIds.filter((id) => !existingIds.has(id));
+
+      if (toRemove.length > 0) {
+        await tx.vote.deleteMany({
+          where: { pollId, userId, menuItemId: { in: toRemove } },
+        });
+      }
+
+      if (toAdd.length > 0) {
+        await tx.vote.createMany({
+          data: toAdd.map((menuItemId) => ({
+            pollId,
+            userId,
+            menuItemId,
+            voteType: VoteType.MENU_ITEM,
+          })),
+        });
+      }
+
+      const finalVotes = await tx.vote.findMany({
+        where: { pollId, userId, menuItemId: { not: null } },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      return { allVotes: finalVotes, newlyCreatedItemIds: toAdd };
+    });
+
+    // XP и события — вне транзакции (их падение не должно откатить голоса).
+    if (newlyCreatedItemIds.length > 0) {
+      await Promise.all(
+        newlyCreatedItemIds.map((menuItemId) => this.awardVoteXp(userId, pollId, menuItemId)),
+      );
+      eventBus.emit('poll_updated', {
+        pollId,
+        type: 'vote_added',
+        userId,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    logger.info(
+      `replaceUserVotes: poll ${pollId} user ${userId} → ${allVotes.length} votes (new: ${newlyCreatedItemIds.length})`,
+    );
+
+    return { votes: allVotes, newlyCreatedItemIds };
+  }
+
+  /**
    * Получить все голоса пользователя в конкретном poll
    */
   static async getUserVotes(pollId: number, userId: number): Promise<Vote[]> {

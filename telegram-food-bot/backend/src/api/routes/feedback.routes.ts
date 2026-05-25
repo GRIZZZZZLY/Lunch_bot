@@ -2,8 +2,11 @@ import { Router } from 'express';
 import { feedbackController } from '../controllers/feedback.controller';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { reminderLimiter } from '../middleware/rate-limiter';
+import { createIdempotencyMiddleware } from '../middleware/idempotency';
 
 const router = Router();
+
+const feedbackIdempotency = createIdempotencyMiddleware({ scope: 'feedback' });
 
 /**
  * @route POST /api/feedback
@@ -16,6 +19,7 @@ router.post(
   '/',
   telegramAuthMiddleware,
   reminderLimiter,
+  feedbackIdempotency,
   feedbackController.send.bind(feedbackController)
 );
 

@@ -66,6 +66,29 @@ export const persister = createSyncStoragePersister({
 });
 
 /**
+ * P0-1: централизованные staleTime для разных типов данных. Импортируется
+ * в useQuery({ staleTime: STALE_TIMES.X }). Без этого хуки делают свои
+ * "30 секунд" → шторм запросов на горячих экранах.
+ *
+ * Подбор:
+ * - REALTIME (5s) — активные polls (используется с refetchInterval: 5000).
+ * - VOTES (4.5s) — голосование real-time, чуть меньше интервала refetch.
+ * - BUDGET (10s) — долги/кредиты обновляются при mutate, не часто сами.
+ * - MENU (5 мин) — меню редко меняется, инвалидируется явно админкой.
+ * - PROFILE/STATIC (15 мин) — профиль, аватары; меняются ОЧЕНЬ редко.
+ */
+export const STALE_TIMES = {
+  REALTIME: 5 * 1000,
+  VOTES: 4.5 * 1000,
+  BUDGET: 10 * 1000,
+  POLL_DETAIL: 30 * 1000,
+  STATS: 2 * 60 * 1000,
+  MENU: 5 * 60 * 1000,
+  PROFILE: 15 * 60 * 1000,
+  STATIC: 15 * 60 * 1000,
+} as const;
+
+/**
  * Query Keys константы
  * Используются для invalidation и prefetching
  *

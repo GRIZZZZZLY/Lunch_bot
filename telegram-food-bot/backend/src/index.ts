@@ -27,21 +27,37 @@ runSecurityChecks();
 // Инициализируем Sentry (должно быть сразу после dotenv.config)
 initSentry();
 
+// P2-1: split monolith preparation.
+// Один и тот же index.ts работает в трёх режимах через env:
+//   PROCESS_ROLE=full   (default)  — полный монолит (bot + api + jobs).
+//   PROCESS_ROLE=api    — только API сервер (без bot polling и cron'ов).
+//   PROCESS_ROLE=bot    — только bot + cron-jobs (без HTTP-сервера).
+//
+// Это нужно для будущего PM2 split (когда G0-9 Redis prod закрыт и api/bot
+// можно гонять как раздельные процессы). Сейчас по умолчанию остаётся 'full'
+// — старое поведение, ничего не ломается.
+const PROCESS_ROLE = (process.env.PROCESS_ROLE ?? 'full') as 'full' | 'api' | 'bot';
+const RUN_BOT = PROCESS_ROLE === 'full' || PROCESS_ROLE === 'bot';
+const RUN_API = PROCESS_ROLE === 'full' || PROCESS_ROLE === 'api';
+logger.info(`🧩 PROCESS_ROLE=${PROCESS_ROLE} (bot=${RUN_BOT}, api=${RUN_API})`);
+
 // Инициализация
-const bot = createBot();
-const app = createApiServer();
+const bot = RUN_BOT ? createBot() : null;
+const app = RUN_API ? createApiServer() : null;
 
-// Инициализация PollService с экземпляром бота
-initializePollServiceBot(bot);
+if (bot) {
+  // Инициализация PollService с экземпляром бота
+  initializePollServiceBot(bot);
 
-// Инициализация FeedbackService с экземпляром бота
-feedbackService.initialize(bot);
+  // Инициализация FeedbackService с экземпляром бота
+  feedbackService.initialize(bot);
 
-// Инициализация cron job для автоматических напоминаний о долгах
-initDebtReminderJob();
+  // Инициализация cron job для автоматических напоминаний о долгах
+  initDebtReminderJob();
 
-// Cron для авто-закрытия магазинных забегов ("Иду в магазин") по истечении таймера
-initStoreRunAutoCloseJob();
+  // Cron для авто-закрытия магазинных забегов ("Иду в магазин") по истечении таймера
+  initStoreRunAutoCloseJob();
+}
 
 // Graceful shutdown — single orchestrator, idempotent, hard-cap at 10s.
 let shuttingDown = false;
@@ -61,7 +77,7 @@ async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
   forceTimer.unref();
 
   try {
-    await stopBot(bot);
+    if (bot) await stopBot(bot);
     await disconnect();
     clearTimeout(forceTimer);
     process.exit(0);
@@ -85,12 +101,11 @@ async function startApplication(): Promise<void> {
       throw new Error('Не удалось подключиться к базе данных');
     }
     
-    // Запуск бота - проверяем BOT_MODE вместо NODE_ENV!
-    if (botConfig.mode === 'webhook' && botConfig.webhookUrl) {
-      // Webhook режим
+    // P2-1: split monolith — каждый ROLE стартует только свои части.
+    if (botConfig.mode === 'webhook' && botConfig.webhookUrl && bot && app) {
+      // Webhook режим: ROLE=full — webhook handler в том же процессе.
       logger.info('🌐 Запуск в webhook режиме');
 
-      // ✅ FIX: Регистрируем роут webhook ДО запуска сервера
       app.post('/webhook', async (req, res) => {
         try {
           await bot.handleUpdate(req.body);
@@ -101,20 +116,25 @@ async function startApplication(): Promise<void> {
         }
       });
 
-      // Запускаем API сервер
       startApiServer(app);
-
-      // Устанавливаем webhook в Telegram
       await setupWebhook(bot, botConfig.webhookUrl);
     } else {
-      // Polling режим (по умолчанию)
+      // Polling / API-only / Bot-only режимы.
       logger.info('🔄 Запуск в polling режиме');
-      startApiServer(app);
-      startPolling(bot);
+      if (app) startApiServer(app);
+      if (bot) startPolling(bot);
     }
 
     logger.info('✅ Приложение успешно запущено');
-    
+
+    // P0-3: сигнализируем PM2 что воркер готов принимать трафик.
+    // ecosystem.config.js имеет wait_ready: true — без этого вызова PM2 ждёт
+    // listen_timeout (10s) по таймауту, и rolling-reload фактически даёт
+    // короткое окно недоступности. С process.send('ready') reload бесшовный.
+    if (typeof process.send === 'function') {
+      process.send('ready');
+    }
+
   } catch (error) {
     logger.error('❌ Ошибка при запуске приложения:', error);
     process.exit(1);

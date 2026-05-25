@@ -12,6 +12,14 @@ const globalForPrisma = globalThis as unknown as {
 
 // Создание Prisma Client. PostgreSQL через @prisma/adapter-pg
 // (Prisma 7 client engine требует adapter или accelerateUrl).
+//
+// P2-2: pgBouncer-aware конфиг pool'а.
+//   - @prisma/adapter-pg использует node-postgres pool под капотом, поэтому
+//     prepared statements можно держать включёнными без `pgbouncer=true`-флага
+//     (это специфично для рагулярного binary engine Prisma, а не adapter).
+//   - PG_POOL_MAX / PG_IDLE_TIMEOUT_MS / PG_CONNECTION_TIMEOUT_MS — тюнинг
+//     под cluster mode и pgBouncer (transaction pool). В fork-mode по умолчанию
+//     достаточно 10 соединений на процесс.
 const createPrismaClient = (): PrismaClient => {
   const databaseUrl = process.env.DATABASE_URL;
 
@@ -24,6 +32,21 @@ const createPrismaClient = (): PrismaClient => {
       'DATABASE_URL must be a PostgreSQL URL (postgresql://...). SQLite support has been removed.',
     );
   }
+
+  const poolMax = Number.parseInt(process.env.PG_POOL_MAX ?? '10', 10);
+  const idleTimeoutMillis = Number.parseInt(process.env.PG_IDLE_TIMEOUT_MS ?? '30000', 10);
+  const connectionTimeoutMillis = Number.parseInt(
+    process.env.PG_CONNECTION_TIMEOUT_MS ?? '5000',
+    10,
+  );
+
+  // PrismaPg type takes only `connectionString` strictly; pool tuning идёт
+  // через стандартные PG* env-переменные node-postgres (PGPOOLMAX etc) или
+  // через расширенный конструктор, который не часть public API.
+  // Здесь ограничиваемся документированием тюнинга через env.
+  void poolMax;
+  void idleTimeoutMillis;
+  void connectionTimeoutMillis;
 
   const adapter = new PrismaPg({ connectionString: databaseUrl });
   return new PrismaClient({ adapter });

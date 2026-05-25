@@ -145,34 +145,17 @@ export async function createMultipleVotes(req: Request, res: Response): Promise<
       return;
     }
 
-    // 1. Получаем текущие голоса пользователя
-    const currentVotes = await VoteService.getUserVotes(pollId, userId);
-    const currentMenuItemIds = currentVotes.map(v => v.menuItemId!);
+    // P1-4: атомарная замена набора голосов через одну Prisma-транзакцию.
+    // Раньше: N+1 (N delete + M create + 2 read), не race-safe относительно
+    // параллельных голосов того же пользователя. Теперь — один round-trip.
+    const { votes: updatedVotes } = await VoteService.replaceUserVotes(
+      pollId,
+      userId,
+      uniqueMenuItemIds,
+    );
 
-    // 2. Определяем, какие голоса добавить, а какие удалить
-    const toAdd = uniqueMenuItemIds.filter(id => !currentMenuItemIds.includes(id));
-    const toRemove = currentMenuItemIds.filter(id => !uniqueMenuItemIds.includes(id));
-
-    // 3. Удаляем голоса за неотмеченные блюда
-    for (const menuItemId of toRemove) {
-      await VoteService.deleteVote(pollId, userId, menuItemId);
-      logger.info(`Removed vote: user ${userId}, poll ${pollId}, item ${menuItemId}`);
-    }
-
-    // 4. Добавляем голоса за новые блюда
-    for (const menuItemId of toAdd) {
-      await VoteService.createVote({
-        pollId,
-        userId,
-        menuItemId,
-      });
-      logger.info(`Added vote: user ${userId}, poll ${pollId}, item ${menuItemId}`);
-    }
-
-    // 5. Возвращаем обновленный список голосов
-    const updatedVotes = await VoteService.getUserVotes(pollId, userId);
-
-    // 6. Проверяем кворум — все ли ожидаемые проголосовали (авто-закрытие)
+    // Проверяем кворум — все ли ожидаемые проголосовали (авто-закрытие).
+    // Не блокируем ответ клиенту, если кворум-чек упал.
     try {
       await PollService.checkQuorumAndComplete(pollId);
     } catch (error) {

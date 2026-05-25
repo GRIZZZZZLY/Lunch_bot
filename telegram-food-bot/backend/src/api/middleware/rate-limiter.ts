@@ -11,6 +11,22 @@ import rateLimit, {
 import { Request, Response, NextFunction } from 'express';
 import { apiConfig } from '../../config/api.config';
 import { logger } from '../../utils/logger';
+import { metricsService } from '../../services/metrics.service';
+
+/**
+ * P0-8: единый учёт 429 в Prometheus + log.warn.
+ * Передаём bucket-имя ('general' | 'auth' | 'vote' | ...) чтобы видеть, какой
+ * лимитер срезает чаще всего. Route нормализуем до базового пути — без
+ * параметров, чтобы лейблы не взорвали cardinality.
+ */
+function recordRateLimit429(req: Request, bucket: string): void {
+  try {
+    const route = (req.baseUrl ?? '') + (req.route?.path ?? req.path ?? 'unknown');
+    metricsService.incrementRateLimit429(bucket, route);
+  } catch {
+    /* never let metrics break the response */
+  }
+}
 
 /**
  * Стандартный формат ответа при превышении лимита
@@ -21,6 +37,7 @@ const rateLimitResponse = (req: Request, res: Response) => {
     path: req.path,
     userId: (req as any).user?.id,
   });
+  recordRateLimit429(req, 'general');
 
   res.status(429).json({
     success: false,
@@ -112,6 +129,7 @@ export const authLimiter: RateLimitRequestHandler =
             path: req.path,
             environment: process.env.NODE_ENV,
           });
+          recordRateLimit429(req, 'auth');
 
           const waitMinutes = Math.ceil(
             apiConfig.security.authRateLimitWindowMs / (60 * 1000)
@@ -167,6 +185,7 @@ export const voteLimiter: RateLimitRequestHandler =
             ip: req.ip,
             userId: (req as any).user?.id,
           });
+          recordRateLimit429(req, 'vote');
 
           res.status(429).json({
             success: false,
@@ -198,6 +217,7 @@ export const pollCreationLimiter: RateLimitRequestHandler =
             ip: req.ip,
             userId: (req as any).user?.id,
           });
+          recordRateLimit429(req, 'poll-creation');
 
           res.status(429).json({
             success: false,
@@ -229,6 +249,7 @@ export const reminderLimiter: RateLimitRequestHandler =
             ip: req.ip,
             userId: (req as any).user?.id,
           });
+          recordRateLimit429(req, 'reminder');
 
           res.status(429).json({
             success: false,

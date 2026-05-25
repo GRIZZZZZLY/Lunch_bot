@@ -51,6 +51,7 @@
     "license": "MIT",
     "dependencies": {
         "@grammyjs/auto-retry": "^2.0.2",
+        "@grammyjs/transformer-throttler": "^1.2.1",
         "@prisma/adapter-better-sqlite3": "^7.7.0",
         "@prisma/adapter-pg": "^7.8.0",
         "@prisma/client": "^7.3.0",

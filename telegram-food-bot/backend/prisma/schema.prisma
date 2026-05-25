@@ -126,17 +126,21 @@ model Poll {
   @@index([startedAt])
   @@index([status, startedAt])
   @@index([groupId, status])
+  // P0-2: hot path getActivePollsForGroup + history listing — фильтр groupId+status
+  // и сортировка по createdAt DESC. Без этого индекса Postgres сначала фильтрует,
+  // потом сортирует — на 10k+ polls'ах ощутимо.
+  @@index([groupId, status, createdAt(sort: Desc)])
   @@map("polls")
 }
 
 model PollParticipant {
-  id        Int                   @id @default(autoincrement())
-  pollId    Int                   @map("poll_id")
-  userId    Int                   @map("user_id")
-  status    String                @default("EXPECTED")
+  id        Int      @id @default(autoincrement())
+  pollId    Int      @map("poll_id")
+  userId    Int      @map("user_id")
+  status    String   @default("EXPECTED")
   reason    String?
-  createdAt DateTime              @default(now()) @map("created_at")
-  updatedAt DateTime              @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -223,6 +227,9 @@ model Transaction {
   @@index([fromUserId, status])
   @@index([toUserId, status])
   @@index([categoryOrderId])
+  // P0-2: hot path getPollTotals / poll-cost-breakdown — фильтр pollId+status
+  // (PENDING / PAID / CONFIRMED) на тяжёлой таблице транзакций.
+  @@index([pollId, status])
   @@map("transactions")
 }
 
@@ -754,23 +761,31 @@ model StoreRun {
 // ============================================
 
 model Donation {
-  id           String    @id @default(cuid())
-  userId       Int       @map("user_id")
-  amountRub    Int       @map("amount_rub")
-  amountStars  Int?      @map("amount_stars")
-  amountCrypto String?   @map("amount_crypto")
-  method       String    // STARS | WALLET | SBP_MANUAL
-  status       String    @default("PENDING") // PENDING | PENDING_MANUAL | CONFIRMED | FAILED | EXPIRED
-  externalId   String?   @unique @map("external_id") // Stars chargeId / Wallet orderId
-  metadata     String?
-  createdAt    DateTime  @default(now()) @map("created_at")
-  confirmedAt  DateTime? @map("confirmed_at")
+  id             String    @id @default(cuid())
+  userId         Int       @map("user_id")
+  amountRub      Int       @map("amount_rub")
+  amountStars    Int?      @map("amount_stars")
+  amountCrypto   String?   @map("amount_crypto")
+  method         String // STARS | WALLET | SBP_MANUAL (legacy free-form)
+  // P1-8: нормализованный канал для агрегатной аналитики (Grafana разбивка
+  // конверсии Stars / SBP / Wallet / Other). `method` оставлен legacy для
+  // backward compat и обогащения текстовыми кодами от провайдеров.
+  paymentChannel String?   @map("payment_channel") // STARS | SBP | WALLET | OTHER
+  status         String    @default("PENDING") // PENDING | PENDING_MANUAL | CONFIRMED | FAILED | EXPIRED
+  externalId     String?   @unique @map("external_id") // Stars chargeId / Wallet orderId
+  metadata       String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  confirmedAt    DateTime? @map("confirmed_at")
 
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([status, method])
   @@index([createdAt])
+  // P0-2: user-facing donation history (мой список платежей по статусу).
+  @@index([userId, status])
+  // P1-8: groupBy(paymentChannel, status) для «conversion by channel».
+  @@index([paymentChannel, status])
   @@map("donations")
 }
 
