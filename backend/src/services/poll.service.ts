@@ -373,22 +373,51 @@ export class PollService {
   }
 
   /**
-   * Получение всех активных голосований (С КЭШИРОВАНИЕМ)
+   * Получение всех активных голосований (С КЭШИРОВАНИЕМ — P1-2).
+   * TTL: CACHE_TTL.ACTIVE_POLLS (30s). Invalidation идёт через
+   * CacheInvalidator.invalidatePoll() / .invalidateVote() — там уже сбрасываются
+   * ACTIVE_POLLS и ACTIVE_POLLS_GROUP. На burst-нагрузке полностью убирает
+   * повторные тяжёлые findMany с include votes+user+menuItem.
    */
   static async getActivePolls(groupIds?: number[]): Promise<any[]> {
     try {
-      logger.info('🔍 Fetching active polls...');
-
       if (groupIds && groupIds.length === 0) {
         return [];
       }
 
-      const where: Prisma.PollWhereInput = {
-        status: 'ACTIVE',
-        ...(groupIds ? { groupId: { in: groupIds } } : {}),
-      };
-      
-      const polls = await prisma.poll.findMany({
+      // Ключ кеша: один глобальный, либо стабильный отсортированный hash групп.
+      // Один групп-id → используем готовый ACTIVE_POLLS_GROUP(id). Несколько →
+      // ставим стабильный детерминированный ключ.
+      const cacheKey =
+        groupIds === undefined
+          ? CACHE_KEYS.ACTIVE_POLLS
+          : groupIds.length === 1
+            ? CACHE_KEYS.ACTIVE_POLLS_GROUP(groupIds[0])
+            : `${CACHE_KEYS.ACTIVE_POLLS}_${[...groupIds].sort((a, b) => a - b).join('_')}`;
+
+      return await cacheService.getOrSet(
+        cacheKey,
+        () => this.fetchActivePollsRaw(groupIds),
+        CACHE_TTL.ACTIVE_POLLS,
+      );
+    } catch (error: any) {
+      logger.error('❌ Error getting active polls:', {
+        message: error.message,
+        stack: error.stack,
+      });
+      throw error;
+    }
+  }
+
+  private static async fetchActivePollsRaw(groupIds?: number[]): Promise<any[]> {
+    logger.info('🔍 Fetching active polls (cache miss)...');
+
+    const where: Prisma.PollWhereInput = {
+      status: 'ACTIVE',
+      ...(groupIds ? { groupId: { in: groupIds } } : {}),
+    };
+
+    const polls = await prisma.poll.findMany({
         where,
         include: {
           group: {
@@ -460,23 +489,14 @@ export class PollService {
       
       logger.info(`✅ Returning ${activePolls.length} active polls`);
       
-      // Convert BigInt to string for JSON serialization
-      const serializedPolls = activePolls.map(poll => ({
-        ...poll,
-        chatId: poll.chatId ? poll.chatId.toString() : null,
-      }));
-      
-      return serializedPolls;
-    } catch (error: any) {
-      logger.error('❌ Error getting active polls:', {
-        message: error.message,
-        stack: error.stack,
-      });
-      throw error;
-    }
+    // Convert BigInt to string for JSON serialization
+    const serializedPolls = activePolls.map((poll) => ({
+      ...poll,
+      chatId: poll.chatId ? poll.chatId.toString() : null,
+    }));
+
+    return serializedPolls;
   }
-
-
 
   /**
    * Завершение голосования

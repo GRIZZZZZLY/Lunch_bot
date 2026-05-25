@@ -23,13 +23,24 @@ export function initSentry() {
     return;
   }
 
+  // P0-6: release tag = git SHA (или версия из package.json как fallback).
+  // Sentry группирует регрессии по release; без тега любой p95-выброс непонятно
+  // в какой деплой попадает. SENTRY_RELEASE можно проставить из CI:
+  //   SENTRY_RELEASE=$(git rev-parse --short HEAD) pm2 reload
+  const release =
+    process.env.SENTRY_RELEASE ||
+    process.env.GIT_COMMIT_SHA ||
+    process.env.npm_package_version ||
+    undefined;
+
   Sentry.init({
     dsn: sentryDsn,
     environment,
-    
+    release,
+
     // Отслеживание производительности
     tracesSampleRate: environment === 'production' ? 0.1 : 1.0,
-    
+
     // Профилирование
     profilesSampleRate: environment === 'production' ? 0.1 : 1.0,
     integrations: [
@@ -38,17 +49,46 @@ export function initSentry() {
 
     // Фильтрация чувствительных данных
     beforeSend(event, hint) {
-      // Удаляем токены из данных
+      // P0-6: расширенный PII скраб.
+      // Auth headers
       if (event.request?.headers) {
-        delete event.request.headers['authorization'];
-        delete event.request.headers['x-telegram-bot-token'];
+        const h = event.request.headers as Record<string, unknown>;
+        for (const key of [
+          'authorization',
+          'cookie',
+          'set-cookie',
+          'x-telegram-bot-token',
+          'x-telegram-init-data',
+          'idempotency-key',
+        ]) {
+          delete h[key];
+        }
       }
 
-      // Удаляем чувствительные переменные окружения
+      // Чувствительные env-переменные
       if (event.contexts?.runtime?.env) {
         const env = event.contexts.runtime.env as any;
-        delete env.TELEGRAM_BOT_TOKEN;
-        delete env.JWT_SECRET;
+        for (const key of [
+          'TELEGRAM_BOT_TOKEN',
+          'BOT_TOKEN',
+          'JWT_SECRET',
+          'DATABASE_URL',
+          'SENTRY_DSN',
+          'GLITCHTIP_DSN',
+          'REDIS_URL',
+          'DB_PASSWORD',
+        ]) {
+          delete env[key];
+        }
+      }
+
+      // Параметры запроса/body иногда содержат telegramId, username — для
+      // ошибок этого достаточно как контекст, но НЕ для PII-полей вроде phone.
+      if (event.request?.data && typeof event.request.data === 'object') {
+        const data = event.request.data as Record<string, unknown>;
+        for (const key of ['paymentCard', 'paymentPhone', 'phone', 'cardNumber']) {
+          if (key in data) data[key] = '[Filtered]';
+        }
       }
 
       return event;

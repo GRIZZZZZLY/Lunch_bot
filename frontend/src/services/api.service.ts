@@ -1,5 +1,18 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosProgressEvent } from 'axios';
 
+/**
+ * Стабильный generator уникальных Idempotency-Key. Использует crypto.randomUUID,
+ * если есть; иначе делает fallback на timestamp+random. Формат совместим с
+ * валидатором backend middleware/idempotency.ts (8..200, [A-Za-z0-9_\-:.]).
+ */
+function generateIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // fallback: достаточно случайно, чтобы коллизии в окне 24h были крайне редки.
+  return `idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
@@ -58,11 +71,26 @@ class ApiService {
   }
 
   private setupInterceptors() {
-    // Request interceptor для добавления токена
+    // Request interceptor для добавления токена + автогенерации Idempotency-Key.
+    // P0/G0-8: каждый POST/PATCH/DELETE без явного Idempotency-Key получает
+    // свеже-сгенерированный uuid. Бэкенд (middleware/idempotency.ts) дедуплицирует
+    // повторные запросы — это убирает дубли при double-tap, network-retry, race.
+    //
+    // ВАЖНО: для ретраев одной и той же операции клиент должен ПЕРЕИСПОЛЬЗОВАТЬ
+    // тот же Idempotency-Key (передавать в config.headers явно). React Query
+    // делает это автоматически, если ключ зафиксирован в mutationFn closure.
     this.client.interceptors.request.use(
       (config) => {
         if (this.token) {
           config.headers.Authorization = `Bearer ${this.token}`;
+        }
+
+        const method = (config.method ?? 'get').toUpperCase();
+        if (['POST', 'PATCH', 'DELETE'].includes(method)) {
+          const existing = config.headers['Idempotency-Key'] ?? config.headers['idempotency-key'];
+          if (!existing) {
+            config.headers['Idempotency-Key'] = generateIdempotencyKey();
+          }
         }
         return config;
       },

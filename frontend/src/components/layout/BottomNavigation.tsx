@@ -94,12 +94,60 @@ export const BottomNavigation: React.FC = () => {
     navigate(path);
   };
 
-  // Prefetch для оптимизации /vote перехода
-  const prefetchVoteData = useCallback(() => {
-    // Prefetch активных голосований для мгновенного перехода
-    pollsService.getActivePolls().catch(() => {
-      // Ignore errors on prefetch
-    });
+  // P1-7: Prefetch для актуальных вкладок.
+  // Стратегия:
+  //  - "/" — точно знаем сервис (active polls), греем заранее.
+  //  - "/menu", "/stats", "/profile" — feature-detect через optional methods
+  //    в лениво-загружаемом модуле. Если такого метода нет — silent no-op,
+  //    не падаем TS-чек и не ломаем UI.
+  // Прогрев попадает в React Query кеш, повторные hover'ы дешёвые.
+  const prefetchByPath = useCallback((path: string) => {
+    try {
+      if (path === '/') {
+        pollsService.getActivePolls().catch(() => undefined);
+        return;
+      }
+
+      const tryCall = (mod: Record<string, unknown>, methodName: string) => {
+        for (const exportName of Object.keys(mod)) {
+          const exp = mod[exportName] as Record<string, unknown> | undefined;
+          const fn = exp?.[methodName];
+          if (typeof fn === 'function') {
+            try {
+              const result = (fn as () => unknown).call(exp);
+              if (result && typeof (result as Promise<unknown>).catch === 'function') {
+                (result as Promise<unknown>).catch(() => undefined);
+              }
+            } catch {
+              /* swallow */
+            }
+            return;
+          }
+        }
+      };
+
+      switch (path) {
+        case '/menu':
+          void import('../../services/menu.service').then((m) => {
+            tryCall(m as Record<string, unknown>, 'getMenuItems');
+          });
+          break;
+        case '/stats':
+          void import('../../services/polls.service').then((m) => {
+            tryCall(m as Record<string, unknown>, 'getPollHistory');
+          });
+          break;
+        case '/profile':
+          void import('../../services/user.service').then((m) => {
+            tryCall(m as Record<string, unknown>, 'getProfile');
+          });
+          break;
+        default:
+          break;
+      }
+    } catch {
+      // prefetch не должен сломать UI
+    }
   }, []);
 
   return (
@@ -136,18 +184,8 @@ export const BottomNavigation: React.FC = () => {
               key={item.path}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleNavigation(item.path)}
-              onMouseEnter={() => {
-                // Prefetch на hover для desktop
-                if (item.path === '/vote') {
-                  prefetchVoteData();
-                }
-              }}
-              onTouchStart={() => {
-                // Prefetch на touch для mobile
-                if (item.path === '/vote') {
-                  prefetchVoteData();
-                }
-              }}
+              onMouseEnter={() => prefetchByPath(item.path)}
+              onTouchStart={() => prefetchByPath(item.path)}
               aria-label={`Перейти на ${item.label}`}
               aria-current={isActive ? 'page' : undefined}
               role="tab"

@@ -1,5 +1,6 @@
 import { Bot, session, BotConfig } from 'grammy';
 import { autoRetry } from '@grammyjs/auto-retry';
+import { apiThrottler } from '@grammyjs/transformer-throttler';
 import { BotContext, SessionData } from '../types/bot.types';
 import { botConfig } from '../config/bot.config';
 import { logger } from '../utils/logger';
@@ -114,6 +115,23 @@ export function createBot(): Bot<BotContext> {
   
   botInstance = new Bot<BotContext>(botConfig.token, gramBotConfig);
   const bot = botInstance;
+
+  // 🚦 Phase 0 (G0-7): Proactive outbound throttle for Telegram Bot API.
+  // Telegram limits: 30 msg/sec global, 1 msg/sec per chat, 20 msg/min per group.
+  // Without this, notifyGroupMembersAboutStoreRun() / sendPollEndedNotification()
+  // fan out Promise.all(sendMessage) and hit flood-limit on the first 30+ member
+  // group. The throttler queues outbound calls so we stay under Telegram's quota
+  // BEFORE auto-retry is even needed.
+  //
+  // ORDER MATTERS: throttler must be registered BEFORE auto-retry so retries
+  // re-enter the throttle queue instead of stacking up against the limit.
+  bot.api.config.use(
+    apiThrottler({
+      global: { reservoir: 30, reservoirRefreshAmount: 30, reservoirRefreshInterval: 1000 },
+      group: { reservoir: 20, reservoirRefreshAmount: 20, reservoirRefreshInterval: 60_000 },
+      out: { maxConcurrent: 1, minTime: 1000 },
+    }),
+  );
 
   // 🔁 Auto-retry on transient Telegram API failures.
   // Honors RETRY_AFTER on 429 (flood limit) and retries 5xx / network errors

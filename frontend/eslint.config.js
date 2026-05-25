@@ -99,6 +99,35 @@ export default [
           message: 'Use safeLocalStorage from utils/safeLocalStorage instead of direct localStorage access. Polls must NOT be cached (CLAUDE.md).',
         },
       ],
+      // P0-5: запрещаем barrel-импорт из react-confetti и (опционально) lucide-react.
+      // react-confetti: грузим только через LazyConfetti wrapper, иначе подсасывается
+      // в initial bundle.
+      // lucide-react: в текущей версии (^0.552) ESM tree-shaking уже работает с
+      // обычными импортами из 'lucide-react', поэтому ENFORCEMENT отключаем —
+      // ставим только предупреждение про confetti. Если бандл-визуализатор покажет
+      // lucide в vendor — раскомментировать второе правило.
+      'no-restricted-imports': [
+        'warn',
+        {
+          paths: [
+            {
+              name: 'react-confetti',
+              message: 'Use LazyConfetti from @/components/common/LazyConfetti (P0-5: keep confetti out of initial bundle).',
+            },
+            // {
+            //   name: 'lucide-react',
+            //   message: 'Import icons directly: `import { Check } from "lucide-react/dist/esm/icons/check"`.',
+            // },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // LazyConfetti — сам wrapper имеет право импортировать react-confetti.
+    files: ['src/components/common/LazyConfetti.tsx'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
   {

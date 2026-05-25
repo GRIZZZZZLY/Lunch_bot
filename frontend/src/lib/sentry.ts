@@ -29,14 +29,21 @@ export function initSentry() {
     // Environment
     environment: import.meta.env.MODE, // 'production', 'development', 'staging'
     
-    // Release tracking
-    release: `telegram-food-bot@${import.meta.env.VITE_APP_VERSION || '1.0.0'}`,
+    // P0-6: release tag = git SHA если задан VITE_GIT_COMMIT_SHA, иначе версия.
+    // CI должен инжектить SHA в env при build: VITE_GIT_COMMIT_SHA=$GITHUB_SHA npm run build.
+    release: `telegram-food-bot@${
+      import.meta.env.VITE_GIT_COMMIT_SHA ||
+      import.meta.env.VITE_APP_VERSION ||
+      '1.0.0'
+    }`,
     
     // Integrations
     integrations: [
-      // Browser Tracing для performance monitoring
+      // Browser Tracing для performance monitoring. tracePropagationTargets
+      // вынесен на уровень init (Sentry SDK v10) — там он распространяет
+      // sentry-trace/baggage на fetch/XHR, что и нужно для end-to-end трейсов.
       Sentry.browserTracingIntegration(),
-      
+
       // Session Replay для воспроизведения ошибок
       Sentry.replayIntegration({
         // Маскируем чувствительные данные
@@ -44,9 +51,18 @@ export function initSentry() {
         maskAllInputs: true,
         blockAllMedia: true,
       }),
-      
+
       // React error boundary
       Sentry.browserProfilingIntegration(),
+    ],
+
+    // G0-3: Распространение sentry-trace/baggage на /api/* и наш домен.
+    // Без этого server- и client-spans лежат в разных трейсах,
+    // и end-to-end p95 «vote» собрать нельзя.
+    tracePropagationTargets: [
+      /^\//,
+      /^https?:\/\/rocket-lunch\.duckdns\.org/,
+      /^https?:\/\/[^/]+\/api\//,
     ],
 
     // Performance Monitoring

@@ -3,8 +3,13 @@ import { BudgetController } from '../controllers/budget.controller';
 import { BudgetService } from '../../services/budget.service';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { reminderLimiter, writeLimiter } from '../middleware/rate-limiter';
+import { createIdempotencyMiddleware } from '../middleware/idempotency';
 
 const router = Router();
+
+// G0-8: критично для платёжных переходов — double-tap на mark-paid/confirm
+// без дедупликации = дублирующая транзакция в БД.
+const budgetIdempotency = createIdempotencyMiddleware({ scope: 'budget' });
 
 // Initialize service and controller
 const budgetService = new BudgetService();
@@ -24,11 +29,11 @@ router.get('/order-costs/:pollId', (req, res) => budgetController.getOrderCosts(
 router.get('/poll-breakdown/:pollId', (req, res) => budgetController.getPollCostBreakdown(req, res));
 
 // POST routes
-router.post('/mark-paid', writeLimiter, (req, res) => budgetController.markAsPaid(req, res));
-router.post('/confirm-payment', writeLimiter, (req, res) => budgetController.confirmPayment(req, res));
-router.post('/cancel-mark', writeLimiter, (req, res) => budgetController.cancelMark(req, res));
-router.post('/send-reminder', reminderLimiter, (req, res) => budgetController.sendReminder(req, res));
-router.post('/send-reminders-all', reminderLimiter, (req, res) => budgetController.sendRemindersAll(req, res));
+router.post('/mark-paid', writeLimiter, budgetIdempotency, (req, res) => budgetController.markAsPaid(req, res));
+router.post('/confirm-payment', writeLimiter, budgetIdempotency, (req, res) => budgetController.confirmPayment(req, res));
+router.post('/cancel-mark', writeLimiter, budgetIdempotency, (req, res) => budgetController.cancelMark(req, res));
+router.post('/send-reminder', reminderLimiter, budgetIdempotency, (req, res) => budgetController.sendReminder(req, res));
+router.post('/send-reminders-all', reminderLimiter, budgetIdempotency, (req, res) => budgetController.sendRemindersAll(req, res));
 
 // Cost splitting POST routes
 router.post('/order-costs/:pollId', (req, res) => budgetController.setOrderCosts(req, res));

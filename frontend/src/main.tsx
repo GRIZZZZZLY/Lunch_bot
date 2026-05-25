@@ -7,6 +7,7 @@ import './styles/index.css';
 import './utils/debugLogger'; // Инициализация debug logger
 import App from './App';
 import { initSentry } from './lib/sentry';
+import { initWebVitals } from './lib/web-vitals';
 import { handleStartupUpdate } from './utils/versionCheck';
 
 const resetAppState = async (): Promise<void> => {
@@ -40,6 +41,10 @@ const resetAppState = async (): Promise<void> => {
 void resetAppState().then(() => {
   // Инициализация Sentry (P1.2 - Error Tracking)
   initSentry();
+
+  // Phase 0 (G0-4): Core Web Vitals → Sentry. Должно идти ПОСЛЕ initSentry,
+  // иначе getActiveSpan() вернёт undefined и метрики не прицепятся к транзакции.
+  initWebVitals();
 
   // Обработка обновлений при запуске
   handleStartupUpdate();
