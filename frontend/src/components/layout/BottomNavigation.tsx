@@ -95,56 +95,16 @@ export const BottomNavigation: React.FC = () => {
   };
 
   // P1-7: Prefetch для актуальных вкладок.
-  // Стратегия:
-  //  - "/" — точно знаем сервис (active polls), греем заранее.
-  //  - "/menu", "/stats", "/profile" — feature-detect через optional methods
-  //    в лениво-загружаемом модуле. Если такого метода нет — silent no-op,
-  //    не падаем TS-чек и не ломаем UI.
-  // Прогрев попадает в React Query кеш, повторные hover'ы дешёвые.
+  // pollsService импортирован статически (см. import выше) — dynamic import
+  // не имеет смысла и ругается на «statically + dynamically imported».
+  // Для menu/stats/profile префетч можно подключить когда соответствующие
+  // сервисы получат public read-методы (см. PHASE_2_RUNBOOK § P1-7 todo).
   const prefetchByPath = useCallback((path: string) => {
     try {
       if (path === '/') {
         pollsService.getActivePolls().catch(() => undefined);
-        return;
       }
-
-      const tryCall = (mod: Record<string, unknown>, methodName: string) => {
-        for (const exportName of Object.keys(mod)) {
-          const exp = mod[exportName] as Record<string, unknown> | undefined;
-          const fn = exp?.[methodName];
-          if (typeof fn === 'function') {
-            try {
-              const result = (fn as () => unknown).call(exp);
-              if (result && typeof (result as Promise<unknown>).catch === 'function') {
-                (result as Promise<unknown>).catch(() => undefined);
-              }
-            } catch {
-              /* swallow */
-            }
-            return;
-          }
-        }
-      };
-
-      switch (path) {
-        case '/menu':
-          void import('../../services/menu.service').then((m) => {
-            tryCall(m as Record<string, unknown>, 'getMenuItems');
-          });
-          break;
-        case '/stats':
-          void import('../../services/polls.service').then((m) => {
-            tryCall(m as Record<string, unknown>, 'getPollHistory');
-          });
-          break;
-        case '/profile':
-          void import('../../services/user.service').then((m) => {
-            tryCall(m as Record<string, unknown>, 'getProfile');
-          });
-          break;
-        default:
-          break;
-      }
+      // /menu, /stats, /profile — TODO когда сервисы получат cache-friendly методы.
     } catch {
       // prefetch не должен сломать UI
     }

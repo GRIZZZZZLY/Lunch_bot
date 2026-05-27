@@ -173,8 +173,9 @@ export default defineConfig({
         safari10: true, // Safari 10 compatibility
       },
     },
-    // Уменьшаем лимит для warning о размере chunk
-    chunkSizeWarningLimit: 500,
+    // Лимит для warning о размере chunk. Поднят с 500 → 700 после vendor split:
+    // вендор разрезан на 8+ chunk'ов, ни один не должен превышать 700 KB raw.
+    chunkSizeWarningLimit: 700,
     // Reportизм размера компонентов
     reportCompressedSize: true,
     rollupOptions: {
@@ -188,28 +189,83 @@ export default defineConfig({
         warn(warning);
       },
       output: {
-        // Safe chunk splitting - tested to avoid circular dependencies
+        // Safe chunk splitting - tested to avoid circular dependencies.
+        // Стратегия: режем vendor (был 653 KB) на доменные группы; каждая
+        // загружается отдельно и кешируется браузером независимо. Меняется
+        // одна зависимость — переинвалидируется только её chunk, остальные
+        // остаются в кеше.
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            // Charts - lazy loaded with StatsPage only
-            if (id.includes('/recharts/') || id.includes('\\recharts\\')) {
-              return 'charts';
-            }
-            // Framer Motion - animation library (~100 KB)
-            if (id.includes('/framer-motion/') || id.includes('\\framer-motion\\')) {
-              return 'animations';
-            }
-            // Radix UI - component library (~50 KB)
-            if (id.includes('/@radix-ui/') || id.includes('\\@radix-ui\\')) {
-              return 'ui-libs';
-            }
-            // React Query - data fetching library (~45 KB)
-            if (id.includes('/@tanstack/react-query') || id.includes('\\@tanstack\\react-query')) {
-              return 'query-libs';
-            }
-            // Everything else (including React) in vendor chunk
-            return 'vendor';
+          if (!id.includes('node_modules')) return undefined;
+          const path = id.replace(/\\/g, '/');
+
+          // Lazy heavy — грузится только когда нужно
+          if (path.includes('/recharts/')) return 'charts';
+          if (path.includes('/react-confetti/') || path.includes('/canvas-confetti/')) return 'confetti';
+          if (path.includes('/embla-carousel') || path.includes('/react-day-picker/') || path.includes('/react-window')) return 'carousel-window';
+
+          // Animation
+          if (path.includes('/framer-motion/')) return 'animations';
+
+          // UI primitives
+          if (path.includes('/@radix-ui/')) return 'ui-libs';
+          if (path.includes('/lucide-react/')) return 'icons';
+          if (path.includes('/sonner/') || path.includes('/vaul/') || path.includes('/cmdk/')) return 'ui-extras';
+
+          // Data layer
+          if (path.includes('/@tanstack/')) return 'query-libs';
+          if (path.includes('/zustand/') || path.includes('/localforage/')) return 'state';
+
+          // Networking
+          if (path.includes('/axios/')) return 'http';
+
+          // Forms + validation
+          if (
+            path.includes('/react-hook-form/') ||
+            path.includes('/@hookform/') ||
+            path.includes('/zod/') ||
+            path.includes('/@autoform/')
+          ) {
+            return 'forms';
           }
+
+          // Date
+          if (path.includes('/date-fns/')) return 'dates';
+
+          // Security / sanitize
+          if (path.includes('/dompurify/')) return 'sanitize';
+
+          // Telegram SDK
+          if (path.includes('/@twa-dev/') || path.includes('/@telegram-apps/')) return 'telegram-sdk';
+
+          // Sentry
+          if (path.includes('/@sentry/') || path.includes('/web-vitals/')) return 'observability';
+
+          // React core (must include scheduler + jsx-runtime для dedupe)
+          if (
+            path.endsWith('/react/index.js') ||
+            path.includes('/react/jsx-runtime') ||
+            path.includes('/react/jsx-dev-runtime') ||
+            path.includes('/react-dom/') ||
+            path.includes('/scheduler/') ||
+            path.includes('/react/cjs/')
+          ) {
+            return 'react-core';
+          }
+          if (path.includes('/react-router')) return 'router';
+
+          // Микро-утилиты — пусть лежат вместе чтоб не плодить чанки
+          if (
+            path.includes('/clsx/') ||
+            path.includes('/tailwind-merge/') ||
+            path.includes('/class-variance-authority/') ||
+            path.includes('/react-swipeable/') ||
+            path.includes('/react-virtualized-auto-sizer/')
+          ) {
+            return 'utils';
+          }
+
+          // Остальное — общий vendor (должен быть тонким)
+          return 'vendor';
         },
         // Именование chunk файлов для лучшего кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
