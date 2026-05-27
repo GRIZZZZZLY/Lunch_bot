@@ -124,8 +124,17 @@ export default [
     },
   },
   {
-    // LazyConfetti — сам wrapper имеет право импортировать react-confetti.
-    files: ['src/components/common/LazyConfetti.tsx'],
+    // Whitelist: файлы, которые сами реализуют lazy-loading react-confetti.
+    // LazyConfetti — общий wrapper. Остальные 4 — исторические lazy-импорты,
+    // которые тоже сделаны правильно (React.lazy → отдельный chunk).
+    // Новые callsite должны идти через LazyConfetti, чтобы не плодить wrapper'ы.
+    files: [
+      'src/components/common/LazyConfetti.tsx',
+      'src/components/polls/ConfettiAnimation.tsx',
+      'src/components/budget/SuccessMessageView.tsx',
+      'src/components/donation/PaymentSuccess.tsx',
+      'src/components/menu/SuggestDishForm.tsx',
+    ],
     rules: {
       'no-restricted-imports': 'off',
     },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
@@ -12,16 +12,33 @@ import { GlassCard } from '../components/ui/glass-card';
 // import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 // BottomNavigation rendered globally in App.tsx — не импортируем здесь
 
-// Poll components
+// Poll components — критичные на первом экране
 import { InlineVotingCard } from '../components/voting/InlineVotingCard';
-import { RouletteRevealOverlay } from '../components/voting/RouletteRevealOverlay';
-import { CreatePollForm } from '../components/polls/CreatePollForm';
-import { CompletedPollWidget } from '../components/polls/CompletedPollWidget';
-import { TopDishModal } from '../components/modals/TopDishModal';
 
-// Budget components
-import { BudgetWidgetWithCalculator } from '../components/budget/BudgetWidgetWithCalculator';
-import { CalculatorModal } from '../components/budget/CalculatorModal';
+// Lazy: показываются не на каждом рендере, тащат heavy зависимости.
+// RouletteRevealOverlay — только во время reveal анимации.
+// CreatePollForm — только когда пользователь жмёт "создать".
+// CompletedPollWidget — только если есть completed poll за день.
+// TopDishModal / CalculatorModal — модалки, открываются по action.
+// BudgetWidgetWithCalculator — только если есть долги/кредиты (heavy: ~30 KB).
+const RouletteRevealOverlay = lazy(() =>
+  import('../components/voting/RouletteRevealOverlay').then((m) => ({ default: m.RouletteRevealOverlay })),
+);
+const CreatePollForm = lazy(() =>
+  import('../components/polls/CreatePollForm').then((m) => ({ default: m.CreatePollForm })),
+);
+const CompletedPollWidget = lazy(() =>
+  import('../components/polls/CompletedPollWidget').then((m) => ({ default: m.CompletedPollWidget })),
+);
+const TopDishModal = lazy(() =>
+  import('../components/modals/TopDishModal').then((m) => ({ default: m.TopDishModal })),
+);
+const BudgetWidgetWithCalculator = lazy(() =>
+  import('../components/budget/BudgetWidgetWithCalculator').then((m) => ({ default: m.BudgetWidgetWithCalculator })),
+);
+const CalculatorModal = lazy(() =>
+  import('../components/budget/CalculatorModal').then((m) => ({ default: m.CalculatorModal })),
+);
 
 // Recurring Polls components
 import { RecurringPollBadge } from '../components/polls/RecurringPollBadge';
