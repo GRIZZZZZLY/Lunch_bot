@@ -100,7 +100,6 @@ export const HomePage: React.FC = () => {
   // State - ВАЖНО: объявляем ДО использования в React Query hooks
   const [activePollOverride, setActivePollOverride] = useState<PollWithDetails | null>(null);
   const [isCreatingPoll, setIsCreatingPoll] = useState(false);
-  const [createPollTab, setCreatePollTab] = useState<'single' | 'recurring'>('single');
   const [showCelebration, setShowCelebration] = useState(false);
   const [justCompletedPollId, setJustCompletedPollId] = useState<number | null>(null);
   const [showRouletteOverlay, setShowRouletteOverlay] = useState(false);
@@ -844,7 +843,6 @@ export const HomePage: React.FC = () => {
                     showRemindAdmin={!user?.isAdmin && !!userGroupId}
                     onCreatePoll={() => {
                       haptic.impact();
-                      setCreatePollTab('single');
                       setIsCreatingPoll(true);
                     }}
                     onRemindAdmin={handleRemindAdmin}
@@ -902,9 +900,7 @@ export const HomePage: React.FC = () => {
               groupId={userGroupId}
               onClick={() => {
                 haptic.impact();
-                setCreatePollTab('recurring');
                 setIsCreatingPoll(true);
-                // TODO: переключить на вкладку "Автоматическое" при открытии
               }}
             />
           </motion.div>
@@ -916,7 +912,6 @@ export const HomePage: React.FC = () => {
             showAdminAction={!!user?.isAdmin && hasAnyPoll}
             onCreatePoll={() => {
               haptic.impact();
-              setCreatePollTab('single');
               setIsCreatingPoll(true);
             }}
             onInviteFriend={handleInviteFriend}
@@ -994,7 +989,6 @@ export const HomePage: React.FC = () => {
                     onSuccess={handlePollCreated}
                     onCancel={() => setIsCreatingPoll(false)}
                     compact={true}
-                    initialTab={createPollTab}
                   />
                 </div>
               </GlassCard>
