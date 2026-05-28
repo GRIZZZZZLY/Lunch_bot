@@ -11,19 +11,16 @@
 
 import { useState, useEffect, useMemo, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Clock, 
-  Users, 
-  CheckCircle2, 
+import {
+  Clock,
+  Users,
+  CheckCircle2,
   Circle,
   AlertCircle,
-  ChevronDown,
-  ChevronUp,
   Check,
   Shuffle,
   X,
-  Zap,
-  RotateCcw,
+  ChevronLeft,
 } from 'lucide-react';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { PastelCard, CardContent } from '../ui/pastel-card';
@@ -35,21 +32,16 @@ import { useHaptic } from '@/hooks/useHaptic';
 import { menuService, MenuItem } from '@/services/menu.service';
 import { userService, Group } from '@/services/user.service';
 import { pollsService } from '@/services/polls.service';
-import { RecurringPollForm } from './RecurringPollForm';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface CreatePollFormProps {
   onSuccess?: (pollId: number) => void;
   onCancel?: () => void;
-  compact?: boolean;
-  initialTab?: 'single' | 'recurring';
 }
 
 export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   onSuccess,
   onCancel,
-  compact = true,
-  initialTab = 'single',
 }) => {
   const { user } = useAuth();
   const haptic = useHaptic();
@@ -88,7 +80,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   }, []);
 
   // State
-  const [activeTab, setActiveTab] = useState<'single' | 'recurring'>(initialTab);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [duration, setDuration] = useState(30);
@@ -96,8 +87,8 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   const maxSelections = 3; // Макс. 3 блюда
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
-  const [showAllItems, setShowAllItems] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState<1 | 2>(1);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,10 +96,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   useEffect(() => {
     loadData();
   }, []);
-
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
 
   const loadData = async () => {
     try {
