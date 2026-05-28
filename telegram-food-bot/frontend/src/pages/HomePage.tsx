@@ -8,7 +8,6 @@ import { Skeleton } from '../components/ui/skeleton';
 
 // Custom components
 import { PastelCard } from '../components/ui/pastel-card';
-import { GlassCard } from '../components/ui/glass-card';
 // import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 // BottomNavigation rendered globally in App.tsx — не импортируем здесь
 
@@ -945,54 +944,31 @@ export const HomePage: React.FC = () => {
         topDish={topDishData}
       />
 
-      {/* Create Poll Modal - Glass Morphism Center Modal */}
+      {/* Create Poll — Bottom Sheet */}
       <AnimatePresence>
         {isCreatingPoll && (
           <>
-            {/* Backdrop with blur */}
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsCreatingPoll(false)}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/50 z-40"
             />
-            
-            {/* Center Modal with Glass Effect */}
+
+            {/* Bottom Sheet */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl max-h-[92vh] overflow-y-auto shadow-2xl"
             >
-              <div className="w-full max-w-2xl max-h-[90vh] pointer-events-auto"
-            >
-              <GlassCard intensity="solid" className="overflow-hidden shadow-2xl">
-                <div className="max-h-[90vh] overflow-y-auto">
-                  {/* Sticky Header with Close button */}
-                  <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border px-6 py-4">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-xl font-bold text-foreground">Создание голосования</h2>
-                      <button
-                        onClick={() => setIsCreatingPoll(false)}
-                        className="p-2 rounded-lg hover:bg-muted transition-colors"
-                        aria-label="Закрыть"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Content */}
-                  <CreatePollForm
-                    onSuccess={handlePollCreated}
-                    onCancel={() => setIsCreatingPoll(false)}
-                    compact={true}
-                  />
-                </div>
-              </GlassCard>
-              </div>
+              <CreatePollForm
+                onSuccess={handlePollCreated}
+                onCancel={() => setIsCreatingPoll(false)}
+              />
             </motion.div>
           </>
         )}
