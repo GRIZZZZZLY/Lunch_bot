@@ -138,6 +138,15 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
     }
   };
 
+  const DURATION_PRESETS = [
+    { label: '15м', value: 15 },
+    { label: '30м', value: 30 },
+    { label: '1ч', value: 60 },
+    { label: '2ч', value: 120 },
+  ];
+
+  const canAdvance = (): boolean => selectedGroupId !== null;
+
   const adminGroups = useMemo(() => {
     if (user?.isAdmin) {
       return groups;
@@ -287,13 +296,11 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   };
 
   // Все блюда без фильтрации
-  const visibleItems = compact && !showAllItems 
-    ? menuItems.slice(0, 5) 
-    : menuItems;
+  const visibleItems = menuItems;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12 bg-white dark:bg-gray-900">
+      <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -303,7 +310,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
 
   if (!canManagePolls) {
     return (
-      <div className="p-6 text-center bg-white dark:bg-gray-900">
+      <div className="p-6 text-center">
         <AlertCircle className={`${ICON_SIZES['2xl']} mx-auto mb-4 text-yellow-500`} />
         <p className="text-gray-600 dark:text-gray-400">
           Только администраторы групп могут запускать голосования
@@ -315,7 +322,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   // Check if no menu items
   if (menuItems.length === 0) {
     return (
-      <div className="p-6 text-center bg-white dark:bg-gray-900">
+      <div className="p-6 text-center">
         <AlertCircle className={cn(
           ICON_SIZES['2xl'],
           "mx-auto mb-4",
@@ -338,8 +345,6 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
       </div>
     );
   }
-
-  const hasMore = compact && menuItems.length > 5;
 
   return (
     <div className="relative space-y-0">
