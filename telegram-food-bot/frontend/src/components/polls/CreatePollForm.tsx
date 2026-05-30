@@ -371,7 +371,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
               )}
             </div>
 
-            <div className="px-6 pb-8 space-y-6">
+            <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] space-y-6">
               {/* Группа */}
               {adminGroups.length > 0 && (
                 <div className="space-y-2">
@@ -549,7 +549,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
               )}
             </div>
 
-            <div className="px-6 pb-8 space-y-4">
+            <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] space-y-4">
               <PastelCard variant="default">
                 <CardContent className="pt-6">
                   {/* Счётчик + действия */}
