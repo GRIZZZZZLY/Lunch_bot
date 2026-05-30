@@ -158,6 +158,31 @@ function AppContent() {
     }
   }, [theme]);
 
+  // Direct Link Mini App: при открытии из группы по ссылке t.me/<bot>/<app>?startapp=vote_<id>
+  // параметр прилетает НЕ в URL, а в initDataUnsafe.start_param. Маппим его в ?pollId=<id>
+  // (или /store-run/<id>), дальше срабатывает обычная логика deep link ниже.
+  useEffect(() => {
+    // Локальный каст: глобальный тип window.Telegram конфликтует между telegram.d.ts и
+    // useHaptic.ts (последний без initDataUnsafe). Каст изолирует доступ к start_param.
+    const tg = window.Telegram?.WebApp as
+      | { initDataUnsafe?: { start_param?: string } }
+      | undefined;
+    const startParam = tg?.initDataUnsafe?.start_param;
+    if (!startParam) return;
+
+    const hasPollId = new URLSearchParams(location.search).get('pollId');
+
+    if (startParam.startsWith('vote_') && location.pathname === '/' && !hasPollId) {
+      const id = startParam.slice('vote_'.length);
+      if (id) navigate(`/?pollId=${id}`, { replace: true });
+    } else if (startParam.startsWith('storerun_')) {
+      const id = startParam.slice('storerun_'.length);
+      if (id) navigate(`/store-run/${id}`, { replace: true });
+    }
+    // Один раз при монтировании — start_param не меняется в рамках сессии Mini App
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Deep Link: Обработка pollId из URL параметров
   // ВАЖНО: Больше НЕ перенаправляем на /poll/:id, остаёмся на главной
   // InlineVotingCard на главной странице автоматически развернётся и покажет нужное голосование
