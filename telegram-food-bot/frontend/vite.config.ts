@@ -264,8 +264,8 @@ export default defineConfig({
             return 'utils';
           }
 
-          // Остальное — общий vendor (должен быть тонким)
-          return 'vendor';
+          // Остальное — Vite решает сам (избегаем circular deps от catch-all)
+          return undefined;
         },
         // Именование chunk файлов для лучшего кэширования
         chunkFileNames: 'assets/js/[name]-[hash].js',
