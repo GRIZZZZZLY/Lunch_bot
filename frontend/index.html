@@ -60,7 +60,7 @@
 <body>
   <div id="debug-marker" style="position:fixed;top:0;left:0;right:0;background:#16a34a;color:white;font-size:10px;padding:3px 6px;z-index:99998;text-align:center;">HTML loaded ✓</div>
   <script>
-    window.addEventListener('load', function() {
+    setTimeout(function() {
       var d = document.getElementById('debug-marker');
       var scripts = document.querySelectorAll('script[type="module"][src]');
       if (!scripts.length) { if(d){d.style.background='#b91c1c';d.textContent='NO MODULE SCRIPTS';} return; }
@@ -69,7 +69,7 @@
       fetch(src, {cache:'no-store'})
         .then(function(r){ if(d){d.style.background=r.ok?'#1d4ed8':'#b91c1c';d.textContent=src.split('/').pop()+' HTTP:'+r.status+(r.ok?' (ok, module not running?)':'');} })
         .catch(function(e){ if(d){d.style.background='#b91c1c';d.textContent='FETCH ERR: '+e.message;} });
-    });
+    }, 1000);
   </script>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
