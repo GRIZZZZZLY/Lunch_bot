@@ -251,7 +251,7 @@ export default defineConfig({
           ) {
             return 'react-core';
           }
-          if (path.includes('/react-router')) return 'router';
+          if (path.includes('/react-router') || path.includes('/@remix-run/')) return 'router';
 
           // Микро-утилиты — пусть лежат вместе чтоб не плодить чанки
           if (
