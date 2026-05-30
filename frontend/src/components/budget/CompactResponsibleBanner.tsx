@@ -28,24 +28,30 @@ export function CompactResponsibleBanner({
 
   return (
     <div className={cn(
-      'w-full rounded-2xl border bg-card p-4 transition-all',
-      'border-primary/28 hover:border-primary/45',
-      'shadow-[0_8px_20px_rgba(216,106,44,0.08)] hover:shadow-[0_12px_26px_rgba(216,106,44,0.14)]',
+      'relative w-full overflow-hidden rounded-[22px] border bg-card p-4 transition-all',
+      'border-primary/30 hover:border-primary/50',
+      'shadow-[0_10px_24px_-12px_rgba(216,106,44,0.40)] hover:shadow-[0_14px_30px_-12px_rgba(216,106,44,0.50)]',
     )}>
-      <div className="flex items-center justify-between gap-4">
+      {/* Тонированный радиальный градиент */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_0%_0%,rgba(216,106,44,0.12),transparent_60%)]" />
+
+      <div className="relative z-10 flex items-center justify-between gap-4">
         {/* Left: Icon + Info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="rounded-xl bg-primary/12 p-2.5 ring-1 ring-primary/10 flex-shrink-0">
-            <Calculator className={cn(ICON_SIZES.md, 'text-primary')} />
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/14 text-primary ring-1 ring-primary/12">
+            <Calculator className={ICON_SIZES.md} />
           </div>
 
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-foreground truncate">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary">
+              Ответственный
+            </p>
+            <h3 className="text-[15px] font-bold tracking-tight text-foreground truncate">
               {resolvedTitle}
             </h3>
             <div className="flex items-center gap-1 mt-0.5">
               <Users className={cn(ICON_SIZES.xs, 'text-muted-foreground')} />
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground tabular-nums">
                 {categoryOrder.participantCount}{' '}
                 {categoryOrder.participantCount === 1
                   ? 'участник'
@@ -63,7 +69,7 @@ export function CompactResponsibleBanner({
         {/* Right: Button */}
         <button
           onClick={onOpenCalculator}
-          className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors shadow-md"
+          className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-coral-500 text-white text-sm font-semibold transition-all hover:brightness-105 active:scale-95 shadow-[0_8px_18px_-8px_rgba(216,106,44,0.6)]"
         >
           <span>{resolvedButtonLabel}</span>
           <ChevronRight className={ICON_SIZES.sm} />

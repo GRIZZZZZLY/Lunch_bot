@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useActiveStoreRuns } from '@/hooks/queries/useStoreRunQueries';
 import { CreateStoreRunSheet } from './CreateStoreRunSheet';
@@ -40,23 +40,30 @@ export const ActiveStoreRunsSection: React.FC<ActiveStoreRunsSectionProps> = ({
         whileTap={{ scale: 0.98 }}
         onClick={handleOpenSheet}
         className={cn(
-          'relative w-full rounded-2xl border bg-card p-4 text-left transition-all',
-          'border-mint-500/28 hover:border-mint-500/45',
-          'shadow-[0_10px_22px_rgba(16,185,129,0.08)] hover:shadow-[0_14px_28px_rgba(16,185,129,0.12)]',
+          'relative w-full overflow-hidden rounded-[22px] border bg-card p-4 text-left transition-all',
+          'border-mint-500/30 hover:border-mint-500/50',
+          'shadow-[0_10px_24px_-12px_rgba(34,181,115,0.40)] hover:shadow-[0_14px_30px_-12px_rgba(34,181,115,0.50)]',
         )}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-mint-500/12 p-2.5 ring-1 ring-mint-500/15">
+        {/* Тонированный радиальный градиент */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_0%_0%,rgba(34,181,115,0.12),transparent_60%)]" />
+
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-mint-500/14 ring-1 ring-mint-500/15">
               <ShoppingBag className="h-5 w-5 text-mint-600 dark:text-mint-400" />
             </div>
-            <div className="text-left">
-              <p className="text-lg font-semibold text-foreground">Иду в магазин</p>
-              <p className="text-sm text-foreground/82 dark:text-muted-foreground">
+            <div className="text-left min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-mint-600 dark:text-mint-400">
+                Магазин
+              </p>
+              <p className="text-[17px] font-bold tracking-tight text-foreground">Иду в магазин</p>
+              <p className="text-sm text-foreground/82 dark:text-muted-foreground truncate">
                 Собрать общий заказ в КБ, Пятёрочку и т.д.
               </p>
             </div>
           </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-mint-600/70 dark:text-mint-400/70" />
         </div>
       </motion.button>
 
