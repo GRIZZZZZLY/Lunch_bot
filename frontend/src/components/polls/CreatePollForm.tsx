@@ -20,6 +20,8 @@ import {
   X,
   ChevronLeft,
   Users,
+  Zap,
+  CalendarClock,
 } from 'lucide-react';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { PastelCard, CardContent } from '../ui/pastel-card';
@@ -30,6 +32,7 @@ import { useHaptic } from '@/hooks/useHaptic';
 import { menuService, MenuItem } from '@/services/menu.service';
 import { userService, Group } from '@/services/user.service';
 import { pollsService } from '@/services/polls.service';
+import { RecurringPollForm } from './RecurringPollForm';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface CreatePollFormProps {
@@ -86,6 +89,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<1 | 2>(1);
+  const [mode, setMode] = useState<'once' | 'recurring'>('once');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -334,19 +338,21 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         <div className="w-9 h-1 rounded-full bg-muted-foreground/30" />
       </div>
 
-      {/* Progress bar */}
-      <div className="flex gap-1.5 px-6 pt-3">
-        <div className={cn(
-          'flex-1 h-1 rounded-full transition-colors',
-          isDark ? 'bg-lavender-500' : 'bg-peach-500'
-        )} />
-        <div className={cn(
-          'flex-1 h-1 rounded-full transition-colors',
-          step === 2
-            ? isDark ? 'bg-lavender-500' : 'bg-peach-500'
-            : 'bg-muted'
-        )} />
-      </div>
+      {/* Progress bar — только для разового (2 шага) */}
+      {mode === 'once' && (
+        <div className="flex gap-1.5 px-6 pt-3">
+          <div className={cn(
+            'flex-1 h-1 rounded-full transition-colors',
+            isDark ? 'bg-lavender-500' : 'bg-peach-500'
+          )} />
+          <div className={cn(
+            'flex-1 h-1 rounded-full transition-colors',
+            step === 2
+              ? isDark ? 'bg-lavender-500' : 'bg-peach-500'
+              : 'bg-muted'
+          )} />
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {step === 1 && (
@@ -371,41 +377,79 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
               )}
             </div>
 
-            <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] space-y-6">
-              {/* Группа */}
-              {adminGroups.length > 0 && (
-                <div className="space-y-2">
-                  {sectionLabel('Группа')}
-                  <div className="space-y-1.5">
-                    {adminGroups.map((group) => {
-                      const isSelected = selectedGroupId === group.id;
-                      return (
-                        <button
-                          key={group.id}
-                          onClick={() => { setSelectedGroupId(group.id); haptic.selection(); }}
-                          className={cn(
-                            'w-full flex items-center gap-3 py-2.5 transition-colors text-left',
-                          )}
-                        >
-                          <div className={cn(
-                            'flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0',
-                            isDark ? 'bg-lavender-500/12' : 'bg-peach-500/10'
-                          )}>
-                            <Users className={cn(ICON_SIZES.sm, isDark ? 'text-lavender-400' : 'text-peach-600')} />
-                          </div>
-                          <span className="flex-1 min-w-0 truncate text-sm font-medium text-foreground">
-                            {group.title}
-                          </span>
-                          {isSelected
-                            ? <CheckCircle2 className={cn('w-5 h-5 flex-shrink-0', isDark ? 'text-lavender-400' : 'text-peach-500')} />
-                            : <Circle className="w-5 h-5 flex-shrink-0 text-muted-foreground/30" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+            {/* Режим: разовое / по расписанию */}
+            <div className="px-6 pt-1">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setMode('once'); haptic.selection(); }}
+                  className={cn(
+                    'flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all text-sm font-semibold',
+                    mode === 'once'
+                      ? isDark ? 'border-lavender-500/40 bg-lavender-500/15 text-lavender-400' : 'border-peach-500/35 bg-peach-500/10 text-peach-700'
+                      : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/30'
+                  )}
+                >
+                  <Zap className="w-4 h-4" />
+                  Разовое
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMode('recurring'); haptic.selection(); }}
+                  className={cn(
+                    'flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all text-sm font-semibold',
+                    mode === 'recurring'
+                      ? isDark ? 'border-lavender-500/40 bg-lavender-500/15 text-lavender-400' : 'border-peach-500/35 bg-peach-500/10 text-peach-700'
+                      : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/30'
+                  )}
+                >
+                  <CalendarClock className="w-4 h-4" />
+                  По расписанию
+                </button>
+              </div>
+            </div>
 
+            {/* Группа — общая для обоих режимов */}
+            {adminGroups.length > 0 && (
+              <div className="px-6 pt-5 space-y-2">
+                {sectionLabel('Группа')}
+                <div className="space-y-1.5">
+                  {adminGroups.map((group) => {
+                    const isSelected = selectedGroupId === group.id;
+                    return (
+                      <button
+                        key={group.id}
+                        onClick={() => { setSelectedGroupId(group.id); haptic.selection(); }}
+                        className="w-full flex items-center gap-3 py-2.5 transition-colors text-left"
+                      >
+                        <div className={cn(
+                          'flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0',
+                          isDark ? 'bg-lavender-500/12' : 'bg-peach-500/10'
+                        )}>
+                          <Users className={cn(ICON_SIZES.sm, isDark ? 'text-lavender-400' : 'text-peach-600')} />
+                        </div>
+                        <span className="flex-1 min-w-0 truncate text-sm font-medium text-foreground">
+                          {group.title}
+                        </span>
+                        {isSelected
+                          ? <CheckCircle2 className={cn('w-5 h-5 flex-shrink-0', isDark ? 'text-lavender-400' : 'text-peach-500')} />
+                          : <Circle className="w-5 h-5 flex-shrink-0 text-muted-foreground/30" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {mode === 'recurring' ? (
+              <RecurringPollForm
+                menuItems={menuItems}
+                selectedGroupId={selectedGroupId}
+                onSuccess={onCancel}
+                onCancel={onCancel}
+              />
+            ) : (
+            <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] space-y-6">
               {/* Длительность */}
               <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
                 <div className="flex items-center justify-between">
@@ -517,6 +561,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 <span>Далее · Выбрать блюда →</span>
               </motion.button>
             </div>
+            )}
           </motion.div>
         )}
 
