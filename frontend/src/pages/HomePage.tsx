@@ -963,7 +963,7 @@ export const HomePage: React.FC = () => {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl max-h-[92vh] overflow-y-auto shadow-2xl"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-3xl max-h-[96dvh] overflow-y-auto shadow-2xl"
             >
               <CreatePollForm
                 onSuccess={handlePollCreated}

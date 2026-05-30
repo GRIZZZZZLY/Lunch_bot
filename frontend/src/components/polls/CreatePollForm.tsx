@@ -1,10 +1,10 @@
-﻿/**
- * CreatePollForm - Р¤РѕСЂРјР° СЃРѕР·РґР°РЅРёСЏ РіРѕР»РѕСЃРѕРІР°РЅРёСЏ СЃ glassmorphism РґРёР·Р°Р№РЅРѕРј
- * 
- * РћРїС‚РёРјРёР·РёСЂРѕРІР°РЅР° РґР»СЏ mobile:
- * - Glassmorphism & time-based РіСЂР°РґРёРµРЅС‚С‹
+/**
+ * CreatePollForm - Форма создания голосования с glassmorphism дизайном
+ *
+ * Оптимизирована для mobile:
+ * - Glassmorphism & time-based градиенты
  * - Smart presets & live preview
- * - Enhanced РІРёР·СѓР°Р»РёР·Р°С†РёСЏ Р±Р»СЋРґ
+ * - Enhanced визуализация блюд
  * - Progress indicators
  * - Haptic feedback
  */
@@ -12,8 +12,6 @@
 import React, { useState, useEffect, useMemo, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Clock,
-  Users,
   CheckCircle2,
   Circle,
   AlertCircle,
@@ -21,12 +19,12 @@ import {
   Shuffle,
   X,
   ChevronLeft,
+  Users,
 } from 'lucide-react';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { PastelCard, CardContent } from '../ui/pastel-card';
 import { Progress } from '../ui/progress';
 import { cn } from '@/lib/utils';
-import { TYPOGRAPHY_H3, TYPOGRAPHY_SMALL } from '@/lib/typography';
 import { useAuth } from '@/hooks/useAuth';
 import { useHaptic } from '@/hooks/useHaptic';
 import { menuService, MenuItem } from '@/services/menu.service';
@@ -45,24 +43,23 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
 }) => {
   const { user } = useAuth();
   const haptic = useHaptic();
-  
-  // РћРїСЂРµРґРµР»СЏРµРј С‚РµРјСѓ: РїСЂРѕРІРµСЂСЏРµРј CSS РєР»Р°СЃСЃ 'dark' РЅР° РґРѕРєСѓРјРµРЅС‚Рµ
+
+  // Определяем тему: проверяем CSS класс 'dark' на документе
   const [isDark, setIsDark] = useState(() => {
     return document.documentElement.classList.contains('dark');
   });
 
-  // РЎР»РµРґРёРј Р·Р° РёР·РјРµРЅРµРЅРёСЏРјРё С‚РµРјС‹ С‡РµСЂРµР· MutationObserver
+  // Следим за изменениями темы через MutationObserver
   useEffect(() => {
     const updateTheme = () => {
       const newIsDark = document.documentElement.classList.contains('dark');
       setIsDark(newIsDark);
-      console.log('рџЋЁ [CreatePollForm] Theme changed:', newIsDark ? 'dark' : 'light');
     };
 
-    // РћР±РЅРѕРІР»СЏРµРј СЃСЂР°Р·Сѓ
+    // Обновляем сразу
     updateTheme();
 
-    // РќР°Р±Р»СЋРґР°РµРј Р·Р° РёР·РјРµРЅРµРЅРёСЏРјРё РєР»Р°СЃСЃР° РЅР° html
+    // Наблюдаем за изменениями класса на html
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.attributeName === 'class') {
@@ -83,8 +80,8 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [duration, setDuration] = useState(30);
-  const [isMultiSelect, setIsMultiSelect] = useState(true); // РњРЅРѕР¶РµСЃС‚РІРµРЅРЅС‹Р№ РІС‹Р±РѕСЂ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
-  const maxSelections = 3; // РњР°РєСЃ. 3 Р±Р»СЋРґР°
+  const [isMultiSelect, setIsMultiSelect] = useState(true); // Множественный выбор по умолчанию
+  const maxSelections = 3; // Макс. 3 блюда
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -105,44 +102,30 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         userService.getUserGroups(),
       ]);
 
-      console.log('[CreatePollForm] рџ”Ќ Menu response:', {
-        success: menuResponse.success,
-        dataLength: menuResponse.data?.length || 0,
-        data: menuResponse.data,
-        error: menuResponse.error
-      });
-
       if (menuResponse.success && menuResponse.data) {
         setMenuItems(menuResponse.data);
-        // вњ… UX FIX: Don't pre-select all items (Paradox of Choice)
-        // Admin can use "рџЋІ РЎР»СѓС‡Р°Р№РЅС‹Рµ 5" or select manually
-        // Was: setSelectedItems(new Set(menuResponse.data.map(item => item.id)));
-        console.log('[CreatePollForm] вњ… Menu items loaded:', menuResponse.data.length);
+        // UX FIX: не выбираем все блюда заранее (Paradox of Choice)
+        // Админ может нажать «Случайно» или выбрать вручную
       } else {
-        console.error('[CreatePollForm] вќЊ Failed to load menu:', menuResponse.error);
+        console.error('[CreatePollForm] Failed to load menu:', menuResponse.error);
       }
-
-      console.log('[CreatePollForm] рџ”Ќ Groups response:', {
-        success: groupsResponse.success,
-        dataLength: groupsResponse.data?.length || 0,
-      });
 
       if (groupsResponse.success && groupsResponse.data) {
         setGroups(groupsResponse.data);
       }
     } catch (err) {
-      console.error('[CreatePollForm] вќЊ Error loading data:', err);
-      setError('РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РґР°РЅРЅС‹С…');
+      console.error('[CreatePollForm] Error loading data:', err);
+      setError('Ошибка загрузки данных');
     } finally {
       setLoading(false);
     }
   };
 
   const DURATION_PRESETS = [
-    { label: '15Рј', value: 15 },
-    { label: '30Рј', value: 30 },
-    { label: '1С‡', value: 60 },
-    { label: '2С‡', value: 120 },
+    { label: '15м', value: 15 },
+    { label: '30м', value: 30 },
+    { label: '1ч', value: 60 },
+    { label: '2ч', value: 120 },
   ];
 
   const canAdvance = (): boolean => selectedGroupId !== null;
@@ -178,7 +161,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
 
   const handleCreate = async () => {
     if (!canCreatePoll()) {
-      setError('Р—Р°РїРѕР»РЅРёС‚Рµ РІСЃРµ РїРѕР»СЏ РєРѕСЂСЂРµРєС‚РЅРѕ');
+      setError('Заполните все поля корректно');
       haptic.error();
       return;
     }
@@ -187,8 +170,8 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
       setCreating(true);
       setError(null);
 
-      // РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё РґРѕР±Р°РІР»СЏРµРј "Р•РґР° СЃ СЃРѕР±РѕР№" Рє РІС‹Р±СЂР°РЅРЅС‹Рј Р±Р»СЋРґР°Рј
-      const takeawayItem = menuItems.find(item => item.name === 'Р•РґР° СЃ СЃРѕР±РѕР№');
+      // Автоматически добавляем «Еда с собой» к выбранным блюдам
+      const takeawayItem = menuItems.find(item => item.name === 'Еда с собой');
       const finalSelectedItems = Array.from(selectedItems);
       if (takeawayItem && !finalSelectedItems.includes(takeawayItem.id)) {
         finalSelectedItems.push(takeawayItem.id);
@@ -198,7 +181,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
         groupId: selectedGroupId!,
         duration,
         selectedMenuItems: finalSelectedItems,
-        title: 'Р“РѕР»РѕСЃРѕРІР°РЅРёРµ Р·Р° РѕР±РµРґ',
+        title: 'Голосование за обед',
         isMultiSelect,
         maxSelections: isMultiSelect ? maxSelections : 1,
       });
@@ -211,27 +194,27 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
       }
     } catch (err: unknown) {
       console.error('Error creating poll:', err);
-      
-      let errorMessage = 'РћС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ РіРѕР»РѕСЃРѕРІР°РЅРёСЏ';
-      
-      // РџСЂРѕРІРµСЂСЏРµРј СЂР°Р·РЅС‹Рµ С‚РёРїС‹ РѕС€РёР±РѕРє
+
+      let errorMessage = 'Ошибка создания голосования';
+
+      // Проверяем разные типы ошибок
       const errorObj = err as { error?: string; message?: string; code?: string };
       const errorText = errorObj?.error || errorObj?.message || '';
-      
+
       if (errorText.includes('already has an active poll') || errorText.includes('Group already has active poll')) {
-        errorMessage = 'Р’ СЌС‚РѕР№ РіСЂСѓРїРїРµ СѓР¶Рµ РµСЃС‚СЊ Р°РєС‚РёРІРЅРѕРµ РіРѕР»РѕСЃРѕРІР°РЅРёРµ. Р”РѕР¶РґРёС‚РµСЃСЊ РµРіРѕ Р·Р°РІРµСЂС€РµРЅРёСЏ.';
+        errorMessage = 'В этой группе уже есть активное голосование. Дождитесь его завершения.';
       } else if (errorText.includes('Not enough items') || errorText.includes('NOT_ENOUGH_ITEMS')) {
-        errorMessage = 'Р’С‹Р±РµСЂРёС‚Рµ РјРёРЅРёРјСѓРј 2 Р±Р»СЋРґР°';
+        errorMessage = 'Выберите минимум 2 блюда';
       } else if (errorText.includes('Network error') || errorObj?.code === 'NETWORK_ERROR') {
-        errorMessage = 'РћС€РёР±РєР° СЃРµС‚Рё. РџСЂРѕРІРµСЂСЊС‚Рµ РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє РёРЅС‚РµСЂРЅРµС‚Сѓ.';
+        errorMessage = 'Ошибка сети. Проверьте подключение к интернету.';
       } else if (errorText.includes('Access denied') || errorObj?.code === 'ACCESS_DENIED') {
-        errorMessage = 'РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ РґР»СЏ СЃРѕР·РґР°РЅРёСЏ РіРѕР»РѕСЃРѕРІР°РЅРёСЏ';
+        errorMessage = 'Недостаточно прав для создания голосования';
       } else if (errorObj?.code === 'INVALID_GROUP') {
-        errorMessage = 'Р’С‹Р±РµСЂРёС‚Рµ РіСЂСѓРїРїСѓ';
+        errorMessage = 'Выберите группу';
       } else if (errorText) {
-        errorMessage = `РћС€РёР±РєР°: ${errorText}`;
+        errorMessage = `Ошибка: ${errorText}`;
       }
-      
+
       setError(errorMessage);
       haptic.error();
     } finally {
@@ -258,44 +241,32 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   };
 
   const selectRandom = () => {
-    console.log('[CreatePollForm] рџЋІ selectRandom clicked', { 
-      totalItems: menuItems.length,
-      currentSelected: selectedItems.size 
-    });
-    
     haptic.impact();
-    
-    // РЎР»СѓС‡Р°Р№РЅС‹Р№ РІС‹Р±РѕСЂ РѕС‚ 3 РґРѕ 6 Р±Р»СЋРґ (РёР»Рё РјРµРЅСЊС€Рµ РµСЃР»Рё Р±Р»СЋРґ РјР°Р»Рѕ)
+
+    // Случайный выбор от 3 до 6 блюд (или меньше, если блюд мало)
     const maxCount = Math.min(6, menuItems.length);
     const minCount = Math.min(3, menuItems.length);
     const count = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
-    
-    console.log('[CreatePollForm] рџЋІ Selecting random items', { count, maxCount, minCount });
-    
+
     const shuffled = [...menuItems].sort(() => Math.random() - 0.5);
     const randomItems = shuffled.slice(0, count);
     const newSelection = new Set(randomItems.map(item => item.id));
-    
-    console.log('[CreatePollForm] вњ… Random items selected', { 
-      selectedIds: Array.from(newSelection),
-      selectedNames: randomItems.map(i => i.name)
-    });
-    
+
     setSelectedItems(newSelection);
   };
 
-  // Format duration РґР»СЏ live preview
+  // Format duration для live preview
   const formatDuration = (minutes: number): string => {
     if (minutes < 60) {
-      return `${minutes} РјРёРЅ`;
+      return `${minutes} мин`;
     } else {
       const hours = Math.floor(minutes / 60);
       const mins = minutes % 60;
-      return mins > 0 ? `${hours}С‡ ${mins}Рј` : `${hours} С‡Р°СЃ${hours > 1 ? 'Р°' : ''}`;
+      return mins > 0 ? `${hours}ч ${mins}м` : `${hours} час${hours > 1 ? 'а' : ''}`;
     }
   };
 
-  // Р’СЃРµ Р±Р»СЋРґР° Р±РµР· С„РёР»СЊС‚СЂР°С†РёРё
+  // Все блюда без фильтрации
   const visibleItems = menuItems;
 
   if (loading) {
@@ -313,7 +284,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
       <div className="p-6 text-center">
         <AlertCircle className={`${ICON_SIZES['2xl']} mx-auto mb-4 text-yellow-500`} />
         <p className="text-gray-600 dark:text-gray-400">
-          РўРѕР»СЊРєРѕ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂС‹ РіСЂСѓРїРї РјРѕРіСѓС‚ Р·Р°РїСѓСЃРєР°С‚СЊ РіРѕР»РѕСЃРѕРІР°РЅРёСЏ
+          Только администраторы групп могут запускать голосования
         </p>
       </div>
     );
@@ -329,22 +300,32 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
           isDark ? "text-lavender-500" : "text-peach-500"
         )} />
         <p className="text-gray-900 dark:text-white font-semibold mb-2">
-          РњРµРЅСЋ РїСѓСЃС‚РѕРµ
+          Меню пустое
         </p>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Р”РѕР±Р°РІСЊС‚Рµ Р±Р»СЋРґР° РІ РјРµРЅСЋ РїРµСЂРµРґ СЃРѕР·РґР°РЅРёРµРј РіРѕР»РѕСЃРѕРІР°РЅРёСЏ
+          Добавьте блюда в меню перед созданием голосования
         </p>
         {onCancel && (
           <button
             onClick={onCancel}
             className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
           >
-            Р—Р°РєСЂС‹С‚СЊ
+            Закрыть
           </button>
         )}
       </div>
     );
   }
+
+  // Section label — мелкий uppercase muted заголовок секции
+  const sectionLabel = (text: string) => (
+    <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+      {text}
+    </p>
+  );
+
+  const accentText = isDark ? 'text-lavender-400' : 'text-peach-600';
+  const rowSeparator = isDark ? 'border-white/[0.04]' : 'border-black/[0.05]';
 
   return (
     <div>
@@ -378,208 +359,162 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4">
-              <h2 className="text-xl font-bold text-foreground">РЎРѕР·РґР°С‚СЊ РіРѕР»РѕСЃРѕРІР°РЅРёРµ</h2>
+              <h2 className="text-xl font-bold text-foreground">Создать голосование</h2>
               {onCancel && (
                 <button
                   onClick={onCancel}
                   className="p-2 rounded-lg hover:bg-muted transition-colors"
-                  aria-label="Р—Р°РєСЂС‹С‚СЊ"
+                  aria-label="Закрыть"
                 >
                   <X className="w-5 h-5" />
                 </button>
               )}
             </div>
 
-            <div className="px-6 pb-8 space-y-5">
-              {/* Р“СЂСѓРїРїР° */}
+            <div className="px-6 pb-8 space-y-6">
+              {/* Группа */}
               {adminGroups.length > 0 && (
-                <PastelCard variant="default" className={cn(
-                  "border-l-4",
-                  isDark ? "border-lavender-500" : "border-peach-500"
-                )}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800">
-                        <Users className={`${ICON_SIZES.md} text-gray-600 dark:text-gray-400`} />
-                      </div>
-                      <div>
-                        <h3 className={cn(TYPOGRAPHY_H3.className, "text-gray-900 dark:text-white")}>
-                          Р“СЂСѓРїРїР°
-                        </h3>
-                        <p className={cn(TYPOGRAPHY_SMALL.className, "text-gray-400 dark:text-gray-400")}>
-                          Р“РґРµ Р·Р°РїСѓСЃС‚РёС‚СЊ РіРѕР»РѕСЃРѕРІР°РЅРёРµ
-                        </p>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      {adminGroups.map((group, index) => (
-                        <motion.button
+                <div className="space-y-2">
+                  {sectionLabel('Группа')}
+                  <div className="space-y-1.5">
+                    {adminGroups.map((group) => {
+                      const isSelected = selectedGroupId === group.id;
+                      return (
+                        <button
                           key={group.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.05 * index }}
-                          onClick={() => setSelectedGroupId(group.id)}
+                          onClick={() => { setSelectedGroupId(group.id); haptic.selection(); }}
                           className={cn(
-                            "w-full p-3 rounded-2xl border-2 transition-all duration-200",
-                            selectedGroupId === group.id
-                              ? isDark
-                                ? "border-lavender-500 bg-lavender-500/5"
-                                : "border-peach-500 bg-peach-50"
-                              : isDark
-                                ? "border-border hover:border-lavender-300"
-                                : "border-border hover:border-peach-300"
+                            'w-full flex items-center gap-3 py-2.5 transition-colors text-left',
                           )}
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-gray-900 dark:text-white">
-                              {group.title}
-                            </span>
-                            {selectedGroupId === group.id && (
-                              <CheckCircle2 className={isDark ? "text-lavender-500" : "text-peach-500"} size={20} />
-                            )}
+                          <div className={cn(
+                            'flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0',
+                            isDark ? 'bg-lavender-500/12' : 'bg-peach-500/10'
+                          )}>
+                            <Users className={cn(ICON_SIZES.sm, isDark ? 'text-lavender-400' : 'text-peach-600')} />
                           </div>
-                        </motion.button>
-                      ))}
-                    </div>
-                  </CardContent>
-                </PastelCard>
+                          <span className="flex-1 min-w-0 truncate text-sm font-medium text-foreground">
+                            {group.title}
+                          </span>
+                          {isSelected
+                            ? <CheckCircle2 className={cn('w-5 h-5 flex-shrink-0', isDark ? 'text-lavender-400' : 'text-peach-500')} />
+                            : <Circle className="w-5 h-5 flex-shrink-0 text-muted-foreground/30" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
-              {/* Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ */}
-              <PastelCard variant="default" className={cn(
-                "border-l-4",
-                isDark ? "border-lavender-500" : "border-peach-500"
-              )}>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "p-2.5 rounded-xl",
-                        isDark ? "bg-lavender-500/20" : "bg-peach-500/20"
-                      )}>
-                        <Clock className={cn(ICON_SIZES.md, isDark ? "text-lavender-500" : "text-peach-500")} />
-                      </div>
-                      <h3 className={cn(TYPOGRAPHY_H3.className, "text-gray-900 dark:text-white")}>
-                        Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ
-                      </h3>
-                    </div>
-                    <motion.div
-                      key={duration}
-                      initial={{ scale: 1.2 }}
-                      animate={{ scale: 1 }}
+              {/* Длительность */}
+              <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
+                <div className="flex items-center justify-between">
+                  {sectionLabel('Длительность')}
+                  <motion.span
+                    key={duration}
+                    initial={{ scale: 1.15 }}
+                    animate={{ scale: 1 }}
+                    className={cn('text-sm font-bold', accentText)}
+                  >
+                    {formatDuration(duration)}
+                  </motion.span>
+                </div>
+
+                {/* Пресеты */}
+                <div className="flex gap-2">
+                  {DURATION_PRESETS.map((preset) => (
+                    <button
+                      key={preset.value}
+                      onClick={() => { setDuration(preset.value); haptic.selection(); }}
                       className={cn(
-                        "px-3 py-1.5 rounded-lg",
-                        isDark ? "bg-lavender-500/10 text-lavender-400" : "bg-peach-50 text-peach-700"
+                        'flex-1 py-1.5 rounded-lg text-sm font-medium transition-all border',
+                        duration === preset.value
+                          ? isDark
+                            ? 'border-lavender-500/40 bg-lavender-500/15 text-lavender-400'
+                            : 'border-peach-500/35 bg-peach-500/10 text-peach-700'
+                          : 'border-transparent text-muted-foreground hover:text-foreground'
                       )}
                     >
-                      <span className="text-sm font-bold">{formatDuration(duration)}</span>
-                    </motion.div>
-                  </div>
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
 
-                  {/* РџСЂРµСЃРµС‚С‹ */}
-                  <div className="flex gap-2 mb-3">
-                    {DURATION_PRESETS.map((preset) => (
-                      <button
-                        key={preset.value}
-                        onClick={() => setDuration(preset.value)}
-                        className={cn(
-                          "flex-1 py-2 rounded-lg text-sm font-medium transition-all border-2",
-                          duration === preset.value
-                            ? isDark
-                              ? "border-lavender-500 bg-lavender-500/10 text-lavender-400"
-                              : "border-peach-500 bg-peach-50 text-peach-700"
-                            : "border-border text-muted-foreground hover:border-muted-foreground/40"
-                        )}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
+                {/* Слайдер */}
+                <input
+                  type="range"
+                  min={5}
+                  max={240}
+                  step={5}
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value))}
+                  className="w-full adaptive-slider"
+                  style={{
+                    '--slider-progress': `${Math.min(100, Math.max(0, ((duration - 5) / 235) * 100))}%`,
+                  } as CSSProperties}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>5 мин</span>
+                  <span>4 часа</span>
+                </div>
+              </div>
 
-                  {/* РЎР»Р°Р№РґРµСЂ */}
-                  <input
-                    type="range"
-                    min={5}
-                    max={240}
-                    step={5}
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                    className="w-full adaptive-slider"
-                    style={{
-                      '--slider-progress': `${Math.min(100, Math.max(0, ((duration - 5) / 235) * 100))}%`,
-                    } as CSSProperties}
-                  />
-                  <div className="flex justify-between text-xs text-gray-400 mt-1">
-                    <span>5 РјРёРЅ</span>
-                    <span>4 С‡Р°СЃР°</span>
-                  </div>
-                </CardContent>
-              </PastelCard>
+              {/* Тип голоса */}
+              <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
+                {sectionLabel('Тип голоса')}
+                <div className="grid grid-cols-2 gap-2">
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => { setIsMultiSelect(false); haptic.selection(); }}
+                    className={cn(
+                      'flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all',
+                      !isMultiSelect
+                        ? isDark ? 'border-lavender-500/40 bg-lavender-500/15' : 'border-peach-500/35 bg-peach-500/10'
+                        : 'border-border bg-background hover:border-muted-foreground/30'
+                    )}
+                  >
+                    <Circle className={cn('w-4 h-4',
+                      !isMultiSelect
+                        ? isDark ? 'text-lavender-400' : 'text-peach-600'
+                        : 'text-muted-foreground'
+                    )} />
+                    <span className="text-sm font-medium">Одно блюдо</span>
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => { setIsMultiSelect(true); haptic.selection(); }}
+                    className={cn(
+                      'flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all',
+                      isMultiSelect
+                        ? isDark ? 'border-lavender-500/40 bg-lavender-500/15' : 'border-peach-500/35 bg-peach-500/10'
+                        : 'border-border bg-background hover:border-muted-foreground/30'
+                    )}
+                  >
+                    <CheckCircle2 className={cn('w-4 h-4',
+                      isMultiSelect
+                        ? isDark ? 'text-lavender-400' : 'text-peach-600'
+                        : 'text-muted-foreground'
+                    )} />
+                    <span className="text-sm font-medium">Несколько</span>
+                  </motion.button>
+                </div>
+              </div>
 
-              {/* РўРёРї РіРѕР»РѕСЃРѕРІР°РЅРёСЏ */}
-              <PastelCard variant="default" className={cn(
-                "border-l-4",
-                isDark ? "border-lavender-500" : "border-peach-500"
-              )}>
-                <CardContent className="pt-6">
-                  <h3 className={cn(TYPOGRAPHY_H3.className, "text-gray-900 dark:text-white mb-3")}>
-                    РўРёРї РіРѕР»РѕСЃРѕРІР°РЅРёСЏ
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <motion.button
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => { setIsMultiSelect(false); haptic.selection(); }}
-                      className={cn(
-                        'p-3 rounded-xl border-2 transition-all text-center',
-                        !isMultiSelect
-                          ? isDark ? 'border-lavender-500 bg-lavender-500/5' : 'border-peach-500 bg-peach-50'
-                          : 'border-border bg-background hover:border-muted-foreground/30'
-                      )}
-                    >
-                      <Circle className={cn('mx-auto mb-1.5', ICON_SIZES.md,
-                        !isMultiSelect
-                          ? isDark ? 'text-lavender-500' : 'text-peach-500'
-                          : 'text-muted-foreground'
-                      )} />
-                      <span className="text-sm font-medium block">РћРґРЅРѕ Р±Р»СЋРґРѕ</span>
-                    </motion.button>
-                    <motion.button
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => { setIsMultiSelect(true); haptic.selection(); }}
-                      className={cn(
-                        'p-3 rounded-xl border-2 transition-all text-center',
-                        isMultiSelect
-                          ? isDark ? 'border-lavender-500 bg-lavender-500/5' : 'border-peach-500 bg-peach-50'
-                          : 'border-border bg-background hover:border-muted-foreground/30'
-                      )}
-                    >
-                      <CheckCircle2 className={cn('mx-auto mb-1.5', ICON_SIZES.md,
-                        isMultiSelect
-                          ? isDark ? 'text-lavender-500' : 'text-peach-500'
-                          : 'text-muted-foreground'
-                      )} />
-                      <span className="text-sm font-medium block">РќРµСЃРєРѕР»СЊРєРѕ Р±Р»СЋРґ</span>
-                      <span className="text-xs text-muted-foreground">(РґРѕ {maxSelections} С€С‚)</span>
-                    </motion.button>
-                  </div>
-                </CardContent>
-              </PastelCard>
-
-              {/* РљРЅРѕРїРєР° Р”Р°Р»РµРµ */}
+              {/* Кнопка Далее */}
               <motion.button
-                whileTap={{ scale: canAdvance() ? 0.95 : 1 }}
+                whileTap={{ scale: canAdvance() ? 0.97 : 1 }}
                 onClick={() => { if (canAdvance()) { haptic.impact(); setStep(2); } }}
                 disabled={!canAdvance()}
                 className={cn(
-                  "w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold text-lg transition-all shadow-lg",
+                  'w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold text-base transition-all shadow-lg',
                   canAdvance()
                     ? isDark
-                      ? "bg-gradient-to-r from-lavender-500 to-lavender-600 text-white shadow-lavender-500/30"
-                      : "bg-gradient-to-r from-peach-500 to-coral-500 text-white shadow-peach-500/30"
-                    : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                      ? 'bg-gradient-to-r from-lavender-500 to-lavender-600 text-white shadow-lavender-500/30'
+                      : 'bg-gradient-to-r from-peach-500 to-coral-500 text-white shadow-peach-500/30'
+                    : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 )}
               >
-                <span>Р”Р°Р»РµРµ В· Р’С‹Р±СЂР°С‚СЊ Р±Р»СЋРґР°</span>
+                <span>Далее · Выбрать блюда →</span>
               </motion.button>
             </div>
           </motion.div>
@@ -600,14 +535,14 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
-                РќР°Р·Р°Рґ
+                Назад
               </button>
-              <h2 className="text-lg font-bold text-foreground">Р’С‹Р±РµСЂРёС‚Рµ Р±Р»СЋРґР°</h2>
+              <h2 className="text-lg font-bold text-foreground">Выберите блюда</h2>
               {onCancel && (
                 <button
                   onClick={onCancel}
                   className="p-2 rounded-lg hover:bg-muted transition-colors"
-                  aria-label="Р—Р°РєСЂС‹С‚СЊ"
+                  aria-label="Закрыть"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -617,7 +552,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
             <div className="px-6 pb-8 space-y-4">
               <PastelCard variant="default">
                 <CardContent className="pt-6">
-                  {/* РЎС‡С‘С‚С‡РёРє + РґРµР№СЃС‚РІРёСЏ */}
+                  {/* Счётчик + действия */}
                   <div className="flex items-center justify-between mb-3">
                     <motion.p
                       key={selectedItems.size}
@@ -625,8 +560,8 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                       animate={{ scale: 1 }}
                       className="text-sm text-gray-600 dark:text-gray-400"
                     >
-                      Р’С‹Р±СЂР°РЅРѕ <span className={cn("font-bold", isDark ? "text-lavender-500" : "text-peach-500")}>
-                        {selectedItems.size} {selectedItems.size === 1 ? 'Р±Р»СЋРґРѕ' : selectedItems.size < 5 ? 'Р±Р»СЋРґР°' : 'Р±Р»СЋРґ'}
+                      Выбрано <span className={cn("font-bold", isDark ? "text-lavender-500" : "text-peach-500")}>
+                        {selectedItems.size} {selectedItems.size === 1 ? 'блюдо' : selectedItems.size < 5 ? 'блюда' : 'блюд'}
                       </span>
                     </motion.p>
                     <div className="flex gap-3">
@@ -634,19 +569,19 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                         onClick={toggleAll}
                         className={cn("text-sm font-medium", isDark ? "text-lavender-400" : "text-peach-600")}
                       >
-                        {selectedItems.size === menuItems.length ? 'РЎРЅСЏС‚СЊ РІСЃС‘' : 'Р’С‹Р±СЂР°С‚СЊ РІСЃС‘'}
+                        {selectedItems.size === menuItems.length ? 'Снять всё' : 'Выбрать всё'}
                       </button>
                       <button
                         onClick={selectRandom}
                         className={cn("text-sm font-medium flex items-center gap-1", isDark ? "text-lavender-400" : "text-peach-600")}
                       >
                         <Shuffle className="w-3.5 h-3.5" />
-                        РЎР»СѓС‡Р°Р№РЅРѕ
+                        Случайно
                       </button>
                     </div>
                   </div>
 
-                  {/* РџСЂРѕРіСЂРµСЃСЃ РІС‹Р±РѕСЂР° */}
+                  {/* Прогресс выбора */}
                   <Progress
                     value={(selectedItems.size / menuItems.length) * 100}
                     className={cn(
@@ -657,7 +592,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                     )}
                   />
 
-                  {/* РџРѕРґСЃРєР°Р·РєР° */}
+                  {/* Подсказка */}
                   <AnimatePresence>
                     {selectedItems.size < 2 && (
                       <motion.div
@@ -669,14 +604,14 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                         <div className="flex items-start gap-2">
                           <AlertCircle className={cn(ICON_SIZES.sm, "text-gray-500 flex-shrink-0 mt-0.5")} />
                           <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Р’С‹Р±РµСЂРёС‚Рµ РјРёРЅРёРјСѓРј 2 Р±Р»СЋРґР°
+                            Выберите минимум 2 блюда
                           </p>
                         </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
 
-                  {/* РЎРїРёСЃРѕРє Р±Р»СЋРґ */}
+                  {/* Список блюд */}
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {visibleItems.map((item) => {
                       const isSelected = selectedItems.has(item.id);
@@ -712,7 +647,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                                 "flex-shrink-0 px-2 py-1 rounded-md",
                                 isDark ? "bg-lavender-900/20 text-lavender-400" : "bg-peach-50 text-peach-700"
                               )}>
-                                <p className="text-sm font-semibold whitespace-nowrap">{item.price} в‚Ѕ</p>
+                                <p className="text-sm font-semibold whitespace-nowrap">{item.price} ₽</p>
                               </div>
                             )}
                             {item.imageUrl && (
@@ -730,7 +665,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 </CardContent>
               </PastelCard>
 
-              {/* РћС€РёР±РєР° */}
+              {/* Ошибка */}
               <AnimatePresence>
                 {error && (
                   <motion.div
@@ -747,7 +682,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 )}
               </AnimatePresence>
 
-              {/* Р—Р°РїСѓСЃС‚РёС‚СЊ */}
+              {/* Запустить */}
               <motion.button
                 whileTap={{ scale: canCreatePoll() ? 0.95 : 1 }}
                 onClick={handleCreate}
@@ -764,12 +699,12 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 {creating ? (
                   <>
                     <LoadingSpinner size="sm" />
-                    <span>Р—Р°РїСѓСЃРє РіРѕР»РѕСЃРѕРІР°РЅРёСЏ...</span>
+                    <span>Запуск голосования...</span>
                   </>
                 ) : (
                   <>
                     <Check className={ICON_SIZES.md} />
-                    <span>Р—Р°РїСѓСЃС‚РёС‚СЊ РіРѕР»РѕСЃРѕРІР°РЅРёРµ</span>
+                    <span>Запустить голосование</span>
                   </>
                 )}
               </motion.button>
