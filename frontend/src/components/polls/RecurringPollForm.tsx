@@ -1,6 +1,6 @@
 /**
- * RecurringPollForm - Форма настройки автоматических голосований
- * 
+ * RecurringPollForm - Форма настройки автоматических голосований (Variant B)
+ *
  * Features:
  * - Выбор дней недели
  * - Время запуска
@@ -12,7 +12,6 @@
 import { useState, useEffect, useCallback, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Clock,
   Calendar,
   CheckCircle2,
   Circle,
@@ -21,12 +20,10 @@ import {
   Check,
   Shuffle,
   Loader,
-  RotateCcw,
   Info,
   Sparkles,
 } from 'lucide-react';
 import { LoadingSpinner } from '../common/LoadingSpinner';
-import { PastelCard, CardContent } from '../ui/pastel-card';
 import { cn } from '@/lib/utils';
 import { useHaptic } from '@/hooks/useHaptic';
 import { MenuItem } from '@/services/menu.service';
@@ -57,7 +54,7 @@ export const RecurringPollForm = ({
   onCancel,
 }: RecurringPollFormProps) => {
   const haptic = useHaptic();
-  
+
   // Определяем тему: проверяем CSS класс 'dark' на документе
   const [isDark, setIsDark] = useState(() => {
     return document.documentElement.classList.contains('dark');
@@ -66,15 +63,11 @@ export const RecurringPollForm = ({
   // Следим за изменениями темы через MutationObserver
   useEffect(() => {
     const updateTheme = () => {
-      const newIsDark = document.documentElement.classList.contains('dark');
-      setIsDark(newIsDark);
-      console.log('🎨 [RecurringPollForm] Theme changed:', newIsDark ? 'dark' : 'light');
+      setIsDark(document.documentElement.classList.contains('dark'));
     };
 
-    // Обновляем сразу
     updateTheme();
 
-    // Наблюдаем за изменениями класса на html
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.attributeName === 'class') {
@@ -315,6 +308,20 @@ export const RecurringPollForm = ({
     return 'Не запланировано';
   };
 
+  // Helpers (Variant B)
+  const accentText = isDark ? 'text-lavender-400' : 'text-peach-600';
+  const rowSeparator = isDark ? 'border-white/[0.04]' : 'border-black/[0.05]';
+  const sectionLabel = (text: string) => (
+    <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+      {text}
+    </p>
+  );
+  const chipClass =
+    'px-2.5 py-1 text-xs font-medium rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors';
+  const selectedTile = isDark
+    ? 'border-lavender-500/40 bg-lavender-500/12'
+    : 'border-peach-500/35 bg-peach-500/10';
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -327,7 +334,7 @@ export const RecurringPollForm = ({
     return (
       <div className="p-6 text-center">
         <AlertCircle className={`${ICON_SIZES['2xl']} mx-auto mb-4 text-yellow-500`} />
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-muted-foreground">
           Сначала выберите группу
         </p>
       </div>
@@ -335,60 +342,37 @@ export const RecurringPollForm = ({
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Preview Banner */}
-      <PastelCard variant="lavender" className={cn(
-        "border-l-4",
-        isDark ? "border-lavender-500" : "border-peach-500"
-      )}>
-        <CardContent className="p-4 pt-4">
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "size-10 rounded-full flex items-center justify-center",
-              isDark ? "bg-lavender-500/20" : "bg-peach-500/20"
-            )}>
-              <Sparkles className={cn(
-                ICON_SIZES.md,
-                isDark ? "text-lavender-500" : "text-peach-500"
-              )} />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">
-                Следующее голосование:
-              </p>
-              <p className={cn(
-                "text-lg font-bold",
-                isDark ? "text-lavender-600 dark:text-lavender-400" : "text-peach-600 dark:text-peach-400"
-              )}>
-                {getNextRunPreview()}
-              </p>
-            </div>
+    <div className="px-6 pt-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] space-y-6">
+      {/* Превью следующего запуска */}
+      <div className="rounded-2xl border border-border/60 p-4 bg-gradient-to-br from-primary/10 to-coral-500/5 dark:from-lavender-500/12 dark:to-primary/6">
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            'flex size-11 shrink-0 items-center justify-center rounded-2xl',
+            isDark ? 'bg-lavender-500/14 text-lavender-400' : 'bg-peach-500/14 text-peach-600'
+          )}>
+            <Sparkles className={ICON_SIZES.md} />
           </div>
-        </CardContent>
-      </PastelCard>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Следующий запуск
+            </p>
+            <p className={cn('text-lg font-extrabold tracking-tight tabular-nums', accentText)}>
+              {getNextRunPreview()}
+            </p>
+          </div>
+        </div>
+      </div>
 
-      {/* Days of Week */}
+      {/* Дни недели */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-foreground flex items-center gap-2">
-            <Calendar className={ICON_SIZES.sm} />
-            Дни недели
-          </label>
+          <div className="flex items-center gap-2">
+            <Calendar className={cn(ICON_SIZES.xs, 'text-muted-foreground')} />
+            {sectionLabel('Дни недели')}
+          </div>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={selectWeekdays}
-              className="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-            >
-              Пн-Пт
-            </button>
-            <button
-              type="button"
-              onClick={selectEveryDay}
-              className="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-            >
-              Все дни
-            </button>
+            <button type="button" onClick={selectWeekdays} className={chipClass}>Пн-Пт</button>
+            <button type="button" onClick={selectEveryDay} className={chipClass}>Все дни</button>
           </div>
         </div>
 
@@ -402,12 +386,12 @@ export const RecurringPollForm = ({
               animate={selectedDays.has(day.value) ? { scale: [1, 1.05, 1] } : {}}
               transition={{ duration: 0.2 }}
               className={cn(
-                'aspect-square rounded-xl font-medium text-sm transition-all',
+                'aspect-square rounded-xl font-semibold text-sm transition-all',
                 'flex items-center justify-center',
                 selectedDays.has(day.value)
                   ? isDark
-                    ? 'bg-gradient-to-br from-lavender-500 to-lavender-600 text-white shadow-lg'
-                    : 'bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg'
+                    ? 'bg-gradient-to-br from-lavender-500 to-lavender-600 text-white shadow-lg shadow-lavender-500/25'
+                    : 'bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/25'
                   : 'bg-muted/50 text-muted-foreground hover:bg-muted'
               )}
             >
@@ -417,36 +401,26 @@ export const RecurringPollForm = ({
         </div>
       </div>
 
-      {/* Time of Day */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium text-foreground flex items-center gap-2">
-          <Clock className={ICON_SIZES.sm} />
-          Время запуска
-        </label>
+      {/* Время запуска */}
+      <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
+        {sectionLabel('Время запуска')}
         <input
           type="time"
           value={timeOfDay}
           onChange={(e) => setTimeOfDay(e.target.value)}
           className={cn(
-            "w-full px-4 py-3 rounded-xl border bg-white dark:bg-gray-800 text-foreground focus:outline-none focus:ring-2 transition-colors",
-            isDark
-              ? "border-gray-700 focus:ring-lavender-500"
-              : "border-gray-200 focus:ring-peach-500"
+            'w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground tabular-nums',
+            'focus:outline-none focus:ring-2 transition-colors',
+            isDark ? 'focus:ring-lavender-500/40' : 'focus:ring-peach-500/40'
           )}
         />
       </div>
 
-      {/* Duration */}
-      <div className="space-y-3">
+      {/* Длительность */}
+      <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-foreground flex items-center gap-2">
-            <RotateCcw className={ICON_SIZES.sm} />
-            Длительность
-          </label>
-          <span className={cn(
-            "text-sm font-bold",
-            isDark ? "text-lavender-600 dark:text-lavender-400" : "text-peach-600 dark:text-peach-400"
-          )}>
+          {sectionLabel('Длительность')}
+          <span className={cn('text-sm font-bold tabular-nums', accentText)}>
             {duration} мин
           </span>
         </div>
@@ -465,32 +439,22 @@ export const RecurringPollForm = ({
             )}%`,
           } as CSSProperties}
         />
-        <div className="flex justify-between text-xs text-gray-400 dark:text-gray-400">
+        <div className="flex justify-between text-xs text-muted-foreground">
           <span>5 мин</span>
           <span>180 мин</span>
         </div>
       </div>
 
-      {/* Menu Items Selection */}
-      <div className="space-y-3">
+      {/* Блюда в меню */}
+      <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-foreground flex items-center gap-2">
-            <Utensils className={ICON_SIZES.sm} />
-            Блюда в меню ({useAllItems ? 'все' : selectedItems.size})
-          </label>
+          <div className="flex items-center gap-2">
+            <Utensils className={cn(ICON_SIZES.xs, 'text-muted-foreground')} />
+            {sectionLabel(`Блюда (${useAllItems ? 'все' : selectedItems.size})`)}
+          </div>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={selectAllItems}
-              className="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-            >
-              Все
-            </button>
-            <button
-              type="button"
-              onClick={selectRandomItems}
-              className="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center gap-1"
-            >
+            <button type="button" onClick={selectAllItems} className={chipClass}>Все</button>
+            <button type="button" onClick={selectRandomItems} className={cn(chipClass, 'flex items-center gap-1')}>
               <Shuffle className={ICON_SIZES.xs} />
               Случайно
             </button>
@@ -498,101 +462,91 @@ export const RecurringPollForm = ({
         </div>
 
         <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
-          {menuItems.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => toggleItem(item.id)}
-              className={cn(
-                'p-3 rounded-xl text-left transition-all flex items-center gap-3 border-2',
-                selectedItems.has(item.id)
-                  ? isDark
-                    ? 'bg-lavender-500/10 border-lavender-500'
-                    : 'bg-peach-50 border-peach-500'
-                  : 'bg-background border-border'
-              )}
-            >
-              {selectedItems.has(item.id) ? (
-                <CheckCircle2 className={cn(
-                  ICON_SIZES.md,
-                  "flex-shrink-0",
-                  isDark ? "text-lavender-500" : "text-peach-500"
-                )} />
-              ) : (
-                <Circle className={`${ICON_SIZES.md} text-gray-400 flex-shrink-0`} />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {item.name}
-                </p>
-                {item.price && (
-                  <p className="text-xs text-muted-foreground">
-                    {item.price} ₽
-                  </p>
+          {menuItems.map(item => {
+            const isSelected = selectedItems.has(item.id);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => toggleItem(item.id)}
+                className={cn(
+                  'p-3 rounded-2xl text-left transition-all flex items-center gap-3 border',
+                  isSelected ? selectedTile : 'bg-background border-border'
                 )}
-              </div>
-            </button>
-          ))}
+              >
+                {isSelected ? (
+                  <CheckCircle2 className={cn(ICON_SIZES.md, 'flex-shrink-0', accentText)} />
+                ) : (
+                  <Circle className={`${ICON_SIZES.md} text-muted-foreground/30 flex-shrink-0`} />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {item.name}
+                  </p>
+                  {item.price && (
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {item.price} ₽
+                    </p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Info */}
-      <PastelCard variant="sky" className="border-l-4 border-blue-400">
-        <CardContent className="p-4 pt-4">
-          <div className="flex gap-3">
-            <Info className={cn(ICON_SIZES.md, "flex-shrink-0 mt-0.5", isDark ? "text-blue-400" : "text-blue-600")} />
-            <div className={cn("text-sm space-y-1", isDark ? "text-blue-300" : "text-blue-800")}>
-              <p>
-                <strong>Автоматический запуск:</strong> Голосования будут создаваться в выбранные дни и время.
-              </p>
-              <p>
-                Если голосование уже активно, автозапуск будет пропущен.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </PastelCard>
+      {/* Инфо */}
+      <div className="flex gap-3 rounded-2xl bg-muted/40 p-3.5">
+        <Info className={cn(ICON_SIZES.sm, 'flex-shrink-0 mt-0.5', accentText)} />
+        <div className="text-xs text-muted-foreground space-y-1 leading-relaxed">
+          <p>
+            <strong className="text-foreground">Автозапуск:</strong> голосования создаются в выбранные дни и время.
+          </p>
+          <p>Если голосование уже активно — автозапуск пропускается.</p>
+        </div>
+      </div>
 
-      {/* Error */}
+      {/* Ошибка */}
       <AnimatePresence>
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="p-4 rounded-xl bg-red-500/10 border border-red-500/20"
+            className="p-4 rounded-xl bg-coral-500/10 border border-coral-500/25"
           >
             <div className="flex items-center gap-2">
-              <AlertCircle className={`${ICON_SIZES.md} text-red-500 flex-shrink-0`} />
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <AlertCircle className={`${ICON_SIZES.md} text-coral-500 flex-shrink-0`} />
+              <p className="text-sm text-coral-600 dark:text-coral-400">{error}</p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Actions */}
-      <div className="flex gap-3 pt-2">
+      {/* Действия */}
+      <div className="flex gap-3 pt-1">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
             disabled={saving}
-            className="flex-1 py-3 rounded-xl font-medium border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+            className="flex-1 py-3.5 rounded-xl font-semibold bg-muted text-foreground hover:bg-muted/80 transition-colors disabled:opacity-50"
           >
             Отмена
           </button>
         )}
-        <button
+        <motion.button
           type="button"
+          whileTap={{ scale: canSaveSchedule() && !saving ? 0.97 : 1 }}
           onClick={handleSave}
           disabled={!canSaveSchedule() || saving}
           className={cn(
-            "flex-1 py-3 rounded-xl font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2",
+            'flex-1 py-3.5 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2 shadow-lg',
             canSaveSchedule() && !saving
               ? isDark
-                ? "bg-gradient-to-r from-lavender-500 to-lavender-600 hover:from-lavender-600 hover:to-lavender-700"
-                : "bg-gradient-to-r from-peach-500 to-coral-500 hover:from-peach-600 hover:to-coral-600"
-              : "bg-gray-300 dark:bg-gray-700"
+                ? 'bg-gradient-to-r from-lavender-500 to-lavender-600 shadow-lavender-500/30'
+                : 'bg-gradient-to-r from-peach-500 to-coral-500 shadow-peach-500/30'
+              : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed shadow-none'
           )}
         >
           {saving ? (
@@ -606,7 +560,7 @@ export const RecurringPollForm = ({
               {existingSchedule ? 'Обновить расписание' : 'Создать расписание'}
             </>
           )}
-        </button>
+        </motion.button>
       </div>
     </div>
   );
