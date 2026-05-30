@@ -102,7 +102,7 @@ export const botConfig = {
   // Mini App настройки
   miniApp: {
     url: process.env.VITE_APP_URL || 'https://your-domain.com/miniapp',
-    shortName: process.env.MINI_APP_SHORT_NAME || 'foodbot',
+    shortName: process.env.MINI_APP_SHORT_NAME || 'app',
   },
   
   // WebApp URL

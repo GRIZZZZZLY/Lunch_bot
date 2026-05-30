@@ -16,6 +16,8 @@ declare global {
           };
           auth_date?: number;
           hash?: string;
+          // Параметр Direct Link Mini App (startapp=...) — напр. "vote_123"
+          start_param?: string;
         };
         version: string;
         platform: string;
