@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MenuItem } from '../../services/menu.service';
-import { MenuItemCard } from './MenuItemCard';
+import { MenuRow } from './MenuRow';
 import { Button } from '../common/Button';
 import { Skeleton } from '../common/LoadingSpinner';
 import { useTelegram } from '../../hooks/useTelegram';
@@ -89,21 +89,19 @@ export const MenuList = ({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div className="space-y-2.5">
       {items.map((item, itemIndex) => (
         <motion.div
           key={item.id}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{
-            delay: itemIndex * 0.05,
-            duration: 0.3,
-            type: 'spring',
-            stiffness: 300,
-            damping: 25,
+            delay: Math.min(itemIndex * 0.03, 0.3),
+            duration: 0.24,
+            ease: 'easeOut',
           }}
         >
-          <MenuItemCard
+          <MenuRow
             item={item}
             onEdit={onEdit}
             onDelete={onDelete ? () => handleDelete(item.id) : undefined}
