@@ -106,6 +106,8 @@ async function startApplication(): Promise<void> {
       // Webhook режим: ROLE=full — webhook handler в том же процессе.
       logger.info('🌐 Запуск в webhook режиме');
 
+      await bot.init();
+
       app.post('/webhook', async (req, res) => {
         try {
           await bot.handleUpdate(req.body);
