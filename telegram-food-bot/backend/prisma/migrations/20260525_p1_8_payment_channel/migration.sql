@@ -9,12 +9,14 @@
 --
 -- Применение:
 --   ALTER TABLE — мгновенный для добавления nullable.
---   CREATE INDEX CONCURRENTLY — без локa таблицы.
+--   CREATE INDEX (обычный, НЕ CONCURRENTLY): `prisma migrate deploy` оборачивает
+--   каждую миграцию в транзакцию, а CONCURRENTLY в транзакции запрещён (E25001).
+--   Таблица donations маленькая → краткий лок на построение индекса некритичен.
 
 ALTER TABLE "donations"
   ADD COLUMN IF NOT EXISTS "payment_channel" TEXT;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS
+CREATE INDEX IF NOT EXISTS
   "donations_payment_channel_status_idx"
   ON "donations" ("payment_channel", "status");
 
