@@ -39,8 +39,11 @@ echo "🔨 Updating backend..."
 
 cd backend
 
-# Install new dependencies if any
-npm install --only=production
+# Install ALL dependencies (including devDependencies).
+# ВАЖНО: `npm run build` (tsc) требует devDeps (@types/*, typescript).
+# Раньше тут было `--only=production` → tsc падал с TS7016 (нет @types/express)
+# и `set -e` прерывал деплой ДО pm2 reload. Не возвращать --only=production.
+npm install
 
 # Rebuild
 npm run build
