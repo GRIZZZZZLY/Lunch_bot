@@ -61,13 +61,13 @@ export function OrderItemForm({
 
   return (
     <div className={cn(
-      "bg-background p-3",
-      !isLast && "border-b border-border"
+      "rounded-2xl bg-muted/45 p-3",
+      isLast && "mb-0"
     )}>
       {/* Name + Fields Row */}
       <div className="flex items-start gap-2">
-        <div className="min-w-[100px] pt-2">
-          <Label className="text-sm font-medium text-foreground">{userName}</Label>
+        <div className="min-w-[88px] pt-2">
+          <Label className="text-sm font-semibold text-foreground">{userName}</Label>
         </div>
         
         <div className="flex-1 grid grid-cols-2 gap-2">
@@ -108,7 +108,7 @@ export function OrderItemForm({
 
       {/* Collapsible Comment Field */}
       {showComment && (
-        <div className="mt-2 pl-[108px]">
+        <div className="mt-2 pl-[96px]">
           <Textarea
             placeholder="Комментарий (необязательно)"
             value={notes}

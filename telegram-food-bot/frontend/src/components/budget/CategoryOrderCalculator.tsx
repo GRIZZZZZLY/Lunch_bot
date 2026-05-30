@@ -167,9 +167,9 @@ export function CategoryOrderCalculator({
     currentOrder.calculationStatus !== 'COMPLETED';
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
 
-      {/* Order Items Forms - Compact */}
+      {/* Order Items Forms - карточки участников */}
       {isLoading || participantsLoading ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className={cn(ICON_SIZES.lg, "animate-spin text-muted-foreground")} />
@@ -179,7 +179,7 @@ export function CategoryOrderCalculator({
           Нет участников для заполнения
         </div>
       ) : (
-        <div className="space-y-0 border border-border rounded-lg overflow-hidden">
+        <div className="space-y-2">
           {participants.map((participant, index) => (
             <OrderItemForm
               key={participant.userId}
@@ -194,8 +194,11 @@ export function CategoryOrderCalculator({
         </div>
       )}
 
-      {/* Additional Costs - Compact */}
-      <div className="pt-3 border-t border-border">
+      {/* Additional Costs - чипы */}
+      <div>
+        <p className="mb-2 text-[9.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          Доп. расходы
+        </p>
         <div className="grid grid-cols-3 gap-2">
           <div>
             <Label htmlFor="delivery" className="text-xs text-muted-foreground mb-1 block">
@@ -253,26 +256,24 @@ export function CategoryOrderCalculator({
         </div>
       </div>
 
-      {/* Totals Summary - Compact */}
-      <div className="pt-3 border-t border-border">
+      {/* Totals Summary - акцентный блок */}
+      <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-coral-500/5 dark:from-lavender-500/12 dark:to-primary/6 border border-border/60 p-4">
         <div className="flex items-center justify-between">
-          <div className="text-sm space-y-0.5">
-            <div className="text-muted-foreground">
-              Блюда: {totals.itemsTotal.toFixed(2)} ₽
+          <div className="text-xs text-muted-foreground space-y-0.5 tabular-nums">
+            <div>
+              Блюда <span className="font-semibold text-foreground">{totals.itemsTotal.toFixed(0)} ₽</span>
               {totals.additionalTotal > 0 && (
-                <span> + доп: {totals.additionalTotal.toFixed(2)} ₽</span>
+                <span> · доп <span className="font-semibold text-foreground">{totals.additionalTotal.toFixed(0)} ₽</span></span>
               )}
             </div>
             {totals.additionalPerPerson > 0 && (
-              <div className="text-xs text-muted-foreground">
-                {totals.additionalPerPerson.toFixed(2)} ₽/чел доп. расходы
-              </div>
+              <div>{totals.additionalPerPerson.toFixed(0)} ₽/чел доп. расходы</div>
             )}
           </div>
           <div className="text-right">
-            <div className="text-xs text-muted-foreground">Итого</div>
-            <div className="text-xl font-bold text-foreground">
-              {totals.grandTotal.toFixed(2)} ₽
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Итого</div>
+            <div className="text-2xl font-extrabold tracking-tight text-primary dark:text-lavender-400 tabular-nums">
+              {totals.grandTotal.toFixed(0)} ₽
             </div>
           </div>
         </div>
