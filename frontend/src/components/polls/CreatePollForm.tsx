@@ -9,7 +9,7 @@
  * - Haptic feedback
  */
 
-import { useState, useEffect, useMemo, type CSSProperties } from 'react';
+import React, { useState, useEffect, useMemo, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock,

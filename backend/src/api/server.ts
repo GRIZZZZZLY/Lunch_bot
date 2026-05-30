@@ -239,8 +239,9 @@ export function createApiServer(): express.Application {
   app.use((req, res, next) => {
     const path = req.path;
     
-    // HTML файлы - всегда проверяем на сервере (no-cache)
-    if (path.endsWith('.html') || path === '/' || !path.includes('.')) {
+    // HTML и service worker файлы - никогда не кэшировать
+    if (path.endsWith('.html') || path === '/' || !path.includes('.') ||
+        path === '/sw.js' || path.startsWith('/workbox-')) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
