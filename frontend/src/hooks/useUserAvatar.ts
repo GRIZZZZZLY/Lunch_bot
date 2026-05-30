@@ -14,7 +14,10 @@ import { userService, type UserAvatar } from '@/services/user.service';
  * Срок хранения: 24 часа
  * Лимит записей: 200
  */
-const AVATAR_CACHE_KEY = 'user_avatars_cache';
+// v2 — бэк теперь возвращает подписанный URL `/api/avatar/<fileId>?exp=&sig=`
+// вместо `tg://avatar/<fileId>`. Bump ключа = старый кеш с unsigned URL'ами
+// (которые получили бы 401 от avatarAccessMiddleware) тихо игнорируется.
+const AVATAR_CACHE_KEY = 'user_avatars_cache_v2';
 const AVATAR_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 часа
 
 const parseAvatarCacheLimit = (): number => {
