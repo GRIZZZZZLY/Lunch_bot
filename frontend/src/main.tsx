@@ -51,10 +51,15 @@ void resetAppState().then(() => {
 });
 
 // Регистрация Service Worker для PWA
+// ?v= bust CF cache — each deploy should update this value
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
+  window.addEventListener('load', async () => {
+    // Unregister stale SWs registered at old URLs before registering new one
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(r => r.unregister()));
+
     navigator.serviceWorker
-      .register('/sw.js')
+      .register('/sw.js?v=20260530')
       .then(registration => {
         console.log('✅ PWA Service Worker registered:', registration.scope);
       })
