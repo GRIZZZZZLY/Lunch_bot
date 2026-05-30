@@ -291,9 +291,6 @@ export function createApiServer(): express.Application {
     });
   });
 
-  // 404 handler (для API запросов)
-  app.use(notFoundHandler);
-
   // Error handler (должен быть последним)
   app.use(errorHandler);
 
@@ -313,6 +310,10 @@ export function createApiServer(): express.Application {
 export function startApiServer(app: express.Application): void {
   const port = apiConfig.port;
   const host = apiConfig.host;
+
+  // 404 handler — регистрируется здесь чтобы маршруты добавленные после
+  // createApiServer() (например /webhook) не перехватывались раньше времени
+  app.use(notFoundHandler);
 
   app.listen(port, host, () => {
     logger.info(`🚀 API сервер запущен на http://${host}:${port}`);
