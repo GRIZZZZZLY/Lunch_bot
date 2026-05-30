@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rocket Lunch — Menu Redesign Variants</title>
+<style>
+:root[data-theme="dark"]{
+  --background:#161c26;--foreground:#e8edf7;--card:#212c3f;--card-2:#1b2433;
+  --muted:#283144;--muted-foreground:#8a9ab5;--border:#2a3448;
+  --primary:#7c6cf0;--accent:#A78BFA;--accent-strong:#8B5CF6;--accent-deep:#7C3AED;
+  --mint:#34D399;--coral:#F87171;--coral-strong:#E55A4F;--butter:#F4C15D;
+  --grad-a:rgba(167,139,250,.14);--shadow:0 18px 40px -18px rgba(124,108,240,.45);
+  --row:rgba(255,255,255,.04);--img:linear-gradient(135deg,#2a3650,#1b2433);
+}
+:root[data-theme="light"]{
+  --background:#ECE9E4;--foreground:#2A221A;--card:#F5F2EE;--card-2:#EFEAE3;
+  --muted:#EAE6E0;--muted-foreground:#6A5C50;--border:#DAD7D2;
+  --primary:#D06528;--accent:#D86A2C;--accent-strong:#C25A20;--accent-deep:#B84D12;
+  --mint:#1E9E63;--coral:#D14A3F;--coral-strong:#B83C32;--butter:#C9912F;
+  --grad-a:rgba(216,106,44,.16);--shadow:0 16px 36px -18px rgba(216,106,44,.40);
+  --row:rgba(0,0,0,.04);--img:linear-gradient(135deg,#e4d8c8,#d8c8b2);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+body{background:var(--background);color:var(--foreground);font-family:'Inter',system-ui,sans-serif;line-height:1.5;padding:32px 24px 80px;transition:.3s}
+.tnum{font-variant-numeric:tabular-nums}
+.page-head{max-width:1280px;margin:0 auto 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.page-head h1{font-size:24px;font-weight:800;letter-spacing:-.5px}
+.page-head p{color:var(--muted-foreground);font-size:13px;margin-top:4px;max-width:600px}
+.controls{display:flex;gap:8px}
+.tg{border:1px solid var(--border);background:var(--card);color:var(--foreground);padding:9px 16px;border-radius:12px;font:inherit;font-weight:600;font-size:13px;cursor:pointer}
+.tg.active{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff}
+.surface{max-width:1280px;margin:0 auto 56px}
+.variants{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:28px;justify-items:center}
+.variant{width:100%;max-width:400px}
+.variant-tag{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.variant-tag b{font-size:14px;font-weight:700}
+.variant-tag span{font-size:12px;color:var(--muted-foreground)}
+.chip{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:6px;background:var(--accent-strong);color:#fff}
+.chip.b{background:var(--mint)}
+
+.phone{width:100%;aspect-ratio:390/780;background:var(--background);border:1px solid var(--border);border-radius:34px;overflow:hidden;position:relative;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.phone-bar{height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;flex-shrink:0}
+.screen{flex:1;overflow-y:auto;padding:0 16px 20px}
+.screen::-webkit-scrollbar{width:0}
+.nav{position:absolute;left:0;right:0;bottom:0;height:62px;background:var(--card);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding-bottom:6px}
+.nav .it{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--muted-foreground)}
+.nav .it.on{color:var(--accent)}
+.fab{position:absolute;right:16px;bottom:78px;display:flex;align-items:center;gap:8px;padding:13px 18px;border-radius:18px;background:linear-gradient(135deg,var(--accent-strong),var(--accent-deep));color:#fff;font-weight:700;font-size:14px;box-shadow:0 12px 26px -8px var(--accent-strong)}
+.seclabel{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground)}
+
+/* ===== shared header ===== */
+.mhead{display:flex;align-items:center;justify-content:space-between;padding:12px 4px 10px}
+.mhead .ic{display:flex;align-items:center;gap:10px}
+.mhead .ic .sh{width:34px;height:34px;border-radius:11px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:17px}
+.mhead .ic h2{font-size:19px;font-weight:800;letter-spacing:-.4px}
+.search{display:flex;align-items:center;gap:8px;background:var(--row);border:1px solid var(--border);border-radius:12px;padding:8px 12px;color:var(--muted-foreground);font-size:13px}
+
+/* category chips */
+.cats{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cat{flex-shrink:0;font-size:13px;font-weight:600;padding:7px 14px;border-radius:11px;background:var(--row);color:var(--muted-foreground);white-space:nowrap}
+.cat.on{background:var(--accent-strong);color:#fff}
+
+/* ===== A: stats pills + grid ===== */
+.stats{display:flex;gap:8px;margin-bottom:14px}
+.stat{flex:1;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:10px 12px}
+.stat .n{font-size:20px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.stat .l{font-size:10px;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em;margin-top:1px}
+.stat .n.peach{color:var(--accent)}.stat .n.mint{color:var(--mint)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dcard{background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;display:flex;flex-direction:column}
+.dcard .img{aspect-ratio:1;background:var(--img);position:relative}
+.dcard .img .price{position:absolute;bottom:8px;right:8px;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(6px);padding:4px 10px;border-radius:10px;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;box-shadow:0 4px 10px rgba(0,0,0,.15)}
+.dcard .img .emoji{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px;opacity:.55}
+.dcard .body{padding:11px 12px 12px}
+.dcard .nm{font-size:14px;font-weight:700;letter-spacing:-.2px}
+.dcard .catl{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--mint);margin-top:4px}
+.dcard .catl::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--mint)}
+.dcard .ds{font-size:12px;color:var(--muted-foreground);margin-top:5px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ===== B: grouped list rows ===== */
+.bhead{padding:10px 4px 6px}
+.bhead .eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.bhead h2{font-size:30px;font-weight:800;letter-spacing:-1px;line-height:1.05;margin-top:2px}
+.bhead .sub{font-size:13px;color:var(--muted-foreground);margin-top:4px}
+.seg{display:flex;gap:6px;margin:12px 0 8px}
+.seg .s{flex:1;text-align:center;font-size:13px;font-weight:700;padding:9px;border-radius:12px;background:var(--row);color:var(--muted-foreground)}
+.seg .s.on{background:var(--accent-strong);color:#fff}
+.catgrp{margin-top:14px}
+.catgrp .gl{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.catgrp .gl .c{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground)}
+.catgrp .gl .cnt{font-size:11px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.drow{display:flex;align-items:center;gap:12px;padding:9px;border-radius:16px;background:var(--row);margin-bottom:8px}
+.drow .th{width:52px;height:52px;border-radius:14px;background:var(--img);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px;opacity:.9}
+.drow .mid{flex:1;min-width:0}
+.drow .mid .nm{font-size:14px;font-weight:700;letter-spacing:-.2px}
+.drow .mid .ds{font-size:12px;color:var(--muted-foreground);margin-top:2px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.drow .pr{font-size:15px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums;color:var(--accent);flex-shrink:0}
+.drow .off{opacity:.45}
+.foot{max-width:1280px;margin:40px auto 0;padding-top:24px;border-top:1px solid var(--border);color:var(--muted-foreground);font-size:13px;line-height:1.7}
+.foot b{color:var(--foreground)}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <div>
+    <h1>Rocket Lunch — редизайн страницы «Меню»</h1>
+    <p><b style="color:var(--foreground)">A</b> — отполированная сетка карточек (как сейчас, но чище). <b style="color:var(--foreground)">B</b> — редакторский список с группировкой по категориям + фильтр-чипы (как в доставке еды). Переключи тему.</p>
+  </div>
+  <div class="controls">
+    <button class="tg active" id="dk" onclick="setTheme('dark')">🌙 Тёмная</button>
+    <button class="tg" id="lt" onclick="setTheme('light')">☀️ Светлая</button>
+  </div>
+</div>
+
+<section class="surface">
+  <div class="variants">
+
+    <!-- ============ A ============ -->
+    <div class="variant">
+      <div class="variant-tag"><span class="chip">A</span><b>Сетка карточек</b><span>· фото-карточки 2 в ряд, чипы-фильтр, slim-статы</span></div>
+      <div class="phone">
+        <div class="phone-bar"><span>16:37</span><span>▪▪▪ 📶 🔋</span></div>
+        <div class="screen">
+          <div class="mhead">
+            <div class="ic"><div class="sh">🍽</div><h2>Меню</h2></div>
+            <div class="search">🔍 Поиск блюд…</div>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="n peach tnum">14</div><div class="l">Всего блюд</div></div>
+            <div class="stat"><div class="n mint tnum">12</div><div class="l">Активны</div></div>
+            <div class="stat"><div class="n tnum">428</div><div class="l">Ср. цена ₽</div></div>
+          </div>
+          <div class="cats">
+            <div class="cat on">Все</div><div class="cat">Пицца</div><div class="cat">Паста</div><div class="cat">Салаты</div><div class="cat">Супы</div>
+          </div>
+          <div class="grid2">
+            <div class="dcard"><div class="img"><div class="emoji">🍕</div><div class="price tnum">520 ₽</div></div><div class="body"><div class="nm">Маргарита</div><div class="catl">Пицца</div><div class="ds">Томаты, моцарелла, базилик на тонком тесте</div></div></div>
+            <div class="dcard"><div class="img"><div class="emoji">🍝</div><div class="price tnum">480 ₽</div></div><div class="body"><div class="nm">Карбонара</div><div class="catl">Паста</div><div class="ds">Спагетти, бекон, сливочный соус, пармезан</div></div></div>
+            <div class="dcard"><div class="img"><div class="emoji">🥗</div><div class="price tnum">390 ₽</div></div><div class="body"><div class="nm">Цезарь</div><div class="catl">Салаты</div><div class="ds">Курица, гренки, листья салата, соус цезарь</div></div></div>
+            <div class="dcard"><div class="img"><div class="emoji">🍲</div><div class="price tnum">240 ₽</div></div><div class="body"><div class="nm">Борщ</div><div class="catl">Супы</div><div class="ds">Классический борщ со сметаной</div></div></div>
+          </div>
+        </div>
+        <div class="fab">＋ Добавить блюдо</div>
+        <div class="nav"><div class="it">⌂<span>Главная</span></div><div class="it on">☰<span>Меню</span></div><div class="it">▤<span>Статистика</span></div><div class="it">◉<span>Профиль</span></div></div>
+      </div>
+    </div>
+
+    <!-- ============ B ============ -->
+    <div class="variant">
+      <div class="variant-tag"><span class="chip b">B</span><b>Список по категориям</b><span>· группировка, sticky-чипы, ряды как в доставке</span></div>
+      <div class="phone">
+        <div class="phone-bar"><span>16:37</span><span>▪▪▪ 📶 🔋</span></div>
+        <div class="screen">
+          <div class="bhead">
+            <div class="eyebrow">Каталог</div>
+            <h2>Меню</h2>
+            <div class="sub tnum">14 блюд · средняя 428 ₽</div>
+          </div>
+          <div class="seg"><div class="s on">Меню</div><div class="s">Предложка · 2</div></div>
+          <div class="search" style="margin-bottom:4px">🔍 Поиск блюд…</div>
+          <div class="cats">
+            <div class="cat on">Все</div><div class="cat">Пицца</div><div class="cat">Паста</div><div class="cat">Салаты</div><div class="cat">Супы</div><div class="cat">Бургеры</div>
+          </div>
+
+          <div class="catgrp">
+            <div class="gl"><span class="c">Пицца</span><span class="cnt">3 блюда</span></div>
+            <div class="drow"><div class="th">🍕</div><div class="mid"><div class="nm">Маргарита</div><div class="ds">Томаты, моцарелла, базилик</div></div><div class="pr tnum">520 ₽</div></div>
+            <div class="drow"><div class="th">🍕</div><div class="mid"><div class="nm">Пепперони</div><div class="ds">Острая салями, сыр, томатный соус</div></div><div class="pr tnum">590 ₽</div></div>
+            <div class="drow off"><div class="th">🍕</div><div class="mid"><div class="nm">Четыре сыра</div><div class="ds">Неактивно · в голосовании не участвует</div></div><div class="pr tnum">560 ₽</div></div>
+          </div>
+
+          <div class="catgrp">
+            <div class="gl"><span class="c">Паста</span><span class="cnt">2 блюда</span></div>
+            <div class="drow"><div class="th">🍝</div><div class="mid"><div class="nm">Карбонара</div><div class="ds">Бекон, сливочный соус, пармезан</div></div><div class="pr tnum">480 ₽</div></div>
+            <div class="drow"><div class="th">🍝</div><div class="mid"><div class="nm">Болоньезе</div><div class="ds">Мясной соус, томаты, спагетти</div></div><div class="pr tnum">460 ₽</div></div>
+          </div>
+
+          <div class="catgrp">
+            <div class="gl"><span class="c">Супы</span><span class="cnt">2 блюда</span></div>
+            <div class="drow"><div class="th">🍲</div><div class="mid"><div class="nm">Борщ</div><div class="ds">Классический, со сметаной</div></div><div class="pr tnum">240 ₽</div></div>
+            <div class="drow"><div class="th">🍜</div><div class="mid"><div class="nm">Томатный суп</div><div class="ds">С базиликом и гренками</div></div><div class="pr tnum">220 ₽</div></div>
+          </div>
+        </div>
+        <div class="fab">＋ Добавить блюдо</div>
+        <div class="nav"><div class="it">⌂<span>Главная</span></div><div class="it on">☰<span>Меню</span></div><div class="it">▤<span>Статистика</span></div><div class="it">◉<span>Профиль</span></div></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="foot">
+  <b>Идея каждого направления:</b><br>
+  • <b>A</b> — минимальный риск: тот же грид фото-карточек, но радиус 20px, цена-пилл tabular, slim-статы вместо крупных карточек, добавлены чипы-фильтр категорий (сейчас фильтра нет, блюда просто по алфавиту).<br>
+  • <b>B</b> — список, <b>сгруппированный по категориям</b> (сейчас группировки нет вообще) с sticky-чипами и сегментом «Меню / Предложка». Ряды «миниатюра + название/описание + цена» — плотнее, быстрее сканируется, привычно по доставке. Неактивные блюда приглушены прямо в списке.<br>
+  • Для USER вместо «Добавить блюдо» FAB будет «Предложить блюдо» (Sparkles), без edit/delete.<br>
+  <b style="display:block;margin-top:12px">Выбери A или B (или микс: напр. чипы-фильтр из A + группировка из B). Что ещё — карточка блюда у админа (edit/delete), форма добавления?</b>
+</div>
+
+<script>
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('dk').classList.toggle('active',t==='dark');
+  document.getElementById('lt').classList.toggle('active',t==='light');
+}
+</script>
+</body>
+</html>

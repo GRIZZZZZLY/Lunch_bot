@@ -13,7 +13,7 @@ import type { CSSProperties, UIEvent } from 'react';
 import { List, useListRef } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { MenuItem } from '@/services/menu.service';
-import { MenuItemCard } from './MenuItemCard';
+import { MenuRow } from './MenuRow';
 import { useHaptic } from '@/hooks/useHaptic';
 import { trackEvent, ANALYTICS_EVENTS } from '@/lib/analytics';
 
@@ -40,8 +40,9 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   const listRef = useListRef();
   const [scrollOffset, setScrollOffset] = useState(0);
 
-  // Высота одного item (фиксированная для лучшей производительности)
-  const ITEM_HEIGHT = 140; // px
+  // Высота одного item (фиксированная для лучшей производительности).
+  // Строка админа выше из-за панели действий.
+  const ITEM_HEIGHT = isAdmin ? 132 : 88; // px
 
   // Padding между items
   const ITEM_PADDING = 12; // px (gap-3 в Tailwind = 12px)
@@ -77,7 +78,7 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
         className="px-4"
         {...ariaAttributes}
       >
-        <MenuItemCard
+        <MenuRow
           item={item}
           showActions={isAdmin}
           onEdit={onEdit}
@@ -125,9 +126,9 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   // (оверхед react-window не окупается)
   if (items.length < 10) {
     return (
-      <div className="space-y-3 px-4">
+      <div className="space-y-2.5 px-4">
         {items.map((item) => (
-          <MenuItemCard
+          <MenuRow
             key={item.id}
             item={item}
             showActions={isAdmin}

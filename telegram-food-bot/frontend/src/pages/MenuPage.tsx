@@ -47,7 +47,6 @@ import { usePendingCount } from '../hooks/useSuggestions';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
-import { PastelCard, CardContent } from '../components/ui/pastel-card';
 import { ThemeToggle } from '../components/ui/theme-toggle';
 // import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { cn } from '../lib/utils';
@@ -394,84 +393,29 @@ export const MenuPage: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* 2. Stats Grid with Glassmorphism */}
+        {/* 2. Compact subtitle (счётчики) + доступ к предложке (admin) */}
         {!menuLoading && menuItems.length > 0 && (
-          <motion.div variants={itemVariants}>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Total Items */}
-              <PastelCard variant="default" className="overflow-hidden">
-                <CardContent className="p-3.5">
-                  <div className="flex items-center gap-2">
-                    <div className="rounded-xl bg-primary/10 p-2 text-primary">
-                      <Utensils className={`${ICON_SIZES.sm} text-peach-500`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xl font-semibold text-foreground">{totalCount}</div>
-                      <div className="text-xs text-muted-foreground">Всего блюд</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </PastelCard>
-
-              {/* Active Items OR Pending Suggestions (admin) */}
-              {user?.isAdmin && pendingCount > 0 ? (
-                <PastelCard variant="default" 
-                  className="overflow-hidden cursor-pointer transition-shadow hover:shadow-md" 
-                  onClick={() => {
-                    navigate('/admin/suggestions');
-                    haptic.light();
-                  }}
-                >
-                  <CardContent className="p-3.5">
-                    <div className="flex items-center gap-2">
-                      <div className="relative rounded-xl bg-butter-500/12 p-2 text-butter-600 dark:text-butter-400">
-                        <Sparkles className={`${ICON_SIZES.sm} text-butter-500`} />
-                        {pendingCount > 0 && (
-                          <div className="size-4 absolute -top-1 -right-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                            {pendingCount}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xl font-semibold text-foreground">{pendingCount}</div>
-                        <div className="text-xs text-muted-foreground">Ожидают</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </PastelCard>
-              ) : (
-                <PastelCard variant="default" className="overflow-hidden">
-                  <CardContent className="p-3.5">
-                    <div className="flex items-center gap-2">
-                      <div className="rounded-xl bg-mint-500/12 p-2 text-mint-600 dark:text-mint-400">
-                        <Sparkles className={`${ICON_SIZES.sm} text-mint-500`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xl font-semibold text-foreground">{activeCount}/{totalCount}</div>
-                        <div className="text-xs text-muted-foreground">Активных</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </PastelCard>
-              )}
-
-              {/* Average Price */}
+          <motion.div variants={itemVariants} className="flex items-center justify-between gap-2 px-1">
+            <p className="text-sm text-muted-foreground tabular-nums">
+              <span className="font-semibold text-foreground">{totalCount}</span> блюд
+              {' · '}{activeCount} активных
               {avgPrice > 0 && (
-                <PastelCard variant="default" className="overflow-hidden">
-                  <CardContent className="p-3.5">
-                    <div className="flex items-center gap-2">
-                      <div className="rounded-xl bg-butter-500/12 p-2 text-butter-600 dark:text-butter-400">
-                        <span className="text-lg">💰</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xl font-semibold text-foreground">₽{avgPrice}</div>
-                        <div className="text-xs text-muted-foreground">Средняя цена</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </PastelCard>
+                <> · средняя <span className="font-semibold text-foreground">{avgPrice} ₽</span></>
               )}
-            </div>
+            </p>
+
+            {user?.isAdmin && pendingCount > 0 && (
+              <button
+                onClick={() => { navigate('/admin/suggestions'); haptic.light(); }}
+                className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-butter-500/14 text-butter-600 dark:text-butter-400 transition-colors hover:bg-butter-500/20"
+              >
+                <Sparkles className={ICON_SIZES.sm} />
+                Предложка
+                <span className="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-coral-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                  {pendingCount}
+                </span>
+              </button>
+            )}
           </motion.div>
         )}
 
