@@ -12,7 +12,7 @@ import { Skeleton } from '../ui/skeleton';
  */
 export const AppSkeleton: React.FC = () => {
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="min-h-screen bg-background relative overflow-hidden" style={{background:'#1d4ed8'}}>
       {/* Background - нейтральный фон без градиентов */}
       <div className="absolute inset-0 bg-background" />
       
