@@ -15,22 +15,30 @@ echo "   Branch: $BRANCH"
 echo "🎨 Frontend dir: $FRONTEND_DIR"
 
 # ===============================================
-# 1. Pull Latest Changes
+# 1. Pull Latest Changes (+ self-update guard)
 # ===============================================
-echo "📥 Pulling latest changes from Git..."
+# Скрипт обновляет сам себя через git pull. Если тянуть изменения «по ходу»,
+# bash продолжит исполнять СТАРУЮ версию файла с диска (эта ловушка уже один раз
+# тихо выкатывала старую логику). Решение: на первом проходе тянем изменения и
+# через exec перезапускаем уже свежую копию скрипта.
+if [ -z "${UPDATE_VPS_REEXEC:-}" ]; then
+  echo "📥 Pulling latest changes from Git..."
 
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-echo "📍 Current branch: $CURRENT_BRANCH"
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  echo "📍 Current branch: $CURRENT_BRANCH"
 
-if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
-    echo "⚠️  Not on $BRANCH branch — switching..."
-    git fetch origin "$BRANCH"
-    git checkout "$BRANCH"
+  if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
+      echo "⚠️  Not on $BRANCH branch — switching..."
+      git fetch origin "$BRANCH"
+      git checkout "$BRANCH"
+  fi
+
+  git pull origin "$BRANCH"
+
+  echo "✅ Changes pulled — перезапуск обновлённого скрипта"
+  export UPDATE_VPS_REEXEC=1
+  exec bash "$0" "$@"
 fi
-
-git pull origin "$BRANCH"
-
-echo "✅ Changes pulled"
 
 # ===============================================
 # 2. Update Backend
