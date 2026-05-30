@@ -86,10 +86,6 @@ if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
   webapp.enableClosingConfirmation?.();
 }
 
-// Debug: change marker color to orange when main.tsx executes
-const __dbg = document.getElementById('debug-marker');
-if (__dbg) { __dbg.style.background = '#ea580c'; __dbg.textContent = 'main.tsx loaded ✓'; }
-
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

@@ -17,7 +17,7 @@
   -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' 'unsafe-inline' https://telegram.org;
+    script-src 'self' https://telegram.org;
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https:;
     font-src 'self' data:;
@@ -32,45 +32,20 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  
+
   <!-- Версия приложения для cache busting -->
   <meta name="app-version" content="2.0.2">
-  
+
   <!-- Preconnect для ускорения загрузки внешних ресурсов -->
   <link rel="preconnect" href="https://telegram.org" crossorigin>
   <link rel="dns-prefetch" href="https://telegram.org">
-  
+
   <!-- Preload критических скриптов -->
   <link rel="preload" href="https://telegram.org/js/telegram-web-app.js" as="script">
-  
+
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script>
-    window.__errors = [];
-    window.onerror = function(msg, src, line, col, err) {
-      window.__errors.push({msg, src: (src||'').split('/').slice(-2).join('/'), line, col});
-      var d = document.getElementById('__err');
-      if (!d) { d = document.createElement('div'); d.id='__err'; d.style='position:fixed;top:0;left:0;right:0;background:red;color:white;font-size:12px;padding:8px;z-index:99999;white-space:pre-wrap;max-height:50vh;overflow:auto;'; document.body.appendChild(d); }
-      d.textContent = window.__errors.map(function(e){ return e.msg + '\n  ' + e.src + ':' + e.line; }).join('\n\n');
-    };
-    window.addEventListener('unhandledrejection', function(e) {
-      window.onerror(String(e.reason), 'promise', 0, 0, e.reason);
-    });
-  </script>
 </head>
 <body>
-  <div id="debug-marker" style="position:fixed;top:0;left:0;right:0;background:#16a34a;color:white;font-size:10px;padding:3px 6px;z-index:99998;text-align:center;">HTML loaded ✓</div>
-  <script>
-    setTimeout(function() {
-      var d = document.getElementById('debug-marker');
-      var scripts = document.querySelectorAll('script[type="module"][src]');
-      if (!scripts.length) { if(d){d.style.background='#b91c1c';d.textContent='NO MODULE SCRIPTS';} return; }
-      var src = scripts[0].getAttribute('src');
-      if(d) d.textContent = 'Fetching: ' + src.split('/').pop();
-      fetch(src, {cache:'no-store'})
-        .then(function(r){ if(d){d.style.background=r.ok?'#1d4ed8':'#b91c1c';d.textContent=src.split('/').pop()+' HTTP:'+r.status+(r.ok?' (ok, module not running?)':'');} })
-        .catch(function(e){ if(d){d.style.background='#b91c1c';d.textContent='FETCH ERR: '+e.message;} });
-    }, 1000);
-  </script>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
