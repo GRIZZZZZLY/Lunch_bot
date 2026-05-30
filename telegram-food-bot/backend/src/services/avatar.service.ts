@@ -2,6 +2,24 @@ import { User } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { getBotInstance } from '../bot/bot-instance';
+import { signAvatarUrl } from '../utils/avatar-url-signer';
+
+/**
+ * При выдаче клиенту трансформируем `tg://avatar/<fileId>` (хранится в БД)
+ * в подписанный `/api/avatar/<fileId>?exp=&sig=`. Подпись короткоживущая;
+ * хранить её в БД нельзя (протухнет). Любые другие форматы (внешние URL)
+ * — возвращаем как есть.
+ */
+function presentAvatarUrl(stored: string | null | undefined): string | null {
+  if (!stored) return null;
+  const prefix = 'tg://avatar/';
+  if (stored.startsWith(prefix)) {
+    const fileId = stored.slice(prefix.length);
+    if (!fileId) return null;
+    return signAvatarUrl(fileId);
+  }
+  return stored;
+}
 
 /**
  * Avatar Service
@@ -73,9 +91,10 @@ export class AvatarService {
         return null;
       }
 
-      // ВАЖНО: Telegram API файлы недоступны напрямую из браузера из-за CORS
-      // Возвращаем file_id который фронтенд может преобразовать в прокси URL
-      // Формат: tg://avatar/{file_id} - фронтенд распознает и заменит на /api/avatar/{file_id}
+      // ВАЖНО: Telegram API файлы недоступны напрямую из браузера из-за CORS.
+      // В БД храним `tg://avatar/{file_id}` как стабильный маркер (file_id живёт долго),
+      // на отдачу клиенту трансформируем в подписанный `/api/avatar/{file_id}?exp=&sig=`
+      // через presentAvatarUrl() — иначе <img src> получит 401 от auth-middleware.
       const avatarUrl = `tg://avatar/${largestPhoto.file_id}`;
 
       logger.info(`[AvatarService] ✅ Avatar fetched successfully for user ${telegramId}: ${file.file_path} (file_id: ${largestPhoto.file_id})`);
@@ -156,7 +175,7 @@ export class AvatarService {
       // 2. Проверяем валидность кэша
       if (user.avatarUrl && this.isCacheValid(user.avatarUpdatedAt)) {
         logger.debug(`[AvatarService] ✅ Avatar cache HIT for user ${telegramId}`);
-        return user.avatarUrl;
+        return presentAvatarUrl(user.avatarUrl);
       }
 
       // 3. Кэш невалиден или отсутствует → загружаем из Telegram API
@@ -166,7 +185,7 @@ export class AvatarService {
       // 4. Обновляем кэш в БД
       await this.updateUserAvatar(user.id, avatarUrl);
 
-      return avatarUrl;
+      return presentAvatarUrl(avatarUrl);
     } catch (error) {
       logger.error(`[AvatarService] ❌ Error getting user avatar for ${telegramId}:`, error);
       return null;
@@ -220,7 +239,7 @@ export class AvatarService {
 
       // 3. Добавляем пользователей с валидным кэшем
       for (const user of validCache) {
-        results.set(user.telegramId.toString(), user.avatarUrl);
+        results.set(user.telegramId.toString(), presentAvatarUrl(user.avatarUrl));
       }
 
       logger.info(
@@ -240,7 +259,7 @@ export class AvatarService {
       // 5. Обрабатываем результаты загрузки
       for (const result of fetchResults) {
         if (result.status === 'fulfilled') {
-          results.set(result.value.telegramId, result.value.avatarUrl);
+          results.set(result.value.telegramId, presentAvatarUrl(result.value.avatarUrl));
         } else {
           logger.error('Error in batch avatar fetch:', result.reason);
         }
