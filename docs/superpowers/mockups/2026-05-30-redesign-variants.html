@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rocket Lunch — Redesign Variants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+/* ============ PROJECT TOKENS ============ */
+:root[data-theme="dark"] {
+  --background:#161c26; --foreground:#e8edf7; --card:#212c3f; --card-2:#1b2433;
+  --muted:#283144; --muted-foreground:#8a9ab5; --border:#2a3448;
+  --primary:#7c6cf0; --accent:#A78BFA; --accent-strong:#8B5CF6; --accent-deep:#7C3AED;
+  --mint:#34D399; --mint-strong:#22B573; --coral:#F87171; --coral-strong:#E55A4F; --butter:#F4C15D;
+  --grad-a:rgba(167,139,250,.14); --grad-b:rgba(124,108,240,.06);
+  --shadow:0 18px 40px -18px rgba(124,108,240,.45);
+  --glass-inner:inset 0 1px 0 rgba(255,255,255,.06);
+  --row:rgba(255,255,255,.035);
+}
+:root[data-theme="light"] {
+  --background:#ECE9E4; --foreground:#2A221A; --card:#F5F2EE; --card-2:#EFEAE3;
+  --muted:#EAE6E0; --muted-foreground:#6A5C50; --border:#DAD7D2;
+  --primary:#D06528; --accent:#D86A2C; --accent-strong:#C25A20; --accent-deep:#A8481200;
+  --accent-deep:#B84D12;
+  --mint:#1E9E63; --mint-strong:#178455; --coral:#D14A3F; --coral-strong:#B83C32; --butter:#C9912F;
+  --grad-a:rgba(216,106,44,.16); --grad-b:rgba(229,90,79,.10);
+  --shadow:0 16px 36px -18px rgba(216,106,44,.40);
+  --glass-inner:inset 0 1px 0 rgba(255,255,255,.5);
+  --row:rgba(0,0,0,.035);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+body{
+  background:var(--background); color:var(--foreground);
+  font-family:'Inter',system-ui,sans-serif; line-height:1.5;
+  padding:32px 24px 80px; transition:background .3s,color .3s;
+}
+.tnum{font-variant-numeric:tabular-nums}
+/* ============ PAGE CHROME ============ */
+.page-head{max-width:1280px;margin:0 auto 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.page-head h1{font-size:24px;font-weight:800;letter-spacing:-.5px}
+.page-head p{color:var(--muted-foreground);font-size:13px;margin-top:4px;max-width:560px}
+.controls{display:flex;gap:8px}
+.tg{appearance:none;border:1px solid var(--border);background:var(--card);color:var(--foreground);
+  padding:9px 16px;border-radius:12px;font:inherit;font-weight:600;font-size:13px;cursor:pointer;transition:.2s}
+.tg:hover{background:var(--muted)}
+.tg.active{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff}
+:root[data-theme="light"] .tg.active{color:#fff}
+
+.surface{max-width:1280px;margin:0 auto 56px}
+.surface-title{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground);margin-bottom:4px}
+.surface-sub{font-size:13px;color:var(--muted-foreground);margin-bottom:20px}
+.variants{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:28px;justify-items:center}
+.variant{width:100%;max-width:390px}
+.variant-tag{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.variant-tag b{font-size:14px;font-weight:700}
+.variant-tag span{font-size:12px;color:var(--muted-foreground)}
+.chip{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:6px;background:var(--accent-strong);color:#fff}
+.chip.b{background:var(--mint-strong)}
+
+/* ============ PHONE ============ */
+.phone{width:100%;aspect-ratio:390/720;background:var(--background);border:1px solid var(--border);
+  border-radius:34px;overflow:hidden;position:relative;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.phone-bar{height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;flex-shrink:0}
+.phone-bar .dots{display:flex;gap:4px;align-items:center;opacity:.7}
+.screen{flex:1;overflow-y:auto;padding:0 16px 20px;scrollbar-width:thin}
+.screen::-webkit-scrollbar{width:0}
+.tg-head{display:flex;align-items:center;justify-content:space-between;padding:10px 4px 14px}
+.tg-head .t{font-size:15px;font-weight:700}
+.tg-head .t small{display:block;font-size:11px;color:var(--muted-foreground);font-weight:500}
+.tg-head .x{font-size:13px;color:var(--accent)}
+
+/* ============ GENERIC BITS ============ */
+.seclabel{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground)}
+.av{border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+.btn{border:none;font:inherit;font-weight:600;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--accent-strong),var(--accent-deep));color:#fff;box-shadow:0 8px 20px -8px var(--accent-strong)}
+.btn-ghost{background:var(--muted);color:var(--foreground)}
+.btn-out{background:transparent;border:1px solid var(--border);color:var(--foreground)}
+.icon{width:18px;height:18px;display:inline-block;vertical-align:middle}
+
+/* mono money for variant B */
+.money-b{font-family:'Space Grotesk','Manrope',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.disp-b{font-family:'Manrope',sans-serif}
+
+/* grain overlay for variant B cards */
+.grain{position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E")}
+
+/* ================= SURFACE 1: HOME ================= */
+/* Variant A — refined */
+.a-greet{font-size:26px;font-weight:800;letter-spacing:-.7px;line-height:1.1;margin:6px 4px 16px}
+.a-greet em{font-style:normal;color:var(--accent)}
+.card-a{background:var(--card);border:1px solid var(--border);border-radius:22px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden}
+.card-a.poll-done{background:linear-gradient(135deg,var(--grad-a),var(--grad-b))}
+.done-title{font-size:17px;font-weight:700;letter-spacing:-.2px}
+.done-sub{font-size:13px;color:var(--muted-foreground);margin-top:4px;line-height:1.5}
+.tagline{display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:11px;font-weight:600;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);padding:4px 9px;border-radius:8px}
+.streak{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.streak .ava{width:46px;height:46px;font-size:16px}
+.streak .days{font-size:11px;font-weight:700;color:var(--butter);background:color-mix(in srgb,var(--butter) 16%,transparent);padding:3px 8px;border-radius:7px}
+.vote-row{display:flex;align-items:center;gap:12px;padding:11px;border-radius:14px;background:var(--row);margin-bottom:8px}
+.vote-row .bar{flex:1;height:7px;border-radius:5px;background:var(--muted);overflow:hidden}
+.vote-row .bar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent),var(--accent-deep))}
+.vote-row .nm{font-size:13px;font-weight:600;min-width:64px}
+.vote-row .pc{font-size:13px;font-weight:700;min-width:34px;text-align:right}
+.fab{position:absolute;right:18px;bottom:74px;width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,var(--accent-strong),var(--accent-deep));color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 12px 26px -8px var(--accent-strong)}
+.nav{position:absolute;left:0;right:0;bottom:0;height:62px;background:var(--card);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding-bottom:6px}
+.nav .it{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--muted-foreground)}
+.nav .it.on{color:var(--accent)}
+.nav .it .d{width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:0}
+.nav .it.on .d{opacity:1}
+
+/* Variant B — bold editorial */
+.b-greet{font-family:'Manrope';font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-foreground);margin:8px 4px 2px}
+.b-greet2{font-family:'Manrope';font-size:30px;font-weight:800;letter-spacing:-1px;line-height:1.05;margin:0 4px 18px}
+.cardb{background:var(--card);border-radius:26px;padding:18px;margin-bottom:16px;position:relative;overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--border)}
+.cardb.hero{background:radial-gradient(120% 120% at 0% 0%,var(--grad-a),transparent 60%),var(--card)}
+.b-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.b-done{font-family:'Manrope';font-size:19px;font-weight:800;letter-spacing:-.4px;margin-top:6px}
+.b-done-sub{font-size:13px;color:var(--muted-foreground);margin-top:5px;line-height:1.5}
+.b-seg{display:flex;gap:6px;margin:14px 0 4px}
+.b-seg .s{flex:1;text-align:center;font-size:12px;font-weight:700;padding:9px;border-radius:12px;background:var(--row);color:var(--muted-foreground)}
+.b-seg .s.on{background:var(--accent-strong);color:#fff}
+.b-vote{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.b-vote .rank{font-family:'Space Grotesk';font-size:13px;font-weight:700;width:18px;color:var(--muted-foreground)}
+.b-vote .nm{flex:1;font-size:14px;font-weight:600}
+.b-vote .track{position:absolute}
+.b-vote .pc{font-family:'Space Grotesk';font-variant-numeric:tabular-nums;font-size:14px;font-weight:700}
+.b-line{height:8px;border-radius:6px;background:var(--muted);overflow:hidden;margin-top:5px}
+.b-line i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-deep))}
+
+/* ================= SURFACE 2: BUDGET WIDGET ================= */
+.bw-head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.bw-ic{width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);flex-shrink:0}
+.bw-ic.crown{background:color-mix(in srgb,var(--butter) 18%,transparent);color:var(--butter)}
+.bw-t{font-size:16px;font-weight:700;letter-spacing:-.2px}
+.bw-t small{display:block;font-size:11px;font-weight:600;color:var(--muted-foreground)}
+.badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:7px;text-transform:uppercase;letter-spacing:.04em}
+.badge.active{background:color-mix(in srgb,var(--mint) 18%,transparent);color:var(--mint)}
+.row-line{display:flex;align-items:center;justify-content:space-between;padding:7px 0;font-size:14px}
+.row-line .lab{color:var(--muted-foreground)}
+.row-line .val{font-weight:700}
+.row-line .val.neg{color:var(--coral)}
+.row-line .val.pos{color:var(--mint);font-size:20px}
+.deb{display:flex;align-items:center;justify-content:space-between;padding:10px 11px;border-radius:14px;background:var(--row);margin-bottom:8px}
+.deb .who{display:flex;align-items:center;gap:10px}
+.deb .who .ava{width:34px;height:34px;font-size:13px}
+.deb .who .nm{font-size:13px;font-weight:600}
+.deb .who .am{font-size:12px;color:var(--muted-foreground)}
+.st{font-size:11px;font-weight:700;padding:4px 9px;border-radius:8px}
+.st.wait{background:var(--muted);color:var(--muted-foreground)}
+.st.paid{background:color-mix(in srgb,var(--butter) 18%,transparent);color:var(--butter)}
+.st.ok{background:color-mix(in srgb,var(--mint) 18%,transparent);color:var(--mint)}
+.cbtn{width:30px;height:30px;border-radius:9px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cbtn.y{background:var(--mint-strong);color:#fff}
+.cbtn.n{background:transparent;border:1px solid var(--border);color:var(--muted-foreground)}
+
+/* Budget Variant B hero number */
+.bw-hero{text-align:center;padding:14px 0 18px}
+.bw-hero .lab{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-foreground)}
+.bw-hero .big{font-family:'Space Grotesk';font-variant-numeric:tabular-nums;font-size:46px;font-weight:700;letter-spacing:-2px;color:var(--mint);margin-top:4px;line-height:1}
+.bw-hero .meta{font-size:12px;color:var(--muted-foreground);margin-top:8px}
+.bw-hero .meta b{color:var(--foreground)}
+.progress-ring{display:flex;gap:16px;justify-content:center;margin-top:10px}
+.pr-item{text-align:center}
+.pr-item .n{font-family:'Space Grotesk';font-weight:700;font-size:16px;font-variant-numeric:tabular-nums}
+.pr-item .l{font-size:10px;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.05em}
+
+/* ================= SURFACE 3: CALCULATOR MODAL ================= */
+.modal-wrap{position:relative;width:100%;max-width:390px;aspect-ratio:390/720;border-radius:34px;overflow:hidden;background:rgba(0,0,0,.5);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;padding:14px;border:1px solid var(--border)}
+.modal-wrap::before{content:"";position:absolute;inset:0;background:var(--background);opacity:.35}
+.modal{position:relative;width:100%;max-height:94%;background:var(--card);border-radius:24px;overflow:hidden;display:flex;flex-direction:column;border:1px solid var(--border);box-shadow:var(--glass-inner),0 30px 60px -20px rgba(0,0,0,.5)}
+.modal-h{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border)}
+.modal-h .ti{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.modal-h .x{width:30px;height:30px;border-radius:9px;background:var(--row);display:flex;align-items:center;justify-content:center;color:var(--muted-foreground)}
+.modal-body{padding:14px 18px 18px;overflow-y:auto}
+.modal-body::-webkit-scrollbar{width:0}
+.person{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.person:last-child{border-bottom:none}
+.person .pn{width:74px;font-size:13px;font-weight:600;flex-shrink:0}
+.inp{flex:1;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--background);padding:0 11px;font:inherit;font-size:13px;color:var(--foreground)}
+.inp::placeholder{color:var(--muted-foreground)}
+.inp.price{max-width:84px;font-variant-numeric:tabular-nums}
+.costs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.costs label{font-size:11px;color:var(--muted-foreground);display:block;margin-bottom:5px}
+.tot{display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.tot .br{font-size:12px;color:var(--muted-foreground);line-height:1.6}
+.tot .gt{text-align:right}
+.tot .gt .l{font-size:11px;color:var(--muted-foreground)}
+.tot .gt .v{font-size:24px;font-weight:800;letter-spacing:-.5px}
+.note{font-size:11px;text-align:center;color:var(--muted-foreground);margin-top:10px}
+
+/* Calc Variant B */
+.calcb .person{border:none;background:var(--row);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.calcb .seg-tot{background:radial-gradient(120% 120% at 100% 0%,var(--grad-a),transparent 55%),var(--card-2);border-radius:18px;padding:16px;margin-top:14px}
+.calcb .gt .v{font-family:'Space Grotesk';font-variant-numeric:tabular-nums;font-size:30px;font-weight:700;color:var(--accent)}
+.calcb .costchip{background:var(--background);border-radius:12px;padding:10px}
+
+.foot{max-width:1280px;margin:40px auto 0;padding-top:24px;border-top:1px solid var(--border);color:var(--muted-foreground);font-size:13px;line-height:1.7}
+.foot b{color:var(--foreground)}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <div>
+    <h1>Rocket Lunch — варианты редизайна</h1>
+    <p>3 поверхности · по 2 направления. <b style="color:var(--foreground)">A</b> — эволюция бренда (минимальный риск). <b style="color:var(--foreground)">B</b> — смелое финтех-направление (крупные суммы, глубина, акцент). Переключи тему — токены берутся 1:1 из проекта.</p>
+  </div>
+  <div class="controls">
+    <button class="tg active" id="dk" onclick="setTheme('dark')">🌙 Тёмная</button>
+    <button class="tg" id="lt" onclick="setTheme('light')">☀️ Светлая</button>
+  </div>
+</div>
+
+<!-- ============ SURFACE 1: HOME ============ -->
+<section class="surface">
+  <div class="surface-title">1 · Главная страница</div>
+  <div class="surface-sub">Приветствие, карточка прошедшего обеда, активное голосование, FAB.</div>
+  <div class="variants">
+
+    <!-- HOME A -->
+    <div class="variant">
+      <div class="variant-tag"><span class="chip">A</span><b>Эволюция</b><span>· tabular-nums, цветная тень, чище иерархия</span></div>
+      <div class="phone">
+        <div class="phone-bar"><span>16:37</span><span class="dots">▪▪▪ 📶 🔋</span></div>
+        <div class="screen">
+          <div class="tg-head"><div class="t">Rocket Lunch<small>мини-приложение</small></div><div class="x">Закрыть</div></div>
+          <div class="card-a poll-done">
+            <div class="streak"><div class="av ava">И</div><div class="days">🔥 1 дн.</div></div>
+            <div class="done-title">Как прошёл обед, Игорь?</div>
+            <div class="done-sub">Надеюсь, было вкусно. До завтра.</div>
+            <div class="tagline">⬡ Ответственный: Игорь</div>
+          </div>
+          <div class="a-greet">Добрый вечер!<br><em>Голосование идёт</em></div>
+          <div class="card-a">
+            <div class="seclabel" style="margin-bottom:12px">Сейчас лидируют</div>
+            <div class="vote-row"><span class="nm">Том ям</span><div class="bar"><i style="width:62%"></i></div><span class="pc tnum">62%</span></div>
+            <div class="vote-row"><span class="nm">Карбонара</span><div class="bar"><i style="width:24%"></i></div><span class="pc tnum">24%</span></div>
+            <div class="vote-row"><span class="nm">Поке</span><div class="bar"><i style="width:14%"></i></div><span class="pc tnum">14%</span></div>
+            <button class="btn btn-primary" style="width:100%;padding:13px;margin-top:8px">Проголосовать</button>
+          </div>
+        </div>
+        <div class="fab">+</div>
+        <div class="nav">
+          <div class="it on"><div class="d"></div>⌂<span>Главная</span></div>
+          <div class="it">☰<span>Меню</span></div>
+          <div class="it">▤<span>Статистика</span></div>
+          <div class="it">◉<span>Профиль</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HOME B -->
+    <div class="variant">
+      <div class="variant-tag"><span class="chip b">B</span><b>Финтех</b><span>· Manrope, эйбрау, сегменты, ранги</span></div>
+      <div class="phone">
+        <div class="phone-bar"><span>16:37</span><span class="dots">▪▪▪ 📶 🔋</span></div>
+        <div class="screen">
+          <div class="tg-head"><div class="t">Rocket Lunch<small>мини-приложение</small></div><div class="x">Закрыть</div></div>
+          <div class="b-greet">Среда · 30 мая</div>
+          <div class="b-greet2">Добрый вечер,<br>Игорь</div>
+          <div class="cardb hero">
+            <div class="grain"></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div><div class="b-eyebrow">Вчерашний обед</div><div class="b-done">Том ям победил</div>
+              <div class="b-done-sub">7 голосов · ответственный Игорь</div></div>
+              <div class="av ava" style="width:46px;height:46px;font-size:16px">И</div>
+            </div>
+          </div>
+          <div class="cardb">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="b-eyebrow" style="color:var(--muted-foreground)">Голосование · 28 мин</div>
+              <span class="badge active">live</span>
+            </div>
+            <div class="b-seg"><div class="s on">Лидеры</div><div class="s">Все блюда</div></div>
+            <div style="margin-top:14px">
+              <div class="b-vote"><span class="rank">1</span><span class="nm">Том ям</span><span class="pc">62%</span></div>
+              <div class="b-line" style="margin-bottom:14px"><i style="width:62%"></i></div>
+              <div class="b-vote"><span class="rank">2</span><span class="nm">Карбонара</span><span class="pc">24%</span></div>
+              <div class="b-line" style="margin-bottom:14px"><i style="width:24%"></i></div>
+              <div class="b-vote"><span class="rank">3</span><span class="nm">Поке боул</span><span class="pc">14%</span></div>
+              <div class="b-line"><i style="width:14%"></i></div>
+            </div>
+            <button class="btn btn-primary" style="width:100%;padding:14px;margin-top:16px">Проголосовать →</button>
+          </div>
+        </div>
+        <div class="fab">+</div>
+        <div class="nav">
+          <div class="it on"><div class="d"></div>⌂<span>Главная</span></div>
+          <div class="it">☰<span>Меню</span></div>
+          <div class="it">▤<span>Статистика</span></div>
+          <div class="it">◉<span>Профиль</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ SURFACE 2: BUDGET WIDGET (Responsible) ============ -->
+<section class="surface">
+  <div class="surface-title">2 · Виджет бюджета — сценарий «Вы ответственный»</div>
+  <div class="surface-sub">Сколько оплатил, доля, вернут, список должников со статусами, действия.</div>
+  <div class="variants">
+
+    <!-- BUDGET A -->
+    <div class="variant">
+      <div class="variant-tag"><span class="chip">A</span><b>Эволюция</b><span>· те же ряды, mint для +, цифры tabular</span></div>
+      <div class="phone" style="aspect-ratio:390/640">
+        <div class="phone-bar"><span>16:37</span><span class="dots">▪▪▪ 📶 🔋</span></div>
+        <div class="screen">
+          <div class="card-a" style="margin-top:8px">
+            <div class="bw-head">
+              <div class="bw-ic crown">♔</div>
+              <div style="flex:1"><div class="bw-t">Вы ответственный<small>Том ям · 7 человек</small></div></div>
+              <span class="badge active">активно</span>
+            </div>
+            <div style="margin:14px 0 4px;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+              <div class="row-line"><span class="lab">Вы оплатили</span><span class="val neg tnum">−2 940 ₽</span></div>
+              <div class="row-line"><span class="lab">Ваша доля</span><span class="val tnum">420 ₽</span></div>
+              <div class="row-line"><span class="lab">Вернут вам</span><span class="val pos tnum">+2 520 ₽</span></div>
+            </div>
+            <div class="seclabel" style="margin:14px 0 10px">Ожидаются переводы</div>
+            <div class="deb"><div class="who"><div class="av ava">А</div><div><div class="nm">Аня</div><div class="am tnum">420 ₽</div></div></div><span class="st ok">подтверждено</span></div>
+            <div class="deb"><div class="who"><div class="av ava">Д</div><div><div class="nm">Дмитрий</div><div class="am tnum">420 ₽</div></div></div><div style="display:flex;gap:6px;align-items:center"><span class="st paid">оплачено</span><button class="cbtn y">✓</button><button class="cbtn n">✕</button></div></div>
+            <div class="deb"><div class="who"><div class="av ava">М</div><div><div class="nm">Марина</div><div class="am tnum">420 ₽</div></div></div><span class="st wait">ожидается</span></div>
+            <div class="deb"><div class="who"><div class="av ava">К</div><div><div class="nm">Кирилл</div><div class="am tnum">420 ₽</div></div></div><span class="st wait">ожидается</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+              <button class="btn btn-out" style="padding:11px;font-size:13px">🔔 Напомнить</button>
+              <button class="btn btn-out" style="padding:11px;font-size:13px" disabled>Все оплатили</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUDGET B -->
+    <div class="variant">
+      <div class="variant-tag"><span class="chip b">B</span><b>Финтех</b><span>· крупная сумма-герой, прогресс сбора</span></div>
+      <div class="phone" style="aspect-ratio:390/640">
+        <div class="phone-bar"><span>16:37</span><span class="dots">▪▪▪ 📶 🔋</span></div>
+        <div class="screen">
+          <div class="cardb" style="margin-top:8px">
+            <div class="grain"></div>
+            <div class="bw-head">
+              <div class="bw-ic crown">♔</div>
+              <div style="flex:1"><div class="bw-t">Вы ответственный<small>Том ям · 7 человек</small></div></div>
+            </div>
+            <div class="bw-hero">
+              <div class="lab">Вам вернут</div>
+              <div class="big money-b">+2 520 ₽</div>
+              <div class="meta">Оплачено <b class="tnum">2 940 ₽</b> · ваша доля <b class="tnum">420 ₽</b></div>
+              <div class="progress-ring">
+                <div class="pr-item"><div class="n" style="color:var(--mint)">1</div><div class="l">пришло</div></div>
+                <div class="pr-item"><div class="n" style="color:var(--butter)">1</div><div class="l">оплачено</div></div>
+                <div class="pr-item"><div class="n" style="color:var(--muted-foreground)">2</div><div class="l">ждём</div></div>
+              </div>
+            </div>
+            <div class="b-line" style="height:10px"><i style="width:25%;background:var(--mint)"></i></div>
+            <div class="seclabel" style="margin:16px 0 10px">Переводы</div>
+            <div class="deb" style="background:var(--row)"><div class="who"><div class="av ava">А</div><div><div class="nm">Аня</div><div class="am money-b">420 ₽</div></div></div><span class="st ok">✓ пришло</span></div>
+            <div class="deb" style="background:var(--row)"><div class="who"><div class="av ava">Д</div><div><div class="nm">Дмитрий</div><div class="am money-b">420 ₽</div></div></div><div style="display:flex;gap:6px;align-items:center"><span class="st paid">оплачено</span><button class="cbtn y">✓</button><button class="cbtn n">✕</button></div></div>
+            <div class="deb" style="background:var(--row)"><div class="who"><div class="av ava">М</div><div><div class="nm">Марина</div><div class="am money-b">420 ₽</div></div></div><span class="st wait">ждём</span></div>
+            <div class="deb" style="background:var(--row)"><div class="who"><div class="av ava">К</div><div><div class="nm">Кирилл</div><div class="am money-b">420 ₽</div></div></div><span class="st wait">ждём</span></div>
+            <button class="btn btn-primary" style="width:100%;padding:14px;margin-top:14px">🔔 Напомнить должникам</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ SURFACE 3: CALCULATOR MODAL ============ -->
+<section class="surface">
+  <div class="surface-title">3 · Модальное окно калькулятора (ответственный)</div>
+  <div class="surface-sub">Позиции по людям, доп. расходы (доставка/сервис/чаевые), итог, отправка сумм.</div>
+  <div class="variants">
+
+    <!-- CALC A -->
+    <div class="variant">
+      <div class="variant-tag"><span class="chip">A</span><b>Эволюция</b><span>· таблица в рамке, чистый итог</span></div>
+      <div class="modal-wrap">
+        <div class="modal">
+          <div class="modal-h"><div class="ti">Горячее</div><div class="x">✕</div></div>
+          <div class="modal-body">
+            <div style="border:1px solid var(--border);border-radius:14px;overflow:hidden">
+              <div class="person"><div class="pn">Игорь</div><input class="inp" value="Том ям" /><input class="inp price" value="540" /><span style="color:var(--muted-foreground)">⌄</span></div>
+              <div class="person"><div class="pn">Аня</div><input class="inp" value="Карбонара" /><input class="inp price" value="480" /><span style="color:var(--muted-foreground)">⌄</span></div>
+              <div class="person"><div class="pn">Дмитрий</div><input class="inp" value="Поке" /><input class="inp price" value="510" /><span style="color:var(--muted-foreground)">⌄</span></div>
+              <div class="person"><div class="pn">Марина</div><input class="inp" placeholder="Позиция" /><input class="inp price" placeholder="Цена" /><span style="color:var(--muted-foreground)">⌄</span></div>
+            </div>
+            <div class="costs">
+              <div><label>Доставка ₽</label><input class="inp" value="290" /></div>
+              <div><label>Сервис ₽</label><input class="inp" value="0" /></div>
+              <div><label>Чаевые ₽</label><input class="inp" value="150" /></div>
+            </div>
+            <div class="tot">
+              <div class="br">Блюда: <b style="color:var(--foreground)" class="tnum">2 030 ₽</b> + доп: <b style="color:var(--foreground)" class="tnum">440 ₽</b><br><span class="tnum">110 ₽/чел доп. расходы</span></div>
+              <div class="gt"><div class="l">Итого</div><div class="v tnum">2 470 ₽</div></div>
+            </div>
+            <button class="btn btn-primary" style="width:100%;padding:13px;margin-top:14px">➤ Отправить суммы</button>
+            <div class="note">Заполните позицию и цену для каждого</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALC B -->
+    <div class="variant calcb">
+      <div class="variant-tag"><span class="chip b">B</span><b>Финтех</b><span>· карточки-строки, итог-блок с акцентом</span></div>
+      <div class="modal-wrap">
+        <div class="modal">
+          <div class="modal-h"><div><div class="b-eyebrow">Расчёт заказа</div><div class="ti">Горячее</div></div><div class="x">✕</div></div>
+          <div class="modal-body">
+            <div class="person"><div class="pn">Игорь</div><input class="inp" value="Том ям" /><input class="inp price money-b" value="540" /></div>
+            <div class="person"><div class="pn">Аня</div><input class="inp" value="Карбонара" /><input class="inp price money-b" value="480" /></div>
+            <div class="person"><div class="pn">Дмитрий</div><input class="inp" value="Поке" /><input class="inp price money-b" value="510" /></div>
+            <div class="person"><div class="pn">Марина</div><input class="inp" placeholder="Позиция" /><input class="inp price money-b" placeholder="—" /></div>
+            <div class="seclabel" style="margin:14px 0 8px">Доп. расходы</div>
+            <div class="costs">
+              <div class="costchip"><label>Доставка</label><div class="money-b" style="font-size:16px;font-weight:700">290 ₽</div></div>
+              <div class="costchip"><label>Сервис</label><div class="money-b" style="font-size:16px;font-weight:700">0 ₽</div></div>
+              <div class="costchip"><label>Чаевые</label><div class="money-b" style="font-size:16px;font-weight:700">150 ₽</div></div>
+            </div>
+            <div class="seg-tot">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div class="br" style="color:var(--muted-foreground);font-size:12px">Блюда <b style="color:var(--foreground)" class="money-b">2 030</b> · доп <b style="color:var(--foreground)" class="money-b">440</b><br>110 ₽/чел доп.</div>
+                <div class="gt" style="text-align:right"><div class="l" style="font-size:11px;color:var(--muted-foreground)">Итого</div><div class="v money-b">2 470 ₽</div></div>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width:100%;padding:14px;margin-top:14px">Отправить суммы участникам →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="foot">
+  <b>Что изменилось против текущего (по аудиту):</b><br>
+  • Деньги — <b>tabular-nums</b> везде, в B — моноширинный Space Grotesk (выравнивание цифр).<br>
+  • Цвет результата — <b>mint</b> для «+вернут», <b>coral</b> для «−оплатил» (сейчас всё в primary).<br>
+  • Тени <b>тонированы</b> под акцент, не чёрные.<br>
+  • Заголовки — <b>sentence case</b>, лишние рамки карточек убраны (фон-элевейшн).<br>
+  • B добавляет глубину: радиальный градиент, зерно, внутренняя кромка стекла, крупная сумма-герой и прогресс сбора.<br>
+  <b style="display:block;margin-top:12px">Выбери на каждую поверхность A или B (можно микс) — соберу финальный план и внедрю.</b>
+</div>
+
+<script>
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('dk').classList.toggle('active',t==='dark');
+  document.getElementById('lt').classList.toggle('active',t==='light');
+}
+</script>
+</body>
+</html>

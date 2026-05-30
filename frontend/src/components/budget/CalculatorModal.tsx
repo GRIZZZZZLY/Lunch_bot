@@ -43,7 +43,7 @@ export function CalculatorModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[55]"
           />
 
           {/* Center Modal with Glass Effect */}
@@ -52,7 +52,7 @@ export function CalculatorModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none"
           >
             <div className="w-full max-w-2xl max-h-[85vh] pointer-events-auto">
               <GlassCard intensity="solid" className="overflow-hidden relative shadow-2xl">
@@ -67,7 +67,10 @@ export function CalculatorModal({
 
                 {/* Title */}
                 <div className="px-4 pt-4 pb-3 border-b border-border">
-                  <h2 className="text-lg font-bold text-foreground">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    Расчёт заказа
+                  </p>
+                  <h2 className="text-lg font-bold tracking-tight text-foreground">
                     {categoryOrder.category}
                   </h2>
                 </div>
