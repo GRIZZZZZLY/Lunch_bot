@@ -460,7 +460,7 @@ export class OrderCalculationService {
       breakdown.push(`Чаевые: ${toNumber(transaction.tipShare).toFixed(2)}₽`);
     }
 
-    let message = `💳 Ваш заказ (${category}) оформлен!\n\n`;
+    let message = `💳 Твой заказ (${category}) оформлен!\n\n`;
     message += `Сумма к оплате: ${formatCurrency(transaction.amount)}\n\n`;
     message += `Детали:\n${breakdown.join('\n')}\n\n`;
     message += `Оплатить ${responsible.firstName}:\n`;
@@ -474,7 +474,7 @@ export class OrderCalculationService {
 
     const usernameTag = responsible.username
       ? `@${responsible.username}`
-      : 'тега нет(('
+      : 'тег не указан'
     message += `📱 Тег в Telegram: ${usernameTag}\n`;
 
     return message;

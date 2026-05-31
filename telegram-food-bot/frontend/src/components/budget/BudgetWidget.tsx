@@ -20,7 +20,7 @@ import { GlassCard } from '../ui/glass-card';
 const scenarioStyles = {
   'urgent-debt': {
     icon: <AlertCircle className={ICON_SIZES.md} />,
-    title: 'Ваш долг',
+    title: 'Твой долг',
     eyebrow: 'Требует оплаты',
     badge: { text: 'Новое', variant: 'destructive' as const },
   },
@@ -44,7 +44,7 @@ const scenarioStyles = {
   },
   'responsible-view': {
     icon: <Crown className={`${ICON_SIZES.md} text-primary`} />,
-    title: 'Вы ответственный',
+    title: 'Ты ответственный',
     eyebrow: 'Расчёт по заказу',
     badge: { text: 'Активно', variant: 'default' as const },
   },
@@ -98,7 +98,7 @@ class BudgetWidgetErrorBoundary extends React.Component<
         <div className="rounded-2xl border border-coral-500/20 bg-card/96 p-4 shadow-sm">
           <div className="text-sm font-semibold text-foreground">Финансы</div>
           <div className="text-xs text-muted-foreground mt-1">
-            Не удалось загрузить детали. Обновите страницу.
+            Не удалось загрузить детали. Обнови страницу.
           </div>
         </div>
       );
@@ -233,13 +233,13 @@ const BudgetWidgetContent: React.FC = () => {
   // Краткая сводка для триггера
   const getSummary = () => {
     if (totalDebts > 0 && totalCredits > 0) {
-      return `Долг: ${totalDebts}₽ · Вам должны: ${totalCredits}₽`;
+      return `Долг: ${totalDebts}₽ · Тебе должны: ${totalCredits}₽`;
     }
     if (totalDebts > 0) {
-      return `Ваш долг: ${totalDebts}₽`;
+      return `Твой долг: ${totalDebts}₽`;
     }
     if (totalCredits > 0) {
-      return `Вам должны: ${totalCredits}₽`;
+      return `Тебе должны: ${totalCredits}₽`;
     }
     return 'Нет активных долгов';
   };

@@ -136,7 +136,7 @@ export const DonationBar: React.FC = () => {
                     
                     <div className="flex-1">
                       <p className="font-bold text-base text-white">
-                        Поддержите проект
+                        Поддержать проект
                       </p>
                       <p className="text-xs mt-0.5 text-white/85">
                         Свайп в сторону чтобы скрыть

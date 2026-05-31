@@ -73,7 +73,7 @@ export const STREAK_MILESTONES: StreakMilestone[] = [
     title: 'Сотня!',
     emoji: '💯',
     color: 'rainbow',
-    message: '100 дней подряд! Ты просто невероятен!',
+    message: '100 дней подряд — рекорд!',
   },
 ];
 

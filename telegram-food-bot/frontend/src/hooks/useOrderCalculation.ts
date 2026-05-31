@@ -206,7 +206,7 @@ export function useOrderCalculation({
         queryKey: ['categoryOrder', categoryOrderId],
       });
 
-      toast.success('Заказ удален');
+      toast.success('Заказ удалён');
     },
     onError: (error) => {
       toast.error(
@@ -282,13 +282,13 @@ export function useOrderCalculation({
           data.participantCount > 1
         ) {
           toast.warning(
-            `Расчет завершен, но транзакций нет: ${data.orderItemsCount}/${data.participantCount} заказов`
+            `Расчёт завершен, но транзакций нет: ${data.orderItemsCount}/${data.participantCount} заказов`
           );
         } else {
-          toast.info('Расчет завершен. Участников для оплаты нет');
+          toast.info('Расчёт завершен. Участников для оплаты нет');
         }
       } else {
-        toast.success('Расчет завершен, суммы отправлены участникам');
+        toast.success('Расчёт завершен, суммы отправлены участникам');
       }
     },
     onError: (error) => {

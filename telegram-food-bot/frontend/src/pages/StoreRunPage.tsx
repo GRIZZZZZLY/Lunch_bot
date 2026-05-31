@@ -80,7 +80,7 @@ const NotFound: React.FC<{ onBack: () => void }> = ({ onBack }) => (
   <div className="mx-auto max-w-xl space-y-4 p-6 text-center">
     <p className="text-lg font-semibold text-foreground">Забег не найден</p>
     <p className="text-sm text-muted-foreground">
-      Возможно, он уже завершён или отменён.
+      Возможно, забег уже завершён или отменён.
     </p>
     <Button onClick={onBack}>На главную</Button>
   </div>

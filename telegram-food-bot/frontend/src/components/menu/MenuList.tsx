@@ -77,7 +77,7 @@ export const MenuList = ({
           Меню пустое
         </h3>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Добавьте первое блюдо в меню
+          Добавь первое блюдо в меню
         </p>
         {showActions && onAdd && (
           <Button onClick={onAdd}>

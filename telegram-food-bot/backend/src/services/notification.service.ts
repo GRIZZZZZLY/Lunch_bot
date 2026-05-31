@@ -57,7 +57,7 @@ export class NotificationService {
         if (data.endTime) {
           message += `вЏ° Р—Р°РІРµСЂС€РёС‚СЃСЏ: ${this.formatDate(data.endTime)}\n`;
         }
-        message += `\nрџ‘‰ РџСЂРѕРіРѕР»РѕСЃСѓР№С‚Рµ РІ С‡Р°С‚Рµ РіСЂСѓРїРїС‹!`;
+        message += `\nрџ‘‰ РџСЂРѕРіРѕР»РѕСЃСѓР№ РІ С‡Р°С‚Рµ РіСЂСѓРїРїС‹!`;
         return message;
       },
       parseMode: 'Markdown',
@@ -71,7 +71,7 @@ export class NotificationService {
       getMessage: (data: PollEndedNotificationData) => {
         // Проверка на пустое голосование
         if (data.totalVotes === 0) {
-          return `🍃 Тишина...\n\nПохоже, все на диете! 😄\nНикто не проголосовал за обед.\n\nПопробуем снова? Создайте новое голосование!`;
+          return `🍃 Никто не проголосовал. Все на диете? Запусти новое голосование.`;
         }
         
         let message = `🗳️ Голосование завершилось!\n\n`;
@@ -151,42 +151,23 @@ export class NotificationService {
       type: NotificationType.ROULETTE_WINNER,
       getTitle: (data: RouletteWinnerNotificationData) => 'рџЋ‰ Р’С‹ РІС‹Р±СЂР°РЅС‹ РѕС‚РІРµС‚СЃС‚РІРµРЅРЅС‹Рј!',
       getMessage: (data: RouletteWinnerNotificationData) => {
-        let message = `рџЋЉ *РџРѕР·РґСЂР°РІР»СЏРµРј, ${data.winner.firstName}!*\n\n`;
-        message += `Р СѓР»РµС‚РєР° РІС‹Р±СЂР°Р»Р° РІР°СЃ РѕС‚РІРµС‚СЃС‚РІРµРЅРЅС‹Рј Р·Р° Р·Р°РєР°Р· РµРґС‹.\n\n`;
+        let message = `🎉 *Поздравляем, ${data.winner.firstName}!*\n\n`;
+        message += `Рулетка выбрала тебя ответственным за заказ.\n\n`;
 
         if (data.winnerItem) {
-          message += `рџЌЅпёЏ *Р—Р°РєР°Р·С‹РІР°РµРј:* ${data.winnerItem.name}\n`;
+          message += `🍽️ Заказываем: ${data.winnerItem.name}\n`;
           if (data.winnerItem.price) {
-            message += `рџ'° *Р¦РµРЅР°:* ${toNumber(data.winnerItem.price).toFixed(2)} СЂСѓР±.\n`;
-          }
-          if (data.winnerItem.description) {
-            message += `рџ“ќ ${data.winnerItem.description}\n`;
+            message += `💰 Цена: ${toNumber(data.winnerItem.price).toFixed(2)} руб.\n`;
           }
         }
 
-        message += `\nрџ‘Ґ *РљРѕР»РёС‡РµСЃС‚РІРѕ СѓС‡Р°СЃС‚РЅРёРєРѕРІ:* ${data.voters.length}\n`;
-        message += `рџ“Љ *Р’СЃРµРіРѕ РіРѕР»РѕСЃРѕРІ:* ${data.totalVotes}\n`;
+        message += `👥 Участников: ${data.voters.length}\n`;
 
-        if (data.orderDetails) {
-          message += `\nрџ“‹ *Р”РµС‚Р°Р»Рё Р·Р°РєР°Р·Р°:*\n`;
-          if (data.orderDetails.restaurant) {
-            message += `рџЏЄ Р РµСЃС‚РѕСЂР°РЅ: ${data.orderDetails.restaurant}\n`;
-          }
-          if (data.orderDetails.deliveryTime) {
-            message += `вЏ° Р’СЂРµРјСЏ РґРѕСЃС‚Р°РІРєРё: ${this.formatDate(data.orderDetails.deliveryTime)}\n`;
-          }
-          if (data.orderDetails.budget) {
-            message += `рџ’µ Р‘СЋРґР¶РµС‚: ${data.orderDetails.budget} СЂСѓР±.\n`;
-          }
-        }
+        message += `\n*Что дальше:*\n`;
+        message += `1. Собери заказы у участников\n`;
+        message += `2. Оформи и собери деньги\n`;
 
-        message += `\nрџ“ќ *РЎР»РµРґСѓСЋС‰РёРµ С€Р°РіРё:*\n`;
-        message += `1пёЏвѓЈ РЎРІСЏР¶РёС‚РµСЃСЊ СЃ СѓС‡Р°СЃС‚РЅРёРєР°РјРё\n`;
-        message += `2пёЏвѓЈ РЎРѕР±РµСЂРёС‚Рµ РґРµРЅСЊРіРё\n`;
-        message += `3пёЏвѓЈ РЎРґРµР»Р°Р№С‚Рµ Р·Р°РєР°Р·\n`;
-        message += `4пёЏвѓЈ РћСЂРіР°РЅРёР·СѓР№С‚Рµ РґРѕСЃС‚Р°РІРєСѓ\n`;
-
-        message += `\nрџ’Є РЈРґР°С‡Рё! Р’СЃРµ СЂР°СЃСЃС‡РёС‚С‹РІР°СЋС‚ РЅР° РІР°СЃ!`;
+        message += `\nРеквизиты и суммы уже у всех в личке.`;
 
         return message;
       },
@@ -230,7 +211,7 @@ export class NotificationService {
       getTitle: () => 'вЏ° РќР°РїРѕРјРёРЅР°РЅРёРµ Рѕ Р·Р°РєР°Р·Рµ',
       getMessage: (data: any) => {
         let message = `вЏ° *РќР°РїРѕРјРёРЅР°РЅРёРµ!*\n\n`;
-        message += `РќРµ Р·Р°Р±СѓРґСЊС‚Рµ СЃРґРµР»Р°С‚СЊ Р·Р°РєР°Р· РµРґС‹.\n`;
+        message += `РќРµ Р·Р°Р±СѓРґСЊ СЃРґРµР»Р°С‚СЊ Р·Р°РєР°Р· РµРґС‹.\n`;
         if (data.deadline) {
           message += `вЏ±пёЏ РљСЂР°Р№РЅРёР№ СЃСЂРѕРє: ${this.formatDate(data.deadline)}\n`;
         }

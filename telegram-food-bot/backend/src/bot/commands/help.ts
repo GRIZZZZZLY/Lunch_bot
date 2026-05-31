@@ -33,11 +33,10 @@ export async function helpCommand(ctx: BotContext): Promise<void> {
  */
 function getGroupHelpText(): string {
   return (
-    '🤖 **Telegram Food Bot**\n\n' +
-    'Все действия выполняются через Mini App.\n\n' +
-    '📱 Откройте Mini App через кнопку **Menu** внизу чата\n' +
-    'или напишите боту в личные сообщения и откройте Mini App там.\n\n' +
-    'Доступные команды: `/start`, `/help`'
+    '*Rocket Lunch*\n\n' +
+    'Всё управление — в приложении.\n' +
+    'Открой его кнопкой *Menu* внизу чата.\n\n' +
+    'Команды: /start, /help'
   );
 }
 
@@ -46,10 +45,10 @@ function getGroupHelpText(): string {
  */
 function getPrivateHelpText(): string {
   return (
-    '🤖 **Telegram Food Bot**\n\n' +
-    'Все действия выполняются через Mini App.\n\n' +
-    'Нажмите кнопку ниже, чтобы открыть Mini App.\n\n' +
-    'Доступные команды: `/start`, `/help`'
+    '*Rocket Lunch*\n\n' +
+    'Всё управление — в приложении.\n' +
+    'Открой его кнопкой *Menu* внизу чата.\n\n' +
+    'Команды: /start, /help'
   );
 }
 

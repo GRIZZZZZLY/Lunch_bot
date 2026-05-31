@@ -210,7 +210,7 @@ export function generatePersonalInsights(userId: number): PersonalInsight[] {
       id: 'taste_match',
       type: 'taste_match',
       title: 'Единомышленник',
-      description: `У вас с ${tasteMatch.userName} ${tasteMatch.matchPercentage}% совпадений вкусов`,
+      description: `У тебя с ${tasteMatch.userName} ${tasteMatch.matchPercentage}% совпадений вкусов`,
       icon: '👥',
       color: 'purple',
       data: tasteMatch,
@@ -337,7 +337,7 @@ function getRecommendationsByCategory(
     {
       id: 'cat_top',
       title: `Фанат: ${topCategory}`,
-      description: `${percentage}% ваших голосов — ${topCategory.toLowerCase()}. Попробуйте что-то новое в этой категории!`,
+      description: `${percentage}% твоих голосов — ${topCategory.toLowerCase()}. Попробуй что-то новое в этой категории!`,
       icon: getCategoryEmoji(topCategory),
       algorithm: 'category',
     },
@@ -348,7 +348,7 @@ function getRecommendationsByCategory(
     recommendations.push({
       id: 'cat_second',
       title: `Также нравится: ${secondCategory}`,
-      description: `Ваш второй фаворит. Может, сегодня попробовать что-то отсюда?`,
+      description: `Твой второй фаворит. Может, сегодня попробовать что-то отсюда?`,
       icon: getCategoryEmoji(secondCategory),
       algorithm: 'category',
     });
@@ -454,7 +454,7 @@ function getRecommendationsByDiversity(
     recommendations.push({
       id: 'div_new',
       title: `Новый опыт: ${suggested}`,
-      description: `Вы ещё не пробовали ${suggested.toLowerCase()}. Время для эксперимента!`,
+      description: `Ты ещё не пробовал ${suggested.toLowerCase()}. Время для эксперимента!`,
       icon: '✨',
       algorithm: 'diversity',
     });
@@ -494,7 +494,7 @@ function getRecommendationsByDiversity(
     recommendations.push({
       id: 'div_progress',
       title: `Разнообразие: ${triedCount}/${totalCategories}`,
-      description: `Вы попробовали ${triedCount} из ${totalCategories} категорий. Продолжайте исследовать!`,
+      description: `Ты попробовал ${triedCount} из ${totalCategories} категорий. Продолжай исследовать!`,
       icon: '🗺️',
       algorithm: 'diversity',
     });

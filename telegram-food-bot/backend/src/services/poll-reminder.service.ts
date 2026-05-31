@@ -62,7 +62,7 @@ export class PollReminderService {
         `⏰ **Осталось ${minutesRemaining} минут!**\n\n` +
         `🗳️ Голосование скоро завершится\n` +
         `👥 Уже проголосовало: ${uniqueVoters}\n\n` +
-        `💡 Не забудьте проголосовать, если еще не сделали этого!`;
+        `💡 Не забудь проголосовать, если еще не сделал этого!`;
 
       await this.botInstance.api.sendMessage(Number(chatId), message, {
         parse_mode: 'Markdown',
@@ -94,11 +94,9 @@ export class PollReminderService {
 
       const uniqueVoters = new Set(poll.votes?.map(v => v.userId) || []).size;
 
-      const message = 
-        `🚨 **Последний шанс!**\n\n` +
-        `⏰ Голосование завершается через 30 секунд\n` +
-        `👥 Проголосовало: ${uniqueVoters}\n\n` +
-        `⚡ Успейте проголосовать прямо сейчас!`;
+      const message =
+        `🚨 *Последний шанс*\n` +
+        `До конца голосования 30 секунд. Проголосовало: ${uniqueVoters}.`;
 
       await this.botInstance.api.sendMessage(Number(chatId), message, {
         parse_mode: 'Markdown',
@@ -138,8 +136,8 @@ export class PollReminderService {
             Number(user.telegramId),
             `👋 **Привет, ${user.firstName}!**\n\n` +
             `⏰ Осталось ${minutesRemaining} минут до окончания голосования\n` +
-            `🗳️ Не забудьте проголосовать!\n\n` +
-            `💡 Нажмите кнопку ниже, чтобы быстро проголосовать`,
+            `🗳️ Не забудь проголосовать!\n\n` +
+            `💡 Нажми кнопку ниже, чтобы быстро проголосовать`,
             {
               parse_mode: 'Markdown',
               reply_markup: {

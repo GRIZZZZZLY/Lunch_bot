@@ -60,7 +60,7 @@ export const DataCleanupCard: React.FC<DataCleanupCardProps> = ({
         <div className="space-y-4">
           <div className="rounded-xl border border-coral-500/20 bg-coral-500/8 p-3 text-sm text-foreground">
             <div className="font-medium text-coral-700 dark:text-coral-300">Danger zone</div>
-            <div className="mt-1 text-muted-foreground">Используйте очистку только для старых архивных данных. Эти действия необратимы.</div>
+            <div className="mt-1 text-muted-foreground">Используй очистку только для старых архивных данных. Эти действия необратимы.</div>
           </div>
           {/* Polls */}
           <div className="rounded-xl border border-border/70 bg-card/80 p-4">

@@ -79,7 +79,7 @@ class NotificationController {
         const reminderUserName = lastReminder.user.firstName || lastReminder.user.username || 'Другой пользователь';
         return res.status(429).json({ 
           success: false, 
-          error: `${reminderUserName} уже отправил напоминание. Подождите ${minutesLeft} минут${minutesLeft === 1 ? 'у' : minutesLeft < 5 ? 'ы' : ''} перед следующим`,
+          error: `${reminderUserName} уже отправил напоминание. Подожди ${minutesLeft} минут${minutesLeft === 1 ? 'у' : minutesLeft < 5 ? 'ы' : ''} перед следующим`,
           cooldownEndsAt: new Date(new Date(lastReminder.createdAt).getTime() + COOLDOWN_MINUTES * 60 * 1000).toISOString(),
           minutesLeft,
         });

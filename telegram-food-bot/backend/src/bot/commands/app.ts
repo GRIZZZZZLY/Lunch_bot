@@ -10,7 +10,7 @@ export async function appCommand(ctx: BotContext): Promise<void> {
   try {
     const user = ctx.from;
     if (!user) {
-      await ctx.reply('❌ Не удалось получить информацию о пользователе');
+      await ctx.reply('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
       return;
     }
 
@@ -18,8 +18,8 @@ export async function appCommand(ctx: BotContext): Promise<void> {
     const dbUser = await UserService.getUserByTelegramId(BigInt(user.id));
     if (!dbUser) {
       await ctx.reply(
-        '❌ Вы не зарегистрированы в системе.\n\n' +
-        'Используйте команду /start для регистрации.',
+        '❌ Ты ещё не зарегистрирован.\n\n' +
+        'Отправь /start, чтобы начать.',
         {
           reply_markup: {
             inline_keyboard: [[
@@ -38,14 +38,14 @@ export async function appCommand(ctx: BotContext): Promise<void> {
     const isGroup = ctx.chat?.type !== 'private';
     const isAdmin = dbUser.isAdmin;
 
-    let text = '🚀 **Telegram Food Bot - Mini App**\n\n';
+    let text = '🚀 *Rocket Lunch*\n\n';
     
     if (isGroup) {
       text += '👥 **Групповой режим**\n\n';
-      text += '⚠️ В группах Mini App кнопки не поддерживаются Telegram.\n\n';
+      text += '⚠️ В группах кнопки приложения не работают — ограничение Telegram.\n\n';
       text += '📱 **Для управления меню:**\n';
-      text += '1. Откройте бота [@rocket_lunch_bot](https://t.me/rocket_lunch_bot) в личных сообщениях\n';
-      text += '2. Нажмите на кнопку **Menu** внизу экрана\n';
+      text += '1. Открой бота [@rocket_lunch_bot](https://t.me/rocket_lunch_bot) в личных сообщениях\n';
+      text += '2. Нажми на кнопку **Menu** внизу экрана\n';
       text += '3. Или используйте команду `/menu` в личке\n\n';
       text += '✨ **Доступные функции:**\n';
       text += '• 📋 Просмотр меню блюд\n';
@@ -58,9 +58,9 @@ export async function appCommand(ctx: BotContext): Promise<void> {
       }
     } else {
       text += '👤 **Личный режим**\n\n';
-      text += '🎯 Откройте Mini App для управления меню:\n\n';
+      text += '🎯 Открой приложение для управления меню:\n\n';
       if (isAdmin) {
-        text += '👑 **У вас есть права администратора:**\n';
+        text += '👑 **У тебя есть права администратора:**\n';
         text += '• ➕ Добавляйте новые блюда\n';
         text += '• ✏️ Редактируйте существующие\n';
         text += '• 🗑️ Удаляйте ненужные\n';
@@ -112,7 +112,7 @@ export async function appCommand(ctx: BotContext): Promise<void> {
     logger.error('Error in app command:', error);
     await ctx.reply(
       '❌ Произошла ошибка.\n\n' +
-      '🔄 Попробуйте еще раз или обратитесь к администратору.'
+      '🔄 Попробуй ещё раз или обратись к администратору.'
     );
   }
 }

@@ -82,7 +82,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
           } else if (status === 'cancelled') {
             setErrorMessage('Платёж отменён');
           } else if (status === 'failed') {
-            setErrorMessage('Платёж не прошёл, попробуйте ещё раз');
+            setErrorMessage('Платёж не прошёл, попробуй ещё раз');
           }
           // status === 'pending' — оставляем пользователя в модалке без ошибки
           setLoading(false);
@@ -90,7 +90,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
       } else {
         // Fallback вне Telegram (dev-режим) — открыть ссылку в новой вкладке
         window.open(invoiceUrl, '_blank', 'noopener,noreferrer');
-        showAlert('Откройте Mini App в Telegram, чтобы оплатить через Stars');
+        showAlert('Открой Mini App в Telegram, чтобы оплатить через Stars');
         setLoading(false);
       }
     } catch (err: any) {
@@ -188,11 +188,11 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                         />
                       </motion.div>
                       <h2 className="text-2xl font-semibold text-white">
-                        Поддержите проект
+                        Поддержать проект
                       </h2>
                     </div>
                     <p className="text-sm text-white/85">
-                      Помогите развитию бота — выберите способ оплаты
+                      Помоги развитию бота — выбери способ оплаты
                     </p>
                   </div>
                 </div>
@@ -240,7 +240,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                       />
                       <p className="text-xs text-muted-foreground leading-relaxed">
                         ⚠️ Telegram удерживает комиссию ~30% за платежи через
-                        Stars. Для максимальной поддержки выбирайте СБП или
+                        Stars. Для максимальной поддержки выбирай СБП или
                         Wallet (скоро).
                       </p>
                     </motion.div>
@@ -283,9 +283,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                   {/* Info */}
                   <div className="rounded-2xl border border-border/50 bg-muted/40 p-4">
                     <p className="text-sm text-muted-foreground">
-                      💡 <strong className="text-foreground">Важно:</strong>{' '}
-                      Все средства идут на развитие и поддержку проекта.
-                      Спасибо за вашу щедрость!
+                      💡 Все средства идут на развитие проекта. Спасибо!
                     </p>
                   </div>
                 </div>

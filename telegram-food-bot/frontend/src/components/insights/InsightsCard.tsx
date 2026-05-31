@@ -54,7 +54,7 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
       >
         <div className="text-center text-muted-foreground">
           <p className="text-sm">
-            Как только пройдёт первое голосование, мы покажем ваши привычки и любимые блюда.
+            После первого голосования покажем твои привычки и любимые блюда.
           </p>
         </div>
       </motion.div>
@@ -125,7 +125,7 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
         className="mt-4 pt-4 border-t border-border text-center"
       >
         <p className="text-xs text-muted-foreground">
-          Продолжай голосовать, чтобы открыть больше инсайтов! 🎯
+          Голосуй дальше — откроются новые инсайты 🎯
         </p>
       </motion.div>
     </motion.div>

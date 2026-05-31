@@ -18,7 +18,7 @@ export async function handleCompletePoll(
   try {
     const user = ctx.from;
     if (!user) {
-      await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+      await ctx.answerCallbackQuery('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
       return;
     }
 
@@ -98,7 +98,7 @@ export async function handleRunRoulette(
     const votes = await VoteService.getPollVotes(pollId);
     if (votes.length === 0) {
       if ('answerCallbackQuery' in ctx) {
-        await ctx.answerCallbackQuery('❌ Никто не голосовал');
+        await ctx.answerCallbackQuery('❌ Никто не проголосовал');
       }
       return;
     }
@@ -113,7 +113,7 @@ export async function handleRunRoulette(
     }
 
     if ('answerCallbackQuery' in ctx) {
-      await ctx.answerCallbackQuery('🎰 Запускаем рулетку...');
+      await ctx.answerCallbackQuery('🎰 Крутим рулетку...');
     }
 
     // Запускаем рулетку
@@ -162,7 +162,7 @@ async function showRouletteAnimation(
     const { animationData, responsibleUserName, winnerMenuItemName } = result;
 
     const initialText =
-      '🎰 **Запуск рулетки...**\n\nВыбираем ответственного за заказ...';
+      '🎰 *Крутим рулетку...*\nВыбираем, кто оформит заказ.';
     let rouletteMessage: any = null;
 
     if ('callbackQuery' in ctx && ctx.callbackQuery?.message) {
@@ -202,14 +202,12 @@ async function showRouletteAnimation(
     // Финальное сообщение
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    let finalMessage = `🎉 **Рулетка завершена!**\n\n`;
-    finalMessage += `🎯 **Ответственный за заказ:** ${responsibleUserName}\n`;
-    
+    let finalMessage = `🎉 *Рулетка выбрала ответственного*\n\n`;
+    finalMessage += `🎯 ${responsibleUserName} оформляет заказ\n`;
+
     if (winnerMenuItemName) {
-      finalMessage += `🍽️ **Заказываем:** ${winnerMenuItemName}\n`;
+      finalMessage += `🍽️ Заказываем: ${winnerMenuItemName}`;
     }
-    
-    finalMessage += `\n📞 Ожидаем заказа! 🚀`;
 
     await ctx.api.editMessageText(
       rouletteMessage.chat.id,
@@ -233,7 +231,7 @@ export async function handleCancelPoll(
   try {
     const user = ctx.from;
     if (!user) {
-      await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+      await ctx.answerCallbackQuery('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
       return;
     }
 
@@ -268,8 +266,8 @@ export async function handleCancelPoll(
     await ctx.answerCallbackQuery('🚫 Голосование отменено');
     
     await ctx.editMessageText(
-      '🚫 **Голосование отменено администратором**\n\n' +
-      '📬 Уведомления отправлены всем участникам.',
+      '🚫 *Голосование отменено админом*\n' +
+      'Участники получили уведомление.',
       { parse_mode: 'Markdown' }
     );
 
@@ -292,7 +290,7 @@ export async function handleOpenPollButton(
   try {
     const user = ctx.from;
     if (!user) {
-      await ctx.answerCallbackQuery('❌ Не удалось определить пользователя');
+      await ctx.answerCallbackQuery('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
       return;
     }
 

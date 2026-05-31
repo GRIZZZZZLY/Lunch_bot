@@ -227,7 +227,7 @@ export const BudgetWidgetCompact = ({
             <div className="space-y-2 pt-2 border-t border-border/50">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">
-                  Вам должен: {firstCredit.fromUser?.firstName || 'N/A'}
+                  Тебе должен: {firstCredit.fromUser?.firstName || 'N/A'}
                 </span>
                 <span className="font-semibold">{firstCredit.amount}₽</span>
               </div>

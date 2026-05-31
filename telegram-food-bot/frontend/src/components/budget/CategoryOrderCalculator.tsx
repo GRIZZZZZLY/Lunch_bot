@@ -311,7 +311,7 @@ export function CategoryOrderCalculator({
             <div className="text-xs text-center text-muted-foreground mt-2">
               {!canEdit
                 ? 'Только ответственный может редактировать расчёт'
-                : 'Заполните все обязательные поля: Позиция и Цена'}
+                : 'Заполни все обязательные поля: Позиция и Цена'}
             </div>
           )}
         {hasPendingSaves && currentOrder.calculationStatus !== 'COMPLETED' && (

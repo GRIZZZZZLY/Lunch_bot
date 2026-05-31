@@ -27,7 +27,7 @@ const slides = [
     iconColor: 'text-white',
     iconBgColor: 'bg-gradient-to-br from-amber-400 to-orange-500',
     title: 'Добро пожаловать!',
-    description: 'Это приложение поможет вашей команде выбирать, что заказать на обед. Голосуйте, смотрите статистику и управляйте заказами вместе!'
+    description: 'Помогает команде вместе выбирать обед: голосуй, смотри статистику, веди заказы.'
   },
   // Слайд 2: Навигация - изумрудный
   {
@@ -35,7 +35,7 @@ const slides = [
     iconColor: 'text-white',
     iconBgColor: 'bg-gradient-to-br from-emerald-400 to-teal-500',
     title: 'Навигация',
-    description: 'Внизу экрана — меню: Главная (голосования), Меню (все блюда), Статистика и Профиль. Исследуйте!'
+    description: 'Меню внизу: Главная, Меню блюд, Статистика, Профиль.'
   },
   // Слайд 3: Голосование - оранжевый
   {
@@ -43,15 +43,15 @@ const slides = [
     iconColor: 'text-white',
     iconBgColor: 'bg-gradient-to-br from-orange-400 to-red-500',
     title: 'Как голосовать?',
-    description: 'Когда начнётся голосование, выберите блюда из списка. Можно выбрать несколько блюд!'
+    description: 'Когда начнётся голосование, выбери блюда — можно несколько.'
   },
   // Слайд 4: Выбор блюда - фиолетовый
   {
     icon: Soup,
     iconColor: 'text-white',
     iconBgColor: 'bg-gradient-to-br from-violet-400 to-purple-600',
-    title: 'Выберите блюдо',
-    description: 'Нажмите на карточку блюда, которое вам нравится. Выбранные блюда подсветятся фиолетовым.'
+    title: 'Выбери блюдо',
+    description: 'Нажми на карточку блюда, которое тебе нравится. Выбранные блюда подсветятся фиолетовым.'
   },
   // Слайд 5: Статистика - синий
   {
@@ -59,7 +59,7 @@ const slides = [
     iconColor: 'text-white',
     iconBgColor: 'bg-gradient-to-br from-blue-400 to-indigo-500',
     title: 'Статистика',
-    description: 'Смотрите популярные блюда, историю голосований и личную статистику в разделе "Статистика".'
+    description: 'Смотри популярные блюда, историю голосований и личную статистику в разделе "Статистика".'
   },
   // Слайд 6: Готово - зелёный
   {
@@ -67,7 +67,7 @@ const slides = [
     iconColor: 'text-white',
     iconBgColor: 'bg-gradient-to-br from-green-400 to-emerald-500',
     title: 'Всё готово!',
-    description: 'Теперь вы знаете всё необходимое. Приятного аппетита!'
+    description: 'Готово. Приятного аппетита!'
   }
 ];
 

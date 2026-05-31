@@ -527,7 +527,7 @@ export const HomePage: React.FC = () => {
     
     const botUsername = import.meta.env.VITE_BOT_USERNAME || 'rocket_lunch_bot';
     const inviteUrl = `https://t.me/${botUsername}?start=ref_${user?.id || 'unknown'}`;
-    const shareText = `🍽️ Присоединяйся к обеденным голосованиям! Выбираем еду вместе с командой. ${inviteUrl}`;
+    const shareText = `Голосуем за обед всей командой — присоединяйся 🍽️\n${inviteUrl}`;
     
     console.log('[Invite] Starting invite flow:', {
       botUsername,
@@ -550,7 +550,7 @@ export const HomePage: React.FC = () => {
         await webApp.shareLink(inviteUrl);
         addNotification({
           type: 'success',
-          message: '🎉 Спасибо за приглашение! +50 XP за каждого друга',
+          message: 'Спасибо! +50 XP за каждого друга 🎉',
         });
         return;
       } catch (error) {
@@ -566,7 +566,7 @@ export const HomePage: React.FC = () => {
         (webApp as any).openTelegramLink(shareUrl);
         addNotification({
           type: 'success',
-          message: '📤 Откройте диалог для отправки приглашения',
+          message: 'Открой диалог, чтобы отправить приглашение 📤',
         });
         return;
       } catch (error) {
@@ -582,7 +582,7 @@ export const HomePage: React.FC = () => {
         webApp.openLink(shareUrl);
         addNotification({
           type: 'info',
-          message: '📱 Откройте Telegram для отправки приглашения',
+          message: 'Открой Telegram, чтобы отправить приглашение 📱',
         });
         return;
       } catch (error) {
@@ -601,7 +601,7 @@ export const HomePage: React.FC = () => {
       navigator.clipboard.writeText(shareText).then(() => {
         addNotification({
           type: 'success',
-          message: '✅ Реферальная ссылка скопирована! За каждого друга +50 XP 🎁',
+          message: 'Ссылка скопирована — +50 XP за каждого друга 🎁',
         });
       }).catch((error) => {
         console.error('[Invite] Clipboard failed:', error);
@@ -619,7 +619,7 @@ export const HomePage: React.FC = () => {
     if (window.Telegram?.WebApp?.showPopup) {
       window.Telegram.WebApp.showPopup({
         title: 'Пригласить друга',
-        message: `Отправьте эту ссылку другу:\n\n${inviteUrl}`,
+        message: `Отправь эту ссылку другу:\n\n${inviteUrl}`,
         buttons: [{ id: 'ok', type: 'ok', text: 'OK' }],
       });
     } else {
@@ -830,8 +830,8 @@ export const HomePage: React.FC = () => {
                   ? `${adminEmptyGreeting}! Голосования ещё нет`
                   : 'Пока нет активного голосования';
                 const description = user?.isAdmin
-                  ? 'Создайте вручную или включите авто-запуск'
-                  : 'Мы уведомим, когда начнётся. Пока можно предложить блюдо на странице "Меню".';
+                  ? 'Создай вручную или включи авто-запуск'
+                  : 'Сообщим, когда начнётся. Пока можно предложить блюдо в меню.';
 
                 return (
                   <HomeEmptyStateCard

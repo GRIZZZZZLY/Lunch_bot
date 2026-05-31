@@ -116,7 +116,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     const validation = validateForm();
     if (!validation.isValid) {
       const firstError = Object.values(validation.errors)[0];
-      showAlert(firstError || 'Проверьте правильность заполнения формы');
+      showAlert(firstError || 'Проверь правильность заполнения формы');
       return;
     }
 
@@ -194,7 +194,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
             <Textarea
               id="description"
               rows={3}
-              placeholder="Расскажите о блюде..."
+              placeholder="Расскажи о блюде..."
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
               className={cn(

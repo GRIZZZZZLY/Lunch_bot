@@ -874,7 +874,7 @@ export const StatsPage: React.FC = () => {
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground">
-                            Проголосуйте, чтобы увидеть
+                            Проголосуй, чтобы увидеть
                           </p>
                         )}
                       </CardContent>

@@ -115,7 +115,7 @@ export async function handleStoreRunAddToCallback(
 ): Promise<void> {
   const tgUser = ctx.from;
   if (!tgUser) {
-    await ctx.answerCallbackQuery('Не удалось определить пользователя');
+    await ctx.answerCallbackQuery('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
     return;
   }
 

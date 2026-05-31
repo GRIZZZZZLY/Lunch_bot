@@ -25,7 +25,7 @@ export function OfflineIndicator() {
             <span>Нет подключения к интернету</span>
           </div>
           <div className="mt-1 text-center text-xs opacity-80">
-            Показаны данные из кэша. Обновление при восстановлении связи.
+            Показаны сохранённые данные. Обновим, когда вернётся сеть.
           </div>
         </motion.div>
       )}

@@ -316,11 +316,10 @@ export class BudgetService {
       const resultData = JSON.parse(poll.result.rouletteData);
       const pending = transactions.filter((tx) => tx.status === 'PENDING');
 
-      let message = `🎉 *Вы выбраны ответственным за заказ!*\n\n`;
-      message += `📋 *ДЕТАЛИ ЗАКАЗА:*\n\n`;
+      let message = `🎉 *Ты оформляешь заказ!*\n\n`;
 
       // Кто что заказывает
-      message += `🍽️ *Заказы:*\n`;
+      message += `🍽️ *Заказ:*\n`;
       resultData.winners.forEach((w: any, i: number) => {
         const voterNames = w.voters.map((v: any) => v.firstName).join(', ');
         const total = multiply(w.menuItemSnapshot.price, w.voteCount);
@@ -330,42 +329,39 @@ export class BudgetService {
 
       if (resultData.bringOwn.count > 0) {
         const names = resultData.bringOwn.voters.map((v: any) => v.firstName).join(', ');
-        message += `🥪 *Принесут своё:* ${names}\n\n`;
+        message += `🥪 Своё: ${names}\n\n`;
       }
 
       // Финансы
-      message += `💵 *ФИНАНСЫ:*\n\n`;
-      message += `Общая сумма: ${totals.totalOrder.toFixed(2)}₽\n`;
-      message += `Ваша доля: ${totals.responsibleShare.toFixed(2)}₽\n`;
-      message += `Вернут вам: ${totals.totalToReturn.toFixed(2)}₽\n\n`;
+      message += `💵 *Деньги:*\n\n`;
+      message += `Сумма заказа: ${totals.totalOrder.toFixed(2)}₽\n`;
+      message += `Твоя доля: ${totals.responsibleShare.toFixed(2)}₽\n`;
+      message += `Вернут тебе: ${totals.totalToReturn.toFixed(2)}₽\n\n`;
 
       // Кто должен перевести
       if (pending.length > 0) {
-        message += `💳 *ПЕРЕВОДЫ ОЖИДАЮТСЯ ОТ:*\n\n`;
+        message += `💳 *Ждём перевод:* ⏰ ожидается\n\n`;
         pending.forEach((tx: any, i: number) => {
           message += `${i + 1}. ${tx.fromUser.firstName} → ${formatCurrency(tx.amount)}\n`;
           if (tx.fromUser.username) {
             message += `   📱 @${tx.fromUser.username}\n`;
           }
-          message += `   Status: ⏰ Ожидается\n\n`;
+          message += `   ${tx.fromUser.firstName} — ⏰ ожидается\n\n`;
         });
       }
 
       // Ваши реквизиты
-      message += `📌 *ВАШИ РЕКВИЗИТЫ:*\n`;
+      message += `📌 *Твои реквизиты* (участники их уже видят):\n`;
       const paymentInfo = await UserService.getPaymentInfo(responsible.id);
       if (paymentInfo?.paymentCard) {
-        message += `💳 Карта: ${this.maskCardNumber(paymentInfo.paymentCard)}\n`;
+        message += `Карта: ${this.maskCardNumber(paymentInfo.paymentCard)}\n`;
       }
       if (paymentInfo?.paymentPhone) {
-        message += `📱 Телефон: ${paymentInfo.paymentPhone}\n`;
+        message += `Телефон: ${paymentInfo.paymentPhone}\n`;
       }
       if (paymentInfo?.paymentDetails) {
         message += `ℹ️ ${paymentInfo.paymentDetails}\n`;
       }
-      message += `_(Участники уже получили их)_\n\n`;
-
-      message += `⏰ Заказ на обед`;
 
       const keyboard = {
         inline_keyboard: [
@@ -397,8 +393,8 @@ export class BudgetService {
       if (!botInstance) return;
 
       let message = `🍽️ *Результаты голосования*\n\n`;
-      message += `Ваш заказ: ${transaction.menuItem.name}\n`;
-      message += `💰 *Ваша сумма: ${formatCurrency(transaction.amount)}*\n\n`;
+      message += `Твой заказ: ${transaction.menuItem.name}\n`;
+      message += `💰 *Твоя сумма: ${formatCurrency(transaction.amount)}*\n\n`;
       message += `👤 *Ответственный:* ${responsible.firstName}`;
       if (responsible.lastName) message += ` ${responsible.lastName}`;
       message += `\n\n`;
@@ -666,7 +662,7 @@ export class BudgetService {
         await botInstance()!.api.sendMessage(
           Number(transactions[0].toUser.telegramId),
           `🎊 *Все оплатили!*\n\n` +
-          `Вы подтвердили оплату от всех участников\n\n` +
+          `Ты подтвердил оплату от всех участников\n\n` +
           `💰 Итого получено: ${totalReceived.toFixed(2)}₽\n\n` +
           `*Детали:*\n` +
           transactions.map(tx => `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`).join('\n') +

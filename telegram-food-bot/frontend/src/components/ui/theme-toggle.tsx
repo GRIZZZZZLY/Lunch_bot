@@ -98,7 +98,7 @@ export const ThemeToggleWithLabel: React.FC = () => {
         <Sun className={ICON_SIZES.sm} />
       )}
       <span className="text-sm font-medium">
-        {theme === "dark" ? "Темная тема" : "Светлая тема"}
+        {theme === "dark" ? "Тёмная тема" : "Светлая тема"}
       </span>
     </button>
   )
@@ -131,7 +131,7 @@ export const ThemeTogglePopover: React.FC = () => {
 
   const themeOptions = [
     { value: "light", label: "Светлая", icon: Sun },
-    { value: "dark", label: "Темная", icon: Moon },
+    { value: "dark", label: "Тёмная", icon: Moon },
   ] as const
 
   return (

@@ -35,7 +35,7 @@ export function FavoriteDishesCarousel({ isDark }: FavoriteDishesCarouselProps) 
               </div>
             ))}
             <div className={`pt-1 text-center text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
-              Голосуйте чаще, чтобы увидеть персональные предпочтения.
+              Голосуй чаще, чтобы увидеть персональные предпочтения.
             </div>
           </div>
         </CardContent>

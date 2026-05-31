@@ -12,7 +12,7 @@ interface RecommendationsCardProps {
 }
 
 const algorithmLabels: Record<string, string> = {
-  category: 'По вашим предпочтениям',
+  category: 'По твоим предпочтениям',
   collaborative: 'Рекомендации коллег',
   diversity: 'Для разнообразия',
 };

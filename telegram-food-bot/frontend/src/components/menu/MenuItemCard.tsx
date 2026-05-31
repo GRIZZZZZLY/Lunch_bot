@@ -268,7 +268,7 @@ export const MenuItemCard = memo(({
           onClose={() => setShowDeleteConfirm(false)}
           onConfirm={handleDeleteConfirm}
           title="Удалить блюдо?"
-          description={`Вы уверены, что хотите удалить блюдо "${item.name}"? Это действие нельзя отменить.`}
+          description={`Удалить «${item.name}»? Отменить будет нельзя.`}
           confirmText="Удалить"
           cancelText="Отмена"
           variant="danger"

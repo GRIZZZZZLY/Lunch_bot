@@ -325,7 +325,7 @@ function EmptyState({ filterStatus, hasSearchQuery, onCreateNew }: EmptyStatePro
         <Search size={64} className="mx-auto mb-4 text-muted-foreground/30" />
         <h3 className="text-lg font-semibold mb-2">Ничего не найдено</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Попробуйте изменить поисковый запрос
+          Попробуй изменить поисковый запрос
         </p>
       </motion.div>
     );
@@ -334,26 +334,26 @@ function EmptyState({ filterStatus, hasSearchQuery, onCreateNew }: EmptyStatePro
   const emptyMessages: Record<FilterStatus, { icon: string; title: string; description: string; cta: string }> = {
     ALL: {
       icon: '💡',
-      title: 'У вас пока нет предложений',
-      description: 'Предложите новое блюдо для добавления в меню',
+      title: 'У тебя пока нет предложений',
+      description: 'Предложи новое блюдо для добавления в меню',
       cta: 'Предложить блюдо'
     },
     PENDING: {
       icon: '⏳',
       title: 'Нет ожидающих предложений',
-      description: 'Все ваши предложения уже рассмотрены',
+      description: 'Все твои предложения уже рассмотрены',
       cta: 'Создать новое'
     },
     APPROVED: {
       icon: '✨',
       title: 'Нет одобренных предложений',
-      description: 'Ваши одобренные предложения появятся здесь',
+      description: 'Твои одобренные предложения появятся здесь',
       cta: 'Предложить блюдо'
     },
     REJECTED: {
       icon: '📝',
       title: 'Нет отклонённых предложений',
-      description: 'Отличная работа! Продолжайте предлагать',
+      description: 'Отличная работа! Продолжай предлагать',
       cta: 'Создать предложение'
     },
   };

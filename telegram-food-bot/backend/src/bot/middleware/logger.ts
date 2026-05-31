@@ -95,8 +95,7 @@ export async function errorLoggingMiddleware(ctx: BotContext, next: NextFunction
     // Уведомляем пользователя об ошибке
     try {
       await ctx.reply(
-        '❌ Произошла ошибка при обработке команды.\n\n' +
-        'Мы уже знаем о проблеме и работаем над её устранением.',
+        '❌ Что-то сломалось. Мы уже в курсе и чиним.',
         {
           reply_markup: {
             inline_keyboard: [
@@ -151,9 +150,7 @@ export function rateLimitMiddleware(maxRequests: number = 30, windowMs: number =
       });
 
       await ctx.reply(
-        '⚠️ **Слишком много запросов**\n\n' +
-        'Вы отправляете команды слишком часто. ' +
-        'Пожалуйста, подождите немного перед следующим запросом.',
+        '⚠️ Слишком часто. Подожди пару секунд.',
         { parse_mode: 'Markdown' }
       );
       return;

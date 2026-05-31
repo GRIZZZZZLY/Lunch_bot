@@ -23,7 +23,7 @@ export function CompactResponsibleBanner({
   buttonLabel,
 }: CompactResponsibleBannerProps) {
   const resolvedTitle =
-    title || `Вы ответственный за ${categoryOrder.category}`;
+    title || `Ты ответственный за ${categoryOrder.category}`;
   const resolvedButtonLabel = buttonLabel || 'Заполнить заказ';
 
   return (

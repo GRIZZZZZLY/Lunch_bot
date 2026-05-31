@@ -120,14 +120,14 @@ export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) =
       {/* Сумма-герой: сколько вернут */}
       <div className="text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-          Вам вернут
+          Тебе вернут
         </p>
         <p className="mt-1 text-[44px] leading-none font-extrabold tracking-[-0.03em] text-mint-600 dark:text-mint-400 tabular-nums">
           +{fmt(totalToReceive)}&nbsp;₽
         </p>
         <p className="mt-2.5 text-xs text-muted-foreground tabular-nums">
           Оплачено <span className="font-semibold text-foreground">{fmt(totalToReceive + myShare)}&nbsp;₽</span>
-          {' · '}ваша доля <span className="font-semibold text-foreground">{fmt(myShare)}&nbsp;₽</span>
+          {' · '}твоя доля <span className="font-semibold text-foreground">{fmt(myShare)}&nbsp;₽</span>
         </p>
 
         {/* Прогресс сбора */}

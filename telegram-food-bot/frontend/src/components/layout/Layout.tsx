@@ -95,7 +95,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             {error}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">
-            Попробуйте перезапустить приложение
+            Попробуй перезапустить приложение
           </p>
         </div>
       </div>

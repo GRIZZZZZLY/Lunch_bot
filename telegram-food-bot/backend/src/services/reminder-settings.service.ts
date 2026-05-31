@@ -138,18 +138,16 @@ export class ReminderSettingsService {
    * Дефолтный шаблон сообщения
    */
   private getDefaultMessageTemplate(): string {
-    return `💰 Напоминание о задолженности
+    return `💰 Напоминание об оплате
 
 Привет, {userName}!
 
-У вас есть неоплаченные долги на общую сумму {totalAmount}₽
-
-📋 Детали:
+За тобой обед на {totalAmount}₽:
 {debtsList}
 
-⏰ Самый старый долг от {oldestDebtAge}
+Старейший — с {oldestDebtAge}.
 
-💳 Пожалуйста, оплатите долги и отметьте их как оплаченные в приложении.`;
+Отметь оплату в приложении после перевода 👍`;
   }
 
   /**

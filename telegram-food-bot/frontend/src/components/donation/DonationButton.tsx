@@ -42,7 +42,7 @@ export const DonationButton = () => {
           {/* Text content - clean without emoji */}
           <div className="flex-1 text-left">
             <h3 className="mb-1 text-lg font-semibold text-white">
-              Поддержите проект
+              Поддержать проект
             </h3>
             <p className="text-sm text-white/85">
               Помогите развитию бота

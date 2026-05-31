@@ -7,15 +7,15 @@ export const AdminChecklist: React.FC = () => (
     <div className="mt-3 space-y-2 text-sm text-muted-foreground">
       <div className="flex items-start gap-2">
         <CheckCircle2 className="mt-0.5 h-4 w-4 text-mint-500" />
-        <span>Создайте голосование</span>
+        <span>Создай голосование</span>
       </div>
       <div className="flex items-start gap-2">
         <CheckCircle2 className="mt-0.5 h-4 w-4 text-peach-500" />
-        <span>Проверьте меню на сегодня</span>
+        <span>Проверь меню на сегодня</span>
       </div>
       <div className="flex items-start gap-2">
         <CheckCircle2 className="mt-0.5 h-4 w-4 text-lavender-500" />
-        <span>Убедитесь, что авто-запуск настроен</span>
+        <span>Убедись, что авто-запуск настроен</span>
       </div>
     </div>
   </div>
