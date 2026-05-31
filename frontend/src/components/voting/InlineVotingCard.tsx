@@ -427,7 +427,7 @@ export const InlineVotingCard = ({
         haptic.success();
         addNotification({
           type: 'success',
-          message: '✅ Ваш голос отменён. Можете проголосовать заново!',
+          message: '✅ Твой голос отменён. Можешь проголосовать заново!',
         });
         // Обновляем данные
         await loadPollData(poll.id, true);
@@ -529,7 +529,7 @@ export const InlineVotingCard = ({
             "border border-border/70"
           )}
           role="region"
-          aria-label={`Голосование: ${poll.title || 'Выберите блюдо'}`}
+          aria-label={`Голосование: ${poll.title || 'Выбери блюдо'}`}
           aria-live="polite"
         >
           {/* Content with z-index */}
@@ -575,7 +575,7 @@ export const InlineVotingCard = ({
               })()}
             </div>
           </div>
-          <p className="ml-9 text-xs text-muted-foreground">Выберите блюдо</p>
+          <p className="ml-9 text-xs text-muted-foreground">Выбери блюдо</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -624,7 +624,7 @@ export const InlineVotingCard = ({
             <CheckCircle size={18} className="flex-shrink-0 mt-0.5 text-gray-600 dark:text-gray-400" />
             <div className="flex-1">
               <span className="text-sm font-medium block mb-1">
-                Вы выбрали {userVotes.length} {userVotes.length === 1 ? 'блюдо' : userVotes.length < 5 ? 'блюда' : 'блюд'}:
+                Ты выбрал {userVotes.length} {userVotes.length === 1 ? 'блюдо' : userVotes.length < 5 ? 'блюда' : 'блюд'}:
               </span>
               <ul className="text-sm space-y-0.5">
                 {userVotes.map(vote => (
@@ -649,11 +649,11 @@ export const InlineVotingCard = ({
           <p className="text-sm text-foreground">
             {isMultiSelectMode ? (
               <>
-                <strong>Можно выбрать до {maxSelections} блюд</strong> — нажмите на те, что хотите заказать
+                <strong>Выбери до {maxSelections} блюд</strong> — нажми на нужные
               </>
             ) : (
               <>
-                <strong>Можно выбрать только одно блюдо</strong> — выберите ваш вариант
+                <strong>Выбери одно блюдо</strong>
               </>
             )}
           </p>
@@ -711,7 +711,7 @@ export const InlineVotingCard = ({
                 disabled={userVotes.length > 0 || submitting}
                 role="option"
                 aria-selected={isSelected || isVoted}
-                aria-label={`${item.name}${item.price ? `, ${item.price} ₸` : ''}${isVoted ? ', вы проголосовали за это блюдо' : ''}`}
+                aria-label={`${item.name}${item.price ? `, ${item.price} ₸` : ''}${isVoted ? ', ты проголосовал за это блюдо' : ''}`}
                 tabIndex={0}
                 whileTap={{ scale: 0.98 }}
                 className={cn(
@@ -828,7 +828,7 @@ export const InlineVotingCard = ({
                     Ещё {remainingCount} {getDishWord(remainingCount)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Нажмите, чтобы показать все варианты
+                    Нажми, чтобы показать все варианты
                   </p>
                 </div>
               </div>
@@ -928,7 +928,7 @@ export const InlineVotingCard = ({
         onConfirm={confirmClosePoll}
         onCancel={handleCancelPoll}
         title="Завершить голосование?"
-        description="Выберите действие: Завершить — подведёт итоги и определит победителя. Отменить голосование — удалит голосование без сохранения результатов."
+        description="Завершить — подведём итоги и выберем победителя.\nОтменить — удалит голосование без результатов."
         confirmLabel="Завершить"
         cancelLabel="Отменить голосование"
         variant="warning"

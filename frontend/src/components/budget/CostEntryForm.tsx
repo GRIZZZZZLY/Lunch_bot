@@ -109,7 +109,7 @@ export const CostEntryForm = ({
             </TooltipTrigger>
             <TooltipContent>
               <p className="max-w-xs text-sm">
-                Введите дополнительные расходы. Они будут равномерно распределены между всеми участниками.
+                Введи дополнительные расходы. Они будут равномерно распределены между всеми участниками.
               </p>
             </TooltipContent>
           </Tooltip>

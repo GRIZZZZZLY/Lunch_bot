@@ -53,7 +53,7 @@ export function PersonalHeroCard({ isDark }: PersonalHeroCardProps) {
               </div>
               <div>
                 <p className="text-lg font-semibold">Готово к расчетам</p>
-                <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>Проверяйте оплаты и держите платежные данные под рукой</p>
+                <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>Проверяй оплаты и держи платежные данные под рукой</p>
               </div>
             </div>
           </div>

@@ -91,7 +91,7 @@ export function WaitingCalculationView({
       {/* Info Message */}
       <div className="rounded-lg border border-lavender-500/18 bg-lavender-500/8 p-4">
         <p className="text-sm text-foreground">
-          💡 Вы получите уведомление с вашей суммой, как только {responsibleName} завершит расчёт.
+          💡 Ты получишь уведомление со своей суммой, как только {responsibleName} завершит расчёт.
         </p>
       </div>
 

@@ -56,16 +56,15 @@ export function adminMiddleware() {
     try {
       const user = ctx.from;
       if (!user) {
-        await ctx.reply('❌ Не удалось определить пользователя');
+        await ctx.reply('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
         return;
       }
 
       const isAdmin = await UserService.isAdmin(BigInt(user.id));
       if (!isAdmin) {
         await ctx.reply(
-          '🔒 **Недостаточно прав**\n\n' +
-          'Эта команда доступна только администраторам бота.\n\n' +
-          '💡 Обратитесь к администратору для получения прав.',
+          '🔒 *Недостаточно прав*\n' +
+          'Эта команда — только для администраторов бота.',
           {
             parse_mode: 'Markdown',
             reply_markup: {
@@ -113,7 +112,7 @@ export function groupAdminMiddleware() {
       if (!isGroupAdmin) {
         await ctx.reply(
           '🔒 **Недостаточно прав в группе**\n\n' +
-          'Для выполнения этой команды вам нужны права администратора группы.',
+          'Для этой команды нужны права администратора группы.',
           { parse_mode: 'Markdown' }
         );
         return;
@@ -133,9 +132,8 @@ export function groupAdminMiddleware() {
 export async function groupOnlyMiddleware(ctx: BotContext, next: NextFunction): Promise<void> {
   if (ctx.chat?.type === 'private') {
     await ctx.reply(
-      '👥 **Команда только для групп**\n\n' +
-      'Эта команда работает только в групповых чатах.\n\n' +
-      '💡 Добавьте бота в группу и попробуйте снова.',
+      '👥 *Только для групп*\n' +
+      'Добавь бота в группу и попробуй снова.',
       {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -159,7 +157,7 @@ export async function privateOnlyMiddleware(ctx: BotContext, next: NextFunction)
     await ctx.reply(
       '💬 **Команда только для личных сообщений**\n\n' +
       'Эта команда работает только в личной переписке с ботом.\n\n' +
-      '💡 Напишите боту в личные сообщения.',
+      '💡 Напиши боту в личные сообщения.',
       { parse_mode: 'Markdown' }
     );
     return;
@@ -182,8 +180,8 @@ export async function activeUserMiddleware(ctx: BotContext, next: NextFunction):
     if (!dbUser?.isActive) {
       await ctx.reply(
         '🔒 **Аккаунт деактивирован**\n\n' +
-        'Ваш аккаунт был деактивирован администратором.\n\n' +
-        'Обратитесь к администратору для восстановления доступа.',
+        'Твой аккаунт деактивировал администратор.\n\n' +
+        'Обратись к администратору, чтобы восстановить доступ.',
         { parse_mode: 'Markdown' }
       );
       return;
@@ -203,16 +201,15 @@ export async function registeredUserMiddleware(ctx: BotContext, next: NextFuncti
   try {
     const user = ctx.from;
     if (!user) {
-      await ctx.reply('❌ Не удалось определить пользователя');
+      await ctx.reply('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
       return;
     }
 
     const dbUser = await UserService.getUserByTelegramId(BigInt(user.id));
     if (!dbUser) {
       await ctx.reply(
-        '📝 **Требуется регистрация**\n\n' +
-        'Для использования этой команды необходимо зарегистрироваться.\n\n' +
-        'Используйте команду /start для регистрации.',
+        '📝 *Нужна регистрация*\n' +
+        'Отправь /start, чтобы начать.',
         {
           parse_mode: 'Markdown',
           reply_markup: {

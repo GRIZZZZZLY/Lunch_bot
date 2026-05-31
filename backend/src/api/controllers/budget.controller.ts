@@ -170,7 +170,7 @@ export class BudgetController {
       if (transaction.fromUserId !== authenticatedUser.id) {
         res.status(403).json({ 
           error: 'Access denied',
-          message: 'Вы можете отметить оплаченными только свои долги'
+          message: 'Ты можешь отметить оплаченными только свои долги'
         });
         return;
       }
@@ -221,7 +221,7 @@ export class BudgetController {
       if (transaction.toUserId !== authenticatedUser.id) {
         res.status(403).json({ 
           error: 'Access denied',
-          message: 'Вы можете подтвердить только платежи в ваш адрес'
+          message: 'Ты можешь подтвердить только платежи в твой адрес'
         });
         return;
       }
@@ -272,7 +272,7 @@ export class BudgetController {
       if (transaction.fromUserId !== authenticatedUser.id) {
         res.status(403).json({ 
           error: 'Access denied',
-          message: 'Вы можете отменять только свои отметки оплаты'
+          message: 'Ты можешь отменять только свои отметки оплаты'
         });
         return;
       }

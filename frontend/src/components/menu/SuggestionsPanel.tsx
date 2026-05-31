@@ -188,7 +188,7 @@ export function SuggestionsPanel({ selectedTab = 'PENDING' }: SuggestionsPanelPr
         onClose={() => setItemToDelete(null)}
         onConfirm={confirmDelete}
         title="Удалить предложение?"
-        description={`Вы уверены, что хотите удалить предложение "${itemToDelete?.name}"? Это действие нельзя отменить.`}
+        description={`Удалить «${itemToDelete?.name}»? Отменить будет нельзя.`}
         confirmLabel="Удалить"
         cancelLabel="Отмена"
         variant="danger"
@@ -199,7 +199,7 @@ export function SuggestionsPanel({ selectedTab = 'PENDING' }: SuggestionsPanelPr
         onClose={() => setItemToReject(null)}
         onConfirm={confirmReject}
         title="Отклонить предложение?"
-        description={`Вы уверены, что хотите отклонить предложение "${itemToReject?.name}"? После подтверждения вас попросят указать причину отклонения.`}
+        description={`Точно хочешь отклонить предложение "${itemToReject?.name}"? После подтверждения тебя попросят указать причину отклонения.`}
         confirmLabel="Отклонить"
         cancelLabel="Отмена"
         variant="warning"

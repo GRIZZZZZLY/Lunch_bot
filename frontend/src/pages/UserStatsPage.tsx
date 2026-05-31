@@ -103,7 +103,7 @@ export const UserStatsPage: React.FC = () => {
             Моя статистика
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Ваши предпочтения и активность в голосованиях
+            Твои предпочтения и активность в голосованиях
           </p>
         </motion.div>
 

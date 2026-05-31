@@ -30,7 +30,7 @@ export const DebtManagementCard: React.FC<DebtManagementCardProps> = ({
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   const handleForgiveDebt = async (debtId: number) => {
-    if (!confirm('Вы уверены, что хотите списать этот долг?')) return;
+    if (!confirm('Точно хочешь списать этот долг?')) return;
     
     setActionLoading(debtId);
     try {

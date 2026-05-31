@@ -34,7 +34,7 @@ export function AchievementBadgesGrid({
             <div className="text-center">
               <Lock className={`w-12 h-12 mx-auto mb-3 ${isDark ? 'text-zinc-600' : 'text-zinc-300'}`} />
               <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                Получайте достижения за активность
+                Получай достижения за активность
               </p>
             </div>
           </div>

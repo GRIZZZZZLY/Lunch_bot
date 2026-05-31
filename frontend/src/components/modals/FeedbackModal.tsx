@@ -41,7 +41,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     
     if (!message.trim()) {
       console.log('[FeedbackModal] Validation failed: empty message');
-      toast.error('Введите сообщение');
+      toast.error('Введи сообщение');
       return;
     }
 
@@ -104,7 +104,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             <div>
               <DialogTitle>Обратная связь</DialogTitle>
               <DialogDescription>
-                Сообщение отправится создателю бота
+                Сообщение уйдёт создателю бота
               </DialogDescription>
             </div>
           </div>
@@ -114,12 +114,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
-              Ваше сообщение
+              Твоё сообщение
             </label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Опишите свои впечатления, предложения или сообщите о проблеме..."
+              placeholder="Опиши свои впечатления, предложения или сообщи о проблеме..."
               rows={5}
               maxLength={1000}
               disabled={isSending}
@@ -159,7 +159,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
           {/* Privacy note */}
           <p className="text-xs text-muted-foreground text-center">
-            🔒 Вместе с сообщением будет отправлен ваш Telegram ID для ответа
+            🔒 Вместе с сообщением будет отправлен твой Telegram ID для ответа
           </p>
         </form>
       </DialogContent>

@@ -197,7 +197,7 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('openpoll:')) {
         const pollId = parseCallbackId(data, 1);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
           return;
         }
         await handleOpenPollButton(ctx as any, pollId);
@@ -210,7 +210,7 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('cancel_poll:')) {
         const pollId = parseCallbackId(data, 1);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
           return;
         }
         await handleCancelPoll(ctx as any, pollId);
@@ -221,7 +221,7 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('run_roulette:')) {
         const pollId = parseCallbackId(data, 1);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
           return;
         }
         await handleRunRoulette(ctx as any, pollId);
@@ -232,7 +232,7 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('complete_poll:')) {
         const pollId = parseCallbackId(data, 1);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
           return;
         }
         await handleCompletePoll(ctx as any, pollId);
@@ -243,7 +243,7 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('storerun_addto:')) {
         const runId = parseCallbackId(data, 1);
         if (!runId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор забега');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть забег. Обнови страницу.');
           return;
         }
         const { handleStoreRunAddToCallback } = await import('./handlers/store-run.handlers');
@@ -255,12 +255,12 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('volunteer:')) {
         const pollId = parseCallbackId(data, 1);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
           return;
         }
         const { ResponsibleService } = await import('../services/responsible.service.js');
         await ResponsibleService.handleVolunteer(pollId, ctx.from.id);
-        await ctx.answerCallbackQuery('✅ Спасибо! Вы выбраны ответственным');
+        await ctx.answerCallbackQuery('✅ Спасибо! Ты выбран ответственным');
         return;
       }
 
@@ -268,7 +268,7 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('volunteer_category:')) {
         const categoryOrderId = parseCallbackId(data, 1);
         if (!categoryOrderId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор категории');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть категорию. Обнови страницу.');
           return;
         }
         const { MultiCategoryResponsibleService } = await import('../services/multi-category-responsible.service.js');
@@ -276,7 +276,7 @@ export function createBot(): Bot<BotContext> {
           categoryOrderId,
           BigInt(ctx.from.id)
         );
-        await ctx.answerCallbackQuery('✅ Спасибо! Вы ответственный за эту категорию');
+        await ctx.answerCallbackQuery('✅ Спасибо! Ты ответственный за эту категорию');
         return;
       }
 
@@ -284,7 +284,7 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:mark_paid:')) {
         const txId = parseCallbackId(data, 2);
         if (!txId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор транзакции');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть платёж. Обнови страницу.');
           return;
         }
         const { BudgetService } = await import('../services/budget.service.js');
@@ -302,7 +302,7 @@ export function createBot(): Bot<BotContext> {
         }
         
         if (Number(tx.fromUser.telegramId) !== ctx.from.id) {
-          await ctx.answerCallbackQuery('❌ Вы можете отметить только свои долги');
+          await ctx.answerCallbackQuery('❌ Отметить можно только свой долг');
           return;
         }
         
@@ -321,7 +321,7 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:confirm:')) {
         const txId = parseCallbackId(data, 2);
         if (!txId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор транзакции');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть платёж. Обнови страницу.');
           return;
         }
         const { BudgetService } = await import('../services/budget.service.js');
@@ -339,7 +339,7 @@ export function createBot(): Bot<BotContext> {
         }
         
         if (Number(tx.toUser.telegramId) !== ctx.from.id) {
-          await ctx.answerCallbackQuery('❌ Вы можете подтвердить только платежи в ваш адрес');
+          await ctx.answerCallbackQuery('❌ Подтвердить можно только перевод тебе');
           return;
         }
         
@@ -355,7 +355,7 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:all_paid:')) {
         const pollId = parseCallbackId(data, 2);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
           return;
         }
         const { BudgetService } = await import('../services/budget.service.js');
@@ -366,7 +366,7 @@ export function createBot(): Bot<BotContext> {
           where: { pollId, toUser: { telegramId: BigInt(ctx.from.id) } },
         });
         if (!tx) {
-          await ctx.answerCallbackQuery('❌ Вы не являетесь ответственным по этому заказу');
+          await ctx.answerCallbackQuery('❌ Ты не ответственный по этому заказу');
           return;
         }
 
@@ -382,7 +382,7 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:remind:')) {
         const pollId = parseCallbackId(data, 2);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор голосования');
+          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
           return;
         }
         const { BudgetService } = await import('../services/budget.service.js');
@@ -393,7 +393,7 @@ export function createBot(): Bot<BotContext> {
           where: { pollId, toUser: { telegramId: BigInt(ctx.from.id) } },
         });
         if (!tx) {
-          await ctx.answerCallbackQuery('❌ Вы не являетесь ответственным по этому заказу');
+          await ctx.answerCallbackQuery('❌ Ты не ответственный по этому заказу');
           return;
         }
 
@@ -432,7 +432,7 @@ export function createBot(): Bot<BotContext> {
       }
     } catch (error) {
       logger.error('Ошибка обработки callback query:', error);
-      await ctx.answerCallbackQuery('❌ Произошла ошибка');
+      await ctx.answerCallbackQuery('❌ Что-то пошло не так. Попробуй ещё раз');
     }
   });
 

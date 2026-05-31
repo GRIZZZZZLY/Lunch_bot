@@ -154,7 +154,7 @@ export const SimplePollCard = ({
             </h3>
           </div>
           <p className="text-gray-600 dark:text-gray-300 text-sm">
-            {poll.title || 'Выберите блюдо на обед'}
+            {poll.title || 'Выбери блюдо на обед'}
           </p>
         </div>
         

@@ -145,7 +145,7 @@ export const useVote = () => {
         queryKey: queryKeys.polls.results(variables.pollId) 
       });
       
-      toast.success('Ваш голос учтён!');
+      toast.success('Твой голос учтён!');
     },
     onError: (error: Error) => {
       toast.error(`Ошибка при голосовании: ${error.message}`);

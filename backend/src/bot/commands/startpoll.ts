@@ -62,7 +62,7 @@ export async function startPollCommand(ctx: BotContext): Promise<void> {
   try {
     const user = ctx.from;
     if (!user) {
-      await ctx.reply('Не удалось определить пользователя');
+      await ctx.reply('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
       return;
     }
 
@@ -79,8 +79,8 @@ export async function startPollCommand(ctx: BotContext): Promise<void> {
       
       if (!isAdmin) {
         await ctx.reply(
-          '⚠️ Только администраторы группы могут запускать голосования.\n\n' +
-          'Если вы должны быть администратором, попросите создателя группы назначить вас.'
+          '⚠️ Запускать голосования могут только админы группы.\n' +
+          'Попроси создателя группы выдать тебе права.'
         );
         logger.warn(`Non-admin user ${user.id} attempted to start poll in group ${chat.id}`);
         return;
@@ -104,21 +104,21 @@ export async function startPollCommand(ctx: BotContext): Promise<void> {
     // Проверяем активное голосование
     const existingPoll = await PollService.getActivePollInGroup(group.id);
     if (existingPoll) {
-      await ctx.reply('В этой группе уже есть активное голосование!');
+      await ctx.reply('В этой группе уже идёт голосование.');
       return;
     }
 
     // Парсим длительность
     const durationMinutes = ctx.match ? parseInt(ctx.match.toString()) : 30;
     if (isNaN(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440) {
-      await ctx.reply('Неверная длительность. Укажите число от 1 до 1440 минут.');
+      await ctx.reply('Длительность — число от 1 до 1440 минут.');
       return;
     }
 
     // Получаем активные блюда
     const activeItems = await MenuService.getActiveMenuItems();
     if (activeItems.length === 0) {
-      await ctx.reply('Меню пусто! Сначала добавьте блюда через Mini App.');
+      await ctx.reply('Меню пустое. Сначала добавь блюда в приложении.');
       return;
     }
 
@@ -181,8 +181,8 @@ export async function startPollCommand(ctx: BotContext): Promise<void> {
     }, durationMinutes * 60 * 1000);
 
     await ctx.reply(
-      `✅ Голосование запущено на ${durationMinutes} минут!\n` +
-      `Голосуйте, нажимая на кнопки выше.`
+      `✅ Голосование запущено на ${durationMinutes} мин.\n` +
+      `Голосуй кнопками выше.`
     );
   } catch (error) {
     logger.error('Error in startPollCommand:', error);

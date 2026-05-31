@@ -71,7 +71,7 @@ export const WaitingConfirmationView = ({
         </div>
         
         <p className="text-sm text-muted-foreground mb-1">
-          Вы отметили оплату
+          Ты отметил оплату
         </p>
         <h4 className="font-semibold text-lg mb-2">
           {debt.menuItem?.name || 'Блюдо'} — {debt.amount}₽
@@ -108,7 +108,7 @@ export const WaitingConfirmationView = ({
               <div>• {otherDebts.length} долгов ({otherDebts.reduce((s, d) => s + d.amount, 0)}₽)</div>
             )}
             {credits.length > 0 && (
-              <div>• Вам должны: {credits.reduce((s, c) => s + c.amount, 0)}₽</div>
+              <div>• Тебе должны: {credits.reduce((s, c) => s + c.amount, 0)}₽</div>
             )}
           </div>
           

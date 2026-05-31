@@ -33,7 +33,7 @@ const statusConfigs: Record<PollStatus, StatusConfig> = {
   ACTIVE: {
     icon: PlayCircle,
     label: 'Активно',
-    votedLabel: 'Вы проголосовали',
+    votedLabel: 'Ты проголосовал',
     bgColor: 'bg-green-100 dark:bg-green-900/30',
     textColor: 'text-green-700 dark:text-green-300',
     borderColor: 'border-green-300 dark:border-green-700',

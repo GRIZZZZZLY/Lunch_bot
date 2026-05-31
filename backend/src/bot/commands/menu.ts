@@ -10,7 +10,7 @@ export async function menuCommand(ctx: BotContext): Promise<void> {
   try {
     const user = ctx.from;
     if (!user) {
-      await ctx.reply('❌ Не удалось получить информацию о пользователе');
+      await ctx.reply('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
       return;
     }
 
@@ -18,8 +18,8 @@ export async function menuCommand(ctx: BotContext): Promise<void> {
     const dbUser = await UserService.getUserByTelegramId(BigInt(user.id));
     if (!dbUser) {
       await ctx.reply(
-        '❌ Вы не зарегистрированы в системе.\n\n' +
-        'Используйте команду /start для регистрации.'
+        '❌ Ты ещё не зарегистрирован.\n\n' +
+        'Отправь /start, чтобы начать.'
       );
       return;
     }
@@ -116,8 +116,7 @@ export async function menuCommand(ctx: BotContext): Promise<void> {
     
     // В группах добавляем подсказку
     if (isGroup) {
-      text += '\n💡 **Подсказка:** Нажмите кнопку "📱 Открыть управление" для доступа к Mini App.\n';
-      text += 'Также доступна кнопка Menu справа от поля ввода! ⬇️\n';
+      text += '\n💡 Открой управление кнопкой ниже или через *Menu* справа от поля ввода.\n';
     }
 
     await ctx.reply(text, {
@@ -136,7 +135,7 @@ export async function menuCommand(ctx: BotContext): Promise<void> {
     logger.error('Error in menu command:', error);
     await ctx.reply(
       '❌ Произошла ошибка при загрузке меню.\n\n' +
-      '🔄 Попробуйте еще раз или обратитесь к администратору.'
+      '🔄 Попробуй ещё раз или обратись к администратору.'
     );
   }
 }
@@ -190,7 +189,7 @@ export async function handleShowMenuList(ctx: any): Promise<void> {
       await ctx.answerCallbackQuery();
       await ctx.reply(
         '🍽️ **Меню пусто**\n\n' +
-        '➕ Добавьте блюда через Mini App или команду быстрого добавления.',
+        '➕ Добавь блюда в приложении или командой быстрого добавления.',
         { parse_mode: 'Markdown' }
       );
       return;

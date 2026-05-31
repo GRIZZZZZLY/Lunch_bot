@@ -140,7 +140,7 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
                       Отправлено!
                     </h3>
                     <p className="text-white/90 text-center px-6">
-                      Ваше предложение будет рассмотрено администратором
+                      Твоё предложение будет рассмотрено администратором
                     </p>
                   </motion.div>
                 )}
@@ -253,7 +253,7 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
                   {/* Info */}
                   <div className="p-4 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 border border-blue-500/20">
                     <p className="text-sm text-blue-600 dark:text-blue-400">
-                      Ваше предложение будет рассмотрено администратором. После одобрения блюдо появится в меню.
+                      Твоё предложение будет рассмотрено администратором. После одобрения блюдо появится в меню.
                     </p>
                   </div>
 

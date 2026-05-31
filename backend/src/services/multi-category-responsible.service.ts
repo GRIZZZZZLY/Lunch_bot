@@ -58,7 +58,7 @@ export class MultiCategoryResponsibleService {
     if (pendingSelections.size === 0) {
       message += '\n✅ Все категории распределены.';
     } else {
-      message += '\nНажмите кнопку, чтобы стать ответственным.';
+      message += '\nНажми кнопку, чтобы стать ответственным.';
     }
 
     return {
@@ -283,7 +283,7 @@ export class MultiCategoryResponsibleService {
         if (botInstance()) {
           await botInstance()!.api.sendMessage(
             telegramId.toString(),
-            '❌ Вы не участвуете в этой категории!'
+            '❌ Ты не участвуешь в этой категории!'
           );
         }
         return;
@@ -307,7 +307,7 @@ export class MultiCategoryResponsibleService {
         if (botInstance()) {
           await botInstance()!.api.sendMessage(
             telegramId.toString(),
-            `❌ Вы уже ответственный за "${existingResponsibility.category}"! Один человек = одна категория.`
+            `❌ Ты уже ответственный за "${existingResponsibility.category}"! Один человек = одна категория.`
           );
         }
         return;
@@ -493,8 +493,8 @@ export class MultiCategoryResponsibleService {
       // Notify responsible
       await botInstance()!.api.sendMessage(
         responsible.telegramId.toString(),
-        `✅ Вы ответственный за "${categoryOrder.category}" (${categoryOrder.participantCount} чел.)!\n\n` +
-          `Откройте приложение и нажмите "Открыть калькулятор" на главной странице.`
+        `✅ Ты ответственный за "${categoryOrder.category}" (${categoryOrder.participantCount} чел.)!\n\n` +
+          `Открой приложение и нажми "Открыть калькулятор" на главной странице.`
       );
 
       // Notify other participants and store their message IDs

@@ -168,7 +168,7 @@ class DonationService {
       if (user && bot) {
         await bot.api.sendMessage(
           Number(user.telegramId),
-          `💖 Спасибо за поддержку проекта на ${donation.amountStars} ⭐! Ваш донат поможет развитию Rocket Lunch.`
+          `💖 Спасибо за поддержку — ${donation.amountStars} ⭐! Это помогает развивать Rocket Lunch.`
         );
       }
     } catch (err) {

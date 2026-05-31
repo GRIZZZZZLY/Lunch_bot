@@ -57,7 +57,7 @@ export const PaymentSuccess = ({ amount, currency, onClose }: PaymentSuccessProp
         transition={{ delay: 0.3 }}
         className="mb-6 text-lg text-gray-600 dark:text-gray-400"
       >
-        Ваша поддержка в размере <span className="font-semibold text-primary">{amount} {currency}</span><br />
+        Твоя поддержка в размере <span className="font-semibold text-primary">{amount} {currency}</span><br />
         помогает развивать проект!
       </motion.p>
 
@@ -83,11 +83,11 @@ export const PaymentSuccess = ({ amount, currency, onClose }: PaymentSuccessProp
         <div className="flex items-center justify-center gap-2 mb-2">
           <Sparkles className={cn(ICON_SIZES.md, "text-lavender-500")} />
           <span className="font-semibold text-gray-900 dark:text-white">
-            Вы получили бейдж «Supporter»!
+            Ты получил бейдж «Supporter»!
           </span>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Он будет отображаться в вашем профиле
+          Он будет отображаться в твоём профиле
         </p>
       </motion.div>
 

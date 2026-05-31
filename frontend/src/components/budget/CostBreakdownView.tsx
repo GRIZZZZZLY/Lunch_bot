@@ -252,7 +252,7 @@ export const CostBreakdownView = ({
                       {tx.userName}
                       {isCurrentUser && (
                         <Badge variant="outline" className="ml-2 text-xs">
-                          Вы
+                          Ты
                         </Badge>
                       )}
                     </TableCell>

@@ -78,7 +78,7 @@ export const UrgentDebtView = ({ debt, otherDebts, credits }: UrgentDebtViewProp
       {/* Информация о заказе */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Ваш заказ:</span>
+          <span className="text-sm text-muted-foreground">Твой заказ:</span>
           <span className="font-medium">{debt.menuItem?.name || 'Блюдо'}</span>
         </div>
         
@@ -129,7 +129,7 @@ export const UrgentDebtView = ({ debt, otherDebts, credits }: UrgentDebtViewProp
           
           {!debt.toUser?.paymentCard && !debt.toUser?.paymentPhone && (
             <div className="text-xs text-muted-foreground">
-              Реквизиты не указаны. Свяжитесь с ответственным.
+              Реквизиты не указаны. Свяжись с ответственным.
             </div>
           )}
         </div>
@@ -167,7 +167,7 @@ export const UrgentDebtView = ({ debt, otherDebts, credits }: UrgentDebtViewProp
               <div>• {otherDebts.length} старых долга ({otherDebts.reduce((s, d) => s + d.amount, 0)}₽)</div>
             )}
             {credits.length > 0 && (
-              <div>• Вам должны: {credits.reduce((s, c) => s + c.amount, 0)}₽</div>
+              <div>• Тебе должны: {credits.reduce((s, c) => s + c.amount, 0)}₽</div>
             )}
           </div>
           

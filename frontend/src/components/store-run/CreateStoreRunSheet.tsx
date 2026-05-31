@@ -47,11 +47,11 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
 
   const handleSubmit = async () => {
     if (!groupId) {
-      setError('Не нашли группу. Добавьте бота в групповой чат.');
+      setError('Не нашли группу. Добавь бота в групповой чат.');
       return;
     }
     if (!resolvedName) {
-      setError('Укажите название магазина');
+      setError('Укажи название магазина');
       return;
     }
     setError(null);
@@ -173,7 +173,7 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
 
           {!groupId && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/8 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-              Сначала добавьте бота в групповой чат коллег, иначе некому получать уведомления.
+              Сначала добавь бота в групповой чат коллег, иначе некому получать уведомления.
             </div>
           )}
         </div>

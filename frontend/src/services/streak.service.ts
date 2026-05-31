@@ -154,14 +154,14 @@ export function getStreakMotivation(streak: UserStreak): string {
   }
 
   if (currentStreak < 50) {
-    return `👑 ${currentStreak} дней подряд! Ты легенда!`;
+    return `👑 ${currentStreak} дней подряд!`;
   }
 
   if (currentStreak < 100) {
     return `🏆 ${currentStreak} дней подряд! Мастер привычек!`;
   }
 
-  return `💯 ${currentStreak} дней подряд! Ты просто невероятен!`;
+  return `💯 ${currentStreak} дней подряд!`;
 }
 
 /**

@@ -299,7 +299,7 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
             : "bg-peach-500/10 border-peach-500/20"
         )}>
           <p className="text-gray-900 dark:text-white text-center font-medium">
-            ✅ Вы проголосовали!
+            ✅ Ты проголосовал!
           </p>
           <p className="text-gray-600 dark:text-gray-300 text-sm text-center mt-1">
             Результаты обновляются в реальном времени

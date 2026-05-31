@@ -148,7 +148,7 @@ export function useVote() {
                 createdAt: new Date().toISOString(),
                 user: {
                   id: 0,
-                  firstName: 'Вы',
+                  firstName: 'Ты',
                 },
                 menuItem: {
                   id: menuItemId,

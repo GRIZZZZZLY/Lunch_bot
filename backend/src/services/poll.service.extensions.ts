@@ -22,8 +22,8 @@ function createPollNotificationMessage(data: {
   message += `⏰ **Время голосования:** ${duration} мин\n`;
   message += `🍽️ **Доступно блюд:** ${menuItemsCount}\n`;
   message += `⏱️ **Завершится:** ${endTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}\n\n`;
-  message += `👉 Откройте Mini App для голосования!\n`;
-  message += `Нажмите кнопку "🗳️ Проголосовать" ниже`;
+  message += `👉 Открой Mini App для голосования!\n`;
+  message += `Нажми кнопку "🗳️ Проголосовать" ниже`;
   
   return message;
 }
@@ -388,7 +388,7 @@ async function sendPersonalNotifications(
             message += `🏆 Победитель: **${winnerItem.menuItemName}** (${winnerItem.votes} ${getVotesWord(winnerItem.votes)})\n\n`;
           }
 
-          message += `👤 **Ваш выбор:** ${userVote?.menuItemName || 'Не указан'}\n\n`;
+          message += `👤 **Твой выбор:** ${userVote?.menuItemName || 'Не указан'}\n\n`;
 
           if (responsibleUser) {
             message += `💰 **Информация для оплаты:**\n`;
@@ -400,7 +400,7 @@ async function sendPersonalNotifications(
 
             const usernameTag = responsibleUser.username
               ? `@${responsibleUser.username}`
-              : 'тега нет(('
+              : 'тег не указан'
             message += `📱 Тег в Telegram: ${usernameTag}\n`;
 
             // Добавляем платёжные данные если есть
@@ -417,8 +417,7 @@ async function sendPersonalNotifications(
             }
 
             if (!responsiblePaymentInfo?.paymentCard && !responsiblePaymentInfo?.paymentPhone) {
-              message += `\n⚠️ Ответственный ещё не указал платёжные данные.\n`;
-              message += `📍 Свяжитесь с ним напрямую для уточнения деталей оплаты.`;
+              message += `\n⚠️ Ответственный пока не добавил реквизиты — напиши ему напрямую.`;
             }
           }
 

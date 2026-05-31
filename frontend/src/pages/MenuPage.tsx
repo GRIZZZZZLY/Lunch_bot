@@ -535,7 +535,7 @@ export const MenuPage: React.FC = () => {
         onClose={() => setItemToDelete(null)}
         onConfirm={confirmDeleteItem}
         title="Удалить блюдо?"
-        description={`Вы уверены, что хотите удалить "${itemToDelete?.name}" из меню? Это действие нельзя отменить.`}
+        description={`Удалить «${itemToDelete?.name}»? Отменить будет нельзя.`}
         confirmLabel="Удалить"
         cancelLabel="Отмена"
         variant="danger"

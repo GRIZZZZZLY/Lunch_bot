@@ -165,7 +165,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
 
   const handleCreate = async () => {
     if (!canCreatePoll()) {
-      setError('Заполните все поля корректно');
+      setError('Заполни все поля корректно');
       haptic.error();
       return;
     }
@@ -206,15 +206,15 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
       const errorText = errorObj?.error || errorObj?.message || '';
 
       if (errorText.includes('already has an active poll') || errorText.includes('Group already has active poll')) {
-        errorMessage = 'В этой группе уже есть активное голосование. Дождитесь его завершения.';
+        errorMessage = 'В этой группе уже идёт голосование. Дождись завершения.';
       } else if (errorText.includes('Not enough items') || errorText.includes('NOT_ENOUGH_ITEMS')) {
-        errorMessage = 'Выберите минимум 2 блюда';
+        errorMessage = 'Выбери минимум 2 блюда';
       } else if (errorText.includes('Network error') || errorObj?.code === 'NETWORK_ERROR') {
-        errorMessage = 'Ошибка сети. Проверьте подключение к интернету.';
+        errorMessage = 'Нет сети. Проверь интернет.';
       } else if (errorText.includes('Access denied') || errorObj?.code === 'ACCESS_DENIED') {
         errorMessage = 'Недостаточно прав для создания голосования';
       } else if (errorObj?.code === 'INVALID_GROUP') {
-        errorMessage = 'Выберите группу';
+        errorMessage = 'Выбери группу';
       } else if (errorText) {
         errorMessage = `Ошибка: ${errorText}`;
       }
@@ -307,7 +307,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
           Меню пустое
         </p>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Добавьте блюда в меню перед созданием голосования
+          Сначала добавь блюда в меню
         </p>
         {onCancel && (
           <button
@@ -582,7 +582,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 <ChevronLeft className="w-4 h-4" />
                 Назад
               </button>
-              <h2 className="text-lg font-bold text-foreground">Выберите блюда</h2>
+              <h2 className="text-lg font-bold text-foreground">Выбери блюда</h2>
               {onCancel && (
                 <button
                   onClick={onCancel}
@@ -649,7 +649,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                         <div className="flex items-start gap-2">
                           <AlertCircle className={cn(ICON_SIZES.sm, "text-gray-500 flex-shrink-0 mt-0.5")} />
                           <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Выберите минимум 2 блюда
+                            Выбери минимум 2 блюда
                           </p>
                         </div>
                       </motion.div>

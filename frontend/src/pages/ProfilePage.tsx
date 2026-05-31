@@ -369,7 +369,7 @@ export const ProfilePage: React.FC = () => {
                   await refresh();
                   addNotification({
                     type: 'success',
-                    message: '✅ Права обновлены! Перезагрузите страницу.',
+                    message: '✅ Права обновлены! Перезагрузи страницу.',
                   });
                   setTimeout(() => window.location.reload(), 1500);
                 } catch (error) {
@@ -456,7 +456,7 @@ export const ProfilePage: React.FC = () => {
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Эти данные будут отправлены участникам голосования, если вы станете ответственным за заказ
+              Эти реквизиты увидят участники, если ты станешь ответственным за заказ
             </p>
           </div>
 
@@ -513,7 +513,7 @@ export const ProfilePage: React.FC = () => {
               </p>
             )}
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Для связи через мессенджеры или звонок
+              Для связи в мессенджерах или по звонку
             </p>
           </div>
 
@@ -580,7 +580,7 @@ export const ProfilePage: React.FC = () => {
             <div className="flex items-start gap-2">
               <Shield className={cn(ICON_SIZES.sm, "mt-0.5 flex-shrink-0 text-lavender-500")} />
               <p className="text-sm text-foreground">
-                <strong>Конфиденциальность:</strong> Ваши данные будут видны только участникам голосования, где вы стали ответственным за заказ.
+                <strong>Конфиденциальность:</strong> Видно только участникам голосования, где ты ответственный за заказ.
               </p>
             </div>
           </div>

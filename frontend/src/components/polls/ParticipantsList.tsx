@@ -113,7 +113,7 @@ export const ParticipantsList: React.FC<ParticipantsListProps> = ({
                         </span>
                         {participant.id === currentUserId && (
                           <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                            Вы
+                            Ты
                           </Badge>
                         )}
                       </div>

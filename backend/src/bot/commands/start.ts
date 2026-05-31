@@ -10,7 +10,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
   try {
     const user = ctx.from;
     if (!user) {
-      await ctx.reply('❌ Не удалось получить информацию о пользователе');
+      await ctx.reply('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
       return;
     }
 
@@ -40,7 +40,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       
       await ctx.reply(
         '🍽 *Открываю управление меню...*\n\n' +
-        'Нажмите кнопку ниже чтобы открыть Mini App:',
+        'Нажми кнопку ниже, чтобы открыть приложение:',
         {
           parse_mode: 'Markdown',
           reply_markup: {
@@ -62,7 +62,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       
       await ctx.reply(
         '➕ *Добавление блюда в меню*\n\n' +
-        'Нажмите кнопку ниже чтобы открыть Mini App:',
+        'Нажми кнопку ниже, чтобы открыть приложение:',
         {
           parse_mode: 'Markdown',
           reply_markup: {
@@ -119,8 +119,8 @@ export async function startCommand(ctx: BotContext): Promise<void> {
 
       if (existingVote) {
         await ctx.reply(
-          '✅ **Вы уже проголосовали**\n\n' +
-          'Ваш голос учтён. Результаты будут объявлены после завершения голосования.',
+          '✅ **Ты уже проголосовал**\n\n' +
+          'Твой голос учтён. Результаты объявим после завершения голосования.',
           { parse_mode: 'Markdown' }
         );
         return;
@@ -185,7 +185,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       if (isWebAppAvailable) {
         await ctx.reply(
           '🗳 *Быстрое голосование*\n\n' +
-          'Нажмите кнопку ниже чтобы открыть Mini App и настроить голосование:',
+          'Нажми кнопку ниже, чтобы открыть приложение и настроить голосование:',
           {
             parse_mode: 'Markdown',
             reply_markup: {
@@ -203,25 +203,24 @@ export async function startCommand(ctx: BotContext): Promise<void> {
         await ctx.reply(
           '🗳 *Быстрое голосование*\n\n' +
           '⚠️ Mini App недоступен в режиме разработки.\n\n' +
-          '📱 Используйте команду `/startpoll` в группе для создания голосования.',
+          '📱 Используй команду `/startpoll` в группе, чтобы создать голосование.',
           { parse_mode: 'Markdown' }
         );
       }
       return;
     }
 
-    const welcomeText = isNewUser 
-      ? `🎉 Добро пожаловать, ${user.first_name}!\n\n` +
-        '🤖 Я помогу вашей команде выбирать еду для заказа.\n\n' +
-        '✨ **Что я умею:**\n' +
-        '• 🗳️ Организовывать голосования за блюда\n' +
-        '• 🎲 Выбирать ответственного за заказ\n' +
-        '• 🍽️ Управлять меню блюд\n' +
-        '• 📊 Показывать статистику\n\n' +
-        '💡 **Для начала:**\n' +
-        '1. Добавьте меня в группу\n' +
-        '2. Дайте мне права администратора\n' +
-        '3. Откройте Mini App через кнопку Menu'
+    const welcomeText = isNewUser
+      ? `🎉 Привет, ${user.first_name}!\n\n` +
+        'Я Rocket Lunch — помогаю команде выбирать, что заказать на обед.\n\n' +
+        '*Что умею:*\n' +
+        '• голосования за блюда\n' +
+        '• выбор ответственного за заказ\n' +
+        '• меню и статистика\n\n' +
+        '*Чтобы начать:*\n' +
+        '1. Добавь меня в группу\n' +
+        '2. Дай права администратора\n' +
+        '3. Открой приложение кнопкой Menu'
       : `👋 С возвращением, ${user.first_name}!`;
 
     const isGroup = ctx.chat?.type !== 'private';
@@ -260,7 +259,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
 
   } catch (error) {
     logger.error('Error in start command:', error);
-    await ctx.reply('❌ Произошла ошибка при регистрации. Попробуйте позже.');
+    await ctx.reply('❌ Произошла ошибка при регистрации. Попробуй позже.');
   }
 }
 

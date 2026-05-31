@@ -152,7 +152,7 @@ export const RecurringPollForm = ({
 
   const handleSave = async () => {
     if (!canSaveSchedule() || !selectedGroupId) {
-      setError('Заполните все поля корректно');
+      setError('Заполни все поля корректно');
       haptic.error();
       return;
     }
@@ -197,9 +197,9 @@ export const RecurringPollForm = ({
       const errorText = errorObj?.error || errorObj?.message || '';
 
       if (errorText.includes('already has a recurring poll')) {
-        errorMessage = 'У этой группы уже есть расписание. Обновите существующее.';
+        errorMessage = 'У этой группы уже есть расписание. Обнови существующее.';
       } else if (errorText.includes('Invalid time format')) {
-        errorMessage = 'Неверный формат времени. Используйте HH:MM';
+        errorMessage = 'Неверный формат времени. Используй HH:MM';
       } else if (errorText.includes('Duration must be')) {
         errorMessage = 'Длительность должна быть от 5 до 180 минут';
       } else if (errorText.includes('Access denied')) {
@@ -335,7 +335,7 @@ export const RecurringPollForm = ({
       <div className="p-6 text-center">
         <AlertCircle className={`${ICON_SIZES['2xl']} mx-auto mb-4 text-yellow-500`} />
         <p className="text-muted-foreground">
-          Сначала выберите группу
+          Сначала выбери группу
         </p>
       </div>
     );

@@ -72,7 +72,7 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
           const deepLink = `https://t.me/${ctx.me.username}?start=menu_${chat.id}`;
           
           await ctx.reply(
-            '👋 Бот активен. Откройте Mini App для меню и голосований.',
+            '👋 Готово! Открой приложение кнопкой ниже — там меню и голосования.',
             {
               parse_mode: 'Markdown',
               reply_markup: {

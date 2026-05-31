@@ -595,19 +595,18 @@ export class AdminService {
    * Форматирование сообщения напоминания о долге
    */
   private formatDebtReminderMessage(debtor: DebtorInfo): string {
-    let message = `💰 *Напоминание о задолженности*\n\n`;
+    let message = `💰 *Напоминание об оплате*\n\n`;
     message += `Привет, ${debtor.userName}!\n\n`;
-    message += `У вас есть неоплаченные долги на общую сумму *${debtor.totalDebt.toFixed(2)}₽*\n\n`;
-    
+    message += `За тобой обед на *${debtor.totalDebt.toFixed(2)}₽*:\n`;
+
     if (debtor.debts.length > 0) {
-      message += `📋 *Детали:*\n`;
       debtor.debts.forEach((debt, index) => {
         message += `${index + 1}. ${toNumber(debt.amount).toFixed(2)}₽ → ${debt.toUser.firstName}\n`;
       });
     }
-    
-    message += `\n⏰ Самый старый долг от ${this.formatDebtAge(debtor.oldestDebt?.toISOString() || null)}\n`;
-    message += `\n💳 Пожалуйста, оплатите долги и отметьте их как оплаченные в приложении.`;
+
+    message += `\nСтарейший — с ${this.formatDebtAge(debtor.oldestDebt?.toISOString() || null)}.\n`;
+    message += `\nОтметь оплату в приложении после перевода 👍`;
     
     return message;
   }
@@ -682,7 +681,7 @@ export class AdminService {
    */
   private formatSingleDebtReminderMessage(debt: any): string {
     let message = `💰 *Напоминание об оплате*\n\n`;
-    message += `Привет! У вас есть неоплаченный долг:\n\n`;
+    message += `Привет! У тебя есть неоплаченный долг:\n\n`;
     message += `💵 Сумма: *${toNumber(debt.amount).toFixed(2)}₽*\n`;
     message += `👤 Кредитор: ${debt.toUser.firstName} ${debt.toUser.lastName || ''}\n`;
     
@@ -693,7 +692,7 @@ export class AdminService {
     const daysOld = Math.floor((Date.now() - new Date(debt.createdAt).getTime()) / (1000 * 60 * 60 * 24));
     message += `📅 Создан: ${daysOld} ${this.getDaysWord(daysOld)} назад\n`;
     
-    message += `\n💳 Пожалуйста, оплатите и отметьте как оплаченное в приложении.`;
+    message += `\n💳 Будет здорово, если оплатишь и отметишь как оплаченное в приложении.`;
     
     return message;
   }
