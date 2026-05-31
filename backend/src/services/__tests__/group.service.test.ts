@@ -336,5 +336,54 @@ describe('GroupService', () => {
     });
   });
 
+  describe('ensureMemberRole', () => {
+    it('creates member with desired role (new member, no downgrade needed)', async () => {
+      const addSpy = jest
+        .spyOn(GroupService, 'addMemberToGroup')
+        .mockResolvedValue({ id: 1, groupId: 10, userId: 5, role: 'CREATOR', isActive: true });
+      const setSpy = jest.spyOn(GroupService, 'setMemberRole').mockResolvedValue({} as any);
+
+      const result = await GroupService.ensureMemberRole(10, 5, 'CREATOR');
+
+      expect(addSpy).toHaveBeenCalledWith(10, 5, 'CREATOR');
+      expect(setSpy).not.toHaveBeenCalled();
+      expect(result.role).toBe('CREATOR');
+
+      addSpy.mockRestore();
+      setSpy.mockRestore();
+    });
+
+    it('upgrades existing MEMBER to CREATOR', async () => {
+      const addSpy = jest
+        .spyOn(GroupService, 'addMemberToGroup')
+        .mockResolvedValue({ id: 1, groupId: 10, userId: 5, role: 'MEMBER', isActive: true });
+      const setSpy = jest
+        .spyOn(GroupService, 'setMemberRole')
+        .mockResolvedValue({ id: 1, groupId: 10, userId: 5, role: 'CREATOR', isActive: true });
+
+      const result = await GroupService.ensureMemberRole(10, 5, 'CREATOR');
+
+      expect(setSpy).toHaveBeenCalledWith(10, 5, 'CREATOR');
+      expect(result.role).toBe('CREATOR');
+
+      addSpy.mockRestore();
+      setSpy.mockRestore();
+    });
+
+    it('does NOT downgrade existing CREATOR to ADMIN', async () => {
+      const addSpy = jest
+        .spyOn(GroupService, 'addMemberToGroup')
+        .mockResolvedValue({ id: 1, groupId: 10, userId: 5, role: 'CREATOR', isActive: true });
+      const setSpy = jest.spyOn(GroupService, 'setMemberRole').mockResolvedValue({} as any);
+
+      const result = await GroupService.ensureMemberRole(10, 5, 'ADMIN');
+
+      expect(setSpy).not.toHaveBeenCalled();
+      expect(result.role).toBe('CREATOR');
+
+      addSpy.mockRestore();
+      setSpy.mockRestore();
+    });
+  });
 
 });
