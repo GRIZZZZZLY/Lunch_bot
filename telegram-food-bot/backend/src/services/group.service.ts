@@ -3,6 +3,9 @@ import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreateGroupData, UpdateGroupData, GroupSettings } from '../types/group.types';
 
+// Иерархия ролей участника группы. Выше = больше прав.
+const ROLE_PRIORITY: Record<string, number> = { MEMBER: 0, ADMIN: 1, CREATOR: 2 };
+
 export class GroupService {
   /**
    * Создание или обновление группы
@@ -280,6 +283,27 @@ export class GroupService {
       logger.error('Error checking group admin access:', error);
       return false;
     }
+  }
+
+  /**
+   * Гарантирует участнику роль не ниже desiredRole.
+   * Идемпотентно: создаёт участника при отсутствии, повышает роль при
+   * необходимости, но НИКОГДА не понижает (защита CREATOR/ADMIN при ресинке).
+   */
+  static async ensureMemberRole(
+    groupId: number,
+    userId: number,
+    desiredRole: string
+  ): Promise<any> {
+    const member = await this.addMemberToGroup(groupId, userId, desiredRole);
+    const currentRole = member?.role ?? 'MEMBER';
+    const currentPriority = ROLE_PRIORITY[currentRole] ?? 0;
+    const desiredPriority = ROLE_PRIORITY[desiredRole] ?? 0;
+
+    if (desiredPriority > currentPriority) {
+      return await this.setMemberRole(groupId, userId, desiredRole);
+    }
+    return member;
   }
 
   /**
