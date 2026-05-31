@@ -61,7 +61,7 @@ export function initSentry() {
     // и end-to-end p95 «vote» собрать нельзя.
     tracePropagationTargets: [
       /^\//,
-      /^https?:\/\/rocket-lunch\.duckdns\.org/,
+      /^https?:\/\/rocketlunch\.dpdns\.org/,
       /^https?:\/\/[^/]+\/api\//,
     ],
 

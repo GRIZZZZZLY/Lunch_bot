@@ -5,7 +5,7 @@
 # ===============================================
 # Configurable via env vars:
 #   BRANCH        — git branch to deploy (default: feature/store-run)
-#   DOMAIN        — public domain for webhook hint (default: rocket-lunch.duckdns.org)
+#   DOMAIN        — public domain for webhook hint (default: rocketlunch.dpdns.org)
 #   FRONTEND_DIR  — frontend / frontend-new (default: frontend)
 # Example:
 #   BRANCH=main DOMAIN=lunch.example.ru ./deploy-vps.sh
@@ -13,7 +13,7 @@
 set -e
 
 BRANCH="${BRANCH:-feature/store-run}"
-DOMAIN="${DOMAIN:-rocket-lunch.duckdns.org}"
+DOMAIN="${DOMAIN:-rocketlunch.dpdns.org}"
 
 echo "🚀 Starting deployment to VPS..."
 echo "   Branch: $BRANCH"
