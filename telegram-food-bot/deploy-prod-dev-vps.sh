@@ -4,7 +4,7 @@
 # 🚀 VPS PROD-DEV Deployment Script
 # ===============================================
 # Deploys optimized build with debug features
-# Domain: rocket-lunch.duckdns.org
+# Domain: rocketlunch.dpdns.org
 # Branch: feature/new_version
 
 set -e  # Exit on any error
@@ -171,5 +171,5 @@ echo "  pm2 restart rocket-lunch-bot  - Restart app"
 echo "  pm2 monit  - Monitor app"
 echo "  curl http://localhost:3001/api/health  - Check API health"
 echo ""
-echo "🌐 Application URL: https://rocket-lunch.duckdns.org"
+echo "🌐 Application URL: https://rocketlunch.dpdns.org"
 echo ""

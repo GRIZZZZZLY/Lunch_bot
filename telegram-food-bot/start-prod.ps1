@@ -15,7 +15,7 @@
 # setChatMenuButton, deep links, and inline keyboards.
 
 param(
-    [string]$WebAppUrl,
+    [string]$WebAppUrl = "https://rocketlunch.dpdns.org",
     [switch]$Cloudflared,
     [switch]$SkipChecks,
     [switch]$NoNgrok,
@@ -146,6 +146,65 @@ if (-not (Test-Path $prodEnv)) {
 }
 Copy-Item -Path $prodEnv -Destination $activeEnv -Force
 Write-Host "Copied .env.production -> backend\.env" -ForegroundColor DarkGray
+
+# 0.5. Ensure PostgreSQL running (Windows often leaves a stale postmaster.pid
+# after reboot when PG isn't installed as a service — backend then dies with
+# ECONNREFUSED on Prisma boot).
+function Ensure-Postgres {
+    $port = 5432
+    $listening = $false
+    try {
+        $tcp = Test-NetConnection -ComputerName localhost -Port $port -InformationLevel Quiet -WarningAction SilentlyContinue
+        $listening = [bool]$tcp
+    } catch { $listening = $false }
+
+    if ($listening) {
+        Write-Host "OK: PostgreSQL already listening on :$port" -ForegroundColor DarkGray
+        return $true
+    }
+
+    Write-Host "PostgreSQL not running on :$port — attempting start..." -ForegroundColor Yellow
+
+    $pgCtl = (Get-Command pg_ctl -ErrorAction SilentlyContinue)
+    if (-not $pgCtl) {
+        Write-Host "WARNING: pg_ctl not in PATH. Start PostgreSQL manually then re-run." -ForegroundColor Yellow
+        return $false
+    }
+
+    $pgData = $env:PGDATA
+    if (-not $pgData -or -not (Test-Path $pgData)) {
+        $pgData = "$env:USERPROFILE\scoop\apps\postgresql\current\data"
+    }
+    if (-not $pgData -or -not (Test-Path $pgData)) {
+        Write-Host "WARNING: PGDATA not set or invalid (value: '$pgData'). Cannot start PG." -ForegroundColor Yellow
+        return $false
+    }
+
+    # Stale postmaster.pid blocks startup if PG died ungracefully (reboot etc.).
+    # Safe to remove ONLY because Test-NetConnection above confirmed nothing
+    # listens on :5432 — no live process owns this pid.
+    $pidFile = Join-Path $pgData "postmaster.pid"
+    if (Test-Path $pidFile) {
+        Write-Host "Removing stale postmaster.pid..." -ForegroundColor DarkGray
+        Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+    }
+
+    $logFile = Join-Path $pgData "server.log"
+    & pg_ctl start -D "$pgData" -l "$logFile" -w -t 30 | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ERROR: pg_ctl start failed. See $logFile" -ForegroundColor Red
+        return $false
+    }
+
+    Start-Sleep -Seconds 2
+    Write-Host "OK: PostgreSQL started" -ForegroundColor Green
+    return $true
+}
+
+if (-not (Ensure-Postgres)) {
+    Write-Host "Backend will likely fail with ECONNREFUSED. Aborting." -ForegroundColor Red
+    exit 1
+}
 
 # 1. Start Backend
 Write-Host "[1/2] Starting Backend..." -ForegroundColor Yellow

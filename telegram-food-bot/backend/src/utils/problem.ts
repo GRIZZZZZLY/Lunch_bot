@@ -39,7 +39,7 @@ export interface Problem {
   error?: string;
 }
 
-const DEFAULT_TYPE_BASE = 'https://rocket-lunch.duckdns.org/docs/errors/';
+const DEFAULT_TYPE_BASE = 'https://rocketlunch.dpdns.org/docs/errors/';
 
 export function makeProblem(input: {
   status: number;
