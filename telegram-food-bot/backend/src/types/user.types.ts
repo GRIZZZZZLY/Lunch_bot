@@ -13,6 +13,7 @@ export interface UpdateUserData {
   photoUrl?: string;
   isAdmin?: boolean;
   isActive?: boolean;
+  participatesInPolls?: boolean;
 }
 
 export interface UserWithStats {
