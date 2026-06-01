@@ -1020,19 +1020,12 @@ export class NotificationService {
       return false;
     }
 
-    let botId: number;
     try {
-      botId = this.bot.botInfo.id;
-    } catch {
-      // botInfo доступен только после bot.init(); подстраховка.
-      botId = (await this.bot.api.getMe()).id;
-    }
-
-    try {
+      const botId = this.bot.botInfo.id;
       const member = await this.bot.api.getChatMember(Number(group.telegramId), botId);
       return member.status !== 'left' && member.status !== 'kicked';
     } catch (error: any) {
-      logger.warn('botCanPostToGroup: getChatMember failed', {
+      logger.warn('botCanPostToGroup: membership check failed', {
         groupId,
         telegramId: String(group.telegramId),
         error: error?.message ?? error,
