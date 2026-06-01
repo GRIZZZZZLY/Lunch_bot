@@ -353,6 +353,14 @@ export class StoreRunController {
     }
     try {
       const run = await StoreRunService.cancelStoreRun(id, user.id);
+
+      // Fire-and-forget: убрать групповой пост и личные приглашения отменённого забега.
+      notificationService
+        .deleteStoreRunMessages(id)
+        .catch((err) =>
+          logger.error('Failed to delete store run messages on cancel', { storeRunId: id, err }),
+        );
+
       res.json({ success: true, data: serializeData(run) });
     } catch (err) {
       sendStoreRunError(res, err);
