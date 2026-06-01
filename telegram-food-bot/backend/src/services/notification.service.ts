@@ -15,6 +15,7 @@ import {
 import { User } from '@prisma/client';
 import { toNumber } from '../utils/decimal';
 import { now } from '../utils/date';
+import { createDirectLinkMiniAppUrl } from '../bot/keyboards/webapp.keyboard';
 
 /**
  * Вспомогательная функция для множественного числа
@@ -773,8 +774,8 @@ export class NotificationService {
 
     const message =
       `🛒 <b>${this.escapeHtml(initiatorName)}</b> идёт в «${this.escapeHtml(storeName)}»\n\n` +
-      `Напиши что тебе взять — сбор до ${collectUntilStr}\n\n` +
-      `<i>Или просто ответь мне сообщением: что взять, через запятую.</i>`;
+      `Напиши что тебе взять — сбор до ${collectUntilStr}.\n\n` +
+      `<i>Нажми «📱 Заполнить заказ», чтобы открыть список.</i>`;
 
     const replyMarkup = webappUrl
       ? {
@@ -913,7 +914,6 @@ export class NotificationService {
       hour: '2-digit',
       minute: '2-digit',
     });
-    const botUsername = process.env.BOT_USERNAME || 'rocket_lunch_bot';
 
     const message =
       `🛒 <b>${this.escapeHtml(initiatorName)}</b> идёт в «${this.escapeHtml(storeName)}»\n\n` +
@@ -930,7 +930,7 @@ export class NotificationService {
               [
                 {
                   text: '🛒 Заказать',
-                  url: `https://t.me/${botUsername}?start=storerun_${storeRunId}`,
+                  url: createDirectLinkMiniAppUrl(`storerun_${storeRunId}`),
                 },
               ],
             ],
