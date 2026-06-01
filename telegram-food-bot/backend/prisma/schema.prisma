@@ -750,8 +750,10 @@ model StoreRun {
   shoppingAt   DateTime? @map("shopping_at")
   settledAt    DateTime? @map("settled_at")
   cancelledAt  DateTime? @map("cancelled_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  groupMessageId Int?    @map("group_message_id")
+  dmMessages     String? @map("dm_messages")
 
   group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
   initiator    User          @relation("StoreRunInitiator", fields: [initiatorId], references: [id])
