@@ -107,6 +107,15 @@ const createMockPollResult = (overrides?: Partial<PollResult>): PollResult => ({
 describe('PollService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // $transaction must execute the callback with the same mocked prisma so that
+    // calls to tx.poll.create etc. are tracked on the same jest.fn() instances.
+    (prisma.$transaction as jest.Mock).mockImplementation((cb) => cb(prisma));
+    // Default: no active poll exists (prevents PollAlreadyActiveError)
+    (prisma.poll.findFirst as jest.Mock).mockResolvedValue(null);
+    // Default: no group members (snapshot creation is a no-op)
+    (prisma.groupMember.findMany as jest.Mock).mockResolvedValue([]);
+    // Default: createMany succeeds
+    (prisma.pollParticipant.createMany as jest.Mock).mockResolvedValue({ count: 0 });
   });
 
   describe('createPoll', () => {
