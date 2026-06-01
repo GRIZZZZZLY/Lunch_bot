@@ -171,3 +171,72 @@ describe('NotificationService.deleteStoreRunMessages', () => {
     expect(del).toHaveBeenCalledWith(-1002512649185, 1327);
   });
 });
+
+function makeEditBot(editImpl: jest.Mock) {
+  return { botInfo: { id: 999 }, api: { editMessageText: editImpl } };
+}
+
+describe('NotificationService.markStoreRunGroupCompleted', () => {
+  let service: NotificationService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = new NotificationService();
+  });
+
+  it('does nothing when bot is not initialized', async () => {
+    await expect(service.markStoreRunGroupCompleted(5)).resolves.toBeUndefined();
+    expect(mockStoreRun).not.toHaveBeenCalled();
+  });
+
+  it('skips when there is no group message id', async () => {
+    mockStoreRun.mockResolvedValue({
+      groupMessageId: null,
+      storeName: 'КБ',
+      group: { telegramId: BigInt('-1002512649185') },
+    });
+    const edit = jest.fn();
+    service.initialize(makeEditBot(edit) as any);
+    await service.markStoreRunGroupCompleted(5);
+    expect(edit).not.toHaveBeenCalled();
+  });
+
+  it('edits the group post and drops the inline button', async () => {
+    mockStoreRun.mockResolvedValue({
+      groupMessageId: 1327,
+      storeName: 'КБ',
+      group: { telegramId: BigInt('-1002512649185') },
+    });
+    const edit = jest.fn().mockResolvedValue(true);
+    service.initialize(makeEditBot(edit) as any);
+
+    await service.markStoreRunGroupCompleted(5);
+
+    expect(edit).toHaveBeenCalledTimes(1);
+    const [chatId, messageId, text, other] = edit.mock.calls[0];
+    expect(chatId).toBe(-1002512649185);
+    expect(messageId).toBe(1327);
+    expect(text).toContain('завершён');
+    expect(other).toEqual({ parse_mode: 'HTML' });
+    expect(other.reply_markup).toBeUndefined();
+  });
+
+  it('does not throw when editMessageText fails', async () => {
+    mockStoreRun.mockResolvedValue({
+      groupMessageId: 1327,
+      storeName: 'КБ',
+      group: { telegramId: BigInt('-1002512649185') },
+    });
+    const edit = jest.fn().mockRejectedValue(new Error('message is not modified'));
+    service.initialize(makeEditBot(edit) as any);
+    await expect(service.markStoreRunGroupCompleted(5)).resolves.toBeUndefined();
+  });
+
+  it('does not throw when run not found', async () => {
+    mockStoreRun.mockResolvedValue(null);
+    const edit = jest.fn();
+    service.initialize(makeEditBot(edit) as any);
+    await expect(service.markStoreRunGroupCompleted(5)).resolves.toBeUndefined();
+    expect(edit).not.toHaveBeenCalled();
+  });
+});

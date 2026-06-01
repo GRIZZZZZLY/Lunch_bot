@@ -1130,6 +1130,54 @@ export class NotificationService {
     logger.info('Store run messages cleaned up', { storeRunId, deleted, failed });
   }
 
+  /**
+   * Отредактировать групповой пост завершённого забега: текст «завершён» +
+   * убрать inline-кнопку (reply_markup НЕ передаём ⇒ Telegram её снимает).
+   * Толерантен к ошибкам (старое сообщение / not modified / удалено).
+   */
+  async markStoreRunGroupCompleted(storeRunId: number): Promise<void> {
+    if (!this.bot) {
+      logger.error('markStoreRunGroupCompleted: bot not initialized', { storeRunId });
+      return;
+    }
+
+    const storeRun = await prisma.storeRun.findUnique({
+      where: { id: storeRunId },
+      select: {
+        groupMessageId: true,
+        storeName: true,
+        group: { select: { telegramId: true } },
+      },
+    });
+    if (!storeRun) {
+      logger.warn('markStoreRunGroupCompleted: run not found', { storeRunId });
+      return;
+    }
+    if (storeRun.groupMessageId == null) {
+      logger.info('markStoreRunGroupCompleted: no group message to edit', { storeRunId });
+      return;
+    }
+
+    const text =
+      `✅ Забег в «${this.escapeHtml(storeRun.storeName)}» завершён.\n` +
+      `Должникам ушли суммы и реквизиты в личку.`;
+
+    try {
+      await this.bot.api.editMessageText(
+        Number(storeRun.group.telegramId),
+        storeRun.groupMessageId,
+        text,
+        { parse_mode: 'HTML' },
+      );
+      logger.info('Store run group message marked completed', { storeRunId });
+    } catch (error: any) {
+      logger.warn('markStoreRunGroupCompleted: edit failed', {
+        storeRunId,
+        error: error?.message ?? error,
+      });
+    }
+  }
+
   private escapeHtml(s: string): string {
     return s
       .replace(/&/g, '&amp;')
