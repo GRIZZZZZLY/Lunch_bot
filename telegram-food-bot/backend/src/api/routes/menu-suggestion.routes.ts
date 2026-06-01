@@ -10,6 +10,7 @@ import {
   deleteSuggestion,
 } from '../controllers/menu-suggestion.controller';
 import { telegramAuthMiddleware, adminMiddleware } from '../middleware/telegram-auth';
+import { groupAdminMiddleware } from '../middleware/group-admin';
 
 const router = Router();
 
@@ -56,7 +57,7 @@ router.get('/:id', getSuggestionById);
  * POST /api/suggestions/:id/approve
  * Одобрить предложение (только админ)
  */
-router.post('/:id/approve', adminMiddleware, approveSuggestion);
+router.post('/:id/approve', groupAdminMiddleware, approveSuggestion);
 
 /**
  * POST /api/suggestions/:id/reject
@@ -64,12 +65,12 @@ router.post('/:id/approve', adminMiddleware, approveSuggestion);
  * Body:
  *  - reason?: string
  */
-router.post('/:id/reject', adminMiddleware, rejectSuggestion);
+router.post('/:id/reject', groupAdminMiddleware, rejectSuggestion);
 
 /**
  * DELETE /api/suggestions/:id
  * Удалить предложение (только админ, только отклонённые)
  */
-router.delete('/:id', adminMiddleware, deleteSuggestion);
+router.delete('/:id', groupAdminMiddleware, deleteSuggestion);
 
 export default router;
