@@ -678,11 +678,11 @@ export class PollController {
       if (!user) return;
 
       const groupId = Number(data.groupId);
-      if (!groupId || Number.isNaN(groupId)) {
+      if (!Number.isFinite(groupId) || groupId <= 0) {
         res.status(400).json({
           success: false,
-          error: 'Invalid group ID',
-          code: 'INVALID_GROUP_ID',
+          error: 'groupId is required',
+          code: 'MISSING_GROUP_ID',
         });
         return;
       }
