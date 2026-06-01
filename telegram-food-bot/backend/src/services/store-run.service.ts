@@ -38,7 +38,8 @@ export class StoreRunError extends Error {
       | 'FORBIDDEN'
       | 'WRONG_STATUS'
       | 'ACTIVE_RUN_EXISTS'
-      | 'INVALID_INPUT',
+      | 'INVALID_INPUT'
+      | 'BOT_NOT_IN_GROUP',
     message: string,
   ) {
     super(message);
