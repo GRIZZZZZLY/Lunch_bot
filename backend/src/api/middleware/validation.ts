@@ -5,6 +5,10 @@ import { getParam } from '../../utils/request-params';
 
 // Схемы валидации для меню
 const createMenuItemSchema = z.object({
+  // groupId передаётся в теле запроса (multi-tenant). Без него z.object() срезал бы
+  // поле при req.body = result.data, и контроллер падал бы с MISSING_GROUP_ID.
+  // optional — наличие всё равно проверяет контроллер (query ИЛИ body).
+  groupId: z.number().int().positive('Group ID must be positive').optional(),
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
   description: z.string().max(500, 'Description too long').optional().or(z.literal('')),
   price: z.number().min(0, 'Price cannot be negative').optional(),
