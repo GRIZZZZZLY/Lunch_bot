@@ -9,11 +9,13 @@ export interface CreateSuggestionDTO {
   price?: number;
   imageUrl?: string;
   suggestedBy: number;
+  groupId: number;
 }
 
 export interface SuggestionFilters {
   status?: 'PENDING' | 'APPROVED' | 'REJECTED';
   suggestedBy?: number;
+  groupId?: number;
   limit?: number;
   offset?: number;
 }
@@ -35,6 +37,7 @@ export class MenuSuggestionService {
         price: data.price,
         imageUrl: data.imageUrl,
         suggestedBy: data.suggestedBy,
+        groupId: data.groupId,
         status: 'PENDING',
       },
       include: {
@@ -65,6 +68,10 @@ export class MenuSuggestionService {
 
     if (filters.suggestedBy) {
       where.suggestedBy = filters.suggestedBy;
+    }
+
+    if (filters.groupId) {
+      where.groupId = filters.groupId;
     }
 
     const suggestions = await prisma.menuSuggestion.findMany({
@@ -147,7 +154,7 @@ export class MenuSuggestionService {
       throw new Error('Suggestion already processed');
     }
 
-    // Создаём блюдо в меню
+    // Создаём блюдо в меню той же группы, что и предложение
     const menuItem = await prisma.menuItem.create({
       data: {
         name: suggestion.name,
@@ -155,6 +162,7 @@ export class MenuSuggestionService {
         price: suggestion.price ? toNumber(suggestion.price) : null,
         imageUrl: suggestion.imageUrl,
         createdBy: reviewerId, // Админ становится создателем
+        groupId: suggestion.groupId,
         isActive: true,
       },
     });
