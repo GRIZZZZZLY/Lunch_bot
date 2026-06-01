@@ -9,7 +9,7 @@ import { getParam } from '../../utils/request-params';
  */
 export async function createSuggestion(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const { name, description, price, imageUrl } = req.body;
+    const { name, description, price, imageUrl, groupId: rawGroupId } = req.body;
     const userId = req.user?.id;
 
     if (!userId) {
@@ -32,12 +32,24 @@ export async function createSuggestion(req: AuthenticatedRequest, res: Response)
       return;
     }
 
+    const groupId = rawGroupId ? parseInt(String(rawGroupId), 10) : NaN;
+    if (!rawGroupId || isNaN(groupId)) {
+      res.status(400).json({
+        success: false,
+        error: 'groupId обязателен',
+        code: 'MISSING_GROUP_ID',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
     const suggestion = await MenuSuggestionService.createSuggestion({
       name: name.trim(),
       description: description?.trim(),
       price: price ? parseFloat(price) : undefined,
       imageUrl: imageUrl?.trim(),
       suggestedBy: userId,
+      groupId,
     });
 
     logger.info(`Suggestion created by user ${userId}: ${suggestion.id}`);
@@ -63,7 +75,7 @@ export async function createSuggestion(req: AuthenticatedRequest, res: Response)
  */
 export async function getSuggestions(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const { status, limit, offset } = req.query;
+    const { status, limit, offset, groupId: rawGroupId } = req.query;
     const userId = req.user?.id;
     const isAdmin = req.user?.isAdmin;
 
@@ -86,6 +98,14 @@ export async function getSuggestions(req: AuthenticatedRequest, res: Response): 
 
     if (!isAdmin) {
       filters.suggestedBy = userId;
+    }
+
+    // groupId опционален: если передан — фильтруем по группе; без него админ видит все группы
+    if (rawGroupId) {
+      const parsedGroupId = parseInt(rawGroupId as string, 10);
+      if (!isNaN(parsedGroupId)) {
+        filters.groupId = parsedGroupId;
+      }
     }
 
     if (limit) {
