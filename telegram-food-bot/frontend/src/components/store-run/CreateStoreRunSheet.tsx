@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ShoppingBag, Store } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ShoppingBag, Store, Users, CheckCircle2, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useCreateStoreRun } from '@/hooks/queries/useStoreRunQueries';
+import { useUserGroups } from '@/hooks/queries/useUserQueries';
 import { useTelegram } from '@/hooks/useTelegram';
 
 const STORE_PRESETS = ['КБ', 'Пятёрочка', 'Вкусвилл', 'Другой'] as const;
@@ -38,15 +39,28 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
   const [minutes, setMinutes] = useState<number>(10);
   const [error, setError] = useState<string | null>(null);
 
+  const { data: groups = [] } = useUserGroups();
+  const activeGroups = groups.filter((g) => g.isActive);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(groupId);
+
+  // Дефолт = переданная группа из шапки, если валидна; иначе первая доступная.
+  useEffect(() => {
+    const valid =
+      selectedGroupId != null && activeGroups.some((g) => g.id === selectedGroupId);
+    if (!valid) {
+      setSelectedGroupId(groupId ?? activeGroups[0]?.id ?? null);
+    }
+  }, [groupId, activeGroups, selectedGroupId]);
+
   const { mutateAsync, isPending } = useCreateStoreRun();
   const { hapticFeedback } = useTelegram();
 
   const resolvedName = preset === 'Другой' ? customName.trim() : preset;
   const canSubmit =
-    !!groupId && resolvedName.length > 0 && resolvedName.length <= 100 && !isPending;
+    !!selectedGroupId && resolvedName.length > 0 && resolvedName.length <= 100 && !isPending;
 
   const handleSubmit = async () => {
-    if (!groupId) {
+    if (!selectedGroupId) {
       setError('Не нашли группу. Добавь бота в групповой чат.');
       return;
     }
@@ -58,7 +72,7 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
     try {
       hapticFeedback?.impactOccurred?.('medium');
       const response = await mutateAsync({
-        groupId,
+        groupId: selectedGroupId,
         storeName: resolvedName,
         collectMinutes: minutes,
       });
@@ -74,7 +88,14 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
       setMinutes(10);
     } catch (err) {
       hapticFeedback?.notificationOccurred?.('error');
-      setError(err instanceof Error ? err.message : 'Ошибка создания');
+      const apiErr = err as { error?: string; code?: string };
+      if (apiErr?.code === 'BOT_NOT_IN_GROUP') {
+        setError('Бот не в этой группе. Добавь его в нужный групповой чат и попробуй снова.');
+      } else if (apiErr?.error) {
+        setError(apiErr.error);
+      } else {
+        setError(err instanceof Error ? err.message : 'Ошибка создания');
+      }
     }
   };
 
@@ -92,6 +113,41 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
         </DialogHeader>
 
         <div className="space-y-5 py-2">
+          {/* Группа (только при нескольких группах) */}
+          {activeGroups.length > 1 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Группа</label>
+              <div className="space-y-1">
+                {activeGroups.map((group) => {
+                  const isSelected = selectedGroupId === group.id;
+                  return (
+                    <button
+                      key={group.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedGroupId(group.id);
+                        hapticFeedback?.selectionChanged?.();
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-muted/50"
+                    >
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-mint-500/12">
+                        <Users className="h-4 w-4 text-mint-600 dark:text-mint-400" />
+                      </div>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {group.title}
+                      </span>
+                      {isSelected ? (
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-mint-500" />
+                      ) : (
+                        <Circle className="h-5 w-5 shrink-0 text-muted-foreground/30" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Store preset */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Магазин</label>
