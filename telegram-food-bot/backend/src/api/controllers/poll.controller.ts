@@ -517,11 +517,12 @@ export class PollController {
         try {
           const selectedIds = JSON.parse(poll.selectedMenuItemIds);
           if (Array.isArray(selectedIds) && selectedIds.length > 0) {
+            const selectedIdSet = new Set(selectedIds);
             // Фильтруем голоса только по выбранным блюдам
             filteredPoll = {
               ...pollWithEndTime,
-              votes: poll.votes.filter(vote => 
-                vote.menuItemId && selectedIds.includes(vote.menuItemId)
+              votes: poll.votes.filter(vote =>
+                vote.menuItemId && selectedIdSet.has(vote.menuItemId)
               ),
             };
             logger.info(`Filtered poll ${id} votes`, { 
@@ -829,12 +830,13 @@ export class PollController {
       // Фильтруем по выбранным ID если указаны
       if (selectedMenuItems && Array.isArray(selectedMenuItems) && selectedMenuItems.length > 0) {
         const selectedIds = selectedMenuItems.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id));
-        logger.info('🔍 Filtering menu items', { 
-          selectedIds, 
+        const selectedIdSet = new Set(selectedIds);
+        logger.info('🔍 Filtering menu items', {
+          selectedIds,
           selectedMenuItems,
-          selectedIdsCount: selectedIds.length 
+          selectedIdsCount: selectedIds.length
         });
-        menuItems = menuItems.filter(item => selectedIds.includes(item.id));
+        menuItems = menuItems.filter(item => selectedIdSet.has(item.id));
         logger.info('✅ Filtered menu items', { 
           count: menuItems.length, 
           items: menuItems.map(i => ({ id: i.id, name: i.name })) 

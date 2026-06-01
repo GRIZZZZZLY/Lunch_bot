@@ -339,6 +339,47 @@ export class CategoryOrderService {
   }
 
   /**
+   * Пакетно: участники (проголосовавшие) по нескольким категориям одного poll.
+   * Один запрос голосов вместо findUnique+findMany на каждую категорию.
+   * Категория = имя блюда (menuItem.name).
+   */
+  static async getParticipantsByCategoriesForPoll(
+    pollId: number,
+    categories: string[]
+  ): Promise<Map<string, Set<number>>> {
+    const result = new Map<string, Set<number>>();
+    const uniqueCategories = [...new Set(categories)];
+    if (uniqueCategories.length === 0) return result;
+
+    for (const c of uniqueCategories) result.set(c, new Set<number>());
+
+    try {
+      const votes = await prisma.vote.findMany({
+        where: {
+          pollId,
+          menuItem: { name: { in: uniqueCategories } },
+        },
+        select: {
+          userId: true,
+          menuItem: { select: { name: true } },
+        },
+      });
+
+      for (const v of votes) {
+        const name = v.menuItem?.name;
+        if (name && result.has(name)) {
+          result.get(name)!.add(v.userId);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error getting participants by categories:', error);
+      throw new Error('Failed to get participants');
+    }
+  }
+
+  /**
    * Update calculation status
    */
   static async updateCalculationStatus(

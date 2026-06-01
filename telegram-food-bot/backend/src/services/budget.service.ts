@@ -11,6 +11,11 @@ interface TransactionWithUsers extends Transaction {
   menuItem?: MenuItem | null;
 }
 
+// Транзакция со связями, нужными для рассылки напоминаний
+type ReminderTransaction = Prisma.TransactionGetPayload<{
+  include: { fromUser: true; toUser: true; poll: { include: { group: true } } };
+}>;
+
 interface ResponsibleTotals {
   totalOrder: number;
   responsibleShare: number;
@@ -618,14 +623,15 @@ export class BudgetService {
         return;
       }
 
-      for (const tx of transactions) {
-        await prisma.transaction.update({
-          where: { id: tx.id },
-          data: { status: 'CONFIRMED', confirmedAt: now() },
-        });
+      // Подтверждаем все транзакции одним запросом вместо N последовательных update
+      await prisma.transaction.updateMany({
+        where: { id: { in: transactions.map(tx => tx.id) } },
+        data: { status: 'CONFIRMED', confirmedAt: now() },
+      });
 
-        // Уведомляем каждого должника
-        if (botInstance()) {
+      // Уведомляем каждого должника (Telegram неизбежно O(n))
+      if (botInstance()) {
+        for (const tx of transactions) {
           const confirmedText =
             `✅ Оплата подтверждена!\n\n` +
             `${tx.toUser.firstName} подтвердил(а) получение ${formatCurrency(tx.amount)}\n\n` +
@@ -1011,6 +1017,63 @@ export class BudgetService {
   }
 
   /**
+   * Доставка одного напоминания: валидация + текст + отправка в Telegram.
+   * Не пишет в БД — запись/счётчик делает вызывающий (поштучно или пачкой).
+   */
+  private async deliverReminder(
+    transaction: ReminderTransaction,
+    requestingUserId: number
+  ): Promise<
+    | { ok: true; message: string }
+    | { ok: false; error: string; errorCode: SendReminderResult['errorCode'] }
+  > {
+    // Проверяем, что запрашивающий - это получатель платежа
+    if (transaction.toUserId !== requestingUserId) {
+      return { ok: false, error: 'Only creditor can send reminders', errorCode: 'unknown' };
+    }
+
+    if (!botInstance) {
+      logger.error('Bot instance not initialized');
+      return { ok: false, error: 'Bot not available', errorCode: 'unknown' };
+    }
+
+    // Формируем сообщение
+    const amount = toNumber(transaction.amount).toFixed(2);
+    const creditorName = transaction.toUser.firstName;
+    const groupName = transaction.poll?.group?.title || 'группа';
+
+    const message = `
+💰 Напоминание об оплате
+
+Привет! ${creditorName} напоминает о платеже:
+💸 Сумма: ${amount}₽
+📍 Заказ в ${groupName}
+
+${transaction.toUser.paymentPhone ? `📱 СБП: ${transaction.toUser.paymentPhone}` : ''}
+${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymentCard}` : ''}
+
+Отметь оплату в Mini App после перевода 👍
+      `.trim();
+
+    // Отправляем уведомление
+    try {
+      await botInstance()!.api.sendMessage(Number(transaction.fromUser.telegramId), message);
+      return { ok: true, message };
+    } catch (sendError: any) {
+      // Классифицируем ошибку Telegram API
+      const { errorCode, reason } = classifyTelegramError(sendError);
+      logger.warn('Failed to send reminder via Telegram', {
+        transactionId: transaction.id,
+        userId: transaction.fromUserId,
+        errorCode,
+        reason,
+        originalError: sendError.message,
+      });
+      return { ok: false, error: reason, errorCode };
+    }
+  }
+
+  /**
    * Отправить напоминание должнику
    */
   async sendReminder(transactionId: number, requestingUserId: number): Promise<SendReminderResult> {
@@ -1036,86 +1099,33 @@ export class BudgetService {
         };
       }
 
-      // Проверяем, что запрашивающий - это получатель платежа
-      if (transaction.toUserId !== requestingUserId) {
-        return {
-          success: false,
-          error: 'Only creditor can send reminders',
-          errorCode: 'unknown',
-        };
+      const result = await this.deliverReminder(transaction, requestingUserId);
+
+      if (!result.ok) {
+        return { success: false, error: result.error, errorCode: result.errorCode };
       }
 
-      if (!botInstance) {
-        logger.error('Bot instance not initialized');
-        return {
-          success: false,
-          error: 'Bot not available',
-          errorCode: 'unknown',
-        };
-      }
+      // Сохраняем запись о напоминании
+      await prisma.paymentReminder.create({
+        data: {
+          transactionId: transaction.id,
+          type: 'MANUAL',
+          sentBy: requestingUserId,
+          message: result.message,
+        },
+      });
 
-      // Формируем сообщение
-      const amount = toNumber(transaction.amount).toFixed(2);
-      const creditorName = transaction.toUser.firstName;
-      const groupName = transaction.poll?.group?.title || 'группа';
+      // Обновляем счетчик напоминаний
+      await prisma.transaction.update({
+        where: { id: transactionId },
+        data: {
+          reminderCount: { increment: 1 },
+          lastReminderAt: now(),
+        },
+      });
 
-      const message = `
-💰 Напоминание об оплате
-
-Привет! ${creditorName} напоминает о платеже:
-💸 Сумма: ${amount}₽
-📍 Заказ в ${groupName}
-
-${transaction.toUser.paymentPhone ? `📱 СБП: ${transaction.toUser.paymentPhone}` : ''}
-${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymentCard}` : ''}
-
-Отметь оплату в Mini App после перевода 👍
-      `.trim();
-
-      // Отправляем уведомление
-      try {
-        await botInstance()!.api.sendMessage(Number(transaction.fromUser.telegramId), message);
-        
-        // Сохраняем запись о напоминании
-        await prisma.paymentReminder.create({
-          data: {
-            transactionId: transaction.id,
-            type: 'MANUAL',
-            sentBy: requestingUserId,
-            message,
-          },
-        });
-
-        // Обновляем счетчик напоминаний
-        await prisma.transaction.update({
-          where: { id: transactionId },
-          data: {
-            reminderCount: { increment: 1 },
-            lastReminderAt: now(),
-          },
-        });
-
-        logger.info('Reminder sent successfully', { transactionId, fromUserId: transaction.fromUserId });
-        return { success: true };
-        
-      } catch (sendError: any) {
-        // Классифицируем ошибку Telegram API
-        const { errorCode, reason } = classifyTelegramError(sendError);
-        
-        logger.warn('Failed to send reminder via Telegram', {
-          transactionId,
-          userId: transaction.fromUserId,
-          errorCode,
-          reason,
-          originalError: sendError.message,
-        });
-        
-        return {
-          success: false,
-          error: reason,
-          errorCode,
-        };
-      }
+      logger.info('Reminder sent successfully', { transactionId, fromUserId: transaction.fromUserId });
+      return { success: true };
     } catch (error) {
       logger.error('Error in sendReminder:', error);
       return {
@@ -1131,7 +1141,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
    */
   async sendRemindersToAll(pollId: number, requestingUserId: number): Promise<SendRemindersResult> {
     try {
-      // Получаем все pending транзакции для этого poll
+      // Получаем все pending транзакции для этого poll (со всеми связями для рассылки)
       const transactions = await prisma.transaction.findMany({
         where: {
           pollId,
@@ -1140,18 +1150,26 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         },
         include: {
           fromUser: true,
+          toUser: true,
+          poll: {
+            include: {
+              group: true,
+            },
+          },
         },
       });
 
       const totalCount = transactions.length;
       let sentCount = 0;
       const failedUsers: FailedUser[] = [];
+      const sentReminders: { transactionId: number; message: string }[] = [];
 
       for (const transaction of transactions) {
-        const result = await this.sendReminder(transaction.id, requestingUserId);
+        const result = await this.deliverReminder(transaction, requestingUserId);
 
-        if (result.success) {
+        if (result.ok) {
           sentCount++;
+          sentReminders.push({ transactionId: transaction.id, message: result.message });
         } else {
           failedUsers.push({
             id: transaction.fromUser.id,
@@ -1161,6 +1179,26 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
             errorCode: result.errorCode || 'unknown',
           });
         }
+      }
+
+      // Пачкой: запись напоминаний + единый инкремент счётчиков для успешных
+      if (sentReminders.length > 0) {
+        await prisma.paymentReminder.createMany({
+          data: sentReminders.map(r => ({
+            transactionId: r.transactionId,
+            type: 'MANUAL' as const,
+            sentBy: requestingUserId,
+            message: r.message,
+          })),
+        });
+
+        await prisma.transaction.updateMany({
+          where: { id: { in: sentReminders.map(r => r.transactionId) } },
+          data: {
+            reminderCount: { increment: 1 },
+            lastReminderAt: now(),
+          },
+        });
       }
 
       const failedCount = failedUsers.length;

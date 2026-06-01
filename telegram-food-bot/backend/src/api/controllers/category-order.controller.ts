@@ -168,16 +168,15 @@ export class CategoryOrderController {
 
       const categoryOrders = await CategoryOrderService.getCategoryOrdersForPoll(pollId);
 
-      const participationChecks = await Promise.all(
-        categoryOrders.map(async order => {
-          const participants = await CategoryOrderService.getParticipants(order.id);
-          return { order, isParticipant: participants.includes(user.id) };
-        })
+      // Один запрос голосов на все категории вместо getParticipants на каждую
+      const participantsByCategory = await CategoryOrderService.getParticipantsByCategoriesForPoll(
+        pollId,
+        categoryOrders.map(order => order.category)
       );
 
-      const myCategoryOrders = participationChecks
-        .filter(item => item.isParticipant)
-        .map(item => item.order);
+      const myCategoryOrders = categoryOrders.filter(
+        order => participantsByCategory.get(order.category)?.has(user.id) ?? false
+      );
 
       res.json({
         success: true,

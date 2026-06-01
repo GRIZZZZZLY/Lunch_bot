@@ -302,13 +302,16 @@ export class UserController {
         return;
       }
 
-      // Получаем пользователей по ID
-      const users = await Promise.all(
-        userIds.map((id) => UserService.getUserById(parseInt(id, 10)))
+      // Получаем пользователей одним запросом вместо N отдельных
+      const parsedIds = userIds.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
+      const usersById = new Map(
+        (await UserService.getUsersByIds(parsedIds)).map((u) => [u.id, u])
       );
 
-      // Фильтруем null значения и получаем Telegram IDs
-      const validUsers = users.filter((u): u is NonNullable<typeof u> => u !== null);
+      // Сохраняем исходный порядок userIds, отбрасывая ненайденных
+      const validUsers = parsedIds
+        .map((id) => usersById.get(id))
+        .filter((u): u is NonNullable<typeof u> => u !== undefined);
       const telegramIds = validUsers.map((u) => u.telegramId);
 
       // Batch-загрузка аватарок
