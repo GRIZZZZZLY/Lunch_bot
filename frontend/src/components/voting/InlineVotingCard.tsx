@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -198,29 +198,47 @@ export const InlineVotingCard = ({
     return () => clearInterval(refreshInterval);
   }, [poll.status, poll.id, loadPollData]);
 
+  /**
+   * Один проход по голосам: общее число уникальных пользователей
+   * и число уникальных голосующих на каждое блюдо.
+   * Заменяет повторные filter+Set на каждый рендер.
+   */
+  const { uniqueVotersCount, voterCountByItem } = useMemo(() => {
+    const votes = poll.votes || [];
+    const uniqueUsers = new Set<number>();
+    const itemVoters = new Map<number, Set<number>>();
+    for (const v of votes) {
+      uniqueUsers.add(v.userId);
+      let set = itemVoters.get(v.menuItemId);
+      if (!set) {
+        set = new Set<number>();
+        itemVoters.set(v.menuItemId, set);
+      }
+      set.add(v.userId);
+    }
+    const counts = new Map<number, number>();
+    itemVoters.forEach((set, itemId) => counts.set(itemId, set.size));
+    return { uniqueVotersCount: uniqueUsers.size, voterCountByItem: counts };
+  }, [poll.votes]);
 
+  // Set выбранных и уже проголосованных блюд — O(1) проверка в рендере
+  const selectedItemIdSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds]);
+  const votedItemIdSet = useMemo(
+    () => new Set(userVotes.map(v => v.menuItemId)),
+    [userVotes]
+  );
 
   /**
    * Получить количество уникальных пользователей, проголосовавших
    * Один пользователь = один голос, независимо от количества выбранных блюд
    */
-  const getUniqueVotersCount = (): number => {
-    if (!poll.votes || poll.votes.length === 0) return 0;
-    const uniqueUserIds = new Set(poll.votes.map(v => v.userId));
-    return uniqueUserIds.size;
-  };
+  const getUniqueVotersCount = (): number => uniqueVotersCount;
 
   /**
    * Получить количество уникальных пользователей, выбравших конкретное блюдо
    */
-  const getItemUniqueVotersCount = (itemId: number): number => {
-    if (!poll.votes) return 0;
-    const votersForItem = poll.votes
-      .filter(v => v.menuItemId === itemId)
-      .map(v => v.userId);
-    const uniqueVoters = new Set(votersForItem);
-    return uniqueVoters.size;
-  };
+  const getItemUniqueVotersCount = (itemId: number): number =>
+    voterCountByItem.get(itemId) ?? 0;
 
   /**
    * Получить процент пользователей, выбравших блюдо
@@ -693,8 +711,8 @@ export const InlineVotingCard = ({
       >
         <AnimatePresence mode="popLayout">
           {displayedItems.map((item, index) => {
-            const isSelected = selectedItemIds.includes(item.id); // ИЗМЕНЕНО: проверка массива
-            const isVoted = userVotes.some(v => v.menuItemId === item.id); // ИЗМЕНЕНО: проверка массива
+            const isSelected = selectedItemIdSet.has(item.id); // O(1) через Set
+            const isVoted = votedItemIdSet.has(item.id); // O(1) через Set
             const votes = getItemVoteCount(item.id);
             const percentage = getItemPercentage(item.id);
             const isLeading = item.id === leadingItemId && voteCount > 0;

@@ -172,6 +172,21 @@ export class UserService {
   }
 
   /**
+   * Пакетное получение пользователей по списку ID (один запрос вместо N)
+   */
+  static async getUsersByIds(ids: number[]): Promise<User[]> {
+    try {
+      if (ids.length === 0) return [];
+      return await prisma.user.findMany({
+        where: { id: { in: ids } },
+      });
+    } catch (error) {
+      logger.error('Error getting users by IDs:', error);
+      throw new Error('Failed to get users');
+    }
+  }
+
+  /**
    * Обновление пользователя
    */
   static async updateUser(id: number, data: UpdateUserData): Promise<User> {

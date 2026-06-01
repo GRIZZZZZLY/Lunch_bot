@@ -323,28 +323,34 @@ export class OrderCalculationService {
           ? JSON.parse(coRecord.participantMessages)
           : {};
 
+      // Предзагрузка должников и ответственных одним запросом каждый (вместо 2N findUnique)
+      const debtorIds = [...new Set(transactions.map(t => t.fromUserId))];
+      const responsibleIds = [...new Set(transactions.map(t => t.toUserId))];
+
+      const debtorMap = new Map(
+        (await prisma.user.findMany({
+          where: { id: { in: debtorIds } },
+          select: { id: true, telegramId: true, firstName: true },
+        })).map(u => [u.id, u])
+      );
+      const responsibleMap = new Map(
+        (await prisma.user.findMany({
+          where: { id: { in: responsibleIds } },
+          select: { id: true, firstName: true, username: true, paymentCard: true, paymentPhone: true },
+        })).map(u => [u.id, u])
+      );
+
+      // Накопленные обновления message_id — выполним пачкой после рассылки
+      const messageIdUpdates: Array<{ id: number; debtMessageId: number; debtChatId: string }> = [];
+
       for (const transaction of transactions) {
-        const user = await prisma.user.findUnique({
-          where: { id: transaction.fromUserId },
-          select: {
-            telegramId: true,
-            firstName: true,
-          },
-        });
+        const user = debtorMap.get(transaction.fromUserId);
 
         if (!user) {
           continue;
         }
 
-        const responsible = await prisma.user.findUnique({
-          where: { id: transaction.toUserId },
-          select: {
-            firstName: true,
-            username: true,
-            paymentCard: true,
-            paymentPhone: true,
-          },
-        });
+        const responsible = responsibleMap.get(transaction.toUserId);
 
         if (!responsible) {
           continue;
@@ -420,14 +426,23 @@ export class OrderCalculationService {
 
         // Store debt message ID on transaction for future edits (status updates)
         if (debtMessageId && debtChatId) {
-          await prisma.transaction.update({
-            where: { id: transaction.id },
-            data: { debtMessageId, debtChatId },
-          });
+          messageIdUpdates.push({ id: transaction.id, debtMessageId, debtChatId });
         }
 
         logger.info(
           `Sent debt notification to user ${transaction.fromUserId} for ${formatCurrency(transaction.amount)}`
+        );
+      }
+
+      // Пачкой сохраняем привязку message_id к транзакциям (вне критического пути рассылки)
+      if (messageIdUpdates.length > 0) {
+        await Promise.all(
+          messageIdUpdates.map(u =>
+            prisma.transaction.update({
+              where: { id: u.id },
+              data: { debtMessageId: u.debtMessageId, debtChatId: u.debtChatId },
+            })
+          )
         );
       }
     } catch (error) {
