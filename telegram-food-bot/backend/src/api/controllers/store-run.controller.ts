@@ -331,6 +331,18 @@ export class StoreRunController {
         logger.error('Failed to notify store run settled', { storeRunId: id, err }),
       );
 
+      // Fire-and-forget: участникам без долга — «завершён», группе — правка поста.
+      notificationService
+        .notifyStoreRunParticipantsNoDebt(id)
+        .catch((err) =>
+          logger.error('Failed to notify no-debt participants', { storeRunId: id, err }),
+        );
+      notificationService
+        .markStoreRunGroupCompleted(id)
+        .catch((err) =>
+          logger.error('Failed to mark store run group completed', { storeRunId: id, err }),
+        );
+
       res.json({ success: true, data: serializeData(run) });
     } catch (err) {
       sendStoreRunError(res, err);
