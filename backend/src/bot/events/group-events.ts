@@ -3,7 +3,8 @@ import { Bot } from 'grammy';
 import { logger } from '../../utils/logger';
 import { GroupService } from '../../services/group.service';
 import { UserService } from '../../services/user.service';
-import { createDirectLinkMiniAppUrl } from '../keyboards/webapp.keyboard';
+import { createGroupWelcomeKeyboard } from '../keyboards/webapp.keyboard';
+import { WELCOME_GREETING } from '../handlers/group.handlers';
 
 /**
  * Маппинг Telegram chat-member статуса в роль участника группы в нашей БД.
@@ -106,24 +107,12 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
           // Настраиваем Menu Button для этой группы
           await setupMenuButtonForGroup(bot, chat.id);
 
-          // Отправляем приветственное сообщение с двумя кнопками:
-          // callback «Я обедаю» (ловит клик, регистрирует) + Direct Link «Открыть Mini App».
-          // Direct Link открывает Mini App напрямую из группы (web_app в группах запрещён,
-          // а ?start=… вёл бы в личку бота).
-          const deepLink = createDirectLinkMiniAppUrl(`menu_${chat.id}`);
-
-          await ctx.reply(
-            '👋 Бот на месте! Жми «Я обедаю» — попадёшь в список на голосования.',
-            {
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '✅ Я обедаю', callback_data: `optin_${chat.id}` }],
-                  [{ text: '🍽 Открыть Mini App', url: deepLink }],
-                ],
-              },
-            }
-          );
+          // Приветственное сообщение: callback «Я обедаю» (ловит клик, регистрирует, дописывает
+          // имя в список) + Direct Link «Открыть Mini App» (открывает апп напрямую из группы;
+          // web_app в группах запрещён, а ?start=… вёл бы в личку бота).
+          await ctx.reply(WELCOME_GREETING, {
+            reply_markup: createGroupWelcomeKeyboard(chat.id),
+          });
         }
       }
 

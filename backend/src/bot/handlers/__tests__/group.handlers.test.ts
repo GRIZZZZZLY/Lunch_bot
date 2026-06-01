@@ -1,4 +1,4 @@
-import { handleOptInButton } from '../group.handlers';
+import { handleOptInButton, WELCOME_GREETING } from '../group.handlers';
 import { UserService } from '../../../services/user.service';
 import { GroupService } from '../../../services/group.service';
 
@@ -11,13 +11,15 @@ jest.mock('../../../utils/logger', () => ({
 const mockedUserService = UserService as jest.Mocked<typeof UserService>;
 const mockedGroupService = GroupService as jest.Mocked<typeof GroupService>;
 
-function createCtx() {
+function createCtx(messageText: string = WELCOME_GREETING) {
   return {
     chat: { id: -1001234567, title: 'Test Group', type: 'supergroup' },
     callbackQuery: {
       from: { id: 999, username: 'eater', first_name: 'Ann', last_name: 'Smith', is_bot: false },
+      message: { text: messageText },
     },
     answerCallbackQuery: jest.fn().mockResolvedValue(undefined),
+    editMessageText: jest.fn().mockResolvedValue(undefined),
   } as any;
 }
 
@@ -45,6 +47,31 @@ describe('handleOptInButton', () => {
     );
   });
 
+  it('appends the clicker name to the message and re-sends the keyboard', async () => {
+    const ctx = createCtx();
+
+    await handleOptInButton(ctx);
+
+    expect(ctx.editMessageText).toHaveBeenCalledTimes(1);
+    const [text, extra] = ctx.editMessageText.mock.calls[0];
+    expect(text).toContain('Ann');
+    expect(text).toContain('Обедают:');
+    expect(extra).toEqual(
+      expect.objectContaining({ reply_markup: expect.objectContaining({ inline_keyboard: expect.any(Array) }) })
+    );
+  });
+
+  it('does not duplicate a name already in the list, answers "already in list"', async () => {
+    const ctx = createCtx(`${WELCOME_GREETING}\n\n🍽 Обедают: Ann`);
+
+    await handleOptInButton(ctx);
+
+    expect(ctx.editMessageText).not.toHaveBeenCalled();
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ text: expect.stringContaining('уже') })
+    );
+  });
+
   it('ignores non-group chats', async () => {
     const ctx = createCtx();
     ctx.chat.type = 'private';
@@ -52,6 +79,7 @@ describe('handleOptInButton', () => {
     await handleOptInButton(ctx);
 
     expect(mockedUserService.upsertUser).not.toHaveBeenCalled();
+    expect(ctx.editMessageText).not.toHaveBeenCalled();
     expect(ctx.answerCallbackQuery).toHaveBeenCalled();
   });
 });
