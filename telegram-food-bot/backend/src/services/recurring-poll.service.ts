@@ -361,7 +361,7 @@ export class RecurringPollService {
       if (recurring.selectedMenuItemIds) {
         menuItemIds = JSON.parse(recurring.selectedMenuItemIds);
       } else {
-        const activeItems = await MenuService.getActiveMenuItems();
+        const activeItems = await MenuService.getActiveMenuItems(recurring.groupId);
         if (activeItems.length < 2) {
           await this.updateRunStatus(recurringId, 'FAILED_NO_MENU', 'Not enough active menu items');
           

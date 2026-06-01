@@ -116,7 +116,7 @@ export async function startPollCommand(ctx: BotContext): Promise<void> {
     }
 
     // Получаем активные блюда
-    const activeItems = await MenuService.getActiveMenuItems();
+    const activeItems = await MenuService.getActiveMenuItems(group.id);
     if (activeItems.length === 0) {
       await ctx.reply('Меню пустое. Сначала добавь блюда в приложении.');
       return;
@@ -221,7 +221,7 @@ async function autoCompletePoll(ctx: any, pollId: number, messageId: number): Pr
     const totalVotes = result.totalVotes;
 
     // Получаем активные блюда для подсчета
-    const activeItems = await MenuService.getActiveMenuItems();
+    const activeItems = await MenuService.getActiveMenuItems(poll.groupId);
 
     // ФАЗА 1: Редактируем сообщение с результатами
     try {

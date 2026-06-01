@@ -137,9 +137,22 @@ async function seedMenu() {
       logger.info(`Test admin user created with ID: ${adminUser.id}`);
     }
 
+    // Получаем группу для seed-данных (первая доступная или создаём placeholder)
+    let seedGroup = await prisma.group.findFirst();
+    if (!seedGroup) {
+      seedGroup = await prisma.group.create({
+        data: {
+          telegramId: BigInt(0),
+          title: 'Seed Group',
+          type: 'supergroup',
+        },
+      });
+      logger.info(`Seed group created with ID: ${seedGroup.id}`);
+    }
+
     // Проверяем, есть ли уже блюда в меню
     const existingItemsCount = await prisma.menuItem.count();
-    
+
     if (existingItemsCount > 0) {
       logger.warn(`Menu already has ${existingItemsCount} items. Skipping seed.`);
       logger.info('To re-seed, delete existing items first.');
@@ -155,6 +168,7 @@ async function seedMenu() {
           ...itemData,
           createdBy: adminUser.id,
           isActive: true,
+          groupId: seedGroup.id,
         },
       });
       created.push(menuItem);

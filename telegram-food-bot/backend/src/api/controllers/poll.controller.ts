@@ -324,7 +324,7 @@ export class PollController {
         menuItems = await MenuService.getMenuItemsByIds(selectedMenuItemIds);
       } else {
         logger.info('📋 Loading all active menu items');
-        menuItems = await MenuService.getActiveMenuItems();
+        menuItems = await MenuService.getActiveMenuItems(sourcePoll.groupId);
       }
 
       if (menuItems.length === 0) {
@@ -819,7 +819,7 @@ export class PollController {
       logger.info('🍽️ About to load menu items...');
       let menuItems;
       try {
-        menuItems = await MenuService.getActiveMenuItems();
+        menuItems = await MenuService.getActiveMenuItems(parsedGroupId);
         logger.info('✅ Initial menu items loaded', { count: menuItems.length });
       } catch (menuError) {
         logger.error('❌ FAILED to load menu items', { error: menuError, message: menuError instanceof Error ? menuError.message : 'Unknown error' });

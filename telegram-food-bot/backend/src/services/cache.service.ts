@@ -384,10 +384,10 @@ export class CacheInvalidator {
   }
 
   /**
-   * Инвалидация при изменении меню
+   * Инвалидация при изменении меню конкретной группы
    */
-  static async invalidateMenu(): Promise<void> {
-    await cacheService.invalidatePattern('menu_items');
+  static invalidateMenu(groupId: number): void {
+    void cacheService.del(`${CACHE_KEYS.MENU_ITEMS_ACTIVE}:${groupId}`);
   }
 
   /**
