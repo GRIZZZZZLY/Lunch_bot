@@ -30,6 +30,20 @@ export function createDirectLinkMiniAppUrl(startParam: string): string {
 }
 
 /**
+ * Клавиатура приветственного сообщения группы: callback opt-in + Direct Link «Открыть Mini App».
+ * Используется и при первичной отправке, и при edit-обновлении (editMessageText сбрасывает
+ * клавиатуру, поэтому её надо передавать заново).
+ */
+export function createGroupWelcomeKeyboard(chatId: number | string) {
+  return {
+    inline_keyboard: [
+      [{ text: '✅ Я обедаю', callback_data: `optin_${chatId}` }],
+      [{ text: '🍽 Открыть Mini App', url: createDirectLinkMiniAppUrl(`menu_${chatId}`) }],
+    ],
+  };
+}
+
+/**
  * Клавиатура для голосования (Direct Link Mini App)
  * Параметр прилетает во фронт как initDataUnsafe.start_param = "vote_<pollId>".
  */
