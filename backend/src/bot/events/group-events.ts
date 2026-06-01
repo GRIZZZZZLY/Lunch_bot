@@ -45,6 +45,30 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
             type: chat.type,
           });
 
+          // Тот, кто добавил бота, становится per-group админом (CREATOR).
+          // ctx.myChatMember.from — пользователь, выполнивший действие.
+          const adder = ctx.myChatMember.from;
+          if (adder && !adder.is_bot) {
+            try {
+              const adderUser = await UserService.upsertUser({
+                telegramId: adder.id.toString(),
+                username: adder.username,
+                firstName: adder.first_name,
+                lastName: adder.last_name,
+              });
+              await GroupService.ensureMemberRole(group.id, adderUser.id, 'CREATOR');
+              logger.info('Bot adder promoted to group CREATOR', {
+                chatId: chat.id,
+                adderId: adder.id,
+              });
+            } catch (adderError) {
+              logger.warn('Failed to promote bot adder', {
+                chatId: chat.id,
+                error: adderError instanceof Error ? adderError.message : String(adderError),
+              });
+            }
+          }
+
           // Сразу регистрируем админов и создателя группы.
           // Bot API не даёт получить полный список участников — только админов.
           // Остальных подхватим через chat_member / new_chat_members / authMiddleware.
@@ -59,7 +83,11 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
                 firstName: admin.user.first_name,
                 lastName: admin.user.last_name,
               });
-              await GroupService.addMemberToGroup(group.id, dbUser.id);
+              await GroupService.ensureMemberRole(
+                group.id,
+                dbUser.id,
+                mapChatMemberStatusToRole(admin.status)
+              );
               synced++;
             }
             logger.info('Synced group admins on bot join', {
@@ -77,21 +105,18 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
           // Настраиваем Menu Button для этой группы
           await setupMenuButtonForGroup(bot, chat.id);
 
-          // Отправляем приветственное сообщение
+          // Отправляем приветственное сообщение с двумя кнопками:
+          // callback «Я обедаю» (ловит клик, регистрирует) + url открыть Mini App.
           const deepLink = `https://t.me/${ctx.me.username}?start=menu_${chat.id}`;
-          
+
           await ctx.reply(
-            '👋 Готово! Открой приложение кнопкой ниже — там меню и голосования.',
+            '👋 Бот на месте! Жми «Я обедаю» — попадёшь в список на голосования.',
             {
               parse_mode: 'Markdown',
               reply_markup: {
                 inline_keyboard: [
-                  [
-                    {
-                      text: '🍽 Открыть Mini App',
-                      url: deepLink,
-                    },
-                  ],
+                  [{ text: '✅ Я обедаю', callback_data: `optin_${chat.id}` }],
+                  [{ text: '🍽 Открыть Mini App', url: deepLink }],
                 ],
               },
             }
