@@ -1553,7 +1553,14 @@ export class PollController {
         return;
       }
 
-      const popularItems = await MenuService.getPopularMenuItems(limit);
+      const rawGroupId = req.query.groupId as string | undefined;
+      const groupId = rawGroupId ? parseInt(rawGroupId, 10) : NaN;
+      if (!Number.isFinite(groupId) || groupId <= 0) {
+        res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
+        return;
+      }
+
+      const popularItems = await MenuService.getPopularMenuItems(limit, groupId);
 
       res.json({
         success: true,

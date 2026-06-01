@@ -1,6 +1,7 @@
 ﻿import { BotContext } from '../../types/bot.types';
 import { MenuService } from '../../services/menu.service';
 import { UserService } from '../../services/user.service';
+import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 
 /**
@@ -25,11 +26,30 @@ export async function menuCommand(ctx: BotContext): Promise<void> {
     }
 
     const isAdmin = dbUser.isAdmin;
-    const isGroup = ctx.chat?.type !== 'private';
-    
-    // Получаем статистику меню
-    const menuStats = await MenuService.getMenuStats();
-    const popularItems = await MenuService.getPopularMenuItems(3);
+    const chatType = ctx.chat?.type;
+    const isGroup = chatType === 'group' || chatType === 'supergroup';
+
+    // Меню теперь привязано к группе — в личных чатах данных нет
+    if (!isGroup) {
+      await ctx.reply(
+        '🍽️ Меню Rocket Lunch теперь привязано к группе.\n\n' +
+        'Открой Mini App прямо из своей группы — там увидишь актуальный список блюд и статистику.'
+      );
+      return;
+    }
+
+    const group = await GroupService.getGroupByTelegramId(ctx.chat!.id.toString());
+    if (!group) {
+      await ctx.reply(
+        '⚠️ Эта группа пока не зарегистрирована в Rocket Lunch.\n\n' +
+        'Запусти голосование командой /startpoll — группа зарегистрируется автоматически.'
+      );
+      return;
+    }
+
+    // Получаем статистику меню для этой группы
+    const menuStats = await MenuService.getMenuStats(group.id);
+    const popularItems = await MenuService.getPopularMenuItems(3, group.id);
 
     let text = '🍽️ **Управление меню**\n\n';
     text += `📊 **Статистика:**\n`;
@@ -183,7 +203,27 @@ export async function handleQuickAddItem(ctx: any): Promise<void> {
  */
 export async function handleShowMenuList(ctx: any): Promise<void> {
   try {
-    const activeItems = await MenuService.getActiveMenuItems();
+    const chatType = ctx.chat?.type;
+    const isGroup = chatType === 'group' || chatType === 'supergroup';
+
+    if (!isGroup) {
+      await ctx.answerCallbackQuery();
+      await ctx.reply(
+        '🍽️ Меню привязано к группе. Открой Mini App из своей группы, чтобы увидеть список блюд.'
+      );
+      return;
+    }
+
+    const group = await GroupService.getGroupByTelegramId(ctx.chat.id.toString());
+    if (!group) {
+      await ctx.answerCallbackQuery();
+      await ctx.reply(
+        '⚠️ Группа не найдена. Запусти /startpoll, чтобы зарегистрировать группу.'
+      );
+      return;
+    }
+
+    const activeItems = await MenuService.getActiveMenuItems(group.id);
     
     if (activeItems.length === 0) {
       await ctx.answerCallbackQuery();
@@ -205,7 +245,6 @@ export async function handleShowMenuList(ctx: any): Promise<void> {
     });
 
     await ctx.answerCallbackQuery();
-    const isGroup = ctx.chat?.type !== 'private';
     const webappUrl = process.env.WEBAPP_URL ?? '';
     
     await ctx.reply(text, {
