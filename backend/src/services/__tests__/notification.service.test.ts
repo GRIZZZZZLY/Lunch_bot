@@ -9,6 +9,16 @@ jest.mock('../../database/client', () => ({
     storeRun: {
       findUnique: jest.fn(),
     },
+    storeItem: {
+      findMany: jest.fn(),
+    },
+    transaction: {
+      findMany: jest.fn(),
+    },
+    user: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+    },
   },
 }));
 
@@ -238,5 +248,101 @@ describe('NotificationService.markStoreRunGroupCompleted', () => {
     service.initialize(makeEditBot(edit) as any);
     await expect(service.markStoreRunGroupCompleted(5)).resolves.toBeUndefined();
     expect(edit).not.toHaveBeenCalled();
+  });
+});
+
+const mockItems = prisma.storeItem.findMany as jest.Mock;
+const mockTx = prisma.transaction.findMany as jest.Mock;
+const mockUsers = prisma.user.findMany as jest.Mock;
+const mockUserUnique = prisma.user.findUnique as jest.Mock;
+
+function makeSendBot(sendImpl: jest.Mock) {
+  return { botInfo: { id: 999 }, api: { sendMessage: sendImpl } };
+}
+
+describe('NotificationService.notifyStoreRunParticipantsNoDebt', () => {
+  let service: NotificationService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = new NotificationService();
+    mockUserUnique.mockResolvedValue({ isActive: true });
+  });
+
+  it('notifies participants without a debt, excluding initiator and debtors', async () => {
+    mockStoreRun.mockResolvedValue({ initiatorId: 2, storeName: 'КБ' });
+    mockItems.mockResolvedValue([
+      { userId: 111 },
+      { userId: 222 },
+      { userId: 333 },
+      { userId: 2 },
+    ]);
+    mockTx.mockResolvedValue([{ fromUserId: 111 }]);
+    mockUsers.mockResolvedValue([
+      { id: 222, telegramId: BigInt(2220) },
+      { id: 333, telegramId: BigInt(3330) },
+    ]);
+    const send = jest.fn().mockResolvedValue({ message_id: 1 });
+    service.initialize(makeSendBot(send) as any);
+
+    await service.notifyStoreRunParticipantsNoDebt(5);
+
+    const whereArg = mockUsers.mock.calls[0][0].where;
+    expect([...whereArg.id.in].sort((a: number, b: number) => a - b)).toEqual([222, 333]);
+    expect(whereArg.isActive).toBe(true);
+    expect(whereArg.participatesInPolls).toBe(true);
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenCalledWith(2220, expect.stringContaining('завершён'), expect.any(Object));
+    expect(send).toHaveBeenCalledWith(3330, expect.stringContaining('платить не надо'), expect.any(Object));
+  });
+
+  it('returns early when there are no participants (only initiator)', async () => {
+    mockStoreRun.mockResolvedValue({ initiatorId: 2, storeName: 'КБ' });
+    mockItems.mockResolvedValue([{ userId: 2 }]);
+    const send = jest.fn();
+    service.initialize(makeSendBot(send) as any);
+
+    await service.notifyStoreRunParticipantsNoDebt(5);
+    expect(mockUsers).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('returns early when every participant is a debtor', async () => {
+    mockStoreRun.mockResolvedValue({ initiatorId: 2, storeName: 'КБ' });
+    mockItems.mockResolvedValue([{ userId: 111 }, { userId: 222 }]);
+    mockTx.mockResolvedValue([{ fromUserId: 111 }, { fromUserId: 222 }]);
+    const send = jest.fn();
+    service.initialize(makeSendBot(send) as any);
+
+    await service.notifyStoreRunParticipantsNoDebt(5);
+    expect(mockUsers).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('returns [] without throwing when run not found', async () => {
+    mockStoreRun.mockResolvedValue(null);
+    const send = jest.fn();
+    service.initialize(makeSendBot(send) as any);
+    await expect(service.notifyStoreRunParticipantsNoDebt(5)).resolves.toEqual([]);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('tolerates a send failure and still returns a result per recipient', async () => {
+    mockStoreRun.mockResolvedValue({ initiatorId: 2, storeName: 'КБ' });
+    mockItems.mockResolvedValue([{ userId: 222 }, { userId: 333 }]);
+    mockTx.mockResolvedValue([]);
+    mockUsers.mockResolvedValue([
+      { id: 222, telegramId: BigInt(2220) },
+      { id: 333, telegramId: BigInt(3330) },
+    ]);
+    const send = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('bot blocked by user'))
+      .mockResolvedValue({ message_id: 1 });
+    service.initialize(makeSendBot(send) as any);
+
+    await expect(service.notifyStoreRunParticipantsNoDebt(5)).resolves.toHaveLength(2);
+    expect(send).toHaveBeenCalledTimes(2);
   });
 });

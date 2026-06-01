@@ -1178,6 +1178,76 @@ export class NotificationService {
     }
   }
 
+  /**
+   * Уведомить участников забега, у которых НЕ возникло долга (их позиции не
+   * куплены), что забег завершён и платить не нужно. Должникам отдельный ДМ с
+   * долгом шлёт BudgetService — их сюда не включаем.
+   */
+  async notifyStoreRunParticipantsNoDebt(
+    storeRunId: number,
+  ): Promise<NotificationResult[]> {
+    const storeRun = await prisma.storeRun.findUnique({
+      where: { id: storeRunId },
+      select: { initiatorId: true, storeName: true },
+    });
+    if (!storeRun) return [];
+
+    const items = await prisma.storeItem.findMany({
+      where: { storeRunId },
+      select: { userId: true },
+    });
+    const participantIds = Array.from(
+      new Set(items.map((i) => i.userId).filter((id) => id !== storeRun.initiatorId)),
+    );
+    if (participantIds.length === 0) return [];
+
+    const debtorRows = await prisma.transaction.findMany({
+      where: { storeRunId, status: 'PENDING' },
+      select: { fromUserId: true },
+    });
+    const debtorIds = new Set(debtorRows.map((t) => t.fromUserId));
+
+    const noDebtIds = participantIds.filter((id) => !debtorIds.has(id));
+    if (noDebtIds.length === 0) return [];
+
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: noDebtIds },
+        isActive: true,
+        participatesInPolls: true,
+      },
+      select: { id: true, telegramId: true },
+    });
+    if (users.length === 0) return [];
+    if (!this.bot) {
+      logger.error('notifyStoreRunParticipantsNoDebt: bot not initialized', { storeRunId });
+      return [];
+    }
+
+    const message =
+      `✅ Забег в «${this.escapeHtml(storeRun.storeName)}» завершён.\n` +
+      `Из твоего ничего не куплено — платить не надо.`;
+
+    const results: NotificationResult[] = [];
+    for (const u of users) {
+      const result = await this.send({
+        userId: Number(u.telegramId),
+        type: NotificationType.STORE_RUN_SETTLED,
+        priority: NotificationPriority.NORMAL,
+        message,
+        parseMode: 'HTML',
+      });
+      results.push(result);
+    }
+
+    logger.info('Store run no-debt notifications sent', {
+      storeRunId,
+      recipients: users.length,
+    });
+
+    return results;
+  }
+
   private escapeHtml(s: string): string {
     return s
       .replace(/&/g, '&amp;')
