@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ShoppingBag, Store, Users, CheckCircle2, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -40,7 +40,7 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const { data: groups = [] } = useUserGroups();
-  const activeGroups = groups.filter((g) => g.isActive);
+  const activeGroups = useMemo(() => groups.filter((g) => g.isActive), [groups]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(groupId);
 
   // Дефолт = переданная группа из шапки, если валидна; иначе первая доступная.
@@ -227,7 +227,7 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
             </div>
           )}
 
-          {!groupId && (
+          {!selectedGroupId && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/8 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
               Сначала добавь бота в групповой чат коллег, иначе некому получать уведомления.
             </div>
