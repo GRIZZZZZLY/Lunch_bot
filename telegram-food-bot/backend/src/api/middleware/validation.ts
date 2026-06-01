@@ -49,6 +49,15 @@ export function validateMenuItemData(
         code: err.code,
       }));
 
+      // TEMP DIAGNOSTIC: понять почему create блюда падает 400 (типы полей body)
+      logger.warn('⚠️ MENU VALIDATION FAILED', {
+        method: req.method,
+        errors,
+        bodyTypes: Object.fromEntries(
+          Object.entries(req.body ?? {}).map(([k, v]) => [k, `${typeof v}:${JSON.stringify(v)?.slice(0, 40)}`])
+        ),
+      });
+
       res.status(400).json({
         success: false,
         error: 'Validation failed',
