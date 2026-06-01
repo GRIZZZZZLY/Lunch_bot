@@ -367,6 +367,21 @@ export class GroupService {
   }
 
   /**
+   * Получение всех активных групп (для супер-админов)
+   */
+  static async getAllActiveGroups(): Promise<Group[]> {
+    try {
+      return await prisma.group.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (error) {
+      logger.error('Error getting all active groups:', error);
+      throw new Error('Failed to get all active groups');
+    }
+  }
+
+  /**
    * Получение всех групп
    */
   static async getAllGroups(
