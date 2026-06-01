@@ -175,6 +175,26 @@ export class UserController {
         return;
       }
 
+      // Супер-админ видит все активные группы с ролью ADMIN
+      if (user.isAdmin === true) {
+        const allGroups = await GroupService.getAllActiveGroups();
+        logger.info(`Super-admin ${user.id} requested groups list, found ${allGroups.length} groups`);
+        res.json({
+          success: true,
+          data: allGroups.map((group) => ({
+            id: group.id,
+            title: group.title,
+            telegramId: group.telegramId.toString(),
+            type: group.type,
+            isActive: group.isActive,
+            role: 'ADMIN',
+          })),
+          total: allGroups.length,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
       const memberships = await GroupService.getGroupsForUser(user.id, true);
 
       logger.info(`User ${user.id} requested groups list, found ${memberships.length} groups`);
