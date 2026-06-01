@@ -204,7 +204,12 @@ export function createBot(): Bot<BotContext> {
         return;
       }
 
-
+      // Opt-in «Я обедаю» из приветственного сообщения группы
+      if (data.startsWith('optin_')) {
+        const { handleOptInButton } = await import('./handlers/group.handlers');
+        await handleOptInButton(ctx as any);
+        return;
+      }
 
       // Отмена голосования
       if (data.startsWith('cancel_poll:')) {
