@@ -73,6 +73,8 @@ model Group {
   reminderSettings          DebtReminderSettings?
   adminNotificationSettings AdminNotificationSettings?
   storeRuns                 StoreRun[]
+  menuItems                 MenuItem[]
+  menuSuggestions           MenuSuggestion[]
 
   @@map("groups")
 }
@@ -85,14 +87,17 @@ model MenuItem {
   imageUrl     String?       @map("image_url")
   isActive     Boolean       @default(true) @map("is_active")
   createdBy    Int           @map("created_by")
+  groupId      Int           @map("group_id")
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
   creator      User          @relation(fields: [createdBy], references: [id])
+  group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
   pollResults  PollResult[]
   votes        Vote[]
   transactions Transaction[]
 
   @@index([isActive])
+  @@index([groupId, isActive])
   @@map("menu_items")
 }
 
@@ -327,6 +332,7 @@ model MenuSuggestion {
   imageUrl          String?   @map("image_url")
   status            String    @default("PENDING")
   suggestedBy       Int       @map("suggested_by")
+  groupId           Int       @map("group_id")
   reviewedBy        Int?      @map("reviewed_by")
   reviewedAt        DateTime? @map("reviewed_at")
   rejectionReason   String?   @map("rejection_reason")
@@ -336,11 +342,13 @@ model MenuSuggestion {
 
   suggester User  @relation("SuggestionCreator", fields: [suggestedBy], references: [id])
   reviewer  User? @relation("SuggestionReviewer", fields: [reviewedBy], references: [id])
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([suggestedBy])
   @@index([createdAt])
   @@index([status, createdAt])
+  @@index([groupId, status])
   @@map("menu_suggestions")
 }
 
