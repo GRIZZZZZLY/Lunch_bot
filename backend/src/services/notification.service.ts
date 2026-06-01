@@ -743,6 +743,7 @@ export class NotificationService {
         groupId: storeRun.groupId,
         isActive: true,
         userId: { not: storeRun.initiatorId },
+        // Удалёнщик (participatesInPolls=false) не в офисе — магазин ему не нужен ни в каком кейсе.
         user: {
           isActive: true,
           participatesInPolls: true,
@@ -880,6 +881,121 @@ export class NotificationService {
     });
 
     return results;
+  }
+
+  /**
+   * Опубликовать сообщение о новом забеге в групповой чат.
+   * web_app кнопки в группах запрещены, поэтому даём URL-deep-link
+   * t.me/<bot>?start=storerun_<id> — он открывает личку, где /start
+   * присылает web_app кнопку. Так о забеге узнают даже те, кто ещё ни разу
+   * не писал боту в личку (DM-рассылка их не достанет).
+   */
+  async postStoreRunToGroup(storeRunId: number): Promise<NotificationResult> {
+    const storeRun = await prisma.storeRun.findUnique({
+      where: { id: storeRunId },
+      include: {
+        initiator: true,
+        group: { select: { telegramId: true } },
+      },
+    });
+    if (!storeRun) {
+      logger.warn('postStoreRunToGroup: run not found', { storeRunId });
+      return { success: false, error: 'run_not_found', sentAt: new Date() };
+    }
+    if (!this.bot) {
+      logger.error('postStoreRunToGroup: bot not initialized', { storeRunId });
+      return { success: false, error: 'bot_not_initialized', sentAt: new Date() };
+    }
+
+    const initiatorName = storeRun.initiator.firstName;
+    const storeName = storeRun.storeName;
+    const collectUntilStr = storeRun.collectUntil.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const botUsername = process.env.BOT_USERNAME || 'rocket_lunch_bot';
+
+    const message =
+      `🛒 <b>${this.escapeHtml(initiatorName)}</b> идёт в «${this.escapeHtml(storeName)}»\n\n` +
+      `Напиши, что тебе взять — сбор заказов до ${collectUntilStr}.`;
+
+    try {
+      const sent = await this.bot.api.sendMessage(
+        Number(storeRun.group.telegramId),
+        message,
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: '🛒 Заказать',
+                  url: `https://t.me/${botUsername}?start=storerun_${storeRunId}`,
+                },
+              ],
+            ],
+          },
+        },
+      );
+      logger.info('Store run posted to group', { storeRunId, messageId: sent.message_id });
+      return { success: true, messageId: sent.message_id, sentAt: new Date() };
+    } catch (error: any) {
+      logger.error('postStoreRunToGroup: failed to send', {
+        storeRunId,
+        groupTelegramId: String(storeRun.group.telegramId),
+        error: error?.message ?? error,
+      });
+      return { success: false, error: error?.message ?? 'send_failed', sentAt: new Date() };
+    }
+  }
+
+  /**
+   * Уведомить инициатора, что приём заказов закрылся по таймеру.
+   * При ручном старте инициатор сам нажал кнопку и так знает — этот метод
+   * вызывается только из cron авто-закрытия.
+   */
+  async notifyInitiatorCollectionClosed(storeRunId: number): Promise<NotificationResult> {
+    const storeRun = await prisma.storeRun.findUnique({
+      where: { id: storeRunId },
+      include: { initiator: true },
+    });
+    if (!storeRun) {
+      return { success: false, error: 'run_not_found', sentAt: new Date() };
+    }
+    if (!this.bot) {
+      logger.error('notifyInitiatorCollectionClosed: bot not initialized', { storeRunId });
+      return { success: false, error: 'bot_not_initialized', sentAt: new Date() };
+    }
+
+    const itemsCount = await prisma.storeItem.count({ where: { storeRunId } });
+    const webappUrl = process.env.WEBAPP_URL ?? '';
+    const storeName = storeRun.storeName;
+
+    const message =
+      `🛍 Сбор заказов по «${this.escapeHtml(storeName)}» закрыт по таймеру.\n` +
+      `Набралось позиций: ${itemsCount}. Открой список, иди в магазин и проставь цены.`;
+
+    const replyMarkup = webappUrl
+      ? {
+          inline_keyboard: [
+            [
+              {
+                text: '📱 Открыть список',
+                web_app: { url: `${webappUrl}?storeRunId=${storeRunId}` },
+              },
+            ],
+          ],
+        }
+      : undefined;
+
+    return this.send({
+      userId: Number(storeRun.initiator.telegramId),
+      type: NotificationType.STORE_RUN_COLLECTION_CLOSED,
+      priority: NotificationPriority.NORMAL,
+      message,
+      parseMode: 'HTML',
+      replyMarkup,
+    });
   }
 
   private escapeHtml(s: string): string {

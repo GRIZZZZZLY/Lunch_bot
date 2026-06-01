@@ -12,6 +12,8 @@ export enum NotificationType {
   ORDER_REMINDER = 'order_reminder',
   STORE_RUN_STARTED = 'store_run_started',
   STORE_RUN_SHOPPING = 'store_run_shopping',
+  STORE_RUN_COLLECTION_CLOSED = 'store_run_collection_closed',
+  STORE_RUN_SETTLED = 'store_run_settled',
   CUSTOM = 'custom',
 }
 
