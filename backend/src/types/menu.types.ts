@@ -5,6 +5,7 @@ export interface CreateMenuItemData {
   imageUrl?: string;
   isActive?: boolean;
   createdBy: number; // Required field
+  groupId: number;   // Required: блюдо принадлежит конкретной группе
 }
 
 export interface UpdateMenuItemData {

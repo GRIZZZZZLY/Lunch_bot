@@ -19,11 +19,12 @@ export class MenuService {
           imageUrl: data.imageUrl,
           isActive: data.isActive ?? true,
           createdBy: data.createdBy,
+          groupId: data.groupId,
         },
       });
 
-      // Инвалидируем кэш меню
-      CacheInvalidator.invalidateMenu();
+      // Инвалидируем кэш меню группы
+      CacheInvalidator.invalidateMenu(data.groupId);
 
       logger.info(`Menu item created: ${menuItem.id} (${menuItem.name})`);
       return menuItem;
@@ -60,8 +61,8 @@ export class MenuService {
         },
       });
 
-      // Инвалидируем кэш меню
-      CacheInvalidator.invalidateMenu();
+      // Инвалидируем кэш меню группы
+      CacheInvalidator.invalidateMenu(menuItem.groupId);
 
       logger.info(`Menu item updated: ${menuItem.id} (${menuItem.name})`);
       return menuItem;
@@ -124,8 +125,8 @@ export class MenuService {
         where: { id },
       });
 
-      // Инвалидируем кэш меню
-      CacheInvalidator.invalidateMenu();
+      // Инвалидируем кэш меню группы
+      CacheInvalidator.invalidateMenu(menuItem.groupId);
 
       logger.info(`Menu item deleted: ${id}`, {
         cleanedVotes: menuItem._count.votes,
@@ -149,11 +150,12 @@ export class MenuService {
   }
 
   /**
-   * Получение всех блюд
+   * Получение всех блюд группы
    */
-  static async getAllMenuItems(): Promise<MenuItem[]> {
+  static async getAllMenuItems(groupId: number): Promise<MenuItem[]> {
     try {
       return await prisma.menuItem.findMany({
+        where: { groupId },
         orderBy: [
           { isActive: 'desc' },
           { name: 'asc' },
@@ -189,18 +191,20 @@ export class MenuService {
   }
 
   /**
-   * Получение активных блюд (С КЭШИРОВАНИЕМ)
+   * Получение активных блюд группы (С КЭШИРОВАНИЕМ)
    */
-  static async getActiveMenuItems(): Promise<MenuItem[]> {
+  static async getActiveMenuItems(groupId: number): Promise<MenuItem[]> {
     try {
-      logger.info('🔍 [MenuService] getActiveMenuItems called');
-      
+      logger.info('🔍 [MenuService] getActiveMenuItems called', { groupId });
+
+      const cacheKey = `${CACHE_KEYS.MENU_ITEMS_ACTIVE}:${groupId}`;
+
       const items = await cacheService.getOrSet(
-        CACHE_KEYS.MENU_ITEMS_ACTIVE,
+        cacheKey,
         async () => {
-          logger.info('🔍 [MenuService] Fetching from DB (cache miss)');
+          logger.info('🔍 [MenuService] Fetching from DB (cache miss)', { groupId });
           const dbItems = await prisma.menuItem.findMany({
-            where: { isActive: true },
+            where: { isActive: true, groupId },
             select: {
               id: true,
               name: true,
@@ -209,6 +213,7 @@ export class MenuService {
               imageUrl: true,
               isActive: true,
               createdBy: true,
+              groupId: true,
               createdAt: true,
               updatedAt: true,
             },
@@ -222,7 +227,7 @@ export class MenuService {
         },
         CACHE_TTL.MENU
       );
-      
+
       logger.info('✅ [MenuService] Returning items', { count: items.length });
       return items;
     } catch (error) {
@@ -233,9 +238,9 @@ export class MenuService {
 
 
   /**
-   * Поиск блюд по названию
+   * Поиск блюд по названию в рамках группы
    */
-  static async searchMenuItems(query: string): Promise<MenuItem[]> {
+  static async searchMenuItems(query: string, groupId: number): Promise<MenuItem[]> {
     try {
       return await prisma.menuItem.findMany({
         where: {
@@ -252,6 +257,7 @@ export class MenuService {
             },
           ],
           isActive: true,
+          groupId,
         },
         orderBy: { name: 'asc' },
       });
@@ -266,10 +272,10 @@ export class MenuService {
    */
   static async toggleMenuItemStatus(id: number): Promise<MenuItem> {
     try {
-      // Сначала получаем текущий статус
+      // Сначала получаем текущий статус и groupId
       const currentItem = await prisma.menuItem.findUnique({
         where: { id },
-        select: { isActive: true },
+        select: { isActive: true, groupId: true },
       });
 
       if (!currentItem) {
@@ -285,8 +291,8 @@ export class MenuService {
         },
       });
 
-      // Инвалидируем кэш меню
-      CacheInvalidator.invalidateMenu();
+      // Инвалидируем кэш меню группы
+      CacheInvalidator.invalidateMenu(currentItem.groupId);
 
       logger.info(`Menu item status toggled: ${id} -> ${menuItem.isActive}`);
       return menuItem;
@@ -305,12 +311,12 @@ export class MenuService {
   }
 
   /**
-   * Получение популярных блюд с статистикой
+   * Получение популярных блюд с статистикой в рамках группы
    */
-  static async getPopularMenuItems(limit: number = 10): Promise<MenuItemWithStats[]> {
+  static async getPopularMenuItems(limit: number = 10, groupId: number): Promise<MenuItemWithStats[]> {
     try {
       const popularItems = await prisma.menuItem.findMany({
-        where: { isActive: true },
+        where: { isActive: true, groupId },
         include: {
           _count: {
             select: {
@@ -342,21 +348,22 @@ export class MenuService {
 
 
   /**
-   * Получение статистики меню
+   * Получение статистики меню группы
    */
-  static async getMenuStats(): Promise<{
+  static async getMenuStats(groupId: number): Promise<{
     total: number;
     active: number;
     averagePrice: number;
   }> {
     try {
       const [total, active, avgPriceResult] = await Promise.all([
-        prisma.menuItem.count(),
-        prisma.menuItem.count({ where: { isActive: true } }),
+        prisma.menuItem.count({ where: { groupId } }),
+        prisma.menuItem.count({ where: { isActive: true, groupId } }),
         prisma.menuItem.aggregate({
           where: {
             price: { not: null },
             isActive: true,
+            groupId,
           },
           _avg: { price: true },
         }),
@@ -380,6 +387,12 @@ export class MenuService {
    */
   static async bulkUpdateStatus(ids: number[], isActive: boolean): Promise<number> {
     try {
+      // Получаем groupId затронутых блюд для точечной инвалидации кэша
+      const items = await prisma.menuItem.findMany({
+        where: { id: { in: ids } },
+        select: { groupId: true },
+      });
+
       const result = await prisma.menuItem.updateMany({
         where: {
           id: {
@@ -392,8 +405,11 @@ export class MenuService {
         },
       });
 
-      // Инвалидируем кэш меню
-      CacheInvalidator.invalidateMenu();
+      // Инвалидируем кэш для каждой затронутой группы
+      const uniqueGroupIds = [...new Set(items.map(i => i.groupId))];
+      for (const groupId of uniqueGroupIds) {
+        CacheInvalidator.invalidateMenu(groupId);
+      }
 
       logger.info(`Bulk updated ${result.count} menu items status to ${isActive}`);
       return result.count;

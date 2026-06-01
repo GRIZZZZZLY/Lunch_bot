@@ -59,6 +59,7 @@ describe('MenuService', () => {
         imageUrl: 'https://example.com/pizza.jpg',
         isActive: true,
         createdBy: 1,
+        groupId: 1,
       };
 
       const expectedMenuItem: MenuItem = {
@@ -69,6 +70,7 @@ describe('MenuService', () => {
         imageUrl: createData.imageUrl,
         isActive: true,
         createdBy: createData.createdBy,
+        groupId: createData.groupId,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -87,6 +89,7 @@ describe('MenuService', () => {
           imageUrl: createData.imageUrl,
           isActive: true,
           createdBy: createData.createdBy,
+          groupId: createData.groupId,
         },
       });
       expect(CacheInvalidator.invalidateMenu).toHaveBeenCalled();
@@ -98,6 +101,7 @@ describe('MenuService', () => {
       const createData = {
         name: 'Burger',
         createdBy: 1,
+        groupId: 1,
       };
 
       const expectedMenuItem: MenuItem = {
@@ -108,6 +112,7 @@ describe('MenuService', () => {
         imageUrl: null,
         isActive: true,
         createdBy: createData.createdBy,
+        groupId: createData.groupId,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -126,6 +131,7 @@ describe('MenuService', () => {
       const createData = {
         name: 'Pizza',
         createdBy: 1,
+        groupId: 1,
       };
 
       (prisma.menuItem.create as jest.Mock).mockRejectedValue(new Error('Database error'));
@@ -147,6 +153,7 @@ describe('MenuService', () => {
         imageUrl: 'pizza.jpg',
         isActive: true,
         createdBy: 1,
+        groupId: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -200,6 +207,7 @@ describe('MenuService', () => {
         imageUrl: 'pizza.jpg',
         isActive: true,
         createdBy: 1,
+        groupId: 1,
         createdAt: new Date('2024-01-01'),
         updatedAt: new Date(),
       };
@@ -260,6 +268,7 @@ describe('MenuService', () => {
         imageUrl: null,
         isActive: true,
         createdBy: 1,
+        groupId: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
         _count: {
@@ -305,6 +314,7 @@ describe('MenuService', () => {
         imageUrl: null,
         isActive: true,
         createdBy: 1,
+        groupId: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
         _count: {
@@ -348,6 +358,7 @@ describe('MenuService', () => {
       // Arrange
       const menuItemWithCounts = {
         id: 1,
+        groupId: 1,
         _count: { votes: 0, pollResults: 0 },
       };
 
@@ -371,6 +382,7 @@ describe('MenuService', () => {
           imageUrl: null,
           isActive: true,
           createdBy: 1,
+          groupId: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -382,6 +394,7 @@ describe('MenuService', () => {
           imageUrl: null,
           isActive: false,
           createdBy: 1,
+          groupId: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -390,10 +403,11 @@ describe('MenuService', () => {
       (prisma.menuItem.findMany as jest.Mock).mockResolvedValue(expectedItems);
 
       // Act
-      const result = await MenuService.getAllMenuItems();
+      const result = await MenuService.getAllMenuItems(1);
 
       // Assert
       expect(prisma.menuItem.findMany).toHaveBeenCalledWith({
+        where: { groupId: 1 },
         orderBy: [
           { isActive: 'desc' },
           { name: 'asc' },
@@ -407,7 +421,7 @@ describe('MenuService', () => {
       (prisma.menuItem.findMany as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       // Act & Assert
-      await expect(MenuService.getAllMenuItems()).rejects.toThrow('Failed to get menu items');
+      await expect(MenuService.getAllMenuItems(1)).rejects.toThrow('Failed to get menu items');
     });
   });
 
@@ -423,6 +437,7 @@ describe('MenuService', () => {
           imageUrl: null,
           isActive: true,
           createdBy: 1,
+          groupId: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -431,7 +446,7 @@ describe('MenuService', () => {
       (cacheService.getOrSet as jest.Mock).mockResolvedValue(expectedItems);
 
       // Act
-      const result = await MenuService.getActiveMenuItems();
+      const result = await MenuService.getActiveMenuItems(1);
 
       // Assert
       expect(cacheService.getOrSet).toHaveBeenCalled();
@@ -443,7 +458,7 @@ describe('MenuService', () => {
       (cacheService.getOrSet as jest.Mock).mockRejectedValue(new Error('Cache error'));
 
       // Act & Assert
-      await expect(MenuService.getActiveMenuItems()).rejects.toThrow('Failed to get active menu items');
+      await expect(MenuService.getActiveMenuItems(1)).rejects.toThrow('Failed to get active menu items');
     });
   });
 
@@ -460,6 +475,7 @@ describe('MenuService', () => {
           imageUrl: null,
           isActive: true,
           createdBy: 1,
+          groupId: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -468,7 +484,7 @@ describe('MenuService', () => {
       (prisma.menuItem.findMany as jest.Mock).mockResolvedValue(expectedItems);
 
       // Act
-      const result = await MenuService.searchMenuItems(query);
+      const result = await MenuService.searchMenuItems(query, 1);
 
       // Assert
       expect(prisma.menuItem.findMany).toHaveBeenCalledWith({
@@ -478,6 +494,7 @@ describe('MenuService', () => {
             { description: { contains: query } },
           ],
           isActive: true,
+          groupId: 1,
         },
         orderBy: { name: 'asc' },
       });
@@ -489,7 +506,7 @@ describe('MenuService', () => {
       (prisma.menuItem.findMany as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       // Act & Assert
-      await expect(MenuService.searchMenuItems('test')).rejects.toThrow('Failed to search menu items');
+      await expect(MenuService.searchMenuItems('test', 1)).rejects.toThrow('Failed to search menu items');
     });
   });
 
@@ -497,7 +514,7 @@ describe('MenuService', () => {
     it('should toggle menu item status from active to inactive', async () => {
       // Arrange
       const menuItemId = 1;
-      const currentItem = { isActive: true };
+      const currentItem = { isActive: true, groupId: 1 };
       const updatedItem: MenuItem = {
         id: menuItemId,
         name: 'Pizza',
@@ -506,6 +523,7 @@ describe('MenuService', () => {
         imageUrl: null,
         isActive: false,
         createdBy: 1,
+        groupId: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -519,7 +537,7 @@ describe('MenuService', () => {
       // Assert
       expect(prisma.menuItem.findUnique).toHaveBeenCalledWith({
         where: { id: menuItemId },
-        select: { isActive: true },
+        select: { isActive: true, groupId: true },
       });
       expect(prisma.menuItem.update).toHaveBeenCalledWith({
         where: { id: menuItemId },
@@ -542,7 +560,7 @@ describe('MenuService', () => {
 
     it('should throw error when update fails', async () => {
       // Arrange
-      const currentItem = { isActive: true };
+      const currentItem = { isActive: true, groupId: 1 };
       (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(currentItem);
       (prisma.menuItem.update as jest.Mock).mockRejectedValue(new Error('Database error'));
 
@@ -564,6 +582,7 @@ describe('MenuService', () => {
           imageUrl: null,
           isActive: true,
           createdBy: 1,
+          groupId: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
           _count: {
@@ -576,11 +595,11 @@ describe('MenuService', () => {
       (prisma.menuItem.findMany as jest.Mock).mockResolvedValue(popularItems);
 
       // Act
-      const result = await MenuService.getPopularMenuItems(limit);
+      const result = await MenuService.getPopularMenuItems(limit, 1);
 
       // Assert
       expect(prisma.menuItem.findMany).toHaveBeenCalledWith({
-        where: { isActive: true },
+        where: { isActive: true, groupId: 1 },
         include: {
           _count: {
             select: {
@@ -605,7 +624,7 @@ describe('MenuService', () => {
       (prisma.menuItem.findMany as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       // Act & Assert
-      await expect(MenuService.getPopularMenuItems()).rejects.toThrow('Failed to get popular menu items');
+      await expect(MenuService.getPopularMenuItems(10, 1)).rejects.toThrow('Failed to get popular menu items');
     });
   });
 
@@ -621,7 +640,7 @@ describe('MenuService', () => {
       });
 
       // Act
-      const result = await MenuService.getMenuStats();
+      const result = await MenuService.getMenuStats(1);
 
       // Assert
       expect(prisma.menuItem.count).toHaveBeenCalledTimes(2);
@@ -637,7 +656,7 @@ describe('MenuService', () => {
       (prisma.menuItem.count as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       // Act & Assert
-      await expect(MenuService.getMenuStats()).rejects.toThrow('Failed to get menu stats');
+      await expect(MenuService.getMenuStats(1)).rejects.toThrow('Failed to get menu stats');
     });
   });
 
@@ -648,6 +667,7 @@ describe('MenuService', () => {
       const isActive = false;
       const updateResult = { count: 3 };
 
+      (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([{ groupId: 1 }, { groupId: 1 }, { groupId: 1 }]);
       (prisma.menuItem.updateMany as jest.Mock).mockResolvedValue(updateResult);
 
       // Act
@@ -671,10 +691,30 @@ describe('MenuService', () => {
 
     it('should throw error when operation fails', async () => {
       // Arrange
+      (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.menuItem.updateMany as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       // Act & Assert
       await expect(MenuService.bulkUpdateStatus([1], true)).rejects.toThrow('Failed to bulk update menu items');
+    });
+  });
+
+  describe('getActiveMenuItems (per-group)', () => {
+    it('запрашивает только блюда указанной группы', async () => {
+      (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([]);
+      (cacheService.getOrSet as jest.Mock).mockImplementation(async (_k: string, fn: any) => fn());
+      await MenuService.getActiveMenuItems(7);
+      expect(prisma.menuItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isActive: true, groupId: 7 } })
+      );
+    });
+
+    it('использует per-group ключ кэша', async () => {
+      (cacheService.getOrSet as jest.Mock).mockResolvedValue([]);
+      await MenuService.getActiveMenuItems(7);
+      expect(cacheService.getOrSet).toHaveBeenCalledWith(
+        'menu_items_active:7', expect.any(Function), 300
+      );
     });
   });
 });
