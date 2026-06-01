@@ -3,6 +3,7 @@ import { Bot } from 'grammy';
 import { logger } from '../../utils/logger';
 import { GroupService } from '../../services/group.service';
 import { UserService } from '../../services/user.service';
+import { createDirectLinkMiniAppUrl } from '../keyboards/webapp.keyboard';
 
 /**
  * Маппинг Telegram chat-member статуса в роль участника группы в нашей БД.
@@ -106,8 +107,10 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
           await setupMenuButtonForGroup(bot, chat.id);
 
           // Отправляем приветственное сообщение с двумя кнопками:
-          // callback «Я обедаю» (ловит клик, регистрирует) + url открыть Mini App.
-          const deepLink = `https://t.me/${ctx.me.username}?start=menu_${chat.id}`;
+          // callback «Я обедаю» (ловит клик, регистрирует) + Direct Link «Открыть Mini App».
+          // Direct Link открывает Mini App напрямую из группы (web_app в группах запрещён,
+          // а ?start=… вёл бы в личку бота).
+          const deepLink = createDirectLinkMiniAppUrl(`menu_${chat.id}`);
 
           await ctx.reply(
             '👋 Бот на месте! Жми «Я обедаю» — попадёшь в список на голосования.',

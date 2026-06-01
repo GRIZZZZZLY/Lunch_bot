@@ -18,19 +18,27 @@ export function createWebAppButton(text: string, path: string = '') {
 }
 
 /**
- * Клавиатура для голосования (Direct Link Mini App)
- * web_app кнопки НЕ работают в групповых чатах, но прямая ссылка t.me/<bot>/<app>?startapp=...
+ * Прямая ссылка на Mini App (Direct Link).
+ * web_app кнопки НЕ работают в групповых чатах, но ссылка t.me/<bot>/<app>?startapp=...
  * открывает Mini App напрямую из группы, минуя промежуточный шаг в личке.
+ * startParam прилетает во фронт как initDataUnsafe.start_param.
+ */
+export function createDirectLinkMiniAppUrl(startParam: string): string {
+  const botUsername = process.env.BOT_USERNAME || 'rocket_lunch_bot';
+  const shortName = botConfig.miniApp.shortName;
+  return `https://t.me/${botUsername}/${shortName}?startapp=${startParam}`;
+}
+
+/**
+ * Клавиатура для голосования (Direct Link Mini App)
  * Параметр прилетает во фронт как initDataUnsafe.start_param = "vote_<pollId>".
  */
 export function createVoteWebAppKeyboard(pollId: number) {
-  const botUsername = process.env.BOT_USERNAME || 'rocket_lunch_bot';
-  const shortName = botConfig.miniApp.shortName;
   return {
     inline_keyboard: [[
       {
         text: '🗳️ Проголосовать',
-        url: `https://t.me/${botUsername}/${shortName}?startapp=vote_${pollId}`
+        url: createDirectLinkMiniAppUrl(`vote_${pollId}`)
       }
     ]]
   };
