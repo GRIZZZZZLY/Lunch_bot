@@ -356,6 +356,57 @@ export function createBot(): Bot<BotContext> {
         return;
       }
 
+      // Store run - должник отметил оплату всего своего заказа
+      if (data.startsWith('budget:srun_paid:')) {
+        const storeRunId = parseCallbackId(data, 2);
+        if (!storeRunId) {
+          await ctx.answerCallbackQuery('❌ Не получилось открыть заказ. Обнови страницу.');
+          return;
+        }
+        const { BudgetService } = await import('../services/budget.service.js');
+        const result = await BudgetService.markStoreRunPaidByDebtor(storeRunId, ctx.from.id);
+        if (!result) {
+          await ctx.answerCallbackQuery('❌ Нет неоплаченных позиций по этому заказу');
+          return;
+        }
+        await ctx.answerCallbackQuery('✅ Отмечено как оплачено');
+        try {
+          const originalText = ctx.callbackQuery.message?.text ?? '';
+          const updatedText = originalText + '\n\n⏳ Ожидаем подтверждения от инициатора...';
+          await ctx.editMessageText(updatedText, { reply_markup: { inline_keyboard: [] } });
+        } catch (e) { /* ignore if edit fails */ }
+        return;
+      }
+
+      // Store run - инициатор подтвердил оплату от должника
+      if (data.startsWith('budget:srun_confirm:')) {
+        const storeRunId = parseCallbackId(data, 2);
+        const debtorUserId = parseCallbackId(data, 3);
+        if (!storeRunId || !debtorUserId) {
+          await ctx.answerCallbackQuery('❌ Не получилось открыть платёж. Обнови страницу.');
+          return;
+        }
+        const { BudgetService } = await import('../services/budget.service.js');
+        const result = await BudgetService.confirmStoreRunByDebtor(
+          storeRunId,
+          debtorUserId,
+          ctx.from.id,
+        );
+        if ('error' in result) {
+          await ctx.answerCallbackQuery(
+            result.error === 'forbidden'
+              ? '❌ Подтвердить может только инициатор забега'
+              : '❌ Нечего подтверждать',
+          );
+          return;
+        }
+        await ctx.answerCallbackQuery('✅ Оплата подтверждена');
+        try {
+          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
+        } catch (e) { /* ignore */ }
+        return;
+      }
+
       // Бюджет-трекер - Ответственный подтверждает что все оплатили
       if (data.startsWith('budget:all_paid:')) {
         const pollId = parseCallbackId(data, 2);

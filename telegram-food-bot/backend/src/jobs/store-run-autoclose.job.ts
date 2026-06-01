@@ -22,16 +22,24 @@ export function initStoreRunAutoCloseJob(): void {
         ids: closedIds,
       });
 
-      // Notify participants of each closed run (fire-and-forget, don't fail cron)
+      // Notify participants + initiator of each closed run (fire-and-forget, don't fail cron).
+      // Participants who added items learn the collection is closed; the initiator —
+      // who didn't press the button manually here — is told to go shop and set prices.
       await Promise.allSettled(
-        closedIds.map((id) =>
+        closedIds.flatMap((id) => [
           notificationService.notifyShoppingStarted(id).catch((err) => {
             logger.error('notifyShoppingStarted failed for auto-closed run', {
               storeRunId: id,
               err,
             });
           }),
-        ),
+          notificationService.notifyInitiatorCollectionClosed(id).catch((err) => {
+            logger.error('notifyInitiatorCollectionClosed failed for auto-closed run', {
+              storeRunId: id,
+              err,
+            });
+          }),
+        ]),
       );
     } catch (err) {
       logger.error('store-run auto-close job failed', { err });

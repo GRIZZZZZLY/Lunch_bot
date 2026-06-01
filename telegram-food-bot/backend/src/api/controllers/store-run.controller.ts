@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { StoreRunService, StoreRunError } from '../../services/store-run.service';
 import { notificationService } from '../../services/notification.service';
+import { BudgetService } from '../../services/budget.service';
 import { logger } from '../../utils/logger';
 import { serializeBigInt as serializeData } from '../../utils/serialize';
 
@@ -101,6 +102,14 @@ export class StoreRunController {
         })
         .catch((err) =>
           logger.error('Failed to notify group about store run', { storeRunId: run.id, err }),
+        );
+
+      // Fire-and-forget group announcement. Reaches members who never opened the
+      // bot privately (the DM broadcast above can't deliver to them).
+      notificationService
+        .postStoreRunToGroup(run.id)
+        .catch((err) =>
+          logger.error('Failed to post store run to group', { storeRunId: run.id, err }),
         );
 
       res.status(201).json({ success: true, data: serializeData(run) });
@@ -306,6 +315,12 @@ export class StoreRunController {
     }
     try {
       const run = await StoreRunService.settle(id, user.id);
+
+      // Fire-and-forget: разослать должникам суммы/реквизиты, инициатору — сводку.
+      BudgetService.notifyStoreRunSettled(id).catch((err) =>
+        logger.error('Failed to notify store run settled', { storeRunId: id, err }),
+      );
+
       res.json({ success: true, data: serializeData(run) });
     } catch (err) {
       sendStoreRunError(res, err);
