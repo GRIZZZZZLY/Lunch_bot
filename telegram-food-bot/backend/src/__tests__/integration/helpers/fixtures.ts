@@ -79,6 +79,7 @@ export async function createTestGroup(overrides?: Partial<Group>): Promise<Group
  */
 type TestMenuItemOverrides = Omit<Partial<MenuItem>, 'price'> & {
   createdBy?: number;
+  groupId?: number;
   price?: number | Prisma.Decimal | null;
 };
 
@@ -90,6 +91,13 @@ export async function createTestMenuItem(overrides?: TestMenuItemOverrides): Pro
     createdBy = tempUser.id;
   }
 
+  // Если не передан groupId, создаём временную группу (groupId обязателен по схеме)
+  let groupId = overrides?.groupId;
+  if (!groupId) {
+    const tempGroup = await createTestGroup({ title: 'Menu Default Group' });
+    groupId = tempGroup.id;
+  }
+
   return await prisma.menuItem.create({
     data: {
       name: overrides?.name || 'Test Dish',
@@ -98,6 +106,7 @@ export async function createTestMenuItem(overrides?: TestMenuItemOverrides): Pro
       imageUrl: overrides?.imageUrl || null,
       isActive: overrides?.isActive !== undefined ? overrides.isActive : true,
       createdBy,
+      groupId,
     },
   });
 }
@@ -130,9 +139,9 @@ export async function createTestSetup() {
   const user = await createTestUser({ isAdmin: true });
   const group = await createTestGroup();
   const menuItems = await Promise.all([
-    createTestMenuItem({ name: 'Пицца', price: 500, createdBy: user.id }),
-    createTestMenuItem({ name: 'Бургер', price: 400, createdBy: user.id }),
-    createTestMenuItem({ name: 'Салат', price: 300, createdBy: user.id }),
+    createTestMenuItem({ name: 'Пицца', price: 500, createdBy: user.id, groupId: group.id }),
+    createTestMenuItem({ name: 'Бургер', price: 400, createdBy: user.id, groupId: group.id }),
+    createTestMenuItem({ name: 'Салат', price: 300, createdBy: user.id, groupId: group.id }),
   ]);
 
   return { user, group, menuItems };
