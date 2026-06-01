@@ -1034,6 +1034,75 @@ export class NotificationService {
     }
   }
 
+  /**
+   * Удалить разосланные сообщения забега (групповой пост + личные приглашения).
+   * Вызывается при отмене забега. Толерантен к ошибкам: сообщение могло быть
+   * удалено вручную или устареть (>48ч) — такие падения логируем и пропускаем.
+   */
+  async deleteStoreRunMessages(storeRunId: number): Promise<void> {
+    if (!this.bot) {
+      logger.error('deleteStoreRunMessages: bot not initialized', { storeRunId });
+      return;
+    }
+
+    const storeRun = await prisma.storeRun.findUnique({
+      where: { id: storeRunId },
+      select: {
+        groupMessageId: true,
+        dmMessages: true,
+        group: { select: { telegramId: true } },
+      },
+    });
+    if (!storeRun) {
+      logger.warn('deleteStoreRunMessages: run not found', { storeRunId });
+      return;
+    }
+
+    let deleted = 0;
+    let failed = 0;
+
+    if (storeRun.groupMessageId != null) {
+      try {
+        await this.bot.api.deleteMessage(
+          Number(storeRun.group.telegramId),
+          storeRun.groupMessageId,
+        );
+        deleted++;
+      } catch (error: any) {
+        failed++;
+        logger.warn('deleteStoreRunMessages: group message delete failed', {
+          storeRunId,
+          error: error?.message ?? error,
+        });
+      }
+    }
+
+    if (storeRun.dmMessages) {
+      let refs: Array<{ chatId: number; messageId: number }> = [];
+      try {
+        refs = JSON.parse(storeRun.dmMessages);
+      } catch {
+        logger.warn('deleteStoreRunMessages: invalid dmMessages JSON', { storeRunId });
+        refs = [];
+      }
+      for (const ref of refs) {
+        try {
+          await this.bot.api.deleteMessage(ref.chatId, ref.messageId);
+          deleted++;
+        } catch (error: any) {
+          failed++;
+          logger.warn('deleteStoreRunMessages: dm delete failed', {
+            storeRunId,
+            chatId: ref.chatId,
+            error: error?.message ?? error,
+          });
+        }
+      }
+    }
+
+    logger.info('Store run messages cleaned up', { storeRunId, deleted, failed });
+  }
+
   private escapeHtml(s: string): string {
     return s
       .replace(/&/g, '&amp;')
