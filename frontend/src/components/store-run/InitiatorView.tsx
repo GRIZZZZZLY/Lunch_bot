@@ -43,6 +43,11 @@ export const InitiatorView: React.FC<InitiatorViewProps> = ({ run, onRunDone }) 
     return Array.from(map.entries());
   }, [run.items]);
 
+  const boughtCount = useMemo(
+    () => run.items.filter((it) => it.status === 'BOUGHT').length,
+    [run.items],
+  );
+
   const handleStartShopping = async () => {
     hapticFeedback?.impactOccurred?.('medium');
     await startShopping();
@@ -58,6 +63,12 @@ export const InitiatorView: React.FC<InitiatorViewProps> = ({ run, onRunDone }) 
   };
 
   const handleSettle = async () => {
+    if (boughtCount === 0) {
+      const ok = window.confirm(
+        'Ни одна позиция не отмечена купленной — долги не создадутся. Всё равно завершить?',
+      );
+      if (!ok) return;
+    }
     hapticFeedback?.impactOccurred?.('medium');
     const response = await settle();
     if (response.success) {
@@ -86,6 +97,9 @@ export const InitiatorView: React.FC<InitiatorViewProps> = ({ run, onRunDone }) 
         <div className="rounded-xl border border-amber-500/28 bg-amber-500/8 px-4 py-3">
           <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
             🛍 Ты в магазине — проставь цены на позиции.
+          </p>
+          <p className="mt-1 text-xs text-amber-700/80 dark:text-amber-300/80">
+            Отмечено купленным: {boughtCount} из {run.items.length}
           </p>
         </div>
       )}
@@ -154,6 +168,7 @@ export const InitiatorView: React.FC<InitiatorViewProps> = ({ run, onRunDone }) 
         <Button
           onClick={handleSettle}
           disabled={settling}
+          variant={boughtCount === 0 ? 'outline' : 'default'}
           className="w-full"
         >
           <CheckCircle2 className="mr-1.5 h-4 w-4" />
@@ -178,18 +193,23 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, runId, editable }) => {
   const [priceInput, setPriceInput] = useState<string>(
     item.price != null ? String(Number(item.price)) : '',
   );
+  const [error, setError] = useState<string | null>(null);
 
   const save = async (status: 'BOUGHT' | 'NOT_FOUND') => {
+    setError(null);
     try {
       const priceValue =
         status === 'BOUGHT' ? Number(priceInput.replace(',', '.')) : null;
       if (status === 'BOUGHT' && (!Number.isFinite(priceValue!) || priceValue! < 0)) {
+        setError('Введи корректную цену');
         hapticFeedback?.notificationOccurred?.('error');
         return;
       }
       await setPrice({ itemId: item.id, payload: { price: priceValue, status } });
       hapticFeedback?.notificationOccurred?.('success');
-    } catch {
+    } catch (err) {
+      const apiErr = err as { error?: string };
+      setError(apiErr?.error || 'Не удалось сохранить. Попробуй ещё раз.');
       hapticFeedback?.notificationOccurred?.('error');
     }
   };
@@ -265,6 +285,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, runId, editable }) => {
           </div>
         )}
       </div>
+      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
     </li>
   );
 };
