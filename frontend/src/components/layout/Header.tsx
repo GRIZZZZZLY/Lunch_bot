@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTelegram } from '../../hooks/useTelegram';
 import { useAuth } from '../../hooks/useAuth';
+import { GroupSelector } from './GroupSelector';
 
 /**
  * Header компонент с информацией о пользователе
@@ -31,12 +32,15 @@ export const Header: React.FC = () => {
             </div>
           </div>
 
-          {user?.isAdmin && (
-            <div className="flex items-center space-x-2 text-sm text-blue-600 dark:text-blue-400">
-              <span>👑</span>
-              <span>Админ</span>
-            </div>
-          )}
+          <div className="flex items-center space-x-2">
+            <GroupSelector />
+            {user?.isAdmin && (
+              <div className="flex items-center space-x-2 text-sm text-blue-600 dark:text-blue-400">
+                <span>👑</span>
+                <span>Админ</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>
