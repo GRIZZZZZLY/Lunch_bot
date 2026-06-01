@@ -15,16 +15,16 @@ export { queryClient, persister, cacheUtils } from './queryClient';
  * Используется хуками из hooks/queries/*. Менять синхронно с queryClient.ts.
  */
 export const queryKeys = {
-  // Menu
+  // Menu — keys are scoped per group so each group gets its own cache bucket
   menu: {
     all: ['menu'] as const,
-    lists: () => [...queryKeys.menu.all, 'list'] as const,
-    list: (filters?: Record<string, unknown>) =>
-      [...queryKeys.menu.lists(), filters] as const,
+    lists: (groupId: number) => [...queryKeys.menu.all, 'list', groupId] as const,
+    list: (groupId: number, filters?: Record<string, unknown>) =>
+      [...queryKeys.menu.lists(groupId), filters] as const,
     details: () => [...queryKeys.menu.all, 'detail'] as const,
     detail: (id: number) => [...queryKeys.menu.details(), id] as const,
-    categories: () => [...queryKeys.menu.all, 'categories'] as const,
-    categoryCounts: () => [...queryKeys.menu.all, 'categoryCounts'] as const,
+    categories: (groupId: number) => [...queryKeys.menu.all, 'categories', groupId] as const,
+    categoryCounts: (groupId: number) => [...queryKeys.menu.all, 'categoryCounts', groupId] as const,
   },
 
   // Polls

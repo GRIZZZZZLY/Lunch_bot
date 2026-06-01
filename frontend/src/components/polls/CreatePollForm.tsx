@@ -29,6 +29,7 @@ import { Progress } from '../ui/progress';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useHaptic } from '@/hooks/useHaptic';
+import { useCurrentGroup } from '@/hooks/useCurrentGroup';
 import { menuService, MenuItem } from '@/services/menu.service';
 import { userService } from '@/services/user.service';
 import type { UserGroup } from '@/types/auth.types';
@@ -47,6 +48,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
 }) => {
   const { user } = useAuth();
   const haptic = useHaptic();
+  const { currentGroupId } = useCurrentGroup();
 
   // Определяем тему: проверяем CSS класс 'dark' на документе
   const [isDark, setIsDark] = useState(() => {
@@ -103,7 +105,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
     try {
       setLoading(true);
       const [menuResponse, groupsResponse] = await Promise.all([
-        menuService.getActiveItems(),
+        currentGroupId ? menuService.getActiveItems(currentGroupId) : Promise.resolve({ success: true, data: [] } as import('@/services/api.service').ApiResponse<import('@/services/menu.service').MenuItem[]>),
         userService.getUserGroups(),
       ]);
 
