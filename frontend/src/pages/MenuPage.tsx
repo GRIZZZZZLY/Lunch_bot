@@ -35,6 +35,7 @@ import {
 } from '../components/common/SkeletonLoader';
 import { MenuGridSkeleton } from '../components/menu/MenuGridSkeleton';
 import { useAuth } from '../hooks/useAuth';
+import { useIsGroupAdmin } from '../hooks/useIsGroupAdmin';
 import { useTelegram } from '../hooks/useTelegram';
 import { useAppStore } from '../store/useAppStore';
 import { menuService, MenuItem } from '../services/menu.service';
@@ -58,6 +59,7 @@ import { TYPOGRAPHY_H2, TYPOGRAPHY_TINY } from '../lib/typography';
  */
 export const MenuPage: React.FC = () => {
   const { user } = useAuth();
+  const isGroupAdmin = useIsGroupAdmin();
   const { mainButton, backButton, colorScheme } = useTelegram();
   const addNotification = useAppStore((state) => state.addNotification);
   const haptic = useHaptic();
@@ -384,7 +386,7 @@ export const MenuPage: React.FC = () => {
                     <Search className={ICON_SIZES.md} />
                   </Button>
 
-                  {user?.isAdmin && (
+                  {isGroupAdmin && (
                     <ThemeToggle variant="ghost" size="icon" className="size-11" />
                   )}
                 </div>
@@ -404,7 +406,7 @@ export const MenuPage: React.FC = () => {
               )}
             </p>
 
-            {user?.isAdmin && pendingCount > 0 && (
+            {isGroupAdmin && pendingCount > 0 && (
               <button
                 onClick={() => { navigate('/admin/suggestions'); haptic.light(); }}
                 className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-butter-500/14 text-butter-600 dark:text-butter-400 transition-colors hover:bg-butter-500/20"
@@ -442,7 +444,7 @@ export const MenuPage: React.FC = () => {
             {filteredItems.length > 50 ? (
               <VirtualMenuList
                 items={filteredItems}
-                isAdmin={user?.isAdmin}
+                isAdmin={isGroupAdmin}
                 onEdit={setEditingItem}
                 onDelete={handleDeleteItem}
                 onToggleStatus={handleToggleStatus}
@@ -455,7 +457,7 @@ export const MenuPage: React.FC = () => {
                 onDelete={handleDeleteItem}
                 onToggleStatus={handleToggleStatus}
                 onAdd={openBottomSheet}
-                showActions={user?.isAdmin}
+                showActions={isGroupAdmin}
               />
             )}
           </motion.div>
@@ -468,7 +470,7 @@ export const MenuPage: React.FC = () => {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => {
-          if (user?.isAdmin) {
+          if (isGroupAdmin) {
             openBottomSheet();
           } else {
             setSuggestFormOpen(true);
@@ -476,7 +478,7 @@ export const MenuPage: React.FC = () => {
           haptic.medium();
         }}
       >
-        {user?.isAdmin ? (
+        {isGroupAdmin ? (
           <>
             <Plus className={ICON_SIZES.md} />
             <span>Добавить блюдо</span>

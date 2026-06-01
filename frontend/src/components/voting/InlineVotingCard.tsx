@@ -13,6 +13,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useIsGroupAdmin } from '../../hooks/useIsGroupAdmin';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useAppStore } from '../../store/useAppStore';
 import { trackEvent, ANALYTICS_EVENTS } from '../../lib/analytics';
@@ -49,6 +50,7 @@ export const InlineVotingCard = ({
   onVoteSuccess,
 }: InlineVotingCardProps) => {
   const { user } = useAuth();
+  const isGroupAdmin = useIsGroupAdmin();
   const haptic = useHaptic();
   const addNotification = useAppStore((state) => state.addNotification);
   const queryClient = useQueryClient();
@@ -580,7 +582,7 @@ export const InlineVotingCard = ({
 
         <div className="flex items-center gap-2">
           {/* Admin close button - завершить голосование досрочно */}
-          {user?.isAdmin && (
+          {isGroupAdmin && (
             <button
               onClick={handleClosePoll}
               disabled={closing}

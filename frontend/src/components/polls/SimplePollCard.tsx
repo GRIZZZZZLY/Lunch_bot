@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Clock, Users, Vote, X } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useAuth } from '../../hooks/useAuth';
+import { useIsGroupAdmin } from '../../hooks/useIsGroupAdmin';
 import { useUI } from '../../store/useAppStore';
 import { pollsService, PollWithDetails } from '../../services/polls.service';
 import { ICON_SIZES } from '@/lib/design-tokens';
@@ -21,6 +22,7 @@ export const SimplePollCard = ({
 }: SimplePollCardProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isGroupAdmin = useIsGroupAdmin();
   const haptic = useHaptic();
   const { addNotification } = useUI();
   const [closing, setClosing] = useState(false);
@@ -211,7 +213,7 @@ export const SimplePollCard = ({
           Голосовать
         </motion.button>
         
-        {user?.isAdmin && (
+        {isGroupAdmin && (
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}

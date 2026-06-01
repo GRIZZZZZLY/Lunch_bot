@@ -8,6 +8,7 @@ import { queryKeys } from '@/lib/queryClient';
 import { pollsService, type Poll, type PollWithDetails } from '@/services/polls.service';
 import { useUI } from '@/store/useAppStore';
 import { useSSE } from './useSSE';
+import { useCurrentGroup } from './useCurrentGroup';
 
 /**
  * Hook для получения активных polls
@@ -219,11 +220,16 @@ export function useVote() {
 export function useCreatePoll() {
   const queryClient = useQueryClient();
   const { addNotification } = useUI();
+  const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
     mutationFn: async (data: { menuItemIds: number[]; duration?: number; groupId?: number }) => {
+      const resolvedGroupId = data.groupId ?? currentGroupId;
+      if (!resolvedGroupId) {
+        throw new Error('Группа не выбрана — невозможно создать голосование');
+      }
       const response = await pollsService.createPoll({
-        groupId: data.groupId || 1,
+        groupId: resolvedGroupId,
         duration: data.duration
       });
       if (!response.success) {

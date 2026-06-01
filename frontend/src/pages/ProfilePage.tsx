@@ -22,6 +22,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useIsGroupAdmin } from '../hooks/useIsGroupAdmin';
 import { useTelegram } from '../hooks/useTelegram';
 import { useAppStore } from '../store/useAppStore';
 import { userService, PaymentInfo } from '../services/user.service';
@@ -41,6 +42,7 @@ import { cn } from '@/lib/utils';
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { user, refresh } = useAuth();
+  const isGroupAdmin = useIsGroupAdmin();
   const { mainButton, backButton, colorScheme } = useTelegram();
   const addNotification = useAppStore((state) => state.addNotification);
   
@@ -253,7 +255,7 @@ export const ProfilePage: React.FC = () => {
                     @{user.username}
                   </div>
                 )}
-                {user?.isAdmin && (
+                {isGroupAdmin && (
                   <div className="mt-2">
                     <Badge 
                       variant="warning" 
@@ -323,7 +325,7 @@ export const ProfilePage: React.FC = () => {
         </motion.button>
 
         {/* Admin Dashboard Access */}
-        {user?.isAdmin && (
+        {isGroupAdmin && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -357,7 +359,7 @@ export const ProfilePage: React.FC = () => {
         )}
 
         {/* Refresh Token button (if admin in DB but not in token) */}
-        {!user?.isAdmin && import.meta.env.DEV && (
+        {!isGroupAdmin && import.meta.env.DEV && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -394,10 +396,10 @@ export const ProfilePage: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: user?.isAdmin ? 0.4 : 0.3, duration: 0.4 }}
+          transition={{ delay: isGroupAdmin ? 0.4 : 0.3, duration: 0.4 }}
         >
           <button
-            onClick={() => navigate(user?.isAdmin ? '/admin/suggestions' : '/my-suggestions')}
+            onClick={() => navigate(isGroupAdmin ? '/admin/suggestions' : '/my-suggestions')}
             className="w-full rounded-2xl border border-lavender-500/20 bg-card/95 p-5 transition-all hover:border-lavender-500/35 hover:shadow-md"
           >
             <div className="flex items-center justify-between">
@@ -407,10 +409,10 @@ export const ProfilePage: React.FC = () => {
                 </div>
                 <div className="text-left">
                   <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                    {user?.isAdmin ? 'Предложка' : 'Мои предложения'}
+                    {isGroupAdmin ? 'Предложка' : 'Мои предложения'}
                   </div>
                   <div className="mt-0.5 text-sm text-muted-foreground">
-                    {user?.isAdmin ? 'Модерация предложений от пользователей' : 'История предложенных блюд для меню'}
+                    {isGroupAdmin ? 'Модерация предложений от пользователей' : 'История предложенных блюд для меню'}
                   </div>
                 </div>
               </div>

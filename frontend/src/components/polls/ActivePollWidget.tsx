@@ -9,6 +9,7 @@ import { VotersAvatars } from '../voting/VotersAvatars';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useAuth } from '../../hooks/useAuth';
 import { useCurrentGroup } from '../../hooks/useCurrentGroup';
+import { useIsGroupAdmin } from '../../hooks/useIsGroupAdmin';
 import { useUI } from '../../store/useAppStore';
 import { PollWithDetails, pollsService } from '../../services/polls.service';
 import { MenuItem, menuService } from '../../services/menu.service';
@@ -32,6 +33,7 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
   const haptic = useHaptic();
   const { user } = useAuth();
   const { currentGroupId } = useCurrentGroup();
+  const isGroupAdmin = useIsGroupAdmin();
   const { addNotification } = useUI();
 
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
@@ -228,7 +230,7 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
         </div>
         
         {/* Close button for admins */}
-        {user?.isAdmin && (
+        {isGroupAdmin && (
           <button
             onClick={handleClosePoll}
             className={cn(
@@ -310,7 +312,7 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
       )}
 
       {/* Admin: участники голосования */}
-      {user?.isAdmin && (
+      {isGroupAdmin && (
         <PollParticipantsAdminSection pollId={poll.id} onAutoClosed={onPollClosed} />
       )}
 
