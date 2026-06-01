@@ -23,7 +23,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useTelegram } from '../hooks/useTelegram';
 import { useAppStore } from '../store/useAppStore';
 import { pollsService } from '../services/polls.service';
-import { userService, type Group } from '../services/user.service';
+import { userService } from '../services/user.service';
+import type { UserGroup } from '../types/auth.types';
 import { 
   adminService, 
   UserWithActivity, 
@@ -52,7 +53,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [groupsLoading, setGroupsLoading] = useState(true);
   const hasShownAccessError = useRef(false);
 
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState<UserGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
 
   const preferredGroupId = useMemo(() => {
