@@ -11,7 +11,6 @@ const COLLECT_MIN_MINUTES = 3;
 const COLLECT_MAX_MINUTES = 30;
 const ITEM_NAME_MAX_LEN = 200;
 const ITEM_NOTES_MAX_LEN = 500;
-const PARSE_MAX_POSITIONS = 20;
 
 export interface CreateStoreRunInput {
   initiatorId: number;
@@ -30,12 +29,6 @@ export interface UpdateStoreItemInput {
   name?: string;
   quantity?: number;
   notes?: string | null;
-}
-
-export interface ParsedOrderLine {
-  name: string;
-  quantity: number;
-  notes: null;
 }
 
 export class StoreRunError extends Error {
@@ -165,30 +158,6 @@ export class StoreRunService {
         initiator: true,
         items: { where: { userId }, select: { id: true, name: true, quantity: true } },
       },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  /**
-   * Активные COLLECTING-забеги, где пользователь — участник (не инициатор).
-   * Используется бот-handler-ом текстовых сообщений в личку.
-   */
-  static async findCollectingRunsForParticipant(userId: number): Promise<StoreRun[]> {
-    const memberships = await prisma.groupMember.findMany({
-      where: { userId, isActive: true },
-      select: { groupId: true },
-    });
-    const groupIds = memberships.map((m) => m.groupId);
-    if (groupIds.length === 0) return [];
-
-    return prisma.storeRun.findMany({
-      where: {
-        groupId: { in: groupIds },
-        status: 'COLLECTING',
-        initiatorId: { not: userId },
-        collectUntil: { gt: new Date() },
-      },
-      include: { initiator: true },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -454,19 +423,6 @@ export class StoreRunService {
     });
     logger.info('Store runs auto-closed to SHOPPING', { count: ids.length, ids });
     return ids;
-  }
-
-  /**
-   * Разбор свободного текста участника в список позиций.
-   * Сплитит по запятым и переводам строк, trim, отбрасывает пустые и слишком длинные.
-   */
-  static parseTextOrder(text: string): ParsedOrderLine[] {
-    return text
-      .split(/[,\n]+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0 && s.length <= ITEM_NAME_MAX_LEN)
-      .slice(0, PARSE_MAX_POSITIONS)
-      .map((name) => ({ name, quantity: 1, notes: null }));
   }
 
   // ------------------------------------------------------------------
