@@ -998,6 +998,49 @@ export class NotificationService {
     });
   }
 
+  /**
+   * Проверить, что бот состоит в целевой группе и может туда писать.
+   * Используется как pre-check перед созданием забега: если бота выгнали
+   * из группы, создавать забег бессмысленно — уведомление не доставится.
+   * Возвращает false при любой неопределённости (бот не инициализирован,
+   * группа не найдена, getChatMember упал с 403 «kicked»).
+   */
+  async botCanPostToGroup(groupId: number): Promise<boolean> {
+    if (!this.bot) {
+      logger.error('botCanPostToGroup: bot not initialized', { groupId });
+      return false;
+    }
+
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { telegramId: true },
+    });
+    if (!group) {
+      logger.warn('botCanPostToGroup: group not found', { groupId });
+      return false;
+    }
+
+    let botId: number;
+    try {
+      botId = this.bot.botInfo.id;
+    } catch {
+      // botInfo доступен только после bot.init(); подстраховка.
+      botId = (await this.bot.api.getMe()).id;
+    }
+
+    try {
+      const member = await this.bot.api.getChatMember(Number(group.telegramId), botId);
+      return member.status !== 'left' && member.status !== 'kicked';
+    } catch (error: any) {
+      logger.warn('botCanPostToGroup: getChatMember failed', {
+        groupId,
+        telegramId: String(group.telegramId),
+        error: error?.message ?? error,
+      });
+      return false;
+    }
+  }
+
   private escapeHtml(s: string): string {
     return s
       .replace(/&/g, '&amp;')
