@@ -53,7 +53,9 @@ function sendStoreRunError(res: Response, err: unknown): void {
         ? 404
         : err.code === 'FORBIDDEN'
         ? 403
-        : err.code === 'WRONG_STATUS' || err.code === 'ACTIVE_RUN_EXISTS'
+        : err.code === 'WRONG_STATUS' ||
+          err.code === 'ACTIVE_RUN_EXISTS' ||
+          err.code === 'BOT_NOT_IN_GROUP'
         ? 409
         : 400;
     res.status(status).json({ error: err.message, code: err.code });
@@ -79,6 +81,14 @@ export class StoreRunController {
       return;
     }
     try {
+      const canPost = await notificationService.botCanPostToGroup(parsed.data.groupId);
+      if (!canPost) {
+        throw new StoreRunError(
+          'BOT_NOT_IN_GROUP',
+          'Бот не состоит в этой группе. Добавь его в нужный групповой чат и попробуй снова.',
+        );
+      }
+
       const run = await StoreRunService.createStoreRun({
         initiatorId: user.id,
         groupId: parsed.data.groupId,
