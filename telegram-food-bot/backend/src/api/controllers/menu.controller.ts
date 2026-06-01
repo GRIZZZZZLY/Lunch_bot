@@ -11,6 +11,12 @@ function serializeMenuItem(item: any): any {
   return { ...item, price: toNumber(item.price) };
 }
 
+function resolveGroupId(req: Request): number | null {
+  const raw = (req.query.groupId ?? req.body?.groupId) as string | number | undefined;
+  const n = typeof raw === 'string' ? parseInt(raw, 10) : raw;
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export class MenuController {
   /**
    * GET /api/menu
@@ -18,7 +24,12 @@ export class MenuController {
    */
   static async getAllItems(req: Request, res: Response): Promise<void> {
     try {
-      const items = await MenuService.getAllMenuItems();
+      const groupId = resolveGroupId(req);
+      if (!groupId) {
+        res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
+        return;
+      }
+      const items = await MenuService.getAllMenuItems(groupId);
 
       res.json({
         success: true,
@@ -50,7 +61,13 @@ export class MenuController {
         hasAuthHeader: !!req.headers.authorization
       });
 
-      const items = await MenuService.getActiveMenuItems();
+      const groupId = resolveGroupId(req);
+      if (!groupId) {
+        res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
+        return;
+      }
+
+      const items = await MenuService.getActiveMenuItems(groupId);
 
       logger.info('✅ [MenuController] Active menu items retrieved', {
         count: items.length,
@@ -83,7 +100,12 @@ export class MenuController {
   static async getPopularItems(req: Request, res: Response): Promise<void> {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
-      const items = await MenuService.getPopularMenuItems(limit);
+      const groupId = resolveGroupId(req);
+      if (!groupId) {
+        res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
+        return;
+      }
+      const items = await MenuService.getPopularMenuItems(limit, groupId);
 
       res.json({
         success: true,
@@ -109,7 +131,12 @@ export class MenuController {
    */
   static async getMenuStats(req: Request, res: Response): Promise<void> {
     try {
-      const stats = await MenuService.getMenuStats();
+      const groupId = resolveGroupId(req);
+      if (!groupId) {
+        res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
+        return;
+      }
+      const stats = await MenuService.getMenuStats(groupId);
 
       res.json({
         success: true,
@@ -144,7 +171,13 @@ export class MenuController {
         return;
       }
 
-      const items = await MenuService.searchMenuItems(query.trim());
+      const groupId = resolveGroupId(req);
+      if (!groupId) {
+        res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
+        return;
+      }
+
+      const items = await MenuService.searchMenuItems(query.trim(), groupId);
 
       res.json({
         success: true,
@@ -230,9 +263,15 @@ export class MenuController {
       });
 
       // Добавляем createdBy из авторизованного пользователя
+      const groupId = resolveGroupId(req);
+      if (!groupId) {
+        res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
+        return;
+      }
       const itemData = {
         ...data,
         createdBy: user.id,
+        groupId,
       };
 
       const item = await MenuService.createMenuItem(itemData);
