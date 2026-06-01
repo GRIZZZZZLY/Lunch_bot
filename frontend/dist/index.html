@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Food Bot - Управление меню</title>
 
   <!--
@@ -32,46 +32,22 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  
+
   <!-- Версия приложения для cache busting -->
   <meta name="app-version" content="2.0.2">
-  
+
   <!-- Preconnect для ускорения загрузки внешних ресурсов -->
   <link rel="preconnect" href="https://telegram.org" crossorigin>
   <link rel="dns-prefetch" href="https://telegram.org">
-  
+
   <!-- Preload критических скриптов -->
   <link rel="preload" href="https://telegram.org/js/telegram-web-app.js" as="script">
-  
+
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script>
-    window.__errors = [];
-    window.onerror = function(msg, src, line, col, err) {
-      window.__errors.push({msg, src: (src||'').split('/').slice(-2).join('/'), line, col});
-      var d = document.getElementById('__err');
-      if (!d) { d = document.createElement('div'); d.id='__err'; d.style='position:fixed;top:0;left:0;right:0;background:red;color:white;font-size:12px;padding:8px;z-index:99999;white-space:pre-wrap;max-height:50vh;overflow:auto;'; document.body.appendChild(d); }
-      d.textContent = window.__errors.map(function(e){ return e.msg + '\n  ' + e.src + ':' + e.line; }).join('\n\n');
-    };
-    window.addEventListener('unhandledrejection', function(e) {
-      window.onerror(String(e.reason), 'promise', 0, 0, e.reason);
-    });
-  </script>
-  <script type="module" crossorigin src="/assets/js/index-CW7papXY.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/js/vendor-D5RdpJIO.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/react-core-Ct7VDEtF.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/router-CaOCagMF.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/query-libs-DEzONqpx.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/observability-e5gucZaZ.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/ui-extras-BAVCP7gn.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/utils-D7OCR8aR.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/http-CT76seSz.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/state-DXR4NSuz.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/animations-Ck3-qTvf.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/icons-Bpf_-Na2.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/ui-libs-DCKrHpOF.js">
-  <link rel="stylesheet" crossorigin href="/assets/css/index-bKtohzPr.css">
+  <script type="module" crossorigin src="/assets/js/index-BpGiKsIC.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/css/index-CAj6LNkf.css">
 <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
 <body>
-  <div id="root"></div>
+  <div id="root"></div>
 </body>
 </html>
