@@ -16,7 +16,7 @@ import { Calendar, Clock, Settings, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { recurringPollService, RecurringPoll } from '@/services/recurring-poll.service';
 import { ICON_SIZES } from '@/lib/design-tokens';
-import { useAuth } from '@/hooks/useAuth';
+import { useIsGroupAdmin } from '@/hooks/useIsGroupAdmin';
 
 interface RecurringPollBadgeProps {
   groupId: number | undefined;
@@ -29,8 +29,7 @@ export const RecurringPollBadge = ({
   className,
   onClick,
 }: RecurringPollBadgeProps) => {
-  const { user } = useAuth();
-  const isAdmin = user?.isAdmin || false;
+  const isAdmin = useIsGroupAdmin();
   const [schedule, setSchedule] = useState<RecurringPoll | null>(null);
   const [loading, setLoading] = useState(true);
 

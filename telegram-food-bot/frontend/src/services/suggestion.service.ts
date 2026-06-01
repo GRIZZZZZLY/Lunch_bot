@@ -33,6 +33,7 @@ export interface CreateSuggestionData {
   description?: string;
   price?: number;
   imageUrl?: string;
+  groupId?: number;
 }
 
 export interface SuggestionStats {
@@ -83,18 +84,18 @@ class SuggestionService {
   /**
    * Одобрить предложение (только админ)
    */
-  async approveSuggestion(id: number): Promise<ApiResponse<{ suggestion: MenuSuggestion; menuItem: any }>> {
+  async approveSuggestion(id: number, groupId?: number): Promise<ApiResponse<{ suggestion: MenuSuggestion; menuItem: any }>> {
     return await apiService.post<{ suggestion: MenuSuggestion; menuItem: any }>(
       `/suggestions/${id}/approve`,
-      {}
+      groupId ? { groupId } : {}
     );
   }
 
   /**
    * Отклонить предложение (только админ)
    */
-  async rejectSuggestion(id: number, reason?: string): Promise<ApiResponse<MenuSuggestion>> {
-    return await apiService.post<MenuSuggestion>(`/suggestions/${id}/reject`, { reason });
+  async rejectSuggestion(id: number, reason?: string, groupId?: number): Promise<ApiResponse<MenuSuggestion>> {
+    return await apiService.post<MenuSuggestion>(`/suggestions/${id}/reject`, { reason, ...(groupId ? { groupId } : {}) });
   }
 
   /**

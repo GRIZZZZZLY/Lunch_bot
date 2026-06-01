@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { suggestionService, CreateSuggestionData } from '../services/suggestion.service';
 import { useAppStore } from '../store/useAppStore';
+import { useIsGroupAdmin } from './useIsGroupAdmin';
+import { useCurrentGroup } from './useCurrentGroup';
 
 /**
  * Hook для получения списка предложений
@@ -47,10 +49,13 @@ export function useSuggestion(id: number) {
 export function useCreateSuggestion() {
   const queryClient = useQueryClient();
   const addNotification = useAppStore((state) => state.addNotification);
+  const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
     mutationFn: async (data: CreateSuggestionData) => {
-      const response = await suggestionService.createSuggestion(data);
+      const response = await suggestionService.createSuggestion(
+        currentGroupId ? { ...data, groupId: currentGroupId } : data
+      );
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Failed to create suggestion');
       }
@@ -83,10 +88,11 @@ export function useCreateSuggestion() {
 export function useApproveSuggestion() {
   const queryClient = useQueryClient();
   const addNotification = useAppStore((state) => state.addNotification);
+  const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await suggestionService.approveSuggestion(id);
+      const response = await suggestionService.approveSuggestion(id, currentGroupId ?? undefined);
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Failed to approve suggestion');
       }
@@ -120,10 +126,11 @@ export function useApproveSuggestion() {
 export function useRejectSuggestion() {
   const queryClient = useQueryClient();
   const addNotification = useAppStore((state) => state.addNotification);
+  const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason?: string }) => {
-      const response = await suggestionService.rejectSuggestion(id, reason);
+      const response = await suggestionService.rejectSuggestion(id, reason, currentGroupId ?? undefined);
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Failed to reject suggestion');
       }
@@ -172,8 +179,8 @@ export function useSuggestionStats() {
  * Hook для получения количества ожидающих предложений (только админ)
  */
 export function usePendingCount() {
-  const user = useAppStore((state) => state.user);
-  
+  const isGroupAdmin = useIsGroupAdmin();
+
   return useQuery({
     queryKey: ['pending-count'],
     queryFn: async () => {
@@ -183,7 +190,7 @@ export function usePendingCount() {
       }
       return response.data.count;
     },
-    enabled: !!user?.isAdmin, // Only run for admins
+    enabled: isGroupAdmin,
     refetchInterval: 60000, // Refetch every minute
   });
 }

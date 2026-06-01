@@ -51,6 +51,8 @@ import { ActiveStoreRunsSection } from '../components/store-run/ActiveStoreRunsS
 // Hooks & Services
 import { useTelegram } from '../hooks/useTelegram';
 import { useAuth } from '../hooks/useAuth';
+import { useIsGroupAdmin } from '../hooks/useIsGroupAdmin';
+import { useCurrentGroup } from '../hooks/useCurrentGroup';
 import { useHaptic } from '../hooks/useHaptic';
 import { useAppStore } from '../store/useAppStore';
 import { pollsService, PollWithDetails } from '../services/polls.service';
@@ -85,6 +87,8 @@ export const HomePage: React.FC = () => {
   const telegram = useTelegram();
   const { colorScheme } = telegram;
   const { user } = useAuth();
+  const isGroupAdmin = useIsGroupAdmin();
+  const { currentGroupId } = useCurrentGroup();
   const haptic = useHaptic();
   const addNotification = useAppStore((state) => state.addNotification);
   const theme = useAppStore((state) => state.theme);
@@ -193,9 +197,9 @@ export const HomePage: React.FC = () => {
     }
   }, [activePollsSignature, location.search, addNotification]);
 
-  // ВАЖНО: userGroupId ДОЛЖЕН быть объявлен ПОСЛЕ activePolls и userGroups
-  // Используем groupId из активного голосования или первой группы пользователя
-  const userGroupId = activePoll?.groupId || userGroups[0]?.id;
+  // ВАЖНО: userGroupId ДОЛЖЕН быть объявлен ПОСЛЕ activePolls и currentGroupId
+  // Используем groupId из активного голосования или текущей выбранной группы
+  const userGroupId = activePoll?.groupId || currentGroupId || undefined;
 
   // React Query: Load today's completed poll (параллельно, но использует userGroupId)
   const { data: todayCompletedPoll, isLoading: loadingCompletedPoll, error: completedPollError, refetch: refetchCompleted } = useTodayCompletedPoll(
@@ -486,7 +490,7 @@ export const HomePage: React.FC = () => {
   }, [user?.id, queryClient]);
 
   useEffect(() => {
-    if (!user?.isAdmin || hasAnyPoll) {
+    if (!isGroupAdmin || hasAnyPoll) {
       setShowAdminChecklist(false);
       return;
     }
@@ -503,7 +507,7 @@ export const HomePage: React.FC = () => {
 
     localStorage.setItem(key, 'true');
     setShowAdminChecklist(true);
-  }, [user?.id, user?.isAdmin, hasAnyPoll, isLoading]);
+  }, [user?.id, isGroupAdmin, hasAnyPoll, isLoading]);
 
   const handlePollCreated = async (pollId: number) => {
     console.log('✅ [HomePage] Poll created:', pollId);
@@ -644,8 +648,8 @@ export const HomePage: React.FC = () => {
 
   // Напомнить админу о создании голосования
   const handleRemindAdmin = async () => {
-    // Используем первую группу пользователя (приоритет выше чем activePoll)
-    const groupId = userGroups[0]?.id || activePoll?.groupId;
+    // Используем текущую выбранную группу (приоритет выше чем activePoll)
+    const groupId = currentGroupId || activePoll?.groupId;
     
     if (!groupId) {
       addNotification({
@@ -826,10 +830,10 @@ export const HomePage: React.FC = () => {
               animate="show"
             >
               {(() => {
-                const title = user?.isAdmin
+                const title = isGroupAdmin
                   ? `${adminEmptyGreeting}! Голосования ещё нет`
                   : 'Пока нет активного голосования';
-                const description = user?.isAdmin
+                const description = isGroupAdmin
                   ? 'Создай вручную или включи авто-запуск'
                   : 'Сообщим, когда начнётся. Пока можно предложить блюдо в меню.';
 
@@ -837,9 +841,9 @@ export const HomePage: React.FC = () => {
                   <HomeEmptyStateCard
                     title={title}
                     description={description}
-                    isAdmin={!!user?.isAdmin}
+                    isAdmin={!!isGroupAdmin}
                     showAdminChecklist={showAdminChecklist}
-                    showRemindAdmin={!user?.isAdmin && !!userGroupId}
+                    showRemindAdmin={!isGroupAdmin && !!userGroupId}
                     onCreatePoll={() => {
                       haptic.impact();
                       setIsCreatingPoll(true);
@@ -893,7 +897,7 @@ export const HomePage: React.FC = () => {
         </motion.div>
 
         {/* Recurring Poll Badge - индикатор автоматических голосований (только если нет активного poll) */}
-        {user?.isAdmin && !activePoll && (
+        {isGroupAdmin && !activePoll && (
           <motion.div variants={itemVariants}>
             <RecurringPollBadge
               groupId={userGroupId}
@@ -908,7 +912,7 @@ export const HomePage: React.FC = () => {
         {/* Actions Section - Vertical list */}
         <motion.div variants={itemVariants}>
           <HomeActionsSection
-            showAdminAction={!!user?.isAdmin && hasAnyPoll}
+            showAdminAction={!!isGroupAdmin && hasAnyPoll}
             onCreatePoll={() => {
               haptic.impact();
               setIsCreatingPoll(true);

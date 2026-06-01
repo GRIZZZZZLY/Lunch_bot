@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTelegram } from '../../hooks/useTelegram';
 import { useAuth } from '../../hooks/useAuth';
+import { useIsGroupAdmin } from '../../hooks/useIsGroupAdmin';
 import { GroupSelector } from './GroupSelector';
 
 /**
@@ -9,6 +10,7 @@ import { GroupSelector } from './GroupSelector';
 export const Header: React.FC = () => {
   const { user } = useAuth();
   const { user: tgUser } = useTelegram();
+  const isGroupAdmin = useIsGroupAdmin();
 
   if (!user && !tgUser) return null;
 
@@ -34,7 +36,7 @@ export const Header: React.FC = () => {
 
           <div className="flex items-center space-x-2">
             <GroupSelector />
-            {user?.isAdmin && (
+            {isGroupAdmin && (
               <div className="flex items-center space-x-2 text-sm text-blue-600 dark:text-blue-400">
                 <span>👑</span>
                 <span>Админ</span>

@@ -11,7 +11,7 @@ import { WaitingCalculationView } from './WaitingCalculationView';
 import { BudgetWidget } from './BudgetWidget';
 import { useOrderCalculation } from '@/hooks/useOrderCalculation';
 import { categoryOrderService, CategoryOrder } from '@/services/category-order.service';
-import { useAuth } from '@/hooks/useAuth';
+import { useIsGroupAdmin } from '@/hooks/useIsGroupAdmin';
 import { GlassCard } from '@/components/ui/glass-card';
 import { Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,7 @@ export function BudgetWidgetWithCalculator({
   const { data: activePolls, isLoading: pollsLoading } = useActivePolls();
   const activePoll = activePolls?.[0];
   const effectivePollId = pollId ?? activePoll?.id;
-  const { user } = useAuth();
+  const isGroupAdmin = useIsGroupAdmin();
 
   // Real-time updates for responsible selection and category-order progress.
   useSSE({
@@ -61,7 +61,7 @@ export function BudgetWidgetWithCalculator({
 
   const { data: allCategoryOrders, isLoading: allOrdersLoading } = useCategoryOrders(
     effectivePollId,
-    { enabled: !!effectivePollId && !!user?.isAdmin }
+    { enabled: !!effectivePollId && isGroupAdmin }
   );
 
   const isLoading =
@@ -95,7 +95,7 @@ export function BudgetWidgetWithCalculator({
   }
 
   // Priority 2: Admin view for non-responsible users
-  if (user?.isAdmin && allCategoryOrders && allCategoryOrders.length > 0) {
+  if (isGroupAdmin && allCategoryOrders && allCategoryOrders.length > 0) {
     const pendingOrders = allCategoryOrders.filter(
       (order) => order.calculationStatus !== 'COMPLETED'
     );
