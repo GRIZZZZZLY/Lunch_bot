@@ -5,6 +5,15 @@ import { GroupService } from '../../services/group.service';
 import { UserService } from '../../services/user.service';
 
 /**
+ * Маппинг Telegram chat-member статуса в роль участника группы в нашей БД.
+ */
+export function mapChatMemberStatusToRole(status: string): 'CREATOR' | 'ADMIN' | 'MEMBER' {
+  if (status === 'creator') return 'CREATOR';
+  if (status === 'administrator') return 'ADMIN';
+  return 'MEMBER';
+}
+
+/**
  * Настройка обработчиков событий группы
  */
 export function setupGroupEvents(bot: Bot<BotContext>) {
