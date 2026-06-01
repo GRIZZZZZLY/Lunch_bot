@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '../../services/user.service';
 import { queryKeys } from '../../lib/react-query';
 import { useToast } from '../../components/common/toast-context';
+import type { UserGroup } from '../../types/auth.types';
 
 /**
  * Хук для получения текущего пользователя
@@ -42,7 +43,7 @@ export const usePaymentInfo = (options?: { enabled?: boolean }) => {
  * Хук для получения групп пользователя
  */
 export const useUserGroups = (options?: { enabled?: boolean }) => {
-  return useQuery({
+  return useQuery<UserGroup[]>({
     queryKey: queryKeys.user.groups(),
     queryFn: async () => {
       const response = await userService.getUserGroups();

@@ -30,7 +30,8 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useHaptic } from '@/hooks/useHaptic';
 import { menuService, MenuItem } from '@/services/menu.service';
-import { userService, Group } from '@/services/user.service';
+import { userService } from '@/services/user.service';
+import type { UserGroup } from '@/types/auth.types';
 import { pollsService } from '@/services/polls.service';
 import { RecurringPollForm } from './RecurringPollForm';
 import { ICON_SIZES } from '@/lib/design-tokens';
@@ -80,7 +81,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   }, []);
 
   // State
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState<UserGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [duration, setDuration] = useState(30);
   const [isMultiSelect, setIsMultiSelect] = useState(true); // Множественный выбор по умолчанию

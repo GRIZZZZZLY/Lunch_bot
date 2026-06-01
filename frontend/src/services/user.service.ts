@@ -1,4 +1,5 @@
 import { apiService, ApiResponse } from './api.service';
+import type { UserGroup } from '../types/auth.types';
 
 export interface User {
   id: number;
@@ -58,8 +59,8 @@ class UserService {
   /**
    * Получение списка групп пользователя
    */
-  async getUserGroups(): Promise<ApiResponse<Group[]>> {
-    return await apiService.get<Group[]>('/user/groups');
+  async getUserGroups(): Promise<ApiResponse<UserGroup[]>> {
+    return await apiService.get<UserGroup[]>('/user/groups');
   }
 
   /**

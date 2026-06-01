@@ -61,6 +61,9 @@ export interface AppState {
   pollResults: PollResult[];
   pollsLoading: boolean;
   
+  // Group state
+  currentGroupId: number | null;
+
   // UI state
   loading: boolean;
   error: string | null;
@@ -100,6 +103,9 @@ export interface AppActions {
   addPollResult: (result: PollResult) => void;
   setPollsLoading: (loading: boolean) => void;
   
+  // Group actions
+  setCurrentGroupId: (id: number | null) => void;
+
   // UI actions
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -144,6 +150,9 @@ const initialState: AppState = {
   pollResults: [],
   pollsLoading: false,
   
+  // Group
+  currentGroupId: null,
+
   // UI
   loading: false,
   error: null,
@@ -218,6 +227,9 @@ export const useAppStore = create<AppState & AppActions>()(
         })),
         setPollsLoading: (pollsLoading) => set({ pollsLoading }),
         
+        // Group actions
+        setCurrentGroupId: (currentGroupId) => set({ currentGroupId }),
+
         // UI actions
         setLoading: (loading) => set({ loading }),
         setError: (error) => set({ error }),
@@ -256,6 +268,7 @@ export const useAppStore = create<AppState & AppActions>()(
           theme: state.theme,
           menuItems: state.menuItems,
           selectedCategory: state.selectedCategory,
+          currentGroupId: state.currentGroupId,
         }),
       }
     ),
