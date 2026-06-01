@@ -53,6 +53,11 @@ cd backend
 # и `set -e` прерывал деплой ДО pm2 reload. Не возвращать --only=production.
 npm install
 
+# Regenerate Prisma Client BEFORE tsc. `npm install` is a no-op when deps are
+# unchanged and does NOT re-run `prisma generate`, leaving a STALE client without
+# new schema fields (e.g. groupId) → tsc fails with "X does not exist in type ...".
+npx prisma generate
+
 # Rebuild
 npm run build
 
