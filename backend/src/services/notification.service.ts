@@ -791,6 +791,7 @@ export class NotificationService {
       : undefined;
 
     const results: NotificationResult[] = [];
+    const dmRefs: Array<{ chatId: number; messageId: number }> = [];
     for (const member of members) {
       const tgId = Number(member.user.telegramId);
       const result = await this.send({
@@ -811,6 +812,21 @@ export class NotificationService {
         });
       }
       results.push(result);
+      if (result.success && result.messageId != null) {
+        dmRefs.push({ chatId: tgId, messageId: result.messageId });
+      }
+    }
+
+    try {
+      await prisma.storeRun.update({
+        where: { id: storeRunId },
+        data: { dmMessages: JSON.stringify(dmRefs) },
+      });
+    } catch (persistError: any) {
+      logger.warn('notifyGroupMembersAboutStoreRun: failed to persist dmMessages', {
+        storeRunId,
+        error: persistError?.message ?? persistError,
+      });
     }
 
     const successful = results.filter((r) => r.success).length;
@@ -937,6 +953,17 @@ export class NotificationService {
           },
         },
       );
+      try {
+        await prisma.storeRun.update({
+          where: { id: storeRunId },
+          data: { groupMessageId: sent.message_id },
+        });
+      } catch (persistError: any) {
+        logger.warn('postStoreRunToGroup: failed to persist groupMessageId', {
+          storeRunId,
+          error: persistError?.message ?? persistError,
+        });
+      }
       logger.info('Store run posted to group', { storeRunId, messageId: sent.message_id });
       return { success: true, messageId: sent.message_id, sentAt: new Date() };
     } catch (error: any) {
