@@ -6,6 +6,9 @@ jest.mock('../../database/client', () => ({
     group: {
       findUnique: jest.fn(),
     },
+    storeRun: {
+      findUnique: jest.fn(),
+    },
   },
 }));
 
@@ -72,5 +75,99 @@ describe('NotificationService.botCanPostToGroup', () => {
     );
     service.initialize(makeBot(getChatMember) as any);
     expect(await service.botCanPostToGroup(2)).toBe(false);
+  });
+});
+
+const mockStoreRun = prisma.storeRun.findUnique as jest.Mock;
+
+function makeDeleteBot(deleteMessageImpl: jest.Mock) {
+  return {
+    botInfo: { id: 999 },
+    api: { deleteMessage: deleteMessageImpl, getChatMember: jest.fn() },
+  };
+}
+
+describe('NotificationService.deleteStoreRunMessages', () => {
+  let service: NotificationService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = new NotificationService();
+  });
+
+  it('does nothing when bot is not initialized', async () => {
+    await expect(service.deleteStoreRunMessages(5)).resolves.toBeUndefined();
+    expect(mockStoreRun).not.toHaveBeenCalled();
+  });
+
+  it('does not throw when run not found', async () => {
+    mockStoreRun.mockResolvedValue(null);
+    const del = jest.fn();
+    service.initialize(makeDeleteBot(del) as any);
+    await expect(service.deleteStoreRunMessages(5)).resolves.toBeUndefined();
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it('deletes the group post and every DM', async () => {
+    mockStoreRun.mockResolvedValue({
+      groupMessageId: 1327,
+      dmMessages: JSON.stringify([
+        { chatId: 111, messageId: 5 },
+        { chatId: 222, messageId: 6 },
+      ]),
+      group: { telegramId: BigInt('-1002512649185') },
+    });
+    const del = jest.fn().mockResolvedValue(true);
+    service.initialize(makeDeleteBot(del) as any);
+
+    await service.deleteStoreRunMessages(5);
+
+    expect(del).toHaveBeenCalledTimes(3);
+    expect(del).toHaveBeenCalledWith(-1002512649185, 1327);
+    expect(del).toHaveBeenCalledWith(111, 5);
+    expect(del).toHaveBeenCalledWith(222, 6);
+  });
+
+  it('tolerates a deleteMessage failure and still deletes the rest', async () => {
+    mockStoreRun.mockResolvedValue({
+      groupMessageId: 1327,
+      dmMessages: JSON.stringify([{ chatId: 111, messageId: 5 }]),
+      group: { telegramId: BigInt('-1002512649185') },
+    });
+    const del = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('message to delete not found'))
+      .mockResolvedValue(true);
+    service.initialize(makeDeleteBot(del) as any);
+
+    await expect(service.deleteStoreRunMessages(5)).resolves.toBeUndefined();
+    expect(del).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips deletion when there are no stored message ids', async () => {
+    mockStoreRun.mockResolvedValue({
+      groupMessageId: null,
+      dmMessages: null,
+      group: { telegramId: BigInt('-1002512649185') },
+    });
+    const del = jest.fn();
+    service.initialize(makeDeleteBot(del) as any);
+
+    await service.deleteStoreRunMessages(5);
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it('does not throw on invalid dmMessages JSON, still deletes group post', async () => {
+    mockStoreRun.mockResolvedValue({
+      groupMessageId: 1327,
+      dmMessages: 'not-json',
+      group: { telegramId: BigInt('-1002512649185') },
+    });
+    const del = jest.fn().mockResolvedValue(true);
+    service.initialize(makeDeleteBot(del) as any);
+
+    await expect(service.deleteStoreRunMessages(5)).resolves.toBeUndefined();
+    expect(del).toHaveBeenCalledTimes(1);
+    expect(del).toHaveBeenCalledWith(-1002512649185, 1327);
   });
 });
