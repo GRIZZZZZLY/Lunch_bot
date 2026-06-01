@@ -30,6 +30,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   // Пицца
   {
     id: 1,
+    groupId: 0,
     name: 'Пицца Маргарита',
     description: 'Классическая итальянская пицца с томатным соусом, моцареллой и базиликом',
     price: 850,
@@ -46,6 +47,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 7,
+    groupId: 0,
     name: 'Пицца Пепперони',
     description: 'Острая пицца с пепперони, сыром моцарелла и томатным соусом',
     price: 920,
@@ -57,6 +59,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 8,
+    groupId: 0,
     name: 'Пицца Четыре сыра',
     description: 'Пицца с четырьмя видами сыра: моцарелла, горгонзола, пармезан, чеддер',
     price: 980,
@@ -70,6 +73,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   // Супы
   {
     id: 2,
+    groupId: 0,
     name: 'Борщ украинский',
     description: 'Традиционный борщ с говядиной, подается со сметаной',
     price: 350,
@@ -81,6 +85,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 9,
+    groupId: 0,
     name: 'Солянка мясная',
     description: 'Сытный суп с копченостями, солеными огурцами и оливками',
     price: 380,
@@ -92,6 +97,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 10,
+    groupId: 0,
     name: 'Том Ям',
     description: 'Острый тайский суп с креветками, грибами и лемонграссом',
     price: 420,
@@ -105,6 +111,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   // Салаты
   {
     id: 3,
+    groupId: 0,
     name: 'Цезарь с курицей',
     description: 'Салат с куриным филе, листьями салата, пармезаном и соусом цезарь',
     price: 450,
@@ -116,6 +123,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 11,
+    groupId: 0,
     name: 'Греческий салат',
     description: 'Свежие овощи, фета, оливки, заправленные оливковым маслом',
     price: 380,
@@ -127,6 +135,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 12,
+    groupId: 0,
     name: 'Салат с лососем',
     description: 'Слабосолёный лосось с авокадо, рукколой и каперсами',
     price: 520,
@@ -140,6 +149,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   // Мясные блюда
   {
     id: 4,
+    groupId: 0,
     name: 'Стейк рибай',
     description: 'Говяжий стейк средней прожарки с овощами гриль',
     price: 1200,
@@ -156,6 +166,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 13,
+    groupId: 0,
     name: 'Котлеты по-киевски',
     description: 'Куриные котлеты с маслом и зеленью, в золотистой панировке',
     price: 680,
@@ -167,6 +178,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 14,
+    groupId: 0,
     name: 'Шашлык из баранины',
     description: 'Сочный шашлык из молодой баранины с луком и зеленью',
     price: 950,
@@ -180,6 +192,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   // Паста
   {
     id: 5,
+    groupId: 0,
     name: 'Паста Карбонара',
     description: 'Спагетти с беконом, яичным желтком и пармезаном',
     price: 650,
@@ -191,6 +204,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 15,
+    groupId: 0,
     name: 'Паста Болоньезе',
     description: 'Спагетти с мясным соусом по-болонски из говядины',
     price: 580,
@@ -202,6 +216,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 16,
+    groupId: 0,
     name: 'Паста с морепродуктами',
     description: 'Лингвини с креветками, мидиями и кальмарами в сливочном соусе',
     price: 780,
@@ -215,6 +230,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   // Десерты
   {
     id: 6,
+    groupId: 0,
     name: 'Тирамису',
     description: 'Классический итальянский десерт с маскарпоне и кофе',
     price: 300,
@@ -225,6 +241,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 17,
+    groupId: 0,
     name: 'Чизкейк Нью-Йорк',
     description: 'Нежный сырный торт с ягодным соусом',
     price: 280,
@@ -236,6 +253,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 18,
+    groupId: 0,
     name: 'Шоколадный фондан',
     description: 'Горячий шоколадный кекс с жидкой начинкой',
     price: 320,
@@ -249,6 +267,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   // Напитки
   {
     id: 19,
+    groupId: 0,
     name: 'Кофе латте',
     description: 'Эспрессо с взбитым молоком и нежной пенкой',
     price: 180,
@@ -260,6 +279,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 20,
+    groupId: 0,
     name: 'Лимонад домашний',
     description: 'Освежающий лимонад с мятой и лаймом',
     price: 150,
@@ -271,6 +291,7 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   },
   {
     id: 21,
+    groupId: 0,
     name: 'Смузи ягодное',
     description: 'Смузи из свежих ягод с йогуртом и мёдом',
     price: 220,
@@ -376,6 +397,7 @@ class MockApiService {
     
     const newItem: MenuItem = {
       id: Math.max(...MOCK_MENU_ITEMS.map(i => i.id)) + 1,
+      groupId: data.groupId ?? 0,
       ...data,
       isActive: data.isActive ?? true,
       createdAt: new Date().toISOString(),

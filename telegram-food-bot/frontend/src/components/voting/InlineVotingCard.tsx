@@ -137,7 +137,7 @@ export const InlineVotingCard = ({
       }
 
       // Загружаем меню и фильтруем по выбранным блюдам
-      const menuResponse = await menuService.getActiveItems();
+      const menuResponse = await menuService.getActiveItems(pollResponse.data?.groupId ?? poll.groupId);
       if (menuResponse.success && menuResponse.data) {
         let items = menuResponse.data;
         

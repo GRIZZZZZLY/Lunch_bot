@@ -4,6 +4,7 @@ const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true';
 
 export interface MenuItem {
   id: number;
+  groupId: number;
   name: string;
   description?: string;
   price?: number;
@@ -49,32 +50,33 @@ class MenuService {
   /**
    * Получение всех блюд
    */
-  async getAllItems(): Promise<ApiResponse<MenuItem[]>> {
+  async getAllItems(groupId: number): Promise<ApiResponse<MenuItem[]>> {
     if (USE_MOCK_API) {
       const { mockApiService } = await import('./mockApi.service');
       return await mockApiService.getAllMenuItems();
     }
-    return await apiService.get<MenuItem[]>('/menu');
+    return await apiService.get<MenuItem[]>(`/menu?groupId=${groupId}`);
   }
 
   /**
    * Получение только активных блюд
    */
-  async getActiveItems(): Promise<ApiResponse<MenuItem[]>> {
+  async getActiveItems(groupId: number): Promise<ApiResponse<MenuItem[]>> {
     if (import.meta.env.DEV) {
       console.log('[MenuService] 🔍 getActiveItems called', {
         useMockApi: USE_MOCK_API,
-        hasToken: !!apiService.getToken()
+        hasToken: !!apiService.getToken(),
+        groupId,
       });
     }
-    
+
     if (USE_MOCK_API) {
       const { mockApiService } = await import('./mockApi.service');
       return await mockApiService.getActiveMenuItems();
     }
-    
-    const response = await apiService.get<MenuItem[]>('/menu/active');
-    
+
+    const response = await apiService.get<MenuItem[]>(`/menu/active?groupId=${groupId}`);
+
     if (import.meta.env.DEV) {
       console.log('[MenuService] ✅ getActiveItems response', {
         success: response.success,
@@ -83,7 +85,7 @@ class MenuService {
         data: response.data
       });
     }
-    
+
     return response;
   }
 
@@ -97,91 +99,90 @@ class MenuService {
   /**
    * Создание нового блюда
    */
-  async createItem(data: CreateMenuItemData): Promise<ApiResponse<MenuItem>> {
+  async createItem(data: CreateMenuItemData, groupId: number): Promise<ApiResponse<MenuItem>> {
     if (USE_MOCK_API) {
       const { mockApiService } = await import('./mockApi.service');
       return await mockApiService.createMenuItem(data);
     }
-    return await apiService.post<MenuItem>('/menu', data);
+    return await apiService.post<MenuItem>('/menu', { ...data, groupId });
   }
 
   /**
    * Обновление блюда
    */
-  async updateItem(id: number, data: UpdateMenuItemData): Promise<ApiResponse<MenuItem>> {
-    return await apiService.put<MenuItem>(`/menu/${id}`, data);
+  async updateItem(id: number, data: UpdateMenuItemData, groupId: number): Promise<ApiResponse<MenuItem>> {
+    return await apiService.put<MenuItem>(`/menu/${id}?groupId=${groupId}`, { ...data, groupId });
   }
 
   /**
    * Удаление блюда
    */
-  async deleteItem(id: number): Promise<ApiResponse<void>> {
-    return await apiService.delete<void>(`/menu/${id}`);
+  async deleteItem(id: number, groupId: number): Promise<ApiResponse<void>> {
+    return await apiService.delete<void>(`/menu/${id}?groupId=${groupId}`);
   }
 
   /**
    * Переключение статуса активности блюда
    */
-  async toggleItemStatus(id: number): Promise<ApiResponse<MenuItem>> {
-    return await apiService.patch<MenuItem>(`/menu/${id}/toggle`);
+  async toggleItemStatus(id: number, groupId: number): Promise<ApiResponse<MenuItem>> {
+    return await apiService.patch<MenuItem>(`/menu/${id}/toggle?groupId=${groupId}`, { groupId });
   }
 
   /**
    * Массовое обновление статуса блюд
    */
   async bulkUpdateStatus(
-    ids: number[], 
-    isActive: boolean
+    ids: number[],
+    isActive: boolean,
+    groupId: number,
   ): Promise<ApiResponse<{ updatedCount: number }>> {
     return await apiService.patch<{ updatedCount: number }>('/menu/bulk-status', {
       ids,
       isActive,
+      groupId,
     });
   }
 
   /**
    * Поиск блюд
    */
-  async searchItems(query: string): Promise<ApiResponse<MenuItem[]>> {
-    return await apiService.get<MenuItem[]>(`/menu/search?q=${encodeURIComponent(query)}`);
+  async searchItems(query: string, groupId: number): Promise<ApiResponse<MenuItem[]>> {
+    return await apiService.get<MenuItem[]>(`/menu/search?q=${encodeURIComponent(query)}&groupId=${groupId}`);
   }
 
   /**
    * Получение популярных блюд
    */
-  async getPopularItems(limit: number = 10): Promise<ApiResponse<MenuItemWithStats[]>> {
-    return await apiService.get<MenuItemWithStats[]>(`/menu/popular?limit=${limit}`);
+  async getPopularItems(limit: number = 10, groupId: number): Promise<ApiResponse<MenuItemWithStats[]>> {
+    return await apiService.get<MenuItemWithStats[]>(`/menu/popular?limit=${limit}&groupId=${groupId}`);
   }
-
-
 
   /**
    * Получение статистики меню
    */
-  async getMenuStats(): Promise<ApiResponse<MenuStats>> {
-    return await apiService.get<MenuStats>('/menu/stats');
+  async getMenuStats(groupId: number): Promise<ApiResponse<MenuStats>> {
+    return await apiService.get<MenuStats>(`/menu/stats?groupId=${groupId}`);
   }
 
   /**
    * Получение блюд с пагинацией
    */
-  async getItemsPaginated(params?: {
+  async getItemsPaginated(params: {
+    groupId: number;
     limit?: number;
     offset?: number;
     active?: boolean;
     search?: string;
   }): Promise<PaginatedResponse<MenuItem>> {
     const queryParams = new URLSearchParams();
-    
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-    if (params?.offset) queryParams.append('offset', params.offset.toString());
-    if (params?.active !== undefined) queryParams.append('active', params.active.toString());
-    if (params?.search) queryParams.append('search', params.search);
 
-    const queryString = queryParams.toString();
-    const url = queryString ? `/menu?${queryString}` : '/menu';
-    
-    return await apiService.getPaginated<MenuItem>(url);
+    queryParams.append('groupId', params.groupId.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.offset) queryParams.append('offset', params.offset.toString());
+    if (params.active !== undefined) queryParams.append('active', params.active.toString());
+    if (params.search) queryParams.append('search', params.search);
+
+    return await apiService.getPaginated<MenuItem>(`/menu?${queryParams.toString()}`);
   }
 
   /**

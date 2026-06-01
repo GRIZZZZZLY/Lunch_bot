@@ -8,6 +8,7 @@ import { QuickVoteButton } from './QuickVoteButton';
 import { VotersAvatars } from '../voting/VotersAvatars';
 import { useHaptic } from '../../hooks/useHaptic';
 import { useAuth } from '../../hooks/useAuth';
+import { useCurrentGroup } from '../../hooks/useCurrentGroup';
 import { useUI } from '../../store/useAppStore';
 import { PollWithDetails, pollsService } from '../../services/polls.service';
 import { MenuItem, menuService } from '../../services/menu.service';
@@ -30,6 +31,7 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
   const navigate = useNavigate();
   const haptic = useHaptic();
   const { user } = useAuth();
+  const { currentGroupId } = useCurrentGroup();
   const { addNotification } = useUI();
 
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
@@ -63,7 +65,7 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
       console.log('[ActivePollWidget] Loading menu items...');
       console.log('[ActivePollWidget] poll.selectedMenuItemIds:', poll.selectedMenuItemIds);
       
-      const response = await menuService.getActiveItems();
+      const response = await menuService.getActiveItems(currentGroupId!);
       if (response.success && response.data) {
         let items = response.data;
         console.log('[ActivePollWidget] All active items loaded:', items.length);

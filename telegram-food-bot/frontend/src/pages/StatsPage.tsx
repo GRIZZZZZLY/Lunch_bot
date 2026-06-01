@@ -79,6 +79,7 @@ import { useTelegram } from '../hooks/useTelegram';
 import { useConfetti } from '../hooks/useConfetti';
 import { useHaptic } from '../hooks/useHaptic';
 import { useAuth } from '../hooks/useAuth';
+import { useCurrentGroup } from '../hooks/useCurrentGroup';
 import { useAppStore } from '../store/useAppStore';
 import { pollsService, Poll, PollStats, PopularItem } from '../services/polls.service';
 import { menuService, type MenuItem } from '../services/menu.service';
@@ -122,6 +123,7 @@ export const StatsPage: React.FC = () => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const haptic = useHaptic();
   const confetti = useConfetti();
+  const { currentGroupId } = useCurrentGroup();
 
   const isDark = colorScheme === 'dark';
   const { user } = useAuth();
@@ -193,7 +195,7 @@ export const StatsPage: React.FC = () => {
         pollsService.getAllPolls(),
         pollsService.getPollStats(),
         pollsService.getPopularItems(10),
-        menuService.getAllItems(),
+        currentGroupId ? menuService.getAllItems(currentGroupId) : Promise.resolve({ success: true as const, data: [] as MenuItem[] }),
       ]);
 
       if (pollsResponse.success && pollsResponse.data) {

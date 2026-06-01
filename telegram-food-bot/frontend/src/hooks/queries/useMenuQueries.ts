@@ -1,21 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { menuService, MenuItem, CreateMenuItemData } from '../../services/menu.service';
 import { queryKeys } from '../../lib/react-query';
+import { useCurrentGroup } from '../useCurrentGroup';
 
 /**
- * Хук для получения всех блюд меню
+ * Хук для получения всех блюд меню (per-group cache)
  */
 export const useMenuItems = (options?: { enabled?: boolean }) => {
+  const { currentGroupId } = useCurrentGroup();
   return useQuery({
-    queryKey: queryKeys.menu.lists(),
+    queryKey: queryKeys.menu.lists(currentGroupId ?? 0),
     queryFn: async () => {
-      const response = await menuService.getAllItems();
+      const response = await menuService.getAllItems(currentGroupId!);
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch menu items');
       }
       return response.data || [];
     },
-    ...options,
+    enabled: !!currentGroupId && (options?.enabled ?? true),
   });
 };
 
@@ -41,18 +43,21 @@ export const useMenuItem = (id: number, options?: { enabled?: boolean }) => {
  */
 export const useCreateMenuItem = () => {
   const queryClient = useQueryClient();
+  const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
     mutationFn: async (data: CreateMenuItemData) => {
-      const response = await menuService.createItem(data);
+      const response = await menuService.createItem(data, currentGroupId!);
       if (!response.success) {
         throw new Error(response.error || 'Failed to create menu item');
       }
       return response.data;
     },
-    onSuccess: (_data) => {
-      // Инвалидация кэша меню
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists() });
+    onSuccess: () => {
+      // Инвалидация кэша меню для текущей группы
+      if (currentGroupId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
+      }
     },
     onError: (error: Error) => {
       console.error('[useCreateMenuItem] Error:', error.message);
@@ -65,10 +70,11 @@ export const useCreateMenuItem = () => {
  */
 export const useUpdateMenuItem = () => {
   const queryClient = useQueryClient();
+  const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<CreateMenuItemData> }) => {
-      const response = await menuService.updateItem(id, data);
+      const response = await menuService.updateItem(id, data, currentGroupId!);
       if (!response.success) {
         throw new Error(response.error || 'Failed to update menu item');
       }
@@ -77,10 +83,12 @@ export const useUpdateMenuItem = () => {
     onSuccess: (data, variables) => {
       // Обновляем конкретное блюдо в кэше
       queryClient.setQueryData(queryKeys.menu.detail(variables.id), data);
-      
-      // Инвалидация списка
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists() });
-      
+
+      // Инвалидация списка для текущей группы
+      if (currentGroupId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
+      }
+
       console.log('[useUpdateMenuItem] Success:', data);
     },
     onError: (error: Error) => {
@@ -94,10 +102,11 @@ export const useUpdateMenuItem = () => {
  */
 export const useDeleteMenuItem = () => {
   const queryClient = useQueryClient();
+  const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await menuService.deleteItem(id);
+      const response = await menuService.deleteItem(id, currentGroupId!);
       if (!response.success) {
         throw new Error(response.error || 'Failed to delete menu item');
       }
@@ -106,10 +115,12 @@ export const useDeleteMenuItem = () => {
     onSuccess: (id) => {
       // Удаляем из кэша
       queryClient.removeQueries({ queryKey: queryKeys.menu.detail(id) });
-      
-      // Инвалидация списка
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists() });
-      
+
+      // Инвалидация списка для текущей группы
+      if (currentGroupId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
+      }
+
       console.log('[useDeleteMenuItem] Success: item deleted', id);
     },
     onError: (error: Error) => {
@@ -123,10 +134,11 @@ export const useDeleteMenuItem = () => {
  */
 export const useToggleMenuItemStatus = () => {
   const queryClient = useQueryClient();
+  const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await menuService.toggleItemStatus(id);
+      const response = await menuService.toggleItemStatus(id, currentGroupId!);
       if (!response.success) {
         throw new Error(response.error || 'Failed to toggle status');
       }
@@ -135,10 +147,10 @@ export const useToggleMenuItemStatus = () => {
     onMutate: async (id) => {
       // Отменяем исходящие запросы
       await queryClient.cancelQueries({ queryKey: queryKeys.menu.detail(id) });
-      
+
       // Получаем предыдущее значение
       const previousItem = queryClient.getQueryData<MenuItem>(queryKeys.menu.detail(id));
-      
+
       // Optimistic update
       if (previousItem) {
         queryClient.setQueryData(queryKeys.menu.detail(id), {
@@ -146,14 +158,16 @@ export const useToggleMenuItemStatus = () => {
           isActive: !previousItem.isActive,
         });
       }
-      
+
       return { previousItem };
     },
     onSuccess: (data, id) => {
       // Обновляем данные
       queryClient.setQueryData(queryKeys.menu.detail(id), data);
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists() });
-      
+      if (currentGroupId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
+      }
+
       console.log(`[useToggleMenuItemStatus] Success: ${data?.isActive ? 'activated' : 'deactivated'}`, id);
     },
     onError: (error: Error, id, context) => {
@@ -161,7 +175,7 @@ export const useToggleMenuItemStatus = () => {
       if (context?.previousItem) {
         queryClient.setQueryData(queryKeys.menu.detail(id), context.previousItem);
       }
-      
+
       console.error('[useToggleMenuItemStatus] Error:', error.message);
     },
   });
