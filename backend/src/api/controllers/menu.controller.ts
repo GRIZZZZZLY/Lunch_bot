@@ -4,11 +4,26 @@ import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
 import { CreateMenuItemData, UpdateMenuItemData } from '../../types/menu.types';
 import { toNumber } from '../../utils/decimal';
+import { GroupAccessError } from '../../services/group.service';
 
 function serializeMenuItem(item: any): any {
   if (!item) return item;
   if (item.price === null || item.price === undefined) return item;
   return { ...item, price: toNumber(item.price) };
+}
+
+function sendMenuError(
+  res: Response,
+  error: unknown,
+  fallbackMessage: string,
+  fallbackCode: string,
+): void {
+  if (error instanceof GroupAccessError) {
+    res.status(403).json({ success: false, error: error.message, code: error.code });
+    return;
+  }
+  logger.error(`${fallbackCode}:`, error);
+  res.status(500).json({ success: false, error: fallbackMessage, code: fallbackCode });
 }
 
 function resolveGroupId(req: Request): number | null {
@@ -325,7 +340,7 @@ export class MenuController {
         return;
       }
 
-      const item = await MenuService.updateMenuItem(id, data);
+      const item = await MenuService.updateMenuItem(id, data, user.id);
 
       logger.info('Menu item updated', {
         itemId: item.id,
@@ -350,12 +365,7 @@ export class MenuController {
         return;
       }
 
-      logger.error('Error updating menu item:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to update menu item',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to update menu item', 'INTERNAL_ERROR');
     }
   }
 
@@ -377,7 +387,7 @@ export class MenuController {
         return;
       }
 
-      const item = await MenuService.toggleMenuItemStatus(id);
+      const item = await MenuService.toggleMenuItemStatus(id, user.id);
 
       logger.info('Menu item status toggled', {
         itemId: item.id,
@@ -403,12 +413,7 @@ export class MenuController {
         return;
       }
 
-      logger.error('Error toggling menu item status:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to toggle menu item status',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to toggle menu item status', 'INTERNAL_ERROR');
     }
   }
 
@@ -430,7 +435,7 @@ export class MenuController {
         return;
       }
 
-      await MenuService.deleteMenuItem(id);
+      await MenuService.deleteMenuItem(id, user.id);
 
       logger.info('Menu item deleted', {
         itemId: id,
@@ -453,12 +458,7 @@ export class MenuController {
         return;
       }
 
-      logger.error('Error deleting menu item:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to delete menu item',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to delete menu item', 'INTERNAL_ERROR');
     }
   }
 
@@ -489,7 +489,7 @@ export class MenuController {
         return;
       }
 
-      const updatedCount = await MenuService.bulkUpdateStatus(ids, isActive);
+      const updatedCount = await MenuService.bulkUpdateStatus(ids, isActive, user.id);
 
       logger.info('Bulk menu items status updated', {
         updatedCount,
@@ -505,12 +505,7 @@ export class MenuController {
       });
 
     } catch (error) {
-      logger.error('Error bulk updating menu items:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to bulk update menu items',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to bulk update menu items', 'INTERNAL_ERROR');
     }
   }
 }

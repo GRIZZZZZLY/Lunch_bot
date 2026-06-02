@@ -16,7 +16,8 @@ const createMenuItemSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-const updateMenuItemSchema = createMenuItemSchema.partial();
+// На обновлении groupId запрещён — блюдо нельзя перенести в другую группу.
+const updateMenuItemSchema = createMenuItemSchema.partial().omit({ groupId: true });
 
 // Схемы валидации для голосований
 const createPollSchema = z.object({

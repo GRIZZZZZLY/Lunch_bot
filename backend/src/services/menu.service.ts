@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { CreateMenuItemData, UpdateMenuItemData, MenuItemWithStats } from '../types/menu.types';
 import { cacheService, CACHE_KEYS, CACHE_TTL, CacheInvalidator } from './cache.service';
 import { toNumber } from '../utils/decimal';
+import { GroupService } from './group.service';
 
 export class MenuService {
   /**
@@ -51,27 +52,41 @@ export class MenuService {
   /**
    * Обновление блюда (с инвалидацией кэша)
    */
-  static async updateMenuItem(id: number, data: UpdateMenuItemData): Promise<MenuItem> {
+  static async updateMenuItem(
+    id: number,
+    data: UpdateMenuItemData,
+    actingUserId: number,
+  ): Promise<MenuItem> {
     try {
-      const menuItem = await prisma.menuItem.update({
+      const existing = await prisma.menuItem.findUnique({
         where: { id },
+        select: { groupId: true },
+      });
+      if (!existing) {
+        throw new Error('Menu item not found');
+      }
+      await GroupService.assertAdmin(actingUserId, existing.groupId);
+
+      // groupId никогда не меняем через update — запрет переноса блюда в чужую группу.
+      const { groupId: _ignored, ...safeData } = data as UpdateMenuItemData & { groupId?: number };
+
+      const menuItem = await prisma.menuItem.update({
+        where: { id, groupId: existing.groupId },
         data: {
-          ...data,
+          ...safeData,
           updatedAt: new Date(),
         },
       });
 
-      // Инвалидируем кэш меню группы
       CacheInvalidator.invalidateMenu(menuItem.groupId);
-
       logger.info(`Menu item updated: ${menuItem.id} (${menuItem.name})`);
       return menuItem;
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          throw new Error('Menu item not found');
-        }
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new Error('Menu item not found');
       }
+      if (error instanceof Error && error.name === 'GroupAccessError') throw error;
+      if (error instanceof Error && error.message === 'Menu item not found') throw error;
       logger.error('Error updating menu item:', error);
       throw new Error('Failed to update menu item');
     }
@@ -81,7 +96,7 @@ export class MenuService {
    * Удаление блюда (с инвалидацией кэша)
    * Проверяет наличие связанных голосов и результатов перед удалением
    */
-  static async deleteMenuItem(id: number): Promise<void> {
+  static async deleteMenuItem(id: number, actingUserId: number): Promise<void> {
     try {
       // Проверяем есть ли связанные голоса или результаты
       const menuItem = await prisma.menuItem.findUnique({
@@ -99,6 +114,7 @@ export class MenuService {
       if (!menuItem) {
         throw new Error('Menu item not found');
       }
+      await GroupService.assertAdmin(actingUserId, menuItem.groupId);
 
       // Если есть связанные данные, сначала очищаем их
       if (menuItem._count.votes > 0 || menuItem._count.pollResults > 0) {
@@ -122,7 +138,7 @@ export class MenuService {
 
       // Теперь можно безопасно удалить блюдо
       await prisma.menuItem.delete({
-        where: { id },
+        where: { id, groupId: menuItem.groupId },
       });
 
       // Инвалидируем кэш меню группы
@@ -133,6 +149,7 @@ export class MenuService {
         cleanedResults: menuItem._count.pollResults,
       });
     } catch (error) {
+      if (error instanceof Error && error.name === 'GroupAccessError') throw error;
       if (error instanceof Error && error.message === 'Menu item not found') {
         throw error;
       }
@@ -270,7 +287,7 @@ export class MenuService {
   /**
    * Переключение статуса активности блюда (с инвалидацией кэша)
    */
-  static async toggleMenuItemStatus(id: number): Promise<MenuItem> {
+  static async toggleMenuItemStatus(id: number, actingUserId: number): Promise<MenuItem> {
     try {
       // Сначала получаем текущий статус и groupId
       const currentItem = await prisma.menuItem.findUnique({
@@ -281,10 +298,11 @@ export class MenuService {
       if (!currentItem) {
         throw new Error('Menu item not found');
       }
+      await GroupService.assertAdmin(actingUserId, currentItem.groupId);
 
       // Переключаем статус
       const menuItem = await prisma.menuItem.update({
-        where: { id },
+        where: { id, groupId: currentItem.groupId },
         data: {
           isActive: !currentItem.isActive,
           updatedAt: new Date(),
@@ -297,6 +315,7 @@ export class MenuService {
       logger.info(`Menu item status toggled: ${id} -> ${menuItem.isActive}`);
       return menuItem;
     } catch (error) {
+      if (error instanceof Error && error.name === 'GroupAccessError') throw error;
       if (error instanceof Error && error.message === 'Menu item not found') {
         throw error;
       }
@@ -385,28 +404,27 @@ export class MenuService {
   /**
    * Массовое обновление статуса блюд (с инвалидацией кэша)
    */
-  static async bulkUpdateStatus(ids: number[], isActive: boolean): Promise<number> {
+  static async bulkUpdateStatus(
+    ids: number[],
+    isActive: boolean,
+    actingUserId: number,
+  ): Promise<number> {
     try {
-      // Получаем groupId затронутых блюд для точечной инвалидации кэша
       const items = await prisma.menuItem.findMany({
         where: { id: { in: ids } },
         select: { groupId: true },
       });
+      const uniqueGroupIds = [...new Set(items.map((i) => i.groupId))];
+      // Все затронутые группы должны быть админскими для вызывающего.
+      for (const groupId of uniqueGroupIds) {
+        await GroupService.assertAdmin(actingUserId, groupId);
+      }
 
       const result = await prisma.menuItem.updateMany({
-        where: {
-          id: {
-            in: ids,
-          },
-        },
-        data: {
-          isActive,
-          updatedAt: new Date(),
-        },
+        where: { id: { in: ids }, groupId: { in: uniqueGroupIds } },
+        data: { isActive, updatedAt: new Date() },
       });
 
-      // Инвалидируем кэш для каждой затронутой группы
-      const uniqueGroupIds = [...new Set(items.map(i => i.groupId))];
       for (const groupId of uniqueGroupIds) {
         CacheInvalidator.invalidateMenu(groupId);
       }
@@ -414,6 +432,7 @@ export class MenuService {
       logger.info(`Bulk updated ${result.count} menu items status to ${isActive}`);
       return result.count;
     } catch (error) {
+      if (error instanceof Error && error.name === 'GroupAccessError') throw error;
       logger.error('Error bulk updating menu items:', error);
       throw new Error('Failed to bulk update menu items');
     }
