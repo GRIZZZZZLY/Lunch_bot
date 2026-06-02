@@ -2,7 +2,7 @@ import { GroupService, GroupAccessError } from '../../../services/group.service'
 
 jest.mock('../../../database/client', () => ({
   prisma: {
-    groupMember: { findFirst: jest.fn() },
+    groupMember: { findFirst: jest.fn(), findUnique: jest.fn(), upsert: jest.fn() },
   },
 }));
 
@@ -65,6 +65,31 @@ describe('GroupService authz primitives', () => {
     it('returns false (fail closed) when getChatMember throws', async () => {
       getChatMember.mockRejectedValue(new Error('Bad Request: user not found'));
       await expect(GroupService.verifyTelegramMembership(100n, 200n)).resolves.toBe(false);
+    });
+  });
+
+  describe('addMemberFromStartParam', () => {
+    const group = { id: 42, telegramId: 100n };
+    const user = { id: 7, telegramId: 200n };
+
+    it('adds membership when Telegram verifies the user', async () => {
+      getChatMember.mockResolvedValue({ status: 'member' });
+      prisma.groupMember.findUnique.mockResolvedValue(null);
+      prisma.groupMember.upsert.mockResolvedValue({ id: 1, groupId: 42, userId: 7 });
+
+      const result = await GroupService.addMemberFromStartParam(group, user);
+
+      expect(result).toBe(true);
+      expect(prisma.groupMember.upsert).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT add membership when Telegram says the user is not in the group', async () => {
+      getChatMember.mockResolvedValue({ status: 'left' });
+
+      const result = await GroupService.addMemberFromStartParam(group, user);
+
+      expect(result).toBe(false);
+      expect(prisma.groupMember.upsert).not.toHaveBeenCalled();
     });
   });
 });

@@ -245,19 +245,23 @@ export class AuthController {
         username: userData.username
       });
 
-      // Auto-add membership when launched via group deep-link.
-      // Covers users who only interact via Mini App and never wrote in group chat.
+      // Auto-add membership when launched via group deep-link — ONLY if Telegram
+      // confirms the user is actually in that group (no self-granted membership).
       const startParam = params.get('start_param');
       if (startParam) {
         const groupId = await resolveGroupIdFromStartParam(startParam);
         if (groupId) {
           try {
-            await GroupService.addMemberToGroup(groupId, user.id);
-            logger.info('Auto-added membership via start_param', {
-              userId: user.id,
-              groupId,
-              startParam,
-            });
+            const group = await GroupService.getGroupById(groupId);
+            if (group) {
+              const added = await GroupService.addMemberFromStartParam(
+                { id: group.id, telegramId: group.telegramId },
+                { id: user.id, telegramId: user.telegramId },
+              );
+              if (added) {
+                logger.info('Verified membership via start_param', { userId: user.id, groupId });
+              }
+            }
           } catch (err) {
             logger.warn('Membership auto-add failed', { userId: user.id, groupId, err });
           }
