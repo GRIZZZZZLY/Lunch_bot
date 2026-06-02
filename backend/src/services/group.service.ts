@@ -2,9 +2,25 @@ import { Group, User, Prisma } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreateGroupData, UpdateGroupData, GroupSettings } from '../types/group.types';
+import { getBotInstance } from '../bot/bot-instance';
 
 // Иерархия ролей участника группы. Выше = больше прав.
 const ROLE_PRIORITY: Record<string, number> = { MEMBER: 0, ADMIN: 1, CREATOR: 2 };
+
+/**
+ * Группо-ориентированный отказ доступа. Маппится контроллерами в HTTP 403.
+ * Намеренно НЕ учитывает глобальный isAdmin — доступ к данным группы решает
+ * только роль в group_members.
+ */
+export class GroupAccessError extends Error {
+  constructor(
+    public code: 'NOT_MEMBER' | 'NOT_ADMIN',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'GroupAccessError';
+  }
+}
 
 export class GroupService {
   /**
@@ -281,6 +297,60 @@ export class GroupService {
       return !!member;
     } catch (error) {
       logger.error('Error checking group admin access:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Бросает GroupAccessError('NOT_MEMBER'), если пользователь не активный
+   * участник группы. Без обхода по глобальному isAdmin.
+   */
+  static async assertMember(userId: number, groupId: number): Promise<void> {
+    const ok = await this.isUserGroupMember(userId, groupId);
+    if (!ok) {
+      throw new GroupAccessError('NOT_MEMBER', 'You are not a member of this group');
+    }
+  }
+
+  /**
+   * Бросает GroupAccessError('NOT_ADMIN'), если пользователь не админ группы.
+   * Без обхода по глобальному isAdmin.
+   */
+  static async assertAdmin(userId: number, groupId: number): Promise<void> {
+    const ok = await this.isUserGroupAdmin(userId, groupId);
+    if (!ok) {
+      throw new GroupAccessError('NOT_ADMIN', 'Group admin access required');
+    }
+  }
+
+  /**
+   * Источник истины о членстве — Telegram. true только если пользователь
+   * реально в группе (creator/administrator/member). FAIL CLOSED: при любой
+   * ошибке или отсутствии бота возвращает false (членство не подтверждено).
+   */
+  static async verifyTelegramMembership(
+    groupTelegramId: bigint,
+    userTelegramId: bigint,
+  ): Promise<boolean> {
+    const bot = getBotInstance();
+    if (!bot) {
+      logger.warn('verifyTelegramMembership: bot not initialized — fail closed', {
+        groupTelegramId: groupTelegramId.toString(),
+      });
+      return false;
+    }
+    try {
+      const member = await bot.api.getChatMember(
+        Number(groupTelegramId),
+        Number(userTelegramId),
+      );
+      return ['creator', 'administrator', 'member'].includes(member.status);
+    } catch (err) {
+      logger.warn('verifyTelegramMembership: getChatMember failed — fail closed', {
+        groupTelegramId: groupTelegramId.toString(),
+        userTelegramId: userTelegramId.toString(),
+        err,
+      });
       return false;
     }
   }
