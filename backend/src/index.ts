@@ -11,6 +11,7 @@ import { runSecurityChecks } from './utils/security-checks';
 import { validateEnv } from './utils/env';
 import { initDebtReminderJob } from './jobs/debt-reminder.job';
 import { initStoreRunAutoCloseJob } from './jobs/store-run-autoclose.job';
+import { initGroupReconcileJob } from './jobs/group-reconcile.job';
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -57,6 +58,10 @@ if (bot) {
 
   // Cron для авто-закрытия магазинных забегов ("Иду в магазин") по истечении таймера
   initStoreRunAutoCloseJob();
+
+  // Cron сверки активных групп с реальным членством бота (лечит пропущенные
+  // my_chat_member-события: деактивирует группы, откуда бота убрали).
+  initGroupReconcileJob();
 }
 
 // Graceful shutdown — single orchestrator, idempotent, hard-cap at 10s.

@@ -457,6 +457,59 @@ export class GroupService {
   }
 
   /**
+   * Сверка активных групп с реальным членством бота в Telegram.
+   * Самолечение пропущенных my_chat_member-событий (например, когда webhook
+   * лежал во время простоя): для каждой активной группы спрашиваем getChatMember
+   * по самому боту; если бота выгнали/он вышел — деактивируем группу.
+   * Деактивируем ТОЛЬКО при однозначном «бота нет в чате» (403 / kicked / left /
+   * not found). Транзиентные ошибки (сеть, 5xx) — оставляем группу активной.
+   * Не реактивирует группы (намеренно: не воскрешать вручную отключённые).
+   * Возвращает id деактивированных групп.
+   */
+  static async reconcileActiveGroups(): Promise<number[]> {
+    const bot = getBotInstance();
+    if (!bot) {
+      logger.warn('reconcileActiveGroups: bot not initialized — skip');
+      return [];
+    }
+    const botId = (await bot.api.getMe()).id;
+    const groups = await this.getAllActiveGroups();
+    const deactivated: number[] = [];
+
+    for (const group of groups) {
+      let botGone = false;
+      try {
+        const member = await bot.api.getChatMember(Number(group.telegramId), botId);
+        botGone = member.status === 'left' || member.status === 'kicked';
+      } catch (err: unknown) {
+        const e = err as { error_code?: number; description?: string; message?: string };
+        const desc = String(e?.description ?? e?.message ?? '');
+        if (e?.error_code === 403 || /kicked|not a member|chat not found|bot was blocked/i.test(desc)) {
+          botGone = true;
+        } else {
+          logger.warn('reconcileActiveGroups: getChatMember failed (transient, keep active)', {
+            groupId: group.id,
+            err: desc,
+          });
+          continue;
+        }
+      }
+      if (botGone) {
+        await this.deactivateGroup(group.id);
+        deactivated.push(group.id);
+      }
+    }
+
+    if (deactivated.length > 0) {
+      logger.info('reconcileActiveGroups: deactivated stale groups', {
+        count: deactivated.length,
+        ids: deactivated,
+      });
+    }
+    return deactivated;
+  }
+
+  /**
    * Получение всех групп
    */
   static async getAllGroups(
