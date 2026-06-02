@@ -221,7 +221,11 @@ export class GroupService {
       return await prisma.groupMember.findMany({
         where: {
           userId,
-          ...(activeOnly ? { isActive: true } : {}),
+          // activeOnly: только активные членства И активные группы. Когда бота
+          // убирают из группы, deactivateGroup ставит group.isActive=false, но
+          // membership.isActive остаётся true — без фильтра по группе мёртвая
+          // группа продолжала бы висеть в списке.
+          ...(activeOnly ? { isActive: true, group: { isActive: true } } : {}),
         },
         include: {
           group: true,
