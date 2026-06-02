@@ -78,7 +78,8 @@ export const ActivePollWidget: React.FC<ActivePollWidgetProps> = ({
             const selectedIds = JSON.parse(poll.selectedMenuItemIds);
             if (Array.isArray(selectedIds) && selectedIds.length > 0) {
               console.log('[ActivePollWidget] Filtering by selectedIds:', selectedIds);
-              items = items.filter(item => selectedIds.includes(item.id));
+              const selectedIdSet = new Set(selectedIds);
+              items = items.filter(item => selectedIdSet.has(item.id));
               console.log('[ActivePollWidget] ✅ Filtered menu items:', {
                 allItems: response.data.length,
                 selectedItems: items.length,

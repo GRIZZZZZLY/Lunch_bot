@@ -148,7 +148,8 @@ export const InlineVotingCard = ({
           try {
             const selectedIds = JSON.parse(pollResponse.data.selectedMenuItemIds);
             if (Array.isArray(selectedIds) && selectedIds.length > 0) {
-              items = items.filter(item => selectedIds.includes(item.id));
+              const selectedIdSet = new Set(selectedIds);
+              items = items.filter(item => selectedIdSet.has(item.id));
               console.log('[InlineVotingCard] ✅ Filtered menu items:', {
                 allItems: menuResponse.data.length,
                 selectedItems: items.length,

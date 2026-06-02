@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Transaction, budgetService, SendRemindersResult } from '../../services/budget.service';
 import { Button } from '../ui/button';
@@ -28,7 +29,6 @@ export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) =
   const queryClient = useQueryClient();
   const safeCredits = Array.isArray(credits) ? credits : [];
   const currentPollId = safeCredits[0]?.pollId;
-  const currentCredits = safeCredits.filter(c => c?.pollId === currentPollId);
 
   // Получаем итоговые суммы по заказу
   const { data: pollTotals } = useQuery({
@@ -37,18 +37,40 @@ export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) =
     enabled: !!currentPollId,
   });
 
-  // Рассчитываем суммы
-  const totalToReceive = currentCredits.reduce((sum, c) => sum + (c.amount || 0), 0);
-  const myShare = pollTotals?.responsibleShare || 0;
+  // Один проход по кредитам текущего заказа: список + сумма + счётчики статусов
+  // (вместо filter + reduce + трёх filter + every по одному массиву).
+  const {
+    currentCredits,
+    totalToReceive,
+    confirmedCount,
+    paidCount,
+    pendingCount,
+    collectedPct,
+    allConfirmed,
+  } = useMemo(() => {
+    const list = safeCredits.filter(c => c?.pollId === currentPollId);
+    let total = 0;
+    let confirmed = 0;
+    let paid = 0;
+    let pending = 0;
+    for (const c of list) {
+      total += c.amount || 0;
+      if (c.status === 'CONFIRMED') confirmed++;
+      else if (c.status === 'PAID') paid++;
+      else if (c.status === 'PENDING') pending++;
+    }
+    return {
+      currentCredits: list,
+      totalToReceive: total,
+      confirmedCount: confirmed,
+      paidCount: paid,
+      pendingCount: pending,
+      collectedPct: list.length > 0 ? (confirmed / list.length) * 100 : 0,
+      allConfirmed: list.length > 0 && confirmed === list.length,
+    };
+  }, [safeCredits, currentPollId]);
 
-  // Счётчики по статусам для прогресса сбора
-  const confirmedCount = currentCredits.filter(c => c.status === 'CONFIRMED').length;
-  const paidCount = currentCredits.filter(c => c.status === 'PAID').length;
-  const pendingCount = currentCredits.filter(c => c.status === 'PENDING').length;
-  const collectedPct = currentCredits.length > 0
-    ? (confirmedCount / currentCredits.length) * 100
-    : 0;
-  const allConfirmed = currentCredits.length > 0 && currentCredits.every(c => c.status === 'CONFIRMED');
+  const myShare = pollTotals?.responsibleShare || 0;
 
   // Mutation для подтверждения платежа
   const confirmMutation = useMutation({
