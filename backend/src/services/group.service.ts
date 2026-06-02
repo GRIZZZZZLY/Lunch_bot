@@ -136,40 +136,20 @@ export class GroupService {
    */
   static async addMemberToGroup(groupId: number, userId: number, role: string = 'MEMBER'): Promise<any> {
     try {
-      // Проверяем, не состоит ли уже пользователь в группе
       const existingMember = await prisma.groupMember.findUnique({
-        where: {
-          groupId_userId: {
-            groupId,
-            userId,
-          },
-        },
+        where: { groupId_userId: { groupId, userId } },
       });
 
-      if (existingMember) {
-        // Если участник уже был, но вышел - восстанавливаем
-        if (!existingMember.isActive) {
-          return await prisma.groupMember.update({
-            where: { id: existingMember.id },
-            data: {
-              isActive: true,
-              leftAt: null,
-              role,
-            },
-          });
-        }
-        // Если уже активный участник - ничего не делаем
+      // Уже активный участник — НИЧЕГО не меняем (в частности, не понижаем роль).
+      if (existingMember && existingMember.isActive) {
         return existingMember;
       }
 
-      // Создаём нового участника
-      return await prisma.groupMember.create({
-        data: {
-          groupId,
-          userId,
-          role,
-          isActive: true,
-        },
+      // Новый участник или вернувшийся после выхода — создаём/реактивируем.
+      return await prisma.groupMember.upsert({
+        where: { groupId_userId: { groupId, userId } },
+        update: { isActive: true, leftAt: null, role },
+        create: { groupId, userId, role, isActive: true },
       });
     } catch (error) {
       logger.error('Error adding member to group:', error);
@@ -353,6 +333,27 @@ export class GroupService {
       });
       return false;
     }
+  }
+
+  /**
+   * Безопасное добавление участника по start_param: сперва проверяем членство
+   * в Telegram, и только при подтверждении пишем group_members. Не подтверждён
+   * — членство не создаём (возвращаем false), запрос вызывающего не падает.
+   */
+  static async addMemberFromStartParam(
+    group: { id: number; telegramId: bigint },
+    user: { id: number; telegramId: bigint },
+  ): Promise<boolean> {
+    const verified = await this.verifyTelegramMembership(group.telegramId, user.telegramId);
+    if (!verified) {
+      logger.warn('start_param join rejected: not a Telegram member', {
+        userId: user.id,
+        groupId: group.id,
+      });
+      return false;
+    }
+    await this.addMemberToGroup(group.id, user.id);
+    return true;
   }
 
   /**
