@@ -1284,12 +1284,20 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         });
 
         if (transactions.length > 0) {
+          // Делёж считаем на ВСЕХ участников (знаменатель неизменный), чтобы
+          // сумма расходов сходилась: заплатившие уже внесли свою долю при оплате.
           const participantsCount = transactions.length;
           const deliveryShare = toNumber(upserted.deliveryCost) / participantsCount;
           const serviceShare = toNumber(upserted.serviceFee) / participantsCount;
           const tipShare = toNumber(upserted.tip) / participantsCount;
 
-          for (const transaction of transactions) {
+          // Пересчитываем только ещё не оплаченные долги. PAID/CONFIRMED
+          // замораживаем — сумма уже рассчитанного долга не должна меняться
+          // задним числом, если ответственный позже правит расходы.
+          const pendingTransactions = transactions.filter(
+            (transaction) => transaction.status === 'PENDING',
+          );
+          for (const transaction of pendingTransactions) {
             const itemPrice = toNumber(transaction.menuItem?.price);
             const newAmount = itemPrice + deliveryShare + serviceShare + tipShare;
             await tx.transaction.update({
@@ -1415,17 +1423,6 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         throw new Error(`Store run ${storeRunId} not found`);
       }
 
-      const existing = await prisma.transaction.findMany({
-        where: { storeRunId },
-      });
-      if (existing.length > 0) {
-        logger.info('Store run transactions already exist, skipping', {
-          storeRunId,
-          count: existing.length,
-        });
-        return existing;
-      }
-
       const boughtItems = storeRun.items.filter(
         (item: StoreItem) =>
           item.status === 'BOUGHT' &&
@@ -1438,22 +1435,27 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         return [];
       }
 
-      const created: Transaction[] = [];
-      for (const item of boughtItems) {
+      const data = boughtItems.map((item) => {
         const amount = item.price as Prisma.Decimal;
-        const tx = await prisma.transaction.create({
-          data: {
-            storeRunId,
-            storeItemId: item.id,
-            fromUserId: item.userId,
-            toUserId: storeRun.initiatorId,
-            amount,
-            itemPrice: amount,
-            status: 'PENDING',
-          },
-        });
-        created.push(tx);
-      }
+        return {
+          storeRunId,
+          storeItemId: item.id,
+          fromUserId: item.userId,
+          toUserId: storeRun.initiatorId,
+          amount,
+          itemPrice: amount,
+          status: 'PENDING',
+        };
+      });
+
+      // skipDuplicates + уникальный индекс (storeRunId, storeItemId) делают
+      // создание идемпотентным даже при конкурентном вызове (двойной клик
+      // «завершить забег»). findMany после вставки гарантирует, что вернётся
+      // полный набор транзакций забега независимо от того, кто их создал.
+      await prisma.transaction.createMany({ data, skipDuplicates: true });
+      const created = await prisma.transaction.findMany({
+        where: { storeRunId },
+      });
 
       logger.info('Store run transactions created', {
         storeRunId,

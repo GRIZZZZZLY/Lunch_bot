@@ -235,6 +235,10 @@ model Transaction {
   // P0-2: hot path getPollTotals / poll-cost-breakdown — фильтр pollId+status
   // (PENDING / PAID / CONFIRMED) на тяжёлой таблице транзакций.
   @@index([pollId, status])
+  // Защита от гонки при финализации магазинного забега: один StoreItem
+  // даёт максимум одну транзакцию. NULL,NULL (poll-транзакции) в Postgres
+  // считаются различными, поэтому ограничение их не затрагивает.
+  @@unique([storeRunId, storeItemId])
   @@map("transactions")
 }
 
