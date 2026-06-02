@@ -38,7 +38,7 @@ describe('validateMenuItemData — groupId passthrough (multi-tenant)', () => {
     expect((req.body as any).groupId).toBeUndefined();
   });
 
-  it('PUT (update): сохраняет groupId из тела', () => {
+  it('PUT (update): срезает groupId из тела — блюдо нельзя перенести в другую группу (F2)', () => {
     const req = { method: 'PUT', body: { name: 'Ролл', groupId: 26 } } as Request;
     const res = makeRes();
     const next = jest.fn();
@@ -46,7 +46,9 @@ describe('validateMenuItemData — groupId passthrough (multi-tenant)', () => {
     validateMenuItemData(req, res, next);
 
     expect(next).toHaveBeenCalled();
-    expect((req.body as any).groupId).toBe(26);
+    expect((req.body as any).name).toBe('Ролл');
+    // groupId запрещён на обновлении — схема его отбрасывает.
+    expect((req.body as any).groupId).toBeUndefined();
   });
 
   it('POST: невалидное имя → 400 VALIDATION_ERROR', () => {

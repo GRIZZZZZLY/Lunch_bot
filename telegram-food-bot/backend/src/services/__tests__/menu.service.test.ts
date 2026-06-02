@@ -51,6 +51,16 @@ jest.mock('../cache.service', () => ({
   },
 }));
 
+// Авторизация (F2) тестируется отдельно в menu-authz.service.test.ts.
+// Здесь проверяется бизнес-логика меню, поэтому assertAdmin всегда проходит.
+jest.mock('../group.service', () => ({
+  GroupService: { assertAdmin: jest.fn().mockResolvedValue(undefined) },
+  GroupAccessError: class GroupAccessError extends Error {},
+}));
+
+// id пользователя, выполняющего операцию (админ группы в этих тестах).
+const ACTING_USER = 1;
+
 type MenuItemOverrides = Omit<Partial<MenuItem>, 'price'> & {
   price?: number | Prisma.Decimal | null;
 };
@@ -191,15 +201,16 @@ describe('MenuService', () => {
         price: 600,
       });
 
+      (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue({ groupId: 1 });
       (prisma.menuItem.update as jest.Mock).mockResolvedValue(mockUpdatedItem);
 
       const result = await MenuService.updateMenuItem(1, {
         name: 'Updated Pizza',
         price: 600,
-      });
+      }, ACTING_USER);
 
       expect(prisma.menuItem.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, groupId: 1 },
         data: {
           name: 'Updated Pizza',
           price: 600,
@@ -212,20 +223,10 @@ describe('MenuService', () => {
     });
 
     it('should throw error if menu item not found', async () => {
-      const error = Object.assign(
-        new Error('Record to update not found.'),
-        {
-          code: 'P2025',
-          clientVersion: '5.6.0',
-          meta: { cause: 'Record to update not found.' },
-        }
-      );
-      Object.setPrototypeOf(error, Prisma.PrismaClientKnownRequestError.prototype);
-
-      (prisma.menuItem.update as jest.Mock).mockRejectedValue(error);
+      (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        MenuService.updateMenuItem(999, { name: 'Test' })
+        MenuService.updateMenuItem(999, { name: 'Test' }, ACTING_USER)
       ).rejects.toThrow('Menu item not found');
     });
   });
@@ -243,7 +244,7 @@ describe('MenuService', () => {
       (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(mockItem);
       (prisma.menuItem.delete as jest.Mock).mockResolvedValue(mockItem);
 
-      await MenuService.deleteMenuItem(1);
+      await MenuService.deleteMenuItem(1, ACTING_USER);
 
       expect(prisma.menuItem.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
@@ -258,7 +259,7 @@ describe('MenuService', () => {
       });
 
       expect(prisma.menuItem.delete).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, groupId: 1 },
       });
 
       expect(CacheInvalidator.invalidateMenu).toHaveBeenCalled();
@@ -278,7 +279,7 @@ describe('MenuService', () => {
       (prisma.pollResult.updateMany as jest.Mock).mockResolvedValue({ count: 2 });
       (prisma.menuItem.delete as jest.Mock).mockResolvedValue(mockItem);
 
-      await MenuService.deleteMenuItem(1);
+      await MenuService.deleteMenuItem(1, ACTING_USER);
 
       expect(prisma.vote.updateMany).toHaveBeenCalledWith({
         where: { menuItemId: 1 },
@@ -291,14 +292,14 @@ describe('MenuService', () => {
       });
 
       expect(prisma.menuItem.delete).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, groupId: 1 },
       });
     });
 
     it('should throw error if menu item not found', async () => {
       (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(MenuService.deleteMenuItem(999)).rejects.toThrow('Menu item not found');
+      await expect(MenuService.deleteMenuItem(999, ACTING_USER)).rejects.toThrow('Menu item not found');
     });
   });
 
@@ -383,10 +384,10 @@ describe('MenuService', () => {
       const mockToggledItem = createMockMenuItem({ isActive: false });
       (prisma.menuItem.update as jest.Mock).mockResolvedValue(mockToggledItem);
 
-      const result = await MenuService.toggleMenuItemStatus(1);
+      const result = await MenuService.toggleMenuItemStatus(1, ACTING_USER);
 
       expect(prisma.menuItem.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, groupId: 1 },
         data: {
           isActive: false,
           updatedAt: expect.any(Date),
@@ -406,7 +407,7 @@ describe('MenuService', () => {
       const mockToggledItem = createMockMenuItem({ isActive: true });
       (prisma.menuItem.update as jest.Mock).mockResolvedValue(mockToggledItem);
 
-      const result = await MenuService.toggleMenuItemStatus(1);
+      const result = await MenuService.toggleMenuItemStatus(1, ACTING_USER);
 
       expect(result.isActive).toBe(true);
     });
@@ -414,7 +415,7 @@ describe('MenuService', () => {
     it('should throw error if menu item not found', async () => {
       (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(MenuService.toggleMenuItemStatus(999)).rejects.toThrow('Menu item not found');
+      await expect(MenuService.toggleMenuItemStatus(999, ACTING_USER)).rejects.toThrow('Menu item not found');
     });
   });
 
@@ -511,12 +512,15 @@ describe('MenuService', () => {
         count: 3,
       });
 
-      const result = await MenuService.bulkUpdateStatus([1, 2, 3], false);
+      const result = await MenuService.bulkUpdateStatus([1, 2, 3], false, ACTING_USER);
 
       expect(prisma.menuItem.updateMany).toHaveBeenCalledWith({
         where: {
           id: {
             in: [1, 2, 3],
+          },
+          groupId: {
+            in: [1],
           },
         },
         data: {
@@ -535,7 +539,7 @@ describe('MenuService', () => {
       });
       (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await MenuService.bulkUpdateStatus([999], true);
+      const result = await MenuService.bulkUpdateStatus([999], true, ACTING_USER);
 
       expect(result).toBe(0);
     });
