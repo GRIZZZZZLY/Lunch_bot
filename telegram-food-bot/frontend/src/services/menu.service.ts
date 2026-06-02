@@ -97,14 +97,15 @@ class MenuService {
   }
 
   /**
-   * Создание нового блюда
+   * Создание нового блюда (в одной или нескольких группах)
    */
-  async createItem(data: CreateMenuItemData, groupId: number): Promise<ApiResponse<MenuItem>> {
+  async createItem(data: CreateMenuItemData, groupIds: number[]): Promise<ApiResponse<MenuItem[]>> {
     if (USE_MOCK_API) {
       const { mockApiService } = await import('./mockApi.service');
-      return await mockApiService.createMenuItem(data);
+      const single = await mockApiService.createMenuItem(data);
+      return { ...single, data: single.data ? [single.data] : [] } as ApiResponse<MenuItem[]>;
     }
-    return await apiService.post<MenuItem>('/menu', { ...data, groupId });
+    return await apiService.post<MenuItem[]>('/menu', { ...data, groupIds });
   }
 
   /**

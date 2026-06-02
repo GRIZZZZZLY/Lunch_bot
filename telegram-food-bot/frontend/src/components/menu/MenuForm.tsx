@@ -28,6 +28,7 @@ export interface MenuFormData {
   price?: number;
   imageUrl?: string;
   isActive: boolean;
+  groupIds: number[];
 }
 
 export interface MenuFormProps {
@@ -35,6 +36,8 @@ export interface MenuFormProps {
   onSubmit: (data: MenuFormData) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
+  adminGroups?: { id: number; title: string }[];
+  defaultGroupId?: number | null;
 }
 
 /**
@@ -46,16 +49,19 @@ export const MenuForm: React.FC<MenuFormProps> = ({
   onSubmit,
   onCancel,
   loading = false,
+  adminGroups = [],
+  defaultGroupId = null,
 }) => {
   const { showAlert } = useTelegram();
   const haptic = useHaptic();
-  
+
   const [formData, setFormData] = useState<MenuFormData>({
     name: '',
     description: '',
     price: undefined,
     imageUrl: '',
     isActive: true,
+    groupIds: defaultGroupId != null ? [defaultGroupId] : [],
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -69,6 +75,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
         price: item.price || undefined,
         imageUrl: item.imageUrl || '',
         isActive: item.isActive,
+        groupIds: [item.groupId],
       });
     }
   }, [item]);
@@ -120,6 +127,11 @@ export const MenuForm: React.FC<MenuFormProps> = ({
       return;
     }
 
+    if (!item && formData.groupIds.length === 0) {
+      showAlert('Выбери хотя бы одну группу');
+      return;
+    }
+
     try {
       await onSubmit(formData);
     } catch (error) {
@@ -150,6 +162,16 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const toggleGroup = (groupId: number) => {
+    setFormData((prev) => {
+      const has = prev.groupIds.includes(groupId);
+      return {
+        ...prev,
+        groupIds: has ? prev.groupIds.filter((id) => id !== groupId) : [...prev.groupIds, groupId],
+      };
+    });
   };
 
   return (
@@ -299,16 +321,37 @@ export const MenuForm: React.FC<MenuFormProps> = ({
           )}
         </AnimatePresence>
 
+        {/* Group multi-select - только в режиме создания при наличии нескольких групп */}
+        {!item && adminGroups.length > 1 && (
+          <GlassCard intensity="medium">
+            <GlassCardContent className="p-4 space-y-3">
+              <Label className="text-base font-semibold text-foreground">В группах</Label>
+              <p className="text-sm text-muted-foreground">Блюдо будет создано в каждой выбранной группе</p>
+              <div className="space-y-2">
+                {adminGroups.map((group) => (
+                  <div key={group.id} className="flex items-center justify-between">
+                    <span className="text-sm text-foreground">{group.title}</span>
+                    <Switch
+                      checked={formData.groupIds.includes(group.id)}
+                      onCheckedChange={() => toggleGroup(group.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </GlassCardContent>
+          </GlassCard>
+        )}
+
         {/* Active toggle - Touch-friendly Switch */}
         <GlassCard intensity="low">
           <GlassCardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="isActive" className="text-base text-foreground">
-                  Активное блюдо
+                <Label htmlFor="isActive" className="text-base font-semibold text-foreground">
+                  Активно
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Будет участвовать в голосованиях
+                  Участвует в голосованиях группы
                 </p>
               </div>
                <Switch

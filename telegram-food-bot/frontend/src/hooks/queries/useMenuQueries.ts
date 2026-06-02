@@ -43,21 +43,18 @@ export const useMenuItem = (id: number, options?: { enabled?: boolean }) => {
  */
 export const useCreateMenuItem = () => {
   const queryClient = useQueryClient();
-  const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
-    mutationFn: async (data: CreateMenuItemData) => {
-      const response = await menuService.createItem(data, currentGroupId!);
+    mutationFn: async (vars: { data: CreateMenuItemData; groupIds: number[] }) => {
+      const response = await menuService.createItem(vars.data, vars.groupIds);
       if (!response.success) {
         throw new Error(response.error || 'Failed to create menu item');
       }
       return response.data;
     },
     onSuccess: () => {
-      // Инвалидация кэша меню для текущей группы
-      if (currentGroupId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
-      }
+      // Блюдо могло быть создано в нескольких группах — инвалидируем все списки меню
+      queryClient.invalidateQueries({ queryKey: queryKeys.menu.all });
     },
     onError: (error: Error) => {
       console.error('[useCreateMenuItem] Error:', error.message);
