@@ -901,6 +901,37 @@ export class NotificationService {
   }
 
   /**
+   * Уведомить инициатора, что его забег авто-отменён по таймауту SHOPPING
+   * (ушёл в магазин, не внёс цены вовремя). Групповой пост и ЛС-приглашения
+   * убирает deleteStoreRunMessages отдельно.
+   */
+  async notifyStoreRunExpired(storeRunId: number): Promise<void> {
+    if (!this.bot) {
+      logger.error('notifyStoreRunExpired: bot not initialized', { storeRunId });
+      return;
+    }
+    const storeRun = await prisma.storeRun.findUnique({
+      where: { id: storeRunId },
+      include: { initiator: true },
+    });
+    if (!storeRun) return;
+
+    const message =
+      `⏱ Забег «${this.escapeHtml(storeRun.storeName)}» авто-отменён — ` +
+      `цены не внесены вовремя. Запусти новый, если ещё актуально.`;
+
+    await this.send({
+      userId: Number(storeRun.initiator.telegramId),
+      type: NotificationType.STORE_RUN_SHOPPING,
+      priority: NotificationPriority.NORMAL,
+      message,
+      parseMode: 'HTML',
+    });
+
+    logger.info('Store run expired notification sent to initiator', { storeRunId });
+  }
+
+  /**
    * Опубликовать сообщение о новом забеге в групповой чат.
    * web_app кнопки в группах запрещены, поэтому даём URL-deep-link
    * t.me/<bot>?start=storerun_<id> — он открывает личку, где /start

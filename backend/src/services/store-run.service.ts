@@ -433,6 +433,29 @@ export class StoreRunService {
     return ids;
   }
 
+  /**
+   * Cron: отменить забеги, зависшие в SHOPPING дольше таймаута (инициатор ушёл
+   * в магазин и не внёс цены / не завершил). Один атомарный условный апдейт со
+   * статус-гардом — гонко-безопасно, без «воскрешения» уже завершённых.
+   * Возвращает id отменённых забегов (для очистки сообщений + уведомления).
+   */
+  static async expireStaleShoppingRuns(): Promise<number[]> {
+    const timeoutMin = Number(process.env.STORE_RUN_SHOPPING_TIMEOUT_MIN ?? '180');
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - timeoutMin * 60 * 1000);
+
+    const expired = await prisma.storeRun.updateManyAndReturn({
+      where: { status: 'SHOPPING', shoppingAt: { lt: cutoff } },
+      data: { status: 'CANCELLED', cancelledAt: now },
+      select: { id: true },
+    });
+    const ids = expired.map((r) => r.id);
+    if (ids.length > 0) {
+      logger.info('Stale SHOPPING store runs auto-cancelled', { count: ids.length, ids, timeoutMin });
+    }
+    return ids;
+  }
+
   // ------------------------------------------------------------------
   // Helpers
   // ------------------------------------------------------------------
