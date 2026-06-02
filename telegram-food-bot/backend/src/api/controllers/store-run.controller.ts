@@ -160,7 +160,7 @@ export class StoreRunController {
       return;
     }
     try {
-      const run = await StoreRunService.getStoreRunById(id);
+      const run = await StoreRunService.getStoreRunById(id, user.id);
       if (!run) {
         res.status(404).json({ error: 'Store run not found' });
         return;

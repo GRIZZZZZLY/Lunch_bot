@@ -2,6 +2,7 @@ import { Prisma, StoreRun, StoreItem } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { BudgetService } from './budget.service';
+import { GroupService } from './group.service';
 
 export type StoreRunStatus = 'COLLECTING' | 'SHOPPING' | 'SETTLED' | 'CANCELLED';
 export type StoreItemStatus = 'REQUESTED' | 'BOUGHT' | 'NOT_FOUND';
@@ -122,10 +123,10 @@ export class StoreRunService {
 
   /**
    * Получить забег со списком позиций.
-   * Контроль доступа выполняется в контроллере/запросе.
+   * Проверяет членство requestingUserId в группе забега — бросает FORBIDDEN если не член.
    */
-  static async getStoreRunById(id: number) {
-    return prisma.storeRun.findUnique({
+  static async getStoreRunById(id: number, requestingUserId: number) {
+    const run = await prisma.storeRun.findUnique({
       where: { id },
       include: {
         initiator: true,
@@ -136,6 +137,13 @@ export class StoreRunService {
         group: { select: { id: true, telegramId: true, title: true } },
       },
     });
+    if (!run) return null;
+
+    const isMember = await GroupService.isUserGroupMember(requestingUserId, run.groupId);
+    if (!isMember) {
+      throw new StoreRunError('FORBIDDEN', 'Not a member of this group');
+    }
+    return run;
   }
 
   /**
