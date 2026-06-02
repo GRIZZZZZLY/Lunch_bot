@@ -14,33 +14,50 @@ export function initStoreRunAutoCloseJob(): void {
 
   cron.schedule(cronExpr, async () => {
     try {
+      // 1) COLLECTING → SHOPPING по истечении collectUntil.
       const closedIds = await StoreRunService.autoCloseExpired();
-      if (closedIds.length === 0) return;
+      if (closedIds.length > 0) {
+        logger.info('Auto-closed store runs to SHOPPING', {
+          count: closedIds.length,
+          ids: closedIds,
+        });
 
-      logger.info('Auto-closed store runs to SHOPPING', {
-        count: closedIds.length,
-        ids: closedIds,
-      });
+        // Notify participants + initiator of each closed run (fire-and-forget, don't fail cron).
+        // Participants who added items learn the collection is closed; the initiator —
+        // who didn't press the button manually here — is told to go shop and set prices.
+        await Promise.allSettled(
+          closedIds.flatMap((id) => [
+            notificationService.notifyShoppingStarted(id).catch((err) => {
+              logger.error('notifyShoppingStarted failed for auto-closed run', {
+                storeRunId: id,
+                err,
+              });
+            }),
+            notificationService.notifyInitiatorCollectionClosed(id).catch((err) => {
+              logger.error('notifyInitiatorCollectionClosed failed for auto-closed run', {
+                storeRunId: id,
+                err,
+              });
+            }),
+          ]),
+        );
+      }
 
-      // Notify participants + initiator of each closed run (fire-and-forget, don't fail cron).
-      // Participants who added items learn the collection is closed; the initiator —
-      // who didn't press the button manually here — is told to go shop and set prices.
-      await Promise.allSettled(
-        closedIds.flatMap((id) => [
-          notificationService.notifyShoppingStarted(id).catch((err) => {
-            logger.error('notifyShoppingStarted failed for auto-closed run', {
-              storeRunId: id,
-              err,
-            });
-          }),
-          notificationService.notifyInitiatorCollectionClosed(id).catch((err) => {
-            logger.error('notifyInitiatorCollectionClosed failed for auto-closed run', {
-              storeRunId: id,
-              err,
-            });
-          }),
-        ]),
-      );
+      // 2) SHOPPING, зависшие дольше таймаута → CANCELLED. Убираем зависшее
+      // «жди цены» (групповой пост + ЛС-приглашения) и уведомляем инициатора.
+      const expiredIds = await StoreRunService.expireStaleShoppingRuns();
+      if (expiredIds.length > 0) {
+        await Promise.allSettled(
+          expiredIds.flatMap((id) => [
+            notificationService.deleteStoreRunMessages(id).catch((err) => {
+              logger.error('deleteStoreRunMessages failed for expired run', { storeRunId: id, err });
+            }),
+            notificationService.notifyStoreRunExpired(id).catch((err) => {
+              logger.error('notifyStoreRunExpired failed for expired run', { storeRunId: id, err });
+            }),
+          ]),
+        );
+      }
     } catch (err) {
       logger.error('store-run auto-close job failed', { err });
     }
