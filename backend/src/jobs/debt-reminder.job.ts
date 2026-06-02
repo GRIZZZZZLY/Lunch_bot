@@ -159,7 +159,14 @@ async function sendRemindersForGroup(
   let sent = 0;
   let failed = 0;
 
-  for (const debtorData of debtors) {
+  // Должники — разные Telegram-чаты, поэтому рассылку можно вести с ограниченной
+  // параллельностью. CONCURRENCY=4 заметно ускоряет задачу при большом числе
+  // должников и остаётся в пределах лимитов Telegram (глобально ~30 msg/s).
+  const CONCURRENCY = 4;
+
+  const sendOne = async (
+    debtorData: (typeof debtors)[number]
+  ): Promise<boolean> => {
     try {
       const message = formatReminderMessage(
         settings.messageTemplate,
@@ -185,16 +192,25 @@ async function sendRemindersForGroup(
         },
       });
 
-      sent++;
       logger.info(
         `[DebtReminderJob] Sent reminder to user ${debtorData.debtor.id} (${debtorData.debtor.firstName}) for ${debtorData.totalAmount.toFixed(2)} руб.`
       );
+      return true;
     } catch (error) {
-      failed++;
       logger.error(
         `[DebtReminderJob] Failed to send reminder to user ${debtorData.debtor.id}:`,
         error
       );
+      return false;
+    }
+  };
+
+  for (let i = 0; i < debtors.length; i += CONCURRENCY) {
+    const chunk = debtors.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(chunk.map(sendOne));
+    for (const ok of results) {
+      if (ok) sent++;
+      else failed++;
     }
   }
 

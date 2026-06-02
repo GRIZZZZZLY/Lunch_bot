@@ -434,9 +434,11 @@ export class OrderCalculationService {
         );
       }
 
-      // Пачкой сохраняем привязку message_id к транзакциям (вне критического пути рассылки)
+      // Пачкой сохраняем привязку message_id к транзакциям (вне критического
+      // пути рассылки). $transaction — для согласованности: либо привязки всех
+      // должников сохранены, либо ни одной, без частичного состояния.
       if (messageIdUpdates.length > 0) {
-        await Promise.all(
+        await prisma.$transaction(
           messageIdUpdates.map(u =>
             prisma.transaction.update({
               where: { id: u.id },

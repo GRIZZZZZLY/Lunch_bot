@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDown,
@@ -52,24 +52,32 @@ export const CompletedPollWidget = ({
   const votes = poll.votes || [];
   const voteCount = poll._count?.votes || 0;
 
-  // Подсчитываем все выбранные блюда с количеством голосов и списком участников
-  const dishVoteCounts = votes.reduce((acc, vote) => {
-    const dishId = vote.menuItemId;
-    if (!acc[dishId]) {
-      acc[dishId] = {
-        dish: vote.menuItem,
-        count: 0,
-        voters: [],
-      };
-    }
-    acc[dishId].count++;
-    acc[dishId].voters.push(vote.user); // НОВОЕ: добавляем участника
-    return acc;
-  }, {} as Record<number, { dish: Vote['menuItem']; count: number; voters: Vote['user'][] }>);
+  // Подсчитываем все выбранные блюда с количеством голосов и списком участников.
+  // useMemo: тяжёлый проход по голосам пересчитывается только при их изменении,
+  // а не на каждый рендер (раскрытие/сворачивание виджета и т.п.).
+  const dishVoteCounts = useMemo(
+    () =>
+      votes.reduce((acc, vote) => {
+        const dishId = vote.menuItemId;
+        if (!acc[dishId]) {
+          acc[dishId] = {
+            dish: vote.menuItem,
+            count: 0,
+            voters: [],
+          };
+        }
+        acc[dishId].count++;
+        acc[dishId].voters.push(vote.user); // НОВОЕ: добавляем участника
+        return acc;
+      }, {} as Record<number, { dish: Vote['menuItem']; count: number; voters: Vote['user'][] }>),
+    [votes]
+  );
 
   // Сортируем блюда по количеству голосов (от большего к меньшему)
-  const sortedDishes = Object.values(dishVoteCounts)
-    .sort((a, b) => b.count - a.count);
+  const sortedDishes = useMemo(
+    () => Object.values(dishVoteCounts).sort((a, b) => b.count - a.count),
+    [dishVoteCounts]
+  );
 
   // Топ-3 для отображения без клика
   const topDishes = sortedDishes.slice(0, 3);
@@ -93,15 +101,19 @@ export const CompletedPollWidget = ({
   const formattedTime = endTime ? format(new Date(endTime), 'HH:mm') : '';
 
   // Подготавливаем данные для ParticipantsList
-  const participants = votes.map(v => ({
-    id: v.user.id,
-    firstName: v.user.firstName,
-    lastName: v.user.lastName || '',
-    photoUrl: (v.user as { photoUrl?: string }).photoUrl,
-    dishName: v.menuItem?.name || 'Неизвестно',
-    dishPrice: v.menuItem?.price || 0,
-    dishEmoji: (v.menuItem as { emoji?: string } | undefined)?.emoji,
-  }));
+  const participants = useMemo(
+    () =>
+      votes.map(v => ({
+        id: v.user.id,
+        firstName: v.user.firstName,
+        lastName: v.user.lastName || '',
+        photoUrl: (v.user as { photoUrl?: string }).photoUrl,
+        dishName: v.menuItem?.name || 'Неизвестно',
+        dishPrice: v.menuItem?.price || 0,
+        dishEmoji: (v.menuItem as { emoji?: string } | undefined)?.emoji,
+      })),
+    [votes]
+  );
 
   // Celebration всегда показываем в развёрнутом виде (confetti на pill не падает)
   useEffect(() => {

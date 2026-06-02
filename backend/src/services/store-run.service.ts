@@ -205,19 +205,15 @@ export class StoreRunService {
       throw new StoreRunError('INVALID_INPUT', 'No valid items after sanitization');
     }
 
-    const created: StoreItem[] = [];
-    for (const item of sanitized) {
-      const row = await prisma.storeItem.create({
-        data: {
-          storeRunId,
-          userId,
-          name: item.name,
-          quantity: item.quantity,
-          notes: item.notes,
-        },
-      });
-      created.push(row);
-    }
+    const created = await prisma.storeItem.createManyAndReturn({
+      data: sanitized.map((item) => ({
+        storeRunId,
+        userId,
+        name: item.name,
+        quantity: item.quantity,
+        notes: item.notes,
+      })),
+    });
 
     logger.info('Store items added', {
       storeRunId,

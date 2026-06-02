@@ -254,8 +254,13 @@ export const RecurringPollForm = ({
     const minCount = Math.min(3, menuItems.length);
     const count = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
 
-    const shuffled = [...menuItems].sort(() => Math.random() - 0.5);
-    const randomItems = shuffled.slice(0, count);
+    // Частичный Фишер-Йейтс: перемешиваем только первые count позиций
+    const pool = [...menuItems];
+    for (let i = 0; i < count; i++) {
+      const j = i + Math.floor(Math.random() * (pool.length - i));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const randomItems = pool.slice(0, count);
     setSelectedItems(new Set(randomItems.map(item => item.id)));
     setUseAllItems(false);
   };
