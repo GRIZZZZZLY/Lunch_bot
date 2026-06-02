@@ -38,6 +38,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useIsGroupAdmin } from '../hooks/useIsGroupAdmin';
 import { useTelegram } from '../hooks/useTelegram';
 import { useAppStore } from '../store/useAppStore';
+import { useCurrentGroup } from '../hooks/useCurrentGroup';
+import { getAdminGroups } from '../lib/groups';
 import { menuService, MenuItem } from '../services/menu.service';
 import { useMenuItems, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem, useToggleMenuItemStatus } from '../hooks/queries';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
@@ -66,7 +68,12 @@ export const MenuPage: React.FC = () => {
   const theme = useAppStore((state) => state.theme);
   const isDark = theme === 'dark';
   const navigate = useNavigate();
-  
+
+  // Группы пользователя для свитчера и мульти-группового создания
+  const { currentGroupId, groups, currentGroup } = useCurrentGroup();
+  const setCurrentGroupId = useAppStore((state) => state.setCurrentGroupId);
+  const adminGroups = getAdminGroups(groups);
+
   // Load menu items using React Query
   const { data: menuItems = [], isLoading: menuLoading, refetch: refetchMenu } = useMenuItems();
   
@@ -144,19 +151,22 @@ export const MenuPage: React.FC = () => {
     haptic.success();
   };
 
-  const handleAddItem = async (itemData: MenuFormData) => {
-    console.log('[MenuPage] Adding item:', itemData);
-    
-    createItemMutation(itemData, {
-      onSuccess: (data) => {
-        console.log('[MenuPage] Item added successfully:', data);
+  const handleAddItem = async (formData: MenuFormData) => {
+    console.log('[MenuPage] Adding item:', formData);
+
+    const { groupIds, ...itemData } = formData;
+
+    createItemMutation({ data: itemData, groupIds }, {
+      onSuccess: (items) => {
+        console.log('[MenuPage] Item added successfully:', items);
+        const count = items?.length ?? 0;
         addNotification({
           type: 'success',
-          message: `Блюдо "${itemData.name}" добавлено`,
+          message: `Блюдо "${itemData.name}" добавлено${count > 1 ? ` в ${count} групп` : ''}`,
         });
         closeBottomSheet();
         haptic.success();
-        
+
         // P1.2.4: Track menu item creation
         trackEvent(ANALYTICS_EVENTS.MENU_ITEM_ADDED, {
           itemName: itemData.name,
@@ -328,7 +338,23 @@ export const MenuPage: React.FC = () => {
               <div className="rounded-xl bg-primary/10 p-2 text-primary">
                 <Utensils className={ICON_SIZES.lg} />
               </div>
-              <h1 className="text-2xl font-semibold text-foreground">Меню</h1>
+              <div>
+                <h1 className="text-2xl font-semibold text-foreground">Меню</h1>
+                {groups.length > 1 ? (
+                  <select
+                    value={currentGroupId ?? ''}
+                    onChange={(e) => setCurrentGroupId(Number(e.target.value))}
+                    className="mt-0.5 bg-transparent text-sm text-muted-foreground focus:outline-none"
+                    aria-label="Выбрать группу"
+                  >
+                    {groups.map((grp) => (
+                      <option key={grp.id} value={grp.id}>{grp.title}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{currentGroup?.title ?? ''}</p>
+                )}
+              </div>
             </div>
 
             <div className="relative flex-1 flex items-center justify-end min-w-0 h-11">
@@ -504,6 +530,8 @@ export const MenuPage: React.FC = () => {
           onSubmit={handleAddItem}
           onCancel={closeBottomSheet}
           loading={menuLoading}
+          adminGroups={adminGroups.map((grp) => ({ id: grp.id, title: grp.title }))}
+          defaultGroupId={currentGroupId}
         />
       </BottomSheet>
       
