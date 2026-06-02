@@ -49,7 +49,6 @@ router.get('/:id', telegramAuthMiddleware, menuController.getItemById);
 router.post(
   '/',
   telegramAuthMiddleware,
-  groupAdminMiddleware,
   validateMenuItemData,
   menuController.createItem
 );

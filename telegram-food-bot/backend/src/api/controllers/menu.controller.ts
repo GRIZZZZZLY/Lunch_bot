@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { MenuService } from '../../services/menu.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
-import { CreateMenuItemData, UpdateMenuItemData } from '../../types/menu.types';
+import { UpdateMenuItemData } from '../../types/menu.types';
 import { toNumber } from '../../utils/decimal';
 import { GroupService, GroupAccessError } from '../../services/group.service';
 
@@ -278,62 +278,34 @@ export class MenuController {
    */
   static async createItem(req: Request, res: Response): Promise<void> {
     try {
-      const data: CreateMenuItemData = req.body;
       const user = (req as any).user;
-
-      logger.info('🔵 CREATE MENU ITEM REQUEST', {
-        requestId: Date.now(),
-        userId: user.id,
-        username: user.username,
-        data: {
-          name: data.name,
-          description: data.description?.substring(0, 50),
-          price: data.price,
-          isActive: data.isActive,
-        },
-      });
-
-      // Добавляем createdBy из авторизованного пользователя
-      const groupId = resolveGroupId(req);
-      if (!groupId) {
-        res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
+      const groupIds: number[] = Array.isArray(req.body.groupIds) ? req.body.groupIds : [];
+      if (groupIds.length === 0) {
+        res.status(400).json({ success: false, error: 'groupIds is required', code: 'MISSING_GROUP_ID' });
         return;
       }
-      const itemData = {
-        ...data,
-        createdBy: user.id,
-        groupId,
-      };
 
-      const item = await MenuService.createMenuItem(itemData);
+      const items = await MenuService.createMenuItemForGroups(
+        {
+          name: req.body.name,
+          description: req.body.description,
+          price: req.body.price,
+          imageUrl: req.body.imageUrl,
+          isActive: req.body.isActive,
+        },
+        user.id,
+        groupIds,
+      );
 
-      logger.info('✅ MENU ITEM CREATED SUCCESSFULLY', {
-        itemId: item.id,
-        name: item.name,
-        price: item.price === null || item.price === undefined ? item.price : toNumber(item.price),
-        createdBy: user.id,
-        createdByUsername: user.username,
-      });
-
+      logger.info('Menu items created', { count: items.length, by: user.id });
       res.status(201).json({
         success: true,
-        data: serializeMenuItem(item),
-        message: 'Menu item created successfully',
+        data: items.map(serializeMenuItem),
+        count: items.length,
         timestamp: new Date().toISOString(),
       });
-
     } catch (error) {
-      logger.error('❌ ERROR CREATING MENU ITEM', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        userId: (req as any).user?.id,
-        requestBody: req.body,
-      });
-      res.status(500).json({
-        success: false,
-        error: 'Failed to create menu item',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to create menu item', 'INTERNAL_ERROR');
     }
   }
 

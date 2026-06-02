@@ -5,19 +5,15 @@ import { getParam } from '../../utils/request-params';
 
 // Схемы валидации для меню
 const createMenuItemSchema = z.object({
-  // groupId передаётся в теле запроса (multi-tenant). Без него z.object() срезал бы
-  // поле при req.body = result.data, и контроллер падал бы с MISSING_GROUP_ID.
-  // optional — наличие всё равно проверяет контроллер (query ИЛИ body).
-  groupId: z.number().int().positive('Group ID must be positive').optional(),
+  groupIds: z.array(z.number().int().positive('Group ID must be positive')).min(1, 'At least one group is required'),
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
   description: z.string().max(500, 'Description too long').optional().or(z.literal('')),
   price: z.number().min(0, 'Price cannot be negative').optional(),
-  imageUrl: z.string().url('Invalid image URL').optional().or(z.literal('')),
+  imageUrl: z.string().url('Invalid URL format').optional().or(z.literal('')),
   isActive: z.boolean().optional(),
 });
 
-// На обновлении groupId запрещён — блюдо нельзя перенести в другую группу.
-const updateMenuItemSchema = createMenuItemSchema.partial().omit({ groupId: true });
+const updateMenuItemSchema = createMenuItemSchema.partial().omit({ groupIds: true });
 
 // Схемы валидации для голосований
 const createPollSchema = z.object({
