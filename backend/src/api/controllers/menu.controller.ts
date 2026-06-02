@@ -4,7 +4,7 @@ import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
 import { CreateMenuItemData, UpdateMenuItemData } from '../../types/menu.types';
 import { toNumber } from '../../utils/decimal';
-import { GroupAccessError } from '../../services/group.service';
+import { GroupService, GroupAccessError } from '../../services/group.service';
 
 function serializeMenuItem(item: any): any {
   if (!item) return item;
@@ -44,6 +44,14 @@ export class MenuController {
         res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
         return;
       }
+      const user = (req as any).user;
+      try {
+        await GroupService.assertMember(user.id, groupId);
+      } catch (error) {
+        sendMenuError(res, error, 'Failed to get menu items', 'INTERNAL_ERROR');
+        return;
+      }
+
       const items = await MenuService.getAllMenuItems(groupId);
 
       res.json({
@@ -54,12 +62,7 @@ export class MenuController {
       });
 
     } catch (error) {
-      logger.error('Error getting all menu items:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get menu items',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to get menu items', 'INTERNAL_ERROR');
     }
   }
 
@@ -82,6 +85,13 @@ export class MenuController {
         return;
       }
 
+      try {
+        await GroupService.assertMember(user.id, groupId);
+      } catch (error) {
+        sendMenuError(res, error, 'Failed to get active menu items', 'INTERNAL_ERROR');
+        return;
+      }
+
       const items = await MenuService.getActiveMenuItems(groupId);
 
       logger.info('✅ [MenuController] Active menu items retrieved', {
@@ -97,12 +107,7 @@ export class MenuController {
       });
 
     } catch (error) {
-      logger.error('❌ [MenuController] Error getting active menu items:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get active menu items',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to get active menu items', 'INTERNAL_ERROR');
     }
   }
 
@@ -120,6 +125,14 @@ export class MenuController {
         res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
         return;
       }
+      const user = (req as any).user;
+      try {
+        await GroupService.assertMember(user.id, groupId);
+      } catch (error) {
+        sendMenuError(res, error, 'Failed to get popular menu items', 'INTERNAL_ERROR');
+        return;
+      }
+
       const items = await MenuService.getPopularMenuItems(limit, groupId);
 
       res.json({
@@ -131,12 +144,7 @@ export class MenuController {
       });
 
     } catch (error) {
-      logger.error('Error getting popular menu items:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get popular menu items',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to get popular menu items', 'INTERNAL_ERROR');
     }
   }
 
@@ -151,6 +159,14 @@ export class MenuController {
         res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
         return;
       }
+      const user = (req as any).user;
+      try {
+        await GroupService.assertMember(user.id, groupId);
+      } catch (error) {
+        sendMenuError(res, error, 'Failed to get menu stats', 'INTERNAL_ERROR');
+        return;
+      }
+
       const stats = await MenuService.getMenuStats(groupId);
 
       res.json({
@@ -160,12 +176,7 @@ export class MenuController {
       });
 
     } catch (error) {
-      logger.error('Error getting menu stats:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get menu stats',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to get menu stats', 'INTERNAL_ERROR');
     }
   }
 
@@ -192,6 +203,14 @@ export class MenuController {
         return;
       }
 
+      const user = (req as any).user;
+      try {
+        await GroupService.assertMember(user.id, groupId);
+      } catch (error) {
+        sendMenuError(res, error, 'Failed to search menu items', 'INTERNAL_ERROR');
+        return;
+      }
+
       const items = await MenuService.searchMenuItems(query.trim(), groupId);
 
       res.json({
@@ -203,12 +222,7 @@ export class MenuController {
       });
 
     } catch (error) {
-      logger.error('Error searching menu items:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to search menu items',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to search menu items', 'INTERNAL_ERROR');
     }
   }
 
@@ -240,6 +254,13 @@ export class MenuController {
         return;
       }
 
+      try {
+        await GroupService.assertMember((req as any).user.id, item.groupId);
+      } catch (error) {
+        sendMenuError(res, error, 'Failed to get menu item', 'INTERNAL_ERROR');
+        return;
+      }
+
       res.json({
         success: true,
         data: serializeMenuItem(item),
@@ -247,12 +268,7 @@ export class MenuController {
       });
 
     } catch (error) {
-      logger.error('Error getting menu item by ID:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get menu item',
-        code: 'INTERNAL_ERROR'
-      });
+      sendMenuError(res, error, 'Failed to get menu item', 'INTERNAL_ERROR');
     }
   }
 
