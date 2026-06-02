@@ -36,6 +36,49 @@ export class MenuService {
   }
 
   /**
+   * Создать блюдо сразу в нескольких группах (Approach 1: независимые копии).
+   * Проверяет права админа по КАЖДОЙ группе ДО создания (all-or-nothing): если
+   * пользователь не админ хотя бы одной — не создаём ничего. Возвращает копии.
+   */
+  static async createMenuItemForGroups(
+    data: { name: string; description?: string; price?: number; imageUrl?: string; isActive?: boolean },
+    actingUserId: number,
+    groupIds: number[],
+  ): Promise<MenuItem[]> {
+    const uniqueGroupIds = [...new Set(groupIds)];
+    if (uniqueGroupIds.length === 0) {
+      throw new Error('At least one group is required');
+    }
+
+    for (const groupId of uniqueGroupIds) {
+      await GroupService.assertAdmin(actingUserId, groupId);
+    }
+
+    const created = await prisma.menuItem.createManyAndReturn({
+      data: uniqueGroupIds.map((groupId) => ({
+        name: data.name,
+        description: data.description,
+        price: data.price,
+        imageUrl: data.imageUrl,
+        isActive: data.isActive ?? true,
+        createdBy: actingUserId,
+        groupId,
+      })),
+    });
+
+    for (const groupId of uniqueGroupIds) {
+      CacheInvalidator.invalidateMenu(groupId);
+    }
+
+    logger.info('Menu item created in groups', {
+      count: created.length,
+      groupIds: uniqueGroupIds,
+      createdBy: actingUserId,
+    });
+    return created;
+  }
+
+  /**
    * Получение блюда по ID
    */
   static async getMenuItemById(id: number): Promise<MenuItem | null> {
