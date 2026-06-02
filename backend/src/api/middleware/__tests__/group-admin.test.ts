@@ -13,12 +13,14 @@ const mkRes = () => {
 describe('groupAdminMiddleware', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('пускает супер-админа без проверки группы', async () => {
+  it('супер-админ НЕ пересекает границы группы: проверяется как обычный пользователь', async () => {
+    (GroupService.isUserGroupAdmin as jest.Mock).mockResolvedValue(false);
     const req: any = { user: { id: 1, isAdmin: true }, query: { groupId: '5' }, params: {}, body: {} };
-    const next = jest.fn();
-    await groupAdminMiddleware(req, mkRes(), next);
-    expect(next).toHaveBeenCalled();
-    expect(GroupService.isUserGroupAdmin).not.toHaveBeenCalled();
+    const res = mkRes(); const next = jest.fn();
+    await groupAdminMiddleware(req, res, next);
+    expect(GroupService.isUserGroupAdmin).toHaveBeenCalledWith(1, 5);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
   });
 
   it('пускает per-group админа', async () => {

@@ -16,8 +16,6 @@ export async function groupAdminMiddleware(req: Request, res: Response, next: Ne
       res.status(401).json({ success: false, error: 'User not authenticated', code: 'NOT_AUTHENTICATED' });
       return;
     }
-    if (user.isAdmin === true) { next(); return; }
-
     const groupId = resolveGroupId(req);
     if (!groupId) {
       res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
