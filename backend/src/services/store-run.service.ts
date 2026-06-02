@@ -415,18 +415,21 @@ export class StoreRunService {
    * Возвращает список изменённых id для вызова уведомлений.
    */
   static async autoCloseExpired(): Promise<number[]> {
-    const expired = await prisma.storeRun.findMany({
-      where: { status: 'COLLECTING', collectUntil: { lt: new Date() } },
+    // Один атомарный условный апдейт: статус меняется ТОЛЬКО если на момент записи
+    // строка ещё 'COLLECTING'. Забег, отменённый между чтением и записью, не
+    // попадёт под обновление (нет гонки findMany→updateMany, нет «воскрешения»
+    // отменённого забега и ложных уведомлений). Возвращаются только реально
+    // обновлённые строки.
+    const now = new Date();
+    const closed = await prisma.storeRun.updateManyAndReturn({
+      where: { status: 'COLLECTING', collectUntil: { lt: now } },
+      data: { status: 'SHOPPING', shoppingAt: now },
       select: { id: true },
     });
-    if (expired.length === 0) return [];
-
-    const ids = expired.map((r) => r.id);
-    await prisma.storeRun.updateMany({
-      where: { id: { in: ids } },
-      data: { status: 'SHOPPING', shoppingAt: new Date() },
-    });
-    logger.info('Store runs auto-closed to SHOPPING', { count: ids.length, ids });
+    const ids = closed.map((r) => r.id);
+    if (ids.length > 0) {
+      logger.info('Store runs auto-closed to SHOPPING', { count: ids.length, ids });
+    }
     return ids;
   }
 
