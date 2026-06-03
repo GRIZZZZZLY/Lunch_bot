@@ -304,6 +304,49 @@ export function useClosePoll() {
 }
 
 /**
+ * Hook для отмены голосования (admin).
+ * Переводит poll в CANCELLED. Используется, чтобы убрать застрявший
+ * завершённый результат с главного экрана (виджет результата + ответственного).
+ *
+ * @example
+ * ```tsx
+ * const { mutate: cancelPoll } = useCancelPoll();
+ * cancelPoll({ pollId: 123 });
+ * ```
+ */
+export function useCancelPoll() {
+  const queryClient = useQueryClient();
+  const { addNotification } = useUI();
+
+  return useMutation({
+    mutationFn: async ({ pollId, reason }: { pollId: number; reason?: string }) => {
+      const response = await pollsService.cancelPoll(pollId, reason);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to cancel poll');
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      // Префикс ['polls'] инвалидирует active / today-completed / detail / history.
+      queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
+      // Виджет ответственного/расчёта завязан на завершённый poll → обновляем бюджет.
+      queryClient.invalidateQueries({ queryKey: ['budget'] });
+
+      addNotification({
+        type: 'success',
+        message: 'Голосование отменено',
+      });
+    },
+    onError: (error) => {
+      addNotification({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Ошибка отмены голосования',
+      });
+    },
+  });
+}
+
+/**
  * Hook для получения истории polls
  */
 export function usePollHistory() {

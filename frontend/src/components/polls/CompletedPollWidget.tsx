@@ -8,6 +8,7 @@ import {
   Users,
   Utensils,
   X,
+  Ban,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { PollWithDetails, Vote } from '../../services/polls.service';
@@ -26,6 +27,12 @@ interface CompletedPollWidgetProps {
   defaultCollapsed?: boolean;
   /** Колбэк для кнопки × (скрыть виджет полностью) */
   onDismiss?: () => void;
+  /** Показывать admin-кнопку «Отменить голосование» (только групп-админу) */
+  canCancel?: boolean;
+  /** Колбэк отмены голосования (перевод в CANCELLED). Подтверждение — на стороне родителя */
+  onCancel?: () => void;
+  /** Идёт запрос отмены — блокирует кнопку */
+  isCancelling?: boolean;
 }
 
 /**
@@ -39,6 +46,9 @@ export const CompletedPollWidget = ({
   className,
   defaultCollapsed = false,
   onDismiss,
+  canCancel = false,
+  onCancel,
+  isCancelling = false,
 }: CompletedPollWidgetProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
@@ -290,6 +300,20 @@ export const CompletedPollWidget = ({
                   'flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-y-0.5'
                 )}
               />
+              {canCancel && onCancel && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCancel();
+                  }}
+                  disabled={isCancelling}
+                  aria-label="Отменить голосование"
+                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50"
+                >
+                  <Ban className={ICON_SIZES.xs} />
+                </button>
+              )}
               {onDismiss && (
                 <button
                   type="button"
