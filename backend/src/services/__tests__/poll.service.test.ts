@@ -2,6 +2,7 @@ import { PollService } from '../poll.service';
 import { prisma } from '../../database/client';
 import { Poll, PollResult, Prisma } from '@prisma/client';
 import { CacheInvalidator } from '../cache.service';
+import { GroupService } from '../group.service';
 
 // Mock prisma client
 jest.mock('../../database/client', () => ({
@@ -912,6 +913,78 @@ describe('PollService', () => {
       expect(result).toBe(false);
       expect(completeSpy).not.toHaveBeenCalled();
       completeSpy.mockRestore();
+    });
+  });
+
+  describe('checkAutoComplete', () => {
+    let settingsSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      settingsSpy = jest
+        .spyOn(GroupService, 'getGroupSettings')
+        .mockResolvedValue({ autoCompleteEnabled: true } as any);
+    });
+
+    afterEach(() => {
+      settingsSpy.mockRestore();
+    });
+
+    it('returns false if poll is not ACTIVE', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'COMPLETED', groupId: 7 });
+
+      const result = await PollService.checkAutoComplete(42);
+
+      expect(result).toBe(false);
+      expect(prisma.pollParticipant.findMany).not.toHaveBeenCalled();
+    });
+
+    it('returns false when auto-complete is disabled for the group', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'ACTIVE', groupId: 7 });
+      settingsSpy.mockResolvedValue({ autoCompleteEnabled: false } as any);
+
+      const result = await PollService.checkAutoComplete(42);
+
+      expect(result).toBe(false);
+      expect(prisma.pollParticipant.findMany).not.toHaveBeenCalled();
+    });
+
+    // Регрессия: голосование закрывалось после ОДНОГО голоса, потому что ожидаемое
+    // число бралось из истории/Telegram API (=1), а не из снимка участников.
+    it('returns false when only one of many EXPECTED voted (regression)', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'ACTIVE', groupId: 7 });
+      (prisma.pollParticipant.findMany as jest.Mock).mockResolvedValue([
+        { userId: 1 },
+        { userId: 2 },
+        { userId: 3 },
+        { userId: 4 },
+      ]);
+      (prisma.vote.findMany as jest.Mock).mockResolvedValue([{ userId: 1 }]);
+
+      const result = await PollService.checkAutoComplete(42);
+
+      expect(result).toBe(false);
+    });
+
+    it('returns true when all EXPECTED participants voted', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'ACTIVE', groupId: 7 });
+      (prisma.pollParticipant.findMany as jest.Mock).mockResolvedValue([
+        { userId: 1 },
+        { userId: 2 },
+      ]);
+      (prisma.vote.findMany as jest.Mock).mockResolvedValue([{ userId: 1 }, { userId: 2 }]);
+
+      const result = await PollService.checkAutoComplete(42);
+
+      expect(result).toBe(true);
+    });
+
+    it('returns false when EXPECTED list is empty (everyone excluded)', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'ACTIVE', groupId: 7 });
+      (prisma.pollParticipant.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await PollService.checkAutoComplete(42);
+
+      expect(result).toBe(false);
     });
   });
 });
