@@ -81,8 +81,28 @@ cd "$FRONTEND_DIR"
 # Install new dependencies if any
 npm install
 
+# Сохраняем ассеты предыдущей сборки. vite (emptyOutDir) стирает dist целиком,
+# поэтому уже-открытые клиенты на СТАРОМ app shell ловят 404 на lazy-чанки
+# (CalculatorModal/CreatePollForm и т.п.) до своей перезагрузки. Кладём старые
+# хешированные файлы обратно ПОВЕРХ новой сборки (cp -n: новые не перезатираем),
+# чтобы редеплой был бесшовным даже для клиентов без preloadError-хендлера.
+PREV_ASSETS="$(mktemp -d)"
+if [ -d dist/assets ]; then
+  cp -a dist/assets/. "$PREV_ASSETS"/ 2>/dev/null || true
+fi
+
 # Rebuild
 npm run build
+
+# Возвращаем чанки прошлых сборок рядом с новыми (graceful для stale-клиентов).
+if [ -d "$PREV_ASSETS" ]; then
+  cp -rn "$PREV_ASSETS"/. dist/assets/ 2>/dev/null || true
+  rm -rf "$PREV_ASSETS"
+fi
+
+# Прунинг: не копим старые ассеты вечно — удаляем файлы старше 14 дней
+# (mtime сохраняется через cp -a, поэтому стареют от своей исходной сборки).
+find dist/assets -type f -mtime +14 -delete 2>/dev/null || true
 
 cd ..
 
