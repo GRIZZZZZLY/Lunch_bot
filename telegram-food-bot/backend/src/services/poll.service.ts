@@ -1,5 +1,4 @@
 import { Poll, Vote, PollResult, Prisma, MenuItem, User } from '@prisma/client';
-import { LRUCache } from 'lru-cache';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CreatePollData, PollWithDetails, PollStats, votePublicUserSelect, VotePublicUser } from '../types/poll.types';
@@ -36,30 +35,8 @@ export class PollAlreadyActiveError extends Error {
   }
 }
 
-import { getBotInstance } from '../bot/bot-instance';
-
 /** @deprecated No-op: bot is now accessed via the shared singleton */
 export function initializePollServiceBot(_bot: unknown): void {}
-
-function botInstance() { return getBotInstance(); }
-
-// Константы для кеширования
-const MEMBER_COUNT_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 часа
-const MEMBER_COUNT_CACHE_MAX = 500; // Максимум 500 групп в кеше
-
-// Тип для записи в кеше
-interface MemberCountCacheEntry {
-  count: number;
-  source: 'telegram_api' | 'history';
-}
-
-// LRU-кэш количества участников групп (с автоматическим TTL и ограничением размера)
-const memberCountCache = new LRUCache<number, MemberCountCacheEntry>({
-  max: MEMBER_COUNT_CACHE_MAX,
-  ttl: MEMBER_COUNT_CACHE_TTL,
-  updateAgeOnGet: false, // Не обновляем TTL при чтении
-  updateAgeOnHas: false,
-});
 
 export class PollService {
   /**
@@ -1521,84 +1498,21 @@ export class PollService {
   }
 
   /**
-   * Получение ожидаемого количества участников с LRU-кэшем
-   * Приоритеты: 1) Кэш (с автоматическим TTL), 2) Telegram API, 3) Settings, 4) История
-   * 
-   * Использует LRU-cache для предотвращения утечки памяти (макс. 500 групп, TTL 2 часа)
-   */
-  private static async getExpectedParticipants(
-    groupId: number,
-    groupTelegramId: bigint,
-    settings: Record<string, unknown> | { expectedParticipants?: number; autoCompleteEnabled?: boolean }
-  ): Promise<{ count: number; source: string }> {
-    // 1️⃣ Проверяем LRU-кэш (автоматически проверяет TTL)
-    const cached = memberCountCache.get(groupId);
-    if (cached) {
-      logger.debug(`Using cached member count for group ${groupId}: ${cached.count} (${cached.source})`);
-      return { count: cached.count, source: `cached_${cached.source}` };
-    }
-    
-    // 2️⃣ Получаем из Telegram API
-    const realCount = await GroupService.getRealMemberCount(
-      groupTelegramId.toString(),
-      botInstance
-    );
-    
-    if (realCount !== null) {
-      // Сохраняем в LRU-кэш (автоматически вытеснит старые записи)
-      memberCountCache.set(groupId, {
-        count: realCount,
-        source: 'telegram_api',
-      });
-      
-      logger.info(`📊 Updated member count for group ${groupId}: ${realCount} (from Telegram API)`);
-      
-      // Сохраняем в БД асинхронно (не ждем)
-      GroupService.updateGroupSettings(groupId, {
-        ...settings,
-        expectedParticipants: realCount,
-      }).catch(err => logger.error('Error saving expectedParticipants:', err));
-      
-      return { count: realCount, source: 'telegram_api' };
-    }
-    
-    // 3️⃣ Fallback к настройкам или истории
-    let fallbackCount: number;
-    let fallbackSource: 'telegram_api' | 'history';
-    
-    if (settings.expectedParticipants) {
-      fallbackCount = settings.expectedParticipants as number;
-      fallbackSource = 'history'; // Считаем настройки как "history" для типизации
-    } else {
-      fallbackCount = await GroupService.getActiveParticipants(groupId);
-      fallbackSource = 'history';
-    }
-    
-    // Сохраняем fallback в LRU-кэш
-    memberCountCache.set(groupId, {
-      count: fallbackCount,
-      source: fallbackSource,
-    });
-    
-    logger.warn(`⚠️ Using fallback member count for group ${groupId}: ${fallbackCount} (${fallbackSource})`);
-    
-    return { count: fallbackCount, source: fallbackSource };
-  }
-
-  /**
-   * Проверка условий для автоматического завершения голосования
+   * Проверка условий для автоматического завершения голосования.
+   *
+   * Кворум считается по СНИМКУ ожидаемых участников (poll_participants, status=EXPECTED),
+   * который фиксируется при создании голосования, а НЕ по эвристике из истории/Telegram API.
+   * Старый подход (getExpectedParticipants) для новой группы без истории давал
+   * expectedParticipants=1, из-за чего голосование закрывалось после первого же голоса.
+   *
+   * Возвращает true только когда КАЖДЫЙ ожидаемый участник проголосовал.
+   * Уважает групповую настройку autoCompleteEnabled.
    */
   static async checkAutoComplete(pollId: number): Promise<boolean> {
     try {
       const poll = await prisma.poll.findUnique({
         where: { id: pollId },
-        include: {
-          votes: {
-            select: { userId: true },
-            distinct: ['userId']
-          },
-          group: true
-        }
+        select: { status: true, groupId: true },
       });
 
       if (!poll || poll.status !== 'ACTIVE') {
@@ -1613,41 +1527,28 @@ export class PollService {
         return false;
       }
 
-      // Определяем ожидаемое количество участников с использованием кэша
-      const { count: expectedParticipants, source } = await this.getExpectedParticipants(
-        poll.groupId,
-        poll.group.telegramId,
-        settings
-      );
-
-      const currentVotes = poll.votes.length;
-      
-      // DEBUG: Показать конкретных пользователей, которые проголосовали
-      const voterIds = poll.votes.map(v => v.userId);
-      logger.info(`🔍 DEBUG: Poll ${pollId} voters:`, { voterIds });
-
-      // Вычисляем прогресс
-      const timeElapsed = getMillisecondsDifference(now(), poll.startedAt);
-      const totalTime = poll.duration * 60 * 1000;
-      const timeProgress = timeElapsed / totalTime;
-      const voteProgress = currentVotes / expectedParticipants;
-
-      logger.info(`Auto-complete check for poll ${pollId}:`, {
-        currentVotes,
-        expectedParticipants,
-        voteProgress: `${Math.round(voteProgress * 100)}%`,
-        timeProgress: `${Math.round(timeProgress * 100)}%`,
-        source,
-        voterIds
+      // Ожидаемые участники — из снимка на момент старта (изоморфен составу группы).
+      const expected = await prisma.pollParticipant.findMany({
+        where: { pollId, status: 'EXPECTED' },
+        select: { userId: true },
       });
-
-      // ✅ Условие 1: Все проголосовали (100% явка)
-      if (voteProgress >= 1.0) {
-        logger.info(`✅ Auto-completing poll ${pollId}: 100% participation (${currentVotes}/${expectedParticipants})`);
-        return true;
+      if (expected.length === 0) {
+        logger.warn(`checkAutoComplete: poll ${pollId} has no EXPECTED participants — not auto-closing`);
+        return false;
       }
 
-      // ✅ Условие 2: Время истекло - обрабатывается автоматически таймером
+      const voters = await prisma.vote.findMany({
+        where: { pollId },
+        select: { userId: true },
+        distinct: ['userId'],
+      });
+      const votedSet = new Set(voters.map(v => v.userId));
+      const allVoted = expected.every(p => votedSet.has(p.userId));
+
+      if (allVoted) {
+        logger.info(`✅ Auto-completing poll ${pollId}: all ${expected.length} expected voters voted`);
+        return true;
+      }
 
       return false;
     } catch (error) {
