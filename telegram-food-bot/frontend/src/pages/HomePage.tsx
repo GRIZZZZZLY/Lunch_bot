@@ -57,7 +57,7 @@ import { useHaptic } from '../hooks/useHaptic';
 import { useAppStore } from '../store/useAppStore';
 import { pollsService, PollWithDetails } from '../services/polls.service';
 import { notificationService } from '../services/notification.service';
-import { useActivePolls } from '../hooks/usePolls';
+import { useActivePolls, useCancelPoll } from '../hooks/usePolls';
 import { useMenuItems } from '../hooks/queries';
 import { useUserGroups } from '../hooks/queries/useUserQueries';
 import { useTodayCompletedPoll } from '../hooks/useTodayCompletedPoll';
@@ -88,6 +88,7 @@ export const HomePage: React.FC = () => {
   const { colorScheme } = telegram;
   const { user } = useAuth();
   const isGroupAdmin = useIsGroupAdmin();
+  const cancelPoll = useCancelPoll();
   const { currentGroupId } = useCurrentGroup();
   const haptic = useHaptic();
   const addNotification = useAppStore((state) => state.addNotification);
@@ -880,6 +881,21 @@ export const HomePage: React.FC = () => {
                 onCelebrationEnd={handleCelebrationEnd}
                 defaultCollapsed
                 onDismiss={dismissCompletedPoll}
+                canCancel={!!isGroupAdmin}
+                isCancelling={cancelPoll.isPending}
+                onCancel={() => {
+                  const pollId = todayCompletedPoll.id;
+                  const message = 'Отменить это голосование? Результат и расчёт исчезнут у всех.';
+                  const run = () => cancelPoll.mutate({ pollId });
+                  const webApp = window.Telegram?.WebApp as any;
+                  if (webApp?.showConfirm) {
+                    webApp.showConfirm(message, (ok: boolean) => {
+                      if (ok) run();
+                    });
+                  } else if (window.confirm(message)) {
+                    run();
+                  }
+                }}
               />
             </motion.div>
           )}
