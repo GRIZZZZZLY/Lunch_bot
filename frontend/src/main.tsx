@@ -10,6 +10,20 @@ import { initSentry } from './lib/sentry';
 import { initWebVitals } from './lib/web-vitals';
 import { handleStartupUpdate } from './utils/versionCheck';
 
+// Авто-восстановление устаревших lazy-чанков после нового деплоя.
+// Браузер/Telegram держит старый app shell; чанк с прежним хешем уже удалён
+// с сервера → dynamic import (React.lazy) даёт 404. Vite шлёт 'vite:preloadError'.
+// Перезагружаем страницу, чтобы подтянуть свежий shell (анти-цикл: не чаще раза в 10 сек).
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', () => {
+    const KEY = 'vite-preload-reload-at';
+    const last = Number(sessionStorage.getItem(KEY) || '0');
+    if (Date.now() - last < 10_000) return;
+    sessionStorage.setItem(KEY, String(Date.now()));
+    window.location.reload();
+  });
+}
+
 const resetAppState = async (): Promise<void> => {
   if (typeof window === 'undefined') return;
 
