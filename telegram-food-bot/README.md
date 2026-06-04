@@ -3,7 +3,7 @@
 > Telegram бот для организации голосований за еду с современным Mini App интерфейсом
 
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=github-actions&logoColor=white)](https://github.com/YOUR_USERNAME/telegram-food-bot/actions)
-[![Tests](https://img.shields.io/badge/tests-77%20passing-brightgreen)](https://github.com/YOUR_USERNAME/telegram-food-bot)
+[![Tests](https://img.shields.io/badge/tests-258%20passing-brightgreen)](https://github.com/YOUR_USERNAME/telegram-food-bot)
 [![Coverage](https://img.shields.io/badge/coverage-85%25-green)](.github/CI_CD_GUIDE.md)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-22+-green)](https://nodejs.org/)
@@ -152,34 +152,53 @@ telegram-food-bot/
 ## 🛠️ Технологии
 
 ### Backend
-- **Grammy.js** - Telegram Bot Framework
-- **Express.js** - REST API
-- **Prisma** - ORM для PostgreSQL
-- **TypeScript** - Type safety
-- **Winston** - Logging
+- **TypeScript 5.9** (strict mode) + **Node.js 22+**
+- **Grammy.js 1.39** — Telegram Bot Framework (auto-retry, throttler)
+- **Express 5** — REST API для Mini App
+- **Prisma 7.3** — ORM (PostgreSQL в проде, better-sqlite3 для локального dev/тестов)
+- **JWT + bcrypt** — авторизация, валидация Telegram `initData`
+- **Zod** — валидация схем, **Helmet** + **express-rate-limit** + **CORS** — защита
+- **ioredis** — кэш и rate-limit стораджи
+- **node-cron** — авто-закрытие просроченных голосований
+- **Sentry** + **prom-client** — мониторинг ошибок и метрики Prometheus
+- **Winston** — логирование
 
-### Frontend
-- **React 18** - UI библиотека
-- **Vite** - Быстрая сборка
-- **Tailwind CSS** - Стилизация
-- **Framer Motion** - Анимации
-- **React Query** - Управление данными
-- **Zustand** - State management
+### Frontend (Mini App)
+- **React 18** + **TypeScript 5.9** + **Vite 6**
+- **Tailwind CSS 3** + **Radix UI** — UI-примитивы
+- **TanStack Query 5** — server state + persist-кэш, **Zustand** — global state
+- **Framer Motion** — анимации, **Recharts** — графики статистики
+- **@twa-dev/sdk** — интеграция с Telegram WebApp (haptics, theme)
+- **vite-plugin-pwa** — офлайн-режим и service worker
+- **Sentry/React** — отслеживание ошибок фронта
+- ⚠️ `frontend-new/` — параллельный редизайн v2 (минимализм/футуризм, 3 цветовые схемы × светлая/тёмная тема), переключается через `FRONTEND_DIR`
 
-### DevOps
-- **PostgreSQL** - База данных (Prisma ORM)
-- **Docker** - Контейнеризация базы и сервисов
-- **ngrok** - HTTPS туннель для разработки
+### Инфраструктура / DevOps
+- **PostgreSQL 16** — основная БД (через Docker локально)
+- **PM2** — процесс-менеджер на VPS (zero-downtime reload)
+- **Nginx + Certbot** — reverse-proxy и SSL
+- **GitHub Actions** — CI/CD (тесты, Docker-сборки)
+- **ngrok** — HTTPS-туннель для локальной разработки
 
 ## 📊 Статус проекта
 
-✅ **Версия**: 2.1.0 (Production Ready)  
-✅ **Backend**: Полностью реализован  
-✅ **Frontend**: Полностью реализован  
-✅ **Мобильная версия**: Работает на iOS и Android  
-✅ **Документация**: 95% готова  
-⚠️ **Тесты**: Требуются (unit + integration)  
-⚠️ **CI/CD**: Требуется настройка  
+✅ **Версия**: 2.1.0 — Production Ready, развёрнут на VPS
+✅ **Активная ветка**: `feature/store-run` (деплой-ветка — НЕ `main`)
+✅ **Прод-домен**: [rocketlunch.dpdns.org](https://rocketlunch.dpdns.org) · бот [@rocket_lunch_bot](https://t.me/rocket_lunch_bot)
+✅ **Backend**: полностью реализован, ~258 тестов (Jest) зелёные
+✅ **Frontend**: полностью реализован, работает на iOS и Android
+✅ **CI/CD**: GitHub Actions (тесты + Docker-сборки)
+🚧 **Redesign v2** (`frontend-new/`): parity ~95% с прод-фронтом, портирование в работе
+⚠️ **Покрытие тестами фронта**: низкое, требует расширения
+
+### Реализованные фичи
+
+- 🗳️ **Голосования за еду** — рулетка/волонтёр для выбора ответственного, deep linking из группы
+- 🎯 **Авто-закрытие по кворуму** — снимок ожидаемых участников (`PollParticipant`), флаг «обедает в офисе» + per-poll override; голосование закрывается, как только проголосовали все ожидаемые
+- 💰 **Budget Tracker** — адаптивный виджет долгов/кредитов, 6 сценариев, интеграция СБП
+- 🛒 **Store Run** — групповые закупки: сценарии инициатора/участника, deep links, авто-закрытие по cron
+- 🏢 **Multi-tenant** — изоляция по группам: per-group меню и per-group админ
+- 🔔 **Push-уведомления** через Telegram API, **PWA** с офлайн-меню
 
 ### История изменений
 
