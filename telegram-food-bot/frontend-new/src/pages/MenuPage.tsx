@@ -1,54 +1,49 @@
-import { useMemo, useState } from 'react';
-import { Search, Filter, MoreVertical, Plus, ChevronDown, X, Trash2, Upload } from 'lucide-react';
-import { cn } from '@/lib/cn';
-import { useMenuItems, useCreateMenuItem, useDeleteMenuItem, useUpdateMenuItem } from '@/hooks/useMenu';
+import { useMemo, useState, type ChangeEvent, type ReactNode } from 'react';
+import {
+  useMenuItems,
+  useCreateMenuItem,
+  useDeleteMenuItem,
+  useUpdateMenuItem,
+} from '@/hooks/useMenu';
+import { useAuth } from '@/hooks/useAuth';
 import type { MenuItem } from '@/types/models';
-import '@/styles/menu.css';
-
-const PALETTES = ['peach', 'sage', 'rose', 'lav', 'butter', 'sky'] as const;
-
-function paletteFor(index: number): string {
-  return `var(--g-${PALETTES[index % PALETTES.length]})`;
-}
+import { Icon } from '@/components/rl/Icon';
+import { Badge, Button, Chip, Field, IconButton, SearchBar, Switch } from '@/components/rl/primitives';
+import { BottomSheet } from '@/components/rl/BottomSheet';
+import { Fab } from '@/components/rl/Fab';
 
 interface Dish {
   id: number;
-  emoji: string;
   name: string;
   desc: string;
-  categoryId: string;
-  categoryLabel: string;
+  category: string;
   price: number;
-  status: 'active' | 'archived';
-  bg: string;
+  active: boolean;
 }
 
-function toDish(item: MenuItem, index: number): Dish {
-  const category = item.category ?? 'other';
+function toDish(item: MenuItem): Dish {
   return {
     id: item.id,
-    emoji: item.emoji ?? '🍽',
     name: item.name,
     desc: item.description ?? '',
-    categoryId: category,
-    categoryLabel: category,
+    category: item.category ?? 'Прочее',
     price: item.price,
-    status: item.isActive === false ? 'archived' : 'active',
-    bg: paletteFor(index),
+    active: item.isActive !== false,
   };
 }
 
-function buildCategories(dishes: Dish[]): { id: string; label: string; count?: number }[] {
+function buildCategories(dishes: Dish[]): { id: string; label: string; count: number }[] {
   const counts = new Map<string, number>();
-  for (const d of dishes) counts.set(d.categoryId, (counts.get(d.categoryId) ?? 0) + 1);
-  const all: { id: string; label: string; count?: number }[] = [
-    { id: 'all', label: 'Всё', count: dishes.length },
-  ];
+  for (const d of dishes) counts.set(d.category, (counts.get(d.category) ?? 0) + 1);
+  const all = [{ id: 'all', label: 'Всё', count: dishes.length }];
   for (const [id, count] of counts) all.push({ id, label: id, count });
   return all;
 }
 
 export default function MenuPage() {
+  const { user } = useAuth();
+  const isAdmin = !!user?.isAdmin;
+
   const { data: items = [], isLoading, error } = useMenuItems({ activeOnly: false });
   const createMutation = useCreateMenuItem();
   const updateMutation = useUpdateMenuItem();
@@ -56,132 +51,98 @@ export default function MenuPage() {
 
   const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<MenuItem | null>(null);
-  const [suggExpanded, setSuggExpanded] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Dish | null>(null);
 
   const dishes = useMemo(() => items.map(toDish), [items]);
   const categories = useMemo(() => buildCategories(dishes), [dishes]);
 
   const filtered = useMemo(() => {
-    let list = dishes.filter((d) => category === 'all' || d.categoryId === category);
-    if (searchOpen && query) {
-      list = list.filter((d) => d.name.toLowerCase().includes(query.toLowerCase()));
+    let list = dishes.filter((d) => category === 'all' || d.category === category);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      list = list.filter((d) => d.name.toLowerCase().includes(q) || d.category.toLowerCase().includes(q));
     }
     return list;
-  }, [dishes, category, searchOpen, query]);
+  }, [dishes, category, query]);
 
   const isEmpty = !isLoading && dishes.length === 0;
-  const isNoResults = searchOpen && query.length > 0 && filtered.length === 0;
-
-  if (error) {
-    return (
-      <div className="body" style={{ padding: 16, color: 'var(--ink-2)' }}>
-        Не удалось загрузить меню.
-      </div>
-    );
-  }
+  const isNoResults = !isLoading && !isEmpty && filtered.length === 0;
 
   return (
-    <div className="relative">
-      <div className="m-hdr">
-        <div className="ttl">Меню</div>
-        <div className="r">
-          <button
-            className="m-ico-btn"
-            aria-label="search"
-            onClick={() => {
-              setSearchOpen((v) => !v);
-              if (searchOpen) setQuery('');
-            }}
-          >
-            <Search size={18} />
-          </button>
-          <button className="m-ico-btn" aria-label="filter">
-            <Filter size={18} />
-          </button>
-          <button className="m-fab-sm" aria-label="add" onClick={() => setAddOpen(true)}>
-            <Plus size={18} />
-          </button>
+    <div className="rl">
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '10px 20px 12px', gap: 12 }}>
+        <div>
+          <h1 className="font-head tight" style={{ margin: 0, fontSize: 'var(--t-28)', fontWeight: 700, lineHeight: 1.05 }}>
+            Меню
+          </h1>
+          <p style={{ margin: '4px 0 0', fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>
+            <span className="tnum">{dishes.length}</span> блюд · <span className="tnum">{categories.length - 1}</span> категорий
+          </p>
         </div>
+        {isAdmin && (
+          <IconButton variant="secondary" name="plus" aria-label="Добавить блюдо" onClick={() => setAddOpen(true)} />
+        )}
       </div>
 
-      <div className="body">
-        {searchOpen && (
-          <div className="glass-search">
-            <Search className="mag" size={16} />
-            <input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Найти блюдо, категорию…"
-            />
-            {query && (
-              <button className="clear" aria-label="Очистить" onClick={() => setQuery('')}>
-                <X size={12} />
-              </button>
-            )}
-          </div>
-        )}
-
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 5,
+          padding: '0 20px 12px',
+          background: 'linear-gradient(var(--bg-base) 72%, transparent)',
+        }}
+      >
+        <SearchBar value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Найти блюдо или категорию" />
         {!isEmpty && (
-          <div className="chips">
+          <div className="scroll-area" style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', paddingBottom: 2 }}>
             {categories.map((c) => (
-              <button
-                key={c.id}
-                className={cn('chip', category === c.id && 'active')}
-                onClick={() => setCategory(c.id)}
-              >
+              <Chip key={c.id} on={category === c.id} onClick={() => setCategory(c.id)}>
                 {c.label}
-                {c.count !== undefined && <span style={{ opacity: 0.7 }}> ·{c.count}</span>}
-              </button>
+                <span className="tnum" style={{ opacity: 0.6 }}>
+                  {c.count}
+                </span>
+              </Chip>
             ))}
           </div>
         )}
-
-        {!isLoading && !isEmpty && filtered.length > 0 && (
-          <div className="sort-row">
-            <span className="count"><b>{filtered.length}</b> блюд{filtered.length === 1 ? 'о' : 'а'}</span>
-            <button className="sort-dd">По популярности <ChevronDown size={12} /></button>
-          </div>
-        )}
-
-        {isLoading && <LoadingList />}
-        {isEmpty && <EmptyMenu onAdd={() => setAddOpen(true)} />}
-        {isNoResults && <NoResults query={query} />}
-
-        {!isLoading && !isEmpty && !isNoResults && filtered.length > 0 && (
-          <>
-            <div className="menu-list">
-              {filtered.map((d) => (
-                <DishRow
-                  key={d.id}
-                  dish={d}
-                  onDelete={() => setDeleteTarget(d)}
-                  onEdit={() => {
-                    const raw = items.find((i) => i.id === d.id);
-                    if (raw) setEditTarget(raw);
-                  }}
-                />
-              ))}
-            </div>
-            {!searchOpen && (
-              <Suggestions expanded={suggExpanded} onToggle={() => setSuggExpanded((v) => !v)} />
-            )}
-          </>
-        )}
-
-        {!addOpen && !deleteTarget && !isEmpty && (
-          <button className="fab" aria-label="add" onClick={() => setAddOpen(true)}>
-            <Plus size={24} />
-          </button>
-        )}
       </div>
 
+      <div style={{ padding: '4px 20px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {error && (
+          <div className="card" style={{ padding: 20, color: 'var(--text-secondary)', fontSize: 'var(--t-13)' }}>
+            Не удалось загрузить меню.
+          </div>
+        )}
+        {isLoading && <LoadingList />}
+        {isEmpty && <EmptyMenu canAdd={isAdmin} onAdd={() => setAddOpen(true)} />}
+        {isNoResults && <NoResults query={query} />}
+
+        {!isLoading &&
+          filtered.map((d, i) => (
+            <DishRow
+              key={d.id}
+              dish={d}
+              index={i}
+              admin={isAdmin}
+              onEdit={() => {
+                const raw = items.find((it) => it.id === d.id);
+                if (raw) setEditTarget(raw);
+              }}
+              onDelete={() => setDeleteTarget(d)}
+            />
+          ))}
+      </div>
+
+      {isAdmin && !addOpen && !editTarget && !deleteTarget && !isEmpty && (
+        <Fab label="Добавить блюдо" onClick={() => setAddOpen(true)} />
+      )}
+
       {addOpen && (
-        <AddDishSheet
+        <DishSheet
+          title="Добавить блюдо"
           busy={createMutation.isPending}
           onClose={() => setAddOpen(false)}
           onSubmit={async (input) => {
@@ -189,14 +150,15 @@ export default function MenuPage() {
               await createMutation.mutateAsync(input);
               setAddOpen(false);
             } catch {
-              /* toast already shown by onError */
+              /* toast shown by hook */
             }
           }}
         />
       )}
       {editTarget && (
-        <EditDishSheet
-          dish={editTarget}
+        <DishSheet
+          title="Редактировать блюдо"
+          initial={editTarget}
           busy={updateMutation.isPending}
           onClose={() => setEditTarget(null)}
           onSubmit={async (input) => {
@@ -204,362 +166,267 @@ export default function MenuPage() {
               await updateMutation.mutateAsync({ id: editTarget.id, data: input });
               setEditTarget(null);
             } catch {
-              /* toast already shown */
+              /* toast shown */
             }
           }}
         />
       )}
       {deleteTarget && (
-        <DeleteConfirmSheet
-          dish={deleteTarget}
-          busy={deleteMutation.isPending}
-          onCancel={() => setDeleteTarget(null)}
-          onConfirm={async () => {
-            try {
-              await deleteMutation.mutateAsync(deleteTarget.id);
-              setDeleteTarget(null);
-            } catch {
-              /* toast already shown */
-            }
-          }}
-        />
+        <BottomSheet
+          role="alertdialog"
+          title={`Удалить «${deleteTarget.name}»?`}
+          onClose={() => setDeleteTarget(null)}
+          footer={
+            <>
+              <Button variant="secondary" style={{ flex: 1 }} disabled={deleteMutation.isPending} onClick={() => setDeleteTarget(null)}>
+                Отмена
+              </Button>
+              <Button
+                variant="danger"
+                icon="trash"
+                style={{ flex: 1 }}
+                loading={deleteMutation.isPending}
+                onClick={async () => {
+                  try {
+                    await deleteMutation.mutateAsync(deleteTarget.id);
+                    setDeleteTarget(null);
+                  } catch {
+                    /* toast shown */
+                  }
+                }}
+              >
+                Удалить
+              </Button>
+            </>
+          }
+        >
+          <p style={{ margin: 0, fontSize: 'var(--t-13)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            Блюдо исчезнет из каталога и истории голосований. Действие нельзя отменить.
+          </p>
+        </BottomSheet>
       )}
     </div>
   );
 }
 
-function DishRow({ dish, onDelete, onEdit }: { dish: Dish; onDelete: () => void; onEdit: () => void }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+function DishRow({
+  dish,
+  index,
+  admin,
+  onEdit,
+  onDelete,
+}: {
+  dish: Dish;
+  index: number;
+  admin: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   return (
-    <div className="mi">
-      <div className="img" style={{ background: dish.bg }}>{dish.emoji}</div>
-      <div className="info">
-        <div className="n">{dish.name}</div>
-        {dish.desc && <div className="d">{dish.desc}</div>}
-        <div className="sub-meta">{dish.categoryLabel}</div>
+    <div
+      className="card anim-rise"
+      style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12, animationDelay: `${Math.min(index * 45, 300)}ms`, opacity: dish.active ? 1 : 0.6 }}
+    >
+      <div
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 12,
+          flexShrink: 0,
+          background: 'var(--accent-tint)',
+          color: 'var(--accent)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon name="menu" size={24} />
       </div>
-      <div className="tail">
-        <span className="price">{dish.price} ₽</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, position: 'relative' }}>
-          <span className={cn('badge', dish.status === 'active' ? 'active' : 'archived')}>
-            {dish.status === 'active' ? 'Активно' : 'Архив'}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="font-head" style={{ fontSize: 'var(--t-15)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {dish.name}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+          <span className="tnum" style={{ fontSize: 'var(--t-15)', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            {dish.price} ₽
           </span>
-          <button className="kebab" aria-label="Меню" onClick={() => setMenuOpen((v) => !v)}>
-            <MoreVertical size={14} />
-          </button>
-          {menuOpen && (
-            <div
-              role="menu"
-              onMouseLeave={() => setMenuOpen(false)}
-              style={{
-                position: 'absolute', right: 0, top: 28, zIndex: 20,
-                background: 'var(--surface)', border: '1px solid var(--line)',
-                borderRadius: 12, minWidth: 144, boxShadow: 'var(--shadow-elev)',
-                padding: 4, display: 'flex', flexDirection: 'column',
-              }}
-            >
-              <button
-                onClick={() => { setMenuOpen(false); onEdit(); }}
-                style={{ padding: '8px 10px', borderRadius: 8, fontSize: 13, background: 'transparent', border: 0, textAlign: 'left', color: 'var(--ink)', cursor: 'pointer' }}
-              >
-                Редактировать
-              </button>
-              <button
-                onClick={() => { setMenuOpen(false); onDelete(); }}
-                style={{ padding: '8px 10px', borderRadius: 8, fontSize: 13, background: 'transparent', border: 0, textAlign: 'left', color: 'var(--coral-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <Trash2 size={14} /> Удалить
-              </button>
-            </div>
-          )}
+          <span style={{ fontSize: 'var(--t-11)', color: 'var(--text-tertiary)' }}>·</span>
+          <span style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>{dish.category}</span>
         </div>
       </div>
+      {admin ? (
+        <div style={{ display: 'flex', gap: 4 }}>
+          <IconButton variant="ghost" size="sm" name="edit" aria-label="Изменить" onClick={onEdit} />
+          <IconButton variant="ghost" size="sm" name="trash" aria-label="Удалить" style={{ color: 'var(--danger)' }} onClick={onDelete} />
+        </div>
+      ) : (
+        <Badge tone={dish.active ? 'success' : 'neutral'}>{dish.active ? 'Активно' : 'Архив'}</Badge>
+      )}
     </div>
   );
 }
 
 function LoadingList() {
   return (
-    <div className="menu-list">
+    <>
       {[0, 1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="sk">
-          <div className="sh img" />
-          <div className="lines">
-            <div className="sh ln1" />
-            <div className="sh ln2" />
+        <div key={i} className="card" style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="skeleton" style={{ width: 52, height: 52, borderRadius: 12 }} />
+          <div style={{ flex: 1 }}>
+            <div className="skeleton" style={{ height: 13, width: '60%', marginBottom: 8 }} />
+            <div className="skeleton" style={{ height: 11, width: '35%' }} />
           </div>
-          <div className="sh pill" />
+          <div className="skeleton" style={{ width: 56, height: 24, borderRadius: 999 }} />
         </div>
       ))}
+    </>
+  );
+}
+
+function CenterCard({ icon, title, text, action }: { icon: 'menu' | 'search' | 'flame'; title: string; text: string; action?: ReactNode }) {
+  return (
+    <div className="card" style={{ padding: '36px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <div
+        style={{
+          width: 60,
+          height: 60,
+          borderRadius: 18,
+          background: 'var(--bg-base)',
+          color: 'var(--text-tertiary)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 6,
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <Icon name={icon} size={28} />
+      </div>
+      <div className="font-head" style={{ fontSize: 'var(--t-16)', fontWeight: 600 }}>
+        {title}
+      </div>
+      <p style={{ margin: 0, fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', maxWidth: 260, lineHeight: 1.5 }}>{text}</p>
+      {action}
     </div>
   );
 }
 
-function EmptyMenu({ onAdd }: { onAdd: () => void }) {
+function EmptyMenu({ canAdd, onAdd }: { canAdd: boolean; onAdd: () => void }) {
   return (
-    <div className="empty">
-      <div className="illo" aria-hidden>
-        <div style={{
-          width: 120, height: 120, borderRadius: 999,
-          background: 'var(--g-peachlav)', display: 'grid', placeItems: 'center',
-          fontSize: 56, boxShadow: 'var(--shadow-elev)',
-        }}>🍽</div>
-      </div>
-      <div className="t">Меню пустое</div>
-      <div className="s">Добавьте первое блюдо, чтобы команда могла голосовать за обед.</div>
-      <button className="btn primary" style={{ marginTop: 8 }} onClick={onAdd}>
-        <Plus size={16} /> Добавить блюдо
-      </button>
-    </div>
+    <CenterCard
+      icon="menu"
+      title="Меню пустое"
+      text={canAdd ? 'Добавьте первое блюдо, чтобы команда могла голосовать за обед.' : 'Администратор ещё не добавил блюда.'}
+      action={
+        canAdd ? (
+          <Button variant="primary" icon="plus" style={{ marginTop: 10 }} onClick={onAdd}>
+            Добавить блюдо
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }
 
 function NoResults({ query }: { query: string }) {
+  return <CenterCard icon="search" title="Ничего не найдено" text={`По запросу «${query}» нет блюд.`} />;
+}
+
+type DishInput = { name: string; price: number; description?: string; category?: string; isActive?: boolean; emoji?: string };
+
+function FormField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="no-res">
-      <div className="big">🤷</div>
-      <div className="t">Ничего не найдено</div>
-      <div className="s">По запросу «{query}» нет блюд.</div>
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
+      {children}
     </div>
   );
 }
 
-function Suggestions({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
-  return (
-    <div className="sugg">
-      <div className="sh" onClick={onToggle} style={{ cursor: 'pointer' }}>
-        <div className="t">💡 Предложено участниками <span className="pill">0</span></div>
-        <ChevronDown size={12} style={{ color: 'var(--ink-3)', transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 160ms' }} />
-      </div>
-      {expanded && (
-        <div style={{ padding: '10px 4px', fontSize: 13, color: 'var(--ink-3)' }}>
-          Пока нет предложений от команды.
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AddDishSheet({
+function DishSheet({
+  title,
+  initial,
   busy,
   onClose,
   onSubmit,
 }: {
+  title: string;
+  initial?: MenuItem;
   busy: boolean;
   onClose: () => void;
-  onSubmit: (input: { name: string; price: number; description?: string; category?: string; isActive?: boolean }) => void | Promise<void>;
+  onSubmit: (input: DishInput) => void | Promise<void>;
 }) {
-  const [name, setName] = useState('');
-  const [desc, setDesc] = useState('');
-  const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('hot');
-  const [active, setActive] = useState(true);
+  const [name, setName] = useState(initial?.name ?? '');
+  const [desc, setDesc] = useState(initial?.description ?? '');
+  const [price, setPrice] = useState(initial ? String(initial.price) : '');
+  const [cat, setCat] = useState(initial?.category ?? '');
+  const [active, setActive] = useState(initial?.isActive !== false);
 
   const canSubmit = name.trim().length > 0 && Number(price) > 0 && !busy;
 
   return (
-    <>
-      <div className="scrim" onClick={onClose} />
-      <div className="bs" role="dialog" aria-label="Добавить блюдо">
-        <div className="handle" />
-        <div className="bs-head">
-          <div className="bs-ttl">Добавить блюдо</div>
-          <button className="bs-close" onClick={onClose} aria-label="Закрыть"><X size={14} /></button>
-        </div>
-        <div className="form">
-          <div className="upload">
-            <div className="ic"><Upload size={18} /></div>
-            <div className="h">Загрузить фото</div>
-            <div className="s">PNG, JPG · до 2 МБ</div>
-          </div>
-          <div className="field">
-            <label>Название</label>
-            <input className="inp" value={name} onChange={(e) => setName(e.target.value)} placeholder="Пельмени с говядиной" />
-          </div>
-          <div className="field">
-            <label>Описание</label>
-            <textarea className="inp" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Сметана, укроп, свежий чеснок" />
-          </div>
-          <div className="field row2">
-            <div className="sub">
-              <label>Цена</label>
-              <div className="suffix">
-                <input className="inp" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="350" inputMode="numeric" />
-                <span className="sx">₽</span>
-              </div>
-            </div>
-            <div className="sub">
-              <label>Категория</label>
-              <select className="inp" value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="soup">🍜 Супы</option>
-                <option value="hot">🥘 Горячее</option>
-                <option value="salad">🥗 Салаты</option>
-                <option value="dessert">🍰 Десерты</option>
-                <option value="drink">🥤 Напитки</option>
-              </select>
-            </div>
-          </div>
-          <div className="toggle-row">
-            <div>
-              <div className="t">Активно</div>
-              <div className="s">Показывать в голосовании</div>
-            </div>
-            <div className={cn('switch', active && 'on')} onClick={() => setActive((v) => !v)} role="switch" aria-checked={active} />
-          </div>
-          <div className="bs-foot">
-            <button className="btn ghost" onClick={onClose} disabled={busy}>Отмена</button>
-            <button
-              className="btn primary"
-              disabled={!canSubmit}
-              onClick={() =>
-                onSubmit({
-                  name: name.trim(),
-                  price: Number(price),
-                  description: desc.trim() || undefined,
-                  category,
-                  isActive: active,
-                })
-              }
-            >
-              {busy ? 'Сохраняю…' : 'Сохранить'}
-            </button>
-          </div>
-        </div>
+    <BottomSheet
+      title={title}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" style={{ flex: 1 }} disabled={busy} onClick={onClose}>
+            Отмена
+          </Button>
+          <Button
+            variant="primary"
+            icon="check"
+            style={{ flex: 1 }}
+            loading={busy}
+            disabled={!canSubmit}
+            onClick={() =>
+              onSubmit({
+                name: name.trim(),
+                price: Number(price),
+                description: desc.trim() || undefined,
+                category: cat.trim() || undefined,
+                isActive: active,
+              })
+            }
+          >
+            Сохранить
+          </Button>
+        </>
+      }
+    >
+      <FormField label="Название">
+        <Field value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder="Пельмени с говядиной" />
+      </FormField>
+      <FormField label="Описание">
+        <Field as="textarea" value={desc} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDesc(e.target.value)} placeholder="Сметана, укроп, свежий чеснок" />
+      </FormField>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <FormField label="Цена, ₽">
+          <Field value={price} onChange={(e: ChangeEvent<HTMLInputElement>) => setPrice(e.target.value)} placeholder="350" inputMode="numeric" className="tnum" />
+        </FormField>
+        <FormField label="Категория">
+          <Field value={cat} onChange={(e: ChangeEvent<HTMLInputElement>) => setCat(e.target.value)} placeholder="Горячее" />
+        </FormField>
       </div>
-    </>
-  );
-}
-
-function EditDishSheet({
-  dish,
-  busy,
-  onClose,
-  onSubmit,
-}: {
-  dish: MenuItem;
-  busy: boolean;
-  onClose: () => void;
-  onSubmit: (input: { name: string; price: number; description?: string; category?: string; isActive?: boolean; emoji?: string }) => void | Promise<void>;
-}) {
-  const [name, setName] = useState(dish.name);
-  const [desc, setDesc] = useState(dish.description ?? '');
-  const [price, setPrice] = useState(String(dish.price));
-  const [category, setCategory] = useState(dish.category ?? 'hot');
-  const [emoji, setEmoji] = useState(dish.emoji ?? '🍽');
-  const [active, setActive] = useState(dish.isActive !== false);
-
-  const canSubmit = name.trim().length > 0 && Number(price) > 0 && !busy;
-
-  return (
-    <>
-      <div className="scrim" onClick={onClose} />
-      <div className="bs" role="dialog" aria-label="Редактировать блюдо">
-        <div className="handle" />
-        <div className="bs-head">
-          <div className="bs-ttl">Редактировать блюдо</div>
-          <button className="bs-close" onClick={onClose} aria-label="Закрыть"><X size={14} /></button>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          padding: '12px 14px',
+          borderRadius: 'var(--r-block)',
+          background: 'var(--bg-base)',
+        }}
+      >
+        <div>
+          <div className="font-head" style={{ fontSize: 'var(--t-15)', fontWeight: 600 }}>
+            Активно
+          </div>
+          <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>Показывать в голосовании</div>
         </div>
-        <div className="form">
-          <div className="field">
-            <label>Эмодзи</label>
-            <input className="inp" value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={4} />
-          </div>
-          <div className="field">
-            <label>Название</label>
-            <input className="inp" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>Описание</label>
-            <textarea className="inp" value={desc} onChange={(e) => setDesc(e.target.value)} />
-          </div>
-          <div className="field row2">
-            <div className="sub">
-              <label>Цена</label>
-              <div className="suffix">
-                <input className="inp" value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" />
-                <span className="sx">₽</span>
-              </div>
-            </div>
-            <div className="sub">
-              <label>Категория</label>
-              <select className="inp" value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="soup">🍜 Супы</option>
-                <option value="hot">🥘 Горячее</option>
-                <option value="salad">🥗 Салаты</option>
-                <option value="dessert">🍰 Десерты</option>
-                <option value="drink">🥤 Напитки</option>
-                <option value="other">Другое</option>
-              </select>
-            </div>
-          </div>
-          <div className="toggle-row">
-            <div>
-              <div className="t">Активно</div>
-              <div className="s">Показывать в голосовании</div>
-            </div>
-            <div className={cn('switch', active && 'on')} onClick={() => setActive((v) => !v)} role="switch" aria-checked={active} />
-          </div>
-          <div className="bs-foot">
-            <button className="btn ghost" onClick={onClose} disabled={busy}>Отмена</button>
-            <button
-              className="btn primary"
-              disabled={!canSubmit}
-              onClick={() =>
-                onSubmit({
-                  name: name.trim(),
-                  price: Number(price),
-                  description: desc.trim() || undefined,
-                  category,
-                  isActive: active,
-                  emoji: emoji.trim() || undefined,
-                })
-              }
-            >
-              {busy ? 'Сохраняю…' : 'Сохранить'}
-            </button>
-          </div>
-        </div>
+        <Switch on={active} onChange={setActive} aria-label="Активно" />
       </div>
-    </>
-  );
-}
-
-function DeleteConfirmSheet({
-  dish,
-  busy,
-  onCancel,
-  onConfirm,
-}: {
-  dish: Dish;
-  busy: boolean;
-  onCancel: () => void;
-  onConfirm: () => void | Promise<void>;
-}) {
-  return (
-    <>
-      <div className="scrim" onClick={onCancel} />
-      <div className="bs" role="alertdialog" aria-label="Удалить блюдо">
-        <div className="handle" />
-        <div className="bs-head">
-          <div className="bs-ttl">Удалить «{dish.name}»?</div>
-          <button className="bs-close" onClick={onCancel} aria-label="Закрыть"><X size={14} /></button>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 2px 18px' }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 12, display: 'grid', placeItems: 'center',
-            fontSize: 26, background: dish.bg, flexShrink: 0,
-          }}>{dish.emoji}</div>
-          <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.4 }}>
-            Блюдо исчезнет из каталога и истории голосований. Действие нельзя отменить.
-          </div>
-        </div>
-        <div className="bs-foot">
-          <button className="btn ghost" onClick={onCancel} disabled={busy}>Отмена</button>
-          <button className="btn destructive" onClick={onConfirm} disabled={busy}>
-            <Trash2 size={14} /> {busy ? 'Удаляю…' : 'Удалить'}
-          </button>
-        </div>
-      </div>
-    </>
+    </BottomSheet>
   );
 }

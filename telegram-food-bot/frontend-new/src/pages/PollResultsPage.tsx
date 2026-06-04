@@ -1,109 +1,78 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { WinnerCard } from '@/components/home/WinnerCard';
 import { usePollById, usePollResults } from '@/hooks/usePolls';
+import { useMenuItems } from '@/hooks/useMenu';
 import { useSSE } from '@/hooks/useSSE';
 import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
-import '@/styles/home.css';
+import { CompletedPollWidget } from '@/components/rl/homeWidgets';
+import { BackHeader } from '@/components/rl/parts';
+import { Avatar } from '@/components/rl/primitives';
+import { Icon } from '@/components/rl/Icon';
 
 export function PollResultsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const pollId = id ? Number(id) : null;
-  const isValidId = pollId !== null && Number.isFinite(pollId);
+  const valid = pollId !== null && Number.isFinite(pollId);
 
-  const { data: poll, isLoading: pollLoading } = usePollById(isValidId ? pollId : null);
-  const { data: results, isLoading: resultsLoading } = usePollResults(
-    isValidId ? pollId : null,
+  const { data: poll, isLoading: pollLoading } = usePollById(valid ? pollId : null);
+  const { data: results, isLoading: resultsLoading } = usePollResults(valid ? pollId : null);
+  const { data: allMenu = [] } = useMenuItems();
+  useSSE({ pollId: valid ? pollId : null, enabled: !!poll && poll.status === 'ACTIVE' });
+
+  const options = useMemo(() => mapPollToOptions(poll ?? null, allMenu), [poll, allMenu]);
+  const total = totalVotes(poll ?? null) || results?.totalVotes || 0;
+  const ranking = useMemo(
+    () => [...options].sort((a, b) => b.votes - a.votes).map((o) => ({ name: o.name, votes: o.votes })),
+    [options],
+  );
+  const winnerName = results?.winnerName || ranking[0]?.name || 'Без названия';
+  const winnerVotes = options.find((o) => Number(o.id) === results?.winnerId)?.votes ?? ranking[0]?.votes ?? 0;
+
+  const body = (content: ReactNode) => (
+    <div className="rl">
+      <BackHeader title={poll ? `Опрос #${poll.id}` : 'Результаты'} onBack={() => navigate(-1)} />
+      <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>{content}</div>
+    </div>
   );
 
-  useSSE({
-    pollId: isValidId ? pollId : null,
-    enabled: !!poll && poll.status === 'ACTIVE',
-  });
+  if (!valid) return body(<InfoCard text="Некорректный идентификатор опроса." />);
+  if (pollLoading || resultsLoading) return body(<InfoCard text="Загружаем результаты…" />);
+  if (!poll) return body(<InfoCard text="Опрос не найден." />);
 
-  const options = useMemo(() => mapPollToOptions(poll ?? null), [poll]);
-  const total = totalVotes(poll ?? null);
-
-  if (!isValidId) {
-    return (
-      <div className="home-body">
-        <div style={{ padding: 16, color: 'var(--ink-2)' }}>Некорректный идентификатор опроса.</div>
-      </div>
-    );
-  }
-
-  if (pollLoading || resultsLoading) {
-    return (
-      <div className="home-body">
-        <div style={{ padding: 16, color: 'var(--ink-2)' }}>Загружаем результаты…</div>
-      </div>
-    );
-  }
-
-  if (!poll) {
-    return (
-      <div className="home-body">
-        <div className="top-hdr">
-          <div className="back" onClick={() => navigate(-1)}>
-            ‹
-          </div>
-          <div className="ttl">Результаты</div>
-          <div className="act" />
-        </div>
-        <div style={{ padding: 16, color: 'var(--ink-2)' }}>Опрос не найден.</div>
-      </div>
-    );
-  }
-
-  const winnerFromResults = results?.winnerName;
-  const winnerFromPoll = poll.menuItems
-    ?.slice()
-    .sort((a, b) => (b._count?.votes ?? 0) - (a._count?.votes ?? 0))[0];
-  const winnerName = winnerFromResults ?? winnerFromPoll?.menuItem?.name ?? 'Без названия';
-  const winnerVotes =
-    results?.totalVotes !== undefined
-      ? winnerFromPoll?._count?.votes ?? 0
-      : winnerFromPoll?._count?.votes ?? 0;
-  const supplier = winnerFromPoll?.menuItem?.category ?? '—';
-  const deliveryMinutes = winnerFromPoll?.menuItem?.deliveryMinutes ?? 30;
-  const eta = formatEta(poll.closedAt ?? poll.createdAt, deliveryMinutes);
-
-  const duty = results?.responsible
-    ? {
-        initial: (results.responsible.name?.[0] ?? '?').toUpperCase(),
-        name: results.responsible.name,
-        role:
-          results.responsible.method === 'volunteer'
-            ? 'вызвался сам'
-            : 'выбран рулеткой',
-      }
-    : undefined;
-
-  return (
-    <div className="home-body">
-      <div className="top-hdr">
-        <div className="back" onClick={() => navigate(-1)}>
-          ‹
-        </div>
-        <div className="ttl">Опрос #{poll.id}</div>
-        <div className="act" />
-      </div>
-      <WinnerCard
+  return body(
+    <>
+      <CompletedPollWidget
         winnerName={winnerName}
-        votes={winnerVotes}
-        totalVotes={total || results?.totalVotes || 0}
-        supplier={supplier}
-        deliveryMinutes={deliveryMinutes}
-        eta={eta}
-        options={options}
-        duty={duty}
+        winnerVotes={winnerVotes}
+        totalVotes={total}
+        ranking={ranking}
+        collapsed={false}
+        onToggle={() => navigate(-1)}
       />
-    </div>
+      {results?.responsible && (
+        <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <Avatar name={results.responsible.name} size={48} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 'var(--t-11)', color: 'var(--text-tertiary)', fontWeight: 600 }}>Ответственный</div>
+            <div className="font-head" style={{ fontSize: 'var(--t-16)', fontWeight: 600 }}>
+              {results.responsible.name}
+            </div>
+            <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-secondary)' }}>
+              {results.responsible.method === 'volunteer' ? 'вызвался сам' : 'выбран рулеткой'}
+            </div>
+          </div>
+          <Icon name={results.responsible.method === 'volunteer' ? 'check' : 'roulette'} size={22} style={{ color: 'var(--accent)' }} />
+        </div>
+      )}
+    </>,
   );
 }
 
-function formatEta(iso: string, deliveryMinutes: number): string {
-  const d = new Date(new Date(iso).getTime() + deliveryMinutes * 60_000);
-  return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+function InfoCard({ text }: { text: string }) {
+  return (
+    <div className="card" style={{ padding: 20, color: 'var(--text-secondary)', fontSize: 'var(--t-13)' }}>
+      {text}
+    </div>
+  );
 }

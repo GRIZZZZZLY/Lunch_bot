@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { useAdminUsers, useToggleAdmin, useToggleActive } from '@/hooks/useAdmin';
 import type { UserWithActivity } from '@/services/admin.service';
+import { Button, Field } from '@/components/rl/primitives';
+import { Icon } from '@/components/rl/Icon';
 
 export function UserManagementCard() {
   const { data: users = [], isLoading } = useAdminUsers();
@@ -19,31 +21,26 @@ export function UserManagementCard() {
   });
 
   return (
-    <div className="card" style={cardStyle}>
-      <div style={headerStyle}>
-        <div style={titleStyle}>Пользователи ({users.length})</div>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск"
-          style={searchStyle}
-        />
+    <div className="card" style={{ padding: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--t-16)' }}>
+          Пользователи <span className="tnum" style={{ color: 'var(--text-tertiary)' }}>{users.length}</span>
+        </div>
+      </div>
+      <div style={{ marginBottom: 12 }}>
+        <Field value={search} onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} placeholder="Поиск участника" />
       </div>
 
-      {isLoading && <div style={muted}>Загрузка…</div>}
-      {!isLoading && filtered.length === 0 && <div style={muted}>Нет пользователей</div>}
+      {isLoading && <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--t-13)' }}>Загрузка…</div>}
+      {!isLoading && filtered.length === 0 && <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--t-13)' }}>Нет пользователей</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {filtered.map((u) => (
           <UserRow
             key={u.id}
             user={u}
-            onToggleAdmin={() =>
-              toggleAdmin.mutate({ userId: u.id, isAdmin: !u.isAdmin })
-            }
-            onToggleActive={() =>
-              toggleActive.mutate({ userId: u.id, isActive: !u.isActive })
-            }
+            onToggleAdmin={() => toggleAdmin.mutate({ userId: u.id, isAdmin: !u.isAdmin })}
+            onToggleActive={() => toggleActive.mutate({ userId: u.id, isActive: !u.isActive })}
           />
         ))}
       </div>
@@ -62,69 +59,29 @@ function UserRow({
 }) {
   const name = user.firstName + (user.lastName ? ' ' + user.lastName : '');
   return (
-    <div style={rowStyle}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 'var(--r-block)', background: 'var(--bg-base)' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600 }}>
+        <div style={{ fontSize: 'var(--t-15)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {name}
-          {user.username && <span style={muted}> @{user.username}</span>}
+          {user.username && <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}> @{user.username}</span>}
         </div>
-        <div style={subStyle}>
-          🗳 {user.totalVotes} · 💸 {user.pendingDebts} долгов
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 3, fontSize: 'var(--t-11)', color: 'var(--text-tertiary)' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            <Icon name="stats" size={12} /> <span className="tnum">{user.totalVotes}</span>
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            <Icon name="wallet" size={12} /> <span className="tnum">{user.pendingDebts}</span> долгов
+          </span>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
-        <button
-          onClick={onToggleAdmin}
-          style={{ ...btn, background: user.isAdmin ? '#FEE9B6' : '#EEE' }}
-        >
-          {user.isAdmin ? '⭐ Админ' : 'Сделать админом'}
-        </button>
-        <button
-          onClick={onToggleActive}
-          style={{ ...btn, background: user.isActive ? '#E5F3E5' : '#FCDADA' }}
-        >
+        <Button size="sm" variant={user.isAdmin ? 'success' : 'secondary'} icon="crown" onClick={onToggleAdmin}>
+          {user.isAdmin ? 'Админ' : 'Сделать'}
+        </Button>
+        <Button size="sm" variant={user.isActive ? 'ghost' : 'danger'} onClick={onToggleActive}>
           {user.isActive ? 'Активен' : 'Заблок.'}
-        </button>
+        </Button>
       </div>
     </div>
   );
 }
-
-const cardStyle: React.CSSProperties = {
-  background: 'var(--surf-1, #fff)',
-  borderRadius: 16,
-  padding: 14,
-  boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
-};
-const headerStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 10,
-  gap: 8,
-};
-const titleStyle: React.CSSProperties = { fontWeight: 700, fontSize: 15 };
-const searchStyle: React.CSSProperties = {
-  border: '1px solid var(--line-2, #eee)',
-  borderRadius: 8,
-  padding: '6px 10px',
-  fontSize: 13,
-  outline: 'none',
-};
-const rowStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: '8px 10px',
-  background: 'var(--surf-2, #F7F7F9)',
-  borderRadius: 10,
-};
-const btn: React.CSSProperties = {
-  border: 'none',
-  borderRadius: 8,
-  padding: '6px 10px',
-  fontSize: 12,
-  cursor: 'pointer',
-};
-const muted: React.CSSProperties = { color: 'var(--ink-2, #888)', fontSize: 12 };
-const subStyle: React.CSSProperties = { color: 'var(--ink-2, #888)', fontSize: 12, marginTop: 2 };

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
 import type { PaymentInfo } from '@/services/user.service';
+import { BottomSheet } from '@/components/rl/BottomSheet';
+import { Button, Field } from '@/components/rl/primitives';
 
 interface Props {
   open: boolean;
@@ -8,6 +9,15 @@ interface Props {
   busy?: boolean;
   onClose: () => void;
   onSubmit: (data: PaymentInfo) => void | Promise<void>;
+}
+
+function FormField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
+      {children}
+    </div>
+  );
 }
 
 export function EditPaymentInfoSheet({ open, initial, busy, onClose, onSubmit }: Props) {
@@ -34,52 +44,29 @@ export function EditPaymentInfoSheet({ open, initial, busy, onClose, onSubmit }:
   };
 
   return (
-    <>
-      <div className="scrim" onClick={onClose} />
-      <div className="bs" role="dialog" aria-label="Реквизиты СБП">
-        <div className="handle" />
-        <div className="bs-head">
-          <div className="bs-ttl">Реквизиты СБП</div>
-          <button className="bs-close" onClick={onClose} aria-label="Закрыть"><X size={14} /></button>
-        </div>
-        <div className="form">
-          <div className="field">
-            <label>Телефон СБП</label>
-            <input
-              className="inp"
-              value={sbpPhone}
-              onChange={(e) => setSbpPhone(e.target.value)}
-              placeholder="+7 (900) 000-00-00"
-              inputMode="tel"
-            />
-          </div>
-          <div className="field">
-            <label>Банк</label>
-            <input
-              className="inp"
-              value={bankName}
-              onChange={(e) => setBankName(e.target.value)}
-              placeholder="Тинькофф, Сбербанк…"
-            />
-          </div>
-          <div className="field">
-            <label>Номер карты (опционально)</label>
-            <input
-              className="inp"
-              value={cardNumber}
-              onChange={(e) => setCardNumber(e.target.value)}
-              placeholder="0000 0000 0000 0000"
-              inputMode="numeric"
-            />
-          </div>
-          <div className="bs-foot">
-            <button className="btn ghost" onClick={onClose} disabled={busy}>Отмена</button>
-            <button className="btn primary" onClick={handleSave} disabled={busy}>
-              {busy ? 'Сохраняю…' : 'Сохранить'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
+    <BottomSheet
+      title="Реквизиты СБП"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" style={{ flex: 1 }} disabled={busy} onClick={onClose}>
+            Отмена
+          </Button>
+          <Button variant="primary" icon="check" style={{ flex: 1 }} loading={busy} onClick={handleSave}>
+            Сохранить
+          </Button>
+        </>
+      }
+    >
+      <FormField label="Телефон СБП">
+        <Field value={sbpPhone} onChange={(e: ChangeEvent<HTMLInputElement>) => setSbpPhone(e.target.value)} placeholder="+7 (900) 000-00-00" inputMode="tel" className="tnum" />
+      </FormField>
+      <FormField label="Банк">
+        <Field value={bankName} onChange={(e: ChangeEvent<HTMLInputElement>) => setBankName(e.target.value)} placeholder="Тинькофф, Сбербанк…" />
+      </FormField>
+      <FormField label="Номер карты (опционально)">
+        <Field value={cardNumber} onChange={(e: ChangeEvent<HTMLInputElement>) => setCardNumber(e.target.value)} placeholder="0000 0000 0000 0000" inputMode="numeric" className="tnum" />
+      </FormField>
+    </BottomSheet>
   );
 }

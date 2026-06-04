@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
 import {
   useNotificationSettings,
   useReminderSettings,
   useUpdateNotificationSettings,
   useUpdateReminderSettings,
 } from '@/hooks/useAdmin';
+import { Button, Field, Switch } from '@/components/rl/primitives';
 
 export function ReminderSettingsCard() {
   const { data: reminder } = useReminderSettings();
@@ -29,164 +30,77 @@ export function ReminderSettingsCard() {
   }, [reminder]);
 
   const saveReminder = () => {
-    updateReminder.mutate({
-      isEnabled: enabled,
-      intervalDays,
-      minDebtAge,
-      maxReminders,
-      messageTemplate: template,
-    });
+    updateReminder.mutate({ isEnabled: enabled, intervalDays, minDebtAge, maxReminders, messageTemplate: template });
   };
 
   return (
-    <div style={cardStyle}>
-      <div style={titleStyle}>Авто-напоминания о долгах</div>
+    <div className="card" style={{ padding: 16 }}>
+      <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--t-16)', marginBottom: 8 }}>
+        Авто-напоминания о долгах
+      </div>
 
-      <Toggle
-        label="Включены"
-        value={enabled}
-        onChange={setEnabled}
-      />
+      <ToggleRow label="Включены" value={enabled} onChange={setEnabled} />
 
-      <Field label="Интервал (дней)">
-        <NumberInput value={intervalDays} onChange={setIntervalDays} min={1} />
-      </Field>
-      <Field label="Мин. возраст долга (дней)">
-        <NumberInput value={minDebtAge} onChange={setMinDebtAge} min={0} />
-      </Field>
-      <Field label="Максимум напоминаний">
-        <NumberInput value={maxReminders} onChange={setMaxReminders} min={1} />
-      </Field>
-      <Field label="Шаблон сообщения">
-        <textarea
-          value={template}
-          onChange={(e) => setTemplate(e.target.value)}
-          rows={3}
-          style={{
-            width: '100%',
-            border: '1px solid var(--line-2, #eee)',
-            borderRadius: 8,
-            padding: 8,
-            fontSize: 13,
-            resize: 'vertical',
-          }}
-        />
-      </Field>
+      <FormField label="Интервал (дней)">
+        <NumberField value={intervalDays} onChange={setIntervalDays} min={1} />
+      </FormField>
+      <FormField label="Мин. возраст долга (дней)">
+        <NumberField value={minDebtAge} onChange={setMinDebtAge} min={0} />
+      </FormField>
+      <FormField label="Максимум напоминаний">
+        <NumberField value={maxReminders} onChange={setMaxReminders} min={1} />
+      </FormField>
+      <FormField label="Шаблон сообщения">
+        <Field as="textarea" rows={3} value={template} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTemplate(e.target.value)} />
+      </FormField>
 
-      <button
-        onClick={saveReminder}
-        disabled={updateReminder.isPending}
-        style={{ ...btn, background: '#D6E4FF', width: '100%', marginTop: 6 }}
-      >
-        {updateReminder.isPending ? 'Сохранение…' : 'Сохранить'}
-      </button>
+      <Button variant="primary" icon="check" style={{ width: '100%', marginTop: 4 }} loading={updateReminder.isPending} onClick={saveReminder}>
+        Сохранить
+      </Button>
 
-      <div style={{ ...titleStyle, marginTop: 16 }}>Уведомления админа</div>
+      <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--t-16)', margin: '18px 0 4px' }}>
+        Уведомления админа
+      </div>
       {notif && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Toggle
-            label="Новый пользователь"
-            value={notif.notifyOnNewUser}
-            onChange={(v) => updateNotif.mutate({ notifyOnNewUser: v })}
-          />
-          <Toggle
-            label="Новое голосование"
-            value={notif.notifyOnNewPoll}
-            onChange={(v) => updateNotif.mutate({ notifyOnNewPoll: v })}
-          />
-          <Toggle
-            label="Завершение голосования"
-            value={notif.notifyOnPollEnd}
-            onChange={(v) => updateNotif.mutate({ notifyOnPollEnd: v })}
-          />
-          <Toggle
-            label="Оплата долга"
-            value={notif.notifyOnDebtPaid}
-            onChange={(v) => updateNotif.mutate({ notifyOnDebtPaid: v })}
-          />
+        <div>
+          <ToggleRow label="Новый пользователь" value={notif.notifyOnNewUser} onChange={(v) => updateNotif.mutate({ notifyOnNewUser: v })} />
+          <ToggleRow label="Новое голосование" value={notif.notifyOnNewPoll} onChange={(v) => updateNotif.mutate({ notifyOnNewPoll: v })} />
+          <ToggleRow label="Завершение голосования" value={notif.notifyOnPollEnd} onChange={(v) => updateNotif.mutate({ notifyOnPollEnd: v })} />
+          <ToggleRow label="Оплата долга" value={notif.notifyOnDebtPaid} onChange={(v) => updateNotif.mutate({ notifyOnDebtPaid: v })} />
         </div>
       )}
     </div>
   );
 }
 
-function Toggle({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
+function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '8px 0',
-        cursor: 'pointer',
-      }}
-    >
-      <span style={{ fontSize: 14 }}>{label}</span>
-      <input
-        type="checkbox"
-        checked={value}
-        onChange={(e) => onChange(e.target.checked)}
-        style={{ transform: 'scale(1.2)' }}
-      />
-    </label>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
+      <span style={{ fontSize: 'var(--t-15)' }}>{label}</span>
+      <Switch on={value} onChange={onChange} aria-label={label} />
+    </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 12, color: 'var(--ink-2, #888)', marginBottom: 4 }}>{label}</div>
+    <div style={{ marginBottom: 12 }}>
+      <label style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
       {children}
     </div>
   );
 }
 
-function NumberInput({
-  value,
-  onChange,
-  min,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-  min?: number;
-}) {
+function NumberField({ value, onChange, min }: { value: number; onChange: (n: number) => void; min?: number }) {
   return (
-    <input
-      type="number"
-      min={min}
-      value={value}
-      onChange={(e) => onChange(Math.max(min ?? 0, Number(e.target.value) || 0))}
-      style={{
-        width: 100,
-        border: '1px solid var(--line-2, #eee)',
-        borderRadius: 8,
-        padding: '6px 10px',
-        fontSize: 13,
-      }}
-    />
+    <div style={{ width: 120 }}>
+      <Field
+        type="number"
+        min={min}
+        value={value}
+        className="tnum"
+        onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(Math.max(min ?? 0, Number(e.target.value) || 0))}
+      />
+    </div>
   );
 }
-
-const cardStyle: React.CSSProperties = {
-  background: 'var(--surf-1, #fff)',
-  borderRadius: 16,
-  padding: 14,
-  boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
-};
-const titleStyle: React.CSSProperties = { fontWeight: 700, fontSize: 15, marginBottom: 10 };
-const btn: React.CSSProperties = {
-  border: 'none',
-  borderRadius: 10,
-  padding: '10px 12px',
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: 'pointer',
-};

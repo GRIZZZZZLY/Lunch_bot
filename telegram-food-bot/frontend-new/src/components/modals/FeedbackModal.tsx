@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { Modal } from './Modal';
+import { useState, type ChangeEvent } from 'react';
+import { BottomSheet } from '@/components/rl/BottomSheet';
+import { Button, Field } from '@/components/rl/primitives';
+import { Icon } from '@/components/rl/Icon';
 import { useSendFeedback } from '@/hooks/useFeedback';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -14,6 +16,8 @@ export function FeedbackModal({ open, onClose }: Props) {
   const [message, setMessage] = useState('');
   const [rating, setRating] = useState<number | null>(null);
   const [done, setDone] = useState(false);
+
+  if (!open) return null;
 
   const submit = async () => {
     if (!message.trim()) return;
@@ -33,81 +37,60 @@ export function FeedbackModal({ open, onClose }: Props) {
     }, 1200);
   };
 
-  return (
-    <Modal open={open} onClose={onClose} title="Оставьте отзыв">
-      {done ? (
-        <div style={{ textAlign: 'center', padding: '30px 0' }}>
-          <div style={{ fontSize: 56 }}>✅</div>
-          <div style={{ fontWeight: 600, marginTop: 10 }}>Спасибо за отзыв!</div>
+  if (done) {
+    return (
+      <BottomSheet title="Спасибо!" onClose={onClose}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '12px 0 6px' }}>
+          <div className="anim-pop" style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--success-tint)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+            <Icon name="check" size={32} stroke={2.2} />
+          </div>
+          <div className="font-head tight" style={{ fontSize: 'var(--t-18)', fontWeight: 700 }}>
+            Отзыв отправлен
+          </div>
         </div>
-      ) : (
+      </BottomSheet>
+    );
+  }
+
+  return (
+    <BottomSheet
+      title="Оставьте отзыв"
+      onClose={onClose}
+      footer={
         <>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 13, color: 'var(--ink-2, #666)', marginBottom: 8 }}>Оценка</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setRating(n)}
-                  style={{
-                    flex: 1,
-                    padding: 10,
-                    border: 'none',
-                    borderRadius: 10,
-                    background: rating !== null && n <= rating ? '#FFD66E' : 'var(--surf-2, #F2F2F5)',
-                    fontSize: 20,
-                    cursor: 'pointer',
-                  }}
-                >
-                  ★
-                </button>
-              ))}
-            </div>
-          </div>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Расскажите, что понравилось или что улучшить…"
-            rows={4}
-            style={{
-              width: '100%',
-              border: '1px solid var(--line-2, #eee)',
-              borderRadius: 12,
-              padding: 12,
-              fontSize: 14,
-              resize: 'vertical',
-              boxSizing: 'border-box',
-            }}
-          />
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button
-              onClick={onClose}
-              disabled={send.isPending}
-              style={{ flex: 1, border: 'none', background: 'var(--surf-2, #F2F2F5)', padding: 12, borderRadius: 12, fontSize: 14, cursor: 'pointer' }}
-            >
-              Отмена
-            </button>
-            <button
-              onClick={submit}
-              disabled={!message.trim() || send.isPending}
-              style={{
-                flex: 1,
-                border: 'none',
-                background: 'var(--ink-1, #1b1b1b)',
-                color: '#fff',
-                padding: 12,
-                borderRadius: 12,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-                opacity: !message.trim() || send.isPending ? 0.5 : 1,
-              }}
-            >
-              {send.isPending ? 'Отправка…' : 'Отправить'}
-            </button>
-          </div>
+          <Button variant="secondary" style={{ flex: 1 }} disabled={send.isPending} onClick={onClose}>
+            Отмена
+          </Button>
+          <Button variant="primary" icon="send" style={{ flex: 1 }} loading={send.isPending} disabled={!message.trim()} onClick={submit}>
+            Отправить
+          </Button>
         </>
-      )}
-    </Modal>
+      }
+    >
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Оценка</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              type="button"
+              className="btn btn--secondary press"
+              style={{ flex: 1, color: rating !== null && n <= rating ? 'var(--warning)' : 'var(--text-tertiary)' }}
+              onClick={() => setRating(n)}
+              aria-label={`${n} звёзд`}
+            >
+              <Icon name="star" size={20} stroke={rating !== null && n <= rating ? 2.2 : 1.75} />
+            </button>
+          ))}
+        </div>
+      </div>
+      <Field
+        as="textarea"
+        value={message}
+        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value)}
+        placeholder="Расскажите, что понравилось или что улучшить…"
+        rows={4}
+      />
+    </BottomSheet>
   );
 }

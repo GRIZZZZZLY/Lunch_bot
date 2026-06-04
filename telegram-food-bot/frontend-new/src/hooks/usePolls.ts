@@ -125,3 +125,42 @@ export function useWithdrawVote() {
     },
   });
 }
+
+function invalidatePollLifecycle(qc: ReturnType<typeof useQueryClient>, pollId: number) {
+  qc.invalidateQueries({ queryKey: queryKeys.polls.active });
+  qc.invalidateQueries({ queryKey: queryKeys.polls.byId(pollId) });
+  qc.invalidateQueries({ queryKey: ['polls', 'last-completed'] });
+}
+
+/** Admin: close the poll now (runs roulette / picks winner). */
+export function useCompletePoll() {
+  const qc = useQueryClient();
+  const pushToast = useToastStore((s) => s.push);
+  return useMutation({
+    mutationFn: (pollId: number) => pollsService.complete(pollId),
+    onSuccess: (_res, pollId) => {
+      invalidatePollLifecycle(qc, pollId);
+      pushToast({ type: 'success', message: 'Голосование закрыто' });
+    },
+    onError: (err) => {
+      pushToast({ type: 'error', message: errMsg(err, 'Не удалось закрыть голосование') });
+    },
+  });
+}
+
+/** Admin: cancel the poll (no winner). */
+export function useCancelPoll() {
+  const qc = useQueryClient();
+  const pushToast = useToastStore((s) => s.push);
+  return useMutation({
+    mutationFn: ({ pollId, reason }: { pollId: number; reason?: string }) =>
+      pollsService.cancel(pollId, reason),
+    onSuccess: (_res, vars) => {
+      invalidatePollLifecycle(qc, vars.pollId);
+      pushToast({ type: 'info', message: 'Голосование отменено' });
+    },
+    onError: (err) => {
+      pushToast({ type: 'error', message: errMsg(err, 'Не удалось отменить голосование') });
+    },
+  });
+}

@@ -23,13 +23,16 @@ export const corsMiddleware = cors({
       const devOrigins = [
         'http://localhost:5173',
         'http://127.0.0.1:5173',
+        'http://localhost:5174',
+        'http://127.0.0.1:5174',
         'http://localhost:3000',
         ...configAllowedOrigins,
       ];
-      
-      // Разрешаем ngrok URLs (содержат .ngrok)
+
+      // Разрешаем ngrok URLs (содержат .ngrok) и любой localhost/127.0.0.1 в dev (любой порт Vite)
       const isNgrok = origin.includes('.ngrok');
-      const isAllowed = devOrigins.includes(origin) || isNgrok;
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+      const isAllowed = devOrigins.includes(origin) || isNgrok || isLocalhost;
       
       if (isAllowed) {
         logger.debug('CORS: development режим, origin разрешен', { origin });

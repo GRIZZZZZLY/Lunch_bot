@@ -1,4 +1,6 @@
-import '@/styles/admin.css';
+import { BottomSheet } from '@/components/rl/BottomSheet';
+import { Button, Confetti } from '@/components/rl/primitives';
+import { Icon } from '@/components/rl/Icon';
 
 interface Props {
   open: boolean;
@@ -12,57 +14,33 @@ export function SuccessSheet({ open, participants, closeAt, onShare, onOpen }: P
   if (!open) return null;
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'var(--surface)',
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
-        boxShadow: 'var(--shadow-elev)',
-        paddingBottom: 12,
-        zIndex: 20,
-      }}
-    >
-      <div className="sheet-hdr">
-        <div className="grab" />
-      </div>
-      <div className="succ">
-        <div className="rocket">🚀</div>
-        <div className="st">Опрос запущен!</div>
-        <div className="ss">
-          {participants} участника получили уведомление. Голосование закроется в {closeAt}.
-        </div>
-        <div className="confetti" />
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            marginTop: 16,
-            padding: '0 14px',
-          }}
-        >
-          <button type="button" className="btn primary" onClick={onShare}>
-            Поделиться в чате
-          </button>
-          <button
-            type="button"
-            className="btn"
-            style={{
-              background: 'transparent',
-              color: 'var(--ink-2)',
-              border: '1px solid var(--line-2)',
-              width: '100%',
-            }}
-            onClick={onOpen}
-          >
+    <BottomSheet
+      title="Опрос запущен"
+      onClose={() => onOpen?.()}
+      footer={
+        <>
+          <Button variant="secondary" style={{ flex: 1 }} onClick={onOpen}>
             К опросу
-          </button>
+          </Button>
+          <Button variant="primary" icon="send" style={{ flex: 1 }} onClick={onShare}>
+            Поделиться
+          </Button>
+        </>
+      }
+    >
+      <Confetti fire />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '8px 0 6px', position: 'relative' }}>
+        <div className="anim-pop" style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--accent-tint)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+          <Icon name="check" size={32} stroke={2.2} />
         </div>
+        <div className="font-head tight" style={{ fontSize: 'var(--t-18)', fontWeight: 700 }}>
+          Голосование отправлено
+        </div>
+        <p style={{ margin: '6px 0 0', fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', maxWidth: 260, lineHeight: 1.5 }}>
+          <span className="tnum">{participants}</span> участников получили уведомление. Закроется в{' '}
+          <span className="tnum">{closeAt}</span>.
+        </p>
       </div>
-    </div>
+    </BottomSheet>
   );
 }
