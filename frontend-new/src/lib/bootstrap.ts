@@ -1,4 +1,5 @@
 import { authService } from '@/services/auth.service';
+import { userService } from '@/services/user.service';
 import { useAppStore } from '@/store/useAppStore';
 import { getInitData } from './telegram';
 import { captureError, identifyUser } from './monitoring';
@@ -13,6 +14,15 @@ export async function bootstrapAuth(): Promise<void> {
 
     if (result.success) {
       authService.setToken(result.token);
+      // Resolve the active group BEFORE flipping auth status, so group-scoped
+      // queries (menu, polls, budget) carry `groupId` on their first request.
+      try {
+        const groups = (await userService.getMyGroups()).data ?? [];
+        const active = groups.find((g) => g.isActive) ?? groups[0];
+        if (active) store.setCurrentGroupId(String(active.id));
+      } catch (groupErr) {
+        captureError(groupErr, { source: 'bootstrapAuth:groups' });
+      }
       store.setUser(result.user);
       store.setAuthStatus('authenticated');
       store.setAuthError(null);

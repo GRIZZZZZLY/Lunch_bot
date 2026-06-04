@@ -1,19 +1,67 @@
 import type { VoteOption } from '@/components/home/InlineVotingCard';
-import type { Poll } from '@/types/models';
+import type { MenuItem, Poll } from '@/types/models';
 
 const PALETTES: VoteOption['palette'][] = ['peach', 'sage', 'rose', 'lav', 'sky'];
 
-export function mapPollToOptions(poll: Poll | null | undefined): VoteOption[] {
-  if (!poll?.menuItems) return [];
-  return poll.menuItems.map((link, idx) => ({
-    id: link.menuItemId,
-    emoji: link.menuItem.emoji ?? '🍽',
-    name: link.menuItem.name,
-    price: link.menuItem.price,
-    minutes: link.menuItem.deliveryMinutes ?? 20,
-    votes: link._count?.votes ?? 0,
-    palette: PALETTES[idx % PALETTES.length],
-  }));
+function parseSelectedIds(raw: Poll['selectedMenuItemIds']): number[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(Number).filter(Number.isFinite);
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(Number).filter(Number.isFinite) : [];
+  } catch {
+    return [];
+  }
+}
+
+function votesByMenuItem(poll: Poll | null | undefined): Map<number, number> {
+  const map = new Map<number, number>();
+  for (const v of poll?.votes ?? []) {
+    map.set(v.menuItemId, (map.get(v.menuItemId) ?? 0) + 1);
+  }
+  return map;
+}
+
+/**
+ * Build vote options for a poll.
+ * Prefers the expanded `menuItems` relation; falls back to `selectedMenuItemIds`
+ * joined against the supplied menu list (the active-list API omits `menuItems`
+ * until a poll has votes — see project notes).
+ */
+export function mapPollToOptions(
+  poll: Poll | null | undefined,
+  menu?: MenuItem[],
+): VoteOption[] {
+  if (poll?.menuItems?.length) {
+    return poll.menuItems.map((link, idx) => ({
+      id: link.menuItemId,
+      emoji: link.menuItem.emoji ?? '🍽',
+      name: link.menuItem.name,
+      price: link.menuItem.price,
+      minutes: link.menuItem.deliveryMinutes ?? 20,
+      votes: link._count?.votes ?? 0,
+      palette: PALETTES[idx % PALETTES.length],
+    }));
+  }
+
+  const ids = parseSelectedIds(poll?.selectedMenuItemIds);
+  if (!ids.length || !menu?.length) return [];
+  const counts = votesByMenuItem(poll);
+  return ids.flatMap((id, idx) => {
+    const mi = menu.find((m) => m.id === id);
+    if (!mi) return [];
+    return [
+      {
+        id: mi.id,
+        emoji: mi.emoji ?? '🍽',
+        name: mi.name,
+        price: mi.price,
+        minutes: mi.deliveryMinutes ?? 20,
+        votes: counts.get(id) ?? 0,
+        palette: PALETTES[idx % PALETTES.length],
+      },
+    ];
+  });
 }
 
 export function totalVotes(poll: Poll | null | undefined): number {

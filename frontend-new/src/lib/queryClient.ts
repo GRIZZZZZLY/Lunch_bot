@@ -42,6 +42,11 @@ export const queryKeys = {
     credits: (params?: object) => ['budget', 'credits', params] as const,
     stats: (params?: object) => ['budget', 'stats', params] as const,
   },
+  storeRuns: {
+    all: ['storeRuns'] as const,
+    active: () => ['storeRuns', 'active'] as const,
+    detail: (id: number) => ['storeRuns', 'detail', id] as const,
+  },
   admin: {
     all: ['admin'] as const,
     users: (groupId: number) => ['admin', 'users', groupId] as const,

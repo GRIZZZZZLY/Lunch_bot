@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import type { ApiResponse, PaginatedResponse } from '@/types/api';
+import { useAppStore } from '@/store/useAppStore';
 
 const TOKEN_KEY = 'auth_token';
 
@@ -24,6 +25,12 @@ class ApiService {
     this.client.interceptors.request.use((config) => {
       if (this.token) {
         config.headers.Authorization = `Bearer ${this.token}`;
+      }
+      // Multi-tenant: backend resolves the active group from `groupId` (query/body).
+      // Inject it from the app store so callers don't have to thread it everywhere.
+      const groupId = useAppStore.getState().currentGroupId;
+      if (groupId) {
+        config.params = { groupId, ...(config.params ?? {}) };
       }
       return config;
     });

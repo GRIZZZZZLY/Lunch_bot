@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -9,10 +9,23 @@ import {
   useSuggestions,
 } from '@/hooks/useSuggestions';
 import type { MenuSuggestion, SuggestionStatus } from '@/types/models';
-import '@/styles/profile.css';
+import { BackHeader } from '@/components/rl/parts';
+import { Badge, Button, Chip, Field, IconButton, type BadgeTone } from '@/components/rl/primitives';
+import { BottomSheet } from '@/components/rl/BottomSheet';
+import { Icon } from '@/components/rl/Icon';
 
 interface Props {
   onlyMine?: boolean;
+}
+
+const STATUS_META: Record<SuggestionStatus, { tone: BadgeTone; label: string }> = {
+  PENDING: { tone: 'warning', label: 'На рассмотрении' },
+  APPROVED: { tone: 'success', label: 'Одобрено' },
+  REJECTED: { tone: 'danger', label: 'Отклонено' },
+};
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
 export function SuggestionsPage({ onlyMine = false }: Props) {
@@ -29,59 +42,49 @@ export function SuggestionsPage({ onlyMine = false }: Props) {
   const deleteMutation = useDeleteSuggestion();
 
   const items = useMemo(() => {
-    if (!isAdmin) return suggestions;
     if (tab === 'mine') return suggestions.filter((s) => s.suggestedBy === user?.id);
     return suggestions;
-  }, [suggestions, tab, isAdmin, user?.id]);
-
-  const handleSubmit = async (data: { name: string; description?: string; price?: number }) => {
-    await createMutation.mutateAsync(data);
-    setFormOpen(false);
-  };
+  }, [suggestions, tab, user?.id]);
 
   return (
-    <>
-      <div className="top-hdr">
-        <div className="back" onClick={() => navigate(-1)}>
-          ‹
-        </div>
-        <div className="ttl">Предложения блюд</div>
-        <button
-          type="button"
-          className="act"
-          onClick={() => setFormOpen(true)}
-          aria-label="Добавить предложение"
-        >
-          +
-        </button>
-      </div>
+    <div className="rl">
+      <BackHeader
+        title="Предложения блюд"
+        onBack={() => navigate(-1)}
+        action={<IconButton variant="secondary" name="plus" aria-label="Добавить предложение" onClick={() => setFormOpen(true)} />}
+      />
 
-      {isAdmin && (
-        <div className="chips">
-          <span
-            className={`chip${tab === 'all' ? ' on' : ''}`}
-            onClick={() => setTab('all')}
-          >
-            Все
-          </span>
-          <span
-            className={`chip${tab === 'mine' ? ' on' : ''}`}
-            onClick={() => setTab('mine')}
-          >
-            Мои
-          </span>
-        </div>
-      )}
-
-      <div className="content">
-        {isLoading && items.length === 0 && (
-          <div style={{ padding: 16, color: 'var(--ink-2)' }}>Загрузка…</div>
-        )}
-        {!isLoading && items.length === 0 && (
-          <div style={{ padding: 16, color: 'var(--ink-2)' }}>
-            Пока нет предложений. Нажмите «+», чтобы добавить блюдо.
+      <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {isAdmin && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Chip on={tab === 'all'} onClick={() => setTab('all')}>
+              Все
+            </Chip>
+            <Chip on={tab === 'mine'} onClick={() => setTab('mine')}>
+              Мои
+            </Chip>
           </div>
         )}
+
+        {isLoading && items.length === 0 && (
+          <div className="card" style={{ padding: 20, color: 'var(--text-secondary)', fontSize: 'var(--t-13)' }}>
+            Загрузка…
+          </div>
+        )}
+        {!isLoading && items.length === 0 && (
+          <div className="card" style={{ padding: '36px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 60, height: 60, borderRadius: 18, background: 'var(--bg-base)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6, border: '1px solid var(--border-subtle)' }}>
+              <Icon name="sparkle" size={28} />
+            </div>
+            <div className="font-head" style={{ fontSize: 'var(--t-16)', fontWeight: 600 }}>
+              Пока нет предложений
+            </div>
+            <p style={{ margin: 0, fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', maxWidth: 240, lineHeight: 1.5 }}>
+              Нажмите «плюс», чтобы предложить блюдо команде.
+            </p>
+          </div>
+        )}
+
         {items.map((s) => (
           <SuggestionCard
             key={s.id}
@@ -103,10 +106,13 @@ export function SuggestionsPage({ onlyMine = false }: Props) {
         <SuggestionForm
           submitting={createMutation.isPending}
           onClose={() => setFormOpen(false)}
-          onSubmit={handleSubmit}
+          onSubmit={async (data) => {
+            await createMutation.mutateAsync(data);
+            setFormOpen(false);
+          }}
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -123,40 +129,56 @@ function SuggestionCard({
   onReject: () => void;
   onDelete: () => void;
 }) {
+  const meta = STATUS_META[s.status];
   return (
-    <div className="hist-card" style={{ alignItems: 'flex-start' }}>
-      <div className="disc">🍽</div>
-      <div className="md">
-        <div className="nm">{s.name}</div>
-        {s.description && <div className="ct">{s.description}</div>}
-        {s.price !== undefined && s.price !== null && (
-          <div className="ct">{s.price} ₽</div>
-        )}
-        <span className={`rib ${statusTone(s.status)}`}>{statusLabel(s.status)}</span>
+    <div className="card" style={{ padding: 14, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, background: 'var(--accent-tint)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="menu" size={22} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+          <span className="font-head" style={{ fontSize: 'var(--t-15)', fontWeight: 600 }}>
+            {s.name}
+          </span>
+          <span style={{ fontSize: 'var(--t-11)', color: 'var(--text-tertiary)' }} className="tnum">
+            {fmtDate(s.createdAt)}
+          </span>
+        </div>
+        {s.description && <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-secondary)', marginTop: 2 }}>{s.description}</div>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+          <Badge tone={meta.tone}>{meta.label}</Badge>
+          {s.price != null && <span className="tnum" style={{ fontSize: 'var(--t-13)', color: 'var(--text-secondary)' }}>{s.price} ₽</span>}
+        </div>
         {s.status === 'REJECTED' && s.rejectionReason && (
-          <div className="ct" style={{ marginTop: 4 }}>Причина: {s.rejectionReason}</div>
+          <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', marginTop: 6 }}>Причина: {s.rejectionReason}</div>
         )}
         {isAdmin && s.status === 'PENDING' && (
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button type="button" className="chip on" onClick={onApprove}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <Button variant="success" size="sm" icon="check" style={{ flex: 1 }} onClick={onApprove}>
               Одобрить
-            </button>
-            <button type="button" className="chip" onClick={onReject}>
+            </Button>
+            <Button variant="ghost" size="sm" icon="x" style={{ flex: 1 }} onClick={onReject}>
               Отклонить
-            </button>
+            </Button>
           </div>
         )}
         {isAdmin && s.status === 'REJECTED' && (
-          <div style={{ marginTop: 8 }}>
-            <button type="button" className="chip" onClick={onDelete}>
+          <div style={{ marginTop: 10 }}>
+            <Button variant="ghost" size="sm" icon="trash" style={{ color: 'var(--danger)' }} onClick={onDelete}>
               Удалить
-            </button>
+            </Button>
           </div>
         )}
       </div>
-      <div className="rt">
-        <span className="cnt">{formatDate(s.createdAt)}</span>
-      </div>
+    </div>
+  );
+}
+
+function FormField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
+      {children}
     </div>
   );
 }
@@ -168,7 +190,7 @@ function SuggestionForm({
 }: {
   submitting: boolean;
   onClose: () => void;
-  onSubmit: (d: { name: string; description?: string; price?: number }) => void;
+  onSubmit: (d: { name: string; description?: string; price?: number }) => void | Promise<void>;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -176,109 +198,50 @@ function SuggestionForm({
 
   const canSubmit = name.trim().length >= 2 && !submitting;
 
-  const submit = () => {
-    if (!canSubmit) return;
-    const parsedPrice = price.trim() ? Number(price) : undefined;
-    onSubmit({
-      name: name.trim(),
-      description: description.trim() || undefined,
-      price: Number.isFinite(parsedPrice) ? (parsedPrice as number) : undefined,
-    });
-  };
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.4)',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-        zIndex: 50,
-      }}
-      onClick={onClose}
+    <BottomSheet
+      title="Новое предложение"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" style={{ flex: 1 }} disabled={submitting} onClick={onClose}>
+            Отмена
+          </Button>
+          <Button
+            variant="primary"
+            icon="send"
+            style={{ flex: 1 }}
+            loading={submitting}
+            disabled={!canSubmit}
+            onClick={() => {
+              const parsed = price.trim() ? Number(price) : undefined;
+              onSubmit({
+                name: name.trim(),
+                description: description.trim() || undefined,
+                price: Number.isFinite(parsed) ? (parsed as number) : undefined,
+              });
+            }}
+          >
+            Отправить
+          </Button>
+        </>
+      }
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--surface)',
-          width: '100%',
-          maxWidth: 430,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          padding: 16,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
-      >
-        <div style={{ fontSize: 16, fontWeight: 700 }}>Новое предложение</div>
-        <input
-          type="text"
-          placeholder="Название блюда"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={inputStyle}
-          maxLength={100}
-        />
-        <textarea
-          placeholder="Описание (необязательно)"
+      <FormField label="Название блюда">
+        <Field value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder="Пельмени с говядиной" maxLength={100} />
+      </FormField>
+      <FormField label="Описание">
+        <Field
+          as="textarea"
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
+          placeholder="Почему стоит добавить"
           maxLength={500}
         />
-        <input
-          type="number"
-          placeholder="Цена, ₽ (необязательно)"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          style={inputStyle}
-          min={0}
-        />
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="chip" onClick={onClose} style={{ flex: 1 }}>
-            Отмена
-          </button>
-          <button
-            type="button"
-            className="chip on"
-            onClick={submit}
-            disabled={!canSubmit}
-            style={{ flex: 1, opacity: canSubmit ? 1 : 0.5 }}
-          >
-            {submitting ? 'Отправка…' : 'Отправить'}
-          </button>
-        </div>
-      </div>
-    </div>
+      </FormField>
+      <FormField label="Цена, ₽">
+        <Field value={price} onChange={(e: ChangeEvent<HTMLInputElement>) => setPrice(e.target.value)} placeholder="350" inputMode="numeric" className="tnum" />
+      </FormField>
+    </BottomSheet>
   );
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  borderRadius: 10,
-  border: '1px solid var(--line)',
-  background: 'var(--surface-2)',
-  color: 'var(--ink)',
-  fontSize: 14,
-  outline: 'none',
-};
-
-function statusTone(s: SuggestionStatus): 'ok' | 'no' {
-  return s === 'APPROVED' ? 'ok' : 'no';
-}
-
-function statusLabel(s: SuggestionStatus): string {
-  if (s === 'PENDING') return 'На рассмотрении';
-  if (s === 'APPROVED') return '✓ Одобрено';
-  return '✗ Отклонено';
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }

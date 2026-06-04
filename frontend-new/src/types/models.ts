@@ -39,6 +39,7 @@ export interface Poll {
   closedAt?: string;
   creatorId?: number;
   menuItems?: PollMenuItemLink[];
+  selectedMenuItemIds?: string | number[] | null;
   votes?: Vote[];
   participantsCount?: number;
   _count?: { votes: number; participants?: number };

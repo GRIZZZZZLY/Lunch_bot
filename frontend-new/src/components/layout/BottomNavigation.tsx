@@ -1,53 +1,49 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Utensils, TrendingUp, User } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/cn';
+import { Icon, type IconName } from '@/components/rl/Icon';
+import { useActivePolls } from '@/hooks/usePolls';
 
-interface Item {
+interface NavItem {
   to: string;
   label: string;
-  icon: LucideIcon;
+  icon: IconName;
   end?: boolean;
 }
 
-const items: Item[] = [
-  { to: '/', label: 'Главная', icon: Home, end: true },
-  { to: '/menu', label: 'Меню', icon: Utensils },
-  { to: '/stats', label: 'Статистика', icon: TrendingUp },
-  { to: '/profile', label: 'Профиль', icon: User },
+const items: NavItem[] = [
+  { to: '/', label: 'Главная', icon: 'home', end: true },
+  { to: '/menu', label: 'Меню', icon: 'menu' },
+  { to: '/stats', label: 'Статистика', icon: 'stats' },
+  { to: '/profile', label: 'Профиль', icon: 'user' },
 ];
 
 export function BottomNavigation() {
+  const { data: activePolls = [] } = useActivePolls();
+  const badge = activePolls.length;
+
   return (
-    <nav
-      className={cn(
-        'sticky bottom-0 z-40 flex items-center justify-around',
-        'bg-[color-mix(in_oklab,var(--surface)_70%,transparent)] backdrop-blur-nav',
-        'border-t border-line',
-        'px-2 pt-2',
-      )}
-      style={{ paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}
-      aria-label="Основная навигация"
+    <div
+      className="rl"
+      style={{
+        position: 'fixed',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        bottom: 'calc(12px + env(safe-area-inset-bottom))',
+        width: 'min(406px, calc(100vw - 24px))',
+        zIndex: 40,
+      }}
     >
-      {items.map(({ to, label, icon: Icon, end }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          className={({ isActive }) =>
-            cn(
-              'flex-1 flex flex-col items-center gap-[3px] py-2 px-1 rounded-[12px]',
-              'text-[10px] font-medium transition-colors duration-150',
-              isActive
-                ? 'bg-pri text-pri-ink font-semibold'
-                : 'text-ink-2 hover:text-ink',
-            )
-          }
-        >
-          <Icon className="size-5" strokeWidth={2.2} />
-          <span>{label}</span>
-        </NavLink>
-      ))}
-    </nav>
+      <nav className="bottomnav glass" style={{ boxShadow: 'var(--shadow-3)' }} aria-label="Основная навигация">
+        {items.map((it) => (
+          <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => 'navbtn' + (isActive ? ' on' : '')}>
+            <span className="nav-dot" />
+            <span style={{ position: 'relative' }}>
+              <Icon name={it.icon} size={22} />
+              {it.to === '/' && badge > 0 && <span className="nav-badge tnum">{badge}</span>}
+            </span>
+            {it.label}
+          </NavLink>
+        ))}
+      </nav>
+    </div>
   );
 }

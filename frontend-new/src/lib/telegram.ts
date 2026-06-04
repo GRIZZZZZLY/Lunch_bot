@@ -114,7 +114,13 @@ export function initTelegramWebApp(): TelegramWebApp | null {
 
 export function getInitData(): string {
   const wa = getWebApp();
-  return wa?.initData ?? '';
+  if (wa?.initData) return wa.initData;
+  // Dev-only: when running outside Telegram, allow a stub initData so the app can
+  // authenticate against a local backend started with SKIP_TELEGRAM_VALIDATION=true.
+  if (import.meta.env.DEV && import.meta.env.VITE_DEV_INIT_DATA) {
+    return import.meta.env.VITE_DEV_INIT_DATA as string;
+  }
+  return '';
 }
 
 export function getCurrentUser(): TelegramUser | null {
