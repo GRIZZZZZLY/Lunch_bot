@@ -32,6 +32,38 @@ export function mapPollToOptions(
   poll: Poll | null | undefined,
   menu?: MenuItem[],
 ): VoteOption[] {
+  // Vote counts can come from the expanded relation (link._count) or the raw votes array.
+  const countByLink = new Map<number, number>();
+  for (const link of poll?.menuItems ?? []) countByLink.set(link.menuItemId, link._count?.votes ?? 0);
+  const countByVote = votesByMenuItem(poll);
+  const votesFor = (id: number) => countByLink.get(id) ?? countByVote.get(id) ?? 0;
+
+  // Prefer the full selected set so dishes with 0 votes never vanish (the active-list
+  // endpoint only returns links for items that already have votes). Enrich names from
+  // the menu list, falling back to the poll's own links.
+  const ids = parseSelectedIds(poll?.selectedMenuItemIds);
+  if (ids.length) {
+    const opts = ids.flatMap((id, idx) => {
+      const fromMenu = menu?.find((m) => m.id === id);
+      const fromLink = poll?.menuItems?.find((l) => l.menuItemId === id)?.menuItem;
+      const mi = fromMenu ?? fromLink;
+      if (!mi) return [];
+      return [
+        {
+          id: mi.id,
+          emoji: mi.emoji ?? '🍽',
+          name: mi.name,
+          price: mi.price,
+          minutes: mi.deliveryMinutes ?? 20,
+          votes: votesFor(id),
+          palette: PALETTES[idx % PALETTES.length],
+        },
+      ];
+    });
+    if (opts.length) return opts;
+  }
+
+  // Fallback: derive purely from the expanded links.
   if (poll?.menuItems?.length) {
     return poll.menuItems.map((link, idx) => ({
       id: link.menuItemId,
@@ -43,25 +75,7 @@ export function mapPollToOptions(
       palette: PALETTES[idx % PALETTES.length],
     }));
   }
-
-  const ids = parseSelectedIds(poll?.selectedMenuItemIds);
-  if (!ids.length || !menu?.length) return [];
-  const counts = votesByMenuItem(poll);
-  return ids.flatMap((id, idx) => {
-    const mi = menu.find((m) => m.id === id);
-    if (!mi) return [];
-    return [
-      {
-        id: mi.id,
-        emoji: mi.emoji ?? '🍽',
-        name: mi.name,
-        price: mi.price,
-        minutes: mi.deliveryMinutes ?? 20,
-        votes: counts.get(id) ?? 0,
-        palette: PALETTES[idx % PALETTES.length],
-      },
-    ];
-  });
+  return [];
 }
 
 export function totalVotes(poll: Poll | null | undefined): number {
