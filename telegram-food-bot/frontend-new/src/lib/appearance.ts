@@ -1,6 +1,8 @@
 /* Appearance control for the redesign-v2 system.
    Scheme (a/b/c) + theme (light/dark) resolve on <html data-scheme data-theme>.
    Persisted in localStorage; theme override beats Telegram/system preference. */
+import { resyncTelegramChrome } from './telegram';
+
 export type Scheme = 'a' | 'b' | 'c';
 export type Theme = 'light' | 'dark';
 
@@ -40,6 +42,7 @@ export function getThemeOverride(): Theme | null {
 export function setScheme(s: Scheme): void {
   document.documentElement.setAttribute('data-scheme', s);
   safeSet(SCHEME_KEY, s);
+  resyncTelegramChrome();
 }
 
 export function setTheme(t: Theme): void {
@@ -47,4 +50,5 @@ export function setTheme(t: Theme): void {
   root.setAttribute('data-theme', t);
   root.classList.toggle('dark', t === 'dark');
   safeSet(THEME_KEY, t);
+  resyncTelegramChrome();
 }

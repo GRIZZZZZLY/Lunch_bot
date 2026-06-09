@@ -83,14 +83,23 @@ export function getWebApp(): TelegramWebApp | null {
 }
 
 function syncTelegramChrome(wa: TelegramWebApp) {
-  const isDark = wa.colorScheme === 'dark';
-  const bg = isDark ? '#1f1712' : '#fbf7f1';
+  // Match Telegram chrome to the active redesign scheme/theme (--bg-base),
+  // so the app background is seamless with the Mini App header.
+  const tokenBg = getComputedStyle(document.documentElement).getPropertyValue('--bg-base').trim();
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const bg = /^#[0-9a-fA-F]{6}$/.test(tokenBg) ? tokenBg : isDark ? '#16161a' : '#f3f5f7';
   try {
     wa.setBackgroundColor?.(bg);
     wa.setHeaderColor?.(bg);
   } catch {
     // older Telegram clients don't support these — fall back to CSS only
   }
+}
+
+/** Re-sync Telegram header/background after an in-app scheme/theme change. */
+export function resyncTelegramChrome(): void {
+  const wa = getWebApp();
+  if (wa) syncTelegramChrome(wa);
 }
 
 export function initTelegramWebApp(): TelegramWebApp | null {
