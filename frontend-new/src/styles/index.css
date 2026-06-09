@@ -89,26 +89,29 @@ body,
   min-height: 100dvh;
 }
 
+/* Redesign v2: page background comes from the scheme tokens (--bg-base),
+   resolved via [data-scheme][data-theme] on <html>. Legacy --page-bg kept
+   only as a fallback for the brief pre-hydration moment. */
 html {
-  background: #fbf7f1;
-  background: var(--page-bg);
+  background: #f3f5f7;
+  background: var(--bg-base, var(--page-bg));
 }
 
 html.dark {
-  background: #1f1712;
-  background: var(--page-bg);
+  background: #16161a;
+  background: var(--bg-base, var(--page-bg));
 }
 
 body {
   font-family: var(--sans);
-  background: var(--page-bg);
-  color: var(--ink);
+  background: var(--bg-base, var(--page-bg));
+  color: var(--text-primary, var(--ink));
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 #root {
-  background: var(--page-bg);
+  background: var(--bg-base, var(--page-bg));
 }
 
 *,

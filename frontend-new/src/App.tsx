@@ -13,7 +13,6 @@ import { PollHistoryPage } from '@/pages/PollHistoryPage';
 import { PollResultsPage } from '@/pages/PollResultsPage';
 import { StoreRunPage } from '@/pages/StoreRunPage';
 import { SuggestionsPage } from '@/pages/SuggestionsPage';
-import { WelcomeModal } from '@/components/modals/WelcomeModal';
 
 export default function App() {
   return (
@@ -43,7 +42,6 @@ export default function App() {
         </main>
 
         <BottomNavigation />
-        <WelcomeModal />
         <ToastContainer />
       </div>
     </BrowserRouter>
