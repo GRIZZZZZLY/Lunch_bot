@@ -16,8 +16,8 @@ class MenuService {
     return apiService.get<MenuItem[]>('/menu');
   }
 
-  getActive() {
-    return apiService.get<MenuItem[]>('/menu/active');
+  getActive(groupId?: string) {
+    return apiService.get<MenuItem[]>('/menu/active', groupId ? { params: { groupId } } : undefined);
   }
 
   getById(id: number) {
