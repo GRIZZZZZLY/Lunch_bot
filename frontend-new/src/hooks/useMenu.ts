@@ -24,7 +24,7 @@ export function useMenuItems(options?: { activeOnly?: boolean; groupId?: string 
     queryFn: async () => {
       const res = activeOnly
         ? await menuService.getActive(groupId ?? undefined)
-        : await menuService.getAll();
+        : await menuService.getAll(groupId ?? undefined);
       return (res.data ?? []) as MenuItem[];
     },
     enabled: authStatus === 'authenticated',
@@ -36,11 +36,11 @@ export function useCreateMenuItem() {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
   return useMutation({
-    mutationFn: (data: UpsertMenuItemInput) => menuService.create(data),
+    mutationFn: ({ data, groupId }: { data: UpsertMenuItemInput; groupId?: string }) =>
+      menuService.create(data, groupId),
     onSuccess: (_r, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.menu.all });
-      qc.invalidateQueries({ queryKey: queryKeys.menu.active });
-      push({ type: 'success', message: `Блюдо «${vars.name}» добавлено` });
+      push({ type: 'success', message: `Блюдо «${vars.data.name}» добавлено` });
     },
     onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось добавить блюдо') }),
   });
@@ -50,12 +50,10 @@ export function useUpdateMenuItem() {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<UpsertMenuItemInput> }) =>
-      menuService.update(id, data),
-    onSuccess: (_r, vars) => {
+    mutationFn: ({ id, data, groupId }: { id: number; data: Partial<UpsertMenuItemInput>; groupId?: string }) =>
+      menuService.update(id, data, groupId),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.menu.all });
-      qc.invalidateQueries({ queryKey: queryKeys.menu.active });
-      qc.invalidateQueries({ queryKey: queryKeys.menu.byId(vars.id) });
       push({ type: 'success', message: 'Блюдо обновлено' });
     },
     onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось обновить блюдо') }),
@@ -66,10 +64,9 @@ export function useDeleteMenuItem() {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
   return useMutation({
-    mutationFn: (id: number) => menuService.remove(id),
+    mutationFn: ({ id, groupId }: { id: number; groupId?: string }) => menuService.remove(id, groupId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.menu.all });
-      qc.invalidateQueries({ queryKey: queryKeys.menu.active });
       push({ type: 'info', message: 'Блюдо удалено' });
     },
     onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось удалить блюдо') }),
