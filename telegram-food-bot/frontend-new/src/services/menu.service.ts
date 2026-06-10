@@ -11,29 +11,33 @@ export interface UpsertMenuItemInput {
   isActive?: boolean;
 }
 
+// Явный groupId перекрывает currentGroupId, который interceptor подставляет
+// в query — нужно для редактирования меню не-текущей группы.
+const groupParams = (groupId?: string) => (groupId ? { params: { groupId } } : undefined);
+
 class MenuService {
-  getAll() {
-    return apiService.get<MenuItem[]>('/menu');
+  getAll(groupId?: string) {
+    return apiService.get<MenuItem[]>('/menu', groupParams(groupId));
   }
 
   getActive(groupId?: string) {
-    return apiService.get<MenuItem[]>('/menu/active', groupId ? { params: { groupId } } : undefined);
+    return apiService.get<MenuItem[]>('/menu/active', groupParams(groupId));
   }
 
   getById(id: number) {
     return apiService.get<MenuItem>(`/menu/${id}`);
   }
 
-  create(data: UpsertMenuItemInput) {
-    return apiService.post<MenuItem>('/menu', data);
+  create(data: UpsertMenuItemInput, groupId?: string) {
+    return apiService.post<MenuItem>('/menu', data, groupParams(groupId));
   }
 
-  update(id: number, data: Partial<UpsertMenuItemInput>) {
-    return apiService.put<MenuItem>(`/menu/${id}`, data);
+  update(id: number, data: Partial<UpsertMenuItemInput>, groupId?: string) {
+    return apiService.put<MenuItem>(`/menu/${id}`, data, groupParams(groupId));
   }
 
-  remove(id: number) {
-    return apiService.delete<void>(`/menu/${id}`);
+  remove(id: number, groupId?: string) {
+    return apiService.delete<void>(`/menu/${id}`, groupParams(groupId));
   }
 
   toggle(id: number) {

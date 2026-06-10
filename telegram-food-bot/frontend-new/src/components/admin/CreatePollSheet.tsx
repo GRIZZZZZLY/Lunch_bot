@@ -162,7 +162,13 @@ export function CreatePollSheet({ open, ctx, initial, submitting, onClose, onSub
         </>
       )}
 
-      <Label>Блюда</Label>
+      <Label>
+        Блюда
+        {(() => {
+          const g = ctx.groups?.find((x) => x.id === state.groupId);
+          return g ? ` — меню «${g.title}»` : '';
+        })()}
+      </Label>
       <div
         style={{
           display: 'flex',

@@ -6,6 +6,8 @@ import {
   useUpdateMenuItem,
 } from '@/hooks/useMenu';
 import { useAuth } from '@/hooks/useAuth';
+import { useMyGroups } from '@/hooks/useUser';
+import { useAppStore } from '@/store/useAppStore';
 import type { MenuItem } from '@/types/models';
 import { Icon } from '@/components/rl/Icon';
 import { Badge, Button, Chip, Field, IconButton, SearchBar, Switch } from '@/components/rl/primitives';
@@ -44,7 +46,15 @@ export default function MenuPage() {
   const { user } = useAuth();
   const isAdmin = !!user?.isAdmin;
 
-  const { data: items = [], isLoading, error } = useMenuItems({ activeOnly: false });
+  // Меню per-group: выбор группы здесь локальный (null = текущая активная)
+  const currentGroupId = useAppStore((s) => s.currentGroupId);
+  const { data: myGroups = [] } = useMyGroups();
+  const [menuGroupId, setMenuGroupId] = useState<string | null>(null);
+  const activeGroups = useMemo(() => myGroups.filter((g) => g.isActive), [myGroups]);
+  const effectiveGroupId = menuGroupId ?? currentGroupId;
+  const activeGroup = activeGroups.find((g) => String(g.id) === effectiveGroupId);
+
+  const { data: items = [], isLoading, error } = useMenuItems({ activeOnly: false, groupId: effectiveGroupId });
   const createMutation = useCreateMenuItem();
   const updateMutation = useUpdateMenuItem();
   const deleteMutation = useDeleteMenuItem();
@@ -79,12 +89,31 @@ export default function MenuPage() {
           </h1>
           <p style={{ margin: '4px 0 0', fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>
             <span className="tnum">{dishes.length}</span> блюд · <span className="tnum">{categories.length - 1}</span> категорий
+            {activeGroup && activeGroups.length === 1 ? ` · ${activeGroup.title}` : ''}
           </p>
         </div>
         {isAdmin && (
           <IconButton variant="secondary" name="plus" aria-label="Добавить блюдо" onClick={() => setAddOpen(true)} />
         )}
       </div>
+
+      {activeGroups.length > 1 && (
+        <div className="scroll-area" style={{ display: 'flex', gap: 8, padding: '0 20px 12px', overflowX: 'auto' }}>
+          {activeGroups.map((g) => (
+            <Chip
+              key={g.id}
+              on={String(g.id) === effectiveGroupId}
+              onClick={() => {
+                if (String(g.id) === effectiveGroupId) return;
+                setMenuGroupId(String(g.id));
+                setCategory('all');
+              }}
+            >
+              {g.title}
+            </Chip>
+          ))}
+        </div>
+      )}
 
       <div
         style={{
@@ -147,7 +176,7 @@ export default function MenuPage() {
           onClose={() => setAddOpen(false)}
           onSubmit={async (input) => {
             try {
-              await createMutation.mutateAsync(input);
+              await createMutation.mutateAsync({ data: input, groupId: effectiveGroupId ?? undefined });
               setAddOpen(false);
             } catch {
               /* toast shown by hook */
@@ -163,7 +192,7 @@ export default function MenuPage() {
           onClose={() => setEditTarget(null)}
           onSubmit={async (input) => {
             try {
-              await updateMutation.mutateAsync({ id: editTarget.id, data: input });
+              await updateMutation.mutateAsync({ id: editTarget.id, data: input, groupId: effectiveGroupId ?? undefined });
               setEditTarget(null);
             } catch {
               /* toast shown */
@@ -188,7 +217,7 @@ export default function MenuPage() {
                 loading={deleteMutation.isPending}
                 onClick={async () => {
                   try {
-                    await deleteMutation.mutateAsync(deleteTarget.id);
+                    await deleteMutation.mutateAsync({ id: deleteTarget.id, groupId: effectiveGroupId ?? undefined });
                     setDeleteTarget(null);
                   } catch {
                     /* toast shown */
