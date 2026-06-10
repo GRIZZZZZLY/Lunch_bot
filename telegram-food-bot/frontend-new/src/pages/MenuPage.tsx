@@ -4,6 +4,7 @@ import {
   useCreateMenuItem,
   useDeleteMenuItem,
   useUpdateMenuItem,
+  useToggleMenuItem,
 } from '@/hooks/useMenu';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyGroups } from '@/hooks/useUser';
@@ -58,6 +59,7 @@ export default function MenuPage() {
   const createMutation = useCreateMenuItem();
   const updateMutation = useUpdateMenuItem();
   const deleteMutation = useDeleteMenuItem();
+  const toggleMutation = useToggleMenuItem();
 
   const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
@@ -156,6 +158,8 @@ export default function MenuPage() {
               dish={d}
               index={i}
               admin={isAdmin}
+              toggling={toggleMutation.isPending && toggleMutation.variables === d.id}
+              onToggle={() => toggleMutation.mutate(d.id)}
               onEdit={() => {
                 const raw = items.find((it) => it.id === d.id);
                 if (raw) setEditTarget(raw);
@@ -242,12 +246,16 @@ function DishRow({
   dish,
   index,
   admin,
+  toggling,
+  onToggle,
   onEdit,
   onDelete,
 }: {
   dish: Dish;
   index: number;
   admin: boolean;
+  toggling?: boolean;
+  onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -284,7 +292,13 @@ function DishRow({
         </div>
       </div>
       {admin ? (
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Switch
+            on={dish.active}
+            disabled={toggling}
+            onChange={onToggle}
+            aria-label={dish.active ? 'Блюдо активно — выключить' : 'Блюдо в архиве — включить'}
+          />
           <IconButton variant="ghost" size="sm" name="edit" aria-label="Изменить" onClick={onEdit} />
           <IconButton variant="ghost" size="sm" name="trash" aria-label="Удалить" style={{ color: 'var(--danger)' }} onClick={onDelete} />
         </div>
