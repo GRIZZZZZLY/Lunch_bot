@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import type { CreatePollContext, CreatePollFormState, DurationOption, MenuItemOption } from './types';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, Checkbox, Chip, Field, Switch } from '@/components/rl/primitives';
@@ -20,6 +20,8 @@ interface Props {
   submitting?: boolean;
   onClose: () => void;
   onSubmit: (state: CreatePollFormState) => void;
+  /** Вызывается при смене группы — родитель перезагружает меню этой группы */
+  onGroupChange?: (groupId: string) => void;
 }
 
 function makeInitial(ctx: CreatePollContext, override?: Partial<CreatePollFormState>): CreatePollFormState {
@@ -44,15 +46,30 @@ function Label({ children }: { children: ReactNode }) {
   );
 }
 
-export function CreatePollSheet({ open, ctx, initial, submitting, onClose, onSubmit }: Props) {
+export function CreatePollSheet({ open, ctx, initial, submitting, onClose, onSubmit, onGroupChange }: Props) {
   const [state, setState] = useState<CreatePollFormState>(() => makeInitial(ctx, initial));
+
+  // Компонент не размонтируется между открытиями — на каждое открытие
+  // пересобираем форму, иначе остаётся выбор прошлой сессии (группа, блюда).
+  const wasOpen = useRef(open);
+  useEffect(() => {
+    if (open && !wasOpen.current) setState(makeInitial(ctx, initial));
+    wasOpen.current = open;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const selectGroup = (id: string) => {
+    if (id === state.groupId) return;
+    // Блюда принадлежат меню конкретной группы — при смене группы сбрасываем выбор
+    setState((prev) => ({ ...prev, groupId: id, selectedItems: [] }));
+    onGroupChange?.(id);
+  };
 
   if (!open) return null;
 
   const selectedCount = state.selectedItems.length;
-  const titleError = state.title.trim().length === 0;
   const itemsError = selectedCount < ctx.minItems;
-  const canSubmit = !titleError && !itemsError && !submitting;
+  const canSubmit = !itemsError && !submitting;
 
   const toggleItem = (id: string) =>
     setState((prev) => {
@@ -85,26 +102,12 @@ export function CreatePollSheet({ open, ctx, initial, submitting, onClose, onSub
           <Label>Группа</Label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {ctx.groups.map((g) => (
-              <Chip key={g.id} on={state.groupId === g.id} onClick={() => !submitting && setState({ ...state, groupId: g.id })}>
+              <Chip key={g.id} on={state.groupId === g.id} onClick={() => !submitting && selectGroup(g.id)}>
                 {g.title}
               </Chip>
             ))}
           </div>
         </>
-      )}
-
-      <Label>Название</Label>
-      <Field
-        value={state.title}
-        error={titleError}
-        disabled={submitting}
-        placeholder="Обед 15 апреля"
-        onChange={(e: ChangeEvent<HTMLInputElement>) => setState({ ...state, title: e.target.value })}
-      />
-      {titleError && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 'var(--t-13)', color: 'var(--danger)' }}>
-          <Icon name="alert" size={14} /> Укажите название — участники увидят его в чате
-        </div>
       )}
 
       <Label>Длительность</Label>

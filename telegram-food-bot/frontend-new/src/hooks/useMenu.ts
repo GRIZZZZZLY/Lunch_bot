@@ -13,13 +13,18 @@ function errMsg(err: unknown, fallback: string): string {
   return e?.response?.data?.error || e?.message || fallback;
 }
 
-export function useMenuItems(options?: { activeOnly?: boolean }) {
+export function useMenuItems(options?: { activeOnly?: boolean; groupId?: string | null }) {
   const authStatus = useAppStore((s) => s.authStatus);
   const activeOnly = options?.activeOnly ?? false;
+  const groupId = options?.groupId ?? null;
+  const baseKey = activeOnly ? queryKeys.menu.active : queryKeys.menu.all;
   return useQuery({
-    queryKey: activeOnly ? queryKeys.menu.active : queryKeys.menu.all,
+    // groupId в ключе: меню per-group, явная группа не должна делить кэш с текущей
+    queryKey: groupId ? [...baseKey, groupId] : baseKey,
     queryFn: async () => {
-      const res = activeOnly ? await menuService.getActive() : await menuService.getAll();
+      const res = activeOnly
+        ? await menuService.getActive(groupId ?? undefined)
+        : await menuService.getAll();
       return (res.data ?? []) as MenuItem[];
     },
     enabled: authStatus === 'authenticated',

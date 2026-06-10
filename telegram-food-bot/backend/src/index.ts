@@ -125,6 +125,12 @@ async function startApplication(): Promise<void> {
 
       startApiServer(app);
       await setupWebhook(bot, botConfig.webhookUrl);
+
+      // Scheduler автоголосований стартует и в webhook-режиме — раньше он
+      // запускался только в onStart polling'а, и на проде (webhook) cron
+      // никогда не работал: recurring polls не запускались.
+      const { PollSchedulerService } = require('./services/poll-scheduler.service');
+      PollSchedulerService.start();
     } else {
       // Polling / API-only / Bot-only режимы.
       logger.info('🔄 Запуск в polling режиме');

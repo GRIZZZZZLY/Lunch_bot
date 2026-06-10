@@ -105,6 +105,9 @@ export function HomePage() {
 
   const { data: allMenu = [] } = useMenuItems();
   const { data: myGroups = [] } = useMyGroups();
+  // Группа, выбранная в форме создания опроса (null = текущая активная группа).
+  // Меню per-group, поэтому список блюд в форме обязан следовать за выбором.
+  const [sheetGroupId, setSheetGroupId] = useState<string | null>(null);
   const createPollMutation = useCreatePoll();
   const createRecurringMutation = useCreateRecurringPoll();
   const toast = useToast();
@@ -205,8 +208,12 @@ export function HomePage() {
 
   const canCreate = adminGroups.length > 0 || (!!user?.isAdmin && !!currentGroupId);
 
+  // Меню для формы создания — строго той группы, что выбрана в форме
+  const effectiveSheetGroupId = sheetGroupId ?? currentGroupId;
+  const { data: sheetMenu = [] } = useMenuItems({ activeOnly: true, groupId: effectiveSheetGroupId });
+
   const createPollCtx = useMemo<CreatePollContext>(() => {
-    const items: MenuItemOption[] = allMenu
+    const items: MenuItemOption[] = sheetMenu
       .filter((m) => m.isActive !== false)
       .map((m) => ({
         id: String(m.id),
@@ -222,12 +229,16 @@ export function HomePage() {
       audiences: [{ key: 'all', label: 'Вся группа', sub: 'все участники получат уведомление' }],
       groups: adminGroups.map((g) => ({ id: String(g.id), title: g.title })),
     };
-  }, [allMenu, adminGroups]);
+  }, [sheetMenu, adminGroups]);
 
   const handleCreatePoll = async (form: CreatePollFormState) => {
     setCreateError(null);
+    // Приоритет: выбранная в форме группа → текущая активная → первая админская.
+    // Раньше fallback был adminGroups[0] — опрос молча уходил не в ту группу.
     const matched =
-      (form.groupId && adminGroups.find((g) => String(g.id) === form.groupId)) || adminGroups[0];
+      (form.groupId && adminGroups.find((g) => String(g.id) === form.groupId)) ||
+      (currentGroupId && adminGroups.find((g) => String(g.id) === currentGroupId)) ||
+      adminGroups[0];
     const groupId = matched ? String(matched.id) : currentGroupId;
     if (!groupId) {
       const msg = 'Нет активной группы. Добавьте бота в групповой чат.';
@@ -388,12 +399,15 @@ export function HomePage() {
     <CreatePollSheet
       open={createOpen}
       ctx={createPollCtx}
+      initial={currentGroupId ? { groupId: currentGroupId } : undefined}
       submitting={createPollMutation.isPending || createRecurringMutation.isPending}
       onClose={() => {
         setCreateOpen(false);
         setCreateError(null);
+        setSheetGroupId(null);
       }}
       onSubmit={handleCreatePoll}
+      onGroupChange={setSheetGroupId}
     />
   );
 
