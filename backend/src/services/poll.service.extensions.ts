@@ -6,27 +6,7 @@ import { NotificationService } from './notification.service';
 import { UserService } from './user.service';
 import { logger } from '../utils/logger';
 import { createVoteWebAppKeyboard, createResultsWebAppKeyboard, createResponsibleKeyboard } from '../bot/keyboards/webapp.keyboard';
-
-/**
- * Создание уведомления о начале голосования для группы
- */
-function createPollNotificationMessage(data: {
-  title: string;
-  duration: number;
-  menuItemsCount: number;
-  endTime: Date;
-}): string {
-  const { title, duration, menuItemsCount, endTime } = data;
-  
-  let message = `🗳️ **${title}**\n\n`;
-  message += `⏰ **Время голосования:** ${duration} мин\n`;
-  message += `🍽️ **Доступно блюд:** ${menuItemsCount}\n`;
-  message += `⏱️ **Завершится:** ${endTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}\n\n`;
-  message += `👉 Открой Mini App для голосования!\n`;
-  message += `Нажми кнопку "🗳️ Проголосовать" ниже`;
-  
-  return message;
-}
+import { createPollStartedMessage } from '../bot/keyboards/poll.keyboard';
 
 import { getBotInstance } from '../bot/bot-instance';
 
@@ -119,14 +99,9 @@ export async function createPollFromWebApp(params: {
       // Не критично - продолжаем работу
     }
 
-    // Формируем уведомление для группы (БЕЗ inline-кнопок, только кнопка Mini App)
+    // Минимальное уведомление: факт запуска + дедлайн, детали — в Mini App
     const endTime = new Date(Date.now() + duration * 60 * 1000);
-    const message = createPollNotificationMessage({
-      title: title || 'Голосование за обед',
-      duration,
-      menuItemsCount: menuItems.length,
-      endTime,
-    });
+    const message = createPollStartedMessage(endTime, title);
 
     // Создаём кнопку для открытия Mini App
     logger.info('⌨️ Creating keyboard');

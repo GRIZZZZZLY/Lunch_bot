@@ -1,4 +1,22 @@
 import { InlineKeyboard } from 'grammy';
+import { createDirectLinkMiniAppUrl } from './webapp.keyboard';
+
+/**
+ * Минимальное уведомление о старте голосования (единое для ручных и
+ * автоматических опросов). Детали — в Mini App, в группе только факт + дедлайн.
+ */
+export function createPollStartedMessage(endTime: Date, title?: string | null): string {
+  const hhmm = endTime.toLocaleTimeString('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Moscow',
+  });
+  const header =
+    title && title !== 'Голосование за обед'
+      ? `🗳️ **${title}** — голосование запущено!`
+      : `🗳️ **Голосование за обед запущено!**`;
+  return `${header}\n\n⏰ До ${hhmm}`;
+}
 
 /**
  * Создание компактной клавиатуры с кнопкой "Проголосовать" (для Deep Linking)
@@ -9,8 +27,12 @@ export function createCompactPollKeyboard(
   status: 'active' | 'completed' | 'with_responsible' = 'active'
 ): { inline_keyboard: any[][] } {
   if (status === 'active') {
+    // editMessageText затирает клавиатуру — кнопка должна передаваться заново,
+    // иначе «Проголосовать» исчезает из группового сообщения
     return {
-      inline_keyboard: []
+      inline_keyboard: [[
+        { text: '🗳️ Проголосовать', url: createDirectLinkMiniAppUrl(`vote_${pollId}`) }
+      ]]
     };
   }
 
