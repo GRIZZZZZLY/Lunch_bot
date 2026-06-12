@@ -395,10 +395,13 @@ export class RecurringPollService {
       // 5. Отправить сообщение в группу (если есть bot instance)
       if (botInstance()) {
         try {
-          const { createCompactPollMessage, createCompactPollKeyboard } = await import('../bot/keyboards/poll.keyboard');
-          
-          const message = createCompactPollMessage(poll, menuItemIds.length, 0);
-          const keyboard = createCompactPollKeyboard(poll.id);
+          const { createPollStartedMessage } = await import('../bot/keyboards/poll.keyboard');
+          const { createVoteWebAppKeyboard } = await import('../bot/keyboards/webapp.keyboard');
+
+          // Единый минимальный формат старта + Direct Link кнопка (как у ручных опросов)
+          const endTime = new Date(Date.now() + recurring.duration * 60 * 1000);
+          const message = createPollStartedMessage(endTime);
+          const keyboard = createVoteWebAppKeyboard(poll.id);
 
           const sentMessage = await botInstance()!.api.sendMessage(
             Number(recurring.group.telegramId),
