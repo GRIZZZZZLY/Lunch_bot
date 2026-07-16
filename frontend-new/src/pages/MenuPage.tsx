@@ -38,9 +38,24 @@ function toDish(item: MenuItem): Dish {
 function buildCategories(dishes: Dish[]): { id: string; label: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const d of dishes) counts.set(d.category, (counts.get(d.category) ?? 0) + 1);
-  const all = [{ id: 'all', label: 'Всё', count: dishes.length }];
+  const all = [{ id: 'all', label: 'Все', count: dishes.length }];
   for (const [id, count] of counts) all.push({ id, label: id, count });
   return all;
+}
+
+function plural(n: number, one: string, few: string, many: string): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return `${n} ${one}`;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return `${n} ${few}`;
+  return `${n} ${many}`;
+}
+
+/* Категорийные тинты тайлов из макета: coral / мёд / зелень / золото */
+const CATEGORY_TONES = ['var(--danger)', 'var(--accent)', 'var(--success)', 'var(--warning)'];
+function categoryTone(category: string): string {
+  const hash = [...category].reduce((a, c) => a + c.charCodeAt(0), 0);
+  return CATEGORY_TONES[hash % CATEGORY_TONES.length];
 }
 
 export default function MenuPage() {
@@ -84,19 +99,15 @@ export default function MenuPage() {
 
   return (
     <div className="rl">
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '10px 20px 12px', gap: 12 }}>
-        <div>
-          <h1 className="font-head tight" style={{ margin: 0, fontSize: 'var(--t-28)', fontWeight: 700, lineHeight: 1.05 }}>
-            Меню
-          </h1>
-          <p style={{ margin: '4px 0 0', fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>
-            <span className="tnum">{dishes.length}</span> блюд · <span className="tnum">{categories.length - 1}</span> категорий
-            {activeGroup && activeGroups.length === 1 ? ` · ${activeGroup.title}` : ''}
-          </p>
-        </div>
-        {isAdmin && (
-          <IconButton variant="secondary" name="plus" aria-label="Добавить блюдо" onClick={() => setAddOpen(true)} />
-        )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 20px 13px' }}>
+        <h1 className="font-head" style={{ margin: 0, fontSize: 22, fontWeight: 600, lineHeight: 1.2 }}>
+          Меню
+        </h1>
+        <p className="tnum" style={{ margin: 0, fontSize: 12.5, color: 'var(--text-tertiary)' }}>
+          {plural(dishes.length, 'блюдо', 'блюда', 'блюд')}
+          {dishes.length > 0 ? ` · ${plural(categories.length - 1, 'категория', 'категории', 'категорий')}` : ''}
+          {activeGroup ? ` · ${activeGroup.title}` : ''}
+        </p>
       </div>
 
       {activeGroups.length > 1 && (
@@ -117,17 +128,17 @@ export default function MenuPage() {
         </div>
       )}
 
-      <div
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 5,
-          padding: '0 20px 12px',
-          background: 'linear-gradient(var(--bg-base) 72%, transparent)',
-        }}
-      >
-        <SearchBar value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Найти блюдо или категорию" />
-        {!isEmpty && (
+      {!isEmpty && (
+        <div
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 5,
+            padding: '0 20px 12px',
+            background: 'linear-gradient(var(--bg-base) 72%, transparent)',
+          }}
+        >
+          <SearchBar value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Найти блюдо или категорию" />
           <div className="scroll-area" style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', paddingBottom: 2 }}>
             {categories.map((c) => (
               <Chip key={c.id} on={category === c.id} onClick={() => setCategory(c.id)}>
@@ -138,8 +149,8 @@ export default function MenuPage() {
               </Chip>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div style={{ padding: '4px 20px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {error && (
@@ -259,36 +270,62 @@ function DishRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const tone = categoryTone(dish.category);
   return (
     <div
       className="card anim-rise"
-      style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12, animationDelay: `${Math.min(index * 45, 300)}ms`, opacity: dish.active ? 1 : 0.6 }}
+      style={{
+        padding: '12px 14px',
+        borderRadius: 20,
+        boxShadow: dish.active ? 'var(--shadow-1)' : 'none',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        animationDelay: `${Math.min(index * 45, 300)}ms`,
+        opacity: dish.active ? 1 : 0.75,
+      }}
     >
       <div
         style={{
-          width: 52,
-          height: 52,
-          borderRadius: 12,
+          width: 46,
+          height: 46,
+          borderRadius: 15,
           flexShrink: 0,
-          background: 'var(--accent-tint)',
-          color: 'var(--accent)',
+          background: dish.active ? `color-mix(in srgb, ${tone} 13%, transparent)` : 'var(--border-subtle)',
+          boxShadow: dish.active ? `inset 0 0 0 1px color-mix(in srgb, ${tone} 18%, transparent)` : 'none',
+          color: dish.active ? tone : 'var(--text-tertiary)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Icon name="menu" size={24} />
+        <Icon name="target" size={22} stroke={1.6} />
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="font-head" style={{ fontSize: 'var(--t-15)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <span
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: dish.active ? 'var(--text-primary)' : 'var(--text-tertiary)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
           {dish.name}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-          <span className="tnum" style={{ fontSize: 'var(--t-15)', fontWeight: 600, color: 'var(--text-secondary)' }}>
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+            {dish.category}
+            {!dish.active && ' · в архиве'}
+          </span>
+          <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--text-tertiary)' }} />
+          <span
+            className="tnum"
+            style={{ fontSize: 12.5, fontWeight: 600, color: dish.active ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}
+          >
             {dish.price} ₽
           </span>
-          <span style={{ fontSize: 'var(--t-11)', color: 'var(--text-tertiary)' }}>·</span>
-          <span style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>{dish.category}</span>
         </div>
       </div>
       {admin ? (
@@ -354,20 +391,89 @@ function CenterCard({ icon, title, text, action }: { icon: 'menu' | 'search' | '
   );
 }
 
+/* Эмпти-стейт из макета: двойная орбита, вилка-нож, чипы-призраки — прямо на канвасе */
 function EmptyMenu({ canAdd, onAdd }: { canAdd: boolean; onAdd: () => void }) {
+  const ghostChip = (text: string, pos: React.CSSProperties) => (
+    <div
+      style={{
+        position: 'absolute',
+        padding: '5px 11px',
+        borderRadius: 999,
+        border: '1px dashed var(--border-subtle)',
+        fontSize: 11,
+        color: 'var(--text-tertiary)',
+        whiteSpace: 'nowrap',
+        ...pos,
+      }}
+    >
+      {text}
+    </div>
+  );
   return (
-    <CenterCard
-      icon="menu"
-      title="Меню пустое"
-      text={canAdd ? 'Добавьте первое блюдо, чтобы команда могла голосовать за обед.' : 'Администратор ещё не добавил блюда.'}
-      action={
-        canAdd ? (
-          <Button variant="primary" icon="plus" style={{ marginTop: 10 }} onClick={onAdd}>
-            Добавить блюдо
-          </Button>
-        ) : undefined
-      }
-    />
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        textAlign: 'center',
+        padding: '48px 0 30px',
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: 130,
+          height: 130,
+          marginBottom: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '50%',
+            border: '1.5px dashed color-mix(in srgb, var(--accent) 30%, transparent)',
+          }}
+        />
+        <div style={{ position: 'absolute', inset: 16, borderRadius: '50%', border: '1px dashed var(--border-subtle)' }} />
+        <div
+          style={{
+            width: 78,
+            height: 78,
+            borderRadius: '50%',
+            background: 'var(--accent-tint)',
+            boxShadow: 'inset 0 0 0 1px var(--accent-ring), 0 16px 36px -16px color-mix(in srgb, var(--accent) 40%, transparent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--accent)',
+          }}
+        >
+          <Icon name="menu" size={34} stroke={1.5} />
+        </div>
+        {ghostChip('Поке?', { left: -56, top: 14, transform: 'rotate(-7deg)' })}
+        {ghostChip('Том-ям?', { right: -72, top: 50, transform: 'rotate(5deg)' })}
+        {ghostChip('Пад-тай?', { left: -44, bottom: 6, transform: 'rotate(4deg)' })}
+      </div>
+      <span className="font-head" style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.02em' }}>
+        Меню пустое
+      </span>
+      <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, maxWidth: 250 }}>
+        {canAdd
+          ? 'Добавьте первое блюдо — команде будет за что голосовать уже сегодня'
+          : 'Администратор ещё не добавил блюда'}
+      </span>
+      {canAdd && (
+        <Button variant="primary" size="lg" icon="plus" style={{ marginTop: 8 }} onClick={onAdd}>
+          Добавить блюдо
+        </Button>
+      )}
+    </div>
   );
 }
 
