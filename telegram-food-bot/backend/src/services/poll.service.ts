@@ -857,6 +857,22 @@ export class PollService {
                 },
               },
             },
+            // Голоса с участниками и блюдами — для лидерборда и «профиля обеда»
+            // на экране статистики (считаются на фронте из истории).
+            votes: {
+              select: {
+                id: true,
+                userId: true,
+                menuItemId: true,
+                createdAt: true,
+                user: {
+                  select: { id: true, firstName: true, username: true },
+                },
+                menuItem: {
+                  select: { id: true, name: true },
+                },
+              },
+            },
             _count: {
               select: {
                 votes: true,

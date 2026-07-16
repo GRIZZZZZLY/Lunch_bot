@@ -50,7 +50,30 @@ export const COMPLETED_POLL = {
   createdAt: pastMin(90),
 };
 
-export const HISTORY_POLLS = [COMPLETED_POLL, { ...COMPLETED_POLL, id: 104, createdAt: pastMin(2 * 24 * 60) }, { ...COMPLETED_POLL, id: 105, createdAt: pastMin(7 * 24 * 60) }];
+// Участники команды для лидерборда статистики (история должна нести votes с user/menuItem)
+const TEAM = [
+  { id: 42, firstName: 'Иван', username: 'testuser' },
+  { id: 77, firstName: 'Анна', username: 'anna' },
+  { id: 78, firstName: 'Миша', username: 'misha' },
+  { id: 79, firstName: 'Настя', username: 'nastya' },
+  { id: 80, firstName: 'Лена', username: 'lena' },
+];
+const mkVotes = (pollId, userIdx, itemIds) =>
+  userIdx.map((ui, i) => ({
+    id: pollId * 100 + i,
+    pollId,
+    userId: TEAM[ui].id,
+    menuItemId: itemIds[i % itemIds.length],
+    createdAt: pastMin(60),
+    user: TEAM[ui],
+    menuItem: MENU_ITEMS.find((m) => m.id === itemIds[i % itemIds.length]),
+  }));
+
+export const HISTORY_POLLS = [
+  { ...COMPLETED_POLL, votes: mkVotes(103, [0, 1, 2, 3, 4], [1, 2, 1, 4, 2]) },
+  { ...COMPLETED_POLL, id: 104, createdAt: pastMin(2 * 24 * 60), votes: mkVotes(104, [0, 1, 2, 3], [2, 1, 2, 1]) },
+  { ...COMPLETED_POLL, id: 105, createdAt: pastMin(7 * 24 * 60), votes: mkVotes(105, [0, 1, 3], [1, 1, 4]) },
+];
 
 export const POLL_RESULT = {
   pollId: 103,
