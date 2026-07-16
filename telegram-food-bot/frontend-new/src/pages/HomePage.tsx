@@ -31,14 +31,14 @@ import {
   ActivePollWidget,
   BudgetWidget,
   CompletedPollWidget,
-  HomeActionsSection,
-  HomeHeroCard,
+  EmptyPollCard,
+  HomeGreeting,
   type BudgetScenario,
   type PollOptionVM,
 } from '@/components/rl/homeWidgets';
-import { Badge, Button } from '@/components/rl/primitives';
+import { Badge } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
-import { Fab } from '@/components/rl/Fab';
+import { Fab, type FabAction } from '@/components/rl/Fab';
 import { SectionTitle } from '@/components/rl/parts';
 import { CreateStoreRunSheet } from '@/components/rl/CreateStoreRunSheet';
 import { useActiveStoreRuns, useCreateStoreRun } from '@/hooks/useStoreRun';
@@ -183,16 +183,14 @@ export function HomePage() {
   const completedVM = useMemo(() => {
     if (!lastCompletedPoll || !lastPollResult) return null;
     const opts = mapPollToOptions(lastCompletedPoll, allMenu);
-    const ranking = [...opts]
-      .sort((a, b) => b.votes - a.votes)
-      .map((o) => ({ name: o.name, votes: o.votes }));
+    const top = [...opts].sort((a, b) => b.votes - a.votes)[0];
     const winnerVotes =
-      opts.find((o) => o.id === lastPollResult.winnerId)?.votes ?? ranking[0]?.votes ?? lastPollResult.totalVotes;
+      opts.find((o) => o.id === lastPollResult.winnerId)?.votes ?? top?.votes ?? lastPollResult.totalVotes;
     return {
-      winnerName: lastPollResult.winnerName || ranking[0]?.name || 'Блюдо',
+      winnerName: lastPollResult.winnerName || top?.name || 'Блюдо',
       winnerVotes,
       totalVotes: lastPollResult.totalVotes,
-      ranking,
+      responsibleName: lastPollResult.responsible?.name,
     };
   }, [lastCompletedPoll, lastPollResult, allMenu]);
 
@@ -291,9 +289,7 @@ export function HomePage() {
   const greet = plainGreeting(new Date().getHours());
   const name = user?.firstName;
 
-  const hero = (
-    <HomeHeroCard greet={greet} name={name} activeCount={activePoll ? 1 : 0} teamCount={teamCount} />
-  );
+  const greeting = <HomeGreeting greet={greet} name={name} />;
 
   const budget = (
     <BudgetWidget
@@ -324,13 +320,14 @@ export function HomePage() {
     }
   };
 
-  const actions = (
-    <HomeActionsSection
-      onCreatePoll={onCreatePollAction}
-      onCreateOrder={() => setCreateOrderOpen(true)}
-      onSuggest={() => navigate('/suggestions/mine')}
-    />
-  );
+  // Быстрые действия из старой секции переехали в speed-dial FAB (по макету)
+  const fabActions: FabAction[] = [
+    ...(canCreate
+      ? [{ icon: 'flame' as const, label: 'Запустить голосование', onClick: onCreatePollAction }]
+      : []),
+    { icon: 'cart' as const, label: 'Закупка в магазине', onClick: () => setCreateOrderOpen(true) },
+    { icon: 'plus' as const, label: 'Предложить блюдо', onClick: () => navigate('/suggestions/mine') },
+  ];
 
   const STORE_TONE: Record<string, 'accent' | 'warning' | 'success' | 'danger'> = {
     COLLECTING: 'accent',
@@ -386,10 +383,11 @@ export function HomePage() {
         winnerName={completedVM.winnerName}
         winnerVotes={completedVM.winnerVotes}
         totalVotes={completedVM.totalVotes}
-        ranking={completedVM.ranking}
+        responsibleName={completedVM.responsibleName}
         collapsed={completedCollapsed}
         onToggle={() => setCompletedCollapsed((v) => !v)}
         onDetails={() => lastCompletedPoll && navigate(`/poll/${lastCompletedPoll.id}/results`)}
+        onSbp={pendingDebt ? () => markPaid.mutate(pendingDebt.id) : undefined}
         isAdmin={canCreate}
         onCancel={() => lastCompletedPoll && cancelPoll.mutate({ pollId: lastCompletedPoll.id })}
       />
@@ -415,7 +413,7 @@ export function HomePage() {
   if (authLoading || pollLoading) {
     return (
       <Stack>
-        {[<HomeHeroCard key="h" loading />, <ActivePollWidget key="p" {...EMPTY_POLL_PROPS} loading />]}
+        {[<HomeGreeting key="h" loading />, <ActivePollWidget key="p" {...EMPTY_POLL_PROPS} loading />]}
       </Stack>
     );
   }
@@ -439,7 +437,7 @@ export function HomePage() {
       <>
         <Stack>
           {[
-            hero,
+            greeting,
             <EmptyPollCard key="empty" canCreate={canCreate} onCreate={onCreatePollAction} />,
             createError ? (
               <div key="err" style={{ color: 'var(--danger)', fontSize: 'var(--t-13)', padding: '0 4px' }}>
@@ -449,10 +447,9 @@ export function HomePage() {
             completed,
             budget,
             storeRuns,
-            actions,
           ]}
         </Stack>
-        <Fab onClick={onCreatePollAction} />
+        <Fab actions={fabActions} />
         {createSheet}
         {createOrderSheet}
       </>
@@ -464,7 +461,7 @@ export function HomePage() {
     <>
       <Stack>
         {[
-          hero,
+          greeting,
           <ActivePollWidget
             key="poll"
             title={pollTitle}
@@ -491,10 +488,9 @@ export function HomePage() {
           completed,
           budget,
           storeRuns,
-          actions,
         ]}
       </Stack>
-      <Fab onClick={onCreatePollAction} />
+      <Fab actions={fabActions} />
       {createSheet}
       {createOrderSheet}
     </>
@@ -513,36 +509,3 @@ const EMPTY_POLL_PROPS = {
   onSelect: () => undefined,
   onVote: () => undefined,
 };
-
-function EmptyPollCard({ canCreate, onCreate }: { canCreate: boolean; onCreate: () => void }) {
-  return (
-    <div className="card" style={{ padding: 24, textAlign: 'center' }}>
-      <div
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 16,
-          margin: '0 auto 14px',
-          background: 'var(--accent-tint)',
-          color: 'var(--accent)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name="flame" size={26} />
-      </div>
-      <div className="font-head tight" style={{ fontSize: 'var(--t-18)', fontWeight: 700, marginBottom: 4 }}>
-        Сейчас нет голосования
-      </div>
-      <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', marginBottom: canCreate ? 16 : 0 }}>
-        {canCreate ? 'Запустите опрос — команда выберет, что заказать' : 'Дождитесь, пока администратор запустит опрос'}
-      </div>
-      {canCreate && (
-        <Button variant="primary" icon="plus" onClick={onCreate} style={{ width: '100%' }}>
-          Запустить голосование
-        </Button>
-      )}
-    </div>
-  );
-}

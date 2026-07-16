@@ -5,6 +5,12 @@
 import type { CSSProperties, ReactNode } from 'react';
 
 const ICON_PATHS = {
+  target: (
+    <>
+      <circle cx="12" cy="12" r="8.25" />
+      <circle cx="12" cy="12" r="3.5" />
+    </>
+  ),
   // --- nav ---
   home: (
     <>

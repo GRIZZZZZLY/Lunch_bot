@@ -1,83 +1,205 @@
-/* ROCKET LUNCH — HOME WIDGETS (redesign v2, prop-driven, TS)
-   Presentational; HomePage feeds real hook/API data.
-   Ported from "Redisign v2/src/widgets1.jsx" + "widgets2.jsx". */
+/* ROCKET LUNCH — HOME WIDGETS («Графит и мёд», порт макета
+   "Rocket Lunch Telegram Mini App/Rocket Lunch Redesign.dc.html", июль 2026)
+   Presentational; HomePage feeds real hook/API data. */
 import { Icon } from './Icon';
 import { Avatar, Badge, Button, Confetti, CountUp, IconButton, Spinner } from './primitives';
-import { AvatarStack, CircularTimer, SectionTitle, Trophy } from './parts';
 
-/* ---------------- HomeHeroCard ---------------- */
-export function HomeHeroCard({
+function pluralVotes(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n} голос`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${n} голоса`;
+  return `${n} голосов`;
+}
+
+function fmtClock(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/* Общая «медовая» подсветка в правом верхнем углу карточки (из макета) */
+function CardGlow() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        top: -70,
+        right: -50,
+        width: 220,
+        height: 220,
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, var(--accent-tint), transparent 70%)',
+        pointerEvents: 'none',
+      }}
+    />
+  );
+}
+
+/* Заголовок-статус карточки: 11px, uppercase, разрядка — как в макете */
+function CardKicker({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: '0.09em',
+        textTransform: 'uppercase',
+        color: 'var(--text-secondary)',
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/* ---------------- HomeGreeting ----------------
+   Макет: приветствие — текст на канвасе, не карточка.
+   Дата-киккер → Unbounded-заголовок → подзаголовок. */
+export function HomeGreeting({
   greet,
   name,
-  headline = (
-    <>
-      Время решать, что
-      <br />
-      заказываем сегодня
-    </>
-  ),
-  activeCount = 0,
-  teamCount,
+  sub = 'Время решать, что заказываем сегодня',
   loading,
 }: {
   greet?: string;
   name?: string;
-  headline?: React.ReactNode;
-  activeCount?: number;
-  teamCount?: number;
+  sub?: string;
   loading?: boolean;
 }) {
   if (loading) {
     return (
-      <div className="card" style={{ padding: 20 }}>
-        <div className="skeleton" style={{ height: 12, width: '30%', marginBottom: 10 }} />
-        <div className="skeleton" style={{ height: 26, width: '75%', marginBottom: 8 }} />
-        <div className="skeleton" style={{ height: 14, width: '55%' }} />
+      <div style={{ padding: '4px 4px 0' }}>
+        <div className="skeleton" style={{ height: 11, width: '30%', marginBottom: 10 }} />
+        <div className="skeleton" style={{ height: 24, width: '70%', marginBottom: 8 }} />
+        <div className="skeleton" style={{ height: 13, width: '55%' }} />
       </div>
     );
   }
+  const dateLabel = new Date().toLocaleDateString('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
   return (
-    <div className="card" style={{ padding: 20, position: 'relative', overflow: 'hidden' }}>
-      <div
-        aria-hidden="true"
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: '4px 4px 0' }}>
+      <span
         style={{
-          position: 'absolute',
-          right: -30,
-          top: -30,
-          width: 130,
-          height: 130,
-          borderRadius: '50%',
-          background: 'var(--accent-tint)',
-          opacity: 0.6,
-          filter: 'blur(2px)',
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '0.12em',
+          color: 'var(--text-tertiary)',
+          textTransform: 'uppercase',
         }}
-      />
-      <div style={{ position: 'relative' }}>
-        <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', fontWeight: 500, marginBottom: 4 }}>
-          {greet}
-          {name ? `, ${name}` : ''}
-        </div>
-        <h2 className="font-head tight" style={{ margin: 0, fontSize: 'var(--t-22)', fontWeight: 700, lineHeight: 1.15 }}>
-          {headline}
-        </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-          {activeCount > 0 && (
-            <Badge tone="accent" icon="flame">
-              {activeCount} активное
-            </Badge>
-          )}
-          {teamCount != null && (
-            <Badge tone="neutral" icon="users">
-              {teamCount} в команде
-            </Badge>
-          )}
-        </div>
-      </div>
+      >
+        {dateLabel}
+      </span>
+      <h1
+        className="font-head"
+        style={{ margin: 0, fontSize: 22, fontWeight: 600, lineHeight: 1.25, color: 'var(--text-primary)' }}
+      >
+        {greet}
+        {name ? `, ${name}` : ''}
+      </h1>
+      <span style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{sub}</span>
     </div>
   );
 }
 
-/* ---------------- ActivePollWidget ---------------- */
+/* ---------------- EmptyPollCard ----------------
+   Макет (a): орбита с пунктиром, чипы-призраки, CTA на всю ширину. */
+export function EmptyPollCard({ canCreate, onCreate }: { canCreate: boolean; onCreate: () => void }) {
+  const ghostChip = (text: string, pos: React.CSSProperties) => (
+    <div
+      style={{
+        position: 'absolute',
+        padding: '5px 10px',
+        borderRadius: 999,
+        border: '1px dashed var(--border-subtle)',
+        fontSize: 11,
+        color: 'var(--text-tertiary)',
+        whiteSpace: 'nowrap',
+        ...pos,
+      }}
+    >
+      {text}
+    </div>
+  );
+  return (
+    <div
+      className="card"
+      style={{
+        padding: '26px 20px 20px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 7,
+        textAlign: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <CardGlow />
+      <div
+        style={{
+          position: 'relative',
+          width: 96,
+          height: 96,
+          marginBottom: 6,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '50%',
+            border: '1.5px dashed color-mix(in srgb, var(--accent) 35%, transparent)',
+          }}
+        />
+        <div
+          style={{
+            width: 66,
+            height: 66,
+            borderRadius: '50%',
+            background: 'var(--accent-tint)',
+            boxShadow: 'inset 0 0 0 1px var(--accent-ring)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--accent)',
+          }}
+        >
+          <Icon name="target" size={30} stroke={1.6} />
+        </div>
+        {ghostChip('Том-ям?', { left: -80, top: 8, transform: 'rotate(-6deg)' })}
+        {ghostChip('Шаурма?', { right: -82, bottom: 4, transform: 'rotate(5deg)' })}
+      </div>
+      <span
+        className="font-head"
+        style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.02em', position: 'relative' }}
+      >
+        Сегодня ещё не решали
+      </span>
+      <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 250, position: 'relative' }}>
+        {canCreate
+          ? 'Запустите голосование — команда выберет обед за пару минут'
+          : 'Дождитесь, пока администратор запустит опрос'}
+      </span>
+      {canCreate && (
+        <Button variant="primary" size="lg" onClick={onCreate} style={{ width: '100%', marginTop: 10 }}>
+          Запустить голосование
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- ActivePollWidget ----------------
+   Макет (b): статус-дот + таймер-чип, строки с барами, счётчик «X из Y», CTA. */
 export interface PollOptionVM {
   id: number;
   name: string;
@@ -109,12 +231,10 @@ export interface ActivePollWidgetProps {
 
 export function ActivePollWidget(props: ActivePollWidgetProps) {
   const {
-    title,
     options,
     totalVotes,
     teamCount,
     remaining,
-    total,
     selectedId,
     myChoiceId,
     hasVoted,
@@ -132,113 +252,145 @@ export function ActivePollWidget(props: ActivePollWidgetProps) {
 
   if (loading) {
     return (
-      <div className="card" style={{ padding: 20 }}>
-        <div className="skeleton" style={{ height: 14, width: '55%', marginBottom: 8 }} />
-        <div className="skeleton" style={{ height: 22, width: '80%', marginBottom: 20 }} />
+      <div className="card" style={{ padding: 18 }}>
+        <div className="skeleton" style={{ height: 12, width: '45%', marginBottom: 16 }} />
         {[0, 1, 2].map((i) => (
-          <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}>
-            <div className="skeleton" style={{ width: 30, height: 30, borderRadius: '50%' }} />
-            <div style={{ flex: 1 }}>
-              <div className="skeleton" style={{ height: 12, width: '60%', marginBottom: 8 }} />
-              <div className="skeleton" style={{ height: 6, width: '100%' }} />
-            </div>
+          <div key={i} style={{ marginBottom: 14 }}>
+            <div className="skeleton" style={{ height: 12, width: '60%', marginBottom: 8 }} />
+            <div className="skeleton" style={{ height: 7, width: '100%' }} />
           </div>
         ))}
+        <div className="skeleton" style={{ height: 50, width: '100%', marginTop: 6 }} />
       </div>
     );
   }
 
   const chosenId = hasVoted ? myChoiceId : selectedId;
   const chosenName = options.find((o) => o.id === myChoiceId)?.name;
+  const maxVotes = Math.max(1, ...options.map((o) => o.votes));
+  const leaderId = options.reduce(
+    (best, o) => (o.votes > (options.find((x) => x.id === best)?.votes ?? -1) ? o.id : best),
+    options[0]?.id ?? -1,
+  );
 
   return (
-    <div className="card" style={{ padding: 20, position: 'relative' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
-        <div>
-          <Badge tone="accent" icon="flame">
-            Идёт голосование
-          </Badge>
-          <h3 className="font-head tight" style={{ margin: '10px 0 2px', fontSize: 'var(--t-18)', fontWeight: 700 }}>
-            {title}
-          </h3>
-          <p style={{ margin: 0, fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>
-            <span className="tnum">{totalVotes}</span> голосов{teamCount != null ? <> · {teamCount} в команде</> : null}
-          </p>
+    <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', overflow: 'hidden' }}>
+      <CardGlow />
+      {/* статус + таймер */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: 'var(--success)',
+              boxShadow: '0 0 10px color-mix(in srgb, var(--success) 80%, transparent)',
+            }}
+          />
+          <CardKicker>Голосование идёт</CardKicker>
         </div>
-        <CircularTimer remaining={remaining} total={total} />
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 11px',
+            borderRadius: 13,
+            background: 'var(--accent-tint)',
+            color: 'var(--accent)',
+            boxShadow: 'inset 0 0 0 1px var(--accent-ring)',
+          }}
+        >
+          <Icon name="clock" size={13} stroke={2} />
+          <span className="tnum" style={{ fontSize: 13.5, fontWeight: 700 }}>
+            {fmtClock(remaining)}
+          </span>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* варианты с барами */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 11, position: 'relative' }}>
         {options.map((d) => {
-          const v = d.votes;
-          const pct = totalVotes > 0 ? Math.round((v / totalVotes) * 100) : 0;
           const isMine = chosenId === d.id;
+          const share = d.votes / maxVotes;
+          const pct = Math.round(share * 100);
+          const isLeader = d.id === leaderId && d.votes > 0;
           return (
             <div
               key={d.id}
-              className={'dish-row' + (isMine ? ' is-voted' : '')}
               onClick={() => !hasVoted && onSelect(d.id)}
-              role="button"
-              tabIndex={0}
+              role={hasVoted ? undefined : 'button'}
+              tabIndex={hasVoted ? undefined : 0}
+              onKeyDown={(e) => {
+                if (!hasVoted && (e.key === 'Enter' || e.key === ' ')) onSelect(d.id);
+              }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 6, cursor: hasVoted ? 'default' : 'pointer' }}
             >
-              <button className={'qvote' + (isMine ? ' on' : '')} aria-label={'Голосовать за ' + d.name}>
-                {isMine ? <Icon name="check" size={16} stroke={2.4} /> : <Icon name="plus" size={16} />}
-              </button>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                <span
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'baseline',
-                    gap: 8,
-                    marginBottom: 6,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 14,
+                    fontWeight: isMine || isLeader ? 600 : 500,
+                    color: isMine ? 'var(--accent)' : isLeader ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 'var(--t-15)',
-                      fontWeight: 500,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {d.name}
-                  </span>
-                  <span
-                    className="tnum font-head"
-                    style={{
-                      fontSize: 'var(--t-15)',
-                      fontWeight: 600,
-                      color: isMine ? 'var(--accent)' : 'var(--text-secondary)',
-                    }}
-                  >
-                    {v}
-                  </span>
-                </div>
-                <div className="votebar">
-                  <i style={{ transform: `scaleX(${Math.max(0.02, pct / 100)})` }} />
-                </div>
+                  {isMine && <Icon name="check" size={14} stroke={2.4} />}
+                  {d.name}
+                </span>
+                <span className="tnum" style={{ fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0 }}>
+                  {pluralVotes(d.votes)}
+                </span>
               </div>
-              {d.voters && d.voters.length > 0 && <AvatarStack people={d.voters} max={3} size={22} />}
+              <div style={{ height: 7, borderRadius: 4, background: 'var(--border-subtle)', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${Math.max(2, pct)}%`,
+                    height: '100%',
+                    borderRadius: 4,
+                    background: isLeader
+                      ? 'linear-gradient(90deg, #D68914, #F6BE5F)'
+                      : `color-mix(in srgb, var(--accent) ${Math.max(20, Math.round(share * 45))}%, transparent)`,
+                    transition: 'width 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+                  }}
+                />
+              </div>
             </div>
           );
         })}
       </div>
 
+      {/* счётчик участников */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+        <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+          Проголосовало {totalVotes}
+          {teamCount != null ? ` из ${teamCount}` : ''}
+        </span>
+        {isAdmin && (
+          <IconButton variant="ghost" size="sm" name="gear" aria-label="Администрирование" onClick={onToggleAdmin} />
+        )}
+      </div>
+
+      {/* CTA / состояние «проголосовал» */}
       {hasVoted ? (
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            marginTop: 16,
-            padding: '10px 14px',
+            padding: '12px 14px',
             background: 'var(--success-tint)',
-            borderRadius: 'var(--r-block)',
+            borderRadius: 17,
             color: 'var(--success)',
-            fontSize: 'var(--t-13)',
+            fontSize: 13,
             fontWeight: 600,
+            position: 'relative',
           }}
         >
           <Icon name="check" size={16} stroke={2.2} /> Ваш голос учтён{chosenName ? ` · «${chosenName}»` : ''}
@@ -249,40 +401,20 @@ export function ActivePollWidget(props: ActivePollWidgetProps) {
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <Button
-            variant="primary"
-            icon="check"
-            disabled={selectedId == null}
-            loading={voting}
-            onClick={onVote}
-            style={{ flex: 1 }}
-          >
-            {selectedId != null ? 'Подтвердить голос' : 'Выберите блюдо'}
-          </Button>
-          {isAdmin && (
-            <IconButton variant="secondary" name="gear" aria-label="Администрирование" onClick={onToggleAdmin} />
-          )}
-        </div>
+        <Button
+          variant="primary"
+          size="lg"
+          disabled={selectedId == null}
+          loading={voting}
+          onClick={onVote}
+          style={{ width: '100%' }}
+        >
+          {selectedId != null ? 'Подтвердить голос' : 'Голосовать'}
+        </Button>
       )}
 
-      {isAdmin && adminOpen && !hasVoted && (
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              marginBottom: 10,
-              color: 'var(--text-tertiary)',
-              fontSize: 'var(--t-11)',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            <Icon name="gear" size={14} /> Администрирование
-          </div>
+      {isAdmin && adminOpen && (
+        <div style={{ paddingTop: 14, borderTop: '1px solid var(--border-subtle)', position: 'relative' }}>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button variant="ghost" size="sm" icon="check" style={{ flex: 1 }} onClick={onCloseEarly}>
               Закрыть досрочно
@@ -297,39 +429,58 @@ export function ActivePollWidget(props: ActivePollWidgetProps) {
   );
 }
 
-/* ---------------- CompletedPollWidget ---------------- */
-export interface CompletedRankItem {
-  name: string;
-  votes: number;
-}
-
+/* ---------------- CompletedPollWidget ----------------
+   Макет (c): «Итоги голосования», победитель, ответственный, «Скинуться · СБП». */
 export interface CompletedPollWidgetProps {
   winnerName: string;
   winnerVotes: number;
   totalVotes: number;
-  ranking?: CompletedRankItem[];
-  voters?: string[];
+  responsibleName?: string;
   collapsed: boolean;
   onToggle: () => void;
   isAdmin?: boolean;
   onCancel?: () => void;
   onDetails?: () => void;
+  onSbp?: () => void;
+}
+
+/* Мини-конфетти: четыре застывшие точки в правом верхнем углу — как в макете */
+function ConfettiDots() {
+  const dot = (pos: React.CSSProperties, color: string, square = false) => (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        width: square ? 4 : 5,
+        height: square ? 4 : 5,
+        borderRadius: square ? 1.5 : '50%',
+        background: color,
+        ...pos,
+      }}
+    />
+  );
+  return (
+    <>
+      {dot({ top: 16, right: 74, opacity: 0.6 }, 'var(--accent)')}
+      {dot({ top: 36, right: 38, opacity: 0.55, transform: 'rotate(24deg)' }, 'var(--success)', true)}
+      {dot({ top: 12, right: 126, opacity: 0.5 }, 'var(--warning)')}
+      {dot({ top: 56, right: 20, opacity: 0.4 }, 'var(--danger)')}
+    </>
+  );
 }
 
 export function CompletedPollWidget({
   winnerName,
   winnerVotes,
   totalVotes,
-  ranking = [],
-  voters = [],
+  responsibleName,
   collapsed,
   onToggle,
   isAdmin,
   onCancel,
   onDetails,
+  onSbp,
 }: CompletedPollWidgetProps) {
-  const pctWinner = totalVotes > 0 ? Math.round((winnerVotes / totalVotes) * 100) : 0;
-
   if (collapsed) {
     return (
       <button
@@ -346,9 +497,24 @@ export function CompletedPollWidget({
           borderRadius: 999,
         }}
       >
-        <Trophy size={34} />
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 12,
+            flexShrink: 0,
+            background: 'var(--accent-tint)',
+            boxShadow: 'inset 0 0 0 1px var(--accent-ring)',
+            color: 'var(--accent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="target" size={18} stroke={1.6} />
+        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 'var(--t-11)', color: 'var(--text-tertiary)', fontWeight: 600 }}>Победитель</div>
+          <div style={{ fontSize: 'var(--t-11)', color: 'var(--text-tertiary)', fontWeight: 600 }}>Итоги · победитель</div>
           <div
             className="font-head"
             style={{
@@ -368,93 +534,140 @@ export function CompletedPollWidget({
   }
 
   return (
-    <div className="card" style={{ padding: 20, position: 'relative', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-        <Badge tone="success" icon="check">
-          Голосование завершено
-        </Badge>
-        <IconButton variant="ghost" size="sm" name="chevronUp" aria-label="Свернуть" onClick={onToggle} />
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-        <Trophy size={52} />
-        <div>
-          <div style={{ fontSize: 'var(--t-11)', color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: 2 }}>
-            Победитель
+    <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', overflow: 'hidden' }}>
+      <CardGlow />
+      <ConfettiDots />
+      {/* шапка */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+        <CardKicker>Итоги голосования</CardKicker>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 11px',
+              borderRadius: 13,
+              background: 'var(--success-tint)',
+              color: 'var(--success)',
+              boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--success) 22%, transparent)',
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)' }} />
+            <span style={{ fontSize: 12, fontWeight: 600 }}>Завершено</span>
           </div>
-          <div className="font-head tight" style={{ fontSize: 'var(--t-22)', fontWeight: 700, lineHeight: 1.1 }}>
-            {winnerName}
-          </div>
-          <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-secondary)', marginTop: 4 }} className="tnum">
-            {winnerVotes} из {totalVotes} голосов · {pctWinner}%
-          </div>
+          <IconButton variant="ghost" size="sm" name="chevronUp" aria-label="Свернуть" onClick={onToggle} />
         </div>
       </div>
-      {ranking.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {ranking.slice(0, 3).map((d, i) => {
-            const pct = totalVotes > 0 ? Math.round((d.votes / totalVotes) * 100) : 0;
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span
-                  style={{ width: 18, fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', fontWeight: 700 }}
-                  className="tnum font-head"
-                >
-                  {i + 1}
-                </span>
-                <span style={{ flex: 1, fontSize: 'var(--t-13)' }}>{d.name}</span>
-                <div className="votebar" style={{ width: 70 }}>
-                  <i
-                    style={{
-                      transform: `scaleX(${pct / 100})`,
-                      background: i === 0 ? 'var(--accent)' : 'var(--text-tertiary)',
-                    }}
-                  />
-                </div>
-                <span
-                  className="tnum"
-                  style={{ width: 22, textAlign: 'right', fontSize: 'var(--t-13)', color: 'var(--text-secondary)', fontWeight: 600 }}
-                >
-                  {d.votes}
-                </span>
-              </div>
-            );
-          })}
+
+      {/* победитель */}
+      <div
+        onClick={onDetails}
+        role={onDetails ? 'button' : undefined}
+        tabIndex={onDetails ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (onDetails && (e.key === 'Enter' || e.key === ' ')) onDetails();
+        }}
+        style={{ display: 'flex', alignItems: 'center', gap: 14, position: 'relative', cursor: onDetails ? 'pointer' : 'default' }}
+      >
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 18,
+            background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent) 25%, transparent), color-mix(in srgb, var(--accent) 12%, transparent))',
+            boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--accent)',
+            flexShrink: 0,
+          }}
+        >
+          <Icon name="target" size={26} stroke={1.6} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+          <span
+            className="font-head"
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              letterSpacing: '-0.02em',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {winnerName}
+          </span>
+          <span className="tnum" style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+            {pluralVotes(winnerVotes)} из {totalVotes}
+          </span>
+        </div>
+      </div>
+
+      {/* ответственный */}
+      {responsibleName && (
+        <>
+          <div style={{ height: 1, background: 'var(--border-subtle)', position: 'relative' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative' }}>
+            <Avatar name={responsibleName} size={40} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--text-tertiary)',
+                }}
+              >
+                Ответственный за заказ
+              </span>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>{responsibleName}</span>
+            </div>
+            {onSbp && (
+              <button
+                className="press"
+                onClick={onSbp}
+                style={{
+                  height: 38,
+                  padding: '0 14px',
+                  borderRadius: 13,
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: 'var(--accent-tint)',
+                  boxShadow: 'inset 0 0 0 1px var(--accent-ring)',
+                  color: 'var(--accent)',
+                  fontFamily: 'inherit',
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Скинуться · СБП
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {isAdmin && onCancel && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', position: 'relative' }}>
+          <Button variant="ghost" size="sm" icon="refresh" style={{ color: 'var(--danger)' }} onClick={onCancel}>
+            Отменить итоги
+          </Button>
         </div>
       )}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginTop: 18,
-          paddingTop: 14,
-          borderTop: '1px solid var(--border-subtle)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {voters.length > 0 && <AvatarStack people={voters} max={4} size={26} />}
-          <span style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>проголосовали</span>
-        </div>
-        {isAdmin && onCancel ? (
-          <Button variant="ghost" size="sm" icon="refresh" style={{ color: 'var(--danger)' }} onClick={onCancel}>
-            Отменить
-          </Button>
-        ) : onDetails ? (
-          <Button variant="link" size="sm" onClick={onDetails}>
-            Подробнее
-          </Button>
-        ) : null}
-      </div>
     </div>
   );
 }
 
-/* ---------------- BudgetWidget (real-wired subset) ---------------- */
+/* ---------------- BudgetWidget ---------------- */
 function Money({ value, sign, big }: { value: number; sign?: string; big?: boolean }) {
   return (
     <span
       className="tnum font-head"
-      style={{ fontWeight: 700, letterSpacing: '-0.03em', fontSize: big ? 'var(--t-28)' : 'inherit' }}
+      style={{ fontWeight: 700, letterSpacing: '-0.01em', fontSize: big ? 'var(--t-28)' : 'inherit' }}
     >
       {sign}
       <CountUp to={Math.abs(value)} play={false} suffix=" ₽" />
@@ -519,7 +732,7 @@ export function BudgetWidget({
           <Icon name="wallet" size={19} />
         </div>
         <div style={{ flex: 1 }}>
-          <div className="font-head" style={{ fontSize: 'var(--t-15)', fontWeight: 600 }}>
+          <div className="font-head" style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.02em' }}>
             Бюджет команды
           </div>
           <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>Нет активных расчётов</div>
@@ -529,20 +742,40 @@ export function BudgetWidget({
     );
   }
 
+  /* Шапка из макета: Unbounded-заголовок + пилюля справа */
   const header = (right?: React.ReactNode) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-      <Icon name="wallet" size={20} style={{ color: 'var(--text-secondary)' }} />
-      <h3 className="font-head" style={{ margin: 0, fontSize: 'var(--t-16)', fontWeight: 600, flex: 1 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <h3 className="font-head" style={{ margin: 0, fontSize: 14, fontWeight: 600, letterSpacing: '-0.02em' }}>
         Бюджет команды
       </h3>
       {right}
     </div>
   );
 
+  const monthPill = (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        height: 30,
+        padding: '0 11px',
+        borderRadius: 999,
+        background: 'var(--border-subtle)',
+        color: 'var(--text-secondary)',
+        fontSize: 12,
+        fontWeight: 500,
+      }}
+    >
+      Этот месяц
+      <Icon name="chevronDown" size={12} stroke={2} />
+    </div>
+  );
+
   if (scenario === 'urgent' || scenario === 'awaiting') {
     const isPaid = scenario === 'awaiting';
     return (
-      <div className="card" style={{ padding: 20, borderColor: isPaid ? 'var(--border-subtle)' : 'var(--border-strong)' }}>
+      <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {header(
           isPaid ? (
             <Badge tone="warning" icon="clock">
@@ -554,7 +787,7 @@ export function BudgetWidget({
             </Badge>
           ),
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Avatar name={urgentCreditorName ?? '?'} size={48} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>
@@ -572,7 +805,7 @@ export function BudgetWidget({
               alignItems: 'center',
               gap: 8,
               padding: '12px 14px',
-              borderRadius: 'var(--r-block)',
+              borderRadius: 17,
               background: 'var(--warning-tint)',
               color: 'var(--warning)',
               fontSize: 'var(--t-13)',
@@ -582,7 +815,7 @@ export function BudgetWidget({
             <Spinner size={16} /> Ждём подтверждения{urgentCreditorName ? ` от ${urgentCreditorName}` : ''}
           </div>
         ) : (
-          <Button variant="primary" icon="bank" style={{ width: '100%' }} onClick={onPaySbp}>
+          <Button variant="primary" size="lg" icon="bank" style={{ width: '100%' }} onClick={onPaySbp}>
             Оплатить через СБП
           </Button>
         )}
@@ -592,11 +825,24 @@ export function BudgetWidget({
 
   if (scenario === 'success') {
     return (
-      <div className="card" style={{ padding: 20, position: 'relative', overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 18, position: 'relative', overflow: 'hidden' }}>
         <Confetti fire />
         {header()}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '12px 0 6px' }}>
-          <div className="anim-pop" style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--success-tint)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+          <div
+            className="anim-pop"
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: '50%',
+              background: 'var(--success-tint)',
+              color: 'var(--success)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 14,
+            }}
+          >
             <Icon name="check" size={32} stroke={2.2} />
           </div>
           <div className="font-head tight" style={{ fontSize: 'var(--t-18)', fontWeight: 700 }}>
@@ -610,29 +856,31 @@ export function BudgetWidget({
   if (scenario === 'collector') {
     const total = collectTotal ?? owedToYou;
     return (
-      <div className="card" style={{ padding: 20 }}>
+      <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {header(
           <Badge tone="accent" icon="users">
             Вы собираете
           </Badge>,
         )}
-        <div style={{ marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <span style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>Собрано</span>
-          <span>
-            <span className="tnum font-head" style={{ fontWeight: 700, color: 'var(--accent)' }}>
-              {collected}
+        <div>
+          <div style={{ marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>Собрано</span>
+            <span>
+              <span className="tnum font-head" style={{ fontWeight: 700, color: 'var(--accent)' }}>
+                {collected}
+              </span>
+              <span className="tnum" style={{ color: 'var(--text-tertiary)' }}>
+                {' '}
+                / {total} ₽
+              </span>
             </span>
-            <span className="tnum" style={{ color: 'var(--text-tertiary)' }}>
-              {' '}
-              / {total} ₽
-            </span>
-          </span>
-        </div>
-        <div className="votebar" style={{ height: 8, marginBottom: 16 }}>
-          <i style={{ transform: `scaleX(${total > 0 ? Math.min(1, collected / total) : 0})` }} />
+          </div>
+          <div className="votebar" style={{ height: 8 }}>
+            <i style={{ transform: `scaleX(${total > 0 ? Math.min(1, collected / total) : 0})` }} />
+          </div>
         </div>
         {creditors.length > 0 && (
-          <div className="row-divider" style={{ borderRadius: 'var(--r-block)', border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
+          <div className="row-divider" style={{ borderRadius: 17, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
             {creditors.map((d, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
                 <Avatar name={d.name} size={30} />
@@ -663,111 +911,61 @@ export function BudgetWidget({
     );
   }
 
-  // overview
+  // overview — макет: две цветные плитки + «Итог месяца»
   const balance = owedToYou - youOwe;
+  const tile = (kind: 'in' | 'out', label: string, value: number) => {
+    const color = kind === 'in' ? 'var(--success)' : 'var(--danger)';
+    const tint = kind === 'in' ? 'var(--success-tint)' : 'var(--danger-tint)';
+    return (
+      <div
+        style={{
+          borderRadius: 17,
+          padding: '13px 14px',
+          background: tint,
+          boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 22%, transparent)`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 5,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color }}>
+          <Icon
+            name="arrowRight"
+            size={13}
+            stroke={2}
+            style={{ transform: kind === 'in' ? 'rotate(135deg)' : 'rotate(-45deg)' }}
+          />
+          <span style={{ fontSize: 11.5, fontWeight: 500, color: `color-mix(in srgb, ${color} 75%, var(--text-secondary))` }}>
+            {label}
+          </span>
+        </div>
+        <span className="tnum" style={{ fontSize: 20, fontWeight: 700, color, letterSpacing: '-0.01em' }}>
+          {value.toLocaleString('ru-RU')} ₽
+        </span>
+      </div>
+    );
+  };
   return (
-    <div className="card" style={{ padding: 20 }}>
-      {header(<Badge tone="neutral">Этот месяц</Badge>)}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-        <div style={{ flex: 1, padding: 14, borderRadius: 'var(--r-block)', background: 'var(--success-tint)' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: 'var(--t-11)',
-              color: 'var(--success)',
-              fontWeight: 600,
-              marginBottom: 6,
-            }}
-          >
-            <Icon name="arrowRight" size={13} style={{ transform: 'rotate(-90deg)' }} /> Вам должны
-          </div>
-          <div style={{ color: 'var(--success)' }}>
-            <Money value={owedToYou} />
-          </div>
-        </div>
-        <div style={{ flex: 1, padding: 14, borderRadius: 'var(--r-block)', background: 'var(--danger-tint)' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: 'var(--t-11)',
-              color: 'var(--danger)',
-              fontWeight: 600,
-              marginBottom: 6,
-            }}
-          >
-            <Icon name="arrowRight" size={13} style={{ transform: 'rotate(90deg)' }} /> Вы должны
-          </div>
-          <div style={{ color: 'var(--danger)' }}>
-            <Money value={youOwe} />
-          </div>
-        </div>
+    <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 13 }}>
+      {header(monthPill)}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {tile('in', 'Вам должны', owedToYou)}
+        {tile('out', 'Вы должны', youOwe)}
       </div>
       <div
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '12px 14px',
-          borderRadius: 'var(--r-block)',
-          background: 'var(--bg-base)',
+          justifyContent: 'space-between',
+          paddingTop: 11,
+          borderTop: '1px solid var(--border-subtle)',
         }}
       >
-        <span style={{ fontSize: 'var(--t-13)', color: 'var(--text-secondary)' }}>Итоговый баланс</span>
-        <span style={{ color: balance >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-          <Money value={balance} sign={balance >= 0 ? '+' : '−'} />
+        <span style={{ fontSize: 'var(--t-13)', color: 'var(--text-secondary)' }}>Итог месяца</span>
+        <span className="tnum" style={{ fontSize: 16, fontWeight: 700, color: balance >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+          {balance >= 0 ? '+' : '−'}
+          {Math.abs(balance).toLocaleString('ru-RU')} ₽
         </span>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- HomeActionsSection ---------------- */
-export function HomeActionsSection({
-  onCreatePoll,
-  onCreateOrder,
-  onSuggest,
-}: {
-  onCreatePoll?: () => void;
-  onCreateOrder?: () => void;
-  onSuggest?: () => void;
-}) {
-  const actions = [
-    { key: 'poll', icon: 'flame' as const, label: 'Голосование', sub: 'Запустить опрос', onClick: onCreatePoll },
-    { key: 'order', icon: 'cart' as const, label: 'Закупка', sub: 'Собрать заказ', onClick: onCreateOrder },
-    { key: 'dish', icon: 'plus' as const, label: 'Блюдо', sub: 'Предложить', onClick: onSuggest },
-  ];
-  return (
-    <div>
-      <SectionTitle icon="sparkle">Быстрые действия</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-        {actions.map((a) => (
-          <button key={a.key} className="tile" style={{ alignItems: 'flex-start', gap: 10 }} onClick={a.onClick}>
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 11,
-                background: 'var(--accent-tint)',
-                color: 'var(--accent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Icon name={a.icon} size={19} />
-            </div>
-            <div>
-              <div className="font-head" style={{ fontSize: 'var(--t-13)', fontWeight: 600 }}>
-                {a.label}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{a.sub}</div>
-            </div>
-          </button>
-        ))}
       </div>
     </div>
   );
