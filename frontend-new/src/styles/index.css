@@ -36,44 +36,49 @@
   --g-peachlav: linear-gradient(135deg, #f3c4a7, #d1c1fc);
 
   /* Aliases used by ported budget.css */
-  --page-ink: #2b2118;
-  --page-muted: #9c8b79;
-  --page-line: rgba(43, 33, 24, 0.08);
+  --page-ink: #1d2127;
+  --page-muted: #8b929e;
+  --page-line: rgba(55, 65, 90, 0.1);
 
   /* Typography */
-  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'Onest', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Unbounded', var(--sans);
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  /* LIGHT theme defaults (applied to :root when no .dark class) */
-  --surface: #fffdf9;
-  --surface-2: #f6efe5;
-  --ink: #2b2118;
-  --ink-2: #6b5d4f;
-  --ink-3: #9c8b79;
-  --line: rgba(43, 33, 24, 0.08);
-  --line-2: rgba(43, 33, 24, 0.14);
-  --pri: var(--peach-500);
-  --pri-ink: #ffffff;
-  --card-grad: linear-gradient(180deg, #fffdf9, #f6efe5);
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-elev: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --page-bg: linear-gradient(180deg, #f2eadf, #fbf7f1);
+  /* LIGHT theme defaults — «Графит и мёд», выравнены с [data-theme="light"] в redesign-v2.css */
+  --surface: #ffffff;
+  --surface-2: #f3f5f8;
+  --ink: #1d2127;
+  --ink-2: #5d646f;
+  --ink-3: #8b929e;
+  --line: rgba(55, 65, 90, 0.1);
+  --line-2: rgba(55, 65, 90, 0.16);
+  --pri: #d68914;
+  --pri-ink: #261a02;
+  --card-grad: linear-gradient(180deg, #ffffff, #f3f5f8);
+  --shadow-card: 0 2px 8px rgba(55, 65, 90, 0.06);
+  --shadow-elev: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 14px 30px -16px rgba(55, 65, 90, 0.3), 0 3px 8px -4px rgba(55, 65, 90, 0.15);
+  --page-bg: radial-gradient(120% 55% at 85% -8%, rgba(235, 165, 60, 0.2), transparent 60%),
+             radial-gradient(80% 40% at -10% 105%, rgba(214, 137, 20, 0.1), transparent 60%),
+             linear-gradient(180deg, #f7f8fa 0%, #ebedf1 100%);
 }
 
 .dark {
-  --surface: #2a1f1a;
-  --surface-2: #1e1612;
-  --ink: #f4ece3;
-  --ink-2: #c9b7a4;
-  --ink-3: #8a7867;
-  --line: rgba(255, 220, 190, 0.08);
-  --line-2: rgba(255, 220, 190, 0.14);
-  --pri: var(--peach-400);
-  --pri-ink: #1a0f08;
-  --card-grad: linear-gradient(180deg, #2a1f1a, #1e1612);
+  --surface: #1e2025;
+  --surface-2: #17181c;
+  --ink: #f1f3f7;
+  --ink-2: #aeb5c0;
+  --ink-3: #787f8c;
+  --line: rgba(228, 235, 248, 0.08);
+  --line-2: rgba(228, 235, 248, 0.14);
+  --pri: #f0ab46;
+  --pri-ink: #261a02;
+  --card-grad: linear-gradient(180deg, #212329, #1b1d22);
   --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.35);
-  --shadow-elev: 0 8px 32px rgba(0, 0, 0, 0.55);
-  --page-bg: linear-gradient(180deg, #1f1712, #140e0a);
+  --shadow-elev: inset 0 1px 0 rgba(235, 240, 250, 0.06), 0 14px 34px -16px rgba(4, 6, 10, 0.8), 0 3px 8px -3px rgba(6, 8, 12, 0.5);
+  --page-bg: radial-gradient(120% 55% at 85% -8%, rgba(240, 171, 70, 0.13), transparent 60%),
+             radial-gradient(80% 40% at -10% 105%, rgba(214, 137, 20, 0.07), transparent 60%),
+             linear-gradient(180deg, #17181c 0%, #111216 100%);
 }
 
 /* ============================================================
@@ -89,29 +94,53 @@ body,
   min-height: 100dvh;
 }
 
-/* Redesign v2: page background comes from the scheme tokens (--bg-base),
-   resolved via [data-scheme][data-theme] on <html>. Legacy --page-bg kept
-   only as a fallback for the brief pre-hydration moment. */
+/* Канвас страницы: плоский цвет на html, поверх — фиксированное «свечение»
+   из макета (два радиальных градиента + вертикальный), см. body::before.
+   Фиксированный псевдоэлемент вместо background-attachment: fixed — из-за iOS. */
 html {
-  background: #f3f5f7;
-  background: var(--bg-base, var(--page-bg));
+  background: #ebedf1;
 }
 
 html.dark {
-  background: #16161a;
-  background: var(--bg-base, var(--page-bg));
+  background: #111216;
 }
 
 body {
   font-family: var(--sans);
-  background: var(--bg-base, var(--page-bg));
+  background: transparent;
   color: var(--text-primary, var(--ink));
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--bg-page, var(--page-bg));
+}
+
+/* Зерно из макета: SVG-шум поверх всего, едва заметная фактура */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+html.dark body::after {
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+}
+
 #root {
-  background: var(--bg-base, var(--page-bg));
+  background: transparent;
 }
 
 *,

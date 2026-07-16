@@ -1,12 +1,10 @@
-/* Appearance control for the redesign-v2 system.
-   Scheme (a/b/c) + theme (light/dark) resolve on <html data-scheme data-theme>.
+/* Appearance control. Схема одна — «Графит и мёд» (редизайн 2026-07),
+   осталась только тема (light/dark) на <html data-theme>.
    Persisted in localStorage; theme override beats Telegram/system preference. */
 import { resyncTelegramChrome } from './telegram';
 
-export type Scheme = 'a' | 'b' | 'c';
 export type Theme = 'light' | 'dark';
 
-const SCHEME_KEY = 'rl-scheme';
 const THEME_KEY = 'rl-theme';
 
 function safeGet(key: string): string | null {
@@ -24,11 +22,6 @@ function safeSet(key: string, value: string): void {
   }
 }
 
-export function getScheme(): Scheme {
-  const s = safeGet(SCHEME_KEY);
-  return s === 'b' || s === 'c' ? s : 'a';
-}
-
 export function getTheme(): Theme {
   return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
 }
@@ -37,12 +30,6 @@ export function getTheme(): Theme {
 export function getThemeOverride(): Theme | null {
   const t = safeGet(THEME_KEY);
   return t === 'light' || t === 'dark' ? t : null;
-}
-
-export function setScheme(s: Scheme): void {
-  document.documentElement.setAttribute('data-scheme', s);
-  safeSet(SCHEME_KEY, s);
-  resyncTelegramChrome();
 }
 
 export function setTheme(t: Theme): void {

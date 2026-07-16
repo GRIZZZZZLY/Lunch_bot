@@ -15,17 +15,6 @@ installGlobalHandlers();
 
 const root = document.documentElement;
 
-function applyScheme() {
-  // Redesign v2 colour scheme (a=graphite/cyan, b=steel/amber, c=carbon/lime).
-  let scheme = 'a';
-  try {
-    scheme = localStorage.getItem('rl-scheme') || 'a';
-  } catch {
-    /* no-op */
-  }
-  root.setAttribute('data-scheme', scheme);
-}
-
 function applyTheme() {
   // Manual override (set via the in-app switcher) wins over Telegram/system.
   let override: string | null = null;
@@ -43,7 +32,6 @@ function applyTheme() {
   root.setAttribute('data-theme', isDark ? 'dark' : 'light');
 }
 
-applyScheme();
 applyTheme();
 
 const tg = initTelegramWebApp();

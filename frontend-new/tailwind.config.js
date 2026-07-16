@@ -26,7 +26,8 @@ export default {
         'pri-ink': 'var(--pri-ink)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        sans: ['Onest', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        display: ['Unbounded', 'Onest', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {
         'grad-peach': 'linear-gradient(135deg, #F3C4A7 0%, #F7D5C1 100%)',
@@ -34,12 +35,12 @@ export default {
         'grad-sage':  'linear-gradient(135deg, #8CE0B9 0%, #B3EBD1 100%)',
         'grad-sky':   'linear-gradient(135deg, #7DD3FC 0%, #BAE6FD 100%)',
         'grad-rose':  'linear-gradient(135deg, #FCA5A5 0%, #FECACA 100%)',
-        'grad-card-dark':  'linear-gradient(180deg, #1F2A36 0%, #17212B 100%)',
-        'grad-card-light': 'linear-gradient(180deg, #FFFDF9 0%, #F6EFE5 100%)',
-        'grad-bg-dark':    'linear-gradient(180deg, #17212B 0%, #1B2733 100%)',
-        'grad-bg-light':   'linear-gradient(180deg, #F2EADF 0%, #FBF7F1 100%)',
-        'btn-primary-dark':  'linear-gradient(135deg, #FF9D66, #D86A2C)',
-        'btn-primary-light': 'linear-gradient(135deg, #FFB080, #D86A2C)',
+        'grad-card-dark':  'linear-gradient(180deg, #212329 0%, #1B1D22 100%)',
+        'grad-card-light': 'linear-gradient(180deg, #FFFFFF 0%, #F3F5F8 100%)',
+        'grad-bg-dark':    'linear-gradient(180deg, #17181C 0%, #111216 100%)',
+        'grad-bg-light':   'linear-gradient(180deg, #F7F8FA 0%, #EBEDF1 100%)',
+        'btn-primary-dark':  'linear-gradient(135deg, #F6BE5F, #D68914)',
+        'btn-primary-light': 'linear-gradient(135deg, #F6BE5F, #D68914)',
       },
       borderRadius: {
         card: '0.75rem',
