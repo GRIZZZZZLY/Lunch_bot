@@ -63,7 +63,6 @@ export function PollResultsPage() {
         winnerName={winnerName}
         winnerVotes={winnerVotes}
         totalVotes={total}
-        ranking={ranking}
         collapsed={false}
         onToggle={() => navigate(-1)}
       />
