@@ -5,6 +5,14 @@
 import type { CSSProperties, ReactNode } from 'react';
 
 const ICON_PATHS = {
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17" />
+      <path d="M12 3.5c2.5 2.5 2.5 14.5 0 17" />
+      <path d="M12 3.5c-2.5 2.5-2.5 14.5 0 17" />
+    </>
+  ),
   target: (
     <>
       <circle cx="12" cy="12" r="8.25" />
