@@ -258,7 +258,15 @@ export function Avatar({
     .slice(0, 2)
     .join('')
     .toUpperCase();
-  const hue = [...name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+  // Аватарные градиенты из макета «Графит и мёд» — тёплая гамма, тёмный текст
+  const AVATAR_GRADS: Array<[string, string, string]> = [
+    ['#F2A65A', '#D97E2A', '#2A1602'],
+    ['#E88A6A', '#C75B3C', '#2A0F06'],
+    ['#D9BC6A', '#A67B2E', '#241802'],
+    ['#9CCB84', '#5F9A4E', '#10250B'],
+  ];
+  const hash = [...name].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const [gFrom, gTo, gInk] = AVATAR_GRADS[hash % AVATAR_GRADS.length];
   return (
     <div
       style={{
@@ -272,11 +280,11 @@ export function Avatar({
         fontFamily: 'var(--font-head)',
         fontWeight: 600,
         fontSize: size * 0.38,
-        color: '#fff',
+        color: gInk,
         letterSpacing: '-0.02em',
         background: src
           ? `center/cover url(${src})`
-          : `linear-gradient(140deg, hsl(${hue} 45% 52%), hsl(${(hue + 40) % 360} 50% 42%))`,
+          : `linear-gradient(135deg, ${gFrom}, ${gTo})`,
         boxShadow: ring ? '0 0 0 2px var(--bg-elevated), 0 0 0 4px var(--accent)' : 'none',
       }}
     >
