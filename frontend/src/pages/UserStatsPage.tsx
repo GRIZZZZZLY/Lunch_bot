@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { 
   TrendingUp, 
   Award, 
@@ -34,45 +34,39 @@ export const UserStatsPage: React.FC = () => {
   const [favoriteItems, setFavoriteItems] = useState<any[]>([]);
 
   useEffect(() => {
-    backButton.onClick(() => navigate('/'));
+    const handleBack = () => navigate('/');
+    backButton.onClick(handleBack);
     backButton.show();
 
-    loadUserStats();
-
     return () => {
+      backButton.offClick?.(handleBack);
       backButton.hide();
     };
-  }, []);
+  }, [backButton, navigate]);
 
-  const loadUserStats = async () => {
-    try {
-      setLoading(true);
-      console.log('📊 [UserStatsPage] Loading user stats...');
-      const response = await pollsService.getUserParticipationStats();
-      
-      console.log('📥 [UserStatsPage] Response:', JSON.stringify({
-        success: response.success,
-        hasData: !!response.data,
-        data: response.data,
-        error: response.error
-      }, null, 2));
-      
-      if (response.success && response.data) {
-        setStats(response.data);
-        setFavoriteItems(response.data.favoriteItems || []);
-      } else {
-        console.error('❌ [UserStatsPage] Failed to load stats:', response.error);
+  useEffect(() => {
+    const loadUserStats = async () => {
+      try {
+        setLoading(true);
+        const response = await pollsService.getUserParticipationStats();
+
+        if (response.success && response.data) {
+          setStats(response.data);
+          setFavoriteItems(response.data.favoriteItems || []);
+        } else {
+          setStats(null);
+          setFavoriteItems([]);
+        }
+      } catch {
+        setStats(null);
+        setFavoriteItems([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('❌ [UserStatsPage] Error loading user stats:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    loadUserStats();
+  }, []);
 
   if (loading) {
     return (
@@ -94,7 +88,7 @@ export const UserStatsPage: React.FC = () => {
 
       <div className="space-y-6 relative pb-24">
         {/* Header */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -105,10 +99,10 @@ export const UserStatsPage: React.FC = () => {
           <p className="text-sm text-muted-foreground mt-1">
             Твои предпочтения и активность в голосованиях
           </p>
-        </motion.div>
+        </m.div>
 
         {/* Main Stats Grid */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -147,10 +141,10 @@ export const UserStatsPage: React.FC = () => {
               </div>
             </div>
           </GlassCard>
-        </motion.div>
+        </m.div>
 
         {/* Participation Rate */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -178,10 +172,10 @@ export const UserStatsPage: React.FC = () => {
               </div>
             </div>
           </GlassCard>
-        </motion.div>
+        </m.div>
 
         {/* Favorite Items */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
@@ -203,7 +197,7 @@ export const UserStatsPage: React.FC = () => {
               </GlassCard>
             ) : (
               favoriteItems.map((item, index) => (
-                <motion.div
+                <m.div
                   key={item.itemId}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -241,14 +235,14 @@ export const UserStatsPage: React.FC = () => {
                       </Badge>
                     </div>
                   </GlassCard>
-                </motion.div>
+                </m.div>
               ))
             )}
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Achievements (placeholder for future) */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
@@ -268,7 +262,7 @@ export const UserStatsPage: React.FC = () => {
               </div>
             </div>
           </GlassCard>
-        </motion.div>
+        </m.div>
       </div>
     </>
   );

@@ -5,6 +5,13 @@ import { Button } from '../common/Button';
 import { useTelegram } from '../../hooks/useTelegram';
 import { useUI } from '../../store/useAppStore';
 
+const createProgressBar = (percentage: number): string => {
+  const filledBlocks = Math.round((percentage / 100) * 10);
+  const emptyBlocks = 10 - filledBlocks;
+  return '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
+};
+
+
 export interface PollResultsProps {
   poll: Poll;
   onBack?: () => void;
@@ -27,22 +34,14 @@ export const PollResults = ({ poll, onBack }: PollResultsProps) => {
       setLoading(true);
       setError(null);
 
-      const [resultsResponse, breakdownResponse] = await Promise.all([
-        pollsService.getPollResults(poll.id),
-        pollsService.getPollVoteBreakdown(poll.id),
-      ]);
+      const resultsResponse = await pollsService.getPollResults(poll.id);
 
-      if (resultsResponse.success) {
-        setResults(resultsResponse.data || null);
-      }
-
-      if (breakdownResponse.success) {
-        setBreakdown(breakdownResponse.data || []);
-      }
-
-      if (!resultsResponse.success && !breakdownResponse.success) {
+      if (!resultsResponse.success || !resultsResponse.data) {
         throw new Error('Не удалось загрузить результаты');
       }
+
+      setResults(resultsResponse.data.result);
+      setBreakdown(resultsResponse.data.breakdown);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки';
       setError(errorMessage);
@@ -86,12 +85,6 @@ export const PollResults = ({ poll, onBack }: PollResultsProps) => {
     } catch {
       showAlert('Ошибка экспорта данных');
     }
-  };
-
-  const createProgressBar = (percentage: number): string => {
-    const filledBlocks = Math.round((percentage / 100) * 10);
-    const emptyBlocks = 10 - filledBlocks;
-    return '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
   };
 
   if (loading) {

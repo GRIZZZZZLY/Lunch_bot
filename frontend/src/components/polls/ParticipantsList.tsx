@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
@@ -46,14 +46,14 @@ export const ParticipantsList: React.FC<ParticipantsListProps> = ({
 
   // Группировка по блюдам для компактного отображения
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.5 }}
       className={cn('space-y-3', className)}
     >
       {/* Заголовок */}
-      <button
+      <button type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       >
@@ -64,27 +64,27 @@ export const ParticipantsList: React.FC<ParticipantsListProps> = ({
           </span>
         </div>
         
-        <motion.div
+        <m.div
           animate={{ rotate: isExpanded ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
           <ChevronDown className={`${ICON_SIZES.md} text-gray-400 dark:text-gray-400`} />
-        </motion.div>
+        </m.div>
       </button>
 
       {/* Список участников */}
       <AnimatePresence>
         {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+          <m.div
+            initial={{ opacity: 0, scaleY: 0.98 }}
+            animate={{ opacity: 1, scaleY: 1 }}
+            exit={{ opacity: 0, scaleY: 0.98 }}
             transition={{ duration: 0.3 }}
-            className="overflow-hidden"
+            className="origin-top overflow-hidden"
           >
             <div className="space-y-2 p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
               {sortedParticipants.map((participant, index) => (
-                <motion.div
+                <m.div
                   key={participant.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -129,7 +129,7 @@ export const ParticipantsList: React.FC<ParticipantsListProps> = ({
                   <div className="text-sm font-semibold text-green-600 dark:text-green-400 flex-shrink-0 ml-2">
                     {participant.dishPrice} ₽
                   </div>
-                </motion.div>
+                </m.div>
               ))}
 
               {/* Итого */}
@@ -142,9 +142,9 @@ export const ParticipantsList: React.FC<ParticipantsListProps> = ({
                 </span>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </m.div>
   );
 };

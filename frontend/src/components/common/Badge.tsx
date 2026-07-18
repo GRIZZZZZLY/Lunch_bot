@@ -1,5 +1,30 @@
 import React from 'react';
 
+const variantClasses = {
+  default: 'bg-gray-500',
+  success: 'bg-green-500',
+  error: 'bg-red-500',
+  warning: 'bg-orange-500',
+  info: 'bg-blue-500',
+  primary: 'bg-telegram-button-color',
+};
+
+const positionClasses = {
+  'top-right': '-top-1 -right-1',
+  'top-left': '-top-1 -left-1',
+  'bottom-right': '-bottom-1 -right-1',
+  'bottom-left': '-bottom-1 -left-1',
+};
+
+const statusConfig = {
+  active: { label: 'Активно', variant: 'success' as const },
+  inactive: { label: 'Неактивно', variant: 'default' as const },
+  pending: { label: 'Ожидание', variant: 'warning' as const },
+  completed: { label: 'Завершено', variant: 'info' as const },
+  cancelled: { label: 'Отменено', variant: 'error' as const },
+};
+
+
 interface BadgeProps {
   children: React.ReactNode;
   variant?: 'default' | 'success' | 'error' | 'warning' | 'info' | 'primary';
@@ -21,14 +46,6 @@ export const Badge: React.FC<BadgeProps> = ({
   pulse = false,
   className = '',
 }) => {
-  const variantClasses = {
-    default: 'bg-gray-500',
-    success: 'bg-green-500',
-    error: 'bg-red-500',
-    warning: 'bg-orange-500',
-    info: 'bg-blue-500',
-    primary: 'bg-telegram-button-color',
-  };
 
   const sizeClasses = {
     sm: dot ? 'w-2 h-2' : 'px-1.5 py-0.5 text-xs',
@@ -71,12 +88,6 @@ export const BadgeWrapper: React.FC<{
   pulse = false,
   className = '',
 }) => {
-  const positionClasses = {
-    'top-right': '-top-1 -right-1',
-    'top-left': '-top-1 -left-1',
-    'bottom-right': '-bottom-1 -right-1',
-    'bottom-left': '-bottom-1 -left-1',
-  };
 
   const displayBadge = typeof badge === 'number' && badge > max ? `${max}+` : badge;
   const shouldShow = badge !== undefined && (showZero || badge !== 0);
@@ -103,13 +114,6 @@ export const StatusBadge: React.FC<{
   size?: BadgeProps['size'];
   className?: string;
 }> = ({ status, size = 'md', className = '' }) => {
-  const statusConfig = {
-    active: { label: 'Активно', variant: 'success' as const },
-    inactive: { label: 'Неактивно', variant: 'default' as const },
-    pending: { label: 'Ожидание', variant: 'warning' as const },
-    completed: { label: 'Завершено', variant: 'info' as const },
-    cancelled: { label: 'Отменено', variant: 'error' as const },
-  };
 
   const config = statusConfig[status];
 

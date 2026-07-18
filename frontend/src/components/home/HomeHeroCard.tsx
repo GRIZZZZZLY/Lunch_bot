@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Flame } from 'lucide-react';
 import { UserAvatar } from '../common/UserAvatar';
 import { ThemeToggle } from '../ui/theme-toggle';
@@ -66,13 +66,13 @@ function PollBadge({ status, meta }: { status: PollStatus; meta: PollMeta }) {
 
   if (isActive) {
     return (
-      <motion.div
+      <m.div
         className="mt-1.5"
         animate={{ scale: [1, 1.04, 1], opacity: [1, 0.85, 1] }}
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
       >
         {badge}
-      </motion.div>
+      </m.div>
     );
   }
 
@@ -89,7 +89,7 @@ export const HomeHeroCard: React.FC<HomeHeroCardProps> = ({
   pollStatus = 'none',
   pollMeta = {},
 }) => (
-  <motion.div
+  <m.div
     initial={{ opacity: 0, y: -12 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.28, ease: 'easeOut' }}
@@ -109,7 +109,7 @@ export const HomeHeroCard: React.FC<HomeHeroCardProps> = ({
 
     {/* Shimmer */}
     {timeColors && (
-      <motion.div
+      <m.div
         className="absolute inset-0 pointer-events-none rounded-2xl"
         style={{
           background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.05) 50%,transparent 60%)',
@@ -139,7 +139,12 @@ export const HomeHeroCard: React.FC<HomeHeroCardProps> = ({
       <div className="flex flex-shrink-0 items-center gap-2">
         <ThemeToggle variant="ghost" size="sm" />
         <div className="flex flex-col items-center gap-1">
-          <div className="cursor-pointer" onClick={onAvatarClick}>
+          <button
+            type="button"
+            aria-label="Открыть профиль"
+            className="cursor-pointer"
+            onClick={onAvatarClick}
+          >
             <UserAvatar
               userId={user?.id}
               firstName={user?.firstName || 'User'}
@@ -147,7 +152,7 @@ export const HomeHeroCard: React.FC<HomeHeroCardProps> = ({
               size="md"
               className="ring-2 ring-primary/20"
             />
-          </div>
+          </button>
           {currentStreak > 0 && (
             <div className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
               <Flame className="size-3.5 fill-current" />
@@ -157,5 +162,5 @@ export const HomeHeroCard: React.FC<HomeHeroCardProps> = ({
         </div>
       </div>
     </div>
-  </motion.div>
+  </m.div>
 );

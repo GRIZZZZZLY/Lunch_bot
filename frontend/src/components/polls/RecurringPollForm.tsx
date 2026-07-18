@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, type CSSProperties } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Calendar,
   CheckCircle2,
@@ -30,6 +30,13 @@ import { MenuItem } from '@/services/menu.service';
 import { recurringPollService, RecurringPoll } from '@/services/recurring-poll.service';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
+const sectionLabel = (text: string) => (
+  <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+    {text}
+  </p>
+);
+
+
 interface RecurringPollFormProps {
   menuItems: MenuItem[];
   selectedGroupId: number | null;
@@ -47,7 +54,42 @@ const DAYS_OF_WEEK = [
   { value: 0, label: 'Вс', fullLabel: 'Воскресенье' },
 ];
 
-export const RecurringPollForm = ({
+const parseNumberList = (
+  value: number[] | string | null | undefined,
+  fallback: number[] = []
+): number[] => {
+  if (Array.isArray(value)) {
+    return value.reduce<number[]>((numbers, item) => {
+      const number = Number(item);
+      if (Number.isFinite(number)) numbers.push(number);
+      return numbers;
+    }, []);
+  }
+
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      const numbers = parsed.reduce<number[]>((result, item) => {
+        const number = Number(item);
+        if (Number.isFinite(number)) result.push(number);
+        return result;
+      }, []);
+      return numbers.length > 0 ? numbers : fallback;
+    }
+  } catch {
+    const singleValue = Number(value);
+    return Number.isFinite(singleValue) ? [singleValue] : fallback;
+  }
+
+  const singleValue = Number(value);
+  return Number.isFinite(singleValue) ? [singleValue] : fallback;
+};
+
+const useRecurringPollFormController = ({
   menuItems,
   selectedGroupId,
   onSuccess,
@@ -91,10 +133,12 @@ export const RecurringPollForm = ({
   const [error, setError] = useState<string | null>(null);
 
   // Form state
-  const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set([1, 2, 3, 4, 5])); // Mon-Fri по умолчанию
+  const [selectedDays, setSelectedDays] = useState<Set<number>>(
+    () => new Set([1, 2, 3, 4, 5])
+  ); // Mon-Fri по умолчанию
   const [timeOfDay, setTimeOfDay] = useState('11:00');
   const [duration, setDuration] = useState(30);
-  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(() => new Set());
   const [useAllItems, setUseAllItems] = useState(true);
 
   // Load existing schedule
@@ -111,12 +155,12 @@ export const RecurringPollForm = ({
       if (response.success && response.data) {
         const schedule = response.data;
         setExistingSchedule(schedule);
-        setSelectedDays(new Set(Array.isArray(schedule.daysOfWeek) ? schedule.daysOfWeek.map(Number) : [Number(schedule.daysOfWeek)]));
+        setSelectedDays(new Set(parseNumberList(schedule.daysOfWeek, [1, 2, 3, 4, 5])));
         setTimeOfDay(schedule.timeOfDay);
         setDuration(schedule.duration);
 
         if (schedule.selectedMenuItemIds) {
-          setSelectedItems(new Set(Array.isArray(schedule.selectedMenuItemIds) ? schedule.selectedMenuItemIds.map(Number) : [Number(schedule.selectedMenuItemIds)]));
+          setSelectedItems(new Set(parseNumberList(schedule.selectedMenuItemIds)));
           setUseAllItems(false);
         } else {
           setSelectedItems(new Set(menuItems.map(item => item.id)));
@@ -278,7 +322,6 @@ export const RecurringPollForm = ({
 
   // Preview next run
   const getNextRunPreview = (): string => {
-    const daysArray = Array.from(selectedDays).sort();
     const now = new Date();
     const [hours, minutes] = timeOfDay.split(':').map(Number);
 
@@ -294,7 +337,7 @@ export const RecurringPollForm = ({
     // Ищем ближайший день из selectedDays
     for (let i = 0; i < 7; i++) {
       const dayOfWeek = nextDate.getDay();
-      if (daysArray.includes(dayOfWeek)) {
+      if (selectedDays.has(dayOfWeek)) {
         const tomorrow = new Date(now);
         tomorrow.setDate(now.getDate() + 1);
 
@@ -316,17 +359,22 @@ export const RecurringPollForm = ({
   // Helpers (Variant B)
   const accentText = isDark ? 'text-lavender-400' : 'text-peach-600';
   const rowSeparator = isDark ? 'border-white/[0.04]' : 'border-black/[0.05]';
-  const sectionLabel = (text: string) => (
-    <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-      {text}
-    </p>
-  );
   const chipClass =
     'px-2.5 py-1 text-xs font-medium rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors';
   const selectedTile = isDark
     ? 'border-lavender-500/40 bg-lavender-500/12'
     : 'border-peach-500/35 bg-peach-500/10';
 
+  return { haptic, isDark, setIsDark, existingSchedule, setExistingSchedule, loading, setLoading, saving, setSaving, error, setError, selectedDays, setSelectedDays, timeOfDay, setTimeOfDay, duration, setDuration, selectedItems, setSelectedItems, useAllItems, setUseAllItems, loadSchedule, canSaveSchedule, handleSave, toggleDay, toggleItem, selectAllItems, selectRandomItems, selectWeekdays, selectEveryDay, getNextRunPreview, accentText, rowSeparator, chipClass, selectedTile };
+};
+
+export const RecurringPollForm = ({
+  menuItems,
+  selectedGroupId,
+  onSuccess,
+  onCancel,
+}: RecurringPollFormProps) => {
+  const { haptic, isDark, setIsDark, existingSchedule, setExistingSchedule, loading, setLoading, saving, setSaving, error, setError, selectedDays, setSelectedDays, timeOfDay, setTimeOfDay, duration, setDuration, selectedItems, setSelectedItems, useAllItems, setUseAllItems, loadSchedule, canSaveSchedule, handleSave, toggleDay, toggleItem, selectAllItems, selectRandomItems, selectWeekdays, selectEveryDay, getNextRunPreview, accentText, rowSeparator, chipClass, selectedTile } = useRecurringPollFormController({ menuItems, selectedGroupId, onSuccess, onCancel });
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -339,9 +387,7 @@ export const RecurringPollForm = ({
     return (
       <div className="p-6 text-center">
         <AlertCircle className={`${ICON_SIZES['2xl']} mx-auto mb-4 text-yellow-500`} />
-        <p className="text-muted-foreground">
-          Сначала выбери группу
-        </p>
+        <p className="text-muted-foreground">Сначала выбери группу</p>
       </div>
     );
   }
@@ -383,7 +429,7 @@ export const RecurringPollForm = ({
 
         <div className="grid grid-cols-7 gap-2">
           {DAYS_OF_WEEK.map(day => (
-            <motion.button
+            <m.button
               key={day.value}
               type="button"
               onClick={() => toggleDay(day.value)}
@@ -401,7 +447,7 @@ export const RecurringPollForm = ({
               )}
             >
               {day.label}
-            </motion.button>
+            </m.button>
           ))}
         </div>
       </div>
@@ -410,6 +456,7 @@ export const RecurringPollForm = ({
       <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
         {sectionLabel('Время запуска')}
         <input
+          aria-label="Время запуска голосования"
           type="time"
           value={timeOfDay}
           onChange={(e) => setTimeOfDay(e.target.value)}
@@ -430,6 +477,7 @@ export const RecurringPollForm = ({
           </span>
         </div>
         <input
+          aria-label="Длительность голосования в минутах"
           type="range"
           min="5"
           max="180"
@@ -514,7 +562,7 @@ export const RecurringPollForm = ({
       {/* Ошибка */}
       <AnimatePresence>
         {error && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
@@ -524,7 +572,7 @@ export const RecurringPollForm = ({
               <AlertCircle className={`${ICON_SIZES.md} text-coral-500 flex-shrink-0`} />
               <p className="text-sm text-coral-600 dark:text-coral-400">{error}</p>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -540,7 +588,7 @@ export const RecurringPollForm = ({
             Отмена
           </button>
         )}
-        <motion.button
+        <m.button
           type="button"
           whileTap={{ scale: canSaveSchedule() && !saving ? 0.97 : 1 }}
           onClick={handleSave}
@@ -565,7 +613,7 @@ export const RecurringPollForm = ({
               {existingSchedule ? 'Обновить расписание' : 'Создать расписание'}
             </>
           )}
-        </motion.button>
+        </m.button>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { WifiOff } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 /**
@@ -13,7 +13,7 @@ export function OfflineIndicator() {
   return (
     <AnimatePresence>
       {!isOnline && (
-        <motion.div
+        <m.div
           initial={{ y: -100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -100, opacity: 0 }}
@@ -27,7 +27,7 @@ export function OfflineIndicator() {
           <div className="mt-1 text-center text-xs opacity-80">
             Показаны сохранённые данные. Обновим, когда вернётся сеть.
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

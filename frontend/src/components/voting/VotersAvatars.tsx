@@ -1,7 +1,20 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Users } from 'lucide-react';
 import { UserAvatar } from '../common/UserAvatar';
+
+const offsetClasses = {
+  sm: '-ml-2',
+  md: '-ml-2.5',
+  lg: '-ml-3',
+};
+
+const sizeClasses = {
+  sm: 'w-8 h-8',
+  md: 'w-12 h-12',
+  lg: 'w-16 h-16',
+};
+
 
 interface Voter {
   id: number;
@@ -31,24 +44,12 @@ export const VotersAvatars: React.FC<VotersAvatarsProps> = ({
   const displayedVoters = voters.slice(0, maxDisplay);
   const remainingCount = Math.max(0, voters.length - maxDisplay);
 
-  const offsetClasses = {
-    sm: '-ml-2',
-    md: '-ml-2.5',
-    lg: '-ml-3',
-  };
-
-  const sizeClasses = {
-    sm: 'w-8 h-8',
-    md: 'w-12 h-12',
-    lg: 'w-16 h-16',
-  };
-
   return (
     <div className="flex items-center">
       <div className="flex items-center">
         {displayedVoters.map((voter, index) => {
           return (
-            <motion.div
+            <m.div
               key={voter.id}
               initial={{ opacity: 0, scale: 0.8, x: -10 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
@@ -62,13 +63,13 @@ export const VotersAvatars: React.FC<VotersAvatarsProps> = ({
                 size={size}
                 className="border-2 border-white dark:border-gray-800 shadow-md hover:z-10 hover:scale-110 transition-transform cursor-default"
               />
-            </motion.div>
+            </m.div>
           );
         })}
 
         {/* Показываем "+N" если есть еще пользователи */}
         {remainingCount > 0 && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: displayedVoters.length * 0.05, duration: 0.2 }}
@@ -85,7 +86,7 @@ export const VotersAvatars: React.FC<VotersAvatarsProps> = ({
             title={`+${remainingCount} еще`}
           >
             <span className="text-[10px]">+{remainingCount}</span>
-          </motion.div>
+          </m.div>
         )}
       </div>
 
@@ -101,7 +102,7 @@ export const VotersCount: React.FC<{ count: number }> = ({ count }) => {
   if (count === 0) return null;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400"
@@ -110,6 +111,6 @@ export const VotersCount: React.FC<{ count: number }> = ({ count }) => {
         <Users size={14} className="text-blue-500" />
       </div>
       <span className="font-medium">{count}</span>
-    </motion.div>
+    </m.div>
   );
 };

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { 
   Clock, 
   CheckCircle2, 
@@ -109,7 +109,7 @@ export const PollStatusBadge = ({
     : config.label;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       className={cn(
@@ -152,7 +152,7 @@ export const PollStatusBadge = ({
       {showLabel && (
         <span>{displayLabel}</span>
       )}
-    </motion.div>
+    </m.div>
   );
 };
 

@@ -11,11 +11,18 @@ export function useSuggestions(params?: {
   status?: 'PENDING' | 'APPROVED' | 'REJECTED';
   limit?: number;
   offset?: number;
+  groupId?: number;
 }) {
+  const { currentGroupId } = useCurrentGroup();
+  const requestParams = {
+    ...params,
+    ...(currentGroupId ? { groupId: currentGroupId } : {}),
+  };
+
   return useQuery({
-    queryKey: ['suggestions', params],
+    queryKey: ['suggestions', requestParams],
     queryFn: async () => {
-      const response = await suggestionService.getSuggestions(params);
+      const response = await suggestionService.getSuggestions(requestParams);
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Failed to fetch suggestions');
       }
@@ -161,15 +168,18 @@ export function useRejectSuggestion() {
  * Hook для получения статистики предложений (только админ)
  */
 export function useSuggestionStats() {
+  const { currentGroupId } = useCurrentGroup();
+
   return useQuery({
-    queryKey: ['suggestion-stats'],
+    queryKey: ['suggestion-stats', currentGroupId],
     queryFn: async () => {
-      const response = await suggestionService.getStats();
+      const response = await suggestionService.getStats(currentGroupId ?? undefined);
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Failed to fetch stats');
       }
       return response.data;
     },
+    enabled: !!currentGroupId,
     staleTime: 0, // No caching - always fresh data
     refetchInterval: 10000, // Refetch every 10 seconds
   });
@@ -180,17 +190,18 @@ export function useSuggestionStats() {
  */
 export function usePendingCount() {
   const isGroupAdmin = useIsGroupAdmin();
+  const { currentGroupId } = useCurrentGroup();
 
   return useQuery({
-    queryKey: ['pending-count'],
+    queryKey: ['pending-count', currentGroupId],
     queryFn: async () => {
-      const response = await suggestionService.getPendingCount();
+      const response = await suggestionService.getPendingCount(currentGroupId ?? undefined);
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Failed to fetch pending count');
       }
       return response.data.count;
     },
-    enabled: isGroupAdmin,
+    enabled: isGroupAdmin && !!currentGroupId,
     refetchInterval: 60000, // Refetch every minute
   });
 }
@@ -201,10 +212,11 @@ export function usePendingCount() {
 export function useDeleteSuggestion() {
   const queryClient = useQueryClient();
   const addNotification = useAppStore((state) => state.addNotification);
+  const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await suggestionService.deleteSuggestion(id);
+      const response = await suggestionService.deleteSuggestion(id, currentGroupId ?? undefined);
       if (!response.success) {
         throw new Error(response.error || 'Failed to delete suggestion');
       }

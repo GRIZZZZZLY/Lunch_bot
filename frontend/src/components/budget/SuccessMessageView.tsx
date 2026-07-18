@@ -1,6 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { Transaction } from '../../services/budget.service';
 import { Sparkles } from 'lucide-react';
+import { m } from 'framer-motion';
 import { useWindowSize } from '@/hooks/useWindowSize';
 
 // Lazy load react-confetti
@@ -51,9 +52,14 @@ export const SuccessMessageView = ({ debt }: SuccessMessageViewProps) => {
       
       {/* Контент */}
       <div className="text-center py-6">
-        <div className="inline-flex items-center justify-center size-20 rounded-full bg-mint-100 dark:bg-mint-900/30 mb-4 animate-bounce">
+        <m.div
+          initial={{ opacity: 0, scale: 0.95, y: 4 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+          className="mb-4 inline-flex size-20 items-center justify-center rounded-full bg-mint-100 dark:bg-mint-900/30"
+        >
           <Sparkles className="size-10 text-mint-600 dark:text-mint-400" />
-        </div>
+        </m.div>
         
         <h3 className="text-2xl font-bold mb-2">
           СПАСИБО!

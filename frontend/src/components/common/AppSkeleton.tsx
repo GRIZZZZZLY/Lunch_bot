@@ -72,29 +72,3 @@ export const AppSkeleton: React.FC = () => {
  * Минимальная версия skeleton для быстрых переходов между страницами
  * Используется когда уже есть Layout, но загружается новый контент
  */
-export const MinimalAppSkeleton: React.FC = () => {
-  return (
-    <div className="container mx-auto px-4 py-6 space-y-6 max-w-2xl">
-      {/* Header */}
-      <div className="space-y-2">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-4 w-32" />
-      </div>
-
-      {/* Main card */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-2/3" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-        </div>
-      </div>
-
-      {/* Secondary content */}
-      <div className="space-y-3">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    </div>
-  );
-};

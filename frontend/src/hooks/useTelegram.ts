@@ -42,6 +42,7 @@ interface TelegramMainButton {
 interface TelegramBackButton {
   isVisible: boolean;
   onClick: (callback: () => void) => void;
+  offClick?: (callback: () => void) => void;
   show: () => void;
   hide: () => void;
 }
@@ -128,6 +129,7 @@ const createMockWebApp = (): TelegramWebApp => ({
   BackButton: {
     isVisible: false,
     onClick: (callback: () => void) => console.log('BackButton.onClick:', callback),
+    offClick: (callback: () => void) => console.log('BackButton.offClick:', callback),
     show: () => console.log('BackButton.show'),
     hide: () => console.log('BackButton.hide'),
   },

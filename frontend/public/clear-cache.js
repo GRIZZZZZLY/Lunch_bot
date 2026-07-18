@@ -12,10 +12,12 @@
       const cacheNames = await caches.keys();
       console.log(`📦 Найдено ${cacheNames.length} кэшей:`, cacheNames);
 
-      for (const cacheName of cacheNames) {
-        await caches.delete(cacheName);
+      await Promise.all(
+        cacheNames.map(async cacheName => {
+          await caches.delete(cacheName);
         console.log(`✅ Удалён кэш: ${cacheName}`);
-      }
+        })
+      );
     }
 
     // 2. Unregister всех Service Workers
@@ -23,10 +25,12 @@
       const registrations = await navigator.serviceWorker.getRegistrations();
       console.log(`🔧 Найдено ${registrations.length} Service Workers`);
 
-      for (const registration of registrations) {
-        await registration.unregister();
+      await Promise.all(
+        registrations.map(async registration => {
+          await registration.unregister();
         console.log(`✅ Удалён Service Worker: ${registration.scope}`);
-      }
+        })
+      );
     }
 
     // 3. Очистить localStorage

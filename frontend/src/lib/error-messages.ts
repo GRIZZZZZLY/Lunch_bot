@@ -110,13 +110,3 @@ export function getHumanErrorMessage(error: any): string {
   // Default fallback
   return ERROR_MESSAGES.UNKNOWN_ERROR;
 }
-
-/**
- * Хелпер для форматирования ошибки в объект для toast/notification
- */
-export function formatErrorForNotification(error: any): { type: 'error'; message: string } {
-  return {
-    type: 'error',
-    message: getHumanErrorMessage(error),
-  };
-}

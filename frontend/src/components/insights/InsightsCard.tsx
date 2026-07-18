@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { TrendingUp, Users, Award, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PersonalInsight } from '@/services/insights.service';
@@ -43,7 +43,7 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
 }) => {
   if (insights.length === 0) {
     return (
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className={cn(
@@ -57,12 +57,12 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
             После первого голосования покажем твои привычки и любимые блюда.
           </p>
         </div>
-      </motion.div>
+      </m.div>
     );
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
@@ -85,7 +85,7 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
           const Icon = getIcon(insight.type);
           
           return (
-            <motion.div
+            <m.div
               key={insight.id}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -113,12 +113,12 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
                   <Icon size={20} className="opacity-75" />
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           );
         })}
       </div>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: insights.length * 0.1 + 0.2 }}
@@ -127,8 +127,8 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
         <p className="text-xs text-muted-foreground">
           Голосуй дальше — откроются новые инсайты 🎯
         </p>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 };
 
@@ -140,7 +140,7 @@ export const InsightsBadge: React.FC<{
   onClick?: () => void;
 }> = ({ insight, onClick }) => {
   return (
-    <motion.div
+    <m.div
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
@@ -153,6 +153,6 @@ export const InsightsBadge: React.FC<{
     >
       <span>{insight.icon}</span>
       <span>{insight.title}</span>
-    </motion.div>
+    </m.div>
   );
 };

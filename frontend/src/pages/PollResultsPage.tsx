@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { ArrowLeft, TrendingUp } from 'lucide-react';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { GlassHeroCard } from '../components/glass';
+import { GlassHeroCard } from '../components/glass/GlassCard';
 // import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
 import { useTelegram } from '../hooks/useTelegram';
@@ -32,21 +32,7 @@ export const PollResultsPage: React.FC = () => {
   const [resultType, setResultType] = useState<'single' | 'multi'>('single');
   const [multiWinnerData, setMultiWinnerData] = useState<MultiWinnerResultData | null>(null);
 
-  useEffect(() => {
-    loadResults();
-  }, [pollId]);
-
-  useEffect(() => {
-    // Возврат на главную страницу вместо страницы голосования
-    backButton.onClick(() => navigate('/'));
-    backButton.show();
-
-    return () => {
-      backButton.hide();
-    };
-  }, [pollId]);
-
-  const loadResults = async () => {
+  const loadResults = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -60,8 +46,9 @@ export const PollResultsPage: React.FC = () => {
         throw new Error('Results not found');
       }
 
-      const pollResult = response.data;
+      const pollResult = response.data.result;
       setResult(pollResult);
+      setBreakdown(response.data.breakdown);
 
       // Определяем тип результата
       try {
@@ -72,13 +59,10 @@ export const PollResultsPage: React.FC = () => {
           setMultiWinnerData(rouletteData);
         } else {
           setResultType('single');
-          // Fetch breakdown separately if needed
-          setBreakdown([]);
         }
       } catch (parseError) {
         console.error('Error parsing rouletteData:', parseError);
         setResultType('single');
-        setBreakdown([]);
       }
 
     } catch (error) {
@@ -90,7 +74,22 @@ export const PollResultsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addNotification, pollId]);
+
+  useEffect(() => {
+    loadResults();
+  }, [loadResults]);
+
+  useEffect(() => {
+    const handleBack = () => navigate('/');
+    backButton.onClick(handleBack);
+    backButton.show();
+
+    return () => {
+      backButton.offClick?.(handleBack);
+      backButton.hide();
+    };
+  }, [backButton, navigate]);
 
   if (loading) {
     return (
@@ -109,7 +108,7 @@ export const PollResultsPage: React.FC = () => {
           <p className="text-lg text-gray-600 dark:text-gray-400">
             Результаты не найдены
           </p>
-          <button
+          <button type="button"
             onClick={() => navigate('/')}
             className="px-6 py-3 bg-gradient-to-r from-peach-500 to-coral-500 text-white rounded-xl hover:shadow-lg transition-all"
           >
@@ -128,7 +127,7 @@ export const PollResultsPage: React.FC = () => {
 
       <div className="min-h-screen pb-24">
         {/* Hero Card */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -141,10 +140,10 @@ export const PollResultsPage: React.FC = () => {
             textColor={textColor}
             icon={<TrendingUp className={ICON_SIZES.lg} />}
           />
-        </motion.div>
+        </m.div>
 
         {/* Back Button (альтернативный вариант) */}
-        <motion.button
+        <m.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
@@ -153,10 +152,10 @@ export const PollResultsPage: React.FC = () => {
         >
           <ArrowLeft className={ICON_SIZES.md} />
           <span>На главную</span>
-        </motion.button>
+        </m.button>
 
         {/* Results Component */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -166,7 +165,7 @@ export const PollResultsPage: React.FC = () => {
           ) : (
             <SingleWinnerResults result={result} breakdown={breakdown} />
           )}
-        </motion.div>
+        </m.div>
       </div>
     </>
   );

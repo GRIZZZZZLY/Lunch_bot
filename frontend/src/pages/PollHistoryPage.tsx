@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/layout/Header';
 import { PageHeader } from '../components/common/PageHeader';
@@ -29,21 +29,9 @@ export const PollHistoryPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [filter, setFilter] = useState<'all' | 'won' | 'participated' | 'skipped'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'votes'>('date');
+  const skipNextPageLoadRef = useRef(false);
 
-  useEffect(() => {
-    loadHistory();
-  }, [page, filter]);
-
-  useEffect(() => {
-    backButton.onClick(() => navigate('/'));
-    backButton.show();
-
-    return () => {
-      backButton.hide();
-    };
-  }, []);
-
-  const loadHistory = async (refresh = false) => {
+  const loadHistory = useCallback(async (refresh = false) => {
     try {
       if (refresh) {
         setPage(0);
@@ -56,8 +44,11 @@ export const PollHistoryPage: React.FC = () => {
       });
 
       if (response.success && response.data) {
-        const newPolls = refresh ? response.data.polls : [...polls, ...response.data.polls];
-        setPolls(newPolls);
+        setPolls(currentPolls =>
+          refresh
+            ? response.data.polls
+            : [...currentPolls, ...response.data.polls]
+        );
         setHasMore(response.data.hasNext);
       }
     } catch (error) {
@@ -69,12 +60,36 @@ export const PollHistoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addNotification, page]);
 
   const handleRefresh = async () => {
     await loadHistory(true);
+    if (page !== 0) {
+      skipNextPageLoadRef.current = true;
+      setPage(0);
+    }
     haptic.success();
   };
+
+  useEffect(() => {
+    if (skipNextPageLoadRef.current) {
+      skipNextPageLoadRef.current = false;
+      return;
+    }
+
+    loadHistory();
+  }, [loadHistory]);
+
+  useEffect(() => {
+    const handleBack = () => navigate('/');
+    backButton.onClick(handleBack);
+    backButton.show();
+
+    return () => {
+      backButton.offClick?.(handleBack);
+      backButton.hide();
+    };
+  }, [backButton, navigate]);
 
   const handlePollClick = (pollId: number) => {
     haptic.light();
@@ -143,7 +158,7 @@ export const PollHistoryPage: React.FC = () => {
             ] as const).map(chip => {
               const active = filter === chip.id;
               return (
-                <button
+                <button type="button"
                   key={chip.id}
                   onClick={() => {
                     setFilter(chip.id);
@@ -164,7 +179,7 @@ export const PollHistoryPage: React.FC = () => {
           {/* Сортировка */}
           <div className="flex items-center gap-2 text-sm">
             <span className="text-telegram-hint-color">Сортировка:</span>
-            <button
+            <button type="button"
               onClick={() => {
                 setSortBy('date');
                 haptic.selection();
@@ -177,7 +192,7 @@ export const PollHistoryPage: React.FC = () => {
             >
               По дате
             </button>
-            <button
+            <button type="button"
               onClick={() => {
                 setSortBy('votes');
                 haptic.selection();
@@ -198,7 +213,7 @@ export const PollHistoryPage: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {sortedPolls.map((poll, index) => (
-                <button
+                <button type="button"
                   key={poll.id}
                   onClick={() => handlePollClick(poll.id)}
                   className="w-full text-left bg-telegram-secondary-bg-color rounded-2xl p-4 border border-telegram-secondary-bg-color/50 hover:border-telegram-button-color/50 transition-all animate-fade-in-up"
@@ -262,7 +277,7 @@ export const PollHistoryPage: React.FC = () => {
           {/* Load more */}
           {hasMore && sortedPolls.length > 0 && (
             <div className="flex justify-center pt-4">
-              <button
+              <button type="button"
                 onClick={() => {
                   setPage(page + 1);
                   haptic.medium();

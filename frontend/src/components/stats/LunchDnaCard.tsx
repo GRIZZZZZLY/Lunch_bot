@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Compass, Sparkles, Users } from 'lucide-react';
 import { CardContent, CardDescription, CardHeader, CardTitle, PastelCard } from '../ui/pastel-card';
 import { Badge } from '../ui/badge';
@@ -41,7 +41,7 @@ export function LunchDnaCard({ profile }: LunchDnaCardProps) {
   const polygonPoints = getPolygonPoints(profile.axes);
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
@@ -181,6 +181,6 @@ export function LunchDnaCard({ profile }: LunchDnaCardProps) {
           </div>
         </CardContent>
       </PastelCard>
-    </motion.div>
+    </m.div>
   );
 }

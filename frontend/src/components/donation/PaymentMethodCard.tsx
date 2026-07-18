@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Star, CreditCard, Bitcoin, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { PaymentMethod } from '../../types/donation.types';
@@ -34,7 +34,13 @@ export const PaymentMethodCard = ({
   onClick
 }: PaymentMethodCardProps) => {
   return (
-    <motion.div
+    <m.button
+      type="button"
+      disabled={!enabled}
+      aria-pressed={enabled ? selected : undefined}
+      aria-label={`${name}. ${description}${enabled ? '' : '. Скоро'}`}
+      onClick={onClick}
+      className="block w-full appearance-none border-0 bg-transparent p-0 text-left"
       whileHover={enabled ? { scale: 1.02 } : {}}
       whileTap={enabled ? { scale: 0.98 } : {}}
     >
@@ -45,7 +51,6 @@ export const PaymentMethodCard = ({
           !enabled && 'opacity-50 cursor-not-allowed',
           selected && 'ring-2 ring-primary/25 border-primary/25 bg-primary/6'
         )}
-        onClick={enabled ? onClick : undefined}
       >
         <CardContent className="p-4 pt-4 relative">
           <div className="flex items-center justify-between">
@@ -85,6 +90,6 @@ export const PaymentMethodCard = ({
           )}
         </CardContent>
       </PastelCard>
-    </motion.div>
+    </m.button>
   );
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { GradientButton } from '../ui/gradient-button';
 import { cn } from '../../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
@@ -136,7 +136,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   const Icon = config.icon;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
@@ -147,7 +147,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       )}
     >
       {/* Animated icon with gradient background */}
-      <motion.div
+      <m.div
         animate={{
           scale: [1, 1.05, 1],
           rotate: [0, 2, -2, 0],
@@ -168,7 +168,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         )}>
           <Icon className={`${ICON_SIZES['2xl']} text-white`} strokeWidth={2} />
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Title */}
       <h3 className="text-xl font-bold mb-2 text-foreground">
@@ -182,7 +182,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
       {/* CTA Button */}
       {onAction && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2, duration: 0.3 }}
@@ -194,13 +194,13 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           >
             {actionLabel || config.actionLabel}
           </GradientButton>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Decorative animated dots */}
       <div className="flex gap-2 mt-8">
         {[0, 1, 2].map((i) => (
-          <motion.div
+          <m.div
             key={i}
             animate={{
               scale: [1, 1.5, 1],
@@ -219,6 +219,6 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           />
         ))}
       </div>
-    </motion.div>
+    </m.div>
   );
 };

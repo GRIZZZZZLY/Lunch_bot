@@ -1,10 +1,32 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGlassStyles, type GlassVariant, type GlassTheme } from '@/lib/glassmorphism';
 import { useHaptic } from '@/hooks/useHaptic';
 import { ICON_SIZES } from '@/lib/design-tokens';
+
+const sizes = {
+  sm: {
+    button: 'w-16 h-16 p-2',
+    icon: 20,
+    text: 'text-xs',
+    gap: 'gap-1',
+  },
+  md: {
+    button: 'w-[72px] h-[72px] p-3',
+    icon: 24,
+    text: 'text-sm',
+    gap: 'gap-1',
+  },
+  lg: {
+    button: 'w-24 h-24 p-4',
+    icon: 28,
+    text: 'text-base',
+    gap: 'gap-2',
+  },
+};
+
 
 export interface GlassButtonProps {
   children?: React.ReactNode;
@@ -53,27 +75,6 @@ export const GlassButton = React.forwardRef<HTMLButtonElement, GlassButtonProps>
     const hapticFeedback = useHaptic();
     const glassStyles = getGlassStyles(variant, theme);
     
-    const sizes = {
-      sm: {
-        button: 'w-16 h-16 p-2',
-        icon: 20,
-        text: 'text-xs',
-        gap: 'gap-1',
-      },
-      md: {
-        button: 'w-[72px] h-[72px] p-3',
-        icon: 24,
-        text: 'text-sm',
-        gap: 'gap-1',
-      },
-      lg: {
-        button: 'w-24 h-24 p-4',
-        icon: 28,
-        text: 'text-base',
-        gap: 'gap-2',
-      },
-    };
-    
     const sizeConfig = sizes[size];
     
     const handleClick = () => {
@@ -99,7 +100,7 @@ export const GlassButton = React.forwardRef<HTMLButtonElement, GlassButtonProps>
     );
     
     return (
-      <motion.button
+      <m.button
         ref={ref}
         className={baseClasses}
         style={glassStyles}
@@ -129,7 +130,7 @@ export const GlassButton = React.forwardRef<HTMLButtonElement, GlassButtonProps>
         )}
         
         {children}
-      </motion.button>
+      </m.button>
     );
   }
 );
@@ -159,7 +160,7 @@ export const GlassActionButtons: React.FC<GlassActionButtonsProps> = ({
   return (
     <div className={cn('grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4', className)}>
       {buttons.map((button, index) => (
-        <motion.div
+        <m.div
           key={button.label}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -175,7 +176,7 @@ export const GlassActionButtons: React.FC<GlassActionButtonsProps> = ({
             onClick={button.onClick}
             theme={theme}
           />
-        </motion.div>
+        </m.div>
       ))}
     </div>
   );
@@ -212,7 +213,7 @@ export const GlassIconButton: React.FC<GlassIconButtonProps> = ({
   };
   
   return (
-    <motion.button
+    <m.button
       className={cn(
         'w-10 h-10 rounded-full',
         'flex items-center justify-center',
@@ -228,7 +229,7 @@ export const GlassIconButton: React.FC<GlassIconButtonProps> = ({
       whileTap={{ scale: 0.95 }}
     >
       <Icon className={ICON_SIZES.md} strokeWidth={2} />
-    </motion.button>
+    </m.button>
   );
 };
 

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { m, AnimatePresence } from 'framer-motion';
 import { RefreshCw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ICON_SIZES } from '@/lib/design-tokens';
@@ -9,12 +9,12 @@ import { ICON_SIZES } from '@/lib/design-tokens';
  */
 export function PWAUpdatePrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
-  const [updateSW, setUpdateSW] = useState<((reloadPage?: boolean) => Promise<void>) | null>(null);
+  const updateSWRef = useRef<((reloadPage?: boolean) => Promise<void>) | null>(null);
 
   useEffect(() => {
     function handleUpdate(event: Event) {
       const customEvent = event as CustomEvent;
-      setUpdateSW(() => customEvent.detail.updateSW);
+      updateSWRef.current = customEvent.detail.updateSW;
       setShowPrompt(true);
     }
 
@@ -26,8 +26,8 @@ export function PWAUpdatePrompt() {
   }, []);
 
   async function handleUpdate() {
-    if (updateSW) {
-      await updateSW(true); // Обновить и перезагрузить страницу
+    if (updateSWRef.current) {
+      await updateSWRef.current(true); // Обновить и перезагрузить страницу
     }
   }
 
@@ -38,7 +38,7 @@ export function PWAUpdatePrompt() {
   return (
     <AnimatePresence>
       {showPrompt && (
-        <motion.div
+        <m.div
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
@@ -55,7 +55,7 @@ export function PWAUpdatePrompt() {
               </p>
             </div>
 
-            <button
+            <button type="button"
               onClick={handleDismiss}
               className="flex-shrink-0 rounded p-1 transition-colors hover:bg-muted"
               aria-label="Закрыть"
@@ -82,7 +82,7 @@ export function PWAUpdatePrompt() {
               Позже
             </Button>
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

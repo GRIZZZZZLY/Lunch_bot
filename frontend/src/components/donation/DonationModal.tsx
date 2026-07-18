@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { X, Heart } from 'lucide-react';
 import { PaymentMethodCard } from './PaymentMethodCard';
 import { StarsSlider } from './StarsSlider';
@@ -120,14 +120,14 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
         >
           {/* Overlay */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -136,7 +136,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
           />
 
           {/* Modal Content */}
-          <motion.div
+          <m.div
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -162,6 +162,8 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                 >
                   <div className="relative p-6">
                     <button
+                      type="button"
+                      aria-label="Закрыть"
                       onClick={handleClose}
                       className="absolute top-4 right-4 z-10"
                     >
@@ -171,7 +173,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                     </button>
 
                     <div className="mb-2 flex items-center gap-3">
-                      <motion.div
+                      <m.div
                         animate={{
                           scale: [1, 1.1, 1],
                         }}
@@ -186,7 +188,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                           className="fill-white"
                           style={{ color: 'white' }}
                         />
-                      </motion.div>
+                      </m.div>
                       <h2 className="text-2xl font-semibold text-white">
                         Поддержать проект
                       </h2>
@@ -223,7 +225,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
 
                   {/* Stars amount slider */}
                   {selectedMethod === 'stars' && (
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-3"
@@ -243,7 +245,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                         Stars. Для максимальной поддержки выбирай СБП или
                         Wallet (скоро).
                       </p>
-                    </motion.div>
+                    </m.div>
                   )}
 
                   {/* Error message */}
@@ -253,7 +255,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
 
                   {/* Payment Button */}
                   {canProceed && (
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
@@ -277,7 +279,7 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                           </>
                         )}
                       </GradientButton>
-                    </motion.div>
+                    </m.div>
                   )}
 
                   {/* Info */}
@@ -289,8 +291,8 @@ export const DonationModal = ({ isOpen, onClose }: DonationModalProps) => {
                 </div>
               </>
             )}
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { X, Plus, Check } from 'lucide-react';
 
 // New shadcn/ui components
@@ -22,6 +22,16 @@ import { cn } from '../../lib/utils';
 import { sanitizeText, sanitizeURL } from '../../lib/sanitize';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
+const isValidUrl = (url: string): boolean => {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+
 export interface MenuFormData {
   name: string;
   description?: string;
@@ -39,6 +49,103 @@ export interface MenuFormProps {
   adminGroups?: { id: number; title: string }[];
   defaultGroupId?: number | null;
 }
+
+const MenuImagePreview = ({ imageUrl, onRemove }: { imageUrl?: string; onRemove: () => void }) => (
+  <AnimatePresence>
+    {imageUrl && isValidUrl(imageUrl) && (
+      <m.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+      >
+        <GlassCard intensity="medium" className="overflow-hidden">
+          <div className="relative h-48 w-full">
+            <img
+              src={imageUrl}
+              alt="Предпросмотр блюда"
+              className="w-full h-full object-cover"
+              onError={event => {
+                event.currentTarget.style.display = 'none';
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Удалить изображение"
+              onClick={onRemove}
+              className={`${ICON_SIZES.xl} absolute top-2 right-2 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-red-500 transition-colors`}
+            >
+              <X className={ICON_SIZES.sm} />
+            </button>
+            <div className="absolute bottom-2 left-2 px-3 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-white text-xs font-medium flex items-center gap-1">
+              <Check className={ICON_SIZES.xs} />
+              Предпросмотр
+            </div>
+          </div>
+        </GlassCard>
+      </m.div>
+    )}
+  </AnimatePresence>
+);
+
+interface MenuGroupSelectorProps {
+  groups: { id: number; title: string }[];
+  selectedIds: Set<number>;
+  onToggle: (groupId: number) => void;
+}
+
+const MenuGroupSelector = ({ groups, selectedIds, onToggle }: MenuGroupSelectorProps) => (
+  <GlassCard intensity="medium">
+    <GlassCardContent className="p-4 space-y-3">
+      <Label className="text-base font-semibold text-foreground">В группах</Label>
+      <p className="text-sm text-muted-foreground">Блюдо будет создано в каждой выбранной группе</p>
+      <div className="space-y-2">
+        {groups.map(group => (
+          <div key={group.id} className="flex items-center justify-between">
+            <span className="text-sm text-foreground">{group.title}</span>
+            <Switch checked={selectedIds.has(group.id)} onCheckedChange={() => onToggle(group.id)} />
+          </div>
+        ))}
+      </div>
+    </GlassCardContent>
+  </GlassCard>
+);
+
+interface MenuFormFooterProps {
+  isEditing: boolean;
+  loading: boolean;
+  canSubmit: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+}
+
+const MenuFormFooter = ({ isEditing, loading, canSubmit, onCancel, onSubmit }: MenuFormFooterProps) => (
+  <div className="flex-shrink-0 border-t border-border/60 bg-background/95 backdrop-blur-sm px-4 py-3">
+    <div className="flex gap-3">
+      <Button variant="ghost" onClick={onCancel} disabled={loading} className="flex-1 min-h-11">
+        Отмена
+      </Button>
+      <GradientButton
+        variant="peach"
+        onClick={onSubmit}
+        disabled={!canSubmit || loading}
+        className="flex-1 min-h-11"
+        shimmer={!loading}
+      >
+        {loading ? (
+          <>
+            <div className={`${ICON_SIZES.sm} animate-spin rounded-full border-2 border-white border-t-transparent mr-2`} />
+            Сохранение...
+          </>
+        ) : (
+          <>
+            {isEditing ? <Check className={`${ICON_SIZES.sm} mr-2`} /> : <Plus className={`${ICON_SIZES.sm} mr-2`} />}
+            {isEditing ? 'Сохранить' : 'Добавить'}
+          </>
+        )}
+      </GradientButton>
+    </div>
+  </div>
+);
 
 /**
  * MenuForm v2.0 - Native BottomSheet integration
@@ -63,6 +170,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
     isActive: true,
     groupIds: defaultGroupId != null ? [defaultGroupId] : [],
   });
+  const selectedGroupIds = new Set(formData.groupIds);
   
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -106,15 +214,6 @@ export const MenuForm: React.FC<MenuFormProps> = ({
       isValid: Object.keys(newErrors).length === 0,
       errors: newErrors
     };
-  };
-
-  const isValidUrl = (url: string): boolean => {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const handleSubmit = async () => {
@@ -282,64 +381,18 @@ export const MenuForm: React.FC<MenuFormProps> = ({
           </GlassCardContent>
         </GlassCard>
 
-        {/* Preview image - Large (192px) */}
-        <AnimatePresence>
-          {formData.imageUrl && isValidUrl(formData.imageUrl) && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-            >
-              <GlassCard intensity="medium" className="overflow-hidden">
-                <div className="relative h-48 w-full">
-                  <img
-                    src={formData.imageUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                  
-                  {/* Remove button overlay */}
-                  <button
-                    type="button"
-                    onClick={() => handleInputChange('imageUrl', '')}
-                    className={`${ICON_SIZES.xl} absolute top-2 right-2  rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-red-500 transition-colors`}
-                  >
-                    <X className={ICON_SIZES.sm} />
-                  </button>
-                  
-                  {/* Preview label */}
-                  <div className="absolute bottom-2 left-2 px-3 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-white text-xs font-medium flex items-center gap-1">
-                    <Check className={ICON_SIZES.xs} />
-                    Предпросмотр
-                  </div>
-                </div>
-              </GlassCard>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <MenuImagePreview
+          imageUrl={formData.imageUrl}
+          onRemove={() => handleInputChange('imageUrl', '')}
+        />
 
         {/* Group multi-select - только в режиме создания при наличии нескольких групп */}
         {!item && adminGroups.length > 1 && (
-          <GlassCard intensity="medium">
-            <GlassCardContent className="p-4 space-y-3">
-              <Label className="text-base font-semibold text-foreground">В группах</Label>
-              <p className="text-sm text-muted-foreground">Блюдо будет создано в каждой выбранной группе</p>
-              <div className="space-y-2">
-                {adminGroups.map((group) => (
-                  <div key={group.id} className="flex items-center justify-between">
-                    <span className="text-sm text-foreground">{group.title}</span>
-                    <Switch
-                      checked={formData.groupIds.includes(group.id)}
-                      onCheckedChange={() => toggleGroup(group.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </GlassCardContent>
-          </GlassCard>
+          <MenuGroupSelector
+            groups={adminGroups}
+            selectedIds={selectedGroupIds}
+            onToggle={toggleGroup}
+          />
         )}
 
         {/* Active toggle - Touch-friendly Switch */}
@@ -367,39 +420,13 @@ export const MenuForm: React.FC<MenuFormProps> = ({
         </GlassCard>
       </div>
 
-      {/* Footer - Compact (single row) */}
-      <div className="sticky bottom-0 bg-background/80 backdrop-blur-md border-t border-border p-4">
-        <div className="flex items-center justify-between gap-3">
-          <Button 
-            variant="ghost" 
-            onClick={onCancel}
-            disabled={loading}
-            className="flex-1 min-h-11"
-          >
-            Отмена
-          </Button>
-          
-          <GradientButton 
-            variant="peach"
-            onClick={handleSubmit}
-            disabled={!formData.name.trim() || loading}
-            className="flex-1 min-h-11"
-            shimmer={!loading}
-          >
-            {loading ? (
-              <>
-                <div className={`${ICON_SIZES.sm} animate-spin rounded-full  border-2 border-white border-t-transparent mr-2`} />
-                Сохранение...
-              </>
-            ) : (
-              <>
-                {item ? <Check className={`${ICON_SIZES.sm} mr-2`} /> : <Plus className={`${ICON_SIZES.sm} mr-2`} />}
-                {item ? 'Сохранить' : 'Добавить'}
-              </>
-            )}
-          </GradientButton>
-        </div>
-      </div>
+      <MenuFormFooter
+        isEditing={Boolean(item)}
+        loading={loading}
+        canSubmit={Boolean(formData.name.trim())}
+        onCancel={onCancel}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 };

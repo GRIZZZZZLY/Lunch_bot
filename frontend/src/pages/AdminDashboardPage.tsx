@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PastelCard } from '../components/ui/pastel-card';
 import { UserManagementCard } from '../components/admin/UserManagementCard';
@@ -41,7 +41,7 @@ import { ICON_SIZES } from '@/lib/design-tokens';
  * 🔐 Admin Dashboard
  * Панель управления и мониторинга для администраторов
  */
-export const AdminDashboardPage: React.FC = () => {
+const useAdminDashboardController = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading: authLoading } = useAuth();
@@ -479,6 +479,11 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  return { navigate, location, user, authLoading, backButton, addNotification, loading, setLoading, refreshing, setRefreshing, groupsLoading, setGroupsLoading, hasShownAccessError, groups, setGroups, selectedGroupId, setSelectedGroupId, preferredGroupId, stats, setStats, users, setUsers, debtors, setDebtors, debtStats, setDebtStats, cleanupStats, setCleanupStats, reminderSettings, setReminderSettings, notificationSettings, setNotificationSettings, activeTab, setActiveTab, loadGroups, loadAdminData, loadDashboardData, adminGroups, handleRefresh, handleToggleAdmin, handleToggleActive, handleToggleParticipates, handleForgiveDebt, handleRemindDebtor, handleRemindAll, handleCleanupPolls, handleCleanupTransactions, handleSaveReminderSettings, handleSaveNotificationSettings };
+};
+
+export const AdminDashboardPage: React.FC = () => {
+  const { navigate, location, user, authLoading, backButton, addNotification, loading, setLoading, refreshing, setRefreshing, groupsLoading, setGroupsLoading, hasShownAccessError, groups, setGroups, selectedGroupId, setSelectedGroupId, preferredGroupId, stats, setStats, users, setUsers, debtors, setDebtors, debtStats, setDebtStats, cleanupStats, setCleanupStats, reminderSettings, setReminderSettings, notificationSettings, setNotificationSettings, activeTab, setActiveTab, loadGroups, loadAdminData, loadDashboardData, adminGroups, handleRefresh, handleToggleAdmin, handleToggleActive, handleToggleParticipates, handleForgiveDebt, handleRemindDebtor, handleRemindAll, handleCleanupPolls, handleCleanupTransactions, handleSaveReminderSettings, handleSaveNotificationSettings } = useAdminDashboardController();
   if (authLoading || loading || groupsLoading) {
     return (
       <div className="min-h-screen relative">
@@ -492,7 +497,7 @@ export const AdminDashboardPage: React.FC = () => {
   return (
     <div className="space-y-6 relative pb-24">
       {/* Header */}
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between"
@@ -507,7 +512,7 @@ export const AdminDashboardPage: React.FC = () => {
           </p>
         </div>
 
-        <button
+        <button type="button"
           onClick={handleRefresh}
           disabled={refreshing}
           className={cn(
@@ -518,10 +523,10 @@ export const AdminDashboardPage: React.FC = () => {
           <RefreshCw className={cn(ICON_SIZES.md, refreshing && 'animate-spin')} />
           <span className="text-sm font-medium">Обновить</span>
         </button>
-      </motion.div>
+      </m.div>
 
       {/* Tabs */}
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
@@ -534,7 +539,7 @@ export const AdminDashboardPage: React.FC = () => {
           { id: 'cleanup', label: 'Очистка', icon: Database },
           { id: 'settings', label: 'Настройки', icon: Settings },
         ].map((tab) => (
-          <button
+          <button type="button"
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={cn(
@@ -554,13 +559,13 @@ export const AdminDashboardPage: React.FC = () => {
             )}
           </button>
         ))}
-      </motion.div>
+      </m.div>
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
         <>
           {/* Stats Grid */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -629,10 +634,10 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
             </PastelCard>
-          </motion.div>
+          </m.div>
 
           {/* Quick Stats */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -654,13 +659,13 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
               <div className="text-xs text-muted-foreground">Долгов</div>
             </PastelCard>
-          </motion.div>
+          </m.div>
         </>
       )}
 
       {/* Users Tab */}
       {activeTab === 'users' && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -671,12 +676,12 @@ export const AdminDashboardPage: React.FC = () => {
             onToggleParticipates={handleToggleParticipates}
             loading={refreshing}
           />
-        </motion.div>
+        </m.div>
       )}
 
       {/* Debts Tab */}
       {activeTab === 'debts' && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -688,12 +693,12 @@ export const AdminDashboardPage: React.FC = () => {
             onRemindAll={handleRemindAll}
             loading={refreshing}
           />
-        </motion.div>
+        </m.div>
       )}
 
       {/* Cleanup Tab */}
       {activeTab === 'cleanup' && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -703,12 +708,12 @@ export const AdminDashboardPage: React.FC = () => {
             onCleanupTransactions={handleCleanupTransactions}
             loading={refreshing}
           />
-        </motion.div>
+        </m.div>
       )}
 
       {/* Settings Tab */}
       {activeTab === 'settings' && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -719,7 +724,7 @@ export const AdminDashboardPage: React.FC = () => {
             onSaveNotificationSettings={handleSaveNotificationSettings}
             loading={refreshing}
           />
-        </motion.div>
+        </m.div>
       )}
     </div>
   );

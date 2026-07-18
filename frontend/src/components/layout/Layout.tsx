@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { useTelegram } from '../../hooks/useTelegram';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppStore } from '../../store/useAppStore';
 import { AppSkeleton } from '../common/AppSkeleton';
-import { DonationBar } from '../donation';
+import { DonationBar } from '../donation/DonationBar';
 
 export interface LayoutProps {
   children: React.ReactNode;
@@ -54,23 +54,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
     }
   }, [isReady, themeParams, colorScheme]);
-
-  // Debug logging (перенесено в useEffect)
-  useEffect(() => {
-    console.log('[Layout] Render state:', {
-      isReady,
-      isLoading,
-      isAuthenticated,
-      error,
-      colorScheme,
-    });
-
-    if (!isReady) {
-      console.log('[Layout] Waiting for Telegram WebApp...');
-    } else if (isLoading) {
-      console.log('[Layout] Authenticating...');
-    }
-  }, [isReady, isLoading, isAuthenticated, error, colorScheme]);
 
   // Показываем unified skeleton пока не готов WebApp
   if (!isReady) {
@@ -128,163 +111,3 @@ export { Header } from './Header';
 /**
  * Navigation компонент с glassmorphism эффектом
  */
-export const Navigation: React.FC<{
-  currentTab: string;
-  onTabChange: (tab: string) => void;
-}> = ({ currentTab, onTabChange }) => {
-  const { colorScheme } = useTelegram();
-  const isDark = colorScheme === 'dark';
-  
-  const tabs = [
-    { 
-      id: 'home', 
-      label: 'Главная', 
-      icon: () => (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-      )
-    },
-    { 
-      id: 'menu', 
-      label: 'Меню', 
-      icon: () => (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
-          <path d="M7 2v20"/>
-          <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
-        </svg>
-      )
-    },
-    { 
-      id: 'stats', 
-      label: 'Статистика', 
-      icon: () => (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" x2="12" y1="20" y2="10"/>
-          <line x1="18" x2="18" y1="20" y2="4"/>
-          <line x1="6" x2="6" y1="20" y2="16"/>
-        </svg>
-      )
-    },
-    { 
-      id: 'profile', 
-      label: 'Профиль', 
-      icon: () => (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-      )
-    },
-  ];
-
-  return (
-    <nav 
-      className="fixed bottom-0 left-0 right-0 z-50"
-      style={{
-        backdropFilter: 'blur(20px) saturate(180%)',
-        background: isDark 
-          ? 'rgba(23, 33, 43, 0.8)' 
-          : 'rgba(255, 255, 255, 0.8)',
-        borderTop: isDark
-          ? '1px solid rgba(255, 255, 255, 0.1)'
-          : '1px solid rgba(255, 255, 255, 0.2)',
-        boxShadow: isDark
-          ? '0 -4px 16px rgba(0, 0, 0, 0.3)'
-          : '0 -4px 16px rgba(0, 0, 0, 0.1)',
-      }}
-    >
-      <div className="container mx-auto px-2 max-w-2xl">
-        <div className="flex">
-          {tabs.map((tab) => {
-            const isActive = currentTab === tab.id;
-            return (
-              <motion.button
-                key={tab.id}
-                onClick={() => onTabChange(tab.id)}
-                onTapStart={() => {
-                  // Telegram Haptic Feedback для native mobile ощущения
-                  if (typeof window !== 'undefined' && window.Telegram?.WebApp?.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
-                  }
-                }}
-                onPointerEnter={() => {
-                  // Prefetch страницы при hover для быстрого перехода
-                  if (!isActive) {
-                    switch (tab.id) {
-                      case 'home':
-                        import('../../pages/HomePage');
-                        break;
-                      case 'menu':
-                        import('../../pages/MenuPage');
-                        break;
-                      case 'stats':
-                        import('../../pages/StatsPage');
-                        break;
-                      case 'profile':
-                        import('../../pages/ProfilePage');
-                        break;
-                    }
-                  }
-                }}
-                className="relative flex-1 py-3 px-2 flex flex-col items-center justify-center"
-              >
-                {/* Иконка с subtle scale и fade */}
-                <motion.div
-                  animate={{
-                    scale: isActive ? 1.15 : 1,
-                    opacity: isActive ? 1 : 0.6
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 500,
-                    damping: 30,
-                    mass: 0.5
-                  }}
-                  className={`mb-1 ${
-                    isActive
-                      ? 'text-primary-food-600 dark:text-primary-food-400'
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}
-                >
-                  {tab.icon()}
-                </motion.div>
-
-                {/* Label с fade эффектом */}
-                <motion.span
-                  animate={{ 
-                    opacity: isActive ? 1 : 0.7,
-                    fontWeight: isActive ? 500 : 400
-                  }}
-                  transition={{ duration: 0.2 }}
-                  className={`text-xs truncate max-w-full ${
-                    isActive
-                      ? 'text-primary-food-700 dark:text-primary-food-400'
-                      : 'text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  {tab.label}
-                </motion.span>
-
-                {/* Тонкий индикатор снизу с fade-in/out */}
-                <AnimatePresence>
-                  {isActive && (
-                    <motion.div
-                      className="absolute bottom-0 left-1/2 h-0.5 bg-primary-food-600 dark:bg-primary-food-400 rounded-full"
-                      initial={{ width: 0, opacity: 0, x: '-50%' }}
-                      animate={{ width: 32, opacity: 1, x: '-50%' }}
-                      exit={{ width: 0, opacity: 0, x: '-50%' }}
-                      transition={{ duration: 0.25, ease: "easeOut" }}
-                    />
-                  )}
-                </AnimatePresence>
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-    </nav>
-  );
-};

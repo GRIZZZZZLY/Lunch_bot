@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, m, useReducedMotion } from 'framer-motion';
 import { SkipForward, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -50,14 +50,14 @@ export const RouletteRevealOverlay: React.FC<RouletteRevealOverlayProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className='fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-4'
           onClick={onClose}
         >
-          <motion.div
+          <m.div
             initial={{ scale: 0.9, y: 12 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.95, y: 8, opacity: 0 }}
@@ -83,7 +83,7 @@ export const RouletteRevealOverlay: React.FC<RouletteRevealOverlayProps> = ({
                   <span className='text-sm font-medium tracking-wide'>Запускаем рулетку</span>
                 </div>
 
-                <motion.div
+                <m.div
                   animate={{ rotate: prefersReducedMotion ? 0 : [0, 360, 720] }}
                   transition={{ duration: spinDuration, ease: 'easeOut' }}
                   className='mx-auto h-44 w-44 rounded-full border border-white/25 bg-white/10 p-3'
@@ -105,7 +105,7 @@ export const RouletteRevealOverlay: React.FC<RouletteRevealOverlayProps> = ({
                       );
                     })}
                   </div>
-                </motion.div>
+                </m.div>
 
                 <div className='space-y-2'>
                   <p className='text-center text-sm text-white/90'>
@@ -113,11 +113,11 @@ export const RouletteRevealOverlay: React.FC<RouletteRevealOverlayProps> = ({
                   </p>
                   {!prefersReducedMotion && (
                     <div className='h-1.5 w-full overflow-hidden rounded-full bg-white/20'>
-                      <motion.div
-                        initial={{ width: '0%' }}
-                        animate={{ width: '100%' }}
+                      <m.div
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: 1 }}
                         transition={{ duration: spinDuration, ease: 'linear' }}
-                        className='h-full rounded-full bg-white/80'
+                        className='h-full w-full origin-left rounded-full bg-white/80'
                       />
                     </div>
                   )}
@@ -147,8 +147,8 @@ export const RouletteRevealOverlay: React.FC<RouletteRevealOverlayProps> = ({
                 </button>
               </div>
             )}
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

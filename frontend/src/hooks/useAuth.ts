@@ -45,9 +45,7 @@ const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
  * Хук для управления аутентификацией
  * ✅ ИСПРАВЛЕНО: Добавлены useCallback и cleanup для предотвращения race conditions
  */
-export const AuthProvider: FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+const useAuthController = () => {
   const { initData, user: tgUser, isReady } = useTelegram();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,7 +68,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({
   // ✅ ИСПРАВЛЕНО: Обёртываем функции в useCallback для стабильных ссылок
   // Ref для refresh функции чтобы избежать циклической зависимости
   const refreshRef = useRef<(() => Promise<void>) | null>(null);
-  
+
   const loadUserWithToken = useCallback(async () => {
     if (!isMountedRef.current || authInProgressRef.current) return;
     authInProgressRef.current = true;
@@ -490,7 +488,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, initData, tgUser]); // ✅ ИСПРАВЛЕНО: Убраны функции из зависимостей (используем refs)
 
-  const isAuthenticated = useMemo(() => user !== null, [user]);
+  const isAuthenticated = user !== null;
 
   const value = useMemo(
     () => ({
@@ -505,6 +503,14 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({
     [user, isAuthenticated, isLoading, error, login, logout, refresh]
   );
 
+
+  return { initData, tgUser, isReady, user, setUser, isLoading, setIsLoading, error, setError, isMountedRef, authInProgressRef, refreshRef, loadUserWithToken, loginWithMockData, loginWithFallback, login, logout, refresh, isAuthenticated, value };
+};
+
+export const AuthProvider: FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const { initData, tgUser, isReady, user, setUser, isLoading, setIsLoading, error, setError, isMountedRef, authInProgressRef, refreshRef, loadUserWithToken, loginWithMockData, loginWithFallback, login, logout, refresh, isAuthenticated, value } = useAuthController();
   return createElement(AuthContext.Provider, { value }, children);
 };
 

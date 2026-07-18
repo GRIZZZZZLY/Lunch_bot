@@ -50,36 +50,33 @@ export function useCompletedPollVisibility(
 
   const storageKey = pollId !== null ? `${STORAGE_KEY_PREFIX}${pollId}` : null;
 
-  const computeInitial = (): boolean => {
-    if (pollId === null) return false;
-    if (readDismissed(storageKey)) return false;
-    if (endedAtMs !== null && Date.now() - endedAtMs > FIFTEEN_MIN_MS) return false;
-    return true;
-  };
-
-  const [visible, setVisible] = useState<boolean>(computeInitial);
+  const [hiddenPollId, setHiddenPollId] = useState<number | null>(() =>
+    readDismissed(storageKey) ? pollId : null
+  );
+  const isExpired =
+    endedAtMs !== null && Date.now() - endedAtMs > FIFTEEN_MIN_MS;
+  const visible =
+    pollId !== null &&
+    hiddenPollId !== pollId &&
+    !readDismissed(storageKey) &&
+    !isExpired;
 
   // Пересчитываем при смене опроса или времени завершения
-  useEffect(() => {
-    setVisible(computeInitial());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pollId, endedAtMs]);
-
   // Авто-скрытие через 15 минут после endedAt
   useEffect(() => {
     if (!visible || endedAtMs === null) return;
     const remain = endedAtMs + FIFTEEN_MIN_MS - Date.now();
     if (remain <= 0) {
-      setVisible(false);
+      setHiddenPollId(pollId);
       return;
     }
-    const timer = window.setTimeout(() => setVisible(false), remain);
+    const timer = window.setTimeout(() => setHiddenPollId(pollId), remain);
     return () => window.clearTimeout(timer);
-  }, [visible, endedAtMs]);
+  }, [visible, endedAtMs, pollId]);
 
   const dismiss = () => {
     writeDismissed(storageKey);
-    setVisible(false);
+    setHiddenPollId(pollId);
   };
 
   return { visible, dismiss };

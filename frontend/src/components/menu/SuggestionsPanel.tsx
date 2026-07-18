@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle,
   XCircle,
@@ -234,7 +234,7 @@ function SuggestionCard({
   const isRejected = suggestion.status === 'REJECTED';
 
   return (
-    <motion.div
+    <m.div
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -373,6 +373,6 @@ function SuggestionCard({
           )}
         </GlassCardContent>
       </GlassCard>
-    </motion.div>
+    </m.div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Clock,
@@ -23,6 +23,34 @@ import { MenuSuggestion } from '../services/suggestion.service';
 import { useTelegram } from '../hooks/useTelegram';
 import { cn } from '../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
+
+const emptyMessages: Record<FilterStatus, { icon: string; title: string; description: string; cta: string }> = {
+  ALL: {
+    icon: '💡',
+    title: 'У тебя пока нет предложений',
+    description: 'Предложи новое блюдо для добавления в меню',
+    cta: 'Предложить блюдо'
+  },
+  PENDING: {
+    icon: '⏳',
+    title: 'Нет ожидающих предложений',
+    description: 'Все твои предложения уже рассмотрены',
+    cta: 'Создать новое'
+  },
+  APPROVED: {
+    icon: '✨',
+    title: 'Нет одобренных предложений',
+    description: 'Твои одобренные предложения появятся здесь',
+    cta: 'Предложить блюдо'
+  },
+  REJECTED: {
+    icon: '📝',
+    title: 'Нет отклонённых предложений',
+    description: 'Отличная работа! Продолжай предлагать',
+    cta: 'Создать предложение'
+  },
+};
+
 
 type FilterStatus = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -92,7 +120,8 @@ export const MySuggestionsPage: React.FC = () => {
       {/* Header */}
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-3 h-14 px-4">
-          <button
+          <button type="button"
+            aria-label="Назад"
             onClick={handleBack}
             className="p-2 -ml-2 rounded-lg hover:bg-muted transition-colors"
           >
@@ -115,7 +144,7 @@ export const MySuggestionsPage: React.FC = () => {
 
       <div className="space-y-4 pb-24 px-4 pt-4">
         {/* Search */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -130,10 +159,10 @@ export const MySuggestionsPage: React.FC = () => {
               className="pl-10 bg-background/50"
             />
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Filter Tabs */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.3 }}
@@ -144,7 +173,7 @@ export const MySuggestionsPage: React.FC = () => {
             const isActive = filterStatus === tab.value;
 
             return (
-              <button
+              <button type="button"
                 key={tab.value}
                 onClick={() => handleTabChange(tab.value)}
                 className={cn(
@@ -170,7 +199,7 @@ export const MySuggestionsPage: React.FC = () => {
               </button>
             );
           })}
-        </motion.div>
+        </m.div>
 
         {/* Suggestions List */}
         <div className="space-y-3">
@@ -216,7 +245,7 @@ function SuggestionCard({ suggestion, index, isDark }: SuggestionCardProps) {
   const isRejected = suggestion.status === 'REJECTED';
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
@@ -304,7 +333,7 @@ function SuggestionCard({ suggestion, index, isDark }: SuggestionCardProps) {
           )}
         </CardContent>
       </GlassCard>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -317,7 +346,7 @@ interface EmptyStateProps {
 function EmptyState({ filterStatus, hasSearchQuery, onCreateNew }: EmptyStateProps) {
   if (hasSearchQuery) {
     return (
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         className="text-center py-12"
@@ -327,41 +356,14 @@ function EmptyState({ filterStatus, hasSearchQuery, onCreateNew }: EmptyStatePro
         <p className="text-sm text-muted-foreground mb-4">
           Попробуй изменить поисковый запрос
         </p>
-      </motion.div>
+      </m.div>
     );
   }
-
-  const emptyMessages: Record<FilterStatus, { icon: string; title: string; description: string; cta: string }> = {
-    ALL: {
-      icon: '💡',
-      title: 'У тебя пока нет предложений',
-      description: 'Предложи новое блюдо для добавления в меню',
-      cta: 'Предложить блюдо'
-    },
-    PENDING: {
-      icon: '⏳',
-      title: 'Нет ожидающих предложений',
-      description: 'Все твои предложения уже рассмотрены',
-      cta: 'Создать новое'
-    },
-    APPROVED: {
-      icon: '✨',
-      title: 'Нет одобренных предложений',
-      description: 'Твои одобренные предложения появятся здесь',
-      cta: 'Предложить блюдо'
-    },
-    REJECTED: {
-      icon: '📝',
-      title: 'Нет отклонённых предложений',
-      description: 'Отличная работа! Продолжай предлагать',
-      cta: 'Создать предложение'
-    },
-  };
 
   const message = emptyMessages[filterStatus];
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       className="text-center py-12"
@@ -378,7 +380,7 @@ function EmptyState({ filterStatus, hasSearchQuery, onCreateNew }: EmptyStatePro
         <Plus className={`${ICON_SIZES.sm} mr-2`} />
         {message.cta}
       </Button>
-    </motion.div>
+    </m.div>
   );
 }
 

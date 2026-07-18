@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useBudgetWidget } from '../../hooks/useBudgetWidget';
 import { PastelCard, CardContent, CardHeader, CardTitle } from '../ui/pastel-card';
 import { Badge } from '../ui/badge';
@@ -61,7 +61,7 @@ export const BudgetWidgetCompact = ({
   // Пустое состояние - показываем позитивное сообщение
   if (scenario === 'hidden' || (!allDebts?.length && !credits?.length)) {
     return (
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
@@ -88,7 +88,7 @@ export const BudgetWidgetCompact = ({
             </div>
           </CardContent>
         </PastelCard>
-      </motion.div>
+      </m.div>
     );
   }
 
@@ -120,7 +120,7 @@ export const BudgetWidgetCompact = ({
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.3 }}
@@ -255,6 +255,6 @@ export const BudgetWidgetCompact = ({
           )}
         </CardContent>
       </PastelCard>
-    </motion.div>
+    </m.div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 
 /**
  * Компонент индикатора прогресса навигации
@@ -60,7 +60,7 @@ export const NavigationProgress: React.FC = () => {
   return (
     <AnimatePresence>
       {isNavigating && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -72,10 +72,10 @@ export const NavigationProgress: React.FC = () => {
           aria-valuemin={0}
           aria-valuemax={100}
         >
-          <motion.div
-            className="h-full bg-gradient-to-r from-orange-500 via-purple-500 to-orange-500 dark:from-purple-400 dark:via-pink-500 dark:to-purple-400"
-            initial={{ width: '0%' }}
-            animate={{ width: `${progress}%` }}
+          <m.div
+            className="h-full w-full origin-left bg-gradient-to-r from-orange-500 via-purple-500 to-orange-500 dark:from-purple-400 dark:via-pink-500 dark:to-purple-400"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: progress / 100 }}
             transition={{ 
               duration: 0.15, 
               ease: progress === 100 ? 'easeOut' : 'linear' 
@@ -84,7 +84,7 @@ export const NavigationProgress: React.FC = () => {
               boxShadow: '0 0 10px rgba(249, 115, 22, 0.5), 0 0 5px rgba(249, 115, 22, 0.3)',
             }}
           />
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

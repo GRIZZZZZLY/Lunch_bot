@@ -1,15 +1,15 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Poll, pollsService } from '../../services/polls.service';
 import { PastelCard } from '../ui/pastel-card';
 import { Badge } from '../ui/badge';
 import { useTelegram } from '../../hooks/useTelegram';
 import { cn } from '@/lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
-import { 
-  Users, 
-  Calendar, 
-  Clock, 
-  BarChart2, 
+import {
+  Users,
+  Calendar,
+  Clock,
+  BarChart2,
   FileText,
   Sparkles
 } from 'lucide-react';
@@ -73,7 +73,7 @@ export const PollCard = ({
               {statusText}
             </Badge>
           </div>
-          
+
           {poll.description && !compact && (
             <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
               {poll.description}
@@ -100,7 +100,7 @@ export const PollCard = ({
             <span className="font-medium">{poll._count.votes}</span>
             <span className="text-xs">голосов</span>
           </div>
-          
+
           {!compact && (
             <div className="flex items-center space-x-1.5 text-gray-600 dark:text-gray-400">
               <Calendar className={cn(ICON_SIZES.sm, "text-gray-400")} />
@@ -125,13 +125,16 @@ export const PollCard = ({
             <span>{poll._count.votes} участников</span>
           </div>
           <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ 
-                width: `${Math.min((poll._count.votes / Math.max(poll._count.votes, 10)) * 100, 100)}%` 
+            <m.div
+              initial={{ scaleX: 0 }}
+              animate={{
+                scaleX: Math.min(
+                  poll._count.votes / Math.max(poll._count.votes, 10),
+                  1
+                ),
               }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="bg-gradient-to-r from-primary-food-500 to-primary-food-600 dark:from-peach-400 dark:to-peach-500 h-2 rounded-full"
+              className="h-2 w-full origin-left rounded-full bg-gradient-to-r from-primary-food-500 to-primary-food-600 dark:from-peach-400 dark:to-peach-500"
             />
           </div>
         </div>
@@ -141,7 +144,7 @@ export const PollCard = ({
       {showActions && (
         <div className="flex items-center gap-2">
           {onViewDetails && (
-            <motion.button
+            <m.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleViewDetails}
@@ -156,11 +159,11 @@ export const PollCard = ({
             >
               <FileText className={ICON_SIZES.sm} />
               <span>{compact ? 'Детали' : 'Подробнее'}</span>
-            </motion.button>
+            </m.button>
           )}
-          
+
           {onViewResults && (
-            <motion.button
+            <m.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleViewResults}
@@ -175,7 +178,7 @@ export const PollCard = ({
             >
               <BarChart2 size={16} />
               <span>Результаты</span>
-            </motion.button>
+            </m.button>
           )}
         </div>
       )}

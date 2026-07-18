@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { cn } from '../../lib/utils';
 
 interface TooltipEntry {
@@ -30,7 +30,7 @@ export const CustomTooltip = ({
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
@@ -48,8 +48,8 @@ export const CustomTooltip = ({
       )}
       
       <div className="space-y-1">
-        {payload.map((entry, index) => (
-          <div key={`tooltip-item-${index}`} className="flex items-center justify-between gap-3">
+        {payload.map(entry => (
+          <div key={`${entry.dataKey ?? entry.name}`} className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div
                 className="size-2.5 rounded-full"
@@ -65,6 +65,6 @@ export const CustomTooltip = ({
           </div>
         ))}
       </div>
-    </motion.div>
+    </m.div>
   );
 };

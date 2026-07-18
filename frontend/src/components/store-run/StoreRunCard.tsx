@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { ShoppingBag, Clock, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCountdownTimer } from '@/hooks/useCountdownTimer';
@@ -41,7 +41,7 @@ export const StoreRunCard: React.FC<StoreRunCardProps> = ({ run, currentUserId }
     : 'text-muted-foreground';
 
   return (
-    <motion.button
+    <m.button
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={handleClick}
@@ -75,6 +75,6 @@ export const StoreRunCard: React.FC<StoreRunCardProps> = ({ run, currentUserId }
           </div>
         )}
       </div>
-    </motion.button>
+    </m.button>
   );
 };

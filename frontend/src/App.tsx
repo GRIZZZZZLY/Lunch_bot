@@ -21,22 +21,14 @@ import { BottomNavigation } from './components/layout/BottomNavigation';
 import { OfflineIndicator } from './components/common/OfflineIndicator';
 import { PWAUpdatePrompt } from './components/common/PWAUpdatePrompt';
 import { NavigationProgress } from './components/common/NavigationProgress';
-import { WelcomeModal } from './components/onboarding';
+import { WelcomeModal } from './components/onboarding/WelcomeModal';
 import { useOnboarding } from './hooks/useOnboarding';
 import { AuthProvider } from './hooks/useAuth';
 import { useAppStore } from './store/useAppStore';
+import { resolveMiniAppDeepLinkNavigation } from './utils/deepLinks';
+import { isChunkLoadError } from './utils/chunkRecovery';
 import { WebVitals, PerformanceMonitor } from './components/performance/WebVitals';
 import { ToastProvider } from './components/common/ToastManager';
-
-const isChunkLoadError = (error: unknown): boolean => {
-  if (!error) return false;
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    message.includes('Failed to fetch dynamically imported module') ||
-    message.includes('Loading chunk') ||
-    message.includes('ChunkLoadError')
-  );
-};
 
 const tryRecoverChunkLoad = async () => {
   const retryKey = 'lazy-import-retry';
@@ -81,7 +73,7 @@ const createLazyComponent = <T extends ComponentType<unknown>>(
               <div className="text-center">
                 <h2 className="text-xl font-semibold mb-2">Ошибка загрузки</h2>
                 <p className="text-muted-foreground mb-4">Не удалось загрузить страницу</p>
-                <button
+                <button type="button"
                   onClick={() => window.location.reload()}
                   className="px-4 py-2 bg-peach-500 text-white rounded-lg hover:bg-peach-600"
                 >
@@ -167,21 +159,17 @@ function AppContent() {
     const tg = window.Telegram?.WebApp as
       | { initDataUnsafe?: { start_param?: string } }
       | undefined;
-    const startParam = tg?.initDataUnsafe?.start_param;
-    if (!startParam) return;
+    const navigation = resolveMiniAppDeepLinkNavigation({
+      startParam: tg?.initDataUnsafe?.start_param,
+      pathname: location.pathname,
+      search: location.search,
+    });
 
-    const hasPollId = new URLSearchParams(location.search).get('pollId');
-
-    if (startParam.startsWith('vote_') && location.pathname === '/' && !hasPollId) {
-      const id = startParam.slice('vote_'.length);
-      if (id) navigate(`/?pollId=${id}`, { replace: true });
-    } else if (startParam.startsWith('storerun_')) {
-      const id = startParam.slice('storerun_'.length);
-      if (id) navigate(`/store-run/${id}`, { replace: true });
+    if (navigation) {
+      navigate(navigation.to, { replace: navigation.replace });
     }
     // Один раз при монтировании — start_param не меняется в рамках сессии Mini App
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [location.pathname, location.search, navigate]);
 
   // Deep Link: Обработка pollId из URL параметров
   // ВАЖНО: Больше НЕ перенаправляем на /poll/:id, остаёмся на главной
@@ -203,19 +191,6 @@ function AppContent() {
   }, [location.search, location.pathname, navigate]);
 
   // Deep Link: storeRunId — переход на страницу конкретного забега
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const storeRunId = searchParams.get('storeRunId');
-    if (storeRunId && location.pathname === '/') {
-      if (import.meta.env.DEV) {
-        console.log('[Deep Link] Store run ID detected:', storeRunId);
-      }
-      navigate(`/store-run/${storeRunId}`, { replace: true });
-    }
-  }, [location.search, location.pathname, navigate]);
-
-
-
   // ✅ ИСПРАВЛЕНО: Preload критичных страниц через requestIdleCallback
   useEffect(() => {
     let cancelled = false;
@@ -351,7 +326,7 @@ function App() {
                 {componentStack}
               </pre>
             ) : null}
-            <button onClick={resetError}>Попробовать снова</button>
+            <button type="button" onClick={resetError}>Попробовать снова</button>
           </div>
         )}
         showDialog={false}

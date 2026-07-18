@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useBudgetWidget } from '../../hooks/useBudgetWidget';
 import { Badge } from '../ui/badge';
 import { UrgentDebtView } from './UrgentDebtView';
@@ -55,6 +55,82 @@ const scenarioStyles = {
     badge: null,
   },
 };
+
+type BudgetScenario = keyof typeof scenarioStyles;
+
+interface BudgetDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  scenario: BudgetScenario;
+  isDark: boolean;
+  style: (typeof scenarioStyles)[BudgetScenario];
+  iconShellClassName: string;
+  children: React.ReactNode;
+}
+
+const BudgetDetailsModal = ({
+  isOpen,
+  onClose,
+  scenario,
+  isDark,
+  style,
+  iconShellClassName,
+  children,
+}: BudgetDetailsModalProps) => (
+  <AnimatePresence>
+    {isOpen && (
+      <>
+        <m.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[55]"
+        />
+        <m.div
+          initial={{ opacity: 0, scale: 0.96, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 20 }}
+          transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-none"
+        >
+          <div className="w-full sm:max-w-md max-h-[92dvh] pointer-events-auto">
+            <div className="relative overflow-hidden rounded-t-3xl sm:rounded-3xl border border-border bg-card shadow-2xl flex flex-col max-h-[92dvh]">
+              <div className={cn(
+                'absolute inset-0 pointer-events-none bg-gradient-to-br',
+                scenario === 'urgent-debt' && 'from-rose-500/10 to-transparent',
+                scenario === 'responsible-view' && (isDark ? 'from-lavender-500/12 to-transparent' : 'from-peach-500/14 to-transparent'),
+                scenario === 'success-message' && 'from-mint-500/10 to-transparent',
+                scenario === 'waiting-confirmation' && 'from-lavender-500/10 to-transparent',
+                scenario === 'overview' && (isDark ? 'from-lavender-500/10 to-transparent' : 'from-peach-500/12 to-transparent'),
+              )} />
+              <div className="relative z-10 flex items-center gap-3 px-5 py-4 border-b border-border/60">
+                <div className={cn('flex size-11 shrink-0 items-center justify-center rounded-2xl', iconShellClassName)}>
+                  {style.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{style.eyebrow}</p>
+                  <h2 className="text-lg font-bold tracking-tight text-foreground truncate">{style.title}</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="p-2 rounded-xl bg-muted/60 hover:bg-muted transition-colors text-muted-foreground"
+                  aria-label="Закрыть"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="relative z-10 px-5 py-5 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
+                {children}
+              </div>
+            </div>
+          </div>
+        </m.div>
+      </>
+    )}
+  </AnimatePresence>
+);
 
 /**
  * Error Boundary для перехвата ошибок виджета
@@ -286,7 +362,7 @@ const BudgetWidgetContent: React.FC = () => {
 
   return (
     <>
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
@@ -319,7 +395,7 @@ const BudgetWidgetContent: React.FC = () => {
           )} />
 
           {/* Триггер: вся карточка тапается и открывает модалку */}
-          <button
+          <button type="button"
             onClick={openModal}
             className={cn(
               "relative z-10 w-full flex items-center justify-between px-4 py-3.5",
@@ -377,73 +453,18 @@ const BudgetWidgetContent: React.FC = () => {
             </div>
           </button>
         </GlassCard>
-      </motion.div>
+      </m.div>
 
-      {/* Модалка с деталями сценария — Variant B */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeModal}
-              className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[55]"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 20 }}
-              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-none"
-            >
-              <div className="w-full sm:max-w-md max-h-[92dvh] pointer-events-auto">
-                <div className="relative overflow-hidden rounded-t-3xl sm:rounded-3xl border border-border bg-card shadow-2xl flex flex-col max-h-[92dvh]">
-                  {/* Тонированный фоновый градиент */}
-                  <div className={cn(
-                    'absolute inset-0 pointer-events-none bg-gradient-to-br',
-                    displayScenario === 'urgent-debt' && 'from-rose-500/10 to-transparent',
-                    displayScenario === 'responsible-view' && (isDark ? 'from-lavender-500/12 to-transparent' : 'from-peach-500/14 to-transparent'),
-                    displayScenario === 'success-message' && 'from-mint-500/10 to-transparent',
-                    displayScenario === 'waiting-confirmation' && 'from-lavender-500/10 to-transparent',
-                    displayScenario === 'overview' && (isDark ? 'from-lavender-500/10 to-transparent' : 'from-peach-500/12 to-transparent'),
-                  )} />
-
-                  {/* Header */}
-                  <div className="relative z-10 flex items-center gap-3 px-5 py-4 border-b border-border/60">
-                    <div className={cn(
-                      'flex size-11 shrink-0 items-center justify-center rounded-2xl',
-                      getIconShellClassName()
-                    )}>
-                      {style.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                        {style.eyebrow}
-                      </p>
-                      <h2 className="text-lg font-bold tracking-tight text-foreground truncate">
-                        {style.title}
-                      </h2>
-                    </div>
-                    <button
-                      onClick={closeModal}
-                      className="p-2 rounded-xl bg-muted/60 hover:bg-muted transition-colors text-muted-foreground"
-                      aria-label="Закрыть"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Body */}
-                  <div className="relative z-10 px-5 py-5 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
-                    {renderScenarioContent()}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <BudgetDetailsModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        scenario={displayScenario}
+        isDark={isDark}
+        style={style}
+        iconShellClassName={getIconShellClassName()}
+      >
+        {renderScenarioContent()}
+      </BudgetDetailsModal>
     </>
   );
 };

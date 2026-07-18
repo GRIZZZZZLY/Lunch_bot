@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { CategoryOrder } from '@/services/category-order.service';
 import { CategoryOrderCalculator } from './CategoryOrderCalculator';
@@ -38,7 +38,7 @@ export function CalculatorModal({
       {isOpen && (
         <>
           {/* Backdrop with blur */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -47,7 +47,7 @@ export function CalculatorModal({
           />
 
           {/* Center Modal with Glass Effect */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -57,7 +57,7 @@ export function CalculatorModal({
             <div className="w-full max-w-2xl max-h-[85vh] pointer-events-auto">
               <GlassCard intensity="solid" className="overflow-hidden relative shadow-2xl">
                 {/* Close button - absolute positioned */}
-                <button
+                <button type="button"
                   onClick={onClose}
                   className="absolute top-3 right-3 z-10 p-1.5 rounded-lg hover:bg-muted/80 transition-colors"
                   aria-label="Закрыть"
@@ -84,7 +84,7 @@ export function CalculatorModal({
                 </div>
               </GlassCard>
             </div>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

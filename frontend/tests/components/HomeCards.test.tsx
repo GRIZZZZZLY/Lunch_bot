@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RecurringPollBadge } from '../../src/components/polls/RecurringPollBadge';
 import { BudgetWidget } from '../../src/components/budget/BudgetWidget';
+import { queryKeys } from '../../src/lib/react-query';
 
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: vi.fn(() => ({
@@ -44,6 +45,15 @@ const createWrapper = () => {
       mutations: { retry: false },
     },
   });
+
+  queryClient.setQueryData(queryKeys.user.groups(), [
+    {
+      id: 1,
+      title: 'Rocket Lunch',
+      role: 'ADMIN',
+      isActive: true,
+    },
+  ]);
 
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

@@ -11,7 +11,6 @@ interface BottomSheetProps {
   initialSnap?: number; // индекс начальной позиции в snapPoints
   title?: string;
   showHandle?: boolean;
-  enableBackdrop?: boolean;
   enableSwipeDown?: boolean;
   className?: string;
 }
@@ -27,7 +26,6 @@ export const BottomSheet = ({
   initialSnap = 0,
   title,
   showHandle = true,
-  enableBackdrop = true,
   enableSwipeDown = true,
   className = '',
 }: BottomSheetProps) => {
@@ -98,7 +96,7 @@ export const BottomSheet = ({
       // Свайп вниз
       if (currentSnap > 0) {
         // Переход к меньшему snap point
-        setCurrentSnap(currentSnap - 1);
+        setCurrentSnap(current => current - 1);
         haptic.selection();
       } else {
         // Закрытие если уже минимальный snap
@@ -108,17 +106,15 @@ export const BottomSheet = ({
     } else if (deltaY < -threshold) {
       // Свайп вверх
       if (currentSnap < snapPoints.length - 1) {
-        setCurrentSnap(currentSnap + 1);
+        setCurrentSnap(current => current + 1);
         haptic.selection();
       }
     }
   };
 
   const handleBackdropClick = () => {
-    if (enableBackdrop) {
-      onClose();
-      haptic.light();
-    }
+    onClose();
+    haptic.light();
   };
 
   // Блокируем скролл body когда BottomSheet открыт
@@ -141,12 +137,12 @@ export const BottomSheet = ({
   const sheetContent = (
     <div className="fixed inset-0 z-50 flex items-end animate-fade-in overflow-hidden">
       {/* Backdrop */}
-      {enableBackdrop && (
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={handleBackdropClick}
-        />
-      )}
+      <button
+        type="button"
+        aria-label="Закрыть окно"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={handleBackdropClick}
+      />
 
       {/* Sheet */}
       <div

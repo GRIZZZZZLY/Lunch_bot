@@ -1,10 +1,14 @@
 import { memo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { MenuItem } from '../../services/menu.service';
 import { Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { useTelegram } from '@/hooks/useTelegram';
+
+const formatPrice = (price?: number) =>
+  price != null ? `${price.toLocaleString('ru-RU')} ₽` : null;
+
 
 interface MenuRowProps {
   item: MenuItem;
@@ -31,9 +35,6 @@ export const MenuRow = memo(({
   const isDark = colorScheme === 'dark';
   const accentText = isDark ? 'text-lavender-400' : 'text-peach-600';
   const [isToggling, setIsToggling] = useState(false);
-
-  const formatPrice = (price?: number) =>
-    price != null ? `${price.toLocaleString('ru-RU')} ₽` : null;
 
   const handleEdit = () => {
     hapticFeedback?.selectionChanged();
@@ -115,7 +116,7 @@ export const MenuRow = memo(({
       {/* Действия (только админ) */}
       {showActions && (
         <div className="flex items-center gap-1.5 mt-2.5 pt-2.5 border-t border-border/50">
-          <motion.button
+          <m.button
             onClick={handleEdit}
             disabled={loading}
             whileTap={{ scale: 0.95 }}
@@ -123,9 +124,9 @@ export const MenuRow = memo(({
           >
             <Edit2 className={ICON_SIZES.sm} />
             Изм.
-          </motion.button>
+          </m.button>
 
-          <motion.button
+          <m.button
             onClick={handleDelete}
             disabled={loading}
             whileTap={{ scale: 0.95 }}
@@ -133,9 +134,9 @@ export const MenuRow = memo(({
           >
             <Trash2 className={ICON_SIZES.sm} />
             Удал.
-          </motion.button>
+          </m.button>
 
-          <motion.button
+          <m.button
             onClick={handleToggle}
             disabled={loading || isToggling}
             whileTap={{ scale: 0.95 }}
@@ -159,7 +160,7 @@ export const MenuRow = memo(({
                 Неакт.
               </>
             )}
-          </motion.button>
+          </m.button>
         </div>
       )}
     </div>

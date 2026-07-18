@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,23 +24,27 @@ export function OrderItemForm({
   isLast = false,
   isEditable = true,
 }: OrderItemFormProps) {
-  const [itemName, setItemName] = useState(existingItem?.itemName || '');
-  const [price, setPrice] = useState(existingItem?.price?.toString() || '');
-  const [notes, setNotes] = useState(existingItem?.notes || '');
-  const [showComment, setShowComment] = useState(!!existingItem?.notes);
-  const onAutoSaveRef = useRef(onAutoSave);
+  const itemNameRef = useRef<HTMLInputElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+  const detailsInitializedRef = useRef(false);
 
-  useEffect(() => {
-    onAutoSaveRef.current = onAutoSave;
-  }, [onAutoSave]);
+  const initializeDetails = (element: HTMLDetailsElement | null) => {
+    if (element && !detailsInitializedRef.current) {
+      element.open = Boolean(existingItem?.notes);
+      detailsInitializedRef.current = true;
+    }
+  };
 
-  // Trigger autosave when fields change
-  useEffect(() => {
+  const handleAutoSave = () => {
     if (!isEditable) {
       return;
     }
 
-    // Don't save if fields are empty
+    const itemName = itemNameRef.current?.value ?? '';
+    const price = priceRef.current?.value ?? '';
+    const notes = notesRef.current?.value ?? '';
+
     if (!itemName.trim() || !price.trim()) {
       return;
     }
@@ -50,14 +54,13 @@ export function OrderItemForm({
       return;
     }
 
-    // Trigger autosave
-    onAutoSaveRef.current({
+    onAutoSave({
       userId,
       itemName: itemName.trim(),
       price: priceNum,
       notes: notes.trim() || undefined,
     });
-  }, [itemName, price, notes, userId, isEditable]);
+  };
 
   return (
     <div className={cn(
@@ -72,52 +75,54 @@ export function OrderItemForm({
         
         <div className="flex-1 grid grid-cols-2 gap-2">
           <Input
+            ref={itemNameRef}
             placeholder="Позиция"
-            value={itemName}
-            onChange={(e) => setItemName(e.target.value)}
+            aria-label={`Позиция для ${userName}`}
+            defaultValue={existingItem?.itemName ?? ''}
+            onChange={handleAutoSave}
             disabled={!isEditable}
             className="h-9 text-sm"
           />
           <Input
+            ref={priceRef}
             type="number"
             step="0.01"
             min="0"
             placeholder="Цена"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            aria-label={`Цена для ${userName}`}
+            defaultValue={existingItem?.price?.toString() ?? ''}
+            onChange={handleAutoSave}
             disabled={!isEditable}
             className="h-9 text-sm"
           />
         </div>
 
-        {/* Toggle Comment Button */}
-        <button
-          type="button"
-          onClick={() => setShowComment(!showComment)}
-          disabled={!isEditable}
-          className="mt-1 p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-          title={showComment ? "Скрыть комментарий" : "Добавить комментарий"}
-        >
-          {showComment ? (
-            <ChevronUp className={ICON_SIZES.sm} />
-          ) : (
-            <ChevronDown className={ICON_SIZES.sm} />
-          )}
-        </button>
       </div>
 
       {/* Collapsible Comment Field */}
-      {showComment && (
+      <details
+        ref={initializeDetails}
+        className="group/comment"
+      >
+        <summary
+          className="ml-auto -mt-8 flex size-8 cursor-pointer list-none items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&::-webkit-details-marker]:hidden"
+          aria-label="Показать или скрыть комментарий"
+        >
+          <ChevronDown className={cn(ICON_SIZES.sm, 'group-open/comment:hidden')} />
+          <ChevronUp className={cn(ICON_SIZES.sm, 'hidden group-open/comment:block')} />
+        </summary>
         <div className="mt-2 pl-[96px]">
           <Textarea
+            ref={notesRef}
             placeholder="Комментарий (необязательно)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            aria-label={`Комментарий для ${userName}`}
+            defaultValue={existingItem?.notes ?? ''}
+            onChange={handleAutoSave}
             disabled={!isEditable}
             className="min-h-[60px] text-sm"
           />
         </div>
-      )}
+      </details>
     </div>
   );
 }

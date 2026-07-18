@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { X, Trophy, TrendingUp, Users } from 'lucide-react';
 import { GlassCard } from '../ui/glass-card';
 import { Button } from '../ui/button';
@@ -28,7 +28,7 @@ export const TopDishModal: React.FC<TopDishModalProps> = ({ isOpen, onClose, top
       {isOpen && (
         <>
           {/* Backdrop */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -38,7 +38,7 @@ export const TopDishModal: React.FC<TopDishModalProps> = ({ isOpen, onClose, top
 
           {/* Modal */}
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            <motion.div
+            <m.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -46,7 +46,8 @@ export const TopDishModal: React.FC<TopDishModalProps> = ({ isOpen, onClose, top
             >
               <GlassCard intensity="high" className="relative overflow-hidden">
                 {/* Close button */}
-                <button
+                <button type="button"
+                  aria-label="Закрыть окно"
                   onClick={onClose}
                   className="absolute top-4 right-4 p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors z-10"
                 >
@@ -135,7 +136,7 @@ export const TopDishModal: React.FC<TopDishModalProps> = ({ isOpen, onClose, top
                   </div>
                 </div>
               </GlassCard>
-            </motion.div>
+            </m.div>
           </div>
         </>
       )}

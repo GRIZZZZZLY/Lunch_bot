@@ -1,5 +1,24 @@
 import React from 'react';
 
+const sizeClasses = {
+  sm: 'h-4 w-4',
+  md: 'h-8 w-8',
+  lg: 'h-12 w-12',
+};
+
+const colorClasses = {
+  primary: 'text-primary',
+  white: 'text-white',
+  gray: 'text-muted-foreground',
+};
+
+const textSizeClasses = {
+  sm: 'text-sm',
+  md: 'text-base',
+  lg: 'text-lg',
+};
+
+
 export interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
   color?: 'primary' | 'white' | 'gray';
@@ -16,23 +35,6 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   text,
   className = '',
 }) => {
-  const sizeClasses = {
-    sm: 'h-4 w-4',
-    md: 'h-8 w-8',
-    lg: 'h-12 w-12',
-  };
-
-  const colorClasses = {
-    primary: 'text-primary',
-    white: 'text-white',
-    gray: 'text-muted-foreground',
-  };
-
-  const textSizeClasses = {
-    sm: 'text-sm',
-    md: 'text-base',
-    lg: 'text-lg',
-  };
 
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>

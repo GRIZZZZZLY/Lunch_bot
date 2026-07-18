@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Calendar, Clock, Settings, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { recurringPollService, RecurringPoll } from '@/services/recurring-poll.service';
@@ -86,7 +86,7 @@ export const RecurringPollBadge = ({
   return (
     <AnimatePresence>
       {isAdmin ? (
-        <motion.button
+        <m.button
           type='button'
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -130,9 +130,9 @@ export const RecurringPollBadge = ({
               <ChevronRight className={ICON_SIZES.md} />
             </div>
           </div>
-        </motion.button>
+        </m.button>
       ) : (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
@@ -157,7 +157,7 @@ export const RecurringPollBadge = ({
               </div>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

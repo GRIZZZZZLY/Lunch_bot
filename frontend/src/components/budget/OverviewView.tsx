@@ -10,6 +10,39 @@ import { toast } from 'sonner';
 import { cn, formatRelativeTime } from '../../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
+const safeFormatRelativeTime = (value?: string | Date | null): string => {
+  if (!value) return '—';
+  const dateValue = typeof value === 'string' ? new Date(value) : value;
+
+  if (Number.isNaN(dateValue.getTime())) return '—';
+
+  return formatRelativeTime(dateValue);
+};
+
+const getUserName = (user?: { firstName?: string; lastName?: string | null }) => {
+  if (!user) return 'Пользователь';
+  return [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Пользователь';
+};
+
+const getMenuItemName = (menuItem?: { name?: string | null }) => {
+  return menuItem?.name || 'Блюдо';
+};
+
+const getItemLabel = (tx: Transaction) => {
+  if (tx.storeRunId != null) {
+    return tx.storeItem?.name || 'Товар';
+  }
+  return getMenuItemName(tx.menuItem);
+};
+
+const getSourceIcon = (tx: Transaction) => {
+  if (tx.storeRunId != null) {
+    return <ShoppingBag className="h-3.5 w-3.5 text-mint-600 dark:text-mint-400" aria-label="Магазин" />;
+  }
+  return <Utensils className="h-3.5 w-3.5 text-peach-600 dark:text-peach-400" aria-label="Обед" />;
+};
+
+
 interface OverviewViewProps {
   debts: Transaction[];
   credits: Transaction[];
@@ -24,43 +57,19 @@ export const OverviewView = ({
 }: OverviewViewProps) => {
   const haptic = useHaptic();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("debts");
-
-  const safeFormatRelativeTime = (value?: string | Date | null): string => {
-    if (!value) return '—';
-    const dateValue = typeof value === 'string' ? new Date(value) : value;
-
-    if (Number.isNaN(dateValue.getTime())) return '—';
-
-    return formatRelativeTime(dateValue);
-  };
-  
   const safeDebts = debts || [];
   const safeCredits = credits || [];
+  const [selectedTab, setSelectedTab] = useState<string>(
+    safeDebts.length > 0 || safeCredits.length === 0 ? 'debts' : 'credits'
+  );
 
-  const getUserName = (user?: { firstName?: string; lastName?: string | null }) => {
-    if (!user) return 'Пользователь';
-    return [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Пользователь';
-  };
+  const activeTab =
+    selectedTab === 'debts' && safeDebts.length === 0 && safeCredits.length > 0
+      ? 'credits'
+      : selectedTab === 'credits' && safeCredits.length === 0 && safeDebts.length > 0
+        ? 'debts'
+        : selectedTab;
 
-  const getMenuItemName = (menuItem?: { name?: string | null }) => {
-    return menuItem?.name || 'Блюдо';
-  };
-
-  const getItemLabel = (tx: Transaction) => {
-    if (tx.storeRunId != null) {
-      return tx.storeItem?.name || 'Товар';
-    }
-    return getMenuItemName(tx.menuItem);
-  };
-
-  const getSourceIcon = (tx: Transaction) => {
-    if (tx.storeRunId != null) {
-      return <ShoppingBag className="h-3.5 w-3.5 text-mint-600 dark:text-mint-400" aria-label="Магазин" />;
-    }
-    return <Utensils className="h-3.5 w-3.5 text-peach-600 dark:text-peach-400" aria-label="Обед" />;
-  };
-  
   const displayDebts = safeDebts.slice(0, 2);
   const displayCredits = safeCredits.slice(0, 2);
   
@@ -87,6 +96,7 @@ export const OverviewView = ({
     onSuccess: () => {
       haptic.success();
       toast.success('Напоминание отправлено!');
+      queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();
@@ -100,7 +110,7 @@ export const OverviewView = ({
   };
   
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+    <Tabs value={activeTab} onValueChange={setSelectedTab} className="w-full">
       {/* Tabs */}
       <TabsList className="grid w-full grid-cols-2 mb-4">
         <TabsTrigger value="debts" className="relative">
@@ -230,6 +240,7 @@ export const OverviewView = ({
                         size="sm"
                         variant="ghost"
                         className="h-7 px-2"
+                        aria-label="Напомнить"
                       >
                         <Bell className={ICON_SIZES.xs} />
                       </Button>

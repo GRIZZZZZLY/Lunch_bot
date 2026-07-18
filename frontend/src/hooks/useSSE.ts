@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryClient';
 import { apiService } from '@/services/api.service';
@@ -43,8 +43,6 @@ interface UseSSEOptions {
   onResponsibleSelected?: (event: ResponsibleSelectedEvent) => void;
 }
 
-/** Backoff: 1s -> 2s -> 5s -> 10s -> 15s (cap) */
-const BACKOFF_DELAYS = [1000, 2000, 5000, 10000, 15000];
 const MAX_RETRIES = 20;
 
 /**
@@ -95,10 +93,7 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
   } = options;
 
   const queryClient = useQueryClient();
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const retryCountRef = useRef(0);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const statusRef = useRef<SSEStatus>('disconnected');
+  const [status, setStatus] = useState<SSEStatus>('disconnected');
 
   // Используем ref для callbacks чтобы не пересоздавать EventSource
   const callbacksRef = useRef({
@@ -106,62 +101,33 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
     onCategoryOrderUpdated,
     onResponsibleSelected,
   });
-  callbacksRef.current = {
-    onPollUpdated,
-    onCategoryOrderUpdated,
-    onResponsibleSelected,
-  };
+  useEffect(() => {
+    callbacksRef.current = {
+      onPollUpdated,
+      onCategoryOrderUpdated,
+      onResponsibleSelected,
+    };
+  }, [onPollUpdated, onCategoryOrderUpdated, onResponsibleSelected]);
 
-  const cleanup = useCallback(() => {
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
-    statusRef.current = 'disconnected';
-  }, []);
-
-  const connect = useCallback(() => {
-    if (!pollId || !enabled) return;
-
-    cleanup();
-    statusRef.current = 'connecting';
-
-    const url = buildSSEUrl(pollId);
-
-    if (import.meta.env.DEV) {
-      console.log(`[SSE] Connecting to poll ${pollId}...`);
+  useEffect(() => {
+    if (!pollId || !enabled) {
+      setStatus('disconnected');
+      return;
     }
 
-    const es = new EventSource(url);
-    eventSourceRef.current = es;
+    let retryCount = 0;
+    setStatus('connecting');
 
-    es.addEventListener('connected', () => {
-      statusRef.current = 'connected';
-      retryCountRef.current = 0;
+    const es = new EventSource(buildSSEUrl(pollId));
 
-      if (import.meta.env.DEV) {
-        console.log(`[SSE] Connected to poll ${pollId}`);
-      }
-    });
+    const handleConnected = (): void => {
+      setStatus('connected');
+      retryCount = 0;
+    };
 
-    es.addEventListener('heartbeat', () => {
-      // Heartbeat — просто подтверждение что соединение живо
-      if (import.meta.env.DEV) {
-        console.log('[SSE] Heartbeat received');
-      }
-    });
-
-    es.addEventListener('poll_updated', (event: MessageEvent) => {
+    const handlePollUpdated = (event: MessageEvent): void => {
       try {
         const data: PollUpdatedEvent = JSON.parse(event.data);
-
-        if (import.meta.env.DEV) {
-          console.log('[SSE] poll_updated:', data);
-        }
 
         // Инвалидируем React Query кеш
         queryClient.invalidateQueries({
@@ -172,18 +138,14 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
         });
 
         callbacksRef.current.onPollUpdated?.(data);
-      } catch (error) {
-        console.error('[SSE] Failed to parse poll_updated:', error);
+      } catch {
+        // Ignore malformed stream events.
       }
-    });
+    };
 
-    es.addEventListener('category_order_updated', (event: MessageEvent) => {
+    const handleCategoryOrderUpdated = (event: MessageEvent): void => {
       try {
         const data: CategoryOrderUpdatedEvent = JSON.parse(event.data);
-
-        if (import.meta.env.DEV) {
-          console.log('[SSE] category_order_updated:', data);
-        }
 
         // Инвалидируем category orders (все связанные query keys)
         queryClient.invalidateQueries({
@@ -200,18 +162,14 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
         });
 
         callbacksRef.current.onCategoryOrderUpdated?.(data);
-      } catch (error) {
-        console.error('[SSE] Failed to parse category_order_updated:', error);
+      } catch {
+        // Ignore malformed stream events.
       }
-    });
+    };
 
-    es.addEventListener('responsible_selected', (event: MessageEvent) => {
+    const handleResponsibleSelected = (event: MessageEvent): void => {
       try {
         const data: ResponsibleSelectedEvent = JSON.parse(event.data);
-
-        if (import.meta.env.DEV) {
-          console.log('[SSE] responsible_selected:', data);
-        }
 
         queryClient.invalidateQueries({
           queryKey: queryKeys.polls.detail(pollId),
@@ -227,50 +185,44 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
         });
 
         callbacksRef.current.onResponsibleSelected?.(data);
-      } catch (error) {
-        console.error('[SSE] Failed to parse responsible_selected:', error);
+      } catch {
+        // Ignore malformed stream events.
       }
-    });
+    };
+
+    es.addEventListener('connected', handleConnected);
+    es.addEventListener('poll_updated', handlePollUpdated);
+    es.addEventListener(
+      'category_order_updated',
+      handleCategoryOrderUpdated
+    );
+    es.addEventListener('responsible_selected', handleResponsibleSelected);
 
     es.onerror = () => {
-      statusRef.current = 'error';
-      es.close();
-      eventSourceRef.current = null;
+      setStatus('error');
+      retryCount++;
 
-      if (retryCountRef.current >= MAX_RETRIES) {
-        if (import.meta.env.DEV) {
-          console.warn(`[SSE] Max retries (${MAX_RETRIES}) reached, giving up`);
-        }
-        statusRef.current = 'disconnected';
-        return;
+      if (retryCount >= MAX_RETRIES) {
+        es.close();
+        setStatus('disconnected');
       }
-
-      const delayIndex = Math.min(
-        retryCountRef.current,
-        BACKOFF_DELAYS.length - 1
-      );
-      const delay = BACKOFF_DELAYS[delayIndex];
-      retryCountRef.current++;
-
-      if (import.meta.env.DEV) {
-        console.log(
-          `[SSE] Reconnecting in ${delay}ms (attempt ${retryCountRef.current}/${MAX_RETRIES})`
-        );
-      }
-
-      retryTimerRef.current = setTimeout(connect, delay);
     };
-  }, [pollId, enabled, cleanup, queryClient]);
 
-  useEffect(() => {
-    if (pollId && enabled) {
-      connect();
-    } else {
-      cleanup();
-    }
+    return () => {
+      es.removeEventListener('connected', handleConnected);
+      es.removeEventListener('poll_updated', handlePollUpdated);
+      es.removeEventListener(
+        'category_order_updated',
+        handleCategoryOrderUpdated
+      );
+      es.removeEventListener(
+        'responsible_selected',
+        handleResponsibleSelected
+      );
+      es.onerror = null;
+      es.close();
+    };
+  }, [pollId, enabled, queryClient]);
 
-    return cleanup;
-  }, [pollId, enabled, connect, cleanup]);
-
-  return statusRef.current;
+  return status;
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { MenuItem } from '../../services/menu.service';
 import { MenuRow } from './MenuRow';
 import { Button } from '../common/Button';
@@ -91,7 +91,7 @@ export const MenuList = ({
   return (
     <div className="space-y-2.5">
       {items.map((item, itemIndex) => (
-        <motion.div
+        <m.div
           key={item.id}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -109,7 +109,7 @@ export const MenuList = ({
             showActions={showActions}
             loading={deletingId === item.id}
           />
-        </motion.div>
+        </m.div>
       ))}
     </div>
   );

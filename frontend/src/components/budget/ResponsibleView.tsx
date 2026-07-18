@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Transaction, budgetService, SendRemindersResult } from '../../services/budget.service';
 import { Button } from '../ui/button';
-import { Bell, CheckCircle, X, Info } from 'lucide-react';
+import { Bell, CheckCircle, Info } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
 import { toast } from 'sonner';
 import { ICON_SIZES } from '@/lib/design-tokens';
@@ -19,6 +19,7 @@ interface ResponsibleViewProps {
 }
 
 const fmt = (n: number) => Math.round(n).toLocaleString('ru-RU');
+const EMPTY_TRANSACTIONS: Transaction[] = [];
 
 /**
  * Сценарий 5: Пользователь — ответственный (показываем кто должен).
@@ -27,7 +28,7 @@ const fmt = (n: number) => Math.round(n).toLocaleString('ru-RU');
 export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) => {
   const haptic = useHaptic();
   const queryClient = useQueryClient();
-  const safeCredits = Array.isArray(credits) ? credits : [];
+  const safeCredits = Array.isArray(credits) ? credits : EMPTY_TRANSACTIONS;
   const currentPollId = safeCredits[0]?.pollId;
 
   // Получаем итоговые суммы по заказу
@@ -91,10 +92,33 @@ export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) =
     confirmMutation.mutate(transactionId);
   };
 
+  const markAllPaidMutation = useMutation({
+    mutationFn: () => budgetService.markAllPaid(currentPollId || 0),
+    onSuccess: () => {
+      haptic.success();
+      toast.success('Все платежи подтверждены!');
+      queryClient.invalidateQueries({ queryKey: ['budget'] });
+    },
+    onError: () => {
+      haptic.error();
+      toast.error('Ошибка подтверждения платежей');
+    },
+  });
+
+  const handleMarkAllPaid = () => {
+    if (!currentPollId) {
+      toast.error('Не удалось определить текущий опрос');
+      return;
+    }
+    haptic.impact();
+    markAllPaidMutation.mutate();
+  };
+
   const remindAllMutation = useMutation({
     mutationFn: () => budgetService.sendRemindersToAll(currentPollId || 0),
     onSuccess: (data: SendRemindersResult) => {
       haptic.success();
+      queryClient.invalidateQueries({ queryKey: ['budget'] });
 
       if (data.failedCount === 0) {
         toast.success(`✅ Отправлено ${data.sentCount} из ${data.totalCount} напоминаний`);
@@ -223,11 +247,9 @@ export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) =
                         onClick={() => handleConfirm(credit.id)}
                         disabled={confirmMutation.isPending}
                         className="h-7 w-7 p-0"
+                        aria-label="Подтвердить платеж"
                       >
                         <CheckCircle className={ICON_SIZES.xs} />
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 w-7 p-0">
-                        <X className={ICON_SIZES.xs} />
                       </Button>
                     </>
                   )}
@@ -269,10 +291,10 @@ export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) =
         </TooltipProvider>
 
         <Button
-          onClick={() => {}}
+          onClick={handleMarkAllPaid}
           variant="outline"
           size="sm"
-          disabled={!allConfirmed}
+          disabled={allConfirmed || markAllPaidMutation.isPending}
         >
           Все оплатили
         </Button>

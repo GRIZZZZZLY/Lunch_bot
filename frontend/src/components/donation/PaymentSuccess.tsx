@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { CheckCircle, Heart, Sparkles } from 'lucide-react';
 import { useWindowSize } from '@/hooks/useWindowSize';
 import { ICON_SIZES } from '@/lib/design-tokens';
@@ -31,27 +31,27 @@ export const PaymentSuccess = ({ amount, currency, onClose }: PaymentSuccessProp
       </Suspense>
 
       {/* Success Icon */}
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
+      <m.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 200, damping: 15 }}
         className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-r from-mint-500 to-lavender-500 shadow-2xl"
       >
         <CheckCircle className={cn(ICON_SIZES['2xl'], "text-white")} />
-      </motion.div>
+      </m.div>
 
       {/* Title */}
-      <motion.h2
+      <m.h2
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
         className="mb-3 text-3xl font-semibold text-gray-900 dark:text-white"
       >
         Спасибо! 💛
-      </motion.h2>
+      </m.h2>
 
       {/* Description */}
-      <motion.p
+      <m.p
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
@@ -59,10 +59,10 @@ export const PaymentSuccess = ({ amount, currency, onClose }: PaymentSuccessProp
       >
         Твоя поддержка в размере <span className="font-semibold text-primary">{amount} {currency}</span><br />
         помогает развивать проект!
-      </motion.p>
+      </m.p>
 
       {/* Icons */}
-      <motion.div
+      <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}
@@ -71,10 +71,10 @@ export const PaymentSuccess = ({ amount, currency, onClose }: PaymentSuccessProp
         <Heart className={cn(ICON_SIZES.xl, "text-coral-500 fill-coral-500")} />
         <Sparkles className={cn(ICON_SIZES.xl, "text-lavender-500")} />
         <Heart className={cn(ICON_SIZES.xl, "text-primary fill-primary")} />
-      </motion.div>
+      </m.div>
 
       {/* Badge Info */}
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.5 }}
@@ -89,10 +89,10 @@ export const PaymentSuccess = ({ amount, currency, onClose }: PaymentSuccessProp
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Он будет отображаться в твоём профиле
         </p>
-      </motion.div>
+      </m.div>
 
       {/* Close Button */}
-      <motion.button
+      <m.button
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
@@ -102,7 +102,7 @@ export const PaymentSuccess = ({ amount, currency, onClose }: PaymentSuccessProp
         className="rounded-full bg-primary px-8 py-3 font-semibold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 hover:shadow-xl"
       >
         Отлично!
-      </motion.button>
+      </m.button>
     </div>
   );
 };

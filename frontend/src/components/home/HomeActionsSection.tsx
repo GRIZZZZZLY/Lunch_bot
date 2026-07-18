@@ -1,14 +1,21 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, UserPlus, Users } from 'lucide-react';
+import { m } from 'framer-motion';
+import { Loader2, RotateCcw, Sparkles, Trophy, UserPlus, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 interface HomeActionsSectionProps {
   showAdminAction: boolean;
+  repeatLastPoll?: ActionState;
   onCreatePoll: () => void;
   onInviteFriend: () => void;
   onAddToGroup: () => void;
+  topDish?: ActionState;
+}
+
+interface ActionState {
+  status: 'ready' | 'loading';
+  onClick: () => void;
 }
 
 interface TileSpec {
@@ -17,6 +24,7 @@ interface TileSpec {
   icon: React.FC<{ className?: string }>;
   onClick: () => void;
   tone: 'lavender' | 'peach';
+  disabled?: boolean;
 }
 
 const TONE_STYLES: Record<TileSpec['tone'], { border: string; bg: string; icon: string; shadow: string }> = {
@@ -36,11 +44,25 @@ const TONE_STYLES: Record<TileSpec['tone'], { border: string; bg: string; icon: 
 
 export const HomeActionsSection: React.FC<HomeActionsSectionProps> = ({
   showAdminAction,
+  repeatLastPoll,
   onCreatePoll,
   onInviteFriend,
   onAddToGroup,
+  topDish,
 }) => {
   const tiles: TileSpec[] = [
+    ...(repeatLastPoll
+      ? [
+          {
+            label: 'Повторить',
+            description: repeatLastPoll.status === 'loading' ? 'Создаём копию' : 'Последнее меню',
+            icon: repeatLastPoll.status === 'loading' ? Loader2 : RotateCcw,
+            onClick: repeatLastPoll.onClick,
+            tone: 'lavender' as const,
+            disabled: repeatLastPoll.status === 'loading',
+          },
+        ]
+      : []),
     {
       label: 'Пригласить',
       description: 'Зовите коллег',
@@ -48,6 +70,18 @@ export const HomeActionsSection: React.FC<HomeActionsSectionProps> = ({
       onClick: onInviteFriend,
       tone: 'lavender',
     },
+    ...(topDish
+      ? [
+          {
+            label: 'Топ блюдо',
+            description: topDish.status === 'loading' ? 'Загружаем' : 'За неделю',
+            icon: topDish.status === 'loading' ? Loader2 : Trophy,
+            onClick: topDish.onClick,
+            tone: 'lavender' as const,
+            disabled: topDish.status === 'loading',
+          },
+        ]
+      : []),
     {
       label: 'В новую группу',
       description: 'Добавить бота',
@@ -60,7 +94,7 @@ export const HomeActionsSection: React.FC<HomeActionsSectionProps> = ({
   return (
     <div className="space-y-3">
       {showAdminAction && (
-        <motion.button
+        <m.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onCreatePoll}
@@ -78,7 +112,7 @@ export const HomeActionsSection: React.FC<HomeActionsSectionProps> = ({
               </div>
             </div>
           </div>
-        </motion.button>
+        </m.button>
       )}
 
       {/* Social pair — Пригласить · В новую группу */}
@@ -87,7 +121,7 @@ export const HomeActionsSection: React.FC<HomeActionsSectionProps> = ({
           const Icon = tile.icon;
           const t = TONE_STYLES[tile.tone];
           return (
-            <motion.button
+            <m.button
               key={tile.label}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -95,22 +129,24 @@ export const HomeActionsSection: React.FC<HomeActionsSectionProps> = ({
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={tile.onClick}
+              disabled={tile.disabled}
               className={cn(
                 'relative w-full rounded-2xl border bg-card p-4 text-left transition-all',
                 t.border,
                 t.shadow,
+                tile.disabled && 'cursor-wait opacity-70',
               )}
             >
               <div className="flex flex-col items-start gap-3">
                 <div className={cn('rounded-xl p-2.5 ring-1 ring-inset ring-border/40', t.bg)}>
-                  <Icon className={cn(ICON_SIZES.lg, t.icon)} />
+                  <Icon className={cn(ICON_SIZES.lg, t.icon, tile.disabled && 'animate-spin')} />
                 </div>
                 <div>
                   <p className="text-base font-semibold text-foreground">{tile.label}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{tile.description}</p>
                 </div>
               </div>
-            </motion.button>
+            </m.button>
           );
         })}
       </div>

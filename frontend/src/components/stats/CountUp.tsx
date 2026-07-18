@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { motion, useSpring, useTransform } from 'framer-motion';
+import {
+  m,
+  useMotionValueEvent,
+  useSpring,
+  useTransform,
+} from 'framer-motion';
 
 interface CountUpProps {
   end: number;
@@ -33,21 +38,19 @@ export const CountUp: React.FC<CountUpProps> = ({
 
   useEffect(() => {
     spring.set(end);
-    
-    const unsubscribe = rounded.on('change', (latest) => {
-      setDisplayValue(parseFloat(latest));
-    });
+  }, [end, spring]);
 
-    return () => unsubscribe();
-  }, [end, spring, rounded]);
+  useMotionValueEvent(rounded, 'change', latest => {
+    setDisplayValue(parseFloat(latest));
+  });
 
   return (
-    <motion.span
+    <m.span
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={className}
     >
       {displayValue}
-    </motion.span>
+    </m.span>
   );
 };

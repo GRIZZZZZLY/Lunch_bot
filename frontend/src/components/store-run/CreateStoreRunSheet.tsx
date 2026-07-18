@@ -116,7 +116,7 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
           {/* Группа (только при нескольких группах) */}
           {activeGroups.length > 1 && (
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Группа</label>
+              <p className="text-sm font-medium text-foreground">Группа</p>
               <div className="space-y-1">
                 {activeGroups.map((group) => {
                   const isSelected = selectedGroupId === group.id;
@@ -150,7 +150,7 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
 
           {/* Store preset */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Магазин</label>
+            <p className="text-sm font-medium text-foreground">Магазин</p>
             <div className="flex flex-wrap gap-2">
               {STORE_PRESETS.map((opt) => (
                 <button
@@ -187,10 +187,11 @@ export const CreateStoreRunSheet: React.FC<CreateStoreRunSheetProps> = ({
           {/* Timer */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Сбор заказов</label>
+              <label htmlFor="store-run-duration" className="text-sm font-medium text-foreground">Сбор заказов</label>
               <span className="text-sm font-semibold text-primary">{minutes} мин</span>
             </div>
             <input
+              id="store-run-duration"
               type="range"
               min={TIMER_MIN}
               max={TIMER_MAX}

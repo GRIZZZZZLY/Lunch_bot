@@ -48,7 +48,6 @@ function report(metric: Metric): void {
     });
 
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.log(`[web-vitals] ${name}=${value.toFixed(2)} (${metric.rating})`);
     }
   } catch {
@@ -68,7 +67,6 @@ export function initWebVitals(): void {
     onTTFB(report);
   } catch (err) {
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.warn('[web-vitals] init failed', err);
     }
   }

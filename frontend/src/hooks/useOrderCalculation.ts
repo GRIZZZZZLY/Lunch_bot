@@ -326,6 +326,7 @@ export function useOrderCalculation({
     saveOrderItem: saveOrderItemMutation.mutate,
     deleteOrderItem: deleteOrderItemMutation.mutate,
     updateCosts: updateCostsMutation.mutate,
+    updateCostsAsync: updateCostsMutation.mutateAsync,
     finalizeCalculation: finalizeCalculationMutation.mutate,
     waitForPendingSaves,
     

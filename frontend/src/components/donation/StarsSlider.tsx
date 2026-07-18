@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue, animate, PanInfo } from 'framer-motion';
+import { m, useMotionValue, animate, PanInfo } from 'framer-motion';
 import { Star } from 'lucide-react';
 
 interface StarsSliderProps {
@@ -143,7 +143,7 @@ export const StarsSlider = ({
     <div className="select-none">
       {/* Большое значение Stars — золотой градиент */}
       <div className="text-center mb-4">
-        <motion.span
+        <m.span
           key={value}
           initial={{ scale: 0.95 }}
           animate={{ scale: 1 }}
@@ -153,7 +153,7 @@ export const StarsSlider = ({
         >
           {value}
           <Star className="w-7 h-7 fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(255,183,59,0.6)]" />
-        </motion.span>
+        </m.span>
       </div>
 
       {/* Track */}
@@ -166,17 +166,17 @@ export const StarsSlider = ({
         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2 rounded-full bg-muted/60" />
 
         {/* Animated gold fill */}
-        <motion.div
+        <m.div
           className="absolute top-1/2 -translate-y-1/2 left-0 h-2 rounded-full overflow-hidden pointer-events-none"
           style={{ width: `${ratio * 100}%` }}
         >
-          <motion.div
+          <m.div
             className="h-full w-full bg-gradient-to-r from-[#FFD56B] via-[#FFEAA0] via-[#FFB73B] to-[#E89B12]"
             style={{ backgroundSize: '200% 100%' }}
             animate={{ backgroundPositionX: ['0%', '200%'] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
           />
-        </motion.div>
+        </m.div>
 
         {/* Checkpoints */}
         {usableWidth > 0 &&
@@ -203,7 +203,7 @@ export const StarsSlider = ({
 
         {/* Thumb */}
         {usableWidth > 0 && (
-          <motion.div
+          <m.div
             drag="x"
             dragConstraints={{ left: 0, right: usableWidth }}
             dragMomentum={false}

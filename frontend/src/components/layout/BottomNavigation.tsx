@@ -1,12 +1,42 @@
 import { useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Home, UtensilsCrossed, BarChart3, User } from 'lucide-react';
 import { useTelegram } from '../../hooks/useTelegram';
-import { useAuth } from '../../hooks/useAuth';
 import { useActivePollsCount, startPollsAutoUpdate, stopPollsAutoUpdate } from '../../store/usePollsStore';
 import { pollsService } from '../../services/polls.service';
 import { cn } from '../../lib/utils';
+
+// Навигация оптимизирована: 4 кнопки вместо 5 (убрана "Голосование")
+// Голосование встроено в главную страницу, FAB для создания
+// Badge показывает активные голосования на "Главная"
+const navItems: NavItem[] = [
+  {
+    path: '/',
+    icon: Home,
+    label: 'Главная',
+    badge: null,
+  },
+  {
+    path: '/menu',
+    icon: UtensilsCrossed,
+    label: 'Меню',
+    badge: null,
+  },
+  {
+    path: '/stats',
+    icon: BarChart3,
+    label: 'Статистика',
+    badge: null,
+  },
+  {
+    path: '/profile',
+    icon: User,
+    label: 'Профиль',
+    badge: null,
+  },
+];
+
 
 interface NavItem {
   path: string;
@@ -17,7 +47,7 @@ interface NavItem {
 
 /**
  * Bottom Navigation Bar - фиксированная навигация снизу
- * 
+ *
  * Особенности:
  * - Touch-friendly элементы (56px высота)
  * - Haptic feedback при тапе
@@ -29,65 +59,18 @@ export const BottomNavigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { colorScheme } = useTelegram();
-  const { user } = useAuth();
   useActivePollsCount();
 
   const isDark = colorScheme === 'dark';
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[BottomNavigation] Mounted', {
-      pathname: location.pathname,
-      colorScheme,
-      isDark,
-      userExists: !!user,
-    });
-  }, [colorScheme, isDark, location.pathname, user]);
-
-  useEffect(() => {
-    console.log('[BottomNavigation] Route changed:', location.pathname);
-  }, [location.pathname]);
-
   // Start auto-update on mount
   useEffect(() => {
-    console.log('[BottomNavigation] Starting polls auto-update');
     startPollsAutoUpdate(60000); // Update every 60 seconds
-    
+
     return () => {
-      console.log('[BottomNavigation] Stopping polls auto-update');
       stopPollsAutoUpdate();
     };
   }, []);
-
-  // Навигация оптимизирована: 4 кнопки вместо 5 (убрана "Голосование")
-  // Голосование встроено в главную страницу, FAB для создания
-  // Badge показывает активные голосования на "Главная"
-  const navItems: NavItem[] = [
-    { 
-      path: '/', 
-      icon: Home, 
-      label: 'Главная',
-      badge: null,
-    },
-    { 
-      path: '/menu', 
-      icon: UtensilsCrossed, 
-      label: 'Меню',
-      badge: null,
-    },
-    { 
-      path: '/stats', 
-      icon: BarChart3, 
-      label: 'Статистика',
-      badge: null,
-    },
-    { 
-      path: '/profile', 
-      icon: User, 
-      label: 'Профиль',
-      badge: null,
-    },
-  ];
 
   const handleNavigation = (path: string) => {
     // Haptic убран - не используем для обычной навигации
@@ -111,12 +94,12 @@ export const BottomNavigation: React.FC = () => {
   }, []);
 
   return (
-    <motion.nav
+    <m.nav
       role="navigation"
       aria-label="Основная навигация"
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ 
+      transition={{
         type: 'spring',
         stiffness: 300,
         damping: 30,
@@ -140,7 +123,7 @@ export const BottomNavigation: React.FC = () => {
           const isActive = location.pathname === item.path;
 
           return (
-            <motion.button
+            <m.button
               key={item.path}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleNavigation(item.path)}
@@ -183,17 +166,17 @@ export const BottomNavigation: React.FC = () => {
                 {/* Badge */}
                 <AnimatePresence>
                   {item.badge && (
-                    <motion.span
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ 
-                        scale: 1, 
+                    <m.span
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{
+                        scale: 1,
                         opacity: 1,
                         // Pulse анимация для главной страницы с активным голосованием
                         ...(item.path === '/' && typeof item.badge === 'number' && item.badge > 0 ? {
                           scale: [1, 1.15, 1],
                         } : {})
                       }}
-                      exit={{ scale: 0, opacity: 0 }}
+                      exit={{ scale: 0.95, opacity: 0 }}
                       transition={{
                         ...(item.path === '/' && typeof item.badge === 'number' && item.badge > 0 ? {
                           type: 'tween',
@@ -217,13 +200,13 @@ export const BottomNavigation: React.FC = () => {
                       )}
                     >
                       {item.badge}
-                    </motion.span>
+                    </m.span>
                   )}
                 </AnimatePresence>
               </div>
 
               {/* Label */}
-              <motion.span
+              <m.span
                 animate={{
                   opacity: isActive ? 1 : 0.7,
                   fontWeight: isActive ? 600 : 500,
@@ -239,11 +222,11 @@ export const BottomNavigation: React.FC = () => {
                 )}
               >
                 {item.label}
-              </motion.span>
+              </m.span>
 
               {/* Active indicator — dot-top (redesign 2026-04-24) */}
               {isActive && (
-                <motion.div
+                <m.div
                   className={cn(
                     'absolute top-0 left-0 right-0 mx-auto h-[3px] w-6 rounded-b-full',
                     'bg-primary'
@@ -258,16 +241,16 @@ export const BottomNavigation: React.FC = () => {
                   }}
                 />
               )}
-            </motion.button>
+            </m.button>
           );
         })}
       </div>
 
       {/* Safe area для iOS */}
-      <div 
-        className="bg-transparent" 
+      <div
+        className="bg-transparent"
         style={{ height: 'env(safe-area-inset-bottom, 0px)' }}
       />
-    </motion.nav>
+    </m.nav>
   );
 };

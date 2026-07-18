@@ -1,9 +1,28 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
+
+const variantColors = {
+  danger: {
+    icon: 'text-red-500',
+    iconBg: 'bg-red-100 dark:bg-red-900/20',
+    button: 'bg-red-500 hover:bg-red-600 text-white',
+  },
+  warning: {
+    icon: 'text-amber-500',
+    iconBg: 'bg-amber-100 dark:bg-amber-900/20',
+    button: 'bg-amber-500 hover:bg-amber-600 text-white',
+  },
+  info: {
+    icon: 'text-blue-500',
+    iconBg: 'bg-blue-100 dark:bg-blue-900/20',
+    button: 'bg-blue-500 hover:bg-blue-600 text-white',
+  },
+};
+
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -46,24 +65,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     onClose();
   };
 
-  const variantColors = {
-    danger: {
-      icon: 'text-red-500',
-      iconBg: 'bg-red-100 dark:bg-red-900/20',
-      button: 'bg-red-500 hover:bg-red-600 text-white',
-    },
-    warning: {
-      icon: 'text-amber-500',
-      iconBg: 'bg-amber-100 dark:bg-amber-900/20',
-      button: 'bg-amber-500 hover:bg-amber-600 text-white',
-    },
-    info: {
-      icon: 'text-blue-500',
-      iconBg: 'bg-blue-100 dark:bg-blue-900/20',
-      button: 'bg-blue-500 hover:bg-blue-600 text-white',
-    },
-  };
-
   const colors = variantColors[variant];
 
   return (
@@ -71,7 +72,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       {isOpen && (
         <>
           {/* Backdrop */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -81,7 +82,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
           {/* Dialog */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <motion.div
+            <m.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -90,7 +91,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               className="pointer-events-auto w-full max-w-md bg-background rounded-2xl shadow-2xl border border-border overflow-hidden relative"
             >
               {/* Close button - positioned relative to dialog */}
-              <button
+              <button type="button"
                 onClick={onClose}
                 className="absolute top-4 right-4 p-2 rounded-lg hover:bg-muted transition-colors z-10"
                 aria-label="Закрыть"
@@ -169,7 +170,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                   )}
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           </div>
         </>
       )}

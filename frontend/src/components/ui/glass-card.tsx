@@ -1,6 +1,15 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
+const intensityClasses = {
+  low: "bg-white/55 dark:bg-card/55 backdrop-blur-sm border-white/30 dark:border-white/5",
+  medium: "bg-white/72 dark:bg-card/72 backdrop-blur-md border-border/60",
+  high: "bg-white/86 dark:bg-card/84 backdrop-blur-lg border-border/70",
+  ultra: "bg-white/78 dark:bg-card/80 backdrop-blur-xl border-border/60",
+  solid: "bg-card dark:bg-card border-border",
+}
+
+
 export interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
    * Intensity of glassmorphism effect (low, medium, high, ultra) or solid gradient
@@ -23,13 +32,6 @@ export interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
  */
 export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
   ({ className, intensity = "medium", hover = false, children, ...props }, ref) => {
-    const intensityClasses = {
-      low: "bg-white/55 dark:bg-card/55 backdrop-blur-sm border-white/30 dark:border-white/5",
-      medium: "bg-white/72 dark:bg-card/72 backdrop-blur-md border-border/60",
-      high: "bg-white/86 dark:bg-card/84 backdrop-blur-lg border-border/70",
-      ultra: "bg-white/78 dark:bg-card/80 backdrop-blur-xl border-border/60",
-      solid: "bg-card dark:bg-card border-border",
-    }
 
     return (
       <div

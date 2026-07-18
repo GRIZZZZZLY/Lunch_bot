@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { DollarSign, Bell, Check, AlertCircle } from 'lucide-react';
 import { PastelCard } from '../ui/pastel-card';
 import { Button } from '../ui/button';
@@ -110,15 +110,18 @@ export const DebtManagementCard: React.FC<DebtManagementCardProps> = ({
             </div>
           ) : (
             debtors.map((debtor, index) => (
-              <motion.div
+              <m.div
                 key={debtor.userId}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
                 className="rounded-xl border border-border/70 bg-card/72 p-3 transition-colors hover:bg-muted/35"
               >
-                <div 
-                  className="cursor-pointer"
+                <button
+                  type="button"
+                  className="w-full cursor-pointer text-left"
+                  aria-expanded={expandedDebtor === debtor.userId}
+                  aria-controls={`debtor-details-${debtor.userId}`}
                   onClick={() => setExpandedDebtor(expandedDebtor === debtor.userId ? null : debtor.userId)}
                 >
                   <div className="flex items-center justify-between">
@@ -142,12 +145,13 @@ export const DebtManagementCard: React.FC<DebtManagementCardProps> = ({
                         </div>
                     </div>
                   </div>
-                </div>
+                </button>
 
                 {expandedDebtor === debtor.userId && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
+                  <m.div
+                    id={`debtor-details-${debtor.userId}`}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
                     className="mt-3 space-y-2 border-t border-border/70 pt-3"
                   >
                     {debtor.debts.map((debt) => (
@@ -186,9 +190,9 @@ export const DebtManagementCard: React.FC<DebtManagementCardProps> = ({
                         </div>
                       </div>
                     ))}
-                  </motion.div>
+                  </m.div>
                 )}
-              </motion.div>
+              </m.div>
             ))
           )}
         </div>

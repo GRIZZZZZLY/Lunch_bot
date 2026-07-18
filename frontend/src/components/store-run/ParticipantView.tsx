@@ -153,6 +153,7 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({ run, currentUs
           />
           <div className="flex gap-2">
             <input
+              aria-label="Количество"
               type="number"
               min={1}
               max={99}

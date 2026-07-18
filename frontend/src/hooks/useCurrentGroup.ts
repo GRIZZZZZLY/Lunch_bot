@@ -10,13 +10,19 @@ export function useCurrentGroup(): {
 } {
   const currentGroupId = useAppStore((s) => s.currentGroupId);
   const setCurrentGroupId = useAppStore((s) => s.setCurrentGroupId);
-  const { data: groups = [] } = useUserGroups();
+  const { data: groups = [], isSuccess } = useUserGroups();
 
   useEffect(() => {
-    if (groups.length === 0) return;
+    if (groups.length === 0) {
+      if (isSuccess && currentGroupId !== null) {
+        setCurrentGroupId(null);
+      }
+      return;
+    }
+
     const valid = currentGroupId != null && groups.some((g) => g.id === currentGroupId);
     if (!valid) setCurrentGroupId(groups[0].id);
-  }, [groups, currentGroupId, setCurrentGroupId]);
+  }, [groups, isSuccess, currentGroupId, setCurrentGroupId]);
 
   const currentGroup = groups.find((g) => g.id === currentGroupId) ?? null;
   return { currentGroupId, groups, currentGroup };
