@@ -1,0 +1,393 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-4) 0;
+}
+
+/* сводка */
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.summaryTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.summaryMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.initiator {
+  font-size: var(--text-15);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.counts {
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+}
+
+/* countdown */
+.countdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.countdownRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.countdownTime {
+  font-family: var(--font-body);
+  font-size: var(--text-22);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.countdownTime.low {
+  color: var(--danger);
+}
+
+.countdownEnd {
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+}
+
+.bar {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--divider);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width 1s linear;
+}
+
+/* секции участников */
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.sectionCount {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--divider);
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowName {
+  font-size: var(--text-15);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.rowQty {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.rowNotes {
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/* слот «добавить» у инициатора */
+.mineAdd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.mineEmpty {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+}
+
+/* sticky CTA-зона */
+.cta {
+  position: sticky;
+  bottom: 0;
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) calc(var(--space-4) + var(--safe-area-bottom, 0px));
+  background: var(--canvas);
+  border-top: 1px solid var(--divider);
+  /* компенсируем горизонтальный padding .screen */
+  margin-left: calc(-1 * var(--space-4));
+  margin-right: calc(-1 * var(--space-4));
+}
+
+.cancelText {
+  color: var(--danger);
+}
+
+/* служебные состояния */
+.stateWrap {
+  padding: var(--space-4);
+}
+
+.skeletonStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.skeletonRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* ---- SHOPPING ---- */
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progressRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.progressLabel {
+  font-size: var(--text-15);
+  font-weight: 600;
+}
+
+.progressLeft {
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+}
+
+/* строка-чеклист: колонка, крупные тап-зоны */
+.shopRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--divider);
+}
+
+.shopRowInfo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ownerLabel {
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.rowStatusLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.rowPrice {
+  font-size: var(--text-15);
+  font-weight: 600;
+}
+
+.itemActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.itemActions > * {
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+
+.priceEditor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.priceButtons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.personalSum {
+  font-size: var(--text-15);
+}
+
+.personalSum strong {
+  font-size: var(--text-18);
+}
+
+.noticeLink {
+  margin-top: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--danger);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ---- терминальные состояния ---- */
+.summaryFigures {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.figureMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-15);
+}
+
+.figureMain strong {
+  font-size: var(--text-22);
+  letter-spacing: -0.02em;
+}
+
+.figureRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-15);
+  color: var(--text-secondary);
+}
+
+.figureRow strong {
+  color: var(--text-primary);
+}
+
+.breakdownList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.breakdownGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.breakdownHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  font-size: var(--text-15);
+  font-weight: 600;
+}
+
+.breakdownRole {
+  font-size: var(--text-13);
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.breakdownSum {
+  font-size: var(--text-15);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.breakdownSumNote {
+  font-size: var(--text-13);
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.breakdownRows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.requestedNote {
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+}
+
+/* вторичная навигация в конце контента (не sticky) */
+.endNav {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) 0 var(--space-6);
+}
