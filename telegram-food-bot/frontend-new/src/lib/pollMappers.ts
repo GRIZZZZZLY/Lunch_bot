@@ -1,5 +1,16 @@
-import type { VoteOption } from '@/components/home/InlineVotingCard';
 import type { MenuItem, Poll } from '@/types/models';
+
+type VotePalette = 'peach' | 'lav' | 'sage' | 'sky' | 'rose';
+
+export interface VoteOption {
+  id: string | number;
+  emoji: string;
+  name: string;
+  price: number;
+  minutes: number;
+  votes: number;
+  palette: VotePalette;
+}
 
 const PALETTES: VoteOption['palette'][] = ['peach', 'sage', 'rose', 'lav', 'sky'];
 

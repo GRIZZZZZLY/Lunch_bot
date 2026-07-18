@@ -27,16 +27,16 @@ export function UrgentDebtView({
   cbs: BudgetCallbacks;
 }) {
   const debt = data.myDebt;
-  if (!debt) return null;
-
   const deadlineMin = 5;
-  const [secondsLeft, setSecondsLeft] = useState(
-    Math.max(0, deadlineMin * 60 - Math.floor(debt.ageMinutes * 60)),
+  // Хуки — до раннего return, иначе смена debt null↔значение ломает порядок хуков.
+  const [secondsLeft, setSecondsLeft] = useState(() =>
+    Math.max(0, deadlineMin * 60 - Math.floor((debt?.ageMinutes ?? 0) * 60)),
   );
   useEffect(() => {
     const id = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(id);
   }, []);
+  if (!debt) return null;
 
   const mm = Math.floor(secondsLeft / 60);
   const ss = String(secondsLeft % 60).padStart(2, '0');
