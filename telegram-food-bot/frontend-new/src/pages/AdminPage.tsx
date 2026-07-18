@@ -7,6 +7,8 @@ import { DebtManagementCard } from '@/components/admin/DebtManagementCard';
 import { DataCleanupCard } from '@/components/admin/DataCleanupCard';
 import { ReminderSettingsCard } from '@/components/admin/ReminderSettingsCard';
 import { useAuth } from '@/hooks/useAuth';
+import { isGlobalAdmin } from '@/lib/permissions';
+import { useScreenHeader } from '@/app/layouts/screenHeader';
 import type { CreatePollContext, CreatePollFormState } from '@/components/admin/types';
 import { useActivePolls } from '@/hooks/usePolls';
 import { usePollHistory } from '@/hooks/useUser';
@@ -40,7 +42,8 @@ export function AdminPage() {
   const navigate = useNavigate();
   const groupId = useAppStore((s) => s.currentGroupId);
   const { user } = useAuth();
-  const isAdmin = user?.isAdmin ?? false;
+  const isAdmin = isGlobalAdmin(user);
+  useScreenHeader('Управление');
   const [tab, setTab] = useState<Tab>('dashboard');
   const { data: activePolls = [] } = useActivePolls();
   const { data: history = [] } = usePollHistory({ limit: 60 });

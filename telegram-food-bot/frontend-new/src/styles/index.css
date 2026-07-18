@@ -3,86 +3,8 @@
 @tailwind utilities;
 
 /* ============================================================
-   Rocket Lunch — Design System Tokens
-   Ported from docs/design-prompts/exports/Rocket Lunch Design System.html
-   ============================================================ */
-
-:root {
-  /* Brand */
-  --peach-400: #ff9d66;
-  --peach-500: #d86a2c;
-  --peach-600: #b84d12;
-  --lav-400: #a78bfa;
-  --lav-500: #8b5cf6;
-  --mint-400: #34d399;
-  --mint-500: #22b573;
-  --coral-400: #f87171;
-  --coral-500: #e55a4f;
-  --butter-400: #f4c15d;
-  --butter-500: #e6a93d;
-  --succ-soft: #9fd4b3;
-  --warn-soft: #d9d394;
-  --err-soft: #d4a5a5;
-
-  /* Pastel gradients */
-  --g-peach: linear-gradient(135deg, #f3c4a7, #f7d5c1);
-  --g-lav: linear-gradient(135deg, #d1c1fc, #e5ddfe);
-  --g-sage: linear-gradient(135deg, #8ce0b9, #b3ebd1);
-  --g-sky: linear-gradient(135deg, #7dd3fc, #bae6fd);
-  --g-rose: linear-gradient(135deg, #fca5a5, #fecaca);
-  --g-butter: linear-gradient(135deg, #fde7a6, #f9d978);
-  --g-coral: linear-gradient(135deg, #fca5a5, #f87171);
-  --g-mint: linear-gradient(135deg, #8ce0b9, #b3ebd1);
-  --g-peachlav: linear-gradient(135deg, #f3c4a7, #d1c1fc);
-
-  /* Aliases used by ported budget.css */
-  --page-ink: #1d2127;
-  --page-muted: #8b929e;
-  --page-line: rgba(55, 65, 90, 0.1);
-
-  /* Typography */
-  --sans: 'Onest', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --display: 'Unbounded', var(--sans);
-  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-
-  /* LIGHT theme defaults — «Графит и мёд», выравнены с [data-theme="light"] в redesign-v2.css */
-  --surface: #ffffff;
-  --surface-2: #f3f5f8;
-  --ink: #1d2127;
-  --ink-2: #5d646f;
-  --ink-3: #8b929e;
-  --line: rgba(55, 65, 90, 0.1);
-  --line-2: rgba(55, 65, 90, 0.16);
-  --pri: #d68914;
-  --pri-ink: #261a02;
-  --card-grad: linear-gradient(180deg, #ffffff, #f3f5f8);
-  --shadow-card: 0 2px 8px rgba(55, 65, 90, 0.06);
-  --shadow-elev: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 14px 30px -16px rgba(55, 65, 90, 0.3), 0 3px 8px -4px rgba(55, 65, 90, 0.15);
-  --page-bg: radial-gradient(120% 55% at 85% -8%, rgba(235, 165, 60, 0.2), transparent 60%),
-             radial-gradient(80% 40% at -10% 105%, rgba(214, 137, 20, 0.1), transparent 60%),
-             linear-gradient(180deg, #f7f8fa 0%, #ebedf1 100%);
-}
-
-.dark {
-  --surface: #1e2025;
-  --surface-2: #17181c;
-  --ink: #f1f3f7;
-  --ink-2: #aeb5c0;
-  --ink-3: #787f8c;
-  --line: rgba(228, 235, 248, 0.08);
-  --line-2: rgba(228, 235, 248, 0.14);
-  --pri: #f0ab46;
-  --pri-ink: #261a02;
-  --card-grad: linear-gradient(180deg, #212329, #1b1d22);
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.35);
-  --shadow-elev: inset 0 1px 0 rgba(235, 240, 250, 0.06), 0 14px 34px -16px rgba(4, 6, 10, 0.8), 0 3px 8px -3px rgba(6, 8, 12, 0.5);
-  --page-bg: radial-gradient(120% 55% at 85% -8%, rgba(240, 171, 70, 0.13), transparent 60%),
-             radial-gradient(80% 40% at -10% 105%, rgba(214, 137, 20, 0.07), transparent 60%),
-             linear-gradient(180deg, #17181c 0%, #111216 100%);
-}
-
-/* ============================================================
-   Base
+   Rocket Lunch — base styles.
+   Все токены — в tokens.css (единственный источник).
    ============================================================ */
 
 html,
@@ -94,49 +16,17 @@ body,
   min-height: 100dvh;
 }
 
-/* Канвас страницы: плоский цвет на html, поверх — фиксированное «свечение»
-   из макета (два радиальных градиента + вертикальный), см. body::before.
-   Фиксированный псевдоэлемент вместо background-attachment: fixed — из-за iOS. */
+/* Единственное определение фона страницы: плоский канвас из токенов. */
 html {
-  background: #ebedf1;
-}
-
-html.dark {
-  background: #111216;
+  background: var(--canvas, #ebedf1);
 }
 
 body {
-  font-family: var(--sans);
+  font-family: var(--font-body);
   background: transparent;
-  color: var(--text-primary, var(--ink));
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: var(--bg-page, var(--page-bg));
-}
-
-/* Зерно из макета: SVG-шум поверх всего, едва заметная фактура */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 999;
-  pointer-events: none;
-  opacity: 0.035;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-}
-
-html.dark body::after {
-  opacity: 0.045;
-  mix-blend-mode: overlay;
 }
 
 #root {

@@ -33,7 +33,6 @@ export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: 'var(--accent-glow)',
             }}
           >
             <Icon name="sparkle" size={18} stroke={2} />

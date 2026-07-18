@@ -9,6 +9,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useMyGroups } from '@/hooks/useUser';
 import { useAppStore } from '@/store/useAppStore';
+import { isGlobalAdmin } from '@/lib/permissions';
 import type { MenuItem } from '@/types/models';
 import { Icon } from '@/components/rl/Icon';
 import { Badge, Button, Chip, Field, IconButton, SearchBar, Switch } from '@/components/rl/primitives';
@@ -60,7 +61,7 @@ function categoryTone(category: string): string {
 
 export default function MenuPage() {
   const { user } = useAuth();
-  const isAdmin = !!user?.isAdmin;
+  const isAdmin = isGlobalAdmin(user);
 
   // Меню per-group: выбор группы здесь локальный (null = текущая активная)
   const currentGroupId = useAppStore((s) => s.currentGroupId);

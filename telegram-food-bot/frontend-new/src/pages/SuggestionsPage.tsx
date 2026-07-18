@@ -1,6 +1,6 @@
 import { useMemo, useState, type ChangeEvent, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { isGlobalAdmin } from '@/lib/permissions';
 import {
   useApproveSuggestion,
   useCreateSuggestion,
@@ -9,7 +9,7 @@ import {
   useSuggestions,
 } from '@/hooks/useSuggestions';
 import type { MenuSuggestion, SuggestionStatus } from '@/types/models';
-import { BackHeader } from '@/components/rl/parts';
+import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { Badge, Button, Chip, Field, IconButton, type BadgeTone } from '@/components/rl/primitives';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Icon } from '@/components/rl/Icon';
@@ -29,9 +29,8 @@ function fmtDate(iso: string): string {
 }
 
 export function SuggestionsPage({ onlyMine = false }: Props) {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.isAdmin ?? false;
+  const isAdmin = isGlobalAdmin(user);
   const [tab, setTab] = useState<'all' | 'mine'>(onlyMine || !isAdmin ? 'mine' : 'all');
   const [formOpen, setFormOpen] = useState(false);
 
@@ -46,15 +45,17 @@ export function SuggestionsPage({ onlyMine = false }: Props) {
     return suggestions;
   }, [suggestions, tab, user?.id]);
 
+  const addAction = useMemo(
+    () => (
+      <IconButton variant="secondary" name="plus" aria-label="Добавить предложение" onClick={() => setFormOpen(true)} />
+    ),
+    [],
+  );
+  useScreenHeader('Предложения блюд', addAction);
+
   return (
     <div className="rl">
-      <BackHeader
-        title="Предложения блюд"
-        onBack={() => navigate(-1)}
-        action={<IconButton variant="secondary" name="plus" aria-label="Добавить предложение" onClick={() => setFormOpen(true)} />}
-      />
-
-      <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ padding: '12px 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {isAdmin && (
           <div style={{ display: 'flex', gap: 8 }}>
             <Chip on={tab === 'all'} onClick={() => setTab('all')}>

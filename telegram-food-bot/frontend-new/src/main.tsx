@@ -1,10 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
+import './styles/tokens.css';
 import './styles/index.css';
 import './styles/redesign-v2.css';
 import App from './App';
-import { getWebApp, initTelegramWebApp } from './lib/telegram';
+import { initTelegramWebApp } from './lib/telegram';
+import { applyThemeNow, initThemeSync } from './lib/theme';
+import { initViewportSync } from './lib/viewport';
 import { queryClient } from './lib/queryClient';
 import { bootstrapAuth } from './lib/bootstrap';
 import { captureError, installGlobalHandlers } from './lib/monitoring';
@@ -13,31 +16,10 @@ import { initSentry } from './lib/sentry';
 initSentry();
 installGlobalHandlers();
 
-const root = document.documentElement;
-
-function applyTheme() {
-  // Manual override (set via the in-app switcher) wins over Telegram/system.
-  let override: string | null = null;
-  try {
-    override = localStorage.getItem('rl-theme');
-  } catch {
-    /* no-op */
-  }
-  const tg = getWebApp();
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const isDark =
-    override === 'dark' ||
-    (override !== 'light' && (tg?.colorScheme === 'dark' || (!tg && prefersDark)));
-  root.classList.toggle('dark', isDark);
-  root.setAttribute('data-theme', isDark ? 'dark' : 'light');
-}
-
-applyTheme();
-
-const tg = initTelegramWebApp();
-tg?.onEvent('themeChanged', applyTheme);
-
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+initTelegramWebApp();
+applyThemeNow();
+initThemeSync();
+initViewportSync();
 
 bootstrapAuth().catch((err) => {
   captureError(err, { source: 'main:bootstrapAuth' });
