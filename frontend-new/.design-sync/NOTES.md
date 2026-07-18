@@ -24,3 +24,4 @@
 - Иконки для conventions.md перечислены из `components/rl/Icon.tsx` — при добавлении компонентов с новыми иконками сверить список.
 - `DSThemeRoot`/`ds-theme-root.tsx` живёт вне src/ — приложение о нём не знает; это sync-only артефакт.
 - Превью импортируют из 'telegram-food-bot-frontend-new' (имя пакета приложения) — при переименовании пакета обновить все .design-sync/previews/*.tsx.
+- Продуктовое знание для дизайн-агента: карта экранов в conventions.md (→ README, системный промпт агента) + полные спеки в docs/design-guidelines/*.md (guidelinesGlob → guidelines/ проекта). При изменении продукта обновлять оба слоя и re-sync (uploadit только aux).
