@@ -30,6 +30,9 @@ export interface TelegramWebApp {
   isExpanded: boolean;
   viewportHeight: number;
   viewportStableHeight: number;
+  /** Bot API 8.0+: инсеты устройства и интерфейса Telegram (могут отсутствовать). */
+  safeAreaInset?: { top: number; bottom: number; left: number; right: number };
+  contentSafeAreaInset?: { top: number; bottom: number; left: number; right: number };
   headerColor: string;
   backgroundColor: string;
   ready: () => void;
@@ -109,15 +112,8 @@ export function initTelegramWebApp(): TelegramWebApp | null {
   wa.ready();
   wa.expand();
 
-  const theme = wa.colorScheme;
-  document.documentElement.setAttribute('data-theme', theme);
-  syncTelegramChrome(wa);
-
-  wa.onEvent('themeChanged', () => {
-    document.documentElement.setAttribute('data-theme', wa.colorScheme);
-    syncTelegramChrome(wa);
-  });
-
+  // Тема (data-theme, подписка на themeChanged) живёт в lib/theme.ts —
+  // единственном владельце темы; здесь только жизненный цикл Mini App.
   return wa;
 }
 
