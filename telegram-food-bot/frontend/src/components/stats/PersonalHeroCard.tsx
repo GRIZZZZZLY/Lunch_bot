@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { User, TrendingUp, Wallet } from 'lucide-react';
 import { PastelCard, CardHeader, CardTitle, CardContent } from '../ui/pastel-card';
 
@@ -8,7 +8,7 @@ interface PersonalHeroCardProps {
 
 export function PersonalHeroCard({ isDark }: PersonalHeroCardProps) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
@@ -59,6 +59,6 @@ export function PersonalHeroCard({ isDark }: PersonalHeroCardProps) {
           </div>
         </CardContent>
       </PastelCard>
-    </motion.div>
+    </m.div>
   );
 }

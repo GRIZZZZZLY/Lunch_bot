@@ -24,19 +24,6 @@ export const useMenuItems = (options?: { enabled?: boolean }) => {
 /**
  * Хук для получения одного блюда
  */
-export const useMenuItem = (id: number, options?: { enabled?: boolean }) => {
-  return useQuery({
-    queryKey: queryKeys.menu.detail(id),
-    queryFn: async () => {
-      const response = await menuService.getItemById(id);
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to fetch menu item');
-      }
-      return response.data;
-    },
-    enabled: !!id && (options?.enabled ?? true),
-  });
-};
 
 /**
  * Хук для создания блюда
@@ -55,9 +42,6 @@ export const useCreateMenuItem = () => {
     onSuccess: () => {
       // Блюдо могло быть создано в нескольких группах — инвалидируем все списки меню
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.all });
-    },
-    onError: (error: Error) => {
-      console.error('[useCreateMenuItem] Error:', error.message);
     },
   });
 };
@@ -85,11 +69,6 @@ export const useUpdateMenuItem = () => {
       if (currentGroupId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
       }
-
-      console.log('[useUpdateMenuItem] Success:', data);
-    },
-    onError: (error: Error) => {
-      console.error('[useUpdateMenuItem] Error:', error.message);
     },
   });
 };
@@ -117,11 +96,6 @@ export const useDeleteMenuItem = () => {
       if (currentGroupId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
       }
-
-      console.log('[useDeleteMenuItem] Success: item deleted', id);
-    },
-    onError: (error: Error) => {
-      console.error('[useDeleteMenuItem] Error:', error.message);
     },
   });
 };
@@ -164,16 +138,12 @@ export const useToggleMenuItemStatus = () => {
       if (currentGroupId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
       }
-
-      console.log(`[useToggleMenuItemStatus] Success: ${data?.isActive ? 'activated' : 'deactivated'}`, id);
     },
-    onError: (error: Error, id, context) => {
+    onError: (_error: Error, id, context) => {
       // Откат optimistic update
       if (context?.previousItem) {
         queryClient.setQueryData(queryKeys.menu.detail(id), context.previousItem);
       }
-
-      console.error('[useToggleMenuItemStatus] Error:', error.message);
     },
   });
 };
@@ -181,19 +151,3 @@ export const useToggleMenuItemStatus = () => {
 /**
  * Хук для префетча блюда (предзагрузка)
  */
-export const usePrefetchMenuItem = () => {
-  const queryClient = useQueryClient();
-
-  return (id: number) => {
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.menu.detail(id),
-      queryFn: async () => {
-        const response = await menuService.getItemById(id);
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to fetch menu item');
-        }
-        return response.data;
-      },
-    });
-  };
-};

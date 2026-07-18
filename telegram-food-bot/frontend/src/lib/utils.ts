@@ -1,6 +1,12 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+const RUSSIAN_DATE_FORMATTER = new Intl.DateTimeFormat('ru-RU', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+})
+
 /**
  * Utility function to merge Tailwind CSS classes
  * Combines clsx and tailwind-merge for optimal class handling
@@ -13,38 +19,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Format currency with Russian Ruble symbol
- */
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-/**
  * Format date to Russian locale
  */
 export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(d)
-}
-
-/**
- * Format time to Russian locale
- */
-export function formatTime(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date
-  return new Intl.DateTimeFormat('ru-RU', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(d)
+  return RUSSIAN_DATE_FORMATTER.format(d)
 }
 
 /**
@@ -74,71 +53,4 @@ export function formatRelativeTime(date: Date | string): string {
 export function pluralize(count: number, words: [string, string, string]): string {
   const cases = [2, 0, 1, 1, 1, 2]
   return words[(count % 100 > 4 && count % 100 < 20) ? 2 : cases[Math.min(count % 10, 5)]]
-}
-
-/**
- * Truncate text with ellipsis
- */
-export function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  return `${text.slice(0, maxLength)  }...`
-}
-
-/**
- * Sleep utility for delays
- */
-export function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-/**
- * Debounce function
- */
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout> | null = null
-  
-  return function executedFunction(...args: Parameters<T>) {
-    const later = () => {
-      timeout = null
-      func(...args)
-    }
-    
-    if (timeout) clearTimeout(timeout)
-    timeout = setTimeout(later, wait)
-  }
-}
-
-/**
- * Get initials from name
- */
-export function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
-
-/**
- * Generate random color for avatars
- */
-export function getAvatarColor(str: string): string {
-  const colors = [
-    'bg-peach-500',
-    'bg-mint-500',
-    'bg-lavender-500',
-    'bg-coral-500',
-    'bg-butter-500',
-  ]
-  
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  
-  return colors[Math.abs(hash) % colors.length]
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { cn } from '../../lib/utils';
 
 interface CircularProgressTimerProps {
@@ -114,7 +114,7 @@ export const CircularProgressTimer: React.FC<CircularProgressTimerProps> = ({
         />
         
         {/* Progress circle */}
-        <motion.circle
+        <m.circle
           cx={width / 2}
           cy={width / 2}
           r={radius}

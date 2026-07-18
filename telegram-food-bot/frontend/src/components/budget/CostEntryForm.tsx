@@ -40,12 +40,14 @@ export const CostEntryForm = ({
   const queryClient = useQueryClient();
 
   const [deliveryCost, setDeliveryCost] = useState<string>(
-    initialValues?.deliveryCost?.toString() || '0'
+    () => initialValues?.deliveryCost?.toString() || '0'
   );
   const [serviceFee, setServiceFee] = useState<string>(
-    initialValues?.serviceFee?.toString() || '0'
+    () => initialValues?.serviceFee?.toString() || '0'
   );
-  const [tip, setTip] = useState<string>(initialValues?.tip?.toString() || '0');
+  const [tip, setTip] = useState<string>(
+    () => initialValues?.tip?.toString() || '0'
+  );
   const [notes, setNotes] = useState<string>(initialValues?.notes || '');
 
   const setOrderCostsMutation = useMutation({

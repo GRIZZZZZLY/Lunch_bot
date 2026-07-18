@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Heart, ChevronRight } from 'lucide-react';
 import { DonationModal } from './DonationModal';
 import { useHaptic } from '../../hooks/useHaptic';
@@ -78,7 +78,7 @@ export const DonationBar: React.FC = () => {
     <>
       <AnimatePresence>
         {isVisible && (
-          <motion.div
+          <m.div
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.1}
@@ -104,6 +104,9 @@ export const DonationBar: React.FC = () => {
             style={{ bottom: DONATION_THEME.spacing.barBottom }}
           >
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="Поддержать проект"
               className="overflow-hidden cursor-pointer rounded-2xl transition-all duration-300 hover:scale-[1.02]"
               style={{
                 background: styles.gradients.bar,
@@ -111,12 +114,18 @@ export const DonationBar: React.FC = () => {
                 border: styles.border.default,
               }}
               onClick={handleTap}
+              onKeyDown={event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  handleTap();
+                }
+              }}
             >
               <div className="relative py-4 px-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1">
                     {/* Heart icon with subtle pulse */}
-                    <motion.div
+                    <m.div
                       animate={{
                         scale: [1, 1.1, 1],
                       }}
@@ -132,7 +141,7 @@ export const DonationBar: React.FC = () => {
                         className="fill-white"
                         style={{ color: 'white' }}
                       />
-                    </motion.div>
+                    </m.div>
                     
                     <div className="flex-1">
                       <p className="font-bold text-base text-white">
@@ -151,7 +160,7 @@ export const DonationBar: React.FC = () => {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

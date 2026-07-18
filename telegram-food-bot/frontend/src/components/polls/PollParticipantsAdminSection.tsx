@@ -49,7 +49,7 @@ export const PollParticipantsAdminSection: React.FC<Props> = ({ pollId, onAutoCl
           message: next === 'EXCLUDED' ? 'Участник исключён' : 'Участник возвращён',
         });
         await load();
-        const autoClosed = (res.data as any)?.autoClosed;
+        const autoClosed = res.autoClosed === true;
         if (autoClosed && onAutoClosed) onAutoClosed();
       }
     } catch (e) {

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGlassTailwindClasses, type GlassVariant, type GlassTheme } from '@/lib/glassmorphism';
@@ -77,7 +77,7 @@ export const GlassSearchBar: React.FC<GlassSearchBarProps> = ({
   }, [onChange]);
   
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -90,7 +90,7 @@ export const GlassSearchBar: React.FC<GlassSearchBarProps> = ({
       )}
     >
       {/* Search Icon */}
-      <motion.div
+      <m.div
         animate={{
           scale: isFocused ? 1.1 : 1,
           color: isFocused ? (isDark ? '#fb923c' : '#ea580c') : (isDark ? '#9ca3af' : '#6b7280')
@@ -98,7 +98,7 @@ export const GlassSearchBar: React.FC<GlassSearchBarProps> = ({
         transition={{ duration: 0.2 }}
       >
         <Search className={ICON_SIZES.md} />
-      </motion.div>
+      </m.div>
       
       {/* Input */}
       <input
@@ -121,7 +121,7 @@ export const GlassSearchBar: React.FC<GlassSearchBarProps> = ({
       {/* Clear Button */}
       <AnimatePresence>
         {value && (
-          <motion.button
+          <m.button
             type="button"
             onClick={handleClear}
             initial={{ opacity: 0, scale: 0.8 }}
@@ -137,10 +137,10 @@ export const GlassSearchBar: React.FC<GlassSearchBarProps> = ({
             aria-label="Очистить"
           >
             <X className={ICON_SIZES.sm} />
-          </motion.button>
+          </m.button>
         )}
       </AnimatePresence>
-    </motion.div>
+    </m.div>
   );
 };
 

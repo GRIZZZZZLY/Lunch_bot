@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { MessageCircle } from 'lucide-react';
 import { useHaptic } from '../../hooks/useHaptic';
 import { cn } from '../../lib/utils';
@@ -39,7 +39,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <motion.button
+          <m.button
       onClick={handleClick}
       style={{ bottom: 'var(--fab-bottom, calc(64px + env(safe-area-inset-bottom, 0px) + 12px))' }}
       className={cn(
@@ -58,7 +58,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
       aria-label={tooltipText}
     >
       <MessageCircle className={`${ICON_SIZES.md} text-primary-foreground`} strokeWidth={2.5} />
-    </motion.button>
+    </m.button>
         </TooltipTrigger>
         <TooltipContent side="left" className="font-medium">
           <p>{tooltipText}</p>

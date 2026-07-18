@@ -116,21 +116,14 @@ class BudgetService {
       }
       
       const response = await apiService.get<Transaction[]>(`/budget/debts?${params}`);
-      if (import.meta.env.DEV) {
-        console.log('[BudgetService.getDebts] ✅ Success:', response.data?.length || 0);
-      }
       
       // apiService.get возвращает { success: true, data: [...] }
       if (response.success && response.data) {
         return response.data;
       }
       
-      if (import.meta.env.DEV) {
-        console.warn('[BudgetService.getDebts] ⚠️ No data returned, using empty array');
-      }
       return [];
-    } catch (error) {
-      console.error('[BudgetService.getDebts] ❌ Request failed:', error);
+    } catch {
       // Graceful degradation - возвращаем пустой массив вместо throw
       return [];
     }
@@ -154,21 +147,14 @@ class BudgetService {
       }
       
       const response = await apiService.get<Transaction[]>(`/budget/credits?${params}`);
-      if (import.meta.env.DEV) {
-        console.log('[BudgetService.getCredits] ✅ Success:', response.data?.length || 0);
-      }
       
       // apiService.get возвращает { success: true, data: [...] }
       if (response.success && response.data) {
         return response.data;
       }
       
-      if (import.meta.env.DEV) {
-        console.warn('[BudgetService.getCredits] ⚠️ No data returned, using empty array');
-      }
       return [];
-    } catch (error) {
-      console.error('[BudgetService.getCredits] ❌ Request failed:', error);
+    } catch {
       // Graceful degradation - возвращаем пустой массив вместо throw
       return [];
     }
@@ -193,6 +179,13 @@ class BudgetService {
    */
   async cancelMark(transactionId: number): Promise<void> {
     await apiService.post('/budget/cancel-mark', { transactionId });
+  }
+
+  /**
+   * Подтвердить все непогашенные платежи по заказу.
+   */
+  async markAllPaid(pollId: number): Promise<void> {
+    await apiService.post('/budget/mark-all-paid', { pollId });
   }
 
   /**
@@ -221,9 +214,21 @@ class BudgetService {
    * Открыть СБП для оплаты
    */
   openSBP(phone: string, amount: number): void {
-    // Формируем ссылку на СБП
     const cleanPhone = phone.replace(/\D/g, '');
-    const sbpUrl = `https://qr.nspk.ru/proxyapp.html?type=02&bank=100000000111&sum=${amount}&cur=RUB&payeeId=${cleanPhone}`;
+    const amountInKopecks = Math.round(amount * 100);
+
+    if (!cleanPhone || !Number.isFinite(amountInKopecks) || amountInKopecks <= 0) {
+      return;
+    }
+
+    const params = new URLSearchParams({
+      type: '02',
+      bank: '100000000111',
+      sum: String(amountInKopecks),
+      cur: 'RUB',
+      payeeId: cleanPhone,
+    });
+    const sbpUrl = `https://qr.nspk.ru/proxyapp.html?${params.toString()}`;
     const safeUrl = sanitizeURL(sbpUrl);
 
     if (!safeUrl) {

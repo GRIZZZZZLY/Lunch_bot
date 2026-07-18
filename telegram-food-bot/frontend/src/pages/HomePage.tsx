@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
+import { m, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 
@@ -55,10 +55,10 @@ import { useIsGroupAdmin } from '../hooks/useIsGroupAdmin';
 import { useCurrentGroup } from '../hooks/useCurrentGroup';
 import { useHaptic } from '../hooks/useHaptic';
 import { useAppStore } from '../store/useAppStore';
-import { pollsService, PollWithDetails } from '../services/polls.service';
+import { pollsService, Poll, PollWithDetails } from '../services/polls.service';
 import { notificationService } from '../services/notification.service';
 import { useActivePolls, useCancelPoll } from '../hooks/usePolls';
-import { useMenuItems } from '../hooks/queries';
+import { useMenuItems } from '../hooks/queries/useMenuQueries';
 import { useUserGroups } from '../hooks/queries/useUserQueries';
 import { useTodayCompletedPoll } from '../hooks/useTodayCompletedPoll';
 import { useCompletedPollVisibility } from '../hooks/useCompletedPollVisibility';
@@ -71,6 +71,41 @@ import { ICON_SIZES } from '@/lib/design-tokens';
 import { getContextualGreeting } from '../lib/contextual-messages';
 import { getHumanErrorMessage } from '../lib/error-messages';
 import { getUserStreak, updateStreakAfterVote } from '../services/streak.service';
+
+// Показать ссылку в алерте (последний fallback)
+const showInviteLinkAlert = (inviteUrl: string, shareText: string) => {
+  if (window.Telegram?.WebApp?.showPopup) {
+    window.Telegram.WebApp.showPopup({
+      title: 'Пригласить друга',
+      message: `Отправь эту ссылку другу:\n\n${inviteUrl}`,
+      buttons: [{ id: 'ok', type: 'ok', text: 'OK' }],
+    });
+  } else {
+    alert(`Пригласите друга:\n\n${shareText}`);
+  }
+};
+
+// УДАЛЕНО: handleShowUserStats - кнопка убрана из Quick Actions (доступна через Bottom Nav)
+
+
+
+
+// Container animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 },
+};
+
 // InsightsCard moved to StatsPage (Insights tab)
 
 /**
@@ -81,7 +116,7 @@ import { getUserStreak, updateStreakAfterVote } from '../services/streak.service
  * - Обратная связь перенесена на страницу профиля
  * - Чистый минималистичный дизайн
  */
-export const HomePage: React.FC = () => {
+const useHomePageController = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const telegram = useTelegram();
@@ -109,8 +144,10 @@ export const HomePage: React.FC = () => {
   const [showRouletteOverlay, setShowRouletteOverlay] = useState(false);
   const [rouletteParticipants, setRouletteParticipants] = useState<Array<{ id: number; firstName: string; lastName?: string }>>([]);
   const [rouletteWinner, setRouletteWinner] = useState<{ id: number; firstName: string; lastName?: string } | null>(null);
-  const [lastRoulettePollId, setLastRoulettePollId] = useState<number | null>(null);
+  const lastRoulettePollIdRef = useRef<number | null>(null);
   const rouletteDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lastCompletedPoll, setLastCompletedPoll] = useState<Poll | null>(null);
+  const [isRepeatingLastPoll, setIsRepeatingLastPoll] = useState(false);
   // Calculator modal state
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [selectedCategoryOrder, setSelectedCategoryOrder] = useState<any>(null);
@@ -125,8 +162,6 @@ export const HomePage: React.FC = () => {
 
   // React Query: Load user groups (параллельно с polls)
   const { data: userGroups = [], isLoading: groupsLoading } = useUserGroups();
-
-  const activePollsSignature = activePolls.map(p => p.id).join(',');
 
   const derivedActivePoll = useMemo(() => {
     if (activePolls.length === 0) {
@@ -156,9 +191,10 @@ export const HomePage: React.FC = () => {
       endTime,
       voteCount: selectedPoll._count?.votes || 0,
     } as PollWithDetails;
-  }, [activePollsSignature, location.search]);
+  }, [activePolls, location.search]);
 
   const activePoll = activePollOverride ?? derivedActivePoll;
+  const hasActivePoll = activePoll !== null;
 
   useEffect(() => {
     if (activePollOverride && derivedActivePoll && activePollOverride.id === derivedActivePoll.id) {
@@ -196,7 +232,7 @@ export const HomePage: React.FC = () => {
       });
       missingPollNotificationRef.current = requestedPollId;
     }
-  }, [activePollsSignature, location.search, addNotification]);
+  }, [activePolls, location.search, addNotification]);
 
   // ВАЖНО: userGroupId ДОЛЖЕН быть объявлен ПОСЛЕ activePolls и currentGroupId
   // Используем groupId из активного голосования или текущей выбранной группы
@@ -287,8 +323,9 @@ export const HomePage: React.FC = () => {
     const hadActivePoll = prevActivePollRef.current !== null;
     const nowHasNoPoll = activePoll === null;
     
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     if (hadActivePoll && nowHasNoPoll) {
-      setTimeout(() => {
+      refreshTimer = setTimeout(() => {
         refetchCompleted();
       }, 400);
     }
@@ -301,6 +338,12 @@ export const HomePage: React.FC = () => {
     
     // Обновляем ref для следующего цикла
     prevActivePollRef.current = activePoll;
+
+    return () => {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+    };
   }, [activePoll, todayCompletedPoll, showCelebration, refetchCompleted]);
 
   useEffect(() => {
@@ -312,14 +355,20 @@ export const HomePage: React.FC = () => {
     const now = Date.now();
     const delay = Math.max(endTimestamp - now + 1000, 0);
 
+    let completedTimer: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
       refetch();
-      setTimeout(() => {
+      completedTimer = setTimeout(() => {
         refetchCompleted();
       }, 400);
     }, delay);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (completedTimer) {
+        clearTimeout(completedTimer);
+      }
+    };
   }, [activePoll?.id, activePoll?.endTime, refetch, refetchCompleted]);
 
   // Проверяем проголосовал ли пользователь
@@ -349,7 +398,7 @@ export const HomePage: React.FC = () => {
   const [loadingTopDish, setLoadingTopDish] = useState(false);
 
   // Streak система
-  const [userStreak, setUserStreak] = useState(getUserStreak(user?.id || 0));
+  const [userStreak, setUserStreak] = useState(() => getUserStreak(user?.id || 0));
 
   // Персональные инсайты перенесены на StatsPage (вкладка "Инсайты")
 
@@ -418,8 +467,8 @@ export const HomePage: React.FC = () => {
     tryShowRouletteOverlay(todayCompletedPoll, 5000);
   };
 
-  const tryShowRouletteOverlay = (poll: PollWithDetails, delayMs: number) => {
-    if (lastRoulettePollId === poll.id) {
+  const tryShowRouletteOverlay = useCallback((poll: PollWithDetails, delayMs: number) => {
+    if (lastRoulettePollIdRef.current === poll.id) {
       return;
     }
 
@@ -463,11 +512,11 @@ export const HomePage: React.FC = () => {
 
     rouletteDelayTimerRef.current = setTimeout(() => {
       setShowRouletteOverlay(true);
-      setLastRoulettePollId(poll.id);
+      lastRoulettePollIdRef.current = poll.id;
       haptic.medium();
       rouletteDelayTimerRef.current = null;
     }, delayMs);
-  };
+  }, [haptic]);
 
   useEffect(() => {
     if (!todayCompletedPoll || showCelebration) {
@@ -475,17 +524,12 @@ export const HomePage: React.FC = () => {
     }
 
     tryShowRouletteOverlay(todayCompletedPoll, 1200);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [todayCompletedPoll?.id, showCelebration]);
+  }, [todayCompletedPoll, showCelebration, tryShowRouletteOverlay]);
 
   const queryClient = useQueryClient();
 
-  // Инвалидация polls кэша при смене пользователя
   useEffect(() => {
     if (user?.id) {
-      console.log(`[HomePage] User changed to ${user.id} - invalidating polls cache`);
-      
-      // Инвалидируем все polls queries
       queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
     }
   }, [user?.id, queryClient]);
@@ -508,28 +552,48 @@ export const HomePage: React.FC = () => {
 
     localStorage.setItem(key, 'true');
     setShowAdminChecklist(true);
-  }, [user?.id, isGroupAdmin, hasAnyPoll, isLoading]);
+  }, [user.id, isGroupAdmin, hasAnyPoll, isLoading]);
+
+  const handleRepeatLastPoll = async () => {
+    if (!lastCompletedPoll || isRepeatingLastPoll) {
+      return;
+    }
+
+    setIsRepeatingLastPoll(true);
+    haptic.impact();
+    try {
+      const response = await pollsService.repeatPoll(lastCompletedPoll.id);
+      if (!response.success) {
+        throw new Error(response.error || 'Не удалось повторить голосование');
+      }
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
+      await refetch();
+      haptic.success();
+      addNotification({
+        type: 'success',
+        message: 'Голосование повторено',
+      });
+    } catch (error) {
+      haptic.error();
+      addNotification({
+        type: 'error',
+        message: getHumanErrorMessage(error),
+      });
+    } finally {
+      setIsRepeatingLastPoll(false);
+    }
+  };
 
   const handlePollCreated = async (pollId: number) => {
-    console.log('✅ [HomePage] Poll created:', pollId);
     haptic.success();
     setIsCreatingPoll(false);
-    
-    // Инвалидируем только кэш polls (НЕ удаляем меню!)
     queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
-    
-    // Обновляем список голосований без popup уведомления
     refetch();
   };
 
-  // Admin functions removed - now only available on VotingHubPage
-  
-  // ========== Handler Functions ==========
-  
-  // Пригласить друга - улучшенная версия с shareLink API
   const handleInviteFriend = async () => {
     haptic.impact();
-    
     const botUsername = import.meta.env.VITE_BOT_USERNAME || 'rocket_lunch_bot';
     const inviteUrl = `https://t.me/${botUsername}?start=ref_${user?.id || 'unknown'}`;
     const shareText = `Голосуем за обед всей командой — присоединяйся 🍽️\n${inviteUrl}`;
@@ -616,19 +680,6 @@ export const HomePage: React.FC = () => {
     } else {
       // Старый браузер - показываем алерт
       showInviteLinkAlert(inviteUrl, shareText);
-    }
-  };
-
-  // Показать ссылку в алерте (последний fallback)
-  const showInviteLinkAlert = (inviteUrl: string, shareText: string) => {
-    if (window.Telegram?.WebApp?.showPopup) {
-      window.Telegram.WebApp.showPopup({
-        title: 'Пригласить друга',
-        message: `Отправь эту ссылку другу:\n\n${inviteUrl}`,
-        buttons: [{ id: 'ok', type: 'ok', text: 'OK' }],
-      });
-    } else {
-      alert(`Пригласите друга:\n\n${shareText}`);
     }
   };
 
@@ -724,39 +775,24 @@ export const HomePage: React.FC = () => {
     }
   };
   
-  // УДАЛЕНО: handleShowUserStats - кнопка убрана из Quick Actions (доступна через Bottom Nav)
+  
+  return { navigate, location, telegram, colorScheme, user, isGroupAdmin, cancelPoll, currentGroupId, haptic, addNotification, theme, isDark, menuItems, menuLoading, gradientColors, activePollOverride, setActivePollOverride, isCreatingPoll, setIsCreatingPoll, showCelebration, setShowCelebration, justCompletedPollId, setJustCompletedPollId, showRouletteOverlay, setShowRouletteOverlay, rouletteParticipants, setRouletteParticipants, rouletteWinner, setRouletteWinner, lastRoulettePollIdRef, rouletteDelayTimerRef, lastCompletedPoll, setLastCompletedPoll, isRepeatingLastPoll, setIsRepeatingLastPoll, isCalculatorOpen, setIsCalculatorOpen, selectedCategoryOrder, setSelectedCategoryOrder, missingPollNotificationRef, showAdminChecklist, setShowAdminChecklist, activePolls, pollsLoading, refetch, userGroups, groupsLoading, derivedActivePoll, activePoll, hasActivePoll, userGroupId, todayCompletedPoll, loadingCompletedPoll, completedPollError, refetchCompleted, heroPollStatus, heroPollMeta, completedVisible, dismissCompletedPoll, hasAnyPoll, isLoading, prevActivePollRef, hasVoted, isPollEnding, contextualGreeting, isTopDishModalOpen, setIsTopDishModalOpen, topDishData, setTopDishData, loadingTopDish, setLoadingTopDish, userStreak, setUserStreak, adminEmptyGreeting, handlePollClosed, handleCelebrationEnd, tryShowRouletteOverlay, queryClient, handleRepeatLastPoll, handlePollCreated, handleInviteFriend, fallbackShareInvite, handleAddToGroup, handleRemindAdmin, handleShowTopDish };
+};
 
-  
-
-  
-  // Container animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-  
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 },
-  };
-  
+export const HomePage: React.FC = () => {
+  const { navigate, location, telegram, colorScheme, user, isGroupAdmin, cancelPoll, currentGroupId, haptic, addNotification, theme, isDark, menuItems, menuLoading, gradientColors, activePollOverride, setActivePollOverride, isCreatingPoll, setIsCreatingPoll, showCelebration, setShowCelebration, justCompletedPollId, setJustCompletedPollId, showRouletteOverlay, setShowRouletteOverlay, rouletteParticipants, setRouletteParticipants, rouletteWinner, setRouletteWinner, lastRoulettePollIdRef, rouletteDelayTimerRef, lastCompletedPoll, setLastCompletedPoll, isRepeatingLastPoll, setIsRepeatingLastPoll, isCalculatorOpen, setIsCalculatorOpen, selectedCategoryOrder, setSelectedCategoryOrder, missingPollNotificationRef, showAdminChecklist, setShowAdminChecklist, activePolls, pollsLoading, refetch, userGroups, groupsLoading, derivedActivePoll, activePoll, hasActivePoll, userGroupId, todayCompletedPoll, loadingCompletedPoll, completedPollError, refetchCompleted, heroPollStatus, heroPollMeta, completedVisible, dismissCompletedPoll, hasAnyPoll, isLoading, prevActivePollRef, hasVoted, isPollEnding, contextualGreeting, isTopDishModalOpen, setIsTopDishModalOpen, topDishData, setTopDishData, loadingTopDish, setLoadingTopDish, userStreak, setUserStreak, adminEmptyGreeting, handlePollClosed, handleCelebrationEnd, tryShowRouletteOverlay, queryClient, handleRepeatLastPoll, handlePollCreated, handleInviteFriend, fallbackShareInvite, handleAddToGroup, handleRemindAdmin, handleShowTopDish } = useHomePageController();
   return (
     <>
       {/* Background removed - using neutral bg-background from Layout */}
 
-      <motion.div
+      <m.div
         variants={containerVariants}
         initial="hidden"
         animate="show"
         className="space-y-8 min-h-screen"
       >
         {/* Header Section - Компактное приветствие */}
-        <motion.div variants={itemVariants}>
+        <m.div variants={itemVariants}>
           <HomeHeroCard
             greeting={contextualGreeting.greeting}
             message={contextualGreeting.message}
@@ -767,14 +803,14 @@ export const HomePage: React.FC = () => {
             pollStatus={heroPollStatus}
             pollMeta={heroPollMeta}
           />
-        </motion.div>
+        </m.div>
 
         {/* Streak Section removed - integrated into header */}
 
         {/* Hero Section - Active Poll Widget */}
         <AnimatePresence mode="wait">
           {isLoading ? (
-            <motion.div
+            <m.div
               key="loading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -785,9 +821,9 @@ export const HomePage: React.FC = () => {
                 <Skeleton className="h-4 w-full mb-2" />
                 <Skeleton className="h-4 w-3/4" />
               </PastelCard>
-            </motion.div>
+            </m.div>
           ) : activePoll ? (
-            <motion.div
+            <m.div
               key="active-poll"
               variants={itemVariants}
               initial="hidden"
@@ -806,9 +842,9 @@ export const HomePage: React.FC = () => {
                   refetch();
                 }}
               />
-            </motion.div>
+            </m.div>
           ) : showCelebration ? (
-            <motion.div
+            <m.div
               key="celebration-loading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -822,9 +858,9 @@ export const HomePage: React.FC = () => {
                   <Skeleton className="h-4 w-3/4 mx-auto" />
                 </div>
               </PastelCard>
-            </motion.div>
+            </m.div>
           ) : todayCompletedPoll && completedVisible ? null : (
-            <motion.div
+            <m.div
               key="no-poll"
               variants={itemVariants}
               initial="hidden"
@@ -853,22 +889,22 @@ export const HomePage: React.FC = () => {
                   />
                 );
               })()}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
         {/* Store Run Section — "Иду в магазин" + активные забеги */}
-        <motion.div variants={itemVariants}>
+        <m.div variants={itemVariants}>
           <ActiveStoreRunsSection
             groupId={userGroupId ?? null}
             currentUserId={user?.id}
           />
-        </motion.div>
+        </m.div>
 
         {/* Завершённое голосование — компактный pill (15 мин или до dismiss) */}
         <AnimatePresence>
           {todayCompletedPoll && completedVisible && (
-            <motion.div
+            <m.div
               key="completed-poll-pill"
               variants={itemVariants}
               initial="hidden"
@@ -897,12 +933,12 @@ export const HomePage: React.FC = () => {
                   }
                 }}
               />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
         {/* Budget Widget - адаптивный виджет бюджет-трекера (conditional) */}
-        <motion.div variants={itemVariants}>
+        <m.div variants={itemVariants}>
           <BudgetWidgetWithCalculator
             pollId={activePoll?.id || todayCompletedPoll?.id}
             onOpenCalculator={(categoryOrder) => {
@@ -910,11 +946,11 @@ export const HomePage: React.FC = () => {
               setIsCalculatorOpen(true);
             }}
           />
-        </motion.div>
+        </m.div>
 
         {/* Recurring Poll Badge - индикатор автоматических голосований (только если нет активного poll) */}
         {isGroupAdmin && !activePoll && (
-          <motion.div variants={itemVariants}>
+          <m.div variants={itemVariants}>
             <RecurringPollBadge
               groupId={userGroupId}
               onClick={() => {
@@ -922,26 +958,38 @@ export const HomePage: React.FC = () => {
                 setIsCreatingPoll(true);
               }}
             />
-          </motion.div>
+          </m.div>
         )}
 
         {/* Actions Section - Vertical list */}
-        <motion.div variants={itemVariants}>
+        <m.div variants={itemVariants}>
           <HomeActionsSection
             showAdminAction={!!isGroupAdmin && hasAnyPoll}
+            repeatLastPoll={
+              isGroupAdmin && !activePoll && lastCompletedPoll
+                ? {
+                    status: isRepeatingLastPoll ? 'loading' : 'ready',
+                    onClick: handleRepeatLastPoll,
+                  }
+                : undefined
+            }
             onCreatePoll={() => {
               haptic.impact();
               setIsCreatingPoll(true);
             }}
             onInviteFriend={handleInviteFriend}
             onAddToGroup={handleAddToGroup}
+            topDish={{
+              status: loadingTopDish ? 'loading' : 'ready',
+              onClick: handleShowTopDish,
+            }}
           />
-        </motion.div>
+        </m.div>
 
         {/* Bottom padding for BottomNavigation + safe-area */}
         <div style={{ height: 'calc(64px + env(safe-area-inset-bottom, 0px) + 16px)' }} />
 
-      </motion.div>
+      </m.div>
 
       <RouletteRevealOverlay
         isOpen={showRouletteOverlay}
@@ -969,7 +1017,7 @@ export const HomePage: React.FC = () => {
         {isCreatingPoll && (
           <>
             {/* Backdrop */}
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -978,7 +1026,7 @@ export const HomePage: React.FC = () => {
             />
 
             {/* Bottom Sheet */}
-            <motion.div
+            <m.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
@@ -989,7 +1037,7 @@ export const HomePage: React.FC = () => {
                 onSuccess={handlePollCreated}
                 onCancel={() => setIsCreatingPoll(false)}
               />
-            </motion.div>
+            </m.div>
           </>
         )}
       </AnimatePresence>

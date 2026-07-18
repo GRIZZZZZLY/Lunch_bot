@@ -6,8 +6,6 @@
 // TODO (тех долг): унифицировать queryKeys ниже с lib/queryClient.ts
 // (там menu.items()/items, здесь menu.lists() — разные имена для одного кеша).
 
-export { queryClient, persister, cacheUtils } from './queryClient';
-
 /**
  * Query Keys для типизации и централизованного управления.
  *

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useSwipeable } from 'react-swipeable';
 import { 
   Sparkles, 
@@ -109,14 +109,14 @@ export const WelcomeModal = ({ isOpen, onClose }: WelcomeModalProps) => {
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden"
         >
           {/* Overlay */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -125,7 +125,7 @@ export const WelcomeModal = ({ isOpen, onClose }: WelcomeModalProps) => {
           />
 
           {/* Modal Content */}
-          <motion.div
+          <m.div
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -134,7 +134,7 @@ export const WelcomeModal = ({ isOpen, onClose }: WelcomeModalProps) => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
-            <button
+            <button type="button"
               onClick={onClose}
               aria-label="Закрыть окно приветствия"
               className="absolute top-4 right-4 z-10 p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -144,15 +144,15 @@ export const WelcomeModal = ({ isOpen, onClose }: WelcomeModalProps) => {
 
             {/* Slides Container */}
             <div className="overflow-hidden" {...handlers}>
-              <motion.div
+              <m.div
                 animate={{ x: `-${currentSlide * 100}%` }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 className="flex"
               >
-                {slides.map((slide, index) => (
-                  <OnboardingSlide key={index} {...slide} />
+                {slides.map(slide => (
+                  <OnboardingSlide key={slide.title} {...slide} />
                 ))}
-              </motion.div>
+              </m.div>
             </div>
 
             {/* Indicator */}
@@ -161,27 +161,27 @@ export const WelcomeModal = ({ isOpen, onClose }: WelcomeModalProps) => {
             {/* Navigation Buttons */}
             <div className="flex items-center justify-between px-6 py-6">
               {/* Skip Button */}
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={onClose}
                 className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
               >
                 Пропустить
-              </motion.button>
+              </m.button>
 
               {/* Next/Start Button */}
-              <motion.button
+              <m.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={nextSlide}
                 className="px-6 py-2.5 rounded-full text-sm font-semibold bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-all duration-300"
               >
                 {currentSlide === slides.length - 1 ? 'Начать' : 'Далее'}
-              </motion.button>
+              </m.button>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

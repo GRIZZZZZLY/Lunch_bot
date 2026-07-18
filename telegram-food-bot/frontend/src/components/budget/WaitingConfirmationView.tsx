@@ -7,6 +7,16 @@ import { toast } from 'sonner';
 import { formatRelativeTime } from '../../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
+const safeFormatRelativeTime = (value?: string | Date | null): string => {
+  if (!value) return '—';
+  const dateValue = typeof value === 'string' ? new Date(value) : value;
+
+  if (Number.isNaN(dateValue.getTime())) return '—';
+
+  return formatRelativeTime(dateValue);
+};
+
+
 interface WaitingConfirmationViewProps {
   debt: Transaction;
   otherDebts: Transaction[];
@@ -42,15 +52,6 @@ export const WaitingConfirmationView = ({
   const handleCancelMark = () => {
     haptic.impact();
     cancelMarkMutation.mutate();
-  };
-  
-  const safeFormatRelativeTime = (value?: string | Date | null): string => {
-    if (!value) return '—';
-    const dateValue = typeof value === 'string' ? new Date(value) : value;
-
-    if (Number.isNaN(dateValue.getTime())) return '—';
-
-    return formatRelativeTime(dateValue);
   };
 
   if (!debt) {

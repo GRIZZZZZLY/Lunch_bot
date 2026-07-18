@@ -1,9 +1,13 @@
 import '@testing-library/jest-dom/vitest';
-import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatsPage } from '../../src/pages/StatsPage';
+import { queryKeys } from '../../src/lib/react-query';
 
-const { pollServiceMocks, menuServiceMocks } = vi.hoisted(() => ({
+const { pollServiceMocks, menuServiceMocks, appStoreMocks } = vi.hoisted(() => ({
   pollServiceMocks: {
     getAllPolls: vi.fn(),
     getPollStats: vi.fn(),
@@ -13,6 +17,10 @@ const { pollServiceMocks, menuServiceMocks } = vi.hoisted(() => ({
   },
   menuServiceMocks: {
     getAllItems: vi.fn(),
+  },
+  appStoreMocks: {
+    addNotification: vi.fn(),
+    setCurrentGroupId: vi.fn(),
   },
 }));
 
@@ -58,8 +66,18 @@ vi.mock('../../src/hooks/useAuth', () => ({
 }));
 
 vi.mock('../../src/store/useAppStore', () => ({
-  useAppStore: (selector: (state: { addNotification: ReturnType<typeof vi.fn> }) => unknown) =>
-    selector({ addNotification: vi.fn() }),
+  useAppStore: (
+    selector: (state: {
+      addNotification: ReturnType<typeof vi.fn>;
+      currentGroupId: number;
+      setCurrentGroupId: ReturnType<typeof vi.fn>;
+    }) => unknown
+  ) =>
+    selector({
+      addNotification: appStoreMocks.addNotification,
+      currentGroupId: 1,
+      setCurrentGroupId: appStoreMocks.setCurrentGroupId,
+    }),
 }));
 
 vi.mock('../../src/services/polls.service', () => ({
@@ -82,7 +100,27 @@ vi.mock('../../src/components/stats', () => ({
   LunchDnaCard: () => <div data-testid='lunch-dna-card'>Lunch DNA</div>,
 }));
 
+vi.mock('../../src/components/stats/LunchDnaCard', () => ({
+  LunchDnaCard: () => <div data-testid='lunch-dna-card'>Lunch DNA</div>,
+}));
+
+vi.mock('../../src/components/stats/Leaderboard', () => ({
+  Leaderboard: () => <div data-testid='leaderboard'>Leaderboard</div>,
+}));
+
+vi.mock('../../src/components/stats/BudgetInsightsWidget', () => ({
+  BudgetInsightsWidget: () => <div data-testid='budget-insights-widget'>Budget Insights</div>,
+}));
+
+vi.mock('../../src/components/stats/ActivityLineChart', () => ({
+  default: () => <div data-testid='activity-line-chart'>Activity</div>,
+}));
+
 vi.mock('../../src/components/budget', () => ({
+  BudgetWidgetCompact: () => <div data-testid='budget-widget-compact'>Budget Widget Compact</div>,
+}));
+
+vi.mock('../../src/components/budget/BudgetWidgetCompact', () => ({
   BudgetWidgetCompact: () => <div data-testid='budget-widget-compact'>Budget Widget Compact</div>,
 }));
 
@@ -125,6 +163,31 @@ vi.mock('../../src/services/insights.service', () => ({
   getStoredVoteHistory: vi.fn(() => []),
 }));
 
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  queryClient.setQueryData(queryKeys.user.groups(), [
+    {
+      id: 1,
+      title: 'Rocket Lunch',
+      role: 'ADMIN',
+      isActive: true,
+    },
+  ]);
+
+  const Wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  Wrapper.displayName = 'StatsPageTestWrapper';
+  return Wrapper;
+};
+
 describe('StatsPage personal tab composition', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -137,8 +200,12 @@ describe('StatsPage personal tab composition', () => {
     menuServiceMocks.getAllItems.mockResolvedValue({ success: true, data: [] });
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it('should render Lunch DNA first in personal tab and remove weak placeholder blocks', async () => {
-    render(<StatsPage />);
+    render(<StatsPage />, { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(screen.getByTestId('lunch-dna-card')).toBeInTheDocument();
@@ -149,5 +216,49 @@ describe('StatsPage personal tab composition', () => {
     expect(screen.queryByTestId('favorite-dishes-carousel')).not.toBeInTheDocument();
     expect(screen.queryByTestId('achievement-badges-grid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('challenges-panel')).not.toBeInTheDocument();
+  });
+
+  it('renders group, global, and insights tab content', async () => {
+    const user = userEvent.setup();
+
+    render(<StatsPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('lunch-dna-card')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('tab', { name: /Группа/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('leaderboard')).toBeInTheDocument()
+    );
+    expect(screen.getByText(/Всего голосов/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /Глобально/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/Всего блюд/i)).toBeInTheDocument()
+    );
+
+    await user.click(screen.getByRole('tab', { name: /Инсайты/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('insights-card')).toBeInTheDocument()
+    );
+    expect(screen.getByTestId('recommendations-card')).toBeInTheDocument();
+    expect(screen.getByTestId('budget-insights-widget')).toBeInTheDocument();
+  });
+
+  it('loads statistics without writing API payloads to console', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    render(<StatsPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('lunch-dna-card')).toBeInTheDocument();
+    });
+
+    expect(logSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 });

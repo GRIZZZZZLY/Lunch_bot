@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./card"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./card"
 
 const pastelCardVariants = cva(
   "transition-colors duration-200",
@@ -38,4 +38,4 @@ const PastelCard = React.forwardRef<HTMLDivElement, PastelCardProps>(
 )
 PastelCard.displayName = "PastelCard"
 
-export { PastelCard, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
+export { PastelCard, CardHeader, CardTitle, CardDescription, CardContent }

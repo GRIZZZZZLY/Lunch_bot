@@ -498,16 +498,19 @@ class MockApiService {
     await this.delay(700);
     
     const popularItems: PopularItem[] = MOCK_MENU_ITEMS
-      .filter(item => item.isActive)
-      .map(item => ({
-        ...item,
-        voteCount: Math.floor(Math.random() * 20) + 1,
-        winCount: Math.floor(Math.random() * 5),
-        _count: {
-          votes: Math.floor(Math.random() * 20) + 1,
-          pollResults: Math.floor(Math.random() * 5),
-        },
-      }))
+      .reduce<PopularItem[]>((items, item) => {
+        if (!item.isActive) return items;
+        items.push({
+          ...item,
+          voteCount: Math.floor(Math.random() * 20) + 1,
+          winCount: Math.floor(Math.random() * 5),
+          _count: {
+            votes: Math.floor(Math.random() * 20) + 1,
+            pollResults: Math.floor(Math.random() * 5),
+          },
+        });
+        return items;
+      }, [])
       .sort((a, b) => b.voteCount - a.voteCount)
       .slice(0, 10);
 
@@ -555,7 +558,7 @@ class MockApiService {
       voteCount: Math.floor(Math.random() * 5) + 1,
       percentage: Math.floor(Math.random() * 40) + 5,
       voters: MOCK_USERS.slice(0, Math.floor(Math.random() * 3) + 1)
-    })).filter(item => item.voteCount > 0);
+    }));
 
     return this.createSuccessResponse(breakdown);
   }

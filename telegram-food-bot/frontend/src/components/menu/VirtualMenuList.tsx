@@ -8,9 +8,10 @@
  * - FPS: 60 стабильно
  */
 
-import { useState } from 'react';
-import type { CSSProperties, UIEvent } from 'react';
+import { useRef } from 'react';
+import type { UIEvent } from 'react';
 import { List, useListRef } from 'react-window';
+import type { RowComponentProps } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { MenuItem } from '@/services/menu.service';
 import { MenuRow } from './MenuRow';
@@ -25,6 +26,46 @@ export interface VirtualMenuListProps {
   onToggleStatus?: (id: number) => void;
 }
 
+interface VirtualMenuRowProps {
+  items: MenuItem[];
+  isAdmin: boolean;
+  itemPadding: number;
+  onEdit?: (item: MenuItem) => void;
+  onDelete?: (id: number) => void;
+  onToggleStatus?: (id: number) => void;
+}
+
+const VirtualMenuRow = ({
+  index,
+  style,
+  ariaAttributes,
+  items,
+  isAdmin,
+  itemPadding,
+  onEdit,
+  onDelete,
+  onToggleStatus,
+}: RowComponentProps<VirtualMenuRowProps>) => {
+  const item = items[index];
+  const adjustedStyle = {
+    ...style,
+    height: (style.height as number) - itemPadding,
+    marginBottom: itemPadding,
+  };
+
+  return (
+    <div style={adjustedStyle} className="px-4" {...ariaAttributes}>
+      <MenuRow
+        item={item}
+        showActions={isAdmin}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onToggle={onToggleStatus}
+      />
+    </div>
+  );
+};
+
 /**
  * Виртуализированный список menu items
  * Активируется автоматически при items.length > 50
@@ -38,7 +79,7 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
 }) => {
   const haptic = useHaptic();
   const listRef = useListRef();
-  const [scrollOffset, setScrollOffset] = useState(0);
+  const scrollOffsetRef = useRef(0);
 
   // Высота одного item (фиксированная для лучшей производительности).
   // Строка админа выше из-за панели действий.
@@ -48,58 +89,16 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   const ITEM_PADDING = 12; // px (gap-3 в Tailwind = 12px)
 
   /**
-   * Render функция для каждого item
-   */
-  const Row = ({
-    index,
-    style,
-    ariaAttributes,
-  }: {
-    index: number;
-    style: CSSProperties;
-    ariaAttributes: {
-      'aria-posinset': number;
-      'aria-setsize': number;
-      role: 'listitem';
-    };
-  }) => {
-    const item = items[index];
-
-    // Добавляем padding между items
-    const adjustedStyle = {
-      ...style,
-      height: (style.height as number) - ITEM_PADDING,
-      marginBottom: ITEM_PADDING,
-    };
-
-    return (
-      <div
-        style={adjustedStyle}
-        className="px-4"
-        {...ariaAttributes}
-      >
-        <MenuRow
-          item={item}
-          showActions={isAdmin}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onToggle={onToggleStatus}
-        />
-      </div>
-    );
-  };
-
-  /**
    * P1.3.5: Handle scroll для haptic feedback + analytics
    */
   const handleScroll = (event: UIEvent<HTMLDivElement>) => {
     const nextOffset = event.currentTarget.scrollTop;
-    const previousOffset = scrollOffset;
+    const previousOffset = scrollOffsetRef.current;
 
     // Haptic на каждые 100px скролла
     if (Math.abs(nextOffset - previousOffset) > 100) {
       haptic.selection();
-      setScrollOffset(nextOffset);
+      scrollOffsetRef.current = nextOffset;
     }
 
     // P1.3.5: Track deep scrolling для analytics
@@ -153,8 +152,15 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
             style={{ height, width }}
             // Оптимизации
             overscanCount={3} // Рендерим 3 extra items за viewport
-            rowComponent={Row}
-            rowProps={{}}
+            rowComponent={VirtualMenuRow}
+            rowProps={{
+              items,
+              isAdmin,
+              itemPadding: ITEM_PADDING,
+              onEdit,
+              onDelete,
+              onToggleStatus,
+            }}
           />
         )}
       </AutoSizer>

@@ -76,7 +76,7 @@ export default [
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/ban-ts-comment': 'warn',
-      '@typescript-eslint/no-empty-object-type': 'warn',
+      '@typescript-eslint/ban-types': 'warn',
       'react-hooks/rules-of-hooks': 'warn',
       'react-hooks/exhaustive-deps': 'warn',
       'react/prop-types': 'off',

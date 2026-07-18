@@ -1,24 +1,5 @@
-/**
- * Typography Scale - Централизованная типографическая система
- * 
- * Основана на дизайн-документации (DESIGN_SYSTEM.md)
- * Все размеры следуют шкале 1.25× для чёткой иерархии
- */
 
-/**
- * Display / Hero - Главный эмоциональный заголовок (Greeting)
- * Использование: "Доброе утро, Иван!", hero-тайтлы
- * Redesign 2026-04-24: 28px / 800 / -0.7px / 1.1
- */
-export const TYPOGRAPHY_DISPLAY = {
-  size: 'text-[28px]',
-  lineHeight: 'leading-[1.1]',
-  weight: 'font-extrabold',
-  letterSpacing: 'tracking-[-0.7px]',
-  className: 'text-[28px] leading-[1.1] font-extrabold tracking-[-0.7px]',
-} as const;
 
-export const TYPOGRAPHY_HERO = TYPOGRAPHY_DISPLAY;
 
 /**
  * H1 - Page Title
@@ -42,17 +23,6 @@ export const TYPOGRAPHY_H2 = {
   weight: 'font-semibold',
   letterSpacing: 'tracking-[-0.2px]',
   className: 'text-[17px] leading-snug font-semibold tracking-[-0.2px]',
-} as const;
-
-/**
- * H3 - Card Title
- * Использование: Заголовки карточек, подзаголовки
- */
-export const TYPOGRAPHY_H3 = {
-  size: 'text-xl',         // 20px (1.25rem)
-  lineHeight: 'leading-normal', // 1.4
-  weight: 'font-semibold', // 600
-  className: 'text-xl leading-normal font-semibold',
 } as const;
 
 /**
@@ -81,22 +51,10 @@ export const TYPOGRAPHY_SMALL = {
  * Label — UPPERCASE helpers (платёжные данные, секции)
  * Redesign: 11px 700 0.8px uppercase
  */
-export const TYPOGRAPHY_LABEL = {
-  size: 'text-[11px]',
-  lineHeight: 'leading-[1.4]',
-  weight: 'font-bold',
-  letterSpacing: 'tracking-[0.8px]',
-  className: 'text-[11px] leading-[1.4] font-bold tracking-[0.8px] uppercase',
-} as const;
 
 /**
  * Mono-num — цифры в статистике, ценах
  */
-export const TYPOGRAPHY_NUM = {
-  size: 'text-base',
-  weight: 'font-bold',
-  className: 'font-mono font-bold tabular-nums',
-} as const;
 
 /**
  * Tiny - Tertiary текст
@@ -112,20 +70,6 @@ export const TYPOGRAPHY_TINY = {
 /**
  * Helper: Получить className для типографики
  */
-export const getTypographyClassName = (
-  variant: 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'small' | 'tiny'
-): string => {
-  const map = {
-    display: TYPOGRAPHY_DISPLAY.className,
-    h1: TYPOGRAPHY_H1.className,
-    h2: TYPOGRAPHY_H2.className,
-    h3: TYPOGRAPHY_H3.className,
-    body: TYPOGRAPHY_BODY.className,
-    small: TYPOGRAPHY_SMALL.className,
-    tiny: TYPOGRAPHY_TINY.className,
-  };
-  return map[variant];
-};
 
 /**
  * Typography Component Props

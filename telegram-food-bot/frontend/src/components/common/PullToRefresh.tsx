@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { m, useMotionValue, useTransform, animate } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { useHaptic } from '@/hooks/useHaptic';
 
@@ -147,21 +147,21 @@ export const PullToRefresh = ({
       style={{ touchAction: 'pan-y' }}
     >
       {/* Pull indicator */}
-      <motion.div
+      <m.div
         className="absolute top-0 left-0 right-0 z-50 flex items-center justify-center"
         style={{
           y,
           opacity,
         }}
       >
-        <motion.div
+        <m.div
           className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/90 backdrop-blur-sm shadow-lg"
           style={{
             scale,
             rotate: isRefreshing ? undefined : rotate,
           }}
         >
-          <motion.div
+          <m.div
             animate={isRefreshing ? { rotate: 360 } : {}}
             transition={{
               repeat: isRefreshing ? Infinity : 0,
@@ -170,17 +170,17 @@ export const PullToRefresh = ({
             }}
           >
             <RefreshCw className="h-6 w-6 text-primary-foreground" />
-          </motion.div>
-        </motion.div>
-      </motion.div>
+          </m.div>
+        </m.div>
+      </m.div>
 
       {/* Content */}
-      <motion.div
+      <m.div
         style={{ y }}
         className="h-full"
       >
         {children}
-      </motion.div>
+      </m.div>
 
       {/* Debug info (dev only) */}
       {import.meta.env.MODE === 'development' && (

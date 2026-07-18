@@ -35,6 +35,10 @@ export interface PollParticipantInfo {
   };
 }
 
+export interface SetPollParticipantStatusResponse extends ApiResponse<unknown> {
+  autoClosed?: boolean;
+}
+
 export interface DebtorInfo {
   userId: number;
   userName: string;
@@ -150,7 +154,7 @@ class AdminService {
     userId: number,
     status: 'EXPECTED' | 'EXCLUDED',
     reason?: string
-  ): Promise<ApiResponse<{ autoClosed: boolean; data: any }>> {
+  ): Promise<SetPollParticipantStatusResponse> {
     return apiService.put(`/admin/polls/${pollId}/participants/${userId}`, {
       status,
       reason,

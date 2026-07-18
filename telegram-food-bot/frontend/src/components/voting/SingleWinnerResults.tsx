@@ -1,9 +1,18 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Trophy, Users, Crown } from 'lucide-react';
 import { PollResult } from '@/services/polls.service';
 import { Badge } from '@/components/ui/badge';
 import { ICON_SIZES } from '@/lib/design-tokens';
+
+const getPluralForm = (count: number): string => {
+  if (count % 10 === 1 && count % 100 !== 11) return 'голос';
+  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+    return 'голоса';
+  }
+  return 'голосов';
+};
+
 
 interface SingleWinnerResultsProps {
   result: PollResult;
@@ -24,13 +33,6 @@ export const SingleWinnerResults: React.FC<SingleWinnerResultsProps> = ({
   result,
   breakdown = [],
 }) => {
-  const getPluralForm = (count: number): string => {
-    if (count % 10 === 1 && count % 100 !== 11) return 'голос';
-    if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
-      return 'голоса';
-    }
-    return 'голосов';
-  };
 
   return (
     <div className="space-y-4">
@@ -39,7 +41,7 @@ export const SingleWinnerResults: React.FC<SingleWinnerResultsProps> = ({
 
       {/* Winner Card */}
       {result.winnerItem && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="bg-gradient-to-br from-gold-100 to-gold-200 dark:from-gold-900/30 dark:to-gold-800/20 rounded-xl p-6 border-2 border-gold-400"
@@ -65,12 +67,12 @@ export const SingleWinnerResults: React.FC<SingleWinnerResultsProps> = ({
               )}
             </div>
           </div>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Responsible Person */}
       {result.responsible && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -88,12 +90,12 @@ export const SingleWinnerResults: React.FC<SingleWinnerResultsProps> = ({
               </p>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Vote Breakdown */}
       {breakdown.length > 0 && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -149,11 +151,11 @@ export const SingleWinnerResults: React.FC<SingleWinnerResultsProps> = ({
               </div>
             ))}
           </div>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Stats */}
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
@@ -168,7 +170,7 @@ export const SingleWinnerResults: React.FC<SingleWinnerResultsProps> = ({
             <p className="text-2xl font-bold">{result.totalVotes}</p>
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Footer */}
       <div className="text-center text-sm text-gray-500 dark:text-gray-400">

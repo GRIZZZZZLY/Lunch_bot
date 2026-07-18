@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Utensils, DollarSign, Image, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -103,7 +103,7 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
           )}
 
           {/* Backdrop */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -112,7 +112,7 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
           />
 
           {/* Bottom Sheet */}
-          <motion.div
+          <m.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
@@ -123,26 +123,26 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
               <GlassCardContent className="p-6 pb-28 space-y-6">
                 {/* Success State */}
                 {showSuccess && (
-                  <motion.div
+                  <m.div
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className="absolute inset-0 bg-gradient-to-br from-green-500/95 to-emerald-600/95 backdrop-blur-sm flex flex-col items-center justify-center z-50"
                   >
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
+                    <m.div
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
                       transition={{ type: 'spring', delay: 0.2 }}
                       className="size-20 rounded-full bg-white flex items-center justify-center mb-4"
                     >
                       <Check className="size-10 text-green-500" />
-                    </motion.div>
+                    </m.div>
                     <h3 className="text-2xl font-bold text-white mb-2">
                       Отправлено!
                     </h3>
                     <p className="text-white/90 text-center px-6">
                       Твоё предложение будет рассмотрено администратором
                     </p>
-                  </motion.div>
+                  </m.div>
                 )}
 
                 {/* Header */}
@@ -161,7 +161,8 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
                     </div>
                   </div>
 
-                  <button
+                  <button type="button"
+                    aria-label="Закрыть форму"
                     onClick={handleClose}
                     className="p-2 rounded-lg hover:bg-muted transition-colors"
                   >
@@ -176,11 +177,12 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
                   </p>
                   {/* Name */}
                   <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <label htmlFor="suggest-dish-name" className="flex items-center gap-2 text-sm font-medium text-foreground">
                       <Utensils className={`${ICON_SIZES.sm} text-peach-500`} />
                       Название блюда *
                     </label>
                     <Input
+                      id="suggest-dish-name"
                       required
                       value={name}
                       onChange={(e) => {
@@ -199,10 +201,11 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
 
                   {/* Description */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
+                    <label htmlFor="suggest-dish-description" className="text-sm font-medium text-foreground">
                       Описание
                     </label>
                     <textarea
+                      id="suggest-dish-description"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Классический борщ с говядиной, картофелем и свеклой..."
@@ -213,11 +216,12 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
 
                   {/* Price */}
                   <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <label htmlFor="suggest-dish-price" className="flex items-center gap-2 text-sm font-medium text-foreground">
                       <DollarSign className={`${ICON_SIZES.sm} text-peach-500`} />
                       Примерная цена
                     </label>
                     <Input
+                      id="suggest-dish-price"
                       type="number"
                       step="0.01"
                       value={price}
@@ -237,11 +241,12 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
 
                   {/* Image URL */}
                   <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <label htmlFor="suggest-dish-image" className="flex items-center gap-2 text-sm font-medium text-foreground">
                       <Image className={`${ICON_SIZES.sm} text-peach-500`} />
                       Ссылка на фото (опционально)
                     </label>
                     <Input
+                      id="suggest-dish-image"
                       type="url"
                       value={imageUrl}
                       onChange={(e) => setImageUrl(e.target.value)}
@@ -286,7 +291,7 @@ export function SuggestDishForm({ isOpen, onClose }: SuggestDishFormProps) {
                 </form>
               </GlassCardContent>
             </GlassCard>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

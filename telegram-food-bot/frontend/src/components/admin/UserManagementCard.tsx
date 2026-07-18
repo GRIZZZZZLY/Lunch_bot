@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Users, Shield, Ban, Check, Clock, ChevronDown, ChevronUp, Home as HomeIcon, Coffee } from 'lucide-react';
 import { PastelCard } from '../ui/pastel-card';
 import { Badge } from '../ui/badge';
@@ -74,7 +74,7 @@ export const UserManagementCard: React.FC<UserManagementCardProps> = ({
 
       <div className="space-y-2 max-h-[500px] overflow-y-auto">
         {users.map((user, index) => (
-          <motion.div
+          <m.div
             key={user.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -150,10 +150,10 @@ export const UserManagementCard: React.FC<UserManagementCardProps> = ({
             </div>
 
             {expandedUser === user.id && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
+              <m.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
                 id={`user-details-${user.id}`}
                   className="mt-3 border-t border-border/70 pt-3"
               >
@@ -217,9 +217,9 @@ export const UserManagementCard: React.FC<UserManagementCardProps> = ({
                   {user.username && <div>@{user.username}</div>}
                   <div>Зарегистрирован: {format(new Date(user.createdAt), 'dd.MM.yyyy')}</div>
                 </div>
-              </motion.div>
+              </m.div>
             )}
-          </motion.div>
+          </m.div>
         ))}
       </div>
     </PastelCard>

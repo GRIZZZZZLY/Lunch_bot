@@ -82,7 +82,7 @@ export const Pulse: Story = {
 export const WithWrapper: Story = {
   render: () => (
     <BadgeWrapper badge={5} variant="error">
-      <button className="px-4 py-2 bg-blue-500 text-white rounded-lg">
+      <button type="button" className="px-4 py-2 bg-blue-500 text-white rounded-lg">
         Notifications
       </button>
     </BadgeWrapper>

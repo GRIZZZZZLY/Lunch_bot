@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Bell, Sparkles } from 'lucide-react';
 import { Button } from '../ui/button';
 import { PastelCard, CardContent } from '../ui/pastel-card';
@@ -54,7 +54,7 @@ export const HomeEmptyStateCard: React.FC<HomeEmptyStateCardProps> = ({
       {isAdmin && showAdminChecklist && <AdminChecklist />}
 
       {showRemindAdmin && (
-        <motion.button
+        <m.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onRemindAdmin}
@@ -80,7 +80,7 @@ export const HomeEmptyStateCard: React.FC<HomeEmptyStateCardProps> = ({
             </div>
             <div className="text-lavender-500">›</div>
           </div>
-        </motion.button>
+        </m.button>
       )}
     </CardContent>
   </PastelCard>

@@ -1,8 +1,19 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGlassTailwindClasses, type GlassVariant, type GlassTheme } from '@/lib/glassmorphism';
+
+// Цвета для каждого варианта
+const variantStyles: Record<BadgeVariant, string> = {
+  default: 'text-gray-700 dark:text-gray-300',
+  success: 'text-green-700 dark:text-green-400 bg-green-50/50 dark:bg-green-900/20',
+  warning: 'text-orange-700 dark:text-orange-400 bg-orange-50/50 dark:bg-orange-900/20',
+  error: 'text-red-700 dark:text-red-400 bg-red-50/50 dark:bg-red-900/20',
+  info: 'text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20',
+  food: 'text-primary-food-700 dark:text-primary-food-400 bg-primary-food-50/50 dark:bg-primary-food-900/20',
+};
+
 
 export type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' | 'food';
 
@@ -53,18 +64,10 @@ export const GlassBadge: React.FC<GlassBadgeProps> = ({
 }) => {
   const glassClasses = getGlassTailwindClasses(glassVariant, theme);
   
-  // Цвета для каждого варианта
-  const variantStyles: Record<BadgeVariant, string> = {
-    default: 'text-gray-700 dark:text-gray-300',
-    success: 'text-green-700 dark:text-green-400 bg-green-50/50 dark:bg-green-900/20',
-    warning: 'text-orange-700 dark:text-orange-400 bg-orange-50/50 dark:bg-orange-900/20',
-    error: 'text-red-700 dark:text-red-400 bg-red-50/50 dark:bg-red-900/20',
-    info: 'text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20',
-    food: 'text-primary-food-700 dark:text-primary-food-400 bg-primary-food-50/50 dark:bg-primary-food-900/20',
-  };
-  
   const content = (
     <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
       className={cn(
         'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium',
         'transition-all duration-200',
@@ -74,6 +77,12 @@ export const GlassBadge: React.FC<GlassBadgeProps> = ({
         className
       )}
       onClick={onClick}
+      onKeyDown={event => {
+        if (onClick && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          onClick();
+        }
+      }}
     >
       {Icon && <Icon className="w-3.5 h-3.5" />}
       <span>{label}</span>
@@ -82,7 +91,7 @@ export const GlassBadge: React.FC<GlassBadgeProps> = ({
   
   if (animate) {
     return (
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
@@ -92,7 +101,7 @@ export const GlassBadge: React.FC<GlassBadgeProps> = ({
         className="inline-block"
       >
         {content}
-      </motion.div>
+      </m.div>
     );
   }
   
@@ -124,7 +133,7 @@ export const GlassBadgeGroup: React.FC<GlassBadgeGroupProps> = ({
   return (
     <div className={cn('flex flex-wrap gap-2', className)}>
       {badges.map((badge, index) => (
-        <motion.div
+        <m.div
           key={badge.id}
           initial={stagger ? { opacity: 0, y: 10 } : undefined}
           animate={stagger ? { opacity: 1, y: 0 } : undefined}
@@ -137,7 +146,7 @@ export const GlassBadgeGroup: React.FC<GlassBadgeGroupProps> = ({
             onClick={badge.onClick}
             animate={false}
           />
-        </motion.div>
+        </m.div>
       ))}
     </div>
   );

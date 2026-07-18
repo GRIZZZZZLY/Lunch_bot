@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Heart } from 'lucide-react';
 import { DonationModal } from './DonationModal';
 import { DONATION_THEME, getDonationStyles } from '../../styles/donation.theme';
@@ -12,7 +12,7 @@ export const DonationButton = () => {
 
   return (
     <>
-      <motion.button
+      <m.button
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.8, duration: 0.4 }}
@@ -49,7 +49,7 @@ export const DonationButton = () => {
             </p>
           </div>
         </div>
-      </motion.button>
+      </m.button>
 
       {/* Modal */}
       <DonationModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />

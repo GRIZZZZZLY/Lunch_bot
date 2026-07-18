@@ -77,16 +77,6 @@ export const persister = createSyncStoragePersister({
  * - MENU (5 мин) — меню редко меняется, инвалидируется явно админкой.
  * - PROFILE/STATIC (15 мин) — профиль, аватары; меняются ОЧЕНЬ редко.
  */
-export const STALE_TIMES = {
-  REALTIME: 5 * 1000,
-  VOTES: 4.5 * 1000,
-  BUDGET: 10 * 1000,
-  POLL_DETAIL: 30 * 1000,
-  STATS: 2 * 60 * 1000,
-  MENU: 5 * 60 * 1000,
-  PROFILE: 15 * 60 * 1000,
-  STATIC: 15 * 60 * 1000,
-} as const;
 
 /**
  * Query Keys константы
@@ -130,74 +120,6 @@ export const queryKeys = {
 /**
  * Утилиты для работы с cache
  */
-export const cacheUtils = {
-  /**
-   * Очистить весь cache
-   */
-  clearAll: () => {
-    queryClient.clear();
-    localStorage.removeItem('TELEGRAM_FOOD_BOT_CACHE');
-  },
-  
-  /**
-   * Очистить старый кэш polls при запуске приложения
-   */
-  clearStalePollsCache: () => {
-    queryClient.removeQueries({ 
-      queryKey: ['polls'],
-      exact: false 
-    });
-  },
-  
-  /**
-   * Очистить cache для polls
-   */
-  clearPolls: () => {
-    queryClient.removeQueries({ queryKey: queryKeys.polls.all });
-  },
-  
-  /**
-   * Очистить cache для menu
-   */
-  clearMenu: () => {
-    queryClient.removeQueries({ queryKey: queryKeys.menu.all });
-  },
-  
-  /**
-   * Invalidate (принудительно обновить) все активные polls
-   */
-  invalidateActivePolls: () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.polls.active() });
-  },
-  
-  /**
-   * Invalidate menu items
-   */
-  invalidateMenuItems: () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.menu.items() });
-  },
-  
-  /**
-   * Prefetch активные polls (для HomePage)
-   */
-  prefetchActivePolls: async (fetcher: () => Promise<any>) => {
-    await queryClient.prefetchQuery({
-      queryKey: queryKeys.polls.active(),
-      queryFn: fetcher,
-    });
-  },
-  
-  /**
-   * Получить данные из cache без запроса
-   */
-  getCachedPolls: () => {
-    return queryClient.getQueryData(queryKeys.polls.active());
-  },
-  
-  getCachedMenuItems: () => {
-    return queryClient.getQueryData(queryKeys.menu.items());
-  },
-};
 
 /**
  * Dev tools helper

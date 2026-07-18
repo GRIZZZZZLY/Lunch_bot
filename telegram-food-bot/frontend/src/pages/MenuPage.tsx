@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/layout/Header';
 import { PageHeader } from '../components/common/PageHeader';
@@ -14,11 +14,11 @@ import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PullToRefresh } from '../components/common/PullToRefresh';
 import { EmptyState } from '../components/common/EmptyState';
 import { useHaptic } from '../hooks/useHaptic';
-import { 
-  Plus, 
-  UtensilsCrossed, 
-  Sparkles, 
-  Search, 
+import {
+  Plus,
+  UtensilsCrossed,
+  Sparkles,
+  Search,
   Settings,
   X,
   Utensils,
@@ -28,10 +28,10 @@ import {
 } from 'lucide-react';
 import { GlassHeroCard, GlassSearchBar } from '../components/glass';
 import { BottomSheet } from '../components/common/BottomSheet';
-import { 
-  MenuListSkeleton, 
-  StatCardSkeleton, 
-  SearchFilterSkeleton 
+import {
+  MenuListSkeleton,
+  StatCardSkeleton,
+  SearchFilterSkeleton
 } from '../components/common/SkeletonLoader';
 import { MenuGridSkeleton } from '../components/menu/MenuGridSkeleton';
 import { useAuth } from '../hooks/useAuth';
@@ -41,7 +41,13 @@ import { useAppStore } from '../store/useAppStore';
 import { useCurrentGroup } from '../hooks/useCurrentGroup';
 import { getAdminGroups } from '../lib/groups';
 import { menuService, MenuItem } from '../services/menu.service';
-import { useMenuItems, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem, useToggleMenuItemStatus } from '../hooks/queries';
+import {
+  useCreateMenuItem,
+  useDeleteMenuItem,
+  useMenuItems,
+  useToggleMenuItemStatus,
+  useUpdateMenuItem,
+} from '../hooks/queries/useMenuQueries';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
 import { mockApiService } from '../services/mockApi.service';
 import { usePendingCount } from '../hooks/useSuggestions';
@@ -56,10 +62,27 @@ import { cn } from '../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { TYPOGRAPHY_H2, TYPOGRAPHY_TINY } from '../lib/typography';
 
+// Container animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 },
+};
+
+
 /**
  * Страница управления меню
  */
-export const MenuPage: React.FC = () => {
+const useMenuPageController = () => {
   const { user } = useAuth();
   const isGroupAdmin = useIsGroupAdmin();
   const { mainButton, backButton, colorScheme } = useTelegram();
@@ -76,10 +99,10 @@ export const MenuPage: React.FC = () => {
 
   // Load menu items using React Query
   const { data: menuItems = [], isLoading: menuLoading, refetch: refetchMenu } = useMenuItems();
-  
+
   // Load pending suggestions count (only for admin)
   const { data: pendingCount = 0 } = usePendingCount();
-  
+
   // React Query mutations
   const { mutate: createItemMutation, isPending: isCreating } = useCreateMenuItem();
   const { mutate: updateItemMutation, isPending: isUpdating } = useUpdateMenuItem();
@@ -95,14 +118,12 @@ export const MenuPage: React.FC = () => {
   const [formState, setFormState] = useState({ isOpen: false, clickCount: 0 });
   const [suggestFormOpen, setSuggestFormOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: number; name: string } | null>(null);
-  
+
   const openBottomSheet = useCallback(() => {
-    console.log('Opening BottomSheet');
     setFormState(prev => ({ ...prev, isOpen: true }));
   }, []);
-  
+
   const closeBottomSheet = useCallback(() => {
-    console.log('Closing BottomSheet');
     setFormState(prev => ({ ...prev, isOpen: false }));
     // mainButton всегда скрыт - используем FAB вместо него
   }, []);
@@ -114,7 +135,7 @@ export const MenuPage: React.FC = () => {
     // Фильтр по поисковому запросу
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         item.name.toLowerCase().includes(query) ||
         item.description?.toLowerCase().includes(query)
       );
@@ -145,20 +166,17 @@ export const MenuPage: React.FC = () => {
   }, [mainButton, backButton]);
 
   // React Query handles loading automatically
-  
+
   const handleRefresh = async () => {
     await refetchMenu();
     haptic.success();
   };
 
   const handleAddItem = async (formData: MenuFormData) => {
-    console.log('[MenuPage] Adding item:', formData);
-
     const { groupIds, ...itemData } = formData;
 
     createItemMutation({ data: itemData, groupIds }, {
       onSuccess: (items) => {
-        console.log('[MenuPage] Item added successfully:', items);
         const count = items?.length ?? 0;
         addNotification({
           type: 'success',
@@ -173,8 +191,7 @@ export const MenuPage: React.FC = () => {
           price: itemData.price,
         });
       },
-      onError: (error) => {
-        console.error('Error adding menu item:', error);
+      onError: () => {
         addNotification({
           type: 'error',
           message: 'Ошибка добавления блюда',
@@ -186,11 +203,9 @@ export const MenuPage: React.FC = () => {
 
   const handleEditItem = async (itemData: MenuFormData) => {
     if (!editingItem) return;
-    console.log('[MenuPage] Editing item:', editingItem.id, itemData);
-    
+
     updateItemMutation({ id: editingItem.id, data: itemData }, {
       onSuccess: (data) => {
-        console.log('[MenuPage] Item updated successfully:', data);
         addNotification({
           type: 'success',
           message: `Блюдо "${itemData.name}" обновлено`,
@@ -198,15 +213,14 @@ export const MenuPage: React.FC = () => {
         setEditingItem(null);
         closeBottomSheet();
         haptic.success();
-        
+
         // P1.2.4: Track menu item edit
         trackEvent(ANALYTICS_EVENTS.MENU_ITEM_EDITED, {
           itemId: editingItem.id,
           itemName: itemData.name,
         });
       },
-      onError: (error) => {
-        console.error('[MenuPage] Error updating item:', error);
+      onError: () => {
         addNotification({
           type: 'error',
           message: 'Ошибка обновления блюда',
@@ -229,11 +243,8 @@ export const MenuPage: React.FC = () => {
   const confirmDeleteItem = async () => {
     if (!itemToDelete) return;
 
-    console.log('[MenuPage] Deleting item:', itemToDelete.id);
-
     deleteItemMutation(itemToDelete.id, {
       onSuccess: () => {
-        console.log('[MenuPage] Item deleted successfully');
         addNotification({
           type: 'success',
           message: 'Блюдо удалено',
@@ -252,8 +263,7 @@ export const MenuPage: React.FC = () => {
         // Закрываем диалог
         setItemToDelete(null);
       },
-      onError: (error) => {
-        console.error('[MenuPage] Error deleting item:', error);
+      onError: () => {
         addNotification({
           type: 'error',
           message: 'Ошибка удаления блюда',
@@ -275,8 +285,7 @@ export const MenuPage: React.FC = () => {
         });
         haptic.success();
       },
-      onError: (error) => {
-        console.error('Error toggling item status:', error);
+      onError: () => {
         addNotification({
           type: 'error',
           message: 'Ошибка изменения статуса',
@@ -286,27 +295,11 @@ export const MenuPage: React.FC = () => {
     });
   };
 
-  // Container animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-  
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 },
-  };
-
   // Toggle search visibility
   const toggleSearch = () => {
     setSearchVisible(!searchVisible);
     haptic.light();
-    
+
     // Focus input when opening
     if (!searchVisible) {
       setTimeout(() => searchInputRef.current?.focus(), 100);
@@ -316,23 +309,29 @@ export const MenuPage: React.FC = () => {
   // Calculate stats
   const totalCount = menuItems.length;
   const activeCount = menuItems.filter(item => item.isActive).length;
-  const avgPrice = totalCount > 0 
+  const avgPrice = totalCount > 0
     ? Math.round(menuItems.reduce((sum, item) => sum + (item.price || 0), 0) / totalCount)
     : 0;
 
+
+  return { user, isGroupAdmin, mainButton, backButton, colorScheme, addNotification, haptic, theme, isDark, navigate, currentGroupId, groups, currentGroup, setCurrentGroupId, adminGroups, menuItems, menuLoading, refetchMenu, pendingCount, createItemMutation, isCreating, updateItemMutation, isUpdating, deleteItemMutation, isDeleting, toggleStatusMutation, isToggling, editingItem, setEditingItem, searchQuery, setSearchQuery, searchVisible, setSearchVisible, searchInputRef, formState, setFormState, suggestFormOpen, setSuggestFormOpen, itemToDelete, setItemToDelete, openBottomSheet, closeBottomSheet, filteredItems, handleRefresh, handleAddItem, handleEditItem, handleDeleteItem, confirmDeleteItem, handleToggleStatus, toggleSearch, totalCount, activeCount, avgPrice };
+};
+
+export const MenuPage: React.FC = () => {
+  const { user, isGroupAdmin, mainButton, backButton, colorScheme, addNotification, haptic, theme, isDark, navigate, currentGroupId, groups, currentGroup, setCurrentGroupId, adminGroups, menuItems, menuLoading, refetchMenu, pendingCount, createItemMutation, isCreating, updateItemMutation, isUpdating, deleteItemMutation, isDeleting, toggleStatusMutation, isToggling, editingItem, setEditingItem, searchQuery, setSearchQuery, searchVisible, setSearchVisible, searchInputRef, formState, setFormState, suggestFormOpen, setSuggestFormOpen, itemToDelete, setItemToDelete, openBottomSheet, closeBottomSheet, filteredItems, handleRefresh, handleAddItem, handleEditItem, handleDeleteItem, confirmDeleteItem, handleToggleStatus, toggleSearch, totalCount, activeCount, avgPrice } = useMenuPageController();
   return (
     <>
       {/* Background removed - using neutral bg-background from Layout */}
-      
-      <motion.div
+
+      <m.div
         variants={containerVariants}
         initial="hidden"
         animate="show"
         className="space-y-4 pb-24 min-h-screen"
       >
-        
+
         {/* 1. Compact Header (44px) */}
-        <motion.div variants={itemVariants}>
+        <m.div variants={itemVariants}>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 shrink-0">
               <div className="rounded-xl bg-primary/10 p-2 text-primary">
@@ -360,7 +359,7 @@ export const MenuPage: React.FC = () => {
             <div className="relative flex-1 flex items-center justify-end min-w-0 h-11">
               <AnimatePresence>
                 {searchVisible && (
-                  <motion.div
+                  <m.div
                     initial={{ opacity: 0, scaleX: 0 }}
                     animate={{ opacity: 1, scaleX: 1 }}
                     exit={{ opacity: 0, scaleX: 0 }}
@@ -381,14 +380,15 @@ export const MenuPage: React.FC = () => {
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         {searchQuery && (
-                          <button
+                          <button type="button"
+                            aria-label="Очистить поиск"
                             onClick={() => setSearchQuery('')}
                             className="p-1 text-muted-foreground hover:text-foreground transition-colors"
                           >
                             <X className={ICON_SIZES.sm} />
                           </button>
                         )}
-                        <button
+                        <button type="button"
                           onClick={toggleSearch}
                           className="p-1 text-muted-foreground hover:text-foreground transition-colors"
                           aria-label="Закрыть поиск"
@@ -397,7 +397,7 @@ export const MenuPage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
 
@@ -419,11 +419,11 @@ export const MenuPage: React.FC = () => {
               )}
             </div>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* 2. Compact subtitle (счётчики) + доступ к предложке (admin) */}
         {!menuLoading && menuItems.length > 0 && (
-          <motion.div variants={itemVariants} className="flex items-center justify-between gap-2 px-1">
+          <m.div variants={itemVariants} className="flex items-center justify-between gap-2 px-1">
             <p className="text-sm text-muted-foreground tabular-nums">
               <span className="font-semibold text-foreground">{totalCount}</span> блюд
               {' · '}{activeCount} активных
@@ -433,7 +433,7 @@ export const MenuPage: React.FC = () => {
             </p>
 
             {isGroupAdmin && pendingCount > 0 && (
-              <button
+              <button type="button"
                 onClick={() => { navigate('/admin/suggestions'); haptic.light(); }}
                 className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-butter-500/14 text-butter-600 dark:text-butter-400 transition-colors hover:bg-butter-500/20"
               >
@@ -444,7 +444,7 @@ export const MenuPage: React.FC = () => {
                 </span>
               </button>
             )}
-          </motion.div>
+          </m.div>
         )}
 
         {/* Menu Items List - Grid Layout */}
@@ -465,7 +465,7 @@ export const MenuPage: React.FC = () => {
             />
           )
         ) : (
-          <motion.div variants={itemVariants} className="flex-1">
+          <m.div variants={itemVariants} className="flex-1">
             {/* P1.3: Виртуализация для больших списков (> 50 items) */}
             {filteredItems.length > 50 ? (
               <VirtualMenuList
@@ -486,12 +486,12 @@ export const MenuPage: React.FC = () => {
                 showActions={isGroupAdmin}
               />
             )}
-          </motion.div>
+          </m.div>
         )}
-      </motion.div>
+      </m.div>
 
       {/* 6. Contextual FAB - Single unified button */}
-      <motion.button
+      <m.button
         className="fixed bottom-24 sm:bottom-20 right-4 z-30 flex items-center gap-2 rounded-2xl bg-primary px-6 py-3.5 font-medium text-primary-foreground shadow-md"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -515,14 +515,13 @@ export const MenuPage: React.FC = () => {
             <span>Предложить блюдо</span>
           </>
         )}
-      </motion.button>
+      </m.button>
 
       {/* Bottom Sheets */}
       <BottomSheet
         isOpen={formState.isOpen}
         onClose={closeBottomSheet}
         title="Добавить блюдо"
-        enableBackdrop={true}
         snapPoints={[100]}
         initialSnap={0}
       >
@@ -534,13 +533,12 @@ export const MenuPage: React.FC = () => {
           defaultGroupId={currentGroupId}
         />
       </BottomSheet>
-      
+
       {editingItem && (
         <BottomSheet
           isOpen={!!editingItem}
           onClose={() => setEditingItem(null)}
           title="Редактировать блюдо"
-          enableBackdrop={true}
           snapPoints={[100]}
           initialSnap={0}
         >
@@ -573,4 +571,3 @@ export const MenuPage: React.FC = () => {
     </>
   );
 };
-

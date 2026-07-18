@@ -1,6 +1,54 @@
 import React from 'react';
 import { useHaptic } from '../../hooks/useHaptic';
 
+// Color variants
+const colorClasses = {
+  default: {
+    filled: 'bg-gray-500 text-white',
+    outlined: 'border-gray-500 text-gray-400 dark:text-gray-400',
+    default: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  },
+  primary: {
+    filled: 'bg-telegram-button-color text-white',
+    outlined: 'border-telegram-button-color text-telegram-button-color',
+    default: 'bg-telegram-button-color/10 text-telegram-button-color',
+  },
+  success: {
+    filled: 'bg-green-500 text-white',
+    outlined: 'border-green-500 text-green-500',
+    default: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+  },
+  error: {
+    filled: 'bg-red-500 text-white',
+    outlined: 'border-red-500 text-red-500',
+    default: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+  },
+  warning: {
+    filled: 'bg-orange-500 text-white',
+    outlined: 'border-orange-500 text-orange-500',
+    default: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+  },
+  info: {
+    filled: 'bg-blue-500 text-white',
+    outlined: 'border-blue-500 text-blue-500',
+    default: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  },
+};
+
+// Size variants
+const sizeClasses = {
+  sm: 'text-xs px-2 py-1 gap-1',
+  md: 'text-sm px-3 py-1.5 gap-1.5',
+  lg: 'text-base px-4 py-2 gap-2',
+};
+
+const iconSizes = {
+  sm: 'text-sm',
+  md: 'text-base',
+  lg: 'text-lg',
+};
+
+
 interface ChipProps {
   label: string;
   icon?: string | React.ReactNode;
@@ -50,53 +98,6 @@ export const Chip: React.FC<ChipProps> = ({
     }
   };
 
-  // Color variants
-  const colorClasses = {
-    default: {
-      filled: 'bg-gray-500 text-white',
-      outlined: 'border-gray-500 text-gray-400 dark:text-gray-400',
-      default: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-    },
-    primary: {
-      filled: 'bg-telegram-button-color text-white',
-      outlined: 'border-telegram-button-color text-telegram-button-color',
-      default: 'bg-telegram-button-color/10 text-telegram-button-color',
-    },
-    success: {
-      filled: 'bg-green-500 text-white',
-      outlined: 'border-green-500 text-green-500',
-      default: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-    },
-    error: {
-      filled: 'bg-red-500 text-white',
-      outlined: 'border-red-500 text-red-500',
-      default: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-    },
-    warning: {
-      filled: 'bg-orange-500 text-white',
-      outlined: 'border-orange-500 text-orange-500',
-      default: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
-    },
-    info: {
-      filled: 'bg-blue-500 text-white',
-      outlined: 'border-blue-500 text-blue-500',
-      default: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-    },
-  };
-
-  // Size variants
-  const sizeClasses = {
-    sm: 'text-xs px-2 py-1 gap-1',
-    md: 'text-sm px-3 py-1.5 gap-1.5',
-    lg: 'text-base px-4 py-2 gap-2',
-  };
-
-  const iconSizes = {
-    sm: 'text-sm',
-    md: 'text-base',
-    lg: 'text-lg',
-  };
-
   const baseClass = `inline-flex items-center rounded-full font-medium transition-all ${sizeClasses[size]}`;
   const variantClass = colorClasses[color][variant];
   const outlinedBorder = variant === 'outlined' ? 'border-2' : '';
@@ -107,6 +108,14 @@ export const Chip: React.FC<ChipProps> = ({
   return (
     <div
       onClick={handleClick}
+      onKeyDown={event => {
+        if ((event.key === 'Enter' || event.key === ' ') && onClick && !disabled) {
+          event.preventDefault();
+          handleClick();
+        }
+      }}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick && !disabled ? 0 : undefined}
       className={`${baseClass} ${variantClass} ${outlinedBorder} ${clickableClass} ${selectedClass} ${disabledClass} ${className}`}
     >
       {/* Avatar */}
@@ -130,7 +139,8 @@ export const Chip: React.FC<ChipProps> = ({
 
       {/* Delete button */}
       {onDelete && (
-        <button
+        <button type="button"
+          aria-label="Удалить метку"
           onClick={handleDelete}
           disabled={disabled}
           className="ml-1 rounded-full hover:bg-black/10 transition-colors p-0.5 disabled:cursor-not-allowed"
@@ -180,6 +190,8 @@ export const ChipGroup: React.FC<{
   size = 'md',
   className = '',
 }) => {
+  const selectedSet = new Set(selected);
+
   const handleSelect = (id: string) => {
     if (!onSelect) return;
     onSelect(id);
@@ -193,7 +205,7 @@ export const ChipGroup: React.FC<{
           label={chip.label}
           icon={chip.icon}
           onClick={() => handleSelect(chip.id)}
-          selected={selected.includes(chip.id)}
+          selected={selectedSet.has(chip.id)}
           variant={variant}
           color={color}
           size={size}

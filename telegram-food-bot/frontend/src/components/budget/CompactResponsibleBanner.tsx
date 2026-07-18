@@ -67,7 +67,7 @@ export function CompactResponsibleBanner({
         </div>
 
         {/* Right: Button */}
-        <button
+        <button type="button"
           onClick={onOpenCalculator}
           className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-coral-500 text-white text-sm font-semibold transition-all hover:brightness-105 active:scale-95 shadow-[0_8px_18px_-8px_rgba(216,106,44,0.6)]"
         >

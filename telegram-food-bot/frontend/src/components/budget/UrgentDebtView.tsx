@@ -6,6 +6,21 @@ import { useHaptic } from '../../hooks/useHaptic';
 import { toast } from 'sonner';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
+// Маскирование номера карты
+const maskCard = (card?: string | null) => {
+  if (!card) return 'Не указана';
+  const cleaned = card.replace(/\D/g, '');
+  if (cleaned.length < 4) return card;
+  return `**** ${cleaned.slice(-4)}`;
+};
+
+// Форматирование телефона
+const formatPhone = (phone?: string | null) => {
+  if (!phone) return 'Не указан';
+  return phone;
+};
+
+
 interface UrgentDebtViewProps {
   debt: Transaction;
   otherDebts: Transaction[];
@@ -54,20 +69,6 @@ export const UrgentDebtView = ({ debt, otherDebts, credits }: UrgentDebtViewProp
     console.error('[UrgentDebtView] ❌ debt is undefined!');
     return null;
   }
-  
-  // Маскирование номера карты
-  const maskCard = (card?: string | null) => {
-    if (!card) return 'Не указана';
-    const cleaned = card.replace(/\D/g, '');
-    if (cleaned.length < 4) return card;
-    return `**** ${cleaned.slice(-4)}`;
-  };
-  
-  // Форматирование телефона
-  const formatPhone = (phone?: string | null) => {
-    if (!phone) return 'Не указан';
-    return phone;
-  };
 
   const userName = [debt.toUser?.firstName, debt.toUser?.lastName]
     .filter(Boolean)

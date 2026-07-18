@@ -78,13 +78,6 @@ export const STREAK_MILESTONES: StreakMilestone[] = [
 ];
 
 /**
- * Получить следующий milestone для пользователя
- */
-export function getNextMilestone(currentStreak: number): StreakMilestone | null {
-  return STREAK_MILESTONES.find(m => m.days > currentStreak) || null;
-}
-
-/**
  * Проверить достиг ли пользователь нового milestone
  */
 export function checkMilestoneAchieved(
@@ -95,32 +88,4 @@ export function checkMilestoneAchieved(
     m => m.days > previousStreak && m.days <= currentStreak
   );
   return milestone || null;
-}
-
-/**
- * Получить прогресс до следующего milestone (0-100)
- */
-export function getProgressToNextMilestone(currentStreak: number): {
-  progress: number;
-  nextMilestone: StreakMilestone | null;
-  daysRemaining: number;
-} {
-  const next = getNextMilestone(currentStreak);
-  
-  if (!next) {
-    return { progress: 100, nextMilestone: null, daysRemaining: 0 };
-  }
-
-  const previousMilestone = STREAK_MILESTONES
-    .filter(m => m.days <= currentStreak)
-    .pop();
-  
-  const start = previousMilestone?.days || 0;
-  const end = next.days;
-  const current = currentStreak;
-  
-  const progress = ((current - start) / (end - start)) * 100;
-  const daysRemaining = end - current;
-  
-  return { progress, nextMilestone: next, daysRemaining };
 }

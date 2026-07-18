@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Copy, ChevronDown, ChevronUp, Trophy, User } from 'lucide-react';
 import type { MultiWinnerResultData } from '@/services/polls.service';
 import { useTelegram } from '@/hooks/useTelegram';
 import { Badge } from '@/components/ui/badge';
 import { ICON_SIZES } from '@/lib/design-tokens';
+
+const getPluralForm = (count: number): string => {
+  if (count % 10 === 1 && count % 100 !== 11) return 'человек';
+  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+    return 'человека';
+  }
+  return 'человек';
+};
+
 
 interface MultiWinnerResultsProps {
   resultData: MultiWinnerResultData;
@@ -40,21 +49,16 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
       text += `🏠 Своё: ${resultData.bringOwn.voters.map((v) => v.firstName).join(', ')}\n`;
     }
 
+    if (resultData.skipped.count > 0) {
+      text += `🚫 Пропускают: ${resultData.skipped.voters.map((v) => v.firstName).join(', ')}\n`;
+    }
+
     try {
       await navigator.clipboard.writeText(text);
       hapticFeedback.notificationOccurred('success');
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
+    } catch {
       hapticFeedback.notificationOccurred('error');
     }
-  };
-
-  const getPluralForm = (count: number): string => {
-    if (count % 10 === 1 && count % 100 !== 11) return 'человек';
-    if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
-      return 'человека';
-    }
-    return 'человек';
   };
 
   return (
@@ -62,7 +66,7 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">📊 Результаты</h2>
-        <button
+        <button type="button"
           onClick={copyToClipboard}
           className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg hover:bg-primary/20 transition"
           aria-label="Копировать результаты"
@@ -82,7 +86,7 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
             : winner.voters.slice(0, 5);
 
           return (
-            <motion.div
+            <m.div
               key={winner.menuItemId}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -128,7 +132,7 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
 
                     {/* Expand Button */}
                     {showExpandButton && (
-                      <button
+                      <button type="button"
                         onClick={() => toggleGroup(winner.menuItemId)}
                         className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs flex items-center gap-1 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
                         aria-label={isExpanded ? 'Свернуть' : 'Развернуть'}
@@ -149,7 +153,7 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           );
         })
       ) : (
@@ -160,7 +164,7 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
 
       {/* Bring Own */}
       {resultData.bringOwn.count > 0 && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: resultData.winners.length * 0.1 }}
@@ -185,12 +189,12 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
               </div>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Skipped */}
       {resultData.skipped.count > 0 && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-glass rounded-xl p-4 border border-white/10 opacity-60"
@@ -202,9 +206,19 @@ export const MultiWinnerResults: React.FC<MultiWinnerResultsProps> = ({
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 {resultData.skipped.count} {getPluralForm(resultData.skipped.count)}
               </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {resultData.skipped.voters.map((voter) => (
+                  <span
+                    key={voter.userId}
+                    className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs"
+                  >
+                    {voter.firstName}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Tie-Break Info */}

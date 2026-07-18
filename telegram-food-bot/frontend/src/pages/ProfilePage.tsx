@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Header } from '../components/layout/Header';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PastelCard, CardHeader, CardContent } from '../components/ui/pastel-card';
@@ -28,29 +28,34 @@ import { useAppStore } from '../store/useAppStore';
 import { userService, PaymentInfo } from '../services/user.service';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { getQuickStats } from '../services/insights.service';
-import type { ApiResponse } from '../services/api.service';
 import { DonationButton } from '../components/donation/DonationButton';
 import { FloatingActionButton } from '../components/common/FloatingActionButton';
 import { FeedbackModal } from '../components/modals/FeedbackModal';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { cn } from '@/lib/utils';
 
+const formatCardInput = (value: string) => {
+  // Убираем все не-цифры и форматируем
+  const cleaned = value.replace(/\D/g, '');
+  return userService.formatCardNumber(cleaned);
+};
+
+
 /**
  * Страница профиля и настроек платёжных данных
  * Использует React Query для предотвращения смешивания данных между пользователями
  */
-export const ProfilePage: React.FC = () => {
+const useProfilePageController = () => {
   const navigate = useNavigate();
   const { user, refresh } = useAuth();
   const isGroupAdmin = useIsGroupAdmin();
   const { mainButton, backButton, colorScheme } = useTelegram();
   const addNotification = useAppStore((state) => state.addNotification);
-  
+
   const isDark = colorScheme === 'dark';
   const { showOnboarding } = useOnboarding();
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
   // Local state для формы
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
@@ -62,21 +67,18 @@ export const ProfilePage: React.FC = () => {
     paymentCard?: string;
     paymentPhone?: string;
   }>({});
-  
+
   // Автосохранение
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
-  const isInitialLoadRef = useRef(true);
 
   // Сброс при смене пользователя и загрузка данных
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log(`[ProfilePage] User changed to ${user.id} - loading payment info`);
-    isInitialLoadRef.current = true;
     setPaymentInfo({
       paymentCard: '',
       paymentPhone: '',
@@ -107,10 +109,9 @@ export const ProfilePage: React.FC = () => {
           paymentPhone: data.paymentPhone || '',
           paymentDetails: data.paymentDetails || '',
         });
-      } catch (error) {
+      } catch {
         if (!isActive) return;
 
-        console.error('[ProfilePage] Failed to load payment info:', error);
         addNotification({
           type: 'error',
           message: 'Ошибка загрузки платёжных данных',
@@ -118,7 +119,6 @@ export const ProfilePage: React.FC = () => {
       } finally {
         if (isActive) {
           setLoading(false);
-          isInitialLoadRef.current = false;
         }
       }
     };
@@ -140,12 +140,16 @@ export const ProfilePage: React.FC = () => {
       // Очистить таймер автосохранения при размонтировании
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
       }
     };
   }, [backButton, navigate]);
 
-  const validateForm = (data: PaymentInfo): boolean => {
-    const newErrors: typeof errors = {};
+  const validateForm = useCallback((data: PaymentInfo): boolean => {
+    const newErrors: {
+      paymentCard?: string;
+      paymentPhone?: string;
+    } = {};
 
     if (data.paymentCard && !userService.validateCardNumber(data.paymentCard)) {
       newErrors.paymentCard = 'Некорректный номер карты';
@@ -157,275 +161,87 @@ export const ProfilePage: React.FC = () => {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, []);
+
+  const clearSaveTimer = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+  }, []);
+
+  const savePaymentInfoNow = useCallback(async (data: PaymentInfo): Promise<boolean> => {
+    if (!validateForm(data)) {
+      setHasUnsavedChanges(true);
+      return false;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await userService.updatePaymentInfo(data);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update payment info');
+      }
+
+      setHasUnsavedChanges(false);
+      setLastSaved(new Date());
+      return true;
+    } catch {
+      setHasUnsavedChanges(true);
+      addNotification({
+        type: 'error',
+        message: 'Ошибка при сохранении',
+      });
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [addNotification, validateForm]);
 
   // Автосохранение с debounce
   const autoSave = useCallback((data: PaymentInfo) => {
-    // Очищаем предыдущий таймер
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
+    clearSaveTimer();
+
     // Устанавливаем флаг несохранённых изменений
     setHasUnsavedChanges(true);
-    
+
     // Устанавливаем новый таймер на 2 секунды
     saveTimeoutRef.current = setTimeout(() => {
-      // Валидация перед сохранением
-      if (!validateForm(data)) {
-        setHasUnsavedChanges(false);
-        return; // Не сохраняем невалидные данные
-      }
-      
-      setIsSaving(true);
-      setHasUnsavedChanges(false);
-      userService.updatePaymentInfo(data).then((response: ApiResponse<PaymentInfo>) => {
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to update payment info');
-        }
-        setIsSaving(false);
-        setLastSaved(new Date());
-      }).catch(() => {
-        setIsSaving(false);
-        addNotification({
-          type: 'error',
-          message: 'Ошибка при сохранении',
-        });
-      });
+      saveTimeoutRef.current = null;
+      void savePaymentInfoNow(data);
     }, 2000); // 2 секунды задержки
-  }, [addNotification]);
+  }, [clearSaveTimer, savePaymentInfoNow]);
+
+  const flushSave = useCallback(() => {
+    clearSaveTimer();
+    void savePaymentInfoNow(paymentInfo);
+  }, [clearSaveTimer, paymentInfo, savePaymentInfoNow]);
 
   const handleChange = (field: keyof PaymentInfo, value: string) => {
     const newData = { ...paymentInfo, [field]: value };
     setPaymentInfo(newData);
-    
+
     // Очищаем ошибку при изменении
     if (errors[field as keyof typeof errors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
-    
+
     // Запускаем автосохранение
     autoSave(newData);
   };
 
-  const formatCardInput = (value: string) => {
-    // Убираем все не-цифры и форматируем
-    const cleaned = value.replace(/\D/g, '');
-    return userService.formatCardNumber(cleaned);
-  };
+  return { navigate, user, refresh, isGroupAdmin, mainButton, backButton, colorScheme, addNotification, isDark, showOnboarding, loading, setLoading, paymentInfo, setPaymentInfo, errors, setErrors, saveTimeoutRef, isSaving, setIsSaving, hasUnsavedChanges, setHasUnsavedChanges, lastSaved, setLastSaved, isFeedbackModalOpen, setIsFeedbackModalOpen, validateForm, clearSaveTimer, savePaymentInfoNow, autoSave, flushSave, handleChange };
+};
 
-  if (loading) {
-    return (
-      <div className="min-h-screen relative">
-        <div className="flex items-center justify-center min-h-screen">
-          <LoadingSpinner size="lg" />
-        </div>
-      </div>
-    );
-  }
+type ProfilePageController = ReturnType<typeof useProfilePageController>;
 
+const PaymentDetailsSection = ({ controller }: { controller: ProfilePageController }) => {
+  const { navigate, user, refresh, isGroupAdmin, mainButton, backButton, colorScheme, addNotification, isDark, showOnboarding, loading, setLoading, paymentInfo, setPaymentInfo, errors, setErrors, saveTimeoutRef, isSaving, setIsSaving, hasUnsavedChanges, setHasUnsavedChanges, lastSaved, setLastSaved, isFeedbackModalOpen, setIsFeedbackModalOpen, validateForm, clearSaveTimer, savePaymentInfoNow, autoSave, flushSave, handleChange } = controller;
   return (
-    <>
-      {/* Background removed - using neutral bg-background from Layout */}
-      
-        <div className="relative z-10 space-y-6">
-        {/* Информация о пользователе */}
-        <PastelCard variant="default" className="p-5">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-            className="flex items-center gap-4"
-          >
-            {/* Avatar with automatic loading from Telegram */}
-            <UserAvatar
-              userId={user?.id}
-              firstName={user?.firstName || '?'}
-              lastName={user?.lastName}
-              size="lg"
-            />
-            
-            <div className="flex-1">
-                <div className="text-lg font-semibold text-foreground">
-                  {user?.firstName} {user?.lastName}
-                </div>
-                {user?.username && (
-                  <div className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
-                    <User size={14} />
-                    @{user.username}
-                  </div>
-                )}
-                {isGroupAdmin && (
-                  <div className="mt-2">
-                    <Badge 
-                      variant="warning" 
-                    >
-                    <Crown className={`${ICON_SIZES.sm} mr-1`} />
-                    Администратор
-                  </Badge>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </PastelCard>
-
-        {/* Stats Row — опросы · блюд · любимое (3-col dashed dividers) */}
-        {user?.id && (() => {
-          const qs = getQuickStats(user.id);
-          return (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25, duration: 0.32 }}
-            >
-              <PastelCard variant="default" className="p-0 overflow-hidden">
-                <div className="grid grid-cols-3 divide-x divide-dashed divide-border/70">
-                  <div className="flex flex-col items-center justify-center py-4 px-2">
-                    <div className="text-2xl font-bold text-foreground tabular-nums">{qs.totalVotes}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">опросов</div>
-                  </div>
-                  <div className="flex flex-col items-center justify-center py-4 px-2">
-                    <div className="text-2xl font-bold text-foreground tabular-nums">{qs.uniqueDishes}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">блюд</div>
-                  </div>
-                  <div className="flex flex-col items-center justify-center py-4 px-2 min-w-0">
-                    <div className="text-base font-semibold text-foreground truncate max-w-full">
-                      {qs.topDish || '—'}
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">любимое</div>
-                  </div>
-                </div>
-              </PastelCard>
-            </motion.div>
-          );
-        })()}
-
-        {/* Quick link to full history */}
-        <motion.button
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.28, duration: 0.32 }}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          onClick={() => navigate('/poll/history')}
-          className="w-full rounded-2xl border border-peach-500/20 bg-card/95 p-4 transition-all hover:border-peach-500/35 hover:shadow-md"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-peach-500/12 p-2 text-peach-600 dark:text-peach-400">
-                <BookOpen className={cn(ICON_SIZES.md)} />
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-foreground">История голосований</p>
-                <p className="text-sm text-muted-foreground">Победы, участия и пропуски</p>
-              </div>
-            </div>
-            <ChevronRight className={cn(ICON_SIZES.md, 'text-peach-500')} />
-          </div>
-        </motion.button>
-
-        {/* Admin Dashboard Access */}
-        {isGroupAdmin && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.4 }}
-          >
-            <button
-              onClick={() => navigate('/admin/dashboard')}
-              className="w-full rounded-2xl border border-butter-500/20 bg-card/95 p-5 transition-all hover:border-butter-500/35 hover:shadow-md"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-xl bg-butter-500/12 p-3 text-butter-600 dark:text-butter-400">
-                    <Shield className={cn(ICON_SIZES.lg)} />
-                  </div>
-                  <div className="text-left">
-                    <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                      Панель администратора
-                      <Crown size={18} className="text-butter-600 dark:text-butter-400" />
-                    </div>
-                    <div className="mt-0.5 text-sm text-muted-foreground">
-                      Статистика, логи и управление системой
-                    </div>
-                  </div>
-                </div>
-                <div className="text-butter-600 dark:text-butter-400">
-                  <Settings className={ICON_SIZES.md} />
-                </div>
-              </div>
-            </button>
-          </motion.div>
-        )}
-
-        {/* Refresh Token button (if admin in DB but not in token) */}
-        {!isGroupAdmin && import.meta.env.DEV && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.4 }}
-          >
-            <button
-              onClick={async () => {
-                try {
-                  await refresh();
-                  addNotification({
-                    type: 'success',
-                    message: '✅ Права обновлены! Перезагрузи страницу.',
-                  });
-                  setTimeout(() => window.location.reload(), 1500);
-                } catch (error) {
-                  addNotification({
-                    type: 'error',
-                    message: '❌ Ошибка обновления прав',
-                  });
-                }
-              }}
-              className="w-full p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-700 hover:shadow-lg transition-all"
-            >
-              <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
-                <Settings size={18} />
-                <span className="text-sm font-medium">Обновить права доступа (Dev)</span>
-              </div>
-            </button>
-          </motion.div>
-        )}
-
-        {/* My Suggestions Access - для всех пользователей */}
-        {/* Мои предложения / Предложка */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: isGroupAdmin ? 0.4 : 0.3, duration: 0.4 }}
-        >
-          <button
-            onClick={() => navigate(isGroupAdmin ? '/admin/suggestions' : '/my-suggestions')}
-            className="w-full rounded-2xl border border-lavender-500/20 bg-card/95 p-5 transition-all hover:border-lavender-500/35 hover:shadow-md"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-lavender-500/12 p-3 text-lavender-600 dark:text-lavender-400">
-                  <Lightbulb className={cn(ICON_SIZES.lg)} />
-                </div>
-                <div className="text-left">
-                  <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                    {isGroupAdmin ? 'Предложка' : 'Мои предложения'}
-                  </div>
-                  <div className="mt-0.5 text-sm text-muted-foreground">
-                    {isGroupAdmin ? 'Модерация предложений от пользователей' : 'История предложенных блюд для меню'}
-                  </div>
-                </div>
-              </div>
-              <div className="text-lavender-500">
-                <ChevronRight className={ICON_SIZES.md} />
-              </div>
-            </div>
-          </button>
-        </motion.div>
-
-        {/* Платёжные данные */}
-        <PastelCard variant="default" className="p-5">
-          <motion.div
+<PastelCard variant="default" className="p-5">
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.4 }}
@@ -464,19 +280,21 @@ export const ProfilePage: React.FC = () => {
 
           {/* Номер карты */}
           <div>
-            <label className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground">
+            <label htmlFor="payment-card" className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground">
               <CreditCard className={cn(ICON_SIZES.sm, "text-primary")} />
               <span>Номер карты</span>
             </label>
             <input
+              id="payment-card"
               type="text"
               value={paymentInfo.paymentCard || ''}
               onChange={(e) => handleChange('paymentCard', formatCardInput(e.target.value))}
+              onBlur={flushSave}
               placeholder="1234 5678 9012 3456"
               maxLength={19}
               className={`w-full px-4 py-3 rounded-lg border ${
-                errors.paymentCard 
-                  ? 'border-red-500 dark:border-red-500' 
+                errors.paymentCard
+                  ? 'border-red-500 dark:border-red-500'
                   : 'border-gray-200 dark:border-gray-700'
                } bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all`}
             />
@@ -493,18 +311,20 @@ export const ProfilePage: React.FC = () => {
 
           {/* Номер телефона */}
           <div>
-            <label className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground">
+            <label htmlFor="payment-phone" className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground">
               <Phone className={cn(ICON_SIZES.sm, "text-primary")} />
               <span>Номер телефона</span>
             </label>
             <input
+              id="payment-phone"
               type="tel"
               value={paymentInfo.paymentPhone || ''}
               onChange={(e) => handleChange('paymentPhone', e.target.value)}
+              onBlur={flushSave}
               placeholder="+7 (999) 123-45-67"
               className={`w-full px-4 py-3 rounded-lg border ${
-                errors.paymentPhone 
-                  ? 'border-red-500 dark:border-red-500' 
+                errors.paymentPhone
+                  ? 'border-red-500 dark:border-red-500'
                   : 'border-gray-200 dark:border-gray-700'
                } bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all`}
             />
@@ -521,13 +341,15 @@ export const ProfilePage: React.FC = () => {
 
           {/* Дополнительные детали */}
           <div>
-            <label className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground">
+            <label htmlFor="payment-details" className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground">
               <FileText className={cn(ICON_SIZES.sm, "text-primary")} />
               <span>Дополнительная информация</span>
             </label>
             <textarea
+              id="payment-details"
               value={paymentInfo.paymentDetails || ''}
               onChange={(e) => handleChange('paymentDetails', e.target.value)}
+              onBlur={flushSave}
               placeholder="Например: СБП по номеру телефона, комментарий к переводу и т.д."
               rows={3}
               maxLength={200}
@@ -545,7 +367,7 @@ export const ProfilePage: React.FC = () => {
 
           {/* Превью */}
           {(paymentInfo.paymentCard || paymentInfo.paymentPhone || paymentInfo.paymentDetails) && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="rounded-lg border border-primary/18 bg-primary/8 p-4"
@@ -574,7 +396,7 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 )}
               </div>
-            </motion.div>
+            </m.div>
           )}
 
           {/* Информация */}
@@ -586,11 +408,229 @@ export const ProfilePage: React.FC = () => {
               </p>
             </div>
           </div>
-          </motion.div>
+          </m.div>
         </PastelCard>
 
+
+  );
+};
+
+export const ProfilePage: React.FC = () => {
+  const controller = useProfilePageController();
+  const { navigate, user, refresh, isGroupAdmin, mainButton, backButton, colorScheme, addNotification, isDark, showOnboarding, loading, setLoading, paymentInfo, setPaymentInfo, errors, setErrors, saveTimeoutRef, isSaving, setIsSaving, hasUnsavedChanges, setHasUnsavedChanges, lastSaved, setLastSaved, isFeedbackModalOpen, setIsFeedbackModalOpen, validateForm, clearSaveTimer, savePaymentInfoNow, autoSave, flushSave, handleChange } = controller;
+  if (loading) {
+    return (
+      <div className="min-h-screen relative">
+        <div className="flex items-center justify-center min-h-screen">
+          <LoadingSpinner size="lg" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Background removed - using neutral bg-background from Layout */}
+
+        <div className="relative z-10 space-y-6">
+        {/* Информация о пользователе */}
+        <PastelCard variant="default" className="p-5">
+          <m.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+            className="flex items-center gap-4"
+          >
+            {/* Avatar with automatic loading from Telegram */}
+            <UserAvatar
+              userId={user?.id}
+              firstName={user?.firstName || '?'}
+              lastName={user?.lastName}
+              size="lg"
+            />
+
+            <div className="flex-1">
+                <div className="text-lg font-semibold text-foreground">
+                  {user?.firstName} {user?.lastName}
+                </div>
+                {user?.username && (
+                  <div className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
+                    <User size={14} />
+                    @{user.username}
+                  </div>
+                )}
+                {isGroupAdmin && (
+                  <div className="mt-2">
+                    <Badge
+                      variant="warning"
+                    >
+                    <Crown className={`${ICON_SIZES.sm} mr-1`} />
+                    Администратор
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </m.div>
+        </PastelCard>
+
+        {/* Stats Row — опросы · блюд · любимое (3-col dashed dividers) */}
+        {user?.id && (() => {
+          const qs = getQuickStats(user.id);
+          return (
+            <m.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, duration: 0.32 }}
+            >
+              <PastelCard variant="default" className="p-0 overflow-hidden">
+                <div className="grid grid-cols-3 divide-x divide-dashed divide-border/70">
+                  <div className="flex flex-col items-center justify-center py-4 px-2">
+                    <div className="text-2xl font-bold text-foreground tabular-nums">{qs.totalVotes}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">опросов</div>
+                  </div>
+                  <div className="flex flex-col items-center justify-center py-4 px-2">
+                    <div className="text-2xl font-bold text-foreground tabular-nums">{qs.uniqueDishes}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">блюд</div>
+                  </div>
+                  <div className="flex flex-col items-center justify-center py-4 px-2 min-w-0">
+                    <div className="text-base font-semibold text-foreground truncate max-w-full">
+                      {qs.topDish || '—'}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">любимое</div>
+                  </div>
+                </div>
+              </PastelCard>
+            </m.div>
+          );
+        })()}
+
+        {/* Quick link to full history */}
+        <m.button
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.28, duration: 0.32 }}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          onClick={() => navigate('/poll/history')}
+          className="w-full rounded-2xl border border-peach-500/20 bg-card/95 p-4 transition-all hover:border-peach-500/35 hover:shadow-md"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-peach-500/12 p-2 text-peach-600 dark:text-peach-400">
+                <BookOpen className={cn(ICON_SIZES.md)} />
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-foreground">История голосований</p>
+                <p className="text-sm text-muted-foreground">Победы, участия и пропуски</p>
+              </div>
+            </div>
+            <ChevronRight className={cn(ICON_SIZES.md, 'text-peach-500')} />
+          </div>
+        </m.button>
+
+        {/* Admin Dashboard Access */}
+        {isGroupAdmin && (
+          <m.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+          >
+            <button type="button"
+              onClick={() => navigate('/admin/dashboard')}
+              className="w-full rounded-2xl border border-butter-500/20 bg-card/95 p-5 transition-all hover:border-butter-500/35 hover:shadow-md"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="rounded-xl bg-butter-500/12 p-3 text-butter-600 dark:text-butter-400">
+                    <Shield className={cn(ICON_SIZES.lg)} />
+                  </div>
+                  <div className="text-left">
+                    <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                      Панель администратора
+                      <Crown size={18} className="text-butter-600 dark:text-butter-400" />
+                    </div>
+                    <div className="mt-0.5 text-sm text-muted-foreground">
+                      Статистика, логи и управление системой
+                    </div>
+                  </div>
+                </div>
+                <div className="text-butter-600 dark:text-butter-400">
+                  <Settings className={ICON_SIZES.md} />
+                </div>
+              </div>
+            </button>
+          </m.div>
+        )}
+
+        {/* Refresh Token button (if admin in DB but not in token) */}
+        {!isGroupAdmin && import.meta.env.DEV && (
+          <m.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+          >
+            <button type="button"
+              onClick={async () => {
+                try {
+                  await refresh();
+                  addNotification({
+                    type: 'success',
+                    message: '✅ Права обновлены! Перезагрузи страницу.',
+                  });
+                  setTimeout(() => window.location.reload(), 1500);
+                } catch (error) {
+                  addNotification({
+                    type: 'error',
+                    message: '❌ Ошибка обновления прав',
+                  });
+                }
+              }}
+              className="w-full p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-700 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
+                <Settings size={18} />
+                <span className="text-sm font-medium">Обновить права доступа (Dev)</span>
+              </div>
+            </button>
+          </m.div>
+        )}
+
+        {/* My Suggestions Access - для всех пользователей */}
+        {/* Мои предложения / Предложка */}
+        <m.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: isGroupAdmin ? 0.4 : 0.3, duration: 0.4 }}
+        >
+          <button type="button"
+            onClick={() => navigate(isGroupAdmin ? '/admin/suggestions' : '/my-suggestions')}
+            className="w-full rounded-2xl border border-lavender-500/20 bg-card/95 p-5 transition-all hover:border-lavender-500/35 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="rounded-xl bg-lavender-500/12 p-3 text-lavender-600 dark:text-lavender-400">
+                  <Lightbulb className={cn(ICON_SIZES.lg)} />
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                    {isGroupAdmin ? 'Предложка' : 'Мои предложения'}
+                  </div>
+                  <div className="mt-0.5 text-sm text-muted-foreground">
+                    {isGroupAdmin ? 'Модерация предложений от пользователей' : 'История предложенных блюд для меню'}
+                  </div>
+                </div>
+              </div>
+              <div className="text-lavender-500">
+                <ChevronRight className={ICON_SIZES.md} />
+              </div>
+            </div>
+          </button>
+        </m.div>
+
+        {/* Платёжные данные */}
+        <PaymentDetailsSection controller={controller} />
         {/* Help Section */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7, duration: 0.4 }}
@@ -599,8 +639,8 @@ export const ProfilePage: React.FC = () => {
           <h3 className="text-lg font-semibold text-foreground">
             Помощь
           </h3>
-          
-          <motion.button
+
+          <m.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={showOnboarding}
@@ -622,8 +662,8 @@ export const ProfilePage: React.FC = () => {
               </div>
               <div className="text-lavender-500">›</div>
             </div>
-          </motion.button>
-        </motion.div>
+          </m.button>
+        </m.div>
 
         {/* Donation Button */}
         <DonationButton />

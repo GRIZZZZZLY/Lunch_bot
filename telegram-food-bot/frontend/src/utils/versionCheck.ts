@@ -64,21 +64,9 @@ export async function clearAppCache(): Promise<void> {
       await Promise.all(registrations.map(reg => reg.unregister()));
     }
     
-    console.log('App cache cleared successfully');
-  } catch (error) {
-    console.error('Failed to clear app cache:', error);
+  } catch {
+    // Cleanup is best-effort and must not interrupt application startup.
   }
-}
-
-/**
- * Принудительная перезагрузка приложения с очисткой кеша
- */
-export function forceReload(): void {
-  // Очищаем версию для триггера проверки при следующей загрузке
-  localStorage.removeItem(VERSION_STORAGE_KEY);
-  
-  // Перезагружаем страницу с обходом кеша
-  window.location.reload();
 }
 
 /**
@@ -94,33 +82,13 @@ export async function checkForUpdates(): Promise<boolean> {
     const serverVersion = response.headers.get('X-App-Version');
     
     if (serverVersion && serverVersion !== APP_VERSION) {
-      console.log(`Update available: ${APP_VERSION} → ${serverVersion}`);
       return true;
     }
     
     return false;
-  } catch (error) {
-    console.error('Failed to check for updates:', error);
+  } catch {
     return false;
   }
-}
-
-/**
- * Инициализировать автоматическую проверку обновлений
- */
-export function initVersionCheck(
-  onUpdateAvailable?: () => void
-): () => void {
-  const checkInterval = setInterval(async () => {
-    const hasUpdate = await checkForUpdates();
-    
-    if (hasUpdate && onUpdateAvailable) {
-      onUpdateAvailable();
-    }
-  }, VERSION_CHECK_INTERVAL);
-  
-  // Возвращаем функцию для остановки проверки
-  return () => clearInterval(checkInterval);
 }
 
 /**
@@ -128,9 +96,7 @@ export function initVersionCheck(
  */
 export async function handleStartupUpdate(): Promise<void> {
   if (hasVersionChanged()) {
-    console.log('New version detected, clearing cache...');
     await clearAppCache();
     updateStoredVersion();
-    console.log('Cache cleared, version updated');
   }
 }

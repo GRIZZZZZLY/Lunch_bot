@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { PastelCard, CardContent } from '../ui/pastel-card';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,7 @@ export const RecommendationsCard: React.FC<RecommendationsCardProps> = ({
   const label = algorithmLabels[algorithm] || 'Рекомендации';
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: 0.1 }}
@@ -56,7 +56,7 @@ export const RecommendationsCard: React.FC<RecommendationsCardProps> = ({
           {/* Recommendations list */}
           <div className="space-y-2.5">
             {recommendations.map((rec, index) => (
-              <motion.div
+              <m.div
                 key={rec.id}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -78,11 +78,11 @@ export const RecommendationsCard: React.FC<RecommendationsCardProps> = ({
                     {rec.description}
                   </p>
                 </div>
-              </motion.div>
+              </m.div>
             ))}
           </div>
         </CardContent>
       </PastelCard>
-    </motion.div>
+    </m.div>
   );
 };

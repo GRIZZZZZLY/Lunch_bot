@@ -60,9 +60,12 @@ export interface PollResult {
   pollId: number;
   winnerItemId?: number;
   responsibleId?: number;
+  winnerMenuItemId?: number;
+  responsibleUserId?: number;
   totalVotes: number;
   isRouletteRun: boolean;
   createdAt: string;
+  rouletteData?: string | null;
   poll?: Poll;
   winnerItem?: {
     id: number;
@@ -77,6 +80,8 @@ export interface PollResult {
     username?: string;
     telegramId: string;
   };
+  winnerMenuItem?: PollResult['winnerItem'];
+  responsibleUser?: PollResult['responsible'];
 }
 
 export interface PollStats {
@@ -97,6 +102,11 @@ export interface VoteBreakdown {
     firstName: string;
     username?: string;
   }>;
+}
+
+export interface PollResultsData {
+  result: PollResult;
+  breakdown: VoteBreakdown[];
 }
 
 export interface PopularItem {
@@ -176,6 +186,28 @@ export interface MultiWinnerResultData {
 }
 
 class PollsService {
+  private normalizePollResult(result: PollResult): PollResult {
+    return {
+      ...result,
+      winnerItem: result.winnerItem ?? result.winnerMenuItem,
+      responsible: result.responsible ?? result.responsibleUser,
+    };
+  }
+
+  private normalizePollResultsData(data: PollResultsData | PollResult): PollResultsData {
+    if ('result' in data) {
+      return {
+        result: this.normalizePollResult(data.result),
+        breakdown: data.breakdown ?? [],
+      };
+    }
+
+    return {
+      result: this.normalizePollResult(data),
+      breakdown: [],
+    };
+  }
+
   /**
    * Получение всех голосований
    */
@@ -269,7 +301,7 @@ class PollsService {
    * Получение голосов пользователя в голосовании
    */
   async getUserVotes(pollId: number): Promise<ApiResponse<{ menuItemIds: number[] }>> {
-    return await apiService.get<{ menuItemIds: number[] }>(`/polls/${pollId}/my-votes`);
+    return await apiService.get<{ menuItemIds: number[] }>(`/votes/${pollId}/user`);
   }
 
   /**
@@ -353,12 +385,18 @@ class PollsService {
   /**
    * Получение результатов голосования
    */
-  async getPollResults(pollId: number): Promise<ApiResponse<PollResult>> {
+  async getPollResults(pollId: number): Promise<ApiResponse<PollResultsData>> {
     if (USE_MOCK_API) {
       const { mockApiService } = await import('./mockApi.service');
-      return await mockApiService.getPollResults(pollId);
+      const response = await mockApiService.getPollResults(pollId);
+      return response.success && response.data
+        ? { ...response, data: this.normalizePollResultsData(response.data) }
+        : response;
     }
-    return await apiService.get<PollResult>(`/polls/${pollId}/results`);
+    const response = await apiService.get<PollResultsData | PollResult>(`/polls/${pollId}/results`);
+    return response.success && response.data
+      ? { ...response, data: this.normalizePollResultsData(response.data) }
+      : response as ApiResponse<PollResultsData>;
   }
 
   /**
@@ -369,7 +407,10 @@ class PollsService {
       const { mockApiService } = await import('./mockApi.service');
       return await mockApiService.getPollVoteBreakdown(pollId);
     }
-    return await apiService.get<VoteBreakdown[]>(`/polls/${pollId}/breakdown`);
+    const response = await this.getPollResults(pollId);
+    return response.success
+      ? { ...response, data: response.data?.breakdown ?? [] }
+      : { ...response, data: undefined };
   }
 
   /**
@@ -430,8 +471,11 @@ class PollsService {
    * Получение последнего завершённого голосования
    * Используется для функции "Повторить вчерашнее"
    */
-  async getLastCompleted(): Promise<ApiResponse<Poll | null>> {
-    return await apiService.get<Poll | null>('/polls/last-completed');
+  async getLastCompleted(groupId?: number): Promise<ApiResponse<Poll | null>> {
+    const url = groupId
+      ? `/polls/last-completed?groupId=${groupId}`
+      : '/polls/last-completed';
+    return await apiService.get<Poll | null>(url);
   }
 
   /**
@@ -439,15 +483,7 @@ class PollsService {
    * Доступно только для админов
    */
   async repeatPoll(pollId: number): Promise<ApiResponse<Poll>> {
-    console.log('🔄 [PollsService] repeatPoll called with ID:', pollId);
-    try {
-      const response = await apiService.post<Poll>(`/polls/repeat/${pollId}`);
-      console.log('✅ [PollsService] repeatPoll response:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ [PollsService] repeatPoll error:', error);
-      throw error;
-    }
+    return await apiService.post<Poll>(`/polls/repeat/${pollId}`);
   }
 
   /**
@@ -503,10 +539,26 @@ class PollsService {
    * Экспорт данных голосований
    */
   async exportPollData(pollId: number, format: 'json' | 'csv' = 'json'): Promise<any> {
-    const response = await apiService.get(`/polls/${pollId}/export?format=${format}`, {
-      responseType: 'blob'
-    });
-    return response;
+    const response = await this.getPollResults(pollId);
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to export poll data');
+    }
+
+    if (format === 'csv') {
+      const rows = [
+        ['menuItemId', 'menuItemName', 'votes', 'percentage', 'voters'],
+        ...response.data.breakdown.map(item => [
+          item.menuItemId,
+          item.menuItemName,
+          item.votes,
+          item.percentage,
+          item.voters.map(voter => voter.firstName).join(', '),
+        ]),
+      ];
+      return rows.map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n');
+    }
+
+    return response.data;
   }
 
   /**
@@ -648,7 +700,7 @@ class PollsService {
         return await mockApiService.closePoll(pollId);
       }
 
-      return await apiService.post<PollResult>(`/polls/${pollId}/close`);
+      return await this.completePoll(pollId);
     } catch (error) {
       console.error('Error closing poll:', error);
       throw error;

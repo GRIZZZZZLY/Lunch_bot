@@ -1,6 +1,20 @@
 import { useEffect, useState } from 'react';
 import * as Sentry from '@sentry/react';
 
+const getRatingColor = (rating: string) => {
+  switch (rating) {
+    case 'good':
+      return 'bg-green-500';
+    case 'needs-improvement':
+      return 'bg-yellow-500';
+    case 'poor':
+      return 'bg-red-500';
+    default:
+      return 'bg-gray-500';
+  }
+};
+
+
 /**
  * Web Vitals мониторинг
  * 
@@ -133,24 +147,11 @@ export const PerformanceMonitor: React.FC = () => {
 
   if (!isVisible || !import.meta.env.DEV) return null;
 
-  const getRatingColor = (rating: string) => {
-    switch (rating) {
-      case 'good':
-        return 'bg-green-500';
-      case 'needs-improvement':
-        return 'bg-yellow-500';
-      case 'poor':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
   return (
     <div className="fixed bottom-4 right-4 bg-black/90 text-white p-4 rounded-lg shadow-lg z-[9999] max-w-sm">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-bold">⚡ Performance</h3>
-        <button
+        <button type="button"
           onClick={() => setIsVisible(false)}
           className="text-xs text-gray-400 hover:text-white"
         >

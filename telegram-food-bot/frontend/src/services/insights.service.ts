@@ -3,6 +3,8 @@
  * Анализирует историю голосований и показывает интересные паттерны
  */
 
+import { apiService, ApiResponse } from './api.service';
+
 export interface UserVoteHistory {
   menuItemId: number;
   menuItemName: string;
@@ -19,6 +21,46 @@ export interface PersonalInsight {
   color: string;
   data?: any;
 }
+
+export interface BudgetInsightApiData {
+  totalSpent: number;
+  averagePerDay: number;
+  daysActive: number;
+  savingsVsExternal: number;
+  mostExpensiveDay?: {
+    date: string;
+    amount: number;
+  };
+  cheapestDay?: {
+    date: string;
+    amount: number;
+  };
+  trend: 'up' | 'down' | 'stable';
+  projectedMonthly: number;
+}
+
+export interface CategoryInsightItem {
+  category: string;
+  count: number;
+  percentage: number;
+  items: string[];
+}
+
+export interface CategoryInsightApiData {
+  totalVotes: number;
+  categories: CategoryInsightItem[];
+  favoriteCategory: string;
+}
+
+export const insightsApiService = {
+  getBudgetInsights(): Promise<ApiResponse<BudgetInsightApiData>> {
+    return apiService.get<BudgetInsightApiData>('/insights/budget');
+  },
+
+  getCategoryInsights(): Promise<ApiResponse<CategoryInsightApiData>> {
+    return apiService.get<CategoryInsightApiData>('/insights/categories');
+  },
+};
 
 /**
  * Получить историю голосов пользователя из localStorage

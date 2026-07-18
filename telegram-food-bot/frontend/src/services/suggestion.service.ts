@@ -64,11 +64,13 @@ class SuggestionService {
     status?: 'PENDING' | 'APPROVED' | 'REJECTED';
     limit?: number;
     offset?: number;
+    groupId?: number;
   }): Promise<ApiResponse<MenuSuggestion[]>> {
     const queryParams = new URLSearchParams();
     if (params?.status) queryParams.append('status', params.status);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.offset) queryParams.append('offset', params.offset.toString());
+    if (params?.groupId) queryParams.append('groupId', params.groupId.toString());
 
     const url = `/suggestions${queryParams.toString() ? `?${  queryParams.toString()}` : ''}`;
     return await apiService.get<MenuSuggestion[]>(url);
@@ -101,22 +103,25 @@ class SuggestionService {
   /**
    * Получить статистику предложений (только админ)
    */
-  async getStats(): Promise<ApiResponse<SuggestionStats>> {
-    return await apiService.get<SuggestionStats>('/suggestions/stats');
+  async getStats(groupId?: number): Promise<ApiResponse<SuggestionStats>> {
+    const suffix = groupId ? `?groupId=${groupId}` : '';
+    return await apiService.get<SuggestionStats>(`/suggestions/stats${suffix}`);
   }
 
   /**
    * Получить количество ожидающих предложений (только админ)
    */
-  async getPendingCount(): Promise<ApiResponse<{ count: number }>> {
-    return await apiService.get<{ count: number }>('/suggestions/pending-count');
+  async getPendingCount(groupId?: number): Promise<ApiResponse<{ count: number }>> {
+    const suffix = groupId ? `?groupId=${groupId}` : '';
+    return await apiService.get<{ count: number }>(`/suggestions/pending-count${suffix}`);
   }
 
   /**
    * Удалить предложение (только админ, только отклонённые)
    */
-  async deleteSuggestion(id: number): Promise<ApiResponse<void>> {
-    return await apiService.delete<void>(`/suggestions/${id}`);
+  async deleteSuggestion(id: number, groupId?: number): Promise<ApiResponse<void>> {
+    const suffix = groupId ? `?groupId=${groupId}` : '';
+    return await apiService.delete<void>(`/suggestions/${id}${suffix}`);
   }
 }
 

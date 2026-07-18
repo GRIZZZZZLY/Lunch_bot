@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 interface MenuGridSkeletonProps {
   count?: number;
@@ -22,7 +22,7 @@ export function MenuGridSkeleton({ count = 8 }: MenuGridSkeletonProps) {
  */
 function SkeletonCard({ index }: { index: number }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
@@ -51,22 +51,6 @@ function SkeletonCard({ index }: { index: number }) {
           <div className="flex-1 h-11 bg-muted rounded-lg animate-pulse" />
         </div>
       </div>
-    </motion.div>
-  );
-}
-
-/**
- * Skeleton для filter chips
- */
-export function FilterChipsSkeleton() {
-  return (
-    <div className="flex gap-2 overflow-hidden pb-2">
-      {Array.from({ length: 5 }).map((_, index) => (
-        <div
-          key={index}
-          className="flex-shrink-0 h-9 w-24 bg-muted rounded-full animate-pulse"
-        />
-      ))}
-    </div>
+    </m.div>
   );
 }

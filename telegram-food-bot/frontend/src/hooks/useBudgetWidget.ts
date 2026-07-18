@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { useActivePolls } from './usePolls';
@@ -32,18 +32,15 @@ export function useBudgetWidget(): BudgetWidgetData {
   const { data: activePolls } = useActivePolls();
   
   // Получаем все долги и кредиты с улучшенной обработкой ошибок
-  const { data: allDebts = [], isLoading: isLoadingDebts, error: debtsError } = useQuery({
+  const { data: allDebts = [], isLoading: isLoadingDebts } = useQuery({
     queryKey: ['budget', 'debts', user?.id],
     queryFn: async () => {
       try {
-        console.log('[useBudgetWidget] Fetching debts for user:', user?.id);
         const result = await budgetService.getDebts(user!.id, undefined, {
           activeOnly: true,
         });
-        console.log('[useBudgetWidget] ✅ Debts fetched:', result?.length || 0);
         return result || [];
-      } catch (error) {
-        console.error('[useBudgetWidget] ❌ Debts fetch error:', error);
+      } catch {
         // Возвращаем пустой массив вместо throw для graceful degradation
         return [];
       }
@@ -62,18 +59,15 @@ export function useBudgetWidget(): BudgetWidgetData {
     },
   });
 
-  const { data: credits = [], isLoading: isLoadingCredits, error: creditsError } = useQuery({
+  const { data: credits = [], isLoading: isLoadingCredits } = useQuery({
     queryKey: ['budget', 'credits', user?.id],
     queryFn: async () => {
       try {
-        console.log('[useBudgetWidget] Fetching credits for user:', user?.id);
         const result = await budgetService.getCredits(user!.id, undefined, {
           activeOnly: true,
         });
-        console.log('[useBudgetWidget] ✅ Credits fetched:', result?.length || 0);
         return result || [];
-      } catch (error) {
-        console.error('[useBudgetWidget] ❌ Credits fetch error:', error);
+      } catch {
         return [];
       }
     },
@@ -94,35 +88,6 @@ export function useBudgetWidget(): BudgetWidgetData {
   const isLoading = isLoadingDebts || isLoadingCredits;
   
   const activePoll = activePolls?.[0];
-  
-  // Debug logging - убраны popup alert для предотвращения крашей
-  useEffect(() => {
-    console.log('[useBudgetWidget] Data:', {
-      user: user?.id,
-      allDebts: allDebts?.length,
-      credits: credits?.length,
-      isLoading,
-      activePoll: activePoll?.id,
-      debtsError: debtsError ? String(debtsError) : null,
-      creditsError: creditsError ? String(creditsError) : null,
-    });
-    
-    // Логируем ошибки без показа popup (чтобы не крашить приложение)
-    if (debtsError) {
-      console.error('[useBudgetWidget] ❌ Debts fetch failed:', {
-        error: debtsError,
-        message: debtsError instanceof Error ? debtsError.message : String(debtsError),
-        stack: debtsError instanceof Error ? debtsError.stack : undefined,
-      });
-    }
-    if (creditsError) {
-      console.error('[useBudgetWidget] ❌ Credits fetch failed:', {
-        error: creditsError,
-        message: creditsError instanceof Error ? creditsError.message : String(creditsError),
-        stack: creditsError instanceof Error ? creditsError.stack : undefined,
-      });
-    }
-  }, [user, allDebts, credits, isLoading, activePoll, debtsError, creditsError]);
   
   const recentDebts = useMemo(() => {
     return allDebts;

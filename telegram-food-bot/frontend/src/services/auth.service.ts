@@ -25,7 +25,7 @@ interface AuthRefreshResponse {
 
 interface AuthStatusData {
   authenticated: boolean;
-  user: User;
+  user?: User | null;
   timestamp: string;
 }
 
@@ -37,27 +37,44 @@ export interface AuthStatusResponse {
 }
 
 class AuthService {
-  private extractAuthPayload<T extends { user: User; accessToken: string }>(
+  private readonly refreshTokenKey = 'refresh_token';
+
+  private extractAuthPayload<T extends { user: User; accessToken: string; refreshToken?: string }>(
     response: ApiResponse<T>
-  ): { user?: User; accessToken?: string } {
+  ): { user?: User; accessToken?: string; refreshToken?: string } {
     const data = response.data;
 
     if (data && typeof data === 'object') {
       return {
         user: data.user,
         accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
       };
     }
 
     const topLevel = response as unknown as {
       user?: User;
       accessToken?: string;
+      refreshToken?: string;
     };
 
     return {
       user: topLevel.user,
       accessToken: topLevel.accessToken,
+      refreshToken: topLevel.refreshToken,
     };
+  }
+
+  private setRefreshToken(token: string): void {
+    sessionStorage.setItem(this.refreshTokenKey, token);
+  }
+
+  private getRefreshToken(): string | null {
+    return sessionStorage.getItem(this.refreshTokenKey);
+  }
+
+  private clearRefreshToken(): void {
+    sessionStorage.removeItem(this.refreshTokenKey);
   }
 
   /**
@@ -80,20 +97,18 @@ class AuthService {
 
       // КРИТИЧНО: Отправляем РЕАЛЬНЫЙ initData от Telegram!
       // Если initData пустой - отправляем пустую строку, backend обработает
-      console.log('[authService] validateInitData called:', {
-        hasInitData: !!initData,
-        initDataLength: initData?.length || 0,
-        initDataPreview: initData?.substring(0, 100) || 'empty'
-      });
-      
       const response = await apiService.post<AuthValidateResponse>('/auth/validate', {
         initData: initData || ''
       });
 
-      const { user, accessToken } = this.extractAuthPayload(response);
+      const { user, accessToken, refreshToken } = this.extractAuthPayload(response);
 
       // ✅ ИСПРАВЛЕНО: Backend может возвращать payload без data-обертки
       if (response.success && user && accessToken) {
+        if (refreshToken) {
+          this.setRefreshToken(refreshToken);
+        }
+
         return {
           success: true,
           user,
@@ -126,14 +141,25 @@ class AuthService {
   async getAuthStatus(): Promise<AuthStatusResponse> {
     try {
       const response = await apiService.get<AuthStatusData>('/auth/status');
+      const topLevelResponse = response as ApiResponse<AuthStatusData> &
+        Partial<AuthStatusData>;
+      const authStatus = response.data ?? (
+        topLevelResponse.authenticated !== undefined
+          ? {
+              authenticated: topLevelResponse.authenticated,
+              user: topLevelResponse.user,
+              timestamp: topLevelResponse.timestamp || new Date().toISOString(),
+            }
+          : undefined
+      );
 
       // ApiService возвращает response.data напрямую
-      if (response.success && response.data?.authenticated !== undefined) {
+      if (response.success && authStatus?.authenticated !== undefined) {
         return {
           success: true,
-          authenticated: response.data.authenticated,
-          user: response.data.user,
-          timestamp: response.data.timestamp || new Date().toISOString(),
+          authenticated: authStatus.authenticated,
+          user: authStatus.user ?? undefined,
+          timestamp: authStatus.timestamp || new Date().toISOString(),
         };
       }
 
@@ -156,12 +182,30 @@ class AuthService {
    */
   async refreshAuth(): Promise<AuthResponse> {
     try {
-      const response = await apiService.post<AuthRefreshResponse>('/auth/refresh');
+      const storedRefreshToken = this.getRefreshToken();
 
-      const { user, accessToken } = this.extractAuthPayload(response);
+      if (!storedRefreshToken) {
+        throw new Error('Refresh token missing');
+      }
+
+      const response = await apiService.post<AuthRefreshResponse>(
+        '/auth/refresh',
+        undefined,
+        {
+          headers: {
+            Authorization: `Bearer ${storedRefreshToken}`,
+          },
+        }
+      );
+
+      const { user, accessToken, refreshToken } = this.extractAuthPayload(response);
 
       // ✅ ИСПРАВЛЕНО: Backend может возвращать payload без data-обертки
       if (response.success && user && accessToken) {
+        if (refreshToken) {
+          this.setRefreshToken(refreshToken);
+        }
+
         return {
           success: true,
           user,
@@ -200,6 +244,7 @@ class AuthService {
    */
   clearToken(): void {
     apiService.clearToken();
+    this.clearRefreshToken();
   }
 
   /**

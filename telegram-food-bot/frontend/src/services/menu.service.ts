@@ -1,5 +1,12 @@
 import { apiService, ApiResponse, PaginatedResponse } from './api.service';
 
+const RUSSIAN_CURRENCY_FORMATTER = new Intl.NumberFormat('ru-RU', {
+  style: 'currency',
+  currency: 'RUB',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true';
 
 export interface MenuItem {
@@ -112,7 +119,13 @@ class MenuService {
    * Обновление блюда
    */
   async updateItem(id: number, data: UpdateMenuItemData, groupId: number): Promise<ApiResponse<MenuItem>> {
-    return await apiService.put<MenuItem>(`/menu/${id}?groupId=${groupId}`, { ...data, groupId });
+    const safeData = {
+      ...(data as UpdateMenuItemData & { groupId?: number; groupIds?: number[] }),
+    };
+    delete safeData.groupId;
+    delete safeData.groupIds;
+
+    return await apiService.put<MenuItem>(`/menu/${id}?groupId=${groupId}`, { ...safeData, groupId });
   }
 
   /**
@@ -239,12 +252,7 @@ class MenuService {
    */
   formatPrice(price?: number): string {
     if (!price) return '';
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: 'RUB',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(price);
+    return RUSSIAN_CURRENCY_FORMATTER.format(price);
   }
 
   /**

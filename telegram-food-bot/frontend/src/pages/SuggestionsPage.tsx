@@ -41,7 +41,7 @@ export const SuggestionsPage: React.FC = () => {
         {/* Top bar: Back button + Title + Actions */}
         <div className="flex items-center justify-between gap-3 h-14 px-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button
+            <button type="button"
               onClick={handleBack}
               className="p-2 -ml-2 rounded-lg hover:bg-muted transition-colors flex-shrink-0"
               aria-label="Назад"
@@ -65,7 +65,7 @@ export const SuggestionsPage: React.FC = () => {
                 {stats.pending}
               </Badge>
             )}
-            <button
+            <button type="button"
               onClick={handleRefresh}
               className="p-2 rounded-lg hover:bg-muted transition-colors"
               aria-label="Обновить"
@@ -82,7 +82,7 @@ export const SuggestionsPage: React.FC = () => {
             { value: 'APPROVED' as TabType, label: 'Одобрено', count: stats?.approved || 0, color: 'green' },
             { value: 'REJECTED' as TabType, label: 'Отклонено', count: stats?.rejected || 0, color: 'red' },
           ].map((tab) => (
-            <button
+            <button type="button"
               key={tab.value}
               onClick={() => handleTabChange(tab.value)}
               className={cn(

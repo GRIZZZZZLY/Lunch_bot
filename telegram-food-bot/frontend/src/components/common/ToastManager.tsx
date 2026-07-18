@@ -1,10 +1,56 @@
 /* @refresh reset */
-import { useReducer, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useHaptic } from '../../hooks/useHaptic';
 import { ICON_SIZES } from '@/lib/design-tokens';
 import { Toast, ToastContext } from './toast-context';
+
+const positionClasses = {
+  top: 'top-4 left-4 right-4',
+  bottom: 'bottom-4 left-4 right-4',
+  center: 'top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2',
+};
+
+const typeStyles = {
+  success: {
+    bg: 'bg-mint-500',
+    icon: '✅',
+  },
+  error: {
+    bg: 'bg-coral-500',
+    icon: '❌',
+  },
+  warning: {
+    bg: 'bg-butter-500 text-gray-950',
+    icon: '⚠️',
+  },
+  info: {
+    bg: 'bg-lavender-500',
+    icon: 'ℹ️',
+  },
+  loading: {
+    bg: 'bg-card border border-border text-foreground',
+    icon: (
+      <svg className="animate-spin h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24">
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        />
+      </svg>
+    ),
+  },
+};
+
 
 type ToastAction = 
   | { type: 'ADD_TOAST'; toast: Toast }
@@ -55,7 +101,7 @@ function toastReducer(state: ToastState, action: ToastAction): ToastState {
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(toastReducer, initialState);
 
-  const addToast = (toast: Omit<Toast, 'id'>) => {
+  const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const fullToast: Toast = {
       id,
@@ -67,22 +113,27 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     
     dispatch({ type: 'ADD_TOAST', toast: fullToast });
     return id;
-  };
+  }, []);
 
-  const removeToast = (id: string) => {
+  const removeToast = useCallback((id: string) => {
     dispatch({ type: 'REMOVE_TOAST', id });
-  };
+  }, []);
 
-  const updateToast = (id: string, updates: Partial<Toast>) => {
+  const updateToast = useCallback((id: string, updates: Partial<Toast>) => {
     dispatch({ type: 'UPDATE_TOAST', id, updates });
-  };
+  }, []);
 
-  const clearAll = () => {
+  const clearAll = useCallback(() => {
     dispatch({ type: 'CLEAR_ALL' });
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({ addToast, removeToast, updateToast, clearAll }),
+    [addToast, removeToast, updateToast, clearAll]
+  );
 
   return (
-    <ToastContext.Provider value={{ addToast, removeToast, updateToast, clearAll }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       <ToastContainer toasts={state.toasts} onRemove={removeToast} />
     </ToastContext.Provider>
@@ -107,12 +158,6 @@ const ToastContainer: React.FC<{
     },
     {} as Record<string, Toast[]>
   );
-
-  const positionClasses = {
-    top: 'top-4 left-4 right-4',
-    bottom: 'bottom-4 left-4 right-4',
-    center: 'top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2',
-  };
 
   return createPortal(
     <>
@@ -171,45 +216,6 @@ const ToastItem: React.FC<{
     }
   };
 
-  const typeStyles = {
-    success: {
-      bg: 'bg-mint-500',
-      icon: '✅',
-    },
-    error: {
-      bg: 'bg-coral-500',
-      icon: '❌',
-    },
-    warning: {
-      bg: 'bg-butter-500 text-gray-950',
-      icon: '⚠️',
-    },
-    info: {
-      bg: 'bg-lavender-500',
-      icon: 'ℹ️',
-    },
-    loading: {
-      bg: 'bg-card border border-border text-foreground',
-      icon: (
-        <svg className="animate-spin h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24">
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          />
-        </svg>
-      ),
-    },
-  };
-
   const style = typeStyles[toast.type];
   const displayIcon = toast.icon || style.icon;
 
@@ -238,7 +244,7 @@ const ToastItem: React.FC<{
 
             {/* Action button */}
             {toast.action && (
-              <button
+              <button type="button"
                 onClick={handleAction}
                 className="mt-2 text-sm font-medium underline hover:no-underline"
               >
@@ -259,7 +265,8 @@ const ToastItem: React.FC<{
 
           {/* Dismiss button */}
           {toast.dismissible && (
-            <button
+            <button type="button"
+              aria-label="Закрыть уведомление"
               onClick={handleDismiss}
               className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
             >

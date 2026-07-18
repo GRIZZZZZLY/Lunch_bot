@@ -37,10 +37,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('[FeedbackModal] handleSubmit called');
-    
     if (!message.trim()) {
-      console.log('[FeedbackModal] Validation failed: empty message');
       toast.error('Введи сообщение');
       return;
     }
@@ -49,13 +46,6 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
       setIsSending(true);
       haptic.light();
 
-      console.log('[FeedbackModal] Sending feedback:', {
-        messageLength: message.trim().length,
-        userId: user?.id,
-        username: user?.username,
-        firstName: user?.firstName,
-      });
-
       const response = await feedbackService.send({
         message: message.trim(),
         userId: user?.id,
@@ -63,26 +53,20 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         firstName: user?.firstName,
       });
 
-      console.log('[FeedbackModal] Response received:', response);
-
       if (response.success) {
-        console.log('[FeedbackModal] Success! Showing notification');
         haptic.success();
         toast.success('✅ Сообщение отправлено!');
         setMessage('');
         onClose();
       } else {
-        console.error('[FeedbackModal] Response indicates failure:', response.error);
         throw new Error(response.error || 'Ошибка отправки');
       }
     } catch (error: unknown) {
-      console.error('[FeedbackModal] Error caught:', error);
       haptic.error();
       const errorMessage = error instanceof Error ? error.message : '❌ Не удалось отправить';
       toast.error(errorMessage);
     } finally {
       setIsSending(false);
-      console.log('[FeedbackModal] handleSubmit finished');
     }
   };
 
@@ -113,10 +97,11 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <label htmlFor="feedback-message" className="block text-sm font-medium text-foreground mb-2">
               Твоё сообщение
             </label>
             <textarea
+              id="feedback-message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Опиши свои впечатления, предложения или сообщи о проблеме..."

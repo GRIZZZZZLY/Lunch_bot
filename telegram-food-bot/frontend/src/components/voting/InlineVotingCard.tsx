@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Users,
   CheckCircle,
@@ -33,6 +33,14 @@ import { PollStatusBadge } from './PollStatusBadge';
 import { ConfirmDialog } from '../modals/ConfirmDialog';
 import { GlassCard } from '../ui/glass-card';
 
+// Вспомогательная функция для правильного склонения слова "блюдо"
+const getDishWord = (count: number): string => {
+  if (count === 1) return 'блюдо';
+  if (count >= 2 && count <= 4) return 'блюда';
+  return 'блюд';
+};
+
+
 interface InlineVotingCardProps {
   poll: PollWithDetails;
   onPollClosed?: () => void;
@@ -44,7 +52,7 @@ interface InlineVotingCardProps {
  * Содержит всю логику голосования без перехода на отдельную страницу
  * ПОДДЕРЖИВАЕТ МНОЖЕСТВЕННЫЙ ВЫБОР
  */
-export const InlineVotingCard = ({
+const useInlineVotingCardController = ({
   poll: initialPoll,
   onPollClosed,
   onVoteSuccess,
@@ -64,7 +72,7 @@ export const InlineVotingCard = ({
   const [closing, setClosing] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [removingVote, setRemovingVote] = useState(false);
-  
+
   // UX: Показать ещё паттерн для скролла
   const INITIAL_ITEMS_COUNT = 5;
   const [isExpanded, setIsExpanded] = useState(false);
@@ -88,9 +96,9 @@ export const InlineVotingCard = ({
         }
       });
     });
-    observer.observe(document.documentElement, { 
-      attributes: true, 
-      attributeFilter: ['class'] 
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
     });
     return () => observer.disconnect();
   }, []);
@@ -101,48 +109,25 @@ export const InlineVotingCard = ({
 
       // Загружаем свежие данные голосования
       const pollResponse = await pollsService.getPollById(pollId);
-      console.log('[InlineVotingCard] 📥 Poll data received:', {
-        success: pollResponse.success,
-        hasData: !!pollResponse.data,
-        pollId: pollResponse.data?.id,
-        groupId: pollResponse.data?.groupId,
-        status: pollResponse.data?.status,
-        fullPoll: pollResponse.data
-      });
-      
       if (pollResponse.success && pollResponse.data) {
         setPoll(pollResponse.data);
 
         // Проверяем голоса пользователя (все голоса, если множественный выбор)
         if (user) {
-          console.log('[InlineVotingCard] 🔍 Looking for user votes:', {
-            currentUserId: user.id,
-            userTelegramId: user.telegramId,
-            userFirstName: user.firstName,
-            totalVotes: pollResponse.data.votes?.length || 0,
-            allVoterIds: pollResponse.data.votes?.map(v => ({ userId: v.userId, userName: v.user?.firstName })) || []
-          });
-          
           // ИЗМЕНЕНО: ищем ВСЕ голоса пользователя, а не только первый
           const existingVotes = pollResponse.data.votes?.filter(v => v.userId === user.id) || [];
-          
-          console.log('[InlineVotingCard] 🎯 User votes result:', {
-            found: existingVotes.length,
-            voteIds: existingVotes.map(v => v.id),
-            menuItemIds: existingVotes.map(v => v.menuItemId),
-            menuItemNames: existingVotes.map(v => v.menuItem?.name)
-          });
-          
+
           setUserVotes(existingVotes);
           setSelectedItemIds(existingVotes.map(v => v.menuItemId));
         }
       }
 
       // Загружаем меню и фильтруем по выбранным блюдам
-      const menuResponse = await menuService.getActiveItems(pollResponse.data?.groupId ?? poll.groupId);
+      const groupId = pollResponse.data?.groupId ?? initialPoll.groupId;
+      const menuResponse = await menuService.getActiveItems(groupId);
       if (menuResponse.success && menuResponse.data) {
         let items = menuResponse.data;
-        
+
         // Фильтруем по выбранным блюдам, если они указаны в poll
         if (pollResponse.data?.selectedMenuItemIds) {
           try {
@@ -150,37 +135,31 @@ export const InlineVotingCard = ({
             if (Array.isArray(selectedIds) && selectedIds.length > 0) {
               const selectedIdSet = new Set(selectedIds);
               items = items.filter(item => selectedIdSet.has(item.id));
-              console.log('[InlineVotingCard] ✅ Filtered menu items:', {
-                allItems: menuResponse.data.length,
-                selectedItems: items.length,
-                selectedIds,
-                filteredItemIds: items.map(i => i.id)
-              });
             }
           } catch (parseError) {
-            console.warn('[InlineVotingCard] Failed to parse selectedMenuItemIds:', parseError);
+            // Если список выбранных блюд поврежден, показываем все активные блюда.
           }
-        } else {
-          console.warn('[InlineVotingCard] ⚠️ No selectedMenuItemIds in poll, showing all items');
         }
-        
+
         // Добавляем специальную опцию "Еда с собой" из БД (всегда последняя)
         // ID 193 - специальная запись в menu_items для флага "заказ с собой"
         const takeawayFromDB = menuResponse.data.find(item => item.name === 'Еда с собой');
-        
+
         if (takeawayFromDB && !items.find(i => i.id === takeawayFromDB.id)) {
           items.push(takeawayFromDB);
-          console.log('[InlineVotingCard] ✅ Added takeaway option from DB:', takeawayFromDB.id);
         }
-        
+
         setMenuItems(items);
       }
     } catch (error) {
-      console.error('Error loading poll data:', error);
+      addNotification({
+        type: 'error',
+        message: getHumanErrorMessage(error),
+      });
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [user]);
+  }, [addNotification, initialPoll.groupId, user]);
 
   // Загрузка данных
   useEffect(() => {
@@ -258,14 +237,14 @@ export const InlineVotingCard = ({
    */
   const getUniqueVoters = () => {
     if (!poll.votes) return [];
-    
+
     const uniqueUsersMap = new Map();
     poll.votes.forEach(v => {
       if (!uniqueUsersMap.has(v.userId)) {
         try {
           const telegramIdValue = v.user.telegramId || v.user.id;
           const numValue = Number(telegramIdValue);
-          
+
           if (!isNaN(numValue) && numValue > 0) {
             uniqueUsersMap.set(v.userId, {
               id: v.user.id,
@@ -275,19 +254,19 @@ export const InlineVotingCard = ({
               telegramId: BigInt(numValue)
             });
           }
-        } catch (error) {
-          console.warn(`Error processing voter ${v.user.id}:`, error);
+        } catch {
+          // Пропускаем некорректный идентификатор, чтобы не ломать весь список.
         }
       }
     });
-    
+
     return Array.from(uniqueUsersMap.values());
   };
 
   const handleSelectItem = (itemId: number) => {
     if (userVotes.length > 0) return; // Уже проголосовал
     haptic.selection(); // P1: Haptic feedback при выборе
-    
+
     // ИЗМЕНЕНО: Toggle выбор (добавить/удалить из массива)
     setSelectedItemIds(prev => {
       if (!isMultiSelectMode) {
@@ -317,15 +296,16 @@ export const InlineVotingCard = ({
       setSubmitting(true);
       haptic.medium(); // P1: Haptic feedback при отправке
 
-      // ИЗМЕНЕНО: Отправляем множественное голосование
-      const response = await pollsService.voteForMultipleItems(poll.id, selectedItemIds);
+      const response = isMultiSelectMode
+        ? await pollsService.voteForMultipleItems(poll.id, selectedItemIds)
+        : await pollsService.voteForItem(poll.id, selectedItemIds[0]);
 
       if (response.success) {
         // Тройная ритмичная вибрация для явного подтверждения
         haptic.success();
         setTimeout(() => haptic.light(), 80);
         setTimeout(() => haptic.light(), 160);
-        
+
         // P1.2.4: Track vote event
         trackEvent(ANALYTICS_EVENTS.VOTE_SUBMITTED, {
           pollId: poll.id,
@@ -343,7 +323,7 @@ export const InlineVotingCard = ({
             }
           });
         }
-        
+
         // Показываем toast сразу (без overlay)
         addNotification({
           type: 'success',
@@ -353,19 +333,18 @@ export const InlineVotingCard = ({
         queryClient.invalidateQueries({
           queryKey: ['categoryOrders', poll.id],
         });
-        
+
         // Небольшая задержка для синхронизации
         await new Promise(resolve => setTimeout(resolve, 300));
-        
+
         // Обновляем данные
         await loadPollData(poll.id, true);
-        
+
         if (onVoteSuccess) onVoteSuccess();
       } else {
         throw new Error(response.error || 'Failed to vote');
       }
     } catch (error) {
-      console.error('Error voting:', error);
       haptic.error();
       addNotification({
         type: 'error',
@@ -379,7 +358,7 @@ export const InlineVotingCard = ({
   const handleClosePoll = async () => {
     setShowConfirmClose(true);
   };
-  
+
   const confirmClosePoll = async () => {
     try {
       setClosing(true);
@@ -494,13 +473,6 @@ export const InlineVotingCard = ({
     }, menuItems[0]).id;
   };
 
-  // Вспомогательная функция для правильного склонения слова "блюдо"
-  const getDishWord = (count: number): string => {
-    if (count === 1) return 'блюдо';
-    if (count >= 2 && count <= 4) return 'блюда';
-    return 'блюд';
-  };
-
   // Логика отображения блюд
   const displayedItems = isExpanded
     ? menuItems
@@ -526,18 +498,217 @@ export const InlineVotingCard = ({
     }, 100);
   };
 
-  // P1: Skeleton loading вместо спиннера
-  if (loading) {
-    return <VotingCardSkeleton />;
-  }
-
   // Количество УНИКАЛЬНЫХ пользователей (один пользователь = один голос)
   const voteCount = getUniqueVotersCount();
   const leadingItemId = getLeadingItemId();
 
+
+  return { user, isGroupAdmin, haptic, addNotification, queryClient, poll, setPoll, menuItems, setMenuItems, selectedItemIds, setSelectedItemIds, userVotes, setUserVotes, loading, setLoading, submitting, setSubmitting, closing, setClosing, showConfirmClose, setShowConfirmClose, removingVote, setRemovingVote, INITIAL_ITEMS_COUNT, isExpanded, setIsExpanded, cardRef, isMultiSelectMode, maxSelections, isDark, setIsDark, loadPollData, uniqueVotersCount, voterCountByItem, selectedItemIdSet, votedItemIdSet, getUniqueVotersCount, getItemUniqueVotersCount, getItemUniquePercentage, getUniqueVoters, handleSelectItem, handleVote, handleClosePoll, confirmClosePoll, handleCancelPoll, handleRemoveVote, getItemVoteCount, getItemPercentage, getLeadingItemId, displayedItems, hasMore, remainingCount, handleExpand, handleCollapse, voteCount, leadingItemId };
+};
+
+type InlineVotingCardController = ReturnType<typeof useInlineVotingCardController>;
+
+const VotingMenuItems = ({ controller }: { controller: InlineVotingCardController }) => {
+  const { user, isGroupAdmin, haptic, addNotification, queryClient, poll, setPoll, menuItems, setMenuItems, selectedItemIds, setSelectedItemIds, userVotes, setUserVotes, loading, setLoading, submitting, setSubmitting, closing, setClosing, showConfirmClose, setShowConfirmClose, removingVote, setRemovingVote, INITIAL_ITEMS_COUNT, isExpanded, setIsExpanded, cardRef, isMultiSelectMode, maxSelections, isDark, setIsDark, loadPollData, uniqueVotersCount, voterCountByItem, selectedItemIdSet, votedItemIdSet, getUniqueVotersCount, getItemUniqueVotersCount, getItemUniquePercentage, getUniqueVoters, handleSelectItem, handleVote, handleClosePoll, confirmClosePoll, handleCancelPoll, handleRemoveVote, getItemVoteCount, getItemPercentage, getLeadingItemId, displayedItems, hasMore, remainingCount, handleExpand, handleCollapse, voteCount, leadingItemId } = controller;
   return (
     <>
-      <motion.div
+      {/* Menu items */}
+      <div
+        className="space-y-2"
+        role="listbox"
+        aria-label="Список блюд для голосования"
+        aria-multiselectable={isMultiSelectMode}
+      >
+        <AnimatePresence mode="popLayout">
+          {displayedItems.map((item, index) => {
+            const isSelected = selectedItemIdSet.has(item.id); // O(1) через Set
+            const isVoted = votedItemIdSet.has(item.id); // O(1) через Set
+            const votes = getItemVoteCount(item.id);
+            const percentage = getItemPercentage(item.id);
+            const isLeading = item.id === leadingItemId && voteCount > 0;
+
+            return (
+              <m.button
+                key={item.id}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{
+                  delay: isExpanded ? index * 0.03 : index * 0.05,
+                  duration: 0.2
+                }}
+                onClick={() => handleSelectItem(item.id)}
+                disabled={userVotes.length > 0 || submitting}
+                role="option"
+                aria-selected={isSelected || isVoted}
+                aria-label={`${item.name}${item.price ? `, ${item.price} ₸` : ''}${isVoted ? ', ты проголосовал за это блюдо' : ''}`}
+                tabIndex={0}
+                whileTap={{ scale: 0.98 }}
+                className={cn(
+                    'w-full relative overflow-hidden rounded-xl p-4 text-left transition-all duration-200 ease-out',
+                    'disabled:cursor-not-allowed',
+                    userVotes.length === 0 && 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]',
+                    // Выбранный вариант - тёплый accent surface
+                    isSelected && userVotes.length === 0 &&
+                      'border border-primary/40 bg-primary/10 text-foreground ring-1 ring-primary/15 scale-[1.01]',
+                    // Проголосованный вариант - neutral gray с галочкой
+                    isVoted && 'bg-muted/80 text-foreground border border-border',
+                    // Обычный вариант - белая карточка
+                    !isSelected && !isVoted && 'bg-card text-foreground shadow-sm hover:shadow-md border border-border/70'
+                  )}
+                >
+                {/* Progress bar - адаптивный */}
+                {userVotes.length > 0 && percentage > 0 && (
+                  <m.div
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: percentage / 100 }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                    className={cn(
+                      "absolute inset-0 origin-left",
+                        isDark
+                          ? "bg-primary/12"
+                          : "bg-primary/10"
+                     )}
+                   />
+                )}
+
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1">
+                    {/* Checkbox */}
+                    <div className="flex-shrink-0">
+                      {isVoted ? (
+                        <CheckCircle size={22} className="text-gray-600 dark:text-gray-400" />
+                        ) : isSelected ? (
+                          <CheckCircle size={22} className="text-primary drop-shadow-sm" />
+                      ) : (
+                        <Circle size={22} className="text-gray-300 dark:text-gray-600" />
+                      )}
+                    </div>
+
+                    {/* Item name */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          TYPOGRAPHY_BODY.weight,
+                          "truncate",
+                          (isSelected || isVoted) && "drop-shadow-sm"
+                        )}>{item.name}</span>
+                        {isLeading && (
+                          <m.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: "spring", stiffness: 200 }}
+                          >
+                            <Crown className={cn(ICON_SIZES.sm, "text-primary flex-shrink-0 drop-shadow-sm")} />
+                          </m.div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Vote stats */}
+                    {userVotes.length > 0 && ( // ИЗМЕНЕНО
+                      <div className={cn(
+                        "flex items-center gap-3 flex-shrink-0",
+                        isVoted && "text-foreground"
+                      )}>
+                        <span className="text-sm font-medium">
+                          <NumberTicker value={percentage} decimalPlaces={0} />%
+                        </span>
+                        <div className="flex items-center gap-1 text-sm">
+                          <Users size={14} />
+                          <span>
+                            <NumberTicker value={votes} decimalPlaces={0} />
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </m.button>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+
+      {/* Кнопка "Показать ещё" - Card стиль с превью */}
+      {!isExpanded && hasMore && (
+        <m.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-3"
+        >
+          <button type="button"
+            onClick={handleExpand}
+            className={cn(
+              'w-full p-4 rounded-xl',
+              'bg-muted/55 dark:bg-muted/55',
+              'border border-dashed border-border',
+              'hover:border-primary/35 hover:bg-muted/75',
+              'transition-all duration-300',
+              'group'
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-lavender-500/12 p-2 transition-transform group-hover:scale-110">
+                  <Utensils size={18} className="text-lavender-600 dark:text-lavender-300" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">
+                    Ещё {remainingCount} {getDishWord(remainingCount)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Нажми, чтобы показать все варианты
+                  </p>
+                </div>
+              </div>
+              <ChevronDown className={ICON_SIZES.md}
+              />
+            </div>
+          </button>
+        </m.div>
+      )}
+
+      {/* Кнопка "Свернуть" */}
+      {isExpanded && hasMore && (
+        <m.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={handleCollapse}
+          className={cn(
+            'w-full mt-3 py-2 px-4 rounded-lg',
+            'bg-gray-100 dark:bg-gray-800',
+            'text-gray-600 dark:text-gray-400',
+            'font-medium text-sm',
+            'flex items-center justify-center gap-2',
+            'hover:bg-gray-200 dark:hover:bg-gray-700',
+            'transition-all duration-200'
+          )}
+        >
+          <ChevronUp className={ICON_SIZES.sm} />
+          Свернуть
+        </m.button>
+      )}
+
+
+    </>
+  );
+};
+
+export const InlineVotingCard = ({
+  poll: initialPoll,
+  onPollClosed,
+  onVoteSuccess,
+}: InlineVotingCardProps) => {
+  const controller = useInlineVotingCardController({ poll: initialPoll, onPollClosed, onVoteSuccess });
+  const { user, isGroupAdmin, haptic, addNotification, queryClient, poll, setPoll, menuItems, setMenuItems, selectedItemIds, setSelectedItemIds, userVotes, setUserVotes, loading, setLoading, submitting, setSubmitting, closing, setClosing, showConfirmClose, setShowConfirmClose, removingVote, setRemovingVote, INITIAL_ITEMS_COUNT, isExpanded, setIsExpanded, cardRef, isMultiSelectMode, maxSelections, isDark, setIsDark, loadPollData, uniqueVotersCount, voterCountByItem, selectedItemIdSet, votedItemIdSet, getUniqueVotersCount, getItemUniqueVotersCount, getItemUniquePercentage, getUniqueVoters, handleSelectItem, handleVote, handleClosePoll, confirmClosePoll, handleCancelPoll, handleRemoveVote, getItemVoteCount, getItemPercentage, getLeadingItemId, displayedItems, hasMore, remainingCount, handleExpand, handleCollapse, voteCount, leadingItemId } = controller;
+  if (loading) {
+    return <VotingCardSkeleton />;
+  }
+
+  return (
+    <>
+      <m.div
         ref={cardRef}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -561,8 +732,8 @@ export const InlineVotingCard = ({
           <div className="flex items-center gap-2 mb-1">
             <div className={cn(
               "p-1.5 rounded-lg",
-              isDark 
-                ? "bg-lavender-500/14 text-lavender-400" 
+              isDark
+                ? "bg-lavender-500/14 text-lavender-400"
                 : "bg-primary/12 text-primary"
             )}>
               <Sparkles size={18} className="currentColor" />
@@ -571,8 +742,8 @@ export const InlineVotingCard = ({
               <h3 className="text-base font-semibold text-foreground">
                 Голосование
               </h3>
-              <PollStatusBadge 
-                status={poll.status as 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'PENDING' | 'PAUSED'} 
+              <PollStatusBadge
+                status={poll.status as 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'PENDING' | 'PAUSED'}
                 hasVoted={userVotes.length > 0}
                 size="sm"
               />
@@ -580,18 +751,18 @@ export const InlineVotingCard = ({
               {(() => {
                 // Используем endTime если есть, иначе вычисляем из startedAt + duration
                 const endTimeToUse = poll.endTime || poll.endedAt;
-                
+
                 if (poll.status === 'ACTIVE' && endTimeToUse) {
                   return <CircularProgressTimer endTime={endTimeToUse} size="sm" />;
                 }
-                
+
                 // Если endTime нет, вычисляем на лету (fallback)
                 if (poll.status === 'ACTIVE' && poll.startedAt && poll.duration) {
                   const calculatedEndTime = new Date(poll.startedAt);
                   calculatedEndTime.setMinutes(calculatedEndTime.getMinutes() + poll.duration);
                   return <CircularProgressTimer endTime={calculatedEndTime.toISOString()} size="sm" />;
                 }
-                
+
                 return null;
               })()}
             </div>
@@ -602,7 +773,7 @@ export const InlineVotingCard = ({
         <div className="flex items-center gap-2">
           {/* Admin close button - завершить голосование досрочно */}
           {isGroupAdmin && (
-            <button
+            <button type="button"
               onClick={handleClosePoll}
               disabled={closing}
               className="p-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-800/40 text-emerald-700 dark:text-emerald-400 rounded-lg transition-all duration-200 disabled:opacity-50 border border-emerald-300 dark:border-emerald-700"
@@ -636,7 +807,7 @@ export const InlineVotingCard = ({
 
       {/* User votes indicator - ИЗМЕНЕНО: множественный выбор */}
       {userVotes.length > 0 && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="bg-gray-100 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl p-3 mb-4"
@@ -656,12 +827,12 @@ export const InlineVotingCard = ({
               </ul>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Selection mode hint */}
       {userVotes.length === 0 && menuItems.length > 1 && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-3 flex items-center gap-2 rounded-lg border border-butter-500/20 bg-butter-500/8 px-3 py-2"
@@ -678,12 +849,12 @@ export const InlineVotingCard = ({
               </>
             )}
           </p>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Sticky selected counter */}
       {userVotes.length === 0 && selectedItemIds.length > 0 && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           className="sticky top-0 z-20 mb-3 rounded-lg border border-primary/20 bg-card px-3 py-2 text-foreground shadow-sm"
@@ -700,190 +871,14 @@ export const InlineVotingCard = ({
               Очистить
             </button>
           </div>
-        </motion.div>
+        </m.div>
       )}
 
-      {/* Menu items */}
-      <div 
-        className="space-y-2" 
-        role="listbox" 
-        aria-label="Список блюд для голосования"
-        aria-multiselectable={isMultiSelectMode}
-      >
-        <AnimatePresence mode="popLayout">
-          {displayedItems.map((item, index) => {
-            const isSelected = selectedItemIdSet.has(item.id); // O(1) через Set
-            const isVoted = votedItemIdSet.has(item.id); // O(1) через Set
-            const votes = getItemVoteCount(item.id);
-            const percentage = getItemPercentage(item.id);
-            const isLeading = item.id === leadingItemId && voteCount > 0;
-
-            return (
-              <motion.button
-                key={item.id}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{
-                  delay: isExpanded ? index * 0.03 : index * 0.05,
-                  duration: 0.2
-                }}
-                onClick={() => handleSelectItem(item.id)}
-                disabled={userVotes.length > 0 || submitting}
-                role="option"
-                aria-selected={isSelected || isVoted}
-                aria-label={`${item.name}${item.price ? `, ${item.price} ₸` : ''}${isVoted ? ', ты проголосовал за это блюдо' : ''}`}
-                tabIndex={0}
-                whileTap={{ scale: 0.98 }}
-                className={cn(
-                    'w-full relative overflow-hidden rounded-xl p-4 text-left transition-all duration-200 ease-out',
-                    'disabled:cursor-not-allowed',
-                    userVotes.length === 0 && 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]',
-                    // Выбранный вариант - тёплый accent surface
-                    isSelected && userVotes.length === 0 && 
-                      'border border-primary/40 bg-primary/10 text-foreground ring-1 ring-primary/15 scale-[1.01]',
-                    // Проголосованный вариант - neutral gray с галочкой
-                    isVoted && 'bg-muted/80 text-foreground border border-border',
-                    // Обычный вариант - белая карточка
-                    !isSelected && !isVoted && 'bg-card text-foreground shadow-sm hover:shadow-md border border-border/70'
-                  )}
-                >
-                {/* Progress bar - адаптивный */}
-                {userVotes.length > 0 && percentage > 0 && (
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${percentage}%` }}
-                    transition={{ duration: 0.5, ease: 'easeOut' }}
-                    className={cn(
-                      "absolute inset-0",
-                        isDark
-                          ? "bg-primary/12"
-                          : "bg-primary/10"
-                     )}
-                   />
-                )}
-
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1">
-                    {/* Checkbox */}
-                    <div className="flex-shrink-0">
-                      {isVoted ? (
-                        <CheckCircle size={22} className="text-gray-600 dark:text-gray-400" />
-                        ) : isSelected ? (
-                          <CheckCircle size={22} className="text-primary drop-shadow-sm" />
-                      ) : (
-                        <Circle size={22} className="text-gray-300 dark:text-gray-600" />
-                      )}
-                    </div>
-
-                    {/* Item name */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          TYPOGRAPHY_BODY.weight,
-                          "truncate",
-                          (isSelected || isVoted) && "drop-shadow-sm"
-                        )}>{item.name}</span>
-                        {isLeading && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ type: "spring", stiffness: 200 }}
-                          >
-                            <Crown className={cn(ICON_SIZES.sm, "text-primary flex-shrink-0 drop-shadow-sm")} />
-                          </motion.div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Vote stats */}
-                    {userVotes.length > 0 && ( // ИЗМЕНЕНО
-                      <div className={cn(
-                        "flex items-center gap-3 flex-shrink-0",
-                        isVoted && "text-foreground"
-                      )}>
-                        <span className="text-sm font-medium">
-                          <NumberTicker value={percentage} decimalPlaces={0} />%
-                        </span>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Users size={14} />
-                          <span>
-                            <NumberTicker value={votes} decimalPlaces={0} />
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.button>
-            );
-          })}
-        </AnimatePresence>
-      </div>
-
-      {/* Кнопка "Показать ещё" - Card стиль с превью */}
-      {!isExpanded && hasMore && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-3"
-        >
-          <button
-            onClick={handleExpand}
-            className={cn(
-              'w-full p-4 rounded-xl',
-              'bg-muted/55 dark:bg-muted/55',
-              'border border-dashed border-border',
-              'hover:border-primary/35 hover:bg-muted/75',
-              'transition-all duration-300',
-              'group'
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-lavender-500/12 p-2 transition-transform group-hover:scale-110">
-                  <Utensils size={18} className="text-lavender-600 dark:text-lavender-300" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">
-                    Ещё {remainingCount} {getDishWord(remainingCount)}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Нажми, чтобы показать все варианты
-                  </p>
-                </div>
-              </div>
-              <ChevronDown className={ICON_SIZES.md} 
-              />
-            </div>
-          </button>
-        </motion.div>
-      )}
-
-      {/* Кнопка "Свернуть" */}
-      {isExpanded && hasMore && (
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          onClick={handleCollapse}
-          className={cn(
-            'w-full mt-3 py-2 px-4 rounded-lg',
-            'bg-gray-100 dark:bg-gray-800',
-            'text-gray-600 dark:text-gray-400',
-            'font-medium text-sm',
-            'flex items-center justify-center gap-2',
-            'hover:bg-gray-200 dark:hover:bg-gray-700',
-            'transition-all duration-200'
-          )}
-        >
-          <ChevronUp className={ICON_SIZES.sm} />
-          Свернуть
-        </motion.button>
-      )}
+      <VotingMenuItems controller={controller} />
 
       {/* Vote button - показывается только если есть выбранные */}
       {userVotes.length === 0 && selectedItemIds.length > 0 && (
-        <motion.button
+        <m.button
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           whileHover={{ scale: 1.02 }}
@@ -903,12 +898,12 @@ export const InlineVotingCard = ({
               Проголосовать {selectedItemIds.length > 1 ? `(${selectedItemIds.length})` : ''}
             </>
           )}
-        </motion.button>
+        </m.button>
       )}
-      
+
       {/* Кнопка отмены голоса - показывается после голосования */}
       {userVotes.length > 0 && poll.status === 'ACTIVE' && (
-        <motion.button
+        <m.button
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           whileHover={{ scale: 1.02 }}
@@ -936,12 +931,12 @@ export const InlineVotingCard = ({
               Отменить голос и выбрать заново
             </>
           )}
-        </motion.button>
+        </m.button>
       )}
           </div>
         </GlassCard>
-      </motion.div>
-      
+      </m.div>
+
       {/* Confirm Dialog для завершения голосования */}
       <ConfirmDialog
         isOpen={showConfirmClose}

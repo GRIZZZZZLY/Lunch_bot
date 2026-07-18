@@ -1,6 +1,7 @@
 // КРИТИЧНО: React должен импортироваться ПЕРВЫМ
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { LazyMotion, domAnimation } from 'framer-motion';
 
 // Остальные импорты после React
 import './styles/index.css';
@@ -102,6 +103,8 @@ if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <LazyMotion features={domAnimation} strict>
+      <App />
+    </LazyMotion>
   </React.StrictMode>,
 );

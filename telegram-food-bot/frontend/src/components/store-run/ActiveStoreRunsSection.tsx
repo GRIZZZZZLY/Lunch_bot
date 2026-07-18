@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useActiveStoreRuns } from '@/hooks/queries/useStoreRunQueries';
@@ -35,7 +35,7 @@ export const ActiveStoreRunsSection: React.FC<ActiveStoreRunsSectionProps> = ({
 
   return (
     <div className="space-y-3">
-      <motion.button
+      <m.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={handleOpenSheet}
@@ -65,7 +65,7 @@ export const ActiveStoreRunsSection: React.FC<ActiveStoreRunsSectionProps> = ({
           </div>
           <ChevronRight className="h-5 w-5 shrink-0 text-mint-600/70 dark:text-mint-400/70" />
         </div>
-      </motion.button>
+      </m.button>
 
       {runs.length > 0 && !isLoading && (
         <div className="space-y-2">

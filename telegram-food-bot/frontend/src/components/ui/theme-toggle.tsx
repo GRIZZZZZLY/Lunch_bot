@@ -10,6 +10,12 @@ import {
   PopoverTrigger,
 } from "./popover"
 
+const themeOptions = [
+  { value: "light", label: "Светлая", icon: Sun },
+  { value: "dark", label: "Тёмная", icon: Moon },
+] as const
+
+
 export interface ThemeToggleProps extends React.HTMLAttributes<HTMLButtonElement> {
   /**
    * Button variant
@@ -85,7 +91,7 @@ export const ThemeToggleWithLabel: React.FC = () => {
   }
 
   return (
-    <button
+    <button type="button"
       onClick={toggleTheme}
       className={cn(
         "inline-flex items-center gap-3 rounded-lg px-4 py-2",
@@ -129,11 +135,6 @@ export const ThemeTogglePopover: React.FC = () => {
     setOpen(false)
   }
 
-  const themeOptions = [
-    { value: "light", label: "Светлая", icon: Sun },
-    { value: "dark", label: "Тёмная", icon: Moon },
-  ] as const
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -148,7 +149,7 @@ export const ThemeTogglePopover: React.FC = () => {
           {themeOptions.map((option) => {
             const Icon = option.icon
             return (
-              <button
+              <button type="button"
                 key={option.value}
                 onClick={() => applyTheme(option.value)}
                 className={cn(

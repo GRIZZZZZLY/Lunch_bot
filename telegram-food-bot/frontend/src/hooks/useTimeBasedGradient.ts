@@ -84,30 +84,3 @@ export function useTimeBasedGradient(
     colors: TIME_COLORS[timeOfDay],
   };
 }
-
-export function useTimeBasedGradientVars(_isDark: boolean = false) {
-  const { from, to, textColor } = useTimeBasedGradient(_isDark);
-  return {
-    '--gradient-from': from,
-    '--gradient-to': to,
-    '--gradient-text': textColor,
-  } as React.CSSProperties;
-}
-
-export function getTimeBasedGradientStatic(
-  _isDark: boolean = false,
-  customTime?: TimeOfDay,
-): GradientColors & { gradient: string } {
-  const timeOfDay = customTime || getTimeOfDay();
-  const g = GRADIENTS[timeOfDay];
-  const gradient = `linear-gradient(135deg,${g.from},${g.to})`;
-  return {
-    gradient,
-    from: g.from,
-    to: g.to,
-    textColor: g.textColor,
-    timeOfDay,
-    label: g.label,
-    colors: TIME_COLORS[timeOfDay],
-  };
-}
