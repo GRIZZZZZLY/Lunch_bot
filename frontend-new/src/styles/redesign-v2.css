@@ -1,115 +1,6 @@
-/* ROCKET LUNCH — REDESIGN V2 (generated; source: Redisign v2/styles/*.css)
-   Tokens + keyframes GLOBAL; component/utility classes scoped under ".rl".
-   Use <html data-theme="light|dark"> and wrap subtree in <div className="rl">. */
-:root {
-  
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-6: 24px;
-  --sp-8: 32px;
-  --sp-12: 48px;
-  --sp-16: 64px;
-
-  
-  --r-card: 26px;
-  --r-block: 17px;
-  --r-btn: 17px;
-  --r-pill: 999px;
-
-
-  --font-head: "Unbounded", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body: "Onest", -apple-system, BlinkMacSystemFont, sans-serif;
-  --t-11: 11px;
-  --t-13: 13px;
-  --t-15: 15px;
-  --t-16: 16px;
-  --t-18: 18px;
-  --t-22: 22px;
-  --t-28: 28px;
-
-  
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-1: 150ms;
-  --dur-2: 220ms;
-  --dur-3: 300ms;
-
-  
-  --nav-h: 66px;
-  --safe-top: 12px;
-}
-/* ===== SCHEME «Графит и мёд» (01) — единственная схема нового дизайна.
-   Тёмная тема — основная. data-scheme больше не участвует в резолве токенов. ===== */
-[data-theme="light"] {
-  --bg-base: #F1F3F6;
-  --bg-elevated: #FFFFFF;
-  --bg-floating: #FFFFFF;
-  --bg-page: radial-gradient(120% 55% at 85% -8%, rgba(235, 165, 60, 0.20), transparent 60%),
-             radial-gradient(80% 40% at -10% 105%, rgba(214, 137, 20, 0.10), transparent 60%),
-             linear-gradient(180deg, #F7F8FA 0%, #EBEDF1 100%);
-  --card-grad: linear-gradient(180deg, #FFFFFF, #F3F5F8);
-  --float-grad: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 245, 249, 0.98));
-  --surface-glass: rgba(247, 248, 250, 0.78);
-  --glass-blur: 10px;
-  --border-subtle: rgba(55, 65, 90, 0.10);
-  --border-strong: rgba(214, 137, 20, 0.55);
-  --text-primary: #1D2127;
-  --text-secondary: #5D646F;
-  --text-tertiary: #8B929E;
-  --accent: #B27708;
-  --accent-hover: #9E6907;
-  --accent-active: #8A5C06;
-  --accent-foreground: #261A02;
-  --accent-tint: rgba(214, 137, 20, 0.12);
-  --accent-ring: rgba(214, 137, 20, 0.20);
-  --accent-grad: linear-gradient(135deg, #F6BE5F, #D68914);
-  --accent-grad-hover: linear-gradient(135deg, #F8C876, #E29A1D);
-  --accent-grad-active: linear-gradient(135deg, #EDB44F, #C67F10);
-  --success: #47823A;        --success-tint: rgba(110, 180, 95, 0.13);        --success-foreground: #FFFFFF;
-  --danger:  #C2503B;        --danger-tint:  rgba(225, 105, 80, 0.11);        --danger-foreground: #FFFFFF;
-  --warning: #A97B0E;        --warning-tint: rgba(232, 181, 74, 0.18);        --warning-foreground: #FFFFFF;
-  --info:    #2A7BD6;        --info-tint:    rgba(86, 168, 245, 0.14);        --info-foreground: #FFFFFF;
-  --shadow-1: 0 1px 3px rgba(55, 65, 90, 0.08), 0 2px 8px rgba(55, 65, 90, 0.06);
-  --shadow-2: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 14px 30px -16px rgba(55, 65, 90, 0.30), 0 3px 8px -4px rgba(55, 65, 90, 0.15);
-  --shadow-3: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 18px 40px -14px rgba(50, 60, 85, 0.35), 0 4px 12px -4px rgba(50, 60, 85, 0.18);
-  --accent-glow: 0 12px 26px -10px rgba(190, 130, 20, 0.45), 0 3px 8px -2px rgba(190, 130, 20, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-[data-theme="dark"] {
-  --bg-base: #121317;
-  --bg-elevated: #1E2025;
-  --bg-floating: #26282F;
-  --bg-page: radial-gradient(120% 55% at 85% -8%, rgba(240, 171, 70, 0.13), transparent 60%),
-             radial-gradient(80% 40% at -10% 105%, rgba(214, 137, 20, 0.07), transparent 60%),
-             linear-gradient(180deg, #17181C 0%, #111216 100%);
-  --card-grad: linear-gradient(180deg, #212329, #1B1D22);
-  --float-grad: linear-gradient(180deg, rgba(46, 50, 58, 0.94), rgba(35, 38, 45, 0.97));
-  --surface-glass: rgba(30, 32, 37, 0.62);
-  --glass-blur: 12px;
-  --border-subtle: rgba(228, 235, 248, 0.08);
-  --border-strong: rgba(240, 171, 70, 0.5);
-  --text-primary: #F1F3F7;
-  --text-secondary: #AEB5C0;
-  --text-tertiary: #787F8C;
-  --accent: #F0AB46;
-  --accent-hover: #F4BA62;
-  --accent-active: #D68914;
-  --accent-foreground: #261A02;
-  --accent-tint: rgba(240, 171, 70, 0.14);
-  --accent-ring: rgba(240, 171, 70, 0.18);
-  --accent-grad: linear-gradient(135deg, #F6BE5F, #D68914);
-  --accent-grad-hover: linear-gradient(135deg, #F8C876, #E29A1D);
-  --accent-grad-active: linear-gradient(135deg, #EDB44F, #C67F10);
-  --success: #8FCB7F;        --success-tint: rgba(125, 195, 110, 0.12);        --success-foreground: #10250B;
-  --danger:  #EE7A5F;        --danger-tint:  rgba(238, 110, 80, 0.12);        --danger-foreground: #2A0F06;
-  --warning: #E8B54A;        --warning-tint: rgba(232, 181, 74, 0.14);        --warning-foreground: #241802;
-  --info:    #56A8F5;        --info-tint:    rgba(86, 168, 245, 0.16);        --info-foreground: #0A1A2E;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
-  --shadow-2: inset 0 1px 0 rgba(235, 240, 250, 0.06), 0 14px 34px -16px rgba(4, 6, 10, 0.8), 0 3px 8px -3px rgba(6, 8, 12, 0.5);
-  --shadow-3: inset 0 1px 0 rgba(235, 240, 250, 0.08), 0 18px 40px -14px rgba(4, 6, 10, 0.85), 0 4px 12px -4px rgba(5, 7, 10, 0.6);
-  --accent-glow: 0 12px 26px -10px rgba(220, 150, 25, 0.5), 0 3px 8px -2px rgba(220, 150, 25, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
+/* ROCKET LUNCH — REDESIGN V2, component/utility classes scoped under ".rl".
+   Все токены и темы — в tokens.css (единственный источник).
+   Wrap subtree in <div className="rl">. */
 .rl .font-head { font-family: var(--font-head); letter-spacing: -0.03em; }
 .rl .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
 .rl .tight { letter-spacing: -0.03em; }
@@ -253,7 +144,7 @@
 .rl .btn--icon { width: 44px; padding: 0; }
 .rl .btn--icon.btn--sm { width: 36px; }
 .rl .btn--icon.btn--lg { width: 48px; }
-.rl .btn--primary { box-shadow: var(--accent-glow); font-weight: 700; }
+.rl .btn--primary { box-shadow: var(--shadow-1); font-weight: 700; }
 .rl .btn--secondary {
   --_bg: var(--bg-elevated); --_fg: var(--text-primary);
   --_bd: var(--border-subtle); --_bgh: var(--bg-base); --_bga: var(--bg-base);
@@ -285,7 +176,7 @@
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--accent-grad, var(--accent)); color: var(--accent-foreground);
   border: none; cursor: pointer;
-  box-shadow: var(--accent-glow);
+  box-shadow: var(--shadow-2);
   transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease-out);
 }
 .rl .fab:hover { transform: translateY(-2px) scale(1.03); }
@@ -438,7 +329,8 @@
 .rl .tile:hover { border-color: var(--border-strong); box-shadow: var(--shadow-2); transform: translateY(-2px); }
 .rl .tile:active { transform: scale(0.98); }
 .rl .bottomnav {
-  display: grid; grid-template-columns: repeat(4, 1fr); align-items: stretch; gap: 2px;
+  /* колонок столько, сколько табов в конфиге (src/app/navigation.ts) */
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; align-items: stretch; gap: 2px;
   height: var(--nav-h); padding: 7px;
   border-radius: 24px; border: none;
   background: var(--float-grad, var(--bg-floating));

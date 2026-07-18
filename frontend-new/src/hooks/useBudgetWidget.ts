@@ -8,6 +8,7 @@ import {
   useSendReminder,
 } from './useBudget';
 import { useAuth } from './useAuth';
+import { isGlobalAdmin } from '@/lib/permissions';
 import { useLastCompletedPoll, usePollResults } from './usePolls';
 import { buildBudgetData, pickPrimaryDebtTransactionId } from '@/lib/budgetMappers';
 import type { BudgetCallbacks, BudgetData } from '@/components/budget/types';
@@ -41,12 +42,12 @@ export function useBudgetWidget(): UseBudgetWidgetResult {
       buildBudgetData({
         debts,
         credits,
-        isAdmin: user?.isAdmin ?? false,
+        isAdmin: isGlobalAdmin(user),
         currentUserId: user?.id ?? null,
         lastCompletedPoll: lastCompletedPoll ?? null,
         lastPollResult: lastPollResult ?? null,
       }),
-    [debts, credits, user?.isAdmin, user?.id, lastCompletedPoll, lastPollResult],
+    [debts, credits, user, lastCompletedPoll, lastPollResult],
   );
 
   const primaryDebtTxId = useMemo(() => pickPrimaryDebtTransactionId(debts), [debts]);

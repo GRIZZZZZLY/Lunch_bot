@@ -6,7 +6,7 @@ import { useMenuItems } from '@/hooks/useMenu';
 import { useSSE } from '@/hooks/useSSE';
 import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
 import { CompletedPollWidget } from '@/components/rl/homeWidgets';
-import { BackHeader } from '@/components/rl/parts';
+import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { Avatar, Button } from '@/components/rl/primitives';
 
 export function PollResultsPage() {
@@ -46,10 +46,11 @@ export function PollResultsPage() {
     [poll],
   );
 
+  useScreenHeader(poll ? `Опрос #${poll.id}` : 'Результаты');
+
   const body = (content: ReactNode) => (
     <div className="rl">
-      <BackHeader title={poll ? `Опрос #${poll.id}` : 'Результаты'} onBack={() => navigate(-1)} />
-      <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>{content}</div>
+      <div style={{ padding: '12px 16px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>{content}</div>
     </div>
   );
 

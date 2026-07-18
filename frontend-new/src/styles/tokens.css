@@ -1,0 +1,305 @@
+/* ============================================================
+   ROCKET LUNCH — SEMANTIC TOKENS (Phase 2B, единственный источник)
+   Палитра «Графит и мёд». Темы: <html data-theme="light|dark">.
+   Класс html.tg-synced (ставит lib/theme.ts, когда тема приложения
+   совпадает с colorScheme Telegram) подключает Telegram theme
+   variables к канвасу с брендовым fallback.
+   ============================================================ */
+
+/* ---------- Fonts (self-hosted, variable woff2) ---------- */
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/onest-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/onest-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122;
+}
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+  src: url('/fonts/unbounded-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+  src: url('/fonts/unbounded-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122;
+}
+
+/* ---------- Scales (не зависят от темы) ---------- */
+:root {
+  /* spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* typography */
+  --font-body: 'Onest', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Unbounded — только бренд и редкие экранные заголовки, не общий заголовочный шрифт */
+  --font-brand: 'Unbounded', var(--font-body);
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --text-11: 11px;
+  --text-13: 13px;
+  --text-15: 15px;
+  --text-16: 16px;
+  --text-18: 18px;
+  --text-22: 22px;
+  --text-28: 28px;
+
+  /* radii */
+  --radius-card: 26px;
+  --radius-block: 17px;
+  --radius-control: 17px;
+  --radius-pill: 999px;
+
+  /* control heights */
+  --control-sm: 38px;
+  --control-md: 44px;
+  --control-lg: 52px;
+
+  /* icon sizes */
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+
+  /* motion */
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-slow: 300ms;
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* z-index */
+  --z-header: 40;
+  --z-nav: 40;
+  --z-scrim: 44;
+  --z-fab: 45;
+  --z-overlay: 60;
+  --z-sheet: 61;
+  --z-toast: 70;
+
+  /* safe area: fallback — env(); lib/viewport.ts переопределяет
+     значениями Telegram (contentSafeAreaInset + safeAreaInset). */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  /* stable viewport height: fallback 100dvh, lib/viewport.ts подставляет
+     viewportStableHeight Telegram (px). */
+  --viewport-stable-height: 100dvh;
+
+  /* layout */
+  --nav-h: 66px;
+}
+
+/* ---------- Colors: light ---------- */
+[data-theme='light'] {
+  --canvas: #f1f3f6;
+  --surface: #ffffff;
+  --surface-secondary: #f3f5f8;
+  --elevated: #ffffff;
+  --text-primary: #1d2127;
+  --text-secondary: #5d646f;
+  --text-tertiary: #8b929e;
+  --divider: rgba(55, 65, 90, 0.1);
+  --accent: #b27708;
+  --accent-foreground: #261a02;
+  --accent-hover: #9e6907;
+  --accent-active: #8a5c06;
+  --accent-tint: rgba(214, 137, 20, 0.12);
+  --accent-ring: rgba(214, 137, 20, 0.2);
+  --success: #47823a;
+  --success-tint: rgba(110, 180, 95, 0.13);
+  --success-foreground: #ffffff;
+  --warning: #a97b0e;
+  --warning-tint: rgba(232, 181, 74, 0.18);
+  --warning-foreground: #ffffff;
+  --danger: #c2503b;
+  --danger-tint: rgba(225, 105, 80, 0.11);
+  --danger-foreground: #ffffff;
+  --info: #2a7bd6;
+  --info-tint: rgba(86, 168, 245, 0.14);
+  --info-foreground: #ffffff;
+  --overlay: rgba(8, 12, 18, 0.45);
+  --focus-ring: rgba(214, 137, 20, 0.55);
+
+  /* materials «Графит и мёд» */
+  --card-grad: linear-gradient(180deg, #ffffff, #f3f5f8);
+  --float-grad: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 245, 249, 0.98));
+  --surface-glass: rgba(247, 248, 250, 0.78);
+  --glass-blur: 10px;
+  --accent-grad: linear-gradient(135deg, #f6be5f, #d68914);
+  --accent-grad-hover: linear-gradient(135deg, #f8c876, #e29a1d);
+  --accent-grad-active: linear-gradient(135deg, #edb44f, #c67f10);
+  --shadow-1: 0 1px 3px rgba(55, 65, 90, 0.08), 0 2px 8px rgba(55, 65, 90, 0.06);
+  --shadow-2: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 14px 30px -16px rgba(55, 65, 90, 0.3), 0 3px 8px -4px rgba(55, 65, 90, 0.15);
+  --shadow-3: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 18px 40px -14px rgba(50, 60, 85, 0.35), 0 4px 12px -4px rgba(50, 60, 85, 0.18);
+}
+
+/* ---------- Colors: dark ---------- */
+[data-theme='dark'] {
+  --canvas: #121317;
+  --surface: #1e2025;
+  --surface-secondary: #17181c;
+  --elevated: #26282f;
+  --text-primary: #f1f3f7;
+  --text-secondary: #aeb5c0;
+  --text-tertiary: #787f8c;
+  --divider: rgba(228, 235, 248, 0.08);
+  --accent: #f0ab46;
+  --accent-foreground: #261a02;
+  --accent-hover: #f4ba62;
+  --accent-active: #d68914;
+  --accent-tint: rgba(240, 171, 70, 0.14);
+  --accent-ring: rgba(240, 171, 70, 0.18);
+  --success: #8fcb7f;
+  --success-tint: rgba(125, 195, 110, 0.12);
+  --success-foreground: #10250b;
+  --warning: #e8b54a;
+  --warning-tint: rgba(232, 181, 74, 0.14);
+  --warning-foreground: #241802;
+  --danger: #ee7a5f;
+  --danger-tint: rgba(238, 110, 80, 0.12);
+  --danger-foreground: #2a0f06;
+  --info: #56a8f5;
+  --info-tint: rgba(86, 168, 245, 0.16);
+  --info-foreground: #0a1a2e;
+  --overlay: rgba(8, 12, 18, 0.55);
+  --focus-ring: rgba(240, 171, 70, 0.5);
+
+  --card-grad: linear-gradient(180deg, #212329, #1b1d22);
+  --float-grad: linear-gradient(180deg, rgba(46, 50, 58, 0.94), rgba(35, 38, 45, 0.97));
+  --surface-glass: rgba(30, 32, 37, 0.62);
+  --glass-blur: 12px;
+  --accent-grad: linear-gradient(135deg, #f6be5f, #d68914);
+  --accent-grad-hover: linear-gradient(135deg, #f8c876, #e29a1d);
+  --accent-grad-active: linear-gradient(135deg, #edb44f, #c67f10);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-2: inset 0 1px 0 rgba(235, 240, 250, 0.06), 0 14px 34px -16px rgba(4, 6, 10, 0.8), 0 3px 8px -3px rgba(6, 8, 12, 0.5);
+  --shadow-3: inset 0 1px 0 rgba(235, 240, 250, 0.08), 0 18px 40px -14px rgba(4, 6, 10, 0.85), 0 4px 12px -4px rgba(5, 7, 10, 0.6);
+}
+
+/* Канвас из Telegram, когда тема приложения совпадает с темой Telegram
+   (ручной override, расходящийся с Telegram, отключает подхват — класс снимается). */
+html.tg-synced[data-theme='light'] {
+  --canvas: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #f1f3f6));
+}
+html.tg-synced[data-theme='dark'] {
+  --canvas: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #121317));
+}
+
+/* ============================================================
+   COMPATIBILITY ALIASES — потребители: redesign-v2.css (классы .rl),
+   budget.css, toast.css, inline-стили компонентов.
+   Мигрируются на канонические имена по фазам; удалить весь блок — фаза 7.
+   ============================================================ */
+:root,
+[data-theme='light'],
+[data-theme='dark'] {
+  /* TODO(фаза 4–6 → удалить в фазе 7): базовые поверхности и текст */
+  --bg-base: var(--canvas);
+  --bg-elevated: var(--surface);
+  --bg-floating: var(--elevated);
+  --border-subtle: var(--divider);
+  --border-strong: var(--focus-ring);
+  --surface-2: var(--surface-secondary);
+  --ink: var(--text-primary);
+  --ink-2: var(--text-secondary);
+  --ink-3: var(--text-tertiary);
+  --line: var(--divider);
+  --line-2: var(--divider);
+  --pri: var(--accent);
+  --pri-ink: var(--accent-foreground);
+  --page-ink: var(--text-primary);
+  --page-muted: var(--text-tertiary);
+  --page-line: var(--divider);
+  /* TODO(фаза 7): радиальные page-подсветки удалены в 2B — плоский канвас */
+  --page-bg: var(--canvas);
+  --bg-page: var(--canvas);
+  /* TODO(фаза 4–6): типографика */
+  --sans: var(--font-body);
+  --display: var(--font-brand);
+  --mono: var(--font-mono);
+  /* --font-head: заголовки пока остаются на Unbounded; перевод на Onest
+     (Unbounded — только бренд) — при редизайне экранов, фазы 4–6 */
+  --font-head: var(--font-brand);
+  --t-11: var(--text-11);
+  --t-13: var(--text-13);
+  --t-15: var(--text-15);
+  --t-16: var(--text-16);
+  --t-18: var(--text-18);
+  --t-22: var(--text-22);
+  --t-28: var(--text-28);
+  /* TODO(фаза 7): шкалы под старыми именами */
+  --sp-1: var(--space-1);
+  --sp-2: var(--space-2);
+  --sp-3: var(--space-3);
+  --sp-4: var(--space-4);
+  --sp-6: var(--space-6);
+  --sp-8: var(--space-8);
+  --sp-12: var(--space-12);
+  --sp-16: var(--space-16);
+  --r-card: var(--radius-card);
+  --r-block: var(--radius-block);
+  --r-btn: var(--radius-control);
+  --r-pill: var(--radius-pill);
+  --dur-1: var(--motion-fast);
+  --dur-2: var(--motion-base);
+  --dur-3: var(--motion-slow);
+  /* TODO(фаза 7): тени под старыми именами */
+  --shadow-card: var(--shadow-1);
+  --shadow-elev: var(--shadow-2);
+  /* TODO(фаза 2B → удалено с кнопок/FAB/шапки; alias оставлен для прочих
+     потребителей (CardGlow и др.), нейтральная тень вместо цветного свечения.
+     Удалить в фазе 4 вместе с CardGlow. */
+  --accent-glow: var(--shadow-2);
+  /* TODO(фаза 7): константа старого layout */
+  --safe-top: 12px;
+}
+
+/* TODO(фаза 7, вместе с components/ui/Card и старым budget.css):
+   пастельная палитра и градиенты старого дизайна */
+:root {
+  --peach-400: #ff9d66;
+  --peach-500: #d86a2c;
+  --peach-600: #b84d12;
+  --lav-400: #a78bfa;
+  --lav-500: #8b5cf6;
+  --mint-400: #34d399;
+  --mint-500: #22b573;
+  --coral-400: #f87171;
+  --coral-500: #e55a4f;
+  --butter-400: #f4c15d;
+  --butter-500: #e6a93d;
+  --succ-soft: #9fd4b3;
+  --warn-soft: #d9d394;
+  --err-soft: #d4a5a5;
+  --g-peach: linear-gradient(135deg, #f3c4a7, #f7d5c1);
+  --g-lav: linear-gradient(135deg, #d1c1fc, #e5ddfe);
+  --g-sage: linear-gradient(135deg, #8ce0b9, #b3ebd1);
+  --g-sky: linear-gradient(135deg, #7dd3fc, #bae6fd);
+  --g-rose: linear-gradient(135deg, #fca5a5, #fecaca);
+  --g-butter: linear-gradient(135deg, #fde7a6, #f9d978);
+  --g-coral: linear-gradient(135deg, #fca5a5, #f87171);
+  --g-mint: linear-gradient(135deg, #8ce0b9, #b3ebd1);
+  --g-peachlav: linear-gradient(135deg, #f3c4a7, #d1c1fc);
+}

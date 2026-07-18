@@ -36,7 +36,7 @@ export function ProfilePage() {
 
   return (
     <div className="rl">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 13, padding: '12px 16px calc(104px + env(safe-area-inset-bottom))' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 13, padding: '12px 16px calc(104px + var(--safe-area-bottom, 0px))' }}>
         {/* profile header — по центру, аватар в двойном кольце (макет) */}
         <div className="anim-rise" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 6, textAlign: 'center' }}>
           <div

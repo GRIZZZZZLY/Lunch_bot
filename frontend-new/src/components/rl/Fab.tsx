@@ -38,7 +38,7 @@ export function Fab({
         style={{
           position: 'fixed',
           right: 18,
-          bottom: 'calc(88px + env(safe-area-inset-bottom))',
+          bottom: 'calc(88px + var(--safe-area-bottom, 0px))',
           zIndex: 45,
           display: 'flex',
           flexDirection: 'column',

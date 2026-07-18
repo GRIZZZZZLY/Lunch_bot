@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { usePollHistory } from '@/hooks/useUser';
 import type { PollStatus } from '@/types/models';
-import { BackHeader } from '@/components/rl/parts';
+import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { Badge, type BadgeTone } from '@/components/rl/primitives';
+import { EmptyState, Skeleton } from '@/shared/ui';
 import { Icon, type IconName } from '@/components/rl/Icon';
 
 const STATUS: Record<PollStatus, { tone: BadgeTone; icon: IconName; label: string }> = {
@@ -18,19 +19,19 @@ function fmtDate(iso: string): string {
 export function PollHistoryPage() {
   const navigate = useNavigate();
   const { data: polls = [], isLoading } = usePollHistory({ limit: 60 });
+  useScreenHeader('История голосований');
 
   return (
     <div className="rl">
-      <BackHeader title="История голосований" onBack={() => navigate(-1)} />
-      <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ padding: '12px 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {isLoading && polls.length === 0 && (
           <>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="card" style={{ padding: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div className="skeleton" style={{ width: 40, height: 40, borderRadius: 12 }} />
-                <div style={{ flex: 1 }}>
-                  <div className="skeleton" style={{ height: 12, width: '55%', marginBottom: 8 }} />
-                  <div className="skeleton" style={{ height: 10, width: '35%' }} />
+                <Skeleton variant="block" width={40} height={40} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <Skeleton variant="text" width="55%" />
+                  <Skeleton variant="text" width="35%" height={10} />
                 </div>
               </div>
             ))}
@@ -38,17 +39,11 @@ export function PollHistoryPage() {
         )}
 
         {!isLoading && polls.length === 0 && (
-          <div className="card" style={{ padding: '36px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 60, height: 60, borderRadius: 18, background: 'var(--bg-base)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6, border: '1px solid var(--border-subtle)' }}>
-              <Icon name="clock" size={28} />
-            </div>
-            <div className="font-head" style={{ fontSize: 'var(--t-16)', fontWeight: 600 }}>
-              История пуста
-            </div>
-            <p style={{ margin: 0, fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', maxWidth: 240, lineHeight: 1.5 }}>
-              Завершённые голосования появятся здесь.
-            </p>
-          </div>
+          <EmptyState
+            icon="clock"
+            title="История пуста"
+            description="Завершённые голосования появятся здесь."
+          />
         )}
 
         {polls.map((p) => {
