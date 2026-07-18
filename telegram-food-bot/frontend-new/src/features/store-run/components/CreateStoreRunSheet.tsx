@@ -1,8 +1,9 @@
+/* Создание закупки (вызывается с Home). Пресеты сбора — COLLECT_PRESETS
+   [5,15,30], в диапазоне backend 3..30 (фикс B1). Остальное поведение как было. */
 import { useState, type ChangeEvent, type ReactNode } from 'react';
-import { BottomSheet } from './BottomSheet';
-import { Button, Chip, Field } from './primitives';
-
-const PRESETS = [15, 30, 60];
+import { BottomSheet } from '@/components/rl/BottomSheet';
+import { Button, Chip, Field } from '@/components/rl/primitives';
+import { COLLECT_PRESETS } from '../lib/selectors';
 
 function FormField({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -25,7 +26,7 @@ export function CreateStoreRunSheet({
   onSubmit: (input: { storeName: string; collectMinutes: number }) => void | Promise<void>;
 }) {
   const [name, setName] = useState('');
-  const [mins, setMins] = useState(30);
+  const [mins, setMins] = useState<number>(COLLECT_PRESETS[COLLECT_PRESETS.length - 1]);
 
   if (!open) return null;
   const canSubmit = name.trim().length > 0 && !busy;
@@ -50,7 +51,7 @@ export function CreateStoreRunSheet({
       </FormField>
       <FormField label="Сбор заказов">
         <div style={{ display: 'flex', gap: 8 }}>
-          {PRESETS.map((m) => (
+          {COLLECT_PRESETS.map((m) => (
             <Chip key={m} on={mins === m} onClick={() => setMins(m)}>
               {m} мин
             </Chip>

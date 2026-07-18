@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDeepLinkPollId } from '@/lib/telegram';
 import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
+import { getAdminGroups, isGlobalAdmin } from '@/lib/permissions';
 import {
   useActivePoll,
   useCancelPoll,
@@ -40,7 +41,7 @@ import { Badge } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
 import { Fab, type FabAction } from '@/components/rl/Fab';
 import { SectionTitle } from '@/components/rl/parts';
-import { CreateStoreRunSheet } from '@/components/rl/CreateStoreRunSheet';
+import { CreateStoreRunSheet } from '@/features/store-run/components/CreateStoreRunSheet';
 import { useActiveStoreRuns, useCreateStoreRun } from '@/hooks/useStoreRun';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -195,16 +196,9 @@ export function HomePage() {
   }, [lastCompletedPoll, lastPollResult, allMenu]);
 
   // ----- create poll flow (reused) -----
-  const adminGroups = useMemo(() => {
-    const activeGroups = myGroups.filter((g) => g.isActive);
-    if (user?.isAdmin) return activeGroups;
-    return activeGroups.filter((g) => {
-      const role = (g.role ?? '').toUpperCase();
-      return role === 'ADMIN' || role === 'CREATOR';
-    });
-  }, [myGroups, user?.isAdmin]);
+  const adminGroups = useMemo(() => getAdminGroups(user, myGroups), [myGroups, user]);
 
-  const canCreate = adminGroups.length > 0 || (!!user?.isAdmin && !!currentGroupId);
+  const canCreate = adminGroups.length > 0 || (isGlobalAdmin(user) && !!currentGroupId);
 
   // Меню для формы создания — строго той группы, что выбрана в форме
   const effectiveSheetGroupId = sheetGroupId ?? currentGroupId;
