@@ -1,6 +1,8 @@
 import { apiService } from './api.service';
 import type { ApiResponse } from '@/types/api';
 import type { User } from '@/types/models';
+import { useAppStore } from '@/store/useAppStore';
+import { getInitData } from '@/lib/telegram';
 
 export interface AuthResponse {
   success: boolean;
@@ -86,3 +88,29 @@ class AuthService {
 }
 
 export const authService = new AuthService();
+
+/* Переавторизация для 401-повторов (координация — в lib/authRetry.ts):
+   сначала refresh, при неудаче — повторная валидация initData (она живёт всю
+   сессию Mini App). Оба запроса идут на /auth/* и сами повтор не запускают. */
+apiService.setReauthenticator(async () => {
+  const store = useAppStore.getState();
+  const refreshed = await authService.refreshAuth();
+  if (refreshed.success) {
+    authService.setToken(refreshed.token);
+    store.setUser(refreshed.user);
+    return true;
+  }
+  const initData = getInitData();
+  if (initData) {
+    const validated = await authService.validateInitData(initData);
+    if (validated.success) {
+      authService.setToken(validated.token);
+      store.setUser(validated.user);
+      return true;
+    }
+  }
+  authService.clearToken();
+  store.setAuthStatus('error');
+  store.setAuthError('Сессия истекла. Войдите заново.');
+  return false;
+});

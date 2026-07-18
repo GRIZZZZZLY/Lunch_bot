@@ -1,12 +1,17 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import type { ApiResponse, PaginatedResponse } from '@/types/api';
 import { useAppStore } from '@/store/useAppStore';
+import { createAuthRetryHandler } from '@/lib/authRetry';
 
 const TOKEN_KEY = 'auth_token';
 
 class ApiService {
   private client: AxiosInstance;
   private token: string | null = null;
+  private reauthenticate: (() => Promise<boolean>) | null = null;
+  private shouldRetryAuth = createAuthRetryHandler(() =>
+    this.reauthenticate ? this.reauthenticate() : Promise.resolve(false),
+  );
 
   constructor() {
     const baseURL =
@@ -37,10 +42,17 @@ class ApiService {
 
     this.client.interceptors.response.use(
       (r) => r,
-      (error) => {
+      async (error) => {
         if (error.response) {
           const { status, data } = error.response;
-          if (status === 401) this.clearToken();
+          if (status === 401) {
+            const cfg = error.config as (AxiosRequestConfig & { _authRetry?: boolean }) | undefined;
+            if (cfg && (await this.shouldRetryAuth(cfg))) {
+              cfg._authRetry = true;
+              return this.client.request(cfg);
+            }
+            this.clearToken();
+          }
           return Promise.reject({
             success: false,
             error: data?.error || `HTTP ${status}`,
@@ -77,6 +89,11 @@ class ApiService {
   clearToken() {
     this.token = null;
     sessionStorage.removeItem(TOKEN_KEY);
+  }
+
+  /** Регистрируется в auth.service — так разрывается циклический импорт api↔auth. */
+  setReauthenticator(fn: () => Promise<boolean>) {
+    this.reauthenticate = fn;
   }
 
   async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
