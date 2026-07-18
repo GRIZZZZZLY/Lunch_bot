@@ -1,0 +1,40 @@
+{
+  "projectId": "83bb6f6c-0ea9-4944-83a6-d02c793738f6",
+  "shape": "package",
+  "pkg": "telegram-food-bot-frontend-new",
+  "globalName": "RocketLunchUI",
+  "tsconfig": "./tsconfig.json",
+  "srcDir": "src/shared/ui",
+  "extraFonts": [
+    ".design-sync/ds-fonts.css"
+  ],
+  "extraEntries": [
+    "./.design-sync/ds-theme-root.tsx"
+  ],
+  "provider": {
+    "component": "DSThemeRoot"
+  },
+  "componentSrcMap": {
+    "Button": "src/shared/ui/Button.tsx",
+    "IconButton": "src/shared/ui/IconButton.tsx",
+    "TextField": "src/shared/ui/TextField.tsx",
+    "Status": "src/shared/ui/Status.tsx",
+    "Skeleton": "src/shared/ui/Skeleton.tsx",
+    "EmptyState": "src/shared/ui/EmptyState.tsx",
+    "ErrorState": "src/shared/ui/ErrorState.tsx",
+    "InlineNotice": "src/shared/ui/InlineNotice.tsx",
+    "ConfirmDialog": "src/shared/ui/ConfirmDialog.tsx"
+  },
+  "cssEntry": "src/styles/tokens.css",
+  "overrides": {
+    "ConfirmDialog": {
+      "cardMode": "single",
+      "primaryStory": "Destructive",
+      "viewport": "430x480"
+    },
+    "InlineNotice": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}
