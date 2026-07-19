@@ -12,12 +12,12 @@ const BudgetDemoPage = lazy(() =>
 const UiShowcasePage = lazy(() =>
   import('@/pages/UiShowcasePage').then((m) => ({ default: m.UiShowcasePage })),
 );
-import { StatsPage } from '@/pages/StatsPage';
-import { ProfilePage } from '@/pages/ProfilePage';
+import { StatsPage } from '@/features/stats/StatsPage';
+import { ProfilePage } from '@/features/profile/ProfilePage';
 import { AdminPage } from '@/pages/AdminPage';
 import MenuPage from '@/features/menu/MenuPage';
-import { PollHistoryPage } from '@/pages/PollHistoryPage';
-import { PollResultsPage } from '@/pages/PollResultsPage';
+import { PollHistoryPage } from '@/features/polls/PollHistoryPage';
+import { PollResultsPage } from '@/features/polls/PollResultsPage';
 import { StoreRunPage } from '@/features/store-run/StoreRunPage';
 import { SuggestionsPage } from '@/features/suggestions/SuggestionsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';

@@ -1,0 +1,151 @@
+/* Профиль — система C: шапка с аватаром, показатели строкой, плоские группы. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3) var(--space-4);
+  animation: profIn 180ms var(--ease-out);
+}
+
+@keyframes profIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-1);
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--vote-tint);
+  color: var(--vote);
+  font-size: 20px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--text-18);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.handle {
+  display: block;
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+}
+
+.stats {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.stat {
+  flex: 1;
+  text-align: center;
+  padding: 10px 4px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.stat b {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.stat span {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+}
+
+.group {
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+
+.groupHead {
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+button.row {
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+button.row:active {
+  background: var(--accent-tint);
+}
+
+.row + .row {
+  border-top: 1px solid var(--divider);
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowName {
+  display: block;
+  font-size: var(--text-15);
+  font-weight: 700;
+}
+
+.rowSub {
+  display: block;
+  font-size: var(--text-11);
+  margin-top: 1px;
+  color: var(--text-tertiary);
+}
+
+.rowVal {
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.link {
+  color: var(--vote);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chev {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  display: inline-flex;
+}
