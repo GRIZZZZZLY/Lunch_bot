@@ -1,6 +1,6 @@
 # Rocket Lunch UI — правила использования
 
-Мобильный Telegram Mini App (430px, русский язык). Тёплая палитра «графит и мёд».
+Мобильный Telegram Mini App (430px, русский язык). Дизайн-система C «нейтрали, цвет = значение»: тёплые хроматические нейтрали + фактура «перфолента-точки»; действие (--accent) — чернила/слоновая БЕЗ hue; цвет несут только значения — --vote (терракота: голос, ссылки, бренд), --shop (шафран: закупка и её статусы), --money (зелёный: деньги, «Куплено»), --danger. Полные правила: guidelines/design-system-c.md.
 
 ## Обязательная обёртка
 
@@ -22,7 +22,8 @@
 
 - Поверхности: `--canvas` (фон экрана), `--surface`, `--surface-secondary`, `--elevated` (шторки), `--overlay` (скрим)
 - Текст: `--text-primary`, `--text-secondary`, `--text-tertiary`; разделители: `--divider`
-- Акцент: `--accent`, `--accent-foreground`, `--accent-hover`, `--accent-active`, `--accent-tint`; фокус: `--focus-ring`
+- Действие (чернила/слоновая): `--accent`, `--accent-foreground`, `--accent-hover`, `--accent-active`, `--accent-tint`; фокус: `--focus-ring`
+- Домены-значения: `--vote`/`--vote-tint` (терракота), `--shop`/`--shop-tint` (шафран), `--money`/`--money-tint` (зелёный)
 - Семантика: `--success`, `--warning`, `--danger`, `--info` (+ `-tint` у каждого)
 - Отступы: `--space-1|2|3|4|6|8|12|16` (4…64px); радиусы: `--radius-card` (26), `--radius-block` (17), `--radius-control` (17), `--radius-pill`
 - Шрифт: `--text-11|13|15|16|18|22|28`; `--font-body` (Onest — всё), `--font-brand` (Unbounded — ТОЛЬКО логотип/редкие крупные заголовки)
