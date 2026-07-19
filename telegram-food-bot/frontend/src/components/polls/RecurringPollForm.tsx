@@ -36,7 +36,6 @@ const sectionLabel = (text: string) => (
   </p>
 );
 
-
 interface RecurringPollFormProps {
   menuItems: MenuItem[];
   selectedGroupId: number | null;
@@ -45,18 +44,18 @@ interface RecurringPollFormProps {
 }
 
 const DAYS_OF_WEEK = [
-  { value: 1, label: 'Пн', fullLabel: 'Понедельник' },
-  { value: 2, label: 'Вт', fullLabel: 'Вторник' },
-  { value: 3, label: 'Ср', fullLabel: 'Среда' },
-  { value: 4, label: 'Чт', fullLabel: 'Четверг' },
-  { value: 5, label: 'Пт', fullLabel: 'Пятница' },
-  { value: 6, label: 'Сб', fullLabel: 'Суббота' },
-  { value: 0, label: 'Вс', fullLabel: 'Воскресенье' },
+  { value: 1, label: "Пн", fullLabel: "Понедельник" },
+  { value: 2, label: "Вт", fullLabel: "Вторник" },
+  { value: 3, label: "Ср", fullLabel: "Среда" },
+  { value: 4, label: "Чт", fullLabel: "Четверг" },
+  { value: 5, label: "Пт", fullLabel: "Пятница" },
+  { value: 6, label: "Сб", fullLabel: "Суббота" },
+  { value: 0, label: "Вс", fullLabel: "Воскресенье" },
 ];
 
 const parseNumberList = (
   value: number[] | string | null | undefined,
-  fallback: number[] = []
+  fallback: number[] = [],
 ): number[] => {
   if (Array.isArray(value)) {
     return value.reduce<number[]>((numbers, item) => {
@@ -66,7 +65,7 @@ const parseNumberList = (
     }, []);
   }
 
-  if (typeof value !== 'string') {
+  if (typeof value !== "string") {
     return fallback;
   }
 
@@ -93,26 +92,26 @@ const useRecurringPollFormController = ({
   menuItems,
   selectedGroupId,
   onSuccess,
-  onCancel,
+  onCancel: _onCancel,
 }: RecurringPollFormProps) => {
   const haptic = useHaptic();
 
   // Определяем тему: проверяем CSS класс 'dark' на документе
   const [isDark, setIsDark] = useState(() => {
-    return document.documentElement.classList.contains('dark');
+    return document.documentElement.classList.contains("dark");
   });
 
   // Следим за изменениями темы через MutationObserver
   useEffect(() => {
     const updateTheme = () => {
-      setIsDark(document.documentElement.classList.contains('dark'));
+      setIsDark(document.documentElement.classList.contains("dark"));
     };
 
     updateTheme();
 
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
-        if (mutation.attributeName === 'class') {
+        if (mutation.attributeName === "class") {
           updateTheme();
         }
       });
@@ -120,25 +119,28 @@ const useRecurringPollFormController = ({
 
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class'],
+      attributeFilter: ["class"],
     });
 
     return () => observer.disconnect();
   }, []);
 
   // State
-  const [existingSchedule, setExistingSchedule] = useState<RecurringPoll | null>(null);
+  const [existingSchedule, setExistingSchedule] =
+    useState<RecurringPoll | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Form state
   const [selectedDays, setSelectedDays] = useState<Set<number>>(
-    () => new Set([1, 2, 3, 4, 5])
+    () => new Set([1, 2, 3, 4, 5]),
   ); // Mon-Fri по умолчанию
-  const [timeOfDay, setTimeOfDay] = useState('11:00');
+  const [timeOfDay, setTimeOfDay] = useState("11:00");
   const [duration, setDuration] = useState(30);
-  const [selectedItems, setSelectedItems] = useState<Set<number>>(() => new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(
+    () => new Set(),
+  );
   const [useAllItems, setUseAllItems] = useState(true);
 
   // Load existing schedule
@@ -150,37 +152,42 @@ const useRecurringPollFormController = ({
 
     try {
       setLoading(true);
-      const response = await recurringPollService.getGroupSchedule(selectedGroupId);
+      const response =
+        await recurringPollService.getGroupSchedule(selectedGroupId);
 
       if (response.success && response.data) {
         const schedule = response.data;
         setExistingSchedule(schedule);
-        setSelectedDays(new Set(parseNumberList(schedule.daysOfWeek, [1, 2, 3, 4, 5])));
+        setSelectedDays(
+          new Set(parseNumberList(schedule.daysOfWeek, [1, 2, 3, 4, 5])),
+        );
         setTimeOfDay(schedule.timeOfDay);
         setDuration(schedule.duration);
 
         if (schedule.selectedMenuItemIds) {
-          setSelectedItems(new Set(parseNumberList(schedule.selectedMenuItemIds)));
+          setSelectedItems(
+            new Set(parseNumberList(schedule.selectedMenuItemIds)),
+          );
           setUseAllItems(false);
         } else {
-          setSelectedItems(new Set(menuItems.map(item => item.id)));
+          setSelectedItems(new Set(menuItems.map((item) => item.id)));
           setUseAllItems(true);
         }
       } else {
         // Нет расписания - используем defaults
         setExistingSchedule(null);
-        setSelectedItems(new Set(menuItems.map(item => item.id)));
+        setSelectedItems(new Set(menuItems.map((item) => item.id)));
         setUseAllItems(true);
       }
     } catch (err) {
-      console.error('[RecurringPollForm] Error loading schedule:', err);
+      console.error("[RecurringPollForm] Error loading schedule:", err);
     } finally {
       setLoading(false);
     }
   }, [menuItems, selectedGroupId]);
 
   useEffect(() => {
-    loadSchedule();
+    void loadSchedule();
   }, [loadSchedule]);
 
   const canSaveSchedule = (): boolean => {
@@ -196,7 +203,7 @@ const useRecurringPollFormController = ({
 
   const handleSave = async () => {
     if (!canSaveSchedule() || !selectedGroupId) {
-      setError('Заполни все поля корректно');
+      setError("Заполни все поля корректно");
       haptic.error();
       return;
     }
@@ -219,7 +226,7 @@ const useRecurringPollFormController = ({
         response = await recurringPollService.updateSchedule(
           existingSchedule.id,
           selectedGroupId,
-          data
+          data,
         );
       } else {
         // Create new
@@ -230,24 +237,25 @@ const useRecurringPollFormController = ({
         haptic.success();
         onSuccess?.();
       } else {
-        throw new Error(response.error || 'Failed to save schedule');
+        throw new Error(response.error || "Failed to save schedule");
       }
     } catch (err: unknown) {
-      console.error('[RecurringPollForm] Error saving schedule:', err);
+      console.error("[RecurringPollForm] Error saving schedule:", err);
 
-      let errorMessage = 'Ошибка сохранения расписания';
+      let errorMessage = "Ошибка сохранения расписания";
 
       const errorObj = err as { error?: string; message?: string };
-      const errorText = errorObj?.error || errorObj?.message || '';
+      const errorText = errorObj?.error || errorObj?.message || "";
 
-      if (errorText.includes('already has a recurring poll')) {
-        errorMessage = 'У этой группы уже есть расписание. Обнови существующее.';
-      } else if (errorText.includes('Invalid time format')) {
-        errorMessage = 'Неверный формат времени. Используй HH:MM';
-      } else if (errorText.includes('Duration must be')) {
-        errorMessage = 'Длительность должна быть от 5 до 180 минут';
-      } else if (errorText.includes('Access denied')) {
-        errorMessage = 'Недостаточно прав. Требуется роль администратора.';
+      if (errorText.includes("already has a recurring poll")) {
+        errorMessage =
+          "У этой группы уже есть расписание. Обнови существующее.";
+      } else if (errorText.includes("Invalid time format")) {
+        errorMessage = "Неверный формат времени. Используй HH:MM";
+      } else if (errorText.includes("Duration must be")) {
+        errorMessage = "Длительность должна быть от 5 до 180 минут";
+      } else if (errorText.includes("Access denied")) {
+        errorMessage = "Недостаточно прав. Требуется роль администратора.";
       } else if (errorText) {
         errorMessage = `Ошибка: ${errorText}`;
       }
@@ -287,7 +295,7 @@ const useRecurringPollFormController = ({
   };
 
   const selectAllItems = () => {
-    setSelectedItems(new Set(menuItems.map(item => item.id)));
+    setSelectedItems(new Set(menuItems.map((item) => item.id)));
     setUseAllItems(true);
     haptic.impact();
   };
@@ -296,16 +304,22 @@ const useRecurringPollFormController = ({
     haptic.impact();
     const maxCount = Math.min(6, menuItems.length);
     const minCount = Math.min(3, menuItems.length);
-    const count = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
+    const count =
+      Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
 
     // Частичный Фишер-Йейтс: перемешиваем только первые count позиций
     const pool = [...menuItems];
     for (let i = 0; i < count; i++) {
       const j = i + Math.floor(Math.random() * (pool.length - i));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
+      const current = pool[i];
+      const replacement = pool[j];
+      if (current && replacement) {
+        pool[i] = replacement;
+        pool[j] = current;
+      }
     }
     const randomItems = pool.slice(0, count);
-    setSelectedItems(new Set(randomItems.map(item => item.id)));
+    setSelectedItems(new Set(randomItems.map((item) => item.id)));
     setUseAllItems(false);
   };
 
@@ -323,7 +337,7 @@ const useRecurringPollFormController = ({
   // Preview next run
   const getNextRunPreview = (): string => {
     const now = new Date();
-    const [hours, minutes] = timeOfDay.split(':').map(Number);
+    const [hours = 0, minutes = 0] = timeOfDay.split(":").map(Number);
 
     // Находим ближайший день
     const nextDate = new Date(now);
@@ -346,26 +360,62 @@ const useRecurringPollFormController = ({
         } else if (nextDate.toDateString() === now.toDateString()) {
           return `Сегодня в ${timeOfDay}`;
         } else {
-          const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+          const dayNames = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
           return `${dayNames[dayOfWeek]} в ${timeOfDay}`;
         }
       }
       nextDate.setDate(nextDate.getDate() + 1);
     }
 
-    return 'Не запланировано';
+    return "Не запланировано";
   };
 
   // Helpers (Variant B)
-  const accentText = isDark ? 'text-lavender-400' : 'text-peach-600';
-  const rowSeparator = isDark ? 'border-white/[0.04]' : 'border-black/[0.05]';
+  const accentText = isDark ? "text-lavender-400" : "text-peach-600";
+  const rowSeparator = isDark ? "border-white/[0.04]" : "border-black/[0.05]";
   const chipClass =
-    'px-2.5 py-1 text-xs font-medium rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors';
+    "px-2.5 py-1 text-xs font-medium rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors";
   const selectedTile = isDark
-    ? 'border-lavender-500/40 bg-lavender-500/12'
-    : 'border-peach-500/35 bg-peach-500/10';
+    ? "border-lavender-500/40 bg-lavender-500/12"
+    : "border-peach-500/35 bg-peach-500/10";
 
-  return { haptic, isDark, setIsDark, existingSchedule, setExistingSchedule, loading, setLoading, saving, setSaving, error, setError, selectedDays, setSelectedDays, timeOfDay, setTimeOfDay, duration, setDuration, selectedItems, setSelectedItems, useAllItems, setUseAllItems, loadSchedule, canSaveSchedule, handleSave, toggleDay, toggleItem, selectAllItems, selectRandomItems, selectWeekdays, selectEveryDay, getNextRunPreview, accentText, rowSeparator, chipClass, selectedTile };
+  return {
+    haptic,
+    isDark,
+    setIsDark,
+    existingSchedule,
+    setExistingSchedule,
+    loading,
+    setLoading,
+    saving,
+    setSaving,
+    error,
+    setError,
+    selectedDays,
+    setSelectedDays,
+    timeOfDay,
+    setTimeOfDay,
+    duration,
+    setDuration,
+    selectedItems,
+    setSelectedItems,
+    useAllItems,
+    setUseAllItems,
+    loadSchedule,
+    canSaveSchedule,
+    handleSave,
+    toggleDay,
+    toggleItem,
+    selectAllItems,
+    selectRandomItems,
+    selectWeekdays,
+    selectEveryDay,
+    getNextRunPreview,
+    accentText,
+    rowSeparator,
+    chipClass,
+    selectedTile,
+  };
 };
 
 export const RecurringPollForm = ({
@@ -374,7 +424,38 @@ export const RecurringPollForm = ({
   onSuccess,
   onCancel,
 }: RecurringPollFormProps) => {
-  const { haptic, isDark, setIsDark, existingSchedule, setExistingSchedule, loading, setLoading, saving, setSaving, error, setError, selectedDays, setSelectedDays, timeOfDay, setTimeOfDay, duration, setDuration, selectedItems, setSelectedItems, useAllItems, setUseAllItems, loadSchedule, canSaveSchedule, handleSave, toggleDay, toggleItem, selectAllItems, selectRandomItems, selectWeekdays, selectEveryDay, getNextRunPreview, accentText, rowSeparator, chipClass, selectedTile } = useRecurringPollFormController({ menuItems, selectedGroupId, onSuccess, onCancel });
+  const {
+    isDark,
+    existingSchedule,
+    loading,
+    saving,
+    error,
+    selectedDays,
+    timeOfDay,
+    setTimeOfDay,
+    duration,
+    setDuration,
+    selectedItems,
+    useAllItems,
+    canSaveSchedule,
+    handleSave,
+    toggleDay,
+    toggleItem,
+    selectAllItems,
+    selectRandomItems,
+    selectWeekdays,
+    selectEveryDay,
+    getNextRunPreview,
+    accentText,
+    rowSeparator,
+    chipClass,
+    selectedTile,
+  } = useRecurringPollFormController({
+    menuItems,
+    selectedGroupId,
+    onSuccess,
+    onCancel,
+  });
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -386,7 +467,9 @@ export const RecurringPollForm = ({
   if (!selectedGroupId) {
     return (
       <div className="p-6 text-center">
-        <AlertCircle className={`${ICON_SIZES['2xl']} mx-auto mb-4 text-yellow-500`} />
+        <AlertCircle
+          className={`${ICON_SIZES["2xl"]} mx-auto mb-4 text-yellow-500`}
+        />
         <p className="text-muted-foreground">Сначала выбери группу</p>
       </div>
     );
@@ -397,17 +480,26 @@ export const RecurringPollForm = ({
       {/* Превью следующего запуска */}
       <div className="rounded-2xl border border-border/60 p-4 bg-gradient-to-br from-primary/10 to-coral-500/5 dark:from-lavender-500/12 dark:to-primary/6">
         <div className="flex items-center gap-3">
-          <div className={cn(
-            'flex size-11 shrink-0 items-center justify-center rounded-2xl',
-            isDark ? 'bg-lavender-500/14 text-lavender-400' : 'bg-peach-500/14 text-peach-600'
-          )}>
+          <div
+            className={cn(
+              "flex size-11 shrink-0 items-center justify-center rounded-2xl",
+              isDark
+                ? "bg-lavender-500/14 text-lavender-400"
+                : "bg-peach-500/14 text-peach-600",
+            )}
+          >
             <Sparkles className={ICON_SIZES.md} />
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
               Следующий запуск
             </p>
-            <p className={cn('text-lg font-extrabold tracking-tight tabular-nums', accentText)}>
+            <p
+              className={cn(
+                "text-lg font-extrabold tracking-tight tabular-nums",
+                accentText,
+              )}
+            >
               {getNextRunPreview()}
             </p>
           </div>
@@ -418,32 +510,46 @@ export const RecurringPollForm = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Calendar className={cn(ICON_SIZES.xs, 'text-muted-foreground')} />
-            {sectionLabel('Дни недели')}
+            <Calendar className={cn(ICON_SIZES.xs, "text-muted-foreground")} />
+            {sectionLabel("Дни недели")}
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={selectWeekdays} className={chipClass}>Пн-Пт</button>
-            <button type="button" onClick={selectEveryDay} className={chipClass}>Все дни</button>
+            <button
+              type="button"
+              onClick={selectWeekdays}
+              className={chipClass}
+            >
+              Пн-Пт
+            </button>
+            <button
+              type="button"
+              onClick={selectEveryDay}
+              className={chipClass}
+            >
+              Все дни
+            </button>
           </div>
         </div>
 
         <div className="grid grid-cols-7 gap-2">
-          {DAYS_OF_WEEK.map(day => (
+          {DAYS_OF_WEEK.map((day) => (
             <m.button
               key={day.value}
               type="button"
               onClick={() => toggleDay(day.value)}
               whileTap={{ scale: 0.9 }}
-              animate={selectedDays.has(day.value) ? { scale: [1, 1.05, 1] } : {}}
+              animate={
+                selectedDays.has(day.value) ? { scale: [1, 1.05, 1] } : {}
+              }
               transition={{ duration: 0.2 }}
               className={cn(
-                'aspect-square rounded-xl font-semibold text-sm transition-all',
-                'flex items-center justify-center',
+                "aspect-square rounded-xl font-semibold text-sm transition-all",
+                "flex items-center justify-center",
                 selectedDays.has(day.value)
                   ? isDark
-                    ? 'bg-gradient-to-br from-lavender-500 to-lavender-600 text-white shadow-lg shadow-lavender-500/25'
-                    : 'bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/25'
-                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                    ? "bg-gradient-to-br from-lavender-500 to-lavender-600 text-white shadow-lg shadow-lavender-500/25"
+                    : "bg-gradient-to-br from-peach-500 to-coral-500 text-white shadow-lg shadow-peach-500/25"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted",
               )}
             >
               {day.label}
@@ -453,26 +559,26 @@ export const RecurringPollForm = ({
       </div>
 
       {/* Время запуска */}
-      <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
-        {sectionLabel('Время запуска')}
+      <div className={cn("space-y-3 pt-5 border-t", rowSeparator)}>
+        {sectionLabel("Время запуска")}
         <input
           aria-label="Время запуска голосования"
           type="time"
           value={timeOfDay}
           onChange={(e) => setTimeOfDay(e.target.value)}
           className={cn(
-            'w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground tabular-nums',
-            'focus:outline-none focus:ring-2 transition-colors',
-            isDark ? 'focus:ring-lavender-500/40' : 'focus:ring-peach-500/40'
+            "w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground tabular-nums",
+            "focus:outline-none focus:ring-2 transition-colors",
+            isDark ? "focus:ring-lavender-500/40" : "focus:ring-peach-500/40",
           )}
         />
       </div>
 
       {/* Длительность */}
-      <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
+      <div className={cn("space-y-3 pt-5 border-t", rowSeparator)}>
         <div className="flex items-center justify-between">
-          {sectionLabel('Длительность')}
-          <span className={cn('text-sm font-bold tabular-nums', accentText)}>
+          {sectionLabel("Длительность")}
+          <span className={cn("text-sm font-bold tabular-nums", accentText)}>
             {duration} мин
           </span>
         </div>
@@ -485,12 +591,14 @@ export const RecurringPollForm = ({
           value={duration}
           onChange={(e) => setDuration(parseInt(e.target.value))}
           className="w-full adaptive-slider"
-          style={{
-            '--slider-progress': `${Math.min(
-              100,
-              Math.max(0, ((duration - 5) / 175) * 100)
-            )}%`,
-          } as CSSProperties}
+          style={
+            {
+              "--slider-progress": `${Math.min(
+                100,
+                Math.max(0, ((duration - 5) / 175) * 100),
+              )}%`,
+            } as CSSProperties
+          }
         />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>5 мин</span>
@@ -499,15 +607,27 @@ export const RecurringPollForm = ({
       </div>
 
       {/* Блюда в меню */}
-      <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
+      <div className={cn("space-y-3 pt-5 border-t", rowSeparator)}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Utensils className={cn(ICON_SIZES.xs, 'text-muted-foreground')} />
-            {sectionLabel(`Блюда (${useAllItems ? 'все' : selectedItems.size})`)}
+            <Utensils className={cn(ICON_SIZES.xs, "text-muted-foreground")} />
+            {sectionLabel(
+              `Блюда (${useAllItems ? "все" : selectedItems.size})`,
+            )}
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={selectAllItems} className={chipClass}>Все</button>
-            <button type="button" onClick={selectRandomItems} className={cn(chipClass, 'flex items-center gap-1')}>
+            <button
+              type="button"
+              onClick={selectAllItems}
+              className={chipClass}
+            >
+              Все
+            </button>
+            <button
+              type="button"
+              onClick={selectRandomItems}
+              className={cn(chipClass, "flex items-center gap-1")}
+            >
               <Shuffle className={ICON_SIZES.xs} />
               Случайно
             </button>
@@ -515,7 +635,7 @@ export const RecurringPollForm = ({
         </div>
 
         <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
-          {menuItems.map(item => {
+          {menuItems.map((item) => {
             const isSelected = selectedItems.has(item.id);
             return (
               <button
@@ -523,14 +643,18 @@ export const RecurringPollForm = ({
                 type="button"
                 onClick={() => toggleItem(item.id)}
                 className={cn(
-                  'p-3 rounded-2xl text-left transition-all flex items-center gap-3 border',
-                  isSelected ? selectedTile : 'bg-background border-border'
+                  "p-3 rounded-2xl text-left transition-all flex items-center gap-3 border",
+                  isSelected ? selectedTile : "bg-background border-border",
                 )}
               >
                 {isSelected ? (
-                  <CheckCircle2 className={cn(ICON_SIZES.md, 'flex-shrink-0', accentText)} />
+                  <CheckCircle2
+                    className={cn(ICON_SIZES.md, "flex-shrink-0", accentText)}
+                  />
                 ) : (
-                  <Circle className={`${ICON_SIZES.md} text-muted-foreground/30 flex-shrink-0`} />
+                  <Circle
+                    className={`${ICON_SIZES.md} text-muted-foreground/30 flex-shrink-0`}
+                  />
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">
@@ -550,10 +674,13 @@ export const RecurringPollForm = ({
 
       {/* Инфо */}
       <div className="flex gap-3 rounded-2xl bg-muted/40 p-3.5">
-        <Info className={cn(ICON_SIZES.sm, 'flex-shrink-0 mt-0.5', accentText)} />
+        <Info
+          className={cn(ICON_SIZES.sm, "flex-shrink-0 mt-0.5", accentText)}
+        />
         <div className="text-xs text-muted-foreground space-y-1 leading-relaxed">
           <p>
-            <strong className="text-foreground">Автозапуск:</strong> голосования создаются в выбранные дни и время.
+            <strong className="text-foreground">Автозапуск:</strong> голосования
+            создаются в выбранные дни и время.
           </p>
           <p>Если голосование уже активно — автозапуск пропускается.</p>
         </div>
@@ -569,8 +696,12 @@ export const RecurringPollForm = ({
             className="p-4 rounded-xl bg-coral-500/10 border border-coral-500/25"
           >
             <div className="flex items-center gap-2">
-              <AlertCircle className={`${ICON_SIZES.md} text-coral-500 flex-shrink-0`} />
-              <p className="text-sm text-coral-600 dark:text-coral-400">{error}</p>
+              <AlertCircle
+                className={`${ICON_SIZES.md} text-coral-500 flex-shrink-0`}
+              />
+              <p className="text-sm text-coral-600 dark:text-coral-400">
+                {error}
+              </p>
             </div>
           </m.div>
         )}
@@ -594,12 +725,12 @@ export const RecurringPollForm = ({
           onClick={handleSave}
           disabled={!canSaveSchedule() || saving}
           className={cn(
-            'flex-1 py-3.5 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2 shadow-lg',
+            "flex-1 py-3.5 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2 shadow-lg",
             canSaveSchedule() && !saving
               ? isDark
-                ? 'bg-gradient-to-r from-lavender-500 to-lavender-600 shadow-lavender-500/30'
-                : 'bg-gradient-to-r from-peach-500 to-coral-500 shadow-peach-500/30'
-              : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed shadow-none'
+                ? "bg-gradient-to-r from-lavender-500 to-lavender-600 shadow-lavender-500/30"
+                : "bg-gradient-to-r from-peach-500 to-coral-500 shadow-peach-500/30"
+              : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed shadow-none",
           )}
         >
           {saving ? (
@@ -610,7 +741,7 @@ export const RecurringPollForm = ({
           ) : (
             <>
               <Check className={ICON_SIZES.md} />
-              {existingSchedule ? 'Обновить расписание' : 'Создать расписание'}
+              {existingSchedule ? "Обновить расписание" : "Создать расписание"}
             </>
           )}
         </m.button>

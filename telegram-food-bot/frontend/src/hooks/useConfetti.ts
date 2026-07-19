@@ -14,7 +14,7 @@ export function useConfetti() {
   const basic = useCallback(async () => {
     haptic.impact();
     const confetti = (await import('canvas-confetti')).default;
-    confetti({
+    void confetti({
       particleCount: 100,
       spread: 70,
       origin: { y: 0.6 },
@@ -54,14 +54,14 @@ export function useConfetti() {
 
     // Конфетти с обеих сторон
     const frame = () => {
-      confetti({
+      void confetti({
         particleCount: 2,
         angle: 60,
         spread: 55,
         origin: { x: 0, y: 0.6 },
         colors: colors[rarity],
       });
-      confetti({
+      void confetti({
         particleCount: 2,
         angle: 120,
         spread: 55,
@@ -79,7 +79,7 @@ export function useConfetti() {
     // Взрыв в центре для legendary
     if (rarity === 'legendary') {
       setTimeout(() => {
-        confetti({
+        void confetti({
           particleCount: particleCount[rarity],
           spread: 360,
           startVelocity: 30,
@@ -124,12 +124,12 @@ export function useConfetti() {
       const particleCount = 50 * (timeLeft / duration);
 
       // Взрывы снизу
-      confetti({
+      void confetti({
         ...defaults,
         particleCount,
         origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
       });
-      confetti({
+      void confetti({
         ...defaults,
         particleCount,
         origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
@@ -144,7 +144,7 @@ export function useConfetti() {
   const mini = useCallback(async () => {
     haptic.medium();
     const confetti = (await import('canvas-confetti')).default;
-    confetti({
+    void confetti({
       particleCount: 30,
       spread: 45,
       origin: { y: 0.7 },
@@ -177,7 +177,7 @@ export function useConfetti() {
 
       const particleCount = 50 * (timeLeft / duration);
 
-      confetti({
+      void confetti({
         particleCount,
         startVelocity: 30,
         spread: 360,
@@ -201,14 +201,14 @@ export function useConfetti() {
 
     const colors = ['#fbbf24', '#f59e0b', '#fb923c', '#f97316', '#ef4444'];
 
-    confetti({
+    void confetti({
       particleCount: 100,
       angle: 60,
       spread: 55,
       origin: { x: 0, y: 1 },
       colors,
     });
-    confetti({
+    void confetti({
       particleCount: 100,
       angle: 120,
       spread: 55,
@@ -228,7 +228,7 @@ export function useConfetti() {
     const end = Date.now() + duration;
 
     const frame = () => {
-      confetti({
+      void confetti({
         particleCount: 1,
         startVelocity: 0,
         ticks: 200,
@@ -256,7 +256,7 @@ export function useConfetti() {
   const payment = useCallback(async () => {
     haptic.medium();
     const confetti = (await import('canvas-confetti')).default;
-    confetti({
+    void confetti({
       particleCount: 60,
       spread: 70,
       origin: { y: 0.6 },

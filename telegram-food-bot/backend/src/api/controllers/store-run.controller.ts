@@ -110,7 +110,7 @@ export class StoreRunController {
             });
           }
         })
-        .catch((err) =>
+        .catch((err: unknown) =>
           logger.error('Failed to notify group about store run', { storeRunId: run.id, err }),
         );
 
@@ -118,7 +118,7 @@ export class StoreRunController {
       // bot privately (the DM broadcast above can't deliver to them).
       notificationService
         .postStoreRunToGroup(run.id)
-        .catch((err) =>
+        .catch((err: unknown) =>
           logger.error('Failed to post store run to group', { storeRunId: run.id, err }),
         );
 
@@ -299,7 +299,7 @@ export class StoreRunController {
 
       notificationService
         .notifyShoppingStarted(id)
-        .catch((err) =>
+        .catch((err: unknown) =>
           logger.error('Failed to notify shopping started', { storeRunId: id, err }),
         );
 
@@ -327,19 +327,19 @@ export class StoreRunController {
       const run = await StoreRunService.settle(id, user.id);
 
       // Fire-and-forget: разослать должникам суммы/реквизиты, инициатору — сводку.
-      BudgetService.notifyStoreRunSettled(id).catch((err) =>
+      BudgetService.notifyStoreRunSettled(id).catch((err: unknown) =>
         logger.error('Failed to notify store run settled', { storeRunId: id, err }),
       );
 
       // Fire-and-forget: участникам без долга — «завершён», группе — правка поста.
       notificationService
         .notifyStoreRunParticipantsNoDebt(id)
-        .catch((err) =>
+        .catch((err: unknown) =>
           logger.error('Failed to notify no-debt participants', { storeRunId: id, err }),
         );
       notificationService
         .markStoreRunGroupCompleted(id)
-        .catch((err) =>
+        .catch((err: unknown) =>
           logger.error('Failed to mark store run group completed', { storeRunId: id, err }),
         );
 
@@ -369,7 +369,7 @@ export class StoreRunController {
       // Fire-and-forget: убрать групповой пост и личные приглашения отменённого забега.
       notificationService
         .deleteStoreRunMessages(id)
-        .catch((err) =>
+        .catch((err: unknown) =>
           logger.error('Failed to delete store run messages on cancel', { storeRunId: id, err }),
         );
 

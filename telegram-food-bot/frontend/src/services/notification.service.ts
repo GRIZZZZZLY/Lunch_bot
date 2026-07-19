@@ -31,18 +31,25 @@ export interface CooldownStatusResponse {
 }
 
 class NotificationService {
+  private isNestedResponse<T>(value: T | undefined): value is T & { success: boolean } {
+    return typeof value === 'object' && value !== null && 'success' in value;
+  }
+
   /**
    * Отправить напоминание администраторам о создании голосования
    */
   async remindAdmin(groupId: number): Promise<RemindAdminResponse> {
     try {
-      const response = await apiService.post<RemindAdminResponse>('/notifications/remind-admin', {
+      const response = await apiService.post<NonNullable<RemindAdminResponse['data']>>('/notifications/remind-admin', {
         groupId,
       });
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        return error.response.data;
+      const nestedResponse: unknown = response.data;
+      return this.isNestedResponse(nestedResponse)
+        ? (nestedResponse)
+        : response;
+    } catch (error: unknown) {
+      if (this.isNestedResponse(error)) {
+        return error;
       }
       throw error;
     }
@@ -53,11 +60,14 @@ class NotificationService {
    */
   async getCooldownStatus(groupId: number): Promise<CooldownStatusResponse> {
     try {
-      const response = await apiService.get<CooldownStatusResponse>(`/notifications/cooldown/${groupId}`);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        return error.response.data;
+      const response = await apiService.get<NonNullable<CooldownStatusResponse['data']>>(`/notifications/cooldown/${groupId}`);
+      const nestedResponse: unknown = response.data;
+      return this.isNestedResponse(nestedResponse)
+        ? (nestedResponse)
+        : response;
+    } catch (error: unknown) {
+      if (this.isNestedResponse(error)) {
+        return error;
       }
       throw error;
     }

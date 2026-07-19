@@ -8,7 +8,7 @@
  *
  * Метрики попадают в Sentry → Performance → Web Vitals (per-page).
  */
-import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals';
+import type { Metric } from 'web-vitals';
 import * as Sentry from '@sentry/react';
 
 type VitalName = 'CLS' | 'FCP' | 'INP' | 'LCP' | 'TTFB';
@@ -22,7 +22,7 @@ const UNIT_BY_METRIC: Record<VitalName, 'millisecond' | 'none'> = {
 };
 
 function report(metric: Metric): void {
-  const name = metric.name as VitalName;
+  const name = metric.name;
   const value = metric.value;
   const unit = UNIT_BY_METRIC[name] ?? 'none';
 
@@ -59,15 +59,19 @@ function report(metric: Metric): void {
  * Подписаться на все Core Web Vitals. Вызывать ОДИН раз после рендера.
  */
 export function initWebVitals(): void {
-  try {
-    onCLS(report);
-    onFCP(report);
-    onINP(report);
-    onLCP(report);
-    onTTFB(report);
-  } catch (err) {
-    if (import.meta.env.DEV) {
-      console.warn('[web-vitals] init failed', err);
-    }
-  }
+  if (!('PerformanceObserver' in window)) return;
+
+  void import('web-vitals')
+    .then(({ onCLS, onFCP, onINP, onLCP, onTTFB }) => {
+      onCLS(report);
+      onFCP(report);
+      onINP(report);
+      onLCP(report);
+      onTTFB(report);
+    })
+    .catch((err: unknown) => {
+      if (import.meta.env.DEV) {
+        console.warn('[web-vitals] init failed', err);
+      }
+    });
 }

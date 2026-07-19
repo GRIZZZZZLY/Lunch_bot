@@ -93,7 +93,7 @@ export const useUpdatePaymentInfo = () => {
       queryClient.setQueryData(queryKeys.user.paymentInfo(), data);
       
       // Инвалидация данных пользователя
-      queryClient.invalidateQueries({ queryKey: queryKeys.user.me() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.user.me() });
       
       toast.success('Платёжная информация обновлена!');
     },
@@ -118,7 +118,7 @@ export const usePrefetchUser = () => {
   const queryClient = useQueryClient();
 
   return () => {
-    queryClient.prefetchQuery({
+    void queryClient.prefetchQuery({
       queryKey: queryKeys.user.me(),
       queryFn: async () => {
         const response = await userService.getCurrentUser();

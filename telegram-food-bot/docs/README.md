@@ -35,18 +35,18 @@
 
 ### 📁 03-architecture/
 Архитектура проекта:
-- `PROJECT_PLAN_V1.md` - Общий план проекта
+- `03-architecture/PROJECT_PLAN.md` - Общий план проекта
 
 ### 📁 04-deployment/
 Деплой и продакшен:
 - `NGROK_RESTART_GUIDE.md` - Работа с ngrok
 - `PRODUCTION_BUILD_GUIDE.md` - Билд для продакшена
 - `SETUP_GITHUB.md` - Настройка GitHub
-- `TIMEWEB_DEPLOY.md` - Деплой на Timeweb
+- `04-deployment/README.md` - Деплой на Timeweb
 
 ### 📁 05-testing/
 Тестирование:
-- `TESTING_GUIDE_DETAILED.md` - Подробное руководство по тестированию
+- `05-testing/README.md` - Подробное руководство по тестированию
 
 ### 📁 07-ux-audit/ ⭐
 **UX/UI аудит и оптимизации (январь 2025):**

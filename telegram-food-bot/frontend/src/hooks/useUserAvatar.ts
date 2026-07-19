@@ -4,7 +4,6 @@
  * Кеширование аватарок с localStorage и API
  */
 
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryClient';
 import { userService, type UserAvatar } from '@/services/user.service';
@@ -62,7 +61,9 @@ const pruneAvatarCache = (cache: AvatarCache, now = Date.now()): boolean => {
 
     const excess = entries.length - MAX_AVATAR_CACHE_ENTRIES;
     for (let i = 0; i < excess; i += 1) {
-      delete cache[entries[i].key];
+      const entry = entries[i];
+      if (!entry) continue;
+      delete cache[entry.key];
       changed = true;
     }
   }

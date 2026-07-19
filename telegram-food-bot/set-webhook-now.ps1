@@ -1,5 +1,8 @@
-$BOT_TOKEN = "REDACTED-BOT-TOKEN"
-$WEBHOOK_URL = "https://2072f129141b.ngrok-free.app/webhook"
+$BOT_TOKEN = $env:BOT_TOKEN
+$WEBHOOK_URL = $env:BOT_WEBHOOK_URL
+if ([string]::IsNullOrWhiteSpace($BOT_TOKEN) -or [string]::IsNullOrWhiteSpace($WEBHOOK_URL)) {
+    throw "Set BOT_TOKEN and BOT_WEBHOOK_URL in the process environment."
+}
 
 Write-Host "Setting webhook for bot..." -ForegroundColor Cyan
 Write-Host "URL: $WEBHOOK_URL" -ForegroundColor Yellow

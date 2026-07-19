@@ -626,6 +626,38 @@ describe('PollService', () => {
     });
   });
 
+  describe('getLastCompletedPoll', () => {
+    it('should return the newest completed poll for a group', async () => {
+      const mockPoll = {
+        ...createMockPoll({ id: 3, groupId: 7, status: 'COMPLETED' }),
+        group: { id: 7, title: 'Rocket Lunch' },
+      };
+
+      (prisma.poll.findFirst as jest.Mock).mockResolvedValue(mockPoll);
+
+      const result = await PollService.getLastCompletedPoll(7);
+
+      expect(prisma.poll.findFirst).toHaveBeenCalledWith({
+        where: {
+          status: 'COMPLETED',
+          groupId: 7,
+        },
+        orderBy: { endedAt: 'desc' },
+        include: {
+          group: true,
+        },
+      });
+      expect(result).toEqual(mockPoll);
+    });
+
+    it('should not query the database when accessible group list is empty', async () => {
+      const result = await PollService.getLastCompletedPoll([]);
+
+      expect(result).toBeNull();
+      expect(prisma.poll.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getPollStats', () => {
     it('should return poll statistics', async () => {
       (prisma.poll.count as jest.Mock)

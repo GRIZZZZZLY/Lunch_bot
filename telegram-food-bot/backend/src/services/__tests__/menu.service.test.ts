@@ -222,6 +222,32 @@ describe('MenuService', () => {
       expect(result).toEqual(mockUpdatedItem);
     });
 
+    it('should ignore create-only groupIds when updating a menu item', async () => {
+      const mockUpdatedItem = createMockMenuItem({
+        name: 'Updated Pizza',
+        price: 600,
+      });
+
+      (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue({ groupId: 1 });
+      (prisma.menuItem.update as jest.Mock).mockResolvedValue(mockUpdatedItem);
+
+      await MenuService.updateMenuItem(1, {
+        name: 'Updated Pizza',
+        price: 600,
+        groupId: 1,
+        groupIds: [1],
+      } as any, ACTING_USER);
+
+      expect(prisma.menuItem.update).toHaveBeenCalledWith({
+        where: { id: 1, groupId: 1 },
+        data: {
+          name: 'Updated Pizza',
+          price: 600,
+          updatedAt: expect.any(Date),
+        },
+      });
+    });
+
     it('should throw error if menu item not found', async () => {
       (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(null);
 

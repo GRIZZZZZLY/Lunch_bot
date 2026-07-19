@@ -10,8 +10,8 @@
 
 import { useRef } from 'react';
 import type { UIEvent } from 'react';
-import { List, useListRef } from 'react-window';
-import type { RowComponentProps } from 'react-window';
+import { List } from 'react-window';
+import type { ListImperativeAPI, RowComponentProps } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { MenuItem } from '@/services/menu.service';
 import { MenuRow } from './MenuRow';
@@ -47,6 +47,7 @@ const VirtualMenuRow = ({
   onToggleStatus,
 }: RowComponentProps<VirtualMenuRowProps>) => {
   const item = items[index];
+  if (!item) return <div style={style} aria-hidden="true" />;
   const adjustedStyle = {
     ...style,
     height: (style.height as number) - itemPadding,
@@ -78,7 +79,7 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   onToggleStatus,
 }) => {
   const haptic = useHaptic();
-  const listRef = useListRef();
+  const listRef = useRef<ListImperativeAPI>(null);
   const scrollOffsetRef = useRef(0);
 
   // Высота одного item (фиксированная для лучшей производительности).
@@ -104,17 +105,23 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
     // P1.3.5: Track deep scrolling для analytics
     const scrollPercentage = (nextOffset / (items.length * ITEM_HEIGHT)) * 100;
 
-    if (scrollPercentage > 50 && previousOffset < (items.length * ITEM_HEIGHT * 0.5)) {
+    if (
+      scrollPercentage > 50 &&
+      previousOffset < items.length * ITEM_HEIGHT * 0.5
+    ) {
       trackEvent(ANALYTICS_EVENTS.MENU_VIEWED, {
-        scrollDepth: '50%',
+        scrollDepth: "50%",
         itemsCount: items.length,
         virtualList: true,
       });
     }
 
-    if (scrollPercentage > 90 && previousOffset < (items.length * ITEM_HEIGHT * 0.9)) {
+    if (
+      scrollPercentage > 90 &&
+      previousOffset < items.length * ITEM_HEIGHT * 0.9
+    ) {
       trackEvent(ANALYTICS_EVENTS.MENU_VIEWED, {
-        scrollDepth: '90%',
+        scrollDepth: "90%",
         itemsCount: items.length,
         virtualList: true,
       });
@@ -143,7 +150,7 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
   return (
     <div className="h-full w-full">
       <AutoSizer>
-        {({ height, width }) => (
+        {({ height, width }: { height: number; width: number }) => (
           <List
             listRef={listRef}
             rowCount={items.length}
@@ -166,7 +173,7 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
       </AutoSizer>
 
       {/* Debug info (только в dev) */}
-      {import.meta.env.MODE === 'development' && (
+      {import.meta.env.MODE === "development" && (
         <div className="fixed bottom-24 sm:bottom-20 right-4 bg-black/80 text-white text-xs px-2 py-1 rounded">
           Virtual List: {items.length} items
         </div>
@@ -179,8 +186,8 @@ export const VirtualMenuList: React.FC<VirtualMenuListProps> = ({
  * Skeleton для VirtualMenuList
  * Показывается при загрузке
  */
-export const VirtualMenuListSkeleton: React.FC<{ count?: number }> = ({ 
-  count = 6 
+export const VirtualMenuListSkeleton: React.FC<{ count?: number }> = ({
+  count = 6,
 }) => {
   return (
     <div className="space-y-3 px-4">

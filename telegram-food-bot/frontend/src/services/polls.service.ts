@@ -104,6 +104,24 @@ export interface VoteBreakdown {
   }>;
 }
 
+export interface UserParticipationStats {
+  totalVotes: number;
+  totalPolls: number;
+  participationRate: number;
+  favoriteItems: Array<{
+    itemId: number;
+    itemName: string;
+    voteCount: number;
+    percentage: number;
+  }>;
+  recentActivity: Array<{
+    pollId: number;
+    pollTitle: string;
+    votedAt: string;
+    itemName: string;
+  }>;
+}
+
 export interface PollResultsData {
   result: PollResult;
   breakdown: VoteBreakdown[];
@@ -447,22 +465,7 @@ class PollsService {
   /**
    * Получение статистики участия пользователя
    */
-  async getUserParticipationStats(userId?: number): Promise<ApiResponse<{
-    totalVotes: number;
-    totalPolls: number;
-    participationRate: number;
-    favoriteItems: Array<{
-      itemId: number;
-      itemName: string;
-      voteCount: number;
-    }>;
-    recentActivity: Array<{
-      pollId: number;
-      pollTitle: string;
-      votedAt: string;
-      itemName: string;
-    }>;
-  }>> {
+  async getUserParticipationStats(userId?: number): Promise<ApiResponse<UserParticipationStats>> {
     const url = userId ? `/polls/user-stats/${userId}` : '/polls/user-stats/my';
     return await apiService.get<any>(url);
   }

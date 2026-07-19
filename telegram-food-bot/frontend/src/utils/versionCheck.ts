@@ -3,7 +3,7 @@
  */
 
 const APP_VERSION = '2.0.18';
-const VERSION_CHECK_INTERVAL = 60000; // Проверка каждую минуту
+const _VERSION_CHECK_INTERVAL = 60000; // Проверка каждую минуту
 const VERSION_STORAGE_KEY = 'app_version';
 
 /**

@@ -9,7 +9,7 @@ import {
   getPendingCount,
   deleteSuggestion,
 } from '../controllers/menu-suggestion.controller';
-import { telegramAuthMiddleware, adminMiddleware } from '../middleware/telegram-auth';
+import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { groupAdminMiddleware } from '../middleware/group-admin';
 
 const router = Router();
@@ -39,13 +39,13 @@ router.get('/', getSuggestions);
  * GET /api/suggestions/stats
  * Получить статистику предложений (только админ)
  */
-router.get('/stats', adminMiddleware, getStats);
+router.get('/stats', groupAdminMiddleware, getStats);
 
 /**
  * GET /api/suggestions/pending-count
  * Получить количество ожидающих предложений (только админ)
  */
-router.get('/pending-count', adminMiddleware, getPendingCount);
+router.get('/pending-count', groupAdminMiddleware, getPendingCount);
 
 /**
  * GET /api/suggestions/:id

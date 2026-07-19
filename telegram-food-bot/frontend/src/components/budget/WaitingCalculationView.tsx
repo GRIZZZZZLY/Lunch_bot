@@ -1,6 +1,6 @@
-import { Clock, Users, CheckCircle2 } from 'lucide-react';
-import { CategoryOrder } from '@/services/category-order.service';
-import { CalculationProgress } from '@/services/category-order.service';
+import { Clock, Users, CheckCircle2 } from "lucide-react";
+import { CategoryOrder } from "@/services/category-order.service";
+import { CalculationProgress } from "@/services/category-order.service";
 
 interface WaitingCalculationViewProps {
   categoryOrder: CategoryOrder;
@@ -12,7 +12,12 @@ export function WaitingCalculationView({
   progress,
 }: WaitingCalculationViewProps) {
   const progressPercentage = progress.percentage;
-  const responsibleName = categoryOrder.responsibleUser?.firstName || 'ответственный';
+  const deliveryCost = categoryOrder.deliveryCost ?? 0;
+  const serviceFee = categoryOrder.serviceFee ?? 0;
+  const tip = categoryOrder.tip ?? 0;
+  const participantCount = Math.max(categoryOrder.participantCount, 1);
+  const responsibleName =
+    categoryOrder.responsibleUser?.firstName || "ответственный";
 
   return (
     <div className="space-y-4">
@@ -25,7 +30,8 @@ export function WaitingCalculationView({
           Ожидаем расчёт
         </h3>
         <p className="text-sm text-muted-foreground">
-          Ответственный <span className="font-medium">{responsibleName}</span> вводит заказы
+          Ответственный <span className="font-medium">{responsibleName}</span>{" "}
+          вводит заказы
         </p>
       </div>
 
@@ -91,45 +97,46 @@ export function WaitingCalculationView({
       {/* Info Message */}
       <div className="rounded-lg border border-lavender-500/18 bg-lavender-500/8 p-4">
         <p className="text-sm text-foreground">
-          💡 Ты получишь уведомление со своей суммой, как только {responsibleName} завершит расчёт.
+          💡 Ты получишь уведомление со своей суммой, как только{" "}
+          {responsibleName} завершит расчёт.
         </p>
       </div>
 
       {/* Additional Costs (if any) */}
-      {(categoryOrder.deliveryCost || categoryOrder.serviceFee || categoryOrder.tip) && (
+      {deliveryCost + serviceFee + tip > 0 && (
         <div className="rounded-lg border border-border/70 p-4 space-y-2 bg-card/72">
           <h4 className="text-sm font-medium text-foreground">
             Дополнительные расходы:
           </h4>
-          {categoryOrder.deliveryCost > 0 && (
+          {deliveryCost > 0 && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Доставка:</span>
               <span className="text-foreground">
-                {categoryOrder.deliveryCost.toFixed(2)} ₽ 
+                {deliveryCost.toFixed(2)} ₽
                 <span className="text-xs text-muted-foreground ml-1">
-                  ({(categoryOrder.deliveryCost / categoryOrder.participantCount).toFixed(2)} ₽/чел)
+                  ({(deliveryCost / participantCount).toFixed(2)} ₽/чел)
                 </span>
               </span>
             </div>
           )}
-          {categoryOrder.serviceFee > 0 && (
+          {serviceFee > 0 && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Сервис:</span>
               <span className="text-foreground">
-                {categoryOrder.serviceFee.toFixed(2)} ₽
+                {serviceFee.toFixed(2)} ₽
                 <span className="text-xs text-muted-foreground ml-1">
-                  ({(categoryOrder.serviceFee / categoryOrder.participantCount).toFixed(2)} ₽/чел)
+                  ({(serviceFee / participantCount).toFixed(2)} ₽/чел)
                 </span>
               </span>
             </div>
           )}
-          {categoryOrder.tip > 0 && (
+          {tip > 0 && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Чаевые:</span>
               <span className="text-foreground">
-                {categoryOrder.tip.toFixed(2)} ₽
+                {tip.toFixed(2)} ₽
                 <span className="text-xs text-muted-foreground ml-1">
-                  ({(categoryOrder.tip / categoryOrder.participantCount).toFixed(2)} ₽/чел)
+                  ({(tip / participantCount).toFixed(2)} ₽/чел)
                 </span>
               </span>
             </div>
@@ -142,9 +149,12 @@ export function WaitingCalculationView({
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-xs text-foreground/72">
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
           <span>
-            {categoryOrder.calculationStatus === 'PENDING' && 'Ожидание начала расчёта'}
-            {categoryOrder.calculationStatus === 'IN_PROGRESS' && 'Расчёт в процессе'}
-            {categoryOrder.calculationStatus === 'COMPLETED' && 'Расчёт завершён'}
+            {categoryOrder.calculationStatus === "PENDING" &&
+              "Ожидание начала расчёта"}
+            {categoryOrder.calculationStatus === "IN_PROGRESS" &&
+              "Расчёт в процессе"}
+            {categoryOrder.calculationStatus === "COMPLETED" &&
+              "Расчёт завершён"}
           </span>
         </div>
       </div>

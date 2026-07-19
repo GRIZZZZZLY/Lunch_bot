@@ -429,10 +429,22 @@ export class CategoryOrderService {
     categoryOrderId: number,
     costs: UpdateCostsData
   ): Promise<CategoryOrder> {
+    const deliveryCost = costs.deliveryCost ?? 0;
+    const serviceFee = costs.serviceFee ?? 0;
+    const tip = costs.tip ?? 0;
+
+    if (
+      !Number.isFinite(deliveryCost) ||
+      !Number.isFinite(serviceFee) ||
+      !Number.isFinite(tip) ||
+      deliveryCost < 0 ||
+      serviceFee < 0 ||
+      tip < 0
+    ) {
+      throw new Error('Costs must be non-negative numbers');
+    }
+
     try {
-      const deliveryCost = costs.deliveryCost ?? 0;
-      const serviceFee = costs.serviceFee ?? 0;
-      const tip = costs.tip ?? 0;
       const totalAdditionalCosts = deliveryCost + serviceFee + tip;
 
       // Get current total items amount

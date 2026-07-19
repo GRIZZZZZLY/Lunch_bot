@@ -24,9 +24,9 @@ export function serializeBigInt(obj: unknown): unknown {
   if (
     typeof obj === 'object' &&
     typeof (obj as any).toNumber === 'function' &&
-    's' in (obj as object) &&
-    'e' in (obj as object) &&
-    'd' in (obj as object)
+    's' in (obj) &&
+    'e' in (obj) &&
+    'd' in (obj)
   ) {
     return (obj as any).toNumber();
   }
@@ -37,7 +37,7 @@ export function serializeBigInt(obj: unknown): unknown {
 
   if (typeof obj === 'object') {
     const result: Record<string, unknown> = {};
-    for (const key in obj as object) {
+    for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
         result[key] = serializeBigInt((obj as Record<string, unknown>)[key]);
       }

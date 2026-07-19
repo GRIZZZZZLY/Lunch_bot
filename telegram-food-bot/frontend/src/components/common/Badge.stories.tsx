@@ -1,14 +1,14 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Badge, BadgeWrapper, StatusBadge } from './Badge';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 const meta: Meta<typeof Badge> = {
-  title: 'Components/Common/Badge',
+  title: "Components/Common/Badge",
   component: Badge,
   parameters: {
-    layout: 'centered',
+    layout: "centered",
   },
-  tags: ['autodocs'],
+  tags: ["autodocs"],
 };
 
 export default meta;
@@ -16,65 +16,65 @@ type Story = StoryObj<typeof Badge>;
 
 export const Default: Story = {
   args: {
-    children: '5',
+    children: "5",
   },
 };
 
 export const Success: Story = {
   args: {
-    children: '10',
-    variant: 'success',
+    children: "10",
+    variant: "success",
   },
 };
 
 export const Error: Story = {
   args: {
-    children: '3',
-    variant: 'error',
+    children: "3",
+    variant: "error",
   },
 };
 
 export const Warning: Story = {
   args: {
-    children: '2',
-    variant: 'warning',
+    children: "2",
+    variant: "warning",
   },
 };
 
 export const Info: Story = {
   args: {
-    children: '7',
-    variant: 'info',
+    children: "7",
+    variant: "info",
   },
 };
 
 export const Small: Story = {
   args: {
-    children: '1',
-    size: 'sm',
+    children: "1",
+    size: "sm",
   },
 };
 
 export const Large: Story = {
   args: {
-    children: '99+',
-    size: 'lg',
+    children: "99+",
+    size: "lg",
   },
 };
 
 export const Dot: Story = {
   args: {
-    children: '',
+    children: "",
     dot: true,
-    variant: 'error',
+    variant: "error",
   },
 };
 
 export const Pulse: Story = {
   args: {
-    children: '',
+    children: "",
     dot: true,
-    variant: 'success',
+    variant: "success",
     pulse: true,
   },
 };
@@ -82,7 +82,10 @@ export const Pulse: Story = {
 export const WithWrapper: Story = {
   render: () => (
     <BadgeWrapper badge={5} variant="error">
-      <button type="button" className="px-4 py-2 bg-blue-500 text-white rounded-lg">
+      <button
+        type="button"
+        className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+      >
         Notifications
       </button>
     </BadgeWrapper>
@@ -92,7 +95,7 @@ export const WithWrapper: Story = {
 export const WithDotBadge: Story = {
   render: () => (
     <BadgeWrapper badge={1} dot pulse variant="success">
-      <div className={`${ICON_SIZES['2xl']} bg-gray-300 rounded-full`} />
+      <div className={`${ICON_SIZES["2xl"]} bg-gray-300 rounded-full`} />
     </BadgeWrapper>
   ),
 };

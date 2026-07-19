@@ -38,10 +38,10 @@ import { RecurringPollForm } from './RecurringPollForm';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 const DURATION_PRESETS = [
-  { label: '15м', value: 15 },
-  { label: '30м', value: 30 },
-  { label: '1ч', value: 60 },
-  { label: '2ч', value: 120 },
+  { label: "15м", value: 15 },
+  { label: "30м", value: 30 },
+  { label: "1ч", value: 60 },
+  { label: "2ч", value: 120 },
 ];
 
 // Format duration для live preview
@@ -51,7 +51,9 @@ const formatDuration = (minutes: number): string => {
   } else {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    return mins > 0 ? `${hours}ч ${mins}м` : `${hours} час${hours > 1 ? 'а' : ''}`;
+    return mins > 0
+      ? `${hours}ч ${mins}м`
+      : `${hours} час${hours > 1 ? "а" : ""}`;
   }
 };
 
@@ -62,7 +64,6 @@ const sectionLabel = (text: string) => (
   </p>
 );
 
-
 interface CreatePollFormProps {
   onSuccess?: (pollId: number) => void;
   onCancel?: () => void;
@@ -70,21 +71,21 @@ interface CreatePollFormProps {
 
 const useCreatePollFormController = ({
   onSuccess,
-  onCancel,
-}) => {
+  onCancel: _onCancel,
+}: CreatePollFormProps) => {
   const { user } = useAuth();
   const haptic = useHaptic();
   const { currentGroupId } = useCurrentGroup();
 
   // Определяем тему: проверяем CSS класс 'dark' на документе
   const [isDark, setIsDark] = useState(() => {
-    return document.documentElement.classList.contains('dark');
+    return document.documentElement.classList.contains("dark");
   });
 
   // Следим за изменениями темы через MutationObserver
   useEffect(() => {
     const updateTheme = () => {
-      const newIsDark = document.documentElement.classList.contains('dark');
+      const newIsDark = document.documentElement.classList.contains("dark");
       setIsDark(newIsDark);
     };
 
@@ -94,7 +95,7 @@ const useCreatePollFormController = ({
     // Наблюдаем за изменениями класса на html
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
-        if (mutation.attributeName === 'class') {
+        if (mutation.attributeName === "class") {
           updateTheme();
         }
       });
@@ -102,7 +103,7 @@ const useCreatePollFormController = ({
 
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class'],
+      attributeFilter: ["class"],
     });
 
     return () => observer.disconnect();
@@ -118,15 +119,17 @@ const useCreatePollFormController = ({
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [groupsLoading, setGroupsLoading] = useState(true);
   const [menuLoading, setMenuLoading] = useState(false);
-  const [loadedMenuGroupId, setLoadedMenuGroupId] = useState<number | null>(null);
+  const [loadedMenuGroupId, setLoadedMenuGroupId] = useState<number | null>(
+    null,
+  );
   const [step, setStep] = useState<1 | 2>(1);
-  const [mode, setMode] = useState<'once' | 'recurring'>('once');
+  const [mode, setMode] = useState<"once" | "recurring">("once");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Load data
   useEffect(() => {
-    loadData();
+    void loadData();
   }, []);
 
   const loadData = async () => {
@@ -138,8 +141,8 @@ const useCreatePollFormController = ({
         setGroups(groupsResponse.data);
       }
     } catch (err) {
-      console.error('[CreatePollForm] Error loading data:', err);
-      setError('Ошибка загрузки данных');
+      console.error("[CreatePollForm] Error loading data:", err);
+      setError("Ошибка загрузки данных");
     } finally {
       setGroupsLoading(false);
     }
@@ -152,11 +155,16 @@ const useCreatePollFormController = ({
       return groups;
     }
 
-    return groups.filter(group => group.role === 'ADMIN' || group.role === 'CREATOR');
+    return groups.filter(
+      (group) => group.role === "ADMIN" || group.role === "CREATOR",
+    );
   }, [groups, user?.isAdmin]);
 
   useEffect(() => {
-    if (selectedGroupId && adminGroups.some(group => group.id === selectedGroupId)) {
+    if (
+      selectedGroupId &&
+      adminGroups.some((group) => group.id === selectedGroupId)
+    ) {
       return;
     }
 
@@ -165,7 +173,7 @@ const useCreatePollFormController = ({
     }
 
     const currentAdminGroup = currentGroupId
-      ? adminGroups.find(group => group.id === currentGroupId)
+      ? adminGroups.find((group) => group.id === currentGroupId)
       : undefined;
 
     setSelectedGroupId(currentAdminGroup?.id ?? adminGroups[0]?.id ?? null);
@@ -197,16 +205,19 @@ const useCreatePollFormController = ({
           // Админ может нажать «Случайно» или выбрать вручную
         } else {
           setMenuItems([]);
-          console.error('[CreatePollForm] Failed to load menu:', menuResponse.error);
+          console.error(
+            "[CreatePollForm] Failed to load menu:",
+            menuResponse.error,
+          );
         }
 
         setLoadedMenuGroupId(selectedGroupId);
       } catch (err) {
         if (!cancelled) {
-          console.error('[CreatePollForm] Error loading menu:', err);
+          console.error("[CreatePollForm] Error loading menu:", err);
           setMenuItems([]);
           setLoadedMenuGroupId(selectedGroupId);
-          setError('Ошибка загрузки данных');
+          setError("Ошибка загрузки данных");
         }
       } finally {
         if (!cancelled) {
@@ -222,10 +233,11 @@ const useCreatePollFormController = ({
     };
   }, [selectedGroupId]);
 
-  const loading = groupsLoading
-    || menuLoading
-    || (adminGroups.length > 0 && selectedGroupId === null)
-    || (selectedGroupId !== null && loadedMenuGroupId !== selectedGroupId);
+  const loading =
+    groupsLoading ||
+    menuLoading ||
+    (adminGroups.length > 0 && selectedGroupId === null) ||
+    (selectedGroupId !== null && loadedMenuGroupId !== selectedGroupId);
 
   const canCreatePoll = (): boolean => {
     return (
@@ -238,7 +250,7 @@ const useCreatePollFormController = ({
 
   const handleCreate = async () => {
     if (!canCreatePoll()) {
-      setError('Заполни все поля корректно');
+      setError("Заполни все поля корректно");
       haptic.error();
       return;
     }
@@ -248,7 +260,9 @@ const useCreatePollFormController = ({
       setError(null);
 
       // Автоматически добавляем «Еда с собой» к выбранным блюдам
-      const takeawayItem = menuItems.find(item => item.name === 'Еда с собой');
+      const takeawayItem = menuItems.find(
+        (item) => item.name === "Еда с собой",
+      );
       const finalSelectedItems = Array.from(selectedItems);
       if (takeawayItem && !finalSelectedItems.includes(takeawayItem.id)) {
         finalSelectedItems.push(takeawayItem.id);
@@ -258,7 +272,7 @@ const useCreatePollFormController = ({
         groupId: selectedGroupId!,
         duration,
         selectedMenuItems: finalSelectedItems,
-        title: 'Голосование за обед',
+        title: "Голосование за обед",
         isMultiSelect,
         maxSelections: isMultiSelect ? maxSelections : 1,
       });
@@ -267,27 +281,44 @@ const useCreatePollFormController = ({
         haptic.success();
         onSuccess?.(response.data.pollId);
       } else {
-        throw new Error(response.error || 'Failed to create poll');
+        throw new Error(response.error || "Failed to create poll");
       }
     } catch (err: unknown) {
-      console.error('Error creating poll:', err);
+      console.error("Error creating poll:", err);
 
-      let errorMessage = 'Ошибка создания голосования';
+      let errorMessage = "Ошибка создания голосования";
 
       // Проверяем разные типы ошибок
-      const errorObj = err as { error?: string; message?: string; code?: string };
-      const errorText = errorObj?.error || errorObj?.message || '';
+      const errorObj = err as {
+        error?: string;
+        message?: string;
+        code?: string;
+      };
+      const errorText = errorObj?.error || errorObj?.message || "";
 
-      if (errorText.includes('already has an active poll') || errorText.includes('Group already has active poll')) {
-        errorMessage = 'В этой группе уже идёт голосование. Дождись завершения.';
-      } else if (errorText.includes('Not enough items') || errorText.includes('NOT_ENOUGH_ITEMS')) {
-        errorMessage = 'Выбери минимум 2 блюда';
-      } else if (errorText.includes('Network error') || errorObj?.code === 'NETWORK_ERROR') {
-        errorMessage = 'Нет сети. Проверь интернет.';
-      } else if (errorText.includes('Access denied') || errorObj?.code === 'ACCESS_DENIED') {
-        errorMessage = 'Недостаточно прав для создания голосования';
-      } else if (errorObj?.code === 'INVALID_GROUP') {
-        errorMessage = 'Выбери группу';
+      if (
+        errorText.includes("already has an active poll") ||
+        errorText.includes("Group already has active poll")
+      ) {
+        errorMessage =
+          "В этой группе уже идёт голосование. Дождись завершения.";
+      } else if (
+        errorText.includes("Not enough items") ||
+        errorText.includes("NOT_ENOUGH_ITEMS")
+      ) {
+        errorMessage = "Выбери минимум 2 блюда";
+      } else if (
+        errorText.includes("Network error") ||
+        errorObj?.code === "NETWORK_ERROR"
+      ) {
+        errorMessage = "Нет сети. Проверь интернет.";
+      } else if (
+        errorText.includes("Access denied") ||
+        errorObj?.code === "ACCESS_DENIED"
+      ) {
+        errorMessage = "Недостаточно прав для создания голосования";
+      } else if (errorObj?.code === "INVALID_GROUP") {
+        errorMessage = "Выбери группу";
       } else if (errorText) {
         errorMessage = `Ошибка: ${errorText}`;
       }
@@ -313,7 +344,7 @@ const useCreatePollFormController = ({
     if (selectedItems.size === menuItems.length) {
       setSelectedItems(new Set());
     } else {
-      setSelectedItems(new Set(menuItems.map(item => item.id)));
+      setSelectedItems(new Set(menuItems.map((item) => item.id)));
     }
   };
 
@@ -323,16 +354,22 @@ const useCreatePollFormController = ({
     // Случайный выбор от 3 до 6 блюд (или меньше, если блюд мало)
     const maxCount = Math.min(6, menuItems.length);
     const minCount = Math.min(3, menuItems.length);
-    const count = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
+    const count =
+      Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
 
     // Частичный Фишер-Йейтс: перемешиваем только первые count позиций
     const pool = [...menuItems];
     for (let i = 0; i < count; i++) {
       const j = i + Math.floor(Math.random() * (pool.length - i));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
+      const current = pool[i];
+      const replacement = pool[j];
+      if (current && replacement) {
+        pool[i] = replacement;
+        pool[j] = current;
+      }
     }
     const randomItems = pool.slice(0, count);
-    const newSelection = new Set(randomItems.map(item => item.id));
+    const newSelection = new Set(randomItems.map((item) => item.id));
 
     setSelectedItems(newSelection);
   };
@@ -342,11 +379,56 @@ const useCreatePollFormController = ({
 
   const canManagePolls = !!user?.isAdmin || adminGroups.length > 0;
 
-  const accentText = isDark ? 'text-lavender-400' : 'text-peach-600';
-  const rowSeparator = isDark ? 'border-white/[0.04]' : 'border-black/[0.05]';
+  const accentText = isDark ? "text-lavender-400" : "text-peach-600";
+  const rowSeparator = isDark ? "border-white/[0.04]" : "border-black/[0.05]";
 
-
-  return { user, haptic, currentGroupId, isDark, setIsDark, groups, setGroups, selectedGroupId, setSelectedGroupId, duration, setDuration, isMultiSelect, setIsMultiSelect, maxSelections, menuItems, setMenuItems, selectedItems, setSelectedItems, groupsLoading, setGroupsLoading, menuLoading, setMenuLoading, loadedMenuGroupId, setLoadedMenuGroupId, step, setStep, mode, setMode, creating, setCreating, error, setError, loadData, canAdvance, adminGroups, loading, canCreatePoll, handleCreate, toggleItem, toggleAll, selectRandom, visibleItems, canManagePolls, accentText, rowSeparator };
+  return {
+    user,
+    haptic,
+    currentGroupId,
+    isDark,
+    setIsDark,
+    groups,
+    setGroups,
+    selectedGroupId,
+    setSelectedGroupId,
+    duration,
+    setDuration,
+    isMultiSelect,
+    setIsMultiSelect,
+    maxSelections,
+    menuItems,
+    setMenuItems,
+    selectedItems,
+    setSelectedItems,
+    groupsLoading,
+    setGroupsLoading,
+    menuLoading,
+    setMenuLoading,
+    loadedMenuGroupId,
+    setLoadedMenuGroupId,
+    step,
+    setStep,
+    mode,
+    setMode,
+    creating,
+    setCreating,
+    error,
+    setError,
+    loadData,
+    canAdvance,
+    adminGroups,
+    loading,
+    canCreatePoll,
+    handleCreate,
+    toggleItem,
+    toggleAll,
+    selectRandom,
+    visibleItems,
+    canManagePolls,
+    accentText,
+    rowSeparator,
+  };
 };
 
 type CreatePollFormController = ReturnType<typeof useCreatePollFormController>;
@@ -356,199 +438,264 @@ interface CreatePollSelectionStepProps {
   onCancel?: () => void;
 }
 
-const CreatePollSelectionStep = ({ controller, onCancel }: CreatePollSelectionStepProps) => {
-  const { user, haptic, currentGroupId, isDark, setIsDark, groups, setGroups, selectedGroupId, setSelectedGroupId, duration, setDuration, isMultiSelect, setIsMultiSelect, maxSelections, menuItems, setMenuItems, selectedItems, setSelectedItems, groupsLoading, setGroupsLoading, menuLoading, setMenuLoading, loadedMenuGroupId, setLoadedMenuGroupId, step, setStep, mode, setMode, creating, setCreating, error, setError, loadData, canAdvance, adminGroups, loading, canCreatePoll, handleCreate, toggleItem, toggleAll, selectRandom, visibleItems, canManagePolls, accentText, rowSeparator } = controller;
+const CreatePollSelectionStep = ({
+  controller,
+  onCancel,
+}: CreatePollSelectionStepProps) => {
+  const {
+    isDark,
+    duration: _duration,
+    menuItems,
+    selectedItems,
+    setStep,
+    creating,
+    error,
+    canCreatePoll,
+    handleCreate,
+    toggleItem,
+    toggleAll,
+    selectRandom,
+    visibleItems,
+  } = controller;
   return (
-          <m.div
-            key="step2"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.2 }}
+    <m.div
+      key="step2"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ duration: 0.2 }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4">
+        <button
+          type="button"
+          onClick={() => setStep(1)}
+          className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Назад
+        </button>
+        <h2 className="text-lg font-bold text-foreground">Выбери блюда</h2>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="p-2 rounded-lg hover:bg-muted transition-colors"
+            aria-label="Закрыть"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4">
-              <button type="button"
-                onClick={() => setStep(1)}
-                className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+
+      <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] space-y-4">
+        <PastelCard variant="default">
+          <CardContent className="pt-6">
+            {/* Счётчик + действия */}
+            <div className="flex items-center justify-between mb-3">
+              <m.p
+                key={selectedItems.size}
+                initial={{ scale: 1.1 }}
+                animate={{ scale: 1 }}
+                className="text-sm text-gray-600 dark:text-gray-400"
               >
-                <ChevronLeft className="w-4 h-4" />
-                Назад
-              </button>
-              <h2 className="text-lg font-bold text-foreground">Выбери блюда</h2>
-              {onCancel && (
-                <button type="button"
-                  onClick={onCancel}
-                  className="p-2 rounded-lg hover:bg-muted transition-colors"
-                  aria-label="Закрыть"
+                Выбрано{" "}
+                <span
+                  className={cn(
+                    "font-bold",
+                    isDark ? "text-lavender-500" : "text-peach-500",
+                  )}
                 >
-                  <X className="w-5 h-5" />
+                  {selectedItems.size}{" "}
+                  {selectedItems.size === 1
+                    ? "блюдо"
+                    : selectedItems.size < 5
+                      ? "блюда"
+                      : "блюд"}
+                </span>
+              </m.p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={toggleAll}
+                  className={cn(
+                    "text-sm font-medium",
+                    isDark ? "text-lavender-400" : "text-peach-600",
+                  )}
+                >
+                  {selectedItems.size === menuItems.length
+                    ? "Снять всё"
+                    : "Выбрать всё"}
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={selectRandom}
+                  className={cn(
+                    "text-sm font-medium flex items-center gap-1",
+                    isDark ? "text-lavender-400" : "text-peach-600",
+                  )}
+                >
+                  <Shuffle className="w-3.5 h-3.5" />
+                  Случайно
+                </button>
+              </div>
             </div>
 
-            <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] space-y-4">
-              <PastelCard variant="default">
-                <CardContent className="pt-6">
-                  {/* Счётчик + действия */}
-                  <div className="flex items-center justify-between mb-3">
-                    <m.p
-                      key={selectedItems.size}
-                      initial={{ scale: 1.1 }}
-                      animate={{ scale: 1 }}
-                      className="text-sm text-gray-600 dark:text-gray-400"
-                    >
-                      Выбрано <span className={cn("font-bold", isDark ? "text-lavender-500" : "text-peach-500")}>
-                        {selectedItems.size} {selectedItems.size === 1 ? 'блюдо' : selectedItems.size < 5 ? 'блюда' : 'блюд'}
-                      </span>
-                    </m.p>
-                    <div className="flex gap-3">
-                      <button type="button"
-                        onClick={toggleAll}
-                        className={cn("text-sm font-medium", isDark ? "text-lavender-400" : "text-peach-600")}
-                      >
-                        {selectedItems.size === menuItems.length ? 'Снять всё' : 'Выбрать всё'}
-                      </button>
-                      <button type="button"
-                        onClick={selectRandom}
-                        className={cn("text-sm font-medium flex items-center gap-1", isDark ? "text-lavender-400" : "text-peach-600")}
-                      >
-                        <Shuffle className="w-3.5 h-3.5" />
-                        Случайно
-                      </button>
-                    </div>
+            {/* Прогресс выбора */}
+            <Progress
+              value={(selectedItems.size / menuItems.length) * 100}
+              className={cn(
+                "h-2 mb-4",
+                isDark
+                  ? "[&>div]:bg-gradient-to-r [&>div]:from-lavender-400 [&>div]:to-lavender-600"
+                  : "[&>div]:bg-gradient-to-r [&>div]:from-peach-400 [&>div]:to-coral-500",
+              )}
+            />
+
+            {/* Подсказка */}
+            <AnimatePresence>
+              {selectedItems.size < 2 && (
+                <m.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="mb-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertCircle
+                      className={cn(
+                        ICON_SIZES.sm,
+                        "text-gray-500 flex-shrink-0 mt-0.5",
+                      )}
+                    />
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      Выбери минимум 2 блюда
+                    </p>
                   </div>
+                </m.div>
+              )}
+            </AnimatePresence>
 
-                  {/* Прогресс выбора */}
-                  <Progress
-                    value={(selectedItems.size / menuItems.length) * 100}
+            {/* Список блюд */}
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {visibleItems.map((item) => {
+                const isSelected = selectedItems.has(item.id);
+                return (
+                  <m.button
+                    key={item.id}
+                    layout
+                    onClick={() => toggleItem(item.id)}
                     className={cn(
-                      "h-2 mb-4",
-                      isDark
-                        ? "[&>div]:bg-gradient-to-r [&>div]:from-lavender-400 [&>div]:to-lavender-600"
-                        : "[&>div]:bg-gradient-to-r [&>div]:from-peach-400 [&>div]:to-coral-500"
+                      "w-full text-left p-3 rounded-2xl border-2 transition-all",
+                      isSelected
+                        ? isDark
+                          ? "border-lavender-500 bg-lavender-500/5"
+                          : "border-peach-500 bg-peach-50"
+                        : "border-border bg-background",
                     )}
-                  />
-
-                  {/* Подсказка */}
-                  <AnimatePresence>
-                    {selectedItems.size < 2 && (
-                      <m.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="mb-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                      >
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className={cn(ICON_SIZES.sm, "text-gray-500 flex-shrink-0 mt-0.5")} />
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Выбери минимум 2 блюда
-                          </p>
-                        </div>
-                      </m.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Список блюд */}
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {visibleItems.map((item) => {
-                      const isSelected = selectedItems.has(item.id);
-                      return (
-                        <m.button
-                          key={item.id}
-                          layout
-                          onClick={() => toggleItem(item.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
+                        {isSelected ? (
+                          <CheckCircle2
+                            className={cn(
+                              ICON_SIZES.md,
+                              isDark ? "text-lavender-500" : "text-peach-500",
+                            )}
+                          />
+                        ) : (
+                          <Circle
+                            className={`${ICON_SIZES.md} text-muted-foreground/30`}
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                          {item.name}
+                        </h4>
+                      </div>
+                      {item.price && (
+                        <div
                           className={cn(
-                            "w-full text-left p-3 rounded-2xl border-2 transition-all",
-                            isSelected
-                              ? isDark
-                                ? "border-lavender-500 bg-lavender-500/5"
-                                : "border-peach-500 bg-peach-50"
-                              : "border-border bg-background"
+                            "flex-shrink-0 px-2 py-1 rounded-md",
+                            isDark
+                              ? "bg-lavender-900/20 text-lavender-400"
+                              : "bg-peach-50 text-peach-700",
                           )}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="flex-shrink-0">
-                              {isSelected ? (
-                                <CheckCircle2 className={cn(ICON_SIZES.md, isDark ? "text-lavender-500" : "text-peach-500")} />
-                              ) : (
-                                <Circle className={`${ICON_SIZES.md} text-muted-foreground/30`} />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                                {item.name}
-                              </h4>
-                            </div>
-                            {item.price && (
-                              <div className={cn(
-                                "flex-shrink-0 px-2 py-1 rounded-md",
-                                isDark ? "bg-lavender-900/20 text-lavender-400" : "bg-peach-50 text-peach-700"
-                              )}>
-                                <p className="text-sm font-semibold whitespace-nowrap">{item.price} ₽</p>
-                              </div>
-                            )}
-                            {item.imageUrl && (
-                              <img
-                                src={item.imageUrl}
-                                alt={item.name}
-                                className={`${ICON_SIZES['2xl']} object-cover rounded-lg`}
-                              />
-                            )}
-                          </div>
-                        </m.button>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </PastelCard>
-
-              {/* Ошибка */}
-              <AnimatePresence>
-                {error && (
-                  <m.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border-2 border-red-300 dark:border-red-700"
-                  >
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className={cn(ICON_SIZES.md, "text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5")} />
-                      <p className="text-red-700 dark:text-red-300 text-sm font-medium">{error}</p>
+                          <p className="text-sm font-semibold whitespace-nowrap">
+                            {item.price} ₽
+                          </p>
+                        </div>
+                      )}
+                      {item.imageUrl && (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className={`${ICON_SIZES["2xl"]} object-cover rounded-lg`}
+                        />
+                      )}
                     </div>
-                  </m.div>
-                )}
-              </AnimatePresence>
-
-              {/* Запустить */}
-              <m.button
-                whileTap={{ scale: canCreatePoll() ? 0.95 : 1 }}
-                onClick={handleCreate}
-                disabled={!canCreatePoll() || creating}
-                className={cn(
-                  "w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold text-lg transition-all shadow-lg",
-                  canCreatePoll() && !creating
-                    ? isDark
-                      ? "bg-gradient-to-r from-lavender-500 to-lavender-600 text-white shadow-lavender-500/30"
-                      : "bg-gradient-to-r from-peach-500 to-coral-500 text-white shadow-peach-500/30"
-                    : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                )}
-              >
-                {creating ? (
-                  <>
-                    <LoadingSpinner size="sm" />
-                    <span>Запуск голосования...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className={ICON_SIZES.md} />
-                    <span>Запустить голосование</span>
-                  </>
-                )}
-              </m.button>
+                  </m.button>
+                );
+              })}
             </div>
-          </m.div>
-        );
+          </CardContent>
+        </PastelCard>
+
+        {/* Ошибка */}
+        <AnimatePresence>
+          {error && (
+            <m.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border-2 border-red-300 dark:border-red-700"
+            >
+              <div className="flex items-start gap-3">
+                <AlertCircle
+                  className={cn(
+                    ICON_SIZES.md,
+                    "text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5",
+                  )}
+                />
+                <p className="text-red-700 dark:text-red-300 text-sm font-medium">
+                  {error}
+                </p>
+              </div>
+            </m.div>
+          )}
+        </AnimatePresence>
+
+        {/* Запустить */}
+        <m.button
+          whileTap={{ scale: canCreatePoll() ? 0.95 : 1 }}
+          onClick={handleCreate}
+          disabled={!canCreatePoll() || creating}
+          className={cn(
+            "w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold text-lg transition-all shadow-lg",
+            canCreatePoll() && !creating
+              ? isDark
+                ? "bg-gradient-to-r from-lavender-500 to-lavender-600 text-white shadow-lavender-500/30"
+                : "bg-gradient-to-r from-peach-500 to-coral-500 text-white shadow-peach-500/30"
+              : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed",
+          )}
+        >
+          {creating ? (
+            <>
+              <LoadingSpinner size="sm" />
+              <span>Запуск голосования...</span>
+            </>
+          ) : (
+            <>
+              <Check className={ICON_SIZES.md} />
+              <span>Запустить голосование</span>
+            </>
+          )}
+        </m.button>
+      </div>
+    </m.div>
+  );
 };
 
 export const CreatePollForm: React.FC<CreatePollFormProps> = ({
@@ -556,16 +703,44 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   onCancel,
 }) => {
   const controller = useCreatePollFormController({ onSuccess, onCancel });
-  const { user, haptic, currentGroupId, isDark, setIsDark, groups, setGroups, selectedGroupId, setSelectedGroupId, duration, setDuration, isMultiSelect, setIsMultiSelect, maxSelections, menuItems, setMenuItems, selectedItems, setSelectedItems, groupsLoading, setGroupsLoading, menuLoading, setMenuLoading, loadedMenuGroupId, setLoadedMenuGroupId, step, setStep, mode, setMode, creating, setCreating, error, setError, loadData, canAdvance, adminGroups, loading, canCreatePoll, handleCreate, toggleItem, toggleAll, selectRandom, visibleItems, canManagePolls, accentText, rowSeparator } = controller;
+  const {
+    haptic,
+    isDark,
+    selectedGroupId,
+    setSelectedGroupId,
+    duration,
+    setDuration,
+    isMultiSelect,
+    setIsMultiSelect,
+    menuItems,
+    step,
+    setStep,
+    mode,
+    setMode,
+    canAdvance,
+    adminGroups,
+    loading,
+    canManagePolls,
+    accentText,
+    rowSeparator,
+  } = controller;
   if (loading) {
-    return <div className="flex items-center justify-center py-12"><LoadingSpinner size="lg" /></div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
   if (!canManagePolls) {
     return (
       <div className="p-6 text-center">
-        <AlertCircle className={`${ICON_SIZES['2xl']} mx-auto mb-4 text-yellow-500`} />
-        <p className="text-gray-600 dark:text-gray-400">Только администраторы групп могут запускать голосования</p>
+        <AlertCircle
+          className={`${ICON_SIZES["2xl"]} mx-auto mb-4 text-yellow-500`}
+        />
+        <p className="text-gray-600 dark:text-gray-400">
+          Только администраторы групп могут запускать голосования
+        </p>
       </div>
     );
   }
@@ -573,10 +748,28 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
   if (menuItems.length === 0) {
     return (
       <div className="p-6 text-center">
-        <AlertCircle className={cn(ICON_SIZES['2xl'], 'mx-auto mb-4', isDark ? 'text-lavender-500' : 'text-peach-500')} />
-        <p className="text-gray-900 dark:text-white font-semibold mb-2">Меню пустое</p>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">Сначала добавь блюда в меню</p>
-        {onCancel && <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Закрыть</button>}
+        <AlertCircle
+          className={cn(
+            ICON_SIZES["2xl"],
+            "mx-auto mb-4",
+            isDark ? "text-lavender-500" : "text-peach-500",
+          )}
+        />
+        <p className="text-gray-900 dark:text-white font-semibold mb-2">
+          Меню пустое
+        </p>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          Сначала добавь блюда в меню
+        </p>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          >
+            Закрыть
+          </button>
+        )}
       </div>
     );
   }
@@ -589,18 +782,24 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
       </div>
 
       {/* Progress bar — только для разового (2 шага) */}
-      {mode === 'once' && (
+      {mode === "once" && (
         <div className="flex gap-1.5 px-6 pt-3">
-          <div className={cn(
-            'flex-1 h-1 rounded-full transition-colors',
-            isDark ? 'bg-lavender-500' : 'bg-peach-500'
-          )} />
-          <div className={cn(
-            'flex-1 h-1 rounded-full transition-colors',
-            step === 2
-              ? isDark ? 'bg-lavender-500' : 'bg-peach-500'
-              : 'bg-muted'
-          )} />
+          <div
+            className={cn(
+              "flex-1 h-1 rounded-full transition-colors",
+              isDark ? "bg-lavender-500" : "bg-peach-500",
+            )}
+          />
+          <div
+            className={cn(
+              "flex-1 h-1 rounded-full transition-colors",
+              step === 2
+                ? isDark
+                  ? "bg-lavender-500"
+                  : "bg-peach-500"
+                : "bg-muted",
+            )}
+          />
         </div>
       )}
 
@@ -615,9 +814,12 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4">
-              <h2 className="text-xl font-bold text-foreground">Создать голосование</h2>
+              <h2 className="text-xl font-bold text-foreground">
+                Создать голосование
+              </h2>
               {onCancel && (
-                <button type="button"
+                <button
+                  type="button"
                   onClick={onCancel}
                   className="p-2 rounded-lg hover:bg-muted transition-colors"
                   aria-label="Закрыть"
@@ -632,12 +834,17 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => { setMode('once'); haptic.selection(); }}
+                  onClick={() => {
+                    setMode("once");
+                    haptic.selection();
+                  }}
                   className={cn(
-                    'flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all text-sm font-semibold',
-                    mode === 'once'
-                      ? isDark ? 'border-lavender-500/40 bg-lavender-500/15 text-lavender-400' : 'border-peach-500/35 bg-peach-500/10 text-peach-700'
-                      : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/30'
+                    "flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all text-sm font-semibold",
+                    mode === "once"
+                      ? isDark
+                        ? "border-lavender-500/40 bg-lavender-500/15 text-lavender-400"
+                        : "border-peach-500/35 bg-peach-500/10 text-peach-700"
+                      : "border-border bg-background text-muted-foreground hover:border-muted-foreground/30",
                   )}
                 >
                   <Zap className="w-4 h-4" />
@@ -645,12 +852,17 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setMode('recurring'); haptic.selection(); }}
+                  onClick={() => {
+                    setMode("recurring");
+                    haptic.selection();
+                  }}
                   className={cn(
-                    'flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all text-sm font-semibold',
-                    mode === 'recurring'
-                      ? isDark ? 'border-lavender-500/40 bg-lavender-500/15 text-lavender-400' : 'border-peach-500/35 bg-peach-500/10 text-peach-700'
-                      : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/30'
+                    "flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all text-sm font-semibold",
+                    mode === "recurring"
+                      ? isDark
+                        ? "border-lavender-500/40 bg-lavender-500/15 text-lavender-400"
+                        : "border-peach-500/35 bg-peach-500/10 text-peach-700"
+                      : "border-border bg-background text-muted-foreground hover:border-muted-foreground/30",
                   )}
                 >
                   <CalendarClock className="w-4 h-4" />
@@ -662,28 +874,46 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
             {/* Группа — общая для обоих режимов */}
             {adminGroups.length > 0 && (
               <div className="px-6 pt-5 space-y-2">
-                {sectionLabel('Группа')}
+                {sectionLabel("Группа")}
                 <div className="space-y-1.5">
                   {adminGroups.map((group) => {
                     const isSelected = selectedGroupId === group.id;
                     return (
-                      <button type="button"
+                      <button
+                        type="button"
                         key={group.id}
-                        onClick={() => { setSelectedGroupId(group.id); haptic.selection(); }}
+                        onClick={() => {
+                          setSelectedGroupId(group.id);
+                          haptic.selection();
+                        }}
                         className="w-full flex items-center gap-3 py-2.5 transition-colors text-left"
                       >
-                        <div className={cn(
-                          'flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0',
-                          isDark ? 'bg-lavender-500/12' : 'bg-peach-500/10'
-                        )}>
-                          <Users className={cn(ICON_SIZES.sm, isDark ? 'text-lavender-400' : 'text-peach-600')} />
+                        <div
+                          className={cn(
+                            "flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0",
+                            isDark ? "bg-lavender-500/12" : "bg-peach-500/10",
+                          )}
+                        >
+                          <Users
+                            className={cn(
+                              ICON_SIZES.sm,
+                              isDark ? "text-lavender-400" : "text-peach-600",
+                            )}
+                          />
                         </div>
                         <span className="flex-1 min-w-0 truncate text-sm font-medium text-foreground">
                           {group.title}
                         </span>
-                        {isSelected
-                          ? <CheckCircle2 className={cn('w-5 h-5 flex-shrink-0', isDark ? 'text-lavender-400' : 'text-peach-500')} />
-                          : <Circle className="w-5 h-5 flex-shrink-0 text-muted-foreground/30" />}
+                        {isSelected ? (
+                          <CheckCircle2
+                            className={cn(
+                              "w-5 h-5 flex-shrink-0",
+                              isDark ? "text-lavender-400" : "text-peach-500",
+                            )}
+                          />
+                        ) : (
+                          <Circle className="w-5 h-5 flex-shrink-0 text-muted-foreground/30" />
+                        )}
                       </button>
                     );
                   })}
@@ -691,7 +921,7 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
               </div>
             )}
 
-            {mode === 'recurring' ? (
+            {mode === "recurring" ? (
               <RecurringPollForm
                 menuItems={menuItems}
                 selectedGroupId={selectedGroupId}
@@ -699,124 +929,160 @@ export const CreatePollForm: React.FC<CreatePollFormProps> = ({
                 onCancel={onCancel}
               />
             ) : (
-            <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] space-y-6">
-              {/* Длительность */}
-              <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
-                <div className="flex items-center justify-between">
-                  {sectionLabel('Длительность')}
-                  <m.span
-                    key={duration}
-                    initial={{ scale: 1.15 }}
-                    animate={{ scale: 1 }}
-                    className={cn('text-sm font-bold', accentText)}
-                  >
-                    {formatDuration(duration)}
-                  </m.span>
+              <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] space-y-6">
+                {/* Длительность */}
+                <div className={cn("space-y-3 pt-5 border-t", rowSeparator)}>
+                  <div className="flex items-center justify-between">
+                    {sectionLabel("Длительность")}
+                    <m.span
+                      key={duration}
+                      initial={{ scale: 1.15 }}
+                      animate={{ scale: 1 }}
+                      className={cn("text-sm font-bold", accentText)}
+                    >
+                      {formatDuration(duration)}
+                    </m.span>
+                  </div>
+
+                  {/* Пресеты */}
+                  <div className="flex gap-2">
+                    {DURATION_PRESETS.map((preset) => (
+                      <button
+                        type="button"
+                        key={preset.value}
+                        onClick={() => {
+                          setDuration(preset.value);
+                          haptic.selection();
+                        }}
+                        className={cn(
+                          "flex-1 py-1.5 rounded-lg text-sm font-medium transition-all border",
+                          duration === preset.value
+                            ? isDark
+                              ? "border-lavender-500/40 bg-lavender-500/15 text-lavender-400"
+                              : "border-peach-500/35 bg-peach-500/10 text-peach-700"
+                            : "border-transparent text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Слайдер */}
+                  <input
+                    aria-label="Длительность голосования в минутах"
+                    type="range"
+                    min={5}
+                    max={240}
+                    step={5}
+                    value={duration}
+                    onChange={(e) => setDuration(Number(e.target.value))}
+                    className="w-full adaptive-slider"
+                    style={
+                      {
+                        "--slider-progress": `${Math.min(100, Math.max(0, ((duration - 5) / 235) * 100))}%`,
+                      } as CSSProperties
+                    }
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>5 мин</span>
+                    <span>4 часа</span>
+                  </div>
                 </div>
 
-                {/* Пресеты */}
-                <div className="flex gap-2">
-                  {DURATION_PRESETS.map((preset) => (
-                    <button type="button"
-                      key={preset.value}
-                      onClick={() => { setDuration(preset.value); haptic.selection(); }}
+                {/* Тип голоса */}
+                <div className={cn("space-y-3 pt-5 border-t", rowSeparator)}>
+                  {sectionLabel("Тип голоса")}
+                  <div className="grid grid-cols-2 gap-2">
+                    <m.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => {
+                        setIsMultiSelect(false);
+                        haptic.selection();
+                      }}
                       className={cn(
-                        'flex-1 py-1.5 rounded-lg text-sm font-medium transition-all border',
-                        duration === preset.value
+                        "flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all",
+                        !isMultiSelect
                           ? isDark
-                            ? 'border-lavender-500/40 bg-lavender-500/15 text-lavender-400'
-                            : 'border-peach-500/35 bg-peach-500/10 text-peach-700'
-                          : 'border-transparent text-muted-foreground hover:text-foreground'
+                            ? "border-lavender-500/40 bg-lavender-500/15"
+                            : "border-peach-500/35 bg-peach-500/10"
+                          : "border-border bg-background hover:border-muted-foreground/30",
                       )}
                     >
-                      {preset.label}
-                    </button>
-                  ))}
+                      <Circle
+                        className={cn(
+                          "w-4 h-4",
+                          !isMultiSelect
+                            ? isDark
+                              ? "text-lavender-400"
+                              : "text-peach-600"
+                            : "text-muted-foreground",
+                        )}
+                      />
+                      <span className="text-sm font-medium">Одно блюдо</span>
+                    </m.button>
+                    <m.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => {
+                        setIsMultiSelect(true);
+                        haptic.selection();
+                      }}
+                      className={cn(
+                        "flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all",
+                        isMultiSelect
+                          ? isDark
+                            ? "border-lavender-500/40 bg-lavender-500/15"
+                            : "border-peach-500/35 bg-peach-500/10"
+                          : "border-border bg-background hover:border-muted-foreground/30",
+                      )}
+                    >
+                      <CheckCircle2
+                        className={cn(
+                          "w-4 h-4",
+                          isMultiSelect
+                            ? isDark
+                              ? "text-lavender-400"
+                              : "text-peach-600"
+                            : "text-muted-foreground",
+                        )}
+                      />
+                      <span className="text-sm font-medium">Несколько</span>
+                    </m.button>
+                  </div>
                 </div>
 
-                {/* Слайдер */}
-                <input
-                  aria-label="Длительность голосования в минутах"
-                  type="range"
-                  min={5}
-                  max={240}
-                  step={5}
-                  value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
-                  className="w-full adaptive-slider"
-                  style={{
-                    '--slider-progress': `${Math.min(100, Math.max(0, ((duration - 5) / 235) * 100))}%`,
-                  } as CSSProperties}
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>5 мин</span>
-                  <span>4 часа</span>
-                </div>
+                {/* Кнопка Далее */}
+                <m.button
+                  whileTap={{ scale: canAdvance() ? 0.97 : 1 }}
+                  onClick={() => {
+                    if (canAdvance()) {
+                      haptic.impact();
+                      setStep(2);
+                    }
+                  }}
+                  disabled={!canAdvance()}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold text-base transition-all shadow-lg",
+                    canAdvance()
+                      ? isDark
+                        ? "bg-gradient-to-r from-lavender-500 to-lavender-600 text-white shadow-lavender-500/30"
+                        : "bg-gradient-to-r from-peach-500 to-coral-500 text-white shadow-peach-500/30"
+                      : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed",
+                  )}
+                >
+                  <span>Далее · Выбрать блюда →</span>
+                </m.button>
               </div>
-
-              {/* Тип голоса */}
-              <div className={cn('space-y-3 pt-5 border-t', rowSeparator)}>
-                {sectionLabel('Тип голоса')}
-                <div className="grid grid-cols-2 gap-2">
-                  <m.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => { setIsMultiSelect(false); haptic.selection(); }}
-                    className={cn(
-                      'flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all',
-                      !isMultiSelect
-                        ? isDark ? 'border-lavender-500/40 bg-lavender-500/15' : 'border-peach-500/35 bg-peach-500/10'
-                        : 'border-border bg-background hover:border-muted-foreground/30'
-                    )}
-                  >
-                    <Circle className={cn('w-4 h-4',
-                      !isMultiSelect
-                        ? isDark ? 'text-lavender-400' : 'text-peach-600'
-                        : 'text-muted-foreground'
-                    )} />
-                    <span className="text-sm font-medium">Одно блюдо</span>
-                  </m.button>
-                  <m.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => { setIsMultiSelect(true); haptic.selection(); }}
-                    className={cn(
-                      'flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all',
-                      isMultiSelect
-                        ? isDark ? 'border-lavender-500/40 bg-lavender-500/15' : 'border-peach-500/35 bg-peach-500/10'
-                        : 'border-border bg-background hover:border-muted-foreground/30'
-                    )}
-                  >
-                    <CheckCircle2 className={cn('w-4 h-4',
-                      isMultiSelect
-                        ? isDark ? 'text-lavender-400' : 'text-peach-600'
-                        : 'text-muted-foreground'
-                    )} />
-                    <span className="text-sm font-medium">Несколько</span>
-                  </m.button>
-                </div>
-              </div>
-
-              {/* Кнопка Далее */}
-              <m.button
-                whileTap={{ scale: canAdvance() ? 0.97 : 1 }}
-                onClick={() => { if (canAdvance()) { haptic.impact(); setStep(2); } }}
-                disabled={!canAdvance()}
-                className={cn(
-                  'w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-semibold text-base transition-all shadow-lg',
-                  canAdvance()
-                    ? isDark
-                      ? 'bg-gradient-to-r from-lavender-500 to-lavender-600 text-white shadow-lavender-500/30'
-                      : 'bg-gradient-to-r from-peach-500 to-coral-500 text-white shadow-peach-500/30'
-                    : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                )}
-              >
-                <span>Далее · Выбрать блюда →</span>
-              </m.button>
-            </div>
             )}
           </m.div>
         )}
 
-        {step === 2 && <CreatePollSelectionStep controller={controller} onCancel={onCancel} />}
+        {step === 2 && (
+          <CreatePollSelectionStep
+            controller={controller}
+            onCancel={onCancel}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

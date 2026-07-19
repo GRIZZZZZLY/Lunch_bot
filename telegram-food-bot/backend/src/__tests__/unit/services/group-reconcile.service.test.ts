@@ -5,7 +5,12 @@ jest.mock('../../../database/client', () => ({
 }));
 
 jest.mock('../../../utils/logger', () => ({
-  logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() },
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
 const getMe = jest.fn();
@@ -14,16 +19,17 @@ jest.mock('../../../bot/bot-instance', () => ({
   getBotInstance: jest.fn(() => ({ api: { getMe, getChatMember } })),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { prisma } = require('../../../database/client');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 const botInstance = require('../../../bot/bot-instance');
 
 describe('GroupService.reconcileActiveGroups', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getMe.mockResolvedValue({ id: 999 });
-    botInstance.getBotInstance.mockReturnValue({ api: { getMe, getChatMember } });
+    botInstance.getBotInstance.mockReturnValue({
+      api: { getMe, getChatMember },
+    });
     prisma.group.update.mockResolvedValue({});
   });
 
@@ -38,7 +44,7 @@ describe('GroupService.reconcileActiveGroups', () => {
           Object.assign(new Error('kicked'), {
             error_code: 403,
             description: 'Forbidden: bot was kicked from the supergroup chat',
-          }),
+          })
         );
       }
       return Promise.resolve({ status: 'administrator' });
@@ -49,7 +55,7 @@ describe('GroupService.reconcileActiveGroups', () => {
     expect(ids).toEqual([2]);
     expect(prisma.group.update).toHaveBeenCalledTimes(1);
     expect(prisma.group.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 2 } }),
+      expect.objectContaining({ where: { id: 2 } })
     );
   });
 
@@ -64,7 +70,9 @@ describe('GroupService.reconcileActiveGroups', () => {
 
   it('keeps the group active on a transient (non-403) error', async () => {
     prisma.group.findMany.mockResolvedValue([{ id: 7, telegramId: 777n }]);
-    getChatMember.mockRejectedValue(Object.assign(new Error('timeout'), { error_code: 500 }));
+    getChatMember.mockRejectedValue(
+      Object.assign(new Error('timeout'), { error_code: 500 })
+    );
 
     const ids = await GroupService.reconcileActiveGroups();
 

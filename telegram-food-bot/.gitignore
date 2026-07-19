@@ -14,10 +14,13 @@ frontend/node_modules/
 
 # Build outputs
 dist/
+dev-dist/
 build/
 backend/dist/
 frontend/build/
 *.tsbuildinfo
+frontend-new/vite.config.js
+frontend-new/vite.config.d.ts
 
 # Logs
 logs/
@@ -85,6 +88,9 @@ ngrok.yml
 *.pem
 *.key
 *.cert
+cloudflared/*.json
+nginx/certs/
+nginx/letsencrypt/
 
 # Auto Claude data directory
 .auto-claude/
@@ -107,6 +113,7 @@ ai-docs/
 
 # Design state snapshots (redesign HTML captures)
 .tmp-*-states/
+.tmp-*/
 
 # Ad-hoc lint/build report artifacts
 backend_out.txt

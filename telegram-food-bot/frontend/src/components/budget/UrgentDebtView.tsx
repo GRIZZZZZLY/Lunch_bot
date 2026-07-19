@@ -41,7 +41,7 @@ export const UrgentDebtView = ({ debt, otherDebts, credits }: UrgentDebtViewProp
     onSuccess: () => {
       haptic.success();
       toast.success('Оплата отмечена! Ждем подтверждения');
-      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();

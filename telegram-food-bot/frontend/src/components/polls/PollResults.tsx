@@ -55,7 +55,7 @@ export const PollResults = ({ poll, onBack }: PollResultsProps) => {
   }, [addNotification, poll.id]);
 
   useEffect(() => {
-    loadResults();
+    void loadResults();
   }, [loadResults]);
 
   const handleExport = async () => {

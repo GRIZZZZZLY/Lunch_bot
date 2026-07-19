@@ -85,7 +85,7 @@ docker-compose up -d
 
 ### Вручную (curl):
 ```bash
-curl -X POST "https://api.telegram.org/botREDACTED-BOT-TOKEN/setWebhook" \
+curl -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
   -d "url=https://2072f129141b.ngrok-free.app/webhook"
 ```
 

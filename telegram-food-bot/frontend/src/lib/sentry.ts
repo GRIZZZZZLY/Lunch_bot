@@ -119,7 +119,7 @@ export function initSentry() {
     ],
 
     // Breadcrumbs для отладки
-    beforeBreadcrumb(breadcrumb, hint) {
+    beforeBreadcrumb(breadcrumb, _hint) {
       // Логируем все API calls
       if (breadcrumb.category === 'fetch' || breadcrumb.category === 'xhr') {
         return breadcrumb;

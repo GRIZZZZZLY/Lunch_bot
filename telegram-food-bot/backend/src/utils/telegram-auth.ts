@@ -270,8 +270,8 @@ function validateLegacyHmac(initData: string, botToken: string): boolean {
     const isValid = expectedHash === hash;
     if (!isValid) {
       logger.warn('⚠️ HMAC mismatch', {
-        expected: expectedHash.substring(0, 16) + '...',
-        received: hash.substring(0, 16) + '...',
+        expected: `${expectedHash.substring(0, 16)  }...`,
+        received: `${hash.substring(0, 16)  }...`,
       });
     }
     return isValid;

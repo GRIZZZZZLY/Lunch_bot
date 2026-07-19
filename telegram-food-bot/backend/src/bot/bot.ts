@@ -98,7 +98,6 @@ export function createBot(): Bot<BotContext> {
       
       gramBotConfig = {
         client: {
-          // @ts-ignore - Grammy типы не всегда корректны для агентов
           baseFetchConfig: {
             agent,
             compress: true,
@@ -217,7 +216,7 @@ export function createBot(): Bot<BotContext> {
           await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
           return;
         }
-        await handleRunRoulette(ctx as any, pollId);
+        await handleRunRoulette(ctx, pollId);
         return;
       }
 
@@ -292,7 +291,7 @@ export function createBot(): Bot<BotContext> {
         // Edit the message: remove button and add pending status line
         try {
           const originalText = ctx.callbackQuery.message?.text ?? '';
-          const updatedText = originalText + '\n\n⏳ Ожидаем подтверждения от ответственного...';
+          const updatedText = `${originalText  }\n\n⏳ Ожидаем подтверждения от ответственного...`;
           await ctx.editMessageText(updatedText, { reply_markup: { inline_keyboard: [] } });
         } catch (e) { /* ignore if edit fails */ }
         return;
@@ -348,7 +347,7 @@ export function createBot(): Bot<BotContext> {
         await ctx.answerCallbackQuery('✅ Отмечено как оплачено');
         try {
           const originalText = ctx.callbackQuery.message?.text ?? '';
-          const updatedText = originalText + '\n\n⏳ Ожидаем подтверждения от инициатора...';
+          const updatedText = `${originalText  }\n\n⏳ Ожидаем подтверждения от инициатора...`;
           await ctx.editMessageText(updatedText, { reply_markup: { inline_keyboard: [] } });
         } catch (e) { /* ignore if edit fails */ }
         return;
@@ -472,7 +471,7 @@ export function createBot(): Bot<BotContext> {
   setupGroupEvents(bot);
 
   // Логируем готовность бота
-  bot.api.getMe().then((botInfo) => {
+  void bot.api.getMe().then((botInfo) => {
     logger.info('🤖 Бот инициализирован', {
       id: botInfo.id,
       username: botInfo.username,
@@ -483,7 +482,7 @@ export function createBot(): Bot<BotContext> {
     });
     
     // Настраиваем дефолтный Menu Button для личных чатов
-    setupDefaultMenuButton(bot).catch(err => {
+    setupDefaultMenuButton(bot).catch((err: unknown) => {
       logger.error('Failed to setup default menu button:', err);
     });
   });

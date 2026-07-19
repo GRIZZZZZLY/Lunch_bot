@@ -94,11 +94,11 @@ export const startPollsAutoUpdate = (intervalMs: number = 60000) => {
   console.log('[PollsStore] Starting auto-update with interval:', intervalMs);
   
   // Initial update
-  usePollsStore.getState().updateActiveCount();
+  void usePollsStore.getState().updateActiveCount();
   
   // Periodic updates
   autoUpdateInterval = setInterval(() => {
-    usePollsStore.getState().updateActiveCount();
+    void usePollsStore.getState().updateActiveCount();
   }, intervalMs);
 };
 

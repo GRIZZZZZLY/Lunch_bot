@@ -77,7 +77,7 @@ export const PollResultsPage: React.FC = () => {
   }, [addNotification, pollId]);
 
   useEffect(() => {
-    loadResults();
+    void loadResults();
   }, [loadResults]);
 
   useEffect(() => {

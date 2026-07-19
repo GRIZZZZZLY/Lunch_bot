@@ -66,16 +66,20 @@ export const BottomSheet = ({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!enableSwipeDown) return;
-    
+
+    const firstTouch = e.touches[0];
+    if (!firstTouch) return;
     setIsDragging(true);
-    setStartY(e.touches[0].clientY);
-    setCurrentY(e.touches[0].clientY);
+    setStartY(firstTouch.clientY);
+    setCurrentY(firstTouch.clientY);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging || !enableSwipeDown) return;
 
-    const newY = e.touches[0].clientY;
+    const firstTouch = e.touches[0];
+    if (!firstTouch) return;
+    const newY = firstTouch.clientY;
     setCurrentY(newY);
 
     // Предотвращаем скролл при свайпе

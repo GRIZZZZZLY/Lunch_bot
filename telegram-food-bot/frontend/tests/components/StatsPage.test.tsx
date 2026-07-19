@@ -88,18 +88,6 @@ vi.mock('../../src/services/menu.service', () => ({
   menuService: menuServiceMocks,
 }));
 
-vi.mock('../../src/components/stats', () => ({
-  CustomTooltip: () => null,
-  CountUp: () => null,
-  PersonalHeroCard: () => <div data-testid='personal-hero-card'>Моя статистика</div>,
-  FavoriteDishesCarousel: () => <div data-testid='favorite-dishes-carousel'>Любимые блюда</div>,
-  AchievementBadgesGrid: () => <div data-testid='achievement-badges-grid'>Achievements</div>,
-  Leaderboard: () => <div data-testid='leaderboard'>Leaderboard</div>,
-  ChallengesPanel: () => <div data-testid='challenges-panel'>Challenges</div>,
-  BudgetInsightsWidget: () => <div data-testid='budget-insights-widget'>Budget Insights</div>,
-  LunchDnaCard: () => <div data-testid='lunch-dna-card'>Lunch DNA</div>,
-}));
-
 vi.mock('../../src/components/stats/LunchDnaCard', () => ({
   LunchDnaCard: () => <div data-testid='lunch-dna-card'>Lunch DNA</div>,
 }));
@@ -114,10 +102,6 @@ vi.mock('../../src/components/stats/BudgetInsightsWidget', () => ({
 
 vi.mock('../../src/components/stats/ActivityLineChart', () => ({
   default: () => <div data-testid='activity-line-chart'>Activity</div>,
-}));
-
-vi.mock('../../src/components/budget', () => ({
-  BudgetWidgetCompact: () => <div data-testid='budget-widget-compact'>Budget Widget Compact</div>,
 }));
 
 vi.mock('../../src/components/budget/BudgetWidgetCompact', () => ({

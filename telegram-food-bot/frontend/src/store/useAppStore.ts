@@ -347,4 +347,4 @@ export const useUI = (): UISlice =>
       clearNotifications: state.clearNotifications,
     })
     )
-  ) as UISlice;
+  );

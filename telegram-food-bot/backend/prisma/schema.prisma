@@ -227,6 +227,10 @@ model Transaction {
   categoryOrder CategoryOrder?    @relation(fields: [categoryOrderId], references: [id])
   reminders     PaymentReminder[]
 
+  // Защита от гонки при финализации магазинного забега: один StoreItem
+  // даёт максимум одну транзакцию. NULL,NULL (poll-транзакции) в Postgres
+  // считаются различными, поэтому ограничение их не затрагивает.
+  @@unique([storeRunId, storeItemId])
   @@index([pollId])
   @@index([storeRunId])
   @@index([fromUserId, status])
@@ -235,10 +239,6 @@ model Transaction {
   // P0-2: hot path getPollTotals / poll-cost-breakdown — фильтр pollId+status
   // (PENDING / PAID / CONFIRMED) на тяжёлой таблице транзакций.
   @@index([pollId, status])
-  // Защита от гонки при финализации магазинного забега: один StoreItem
-  // даёт максимум одну транзакцию. NULL,NULL (poll-транзакции) в Postgres
-  // считаются различными, поэтому ограничение их не затрагивает.
-  @@unique([storeRunId, storeItemId])
   @@map("transactions")
 }
 
@@ -745,19 +745,19 @@ model AdminNotificationSettings {
 // ============================================
 
 model StoreRun {
-  id           Int       @id @default(autoincrement())
-  groupId      Int       @map("group_id")
-  initiatorId  Int       @map("initiator_id")
-  storeName    String    @map("store_name")
-  status       String    @default("COLLECTING") // COLLECTING | SHOPPING | SETTLED | CANCELLED
-  collectUntil DateTime  @map("collect_until")
-  shoppingAt   DateTime? @map("shopping_at")
-  settledAt    DateTime? @map("settled_at")
-  cancelledAt  DateTime? @map("cancelled_at")
+  id             Int       @id @default(autoincrement())
+  groupId        Int       @map("group_id")
+  initiatorId    Int       @map("initiator_id")
+  storeName      String    @map("store_name")
+  status         String    @default("COLLECTING") // COLLECTING | SHOPPING | SETTLED | CANCELLED
+  collectUntil   DateTime  @map("collect_until")
+  shoppingAt     DateTime? @map("shopping_at")
+  settledAt      DateTime? @map("settled_at")
+  cancelledAt    DateTime? @map("cancelled_at")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
-  groupMessageId Int?    @map("group_message_id")
-  dmMessages     String? @map("dm_messages")
+  groupMessageId Int?      @map("group_message_id")
+  dmMessages     String?   @map("dm_messages")
 
   group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
   initiator    User          @relation("StoreRunInitiator", fields: [initiatorId], references: [id])

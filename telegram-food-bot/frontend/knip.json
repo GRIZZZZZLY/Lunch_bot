@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "tests/**/*.{ts,tsx}",
+    ".storybook/**/*.ts",
+    "*.config.{js,ts}"
+  ],
+  "includeEntryExports": true,
+  "playwright": true,
+  "storybook": true,
+  "vite": true,
+  "vitest": true
+}

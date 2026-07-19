@@ -202,7 +202,7 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const shouldClear = args.includes('--clear');
 
-  (async () => {
+  void (async () => {
     try {
       if (shouldClear) {
         await clearMenu();

@@ -22,14 +22,21 @@ interface ResponsibleTotals {
   totalToReturn: number;
 }
 import { now, toLocaleDateString } from '../utils/date';
-import { toNumber, formatCurrency, sumDecimals, multiply } from '../utils/decimal';
+import {
+  toNumber,
+  formatCurrency,
+  sumDecimals,
+  multiply,
+} from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 
 /** @deprecated No-op: bot is now accessed via the shared singleton in bot-instance.ts */
 export function initializeBudgetServiceBot(_bot: unknown): void {}
 
 // Helper used throughout this file — replaces the old `let botInstance: any = null`
-function botInstance() { return getBotInstance(); }
+function botInstance() {
+  return getBotInstance();
+}
 
 // Типы для результатов отправки напоминаний
 interface SendReminderResult {
@@ -62,31 +69,48 @@ interface PaymentInfo {
 /**
  * Классифицировать ошибку Telegram API
  */
-function classifyTelegramError(error: any): { errorCode: SendReminderResult['errorCode']; reason: string } {
+function classifyTelegramError(error: any): {
+  errorCode: SendReminderResult['errorCode'];
+  reason: string;
+} {
   const errorMessage = error?.message || error?.description || String(error);
-  
+
   if (errorMessage.includes('bot was blocked by the user')) {
-    return { errorCode: 'bot_blocked', reason: 'Пользователь заблокировал бота' };
+    return {
+      errorCode: 'bot_blocked',
+      reason: 'Пользователь заблокировал бота',
+    };
   }
-  
-  if (errorMessage.includes("bot can't initiate conversation") || errorMessage.includes('chat not found')) {
-    return { errorCode: 'no_chat', reason: 'Пользователь не начал чат с ботом' };
+
+  if (
+    errorMessage.includes("bot can't initiate conversation") ||
+    errorMessage.includes('chat not found')
+  ) {
+    return {
+      errorCode: 'no_chat',
+      reason: 'Пользователь не начал чат с ботом',
+    };
   }
-  
+
   if (errorMessage.includes('user is deactivated')) {
-    return { errorCode: 'user_deactivated', reason: 'Аккаунт пользователя деактивирован' };
+    return {
+      errorCode: 'user_deactivated',
+      reason: 'Аккаунт пользователя деактивирован',
+    };
   }
-  
+
   return { errorCode: 'unknown', reason: 'Неизвестная ошибка отправки' };
 }
 
 export class BudgetService {
   private async filterTransactionsByActiveMembers(
-    transactions: Array<Transaction & { poll?: { groupId?: number | null } | null }>,
+    transactions: Array<
+      Transaction & { poll?: { groupId?: number | null } | null }
+    >,
     relatedUser: 'from' | 'to'
   ) {
     const groupIds = Array.from(
-      new Set(transactions.map((tx) => tx.poll?.groupId).filter(Boolean))
+      new Set(transactions.map(tx => tx.poll?.groupId).filter(Boolean))
     ) as number[];
 
     if (groupIds.length === 0) {
@@ -106,13 +130,14 @@ export class BudgetService {
     }
 
     const membershipByGroup = new Map<number, Set<number>>();
-    memberships.forEach((member) => {
-      const existing = membershipByGroup.get(member.groupId) || new Set<number>();
+    memberships.forEach(member => {
+      const existing =
+        membershipByGroup.get(member.groupId) || new Set<number>();
       existing.add(member.userId);
       membershipByGroup.set(member.groupId, existing);
     });
 
-    return transactions.filter((transaction) => {
+    return transactions.filter(transaction => {
       const groupId = transaction.poll?.groupId;
       if (!groupId) return true;
 
@@ -122,9 +147,7 @@ export class BudgetService {
       }
 
       const relatedUserId =
-        relatedUser === 'from'
-          ? transaction.fromUserId
-          : transaction.toUserId;
+        relatedUser === 'from' ? transaction.fromUserId : transaction.toUserId;
 
       return groupMembers.has(relatedUserId);
     });
@@ -132,24 +155,45 @@ export class BudgetService {
   /**
    * Обработка выбранного ответственного
    */
-  static async processResponsibleSelected(pollId: number, responsibleUserId: number): Promise<void> {
-    logger.info('Processing responsible selected', { pollId, responsibleUserId });
+  static async processResponsibleSelected(
+    pollId: number,
+    responsibleUserId: number
+  ): Promise<void> {
+    logger.info('Processing responsible selected', {
+      pollId,
+      responsibleUserId,
+    });
 
     // Phase 1: DB writes (atomic). If this throws, caller can retry safely —
     // transactions are idempotent on (pollId, fromUserId, toUserId, menuItemId).
-    let transactions: Awaited<ReturnType<typeof BudgetService.createTransactionsFromPoll>>;
+    let transactions: Awaited<
+      ReturnType<typeof BudgetService.createTransactionsFromPoll>
+    >;
     try {
-      transactions = await this.createTransactionsFromPoll(pollId, responsibleUserId);
-      logger.info('Transactions created', { pollId, count: transactions.length });
+      transactions = await this.createTransactionsFromPoll(
+        pollId,
+        responsibleUserId
+      );
+      logger.info('Transactions created', {
+        pollId,
+        count: transactions.length,
+      });
     } catch (dbError) {
-      logger.error('Failed to create transactions for poll', { pollId, dbError });
+      logger.error('Failed to create transactions for poll', {
+        pollId,
+        dbError,
+      });
       throw dbError;
     }
 
     // Phase 2: notifications (best-effort). DB state already committed; partial
     // notification failures recover via the daily debt reminder cron.
     try {
-      await this.sendBudgetNotifications(pollId, responsibleUserId, transactions);
+      await this.sendBudgetNotifications(
+        pollId,
+        responsibleUserId,
+        transactions
+      );
       logger.info('Budget notifications sent', { pollId });
     } catch (notifError) {
       logger.error('Budget notifications partially failed (DB state OK)', {
@@ -167,7 +211,7 @@ export class BudgetService {
     responsibleUserId: number
   ): Promise<Transaction[]> {
     try {
-      const poll = await PollService.getPollById(pollId) as any;
+      const poll = (await PollService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) {
         throw new Error('Poll result data not found');
       }
@@ -197,7 +241,7 @@ export class BudgetService {
       // Idempotency: if processResponsibleSelected is retried (network glitch,
       // worker re-run), don't double-insert. Skip insert if any tx already exists
       // for this poll. Atomic check inside a Prisma transaction.
-      return await prisma.$transaction(async (tx) => {
+      return await prisma.$transaction(async tx => {
         const existingCount = await tx.transaction.count({ where: { pollId } });
 
         if (existingCount === 0 && transactionsData.length > 0) {
@@ -205,7 +249,7 @@ export class BudgetService {
         } else if (existingCount > 0) {
           logger.warn(
             'Transactions already exist for poll, skipping insert (idempotent retry)',
-            { pollId, existingCount, attemptedCount: transactionsData.length },
+            { pollId, existingCount, attemptedCount: transactionsData.length }
           );
         }
 
@@ -235,7 +279,7 @@ export class BudgetService {
 
       const totalToReturn = sumDecimals(transactions.map(tx => tx.amount));
 
-      const poll = await PollService.getPollById(pollId) as any;
+      const poll = (await PollService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) {
         throw new Error('Poll result data not found');
       }
@@ -243,14 +287,17 @@ export class BudgetService {
       const resultData = JSON.parse(poll.result.rouletteData);
 
       const totalOrder = resultData.winners.reduce(
-        (sum: number, w: any) => sum + multiply(w.menuItemSnapshot.price, w.voteCount),
+        (sum: number, w: any) =>
+          sum + multiply(w.menuItemSnapshot.price, w.voteCount),
         0
       );
 
       const responsibleItem = resultData.winners.find((w: any) =>
         w.voters.some((v: any) => v.userId === responsibleUserId)
       );
-      const responsibleShare = toNumber(responsibleItem?.menuItemSnapshot.price);
+      const responsibleShare = toNumber(
+        responsibleItem?.menuItemSnapshot.price
+      );
 
       return {
         totalOrder,
@@ -279,7 +326,8 @@ export class BudgetService {
       }
 
       // 1. Получить реквизиты ответственного
-      const responsiblePaymentInfo = await UserService.getPaymentInfo(responsibleUserId);
+      const responsiblePaymentInfo =
+        await UserService.getPaymentInfo(responsibleUserId);
       const responsible = await UserService.getUserById(responsibleUserId);
 
       if (!responsible) {
@@ -291,11 +339,20 @@ export class BudgetService {
       const totals = await this.calculateTotals(pollId, responsibleUserId);
 
       // 3. Отправить ответственному
-      await this.sendResponsibleNotification(pollId, responsible, transactions, totals);
+      await this.sendResponsibleNotification(
+        pollId,
+        responsible,
+        transactions,
+        totals
+      );
 
       // 4. Отправить участникам с реквизитами
       for (const tx of transactions) {
-        await this.sendDebtNotification(tx, responsible, responsiblePaymentInfo);
+        await this.sendDebtNotification(
+          tx,
+          responsible,
+          responsiblePaymentInfo
+        );
       }
 
       // 5. Обновить группу
@@ -315,11 +372,11 @@ export class BudgetService {
     totals: ResponsibleTotals
   ): Promise<void> {
     try {
-      const poll = await PollService.getPollById(pollId) as any;
+      const poll = (await PollService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) return;
 
       const resultData = JSON.parse(poll.result.rouletteData);
-      const pending = transactions.filter((tx) => tx.status === 'PENDING');
+      const pending = transactions.filter(tx => tx.status === 'PENDING');
 
       let message = `🎉 *Ты оформляешь заказ!*\n\n`;
 
@@ -333,7 +390,9 @@ export class BudgetService {
       });
 
       if (resultData.bringOwn.count > 0) {
-        const names = resultData.bringOwn.voters.map((v: any) => v.firstName).join(', ');
+        const names = resultData.bringOwn.voters
+          .map((v: any) => v.firstName)
+          .join(', ');
         message += `🥪 Своё: ${names}\n\n`;
       }
 
@@ -370,15 +429,29 @@ export class BudgetService {
 
       const keyboard = {
         inline_keyboard: [
-          [{ text: 'Все оплатили ✅', callback_data: `budget:all_paid:${pollId}` }],
-          [{ text: 'Напомнить должникам 🔔', callback_data: `budget:remind:${pollId}` }],
+          [
+            {
+              text: 'Все оплатили ✅',
+              callback_data: `budget:all_paid:${pollId}`,
+            },
+          ],
+          [
+            {
+              text: 'Напомнить должникам 🔔',
+              callback_data: `budget:remind:${pollId}`,
+            },
+          ],
         ],
       };
 
-      await botInstance()!.api.sendMessage(Number(responsible.telegramId), message, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard,
-      });
+      await botInstance()!.api.sendMessage(
+        Number(responsible.telegramId),
+        message,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard,
+        }
+      );
 
       logger.info('Responsible notification sent', { userId: responsible.id });
     } catch (error) {
@@ -425,14 +498,23 @@ export class BudgetService {
 
       const keyboard = {
         inline_keyboard: [
-          [{ text: 'Оплатил(а) ✅', callback_data: `budget:mark_paid:${transaction.id}` }],
+          [
+            {
+              text: 'Оплатил(а) ✅',
+              callback_data: `budget:mark_paid:${transaction.id}`,
+            },
+          ],
         ],
       };
 
-      await botInstance()!.api.sendMessage(Number(transaction.fromUser.telegramId), message, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard,
-      });
+      await botInstance()!.api.sendMessage(
+        Number(transaction.fromUser.telegramId),
+        message,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard,
+        }
+      );
 
       logger.info('Debt notification sent', { transactionId: transaction.id });
     } catch (error) {
@@ -443,15 +525,21 @@ export class BudgetService {
   /**
    * Обновление сообщения в группе
    */
-  static async updateGroupMessage(pollId: number, responsible: User, totals: any): Promise<void> {
+  static async updateGroupMessage(
+    pollId: number,
+    responsible: User,
+    totals: any
+  ): Promise<void> {
     try {
       if (!botInstance) return;
 
-      const poll = await PollService.getPollById(pollId) as any;
+      const poll = (await PollService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) return;
 
       const resultData = JSON.parse(poll.result.rouletteData);
-      const selection = await prisma.responsibleSelection.findUnique({ where: { pollId } });
+      const selection = await prisma.responsibleSelection.findUnique({
+        where: { pollId },
+      });
 
       let message = `✅ *Голосование завершено!*\n\n`;
       message += `🎯 *Ответственный:* ${responsible.firstName}\n\n`;
@@ -497,7 +585,8 @@ export class BudgetService {
       });
 
       if (!currentTx) throw new Error('Transaction not found');
-      if (currentTx.status === 'CONFIRMED') throw new Error('Cannot modify confirmed payment');
+      if (currentTx.status === 'CONFIRMED')
+        throw new Error('Cannot modify confirmed payment');
       if (currentTx.status === 'PAID') {
         return await prisma.transaction.findUnique({
           where: { id: txId },
@@ -521,7 +610,14 @@ export class BudgetService {
           {
             parse_mode: 'Markdown',
             reply_markup: {
-              inline_keyboard: [[{ text: 'Подтвердить ✅', callback_data: `budget:confirm:${txId}` }]],
+              inline_keyboard: [
+                [
+                  {
+                    text: 'Подтвердить ✅',
+                    callback_data: `budget:confirm:${txId}`,
+                  },
+                ],
+              ],
             },
           }
         );
@@ -552,7 +648,8 @@ export class BudgetService {
           include: { fromUser: true, toUser: true },
         });
       }
-      if (currentTx.status === 'PENDING') throw new Error('Cannot confirm unpaid transaction');
+      if (currentTx.status === 'PENDING')
+        throw new Error('Cannot confirm unpaid transaction');
 
       const tx = await prisma.transaction.update({
         where: { id: txId },
@@ -581,7 +678,10 @@ export class BudgetService {
             );
             edited = true;
           } catch (e) {
-            logger.warn('Could not edit debt message on confirm, sending new one', { txId });
+            logger.warn(
+              'Could not edit debt message on confirm, sending new one',
+              { txId }
+            );
           }
         }
         if (!edited) {
@@ -607,7 +707,10 @@ export class BudgetService {
   /**
    * Принудительно подтвердить все транзакции по pollId (кнопка "Все оплатили")
    */
-  static async markAllPaidByResponsible(pollId: number, responsibleUserId: number): Promise<void> {
+  static async markAllPaidByResponsible(
+    pollId: number,
+    responsibleUserId: number
+  ): Promise<void> {
     try {
       const transactions = await prisma.transaction.findMany({
         where: {
@@ -619,7 +722,9 @@ export class BudgetService {
       });
 
       if (transactions.length === 0) {
-        logger.info('markAllPaidByResponsible: no pending transactions', { pollId });
+        logger.info('markAllPaidByResponsible: no pending transactions', {
+          pollId,
+        });
         return;
       }
 
@@ -648,7 +753,9 @@ export class BudgetService {
               );
               edited = true;
             } catch (e) {
-              logger.warn('Could not edit debt message on markAllPaid', { txId: tx.id });
+              logger.warn('Could not edit debt message on markAllPaid', {
+                txId: tx.id,
+              });
             }
           }
           if (!edited) {
@@ -660,7 +767,10 @@ export class BudgetService {
         }
       }
 
-      logger.info('All transactions confirmed by responsible', { pollId, count: transactions.length });
+      logger.info('All transactions confirmed by responsible', {
+        pollId,
+        count: transactions.length,
+      });
 
       // Отправляем итоговое сообщение ответственному
       if (botInstance && transactions.length > 0) {
@@ -668,11 +778,14 @@ export class BudgetService {
         await botInstance()!.api.sendMessage(
           Number(transactions[0].toUser.telegramId),
           `🎊 *Все оплатили!*\n\n` +
-          `Ты подтвердил оплату от всех участников\n\n` +
-          `💰 Итого получено: ${totalReceived.toFixed(2)}₽\n\n` +
-          `*Детали:*\n` +
-          transactions.map(tx => `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`).join('\n') +
-          `\n\nСпасибо за организацию! 🙏`,
+            `Ты подтвердил оплату от всех участников\n\n` +
+            `💰 Итого получено: ${totalReceived.toFixed(2)}₽\n\n` +
+            `*Детали:*\n${transactions
+              .map(
+                tx =>
+                  `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`
+              )
+              .join('\n')}\n\nСпасибо за организацию! 🙏`,
           { parse_mode: 'Markdown' }
         );
       }
@@ -686,10 +799,16 @@ export class BudgetService {
    * Отправить напоминания всем PENDING должникам (кнопка "Напомнить должникам")
    * Статический враппер над instance-методом sendRemindersToAll
    */
-  static async remindAllDebtors(pollId: number, responsibleUserId: number): Promise<string> {
+  static async remindAllDebtors(
+    pollId: number,
+    responsibleUserId: number
+  ): Promise<string> {
     try {
       const instance = new BudgetService();
-      const result = await instance.sendRemindersToAll(pollId, responsibleUserId);
+      const result = await instance.sendRemindersToAll(
+        pollId,
+        responsibleUserId
+      );
 
       if (result.totalCount === 0) {
         return '✅ Все уже оплатили — напоминать некому!';
@@ -710,14 +829,17 @@ export class BudgetService {
   /**
    * Проверка "Все оплатили"
    */
-  static async checkAllPaid(pollId: number, responsibleUserId: number): Promise<void> {
+  static async checkAllPaid(
+    pollId: number,
+    responsibleUserId: number
+  ): Promise<void> {
     try {
       const allTx = await prisma.transaction.findMany({
         where: { pollId, toUserId: responsibleUserId },
         include: { fromUser: true, toUser: true },
       });
 
-      const allConfirmed = allTx.every((tx) => tx.status === 'CONFIRMED');
+      const allConfirmed = allTx.every(tx => tx.status === 'CONFIRMED');
 
       if (allConfirmed && allTx.length > 0 && botInstance) {
         const totalReceived = sumDecimals(allTx.map(tx => tx.amount));
@@ -727,9 +849,12 @@ export class BudgetService {
           `🎊 *Все оплатили!*\n\n` +
             `Все участники подтвердили оплату\n\n` +
             `💰 Получено: ${totalReceived.toFixed(2)}₽\n\n` +
-            `*Подробности:*\n${ 
-            allTx.map((tx) => `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`).join('\n') 
-            }\n\nСпасибо за организацию! 🙏`,
+            `*Подробности:*\n${allTx
+              .map(
+                tx =>
+                  `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`
+              )
+              .join('\n')}\n\nСпасибо за организацию! 🙏`,
           { parse_mode: 'Markdown' }
         );
 
@@ -790,7 +915,7 @@ export class BudgetService {
         where,
         include: {
           fromUser: true, // Кто должен (сам пользователь)
-          toUser: true,   // Кому должен
+          toUser: true, // Кому должен
           menuItem: true,
           poll: {
             include: {
@@ -863,12 +988,15 @@ export class BudgetService {
         where: { id: transactionId },
         include: { fromUser: true },
       });
-      
+
       if (!tx) {
         throw new Error('Transaction not found');
       }
-      
-      return BudgetService.markAsPaid(transactionId, Number(tx.fromUser.telegramId));
+
+      return BudgetService.markAsPaid(
+        transactionId,
+        Number(tx.fromUser.telegramId)
+      );
     } catch (error) {
       logger.error('Error marking as paid:', error);
       throw error;
@@ -880,6 +1008,16 @@ export class BudgetService {
    */
   async confirmPayment(transactionId: number) {
     return BudgetService.confirmPayment(transactionId);
+  }
+
+  /**
+   * Подтвердить все непогашенные платежи по заказу от имени ответственного.
+   */
+  async markAllPaidByResponsible(
+    pollId: number,
+    responsibleUserId: number
+  ): Promise<void> {
+    return BudgetService.markAllPaidByResponsible(pollId, responsibleUserId);
   }
 
   /**
@@ -911,8 +1049,8 @@ export class BudgetService {
 
       const tx = await prisma.transaction.update({
         where: { id: transactionId },
-        data: { 
-          status: 'PENDING', 
+        data: {
+          status: 'PENDING',
           paidAt: null,
           // ✅ FIX: Очищаем confirmedAt при отмене
           confirmedAt: null,
@@ -959,17 +1097,16 @@ export class BudgetService {
       });
 
       // Расчет статистики
-      const debts = transactions.filter((tx) => tx.fromUserId === userId);
-      const credits = transactions.filter((tx) => tx.toUserId === userId);
+      const debts = transactions.filter(tx => tx.fromUserId === userId);
+      const credits = transactions.filter(tx => tx.toUserId === userId);
 
       const totalSpent = sumDecimals(debts.map(tx => tx.amount));
       const totalReceived = sumDecimals(credits.map(tx => tx.amount));
       const balance = totalReceived - totalSpent;
 
-      const confirmedDebts = debts.filter((tx) => tx.status === 'CONFIRMED');
-      const averagePerOrder = confirmedDebts.length > 0 
-        ? totalSpent / confirmedDebts.length 
-        : 0;
+      const confirmedDebts = debts.filter(tx => tx.status === 'CONFIRMED');
+      const averagePerOrder =
+        confirmedDebts.length > 0 ? totalSpent / confirmedDebts.length : 0;
 
       // Количество раз был ответственным
       const timesResponsible = await prisma.responsibleSelection.count({
@@ -1000,7 +1137,7 @@ export class BudgetService {
         timesResponsible,
         totalOrders: debts.length,
         confirmedOrders: confirmedDebts.length,
-        pendingOrders: debts.filter((tx) => tx.status === 'PENDING').length,
+        pendingOrders: debts.filter(tx => tx.status === 'PENDING').length,
         topDishes,
       };
     } catch (error) {
@@ -1029,7 +1166,11 @@ export class BudgetService {
   > {
     // Проверяем, что запрашивающий - это получатель платежа
     if (transaction.toUserId !== requestingUserId) {
-      return { ok: false, error: 'Only creditor can send reminders', errorCode: 'unknown' };
+      return {
+        ok: false,
+        error: 'Only creditor can send reminders',
+        errorCode: 'unknown',
+      };
     }
 
     if (!botInstance) {
@@ -1057,7 +1198,10 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
 
     // Отправляем уведомление
     try {
-      await botInstance()!.api.sendMessage(Number(transaction.fromUser.telegramId), message);
+      await botInstance()!.api.sendMessage(
+        Number(transaction.fromUser.telegramId),
+        message
+      );
       return { ok: true, message };
     } catch (sendError: any) {
       // Классифицируем ошибку Telegram API
@@ -1076,7 +1220,10 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
   /**
    * Отправить напоминание должнику
    */
-  async sendReminder(transactionId: number, requestingUserId: number): Promise<SendReminderResult> {
+  async sendReminder(
+    transactionId: number,
+    requestingUserId: number
+  ): Promise<SendReminderResult> {
     try {
       const transaction = await prisma.transaction.findUnique({
         where: { id: transactionId },
@@ -1102,7 +1249,11 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       const result = await this.deliverReminder(transaction, requestingUserId);
 
       if (!result.ok) {
-        return { success: false, error: result.error, errorCode: result.errorCode };
+        return {
+          success: false,
+          error: result.error,
+          errorCode: result.errorCode,
+        };
       }
 
       // Сохраняем запись о напоминании
@@ -1124,7 +1275,10 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         },
       });
 
-      logger.info('Reminder sent successfully', { transactionId, fromUserId: transaction.fromUserId });
+      logger.info('Reminder sent successfully', {
+        transactionId,
+        fromUserId: transaction.fromUserId,
+      });
       return { success: true };
     } catch (error) {
       logger.error('Error in sendReminder:', error);
@@ -1139,7 +1293,10 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
   /**
    * Отправить напоминания всем должникам (для ответственного)
    */
-  async sendRemindersToAll(pollId: number, requestingUserId: number): Promise<SendRemindersResult> {
+  async sendRemindersToAll(
+    pollId: number,
+    requestingUserId: number
+  ): Promise<SendRemindersResult> {
     try {
       // Получаем все pending транзакции для этого poll (со всеми связями для рассылки)
       const transactions = await prisma.transaction.findMany({
@@ -1165,11 +1322,17 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       const sentReminders: { transactionId: number; message: string }[] = [];
 
       for (const transaction of transactions) {
-        const result = await this.deliverReminder(transaction, requestingUserId);
+        const result = await this.deliverReminder(
+          transaction,
+          requestingUserId
+        );
 
         if (result.ok) {
           sentCount++;
-          sentReminders.push({ transactionId: transaction.id, message: result.message });
+          sentReminders.push({
+            transactionId: transaction.id,
+            message: result.message,
+          });
         } else {
           failedUsers.push({
             id: transaction.fromUser.id,
@@ -1234,7 +1397,12 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
   async setOrderCosts(
     pollId: number,
     userId: number,
-    costs: { deliveryCost: number; serviceFee: number; tip: number; notes?: string }
+    costs: {
+      deliveryCost: number;
+      serviceFee: number;
+      tip: number;
+      notes?: string;
+    }
   ) {
     try {
       // Verify user is the responsible person for this poll
@@ -1250,7 +1418,9 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         throw new Error('Poll not found');
       }
 
-      const responsibleUserId = poll.result?.responsibleUserId || poll.responsibleSelection?.selectedUserId;
+      const responsibleUserId =
+        poll.result?.responsibleUserId ||
+        poll.responsibleSelection?.selectedUserId;
 
       if (responsibleUserId !== userId) {
         throw new Error('Only responsible person can set order costs');
@@ -1259,7 +1429,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       // Atomic: upsert costs + recalculate all transactions in a single tx.
       // Without this, a crash between upsert and recalc leaves costs saved but
       // transactions still at old amounts (silent state drift seen by users).
-      const orderCosts = await prisma.$transaction(async (tx) => {
+      const orderCosts = await prisma.$transaction(async tx => {
         const upserted = await tx.pollOrderCosts.upsert({
           where: { pollId },
           create: {
@@ -1286,20 +1456,33 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         if (transactions.length > 0) {
           // Делёж считаем на ВСЕХ участников (знаменатель неизменный), чтобы
           // сумма расходов сходилась: заплатившие уже внесли свою долю при оплате.
-          const participantsCount = transactions.length;
-          const deliveryShare = toNumber(upserted.deliveryCost) / participantsCount;
-          const serviceShare = toNumber(upserted.serviceFee) / participantsCount;
+          const participantIds = new Set<number>();
+          transactions.forEach(transaction => {
+            if (typeof transaction.fromUserId === 'number') {
+              participantIds.add(transaction.fromUserId);
+            }
+            if (typeof transaction.toUserId === 'number') {
+              participantIds.add(transaction.toUserId);
+            }
+          });
+
+          const participantsCount = participantIds.size || transactions.length;
+          const deliveryShare =
+            toNumber(upserted.deliveryCost) / participantsCount;
+          const serviceShare =
+            toNumber(upserted.serviceFee) / participantsCount;
           const tipShare = toNumber(upserted.tip) / participantsCount;
 
           // Пересчитываем только ещё не оплаченные долги. PAID/CONFIRMED
           // замораживаем — сумма уже рассчитанного долга не должна меняться
           // задним числом, если ответственный позже правит расходы.
           const pendingTransactions = transactions.filter(
-            (transaction) => transaction.status === 'PENDING',
+            transaction => transaction.status === 'PENDING'
           );
           for (const transaction of pendingTransactions) {
             const itemPrice = toNumber(transaction.menuItem?.price);
-            const newAmount = itemPrice + deliveryShare + serviceShare + tipShare;
+            const newAmount =
+              itemPrice + deliveryShare + serviceShare + tipShare;
             await tx.transaction.update({
               where: { id: transaction.id },
               data: {
@@ -1316,7 +1499,10 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         return upserted;
       });
 
-      logger.info('Order costs set and transactions recalculated atomically', { pollId, orderCosts });
+      logger.info('Order costs set and transactions recalculated atomically', {
+        pollId,
+        orderCosts,
+      });
 
       return orderCosts;
     } catch (error) {
@@ -1339,7 +1525,6 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
     }
   }
 
-
   /**
    * Get detailed cost breakdown for a poll
    */
@@ -1355,24 +1540,49 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
 
       const orderCosts = await this.getOrderCosts(pollId);
 
-      const transactionBreakdowns = transactions.map((tx) => ({
-        transactionId: tx.id,
-        userId: tx.fromUserId,
-        userName: tx.fromUser.firstName,
-        menuItemName: tx.menuItem?.name || 'Unknown',
-        itemPrice: toNumber(tx.itemPrice),
-        deliveryShare: toNumber(tx.deliveryShare),
-        serviceShare: toNumber(tx.serviceShare),
-        tipShare: toNumber(tx.tipShare),
-        totalAmount: toNumber(tx.amount),
-        status: tx.status as 'PENDING' | 'PAID' | 'CONFIRMED',
-      }));
+      const participantIds = new Set<number>();
+      const transactionBreakdowns = transactions.map(tx => {
+        participantIds.add(tx.fromUserId);
+        participantIds.add(tx.toUserId);
 
-      const totalItemsCost = transactionBreakdowns.reduce((sum, tx) => sum + tx.itemPrice, 0);
+        const deliveryShare = toNumber(tx.deliveryShare);
+        const serviceShare = toNumber(tx.serviceShare);
+        const tipShare = toNumber(tx.tipShare);
+        const totalAmount = toNumber(tx.amount);
+        const menuItemPrice =
+          tx.menuItem?.price != null ? toNumber(tx.menuItem.price) : null;
+        const itemPrice =
+          tx.itemPrice != null
+            ? toNumber(tx.itemPrice)
+            : (menuItemPrice ??
+              Math.max(
+                0,
+                totalAmount - deliveryShare - serviceShare - tipShare
+              ));
+
+        return {
+          transactionId: tx.id,
+          userId: tx.fromUserId,
+          userName: tx.fromUser.firstName,
+          menuItemName: tx.menuItem?.name || 'Unknown',
+          itemPrice,
+          deliveryShare,
+          serviceShare,
+          tipShare,
+          totalAmount,
+          status: tx.status as 'PENDING' | 'PAID' | 'CONFIRMED',
+        };
+      });
+
+      const totalItemsCost = transactionBreakdowns.reduce(
+        (sum, tx) => sum + tx.itemPrice,
+        0
+      );
       const totalDeliveryCost = toNumber(orderCosts?.deliveryCost);
       const totalServiceFee = toNumber(orderCosts?.serviceFee);
       const totalTip = toNumber(orderCosts?.tip);
-      const grandTotal = totalItemsCost + totalDeliveryCost + totalServiceFee + totalTip;
+      const grandTotal =
+        totalItemsCost + totalDeliveryCost + totalServiceFee + totalTip;
 
       return {
         pollId,
@@ -1381,7 +1591,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         totalServiceFee,
         totalTip,
         grandTotal,
-        participantsCount: transactions.length,
+        participantsCount: participantIds.size || transactions.length,
         transactions: transactionBreakdowns,
         orderCosts: orderCosts
           ? {
@@ -1410,7 +1620,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
    * Идемпотентно: если для данного storeRunId транзакции уже есть — возвращает существующие.
    */
   static async createTransactionsForStoreRun(
-    storeRunId: number,
+    storeRunId: number
   ): Promise<Transaction[]> {
     try {
       const storeRun = await prisma.storeRun.findUnique({
@@ -1427,7 +1637,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         (item: StoreItem) =>
           item.status === 'BOUGHT' &&
           item.price != null &&
-          item.userId !== storeRun.initiatorId,
+          item.userId !== storeRun.initiatorId
       );
 
       if (boughtItems.length === 0) {
@@ -1435,7 +1645,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         return [];
       }
 
-      const data = boughtItems.map((item) => {
+      const data = boughtItems.map(item => {
         const amount = item.price as Prisma.Decimal;
         return {
           storeRunId,
@@ -1484,7 +1694,9 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
   static async notifyStoreRunSettled(storeRunId: number): Promise<void> {
     try {
       if (!botInstance()) {
-        logger.error('notifyStoreRunSettled: bot not initialized', { storeRunId });
+        logger.error('notifyStoreRunSettled: bot not initialized', {
+          storeRunId,
+        });
         return;
       }
 
@@ -1499,7 +1711,9 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         include: { fromUser: true, storeItem: true },
       });
       if (transactions.length === 0) {
-        logger.info('notifyStoreRunSettled: no pending transactions', { storeRunId });
+        logger.info('notifyStoreRunSettled: no pending transactions', {
+          storeRunId,
+        });
         return;
       }
 
@@ -1515,7 +1729,12 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       }
 
       for (const [, txs] of byDebtor) {
-        await this.sendStoreRunDebtNotification(storeRun, txs, initiator, paymentInfo);
+        await this.sendStoreRunDebtNotification(
+          storeRun,
+          txs,
+          initiator,
+          paymentInfo
+        );
       }
 
       await this.sendStoreRunCreditorSummary(storeRun, transactions, byDebtor);
@@ -1535,12 +1754,12 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
     storeRun: any,
     txs: any[],
     initiator: User,
-    paymentInfo: PaymentInfo | null,
+    paymentInfo: PaymentInfo | null
   ): Promise<void> {
     try {
       if (!botInstance() || txs.length === 0) return;
       const debtor = txs[0].fromUser;
-      const total = sumDecimals(txs.map((t) => t.amount));
+      const total = sumDecimals(txs.map(t => t.amount));
 
       let message = `🛒 *Заказ из «${storeRun.storeName}» собран*\n\n`;
       message += `*Твои позиции:*\n`;
@@ -1553,7 +1772,11 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       if (initiator.lastName) message += ` ${initiator.lastName}`;
       message += `\n\n`;
 
-      if (paymentInfo?.paymentCard || paymentInfo?.paymentPhone || paymentInfo?.paymentDetails) {
+      if (
+        paymentInfo?.paymentCard ||
+        paymentInfo?.paymentPhone ||
+        paymentInfo?.paymentDetails
+      ) {
         message += `💳 *Реквизиты:*\n`;
         if (paymentInfo.paymentCard) {
           message += `💳 Карта: ${this.maskCardNumber(paymentInfo.paymentCard)}\n`;
@@ -1570,7 +1793,12 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
 
       const keyboard = {
         inline_keyboard: [
-          [{ text: 'Оплатил(а) ✅', callback_data: `budget:srun_paid:${storeRun.id}` }],
+          [
+            {
+              text: 'Оплатил(а) ✅',
+              callback_data: `budget:srun_paid:${storeRun.id}`,
+            },
+          ],
         ],
       };
 
@@ -1592,11 +1820,11 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
   private static async sendStoreRunCreditorSummary(
     storeRun: any,
     transactions: any[],
-    byDebtor: Map<number, any[]>,
+    byDebtor: Map<number, any[]>
   ): Promise<void> {
     try {
       if (!botInstance()) return;
-      const total = sumDecimals(transactions.map((t) => t.amount));
+      const total = sumDecimals(transactions.map(t => t.amount));
 
       let message = `🛍 *Забег «${storeRun.storeName}» закрыт*\n\n`;
       message += `Разослал участникам суммы и твои реквизиты.\n\n`;
@@ -1604,13 +1832,17 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       message += `*Ждём перевод:*\n`;
       for (const [, txs] of byDebtor) {
         const debtor = txs[0].fromUser;
-        const sub = sumDecimals(txs.map((t) => t.amount));
+        const sub = sumDecimals(txs.map(t => t.amount));
         message += `• ${debtor.firstName} — ${formatCurrency(sub)}\n`;
       }
 
-      await botInstance()!.api.sendMessage(Number(storeRun.initiator.telegramId), message, {
-        parse_mode: 'Markdown',
-      });
+      await botInstance()!.api.sendMessage(
+        Number(storeRun.initiator.telegramId),
+        message,
+        {
+          parse_mode: 'Markdown',
+        }
+      );
     } catch (error) {
       logger.error('Error sending store run creditor summary:', error);
     }
@@ -1623,7 +1855,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
    */
   static async markStoreRunPaidByDebtor(
     storeRunId: number,
-    debtorTelegramId: number,
+    debtorTelegramId: number
   ): Promise<{ count: number; total: string } | null> {
     const debtor = await prisma.user.findFirst({
       where: { telegramId: BigInt(debtorTelegramId) },
@@ -1641,7 +1873,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       data: { status: 'PAID', paidAt: now() },
     });
 
-    const total = sumDecimals(txs.map((t) => t.amount));
+    const total = sumDecimals(txs.map(t => t.amount));
     const initiator = txs[0].toUser;
 
     if (botInstance()) {
@@ -1660,7 +1892,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
               ],
             ],
           },
-        },
+        }
       );
     }
 
@@ -1680,7 +1912,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
   static async confirmStoreRunByDebtor(
     storeRunId: number,
     debtorUserId: number,
-    confirmerTelegramId: number,
+    confirmerTelegramId: number
   ): Promise<{ count: number } | { error: 'no_tx' | 'forbidden' }> {
     const txs = await prisma.transaction.findMany({
       where: {
@@ -1707,12 +1939,12 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
     });
 
     const debtor = txs[0].fromUser;
-    const total = sumDecimals(txs.map((t) => t.amount));
+    const total = sumDecimals(txs.map(t => t.amount));
 
     if (botInstance()) {
       await botInstance()!.api.sendMessage(
         Number(debtor.telegramId),
-        `✅ Оплата подтверждена!\n\n${initiator.firstName} подтвердил(а) получение ${formatCurrency(total)}\n\nСпасибо! 🎉`,
+        `✅ Оплата подтверждена!\n\n${initiator.firstName} подтвердил(а) получение ${formatCurrency(total)}\n\nСпасибо! 🎉`
       );
     }
 

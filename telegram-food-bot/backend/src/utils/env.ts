@@ -81,7 +81,7 @@ export function validateEnv(): Env {
     const issues = parsed.error.issues.map(
       (i) => `  - ${i.path.join('.')}: ${i.message}`,
     );
-    logger.error('🚨 ENV VALIDATION FAILED:\n' + issues.join('\n'));
+    logger.error(`🚨 ENV VALIDATION FAILED:\n${  issues.join('\n')}`);
     // Fail fast — don't let a broken config stagger into mid-flight handler crashes.
     throw new Error(
       `Invalid environment configuration (${parsed.error.issues.length} issue(s)). See logs above.`,

@@ -2,10 +2,8 @@ import { Request, Response } from 'express';
 import { validateMenuItemData } from '../../../api/middleware/validation';
 
 /**
- * Регрессия: multi-tenant create блюда падал с MISSING_GROUP_ID, потому что
- * createMenuItemSchema (z.object) срезал groupId из body при `req.body = result.data`.
- * Фронт на create шлёт groupId только в теле → контроллер видел undefined → 400.
- * Тест фиксирует, что groupId сохраняется в body после валидации.
+ * Регрессия: создание блюда должно сохранять целевую группу после валидации.
+ * Основной контракт — groupIds, старый одиночный groupId нормализуется в groupIds.
  */
 function makeRes(): Response {
   const r: any = { statusCode: 0, body: null };
@@ -15,7 +13,19 @@ function makeRes(): Response {
 }
 
 describe('validateMenuItemData — groupId passthrough (multi-tenant)', () => {
-  it('POST: сохраняет groupId из тела (не срезает)', () => {
+  it('POST: сохраняет groupIds из тела', () => {
+    const req = { method: 'POST', body: { name: 'Пицца', price: 2123, isActive: true, groupIds: [26] } } as Request;
+    const res = makeRes();
+    const next = jest.fn();
+
+    validateMenuItemData(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect((req.body).groupIds).toEqual([26]);
+    expect((req.body).name).toBe('Пицца');
+  });
+
+  it('POST: старый groupId нормализуется в groupIds', () => {
     const req = { method: 'POST', body: { name: 'Пицца', price: 2123, isActive: true, groupId: 26 } } as Request;
     const res = makeRes();
     const next = jest.fn();
@@ -23,19 +33,21 @@ describe('validateMenuItemData — groupId passthrough (multi-tenant)', () => {
     validateMenuItemData(req, res, next);
 
     expect(next).toHaveBeenCalled();
-    expect((req.body as any).groupId).toBe(26);
-    expect((req.body as any).name).toBe('Пицца');
+    expect((req.body).groupId).toBe(26);
+    expect((req.body).groupIds).toEqual([26]);
+    expect((req.body).name).toBe('Пицца');
   });
 
-  it('POST без groupId: валидацию проходит (optional), groupId остаётся undefined', () => {
+  it('POST без groupIds/groupId: возвращает 400 VALIDATION_ERROR', () => {
     const req = { method: 'POST', body: { name: 'Суп', isActive: true } } as Request;
     const res = makeRes();
     const next = jest.fn();
 
     validateMenuItemData(req, res, next);
 
-    expect(next).toHaveBeenCalled();
-    expect((req.body as any).groupId).toBeUndefined();
+    expect(next).not.toHaveBeenCalled();
+    expect((res as any).statusCode).toBe(400);
+    expect((res as any).body.code).toBe('VALIDATION_ERROR');
   });
 
   it('PUT (update): срезает groupId из тела — блюдо нельзя перенести в другую группу (F2)', () => {
@@ -46,9 +58,9 @@ describe('validateMenuItemData — groupId passthrough (multi-tenant)', () => {
     validateMenuItemData(req, res, next);
 
     expect(next).toHaveBeenCalled();
-    expect((req.body as any).name).toBe('Ролл');
+    expect((req.body).name).toBe('Ролл');
     // groupId запрещён на обновлении — схема его отбрасывает.
-    expect((req.body as any).groupId).toBeUndefined();
+    expect((req.body).groupId).toBeUndefined();
   });
 
   it('POST: невалидное имя → 400 VALIDATION_ERROR', () => {

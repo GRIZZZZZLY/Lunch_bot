@@ -51,7 +51,7 @@ export const MenuRow = memo(({
     setIsToggling(true);
     hapticFeedback?.impactOccurred('light');
     try {
-      await onToggle?.(item.id);
+       onToggle?.(item.id);
     } finally {
       setIsToggling(false);
     }

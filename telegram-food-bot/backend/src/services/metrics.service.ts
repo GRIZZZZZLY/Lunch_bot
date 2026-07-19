@@ -314,11 +314,16 @@ class MetricsService {
 export const metricsService = new MetricsService();
 
 // Сброс счётчика ошибок каждые 24 часа
-setInterval(() => {
+const errorResetInterval = setInterval(() => {
   metricsService.resetErrorCount();
 }, 24 * 60 * 60 * 1000);
 
 // Сбор метрик каждые 60 секунд
-setInterval(async () => {
+const metricsCollectionInterval = setInterval(async () => {
   await metricsService.collectMetrics();
 }, 60 * 1000);
+
+// Фоновые метрики не должны удерживать Node.js процесс после завершения тестов
+// или graceful shutdown. Пока сервер работает, интервалы продолжают выполняться.
+errorResetInterval.unref();
+metricsCollectionInterval.unref();

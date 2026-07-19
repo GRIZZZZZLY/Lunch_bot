@@ -130,7 +130,9 @@ export const useOnboarding = (): OnboardingState => {
     isFirstLaunch,
     isModalOpen,
     showOnboarding,
-    completeOnboarding
+    completeOnboarding: () => {
+      void completeOnboarding();
+    },
   };
 };
 

@@ -69,10 +69,10 @@ export interface FileValidationResult {
 }
 
 // 5MB максимум
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const _MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 // Разрешенные MIME types
-const ALLOWED_IMAGE_TYPES = [
+const _ALLOWED_IMAGE_TYPES = [
   'image/jpeg',
   'image/jpg',
   'image/png',

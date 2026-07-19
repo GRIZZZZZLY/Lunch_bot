@@ -26,7 +26,7 @@ export const SuggestionsPage: React.FC = () => {
 
   const handleRefresh = () => {
     hapticFeedback?.impactOccurred('light');
-    refetch();
+    void refetch();
   };
 
   const handleTabChange = (tab: TabType) => {

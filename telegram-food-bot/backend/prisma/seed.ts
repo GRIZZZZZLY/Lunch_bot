@@ -173,7 +173,7 @@ async function main() {
 }
 
 main()
-  .catch((e) => {
+  .catch((e: unknown) => {
     console.error('❌ Error seeding database:', e);
     process.exit(1);
   })

@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Deployment environment'
+        description: Deployment environment
         required: true
-        default: 'production'
+        default: production
         type: choice
         options:
           - production
@@ -15,130 +15,167 @@ on:
     tags:
       - 'v*.*.*'
 
+concurrency:
+  group: deploy-${{ inputs.environment || 'production' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   deploy:
-    name: Deploy to ${{ inputs.environment || 'production' }}
+    name: Deploy immutable release
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment || 'production' }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.8.0
+        uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      
-      - name: Add server to known hosts
+
+      - name: Add server host key
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-      
-      - name: Deploy to server
+          install -d -m 700 ~/.ssh
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+
+      - name: Build and activate release
         env:
           SERVER_USER: ${{ secrets.SERVER_USER }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_PATH: ${{ secrets.SERVER_PATH }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_REF: ${{ github.ref_name }}
         run: |
-          echo "🚀 Deploying to ${{ inputs.environment || 'production' }}..."
-          
-          ssh $SERVER_USER@$SERVER_HOST << 'ENDSSH'
-            cd $SERVER_PATH
-            
-            # Pull latest changes
-            echo "📥 Pulling latest changes..."
-            git fetch --all
-            git checkout ${{ github.ref_name }}
-            git pull origin ${{ github.ref_name }}
-            
-            # Install dependencies
-            echo "📦 Installing dependencies..."
-            cd backend && npm ci --production
-            cd ../frontend && npm ci
-            
-            # Build frontend
-            echo "🏗️  Building frontend..."
-            npm run build
-            
-            # Run database migrations
-            echo "🗄️  Running migrations..."
-            cd ../backend
-            npm run db:migrate:prod
-            npm run db:generate
-            
-            # Restart services
-            echo "🔄 Restarting services..."
-            pm2 restart telegram-food-bot-backend || pm2 start dist/index.js --name telegram-food-bot-backend
-            
-            echo "✅ Deployment completed!"
-          ENDSSH
-      
-      - name: Health check
-        run: |
-          echo "🏥 Running health check..."
-          sleep 10
-          
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.SERVER_HOST }}/api/health)
-          
-          if [ "$response" = "200" ]; then
-            echo "✅ Health check passed!"
-          else
-            echo "❌ Health check failed! HTTP $response"
-            exit 1
+          ssh "$SERVER_USER@$SERVER_HOST" bash -s -- \
+            "$SERVER_PATH" "$DEPLOY_SHA" "$DEPLOY_REF" <<'ENDSSH'
+          set -euo pipefail
+
+          repository=$1
+          deploy_sha=$2
+          deploy_ref=$3
+          release_root="${repository%/}-releases"
+          release_dir="$release_root/$deploy_sha"
+          current_link="$release_root/current"
+          previous_file="$release_root/.previous-release"
+
+          git -C "$repository" fetch --prune origin "$deploy_ref"
+          git -C "$repository" rev-parse --verify "$deploy_sha^{commit}" >/dev/null
+          mkdir -p "$release_root"
+
+          if [ ! -d "$release_dir" ]; then
+            git -C "$repository" worktree add --detach "$release_dir" "$deploy_sha"
           fi
-      
-      - name: Notify deployment status
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const status = '${{ job.status }}' === 'success' ? '✅ Success' : '❌ Failed';
-            const message = `
-              ## Deployment ${status}
-              
-              **Environment:** ${{ inputs.environment || 'production' }}
-              **Ref:** ${{ github.ref_name }}
-              **Commit:** ${{ github.sha }}
-              **Actor:** @${{ github.actor }}
-            `;
-            
-            github.rest.repos.createCommitComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.sha,
-              body: message
-            });
+
+          test -f "$repository/backend/.env"
+          install -m 600 "$repository/backend/.env" "$release_dir/backend/.env"
+          if [ -f "$repository/frontend/.env" ]; then
+            install -m 600 "$repository/frontend/.env" "$release_dir/frontend/.env"
+          fi
+
+          (
+            cd "$release_dir/backend"
+            npm ci
+            npm run db:generate
+            npm run build:prod
+          )
+
+          (
+            cd "$release_dir/frontend"
+            npm ci
+            npm run build
+          )
+
+          (
+            cd "$release_dir/backend"
+            npm run db:migrate:prod
+          )
+
+          if [ -L "$current_link" ]; then
+            readlink -f "$current_link" > "$previous_file"
+          else
+            : > "$previous_file"
+          fi
+
+          ln -sfn "$release_dir" "$release_root/current.next"
+          mv -Tf "$release_root/current.next" "$current_link"
+
+          APP_ROOT="$release_dir" \
+          BACKEND_ENV_FILE="$release_dir/backend/.env" \
+            pm2 startOrReload "$release_dir/ecosystem.config.js" \
+              --only rocket-lunch-bot --update-env
+          pm2 save
+
+          for attempt in 1 2 3 4 5 6; do
+            if curl --fail --silent --show-error http://127.0.0.1:3001/health >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo 'Local health check failed' >&2
+          exit 1
+          ENDSSH
+
+      - name: Check public health endpoint
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 5 "https://$SERVER_HOST/health"
 
   rollback:
-    name: Rollback (if deployment fails)
+    name: Restore previous release
     runs-on: ubuntu-latest
     needs: deploy
     if: failure()
     environment: ${{ inputs.environment || 'production' }}
-    
+
     steps:
       - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.8.0
+        uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      
-      - name: Rollback deployment
+
+      - name: Add server host key
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          install -d -m 700 ~/.ssh
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+
+      - name: Reactivate previous immutable release
         env:
           SERVER_USER: ${{ secrets.SERVER_USER }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_PATH: ${{ secrets.SERVER_PATH }}
         run: |
-          echo "⏪ Rolling back deployment..."
-          
-          ssh $SERVER_USER@$SERVER_HOST << 'ENDSSH'
-            cd $SERVER_PATH
-            
-            # Revert to previous commit
-            git reset --hard HEAD^
-            
-            # Restart services
-            pm2 restart telegram-food-bot-backend
-            
-            echo "✅ Rollback completed!"
+          ssh "$SERVER_USER@$SERVER_HOST" bash -s -- "$SERVER_PATH" <<'ENDSSH'
+          set -euo pipefail
+
+          repository=$1
+          release_root="${repository%/}-releases"
+          previous_file="$release_root/.previous-release"
+          current_link="$release_root/current"
+          test -s "$previous_file"
+
+          previous_release=$(cat "$previous_file")
+          case "$previous_release" in
+            "$release_root"/*) ;;
+            *) echo 'Unsafe previous release path' >&2; exit 1 ;;
+          esac
+          test -d "$previous_release"
+
+          ln -sfn "$previous_release" "$release_root/current.next"
+          mv -Tf "$release_root/current.next" "$current_link"
+          APP_ROOT="$previous_release" \
+          BACKEND_ENV_FILE="$previous_release/backend/.env" \
+            pm2 startOrReload "$previous_release/ecosystem.config.js" \
+              --only rocket-lunch-bot --update-env
+          pm2 save
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 \
+            http://127.0.0.1:3001/health >/dev/null
           ENDSSH

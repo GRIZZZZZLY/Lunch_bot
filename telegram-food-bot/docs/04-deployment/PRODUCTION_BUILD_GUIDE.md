@@ -316,7 +316,7 @@ pm2 restart all
 
 См. также:
 - `docs/DEVELOPMENT_VS_PRODUCTION.md` - подробное сравнение
-- `TIMEWEB_DEPLOY.md` - деплой на реальный VPS
+- `README.md` - деплой на реальный VPS
 - `TESTING_GUIDE.md` - тестирование
 
 ---

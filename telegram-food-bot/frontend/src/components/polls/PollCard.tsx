@@ -46,6 +46,7 @@ export const PollCard = ({
 
   const timeRemaining = poll.endTime ? pollsService.formatTimeRemaining(poll.endTime) : null;
   const formattedDate = pollsService.formatPollDate(poll.createdAt);
+  const voteCount = poll._count?.votes ?? 0;
 
   const statusText = poll.status === 'ACTIVE' ? 'Активно' : 'Завершено';
 
@@ -97,7 +98,7 @@ export const PollCard = ({
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-1.5 text-gray-600 dark:text-gray-400">
             <Users className={cn(ICON_SIZES.sm, "text-primary-food-500")} />
-            <span className="font-medium">{poll._count.votes}</span>
+            <span className="font-medium">{voteCount}</span>
             <span className="text-xs">голосов</span>
           </div>
 
@@ -122,14 +123,14 @@ export const PollCard = ({
         <div className="mb-3">
           <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1.5">
             <span className="font-medium">Участие</span>
-            <span>{poll._count.votes} участников</span>
+            <span>{voteCount} участников</span>
           </div>
           <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
             <m.div
               initial={{ scaleX: 0 }}
               animate={{
                 scaleX: Math.min(
-                  poll._count.votes / Math.max(poll._count.votes, 10),
+                  voteCount / Math.max(voteCount, 10),
                   1
                 ),
               }}

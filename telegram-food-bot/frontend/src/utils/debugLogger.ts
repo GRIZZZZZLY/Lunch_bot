@@ -72,7 +72,7 @@ class DebugLogger {
       try {
         const parsed = JSON.parse(poll.selectedMenuItemIds);
         console.log('%cParsed IDs:', DEBUG_STYLES.data, parsed);
-      } catch (e) {
+      } catch (_e) {
         console.warn('Failed to parse selectedMenuItemIds');
       }
     }

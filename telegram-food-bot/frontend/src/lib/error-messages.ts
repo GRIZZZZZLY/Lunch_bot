@@ -53,7 +53,7 @@ export const ERROR_MESSAGES = {
 export function getHumanErrorMessage(error: any): string {
   // Если это уже человечное сообщение (начинается с emoji или русских букв)
   const errorMessage = error?.message || error?.error || String(error);
-  if (/^[🔐🗳️📋❌💳📱📢🌐⏱️⏰🔍✅🔧💾📊]/u.test(errorMessage)) {
+  if (/^(?:\p{Extended_Pictographic}|\p{Script=Cyrillic})/u.test(errorMessage)) {
     return errorMessage;
   }
   

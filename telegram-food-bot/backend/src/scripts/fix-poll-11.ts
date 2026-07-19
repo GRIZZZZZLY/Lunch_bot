@@ -39,7 +39,7 @@ async function fixPoll11() {
     }
 
     // Вычисляем когда должно было закончиться
-    const calculatedEndedAt = new Date(poll.startedAt!.getTime() + poll.duration * 60 * 1000);
+    const calculatedEndedAt = new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
     console.log(`Calculated end time: ${calculatedEndedAt.toISOString()}`);
     console.log(`Current time: ${new Date().toISOString()}`);
     console.log('');
@@ -75,7 +75,7 @@ fixPoll11()
   .then(() => {
     process.exit(0);
   })
-  .catch((error) => {
+  .catch((error: unknown) => {
     console.error('Script failed:', error);
     process.exit(1);
   });

@@ -50,7 +50,7 @@ export const BudgetWidgetCompact = ({
     onSuccess: () => {
       haptic.success();
       toast.success('Оплата отмечена!');
-      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();
@@ -95,6 +95,8 @@ export const BudgetWidgetCompact = ({
   // Иконки для разных статусов
   const getStatusIcon = () => {
     switch (scenario) {
+      case 'overview':
+        return <Wallet className={`${ICON_SIZES.sm} text-primary`} />;
       case 'urgent-debt':
         return <AlertCircle className={`${ICON_SIZES.sm} text-red-500`} />;
       case 'waiting-confirmation':

@@ -47,7 +47,7 @@ export class PollSchedulerService {
    */
   static stop(): void {
     if (this.cronJob) {
-      this.cronJob.stop();
+      void this.cronJob.stop();
       this.cronJob = null;
       logger.info('Poll scheduler stopped');
     }

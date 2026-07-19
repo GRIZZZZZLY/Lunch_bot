@@ -44,7 +44,7 @@
 ### Backend (.env)
 ```bash
 DATABASE_URL=file:./prisma/dev.db
-BOT_TOKEN=REDACTED-BOT-TOKEN
+BOT_TOKEN=<telegram-bot-token>
 API_PORT=3001
 NODE_ENV=development
 ```
@@ -230,7 +230,7 @@ npm start
 ## 📚 Дополнительная документация
 
 - **[DEV_MANUAL_TESTING.md](./DEV_MANUAL_TESTING.md)** - Детальное руководство по тестированию
-- **[TIMEWEB_DEPLOY.md](./TIMEWEB_DEPLOY.md)** - Деплой на production
+- **[Руководство по развёртыванию](../04-deployment/README.md)** - Деплой на production
 - **[TESTING_GUIDE.md](./TESTING_GUIDE.md)** - Автоматические тесты
 - **[CURRENT_ISSUES.md](./CURRENT_ISSUES.md)** - Известные проблемы
 

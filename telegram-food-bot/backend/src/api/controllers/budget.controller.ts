@@ -287,6 +287,41 @@ export class BudgetController {
   }
 
   /**
+   * POST /api/budget/mark-all-paid
+   * Подтвердить все непогашенные платежи по заказу.
+   */
+  async markAllPaid(req: Request, res: Response): Promise<void> {
+    try {
+      const authenticatedUser = (req as any).user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+        return;
+      }
+
+      const parsed = SendRemindersAllSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          success: false,
+          error: parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+          code: 'VALIDATION_ERROR',
+        });
+        return;
+      }
+
+      await this.budgetService.markAllPaidByResponsible(
+        parsed.data.pollId,
+        authenticatedUser.id
+      );
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('[BudgetController] Error marking all as paid:', error);
+      res.status(500).json({ error: 'Failed to mark all as paid' });
+    }
+  }
+
+  /**
    * GET /api/budget/stats
    * Получить статистику пользователя
    */

@@ -27,7 +27,7 @@ export const RecommendationsCard: React.FC<RecommendationsCardProps> = ({
   if (recommendations.length === 0) return null;
 
   const algorithm = recommendations[0]?.algorithm;
-  const label = algorithmLabels[algorithm] || 'Рекомендации';
+  const label = algorithm ? algorithmLabels[algorithm] : 'Рекомендации';
 
   return (
     <m.div

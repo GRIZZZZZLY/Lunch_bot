@@ -161,7 +161,7 @@ export function getWeekdayPattern(userId: number): {
       
       if (hasPizzaOrBurger) {
         return {
-          weekday: weekdays[day],
+          weekday: weekdays[day] ?? `День ${day}`,
           pattern: 'В пятницу предпочитаешь более сытные блюда 🍕',
         };
       }
@@ -176,7 +176,7 @@ export function getWeekdayPattern(userId: number): {
       
       if (hasSalad) {
         return {
-          weekday: weekdays[day],
+          weekday: weekdays[day] ?? `День ${day}`,
           pattern: 'В понедельник предпочитаешь легкие блюда 🥗',
         };
       }
@@ -202,7 +202,7 @@ export function getTasteMatch(userId: number): {
 
   // Mock: случайный процент совпадения
   const mockNames = ['Иван', 'Мария', 'Алексей', 'Анна', 'Петр'];
-  const randomName = mockNames[Math.floor(Math.random() * mockNames.length)];
+  const randomName = mockNames[Math.floor(Math.random() * mockNames.length)] ?? 'Коллега';
   const matchPercentage = 70 + Math.floor(Math.random() * 25); // 70-95%
 
   return {
@@ -219,8 +219,8 @@ export function generatePersonalInsights(userId: number): PersonalInsight[] {
   
   // 1. Любимое блюдо
   const favorites = getFavoriteDishes(userId, 1);
-  if (favorites.length > 0 && favorites[0].count >= 3) {
-    const fav = favorites[0];
+  const [fav] = favorites;
+  if (fav && fav.count >= 3) {
     insights.push({
       id: 'favorite_dish',
       type: 'favorite_dish',
@@ -372,7 +372,9 @@ function getRecommendationsByCategory(
 
   if (sorted.length === 0) return [];
 
-  const [topCategory, topCount] = sorted[0];
+  const topEntry = sorted[0];
+  if (!topEntry) return [];
+  const [topCategory, topCount] = topEntry;
   const percentage = Math.round((topCount / history.length) * 100);
 
   const recommendations: Recommendation[] = [
@@ -386,7 +388,9 @@ function getRecommendationsByCategory(
   ];
 
   if (sorted.length >= 2) {
-    const [secondCategory] = sorted[1];
+    const secondEntry = sorted[1];
+    if (!secondEntry) return recommendations;
+    const [secondCategory] = secondEntry;
     recommendations.push({
       id: 'cat_second',
       title: `Также нравится: ${secondCategory}`,
@@ -436,8 +440,11 @@ function getRecommendationsByPeers(
 
   if (newDishes.length === 0) return [];
 
-  const peerName = mockPeerNames[dayHash % mockPeerNames.length];
+  const peerName = mockPeerNames[dayHash % mockPeerNames.length] ?? 'Коллега';
   const suggestedDish = newDishes[dayHash % newDishes.length];
+  const alternativeDish = newDishes[(dayHash + 1) % newDishes.length];
+  const [favorite] = favorites;
+  if (!suggestedDish || !alternativeDish || !favorite) return [];
 
   return [
     {
@@ -450,7 +457,7 @@ function getRecommendationsByPeers(
     {
       id: 'peer_popular',
       title: 'Популярно у единомышленников',
-      description: `Те, кто любит ${favorites[0].name}, также выбирают "${newDishes[(dayHash + 1) % newDishes.length]}"`,
+      description: `Те, кто любит ${favorite.name}, также выбирают "${alternativeDish}"`,
       icon: '🔥',
       algorithm: 'collaborative',
     },
@@ -493,6 +500,7 @@ function getRecommendationsByDiversity(
   if (neverTried.length > 0) {
     const dayHash = now.getDate();
     const suggested = neverTried[dayHash % neverTried.length];
+    if (!suggested) return recommendations;
     recommendations.push({
       id: 'div_new',
       title: `Новый опыт: ${suggested}`,
@@ -513,7 +521,9 @@ function getRecommendationsByDiversity(
     .sort((a, b) => a[1].getTime() - b[1].getTime());
 
   if (stale.length > 0) {
-    const [staleCat, staleDate] = stale[0];
+    const staleEntry = stale[0];
+    if (!staleEntry) return recommendations;
+    const [staleCat, staleDate] = staleEntry;
     const daysSince = Math.floor(
       (now.getTime() - staleDate.getTime()) / (1000 * 60 * 60 * 24)
     );
@@ -584,5 +594,5 @@ export function getRotatingRecommendations(
   ];
 
   const selectedAlgorithm = algorithms[dayOfYear % 3];
-  return selectedAlgorithm(userId);
+  return selectedAlgorithm ? selectedAlgorithm(userId) : [];
 }

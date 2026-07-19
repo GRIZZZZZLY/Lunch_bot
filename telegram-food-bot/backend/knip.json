@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/scripts/**/*.ts",
+    "src/database/seeders/**/*.ts",
+    "scripts/**/*.{ts,mjs}",
+    "src/**/*.test.ts"
+  ],
+  "project": [
+    "src/**/*.ts",
+    "scripts/**/*.{ts,mjs}"
+  ],
+  "includeEntryExports": true,
+  "jest": true,
+  "prisma": true,
+  "typescript": true
+}

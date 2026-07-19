@@ -33,7 +33,7 @@ async function backfill() {
 
 backfill()
   .then(() => process.exit(0))
-  .catch(err => {
+  .catch((err: unknown) => {
     logger.error('Backfill failed:', err);
     process.exit(1);
   });

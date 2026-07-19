@@ -24,7 +24,7 @@ const getUserName = (user?: { firstName?: string; lastName?: string | null }) =>
   return [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Пользователь';
 };
 
-const getMenuItemName = (menuItem?: { name?: string | null }) => {
+const getMenuItemName = (menuItem?: { name?: string | null } | null) => {
   return menuItem?.name || 'Блюдо';
 };
 
@@ -78,7 +78,7 @@ export const OverviewView = ({
     onSuccess: () => {
       haptic.success();
       toast.success('Оплата отмечена!');
-      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();
@@ -96,7 +96,7 @@ export const OverviewView = ({
     onSuccess: () => {
       haptic.success();
       toast.success('Напоминание отправлено!');
-      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();

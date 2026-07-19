@@ -62,13 +62,14 @@ void resetAppState().then(() => {
   initWebVitals();
 
   // Обработка обновлений при запуске
-  handleStartupUpdate();
+  void handleStartupUpdate();
 });
 
 // Регистрация Service Worker для PWA
 // ?v= bust CF cache — each deploy should update this value
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', async () => {
+  window.addEventListener('load', () => {
+    void (async () => {
     // Unregister stale SWs registered at old URLs before registering new one
     const regs = await navigator.serviceWorker.getRegistrations();
     await Promise.all(regs.map(r => r.unregister()));
@@ -78,9 +79,10 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       .then(registration => {
         console.log('✅ PWA Service Worker registered:', registration.scope);
       })
-      .catch(error => {
+      .catch((error: unknown) => {
         console.error('❌ PWA Service Worker registration failed:', error);
       });
+    })();
   });
 }
 

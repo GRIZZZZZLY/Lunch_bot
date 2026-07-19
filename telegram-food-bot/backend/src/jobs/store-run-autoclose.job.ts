@@ -27,13 +27,13 @@ export function initStoreRunAutoCloseJob(): void {
         // who didn't press the button manually here — is told to go shop and set prices.
         await Promise.allSettled(
           closedIds.flatMap((id) => [
-            notificationService.notifyShoppingStarted(id).catch((err) => {
+            notificationService.notifyShoppingStarted(id).catch((err: unknown) => {
               logger.error('notifyShoppingStarted failed for auto-closed run', {
                 storeRunId: id,
                 err,
               });
             }),
-            notificationService.notifyInitiatorCollectionClosed(id).catch((err) => {
+            notificationService.notifyInitiatorCollectionClosed(id).catch((err: unknown) => {
               logger.error('notifyInitiatorCollectionClosed failed for auto-closed run', {
                 storeRunId: id,
                 err,
@@ -49,10 +49,10 @@ export function initStoreRunAutoCloseJob(): void {
       if (expiredIds.length > 0) {
         await Promise.allSettled(
           expiredIds.flatMap((id) => [
-            notificationService.deleteStoreRunMessages(id).catch((err) => {
+            notificationService.deleteStoreRunMessages(id).catch((err: unknown) => {
               logger.error('deleteStoreRunMessages failed for expired run', { storeRunId: id, err });
             }),
-            notificationService.notifyStoreRunExpired(id).catch((err) => {
+            notificationService.notifyStoreRunExpired(id).catch((err: unknown) => {
               logger.error('notifyStoreRunExpired failed for expired run', { storeRunId: id, err });
             }),
           ]),

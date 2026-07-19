@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { m } from 'framer-motion';
 import { 
-  TrendingUp, 
   Award, 
   Calendar, 
   PieChart, 
@@ -11,27 +10,23 @@ import {
   Zap,
   Trophy
 } from 'lucide-react';
-import { PastelCard, CardContent, CardHeader, CardTitle } from '../components/ui/pastel-card';
 import { GlassCard } from '../components/ui/glass-card';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 // import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { useTelegram } from '../hooks/useTelegram';
-import { useAuth } from '../hooks/useAuth';
-import { pollsService } from '../services/polls.service';
+import { pollsService, type UserParticipationStats } from '../services/polls.service';
 import { cn } from '../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
 export const UserStatsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { backButton, colorScheme } = useTelegram();
-  const { user } = useAuth();
-  const isDark = colorScheme === 'dark';
+  const { backButton, colorScheme: _colorScheme } = useTelegram();
 
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any>(null);
-  const [favoriteItems, setFavoriteItems] = useState<any[]>([]);
+  const [stats, setStats] = useState<UserParticipationStats | null>(null);
+  const [favoriteItems, setFavoriteItems] = useState<UserParticipationStats['favoriteItems']>([]);
 
   useEffect(() => {
     const handleBack = () => navigate('/');
@@ -65,7 +60,7 @@ export const UserStatsPage: React.FC = () => {
       }
     };
 
-    loadUserStats();
+    void loadUserStats();
   }, []);
 
   if (loading) {

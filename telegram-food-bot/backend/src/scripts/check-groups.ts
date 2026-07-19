@@ -36,4 +36,4 @@ async function checkGroups() {
   }
 }
 
-checkGroups();
+void checkGroups();

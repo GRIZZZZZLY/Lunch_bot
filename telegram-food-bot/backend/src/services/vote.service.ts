@@ -192,7 +192,7 @@ export class VoteService {
       const roundedXP = Math.round(finalXP);
       await GamificationService.awardXP(
         userId,
-        roundedXP as any,
+        roundedXP,
         reward.reason,
         reward.category,
         { pollId, menuItemId, baseAmount: reward.amount }

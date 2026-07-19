@@ -65,7 +65,7 @@ export const useCreateStoreRun = () => {
     mutationFn: (payload: CreateStoreRunPayload) => storeRunService.createRun(payload),
     onSuccess: (response) => {
       if (!response.success) return;
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
     },
   });
 };
@@ -79,8 +79,8 @@ export const useAddStoreItems = (runId: number) => {
     mutationFn: (items: AddItemInput[]) => storeRunService.addItems(runId, items),
     onSuccess: (response) => {
       if (!response.success) return;
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
     },
   });
 };
@@ -95,7 +95,7 @@ export const useUpdateStoreItem = (runId: number) => {
       storeRunService.updateItem(runId, itemId, data),
     onSuccess: (response) => {
       if (!response.success) return;
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
     },
   });
 };
@@ -109,7 +109,7 @@ export const useDeleteStoreItem = (runId: number) => {
     mutationFn: (itemId: number) => storeRunService.deleteItem(runId, itemId),
     onSuccess: (response) => {
       if (!response.success) return;
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
     },
   });
 };
@@ -124,7 +124,7 @@ export const useSetItemPrice = (runId: number) => {
       storeRunService.setItemPrice(runId, itemId, payload),
     onSuccess: (response) => {
       if (!response.success) return;
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
     },
   });
 };
@@ -138,8 +138,8 @@ export const useStartShopping = (runId: number) => {
     mutationFn: () => storeRunService.startShopping(runId),
     onSuccess: (response) => {
       if (!response.success) return;
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
     },
   });
 };
@@ -153,10 +153,10 @@ export const useSettleStoreRun = (runId: number) => {
     mutationFn: () => storeRunService.settle(runId),
     onSuccess: (response) => {
       if (!response.success) return;
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
       // После SETTLED обновляем BudgetWidget — появляются новые долги
-      qc.invalidateQueries({ queryKey: ['budget'] });
+      void qc.invalidateQueries({ queryKey: ['budget'] });
     },
   });
 };
@@ -170,8 +170,8 @@ export const useCancelStoreRun = (runId: number) => {
     mutationFn: () => storeRunService.cancel(runId),
     onSuccess: (response) => {
       if (!response.success) return;
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
-      qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
     },
   });
 };

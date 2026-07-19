@@ -1,21 +1,34 @@
 import { StoreRunService } from '../../../services/store-run.service';
 
 jest.mock('../../../database/client', () => ({
-  prisma: { storeRun: { updateManyAndReturn: jest.fn(), findMany: jest.fn(), updateMany: jest.fn() } },
+  prisma: {
+    storeRun: {
+      updateManyAndReturn: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+    },
+  },
 }));
 
 jest.mock('../../../utils/logger', () => ({
-  logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() },
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { prisma } = require('../../../database/client');
 
 describe('StoreRunService.autoCloseExpired (F5 race-free)', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('uses a single conditional returning update guarded by status=COLLECTING', async () => {
-    prisma.storeRun.updateManyAndReturn.mockResolvedValue([{ id: 5 }, { id: 8 }]);
+    prisma.storeRun.updateManyAndReturn.mockResolvedValue([
+      { id: 5 },
+      { id: 8 },
+    ]);
 
     const ids = await StoreRunService.autoCloseExpired();
 

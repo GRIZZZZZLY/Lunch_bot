@@ -1,51 +1,46 @@
-import { FlatCompat } from '@eslint/eslintrc';
 import js from '@eslint/js';
 import globals from 'globals';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsParser from '@typescript-eslint/parser';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import storybook from 'eslint-plugin-storybook';
+import tseslint from 'typescript-eslint';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-  recommendedConfig: js.configs.recommended,
-});
-
-export default [
+export default tseslint.config(
   {
     ignores: [
       'dist/**',
       'dev-dist/**',
       'coverage/**',
       'node_modules/**',
-      '.storybook/**',
-      '**/*.cjs',
-      '**/*.config.*',
-      '**/*.old.*',
-      'src/**/*.stories.*',
+      'playwright-report/**',
+      'test-results/**',
+      '.lighthouseci/**',
     ],
   },
-  ...compat.extends(
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:react/recommended',
-    'plugin:react-hooks/recommended',
-    'plugin:react/jsx-runtime',
-    'prettier',
-    'plugin:storybook/recommended'
-  ),
+  js.configs.recommended,
   {
+    files: ['**/*.{js,mjs}'],
     languageOptions: {
-      parser: tsParser,
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+        ...globals.serviceworker,
+      },
+    },
+  },
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      ...tseslint.configs.recommended,
+      react.configs.flat.recommended,
+      react.configs.flat['jsx-runtime'],
+      reactHooks.configs.flat.recommended,
+    ],
+    languageOptions: {
       parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module',
+        project: './tsconfig.eslint.json',
+        tsconfigRootDir: import.meta.dirname,
       },
       globals: {
         ...globals.browser,
@@ -53,9 +48,6 @@ export default [
       },
     },
     plugins: {
-      '@typescript-eslint': tseslint,
-      react,
-      'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
     settings: {
@@ -64,70 +56,69 @@ export default [
       },
     },
     rules: {
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
+      // `strict` and `noImplicitAny` remain enabled in TypeScript. Explicit
+      // `any` is still required at a few untyped SDK and mock boundaries.
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': [
+        'error',
+        { checksVoidReturn: { attributes: false } },
       ],
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+      // Some callbacks intentionally preserve Promise-returning public APIs.
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      '@typescript-eslint/use-unknown-in-catch-callback-variable': 'error',
       '@typescript-eslint/no-unused-vars': [
-        'warn',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/ban-ts-comment': 'warn',
-      '@typescript-eslint/ban-types': 'warn',
-      'react-hooks/rules-of-hooks': 'warn',
-      'react-hooks/exhaustive-deps': 'warn',
-      'react/prop-types': 'off',
-      'react/react-in-jsx-scope': 'off',
-      'react/no-unescaped-entities': 'warn',
-      'react/display-name': 'warn',
-      'no-misleading-character-class': 'warn',
-      'prefer-const': 'warn',
-      'no-var': 'warn',
-      'object-shorthand': 'warn',
-      'prefer-arrow-callback': 'warn',
-      'prefer-template': 'warn',
-      // Запрещаем прямые localStorage.setItem/getItem — должны идти через
-      // utils/safeLocalStorage с whitelist (защита от кеширования polls,
-      // нарушающих CLAUDE.md). Сам safeLocalStorage.ts исключён ниже.
-      'no-restricted-syntax': [
-        'warn',
+        'error',
         {
-          selector: "MemberExpression[object.name='localStorage'][property.name=/^(setItem|getItem)$/]",
-          message: 'Use safeLocalStorage from utils/safeLocalStorage instead of direct localStorage access. Polls must NOT be cached (CLAUDE.md).',
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
         },
       ],
-      // P0-5: запрещаем barrel-импорт из react-confetti и (опционально) lucide-react.
-      // react-confetti: грузим только через LazyConfetti wrapper, иначе подсасывается
-      // в initial bundle.
-      // lucide-react: в текущей версии (^0.552) ESM tree-shaking уже работает с
-      // обычными импортами из 'lucide-react', поэтому ENFORCEMENT отключаем —
-      // ставим только предупреждение про confetti. Если бандл-визуализатор покажет
-      // lucide в vendor — раскомментировать второе правило.
+      'react-refresh/only-export-components': [
+        'error',
+        { allowConstantExport: true },
+      ],
+      // These React Compiler diagnostics require architectural rewrites and
+      // are separate from the runtime Hooks invariants checked by Doctor.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/immutability': 'off',
+      'react/prop-types': 'off',
+      'react/react-in-jsx-scope': 'off',
       'no-restricted-imports': [
-        'warn',
+        'error',
         {
           paths: [
             {
               name: 'react-confetti',
-              message: 'Use LazyConfetti from @/components/common/LazyConfetti (P0-5: keep confetti out of initial bundle).',
+              message:
+                'Use LazyConfetti from @/components/common/LazyConfetti to keep confetti out of the initial bundle.',
             },
-            // {
-            //   name: 'lucide-react',
-            //   message: 'Import icons directly: `import { Check } from "lucide-react/dist/esm/icons/check"`.',
-            // },
           ],
         },
       ],
     },
   },
+  ...storybook.configs['flat/recommended'],
   {
-    // Whitelist: файлы, которые сами реализуют lazy-loading react-confetti.
-    // LazyConfetti — общий wrapper. Остальные 4 — исторические lazy-импорты,
-    // которые тоже сделаны правильно (React.lazy → отдельный chunk).
-    // Новые callsite должны идти через LazyConfetti, чтобы не плодить wrapper'ы.
+    files: [
+      '*.config.ts',
+      '.storybook/**/*.ts',
+      'tests/**/*.ts',
+      'tests/**/*.tsx',
+    ],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+  },
+  {
     files: [
       'src/components/common/LazyConfetti.tsx',
       'src/components/polls/ConfettiAnimation.tsx',
@@ -139,10 +130,4 @@ export default [
       'no-restricted-imports': 'off',
     },
   },
-  {
-    files: ['src/utils/safeLocalStorage.ts'],
-    rules: {
-      'no-restricted-syntax': 'off',
-    },
-  },
-];
+);

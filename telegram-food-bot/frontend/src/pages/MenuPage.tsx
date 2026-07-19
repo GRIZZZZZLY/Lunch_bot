@@ -1,38 +1,22 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Header } from '../components/layout/Header';
-import { PageHeader } from '../components/common/PageHeader';
 import { MenuList } from '../components/menu/MenuList';
 import { VirtualMenuList } from '../components/menu/VirtualMenuList';
 import { MenuForm, MenuFormData } from '../components/menu/MenuForm';
 import { SuggestDishForm } from '../components/menu/SuggestDishForm';
 
 import { ConfirmDialog } from '../components/modals';
-import { SortSelector, SortOption } from '../components/common/SortSelector';
-import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { PullToRefresh } from '../components/common/PullToRefresh';
 import { EmptyState } from '../components/common/EmptyState';
 import { useHaptic } from '../hooks/useHaptic';
 import {
   Plus,
-  UtensilsCrossed,
   Sparkles,
   Search,
-  Settings,
   X,
   Utensils,
-  Filter,
-  ChevronDown,
-  Zap
 } from 'lucide-react';
-import { GlassHeroCard, GlassSearchBar } from '../components/glass';
 import { BottomSheet } from '../components/common/BottomSheet';
-import {
-  MenuListSkeleton,
-  StatCardSkeleton,
-  SearchFilterSkeleton
-} from '../components/common/SkeletonLoader';
 import { MenuGridSkeleton } from '../components/menu/MenuGridSkeleton';
 import { useAuth } from '../hooks/useAuth';
 import { useIsGroupAdmin } from '../hooks/useIsGroupAdmin';
@@ -40,7 +24,7 @@ import { useTelegram } from '../hooks/useTelegram';
 import { useAppStore } from '../store/useAppStore';
 import { useCurrentGroup } from '../hooks/useCurrentGroup';
 import { getAdminGroups } from '../lib/groups';
-import { menuService, MenuItem } from '../services/menu.service';
+import { MenuItem } from '../services/menu.service';
 import {
   useCreateMenuItem,
   useDeleteMenuItem,
@@ -49,19 +33,14 @@ import {
   useUpdateMenuItem,
 } from '../hooks/queries/useMenuQueries';
 import { trackEvent, ANALYTICS_EVENTS } from '../lib/analytics';
-import { mockApiService } from '../services/mockApi.service';
 import { usePendingCount } from '../hooks/useSuggestions';
 
 // New shadcn/ui components
 import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { ThemeToggle } from '../components/ui/theme-toggle';
 // import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
-import { cn } from '../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
-import { TYPOGRAPHY_H2, TYPOGRAPHY_TINY } from '../lib/typography';
-
 // Container animation variants
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -78,7 +57,6 @@ const itemVariants = {
   show: { opacity: 1, y: 0 },
 };
 
-
 /**
  * Страница управления меню
  */
@@ -89,7 +67,7 @@ const useMenuPageController = () => {
   const addNotification = useAppStore((state) => state.addNotification);
   const haptic = useHaptic();
   const theme = useAppStore((state) => state.theme);
-  const isDark = theme === 'dark';
+  const isDark = theme === "dark";
   const navigate = useNavigate();
 
   // Группы пользователя для свитчера и мульти-группового создания
@@ -98,18 +76,26 @@ const useMenuPageController = () => {
   const adminGroups = getAdminGroups(groups);
 
   // Load menu items using React Query
-  const { data: menuItems = [], isLoading: menuLoading, refetch: refetchMenu } = useMenuItems();
+  const {
+    data: menuItems = [],
+    isLoading: menuLoading,
+    refetch: refetchMenu,
+  } = useMenuItems();
 
   // Load pending suggestions count (only for admin)
   const { data: pendingCount = 0 } = usePendingCount();
 
   // React Query mutations
-  const { mutate: createItemMutation, isPending: isCreating } = useCreateMenuItem();
-  const { mutate: updateItemMutation, isPending: isUpdating } = useUpdateMenuItem();
-  const { mutate: deleteItemMutation, isPending: isDeleting } = useDeleteMenuItem();
-  const { mutate: toggleStatusMutation, isPending: isToggling } = useToggleMenuItemStatus();
+  const { mutate: createItemMutation, isPending: isCreating } =
+    useCreateMenuItem();
+  const { mutate: updateItemMutation, isPending: isUpdating } =
+    useUpdateMenuItem();
+  const { mutate: deleteItemMutation, isPending: isDeleting } =
+    useDeleteMenuItem();
+  const { mutate: toggleStatusMutation, isPending: isToggling } =
+    useToggleMenuItemStatus();
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   // ✅ UX FIX: Show search by default if 10+ items (Hidden Feature fix)
   const [searchVisible, setSearchVisible] = useState(true);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -117,14 +103,17 @@ const useMenuPageController = () => {
   // Объединяем состояния в одно
   const [formState, setFormState] = useState({ isOpen: false, clickCount: 0 });
   const [suggestFormOpen, setSuggestFormOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
 
   const openBottomSheet = useCallback(() => {
-    setFormState(prev => ({ ...prev, isOpen: true }));
+    setFormState((prev) => ({ ...prev, isOpen: true }));
   }, []);
 
   const closeBottomSheet = useCallback(() => {
-    setFormState(prev => ({ ...prev, isOpen: false }));
+    setFormState((prev) => ({ ...prev, isOpen: false }));
     // mainButton всегда скрыт - используем FAB вместо него
   }, []);
 
@@ -135,9 +124,10 @@ const useMenuPageController = () => {
     // Фильтр по поисковому запросу
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(item =>
-        item.name.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (item) =>
+          item.name.toLowerCase().includes(query) ||
+          item.description?.toLowerCase().includes(query),
       );
     }
 
@@ -175,64 +165,70 @@ const useMenuPageController = () => {
   const handleAddItem = async (formData: MenuFormData) => {
     const { groupIds, ...itemData } = formData;
 
-    createItemMutation({ data: itemData, groupIds }, {
-      onSuccess: (items) => {
-        const count = items?.length ?? 0;
-        addNotification({
-          type: 'success',
-          message: `Блюдо "${itemData.name}" добавлено${count > 1 ? ` в ${count} групп` : ''}`,
-        });
-        closeBottomSheet();
-        haptic.success();
+    createItemMutation(
+      { data: itemData, groupIds },
+      {
+        onSuccess: (items) => {
+          const count = items?.length ?? 0;
+          addNotification({
+            type: "success",
+            message: `Блюдо "${itemData.name}" добавлено${count > 1 ? ` в ${count} групп` : ""}`,
+          });
+          closeBottomSheet();
+          haptic.success();
 
-        // P1.2.4: Track menu item creation
-        trackEvent(ANALYTICS_EVENTS.MENU_ITEM_ADDED, {
-          itemName: itemData.name,
-          price: itemData.price,
-        });
+          // P1.2.4: Track menu item creation
+          trackEvent(ANALYTICS_EVENTS.MENU_ITEM_ADDED, {
+            itemName: itemData.name,
+            price: itemData.price,
+          });
+        },
+        onError: () => {
+          addNotification({
+            type: "error",
+            message: "Ошибка добавления блюда",
+          });
+          haptic.error();
+        },
       },
-      onError: () => {
-        addNotification({
-          type: 'error',
-          message: 'Ошибка добавления блюда',
-        });
-        haptic.error();
-      },
-    });
+    );
   };
 
   const handleEditItem = async (itemData: MenuFormData) => {
     if (!editingItem) return;
 
-    updateItemMutation({ id: editingItem.id, data: itemData }, {
-      onSuccess: (data) => {
-        addNotification({
-          type: 'success',
-          message: `Блюдо "${itemData.name}" обновлено`,
-        });
-        setEditingItem(null);
-        closeBottomSheet();
-        haptic.success();
+    updateItemMutation(
+      { id: editingItem.id, data: itemData },
+      {
+        onSuccess: (_data) => {
+          addNotification({
+            type: "success",
+            message: `Блюдо "${itemData.name}" обновлено`,
+          });
+          setEditingItem(null);
+          closeBottomSheet();
+          haptic.success();
 
-        // P1.2.4: Track menu item edit
-        trackEvent(ANALYTICS_EVENTS.MENU_ITEM_EDITED, {
-          itemId: editingItem.id,
-          itemName: itemData.name,
-        });
+          // P1.2.4: Track menu item edit
+          trackEvent(ANALYTICS_EVENTS.MENU_ITEM_EDITED, {
+            itemId: editingItem.id,
+            itemName: itemData.name,
+          });
+        },
+        onError: () => {
+          addNotification({
+            type: "error",
+            message: "Ошибка обновления блюда",
+          });
+          haptic.error();
+        },
       },
-      onError: () => {
-        addNotification({
-          type: 'error',
-          message: 'Ошибка обновления блюда',
-        });
-        haptic.error();
-      },
-    });
+    );
   };
 
   const handleDeleteItem = (id: number) => {
     // Находим блюдо для отображения его имени в диалоге
-    const item = menuItems.find(i => i.id === id);
+    const item = menuItems.find((i) => i.id === id);
     if (!item) return;
 
     // Открываем диалог подтверждения
@@ -246,8 +242,8 @@ const useMenuPageController = () => {
     deleteItemMutation(itemToDelete.id, {
       onSuccess: () => {
         addNotification({
-          type: 'success',
-          message: 'Блюдо удалено',
+          type: "success",
+          message: "Блюдо удалено",
         });
         // Закрываем форму редактирования если она открыта
         if (editingItem?.id === itemToDelete.id) {
@@ -265,8 +261,8 @@ const useMenuPageController = () => {
       },
       onError: () => {
         addNotification({
-          type: 'error',
-          message: 'Ошибка удаления блюда',
+          type: "error",
+          message: "Ошибка удаления блюда",
         });
         haptic.error();
 
@@ -280,15 +276,15 @@ const useMenuPageController = () => {
     toggleStatusMutation(id, {
       onSuccess: (data) => {
         addNotification({
-          type: 'success',
-          message: `Блюдо ${data?.isActive ? 'активировано' : 'деактивировано'}`,
+          type: "success",
+          message: `Блюдо ${data?.isActive ? "активировано" : "деактивировано"}`,
         });
         haptic.success();
       },
       onError: () => {
         addNotification({
-          type: 'error',
-          message: 'Ошибка изменения статуса',
+          type: "error",
+          message: "Ошибка изменения статуса",
         });
         haptic.error();
       },
@@ -308,17 +304,109 @@ const useMenuPageController = () => {
 
   // Calculate stats
   const totalCount = menuItems.length;
-  const activeCount = menuItems.filter(item => item.isActive).length;
-  const avgPrice = totalCount > 0
-    ? Math.round(menuItems.reduce((sum, item) => sum + (item.price || 0), 0) / totalCount)
-    : 0;
+  const activeCount = menuItems.filter((item) => item.isActive).length;
+  const avgPrice =
+    totalCount > 0
+      ? Math.round(
+          menuItems.reduce((sum, item) => sum + (item.price || 0), 0) /
+            totalCount,
+        )
+      : 0;
 
-
-  return { user, isGroupAdmin, mainButton, backButton, colorScheme, addNotification, haptic, theme, isDark, navigate, currentGroupId, groups, currentGroup, setCurrentGroupId, adminGroups, menuItems, menuLoading, refetchMenu, pendingCount, createItemMutation, isCreating, updateItemMutation, isUpdating, deleteItemMutation, isDeleting, toggleStatusMutation, isToggling, editingItem, setEditingItem, searchQuery, setSearchQuery, searchVisible, setSearchVisible, searchInputRef, formState, setFormState, suggestFormOpen, setSuggestFormOpen, itemToDelete, setItemToDelete, openBottomSheet, closeBottomSheet, filteredItems, handleRefresh, handleAddItem, handleEditItem, handleDeleteItem, confirmDeleteItem, handleToggleStatus, toggleSearch, totalCount, activeCount, avgPrice };
+  return {
+    user,
+    isGroupAdmin,
+    mainButton,
+    backButton,
+    colorScheme,
+    addNotification,
+    haptic,
+    theme,
+    isDark,
+    navigate,
+    currentGroupId,
+    groups,
+    currentGroup,
+    setCurrentGroupId,
+    adminGroups,
+    menuItems,
+    menuLoading,
+    refetchMenu,
+    pendingCount,
+    createItemMutation,
+    isCreating,
+    updateItemMutation,
+    isUpdating,
+    deleteItemMutation,
+    isDeleting,
+    toggleStatusMutation,
+    isToggling,
+    editingItem,
+    setEditingItem,
+    searchQuery,
+    setSearchQuery,
+    searchVisible,
+    setSearchVisible,
+    searchInputRef,
+    formState,
+    setFormState,
+    suggestFormOpen,
+    setSuggestFormOpen,
+    itemToDelete,
+    setItemToDelete,
+    openBottomSheet,
+    closeBottomSheet,
+    filteredItems,
+    handleRefresh,
+    handleAddItem,
+    handleEditItem,
+    handleDeleteItem,
+    confirmDeleteItem,
+    handleToggleStatus,
+    toggleSearch,
+    totalCount,
+    activeCount,
+    avgPrice,
+  };
 };
 
 export const MenuPage: React.FC = () => {
-  const { user, isGroupAdmin, mainButton, backButton, colorScheme, addNotification, haptic, theme, isDark, navigate, currentGroupId, groups, currentGroup, setCurrentGroupId, adminGroups, menuItems, menuLoading, refetchMenu, pendingCount, createItemMutation, isCreating, updateItemMutation, isUpdating, deleteItemMutation, isDeleting, toggleStatusMutation, isToggling, editingItem, setEditingItem, searchQuery, setSearchQuery, searchVisible, setSearchVisible, searchInputRef, formState, setFormState, suggestFormOpen, setSuggestFormOpen, itemToDelete, setItemToDelete, openBottomSheet, closeBottomSheet, filteredItems, handleRefresh, handleAddItem, handleEditItem, handleDeleteItem, confirmDeleteItem, handleToggleStatus, toggleSearch, totalCount, activeCount, avgPrice } = useMenuPageController();
+  const {
+    isGroupAdmin,
+    haptic,
+    navigate,
+    currentGroupId,
+    groups,
+    currentGroup,
+    setCurrentGroupId,
+    adminGroups,
+    menuItems,
+    menuLoading,
+    pendingCount,
+    editingItem,
+    setEditingItem,
+    searchQuery,
+    setSearchQuery,
+    searchVisible,
+    searchInputRef,
+    formState,
+    suggestFormOpen,
+    setSuggestFormOpen,
+    itemToDelete,
+    setItemToDelete,
+    openBottomSheet,
+    closeBottomSheet,
+    filteredItems,
+    handleAddItem,
+    handleEditItem,
+    handleDeleteItem,
+    confirmDeleteItem,
+    handleToggleStatus,
+    toggleSearch,
+    totalCount,
+    activeCount,
+    avgPrice,
+  } = useMenuPageController();
   return (
     <>
       {/* Background removed - using neutral bg-background from Layout */}
@@ -329,7 +417,6 @@ export const MenuPage: React.FC = () => {
         animate="show"
         className="space-y-4 pb-24 min-h-screen"
       >
-
         {/* 1. Compact Header (44px) */}
         <m.div variants={itemVariants}>
           <div className="flex items-center gap-2">
@@ -341,17 +428,21 @@ export const MenuPage: React.FC = () => {
                 <h1 className="text-2xl font-semibold text-foreground">Меню</h1>
                 {groups.length > 1 ? (
                   <select
-                    value={currentGroupId ?? ''}
+                    value={currentGroupId ?? ""}
                     onChange={(e) => setCurrentGroupId(Number(e.target.value))}
                     className="mt-0.5 bg-transparent text-sm text-muted-foreground focus:outline-none"
                     aria-label="Выбрать группу"
                   >
                     {groups.map((grp) => (
-                      <option key={grp.id} value={grp.id}>{grp.title}</option>
+                      <option key={grp.id} value={grp.id}>
+                        {grp.title}
+                      </option>
                     ))}
                   </select>
                 ) : (
-                  <p className="text-sm text-muted-foreground">{currentGroup?.title ?? ''}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {currentGroup?.title ?? ""}
+                  </p>
                 )}
               </div>
             </div>
@@ -363,7 +454,7 @@ export const MenuPage: React.FC = () => {
                     initial={{ opacity: 0, scaleX: 0 }}
                     animate={{ opacity: 1, scaleX: 1 }}
                     exit={{ opacity: 0, scaleX: 0 }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
                     className="absolute inset-y-0 right-0 w-full"
                     style={{ originX: 1 }}
                   >
@@ -380,15 +471,17 @@ export const MenuPage: React.FC = () => {
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         {searchQuery && (
-                          <button type="button"
+                          <button
+                            type="button"
                             aria-label="Очистить поиск"
-                            onClick={() => setSearchQuery('')}
+                            onClick={() => setSearchQuery("")}
                             className="p-1 text-muted-foreground hover:text-foreground transition-colors"
                           >
                             <X className={ICON_SIZES.sm} />
                           </button>
                         )}
-                        <button type="button"
+                        <button
+                          type="button"
                           onClick={toggleSearch}
                           className="p-1 text-muted-foreground hover:text-foreground transition-colors"
                           aria-label="Закрыть поиск"
@@ -413,7 +506,11 @@ export const MenuPage: React.FC = () => {
                   </Button>
 
                   {isGroupAdmin && (
-                    <ThemeToggle variant="ghost" size="icon" className="size-11" />
+                    <ThemeToggle
+                      variant="ghost"
+                      size="icon"
+                      className="size-11"
+                    />
                   )}
                 </div>
               )}
@@ -423,18 +520,35 @@ export const MenuPage: React.FC = () => {
 
         {/* 2. Compact subtitle (счётчики) + доступ к предложке (admin) */}
         {!menuLoading && menuItems.length > 0 && (
-          <m.div variants={itemVariants} className="flex items-center justify-between gap-2 px-1">
+          <m.div
+            variants={itemVariants}
+            className="flex items-center justify-between gap-2 px-1"
+          >
             <p className="text-sm text-muted-foreground tabular-nums">
-              <span className="font-semibold text-foreground">{totalCount}</span> блюд
-              {' · '}{activeCount} активных
+              <span className="font-semibold text-foreground">
+                {totalCount}
+              </span>{" "}
+              блюд
+              {" · "}
+              {activeCount} активных
               {avgPrice > 0 && (
-                <> · средняя <span className="font-semibold text-foreground">{avgPrice} ₽</span></>
+                <>
+                  {" "}
+                  · средняя{" "}
+                  <span className="font-semibold text-foreground">
+                    {avgPrice} ₽
+                  </span>
+                </>
               )}
             </p>
 
             {isGroupAdmin && pendingCount > 0 && (
-              <button type="button"
-                onClick={() => { navigate('/admin/suggestions'); haptic.light(); }}
+              <button
+                type="button"
+                onClick={() => {
+                  navigate("/admin/suggestions");
+                  haptic.light();
+                }}
                 className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-butter-500/14 text-butter-600 dark:text-butter-400 transition-colors hover:bg-butter-500/20"
               >
                 <Sparkles className={ICON_SIZES.sm} />
@@ -455,14 +569,12 @@ export const MenuPage: React.FC = () => {
             <EmptyState
               type="no-results"
               onAction={() => {
-                setSearchQuery('');
+                setSearchQuery("");
                 haptic.light();
               }}
             />
           ) : (
-            <EmptyState
-              type="no-menu"
-            />
+            <EmptyState type="no-menu" />
           )
         ) : (
           <m.div variants={itemVariants} className="flex-1">
@@ -529,7 +641,10 @@ export const MenuPage: React.FC = () => {
           onSubmit={handleAddItem}
           onCancel={closeBottomSheet}
           loading={menuLoading}
-          adminGroups={adminGroups.map((grp) => ({ id: grp.id, title: grp.title }))}
+          adminGroups={adminGroups.map((grp) => ({
+            id: grp.id,
+            title: grp.title,
+          }))}
           defaultGroupId={currentGroupId}
         />
       </BottomSheet>
