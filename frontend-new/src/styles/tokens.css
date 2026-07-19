@@ -1,9 +1,9 @@
 /* ============================================================
-   ROCKET LUNCH — SEMANTIC TOKENS (Phase 2B, единственный источник)
-   Палитра «Графит и мёд». Темы: <html data-theme="light|dark">.
-   Класс html.tg-synced (ставит lib/theme.ts, когда тема приложения
-   совпадает с colorScheme Telegram) подключает Telegram theme
-   variables к канвасу с брендовым fallback.
+   ROCKET LUNCH — SEMANTIC TOKENS (единственный источник).
+   Система C «нейтрали, цвет = значение»: light — тёплая бумага,
+   dark — «грифель и мёд» (сине-графитовый канвас + тёплые акценты).
+   Темы: <html data-theme="light|dark">. Палитра фиксированная,
+   переменные Telegram не участвуют (решение владельца 2026-07-19).
    ============================================================ */
 
 /* ---------- Fonts (self-hosted, variable woff2) ---------- */
@@ -164,63 +164,58 @@
   --shadow-3: 0 2px 4px rgba(70, 55, 25, 0.06), 0 12px 30px -14px rgba(70, 55, 25, 0.3);
 }
 
-/* ---------- Colors: dark — система C ---------- */
+/* ---------- Colors: dark — система C, ревизия «грифель и мёд» (2026-07-19).
+   Холодный сине-графитовый канвас (по образцу Telegram Desktop dark, выбор
+   владельца) + прежние тёплые акценты. Палитра ФИКСИРОВАННАЯ: подхват фона из
+   темы Telegram удалён сознательно — на мобильных клиентах фон Telegram чёрный
+   и ломал бы выбранный вид. ---------- */
 [data-theme='dark'] {
-  --canvas: #171310;
-  --surface: #221d15;
-  --surface-secondary: #1c1812;
-  --elevated: #2a241b;
-  --text-primary: #f0e9dc;
-  --text-secondary: #bdb29e;
-  --text-tertiary: #837a69;
-  --divider: rgba(240, 233, 220, 0.1);
+  --canvas: #202a37;
+  --surface: #283544;
+  --surface-secondary: #1b2430;
+  --elevated: #2f3d4e;
+  --text-primary: #edf1f6;
+  --text-secondary: #a9b7c6;
+  --text-tertiary: #7c8b9d;
+  --divider: rgba(226, 238, 252, 0.1);
   --accent: #efe7d8;
-  --accent-foreground: #1d1812;
+  --accent-foreground: #1e2836;
   --accent-hover: #fff8eb;
   --accent-active: #ded4c2;
-  --accent-tint: rgba(239, 231, 216, 0.1);
+  --accent-tint: rgba(239, 231, 216, 0.09);
   --accent-ring: rgba(239, 231, 216, 0.22);
   --vote: #ff9066;
-  --vote-tint: rgba(255, 144, 102, 0.12);
-  --shop: #e4a93f;
-  --shop-tint: rgba(228, 169, 63, 0.12);
-  --money: #84c671;
-  --money-tint: rgba(132, 198, 113, 0.11);
-  --success: #84c671;
-  --success-tint: rgba(132, 198, 113, 0.11);
-  --success-foreground: #13200b;
-  --warning: #e4a93f;
-  --warning-tint: rgba(228, 169, 63, 0.13);
+  --vote-tint: rgba(255, 144, 102, 0.13);
+  --shop: #e8ac4a;
+  --shop-tint: rgba(232, 172, 74, 0.13);
+  --money: #82c972;
+  --money-tint: rgba(130, 201, 114, 0.12);
+  --success: #82c972;
+  --success-tint: rgba(130, 201, 114, 0.12);
+  --success-foreground: #0f2410;
+  --warning: #e8ac4a;
+  --warning-tint: rgba(232, 172, 74, 0.14);
   --warning-foreground: #241a02;
   --danger: #f07a5e;
-  --danger-tint: rgba(240, 122, 94, 0.12);
+  --danger-tint: rgba(240, 122, 94, 0.13);
   --danger-foreground: #2a0e06;
-  --info: #8fa9c9;
-  --info-tint: rgba(143, 169, 201, 0.12);
-  --info-foreground: #0e1622;
-  --overlay: rgba(0, 0, 0, 0.6);
+  --info: #8fb3d9;
+  --info-tint: rgba(143, 179, 217, 0.13);
+  --info-foreground: #0e1826;
+  --overlay: rgba(8, 14, 22, 0.6);
   --focus-ring: rgba(239, 231, 216, 0.45);
-  --texture-dot: rgba(244, 235, 220, 0.055);
+  --texture-dot: rgba(226, 238, 252, 0.05);
 
-  --card-grad: linear-gradient(180deg, #221d15, #221d15);
-  --float-grad: linear-gradient(180deg, rgba(42, 36, 27, 0.96), rgba(34, 29, 21, 0.98));
-  --surface-glass: rgba(34, 29, 21, 0.85);
+  --card-grad: linear-gradient(180deg, #283544, #283544);
+  --float-grad: linear-gradient(180deg, rgba(47, 61, 78, 0.96), rgba(40, 53, 68, 0.98));
+  --surface-glass: rgba(40, 53, 68, 0.85);
   --glass-blur: 12px;
   --accent-grad: linear-gradient(180deg, #efe7d8, #efe7d8);
   --accent-grad-hover: linear-gradient(180deg, #fff8eb, #fff8eb);
   --accent-grad-active: linear-gradient(180deg, #ded4c2, #ded4c2);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px -8px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 22px -14px rgba(0, 0, 0, 0.6);
-  --shadow-3: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 30px -14px rgba(0, 0, 0, 0.7);
-}
-
-/* Канвас из Telegram, когда тема приложения совпадает с темой Telegram
-   (ручной override, расходящийся с Telegram, отключает подхват — класс снимается). */
-html.tg-synced[data-theme='light'] {
-  --canvas: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #f3efe7));
-}
-html.tg-synced[data-theme='dark'] {
-  --canvas: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #171310));
+  --shadow-1: 0 1px 2px rgba(4, 10, 18, 0.4), 0 4px 12px -8px rgba(4, 10, 18, 0.45);
+  --shadow-2: 0 1px 2px rgba(4, 10, 18, 0.4), 0 8px 22px -14px rgba(4, 10, 18, 0.65);
+  --shadow-3: 0 2px 4px rgba(4, 10, 18, 0.45), 0 12px 30px -14px rgba(4, 10, 18, 0.75);
 }
 
 /* ============================================================
