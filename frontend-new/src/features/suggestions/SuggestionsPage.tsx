@@ -10,7 +10,9 @@ import {
   useRejectSuggestion,
   useSuggestions,
 } from '@/hooks/useSuggestions';
-import { isGlobalAdmin } from '@/lib/permissions';
+import { isGroupAdminRole } from '@/lib/permissions';
+import { useMyGroups } from '@/hooks/useUser';
+import { useAppStore } from '@/store/useAppStore';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, ConfirmDialog, EmptyState, ErrorState, Status, TextField } from '@/shared/ui';
@@ -25,11 +27,22 @@ const STATUS_META: Record<SuggestionStatus, { tone: 'warning' | 'success' | 'dan
 
 export function SuggestionsPage({ onlyMine = false }: { onlyMine?: boolean }) {
   const { user } = useAuth();
-  const isAdmin = isGlobalAdmin(user);
   useScreenHeader('Предложения блюд');
 
+  // Предложения per-group: бэк требует groupId на create/approve/reject/delete.
+  // Группа — глобальный контекст (fallback на первую активную, если не выбрана).
+  const currentGroupId = useAppStore((s) => s.currentGroupId);
+  const { data: myGroups = [] } = useMyGroups();
+  const activeGroups = useMemo(() => myGroups.filter((g) => g.isActive), [myGroups]);
+  const activeGroup = activeGroups.find((g) => String(g.id) === currentGroupId) ?? activeGroups[0];
+  const groupId = activeGroup ? String(activeGroup.id) : undefined;
+
+  // Модерация — по роли в группе (совпадает с бэком: menu-suggestion.routes →
+  // groupAdminMiddleware, глобальный isAdmin не в счёт).
+  const isAdmin = isGroupAdminRole(activeGroup?.role);
+
   const [tab, setTab] = useState<'all' | 'mine'>(onlyMine ? 'mine' : 'all');
-  const { data: suggestions = [], isLoading, error, refetch } = useSuggestions();
+  const { data: suggestions = [], isLoading, error, refetch } = useSuggestions({ groupId });
 
   const createMutation = useCreateSuggestion();
   const approveMutation = useApproveSuggestion();
@@ -99,8 +112,8 @@ export function SuggestionsPage({ onlyMine = false }: { onlyMine?: boolean }) {
                   <div className={styles.actions}>
                     <Button
                       variant="secondary"
-                      loading={approveMutation.isPending && approveMutation.variables === s.id}
-                      onClick={() => approveMutation.mutate(s.id)}
+                      loading={approveMutation.isPending && approveMutation.variables?.id === s.id}
+                      onClick={() => approveMutation.mutate({ id: s.id, groupId })}
                     >
                       Одобрить
                     </Button>
@@ -134,7 +147,9 @@ export function SuggestionsPage({ onlyMine = false }: { onlyMine?: boolean }) {
         <SuggestionSheet
           busy={createMutation.isPending}
           onClose={() => setFormOpen(false)}
-          onSubmit={(data) => createMutation.mutate(data, { onSuccess: () => setFormOpen(false) })}
+          onSubmit={(data) =>
+            createMutation.mutate({ data, groupId }, { onSuccess: () => setFormOpen(false) })
+          }
         />
       )}
 
@@ -145,7 +160,7 @@ export function SuggestionsPage({ onlyMine = false }: { onlyMine?: boolean }) {
           onClose={() => setRejectTarget(null)}
           onSubmit={(reason) =>
             rejectMutation.mutate(
-              { id: rejectTarget.id, reason },
+              { id: rejectTarget.id, reason, groupId },
               { onSuccess: () => setRejectTarget(null) },
             )
           }
@@ -159,7 +174,9 @@ export function SuggestionsPage({ onlyMine = false }: { onlyMine?: boolean }) {
           confirmLabel="Удалить"
           destructive
           pending={deleteMutation.isPending}
-          onConfirm={() => deleteMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })}
+          onConfirm={() =>
+            deleteMutation.mutate({ id: deleteTarget.id, groupId }, { onSuccess: () => setDeleteTarget(null) })
+          }
           onCancel={() => setDeleteTarget(null)}
         />
       )}
