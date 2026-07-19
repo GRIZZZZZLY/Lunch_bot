@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   useAdminDebtors,
   useDebtStats,
@@ -7,6 +8,9 @@ import {
 } from '@/hooks/useAdmin';
 import type { DebtorInfo } from '@/services/admin.service';
 import { Button, IconButton } from '@/components/rl/primitives';
+import { ConfirmDialog } from '@/shared/ui';
+
+type ForgiveTarget = { id: number; amount: number };
 
 export function DebtManagementCard() {
   const { data: debtors = [], isLoading } = useAdminDebtors();
@@ -14,6 +18,7 @@ export function DebtManagementCard() {
   const forgive = useForgiveDebt();
   const remindAll = useRemindAllDebtors();
   const remindOne = useRemindDebtor();
+  const [forgiveTarget, setForgiveTarget] = useState<ForgiveTarget | null>(null);
 
   return (
     <div className="card" style={{ padding: 16 }}>
@@ -40,9 +45,28 @@ export function DebtManagementCard() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {debtors.map((d) => (
-          <DebtorRow key={d.userId} debtor={d} onForgive={(id) => forgive.mutate(id)} onRemind={(id) => remindOne.mutate(id)} />
+          <DebtorRow
+            key={d.userId}
+            debtor={d}
+            onForgive={(id, amount) => setForgiveTarget({ id, amount })}
+            onRemind={(id) => remindOne.mutate(id)}
+          />
         ))}
       </div>
+
+      {forgiveTarget && (
+        <ConfirmDialog
+          title="Списать долг?"
+          description={`${forgiveTarget.amount} ₽ будут списаны без оплаты. Действие необратимо.`}
+          confirmLabel="Списать"
+          destructive
+          pending={forgive.isPending}
+          onConfirm={() =>
+            forgive.mutate(forgiveTarget.id, { onSuccess: () => setForgiveTarget(null) })
+          }
+          onCancel={() => setForgiveTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -53,7 +77,7 @@ function DebtorRow({
   onRemind,
 }: {
   debtor: DebtorInfo;
-  onForgive: (id: number) => void;
+  onForgive: (id: number, amount: number) => void;
   onRemind: (id: number) => void;
 }) {
   return (
@@ -75,9 +99,7 @@ function DebtorRow({
               name="x"
               aria-label="Списать"
               style={{ color: 'var(--danger)' }}
-              onClick={() => {
-                if (confirm(`Списать долг ${d.amount} ₽?`)) onForgive(d.id);
-              }}
+              onClick={() => onForgive(d.id, d.amount)}
             />
           </div>
         ))}

@@ -1,6 +1,9 @@
 import { useState, type ChangeEvent } from 'react';
 import { useCleanupOldPolls, useCleanupOldTransactions, useCleanupStats } from '@/hooks/useAdmin';
 import { Button, Field } from '@/components/rl/primitives';
+import { ConfirmDialog } from '@/shared/ui';
+
+type CleanupTarget = { kind: 'polls' | 'tx'; days: number };
 
 export function DataCleanupCard() {
   const { data: stats, isLoading } = useCleanupStats();
@@ -9,17 +12,18 @@ export function DataCleanupCard() {
   const [pollDays, setPollDays] = useState(30);
   const [txDays, setTxDays] = useState(90);
   const [msg, setMsg] = useState<string | null>(null);
+  const [target, setTarget] = useState<CleanupTarget | null>(null);
 
-  const runPolls = async () => {
-    if (!confirm(`Удалить голосования старше ${pollDays} дней?`)) return;
-    const res = await cleanPolls.mutateAsync(pollDays);
-    setMsg(`Удалено ${res.data?.deleted ?? 0} голосований`);
-  };
-
-  const runTx = async () => {
-    if (!confirm(`Удалить транзакции старше ${txDays} дней?`)) return;
-    const res = await cleanTx.mutateAsync(txDays);
-    setMsg(`Удалено ${res.data?.deleted ?? 0} транзакций`);
+  const runConfirmed = async () => {
+    if (!target) return;
+    if (target.kind === 'polls') {
+      const res = await cleanPolls.mutateAsync(target.days);
+      setMsg(`Удалено ${res.data?.deleted ?? 0} голосований`);
+    } else {
+      const res = await cleanTx.mutateAsync(target.days);
+      setMsg(`Удалено ${res.data?.deleted ?? 0} транзакций`);
+    }
+    setTarget(null);
   };
 
   return (
@@ -31,8 +35,8 @@ export function DataCleanupCard() {
       {isLoading && <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--t-13)' }}>Загрузка…</div>}
       {stats && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Block title="Старые голосования" stats={stats.oldPolls} days={pollDays} onDays={setPollDays} onRun={runPolls} running={cleanPolls.isPending} />
-          <Block title="Старые транзакции" stats={stats.oldTransactions} days={txDays} onDays={setTxDays} onRun={runTx} running={cleanTx.isPending} />
+          <Block title="Старые голосования" stats={stats.oldPolls} days={pollDays} onDays={setPollDays} onRun={() => setTarget({ kind: 'polls', days: pollDays })} running={cleanPolls.isPending} />
+          <Block title="Старые транзакции" stats={stats.oldTransactions} days={txDays} onDays={setTxDays} onRun={() => setTarget({ kind: 'tx', days: txDays })} running={cleanTx.isPending} />
         </div>
       )}
 
@@ -40,6 +44,18 @@ export function DataCleanupCard() {
         <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 'var(--r-block)', background: 'var(--accent-tint)', color: 'var(--accent)', fontSize: 'var(--t-13)' }}>
           {msg}
         </div>
+      )}
+
+      {target && (
+        <ConfirmDialog
+          title={target.kind === 'polls' ? 'Удалить старые голосования?' : 'Удалить старые транзакции?'}
+          description={`Будут удалены записи старше ${target.days} дней. Действие необратимо.`}
+          confirmLabel="Удалить"
+          destructive
+          pending={cleanPolls.isPending || cleanTx.isPending}
+          onConfirm={runConfirmed}
+          onCancel={() => setTarget(null)}
+        />
       )}
     </div>
   );
