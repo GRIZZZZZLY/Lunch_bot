@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthGate } from '@/components/common/AuthGate';
 import { RootLayout } from '@/app/layouts/RootLayout';
 import { DetailLayout } from '@/app/layouts/DetailLayout';
-import { HomePage } from '@/pages/HomePage';
+import { HomePage } from '@/features/home/HomePage';
 
 // Dev-only: lazy, чтобы demo-код не попадал в production-бандл.
 const BudgetDemoPage = lazy(() =>

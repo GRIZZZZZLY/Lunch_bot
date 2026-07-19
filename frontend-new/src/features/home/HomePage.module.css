@@ -1,0 +1,356 @@
+/* Главная — система C: плоские группы-карточки, талон с перфорацией,
+   домены-значения (--vote/--shop/--money). */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3) var(--space-4);
+  animation: homeIn 180ms var(--ease-out);
+}
+
+@keyframes homeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* приветствие */
+.greeting {
+  padding: 0 var(--space-1) var(--space-1);
+}
+
+.caption {
+  font-size: var(--text-11);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.hello {
+  margin: 2px 0 0;
+  font-size: var(--text-22);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* группа-карточка */
+.group {
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+
+.groupHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+
+.kicker {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* талон */
+.timerLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 2px var(--space-4) 0;
+}
+
+.timer {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  transition: color 300ms var(--ease-out);
+}
+
+.timer.low {
+  color: var(--danger);
+}
+
+.timerCap {
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.options {
+  padding-top: 4px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 10px var(--space-4);
+  border: none;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.option:active {
+  background: var(--accent-tint);
+}
+
+.option + .option {
+  border-top: 1px solid var(--divider);
+}
+
+.optionMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.optionName {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--text-15);
+  font-weight: 600;
+}
+
+.option.lead .optionName {
+  font-size: var(--text-16);
+  font-weight: 800;
+}
+
+.check {
+  color: var(--vote);
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.optionSub {
+  font-size: var(--text-11);
+  margin-top: 1px;
+  color: var(--text-tertiary);
+}
+
+.optionSub .mine {
+  color: var(--vote);
+  font-weight: 700;
+}
+
+.bar {
+  height: 4.5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-tint);
+  margin-top: 7px;
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--vote);
+  transition: width var(--motion-slow) var(--ease-out);
+}
+
+.option:not(.lead) .barFill {
+  opacity: 0.3;
+}
+
+.pct {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.option.lead .pct {
+  font-size: 17px;
+  color: var(--vote);
+}
+
+/* перфорация талона */
+.perf {
+  position: relative;
+  height: 22px;
+}
+
+.perf::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 50%;
+  border-top: 2px dashed var(--divider);
+}
+
+.perf::after,
+.perf .notch {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  top: 2px;
+  background: var(--canvas);
+}
+
+.perf::after { left: -9px; }
+.perf .notch { right: -9px; }
+
+.ctaWrap {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+
+.ctaWrap > :first-child {
+  flex: 1;
+}
+
+.ghostAction {
+  border: none;
+  background: none;
+  padding: 10px 2px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--vote);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ctaNote {
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* admin-блок талона */
+.adminRow {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.adminRow > * {
+  flex: 1;
+}
+
+/* строки секции «Сейчас» */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.row.tappable {
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.row.tappable:active {
+  background: var(--accent-tint);
+}
+
+.row + .row {
+  border-top: 1px solid var(--divider);
+}
+
+.rowIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rowIcon.shop {
+  background: var(--shop-tint);
+  color: var(--shop);
+}
+
+.rowIcon.money {
+  background: var(--money-tint);
+  color: var(--money);
+}
+
+.rowIcon.win {
+  background: var(--vote-tint);
+  color: var(--vote);
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowName {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowSub {
+  display: block;
+  font-size: var(--text-11);
+  margin-top: 1px;
+  color: var(--text-tertiary);
+}
+
+.rowSub .prog {
+  color: var(--shop);
+  font-weight: 700;
+}
+
+.moneyVal {
+  font-size: var(--text-15);
+  font-weight: 800;
+  color: var(--money);
+  white-space: nowrap;
+}
+
+.newRunBtn {
+  padding: var(--space-1) var(--space-4) var(--space-3);
+}
+
+/* пустой талон */
+.emptyBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  padding: var(--space-4) var(--space-6) var(--space-2);
+}
+
+.emptyTitle {
+  font-size: var(--text-16);
+  font-weight: 800;
+}
+
+.emptyText {
+  margin: 0;
+  font-size: var(--text-13);
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  max-width: 260px;
+}
