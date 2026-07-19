@@ -43,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
         }}
       >
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>
-          Что-то пошло не так 😔
+          Что-то пошло не так
         </div>
         <div style={{ color: 'var(--ink-2)', fontSize: 12, marginBottom: 12 }}>
           {this.state.error.message || 'Неизвестная ошибка'}
