@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useMemo, useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -81,8 +81,8 @@ describe('DetailLayout', () => {
     expect(screen.getByText('содержимое шторки')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
-    // первый «назад» закрыл шторку, экран остался
-    expect(screen.queryByText('содержимое шторки')).not.toBeInTheDocument();
+    // первый «назад» закрыл шторку (после exit-анимации), экран остался
+    await waitForElementToBeRemoved(() => screen.queryByText('содержимое шторки'));
     expect(screen.getByText('detail-контент')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Назад' }));

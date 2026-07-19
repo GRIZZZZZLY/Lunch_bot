@@ -47,18 +47,15 @@ export function ConfirmDialog({
 
   if (isDuplicate) return null;
 
-  const close = () => {
-    if (!pending) onCancel();
-  };
-
   return (
     <BottomSheet
       role="alertdialog"
       title={title}
-      onClose={close}
+      closable={!pending}
+      onClose={onCancel}
       footer={
         <>
-          <Button variant="secondary" block onClick={close} disabled={pending}>
+          <Button variant="secondary" block onClick={onCancel} disabled={pending}>
             {cancelLabel}
           </Button>
           <Button variant={destructive ? 'destructive' : 'primary'} block loading={pending} onClick={onConfirm}>
