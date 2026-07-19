@@ -22,6 +22,7 @@ export function NowSection({
   paying,
   onOpenRun,
   onMarkPaid,
+  onOpenBudget,
   onNewRun,
 }: {
   winner: ReactNode;
@@ -30,6 +31,7 @@ export function NowSection({
   paying: boolean;
   onOpenRun: (id: number) => void;
   onMarkPaid: (txId: number) => void;
+  onOpenBudget: () => void;
   onNewRun: () => void;
 }) {
   const hasContent = winner != null || runs.length > 0 || budget.kind !== 'hidden';
@@ -67,17 +69,19 @@ export function NowSection({
 
       {budget.kind !== 'hidden' && (
         <div className={styles.row}>
-          <span className={`${styles.rowIcon} ${styles.money}`} aria-hidden>
-            <Icon name="wallet" size={18} />
-          </span>
-          <span className={styles.rowMain}>
-            <span className={styles.rowName}>Бюджет команды</span>
-            <span className={styles.rowSub}>
-              {budget.kind === 'debt' && 'Вы должны за обед'}
-              {budget.kind === 'awaiting' && 'Оплата ждёт подтверждения'}
-              {budget.kind === 'collector' && 'Вам должны участники'}
+          <button type="button" className={styles.rowTapArea} onClick={onOpenBudget}>
+            <span className={`${styles.rowIcon} ${styles.money}`} aria-hidden>
+              <Icon name="wallet" size={18} />
             </span>
-          </span>
+            <span className={styles.rowMain}>
+              <span className={styles.rowName}>Бюджет команды</span>
+              <span className={styles.rowSub}>
+                {budget.kind === 'debt' && 'Вы должны за обед'}
+                {budget.kind === 'awaiting' && 'Оплата ждёт подтверждения'}
+                {budget.kind === 'collector' && 'Вам должны участники'}
+              </span>
+            </span>
+          </button>
           {budget.kind === 'debt' && budget.payableTxId != null ? (
             <Button variant="secondary" loading={paying} onClick={() => onMarkPaid(budget.payableTxId!)}>
               Оплатил · {formatPrice(budget.amount)}

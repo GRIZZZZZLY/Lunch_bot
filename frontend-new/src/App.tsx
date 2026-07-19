@@ -6,15 +6,13 @@ import { DetailLayout } from '@/app/layouts/DetailLayout';
 import { HomePage } from '@/features/home/HomePage';
 
 // Dev-only: lazy, чтобы demo-код не попадал в production-бандл.
-const BudgetDemoPage = lazy(() =>
-  import('@/pages/BudgetDemoPage').then((m) => ({ default: m.BudgetDemoPage })),
-);
 const UiShowcasePage = lazy(() =>
   import('@/pages/UiShowcasePage').then((m) => ({ default: m.UiShowcasePage })),
 );
 import { StatsPage } from '@/features/stats/StatsPage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 import { AdminPage } from '@/pages/AdminPage';
+import { BudgetPage } from '@/features/budget/BudgetPage';
 import MenuPage from '@/features/menu/MenuPage';
 import { PollHistoryPage } from '@/features/polls/PollHistoryPage';
 import { PollResultsPage } from '@/features/polls/PollResultsPage';
@@ -32,18 +30,8 @@ export default function App() {
             <Route path="/menu" element={<MenuPage />} />
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
-            {/* Dev-only playground'ы: в production эти маршруты не регистрируются
-                и падают в 404; в навигацию не добавлять. */}
-            {import.meta.env.DEV && (
-              <Route
-                path="/budget-demo"
-                element={
-                  <Suspense fallback={null}>
-                    <BudgetDemoPage />
-                  </Suspense>
-                }
-              />
-            )}
+            {/* Dev-only playground: в production не регистрируется (404); в
+                навигацию не добавлять. */}
             {import.meta.env.DEV && (
               <Route
                 path="/dev/ui"
@@ -59,6 +47,7 @@ export default function App() {
 
           <Route element={<DetailLayout />}>
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/budget" element={<BudgetPage />} />
             <Route path="/poll/history" element={<PollHistoryPage />} />
             <Route path="/poll/:id/results" element={<PollResultsPage />} />
             <Route path="/store-run/:id" element={<StoreRunPage />} />
