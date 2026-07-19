@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   state: {
     items: [] as unknown[],
     user: { id: 1, firstName: 'Игорь', isAdmin: false } as unknown,
+    groups: [] as unknown[],
+    currentGroupId: '10' as string | null,
     create: { mutate: vi.fn(), isPending: false },
     approve: { mutate: vi.fn(), isPending: false, variables: undefined },
     reject: { mutate: vi.fn(), isPending: false },
@@ -21,7 +23,14 @@ const h = vi.hoisted(() => ({
   },
 }));
 
+const grp = (id: number, role = 'MEMBER') => ({ id, title: `Гр ${id}`, isActive: true, role });
+
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.state.user }) }));
+vi.mock('@/hooks/useUser', () => ({ useMyGroups: () => h.q(h.state.groups) }));
+vi.mock('@/store/useAppStore', () => ({
+  useAppStore: (sel: (s: { currentGroupId: string | null }) => unknown) =>
+    sel({ currentGroupId: h.state.currentGroupId }),
+}));
 vi.mock('@/hooks/useSuggestions', () => ({
   useSuggestions: () => h.q(h.state.items),
   useCreateSuggestion: () => h.state.create,
@@ -48,6 +57,8 @@ beforeEach(() => {
   delete window.Telegram;
   h.state.items = [];
   h.state.user = { id: 1, firstName: 'Игорь', isAdmin: false };
+  h.state.groups = [grp(10, 'MEMBER')];
+  h.state.currentGroupId = '10';
   Object.assign(h.state.create, { mutate: vi.fn(), isPending: false });
   Object.assign(h.state.approve, { mutate: vi.fn(), isPending: false });
   Object.assign(h.state.reject, { mutate: vi.fn(), isPending: false });
@@ -68,7 +79,7 @@ describe('SuggestionsPage — участник', () => {
     fireEvent.change(screen.getByLabelText(/Примерная цена/), { target: { value: '390' } });
     fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
     expect(h.state.create.mutate).toHaveBeenCalledWith(
-      { name: 'Рамен', description: undefined, price: 390 },
+      { data: { name: 'Рамен', description: undefined, price: 390 }, groupId: '10' },
       expect.anything(),
     );
   });
@@ -88,7 +99,7 @@ describe('SuggestionsPage — участник', () => {
     const dialog = screen.getByRole('alertdialog');
     expect(within(dialog).getByText('Удалить предложение?')).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Удалить' }));
-    expect(h.state.del.mutate).toHaveBeenCalledWith(1, expect.anything());
+    expect(h.state.del.mutate).toHaveBeenCalledWith({ id: 1, groupId: '10' }, expect.anything());
   });
 
   it('участник не видит админ-действий; статусы словами', () => {
@@ -101,16 +112,18 @@ describe('SuggestionsPage — участник', () => {
   });
 });
 
-describe('SuggestionsPage — админ', () => {
+describe('SuggestionsPage — админ группы', () => {
   beforeEach(() => {
-    h.state.user = { id: 5, firstName: 'Админ', isAdmin: true };
+    // Права модерации — по РОЛИ в группе, а не по глобальному isAdmin.
+    h.state.user = { id: 5, firstName: 'Админ', isAdmin: false };
+    h.state.groups = [grp(10, 'ADMIN')];
     h.state.items = [sug({ suggestedBy: 1 })];
   });
 
-  it('одобряет PENDING', () => {
+  it('одобряет PENDING с groupId', () => {
     render(<SuggestionsPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Одобрить' }));
-    expect(h.state.approve.mutate).toHaveBeenCalledWith(1);
+    expect(h.state.approve.mutate).toHaveBeenCalledWith({ id: 1, groupId: '10' });
   });
 
   it('отклонение — шторка с причиной, без window.prompt', () => {
@@ -120,8 +133,15 @@ describe('SuggestionsPage — админ', () => {
     fireEvent.change(within(dialog).getByLabelText(/Причина/), { target: { value: 'уже есть похожее' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Отклонить' }));
     expect(h.state.reject.mutate).toHaveBeenCalledWith(
-      { id: 1, reason: 'уже есть похожее' },
+      { id: 1, reason: 'уже есть похожее', groupId: '10' },
       expect.anything(),
     );
+  });
+
+  it('глобальный админ без роли в группе НЕ видит «Одобрить»', () => {
+    h.state.user = { id: 5, firstName: 'Админ', isAdmin: true };
+    h.state.groups = [grp(10, 'MEMBER')];
+    render(<SuggestionsPage />);
+    expect(screen.queryByRole('button', { name: 'Одобрить' })).not.toBeInTheDocument();
   });
 });

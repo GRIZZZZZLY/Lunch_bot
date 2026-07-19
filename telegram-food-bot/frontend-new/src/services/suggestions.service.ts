@@ -15,43 +15,51 @@ export interface SuggestionStats {
   total: number;
 }
 
+// groupId обязателен на бэке для create/approve/reject/delete/stats/pending и
+// опционален для list (фильтр по группе). Предложения per-group — как меню.
+function withGroup(query: URLSearchParams, groupId?: string) {
+  if (groupId) query.set('groupId', groupId);
+  const s = query.toString();
+  return s ? `?${s}` : '';
+}
+
 class SuggestionsService {
-  list(params?: { status?: SuggestionStatus; limit?: number; offset?: number }) {
+  list(params?: { status?: SuggestionStatus; limit?: number; offset?: number; groupId?: string }) {
     const q = new URLSearchParams();
     if (params?.status) q.set('status', params.status);
     if (params?.limit !== undefined) q.set('limit', String(params.limit));
     if (params?.offset !== undefined) q.set('offset', String(params.offset));
-    return apiService.get<MenuSuggestion[]>(
-      `/suggestions${q.toString() ? `?${q}` : ''}`,
-    );
+    return apiService.get<MenuSuggestion[]>(`/suggestions${withGroup(q, params?.groupId)}`);
   }
 
   getById(id: number) {
     return apiService.get<MenuSuggestion>(`/suggestions/${id}`);
   }
 
-  create(data: CreateSuggestionInput) {
-    return apiService.post<MenuSuggestion>('/suggestions', data);
+  create(data: CreateSuggestionInput, groupId?: string) {
+    return apiService.post<MenuSuggestion>('/suggestions', { ...data, groupId });
   }
 
-  approve(id: number) {
-    return apiService.post<MenuSuggestion>(`/suggestions/${id}/approve`);
+  approve(id: number, groupId?: string) {
+    return apiService.post<MenuSuggestion>(`/suggestions/${id}/approve`, { groupId });
   }
 
-  reject(id: number, reason?: string) {
-    return apiService.post<MenuSuggestion>(`/suggestions/${id}/reject`, { reason });
+  reject(id: number, reason?: string, groupId?: string) {
+    return apiService.post<MenuSuggestion>(`/suggestions/${id}/reject`, { reason, groupId });
   }
 
-  remove(id: number) {
-    return apiService.delete<void>(`/suggestions/${id}`);
+  remove(id: number, groupId?: string) {
+    return apiService.delete<void>(`/suggestions/${id}${withGroup(new URLSearchParams(), groupId)}`);
   }
 
-  getStats() {
-    return apiService.get<SuggestionStats>('/suggestions/stats');
+  getStats(groupId?: string) {
+    return apiService.get<SuggestionStats>(`/suggestions/stats${withGroup(new URLSearchParams(), groupId)}`);
   }
 
-  getPendingCount() {
-    return apiService.get<{ count: number }>('/suggestions/pending-count');
+  getPendingCount(groupId?: string) {
+    return apiService.get<{ count: number }>(
+      `/suggestions/pending-count${withGroup(new URLSearchParams(), groupId)}`,
+    );
   }
 }
 

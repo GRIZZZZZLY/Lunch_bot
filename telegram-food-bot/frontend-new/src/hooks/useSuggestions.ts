@@ -11,6 +11,7 @@ export function useSuggestions(params?: {
   status?: SuggestionStatus;
   limit?: number;
   offset?: number;
+  groupId?: string;
 }) {
   const { isAuthenticated } = useAuth();
   return useQuery({
@@ -27,7 +28,8 @@ export function useSuggestions(params?: {
 export function useCreateSuggestion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: CreateSuggestionInput) => suggestionsService.create(data),
+    mutationFn: (vars: { data: CreateSuggestionInput; groupId?: string }) =>
+      suggestionsService.create(vars.data, vars.groupId),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.suggestions.all }),
   });
 }
@@ -35,7 +37,8 @@ export function useCreateSuggestion() {
 export function useApproveSuggestion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => suggestionsService.approve(id),
+    mutationFn: (vars: { id: number; groupId?: string }) =>
+      suggestionsService.approve(vars.id, vars.groupId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.suggestions.all });
       qc.invalidateQueries({ queryKey: queryKeys.menu.all });
@@ -46,8 +49,8 @@ export function useApproveSuggestion() {
 export function useRejectSuggestion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: number; reason?: string }) =>
-      suggestionsService.reject(vars.id, vars.reason),
+    mutationFn: (vars: { id: number; reason?: string; groupId?: string }) =>
+      suggestionsService.reject(vars.id, vars.reason, vars.groupId),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.suggestions.all }),
   });
 }
@@ -55,7 +58,8 @@ export function useRejectSuggestion() {
 export function useDeleteSuggestion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => suggestionsService.remove(id),
+    mutationFn: (vars: { id: number; groupId?: string }) =>
+      suggestionsService.remove(vars.id, vars.groupId),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.suggestions.all }),
   });
 }
