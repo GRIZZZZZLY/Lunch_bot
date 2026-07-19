@@ -23,9 +23,9 @@ export function applyThemeNow(): Theme {
   const root = document.documentElement;
   root.setAttribute('data-theme', theme);
   root.classList.toggle('dark', theme === 'dark');
-  // tg-synced: канвас берётся из Telegram theme variables (tokens.css),
-  // только пока тема приложения совпадает с темой Telegram.
-  root.classList.toggle('tg-synced', !!wa && theme === wa.colorScheme);
+  // Палитра фиксированная (решение владельца 2026-07-19): подхват канваса из
+  // Telegram theme variables удалён — фон детерминирован на всех клиентах.
+  root.classList.remove('tg-synced');
   resyncTelegramChrome();
   return theme;
 }

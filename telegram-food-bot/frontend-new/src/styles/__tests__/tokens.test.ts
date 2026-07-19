@@ -43,9 +43,9 @@ describe('tokens.css — единственный источник тем', () =
     }
   });
 
-  it('подключает Telegram theme variables с fallback', () => {
-    expect(tokensCss).toContain('--tg-theme-');
-    expect(tokensCss).toContain('tg-synced');
+  it('палитра фиксированная: подхват Telegram theme variables удалён (решение владельца 2026-07-19)', () => {
+    expect(tokensCss).not.toContain('--tg-theme-');
+    expect(tokensCss).not.toContain('tg-synced');
   });
 
   it('redesign-v2.css больше не определяет темы и токены', () => {
