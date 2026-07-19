@@ -86,12 +86,25 @@ jobs:
 
           test -f "$source_project/backend/.env"
           install -m 600 "$source_project/backend/.env" "$release_project/backend/.env"
-          if [ -f "$source_project/frontend/.env" ]; then
-            install -m 600 "$source_project/frontend/.env" "$release_project/frontend/.env"
+
+          frontend_dir=$(sed -n 's/^FRONTEND_DIR=//p' \
+            "$source_project/backend/.env" | tail -1 | tr -d '\r"' | xargs)
+          frontend_dir=${frontend_dir:-frontend}
+          case "$frontend_dir" in
+            frontend|frontend-new) ;;
+            *) echo "Unsupported FRONTEND_DIR: $frontend_dir" >&2; exit 1 ;;
+          esac
+          source_frontend="$source_project/$frontend_dir"
+          release_frontend="$release_project/$frontend_dir"
+          test -d "$source_frontend"
+          test -d "$release_frontend"
+
+          if [ -f "$source_frontend/.env" ]; then
+            install -m 600 "$source_frontend/.env" "$release_frontend/.env"
           fi
-          if [ -f "$source_project/frontend/.env.production" ]; then
-            install -m 600 "$source_project/frontend/.env.production" \
-              "$release_project/frontend/.env.production"
+          if [ -f "$source_frontend/.env.production" ]; then
+            install -m 600 "$source_frontend/.env.production" \
+              "$release_frontend/.env.production"
           fi
 
           for runtime_dir in uploads logs; do
@@ -110,7 +123,7 @@ jobs:
           )
 
           (
-            cd "$release_project/frontend"
+            cd "$release_frontend"
             npm ci
             npm run build
           )
@@ -129,9 +142,10 @@ jobs:
           ln -sfn "$release_dir" "$release_root/current.next"
           mv -Tf "$release_root/current.next" "$current_link"
 
+          pm2 delete rocket-lunch-bot || true
           APP_ROOT="$release_project" \
           BACKEND_ENV_FILE="$release_project/backend/.env" \
-            pm2 startOrReload "$release_project/ecosystem.config.js" \
+            pm2 start "$release_project/ecosystem.config.js" \
               --only rocket-lunch-bot --update-env
           pm2 save
 
@@ -201,9 +215,10 @@ jobs:
 
           ln -sfn "$previous_release" "$release_root/current.next"
           mv -Tf "$release_root/current.next" "$current_link"
+          pm2 delete rocket-lunch-bot || true
           APP_ROOT="$previous_project" \
           BACKEND_ENV_FILE="$previous_project/backend/.env" \
-            pm2 startOrReload "$previous_project/ecosystem.config.js" \
+            pm2 start "$previous_project/ecosystem.config.js" \
               --only rocket-lunch-bot --update-env
           pm2 save
           curl --fail --silent --show-error --retry 6 --retry-delay 5 \
