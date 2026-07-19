@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Система C · финальный борд — Rocket Lunch</title>
+<style>
+/* СИСТЕМА C — «нейтрали, цвет = значение» + фактура «перфолента-точки».
+   Действие — чернила/слоновая (без hue). Цвет несут только значения:
+   vote(терракота) · shop(шафран) · money/success(зелёный) · danger.
+   5 экранов × light/dark. Контраст пар проверен (AA+). */
+@font-face { font-family: 'Onest'; font-weight: 400 800; font-display: swap;
+  src: url('../../public/fonts/onest-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+2116; }
+@font-face { font-family: 'Onest'; font-weight: 400 800; font-display: swap;
+  src: url('../../public/fonts/onest-latin.woff2') format('woff2'); }
+
+* { box-sizing: border-box; margin: 0; }
+body { background: #55504A; padding: 26px; font-family: 'Onest', system-ui, sans-serif; }
+.grid { display: grid; grid-template-columns: repeat(5, 390px); gap: 26px; justify-content: center; }
+.cap { color: #E3DCCE; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 6px 4px; }
+.rowgap { height: 34px; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+.ph { position: relative; width: 390px; height: 812px; overflow: hidden; display: flex; flex-direction: column;
+  border-radius: 18px; box-shadow: 0 22px 54px -22px rgba(0,0,0,.6); }
+/* фактура: перфолента-точки */
+.ph::before { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-image: radial-gradient(circle, rgba(90,62,20,.07) 1.2px, transparent 1.3px); background-size: 17px 17px; }
+.dark.ph::before { background-image: radial-gradient(circle, rgba(244,235,220,.055) 1.2px, transparent 1.3px); }
+.ph > * { position: relative; z-index: 1; }
+
+/* ===== токены системы C ===== */
+.light { background: #F3EFE7; color: #23201B;
+  --surface:#FDFBF6; --surface2:#ECE7DC; --divider:rgba(60,52,38,.12);
+  --t2:#5D574C; --t3:#8D8678;
+  --act:#26211A; --act-on:#F7F3EA; --act-tint:rgba(38,33,26,.07);
+  --vote:#B4451F; --vote-tint:rgba(180,69,31,.10);
+  --shop:#9A6604; --shop-tint:rgba(154,102,4,.11);
+  --money:#3E7A34; --money-tint:rgba(62,122,52,.10);
+  --danger:#B23A25; --danger-tint:rgba(178,58,37,.10);
+  --shadow: 0 1px 2px rgba(70,55,25,.05), 0 8px 22px -14px rgba(70,55,25,.22);
+  --btn-shadow: 0 8px 16px -8px rgba(38,33,26,.4);
+}
+.dark { background: #171310; color: #F0E9DC;
+  --surface:#221D15; --surface2:#1C1812; --divider:rgba(240,233,220,.10);
+  --t2:#BDB29E; --t3:#837A69;
+  --act:#EFE7D8; --act-on:#1D1812; --act-tint:rgba(239,231,216,.10);
+  --vote:#FF9066; --vote-tint:rgba(255,144,102,.12);
+  --shop:#E4A93F; --shop-tint:rgba(228,169,63,.12);
+  --money:#84C671; --money-tint:rgba(132,198,113,.11);
+  --danger:#F07A5E; --danger-tint:rgba(240,122,94,.12);
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px -14px rgba(0,0,0,.6);
+  --btn-shadow: 0 8px 16px -8px rgba(0,0,0,.5);
+}
+.muted { color: var(--t3); } .mid { color: var(--t2); }
+
+.gp { margin: 0 12px 10px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+.head { display: flex; justify-content: space-between; align-items: baseline; padding: 16px 16px 2px; }
+.brand { font-size: 11px; font-weight: 800; letter-spacing: .13em; color: var(--vote); }
+.date { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.hello { padding: 0 16px 12px; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+
+.dtop { display: flex; align-items: center; gap: 10px; padding: 16px 16px 10px; }
+.back { display: flex; color: var(--t2); }
+.dtitle { flex: 1; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.sec-cap { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 8px; }
+.sec-title { font-size: 11.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 99px; }
+.chip.warn { background: var(--shop-tint); color: var(--shop); }
+.chip.ok { background: var(--money-tint); color: var(--money); }
+.chip.no { background: var(--danger-tint); color: var(--danger); }
+.chip.neutral { background: var(--act-tint); color: var(--t2); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.timer-line { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 16px 0; }
+.timer { font-size: 34px; font-weight: 800; letter-spacing: -0.03em; }
+.timer-cap { font-size: 12px; font-weight: 600; }
+
+.opt { display: flex; align-items: center; gap: 11px; padding: 10px 16px; }
+.opt + .opt, .row + .row, .mrow + .mrow { border-top: 1px solid var(--divider); }
+.optmain, .rmain { flex: 1; min-width: 0; }
+.optname { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+.lead .optname { font-weight: 800; font-size: 16px; }
+.vcheck { color: var(--vote); flex-shrink: 0; }
+.optsub { font-size: 12px; margin-top: 1px; }
+.bar { height: 4.5px; border-radius: 99px; background: var(--act-tint); margin-top: 7px; overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 99px; background: var(--vote); }
+.opt:not(.lead) .bar i { opacity: .3; }
+.pct { font-size: 14px; font-weight: 800; }
+.lead .pct { font-size: 17px; color: var(--vote); }
+
+.perf { position: relative; height: 22px; }
+.perf::before { content: ''; position: absolute; left: 20px; right: 20px; top: 50%; border-top: 2px dashed var(--divider); }
+.perf::after, .perf .n { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; top: 2px; background: var(--phbg); }
+.light .perf::after, .light .perf .n { --phbg: #F3EFE7; box-shadow: inset 0 0 3px rgba(85,60,20,.1); }
+.dark .perf::after, .dark .perf .n { --phbg: #171310; }
+.perf::after { left: -9px; } .perf .n { right: -9px; }
+
+.cta-wrap { padding: 10px 16px 14px; display: flex; gap: 12px; align-items: center; }
+.btn { flex: 1; display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 13px;
+  background: var(--act); color: var(--act-on); font-size: 15.5px; font-weight: 800; box-shadow: var(--btn-shadow); }
+.btn.dis { opacity: .4; box-shadow: none; }
+.ghostact { font-size: 14px; font-weight: 700; color: var(--vote); white-space: nowrap; }
+.cta-fix { margin-top: auto; padding: 12px 16px 14px; }
+
+.row { display: flex; align-items: center; gap: 11px; padding: 12px 16px; }
+.ric { width: 36px; height: 36px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ric.shop { background: var(--shop-tint); color: var(--shop); }
+.ric.money { background: var(--money-tint); color: var(--money); }
+.rname { font-size: 14.5px; font-weight: 700; }
+.rsub { font-size: 12px; margin-top: 1px; }
+.rsub .prog { color: var(--shop); font-weight: 700; }
+.money-val { font-size: 15px; font-weight: 800; color: var(--money); }
+
+.nav { margin: auto 12px 12px; display: grid; grid-auto-flow: column; gap: 4px; border-radius: 15px; padding: 6px;
+  background: var(--surface); box-shadow: var(--shadow); }
+.nav div { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 0 5px;
+  border-radius: 11px; font-size: 10px; font-weight: 600; opacity: .55; }
+.nav div.on { opacity: 1; background: var(--act-tint); font-weight: 800; }
+
+/* store run */
+.summary { display: flex; align-items: center; gap: 11px; padding: 2px 16px 8px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--vote-tint); color: var(--vote);
+  font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.item-actions { display: flex; gap: 8px; padding: 0 16px 12px; }
+.pill { flex: 1; display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 12px;
+  font-size: 14px; font-weight: 700; background: var(--act-tint); }
+.pill.ghost { background: transparent; box-shadow: inset 0 0 0 1.5px var(--divider); }
+.pill.solid { background: var(--act); color: var(--act-on); box-shadow: var(--btn-shadow); }
+.itop { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding: 12px 16px 0; }
+.iname { font-size: 15px; font-weight: 700; }
+.qty { font-weight: 600; opacity: .5; }
+.owner { font-size: 12px; flex-shrink: 0; color: var(--t3); }
+.inote { font-size: 12.5px; padding: 1px 16px 0; }
+.istatus { display: flex; align-items: center; gap: 10px; padding: 8px 16px 0; }
+.iactions-inline { display: flex; gap: 4px; flex-shrink: 0; color: var(--t2); }
+.seg-line { display: grid; grid-auto-flow: column; gap: 5px; padding: 8px 16px 12px; }
+.seg { height: 7px; border-radius: 99px; background: var(--act-tint); }
+.seg.done { background: var(--money); } .seg.miss { background: var(--danger); }
+.seg-cap { display: flex; justify-content: space-between; align-items: baseline; padding: 0 16px; }
+.seg-cap b { font-size: 16px; font-weight: 800; }
+.field-label { font-size: 12.5px; font-weight: 700; padding: 10px 16px 0; color: var(--t2); }
+.field { display: flex; align-items: center; margin: 6px 16px 0; height: 50px; border-radius: 12px;
+  background: var(--act-tint); padding: 0 14px; font-size: 21px; font-weight: 800; }
+.field .cur { margin-left: auto; opacity: .4; font-size: 15px; }
+.hint { font-size: 12px; padding: 6px 16px 0; }
+.iwrap.focus { margin: 6px 10px 10px; border-radius: 13px; background: var(--surface);
+  outline: 2px solid var(--vote); box-shadow: var(--shadow); padding-bottom: 2px; }
+.iwrap.focus .itop { padding-top: 10px; }
+
+/* menu */
+.search { display: flex; align-items: center; gap: 8px; margin: 4px 16px 10px; height: 44px; border-radius: 12px;
+  background: var(--act-tint); padding: 0 13px; color: var(--t3); font-size: 14px; }
+.chips { display: flex; gap: 7px; padding: 0 16px 12px; flex-wrap: wrap; }
+.cat { font-size: 12.5px; font-weight: 700; padding: 7px 12px; border-radius: 99px; background: var(--surface); box-shadow: var(--shadow); color: var(--t2); }
+.cat.on { background: var(--act); color: var(--act-on); }
+.mrow { display: flex; align-items: baseline; gap: 10px; padding: 12px 16px; }
+.mname { font-size: 15px; font-weight: 700; }
+.mdesc { font-size: 12px; margin-top: 1px; }
+.mprice { font-size: 14.5px; font-weight: 800; white-space: nowrap; }
+.hidden-dish { opacity: .45; }
+
+/* profile */
+.pstats { display: flex; gap: 8px; padding: 0 16px 4px; }
+.pstat { flex: 1; text-align: center; padding: 10px 4px; border-radius: 12px; background: var(--act-tint); }
+.pstat b { display: block; font-size: 17px; font-weight: 800; }
+.pstat span { font-size: 10.5px; color: var(--t3); }
+.switch { width: 42px; height: 26px; border-radius: 99px; background: var(--act); position: relative; flex-shrink: 0; }
+.switch::after { content: ''; position: absolute; width: 20px; height: 20px; border-radius: 50%; background: var(--act-on); top: 3px; right: 3px; }
+.chev { color: var(--t3); flex-shrink: 0; }
+</style></head><body>
+<div class="grid" id="lightRow"></div>
+<div class="rowgap"></div>
+<div class="grid" id="darkRow"></div>
+
+<script>
+const IC = {
+  home: "M3 10.5 12 4l9 6.5 M5 9.5V20h14V9.5 M9.5 20v-5h5v5",
+  menu: "M7 3v4 M9.5 3v4 M12 3v4 M7 7h5 M9.5 7v14 M16.5 21V3c2.4 1 3.5 3.8 3.5 6.8 0 2.3-1.4 3.7-3.5 3.7",
+  stats: "M4 20V10 M10 20V4 M16 20v-7 M22 20H2",
+  user: "M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6 M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
+  cart: "M3 4h2l2.6 12.5a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.2L21 8H6 M9.5 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M17.5 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z",
+  receipt: "M6 3h12v18l-2-1.4L14 21l-2-1.4L10 21l-2-1.4L6 21z M9 8h6 M9 12h6",
+  check: "M5 12.5 10 17 19 7",
+  back: "M15 5l-7 7 7 7",
+  edit: "M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z M13.5 6.5l3 3",
+  trash: "M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 11v6 M14 11v6",
+  search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.3-4.3",
+  chev: "M9 5l7 7-7 7",
+};
+function svg(name, size) {
+  const paths = IC[name].split(' M').map((p,i)=> (i? 'M'+p : p)).map(d=>`<path d="${d}"/>`).join('');
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+}
+const nav = (active) => `<div class="nav">${[['home','Главная'],['menu','Меню'],['stats','Статистика'],['user','Профиль']]
+  .map(([i,l],idx)=>`<div class="${idx===active?'on':''}">${svg(i,18)}${l}</div>`).join('')}</div>`;
+
+function home() { return `
+  <div class="head"><span class="brand">ROCKET LUNCH</span><span class="date muted">Пт, 18 июля</span></div>
+  <div class="hello">Добрый день, Игорь</div>
+  <div class="gp">
+    <div class="sec-cap"><span class="sec-title muted">Обеденный талон</span><span class="chip warn"><span class="dot"></span>Идёт</span></div>
+    <div class="timer-line"><span class="timer tnum">12:41</span><span class="timer-cap muted">13 голосов</span></div>
+    <div style="height:6px"></div>
+    <div class="opt lead"><div class="optmain">
+      <div class="optname"><span class="vcheck">${svg('check',15)}</span>Том-ям с креветками</div>
+      <div class="optsub muted">ваш голос · 6 голосов</div>
+      <div class="bar"><i style="width:46%"></i></div></div><span class="pct tnum">46%</span></div>
+    <div class="opt"><div class="optmain"><div class="optname">Пицца «Маргарита»</div><div class="optsub muted">4 голоса</div>
+      <div class="bar"><i style="width:31%"></i></div></div><span class="pct tnum mid">31%</span></div>
+    <div class="opt"><div class="optmain"><div class="optname">Шаурма классическая</div><div class="optsub muted">3 голоса</div>
+      <div class="bar"><i style="width:23%"></i></div></div><span class="pct tnum mid">23%</span></div>
+    <div class="perf"><span class="n"></span></div>
+    <div class="cta-wrap"><div class="btn">Переголосовать</div><span class="ghostact">Отозвать голос</span></div>
+  </div>
+  <div class="gp">
+    <div class="sec-cap"><span class="sec-title muted">Сейчас</span></div>
+    <div class="row"><div class="ric shop">${svg('cart',18)}</div>
+      <div class="rmain"><div class="rname">Пятёрочка у офиса</div><div class="rsub muted">Игорь в магазине · <span class="prog tnum">2 из 4</span></div></div>
+      <span class="chip warn">В магазине</span></div>
+    <div class="row"><div class="ric money">${svg('receipt',18)}</div>
+      <div class="rmain"><div class="rname">Бюджет команды</div><div class="rsub muted">Вы должны за вчерашний обед</div></div>
+      <span class="money-val tnum">260 ₽</span></div>
+  </div>
+  ${nav(0)}`; }
+
+function collecting() { return `
+  <div class="dtop"><span class="back">${svg('back',20)}</span><span class="dtitle">Пятёрочка у офиса</span><span class="chip warn"><span class="dot"></span>Сбор</span></div>
+  <div class="summary"><div class="avatar">И</div>
+    <div><div class="rname">Инициатор: Игорь</div><div class="rsub muted">2 участника · 3 позиции</div></div></div>
+  <div class="timer-line"><span class="timer tnum" style="font-size:28px">13:59</span><span class="timer-cap muted">до 14:30</span></div>
+  <div class="seg-line" style="grid-template-columns:1fr"><span class="seg"><span class="seg done" style="display:block;width:62%;height:100%;border-radius:99px"></span></span></div>
+  <div class="gp">
+    <div class="sec-cap"><span class="sec-title muted">Мои позиции · 2</span></div>
+    <div class="row"><div class="rmain"><div class="rname">Хлеб бородинский</div></div>
+      <span class="iactions-inline">${svg('edit',18)}&nbsp;&nbsp;${svg('trash',18)}</span></div>
+    <div class="row"><div class="rmain"><div class="rname">Кофе Lavazza Qualità Oro <span class="qty tnum">×2</span></div>
+      <div class="rsub muted">тёмная обжарка, если есть</div></div>
+      <span class="iactions-inline">${svg('edit',18)}&nbsp;&nbsp;${svg('trash',18)}</span></div>
+  </div>
+  <div class="gp">
+    <div class="sec-cap"><span class="sec-title muted">Аня · 1</span></div>
+    <div class="row"><div class="rmain"><div class="rname">Молоко 3.2% <span class="qty tnum">×2</span></div>
+      <div class="rsub muted">синюю пачку</div></div></div>
+  </div>
+  <div class="cta-fix"><div class="btn">Добавить позицию</div></div>`; }
+
+function shopping() { return `
+  <div class="dtop"><span class="back">${svg('back',20)}</span><span class="dtitle">Пятёрочка у офиса</span><span class="chip warn"><span class="dot"></span>В магазине</span></div>
+  <div class="seg-cap"><b class="tnum">Обработано 2 из 4</b><span class="muted" style="font-size:12px">осталось 2</span></div>
+  <div class="seg-line"><span class="seg done"></span><span class="seg miss"></span><span class="seg"></span><span class="seg"></span></div>
+  <div class="gp">
+    <div class="sec-cap"><span class="sec-title" style="color:var(--shop)">Осталось · 2</span></div>
+    <div class="itop"><span class="iname">Кофе Lavazza Qualità Oro <span class="qty tnum">×2</span></span><span class="owner">для вас</span></div>
+    <div class="inote muted">тёмная обжарка, если есть</div>
+    <div style="height:10px"></div>
+    <div class="item-actions"><span class="pill">Куплено</span><span class="pill ghost">Не нашли</span></div>
+    <div class="iwrap focus">
+      <div class="itop"><span class="iname">Хлеб бородинский</span><span class="owner">для вас</span></div>
+      <div class="field-label">Цена за всё, ₽</div>
+      <div class="field tnum">54<span class="cur">₽</span></div>
+      <div class="hint muted">за обе пачки — не за штуку · 0 допустимо</div>
+      <div style="height:10px"></div>
+      <div class="item-actions"><span class="pill ghost">Отмена</span><span class="pill solid">Сохранить</span></div>
+    </div>
+  </div>
+  <div class="gp">
+    <div class="sec-cap"><span class="sec-title" style="color:var(--money)">Куплено · 1</span></div>
+    <div class="itop"><span class="iname">Молоко 3.2% <span class="qty tnum">×2</span></span><span class="owner">для Ани</span></div>
+    <div class="istatus"><span class="chip ok">${svg('check',12)} Куплено</span><span class="money-val tnum">112,5 ₽</span></div>
+    <div style="height:10px"></div>
+    <div class="item-actions"><span class="pill">Изменить цену</span><span class="pill ghost">Не нашли</span></div>
+  </div>
+  <div class="gp">
+    <div class="sec-cap"><span class="sec-title" style="color:var(--danger)">Не нашли · 1</span></div>
+    <div class="itop"><span class="iname">Яблоки Гала <span class="qty tnum">×6</span></span><span class="owner">для Ани</span></div>
+    <div class="istatus"><span class="chip no">Не нашли</span></div>
+    <div style="height:10px"></div>
+    <div class="item-actions"><span class="pill">Всё-таки куплено</span></div>
+  </div>
+  <div class="cta-fix"><div class="btn dis">Рассчитать</div></div>`; }
+
+function menu() { return `
+  <div class="dtop" style="padding-bottom:4px"><span class="dtitle" style="font-size:22px">Меню</span><span class="chip neutral">Офис ▾</span></div>
+  <div class="search">${svg('search',16)} Поиск блюд</div>
+  <div class="chips"><span class="cat on">Все · 24</span><span class="cat">Супы · 5</span><span class="cat">Пицца · 6</span><span class="cat">Азиатская · 7</span><span class="cat">Десерты · 6</span></div>
+  <div class="gp">
+    <div class="mrow"><div class="rmain"><div class="mname">Том-ям с креветками</div><div class="mdesc muted">кокосовое молоко, кинза</div></div>
+      <span class="mprice tnum">420 ₽</span><span class="iactions-inline">${svg('edit',16)}</span></div>
+    <div class="mrow"><div class="rmain"><div class="mname">Пицца «Маргарита»</div><div class="mdesc muted">моцарелла, томаты</div></div>
+      <span class="mprice tnum">380 ₽</span><span class="iactions-inline">${svg('edit',16)}</span></div>
+    <div class="mrow"><div class="rmain"><div class="mname">Тирамису</div><div class="mdesc muted">маскарпоне</div></div>
+      <span class="mprice tnum">260 ₽</span><span class="iactions-inline">${svg('edit',16)}</span></div>
+    <div class="mrow hidden-dish"><div class="rmain"><div class="mname">Ролл «Филадельфия» <span class="chip neutral" style="font-size:10px;padding:2px 7px">Скрыто</span></div><div class="mdesc muted">лосось, сливочный сыр</div></div>
+      <span class="mprice tnum">350 ₽</span><span class="iactions-inline">${svg('edit',16)}</span></div>
+  </div>
+  <div style="padding:2px 16px"><div class="pill" style="height:46px">Добавить блюдо</div></div>
+  <div class="hint muted" style="text-align:center">Участники видят меню без правки</div>
+  ${nav(1)}`; }
+
+function profile() { return `
+  <div class="dtop" style="padding-bottom:8px"><div class="avatar" style="width:46px;height:46px">ИП</div>
+    <div style="flex:1"><div class="dtitle" style="font-size:19px">Игорь Петров</div><div class="rsub muted">@igor</div></div></div>
+  <div class="pstats">
+    <div class="pstat"><b class="tnum">18</b><span>голосований</span></div>
+    <div class="pstat"><b class="tnum">4</b><span>победы блюда</span></div>
+    <div class="pstat"><b class="tnum">5</b><span>дней серия</span></div>
+  </div>
+  <div class="gp" style="margin-top:10px">
+    <div class="sec-cap"><span class="sec-title muted">Оформление</span></div>
+    <div class="row"><div class="rmain"><div class="rname">Тема</div><div class="rsub muted">Светлая</div></div><span class="switch"></span></div>
+  </div>
+  <div class="gp">
+    <div class="sec-cap"><span class="sec-title muted">Реквизиты для переводов</span></div>
+    <div class="row"><div class="rmain"><div class="rname tnum">СБП +7 999 123-45-67</div><div class="rsub muted">Т-Банк · карта не задана</div></div>
+      <span class="ghostact" style="color:var(--vote)">Изменить</span></div>
+  </div>
+  <div class="gp">
+    <div class="sec-cap"><span class="sec-title muted">Моя история</span></div>
+    <div class="row"><div class="rmain"><div class="rname">Опрос #103</div><div class="rsub muted">17 июля · 13 голосов</div></div>
+      <span class="chip ok">Завершено</span></div>
+    <div class="row"><div class="rmain"><div class="rname">Опрос #101</div><div class="rsub muted">15 июля · 9 голосов</div></div>
+      <span class="chip neutral">Отменено</span></div>
+    <div class="row"><div class="rmain"><div class="rname" style="color:var(--vote)">Вся история голосований</div></div><span class="chev">${svg('chev',16)}</span></div>
+  </div>
+  <div class="gp">
+    <div class="row"><div class="rmain"><div class="rname">Мои предложения</div></div><span class="chev">${svg('chev',16)}</span></div>
+    <div class="row"><div class="rmain"><div class="rname">Написать отзыв</div></div><span class="chev">${svg('chev',16)}</span></div>
+    <div class="row"><div class="rmain"><div class="rname">Поддержать проект</div></div><span class="chev">${svg('chev',16)}</span></div>
+  </div>
+  ${nav(3)}`; }
+
+const SCREENS = [
+  ['Главная', home], ['Закупка · сбор (участник)', collecting], ['Закупка · в магазине (инициатор)', shopping],
+  ['Меню (админ)', menu], ['Профиль', profile],
+];
+for (const [rowId, theme] of [['lightRow','light'],['darkRow','dark']]) {
+  document.getElementById(rowId).innerHTML = SCREENS.map(([label, fn]) =>
+    `<div><p class="cap">${label} · ${theme==='light'?'светлая':'тёмная'}</p><div class="ph ${theme}">${fn()}</div></div>`).join('');
+}
+</script>
+</body></html>
