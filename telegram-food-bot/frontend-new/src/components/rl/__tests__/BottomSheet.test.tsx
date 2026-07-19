@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BottomSheet } from '../BottomSheet';
+import { BottomSheet, shouldDismissSheet } from '../BottomSheet';
 import { _resetBackButtonForTests, closeTopOverlay } from '@/lib/backButton';
 
 function Harness({ onClosed }: { onClosed?: () => void }) {
@@ -31,6 +31,22 @@ beforeEach(() => {
   document.body.style.overflow = '';
 });
 
+describe('shouldDismissSheet — velocity/offset пороги жеста', () => {
+  it('быстрый свайп закрывает (velocity > 0.11 px/ms)', () => {
+    expect(shouldDismissSheet(120, 100, 600)).toBe(true); // v = 1.2
+  });
+  it('медленный, но далёкий закрывает (offset > 35% высоты)', () => {
+    expect(shouldDismissSheet(250, 5000, 600)).toBe(true); // 41%
+  });
+  it('медленный и близкий — snap-back', () => {
+    expect(shouldDismissSheet(100, 5000, 600)).toBe(false); // 16%, v=0.02
+  });
+  it('нулевое/отрицательное смещение — никогда', () => {
+    expect(shouldDismissSheet(0, 100, 600)).toBe(false);
+    expect(shouldDismissSheet(-40, 10, 600)).toBe(false);
+  });
+});
+
 describe('BottomSheet — доступность', () => {
   it('связывает заголовок через aria-labelledby', async () => {
     render(<Harness />);
@@ -41,7 +57,7 @@ describe('BottomSheet — доступность', () => {
     expect(document.getElementById(labelId!)).toHaveTextContent('Тестовая шторка');
   });
 
-  it('переносит фокус внутрь и восстанавливает после закрытия', async () => {
+  it('переносит фокус внутрь и восстанавливает после закрытия (exit 200ms)', async () => {
     render(<Harness />);
     const trigger = screen.getByRole('button', { name: 'Открыть' });
     await userEvent.click(trigger);
@@ -49,16 +65,16 @@ describe('BottomSheet — доступность', () => {
     expect(dialog.contains(document.activeElement)).toBe(true);
 
     await userEvent.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
     expect(document.activeElement).toBe(trigger);
   });
 
-  it('Escape закрывает шторку', async () => {
+  it('Escape закрывает шторку после exit-анимации', async () => {
     const onClosed = vi.fn();
     render(<Harness onClosed={onClosed} />);
     await userEvent.click(screen.getByRole('button', { name: 'Открыть' }));
     await userEvent.keyboard('{Escape}');
-    expect(onClosed).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onClosed).toHaveBeenCalledTimes(1));
   });
 
   it('блокирует прокрутку body и восстанавливает её', async () => {
@@ -66,7 +82,7 @@ describe('BottomSheet — доступность', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Открыть' }));
     expect(document.body.style.overflow).toBe('hidden');
     await userEvent.keyboard('{Escape}');
-    expect(document.body.style.overflow).toBe('');
+    await waitFor(() => expect(document.body.style.overflow).toBe(''));
   });
 
   it('закрывается по клику на backdrop', async () => {
@@ -75,7 +91,7 @@ describe('BottomSheet — доступность', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Открыть' }));
     const backdrop = document.querySelector('[aria-hidden="true"]') as HTMLElement;
     await userEvent.click(backdrop);
-    expect(onClosed).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onClosed).toHaveBeenCalledTimes(1));
   });
 
   it('регистрируется в стеке оверлеев (закрытие через Telegram BackButton)', async () => {
@@ -84,6 +100,22 @@ describe('BottomSheet — доступность', () => {
     act(() => {
       expect(closeTopOverlay()).toBe(true);
     });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitForElementToBeRemoved(() => screen.queryByRole('dialog'));
+  });
+
+  it('closable=false: Escape и BackButton не закрывают и не запускают exit', async () => {
+    const onClose = vi.fn();
+    render(
+      <BottomSheet title="Заблокировано" onClose={onClose} closable={false}>
+        <div>контент</div>
+      </BottomSheet>,
+    );
+    await userEvent.keyboard('{Escape}');
+    act(() => {
+      closeTopOverlay();
+    });
+    await new Promise((r) => setTimeout(r, 250));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
