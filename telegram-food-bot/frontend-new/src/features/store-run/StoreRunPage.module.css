@@ -80,6 +80,15 @@
   transition: width 1s linear;
 }
 
+/* Система C: цвет полосы = домен. Таймер сбора — шафран, прогресс покупок — зелёный. */
+.countdown .barFill {
+  background: var(--shop, var(--warning));
+}
+
+.progress .barFill {
+  background: var(--money, var(--success));
+}
+
 /* секции участников */
 .section {
   display: flex;

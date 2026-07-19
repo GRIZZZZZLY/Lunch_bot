@@ -49,9 +49,10 @@ export function CollectingView({
   const isInitiator = isInitiatorOf(run, currentUserId);
   const items = run.items;
 
+  // Система C: статусы закупки — шафрановый warning-домен, не action-цвет
   const statusAction = useMemo(
     () => (
-      <Status tone="accent" icon="clock">
+      <Status tone="warning" icon="clock">
         Сбор
       </Status>
     ),

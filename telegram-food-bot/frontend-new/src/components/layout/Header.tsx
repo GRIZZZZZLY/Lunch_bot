@@ -28,8 +28,8 @@ export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
               height: 32,
               borderRadius: 10,
               flexShrink: 0,
-              background: 'var(--accent)',
-              color: 'var(--accent-foreground)',
+              background: 'var(--vote, var(--accent))',
+              color: 'var(--danger-foreground, #fff)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -38,8 +38,10 @@ export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
             <Icon name="sparkle" size={18} stroke={2} />
           </div>
           <div
-            className="font-head tight"
+            className="tight"
             style={{
+              // Unbounded — только бренд (система C)
+              fontFamily: 'var(--font-brand)',
               fontWeight: 700,
               fontSize: 'var(--t-16)',
               whiteSpace: 'nowrap',

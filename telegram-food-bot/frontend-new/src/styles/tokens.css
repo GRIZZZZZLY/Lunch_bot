@@ -111,100 +111,116 @@
   --nav-h: 66px;
 }
 
-/* ---------- Colors: light ---------- */
+/* ---------- Colors: light — система C «нейтрали, цвет = значение»
+   (docs/design-directions/system-c-spec.md). Действие (--accent) — чернила
+   без hue; цвет несут только домены (--vote/--shop/--money) и статусы. ---------- */
 [data-theme='light'] {
-  --canvas: #f1f3f6;
-  --surface: #ffffff;
-  --surface-secondary: #f3f5f8;
+  --canvas: #f3efe7;
+  --surface: #fdfbf6;
+  --surface-secondary: #ece7dc;
   --elevated: #ffffff;
-  --text-primary: #1d2127;
-  --text-secondary: #5d646f;
-  --text-tertiary: #8b929e;
-  --divider: rgba(55, 65, 90, 0.1);
-  --accent: #b27708;
-  --accent-foreground: #261a02;
-  --accent-hover: #9e6907;
-  --accent-active: #8a5c06;
-  --accent-tint: rgba(214, 137, 20, 0.12);
-  --accent-ring: rgba(214, 137, 20, 0.2);
-  --success: #47823a;
-  --success-tint: rgba(110, 180, 95, 0.13);
-  --success-foreground: #ffffff;
-  --warning: #a97b0e;
-  --warning-tint: rgba(232, 181, 74, 0.18);
-  --warning-foreground: #ffffff;
-  --danger: #c2503b;
-  --danger-tint: rgba(225, 105, 80, 0.11);
-  --danger-foreground: #ffffff;
-  --info: #2a7bd6;
-  --info-tint: rgba(86, 168, 245, 0.14);
-  --info-foreground: #ffffff;
-  --overlay: rgba(8, 12, 18, 0.45);
-  --focus-ring: rgba(214, 137, 20, 0.55);
+  --text-primary: #23201b;
+  --text-secondary: #5d574c;
+  --text-tertiary: #8d8678;
+  --divider: rgba(60, 52, 38, 0.12);
+  --accent: #26211a;
+  --accent-foreground: #f7f3ea;
+  --accent-hover: #322c23;
+  --accent-active: #1b1712;
+  --accent-tint: rgba(38, 33, 26, 0.07);
+  --accent-ring: rgba(38, 33, 26, 0.18);
+  --vote: #b4451f;
+  --vote-tint: rgba(180, 69, 31, 0.1);
+  --shop: #9a6604;
+  --shop-tint: rgba(154, 102, 4, 0.11);
+  --money: #3e7a34;
+  --money-tint: rgba(62, 122, 52, 0.1);
+  --success: #3e7a34;
+  --success-tint: rgba(62, 122, 52, 0.1);
+  --success-foreground: #f4f9f1;
+  --warning: #9a6604;
+  --warning-tint: rgba(154, 102, 4, 0.12);
+  --warning-foreground: #fffdf6;
+  --danger: #b23a25;
+  --danger-tint: rgba(178, 58, 37, 0.1);
+  --danger-foreground: #fdf1ee;
+  --info: #58718f;
+  --info-tint: rgba(88, 113, 143, 0.1);
+  --info-foreground: #f2f5f9;
+  --overlay: rgba(28, 22, 14, 0.5);
+  --focus-ring: rgba(38, 33, 26, 0.5);
+  --texture-dot: rgba(90, 62, 20, 0.07);
 
-  /* materials «Графит и мёд» */
-  --card-grad: linear-gradient(180deg, #ffffff, #f3f5f8);
-  --float-grad: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(243, 245, 249, 0.98));
-  --surface-glass: rgba(247, 248, 250, 0.78);
+  /* materials: плоские поверхности, тёплые тени */
+  --card-grad: linear-gradient(180deg, #fdfbf6, #fdfbf6);
+  --float-grad: linear-gradient(180deg, rgba(253, 251, 246, 0.96), rgba(253, 251, 246, 0.98));
+  --surface-glass: rgba(253, 251, 246, 0.85);
   --glass-blur: 10px;
-  --accent-grad: linear-gradient(135deg, #f6be5f, #d68914);
-  --accent-grad-hover: linear-gradient(135deg, #f8c876, #e29a1d);
-  --accent-grad-active: linear-gradient(135deg, #edb44f, #c67f10);
-  --shadow-1: 0 1px 3px rgba(55, 65, 90, 0.08), 0 2px 8px rgba(55, 65, 90, 0.06);
-  --shadow-2: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 14px 30px -16px rgba(55, 65, 90, 0.3), 0 3px 8px -4px rgba(55, 65, 90, 0.15);
-  --shadow-3: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 18px 40px -14px rgba(50, 60, 85, 0.35), 0 4px 12px -4px rgba(50, 60, 85, 0.18);
+  --accent-grad: linear-gradient(180deg, #26211a, #26211a);
+  --accent-grad-hover: linear-gradient(180deg, #322c23, #322c23);
+  --accent-grad-active: linear-gradient(180deg, #1b1712, #1b1712);
+  --shadow-1: 0 1px 2px rgba(70, 55, 25, 0.05), 0 4px 12px -8px rgba(70, 55, 25, 0.18);
+  --shadow-2: 0 1px 2px rgba(70, 55, 25, 0.05), 0 8px 22px -14px rgba(70, 55, 25, 0.22);
+  --shadow-3: 0 2px 4px rgba(70, 55, 25, 0.06), 0 12px 30px -14px rgba(70, 55, 25, 0.3);
 }
 
-/* ---------- Colors: dark ---------- */
+/* ---------- Colors: dark — система C ---------- */
 [data-theme='dark'] {
-  --canvas: #121317;
-  --surface: #1e2025;
-  --surface-secondary: #17181c;
-  --elevated: #26282f;
-  --text-primary: #f1f3f7;
-  --text-secondary: #aeb5c0;
-  --text-tertiary: #787f8c;
-  --divider: rgba(228, 235, 248, 0.08);
-  --accent: #f0ab46;
-  --accent-foreground: #261a02;
-  --accent-hover: #f4ba62;
-  --accent-active: #d68914;
-  --accent-tint: rgba(240, 171, 70, 0.14);
-  --accent-ring: rgba(240, 171, 70, 0.18);
-  --success: #8fcb7f;
-  --success-tint: rgba(125, 195, 110, 0.12);
-  --success-foreground: #10250b;
-  --warning: #e8b54a;
-  --warning-tint: rgba(232, 181, 74, 0.14);
-  --warning-foreground: #241802;
-  --danger: #ee7a5f;
-  --danger-tint: rgba(238, 110, 80, 0.12);
-  --danger-foreground: #2a0f06;
-  --info: #56a8f5;
-  --info-tint: rgba(86, 168, 245, 0.16);
-  --info-foreground: #0a1a2e;
-  --overlay: rgba(8, 12, 18, 0.55);
-  --focus-ring: rgba(240, 171, 70, 0.5);
+  --canvas: #171310;
+  --surface: #221d15;
+  --surface-secondary: #1c1812;
+  --elevated: #2a241b;
+  --text-primary: #f0e9dc;
+  --text-secondary: #bdb29e;
+  --text-tertiary: #837a69;
+  --divider: rgba(240, 233, 220, 0.1);
+  --accent: #efe7d8;
+  --accent-foreground: #1d1812;
+  --accent-hover: #fff8eb;
+  --accent-active: #ded4c2;
+  --accent-tint: rgba(239, 231, 216, 0.1);
+  --accent-ring: rgba(239, 231, 216, 0.22);
+  --vote: #ff9066;
+  --vote-tint: rgba(255, 144, 102, 0.12);
+  --shop: #e4a93f;
+  --shop-tint: rgba(228, 169, 63, 0.12);
+  --money: #84c671;
+  --money-tint: rgba(132, 198, 113, 0.11);
+  --success: #84c671;
+  --success-tint: rgba(132, 198, 113, 0.11);
+  --success-foreground: #13200b;
+  --warning: #e4a93f;
+  --warning-tint: rgba(228, 169, 63, 0.13);
+  --warning-foreground: #241a02;
+  --danger: #f07a5e;
+  --danger-tint: rgba(240, 122, 94, 0.12);
+  --danger-foreground: #2a0e06;
+  --info: #8fa9c9;
+  --info-tint: rgba(143, 169, 201, 0.12);
+  --info-foreground: #0e1622;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --focus-ring: rgba(239, 231, 216, 0.45);
+  --texture-dot: rgba(244, 235, 220, 0.055);
 
-  --card-grad: linear-gradient(180deg, #212329, #1b1d22);
-  --float-grad: linear-gradient(180deg, rgba(46, 50, 58, 0.94), rgba(35, 38, 45, 0.97));
-  --surface-glass: rgba(30, 32, 37, 0.62);
+  --card-grad: linear-gradient(180deg, #221d15, #221d15);
+  --float-grad: linear-gradient(180deg, rgba(42, 36, 27, 0.96), rgba(34, 29, 21, 0.98));
+  --surface-glass: rgba(34, 29, 21, 0.85);
   --glass-blur: 12px;
-  --accent-grad: linear-gradient(135deg, #f6be5f, #d68914);
-  --accent-grad-hover: linear-gradient(135deg, #f8c876, #e29a1d);
-  --accent-grad-active: linear-gradient(135deg, #edb44f, #c67f10);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
-  --shadow-2: inset 0 1px 0 rgba(235, 240, 250, 0.06), 0 14px 34px -16px rgba(4, 6, 10, 0.8), 0 3px 8px -3px rgba(6, 8, 12, 0.5);
-  --shadow-3: inset 0 1px 0 rgba(235, 240, 250, 0.08), 0 18px 40px -14px rgba(4, 6, 10, 0.85), 0 4px 12px -4px rgba(5, 7, 10, 0.6);
+  --accent-grad: linear-gradient(180deg, #efe7d8, #efe7d8);
+  --accent-grad-hover: linear-gradient(180deg, #fff8eb, #fff8eb);
+  --accent-grad-active: linear-gradient(180deg, #ded4c2, #ded4c2);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px -8px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 22px -14px rgba(0, 0, 0, 0.6);
+  --shadow-3: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 30px -14px rgba(0, 0, 0, 0.7);
 }
 
 /* Канвас из Telegram, когда тема приложения совпадает с темой Telegram
    (ручной override, расходящийся с Telegram, отключает подхват — класс снимается). */
 html.tg-synced[data-theme='light'] {
-  --canvas: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #f1f3f6));
+  --canvas: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #f3efe7));
 }
 html.tg-synced[data-theme='dark'] {
-  --canvas: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #121317));
+  --canvas: var(--tg-theme-secondary-bg-color, var(--tg-theme-bg-color, #171310));
 }
 
 /* ============================================================
@@ -239,9 +255,9 @@ html.tg-synced[data-theme='dark'] {
   --sans: var(--font-body);
   --display: var(--font-brand);
   --mono: var(--font-mono);
-  /* --font-head: заголовки пока остаются на Unbounded; перевод на Onest
-     (Unbounded — только бренд) — при редизайне экранов, фазы 4–6 */
-  --font-head: var(--font-brand);
+  /* Система C: заголовки — Onest (Unbounded остаётся ТОЛЬКО в логотипе,
+     точечно через --font-brand) */
+  --font-head: var(--font-body);
   --t-11: var(--text-11);
   --t-13: var(--text-13);
   --t-15: var(--text-15);
