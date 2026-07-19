@@ -66,11 +66,27 @@ describe('визуальный фундамент 2B', () => {
     expect(indexCss).not.toContain('feTurbulence');
   });
 
-  it('радиальные фоновые засветки удалены — фон один и плоский', () => {
-    expect(indexCss).not.toContain('radial-gradient');
+  it('радиальные засветки удалены; допустима только dot-текстура под контентом', () => {
+    // старые декоративные засветки «Графит и мёд» (radial 120%/80%…) запрещены
+    expect(indexCss).not.toMatch(/radial-gradient\(\s*\d+%/);
     expect(tokensCss).not.toContain('--bg-page: radial');
+    // фактура системы C: ровно один radial-gradient — точки из --texture-dot,
+    // на body::before с z-index:-1 (не поверх модалок)
+    const radials = indexCss.match(/radial-gradient/g) ?? [];
+    expect(radials.length).toBe(1);
+    expect(indexCss).toContain('var(--texture-dot');
+    expect(indexCss).toContain('z-index: -1');
     const backgroundDefs = indexCss.match(/^html\s*\{|^html\.dark\s*\{/gm) ?? [];
     expect(backgroundDefs.length).toBe(1);
+  });
+
+  it('доменные токены системы C определены в обеих темах', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      const block = themeBlock(tokensCss, theme);
+      for (const token of ['--vote', '--shop', '--money', '--texture-dot']) {
+        expect(block, `${token} отсутствует в теме ${theme}`).toContain(`${token}:`);
+      }
+    }
   });
 
   it('accent-glow снят с кнопок и FAB (alias остаётся для легаси)', () => {

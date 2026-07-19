@@ -18,7 +18,19 @@ body,
 
 /* Единственное определение фона страницы: плоский канвас из токенов. */
 html {
-  background: var(--canvas, #ebedf1);
+  background: var(--canvas, #f3efe7);
+}
+
+/* Фактура «перфолента-точки» (система C): под контентом (z-index:-1),
+   НЕ поверх модалок — урок бага с грейном на z-999. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle, var(--texture-dot, transparent) 1.2px, transparent 1.3px);
+  background-size: 17px 17px;
 }
 
 body {

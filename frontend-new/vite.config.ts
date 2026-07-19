@@ -36,10 +36,18 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    // Битый deps-optimizer кэш в node_modules/.vite приводил к падению всех
-    // suites («Vitest failed to find the current suite»). Кэш отключён —
-    // детерминированность прогона важнее долей секунды на старте.
-    // TODO(infra): перепроверить необходимость после обновления Vitest > 4.1.x.
+    // Битый deps-optimizer кэш в node_modules/.vite ронял все suites
+    // («Vitest failed to find the current suite») — cache:false его не покрывал:
+    // Vitest 4 держит optimizer-кэш отдельно (node_modules/.vite/vitest) и
+    // переиспользует его после dev/build. Отключаем оптимизер в тестах целиком —
+    // детерминированность важнее долей секунды на старте.
+    // TODO(infra): перепроверить после обновления Vitest > 4.1.x.
     cache: false,
+    deps: {
+      optimizer: {
+        web: { enabled: false },
+        ssr: { enabled: false },
+      },
+    },
   },
 });
