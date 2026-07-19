@@ -55,7 +55,7 @@ const group = (id: number, title: string, role = 'MEMBER') => ({
 
 beforeEach(() => {
   h.state.items = [dish(), dish({ id: 2, name: 'Пицца «Маргарита»', category: 'Пицца', price: 380 })];
-  h.state.groups = [];
+  h.state.groups = [group(10, 'Офис', 'MEMBER')];
   h.state.user = { id: 1, firstName: 'Игорь', isAdmin: false };
   h.state.error = null;
   h.state.toggle = { mutate: vi.fn(), isPending: false, variables: undefined };
@@ -90,9 +90,10 @@ describe('MenuPage — участник', () => {
   });
 });
 
-describe('MenuPage — админ', () => {
+describe('MenuPage — админ группы', () => {
   beforeEach(() => {
-    h.state.user = { id: 1, firstName: 'Игорь', isAdmin: true };
+    // Права по РОЛИ в выбранной группе, а не по глобальному isAdmin.
+    h.state.groups = [group(10, 'Офис', 'ADMIN')];
   });
 
   it('toggle уходит с явным groupId (B4)', () => {
@@ -107,6 +108,15 @@ describe('MenuPage — админ', () => {
     expect(screen.getByText('Скрыто')).toBeInTheDocument();
     expect(screen.getByLabelText('Изменить «Том-ям с креветками»')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Добавить блюдо' })).toBeInTheDocument();
+  });
+});
+
+describe('MenuPage — глобальный админ без роли в группе', () => {
+  it('isAdmin=true, но роль MEMBER → «Добавить блюдо» скрыто (совпадает с бэком)', () => {
+    h.state.user = { id: 1, firstName: 'Игорь', isAdmin: true };
+    h.state.groups = [group(10, 'Офис', 'MEMBER')];
+    render(<MenuPage />);
+    expect(screen.queryByRole('button', { name: 'Добавить блюдо' })).not.toBeInTheDocument();
   });
 });
 

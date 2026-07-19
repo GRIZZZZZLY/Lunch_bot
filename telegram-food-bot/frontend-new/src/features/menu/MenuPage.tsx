@@ -10,10 +10,9 @@ import {
   useUpdateMenuItem,
   useToggleMenuItem,
 } from '@/hooks/useMenu';
-import { useAuth } from '@/hooks/useAuth';
 import { useMyGroups } from '@/hooks/useUser';
 import { useAppStore } from '@/store/useAppStore';
-import { isGlobalAdmin } from '@/lib/permissions';
+import { isGroupAdminRole } from '@/lib/permissions';
 import type { MenuItem } from '@/types/models';
 import { Icon } from '@/components/rl/Icon';
 import { Switch } from '@/components/rl/primitives';
@@ -51,9 +50,6 @@ export function buildCategories(dishes: Pick<Dish, 'category'>[]): { id: string;
 }
 
 export default function MenuPage() {
-  const { user } = useAuth();
-  const isAdmin = isGlobalAdmin(user);
-
   // Группа — глобальный контекст всего продукта (решение плана миграции):
   // никаких локальных «только для меню» групп.
   const currentGroupId = useAppStore((s) => s.currentGroupId);
@@ -61,6 +57,10 @@ export default function MenuPage() {
   const { data: myGroups = [] } = useMyGroups();
   const activeGroups = useMemo(() => myGroups.filter((g) => g.isActive), [myGroups]);
   const activeGroup = activeGroups.find((g) => String(g.id) === currentGroupId);
+
+  // Управление меню — по РОЛИ в выбранной группе (совпадает с бэком:
+  // menu.routes → groupAdminMiddleware, глобальный isAdmin не в счёт).
+  const isAdmin = isGroupAdminRole(activeGroup?.role);
 
   const { data: items = [], isLoading, error, refetch } = useMenuItems({ activeOnly: false, groupId: currentGroupId });
   const createMutation = useCreateMenuItem();
