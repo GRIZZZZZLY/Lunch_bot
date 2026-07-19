@@ -17,6 +17,16 @@ import { GlassCard } from '../ui/glass-card';
 /**
  * Стили для разных сценариев
  */
+interface ScenarioStyle {
+  icon: React.ReactNode;
+  title: string;
+  eyebrow: string;
+  badge: {
+    text: string;
+    variant: 'default' | 'destructive';
+  } | null;
+}
+
 const scenarioStyles = {
   'urgent-debt': {
     icon: <AlertCircle className={ICON_SIZES.md} />,
@@ -54,7 +64,7 @@ const scenarioStyles = {
     eyebrow: '',
     badge: null,
   },
-};
+} satisfies Record<string, ScenarioStyle>;
 
 type BudgetScenario = keyof typeof scenarioStyles;
 
@@ -63,7 +73,7 @@ interface BudgetDetailsModalProps {
   onClose: () => void;
   scenario: BudgetScenario;
   isDark: boolean;
-  style: (typeof scenarioStyles)[BudgetScenario];
+  style: ScenarioStyle;
   iconShellClassName: string;
   children: React.ReactNode;
 }
@@ -238,7 +248,7 @@ const BudgetWidgetContent: React.FC = () => {
   useEffect(() => {
     if (scenario === 'success-message') {
       const timer = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['budget'] });
+        void queryClient.invalidateQueries({ queryKey: ['budget'] });
       }, 3000);
       return () => clearTimeout(timer);
     }

@@ -92,7 +92,7 @@ checkPolls()
   .then(() => {
     process.exit(0);
   })
-  .catch((error) => {
+  .catch((error: unknown) => {
     console.error('Script failed:', error);
     process.exit(1);
   });

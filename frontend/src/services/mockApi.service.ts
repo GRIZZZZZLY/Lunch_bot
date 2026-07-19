@@ -1,28 +1,28 @@
-import { ApiResponse } from './api.service';
-import { MenuItem, MenuStats } from './menu.service';
-import type { User } from '../types/auth.types';
-import { Poll, PollStats, PopularItem } from './polls.service';
+import { ApiResponse } from "./api.service";
+import { MenuItem, MenuStats } from "./menu.service";
+import type { User } from "../types/auth.types";
+import { Poll, PollStats, PopularItem } from "./polls.service";
 
 // Mock данные для тестирования
-const MOCK_USERS: User[] = [
+const MOCK_USERS: [User, User] = [
   {
     id: 1,
-    telegramId: '123456789',
-    username: 'testuser',
-    firstName: 'Иван',
-    lastName: 'Иванов',
+    telegramId: "123456789",
+    username: "testuser",
+    firstName: "Иван",
+    lastName: "Иванов",
     isAdmin: true,
     isActive: true,
-    createdAt: '2025-09-29T10:00:00.000Z',
+    createdAt: "2025-09-29T10:00:00.000Z",
   },
   {
     id: 2,
-    telegramId: '987654321',
-    username: 'user2',
-    firstName: 'Мария',
+    telegramId: "987654321",
+    username: "user2",
+    firstName: "Мария",
     isAdmin: false,
     isActive: true,
-    createdAt: '2025-09-29T11:00:00.000Z',
+    createdAt: "2025-09-29T11:00:00.000Z",
   },
 ];
 
@@ -31,275 +31,299 @@ const MOCK_MENU_ITEMS: Array<MenuItem & { category?: string }> = [
   {
     id: 1,
     groupId: 0,
-    name: 'Пицца Маргарита',
-    description: 'Классическая итальянская пицца с томатным соусом, моцареллой и базиликом',
+    name: "Пицца Маргарита",
+    description:
+      "Классическая итальянская пицца с томатным соусом, моцареллой и базиликом",
     price: 850,
-    category: 'Пицца',
-    imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=300&fit=crop',
+    category: "Пицца",
+    imageUrl:
+      "https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=300&fit=crop",
     images: [
-      'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=300&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=300&h=300&fit=crop'
+      "https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=300&fit=crop",
+      "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=300&h=300&fit=crop",
+      "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=300&h=300&fit=crop",
     ],
     isActive: true,
-    createdAt: '2025-09-29T08:00:00.000Z',
-    updatedAt: '2025-09-29T08:00:00.000Z',
+    createdAt: "2025-09-29T08:00:00.000Z",
+    updatedAt: "2025-09-29T08:00:00.000Z",
   },
   {
     id: 7,
     groupId: 0,
-    name: 'Пицца Пепперони',
-    description: 'Острая пицца с пепперони, сыром моцарелла и томатным соусом',
+    name: "Пицца Пепперони",
+    description: "Острая пицца с пепперони, сыром моцарелла и томатным соусом",
     price: 920,
-    category: 'Пицца',
-    imageUrl: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=300&h=300&fit=crop',
+    category: "Пицца",
+    imageUrl:
+      "https://images.unsplash.com/photo-1628840042765-356cda07504e?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T08:15:00.000Z',
-    updatedAt: '2025-09-29T08:15:00.000Z',
+    createdAt: "2025-09-29T08:15:00.000Z",
+    updatedAt: "2025-09-29T08:15:00.000Z",
   },
   {
     id: 8,
     groupId: 0,
-    name: 'Пицца Четыре сыра',
-    description: 'Пицца с четырьмя видами сыра: моцарелла, горгонзола, пармезан, чеддер',
+    name: "Пицца Четыре сыра",
+    description:
+      "Пицца с четырьмя видами сыра: моцарелла, горгонзола, пармезан, чеддер",
     price: 980,
-    category: 'Пицца',
-    imageUrl: 'https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?w=300&h=300&fit=crop',
+    category: "Пицца",
+    imageUrl:
+      "https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T08:30:00.000Z',
-    updatedAt: '2025-09-29T08:30:00.000Z',
+    createdAt: "2025-09-29T08:30:00.000Z",
+    updatedAt: "2025-09-29T08:30:00.000Z",
   },
 
   // Супы
   {
     id: 2,
     groupId: 0,
-    name: 'Борщ украинский',
-    description: 'Традиционный борщ с говядиной, подается со сметаной',
+    name: "Борщ украинский",
+    description: "Традиционный борщ с говядиной, подается со сметаной",
     price: 350,
-    category: 'Супы',
-    imageUrl: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=300&h=300&fit=crop',
+    category: "Супы",
+    imageUrl:
+      "https://images.unsplash.com/photo-1547592180-85f173990554?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T08:30:00.000Z',
-    updatedAt: '2025-09-29T08:30:00.000Z',
+    createdAt: "2025-09-29T08:30:00.000Z",
+    updatedAt: "2025-09-29T08:30:00.000Z",
   },
   {
     id: 9,
     groupId: 0,
-    name: 'Солянка мясная',
-    description: 'Сытный суп с копченостями, солеными огурцами и оливками',
+    name: "Солянка мясная",
+    description: "Сытный суп с копченостями, солеными огурцами и оливками",
     price: 380,
-    category: 'Супы',
-    imageUrl: 'https://images.unsplash.com/photo-1563379091339-03246963d51a?w=300&h=300&fit=crop',
+    category: "Супы",
+    imageUrl:
+      "https://images.unsplash.com/photo-1563379091339-03246963d51a?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T08:45:00.000Z',
-    updatedAt: '2025-09-29T08:45:00.000Z',
+    createdAt: "2025-09-29T08:45:00.000Z",
+    updatedAt: "2025-09-29T08:45:00.000Z",
   },
   {
     id: 10,
     groupId: 0,
-    name: 'Том Ям',
-    description: 'Острый тайский суп с креветками, грибами и лемонграссом',
+    name: "Том Ям",
+    description: "Острый тайский суп с креветками, грибами и лемонграссом",
     price: 420,
-    category: 'Супы',
-    imageUrl: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300&h=300&fit=crop',
+    category: "Супы",
+    imageUrl:
+      "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T09:00:00.000Z',
-    updatedAt: '2025-09-29T09:00:00.000Z',
+    createdAt: "2025-09-29T09:00:00.000Z",
+    updatedAt: "2025-09-29T09:00:00.000Z",
   },
 
   // Салаты
   {
     id: 3,
     groupId: 0,
-    name: 'Цезарь с курицей',
-    description: 'Салат с куриным филе, листьями салата, пармезаном и соусом цезарь',
+    name: "Цезарь с курицей",
+    description:
+      "Салат с куриным филе, листьями салата, пармезаном и соусом цезарь",
     price: 450,
-    category: 'Салаты',
-    imageUrl: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=300&h=300&fit=crop',
+    category: "Салаты",
+    imageUrl:
+      "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T09:00:00.000Z',
-    updatedAt: '2025-09-29T09:00:00.000Z',
+    createdAt: "2025-09-29T09:00:00.000Z",
+    updatedAt: "2025-09-29T09:00:00.000Z",
   },
   {
     id: 11,
     groupId: 0,
-    name: 'Греческий салат',
-    description: 'Свежие овощи, фета, оливки, заправленные оливковым маслом',
+    name: "Греческий салат",
+    description: "Свежие овощи, фета, оливки, заправленные оливковым маслом",
     price: 380,
-    category: 'Салаты',
-    imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=300&h=300&fit=crop',
+    category: "Салаты",
+    imageUrl:
+      "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T09:15:00.000Z',
-    updatedAt: '2025-09-29T09:15:00.000Z',
+    createdAt: "2025-09-29T09:15:00.000Z",
+    updatedAt: "2025-09-29T09:15:00.000Z",
   },
   {
     id: 12,
     groupId: 0,
-    name: 'Салат с лососем',
-    description: 'Слабосолёный лосось с авокадо, рукколой и каперсами',
+    name: "Салат с лососем",
+    description: "Слабосолёный лосось с авокадо, рукколой и каперсами",
     price: 520,
-    category: 'Салаты',
-    imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=300&fit=crop',
+    category: "Салаты",
+    imageUrl:
+      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T09:30:00.000Z',
-    updatedAt: '2025-09-29T09:30:00.000Z',
+    createdAt: "2025-09-29T09:30:00.000Z",
+    updatedAt: "2025-09-29T09:30:00.000Z",
   },
 
   // Мясные блюда
   {
     id: 4,
     groupId: 0,
-    name: 'Стейк рибай',
-    description: 'Говяжий стейк средней прожарки с овощами гриль',
+    name: "Стейк рибай",
+    description: "Говяжий стейк средней прожарки с овощами гриль",
     price: 1200,
-    category: 'Мясные блюда',
-    imageUrl: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=300&h=300&fit=crop',
+    category: "Мясные блюда",
+    imageUrl:
+      "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=300&h=300&fit=crop",
     images: [
-      'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=300&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300&h=300&fit=crop',
-      'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&h=300&fit=crop'
+      "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=300&h=300&fit=crop",
+      "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300&h=300&fit=crop",
+      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&h=300&fit=crop",
     ],
     isActive: true,
-    createdAt: '2025-09-29T09:30:00.000Z',
-    updatedAt: '2025-09-29T09:30:00.000Z',
+    createdAt: "2025-09-29T09:30:00.000Z",
+    updatedAt: "2025-09-29T09:30:00.000Z",
   },
   {
     id: 13,
     groupId: 0,
-    name: 'Котлеты по-киевски',
-    description: 'Куриные котлеты с маслом и зеленью, в золотистой панировке',
+    name: "Котлеты по-киевски",
+    description: "Куриные котлеты с маслом и зеленью, в золотистой панировке",
     price: 680,
-    category: 'Мясные блюда',
-    imageUrl: 'https://images.unsplash.com/photo-1532636875304-0c89119d9b4d?w=300&h=300&fit=crop',
+    category: "Мясные блюда",
+    imageUrl:
+      "https://images.unsplash.com/photo-1532636875304-0c89119d9b4d?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T09:45:00.000Z',
-    updatedAt: '2025-09-29T09:45:00.000Z',
+    createdAt: "2025-09-29T09:45:00.000Z",
+    updatedAt: "2025-09-29T09:45:00.000Z",
   },
   {
     id: 14,
     groupId: 0,
-    name: 'Шашлык из баранины',
-    description: 'Сочный шашлык из молодой баранины с луком и зеленью',
+    name: "Шашлык из баранины",
+    description: "Сочный шашлык из молодой баранины с луком и зеленью",
     price: 950,
-    category: 'Мясные блюда',
-    imageUrl: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=300&h=300&fit=crop',
+    category: "Мясные блюда",
+    imageUrl:
+      "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T10:00:00.000Z',
-    updatedAt: '2025-09-29T10:00:00.000Z',
+    createdAt: "2025-09-29T10:00:00.000Z",
+    updatedAt: "2025-09-29T10:00:00.000Z",
   },
 
   // Паста
   {
     id: 5,
     groupId: 0,
-    name: 'Паста Карбонара',
-    description: 'Спагетти с беконом, яичным желтком и пармезаном',
+    name: "Паста Карбонара",
+    description: "Спагетти с беконом, яичным желтком и пармезаном",
     price: 650,
-    category: 'Паста',
-    imageUrl: 'https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?w=300&h=300&fit=crop',
+    category: "Паста",
+    imageUrl:
+      "https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T10:00:00.000Z',
-    updatedAt: '2025-09-29T10:00:00.000Z',
+    createdAt: "2025-09-29T10:00:00.000Z",
+    updatedAt: "2025-09-29T10:00:00.000Z",
   },
   {
     id: 15,
     groupId: 0,
-    name: 'Паста Болоньезе',
-    description: 'Спагетти с мясным соусом по-болонски из говядины',
+    name: "Паста Болоньезе",
+    description: "Спагетти с мясным соусом по-болонски из говядины",
     price: 580,
-    category: 'Паста',
-    imageUrl: 'https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=300&h=300&fit=crop',
+    category: "Паста",
+    imageUrl:
+      "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T10:15:00.000Z',
-    updatedAt: '2025-09-29T10:15:00.000Z',
+    createdAt: "2025-09-29T10:15:00.000Z",
+    updatedAt: "2025-09-29T10:15:00.000Z",
   },
   {
     id: 16,
     groupId: 0,
-    name: 'Паста с морепродуктами',
-    description: 'Лингвини с креветками, мидиями и кальмарами в сливочном соусе',
+    name: "Паста с морепродуктами",
+    description:
+      "Лингвини с креветками, мидиями и кальмарами в сливочном соусе",
     price: 780,
-    category: 'Паста',
-    imageUrl: 'https://images.unsplash.com/photo-1589462733217-e34786a37abb?w=300&h=300&fit=crop',
+    category: "Паста",
+    imageUrl:
+      "https://images.unsplash.com/photo-1589462733217-e34786a37abb?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T10:30:00.000Z',
-    updatedAt: '2025-09-29T10:30:00.000Z',
+    createdAt: "2025-09-29T10:30:00.000Z",
+    updatedAt: "2025-09-29T10:30:00.000Z",
   },
 
   // Десерты
   {
     id: 6,
     groupId: 0,
-    name: 'Тирамису',
-    description: 'Классический итальянский десерт с маскарпоне и кофе',
+    name: "Тирамису",
+    description: "Классический итальянский десерт с маскарпоне и кофе",
     price: 300,
-    category: 'Десерты',
+    category: "Десерты",
     isActive: false,
-    createdAt: '2025-09-29T10:30:00.000Z',
-    updatedAt: '2025-09-29T10:30:00.000Z',
+    createdAt: "2025-09-29T10:30:00.000Z",
+    updatedAt: "2025-09-29T10:30:00.000Z",
   },
   {
     id: 17,
     groupId: 0,
-    name: 'Чизкейк Нью-Йорк',
-    description: 'Нежный сырный торт с ягодным соусом',
+    name: "Чизкейк Нью-Йорк",
+    description: "Нежный сырный торт с ягодным соусом",
     price: 280,
-    category: 'Десерты',
-    imageUrl: 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=300&h=300&fit=crop',
+    category: "Десерты",
+    imageUrl:
+      "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T10:45:00.000Z',
-    updatedAt: '2025-09-29T10:45:00.000Z',
+    createdAt: "2025-09-29T10:45:00.000Z",
+    updatedAt: "2025-09-29T10:45:00.000Z",
   },
   {
     id: 18,
     groupId: 0,
-    name: 'Шоколадный фондан',
-    description: 'Горячий шоколадный кекс с жидкой начинкой',
+    name: "Шоколадный фондан",
+    description: "Горячий шоколадный кекс с жидкой начинкой",
     price: 320,
-    category: 'Десерты',
-    imageUrl: 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=300&h=300&fit=crop',
+    category: "Десерты",
+    imageUrl:
+      "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T11:00:00.000Z',
-    updatedAt: '2025-09-29T11:00:00.000Z',
+    createdAt: "2025-09-29T11:00:00.000Z",
+    updatedAt: "2025-09-29T11:00:00.000Z",
   },
 
   // Напитки
   {
     id: 19,
     groupId: 0,
-    name: 'Кофе латте',
-    description: 'Эспрессо с взбитым молоком и нежной пенкой',
+    name: "Кофе латте",
+    description: "Эспрессо с взбитым молоком и нежной пенкой",
     price: 180,
-    category: 'Напитки',
-    imageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=300&h=300&fit=crop',
+    category: "Напитки",
+    imageUrl:
+      "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T11:15:00.000Z',
-    updatedAt: '2025-09-29T11:15:00.000Z',
+    createdAt: "2025-09-29T11:15:00.000Z",
+    updatedAt: "2025-09-29T11:15:00.000Z",
   },
   {
     id: 20,
     groupId: 0,
-    name: 'Лимонад домашний',
-    description: 'Освежающий лимонад с мятой и лаймом',
+    name: "Лимонад домашний",
+    description: "Освежающий лимонад с мятой и лаймом",
     price: 150,
-    category: 'Напитки',
-    imageUrl: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=300&h=300&fit=crop',
+    category: "Напитки",
+    imageUrl:
+      "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T11:30:00.000Z',
-    updatedAt: '2025-09-29T11:30:00.000Z',
+    createdAt: "2025-09-29T11:30:00.000Z",
+    updatedAt: "2025-09-29T11:30:00.000Z",
   },
   {
     id: 21,
     groupId: 0,
-    name: 'Смузи ягодное',
-    description: 'Смузи из свежих ягод с йогуртом и мёдом',
+    name: "Смузи ягодное",
+    description: "Смузи из свежих ягод с йогуртом и мёдом",
     price: 220,
-    category: 'Напитки',
-    imageUrl: 'https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=300&h=300&fit=crop',
+    category: "Напитки",
+    imageUrl:
+      "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=300&h=300&fit=crop",
     isActive: true,
-    createdAt: '2025-09-29T11:45:00.000Z',
-    updatedAt: '2025-09-29T11:45:00.000Z',
+    createdAt: "2025-09-29T11:45:00.000Z",
+    updatedAt: "2025-09-29T11:45:00.000Z",
   },
 ];
 
@@ -307,34 +331,34 @@ const MOCK_POLLS: Poll[] = [
   {
     id: 1,
     groupId: 1,
-    title: 'Обед на сегодня',
-    description: 'Выбираем что заказать на обед',
-    status: 'COMPLETED' as const,
+    title: "Обед на сегодня",
+    description: "Выбираем что заказать на обед",
+    status: "COMPLETED" as const,
     duration: 60,
-    startedAt: '2025-09-29T13:00:00.000Z',
-    endTime: '2025-09-29T14:00:00.000Z',
-    createdAt: '2025-09-29T13:00:00.000Z',
-    updatedAt: '2025-09-29T14:00:00.000Z',
+    startedAt: "2025-09-29T13:00:00.000Z",
+    endTime: "2025-09-29T14:00:00.000Z",
+    createdAt: "2025-09-29T13:00:00.000Z",
+    updatedAt: "2025-09-29T14:00:00.000Z",
     _count: { votes: 8 },
   },
   {
     id: 2,
     groupId: 1,
-    title: 'Ужин в пятницу',
-    description: 'Корпоративный ужин',
-    status: 'ACTIVE' as const,
+    title: "Ужин в пятницу",
+    description: "Корпоративный ужин",
+    status: "ACTIVE" as const,
     duration: 60,
-    startedAt: '2025-09-29T17:00:00.000Z',
-    endTime: '2025-09-29T18:00:00.000Z',
-    createdAt: '2025-09-29T17:00:00.000Z',
-    updatedAt: '2025-09-29T17:00:00.000Z',
+    startedAt: "2025-09-29T17:00:00.000Z",
+    endTime: "2025-09-29T18:00:00.000Z",
+    createdAt: "2025-09-29T17:00:00.000Z",
+    updatedAt: "2025-09-29T17:00:00.000Z",
     _count: { votes: 3 },
   },
 ];
 
 class MockApiService {
   private delay(ms: number = 1000): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private createSuccessResponse<T>(data: T): ApiResponse<T> {
@@ -354,13 +378,15 @@ class MockApiService {
   }
 
   // Auth Methods
-  async validateInitData(_initData: string): Promise<ApiResponse<{ user: User; token: string }>> {
+  async validateInitData(
+    _initData: string,
+  ): Promise<ApiResponse<{ user: User; token: string }>> {
     await this.delay(800);
-    
+
     // Имитируем успешную авторизацию
     return this.createSuccessResponse({
       user: MOCK_USERS[0],
-      token: 'mock_jwt_token_123456',
+      token: "mock_jwt_token_123456",
     });
   }
 
@@ -377,26 +403,26 @@ class MockApiService {
 
   async getActiveMenuItems(): Promise<ApiResponse<MenuItem[]>> {
     await this.delay(400);
-    const activeItems = MOCK_MENU_ITEMS.filter(item => item.isActive);
+    const activeItems = MOCK_MENU_ITEMS.filter((item) => item.isActive);
     return this.createSuccessResponse(activeItems);
   }
 
   async getMenuItemById(id: number): Promise<ApiResponse<MenuItem>> {
     await this.delay(300);
-    const item = MOCK_MENU_ITEMS.find(item => item.id === id);
-    
+    const item = MOCK_MENU_ITEMS.find((item) => item.id === id);
+
     if (!item) {
-      return this.createErrorResponse('Menu item not found');
+      return this.createErrorResponse("Menu item not found");
     }
-    
+
     return this.createSuccessResponse(item);
   }
 
   async createMenuItem(data: any): Promise<ApiResponse<MenuItem>> {
     await this.delay(1000);
-    
+
     const newItem: MenuItem = {
-      id: Math.max(...MOCK_MENU_ITEMS.map(i => i.id)) + 1,
+      id: Math.max(...MOCK_MENU_ITEMS.map((i) => i.id)) + 1,
       groupId: data.groupId ?? 0,
       ...data,
       isActive: data.isActive ?? true,
@@ -410,39 +436,45 @@ class MockApiService {
 
   async updateMenuItem(id: number, data: any): Promise<ApiResponse<MenuItem>> {
     await this.delay(800);
-    
-    const index = MOCK_MENU_ITEMS.findIndex(item => item.id === id);
+
+    const index = MOCK_MENU_ITEMS.findIndex((item) => item.id === id);
     if (index === -1) {
-      return this.createErrorResponse('Menu item not found');
+      return this.createErrorResponse("Menu item not found");
     }
 
-    MOCK_MENU_ITEMS[index] = {
-      ...MOCK_MENU_ITEMS[index],
+    const currentItem = MOCK_MENU_ITEMS[index];
+    if (!currentItem) {
+      return this.createErrorResponse("Menu item not found");
+    }
+
+    const updatedItem: MenuItem = {
+      ...currentItem,
       ...data,
       updatedAt: new Date().toISOString(),
     };
+    MOCK_MENU_ITEMS[index] = updatedItem;
 
-    return this.createSuccessResponse(MOCK_MENU_ITEMS[index]);
+    return this.createSuccessResponse(updatedItem);
   }
 
   async deleteMenuItem(id: number): Promise<ApiResponse<void>> {
     await this.delay(600);
-    
-    const index = MOCK_MENU_ITEMS.findIndex(item => item.id === id);
+
+    const index = MOCK_MENU_ITEMS.findIndex((item) => item.id === id);
     if (index === -1) {
-      return this.createErrorResponse('Menu item not found');
+      return this.createErrorResponse("Menu item not found");
     }
 
     MOCK_MENU_ITEMS.splice(index, 1);
-    return this.createSuccessResponse(undefined as any);
+    return this.createSuccessResponse(undefined);
   }
 
   async toggleMenuItemStatus(id: number): Promise<ApiResponse<MenuItem>> {
     await this.delay(400);
-    
-    const item = MOCK_MENU_ITEMS.find(item => item.id === id);
+
+    const item = MOCK_MENU_ITEMS.find((item) => item.id === id);
     if (!item) {
-      return this.createErrorResponse('Menu item not found');
+      return this.createErrorResponse("Menu item not found");
     }
 
     item.isActive = !item.isActive;
@@ -453,14 +485,18 @@ class MockApiService {
 
   async getMenuStats(): Promise<ApiResponse<MenuStats>> {
     await this.delay(500);
-    
-    const active = MOCK_MENU_ITEMS.filter(item => item.isActive);
-    const totalPrice = MOCK_MENU_ITEMS.reduce((sum, item) => sum + (item.price || 0), 0);
+
+    const active = MOCK_MENU_ITEMS.filter((item) => item.isActive);
+    const totalPrice = MOCK_MENU_ITEMS.reduce(
+      (sum, item) => sum + (item.price || 0),
+      0,
+    );
 
     const stats: MenuStats = {
       total: MOCK_MENU_ITEMS.length,
       active: active.length,
-      averagePrice: MOCK_MENU_ITEMS.length > 0 ? totalPrice / MOCK_MENU_ITEMS.length : 0,
+      averagePrice:
+        MOCK_MENU_ITEMS.length > 0 ? totalPrice / MOCK_MENU_ITEMS.length : 0,
     };
 
     return this.createSuccessResponse(stats);
@@ -474,21 +510,26 @@ class MockApiService {
 
   async getActivePolls(): Promise<ApiResponse<Poll[]>> {
     await this.delay(400);
-    const activePolls = MOCK_POLLS.filter(poll => poll.status === 'ACTIVE');
+    const activePolls = MOCK_POLLS.filter((poll) => poll.status === "ACTIVE");
     return this.createSuccessResponse(activePolls);
   }
 
   async getPollStats(): Promise<ApiResponse<PollStats>> {
     await this.delay(500);
-    
+
     const stats: PollStats = {
       totalPolls: MOCK_POLLS.length,
-      activePolls: MOCK_POLLS.filter(p => p.status === 'ACTIVE').length,
-      completedPolls: MOCK_POLLS.filter(p => p.status === 'COMPLETED').length,
-      totalVotes: MOCK_POLLS.reduce((sum, p) => sum + p._count.votes, 0),
-      averageParticipants: MOCK_POLLS.length > 0 
-        ? MOCK_POLLS.reduce((sum, p) => sum + p._count.votes, 0) / MOCK_POLLS.length 
-        : 0,
+      activePolls: MOCK_POLLS.filter((p) => p.status === "ACTIVE").length,
+      completedPolls: MOCK_POLLS.filter((p) => p.status === "COMPLETED").length,
+      totalVotes: MOCK_POLLS.reduce(
+        (sum, p) => sum + (p._count?.votes ?? 0),
+        0,
+      ),
+      averageParticipants:
+        MOCK_POLLS.length > 0
+          ? MOCK_POLLS.reduce((sum, p) => sum + (p._count?.votes ?? 0), 0) /
+            MOCK_POLLS.length
+          : 0,
     };
 
     return this.createSuccessResponse(stats);
@@ -496,9 +537,9 @@ class MockApiService {
 
   async getPopularItems(): Promise<ApiResponse<PopularItem[]>> {
     await this.delay(700);
-    
-    const popularItems: PopularItem[] = MOCK_MENU_ITEMS
-      .reduce<PopularItem[]>((items, item) => {
+
+    const popularItems: PopularItem[] = MOCK_MENU_ITEMS.reduce<PopularItem[]>(
+      (items, item) => {
         if (!item.isActive) return items;
         items.push({
           ...item,
@@ -510,7 +551,9 @@ class MockApiService {
           },
         });
         return items;
-      }, [])
+      },
+      [],
+    )
       .sort((a, b) => b.voteCount - a.voteCount)
       .slice(0, 10);
 
@@ -519,23 +562,29 @@ class MockApiService {
 
   async getPollResults(pollId: number): Promise<ApiResponse<any>> {
     await this.delay(600);
-    
-    const poll = MOCK_POLLS.find(p => p.id === pollId);
+
+    const poll = MOCK_POLLS.find((p) => p.id === pollId);
     if (!poll) {
-      return this.createErrorResponse('Poll not found');
+      return this.createErrorResponse("Poll not found");
+    }
+
+    const [winnerItem] = MOCK_MENU_ITEMS;
+    const [responsible] = MOCK_USERS;
+    if (!winnerItem || !responsible) {
+      return this.createErrorResponse("Mock result data is incomplete");
     }
 
     const result = {
       id: 1,
       pollId,
-      winnerItemId: MOCK_MENU_ITEMS[0].id,
-      responsibleId: MOCK_USERS[0].id,
-      totalVotes: poll._count.votes,
+      winnerItemId: winnerItem.id,
+      responsibleId: responsible.id,
+      totalVotes: poll._count?.votes ?? 0,
       isRouletteRun: true,
       createdAt: new Date().toISOString(),
       poll,
-      winnerItem: MOCK_MENU_ITEMS[0],
-      responsible: MOCK_USERS[0],
+      winnerItem,
+      responsible,
     };
 
     return this.createSuccessResponse(result);
@@ -546,10 +595,10 @@ class MockApiService {
    */
   async getPollVoteBreakdown(pollId: number): Promise<ApiResponse<any[]>> {
     await this.delay(500);
-    
-    const poll = MOCK_POLLS.find(p => p.id === pollId);
+
+    const poll = MOCK_POLLS.find((p) => p.id === pollId);
     if (!poll) {
-      return this.createErrorResponse('Poll not found');
+      return this.createErrorResponse("Poll not found");
     }
 
     const breakdown = MOCK_MENU_ITEMS.map((item) => ({
@@ -557,7 +606,7 @@ class MockApiService {
       menuItem: item,
       voteCount: Math.floor(Math.random() * 5) + 1,
       percentage: Math.floor(Math.random() * 40) + 5,
-      voters: MOCK_USERS.slice(0, Math.floor(Math.random() * 3) + 1)
+      voters: MOCK_USERS.slice(0, Math.floor(Math.random() * 3) + 1),
     }));
 
     return this.createSuccessResponse(breakdown);
@@ -571,9 +620,9 @@ class MockApiService {
     const newPoll: Poll = {
       id: MOCK_POLLS.length + 1,
       groupId: data.groupId || 1,
-      title: data.title || 'Новое голосование',
+      title: data.title || "Новое голосование",
       description: data.description,
-      status: 'ACTIVE',
+      status: "ACTIVE",
       duration: data.duration || 30,
       startedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
@@ -588,12 +637,12 @@ class MockApiService {
    */
   async closePoll(pollId: number): Promise<ApiResponse<any>> {
     await this.delay(500);
-    const poll = MOCK_POLLS.find(p => p.id === pollId);
+    const poll = MOCK_POLLS.find((p) => p.id === pollId);
     if (poll) {
-      poll.status = 'COMPLETED';
+      poll.status = "COMPLETED";
       poll.endedAt = new Date().toISOString();
     }
-    return this.createSuccessResponse(poll || {} as Poll);
+    return this.createSuccessResponse(poll || ({} as Poll));
   }
 
   /**
@@ -609,7 +658,7 @@ class MockApiService {
         menuItemId,
         userId: 1,
         createdAt: new Date().toISOString(),
-      }
+      },
     });
   }
 }

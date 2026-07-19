@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { m } from 'framer-motion';
-import { Header } from '../components/layout/Header';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { PastelCard, CardHeader, CardContent } from '../components/ui/pastel-card';
+import { PastelCard } from '../components/ui/pastel-card';
 import { Badge } from '../components/ui/badge';
 // import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
 import { UserAvatar } from '../components/common/UserAvatar';
@@ -12,7 +11,6 @@ import {
   CreditCard,
   Phone,
   FileText,
-  Save,
   Shield,
   Info,
   Crown,
@@ -36,10 +34,9 @@ import { cn } from '@/lib/utils';
 
 const formatCardInput = (value: string) => {
   // Убираем все не-цифры и форматируем
-  const cleaned = value.replace(/\D/g, '');
+  const cleaned = value.replace(/\D/g, "");
   return userService.formatCardNumber(cleaned);
 };
-
 
 /**
  * Страница профиля и настроек платёжных данных
@@ -52,16 +49,16 @@ const useProfilePageController = () => {
   const { mainButton, backButton, colorScheme } = useTelegram();
   const addNotification = useAppStore((state) => state.addNotification);
 
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
   const { showOnboarding } = useOnboarding();
 
   const [loading, setLoading] = useState(true);
 
   // Local state для формы
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
-    paymentCard: '',
-    paymentPhone: '',
-    paymentDetails: '',
+    paymentCard: "",
+    paymentPhone: "",
+    paymentDetails: "",
   });
   const [errors, setErrors] = useState<{
     paymentCard?: string;
@@ -80,9 +77,9 @@ const useProfilePageController = () => {
     if (!user?.id) return;
 
     setPaymentInfo({
-      paymentCard: '',
-      paymentPhone: '',
-      paymentDetails: '',
+      paymentCard: "",
+      paymentPhone: "",
+      paymentDetails: "",
     });
 
     let isActive = true;
@@ -95,26 +92,26 @@ const useProfilePageController = () => {
         if (!isActive) return;
 
         if (!response.success) {
-          throw new Error(response.error || 'Failed to fetch payment info');
+          throw new Error(response.error || "Failed to fetch payment info");
         }
 
         const data = response.data || {
-          paymentCard: '',
-          paymentPhone: '',
-          paymentDetails: '',
+          paymentCard: "",
+          paymentPhone: "",
+          paymentDetails: "",
         };
 
         setPaymentInfo({
-          paymentCard: data.paymentCard || '',
-          paymentPhone: data.paymentPhone || '',
-          paymentDetails: data.paymentDetails || '',
+          paymentCard: data.paymentCard || "",
+          paymentPhone: data.paymentPhone || "",
+          paymentDetails: data.paymentDetails || "",
         });
       } catch {
         if (!isActive) return;
 
         addNotification({
-          type: 'error',
-          message: 'Ошибка загрузки платёжных данных',
+          type: "error",
+          message: "Ошибка загрузки платёжных данных",
         });
       } finally {
         if (isActive) {
@@ -123,7 +120,7 @@ const useProfilePageController = () => {
       }
     };
 
-    loadPaymentInfo();
+    void loadPaymentInfo();
 
     return () => {
       isActive = false;
@@ -132,7 +129,7 @@ const useProfilePageController = () => {
 
   // Настройка Telegram кнопок (только Back Button)
   useEffect(() => {
-    backButton.onClick(() => navigate('/'));
+    backButton.onClick(() => navigate("/"));
     backButton.show();
 
     return () => {
@@ -152,11 +149,11 @@ const useProfilePageController = () => {
     } = {};
 
     if (data.paymentCard && !userService.validateCardNumber(data.paymentCard)) {
-      newErrors.paymentCard = 'Некорректный номер карты';
+      newErrors.paymentCard = "Некорректный номер карты";
     }
 
     if (data.paymentPhone && !userService.validatePhone(data.paymentPhone)) {
-      newErrors.paymentPhone = 'Некорректный номер телефона';
+      newErrors.paymentPhone = "Некорректный номер телефона";
     }
 
     setErrors(newErrors);
@@ -170,49 +167,55 @@ const useProfilePageController = () => {
     }
   }, []);
 
-  const savePaymentInfoNow = useCallback(async (data: PaymentInfo): Promise<boolean> => {
-    if (!validateForm(data)) {
-      setHasUnsavedChanges(true);
-      return false;
-    }
-
-    setIsSaving(true);
-
-    try {
-      const response = await userService.updatePaymentInfo(data);
-
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to update payment info');
+  const savePaymentInfoNow = useCallback(
+    async (data: PaymentInfo): Promise<boolean> => {
+      if (!validateForm(data)) {
+        setHasUnsavedChanges(true);
+        return false;
       }
 
-      setHasUnsavedChanges(false);
-      setLastSaved(new Date());
-      return true;
-    } catch {
-      setHasUnsavedChanges(true);
-      addNotification({
-        type: 'error',
-        message: 'Ошибка при сохранении',
-      });
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
-  }, [addNotification, validateForm]);
+      setIsSaving(true);
+
+      try {
+        const response = await userService.updatePaymentInfo(data);
+
+        if (!response.success) {
+          throw new Error(response.error || "Failed to update payment info");
+        }
+
+        setHasUnsavedChanges(false);
+        setLastSaved(new Date());
+        return true;
+      } catch {
+        setHasUnsavedChanges(true);
+        addNotification({
+          type: "error",
+          message: "Ошибка при сохранении",
+        });
+        return false;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [addNotification, validateForm],
+  );
 
   // Автосохранение с debounce
-  const autoSave = useCallback((data: PaymentInfo) => {
-    clearSaveTimer();
+  const autoSave = useCallback(
+    (data: PaymentInfo) => {
+      clearSaveTimer();
 
-    // Устанавливаем флаг несохранённых изменений
-    setHasUnsavedChanges(true);
+      // Устанавливаем флаг несохранённых изменений
+      setHasUnsavedChanges(true);
 
-    // Устанавливаем новый таймер на 2 секунды
-    saveTimeoutRef.current = setTimeout(() => {
-      saveTimeoutRef.current = null;
-      void savePaymentInfoNow(data);
-    }, 2000); // 2 секунды задержки
-  }, [clearSaveTimer, savePaymentInfoNow]);
+      // Устанавливаем новый таймер на 2 секунды
+      saveTimeoutRef.current = setTimeout(() => {
+        saveTimeoutRef.current = null;
+        void savePaymentInfoNow(data);
+      }, 2000); // 2 секунды задержки
+    },
+    [clearSaveTimer, savePaymentInfoNow],
+  );
 
   const flushSave = useCallback(() => {
     clearSaveTimer();
@@ -225,199 +228,292 @@ const useProfilePageController = () => {
 
     // Очищаем ошибку при изменении
     if (errors[field as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
 
     // Запускаем автосохранение
     autoSave(newData);
   };
 
-  return { navigate, user, refresh, isGroupAdmin, mainButton, backButton, colorScheme, addNotification, isDark, showOnboarding, loading, setLoading, paymentInfo, setPaymentInfo, errors, setErrors, saveTimeoutRef, isSaving, setIsSaving, hasUnsavedChanges, setHasUnsavedChanges, lastSaved, setLastSaved, isFeedbackModalOpen, setIsFeedbackModalOpen, validateForm, clearSaveTimer, savePaymentInfoNow, autoSave, flushSave, handleChange };
+  return {
+    navigate,
+    user,
+    refresh,
+    isGroupAdmin,
+    mainButton,
+    backButton,
+    colorScheme,
+    addNotification,
+    isDark,
+    showOnboarding,
+    loading,
+    setLoading,
+    paymentInfo,
+    setPaymentInfo,
+    errors,
+    setErrors,
+    saveTimeoutRef,
+    isSaving,
+    setIsSaving,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+    lastSaved,
+    setLastSaved,
+    isFeedbackModalOpen,
+    setIsFeedbackModalOpen,
+    validateForm,
+    clearSaveTimer,
+    savePaymentInfoNow,
+    autoSave,
+    flushSave,
+    handleChange,
+  };
 };
 
 type ProfilePageController = ReturnType<typeof useProfilePageController>;
 
-const PaymentDetailsSection = ({ controller }: { controller: ProfilePageController }) => {
-  const { navigate, user, refresh, isGroupAdmin, mainButton, backButton, colorScheme, addNotification, isDark, showOnboarding, loading, setLoading, paymentInfo, setPaymentInfo, errors, setErrors, saveTimeoutRef, isSaving, setIsSaving, hasUnsavedChanges, setHasUnsavedChanges, lastSaved, setLastSaved, isFeedbackModalOpen, setIsFeedbackModalOpen, validateForm, clearSaveTimer, savePaymentInfoNow, autoSave, flushSave, handleChange } = controller;
+const PaymentDetailsSection = ({
+  controller,
+}: {
+  controller: ProfilePageController;
+}) => {
+  const {
+    paymentInfo,
+    errors,
+    isSaving,
+    hasUnsavedChanges,
+    lastSaved,
+    flushSave,
+    handleChange,
+  } = controller;
   return (
-<PastelCard variant="default" className="p-5">
-          <m.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.4 }}
-            className="space-y-5"
-          >
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Платёжные данные
-              </h2>
-              {hasUnsavedChanges && !isSaving && (
-                <span className="flex items-center gap-1 text-sm text-butter-600 dark:text-butter-400">
-                  <span className="size-2 rounded-full bg-butter-500 animate-pulse"></span>
-                  Несохранённые изменения...
-                </span>
-              )}
-              {isSaving && (
-                <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Сохранение...
-                </span>
-              )}
-              {!isSaving && !hasUnsavedChanges && lastSaved && (
-                <span className="text-sm text-mint-600 dark:text-mint-400">
-                  ✓ Сохранено {lastSaved.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Эти реквизиты увидят участники, если ты станешь ответственным за заказ
-            </p>
-          </div>
-
-          {/* Номер карты */}
-          <div>
-            <label htmlFor="payment-card" className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground">
-              <CreditCard className={cn(ICON_SIZES.sm, "text-primary")} />
-              <span>Номер карты</span>
-            </label>
-            <input
-              id="payment-card"
-              type="text"
-              value={paymentInfo.paymentCard || ''}
-              onChange={(e) => handleChange('paymentCard', formatCardInput(e.target.value))}
-              onBlur={flushSave}
-              placeholder="1234 5678 9012 3456"
-              maxLength={19}
-              className={`w-full px-4 py-3 rounded-lg border ${
-                errors.paymentCard
-                  ? 'border-red-500 dark:border-red-500'
-                  : 'border-gray-200 dark:border-gray-700'
-               } bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all`}
-            />
-            {errors.paymentCard && (
-              <p className="text-xs text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
-                <Info className={ICON_SIZES.xs} />
-                {errors.paymentCard}
-              </p>
-            )}
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Участники увидят маскированный номер: {userService.maskCardNumber(paymentInfo.paymentCard || '')}
-            </p>
-          </div>
-
-          {/* Номер телефона */}
-          <div>
-            <label htmlFor="payment-phone" className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground">
-              <Phone className={cn(ICON_SIZES.sm, "text-primary")} />
-              <span>Номер телефона</span>
-            </label>
-            <input
-              id="payment-phone"
-              type="tel"
-              value={paymentInfo.paymentPhone || ''}
-              onChange={(e) => handleChange('paymentPhone', e.target.value)}
-              onBlur={flushSave}
-              placeholder="+7 (999) 123-45-67"
-              className={`w-full px-4 py-3 rounded-lg border ${
-                errors.paymentPhone
-                  ? 'border-red-500 dark:border-red-500'
-                  : 'border-gray-200 dark:border-gray-700'
-               } bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all`}
-            />
-            {errors.paymentPhone && (
-              <p className="text-xs text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
-                <Info className={ICON_SIZES.xs} />
-                {errors.paymentPhone}
-              </p>
-            )}
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Для связи в мессенджерах или по звонку
-            </p>
-          </div>
-
-          {/* Дополнительные детали */}
-          <div>
-            <label htmlFor="payment-details" className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground">
-              <FileText className={cn(ICON_SIZES.sm, "text-primary")} />
-              <span>Дополнительная информация</span>
-            </label>
-            <textarea
-              id="payment-details"
-              value={paymentInfo.paymentDetails || ''}
-              onChange={(e) => handleChange('paymentDetails', e.target.value)}
-              onBlur={flushSave}
-              placeholder="Например: СБП по номеру телефона, комментарий к переводу и т.д."
-              rows={3}
-              maxLength={200}
-              className="w-full resize-none rounded-lg border border-border bg-card px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-            />
-            <div className="flex justify-between items-center mt-1.5">
-              <p className="text-xs text-muted-foreground">
-                Любая информация для удобства перевода
-              </p>
-              <span className="text-xs text-muted-foreground">
-                {(paymentInfo.paymentDetails || '').length}/200
+    <PastelCard variant="default" className="p-5">
+      <m.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4, duration: 0.4 }}
+        className="space-y-5"
+      >
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Платёжные данные
+            </h2>
+            {hasUnsavedChanges && !isSaving && (
+              <span className="flex items-center gap-1 text-sm text-butter-600 dark:text-butter-400">
+                <span className="size-2 rounded-full bg-butter-500 animate-pulse"></span>
+                Несохранённые изменения...
               </span>
-            </div>
+            )}
+            {isSaving && (
+              <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                <svg
+                  className="animate-spin h-3 w-3"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Сохранение...
+              </span>
+            )}
+            {!isSaving && !hasUnsavedChanges && lastSaved && (
+              <span className="text-sm text-mint-600 dark:text-mint-400">
+                ✓ Сохранено{" "}
+                {lastSaved.toLocaleTimeString("ru-RU", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            )}
           </div>
+          <p className="text-sm text-muted-foreground">
+            Эти реквизиты увидят участники, если ты станешь ответственным за
+            заказ
+          </p>
+        </div>
 
-          {/* Превью */}
-          {(paymentInfo.paymentCard || paymentInfo.paymentPhone || paymentInfo.paymentDetails) && (
-            <m.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="rounded-lg border border-primary/18 bg-primary/8 p-4"
-            >
-              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
-                <FileText className={ICON_SIZES.sm} />
-                Так увидят участники:
-              </div>
-              <div className="space-y-1.5 text-sm text-foreground">
-                {paymentInfo.paymentCard && (
-                  <div className="flex items-center gap-2">
-                    <CreditCard size={14} />
-                    Карта: {userService.maskCardNumber(paymentInfo.paymentCard)}
-                  </div>
-                )}
-                {paymentInfo.paymentPhone && (
-                  <div className="flex items-center gap-2">
-                    <Phone size={14} />
-                    Телефон: {paymentInfo.paymentPhone}
-                  </div>
-                )}
-                {paymentInfo.paymentDetails && (
-                  <div className="flex items-start gap-2">
-                    <FileText size={14} className="mt-0.5" />
-                    {paymentInfo.paymentDetails}
-                  </div>
-                )}
-              </div>
-            </m.div>
+        {/* Номер карты */}
+        <div>
+          <label
+            htmlFor="payment-card"
+            className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground"
+          >
+            <CreditCard className={cn(ICON_SIZES.sm, "text-primary")} />
+            <span>Номер карты</span>
+          </label>
+          <input
+            id="payment-card"
+            type="text"
+            value={paymentInfo.paymentCard || ""}
+            onChange={(e) =>
+              handleChange("paymentCard", formatCardInput(e.target.value))
+            }
+            onBlur={flushSave}
+            placeholder="1234 5678 9012 3456"
+            maxLength={19}
+            className={`w-full px-4 py-3 rounded-lg border ${
+              errors.paymentCard
+                ? "border-red-500 dark:border-red-500"
+                : "border-gray-200 dark:border-gray-700"
+            } bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all`}
+          />
+          {errors.paymentCard && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
+              <Info className={ICON_SIZES.xs} />
+              {errors.paymentCard}
+            </p>
           )}
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Участники увидят маскированный номер:{" "}
+            {userService.maskCardNumber(paymentInfo.paymentCard || "")}
+          </p>
+        </div>
 
-          {/* Информация */}
-          <div className="rounded-lg border border-lavender-500/20 bg-lavender-500/8 p-4">
-            <div className="flex items-start gap-2">
-              <Shield className={cn(ICON_SIZES.sm, "mt-0.5 flex-shrink-0 text-lavender-500")} />
-              <p className="text-sm text-foreground">
-                <strong>Конфиденциальность:</strong> Видно только участникам голосования, где ты ответственный за заказ.
-              </p>
-            </div>
+        {/* Номер телефона */}
+        <div>
+          <label
+            htmlFor="payment-phone"
+            className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground"
+          >
+            <Phone className={cn(ICON_SIZES.sm, "text-primary")} />
+            <span>Номер телефона</span>
+          </label>
+          <input
+            id="payment-phone"
+            type="tel"
+            value={paymentInfo.paymentPhone || ""}
+            onChange={(e) => handleChange("paymentPhone", e.target.value)}
+            onBlur={flushSave}
+            placeholder="+7 (999) 123-45-67"
+            className={`w-full px-4 py-3 rounded-lg border ${
+              errors.paymentPhone
+                ? "border-red-500 dark:border-red-500"
+                : "border-gray-200 dark:border-gray-700"
+            } bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all`}
+          />
+          {errors.paymentPhone && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
+              <Info className={ICON_SIZES.xs} />
+              {errors.paymentPhone}
+            </p>
+          )}
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Для связи в мессенджерах или по звонку
+          </p>
+        </div>
+
+        {/* Дополнительные детали */}
+        <div>
+          <label
+            htmlFor="payment-details"
+            className="mb-2 flex items-center space-x-2 text-sm font-medium text-foreground"
+          >
+            <FileText className={cn(ICON_SIZES.sm, "text-primary")} />
+            <span>Дополнительная информация</span>
+          </label>
+          <textarea
+            id="payment-details"
+            value={paymentInfo.paymentDetails || ""}
+            onChange={(e) => handleChange("paymentDetails", e.target.value)}
+            onBlur={flushSave}
+            placeholder="Например: СБП по номеру телефона, комментарий к переводу и т.д."
+            rows={3}
+            maxLength={200}
+            className="w-full resize-none rounded-lg border border-border bg-card px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          />
+          <div className="flex justify-between items-center mt-1.5">
+            <p className="text-xs text-muted-foreground">
+              Любая информация для удобства перевода
+            </p>
+            <span className="text-xs text-muted-foreground">
+              {(paymentInfo.paymentDetails || "").length}/200
+            </span>
           </div>
+        </div>
+
+        {/* Превью */}
+        {(paymentInfo.paymentCard ||
+          paymentInfo.paymentPhone ||
+          paymentInfo.paymentDetails) && (
+          <m.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="rounded-lg border border-primary/18 bg-primary/8 p-4"
+          >
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
+              <FileText className={ICON_SIZES.sm} />
+              Так увидят участники:
+            </div>
+            <div className="space-y-1.5 text-sm text-foreground">
+              {paymentInfo.paymentCard && (
+                <div className="flex items-center gap-2">
+                  <CreditCard size={14} />
+                  Карта: {userService.maskCardNumber(paymentInfo.paymentCard)}
+                </div>
+              )}
+              {paymentInfo.paymentPhone && (
+                <div className="flex items-center gap-2">
+                  <Phone size={14} />
+                  Телефон: {paymentInfo.paymentPhone}
+                </div>
+              )}
+              {paymentInfo.paymentDetails && (
+                <div className="flex items-start gap-2">
+                  <FileText size={14} className="mt-0.5" />
+                  {paymentInfo.paymentDetails}
+                </div>
+              )}
+            </div>
           </m.div>
-        </PastelCard>
+        )}
 
-
+        {/* Информация */}
+        <div className="rounded-lg border border-lavender-500/20 bg-lavender-500/8 p-4">
+          <div className="flex items-start gap-2">
+            <Shield
+              className={cn(
+                ICON_SIZES.sm,
+                "mt-0.5 flex-shrink-0 text-lavender-500",
+              )}
+            />
+            <p className="text-sm text-foreground">
+              <strong>Конфиденциальность:</strong> Видно только участникам
+              голосования, где ты ответственный за заказ.
+            </p>
+          </div>
+        </div>
+      </m.div>
+    </PastelCard>
   );
 };
 
 export const ProfilePage: React.FC = () => {
   const controller = useProfilePageController();
-  const { navigate, user, refresh, isGroupAdmin, mainButton, backButton, colorScheme, addNotification, isDark, showOnboarding, loading, setLoading, paymentInfo, setPaymentInfo, errors, setErrors, saveTimeoutRef, isSaving, setIsSaving, hasUnsavedChanges, setHasUnsavedChanges, lastSaved, setLastSaved, isFeedbackModalOpen, setIsFeedbackModalOpen, validateForm, clearSaveTimer, savePaymentInfoNow, autoSave, flushSave, handleChange } = controller;
+  const {
+    navigate,
+    user,
+    refresh,
+    isGroupAdmin,
+    addNotification,
+    showOnboarding,
+    loading,
+    isFeedbackModalOpen,
+    setIsFeedbackModalOpen,
+  } = controller;
   if (loading) {
     return (
       <div className="min-h-screen relative">
@@ -432,7 +528,7 @@ export const ProfilePage: React.FC = () => {
     <>
       {/* Background removed - using neutral bg-background from Layout */}
 
-        <div className="relative z-10 space-y-6">
+      <div className="relative z-10 space-y-6">
         {/* Информация о пользователе */}
         <PastelCard variant="default" className="p-5">
           <m.div
@@ -444,26 +540,23 @@ export const ProfilePage: React.FC = () => {
             {/* Avatar with automatic loading from Telegram */}
             <UserAvatar
               userId={user?.id}
-              firstName={user?.firstName || '?'}
+              firstName={user?.firstName || "?"}
               lastName={user?.lastName}
               size="lg"
             />
 
             <div className="flex-1">
-                <div className="text-lg font-semibold text-foreground">
-                  {user?.firstName} {user?.lastName}
+              <div className="text-lg font-semibold text-foreground">
+                {user?.firstName} {user?.lastName}
+              </div>
+              {user?.username && (
+                <div className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
+                  <User size={14} />@{user.username}
                 </div>
-                {user?.username && (
-                  <div className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
-                    <User size={14} />
-                    @{user.username}
-                  </div>
-                )}
-                {isGroupAdmin && (
-                  <div className="mt-2">
-                    <Badge
-                      variant="warning"
-                    >
+              )}
+              {isGroupAdmin && (
+                <div className="mt-2">
+                  <Badge variant="warning">
                     <Crown className={`${ICON_SIZES.sm} mr-1`} />
                     Администратор
                   </Badge>
@@ -474,35 +567,46 @@ export const ProfilePage: React.FC = () => {
         </PastelCard>
 
         {/* Stats Row — опросы · блюд · любимое (3-col dashed dividers) */}
-        {user?.id && (() => {
-          const qs = getQuickStats(user.id);
-          return (
-            <m.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25, duration: 0.32 }}
-            >
-              <PastelCard variant="default" className="p-0 overflow-hidden">
-                <div className="grid grid-cols-3 divide-x divide-dashed divide-border/70">
-                  <div className="flex flex-col items-center justify-center py-4 px-2">
-                    <div className="text-2xl font-bold text-foreground tabular-nums">{qs.totalVotes}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">опросов</div>
-                  </div>
-                  <div className="flex flex-col items-center justify-center py-4 px-2">
-                    <div className="text-2xl font-bold text-foreground tabular-nums">{qs.uniqueDishes}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">блюд</div>
-                  </div>
-                  <div className="flex flex-col items-center justify-center py-4 px-2 min-w-0">
-                    <div className="text-base font-semibold text-foreground truncate max-w-full">
-                      {qs.topDish || '—'}
+        {user?.id &&
+          (() => {
+            const qs = getQuickStats(user.id);
+            return (
+              <m.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25, duration: 0.32 }}
+              >
+                <PastelCard variant="default" className="p-0 overflow-hidden">
+                  <div className="grid grid-cols-3 divide-x divide-dashed divide-border/70">
+                    <div className="flex flex-col items-center justify-center py-4 px-2">
+                      <div className="text-2xl font-bold text-foreground tabular-nums">
+                        {qs.totalVotes}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        опросов
+                      </div>
                     </div>
-                    <div className="mt-1 text-xs text-muted-foreground">любимое</div>
+                    <div className="flex flex-col items-center justify-center py-4 px-2">
+                      <div className="text-2xl font-bold text-foreground tabular-nums">
+                        {qs.uniqueDishes}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        блюд
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center py-4 px-2 min-w-0">
+                      <div className="text-base font-semibold text-foreground truncate max-w-full">
+                        {qs.topDish || "—"}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        любимое
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </PastelCard>
-            </m.div>
-          );
-        })()}
+                </PastelCard>
+              </m.div>
+            );
+          })()}
 
         {/* Quick link to full history */}
         <m.button
@@ -511,7 +615,7 @@ export const ProfilePage: React.FC = () => {
           transition={{ delay: 0.28, duration: 0.32 }}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
-          onClick={() => navigate('/poll/history')}
+          onClick={() => navigate("/poll/history")}
           className="w-full rounded-2xl border border-peach-500/20 bg-card/95 p-4 transition-all hover:border-peach-500/35 hover:shadow-md"
         >
           <div className="flex items-center justify-between">
@@ -520,11 +624,15 @@ export const ProfilePage: React.FC = () => {
                 <BookOpen className={cn(ICON_SIZES.md)} />
               </div>
               <div className="text-left">
-                <p className="font-semibold text-foreground">История голосований</p>
-                <p className="text-sm text-muted-foreground">Победы, участия и пропуски</p>
+                <p className="font-semibold text-foreground">
+                  История голосований
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Победы, участия и пропуски
+                </p>
               </div>
             </div>
-            <ChevronRight className={cn(ICON_SIZES.md, 'text-peach-500')} />
+            <ChevronRight className={cn(ICON_SIZES.md, "text-peach-500")} />
           </div>
         </m.button>
 
@@ -535,8 +643,9 @@ export const ProfilePage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.4 }}
           >
-            <button type="button"
-              onClick={() => navigate('/admin/dashboard')}
+            <button
+              type="button"
+              onClick={() => navigate("/admin/dashboard")}
               className="w-full rounded-2xl border border-butter-500/20 bg-card/95 p-5 transition-all hover:border-butter-500/35 hover:shadow-md"
             >
               <div className="flex items-center justify-between">
@@ -547,7 +656,10 @@ export const ProfilePage: React.FC = () => {
                   <div className="text-left">
                     <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
                       Панель администратора
-                      <Crown size={18} className="text-butter-600 dark:text-butter-400" />
+                      <Crown
+                        size={18}
+                        className="text-butter-600 dark:text-butter-400"
+                      />
                     </div>
                     <div className="mt-0.5 text-sm text-muted-foreground">
                       Статистика, логи и управление системой
@@ -569,19 +681,20 @@ export const ProfilePage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.4 }}
           >
-            <button type="button"
+            <button
+              type="button"
               onClick={async () => {
                 try {
                   await refresh();
                   addNotification({
-                    type: 'success',
-                    message: '✅ Права обновлены! Перезагрузи страницу.',
+                    type: "success",
+                    message: "✅ Права обновлены! Перезагрузи страницу.",
                   });
                   setTimeout(() => window.location.reload(), 1500);
-                } catch (error) {
+                } catch (_error) {
                   addNotification({
-                    type: 'error',
-                    message: '❌ Ошибка обновления прав',
+                    type: "error",
+                    message: "❌ Ошибка обновления прав",
                   });
                 }
               }}
@@ -589,7 +702,9 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
                 <Settings size={18} />
-                <span className="text-sm font-medium">Обновить права доступа (Dev)</span>
+                <span className="text-sm font-medium">
+                  Обновить права доступа (Dev)
+                </span>
               </div>
             </button>
           </m.div>
@@ -602,8 +717,11 @@ export const ProfilePage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: isGroupAdmin ? 0.4 : 0.3, duration: 0.4 }}
         >
-          <button type="button"
-            onClick={() => navigate(isGroupAdmin ? '/admin/suggestions' : '/my-suggestions')}
+          <button
+            type="button"
+            onClick={() =>
+              navigate(isGroupAdmin ? "/admin/suggestions" : "/my-suggestions")
+            }
             className="w-full rounded-2xl border border-lavender-500/20 bg-card/95 p-5 transition-all hover:border-lavender-500/35 hover:shadow-md"
           >
             <div className="flex items-center justify-between">
@@ -613,10 +731,12 @@ export const ProfilePage: React.FC = () => {
                 </div>
                 <div className="text-left">
                   <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                    {isGroupAdmin ? 'Предложка' : 'Мои предложения'}
+                    {isGroupAdmin ? "Предложка" : "Мои предложения"}
                   </div>
                   <div className="mt-0.5 text-sm text-muted-foreground">
-                    {isGroupAdmin ? 'Модерация предложений от пользователей' : 'История предложенных блюд для меню'}
+                    {isGroupAdmin
+                      ? "Модерация предложений от пользователей"
+                      : "История предложенных блюд для меню"}
                   </div>
                 </div>
               </div>
@@ -636,9 +756,7 @@ export const ProfilePage: React.FC = () => {
           transition={{ delay: 0.7, duration: 0.4 }}
           className="space-y-4"
         >
-          <h3 className="text-lg font-semibold text-foreground">
-            Помощь
-          </h3>
+          <h3 className="text-lg font-semibold text-foreground">Помощь</h3>
 
           <m.button
             whileHover={{ scale: 1.02 }}
@@ -678,7 +796,6 @@ export const ProfilePage: React.FC = () => {
         isOpen={isFeedbackModalOpen}
         onClose={() => setIsFeedbackModalOpen(false)}
       />
-
     </>
   );
 };

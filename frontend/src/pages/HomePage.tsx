@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, lazy } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { X } from 'lucide-react';
 
 // New shadcn/ui components
 import { Skeleton } from '../components/ui/skeleton';
@@ -62,12 +61,9 @@ import { useMenuItems } from '../hooks/queries/useMenuQueries';
 import { useUserGroups } from '../hooks/queries/useUserQueries';
 import { useTodayCompletedPoll } from '../hooks/useTodayCompletedPoll';
 import { useCompletedPollVisibility } from '../hooks/useCompletedPollVisibility';
-import { formatRelativeTime } from '../lib/utils';
-import { TYPOGRAPHY_H1, TYPOGRAPHY_H2 } from '../lib/typography';
 import { useTimeBasedGradient } from '../hooks/useTimeBasedGradient';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
-import { ICON_SIZES } from '@/lib/design-tokens';
 import { getContextualGreeting } from '../lib/contextual-messages';
 import { getHumanErrorMessage } from '../lib/error-messages';
 import { getUserStreak, updateStreakAfterVote } from '../services/streak.service';
@@ -76,9 +72,9 @@ import { getUserStreak, updateStreakAfterVote } from '../services/streak.service
 const showInviteLinkAlert = (inviteUrl: string, shareText: string) => {
   if (window.Telegram?.WebApp?.showPopup) {
     window.Telegram.WebApp.showPopup({
-      title: 'Пригласить друга',
+      title: "Пригласить друга",
       message: `Отправь эту ссылку другу:\n\n${inviteUrl}`,
-      buttons: [{ id: 'ok', type: 'ok', text: 'OK' }],
+      buttons: [{ id: "ok", type: "ok", text: "OK" }],
     });
   } else {
     alert(`Пригласите друга:\n\n${shareText}`);
@@ -86,9 +82,6 @@ const showInviteLinkAlert = (inviteUrl: string, shareText: string) => {
 };
 
 // УДАЛЕНО: handleShowUserStats - кнопка убрана из Quick Actions (доступна через Bottom Nav)
-
-
-
 
 // Container animation variants
 const containerVariants = {
@@ -110,7 +103,7 @@ const itemVariants = {
 
 /**
  * HomePage - Умная адаптивная главная страница
- * 
+ *
  * Особенности:
  * - Welcome Card для новых пользователей (0-2 голосования)
  * - Обратная связь перенесена на страницу профиля
@@ -128,24 +121,35 @@ const useHomePageController = () => {
   const haptic = useHaptic();
   const addNotification = useAppStore((state) => state.addNotification);
   const theme = useAppStore((state) => state.theme);
-  const isDark = colorScheme === 'dark';
-  
+  const isDark = colorScheme === "dark";
+
   // Load menu items from API using React Query
   const { data: menuItems = [], isLoading: menuLoading } = useMenuItems();
-  
+
   // Time-based gradient and greeting
-  const gradientColors = useTimeBasedGradient(theme === 'dark');
+  const gradientColors = useTimeBasedGradient(theme === "dark");
 
   // State - ВАЖНО: объявляем ДО использования в React Query hooks
-  const [activePollOverride, setActivePollOverride] = useState<PollWithDetails | null>(null);
+  const [activePollOverride, setActivePollOverride] =
+    useState<PollWithDetails | null>(null);
   const [isCreatingPoll, setIsCreatingPoll] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [justCompletedPollId, setJustCompletedPollId] = useState<number | null>(null);
+  const [justCompletedPollId, setJustCompletedPollId] = useState<number | null>(
+    null,
+  );
   const [showRouletteOverlay, setShowRouletteOverlay] = useState(false);
-  const [rouletteParticipants, setRouletteParticipants] = useState<Array<{ id: number; firstName: string; lastName?: string }>>([]);
-  const [rouletteWinner, setRouletteWinner] = useState<{ id: number; firstName: string; lastName?: string } | null>(null);
+  const [rouletteParticipants, setRouletteParticipants] = useState<
+    Array<{ id: number; firstName: string; lastName?: string }>
+  >([]);
+  const [rouletteWinner, setRouletteWinner] = useState<{
+    id: number;
+    firstName: string;
+    lastName?: string;
+  } | null>(null);
   const lastRoulettePollIdRef = useRef<number | null>(null);
-  const rouletteDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rouletteDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [lastCompletedPoll, setLastCompletedPoll] = useState<Poll | null>(null);
   const [isRepeatingLastPoll, setIsRepeatingLastPoll] = useState(false);
   // Calculator modal state
@@ -156,7 +160,11 @@ const useHomePageController = () => {
 
   // ✅ ПАРАЛЛЕЛЬНАЯ ЗАГРУЗКА: Все 3 запроса идут одновременно
   // React Query: Load active polls with caching
-  const { data: activePolls = [], isLoading: pollsLoading, refetch } = useActivePolls({
+  const {
+    data: activePolls = [],
+    isLoading: pollsLoading,
+    refetch,
+  } = useActivePolls({
     refetchInterval: 30000, // Авто-обновление каждые 30 секунд
   });
 
@@ -169,25 +177,31 @@ const useHomePageController = () => {
     }
 
     const searchParams = new URLSearchParams(location.search);
-    const requestedPollId = searchParams.get('pollId');
+    const requestedPollId = searchParams.get("pollId");
 
     let selectedPoll: PollWithDetails | null = null;
 
     if (requestedPollId) {
-      const targetPoll = activePolls.find(p => p.id === parseInt(requestedPollId));
+      const targetPoll = activePolls.find(
+        (p) => p.id === parseInt(requestedPollId),
+      );
       selectedPoll = (targetPoll || activePolls[0]) as PollWithDetails;
     } else {
       selectedPoll = activePolls[0] as PollWithDetails;
     }
 
-    const endTime = selectedPoll.endedAt ||
-      (selectedPoll.startedAt ?
-        new Date(new Date(selectedPoll.startedAt).getTime() + (selectedPoll.duration || 30) * 60 * 1000).toISOString() :
-        new Date(Date.now() + 30 * 60 * 1000).toISOString());
+    const endTime =
+      selectedPoll.endedAt ||
+      (selectedPoll.startedAt
+        ? new Date(
+            new Date(selectedPoll.startedAt).getTime() +
+              (selectedPoll.duration || 30) * 60 * 1000,
+          ).toISOString()
+        : new Date(Date.now() + 30 * 60 * 1000).toISOString());
 
     return {
       ...selectedPoll,
-      title: 'Голосование на обед',
+      title: "Голосование на обед",
       endTime,
       voteCount: selectedPoll._count?.votes || 0,
     } as PollWithDetails;
@@ -197,14 +211,18 @@ const useHomePageController = () => {
   const hasActivePoll = activePoll !== null;
 
   useEffect(() => {
-    if (activePollOverride && derivedActivePoll && activePollOverride.id === derivedActivePoll.id) {
+    if (
+      activePollOverride &&
+      derivedActivePoll &&
+      activePollOverride.id === derivedActivePoll.id
+    ) {
       setActivePollOverride(null);
     }
   }, [activePollOverride, derivedActivePoll]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
-    const requestedPollId = searchParams.get('pollId');
+    const requestedPollId = searchParams.get("pollId");
 
     if (!requestedPollId) {
       if (missingPollNotificationRef.current) {
@@ -217,7 +235,9 @@ const useHomePageController = () => {
       return;
     }
 
-    const targetPoll = activePolls.find(p => p.id === parseInt(requestedPollId));
+    const targetPoll = activePolls.find(
+      (p) => p.id === parseInt(requestedPollId),
+    );
     if (targetPoll) {
       if (missingPollNotificationRef.current === requestedPollId) {
         missingPollNotificationRef.current = null;
@@ -227,8 +247,8 @@ const useHomePageController = () => {
 
     if (missingPollNotificationRef.current !== requestedPollId) {
       addNotification({
-        type: 'warning',
-        message: '⚠️ Голосование не найдено или уже завершено'
+        type: "warning",
+        message: "⚠️ Голосование не найдено или уже завершено",
       });
       missingPollNotificationRef.current = requestedPollId;
     }
@@ -239,27 +259,32 @@ const useHomePageController = () => {
   const userGroupId = activePoll?.groupId || currentGroupId || undefined;
 
   // React Query: Load today's completed poll (параллельно, но использует userGroupId)
-  const { data: todayCompletedPoll, isLoading: loadingCompletedPoll, error: completedPollError, refetch: refetchCompleted } = useTodayCompletedPoll(
+  const {
+    data: todayCompletedPoll,
+    isLoading: loadingCompletedPoll,
+    error: completedPollError,
+    refetch: refetchCompleted,
+  } = useTodayCompletedPoll(
     userGroupId,
-    !!userGroupId // Всегда загружаем если есть groupId (не зависит от activePoll)
+    !!userGroupId, // Всегда загружаем если есть groupId (не зависит от activePoll)
   );
 
   // Derive hero card poll status from existing query data
   const heroPollStatus: PollStatus = (() => {
-    if (activePoll) return 'active';
+    if (activePoll) return "active";
     if (todayCompletedPoll) {
       const result = (todayCompletedPoll as any).result;
-      if (result) return 'completed-result';
-      return 'completed';
+      if (result) return "completed-result";
+      return "completed";
     }
-    return 'none';
+    return "none";
   })();
 
   const heroPollMeta: PollMeta = (() => {
     if (activePoll) {
       const endDate = activePoll.endTime ? new Date(activePoll.endTime) : null;
       const time = endDate
-        ? `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`
+        ? `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}`
         : undefined;
       return { time };
     }
@@ -287,14 +312,20 @@ const useHomePageController = () => {
 
   // Debug logging
   useEffect(() => {
-    console.log('[HomePage] Completed Poll State:', {
+    console.log("[HomePage] Completed Poll State:", {
       userGroupId,
       hasActivePoll: !!activePoll,
       loadingCompletedPoll,
       hasCompletedPoll: !!todayCompletedPoll,
-      error: completedPollError
+      error: completedPollError,
     });
-  }, [userGroupId, activePoll, loadingCompletedPoll, todayCompletedPoll, completedPollError]);
+  }, [
+    userGroupId,
+    activePoll,
+    loadingCompletedPoll,
+    todayCompletedPoll,
+    completedPollError,
+  ]);
 
   // Auto-hide celebration after 3 seconds
   useEffect(() => {
@@ -317,25 +348,32 @@ const useHomePageController = () => {
 
   // Отслеживаем автоматическое завершение голосования
   const prevActivePollRef = useRef<PollWithDetails | null>(null);
-  
+
   useEffect(() => {
     // Проверяем переход: было активное голосование → теперь нет
     const hadActivePoll = prevActivePollRef.current !== null;
     const nowHasNoPoll = activePoll === null;
-    
+
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     if (hadActivePoll && nowHasNoPoll) {
       refreshTimer = setTimeout(() => {
-        refetchCompleted();
+        void refetchCompleted();
       }, 400);
     }
 
-    if (hadActivePoll && nowHasNoPoll && todayCompletedPoll && !showCelebration) {
-      console.log('🎉 [HomePage] Detected auto-completed poll, triggering celebration');
+    if (
+      hadActivePoll &&
+      nowHasNoPoll &&
+      todayCompletedPoll &&
+      !showCelebration
+    ) {
+      console.log(
+        "🎉 [HomePage] Detected auto-completed poll, triggering celebration",
+      );
       setJustCompletedPollId(todayCompletedPoll.id);
       setShowCelebration(true);
     }
-    
+
     // Обновляем ref для следующего цикла
     prevActivePollRef.current = activePoll;
 
@@ -357,9 +395,9 @@ const useHomePageController = () => {
 
     let completedTimer: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
-      refetch();
+      void refetch();
       completedTimer = setTimeout(() => {
-        refetchCompleted();
+        void refetchCompleted();
       }, 400);
     }, delay);
 
@@ -372,15 +410,18 @@ const useHomePageController = () => {
   }, [activePoll?.id, activePoll?.endTime, refetch, refetchCompleted]);
 
   // Проверяем проголосовал ли пользователь
-  const hasVoted = activePoll?.votes?.some(vote => vote.userId === user?.id) || false;
-  
+  const hasVoted =
+    activePoll?.votes?.some((vote) => vote.userId === user?.id) || false;
+
   // Проверяем осталось ли меньше 5 минут до закрытия
-  const isPollEnding = activePoll ? (() => {
-    const endTime = new Date(activePoll.endTime);
-    const now = new Date();
-    const minutesLeft = (endTime.getTime() - now.getTime()) / (1000 * 60);
-    return minutesLeft < 5 && minutesLeft > 0;
-  })() : false;
+  const isPollEnding = activePoll?.endTime
+    ? (() => {
+        const endTime = new Date(activePoll.endTime);
+        const now = new Date();
+        const minutesLeft = (endTime.getTime() - now.getTime()) / (1000 * 60);
+        return minutesLeft < 5 && minutesLeft > 0;
+      })()
+    : false;
 
   // Получаем контекстное приветствие
   const contextualGreeting = getContextualGreeting({
@@ -398,23 +439,25 @@ const useHomePageController = () => {
   const [loadingTopDish, setLoadingTopDish] = useState(false);
 
   // Streak система
-  const [userStreak, setUserStreak] = useState(() => getUserStreak(user?.id || 0));
+  const [userStreak, setUserStreak] = useState(() =>
+    getUserStreak(user?.id || 0),
+  );
 
   // Персональные инсайты перенесены на StatsPage (вкладка "Инсайты")
 
   const adminEmptyGreeting = useMemo(() => {
     const map = {
-      morning: 'Доброе утро',
-      afternoon: 'Добрый день',
-      evening: 'Добрый вечер',
-      night: 'Спокойной ночи',
+      morning: "Доброе утро",
+      afternoon: "Добрый день",
+      evening: "Добрый вечер",
+      night: "Спокойной ночи",
     } as const;
 
     return map[gradientColors.timeOfDay];
   }, [gradientColors.timeOfDay]);
-  
+
   // NOTE: userPollCount и Welcome Card удалены - инструкция показывается только при первом запуске
-  
+
   // ИЗМЕНЕНО: Set active poll based on URL param OR first poll
 
   // Auto-refresh
@@ -426,13 +469,13 @@ const useHomePageController = () => {
       }
       return;
     }
-    
+
     // Когда есть активное голосование, отключаем подтверждение закрытия
     // чтобы пользователь мог свободно закрыть Mini App
     if (telegram.disableClosingConfirmation) {
       telegram.disableClosingConfirmation();
     }
-    
+
     return () => {
       // При размонтировании восстанавливаем подтверждение
       if (telegram.enableClosingConfirmation) {
@@ -447,13 +490,13 @@ const useHomePageController = () => {
       setJustCompletedPollId(activePoll.id);
       setShowCelebration(true);
     }
-    
+
     // Обновляем оба query: активные И завершённые голосования
-    refetch(); // Refresh active polls immediately
-    
+    void refetch(); // Refresh active polls immediately
+
     // Задержка для completed poll, чтобы backend успел обновить статус
     setTimeout(() => {
-      refetchCompleted();
+      void refetchCompleted();
     }, 500); // 500ms задержка
   };
 
@@ -467,56 +510,66 @@ const useHomePageController = () => {
     tryShowRouletteOverlay(todayCompletedPoll, 5000);
   };
 
-  const tryShowRouletteOverlay = useCallback((poll: PollWithDetails, delayMs: number) => {
-    if (lastRoulettePollIdRef.current === poll.id) {
-      return;
-    }
+  const tryShowRouletteOverlay = useCallback(
+    (poll: PollWithDetails, delayMs: number) => {
+      if (lastRoulettePollIdRef.current === poll.id) {
+        return;
+      }
 
-    const result =
-      poll.results?.[0] ||
-      (poll as PollWithDetails & { result?: PollWithDetails['results'][number] }).result;
-    const winner = result?.responsible;
-    if (!winner) {
-      return;
-    }
+      const result =
+        poll.results?.[0] ||
+        (
+          poll as PollWithDetails & {
+            result?: PollWithDetails["results"][number];
+          }
+        ).result;
+      const winner = result?.responsible;
+      if (!winner) {
+        return;
+      }
 
-    const participantsMap = new Map<number, { id: number; firstName: string; lastName?: string }>();
-    (poll.votes || []).forEach(vote => {
-      if (!participantsMap.has(vote.user.id)) {
-        participantsMap.set(vote.user.id, {
-          id: vote.user.id,
-          firstName: vote.user.firstName,
-          lastName: vote.user.lastName,
+      const participantsMap = new Map<
+        number,
+        { id: number; firstName: string; lastName?: string }
+      >();
+      (poll.votes || []).forEach((vote) => {
+        if (!participantsMap.has(vote.user.id)) {
+          participantsMap.set(vote.user.id, {
+            id: vote.user.id,
+            firstName: vote.user.firstName,
+            lastName: vote.user.lastName,
+          });
+        }
+      });
+
+      if (!participantsMap.has(winner.id)) {
+        participantsMap.set(winner.id, {
+          id: winner.id,
+          firstName: winner.firstName,
+          lastName: winner.lastName,
         });
       }
-    });
 
-    if (!participantsMap.has(winner.id)) {
-      participantsMap.set(winner.id, {
+      setRouletteWinner({
         id: winner.id,
         firstName: winner.firstName,
         lastName: winner.lastName,
       });
-    }
+      setRouletteParticipants(Array.from(participantsMap.values()));
 
-    setRouletteWinner({
-      id: winner.id,
-      firstName: winner.firstName,
-      lastName: winner.lastName,
-    });
-    setRouletteParticipants(Array.from(participantsMap.values()));
+      if (rouletteDelayTimerRef.current) {
+        clearTimeout(rouletteDelayTimerRef.current);
+      }
 
-    if (rouletteDelayTimerRef.current) {
-      clearTimeout(rouletteDelayTimerRef.current);
-    }
-
-    rouletteDelayTimerRef.current = setTimeout(() => {
-      setShowRouletteOverlay(true);
-      lastRoulettePollIdRef.current = poll.id;
-      haptic.medium();
-      rouletteDelayTimerRef.current = null;
-    }, delayMs);
-  }, [haptic]);
+      rouletteDelayTimerRef.current = setTimeout(() => {
+        setShowRouletteOverlay(true);
+        lastRoulettePollIdRef.current = poll.id;
+        haptic.medium();
+        rouletteDelayTimerRef.current = null;
+      }, delayMs);
+    },
+    [haptic],
+  );
 
   useEffect(() => {
     if (!todayCompletedPoll || showCelebration) {
@@ -530,17 +583,17 @@ const useHomePageController = () => {
 
   useEffect(() => {
     if (user?.id) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
     }
   }, [user?.id, queryClient]);
 
   useEffect(() => {
-    if (!isGroupAdmin || hasAnyPoll) {
+    if (!user || !isGroupAdmin || hasAnyPoll) {
       setShowAdminChecklist(false);
       return;
     }
 
-    if (isLoading || typeof window === 'undefined') {
+    if (isLoading || typeof window === "undefined") {
       return;
     }
 
@@ -550,9 +603,9 @@ const useHomePageController = () => {
       return;
     }
 
-    localStorage.setItem(key, 'true');
+    localStorage.setItem(key, "true");
     setShowAdminChecklist(true);
-  }, [user.id, isGroupAdmin, hasAnyPoll, isLoading]);
+  }, [user, isGroupAdmin, hasAnyPoll, isLoading]);
 
   const handleRepeatLastPoll = async () => {
     if (!lastCompletedPoll || isRepeatingLastPoll) {
@@ -564,20 +617,20 @@ const useHomePageController = () => {
     try {
       const response = await pollsService.repeatPoll(lastCompletedPoll.id);
       if (!response.success) {
-        throw new Error(response.error || 'Не удалось повторить голосование');
+        throw new Error(response.error || "Не удалось повторить голосование");
       }
 
-      queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
       await refetch();
       haptic.success();
       addNotification({
-        type: 'success',
-        message: 'Голосование повторено',
+        type: "success",
+        message: "Голосование повторено",
       });
     } catch (error) {
       haptic.error();
       addNotification({
-        type: 'error',
+        type: "error",
         message: getHumanErrorMessage(error),
       });
     } finally {
@@ -585,20 +638,20 @@ const useHomePageController = () => {
     }
   };
 
-  const handlePollCreated = async (pollId: number) => {
+  const handlePollCreated = async (_pollId: number) => {
     haptic.success();
     setIsCreatingPoll(false);
-    queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
-    refetch();
+    void queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
+    void refetch();
   };
 
   const handleInviteFriend = async () => {
     haptic.impact();
-    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'rocket_lunch_bot';
-    const inviteUrl = `https://t.me/${botUsername}?start=ref_${user?.id || 'unknown'}`;
+    const botUsername = import.meta.env.VITE_BOT_USERNAME || "rocket_lunch_bot";
+    const inviteUrl = `https://t.me/${botUsername}?start=ref_${user?.id || "unknown"}`;
     const shareText = `Голосуем за обед всей командой — присоединяйся 🍽️\n${inviteUrl}`;
-    
-    console.log('[Invite] Starting invite flow:', {
+
+    console.log("[Invite] Starting invite flow:", {
       botUsername,
       userId: user?.id,
       inviteUrl,
@@ -606,77 +659,80 @@ const useHomePageController = () => {
       hasShareLink: !!window.Telegram?.WebApp?.shareLink,
       webAppVersion: (window.Telegram?.WebApp as any)?.version,
     });
-    
+
     // Проверяем версию Telegram
     const webApp = window.Telegram?.WebApp;
-    const version = (webApp as any)?.version || '0.0';
+    const version = (webApp as any)?.version || "0.0";
     const isVersionSupported = parseFloat(version) >= 6.1;
-    
+
     // Вариант 1: Используем shareLink API (Telegram 6.1+)
     if (webApp?.shareLink && isVersionSupported) {
-      console.log('[Invite] Using shareLink API');
+      console.log("[Invite] Using shareLink API");
       try {
         await webApp.shareLink(inviteUrl);
         addNotification({
-          type: 'success',
-          message: 'Спасибо! +50 XP за каждого друга 🎉',
+          type: "success",
+          message: "Спасибо! +50 XP за каждого друга 🎉",
         });
         return;
       } catch (error) {
-        console.error('[Invite] shareLink failed:', error);
+        console.error("[Invite] shareLink failed:", error);
       }
     }
-    
+
     // Вариант 2: Используем openTelegramLink (работает всегда)
     if (webApp?.openTelegramLink) {
-      console.log('[Invite] Using openTelegramLink');
+      console.log("[Invite] Using openTelegramLink");
       try {
-        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent('🍽️ Присоединяйся к обеденным голосованиям!')}`;
+        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent("🍽️ Присоединяйся к обеденным голосованиям!")}`;
         (webApp as any).openTelegramLink(shareUrl);
         addNotification({
-          type: 'success',
-          message: 'Открой диалог, чтобы отправить приглашение 📤',
+          type: "success",
+          message: "Открой диалог, чтобы отправить приглашение 📤",
         });
         return;
       } catch (error) {
-        console.error('[Invite] openTelegramLink failed:', error);
+        console.error("[Invite] openTelegramLink failed:", error);
       }
     }
-    
+
     // Вариант 3: Используем openLink (откроет Telegram, но через браузер)
     if (webApp?.openLink) {
-      console.log('[Invite] Using openLink');
+      console.log("[Invite] Using openLink");
       try {
-        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent('🍽️ Присоединяйся к обеденным голосованиям!')}`;
+        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent("🍽️ Присоединяйся к обеденным голосованиям!")}`;
         webApp.openLink(shareUrl);
         addNotification({
-          type: 'info',
-          message: 'Открой Telegram, чтобы отправить приглашение 📱',
+          type: "info",
+          message: "Открой Telegram, чтобы отправить приглашение 📱",
         });
         return;
       } catch (error) {
-        console.error('[Invite] openLink failed:', error);
+        console.error("[Invite] openLink failed:", error);
       }
     }
-    
+
     // Вариант 4: Fallback - копируем в буфер
-    console.log('[Invite] Using clipboard fallback');
+    console.log("[Invite] Using clipboard fallback");
     fallbackShareInvite(inviteUrl, shareText);
   };
 
   // Fallback метод - копирование в буфер обмена
   const fallbackShareInvite = (inviteUrl: string, shareText: string) => {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(shareText).then(() => {
-        addNotification({
-          type: 'success',
-          message: 'Ссылка скопирована — +50 XP за каждого друга 🎁',
+      navigator.clipboard
+        .writeText(shareText)
+        .then(() => {
+          addNotification({
+            type: "success",
+            message: "Ссылка скопирована — +50 XP за каждого друга 🎁",
+          });
+        })
+        .catch((error: unknown) => {
+          console.error("[Invite] Clipboard failed:", error);
+          // Показываем ссылку в алерте
+          showInviteLinkAlert(inviteUrl, shareText);
         });
-      }).catch((error) => {
-        console.error('[Invite] Clipboard failed:', error);
-        // Показываем ссылку в алерте
-        showInviteLinkAlert(inviteUrl, shareText);
-      });
     } else {
       // Старый браузер - показываем алерт
       showInviteLinkAlert(inviteUrl, shareText);
@@ -686,7 +742,7 @@ const useHomePageController = () => {
   // Добавить бота в группу через deep-link ?startgroup=true
   const handleAddToGroup = () => {
     haptic.impact();
-    const botUsername = import.meta.env.VITE_BOT_USERNAME || 'rocket_lunch_bot';
+    const botUsername = import.meta.env.VITE_BOT_USERNAME || "rocket_lunch_bot";
     const url = `https://t.me/${botUsername}?startgroup=true`;
     const webApp = window.Telegram?.WebApp;
     if (webApp?.openTelegramLink) {
@@ -694,7 +750,7 @@ const useHomePageController = () => {
     } else if (webApp?.openLink) {
       webApp.openLink(url);
     } else {
-      window.open(url, '_blank', 'noopener,noreferrer');
+      window.open(url, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -702,51 +758,52 @@ const useHomePageController = () => {
   const handleRemindAdmin = async () => {
     // Используем текущую выбранную группу (приоритет выше чем activePoll)
     const groupId = currentGroupId || activePoll?.groupId;
-    
+
     if (!groupId) {
       addNotification({
-        type: 'error',
-        message: '❌ Не удалось определить группу',
+        type: "error",
+        message: "❌ Не удалось определить группу",
       });
       return;
     }
-    
+
     try {
       haptic.impact();
-      
+
       const response = await notificationService.remindAdmin(groupId);
-      
+
       if (response.success && response.data) {
         addNotification({
-          type: 'success',
+          type: "success",
           message: response.data.message,
         });
       } else {
         addNotification({
-          type: 'error',
-          message: response.error || 'Ошибка отправки напоминания',
+          type: "error",
+          message: response.error || "Ошибка отправки напоминания",
         });
       }
     } catch (error: any) {
       addNotification({
-        type: 'error',
+        type: "error",
         message: getHumanErrorMessage(error),
       });
     }
   };
-  
+
   // УДАЛЕНО: handleShowWinner, handleRepeatThisPoll, handleLeaveFeedback - не используются
-  
+
   // 10. Показать топ блюдо недели
   const handleShowTopDish = async () => {
     try {
       setLoadingTopDish(true);
       haptic.light();
-      
+
       const response = await pollsService.getPopularItems(1);
-      
+
       if (response.success && response.data && response.data.length > 0) {
-        const topItem = response.data[0];
+        const [topItem] = response.data;
+        if (!topItem) return;
         setTopDishData({
           name: topItem.menuItemName,
           voteCount: topItem.totalVotes,
@@ -759,14 +816,14 @@ const useHomePageController = () => {
         haptic.success();
       } else {
         addNotification({
-          type: 'info',
-          message: '📊 Пока недостаточно данных для статистики',
+          type: "info",
+          message: "📊 Пока недостаточно данных для статистики",
         });
       }
     } catch (error) {
-      console.error('Error loading top dish:', error);
+      console.error("Error loading top dish:", error);
       addNotification({
-        type: 'error',
+        type: "error",
         message: getHumanErrorMessage(error),
       });
       haptic.error();
@@ -774,13 +831,147 @@ const useHomePageController = () => {
       setLoadingTopDish(false);
     }
   };
-  
-  
-  return { navigate, location, telegram, colorScheme, user, isGroupAdmin, cancelPoll, currentGroupId, haptic, addNotification, theme, isDark, menuItems, menuLoading, gradientColors, activePollOverride, setActivePollOverride, isCreatingPoll, setIsCreatingPoll, showCelebration, setShowCelebration, justCompletedPollId, setJustCompletedPollId, showRouletteOverlay, setShowRouletteOverlay, rouletteParticipants, setRouletteParticipants, rouletteWinner, setRouletteWinner, lastRoulettePollIdRef, rouletteDelayTimerRef, lastCompletedPoll, setLastCompletedPoll, isRepeatingLastPoll, setIsRepeatingLastPoll, isCalculatorOpen, setIsCalculatorOpen, selectedCategoryOrder, setSelectedCategoryOrder, missingPollNotificationRef, showAdminChecklist, setShowAdminChecklist, activePolls, pollsLoading, refetch, userGroups, groupsLoading, derivedActivePoll, activePoll, hasActivePoll, userGroupId, todayCompletedPoll, loadingCompletedPoll, completedPollError, refetchCompleted, heroPollStatus, heroPollMeta, completedVisible, dismissCompletedPoll, hasAnyPoll, isLoading, prevActivePollRef, hasVoted, isPollEnding, contextualGreeting, isTopDishModalOpen, setIsTopDishModalOpen, topDishData, setTopDishData, loadingTopDish, setLoadingTopDish, userStreak, setUserStreak, adminEmptyGreeting, handlePollClosed, handleCelebrationEnd, tryShowRouletteOverlay, queryClient, handleRepeatLastPoll, handlePollCreated, handleInviteFriend, fallbackShareInvite, handleAddToGroup, handleRemindAdmin, handleShowTopDish };
+
+  return {
+    navigate,
+    location,
+    telegram,
+    colorScheme,
+    user,
+    isGroupAdmin,
+    cancelPoll,
+    currentGroupId,
+    haptic,
+    addNotification,
+    theme,
+    isDark,
+    menuItems,
+    menuLoading,
+    gradientColors,
+    activePollOverride,
+    setActivePollOverride,
+    isCreatingPoll,
+    setIsCreatingPoll,
+    showCelebration,
+    setShowCelebration,
+    justCompletedPollId,
+    setJustCompletedPollId,
+    showRouletteOverlay,
+    setShowRouletteOverlay,
+    rouletteParticipants,
+    setRouletteParticipants,
+    rouletteWinner,
+    setRouletteWinner,
+    lastRoulettePollIdRef,
+    rouletteDelayTimerRef,
+    lastCompletedPoll,
+    setLastCompletedPoll,
+    isRepeatingLastPoll,
+    setIsRepeatingLastPoll,
+    isCalculatorOpen,
+    setIsCalculatorOpen,
+    selectedCategoryOrder,
+    setSelectedCategoryOrder,
+    missingPollNotificationRef,
+    showAdminChecklist,
+    setShowAdminChecklist,
+    activePolls,
+    pollsLoading,
+    refetch,
+    userGroups,
+    groupsLoading,
+    derivedActivePoll,
+    activePoll,
+    hasActivePoll,
+    userGroupId,
+    todayCompletedPoll,
+    loadingCompletedPoll,
+    completedPollError,
+    refetchCompleted,
+    heroPollStatus,
+    heroPollMeta,
+    completedVisible,
+    dismissCompletedPoll,
+    hasAnyPoll,
+    isLoading,
+    prevActivePollRef,
+    hasVoted,
+    isPollEnding,
+    contextualGreeting,
+    isTopDishModalOpen,
+    setIsTopDishModalOpen,
+    topDishData,
+    setTopDishData,
+    loadingTopDish,
+    setLoadingTopDish,
+    userStreak,
+    setUserStreak,
+    adminEmptyGreeting,
+    handlePollClosed,
+    handleCelebrationEnd,
+    tryShowRouletteOverlay,
+    queryClient,
+    handleRepeatLastPoll,
+    handlePollCreated,
+    handleInviteFriend,
+    fallbackShareInvite,
+    handleAddToGroup,
+    handleRemindAdmin,
+    handleShowTopDish,
+  };
 };
 
 export const HomePage: React.FC = () => {
-  const { navigate, location, telegram, colorScheme, user, isGroupAdmin, cancelPoll, currentGroupId, haptic, addNotification, theme, isDark, menuItems, menuLoading, gradientColors, activePollOverride, setActivePollOverride, isCreatingPoll, setIsCreatingPoll, showCelebration, setShowCelebration, justCompletedPollId, setJustCompletedPollId, showRouletteOverlay, setShowRouletteOverlay, rouletteParticipants, setRouletteParticipants, rouletteWinner, setRouletteWinner, lastRoulettePollIdRef, rouletteDelayTimerRef, lastCompletedPoll, setLastCompletedPoll, isRepeatingLastPoll, setIsRepeatingLastPoll, isCalculatorOpen, setIsCalculatorOpen, selectedCategoryOrder, setSelectedCategoryOrder, missingPollNotificationRef, showAdminChecklist, setShowAdminChecklist, activePolls, pollsLoading, refetch, userGroups, groupsLoading, derivedActivePoll, activePoll, hasActivePoll, userGroupId, todayCompletedPoll, loadingCompletedPoll, completedPollError, refetchCompleted, heroPollStatus, heroPollMeta, completedVisible, dismissCompletedPoll, hasAnyPoll, isLoading, prevActivePollRef, hasVoted, isPollEnding, contextualGreeting, isTopDishModalOpen, setIsTopDishModalOpen, topDishData, setTopDishData, loadingTopDish, setLoadingTopDish, userStreak, setUserStreak, adminEmptyGreeting, handlePollClosed, handleCelebrationEnd, tryShowRouletteOverlay, queryClient, handleRepeatLastPoll, handlePollCreated, handleInviteFriend, fallbackShareInvite, handleAddToGroup, handleRemindAdmin, handleShowTopDish } = useHomePageController();
+  const {
+    navigate,
+    user,
+    isGroupAdmin,
+    cancelPoll,
+    haptic,
+    gradientColors,
+    isCreatingPoll,
+    setIsCreatingPoll,
+    showCelebration,
+    justCompletedPollId,
+    showRouletteOverlay,
+    setShowRouletteOverlay,
+    rouletteParticipants,
+    rouletteWinner,
+    rouletteDelayTimerRef,
+    lastCompletedPoll,
+    isRepeatingLastPoll,
+    isCalculatorOpen,
+    setIsCalculatorOpen,
+    selectedCategoryOrder,
+    setSelectedCategoryOrder,
+    showAdminChecklist,
+    refetch,
+    activePoll,
+    userGroupId,
+    todayCompletedPoll,
+    heroPollStatus,
+    heroPollMeta,
+    completedVisible,
+    dismissCompletedPoll,
+    hasAnyPoll,
+    isLoading,
+    contextualGreeting,
+    isTopDishModalOpen,
+    setIsTopDishModalOpen,
+    topDishData,
+    loadingTopDish,
+    userStreak,
+    setUserStreak,
+    adminEmptyGreeting,
+    handlePollClosed,
+    handleCelebrationEnd,
+    handleRepeatLastPoll,
+    handlePollCreated,
+    handleInviteFriend,
+    handleAddToGroup,
+    handleRemindAdmin,
+    handleShowTopDish,
+  } = useHomePageController();
   return (
     <>
       {/* Background removed - using neutral bg-background from Layout */}
@@ -798,7 +989,7 @@ export const HomePage: React.FC = () => {
             message={contextualGreeting.message}
             currentStreak={userStreak.currentStreak}
             user={user}
-            onAvatarClick={() => navigate('/profile')}
+            onAvatarClick={() => navigate("/profile")}
             timeColors={gradientColors.colors}
             pollStatus={heroPollStatus}
             pollMeta={heroPollMeta}
@@ -816,7 +1007,10 @@ export const HomePage: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <PastelCard variant="default" className="p-6 border-l-4 border-gray-300 dark:border-gray-600">
+              <PastelCard
+                variant="default"
+                className="p-6 border-l-4 border-gray-300 dark:border-gray-600"
+              >
                 <Skeleton className="h-8 w-2/3 mb-4" />
                 <Skeleton className="h-4 w-full mb-2" />
                 <Skeleton className="h-4 w-3/4" />
@@ -839,7 +1033,7 @@ export const HomePage: React.FC = () => {
                     const { streak } = updateStreakAfterVote(user.id);
                     setUserStreak(streak);
                   }
-                  refetch();
+                  void refetch();
                 }}
               />
             </m.div>
@@ -850,7 +1044,10 @@ export const HomePage: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <PastelCard variant="default" className="p-6 border-l-4 border-green-500">
+              <PastelCard
+                variant="default"
+                className="p-6 border-l-4 border-green-500"
+              >
                 <div className="text-center space-y-4">
                   <div className="text-6xl">🎉</div>
                   <Skeleton className="h-8 w-2/3 mx-auto mb-4" />
@@ -869,10 +1066,10 @@ export const HomePage: React.FC = () => {
               {(() => {
                 const title = isGroupAdmin
                   ? `${adminEmptyGreeting}! Голосования ещё нет`
-                  : 'Пока нет активного голосования';
+                  : "Пока нет активного голосования";
                 const description = isGroupAdmin
-                  ? 'Создай вручную или включи авто-запуск'
-                  : 'Сообщим, когда начнётся. Пока можно предложить блюдо в меню.';
+                  ? "Создай вручную или включи авто-запуск"
+                  : "Сообщим, когда начнётся. Пока можно предложить блюдо в меню.";
 
                 return (
                   <HomeEmptyStateCard
@@ -913,7 +1110,10 @@ export const HomePage: React.FC = () => {
             >
               <CompletedPollWidget
                 poll={todayCompletedPoll}
-                showCelebration={showCelebration && justCompletedPollId === todayCompletedPoll.id}
+                showCelebration={
+                  showCelebration &&
+                  justCompletedPollId === todayCompletedPoll.id
+                }
                 onCelebrationEnd={handleCelebrationEnd}
                 defaultCollapsed
                 onDismiss={dismissCompletedPoll}
@@ -921,7 +1121,8 @@ export const HomePage: React.FC = () => {
                 isCancelling={cancelPoll.isPending}
                 onCancel={() => {
                   const pollId = todayCompletedPoll.id;
-                  const message = 'Отменить это голосование? Результат и расчёт исчезнут у всех.';
+                  const message =
+                    "Отменить это голосование? Результат и расчёт исчезнут у всех.";
                   const run = () => cancelPoll.mutate({ pollId });
                   const webApp = window.Telegram?.WebApp as any;
                   if (webApp?.showConfirm) {
@@ -968,8 +1169,10 @@ export const HomePage: React.FC = () => {
             repeatLastPoll={
               isGroupAdmin && !activePoll && lastCompletedPoll
                 ? {
-                    status: isRepeatingLastPoll ? 'loading' : 'ready',
-                    onClick: handleRepeatLastPoll,
+                    status: isRepeatingLastPoll ? "loading" : "ready",
+                    onClick: () => {
+                      void handleRepeatLastPoll();
+                    },
                   }
                 : undefined
             }
@@ -980,15 +1183,20 @@ export const HomePage: React.FC = () => {
             onInviteFriend={handleInviteFriend}
             onAddToGroup={handleAddToGroup}
             topDish={{
-              status: loadingTopDish ? 'loading' : 'ready',
-              onClick: handleShowTopDish,
+              status: loadingTopDish ? "loading" : "ready",
+              onClick: () => {
+                void handleShowTopDish();
+              },
             }}
           />
         </m.div>
 
         {/* Bottom padding for BottomNavigation + safe-area */}
-        <div style={{ height: 'calc(64px + env(safe-area-inset-bottom, 0px) + 16px)' }} />
-
+        <div
+          style={{
+            height: "calc(64px + env(safe-area-inset-bottom, 0px) + 16px)",
+          }}
+        />
       </m.div>
 
       <RouletteRevealOverlay
@@ -1027,10 +1235,10 @@ export const HomePage: React.FC = () => {
 
             {/* Bottom Sheet */}
             <m.div
-              initial={{ y: '100%' }}
+              initial={{ y: "100%" }}
               animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
               className="fixed bottom-0 left-0 right-0 z-[60] bg-background rounded-t-3xl max-h-[96dvh] overflow-y-auto shadow-2xl"
             >
               <CreatePollForm
@@ -1048,7 +1256,6 @@ export const HomePage: React.FC = () => {
         onClose={() => setIsCalculatorOpen(false)}
         categoryOrder={selectedCategoryOrder}
       />
-
     </>
   );
 };

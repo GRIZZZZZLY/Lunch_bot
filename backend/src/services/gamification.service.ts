@@ -284,7 +284,7 @@ export class GamificationService {
         // Parse requirement
         const req: AchievementRequirement = typeof achievement.requirement === 'string'
           ? JSON.parse(achievement.requirement)
-          : achievement.requirement as unknown as AchievementRequirement;
+          : achievement.requirement;
 
         // Check if requirement met
         const unlocked = this.checkAchievementRequirement(stats, req);

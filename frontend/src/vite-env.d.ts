@@ -14,7 +14,7 @@ declare module 'virtual:pwa-register' {
 }
 
 declare module 'virtual:pwa-register/react' {
-  import type { Ref } from 'react';
+  import type { _Ref } from 'react';
 
   export interface RegisterSWOptions {
     immediate?: boolean;

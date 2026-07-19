@@ -101,7 +101,10 @@ export function BudgetWidgetWithCalculator({
     );
 
     if (pendingOrders.length > 0) {
-      const adminOrder = pendingOrders[0];
+      const [adminOrder] = pendingOrders;
+      if (!adminOrder) {
+        return null;
+      }
 
       if (isSelectionInProgress(adminOrder.selectionStatus)) {
         return (

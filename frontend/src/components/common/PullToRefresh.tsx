@@ -57,7 +57,9 @@ export const PullToRefresh = ({
       // Только если в верху страницы
       if (container.scrollTop > 0) return;
       
-      startY = e.touches[0].clientY;
+      const firstTouch = e.touches[0];
+      if (!firstTouch) return;
+      startY = firstTouch.clientY;
       isDragging = true;
       setIsPulling(true);
     };
@@ -65,7 +67,9 @@ export const PullToRefresh = ({
     const handleTouchMove = (e: TouchEvent) => {
       if (!isDragging || isRefreshing) return;
 
-      currentY = e.touches[0].clientY;
+      const firstTouch = e.touches[0];
+      if (!firstTouch) return;
+      currentY = firstTouch.clientY;
       const diff = currentY - startY;
 
       // Только pull down
@@ -129,14 +133,18 @@ export const PullToRefresh = ({
       }
     };
 
+    const handleTouchEndEvent = () => {
+      void handleTouchEnd();
+    };
+
     container.addEventListener('touchstart', handleTouchStart, { passive: false });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd);
+    container.addEventListener('touchend', handleTouchEndEvent);
 
     return () => {
       container.removeEventListener('touchstart', handleTouchStart);
       container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchend', handleTouchEndEvent);
     };
   }, [disabled, isRefreshing, threshold, onRefresh, y, haptic, isPulling]);
 

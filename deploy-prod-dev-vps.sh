@@ -1,175 +1,47 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# ===============================================
-# 🚀 VPS PROD-DEV Deployment Script
-# ===============================================
-# Deploys optimized build with debug features
-# Domain: rocketlunch.dpdns.org
-# Branch: feature/new_version
+# Развёртывание отладочной production-сборки на VPS.
+# Не использует prisma db push и не переключается на устаревшую ветку.
 
-set -e  # Exit on any error
+set -euo pipefail
 
-echo "🚀 Starting PROD-DEV deployment to VPS..."
+BRANCH="${BRANCH:-feature/store-run}"
+APP_ROOT="$(pwd)"
 
-# Check current branch
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-echo "📍 Current branch: $CURRENT_BRANCH"
-
-if [ "$CURRENT_BRANCH" != "feature/new_version" ]; then
-    echo "⚠️  Warning: Not on feature/new_version branch!"
-    echo "Switching to feature/new_version..."
-    git checkout feature/new_version
+git fetch origin "$BRANCH"
+if [ "$(git branch --show-current)" != "$BRANCH" ]; then
+  git switch "$BRANCH"
 fi
+git pull --ff-only origin "$BRANCH"
 
-# ===============================================
-# 1. Environment Setup
-# ===============================================
-echo "📦 Setting up PROD-DEV environment..."
+test -f backend/.env.prod-dev
+test -f frontend/.env.prod-dev
+install -m 600 backend/.env.prod-dev backend/.env
+install -m 600 frontend/.env.prod-dev frontend/.env
 
-# Backup current .env files
-if [ -f backend/.env ]; then
-    cp backend/.env backend/.env.backup.$(date +%Y%m%d_%H%M%S)
-    echo "✅ Backed up backend/.env"
-fi
-if [ -f frontend/.env ]; then
-    cp frontend/.env frontend/.env.backup.$(date +%Y%m%d_%H%M%S)
-    echo "✅ Backed up frontend/.env"
-fi
+(
+  cd backend
+  npm ci
+  npm run db:generate
+  npm run build:prod
+)
 
-# Copy PROD-DEV environment files
-if [ -f backend/.env.prod-dev ]; then
-    cp backend/.env.prod-dev backend/.env
-    echo "✅ Loaded backend/.env.prod-dev"
-else
-    echo "❌ ERROR: backend/.env.prod-dev not found!"
-    exit 1
-fi
+(
+  cd frontend
+  npm ci
+  npx vite build --config vite.config.prod-dev.ts
+)
 
-if [ -f frontend/.env.prod-dev ]; then
-    cp frontend/.env.prod-dev frontend/.env
-    echo "✅ Loaded frontend/.env.prod-dev"
-else
-    echo "❌ ERROR: frontend/.env.prod-dev not found!"
-    exit 1
-fi
+(
+  cd backend
+  npm run db:migrate:prod
+)
 
-# ===============================================
-# 2. Install Dependencies
-# ===============================================
-echo "📦 Installing dependencies..."
-
-# Backend dependencies
-cd backend
-npm ci --only=production
-cd ..
-
-# Frontend dependencies (needed for build)
-cd frontend
-npm ci
-cd ..
-
-echo "✅ Dependencies installed"
-
-# ===============================================
-# 3. Build Frontend (PROD-DEV mode)
-# ===============================================
-echo "🏗️  Building frontend (PROD-DEV)..."
-
-cd frontend
-
-# Check if build:prod-dev script exists
-if grep -q "build:prod-dev" package.json; then
-    echo "Using build:prod-dev script..."
-    npm run build:prod-dev
-else
-    echo "Fallback to regular build..."
-    npm run build
-fi
-
-cd ..
-
-echo "✅ Frontend built successfully"
-
-# ===============================================
-# 4. Build Backend
-# ===============================================
-echo "🏗️  Building backend..."
-
-cd backend
-npm run build
-cd ..
-
-echo "✅ Backend built successfully"
-
-# ===============================================
-# 5. Database Setup
-# ===============================================
-echo "🗄️  Setting up database..."
-
-cd backend
-
-# Generate Prisma Client
-npm run db:generate
-
-# Run migrations
-npm run db:push
-
-cd ..
-
-echo "✅ Database configured"
-
-# ===============================================
-# 6. PM2 Process Management
-# ===============================================
-echo "🔄 Configuring PM2..."
-
-cd backend
-
-# Stop existing process if running
-pm2 delete rocket-lunch-bot 2>/dev/null || true
-
-# Start application with PM2
-pm2 start dist/index.js --name rocket-lunch-bot \
-  --max-memory-restart 500M \
-  --env production \
-  --log-date-format "YYYY-MM-DD HH:mm:ss Z"
-
-# Save PM2 configuration
+APP_ROOT="$APP_ROOT" BACKEND_ENV_FILE="$APP_ROOT/backend/.env" \
+  pm2 startOrReload ecosystem.config.js --only rocket-lunch-bot --update-env
 pm2 save
 
-cd ..
+curl --fail --silent --show-error --retry 6 --retry-delay 5 \
+  http://127.0.0.1:3001/health >/dev/null
 
-echo "✅ PM2 configured"
-
-# ===============================================
-# 7. Final Checks
-# ===============================================
-echo "🔍 Running final checks..."
-
-# Check if process is running
-pm2 status
-
-# Wait for app to start
-sleep 3
-
-# Show logs (last 20 lines)
-echo ""
-echo "📋 Recent logs:"
-pm2 logs rocket-lunch-bot --lines 20 --nostream
-
-echo ""
-echo "✅ PROD-DEV deployment completed successfully!"
-echo ""
-echo "🔍 Debug features enabled:"
-echo "  ✓ console.log preserved"
-echo "  ✓ Source maps enabled"
-echo "  ✓ SKIP_TELEGRAM_VALIDATION=true"
-echo ""
-echo "📝 Useful commands:"
-echo "  pm2 logs rocket-lunch-bot --lines 100  - View logs"
-echo "  pm2 restart rocket-lunch-bot  - Restart app"
-echo "  pm2 monit  - Monitor app"
-echo "  curl http://localhost:3001/api/health  - Check API health"
-echo ""
-echo "🌐 Application URL: https://rocketlunch.dpdns.org"
-echo ""
+echo 'Отладочная production-сборка успешно развёрнута.'

@@ -62,8 +62,8 @@ export const CostEntryForm = ({
       toast.success('Расходы сохранены!', {
         description: 'Суммы пересчитаны для всех участников',
       });
-      queryClient.invalidateQueries({ queryKey: ['budget'] });
-      queryClient.invalidateQueries({ queryKey: ['pollCostBreakdown', pollId] });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ['pollCostBreakdown', pollId] });
       onSuccess?.();
     },
     onError: (error: unknown) => {

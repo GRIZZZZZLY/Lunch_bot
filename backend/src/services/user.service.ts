@@ -66,7 +66,7 @@ export class UserService {
 
       // Если это новый пользователь и указана группа, отправляем уведомления админам
       if (isNewUser && groupId) {
-        this.notifyAdminsAboutNewUser(user, groupId).catch((error) => {
+        this.notifyAdminsAboutNewUser(user, groupId).catch((error: unknown) => {
           logger.error('Error sending new user notifications:', error);
         });
       }

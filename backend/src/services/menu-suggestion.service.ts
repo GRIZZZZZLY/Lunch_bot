@@ -2,6 +2,7 @@ import { MenuSuggestion, Prisma } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { prisma } from '../database/client';
 import { toNumber } from '../utils/decimal';
+import { GroupAccessError } from './group.service';
 
 export interface CreateSuggestionDTO {
   name: string;
@@ -24,6 +25,18 @@ export interface SuggestionFilters {
  * Сервис для работы с предложениями блюд от пользователей
  */
 export class MenuSuggestionService {
+  private static assertSuggestionGroup(
+    suggestion: { groupId: number },
+    groupId?: number
+  ): void {
+    if (groupId && suggestion.groupId !== groupId) {
+      throw new GroupAccessError(
+        'NOT_ADMIN',
+        'Suggestion does not belong to the selected group'
+      );
+    }
+  }
+
   /**
    * Создать новое предложение
    */
@@ -138,7 +151,8 @@ export class MenuSuggestionService {
    */
   static async approveSuggestion(
     suggestionId: number,
-    reviewerId: number
+    reviewerId: number,
+    groupId?: number
   ): Promise<{ suggestion: MenuSuggestion; menuItem: any }> {
     logger.info(`Approving suggestion ${suggestionId} by admin ${reviewerId}`);
 
@@ -155,6 +169,8 @@ export class MenuSuggestionService {
     }
 
     // Создаём блюдо в меню той же группы, что и предложение
+    this.assertSuggestionGroup(suggestion, groupId);
+
     const menuItem = await prisma.menuItem.create({
       data: {
         name: suggestion.name,
@@ -210,7 +226,8 @@ export class MenuSuggestionService {
   static async rejectSuggestion(
     suggestionId: number,
     reviewerId: number,
-    reason?: string
+    reason?: string,
+    groupId?: number
   ): Promise<MenuSuggestion> {
     logger.info(`Rejecting suggestion ${suggestionId} by admin ${reviewerId}`);
 
@@ -225,6 +242,8 @@ export class MenuSuggestionService {
     if (suggestion.status !== 'PENDING') {
       throw new Error('Suggestion already processed');
     }
+
+    this.assertSuggestionGroup(suggestion, groupId);
 
     const updatedSuggestion = await prisma.menuSuggestion.update({
       where: { id: suggestionId },
@@ -262,10 +281,11 @@ export class MenuSuggestionService {
   /**
    * Получить количество ожидающих предложений
    */
-  static async getPendingCount(): Promise<number> {
+  static async getPendingCount(groupId?: number): Promise<number> {
     const count = await prisma.menuSuggestion.count({
       where: {
         status: 'PENDING',
+        ...(groupId ? { groupId } : {}),
       },
     });
 
@@ -275,12 +295,13 @@ export class MenuSuggestionService {
   /**
    * Получить статистику предложений
    */
-  static async getStats() {
+  static async getStats(groupId?: number) {
+    const groupWhere = groupId ? { groupId } : {};
     const [total, pending, approved, rejected] = await Promise.all([
-      prisma.menuSuggestion.count(),
-      prisma.menuSuggestion.count({ where: { status: 'PENDING' } }),
-      prisma.menuSuggestion.count({ where: { status: 'APPROVED' } }),
-      prisma.menuSuggestion.count({ where: { status: 'REJECTED' } }),
+      prisma.menuSuggestion.count({ where: groupWhere }),
+      prisma.menuSuggestion.count({ where: { status: 'PENDING', ...groupWhere } }),
+      prisma.menuSuggestion.count({ where: { status: 'APPROVED', ...groupWhere } }),
+      prisma.menuSuggestion.count({ where: { status: 'REJECTED', ...groupWhere } }),
     ]);
 
     return {
@@ -295,7 +316,7 @@ export class MenuSuggestionService {
   /**
    * Удалить предложение (только для отклонённых и старых)
    */
-  static async deleteSuggestion(suggestionId: number): Promise<void> {
+  static async deleteSuggestion(suggestionId: number, groupId?: number): Promise<void> {
     const suggestion = await prisma.menuSuggestion.findUnique({
       where: { id: suggestionId },
     });
@@ -305,6 +326,8 @@ export class MenuSuggestionService {
     }
 
     // Можно удалять только отклонённые предложения
+    this.assertSuggestionGroup(suggestion, groupId);
+
     if (suggestion.status === 'PENDING') {
       throw new Error('Cannot delete pending suggestion. Reject it first.');
     }

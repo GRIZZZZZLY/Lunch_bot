@@ -278,11 +278,23 @@ export class CategoryOrderController {
         return;
       }
 
-      if (!userId || !itemName || price === undefined) {
+      const parsedUserId = Number(userId);
+      const parsedPrice = Number(price);
+      const normalizedItemName =
+        typeof itemName === 'string' ? itemName.trim() : '';
+      const normalizedNotes = typeof notes === 'string' ? notes.trim() : notes;
+
+      if (
+        !Number.isInteger(parsedUserId) ||
+        parsedUserId <= 0 ||
+        !normalizedItemName ||
+        !Number.isFinite(parsedPrice) ||
+        parsedPrice <= 0
+      ) {
         res.status(400).json({
           success: false,
-          error: 'Missing required fields: userId, itemName, price',
-          code: 'MISSING_FIELDS',
+          error: 'userId must be positive, itemName is required, price must be positive',
+          code: 'VALIDATION_ERROR',
         });
         return;
       }
@@ -321,10 +333,10 @@ export class CategoryOrderController {
 
       const orderItem = await OrderCalculationService.saveOrderItem({
         categoryOrderId,
-        userId: parseInt(userId),
-        itemName,
-        price: parseFloat(price),
-        notes,
+        userId: parsedUserId,
+        itemName: normalizedItemName,
+        price: parsedPrice,
+        notes: normalizedNotes || undefined,
         enteredBy,
       });
 
@@ -746,14 +758,51 @@ export class CategoryOrderController {
         return;
       }
 
+      const parseOptionalCost = (
+        value: unknown,
+        fieldName: string
+      ): number | undefined => {
+        if (value === undefined || value === null || value === '') {
+          return undefined;
+        }
+
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          throw new Error(`${fieldName} must be a non-negative number`);
+        }
+
+        return parsed;
+      };
+
+      let parsedCosts: {
+        deliveryCost?: number;
+        serviceFee?: number;
+        tip?: number;
+        notes?: string;
+      };
+
+      try {
+        parsedCosts = {
+          deliveryCost: parseOptionalCost(deliveryCost, 'deliveryCost'),
+          serviceFee: parseOptionalCost(serviceFee, 'serviceFee'),
+          tip: parseOptionalCost(tip, 'tip'),
+          notes: typeof notes === 'string' ? notes.trim() : notes,
+        };
+      } catch (validationError) {
+        res.status(400).json({
+          success: false,
+          error:
+            validationError instanceof Error
+              ? validationError.message
+              : 'Invalid costs',
+          code: 'VALIDATION_ERROR',
+        });
+        return;
+      }
+
       const categoryOrder = await CategoryOrderService.updateCosts(
         categoryOrderId,
-        {
-          deliveryCost: deliveryCost ? parseFloat(deliveryCost) : undefined,
-          serviceFee: serviceFee ? parseFloat(serviceFee) : undefined,
-          tip: tip ? parseFloat(tip) : undefined,
-          notes,
-        }
+        parsedCosts
       );
 
       res.json({

@@ -66,7 +66,7 @@
 
 ### Параметры
 - [x] DATABASE_URL = file:./prisma/dev.db
-- [x] BOT_TOKEN = REDACTED-BOT-TOKEN
+- [x] BOT_TOKEN задан через защищённую переменную окружения
 - [x] BOT_WEBHOOK_URL = (пусто - polling режим)
 - [x] API_PORT = 3001
 - [x] NODE_ENV = development

@@ -135,7 +135,7 @@ async function startApplication(): Promise<void> {
       // Polling / API-only / Bot-only режимы.
       logger.info('🔄 Запуск в polling режиме');
       if (app) startApiServer(app);
-      if (bot) startPolling(bot);
+      if (bot) void startPolling(bot);
     }
 
     logger.info('✅ Приложение успешно запущено');
@@ -155,4 +155,4 @@ async function startApplication(): Promise<void> {
 }
 
 // Запуск приложения
-startApplication();
+void startApplication();

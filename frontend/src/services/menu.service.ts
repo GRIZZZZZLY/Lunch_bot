@@ -110,7 +110,7 @@ class MenuService {
     if (USE_MOCK_API) {
       const { mockApiService } = await import('./mockApi.service');
       const single = await mockApiService.createMenuItem(data);
-      return { ...single, data: single.data ? [single.data] : [] } as ApiResponse<MenuItem[]>;
+      return { ...single, data: single.data ? [single.data] : [] };
     }
     return await apiService.post<MenuItem[]>('/menu', { ...data, groupIds });
   }

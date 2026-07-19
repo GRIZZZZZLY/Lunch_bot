@@ -348,10 +348,10 @@ export class NotificationService {
       }));
 
       const notificationData: RouletteWinnerNotificationData = {
-        winner: poll.result.responsibleUser as any,
-        poll: poll as any,
+        winner: poll.result.responsibleUser,
+        poll,
         winnerItem: poll.result.winnerMenuItem || undefined,
-        voters: votes.map(v => v.user) as any,
+        voters: votes.map(v => v.user),
         totalVotes: poll.result.totalVotes,
       };
 

@@ -125,4 +125,4 @@ if (!/^\d+$/.test(telegramId)) {
   process.exit(1);
 }
 
-makeAdmin(telegramId);
+void makeAdmin(telegramId);

@@ -73,4 +73,4 @@ async function deleteGroup() {
   }
 }
 
-deleteGroup();
+void deleteGroup();

@@ -58,10 +58,10 @@ const useAdminDashboardController = () => {
 
   const preferredGroupId = useMemo(() => {
     const params = new URLSearchParams(location.search);
-    const groupId = params.get('groupId');
+    const groupId = params.get("groupId");
     return groupId ? Number(groupId) : null;
   }, [location.search]);
-  
+
   // Stats state
   const [stats, setStats] = useState({
     totalPolls: 0,
@@ -75,11 +75,15 @@ const useAdminDashboardController = () => {
   const [debtors, setDebtors] = useState<DebtorInfo[]>([]);
   const [debtStats, setDebtStats] = useState<DebtStats | null>(null);
   const [cleanupStats, setCleanupStats] = useState<CleanupStats | null>(null);
-  const [reminderSettings, setReminderSettings] = useState<ReminderSettings | null>(null);
-  const [notificationSettings, setNotificationSettings] = useState<AdminNotificationSettings | null>(null);
+  const [reminderSettings, setReminderSettings] =
+    useState<ReminderSettings | null>(null);
+  const [notificationSettings, setNotificationSettings] =
+    useState<AdminNotificationSettings | null>(null);
 
   // Active tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'debts' | 'cleanup' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "users" | "debts" | "cleanup" | "settings"
+  >("overview");
 
   const loadGroups = useCallback(async () => {
     try {
@@ -92,7 +96,7 @@ const useAdminDashboardController = () => {
         setGroups([]);
       }
     } catch (error) {
-      console.error('Error loading groups:', error);
+      console.error("Error loading groups:", error);
       setGroups([]);
     } finally {
       setGroupsLoading(false);
@@ -103,7 +107,14 @@ const useAdminDashboardController = () => {
     try {
       if (!selectedGroupId) return;
 
-      const [usersRes, debtorsRes, debtStatsRes, cleanupStatsRes, reminderRes, notificationRes] = await Promise.all([
+      const [
+        usersRes,
+        debtorsRes,
+        debtStatsRes,
+        cleanupStatsRes,
+        reminderRes,
+        notificationRes,
+      ] = await Promise.all([
         adminService.getAllUsers(selectedGroupId),
         adminService.getAllDebtors(selectedGroupId),
         adminService.getDebtStats(selectedGroupId),
@@ -136,7 +147,7 @@ const useAdminDashboardController = () => {
         setNotificationSettings(notificationRes.data);
       }
     } catch (error) {
-      console.error('Error loading admin data:', error);
+      console.error("Error loading admin data:", error);
     }
   }, [selectedGroupId]);
 
@@ -166,10 +177,10 @@ const useAdminDashboardController = () => {
       // Загружаем админские данные параллельно
       await loadAdminData();
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error("Error loading dashboard data:", error);
       addNotification({
-        type: 'error',
-        message: 'Ошибка загрузки данных панели',
+        type: "error",
+        message: "Ошибка загрузки данных панели",
       });
     } finally {
       setLoading(false);
@@ -182,13 +193,13 @@ const useAdminDashboardController = () => {
     }
 
     return groups.filter((group) =>
-      ['ADMIN', 'CREATOR'].includes(group.role || '')
+      ["ADMIN", "CREATOR"].includes(group.role || ""),
     );
   }, [groups, user?.isAdmin]);
 
   useEffect(() => {
     if (authLoading) return;
-    loadGroups();
+    void loadGroups();
   }, [authLoading, loadGroups]);
 
   useEffect(() => {
@@ -197,21 +208,23 @@ const useAdminDashboardController = () => {
     if (!user?.isAdmin && adminGroups.length === 0) {
       if (!hasShownAccessError.current) {
         addNotification({
-          type: 'error',
-          message: '🔒 Требуются права администратора группы',
+          type: "error",
+          message: "🔒 Требуются права администратора группы",
         });
         hasShownAccessError.current = true;
       }
-      navigate('/profile');
+      navigate("/profile");
       return;
     }
 
     if (!selectedGroupId && adminGroups.length > 0) {
+      const [firstAdminGroup] = adminGroups;
+      if (!firstAdminGroup) return;
       const nextGroupId =
         preferredGroupId &&
         adminGroups.some((group) => group.id === preferredGroupId)
           ? preferredGroupId
-          : adminGroups[0].id;
+          : firstAdminGroup.id;
       setSelectedGroupId(nextGroupId);
     }
   }, [
@@ -228,9 +241,9 @@ const useAdminDashboardController = () => {
   useEffect(() => {
     if (!selectedGroupId || authLoading || groupsLoading) return;
 
-    loadDashboardData();
+    void loadDashboardData();
 
-    backButton.onClick(() => navigate('/profile'));
+    backButton.onClick(() => navigate("/profile"));
     backButton.show();
 
     return () => {
@@ -250,8 +263,8 @@ const useAdminDashboardController = () => {
     await loadDashboardData();
     setRefreshing(false);
     addNotification({
-      type: 'success',
-      message: '✅ Данные обновлены',
+      type: "success",
+      message: "✅ Данные обновлены",
     });
   };
 
@@ -263,19 +276,19 @@ const useAdminDashboardController = () => {
       const response = await adminService.toggleAdmin(
         userId,
         isAdmin,
-        selectedGroupId
+        selectedGroupId,
       );
       if (response.success) {
         addNotification({
-          type: 'success',
-          message: response.message || 'Права изменены',
+          type: "success",
+          message: response.message || "Права изменены",
         });
         await loadAdminData();
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
-        type: 'error',
-        message: 'Ошибка изменения прав',
+        type: "error",
+        message: "Ошибка изменения прав",
       });
     }
   };
@@ -287,42 +300,46 @@ const useAdminDashboardController = () => {
       const response = await adminService.toggleActive(
         userId,
         isActive,
-        selectedGroupId
+        selectedGroupId,
       );
       if (response.success) {
         addNotification({
-          type: 'success',
-          message: response.message || 'Статус изменён',
+          type: "success",
+          message: response.message || "Статус изменён",
         });
         await loadAdminData();
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
-        type: 'error',
-        message: 'Ошибка изменения статуса',
+        type: "error",
+        message: "Ошибка изменения статуса",
       });
     }
   };
 
-  const handleToggleParticipates = async (userId: number, participates: boolean) => {
+  const handleToggleParticipates = async (
+    userId: number,
+    participates: boolean,
+  ) => {
     try {
       if (!selectedGroupId) return;
       const response = await adminService.toggleParticipatesInPolls(
         userId,
         participates,
-        selectedGroupId
+        selectedGroupId,
       );
       if (response.success) {
         addNotification({
-          type: 'success',
-          message: response.message || (participates ? 'В офисе' : 'На удалёнке'),
+          type: "success",
+          message:
+            response.message || (participates ? "В офисе" : "На удалёнке"),
         });
         await loadAdminData();
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
-        type: 'error',
-        message: 'Ошибка изменения участия в голосованиях',
+        type: "error",
+        message: "Ошибка изменения участия в голосованиях",
       });
     }
   };
@@ -330,58 +347,58 @@ const useAdminDashboardController = () => {
   // Debt management handlers
   const handleForgiveDebt = async (debtId: number) => {
     try {
-    if (!selectedGroupId) return;
+      if (!selectedGroupId) return;
 
-    const response = await adminService.forgiveDebt(debtId, selectedGroupId);
+      const response = await adminService.forgiveDebt(debtId, selectedGroupId);
       if (response.success) {
         addNotification({
-          type: 'success',
-          message: 'Долг списан',
+          type: "success",
+          message: "Долг списан",
         });
         await loadAdminData();
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
-        type: 'error',
-        message: 'Ошибка списания долга',
+        type: "error",
+        message: "Ошибка списания долга",
       });
     }
   };
 
   const handleRemindDebtor = async (debtId: number) => {
     try {
-    if (!selectedGroupId) return;
+      if (!selectedGroupId) return;
 
-    const response = await adminService.remindDebtor(debtId, selectedGroupId);
+      const response = await adminService.remindDebtor(debtId, selectedGroupId);
       if (response.success) {
         addNotification({
-          type: 'success',
-          message: 'Напоминание отправлено',
+          type: "success",
+          message: "Напоминание отправлено",
         });
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
-        type: 'error',
-        message: 'Ошибка отправки напоминания',
+        type: "error",
+        message: "Ошибка отправки напоминания",
       });
     }
   };
 
   const handleRemindAll = async () => {
     try {
-    if (!selectedGroupId) return;
+      if (!selectedGroupId) return;
 
-    const response = await adminService.remindAllDebtors(selectedGroupId);
+      const response = await adminService.remindAllDebtors(selectedGroupId);
       if (response.success && response.data) {
         addNotification({
-          type: 'success',
+          type: "success",
           message: `Отправлено ${response.data.sent} из ${response.data.total} напоминаний`,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
-        type: 'error',
-        message: 'Ошибка отправки напоминаний',
+        type: "error",
+        message: "Ошибка отправки напоминаний",
       });
     }
   };
@@ -389,101 +406,183 @@ const useAdminDashboardController = () => {
   // Cleanup handlers
   const handleCleanupPolls = async (daysOld: number) => {
     try {
-    if (!selectedGroupId) return;
+      if (!selectedGroupId) return;
 
-    const response = await adminService.cleanupOldPolls(daysOld, selectedGroupId);
+      const response = await adminService.cleanupOldPolls(
+        daysOld,
+        selectedGroupId,
+      );
       if (response.success && response.data) {
         addNotification({
-          type: 'success',
+          type: "success",
           message: `Удалено ${response.data.deleted} голосований`,
         });
         await loadAdminData();
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
-        type: 'error',
-        message: 'Ошибка очистки',
+        type: "error",
+        message: "Ошибка очистки",
       });
     }
   };
 
   const handleCleanupTransactions = async (daysOld: number) => {
     try {
-    if (!selectedGroupId) return;
+      if (!selectedGroupId) return;
 
-    const response = await adminService.cleanupOldTransactions(
-      daysOld,
-      selectedGroupId
-    );
+      const response = await adminService.cleanupOldTransactions(
+        daysOld,
+        selectedGroupId,
+      );
       if (response.success && response.data) {
         addNotification({
-          type: 'success',
+          type: "success",
           message: `Удалено ${response.data.deleted} транзакций`,
         });
         await loadAdminData();
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
-        type: 'error',
-        message: 'Ошибка очистки',
+        type: "error",
+        message: "Ошибка очистки",
       });
     }
   };
 
   // Reminder settings handlers
-  const handleSaveReminderSettings = async (settings: Partial<ReminderSettings>) => {
+  const handleSaveReminderSettings = async (
+    settings: Partial<ReminderSettings>,
+  ) => {
     try {
-    if (!selectedGroupId) return;
+      if (!selectedGroupId) return;
 
-    const response = await adminService.updateReminderSettings(
-      selectedGroupId,
-      settings
-    );
+      const response = await adminService.updateReminderSettings(
+        selectedGroupId,
+        settings,
+      );
       if (response.success) {
         addNotification({
-          type: 'success',
-          message: 'Настройки напоминаний сохранены',
+          type: "success",
+          message: "Настройки напоминаний сохранены",
         });
         await loadAdminData();
       }
     } catch (error) {
       addNotification({
-        type: 'error',
-        message: 'Ошибка сохранения настроек',
+        type: "error",
+        message: "Ошибка сохранения настроек",
       });
       throw error;
     }
   };
 
-  const handleSaveNotificationSettings = async (settings: Partial<AdminNotificationSettings>) => {
+  const handleSaveNotificationSettings = async (
+    settings: Partial<AdminNotificationSettings>,
+  ) => {
     try {
-    if (!selectedGroupId) return;
+      if (!selectedGroupId) return;
 
-    const response = await adminService.updateAdminNotificationSettings(
-      selectedGroupId,
-      settings
-    );
+      const response = await adminService.updateAdminNotificationSettings(
+        selectedGroupId,
+        settings,
+      );
       if (response.success) {
         addNotification({
-          type: 'success',
-          message: 'Настройки уведомлений сохранены',
+          type: "success",
+          message: "Настройки уведомлений сохранены",
         });
         await loadAdminData();
       }
     } catch (error) {
       addNotification({
-        type: 'error',
-        message: 'Ошибка сохранения настроек',
+        type: "error",
+        message: "Ошибка сохранения настроек",
       });
       throw error;
     }
   };
 
-  return { navigate, location, user, authLoading, backButton, addNotification, loading, setLoading, refreshing, setRefreshing, groupsLoading, setGroupsLoading, hasShownAccessError, groups, setGroups, selectedGroupId, setSelectedGroupId, preferredGroupId, stats, setStats, users, setUsers, debtors, setDebtors, debtStats, setDebtStats, cleanupStats, setCleanupStats, reminderSettings, setReminderSettings, notificationSettings, setNotificationSettings, activeTab, setActiveTab, loadGroups, loadAdminData, loadDashboardData, adminGroups, handleRefresh, handleToggleAdmin, handleToggleActive, handleToggleParticipates, handleForgiveDebt, handleRemindDebtor, handleRemindAll, handleCleanupPolls, handleCleanupTransactions, handleSaveReminderSettings, handleSaveNotificationSettings };
+  return {
+    navigate,
+    location,
+    user,
+    authLoading,
+    backButton,
+    addNotification,
+    loading,
+    setLoading,
+    refreshing,
+    setRefreshing,
+    groupsLoading,
+    setGroupsLoading,
+    hasShownAccessError,
+    groups,
+    setGroups,
+    selectedGroupId,
+    setSelectedGroupId,
+    preferredGroupId,
+    stats,
+    setStats,
+    users,
+    setUsers,
+    debtors,
+    setDebtors,
+    debtStats,
+    setDebtStats,
+    cleanupStats,
+    setCleanupStats,
+    reminderSettings,
+    setReminderSettings,
+    notificationSettings,
+    setNotificationSettings,
+    activeTab,
+    setActiveTab,
+    loadGroups,
+    loadAdminData,
+    loadDashboardData,
+    adminGroups,
+    handleRefresh,
+    handleToggleAdmin,
+    handleToggleActive,
+    handleToggleParticipates,
+    handleForgiveDebt,
+    handleRemindDebtor,
+    handleRemindAll,
+    handleCleanupPolls,
+    handleCleanupTransactions,
+    handleSaveReminderSettings,
+    handleSaveNotificationSettings,
+  };
 };
 
 export const AdminDashboardPage: React.FC = () => {
-  const { navigate, location, user, authLoading, backButton, addNotification, loading, setLoading, refreshing, setRefreshing, groupsLoading, setGroupsLoading, hasShownAccessError, groups, setGroups, selectedGroupId, setSelectedGroupId, preferredGroupId, stats, setStats, users, setUsers, debtors, setDebtors, debtStats, setDebtStats, cleanupStats, setCleanupStats, reminderSettings, setReminderSettings, notificationSettings, setNotificationSettings, activeTab, setActiveTab, loadGroups, loadAdminData, loadDashboardData, adminGroups, handleRefresh, handleToggleAdmin, handleToggleActive, handleToggleParticipates, handleForgiveDebt, handleRemindDebtor, handleRemindAll, handleCleanupPolls, handleCleanupTransactions, handleSaveReminderSettings, handleSaveNotificationSettings } = useAdminDashboardController();
+  const {
+    authLoading,
+    loading,
+    refreshing,
+    groupsLoading,
+    stats,
+    users,
+    debtors,
+    debtStats,
+    cleanupStats,
+    reminderSettings,
+    notificationSettings,
+    activeTab,
+    setActiveTab,
+    handleRefresh,
+    handleToggleAdmin,
+    handleToggleActive,
+    handleToggleParticipates,
+    handleForgiveDebt,
+    handleRemindDebtor,
+    handleRemindAll,
+    handleCleanupPolls,
+    handleCleanupTransactions,
+    handleSaveReminderSettings,
+    handleSaveNotificationSettings,
+  } = useAdminDashboardController();
   if (authLoading || loading || groupsLoading) {
     return (
       <div className="min-h-screen relative">
@@ -512,15 +611,18 @@ export const AdminDashboardPage: React.FC = () => {
           </p>
         </div>
 
-        <button type="button"
+        <button
+          type="button"
           onClick={handleRefresh}
           disabled={refreshing}
           className={cn(
-            'admin-icon-pill disabled:opacity-60 disabled:cursor-wait',
-            refreshing && 'opacity-70'
+            "admin-icon-pill disabled:opacity-60 disabled:cursor-wait",
+            refreshing && "opacity-70",
           )}
         >
-          <RefreshCw className={cn(ICON_SIZES.md, refreshing && 'animate-spin')} />
+          <RefreshCw
+            className={cn(ICON_SIZES.md, refreshing && "animate-spin")}
+          />
           <span className="text-sm font-medium">Обновить</span>
         </button>
       </m.div>
@@ -533,27 +635,42 @@ export const AdminDashboardPage: React.FC = () => {
         className="admin-tab-rail"
       >
         {[
-          { id: 'overview', label: 'Обзор', icon: BarChart3 },
-          { id: 'users', label: 'Пользователи', icon: Users, badge: users.length },
-          { id: 'debts', label: 'Долги', icon: DollarSign, badge: debtors.length },
-          { id: 'cleanup', label: 'Очистка', icon: Database },
-          { id: 'settings', label: 'Настройки', icon: Settings },
+          { id: "overview", label: "Обзор", icon: BarChart3 },
+          {
+            id: "users",
+            label: "Пользователи",
+            icon: Users,
+            badge: users.length,
+          },
+          {
+            id: "debts",
+            label: "Долги",
+            icon: DollarSign,
+            badge: debtors.length,
+          },
+          { id: "cleanup", label: "Очистка", icon: Database },
+          { id: "settings", label: "Настройки", icon: Settings },
         ].map((tab) => (
-          <button type="button"
+          <button
+            type="button"
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={cn(
-              'admin-tab',
-              activeTab === tab.id && 'admin-tab--active'
+              "admin-tab",
+              activeTab === tab.id && "admin-tab--active",
             )}
           >
             <tab.icon className={ICON_SIZES.sm} />
             {tab.label}
             {tab.badge !== undefined && (
-              <span className={cn(
-                'px-1.5 py-0.5 rounded-full text-xs',
-                activeTab === tab.id ? 'bg-primary/12 text-primary' : 'bg-muted text-muted-foreground'
-              )}>
+              <span
+                className={cn(
+                  "px-1.5 py-0.5 rounded-full text-xs",
+                  activeTab === tab.id
+                    ? "bg-primary/12 text-primary"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
                 {tab.badge}
               </span>
             )}
@@ -562,7 +679,7 @@ export const AdminDashboardPage: React.FC = () => {
       </m.div>
 
       {/* Overview Tab */}
-      {activeTab === 'overview' && (
+      {activeTab === "overview" && (
         <>
           {/* Stats Grid */}
           <m.div
@@ -596,9 +713,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <div className="text-2xl font-semibold text-foreground">
                     {stats.activePolls}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Активные
-                  </div>
+                  <div className="text-xs text-muted-foreground">Активные</div>
                 </div>
               </div>
             </PastelCard>
@@ -612,9 +727,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <div className="text-2xl font-semibold text-foreground">
                     {stats.completedPolls}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Завершено
-                  </div>
+                  <div className="text-xs text-muted-foreground">Завершено</div>
                 </div>
               </div>
             </PastelCard>
@@ -644,12 +757,16 @@ export const AdminDashboardPage: React.FC = () => {
             className="grid grid-cols-3 gap-3"
           >
             <PastelCard variant="default" className="p-3 text-center">
-              <div className="text-xl font-semibold text-foreground">{users.length}</div>
+              <div className="text-xl font-semibold text-foreground">
+                {users.length}
+              </div>
               <div className="text-xs text-muted-foreground">Пользователей</div>
             </PastelCard>
 
             <PastelCard variant="default" className="p-3 text-center">
-              <div className="text-xl font-semibold text-coral-600 dark:text-coral-400">{debtors.length}</div>
+              <div className="text-xl font-semibold text-coral-600 dark:text-coral-400">
+                {debtors.length}
+              </div>
               <div className="text-xs text-muted-foreground">Должников</div>
             </PastelCard>
 
@@ -664,11 +781,8 @@ export const AdminDashboardPage: React.FC = () => {
       )}
 
       {/* Users Tab */}
-      {activeTab === 'users' && (
-        <m.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+      {activeTab === "users" && (
+        <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <UserManagementCard
             users={users}
             onToggleAdmin={handleToggleAdmin}
@@ -680,11 +794,8 @@ export const AdminDashboardPage: React.FC = () => {
       )}
 
       {/* Debts Tab */}
-      {activeTab === 'debts' && (
-        <m.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+      {activeTab === "debts" && (
+        <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <DebtManagementCard
             debtors={debtors}
             stats={debtStats}
@@ -697,11 +808,8 @@ export const AdminDashboardPage: React.FC = () => {
       )}
 
       {/* Cleanup Tab */}
-      {activeTab === 'cleanup' && (
-        <m.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+      {activeTab === "cleanup" && (
+        <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <DataCleanupCard
             stats={cleanupStats}
             onCleanupPolls={handleCleanupPolls}
@@ -712,11 +820,8 @@ export const AdminDashboardPage: React.FC = () => {
       )}
 
       {/* Settings Tab */}
-      {activeTab === 'settings' && (
-        <m.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+      {activeTab === "settings" && (
+        <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <ReminderSettingsCard
             reminderSettings={reminderSettings}
             notificationSettings={notificationSettings}

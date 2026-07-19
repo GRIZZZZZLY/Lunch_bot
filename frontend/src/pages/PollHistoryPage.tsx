@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Header } from '../components/layout/Header';
 import { PageHeader } from '../components/common/PageHeader';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { PullToRefresh } from '../components/common/PullToRefresh';
@@ -44,12 +43,13 @@ export const PollHistoryPage: React.FC = () => {
       });
 
       if (response.success && response.data) {
+        const history = response.data;
         setPolls(currentPolls =>
           refresh
-            ? response.data.polls
-            : [...currentPolls, ...response.data.polls]
+            ? history.polls
+            : [...currentPolls, ...history.polls]
         );
-        setHasMore(response.data.hasNext);
+        setHasMore(history.hasNext);
       }
     } catch (error) {
       console.error('Error loading poll history:', error);
@@ -77,7 +77,7 @@ export const PollHistoryPage: React.FC = () => {
       return;
     }
 
-    loadHistory();
+    void loadHistory();
   }, [loadHistory]);
 
   useEffect(() => {

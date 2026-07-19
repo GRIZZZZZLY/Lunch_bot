@@ -31,11 +31,17 @@
  * Когда переключим: instances: 2, exec_mode: 'cluster', listen на тот же port.
  * Graceful: SIGINT → drain HTTP + close Prisma + close Redis.
  */
+const path = require('node:path');
+
+const appRoot = process.env.APP_ROOT || __dirname;
+const backendEnvFile =
+  process.env.BACKEND_ENV_FILE || path.join(appRoot, 'backend', '.env');
+
 module.exports = {
   apps: [{
     name: 'rocket-lunch-bot',
-    script: './backend/dist/index.js',
-    cwd: '/home/igor/Lunch_bot/telegram-food-bot',
+    script: path.join(appRoot, 'backend', 'dist', 'index.js'),
+    cwd: appRoot,
 
     // Process management
     instances: 1,             // TODO P1-3: 'max' после Redis-backed shared state
@@ -45,7 +51,7 @@ module.exports = {
     max_memory_restart: '1G',
 
     // Environment file
-    env_file: './backend/.env',
+    env_file: backendEnvFile,
 
     // Environment
     env: {

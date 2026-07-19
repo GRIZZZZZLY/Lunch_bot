@@ -171,7 +171,7 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
           },
         };
         // fire-and-forget — не блокируем ответ клиенту.
-        cacheService.set(cacheKey, done, ttlSeconds).catch((err) => {
+        cacheService.set(cacheKey, done, ttlSeconds).catch((err: unknown) => {
           logger.warn('idempotency: cache.set(done) failed', {
             scope,
             cacheKey,

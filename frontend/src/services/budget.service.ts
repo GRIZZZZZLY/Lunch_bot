@@ -236,8 +236,10 @@ class BudgetService {
     }
     
     // Открываем в новом окне или текущем (в зависимости от платформы)
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.openLink(safeUrl);
+    const telegramWebApp = window.Telegram?.WebApp;
+    const openLink = telegramWebApp?.openLink;
+    if (telegramWebApp && openLink) {
+      openLink.call(telegramWebApp, safeUrl);
     } else {
       window.open(safeUrl, '_blank', 'noopener,noreferrer');
     }

@@ -310,7 +310,7 @@ CORS_ORIGIN=https://foodbot.yourdomain.com
 VITE_API_URL=https://api.yourdomain.com/api
 ```
 
-См. [TIMEWEB_DEPLOY.md](./TIMEWEB_DEPLOY.md) для инструкций по деплою.
+См. [руководство по развёртыванию](./README.md) для инструкций по деплою.
 
 ---
 

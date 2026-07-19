@@ -116,8 +116,11 @@ export function trackEvent(
 
   // Отправляем в зависимости от провайдера
   switch (config.provider) {
+    case 'mixpanel':
+      console.warn('[Analytics] Mixpanel provider is not configured');
+      break;
     case 'api':
-      sendToAPI(eventData);
+      void sendToAPI(eventData);
       break;
     case 'gtag':
       sendToGoogleAnalytics(event, data);
@@ -276,7 +279,7 @@ async function sendToAPI(eventData: any) {
         body: JSON.stringify(eventData),
         // keepalive для отправки при закрытии страницы
         keepalive: true,
-      }).catch(err => {
+      }).catch((err: unknown) => {
         console.error('[Analytics] Failed to send event:', err);
       });
     }
@@ -336,7 +339,7 @@ function flushEvents() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ events }),
       keepalive: true,
-    }).catch(err => {
+    }).catch((err: unknown) => {
       console.error('[Analytics] Failed to send batch:', err);
     });
   }

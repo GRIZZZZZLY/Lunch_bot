@@ -131,10 +131,10 @@ export function useOrderCalculation({
       );
 
       // Invalidate queries
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ['calculationProgress', categoryOrderId],
       });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ['categoryOrder', categoryOrderId],
       });
     },
@@ -199,10 +199,10 @@ export function useOrderCalculation({
           current ? current.filter((item) => item.id !== orderItemId) : current
       );
 
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ['calculationProgress', categoryOrderId],
       });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ['categoryOrder', categoryOrderId],
       });
 
@@ -230,10 +230,10 @@ export function useOrderCalculation({
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ['categoryOrder', categoryOrderId],
       });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ['calculationProgress', categoryOrderId],
       });
 
@@ -265,13 +265,13 @@ export function useOrderCalculation({
       };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ['categoryOrder', categoryOrderId],
       });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ['transactions'],
       });
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ['budget'],
       });
 
@@ -300,11 +300,12 @@ export function useOrderCalculation({
 
   // Cleanup timeout on unmount
   useEffect(() => {
+    const pendingTimeouts = autoSaveTimeoutsRef.current;
     return () => {
-      autoSaveTimeoutsRef.current.forEach((timeout) => {
+      pendingTimeouts.forEach((timeout) => {
         clearTimeout(timeout);
       });
-      autoSaveTimeoutsRef.current.clear();
+      pendingTimeouts.clear();
     };
   }, []);
 

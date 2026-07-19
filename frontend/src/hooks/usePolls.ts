@@ -3,19 +3,23 @@
  * P1 Task: Кеширование + Optimistic updates
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/lib/queryClient';
-import { pollsService, type Poll, type PollWithDetails } from '@/services/polls.service';
-import { useUI } from '@/store/useAppStore';
-import { useSSE } from './useSSE';
-import { useCurrentGroup } from './useCurrentGroup';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryClient";
+import {
+  pollsService,
+  type Poll,
+  type PollWithDetails,
+} from "@/services/polls.service";
+import { useUI } from "@/store/useAppStore";
+import { useSSE } from "./useSSE";
+import { useCurrentGroup } from "./useCurrentGroup";
 
 /**
  * Hook для получения активных polls
- * 
+ *
  * @param options - опции query
  * @returns { data, isLoading, error, refetch }
- * 
+ *
  * @example
  * ```tsx
  * const { data: polls, isLoading } = useActivePolls();
@@ -30,7 +34,7 @@ export function useActivePolls(options?: {
     queryFn: async () => {
       const response = await pollsService.getActivePolls();
       if (!response.success) {
-        throw new Error(response.error || 'Failed to fetch active polls');
+        throw new Error(response.error || "Failed to fetch active polls");
       }
       return response.data || [];
     },
@@ -52,11 +56,11 @@ export function useActivePolls(options?: {
 
 /**
  * Hook для получения детальной информации о poll
- * 
+ *
  * @param pollId - ID poll
  * @param silent - тихая загрузка без loader (для refresh)
  * @returns { data: poll, isLoading, error, refetch }
- * 
+ *
  * @example
  * ```tsx
  * const { data: poll } = usePoll(123);
@@ -76,7 +80,7 @@ export function usePoll(pollId: number | undefined, silent = false) {
     queryFn: async () => {
       const response = await pollsService.getPollById(pollId!);
       if (!response.success) {
-        throw new Error(response.error || 'Failed to fetch poll');
+        throw new Error(response.error || "Failed to fetch poll");
       }
       return response.data;
     },
@@ -88,13 +92,13 @@ export function usePoll(pollId: number | undefined, silent = false) {
 
 /**
  * Hook для голосования с optimistic update
- * 
+ *
  * @returns { mutate, isLoading, error }
- * 
+ *
  * @example
  * ```tsx
  * const { mutate: vote, isPending } = useVote();
- * 
+ *
  * vote({ pollId: 123, menuItemId: 456 }, {
  *   onSuccess: () => console.log('Voted!'),
  * });
@@ -105,30 +109,30 @@ export function useVote() {
   const { addNotification } = useUI();
 
   return useMutation({
-    mutationFn: async ({ 
-      pollId, 
-      menuItemId 
-    }: { 
-      pollId: number; 
+    mutationFn: async ({
+      pollId,
+      menuItemId,
+    }: {
+      pollId: number;
       menuItemId: number;
     }) => {
       const response = await pollsService.voteForItem(pollId, menuItemId);
       if (!response.success) {
-        throw new Error(response.error || 'Failed to vote');
+        throw new Error(response.error || "Failed to vote");
       }
       return response.data;
     },
-    
+
     // Optimistic update: обновляем UI сразу, до ответа сервера
     onMutate: async ({ pollId, menuItemId }) => {
       // Отменяем pending queries для этого poll
-      await queryClient.cancelQueries({ 
-        queryKey: queryKeys.polls.detail(pollId) 
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.polls.detail(pollId),
       });
 
       // Сохраняем предыдущее состояние для rollback
       const previousPoll = queryClient.getQueryData<PollWithDetails>(
-        queryKeys.polls.detail(pollId)
+        queryKeys.polls.detail(pollId),
       );
 
       // Optimistically обновляем UI
@@ -137,7 +141,7 @@ export function useVote() {
           queryKeys.polls.detail(pollId),
           (old) => {
             if (!old) return old;
-            
+
             // Добавляем голос пользователя
             const updatedVotes = [
               ...(old.votes || []),
@@ -149,11 +153,11 @@ export function useVote() {
                 createdAt: new Date().toISOString(),
                 user: {
                   id: 0,
-                  firstName: 'Ты',
+                  firstName: "Ты",
                 },
                 menuItem: {
                   id: menuItemId,
-                  name: '',
+                  name: "",
                 },
               },
             ];
@@ -165,8 +169,8 @@ export function useVote() {
                 ...old._count,
                 votes: (old._count?.votes || 0) + 1,
               },
-            } as PollWithDetails;
-          }
+            };
+          },
         );
       }
 
@@ -179,26 +183,27 @@ export function useVote() {
       if (context?.previousPoll) {
         queryClient.setQueryData(
           queryKeys.polls.detail(variables.pollId),
-          context.previousPoll
+          context.previousPoll,
         );
       }
 
       addNotification({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Ошибка при голосовании',
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Ошибка при голосовании",
       });
     },
 
     // После успешного голосования - обновляем данные с сервера
     onSuccess: (data, variables) => {
       // Invalidate poll detail для точного обновления
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.polls.detail(variables.pollId) 
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.polls.detail(variables.pollId),
       });
-      
+
       // Также обновляем список активных polls
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.polls.active() 
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.polls.active(),
       });
     },
   });
@@ -206,11 +211,11 @@ export function useVote() {
 
 /**
  * Hook для создания нового poll
- * 
+ *
  * @example
  * ```tsx
  * const { mutate: createPoll } = useCreatePoll();
- * 
+ *
  * createPoll({
  *   menuItemIds: [1, 2, 3],
  *   duration: 30,
@@ -223,35 +228,42 @@ export function useCreatePoll() {
   const { currentGroupId } = useCurrentGroup();
 
   return useMutation({
-    mutationFn: async (data: { menuItemIds: number[]; duration?: number; groupId?: number }) => {
+    mutationFn: async (data: {
+      menuItemIds: number[];
+      duration?: number;
+      groupId?: number;
+    }) => {
       const resolvedGroupId = data.groupId ?? currentGroupId;
       if (!resolvedGroupId) {
-        throw new Error('Группа не выбрана — невозможно создать голосование');
+        throw new Error("Группа не выбрана — невозможно создать голосование");
       }
       const response = await pollsService.createPoll({
         groupId: resolvedGroupId,
-        duration: data.duration
+        duration: data.duration,
       });
       if (!response.success) {
-        throw new Error(response.error || 'Failed to create poll');
+        throw new Error(response.error || "Failed to create poll");
       }
       return response.data;
     },
     onSuccess: () => {
       // Обновляем список активных polls
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.polls.active() 
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.polls.active(),
       });
-      
+
       addNotification({
-        type: 'success',
-        message: 'Голосование создано',
+        type: "success",
+        message: "Голосование создано",
       });
     },
     onError: (error) => {
       addNotification({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Ошибка создания голосования',
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Ошибка создания голосования",
       });
     },
   });
@@ -259,7 +271,7 @@ export function useCreatePoll() {
 
 /**
  * Hook для закрытия poll
- * 
+ *
  * @example
  * ```tsx
  * const { mutate: closePoll } = useClosePoll();
@@ -274,30 +286,33 @@ export function useClosePoll() {
     mutationFn: async (pollId: number) => {
       const response = await pollsService.closePoll(pollId);
       if (!response.success) {
-        throw new Error(response.error || 'Failed to close poll');
+        throw new Error(response.error || "Failed to close poll");
       }
       return response.data;
     },
     onSuccess: (data, pollId) => {
       // Обновляем poll detail
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.polls.detail(pollId) 
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.polls.detail(pollId),
       });
-      
+
       // Обновляем список активных polls
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.polls.active() 
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.polls.active(),
       });
-      
+
       addNotification({
-        type: 'success',
-        message: 'Голосование завершено',
+        type: "success",
+        message: "Голосование завершено",
       });
     },
     onError: (error) => {
       addNotification({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Ошибка завершения голосования',
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Ошибка завершения голосования",
       });
     },
   });
@@ -319,28 +334,35 @@ export function useCancelPoll() {
   const { addNotification } = useUI();
 
   return useMutation({
-    mutationFn: async ({ pollId, reason }: { pollId: number; reason?: string }) => {
+    mutationFn: async ({
+      pollId,
+      reason,
+    }: {
+      pollId: number;
+      reason?: string;
+    }) => {
       const response = await pollsService.cancelPoll(pollId, reason);
       if (!response.success) {
-        throw new Error(response.error || 'Failed to cancel poll');
+        throw new Error(response.error || "Failed to cancel poll");
       }
       return response.data;
     },
     onSuccess: () => {
       // Префикс ['polls'] инвалидирует active / today-completed / detail / history.
-      queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.polls.all });
       // Виджет ответственного/расчёта завязан на завершённый poll → обновляем бюджет.
-      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ["budget"] });
 
       addNotification({
-        type: 'success',
-        message: 'Голосование отменено',
+        type: "success",
+        message: "Голосование отменено",
       });
     },
     onError: (error) => {
       addNotification({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Ошибка отмены голосования',
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Ошибка отмены голосования",
       });
     },
   });
@@ -355,7 +377,7 @@ export function usePollHistory() {
     queryFn: async () => {
       const response = await pollsService.getPollHistory();
       if (!response.success) {
-        throw new Error(response.error || 'Failed to fetch poll history');
+        throw new Error(response.error || "Failed to fetch poll history");
       }
       return response.data;
     },
@@ -371,7 +393,7 @@ export function useUserStats(userId?: number) {
     queryFn: async () => {
       const response = await pollsService.getUserParticipationStats();
       if (!response.success) {
-        throw new Error(response.error || 'Failed to fetch user stats');
+        throw new Error(response.error || "Failed to fetch user stats");
       }
       return response.data;
     },

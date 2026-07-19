@@ -40,6 +40,17 @@ export class OrderCalculationService {
    * Save or update an OrderItem (autosave with edit logging)
    */
   static async saveOrderItem(data: SaveOrderItemData): Promise<OrderItem> {
+    const itemName = data.itemName.trim();
+    const notes = data.notes?.trim() || undefined;
+
+    if (!itemName) {
+      throw new Error('Item name is required');
+    }
+
+    if (!Number.isFinite(data.price) || data.price <= 0) {
+      throw new Error('Price must be a positive number');
+    }
+
     try {
       // Check if OrderItem already exists for this user in this category
       const existing = await prisma.orderItem.findUnique({
@@ -59,9 +70,9 @@ export class OrderCalculationService {
           existing.id,
           existing,
           {
-            itemName: data.itemName,
+            itemName,
             price: data.price as any,
-            notes: data.notes,
+            notes,
           },
           data.enteredBy
         );
@@ -69,9 +80,9 @@ export class OrderCalculationService {
         orderItem = await prisma.orderItem.update({
           where: { id: existing.id },
           data: {
-            itemName: data.itemName,
+            itemName,
             price: data.price as any,
-            notes: data.notes,
+            notes,
             updatedAt: new Date(),
           },
         });
@@ -83,9 +94,9 @@ export class OrderCalculationService {
           data: {
             categoryOrderId: data.categoryOrderId,
             userId: data.userId,
-            itemName: data.itemName,
+            itemName,
             price: data.price as any,
-            notes: data.notes,
+            notes,
             enteredBy: data.enteredBy,
           },
         });
@@ -525,7 +536,7 @@ export class OrderCalculationService {
         });
       }
 
-      if (newData.price !== undefined && (newData.price as any) !== toNumber(oldItem.price as any)) {
+      if (newData.price !== undefined && (newData.price as any) !== toNumber(oldItem.price)) {
         logs.push({
           orderItemId,
           editedBy,

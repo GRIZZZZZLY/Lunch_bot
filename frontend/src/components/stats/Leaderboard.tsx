@@ -85,7 +85,7 @@ export function Leaderboard({
       }
     }
 
-    loadLeaderboard();
+    void loadLeaderboard();
 
     return () => {
       cancelled = true;

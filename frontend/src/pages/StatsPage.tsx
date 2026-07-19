@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { m, AnimatePresence, useScroll } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   BarChart3,
   TrendingUp,
@@ -11,8 +11,6 @@ import {
   Calendar,
   ChefHat,
   Flame,
-  Award,
-  Star,
   Info,
   HelpCircle,
   Lightbulb,
@@ -22,8 +20,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { PastelCard, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/pastel-card';
 import { ThemeToggle } from '../components/ui/theme-toggle';
 import { Skeleton } from '../components/ui/skeleton';
-import { Badge } from '../components/ui/badge';
-import { Progress } from '../components/ui/progress';
 import {
   Tooltip as UITooltip,
   TooltipContent,
@@ -31,7 +27,6 @@ import {
   TooltipTrigger
 } from '../components/ui/tooltip';
 // import { MediumWaveGradient } from '../components/background'; // REMOVED: убрали оранжевый градиент
-import { ParallaxLayer } from '../components/effects/ParallaxLayer';
 
 // REMOVED: Gamification stats components (folder deleted)
 import { BudgetInsightsWidget } from '../components/stats/BudgetInsightsWidget';
@@ -69,34 +64,36 @@ import { menuService, type MenuItem } from '../services/menu.service';
 import { cn } from '../lib/utils';
 import { ICON_SIZES } from '@/lib/design-tokens';
 
-const ActivityLineChart = React.lazy(() => import('../components/stats/ActivityLineChart'));
+const ActivityLineChart = React.lazy(
+  () => import("../components/stats/ActivityLineChart"),
+);
 
 // Chart colors - Theme-aware palette
 // UPDATED: Unified with project's peach/coral brand colors
 const CHART_COLORS = {
   // 🍑 PRIMARY - Peach (light) / Lavender (dark)
   primary: {
-    light: ['#ff6b6b', '#ff8787', '#ffa3a3', '#ffbfbf', '#ffd9d9'], // Peach shades
-    dark: ['#A78BFA', '#C4B5FD', '#9F7AEA', '#B794F6', '#D4C5FF'],  // Lavender shades (kept for consistency)
+    light: ["#ff6b6b", "#ff8787", "#ffa3a3", "#ffbfbf", "#ffd9d9"], // Peach shades
+    dark: ["#A78BFA", "#C4B5FD", "#9F7AEA", "#B794F6", "#D4C5FF"], // Lavender shades (kept for consistency)
   },
   // 🌿 SECONDARY - Mint Green (complementary for both themes)
   secondary: {
-    light: ['#5CAE87', '#7BC4A3', '#86C9A8', '#9ED6B9', '#B6E3CD'],
-    dark: ['#86C9A8', '#9ED6B9', '#7BC4A3', '#B6E3CD', '#C5E6D5'],
+    light: ["#5CAE87", "#7BC4A3", "#86C9A8", "#9ED6B9", "#B6E3CD"],
+    dark: ["#86C9A8", "#9ED6B9", "#7BC4A3", "#B6E3CD", "#C5E6D5"],
   },
   // 🪸 ACCENT - Coral (replaces yellow/gold)
   accent: {
-    light: ['#ff9999', '#ffb3b3', '#ffc9c9', '#ffd9d9', '#ffecec'],
-    dark: ['#ffb3b3', '#ffc9c9', '#ff9999', '#ffecec', '#fff5f5'],
+    light: ["#ff9999", "#ffb3b3", "#ffc9c9", "#ffd9d9", "#ffecec"],
+    dark: ["#ffb3b3", "#ffc9c9", "#ff9999", "#ffecec", "#fff5f5"],
   },
   // 🔴 ERROR - Coral/Red (kept same)
   error: {
-    light: ['#FF5A4A', '#FF7B6E', '#FF9B92', '#FFC9C3', '#FFE4E1'],
-    dark: ['#FF9B92', '#FFC9C3', '#FF7B6E', '#FFE4E1', '#FFF1F0'],
+    light: ["#FF5A4A", "#FF7B6E", "#FF9B92", "#FFC9C3", "#FFE4E1"],
+    dark: ["#FF9B92", "#FFC9C3", "#FF7B6E", "#FFE4E1", "#FFF1F0"],
   },
 };
 
-type ViewMode = 'overview' | 'results';
+type ViewMode = "overview" | "results";
 
 /**
  * StatsPage v2.1 - Mobile-Optimized Analytics Hub
@@ -110,52 +107,52 @@ const useStatsPageController = () => {
   const confetti = useConfetti();
   const { currentGroupId } = useCurrentGroup();
 
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
   const { user } = useAuth();
 
   // Personal insights data (moved from HomePage)
   const personalInsights = useMemo(
     () => generatePersonalInsights(user?.id || 0),
-    [user?.id]
+    [user?.id],
   );
-  const quickStats = useMemo(
-    () => getQuickStats(user?.id || 0),
-    [user?.id]
-  );
+  const quickStats = useMemo(() => getQuickStats(user?.id || 0), [user?.id]);
   const favoriteDishes = useMemo(
     () => getFavoriteDishes(user?.id || 0, 5),
-    [user?.id]
+    [user?.id],
   );
   const recommendations = useMemo(
     () => getRotatingRecommendations(user?.id || 0),
-    [user?.id]
+    [user?.id],
   );
 
   const [polls, setPolls] = useState<Poll[]>([]);
   const [pollsLoading, setPollsLoading] = useState(false);
 
-  const [viewMode, setViewMode] = useState<ViewMode>('overview');
+  const [viewMode, setViewMode] = useState<ViewMode>("overview");
   const [selectedPoll, setSelectedPoll] = useState<Poll | null>(null);
   const [stats, setStats] = useState<PollStats | null>(null);
   const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
-  const [activeTab, setActiveTab] = useState<'personal' | 'group' | 'global' | 'insights'>('personal');
+  const [activeTab, setActiveTab] = useState<
+    "personal" | "group" | "global" | "insights"
+  >("personal");
   const [activeChartSlide, setActiveChartSlide] = useState(0);
 
   const lunchDnaProfile = useMemo(
-    () => buildLunchDna({
-      voteHistory: getStoredVoteHistory(user?.id || 0),
-      popularItems,
-      totalPolls: stats?.totalPolls || 0,
-    }),
-    [user?.id, popularItems, stats?.totalPolls]
+    () =>
+      buildLunchDna({
+        voteHistory: getStoredVoteHistory(user?.id || 0),
+        popularItems,
+        totalPolls: stats?.totalPolls || 0,
+      }),
+    [user?.id, popularItems, stats?.totalPolls],
   );
 
   const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (viewMode === 'results') {
+    if (viewMode === "results") {
       backButton.onClick(() => {
-        setViewMode('overview');
+        setViewMode("overview");
         setSelectedPoll(null);
       });
       backButton.show();
@@ -172,12 +169,18 @@ const useStatsPageController = () => {
     try {
       setPollsLoading(true);
 
-      const [pollsResponse, statsResponse, popularResponse, menuResponse] = await Promise.all([
-        pollsService.getAllPolls(),
-        pollsService.getPollStats(),
-        pollsService.getPopularItems(10),
-        currentGroupId ? menuService.getAllItems(currentGroupId) : Promise.resolve({ success: true as const, data: [] as MenuItem[] }),
-      ]);
+      const [pollsResponse, statsResponse, popularResponse, menuResponse] =
+        await Promise.all([
+          pollsService.getAllPolls(),
+          pollsService.getPollStats(),
+          pollsService.getPopularItems(10),
+          currentGroupId
+            ? menuService.getAllItems(currentGroupId)
+            : Promise.resolve({
+                success: true as const,
+                data: [] as MenuItem[],
+              }),
+        ]);
 
       if (pollsResponse.success && pollsResponse.data) {
         // Backend возвращает { polls: [], total, limit, offset, hasNext }
@@ -201,8 +204,8 @@ const useStatsPageController = () => {
       }
     } catch {
       addNotification({
-        type: 'error',
-        message: 'Ошибка загрузки статистики',
+        type: "error",
+        message: "Ошибка загрузки статистики",
       });
     } finally {
       setPollsLoading(false);
@@ -210,30 +213,32 @@ const useStatsPageController = () => {
   }, [addNotification, currentGroupId]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   const handleViewPollResults = (poll: Poll) => {
     setSelectedPoll(poll);
-    setViewMode('results');
+    setViewMode("results");
     haptic.light();
   };
 
   // Get theme-aware colors
-  const getThemeColors = (type: 'primary' | 'secondary' | 'accent' | 'error') => {
+  const getThemeColors = (
+    type: "primary" | "secondary" | "accent" | "error",
+  ) => {
     return isDark ? CHART_COLORS[type].dark : CHART_COLORS[type].light;
   };
 
   // Activity data для LineChart
   const activityData = useMemo(() => {
     return [
-      { date: 'Пн', votes: 45 },
-      { date: 'Вт', votes: 52 },
-      { date: 'Ср', votes: 38 },
-      { date: 'Чт', votes: 61 },
-      { date: 'Пт', votes: 73 },
-      { date: 'Сб', votes: 29 },
-      { date: 'Вс', votes: 34 },
+      { date: "Пн", votes: 45 },
+      { date: "Вт", votes: 52 },
+      { date: "Ср", votes: 38 },
+      { date: "Чт", votes: 61 },
+      { date: "Пт", votes: 73 },
+      { date: "Сб", votes: 29 },
+      { date: "Вс", votes: 34 },
     ];
   }, []);
 
@@ -243,7 +248,7 @@ const useStatsPageController = () => {
     if (!Array.isArray(polls)) {
       return [];
     }
-    return pollsService.sortPolls(polls, 'date', 'desc');
+    return pollsService.sortPolls(polls, "date", "desc");
   }, [polls]);
 
   const groupedPolls = useMemo(() => {
@@ -261,8 +266,12 @@ const useStatsPageController = () => {
     }
 
     const active = menuItems.filter((item) => item.isActive).length;
-    const totalPrice = menuItems.reduce((sum, item) => sum + (item.price || 0), 0);
-    const averagePrice = menuItems.length > 0 ? totalPrice / menuItems.length : 0;
+    const totalPrice = menuItems.reduce(
+      (sum, item) => sum + (item.price || 0),
+      0,
+    );
+    const averagePrice =
+      menuItems.length > 0 ? totalPrice / menuItems.length : 0;
 
     return {
       total: menuItems.length,
@@ -286,511 +295,700 @@ const useStatsPageController = () => {
     setActiveChartSlide(newSlide);
   };
 
-  return { backButton, colorScheme, addNotification, menuItems, setMenuItems, haptic, confetti, currentGroupId, isDark, user, personalInsights, quickStats, favoriteDishes, recommendations, polls, setPolls, pollsLoading, setPollsLoading, viewMode, setViewMode, selectedPoll, setSelectedPoll, stats, setStats, popularItems, setPopularItems, activeTab, setActiveTab, activeChartSlide, setActiveChartSlide, lunchDnaProfile, carouselRef, loadData, handleViewPollResults, getThemeColors, activityData, sortedPolls, groupedPolls, menuStats, maxVotes, handleCarouselScroll };
+  return {
+    backButton,
+    colorScheme,
+    addNotification,
+    menuItems,
+    setMenuItems,
+    haptic,
+    confetti,
+    currentGroupId,
+    isDark,
+    user,
+    personalInsights,
+    quickStats,
+    favoriteDishes,
+    recommendations,
+    polls,
+    setPolls,
+    pollsLoading,
+    setPollsLoading,
+    viewMode,
+    setViewMode,
+    selectedPoll,
+    setSelectedPoll,
+    stats,
+    setStats,
+    popularItems,
+    setPopularItems,
+    activeTab,
+    setActiveTab,
+    activeChartSlide,
+    setActiveChartSlide,
+    lunchDnaProfile,
+    carouselRef,
+    loadData,
+    handleViewPollResults,
+    getThemeColors,
+    activityData,
+    sortedPolls,
+    groupedPolls,
+    menuStats,
+    maxVotes,
+    handleCarouselScroll,
+  };
 };
 
 type StatsPageController = ReturnType<typeof useStatsPageController>;
 
-const StatsPersonalTab = ({ controller }: { controller: StatsPageController }) => {
-  const { backButton, colorScheme, addNotification, menuItems, setMenuItems, haptic, confetti, currentGroupId, isDark, user, personalInsights, quickStats, favoriteDishes, recommendations, polls, setPolls, pollsLoading, setPollsLoading, viewMode, setViewMode, selectedPoll, setSelectedPoll, stats, setStats, popularItems, setPopularItems, activeTab, setActiveTab, activeChartSlide, setActiveChartSlide, lunchDnaProfile, carouselRef, loadData, handleViewPollResults, getThemeColors, activityData, sortedPolls, groupedPolls, menuStats, maxVotes, handleCarouselScroll } = controller;
+const StatsPersonalTab = ({
+  controller,
+}: {
+  controller: StatsPageController;
+}) => {
+  const { pollsLoading, lunchDnaProfile } = controller;
   return (
-<TabsContent value="personal" className="mt-4 space-y-4">
-              <AnimatePresence mode="wait">
-                {pollsLoading ? (
-                  <Skeleton className="h-[420px] rounded-xl" />
-                ) : (
-                  <LunchDnaCard profile={lunchDnaProfile} />
-                )}
-              </AnimatePresence>
+    <TabsContent value="personal" className="mt-4 space-y-4">
+      <AnimatePresence mode="wait">
+        {pollsLoading ? (
+          <Skeleton className="h-[420px] rounded-xl" />
+        ) : (
+          <LunchDnaCard profile={lunchDnaProfile} />
+        )}
+      </AnimatePresence>
 
-              {/* Budget Widget Compact (Sprint 2.4) */}
-              <AnimatePresence mode="wait">
-                {pollsLoading ? (
-                  <Skeleton className="h-[200px] rounded-xl" />
-                ) : (
-                  <BudgetWidgetCompact />
-                )}
-              </AnimatePresence>
-            </TabsContent>
+      {/* Budget Widget Compact (Sprint 2.4) */}
+      <AnimatePresence mode="wait">
+        {pollsLoading ? (
+          <Skeleton className="h-[200px] rounded-xl" />
+        ) : (
+          <BudgetWidgetCompact />
+        )}
+      </AnimatePresence>
+    </TabsContent>
   );
 };
 
 const StatsGroupTab = ({ controller }: { controller: StatsPageController }) => {
-  const { backButton, colorScheme, addNotification, menuItems, setMenuItems, haptic, confetti, currentGroupId, isDark, user, personalInsights, quickStats, favoriteDishes, recommendations, polls, setPolls, pollsLoading, setPollsLoading, viewMode, setViewMode, selectedPoll, setSelectedPoll, stats, setStats, popularItems, setPopularItems, activeTab, setActiveTab, activeChartSlide, setActiveChartSlide, lunchDnaProfile, carouselRef, loadData, handleViewPollResults, getThemeColors, activityData, sortedPolls, groupedPolls, menuStats, maxVotes, handleCarouselScroll } = controller;
+  const {
+    haptic,
+    confetti,
+    currentGroupId,
+    isDark,
+    user: _user,
+    pollsLoading,
+    stats,
+    popularItems,
+    activeChartSlide,
+    carouselRef,
+    activityData,
+    maxVotes,
+    handleCarouselScroll,
+  } = controller;
   return (
-<TabsContent value="group" className="mt-4 space-y-4">
-              {/* Compact Hero Stats Card */}
-              {pollsLoading ? (
-                <Skeleton className="h-[90px] rounded-xl" />
-              ) : (
-                <m.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <PastelCard variant="default" className="relative overflow-hidden">
+    <TabsContent value="group" className="mt-4 space-y-4">
+      {/* Compact Hero Stats Card */}
+      {pollsLoading ? (
+        <Skeleton className="h-[90px] rounded-xl" />
+      ) : (
+        <m.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <PastelCard variant="default" className="relative overflow-hidden">
+            <CardContent className="relative p-4">
+              {/* Compact layout */}
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <p className="text-xs text-muted-foreground">
+                      Всего голосов
+                    </p>
+                    <TooltipProvider>
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <Info
+                            className={`${ICON_SIZES.xs} text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-help`}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px]">
+                          <p className="text-xs">
+                            Общее количество голосов во всех завершенных
+                            голосованиях
+                          </p>
+                        </TooltipContent>
+                      </UITooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="text-3xl font-semibold text-foreground">
+                    {stats?.totalVotes || 0}
+                  </div>
+                </div>
 
-                    <CardContent className="relative p-4">
-                      {/* Compact layout */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <div className="flex items-center gap-1 mb-0.5">
-                            <p className="text-xs text-muted-foreground">Всего голосов</p>
-                            <TooltipProvider>
-                              <UITooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className={`${ICON_SIZES.xs} text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-help`} />
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-[200px]">
-                                  <p className="text-xs">Общее количество голосов во всех завершенных голосованиях</p>
-                                </TooltipContent>
-                              </UITooltip>
-                            </TooltipProvider>
-                          </div>
-                          <div className="text-3xl font-semibold text-foreground">
-                            {stats?.totalVotes || 0}
-                          </div>
-                        </div>
+                {/* Mini stats grid */}
+                <div className="grid grid-cols-2 gap-3 text-right">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Активных</p>
+                    <p className="text-lg font-semibold text-mint-600 dark:text-mint-400">
+                      {stats?.activePolls || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Всего</p>
+                    <p className="text-lg font-semibold text-primary">
+                      {stats?.totalPolls || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-                        {/* Mini stats grid */}
-                        <div className="grid grid-cols-2 gap-3 text-right">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Активных</p>
-                            <p className="text-lg font-semibold text-mint-600 dark:text-mint-400">{stats?.activePolls || 0}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Всего</p>
-                            <p className="text-lg font-semibold text-primary">{stats?.totalPolls || 0}</p>
-                          </div>
-                        </div>
+              {/* Progress bar instead of sparkline */}
+              <TooltipProvider>
+                <UITooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative h-2 rounded-full bg-muted/30 overflow-hidden cursor-help">
+                      <m.div
+                        className="absolute inset-y-0 left-0 right-0 origin-left rounded-full bg-primary"
+                        initial={{ scaleX: 0 }}
+                        animate={{
+                          scaleX: stats?.totalPolls
+                            ? Math.min(stats.activePolls / stats.totalPolls, 1)
+                            : 0,
+                        }}
+                        style={{ transformOrigin: "left" }}
+                        transition={{
+                          delay: 0.5,
+                          duration: 1,
+                          ease: "easeOut",
+                        }}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px]">
+                    <p className="text-xs">
+                      Активные голосования: {stats?.activePolls || 0} из{" "}
+                      {stats?.totalPolls || 0}
+                    </p>
+                  </TooltipContent>
+                </UITooltip>
+              </TooltipProvider>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats?.totalPolls
+                  ? `${Math.round((stats.activePolls / stats.totalPolls) * 100)}% активных голосований`
+                  : "Нет данных"}
+              </p>
+            </CardContent>
+          </PastelCard>
+        </m.div>
+      )}
+      {/* Leaderboard - Top 10 users (Sprint 3.2) */}
+      <AnimatePresence mode="wait">
+        {pollsLoading ? (
+          <Skeleton className="h-[600px] rounded-xl" />
+        ) : (
+          <Leaderboard
+            isDark={isDark}
+            groupId={currentGroupId ?? undefined}
+            onUserClick={(user) => {
+              // Запускаем confetti для топ-3
+              if (user.position === 1) {
+                void confetti.fireworks(); // Фейерверк для первого места
+              } else if (user.position === 2) {
+                void confetti.cannon(); // Пушка для второго
+              } else if (user.position === 3) {
+                void confetti.stars(); // Звёзды для третьего
+              } else {
+                void confetti.mini(); // Мини-конфетти для остальных
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence mode="wait">
+        {pollsLoading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-[320px] rounded-xl" />
+            <Skeleton className="h-[280px] rounded-xl" />
+          </div>
+        ) : (
+          <>
+            {/* Horizontal Carousel для графиков */}
+            <m.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.4 }}
+            >
+              <div
+                ref={carouselRef}
+                onScroll={handleCarouselScroll}
+                className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
+              >
+                {/* Chart 2: LineChart */}
+                <div className="min-w-[85vw] snap-center">
+                  <PastelCard variant="default">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Flame className={`${ICON_SIZES.sm} text-primary`} />
+                          Динамика активности
+                        </CardTitle>
+                        <TooltipProvider>
+                          <UITooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle
+                                className={`${ICON_SIZES.sm} text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-help`}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="left"
+                              className="max-w-[240px]"
+                            >
+                              <p className="text-xs">
+                                Количество голосов пользователей за последние 7
+                                дней. График помогает увидеть пики активности.
+                              </p>
+                            </TooltipContent>
+                          </UITooltip>
+                        </TooltipProvider>
                       </div>
+                      <CardDescription>Последние 7 дней</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <React.Suspense
+                        fallback={
+                          <Skeleton className="h-[200px] w-full rounded-xl" />
+                        }
+                      >
+                        <ActivityLineChart
+                          data={activityData}
+                          isDark={isDark}
+                        />
+                      </React.Suspense>
+                    </CardContent>
+                  </PastelCard>
+                </div>
+              </div>
 
-                      {/* Progress bar instead of sparkline */}
+              {/* Dots indicator */}
+              <div className="flex justify-center gap-2 mt-3">
+                {[0, 1].map((i) => (
+                  <m.div
+                    key={i}
+                    className={cn(
+                      "h-1.5 rounded-full transition-all duration-300",
+                      activeChartSlide === i
+                        ? "bg-primary w-6"
+                        : "bg-muted-foreground/30 w-1.5",
+                    )}
+                    onClick={() => {
+                      if (carouselRef.current) {
+                        const slideWidth =
+                          carouselRef.current.offsetWidth * 0.85 + 12; // width + gap
+                        carouselRef.current.scrollTo({
+                          left: i * slideWidth,
+                          behavior: "smooth",
+                        });
+                      }
+                      haptic.light();
+                    }}
+                  />
+                ))}
+              </div>
+            </m.div>
+
+            {/* Expandable List - Топ-5 блюд */}
+            {popularItems.length > 0 && (
+              <m.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.4 }}
+              >
+                <PastelCard variant="default">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Trophy className={`${ICON_SIZES.sm} text-accent`} />
+                        Топ-5 популярных блюд
+                      </CardTitle>
                       <TooltipProvider>
                         <UITooltip>
                           <TooltipTrigger asChild>
-                            <div className="relative h-2 rounded-full bg-muted/30 overflow-hidden cursor-help">
-                              <m.div
-                                className="absolute inset-y-0 left-0 right-0 origin-left rounded-full bg-primary"
-                                initial={{ scaleX: 0 }}
-                                animate={{
-                                  scaleX: stats?.totalPolls
-                                    ? Math.min(stats.activePolls / stats.totalPolls, 1)
-                                    : 0,
-                                }}
-                                style={{ transformOrigin: 'left' }}
-                                transition={{ delay: 0.5, duration: 1, ease: 'easeOut' }}
-                              />
-                            </div>
+                            <HelpCircle
+                              className={`${ICON_SIZES.sm} text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-help`}
+                            />
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="max-w-[220px]">
+                          <TooltipContent side="top" className="max-w-[220px]">
                             <p className="text-xs">
-                              Активные голосования: {stats?.activePolls || 0} из {stats?.totalPolls || 0}
+                              Самые популярные блюда по количеству полученных
+                              голосов во всех голосованиях
                             </p>
                           </TooltipContent>
                         </UITooltip>
                       </TooltipProvider>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {stats?.totalPolls
-                          ? `${Math.round((stats.activePolls / stats.totalPolls) * 100)}% активных голосований`
-                          : 'Нет данных'}
-                      </p>
-                    </CardContent>
-                  </PastelCard>
-                </m.div>
-              )}
-                {/* Leaderboard - Top 10 users (Sprint 3.2) */}
-                <AnimatePresence mode="wait">
-                  {pollsLoading ? (
-                    <Skeleton className="h-[600px] rounded-xl" />
-                  ) : (
-                    <Leaderboard isDark={isDark} groupId={currentGroupId} onUserClick={(user) => {
-                      // Запускаем confetti для топ-3
-                      if (user.position === 1) {
-                        confetti.fireworks(); // Фейерверк для первого места
-                      } else if (user.position === 2) {
-                        confetti.cannon(); // Пушка для второго
-                      } else if (user.position === 3) {
-                        confetti.stars(); // Звёзды для третьего
-                      } else {
-                        confetti.mini(); // Мини-конфетти для остальных
-                      }
-                    }} />
-                  )}
-                </AnimatePresence>
-
-                <AnimatePresence mode="wait">
-                  {pollsLoading ? (
-                    <div className="space-y-4">
-                      <Skeleton className="h-[320px] rounded-xl" />
-                      <Skeleton className="h-[280px] rounded-xl" />
                     </div>
-                  ) : (
-                    <>
-                    {/* Horizontal Carousel для графиков */}
-                    <m.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3, duration: 0.4 }}
-                    >
-                      <div
-                        ref={carouselRef}
-                        onScroll={handleCarouselScroll}
-                        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
-                      >
-                        {/* Chart 2: LineChart */}
-                        <div className="min-w-[85vw] snap-center">
-                          <PastelCard variant="default">
-                            <CardHeader>
-                              <div className="flex items-center justify-between">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                  <Flame className={`${ICON_SIZES.sm} text-primary`} />
-                                  Динамика активности
-                                </CardTitle>
-                                <TooltipProvider>
-                                  <UITooltip>
-                                    <TooltipTrigger asChild>
-                                      <HelpCircle className={`${ICON_SIZES.sm} text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-help`} />
-                                    </TooltipTrigger>
-                                    <TooltipContent side="left" className="max-w-[240px]">
-                                      <p className="text-xs">Количество голосов пользователей за последние 7 дней. График помогает увидеть пики активности.</p>
-                                    </TooltipContent>
-                                  </UITooltip>
-                                </TooltipProvider>
-                              </div>
-                              <CardDescription>Последние 7 дней</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              <React.Suspense fallback={<Skeleton className="h-[200px] w-full rounded-xl" />}>
-                                <ActivityLineChart data={activityData} isDark={isDark} />
-                              </React.Suspense>
-                            </CardContent>
-                          </PastelCard>
-                        </div>
-                      </div>
+                    <CardDescription>По количеству голосов</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {popularItems.slice(0, 5).map((item, index) => {
+                      const medals = ["🥇", "🥈", "🥉"];
+                      const percentage = (item.voteCount / maxVotes) * 100;
 
-                      {/* Dots indicator */}
-                      <div className="flex justify-center gap-2 mt-3">
-                        {[0, 1].map((i) => (
-                          <m.div
-                            key={i}
+                      return (
+                        <m.div
+                          key={item.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{
+                            delay: 0.5 + index * 0.05,
+                            duration: 0.3,
+                          }}
+                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/30 transition-colors cursor-pointer"
+                          onClick={() => haptic.light()}
+                        >
+                          {/* Medal / Number */}
+                          <div
                             className={cn(
-                              'h-1.5 rounded-full transition-all duration-300',
-                               activeChartSlide === i ? 'bg-primary w-6' : 'bg-muted-foreground/30 w-1.5'
+                              "size-8 rounded-full flex items-center justify-center font-bold flex-shrink-0",
+                              index < 3
+                                ? "bg-primary/12 text-primary text-lg"
+                                : "bg-muted/50 text-muted-foreground text-sm",
                             )}
-                            onClick={() => {
-                              if (carouselRef.current) {
-                                const slideWidth = carouselRef.current.offsetWidth * 0.85 + 12; // width + gap
-                                carouselRef.current.scrollTo({ left: i * slideWidth, behavior: 'smooth' });
-                              }
-                              haptic.light();
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </m.div>
+                          >
+                            {index < 3 ? medals[index] : index + 1}
+                          </div>
 
-                    {/* Expandable List - Топ-5 блюд */}
-                    {popularItems.length > 0 && (
-                      <m.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4, duration: 0.4 }}
-                      >
-                        <PastelCard variant="default">
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-base flex items-center gap-2">
-                                <Trophy className={`${ICON_SIZES.sm} text-accent`} />
-                                Топ-5 популярных блюд
-                              </CardTitle>
-                              <TooltipProvider>
-                                <UITooltip>
-                                  <TooltipTrigger asChild>
-                                    <HelpCircle className={`${ICON_SIZES.sm} text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-help`} />
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-[220px]">
-                                    <p className="text-xs">Самые популярные блюда по количеству полученных голосов во всех голосованиях</p>
-                                  </TooltipContent>
-                                </UITooltip>
-                              </TooltipProvider>
+                          {/* Name */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {item.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.winCount} побед
+                            </p>
+                          </div>
+
+                          {/* Progress bar + count */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="w-16 h-2 rounded-full bg-muted/50 overflow-hidden">
+                              <m.div
+                                className="h-full w-full origin-left rounded-full bg-primary"
+                                initial={{ scaleX: 0 }}
+                                animate={{ scaleX: percentage / 100 }}
+                                style={{ transformOrigin: "left" }}
+                                transition={{
+                                  delay: 0.6 + index * 0.05,
+                                  duration: 0.6,
+                                  ease: "easeOut",
+                                }}
+                              />
                             </div>
-                            <CardDescription>По количеству голосов</CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-2">
-                            {popularItems.slice(0, 5).map((item, index) => {
-                              const medals = ['🥇', '🥈', '🥉'];
-                              const percentage = (item.voteCount / maxVotes) * 100;
-
-                              return (
-                                <m.div
-                                  key={item.id}
-                                  initial={{ opacity: 0, x: -20 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  transition={{ delay: 0.5 + index * 0.05, duration: 0.3 }}
-                                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/30 transition-colors cursor-pointer"
-                                  onClick={() => haptic.light()}
-                                >
-                                  {/* Medal / Number */}
-                                  <div
-                                    className={cn(
-                                      'size-8 rounded-full flex items-center justify-center font-bold flex-shrink-0',
-                                       index < 3
-                                         ? 'bg-primary/12 text-primary text-lg'
-                                         : 'bg-muted/50 text-muted-foreground text-sm'
-                                    )}
-                                  >
-                                    {index < 3 ? medals[index] : index + 1}
-                                  </div>
-
-                                  {/* Name */}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate">{item.name}</p>
-                                    <p className="text-xs text-muted-foreground">{item.winCount} побед</p>
-                                  </div>
-
-                                  {/* Progress bar + count */}
-                                  <div className="flex items-center gap-2 flex-shrink-0">
-                                    <div className="w-16 h-2 rounded-full bg-muted/50 overflow-hidden">
-                                      <m.div
-                                        className="h-full w-full origin-left rounded-full bg-primary"
-                                        initial={{ scaleX: 0 }}
-                                        animate={{ scaleX: percentage / 100 }}
-                                        style={{ transformOrigin: 'left' }}
-                                        transition={{ delay: 0.6 + index * 0.05, duration: 0.6, ease: 'easeOut' }}
-                                      />
-                                    </div>
-                                    <span className="text-sm font-semibold min-w-[2.5ch] text-right">{item.voteCount}</span>
-                                  </div>
-                                </m.div>
-                              );
-                            })}
-                          </CardContent>
-                        </PastelCard>
-                      </m.div>
-                    )}
-                  </>
-                )}
-              </AnimatePresence>
-            </TabsContent>
-  );
-};
-
-const StatsGlobalTab = ({ controller }: { controller: StatsPageController }) => {
-  const { backButton, colorScheme, addNotification, menuItems, setMenuItems, haptic, confetti, currentGroupId, isDark, user, personalInsights, quickStats, favoriteDishes, recommendations, polls, setPolls, pollsLoading, setPollsLoading, viewMode, setViewMode, selectedPoll, setSelectedPoll, stats, setStats, popularItems, setPopularItems, activeTab, setActiveTab, activeChartSlide, setActiveChartSlide, lunchDnaProfile, carouselRef, loadData, handleViewPollResults, getThemeColors, activityData, sortedPolls, groupedPolls, menuStats, maxVotes, handleCarouselScroll } = controller;
-  return (
-<TabsContent value="global" className="mt-4 space-y-4">
-              {pollsLoading ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-24 rounded-lg" />
-                  <Skeleton className="h-24 rounded-lg" />
-                  <Skeleton className="h-24 rounded-lg" />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Активные голосования */}
-                  {groupedPolls.active.length > 0 && (
-                    <m.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3, duration: 0.4 }}
-                    >
-                      <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
-                        <span className="size-2 bg-secondary rounded-full animate-pulse" />
-                        Активные ({groupedPolls.active.length})
-                      </h3>
-                      <div className="space-y-3">
-                        {groupedPolls.active.map((poll) => (
-                          <PollCard key={poll.id} poll={poll} onViewResults={handleViewPollResults} />
-                        ))}
-                      </div>
-                    </m.div>
-                  )}
-
-                  {/* Завершённые голосования */}
-                  {groupedPolls.completed.length > 0 && (
-                    <m.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4, duration: 0.4 }}
-                    >
-                      <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
-                        <Calendar className={`${ICON_SIZES.sm} text-muted-foreground`} />
-                        История ({groupedPolls.completed.length})
-                      </h3>
-                      <div className="space-y-3">
-                        {groupedPolls.completed.slice(0, 10).map((poll) => (
-                          <PollCard key={poll.id} poll={poll} onViewResults={handleViewPollResults} />
-                        ))}
-                      </div>
-                    </m.div>
-                  )}
-
-                  {/* Пустое состояние */}
-                  {sortedPolls.length === 0 && (
-                    <m.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="text-center py-12"
-                    >
-                      <Vote size={64} className="mx-auto mb-4 text-muted-foreground/30" />
-                      <h3 className="text-lg font-semibold mb-2">Нет голосований</h3>
-                      <p className="text-sm text-muted-foreground">Голосования появятся здесь после их создания</p>
-                    </m.div>
-                  )}
-                </div>
-              )}
-
-              {/* Menu Stats Section (moved from old tab) */}
-              <m.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.4 }}
-                className="grid grid-cols-2 gap-3"
-              >
-                {/* Всего блюд */}
-                <PastelCard variant="default">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="p-2 rounded-lg bg-secondary/20">
-                        <Utensils className={`${ICON_SIZES.sm} text-secondary`} />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold">{menuStats.total}</p>
-                    <p className="text-xs text-muted-foreground">Всего блюд</p>
-                  </CardContent>
-                </PastelCard>
-
-                {/* Активных */}
-                <PastelCard variant="default">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="p-2 rounded-lg bg-primary/20">
-                        <Sparkles className={`${ICON_SIZES.sm} text-primary`} />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold">{menuStats.active}</p>
-                    <p className="text-xs text-muted-foreground">Активных</p>
-                  </CardContent>
-                </PastelCard>
-
-                {/* Средняя цена */}
-                <PastelCard variant="default">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="p-2 rounded-lg bg-primary/20">
-                        <Trophy className={`${ICON_SIZES.sm} text-primary`} />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold">{(menuStats?.averagePrice ?? 0).toFixed(0)} ₽</p>
-                    <p className="text-xs text-muted-foreground">Средняя цена</p>
+                            <span className="text-sm font-semibold min-w-[2.5ch] text-right">
+                              {item.voteCount}
+                            </span>
+                          </div>
+                        </m.div>
+                      );
+                    })}
                   </CardContent>
                 </PastelCard>
               </m.div>
-
-            </TabsContent>
+            )}
+          </>
+        )}
+      </AnimatePresence>
+    </TabsContent>
   );
 };
 
-const StatsInsightsTab = ({ controller }: { controller: StatsPageController }) => {
-  const { backButton, colorScheme, addNotification, menuItems, setMenuItems, haptic, confetti, currentGroupId, isDark, user, personalInsights, quickStats, favoriteDishes, recommendations, polls, setPolls, pollsLoading, setPollsLoading, viewMode, setViewMode, selectedPoll, setSelectedPoll, stats, setStats, popularItems, setPopularItems, activeTab, setActiveTab, activeChartSlide, setActiveChartSlide, lunchDnaProfile, carouselRef, loadData, handleViewPollResults, getThemeColors, activityData, sortedPolls, groupedPolls, menuStats, maxVotes, handleCarouselScroll } = controller;
+const StatsGlobalTab = ({
+  controller,
+}: {
+  controller: StatsPageController;
+}) => {
+  const {
+    pollsLoading,
+    handleViewPollResults,
+    sortedPolls,
+    groupedPolls,
+    menuStats,
+  } = controller;
   return (
-<TabsContent value="insights" className="mt-4 space-y-4">
-              <AnimatePresence mode="wait">
-                <m.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-4"
-                >
-                  {/* Quick Stats Cards (2 columns) */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Favorite Dishes Card */}
-                    <PastelCard variant="default" className="overflow-hidden">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className={cn(
-                            'p-1.5 rounded-lg bg-gradient-to-br',
-                            isDark
-                              ? 'from-lavender-500/20 to-purple-500/20'
-                              : 'from-peach-500/20 to-coral-500/20'
-                          )}>
-                            <ChefHat className={`${ICON_SIZES.sm} text-primary`} />
-                          </div>
-                          <span className="text-xs font-medium text-muted-foreground">Любимые</span>
-                        </div>
-                        {favoriteDishes.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {favoriteDishes.slice(0, 3).map((dish, i) => (
-                              <div key={dish.name} className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground w-4">{i + 1}.</span>
-                                <span className="text-xs font-medium truncate flex-1">{dish.name}</span>
-                                <span className="text-xs text-muted-foreground">{dish.count}x</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            Проголосуй, чтобы увидеть
-                          </p>
-                        )}
-                      </CardContent>
-                    </PastelCard>
+    <TabsContent value="global" className="mt-4 space-y-4">
+      {pollsLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Активные голосования */}
+          {groupedPolls.active.length > 0 && (
+            <m.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.4 }}
+            >
+              <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+                <span className="size-2 bg-secondary rounded-full animate-pulse" />
+                Активные ({groupedPolls.active.length})
+              </h3>
+              <div className="space-y-3">
+                {groupedPolls.active.map((poll) => (
+                  <PollCard
+                    key={poll.id}
+                    poll={poll}
+                    onViewResults={handleViewPollResults}
+                  />
+                ))}
+              </div>
+            </m.div>
+          )}
 
-                    {/* Stats Card */}
-                    <PastelCard variant="default" className="overflow-hidden">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className={cn(
-                            'p-1.5 rounded-lg bg-gradient-to-br',
-                            isDark
-                              ? 'from-mint-500/20 to-emerald-500/20'
-                              : 'from-mint-500/20 to-green-500/20'
-                          )}>
-                            <TrendingUp className={`${ICON_SIZES.sm} text-secondary`} />
-                          </div>
-                          <span className="text-xs font-medium text-muted-foreground">Статистика</span>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">Голосований</span>
-                            <span className="text-sm font-bold">{quickStats.totalVotes}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">Уникальных блюд</span>
-                            <span className="text-sm font-bold">{quickStats.uniqueDishes}</span>
-                          </div>
-                          {quickStats.topDish && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground">Топ блюдо</span>
-                              <span className="text-xs font-medium truncate max-w-[80px]">{quickStats.topDish}</span>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </PastelCard>
+          {/* Завершённые голосования */}
+          {groupedPolls.completed.length > 0 && (
+            <m.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.4 }}
+            >
+              <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+                <Calendar
+                  className={`${ICON_SIZES.sm} text-muted-foreground`}
+                />
+                История ({groupedPolls.completed.length})
+              </h3>
+              <div className="space-y-3">
+                {groupedPolls.completed.slice(0, 10).map((poll) => (
+                  <PollCard
+                    key={poll.id}
+                    poll={poll}
+                    onViewResults={handleViewPollResults}
+                  />
+                ))}
+              </div>
+            </m.div>
+          )}
+
+          {/* Пустое состояние */}
+          {sortedPolls.length === 0 && (
+            <m.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center py-12"
+            >
+              <Vote
+                size={64}
+                className="mx-auto mb-4 text-muted-foreground/30"
+              />
+              <h3 className="text-lg font-semibold mb-2">Нет голосований</h3>
+              <p className="text-sm text-muted-foreground">
+                Голосования появятся здесь после их создания
+              </p>
+            </m.div>
+          )}
+        </div>
+      )}
+
+      {/* Menu Stats Section (moved from old tab) */}
+      <m.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+        className="grid grid-cols-2 gap-3"
+      >
+        {/* Всего блюд */}
+        <PastelCard variant="default">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 rounded-lg bg-secondary/20">
+                <Utensils className={`${ICON_SIZES.sm} text-secondary`} />
+              </div>
+            </div>
+            <p className="text-2xl font-bold">{menuStats.total}</p>
+            <p className="text-xs text-muted-foreground">Всего блюд</p>
+          </CardContent>
+        </PastelCard>
+
+        {/* Активных */}
+        <PastelCard variant="default">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <Sparkles className={`${ICON_SIZES.sm} text-primary`} />
+              </div>
+            </div>
+            <p className="text-2xl font-bold">{menuStats.active}</p>
+            <p className="text-xs text-muted-foreground">Активных</p>
+          </CardContent>
+        </PastelCard>
+
+        {/* Средняя цена */}
+        <PastelCard variant="default">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <Trophy className={`${ICON_SIZES.sm} text-primary`} />
+              </div>
+            </div>
+            <p className="text-2xl font-bold">
+              {(menuStats?.averagePrice ?? 0).toFixed(0)} ₽
+            </p>
+            <p className="text-xs text-muted-foreground">Средняя цена</p>
+          </CardContent>
+        </PastelCard>
+      </m.div>
+    </TabsContent>
+  );
+};
+
+const StatsInsightsTab = ({
+  controller,
+}: {
+  controller: StatsPageController;
+}) => {
+  const {
+    isDark,
+    personalInsights,
+    quickStats,
+    favoriteDishes,
+    recommendations,
+  } = controller;
+  return (
+    <TabsContent value="insights" className="mt-4 space-y-4">
+      <AnimatePresence mode="wait">
+        <m.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-4"
+        >
+          {/* Quick Stats Cards (2 columns) */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Favorite Dishes Card */}
+            <PastelCard variant="default" className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div
+                    className={cn(
+                      "p-1.5 rounded-lg bg-gradient-to-br",
+                      isDark
+                        ? "from-lavender-500/20 to-purple-500/20"
+                        : "from-peach-500/20 to-coral-500/20",
+                    )}
+                  >
+                    <ChefHat className={`${ICON_SIZES.sm} text-primary`} />
                   </div>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Любимые
+                  </span>
+                </div>
+                {favoriteDishes.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {favoriteDishes.slice(0, 3).map((dish, i) => (
+                      <div key={dish.name} className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-4">
+                          {i + 1}.
+                        </span>
+                        <span className="text-xs font-medium truncate flex-1">
+                          {dish.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {dish.count}x
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Проголосуй, чтобы увидеть
+                  </p>
+                )}
+              </CardContent>
+            </PastelCard>
 
-                  {/* Personal Insights (moved from HomePage) */}
-                  <InsightsCard insights={personalInsights} />
+            {/* Stats Card */}
+            <PastelCard variant="default" className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div
+                    className={cn(
+                      "p-1.5 rounded-lg bg-gradient-to-br",
+                      isDark
+                        ? "from-mint-500/20 to-emerald-500/20"
+                        : "from-mint-500/20 to-green-500/20",
+                    )}
+                  >
+                    <TrendingUp className={`${ICON_SIZES.sm} text-secondary`} />
+                  </div>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Статистика
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Голосований
+                    </span>
+                    <span className="text-sm font-bold">
+                      {quickStats.totalVotes}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Уникальных блюд
+                    </span>
+                    <span className="text-sm font-bold">
+                      {quickStats.uniqueDishes}
+                    </span>
+                  </div>
+                  {quickStats.topDish && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        Топ блюдо
+                      </span>
+                      <span className="text-xs font-medium truncate max-w-[80px]">
+                        {quickStats.topDish}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </PastelCard>
+          </div>
 
-                  {/* Rotating Recommendations */}
-                  <RecommendationsCard recommendations={recommendations} />
+          {/* Personal Insights (moved from HomePage) */}
+          <InsightsCard insights={personalInsights} />
 
-                  {/* Budget Insights Widget */}
-                  <BudgetInsightsWidget />
-                </m.div>
-              </AnimatePresence>
-            </TabsContent>
+          {/* Rotating Recommendations */}
+          <RecommendationsCard recommendations={recommendations} />
+
+          {/* Budget Insights Widget */}
+          <BudgetInsightsWidget />
+        </m.div>
+      </AnimatePresence>
+    </TabsContent>
   );
 };
 
 export const StatsPage: React.FC = () => {
   const controller = useStatsPageController();
-  const { backButton, colorScheme, addNotification, menuItems, setMenuItems, haptic, confetti, currentGroupId, isDark, user, personalInsights, quickStats, favoriteDishes, recommendations, polls, setPolls, pollsLoading, setPollsLoading, viewMode, setViewMode, selectedPoll, setSelectedPoll, stats, setStats, popularItems, setPopularItems, activeTab, setActiveTab, activeChartSlide, setActiveChartSlide, lunchDnaProfile, carouselRef, loadData, handleViewPollResults, getThemeColors, activityData, sortedPolls, groupedPolls, menuStats, maxVotes, handleCarouselScroll } = controller;
-  if (viewMode === 'results' && selectedPoll) {
-    return <PollResults poll={selectedPoll} onBack={() => setViewMode('overview')} />;
+  const {
+    haptic,
+    viewMode,
+    setViewMode,
+    selectedPoll,
+    activeTab,
+    setActiveTab,
+  } = controller;
+  if (viewMode === "results" && selectedPoll) {
+    return (
+      <PollResults poll={selectedPoll} onBack={() => setViewMode("overview")} />
+    );
   }
 
   return (
@@ -803,7 +1001,9 @@ export const StatsPage: React.FC = () => {
         <div className="flex items-center justify-between h-11 px-4">
           <div className="flex items-center gap-2">
             <BarChart3 className={`${ICON_SIZES.md} text-primary`} />
-            <h1 className="text-lg font-semibold text-foreground">Статистика</h1>
+            <h1 className="text-lg font-semibold text-foreground">
+              Статистика
+            </h1>
           </div>
           <ThemeToggle />
         </div>
@@ -828,19 +1028,19 @@ export const StatsPage: React.FC = () => {
               <TabsTrigger
                 value="personal"
                 className={cn(
-                  'flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl',
+                  "flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl",
                   // Inactive — плоская кнопка с лёгким фоном
-                  'bg-muted/40 dark:bg-card/60',
-                  'border border-border/40 dark:border-white/[0.06]',
-                  'text-muted-foreground',
+                  "bg-muted/40 dark:bg-card/60",
+                  "border border-border/40 dark:border-white/[0.06]",
+                  "text-muted-foreground",
                   // Active — градиент + акцентная обводка
-                  'data-[state=active]:bg-gradient-to-br',
-                  'data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10',
-                  'data-[state=active]:!bg-transparent',
-                  'data-[state=active]:text-primary',
-                  'data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50',
-                  'data-[state=active]:shadow-sm',
-                  'transition-all duration-200'
+                  "data-[state=active]:bg-gradient-to-br",
+                  "data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10",
+                  "data-[state=active]:!bg-transparent",
+                  "data-[state=active]:text-primary",
+                  "data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50",
+                  "data-[state=active]:shadow-sm",
+                  "transition-all duration-200",
                 )}
               >
                 <Users className={ICON_SIZES.sm} />
@@ -849,19 +1049,19 @@ export const StatsPage: React.FC = () => {
               <TabsTrigger
                 value="group"
                 className={cn(
-                  'flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl',
+                  "flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl",
                   // Inactive — плоская кнопка с лёгким фоном
-                  'bg-muted/40 dark:bg-card/60',
-                  'border border-border/40 dark:border-white/[0.06]',
-                  'text-muted-foreground',
+                  "bg-muted/40 dark:bg-card/60",
+                  "border border-border/40 dark:border-white/[0.06]",
+                  "text-muted-foreground",
                   // Active — градиент + акцентная обводка
-                  'data-[state=active]:bg-gradient-to-br',
-                  'data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10',
-                  'data-[state=active]:!bg-transparent',
-                  'data-[state=active]:text-primary',
-                  'data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50',
-                  'data-[state=active]:shadow-sm',
-                  'transition-all duration-200'
+                  "data-[state=active]:bg-gradient-to-br",
+                  "data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10",
+                  "data-[state=active]:!bg-transparent",
+                  "data-[state=active]:text-primary",
+                  "data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50",
+                  "data-[state=active]:shadow-sm",
+                  "transition-all duration-200",
                 )}
               >
                 <TrendingUp className={ICON_SIZES.sm} />
@@ -870,19 +1070,19 @@ export const StatsPage: React.FC = () => {
               <TabsTrigger
                 value="global"
                 className={cn(
-                  'flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl',
+                  "flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl",
                   // Inactive — плоская кнопка с лёгким фоном
-                  'bg-muted/40 dark:bg-card/60',
-                  'border border-border/40 dark:border-white/[0.06]',
-                  'text-muted-foreground',
+                  "bg-muted/40 dark:bg-card/60",
+                  "border border-border/40 dark:border-white/[0.06]",
+                  "text-muted-foreground",
                   // Active — градиент + акцентная обводка
-                  'data-[state=active]:bg-gradient-to-br',
-                  'data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10',
-                  'data-[state=active]:!bg-transparent',
-                  'data-[state=active]:text-primary',
-                  'data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50',
-                  'data-[state=active]:shadow-sm',
-                  'transition-all duration-200'
+                  "data-[state=active]:bg-gradient-to-br",
+                  "data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10",
+                  "data-[state=active]:!bg-transparent",
+                  "data-[state=active]:text-primary",
+                  "data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50",
+                  "data-[state=active]:shadow-sm",
+                  "transition-all duration-200",
                 )}
               >
                 <BarChart3 className={ICON_SIZES.sm} />
@@ -891,19 +1091,19 @@ export const StatsPage: React.FC = () => {
               <TabsTrigger
                 value="insights"
                 className={cn(
-                  'flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl',
+                  "flex !h-full flex-col gap-0.5 py-1.5 text-xs rounded-xl",
                   // Inactive — плоская кнопка с лёгким фоном
-                  'bg-muted/40 dark:bg-card/60',
-                  'border border-border/40 dark:border-white/[0.06]',
-                  'text-muted-foreground',
+                  "bg-muted/40 dark:bg-card/60",
+                  "border border-border/40 dark:border-white/[0.06]",
+                  "text-muted-foreground",
                   // Active — градиент + акцентная обводка
-                  'data-[state=active]:bg-gradient-to-br',
-                  'data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10',
-                  'data-[state=active]:!bg-transparent',
-                  'data-[state=active]:text-primary',
-                  'data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50',
-                  'data-[state=active]:shadow-sm',
-                  'transition-all duration-200'
+                  "data-[state=active]:bg-gradient-to-br",
+                  "data-[state=active]:from-primary/40 data-[state=active]:via-primary/22 data-[state=active]:to-primary/10",
+                  "data-[state=active]:!bg-transparent",
+                  "data-[state=active]:text-primary",
+                  "data-[state=active]:border-primary/50 dark:data-[state=active]:border-primary/50",
+                  "data-[state=active]:shadow-sm",
+                  "transition-all duration-200",
                 )}
               >
                 <Lightbulb className={ICON_SIZES.sm} />

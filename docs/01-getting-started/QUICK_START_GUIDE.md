@@ -60,7 +60,7 @@ npm install
 
 ```env
 # Telegram Bot
-BOT_TOKEN=REDACTED-BOT-TOKEN
+BOT_TOKEN=<telegram-bot-token>
 BOT_USERNAME=rocket_lunch_bot
 BOT_WEBHOOK_URL=https://337b2bfd-82ee-4d01-9aac-f4ae7505235b.tunnel4.com/webhook
 

@@ -9,7 +9,12 @@ jest.mock('../../../database/client', () => ({
 }));
 
 jest.mock('../../../utils/logger', () => ({
-  logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() },
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
 jest.mock('../../../services/cache.service', () => ({
@@ -19,15 +24,20 @@ jest.mock('../../../services/cache.service', () => ({
   CACHE_TTL: { MENU_ITEMS_ACTIVE: 300 },
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { prisma } = require('../../../database/client');
 
 const USER = 7;
-const BASE = { name: 'Пицца', description: undefined, price: 500, imageUrl: undefined, isActive: true };
+const BASE = {
+  name: 'Пицца',
+  description: undefined,
+  price: 500,
+  imageUrl: undefined,
+  isActive: true,
+};
 
 function adminOfGroup1() {
   prisma.groupMember.findFirst.mockImplementation(({ where }: any) =>
-    Promise.resolve(where.groupId === 1 ? { id: 1 } : null),
+    Promise.resolve(where.groupId === 1 ? { id: 1 } : null)
   );
 }
 
@@ -41,7 +51,11 @@ describe('MenuService.createMenuItemForGroups', () => {
       { id: 11, groupId: 2, name: 'Пицца' },
     ]);
 
-    const result = await MenuService.createMenuItemForGroups(BASE, USER, [1, 2]);
+    const result = await MenuService.createMenuItemForGroups(
+      BASE,
+      USER,
+      [1, 2]
+    );
 
     expect(result).toHaveLength(2);
     const arg = prisma.menuItem.createManyAndReturn.mock.calls[0][0];
@@ -52,22 +66,26 @@ describe('MenuService.createMenuItemForGroups', () => {
 
   it('creates nothing and throws if the user is not admin of one of the groups', async () => {
     adminOfGroup1();
-    await expect(MenuService.createMenuItemForGroups(BASE, USER, [1, 2])).rejects.toBeInstanceOf(
-      GroupAccessError,
-    );
+    await expect(
+      MenuService.createMenuItemForGroups(BASE, USER, [1, 2])
+    ).rejects.toBeInstanceOf(GroupAccessError);
     expect(prisma.menuItem.createManyAndReturn).not.toHaveBeenCalled();
   });
 
   it('dedupes group ids', async () => {
     prisma.groupMember.findFirst.mockResolvedValue({ id: 1 });
-    prisma.menuItem.createManyAndReturn.mockResolvedValue([{ id: 10, groupId: 1 }]);
+    prisma.menuItem.createManyAndReturn.mockResolvedValue([
+      { id: 10, groupId: 1 },
+    ]);
     await MenuService.createMenuItemForGroups(BASE, USER, [1, 1]);
     const arg = prisma.menuItem.createManyAndReturn.mock.calls[0][0];
     expect(arg.data).toHaveLength(1);
   });
 
   it('throws when groupIds is empty', async () => {
-    await expect(MenuService.createMenuItemForGroups(BASE, USER, [])).rejects.toThrow();
+    await expect(
+      MenuService.createMenuItemForGroups(BASE, USER, [])
+    ).rejects.toThrow();
     expect(prisma.menuItem.createManyAndReturn).not.toHaveBeenCalled();
   });
 });

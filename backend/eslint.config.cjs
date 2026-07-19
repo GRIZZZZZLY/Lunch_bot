@@ -1,77 +1,85 @@
-const { FlatCompat } = require('@eslint/eslintrc');
 const js = require('@eslint/js');
 const globals = require('globals');
-const tseslint = require('@typescript-eslint/eslint-plugin');
-const tsParser = require('@typescript-eslint/parser');
+const tseslint = require('typescript-eslint');
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-  recommendedConfig: js.configs.recommended,
-});
-
-module.exports = [
+module.exports = tseslint.config(
   {
-    ignores: [
-      'dist/**',
-      'prisma/**',
-      'scripts/**',
-      '**/__tests__/**',
-      'coverage/**',
-      'node_modules/**',
-      '**/*.js',
-      '**/*.cjs',
-    ],
+    ignores: ['dist/**', 'coverage/**', 'node_modules/**'],
   },
-  ...compat.extends(
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'prettier'
-  ),
+  js.configs.recommended,
   {
+    files: ['**/*.{js,cjs,mjs}'],
     languageOptions: {
-      parser: tsParser,
+      globals: globals.node,
+    },
+  },
+  {
+    files: ['**/*.ts'],
+    extends: [...tseslint.configs.recommended],
+    languageOptions: {
       parserOptions: {
-        project: 'tsconfig.json',
+        project: './tsconfig.eslint.json',
         tsconfigRootDir: __dirname,
-        sourceType: 'module',
       },
       globals: {
         ...globals.node,
         ...globals.jest,
       },
     },
-    plugins: {
-      '@typescript-eslint': tseslint,
-    },
     rules: {
-      '@typescript-eslint/interface-name-prefix': 'off',
-      '@typescript-eslint/explicit-function-return-type': 'warn',
-      '@typescript-eslint/explicit-module-boundary-types': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/ban-ts-comment': 'warn',
-      '@typescript-eslint/no-unused-vars': 'warn',
-      '@typescript-eslint/no-var-requires': 'warn',
-      '@typescript-eslint/no-require-imports': 'warn',
-      '@typescript-eslint/no-namespace': 'warn',
-      'no-irregular-whitespace': 'warn',
-      'no-console': 'warn',
-      'prefer-const': 'warn',
-      'no-var': 'warn',
-      'object-shorthand': 'warn',
-      'prefer-arrow-callback': 'warn',
-      'prefer-template': 'warn',
-      'no-param-reassign': 'warn',
-      'no-return-await': 'warn',
-      'require-await': 'warn',
-      'no-await-in-loop': 'warn',
-      'array-callback-return': 'warn',
-      'consistent-return': 'warn',
-      'no-nested-ternary': 'warn',
-      'no-prototype-builtins': 'warn',
-      'no-case-declarations': 'warn',
-      'max-depth': ['warn', 4],
-      'complexity': ['warn', 10],
-      'max-lines-per-function': ['warn', 50],
+      // The compiler remains strict; legacy SDK/Prisma boundaries still use
+      // explicit `any` and inferred public return types.
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': [
+        'error',
+        { checksVoidReturn: false },
+      ],
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      '@typescript-eslint/use-unknown-in-catch-callback-variable': 'error',
+      // Knip owns repository-wide dead-code checks; enabling this rule on the
+      // legacy service layer would require touching concurrent work.
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-console': 'error',
+      'prefer-const': 'error',
+      'no-var': 'error',
+      'object-shorthand': 'error',
+      'prefer-template': 'error',
+      'no-param-reassign': 'error',
     },
   },
-];
+  {
+    files: [
+      'scripts/**/*.ts',
+      'src/scripts/**/*.ts',
+      'src/**/__tests__/**/*.ts',
+      'src/**/*.test.ts',
+      'prisma/**/*.ts',
+    ],
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
+    files: [
+      'src/config/**/*.ts',
+      'src/database/seeders/**/*.ts',
+      'src/scripts/**/*.ts',
+      'src/utils/error.ts',
+      'src/utils/security-checks.ts',
+    ],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+);

@@ -74,7 +74,7 @@ export class QuestService {
       for (const quest of questsToAssign) {
         const requirement: QuestRequirement = typeof quest.requirement === 'string'
           ? JSON.parse(quest.requirement)
-          : quest.requirement as unknown as QuestRequirement;
+          : quest.requirement;
         await prisma.userQuest.create({
           data: {
             userId,
@@ -142,7 +142,7 @@ export class QuestService {
       for (const quest of randomQuests) {
         const requirement: QuestRequirement = typeof quest.requirement === 'string'
           ? JSON.parse(quest.requirement)
-          : quest.requirement as unknown as QuestRequirement;
+          : quest.requirement;
         await prisma.userQuest.create({
           data: {
             userId,

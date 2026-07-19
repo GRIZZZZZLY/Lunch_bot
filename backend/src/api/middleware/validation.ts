@@ -4,8 +4,7 @@ import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
 
 // Схемы валидации для меню
-const createMenuItemSchema = z.object({
-  groupIds: z.array(z.number().int().positive('Group ID must be positive')).min(1, 'At least one group is required'),
+const menuItemBaseSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
   description: z.string().max(500, 'Description too long').optional().or(z.literal('')),
   price: z.number().min(0, 'Price cannot be negative').optional(),
@@ -13,7 +12,23 @@ const createMenuItemSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-const updateMenuItemSchema = createMenuItemSchema.partial().omit({ groupIds: true });
+const createMenuItemSchema = menuItemBaseSchema.extend({
+  groupIds: z
+    .array(z.number().int().positive('Group ID must be positive'))
+    .min(1, 'At least one group is required')
+    .optional(),
+  groupId: z.number().int().positive('Group ID must be positive').optional(),
+}).superRefine((data, ctx) => {
+  if (!data.groupId && (!data.groupIds || data.groupIds.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['groupIds'],
+      message: 'At least one group is required',
+    });
+  }
+});
+
+const updateMenuItemSchema = menuItemBaseSchema.partial();
 
 // Схемы валидации для голосований
 const createPollSchema = z.object({
@@ -55,8 +70,18 @@ export function validateMenuItemData(
       return;
     }
 
-    // Заменяем body валидированными данными
-    req.body = result.data;
+    // Заменяем body валидированными данными. Для обратной совместимости
+    // старый create-контракт `groupId` нормализуется в текущий `groupIds`.
+    const data = result.data as Record<string, unknown>;
+    if (
+      req.method === 'POST' &&
+      !Array.isArray(data.groupIds) &&
+      typeof data.groupId === 'number'
+    ) {
+      data.groupIds = [data.groupId];
+    }
+
+    req.body = data;
     next();
 
   } catch (error) {

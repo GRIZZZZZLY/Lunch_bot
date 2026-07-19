@@ -34,7 +34,12 @@ export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) =
   // Получаем итоговые суммы по заказу
   const { data: pollTotals } = useQuery({
     queryKey: ['pollTotals', currentPollId],
-    queryFn: () => budgetService.getPollTotals(currentPollId),
+    queryFn: () => {
+      if (!currentPollId) {
+        throw new Error('Не удалось определить текущий опрос');
+      }
+      return budgetService.getPollTotals(currentPollId);
+    },
     enabled: !!currentPollId,
   });
 
@@ -79,7 +84,7 @@ export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) =
     onSuccess: () => {
       haptic.success();
       toast.success('Платеж подтвержден!');
-      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();
@@ -97,7 +102,7 @@ export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) =
     onSuccess: () => {
       haptic.success();
       toast.success('Все платежи подтверждены!');
-      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();
@@ -118,7 +123,7 @@ export const ResponsibleView = ({ credits, otherDebts }: ResponsibleViewProps) =
     mutationFn: () => budgetService.sendRemindersToAll(currentPollId || 0),
     onSuccess: (data: SendRemindersResult) => {
       haptic.success();
-      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
 
       if (data.failedCount === 0) {
         toast.success(`✅ Отправлено ${data.sentCount} из ${data.totalCount} напоминаний`);

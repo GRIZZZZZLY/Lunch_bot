@@ -26,7 +26,7 @@ export const PollParticipantsAdminSection: React.FC<Props> = ({ pollId, onAutoCl
     try {
       const res = await adminService.getPollParticipants(pollId);
       if (res.success && res.data) setParticipants(res.data);
-    } catch (e) {
+    } catch (_e) {
       addNotification({ type: 'error', message: 'Не удалось загрузить участников' });
     } finally {
       setLoading(false);
@@ -34,7 +34,7 @@ export const PollParticipantsAdminSection: React.FC<Props> = ({ pollId, onAutoCl
   }, [pollId, addNotification]);
 
   useEffect(() => {
-    if (open && !participants) load();
+    if (open && !participants) void load();
   }, [open, participants, load]);
 
   const toggle = async (p: PollParticipantInfo) => {
@@ -52,7 +52,7 @@ export const PollParticipantsAdminSection: React.FC<Props> = ({ pollId, onAutoCl
         const autoClosed = res.autoClosed === true;
         if (autoClosed && onAutoClosed) onAutoClosed();
       }
-    } catch (e) {
+    } catch (_e) {
       addNotification({ type: 'error', message: 'Ошибка изменения статуса' });
     } finally {
       setBusyUserId(null);

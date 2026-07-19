@@ -110,8 +110,10 @@ export class MenuService {
       }
       await GroupService.assertAdmin(actingUserId, existing.groupId);
 
-      // groupId никогда не меняем через update — запрет переноса блюда в чужую группу.
-      const { groupId: _ignored, ...safeData } = data as UpdateMenuItemData & { groupId?: number };
+      // groupId/groupIds никогда не меняем через update: это защита от переноса блюда и лишних полей формы.
+      const safeData = { ...(data as UpdateMenuItemData & { groupId?: number; groupIds?: number[] }) };
+      delete safeData.groupId;
+      delete safeData.groupIds;
 
       const menuItem = await prisma.menuItem.update({
         where: { id, groupId: existing.groupId },
@@ -400,7 +402,7 @@ export class MenuService {
         price: item.price ? toNumber(item.price) : null,
         voteCount: item._count.votes,
         winCount: item._count.pollResults,
-      })) as MenuItemWithStats[];
+      }));
     } catch (error) {
       logger.error('Error getting popular menu items:', error);
       throw new Error('Failed to get popular menu items');

@@ -96,7 +96,7 @@ export class PollService {
       });
 
       // Инвалидируем кэш активных голосований
-      CacheInvalidator.invalidatePoll(poll.id, poll.groupId);
+      void CacheInvalidator.invalidatePoll(poll.id, poll.groupId);
 
       logger.info(`Poll created: ${poll.id} in group ${poll.groupId}`);
       return poll;
@@ -551,7 +551,7 @@ export class PollService {
       const { pollResult, poll } = result;
 
       // Инвалидируем кэш после завершения голосования
-      CacheInvalidator.invalidatePoll(pollId, poll.groupId);
+      void CacheInvalidator.invalidatePoll(pollId, poll.groupId);
       
       logger.info(`Poll completed: ${pollId}, winner: ${pollResult.winnerMenuItemId}, total votes: ${poll.votes.length}`);
 
@@ -612,7 +612,7 @@ export class PollService {
       });
 
       // Инвалидируем кэш активных голосований
-      CacheInvalidator.invalidatePoll(pollId, poll.groupId);
+      void CacheInvalidator.invalidatePoll(pollId, poll.groupId);
       logger.info(`Cache invalidated for cancelled poll ${pollId} in group ${poll.groupId}`);
 
       // Отправляем уведомления об отмене
@@ -1464,7 +1464,7 @@ export class PollService {
       });
 
       // 8. Инвалидируем кэш
-      CacheInvalidator.invalidatePoll(pollId, poll.groupId);
+      void CacheInvalidator.invalidatePoll(pollId, poll.groupId);
 
       logger.info(`Poll ${pollId} completed with multi-winner mode`, {
         winnersCount: winners.length,

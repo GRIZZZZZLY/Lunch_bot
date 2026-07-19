@@ -10,7 +10,10 @@ https.get('https://api.telegram.org/', (res) => {
   console.log('');
   
   // Тест 2: Запрос к боту
-  const BOT_TOKEN = process.env.BOT_TOKEN || 'REDACTED-BOT-TOKEN';
+  const BOT_TOKEN = process.env.BOT_TOKEN;
+  if (!BOT_TOKEN) {
+    throw new Error('Set BOT_TOKEN in the process environment before running this script.');
+  }
   
   https.get(`https://api.telegram.org/bot${BOT_TOKEN}/getMe`, (res2) => {
     console.log('✅ Test 2: Bot API request successful');

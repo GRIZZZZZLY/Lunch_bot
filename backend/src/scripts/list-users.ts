@@ -70,4 +70,4 @@ async function listUsers() {
   }
 }
 
-listUsers();
+void listUsers();

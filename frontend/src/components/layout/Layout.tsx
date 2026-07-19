@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { useTelegram } from '../../hooks/useTelegram';
 import { useAuth } from '../../hooks/useAuth';
@@ -105,8 +104,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     </div>
   );
 };
-
-export { Header } from './Header';
 
 /**
  * Navigation компонент с glassmorphism эффектом

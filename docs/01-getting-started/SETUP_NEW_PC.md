@@ -53,7 +53,7 @@ npm install
 # Проверьте следующие параметры:
 
 DATABASE_URL=file:./dev.db                    # SQLite
-BOT_TOKEN=8298516078:AAF3Q...                 # Telegram Bot Token
+BOT_TOKEN=<telegram-bot-token>                # Telegram Bot Token
 API_PORT=3001
 API_HOST=127.0.0.1
 ```

@@ -10,6 +10,34 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['tests/**/*.{test,spec}.{ts,tsx,js,jsx}'],
     exclude: ['**/node_modules/**', 'tests/e2e/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary'],
+      include: [
+        'src/components/admin/**/*.tsx',
+        'src/components/donation/DonationModal.tsx',
+        'src/components/home/HomeEmptyStateCard.tsx',
+        'src/components/polls/PollParticipantsAdminSection.tsx',
+        'src/components/voting/InlineVotingCard.tsx',
+        'src/components/voting/MultiWinnerResults.tsx',
+        'src/hooks/useCurrentGroup.ts',
+        'src/services/admin.service.ts',
+        'src/services/category-order.service.ts',
+        'src/services/donation.service.ts',
+        'src/services/feedback.service.ts',
+        'src/services/gamification.service.ts',
+        'src/services/store-run.service.ts',
+        'src/utils/chunkRecovery.ts',
+        'src/utils/deepLinks.ts',
+        'src/utils/versionCheck.ts',
+      ],
+      thresholds: {
+        branches: 70,
+        functions: 70,
+        lines: 70,
+        statements: 70,
+      },
+    },
   },
   plugins: [
     react(),
@@ -37,18 +65,11 @@ export default defineConfig({
         globIgnores: ['**/stats.html', '**/*.map'],
         // Стратегии кэширования
         runtimeCaching: [
-          // API запросы - Network First (сначала сеть, потом кэш)
+          // API-ответы всегда берём из сети: голосования и расчёты нельзя
+          // обслуживать устаревшими данными из service worker.
           {
             urlPattern: /^https:\/\/.*\/api\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 5, // 5 минут
-              },
-              networkTimeoutSeconds: 10,
-            }
+            handler: 'NetworkOnly',
           },
           // HTML файлы - Network First с коротким timeout (всегда обновляются)
           {

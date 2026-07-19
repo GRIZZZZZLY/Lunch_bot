@@ -106,7 +106,7 @@ npx prisma migrate dev --name init
 
 5. **Скопировать токен:**
    ```
-   7592503226:AAE7XJZd6TPW_aWzcHg2QiD-X0kHVQ0Br9I
+   <telegram-bot-token>
    ```
 
 ### 2.2 Настройка бота
@@ -156,7 +156,7 @@ POSTGRES_PORT=5432
 DATABASE_URL="postgresql://foodbot:foodbot_password@localhost:5432/foodbot_db?schema=public"
 
 # Telegram Bot Configuration
-BOT_TOKEN=7592503226:AAE7XJZd6TPW_aWzcHg2QiD-X0kHVQ0Br9I
+BOT_TOKEN=<telegram-bot-token>
 BOT_USERNAME=my_food_order_bot
 BOT_WEBHOOK_URL=  # Оставить пустым для polling режима
 
@@ -279,7 +279,7 @@ BOT_WEBHOOK_URL=https://abc123.ngrok.io/webhook
 **Установить webhook вручную:**
 ```powershell
 # Через curl (если установлен)
-curl -X POST "https://api.telegram.org/bot7592503226:AAE7XJZd6TPW_aWzcHg2QiD-X0kHVQ0Br9I/setWebhook?url=https://abc123.ngrok.io/webhook"
+curl -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook?url=https://abc123.ngrok.io/webhook"
 
 # Или через браузер
 # Открыть: https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=https://abc123.ngrok.io/webhook

@@ -86,6 +86,8 @@ const getConfidenceLabel = (confidence: LunchDnaProfile['confidence']): string =
       return 'Высокая уверенность';
     case 'medium':
       return 'Уверенный сигнал';
+    case 'low':
+      return 'Недостаточно данных';
     default:
       return 'Недостаточно данных';
   }

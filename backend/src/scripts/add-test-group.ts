@@ -73,4 +73,4 @@ async function addTestGroup() {
   }
 }
 
-addTestGroup();
+void addTestGroup();

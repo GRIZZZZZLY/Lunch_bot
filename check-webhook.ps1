@@ -1,10 +1,12 @@
 # PowerShell script to check Telegram webhook status
 # Usage: .\check-webhook.ps1
 
-$BOT_TOKEN = "REDACTED-BOT-TOKEN"
+$BOT_TOKEN = $env:BOT_TOKEN
+if ([string]::IsNullOrWhiteSpace($BOT_TOKEN)) {
+    throw "Set BOT_TOKEN in the process environment before running this script."
+}
 
 Write-Host "Checking Telegram webhook status..." -ForegroundColor Cyan
-Write-Host "Bot Token: $BOT_TOKEN`n" -ForegroundColor Yellow
 
 $getWebhookUrl = "https://api.telegram.org/bot$BOT_TOKEN/getWebhookInfo"
 

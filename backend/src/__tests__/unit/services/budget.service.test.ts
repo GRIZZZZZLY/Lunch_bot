@@ -23,10 +23,14 @@ jest.mock('../../../database/client', () => ({
 }));
 
 jest.mock('../../../utils/logger', () => ({
-  logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() },
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { prisma } = require('../../../database/client');
 
 describe('BudgetService.setOrderCosts — пересчёт расходов', () => {
@@ -81,7 +85,9 @@ describe('BudgetService.setOrderCosts — пересчёт расходов', ()
     expect(call.data.amount).toBe(200);
 
     // Оплаченные долги (id=2, id=3) не трогаем — их суммы не меняются задним числом.
-    const touchedIds = txMock.transaction.update.mock.calls.map((c: any) => c[0].where.id);
+    const touchedIds = txMock.transaction.update.mock.calls.map(
+      (c: any) => c[0].where.id
+    );
     expect(touchedIds).not.toContain(2);
     expect(touchedIds).not.toContain(3);
   });

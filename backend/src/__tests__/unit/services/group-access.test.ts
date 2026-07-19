@@ -1,13 +1,25 @@
-import { GroupService, GroupAccessError } from '../../../services/group.service';
+import {
+  GroupService,
+  GroupAccessError,
+} from '../../../services/group.service';
 
 jest.mock('../../../database/client', () => ({
   prisma: {
-    groupMember: { findFirst: jest.fn(), findUnique: jest.fn(), upsert: jest.fn() },
+    groupMember: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+    },
   },
 }));
 
 jest.mock('../../../utils/logger', () => ({
-  logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() },
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
 const getChatMember = jest.fn();
@@ -15,7 +27,6 @@ jest.mock('../../../bot/bot-instance', () => ({
   getBotInstance: jest.fn(() => ({ api: { getChatMember } })),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { prisma } = require('../../../database/client');
 
 describe('GroupService authz primitives', () => {
@@ -54,17 +65,23 @@ describe('GroupService authz primitives', () => {
   describe('verifyTelegramMembership', () => {
     it('returns true when Telegram status is member/admin/creator', async () => {
       getChatMember.mockResolvedValue({ status: 'member' });
-      await expect(GroupService.verifyTelegramMembership(100n, 200n)).resolves.toBe(true);
+      await expect(
+        GroupService.verifyTelegramMembership(100n, 200n)
+      ).resolves.toBe(true);
     });
 
     it('returns false (fail closed) when status is left', async () => {
       getChatMember.mockResolvedValue({ status: 'left' });
-      await expect(GroupService.verifyTelegramMembership(100n, 200n)).resolves.toBe(false);
+      await expect(
+        GroupService.verifyTelegramMembership(100n, 200n)
+      ).resolves.toBe(false);
     });
 
     it('returns false (fail closed) when getChatMember throws', async () => {
       getChatMember.mockRejectedValue(new Error('Bad Request: user not found'));
-      await expect(GroupService.verifyTelegramMembership(100n, 200n)).resolves.toBe(false);
+      await expect(
+        GroupService.verifyTelegramMembership(100n, 200n)
+      ).resolves.toBe(false);
     });
   });
 
@@ -75,7 +92,11 @@ describe('GroupService authz primitives', () => {
     it('adds membership when Telegram verifies the user', async () => {
       getChatMember.mockResolvedValue({ status: 'member' });
       prisma.groupMember.findUnique.mockResolvedValue(null);
-      prisma.groupMember.upsert.mockResolvedValue({ id: 1, groupId: 42, userId: 7 });
+      prisma.groupMember.upsert.mockResolvedValue({
+        id: 1,
+        groupId: 42,
+        userId: 7,
+      });
 
       const result = await GroupService.addMemberFromStartParam(group, user);
 

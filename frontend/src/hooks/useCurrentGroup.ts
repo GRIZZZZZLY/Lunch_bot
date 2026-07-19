@@ -21,7 +21,8 @@ export function useCurrentGroup(): {
     }
 
     const valid = currentGroupId != null && groups.some((g) => g.id === currentGroupId);
-    if (!valid) setCurrentGroupId(groups[0].id);
+    const [firstGroup] = groups;
+    if (!valid && firstGroup) setCurrentGroupId(firstGroup.id);
   }, [groups, isSuccess, currentGroupId, setCurrentGroupId]);
 
   const currentGroup = groups.find((g) => g.id === currentGroupId) ?? null;

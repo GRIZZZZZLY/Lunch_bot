@@ -7,11 +7,10 @@ import {
   XCircle,
   Lightbulb,
   ArrowLeft,
-  Filter,
   Search,
   Plus,
 } from 'lucide-react';
-import { PastelCard, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/pastel-card';
+import { CardContent } from '../components/ui/pastel-card';
 import { GlassCard } from '../components/ui/glass-card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -239,7 +238,11 @@ interface SuggestionCardProps {
   isDark: boolean;
 }
 
-function SuggestionCard({ suggestion, index, isDark }: SuggestionCardProps) {
+function SuggestionCard({
+  suggestion,
+  index,
+  isDark: _isDark,
+}: SuggestionCardProps) {
   const isPending = suggestion.status === 'PENDING';
   const isApproved = suggestion.status === 'APPROVED';
   const isRejected = suggestion.status === 'REJECTED';

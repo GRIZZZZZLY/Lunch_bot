@@ -130,10 +130,10 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
         const data: PollUpdatedEvent = JSON.parse(event.data);
 
         // Инвалидируем React Query кеш
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: queryKeys.polls.detail(pollId),
         });
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: queryKeys.polls.active(),
         });
 
@@ -148,16 +148,16 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
         const data: CategoryOrderUpdatedEvent = JSON.parse(event.data);
 
         // Инвалидируем category orders (все связанные query keys)
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: queryKeys.polls.detail(pollId),
         });
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: ['categoryOrders', pollId],
         });
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: ['categoryOrders', 'my', pollId],
         });
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: ['categoryOrder'],
         });
 
@@ -171,16 +171,16 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
       try {
         const data: ResponsibleSelectedEvent = JSON.parse(event.data);
 
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: queryKeys.polls.detail(pollId),
         });
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: ['categoryOrders', pollId],
         });
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: ['categoryOrders', 'my', pollId],
         });
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: ['categoryOrder'],
         });
 

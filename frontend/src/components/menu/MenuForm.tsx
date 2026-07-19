@@ -240,7 +240,7 @@ export const MenuForm: React.FC<MenuFormProps> = ({
 
   const handleInputChange = (
     field: keyof MenuFormData,
-    value: string | number | boolean
+    value: string | number | boolean | undefined
   ) => {
     // 🔒 SECURITY: Sanitize text inputs
     let sanitizedValue = value;

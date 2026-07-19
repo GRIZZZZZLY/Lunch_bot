@@ -1,8 +1,40 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../../types/api.types';
 import { MenuSuggestionService } from '../../services/menu-suggestion.service';
+import { GroupAccessError } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
+
+function resolveGroupId(req: AuthenticatedRequest): number | null {
+  const raw = (req.params?.groupId ?? req.query?.groupId ?? req.body?.groupId) as
+    | string
+    | number
+    | undefined;
+  const groupId = typeof raw === 'string' ? parseInt(raw, 10) : raw;
+  return typeof groupId === 'number' && Number.isFinite(groupId) && groupId > 0
+    ? groupId
+    : null;
+}
+
+function sendSuggestionError(res: Response, error: unknown, fallbackMessage: string): void {
+  if (error instanceof GroupAccessError) {
+    res.status(403).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
+  logger.error(fallbackMessage, error);
+  res.status(500).json({
+    success: false,
+    error: error instanceof Error ? error.message : fallbackMessage,
+    code: 'INTERNAL_ERROR',
+    timestamp: new Date().toISOString(),
+  });
+}
 
 /**
  * Создать новое предложение блюда
@@ -201,17 +233,7 @@ export async function approveSuggestion(req: AuthenticatedRequest, res: Response
   try {
     const id = getParam(req.params, 'id');
     const userId = req.user?.id;
-    const isAdmin = req.user?.isAdmin;
-
-    if (!isAdmin) {
-      res.status(403).json({
-        success: false,
-        error: 'Only admins can approve suggestions',
-        code: 'FORBIDDEN',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+    const groupId = resolveGroupId(req);
 
     if (!userId) {
       res.status(401).json({
@@ -223,9 +245,20 @@ export async function approveSuggestion(req: AuthenticatedRequest, res: Response
       return;
     }
 
+    if (!groupId) {
+      res.status(400).json({
+        success: false,
+        error: 'groupId is required',
+        code: 'MISSING_GROUP_ID',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
     const result = await MenuSuggestionService.approveSuggestion(
       parseInt(id, 10),
-      userId
+      userId,
+      groupId
     );
 
     // Отправить уведомление пользователю (опционально через бота)
@@ -236,14 +269,8 @@ export async function approveSuggestion(req: AuthenticatedRequest, res: Response
       data: result,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    logger.error('Error approving suggestion:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to approve suggestion',
-      code: 'INTERNAL_ERROR',
-      timestamp: new Date().toISOString(),
-    });
+  } catch (error: unknown) {
+    sendSuggestionError(res, error, 'Failed to approve suggestion');
   }
 }
 
@@ -255,17 +282,7 @@ export async function rejectSuggestion(req: AuthenticatedRequest, res: Response)
     const id = getParam(req.params, 'id');
     const { reason } = req.body;
     const userId = req.user?.id;
-    const isAdmin = req.user?.isAdmin;
-
-    if (!isAdmin) {
-      res.status(403).json({
-        success: false,
-        error: 'Only admins can reject suggestions',
-        code: 'FORBIDDEN',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+    const groupId = resolveGroupId(req);
 
     if (!userId) {
       res.status(401).json({
@@ -277,10 +294,21 @@ export async function rejectSuggestion(req: AuthenticatedRequest, res: Response)
       return;
     }
 
+    if (!groupId) {
+      res.status(400).json({
+        success: false,
+        error: 'groupId is required',
+        code: 'MISSING_GROUP_ID',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
     const suggestion = await MenuSuggestionService.rejectSuggestion(
       parseInt(id, 10),
       userId,
-      reason
+      reason,
+      groupId
     );
 
     // Отправить уведомление пользователю (опционально через бота)
@@ -291,14 +319,8 @@ export async function rejectSuggestion(req: AuthenticatedRequest, res: Response)
       data: suggestion,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    logger.error('Error rejecting suggestion:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to reject suggestion',
-      code: 'INTERNAL_ERROR',
-      timestamp: new Date().toISOString(),
-    });
+  } catch (error: unknown) {
+    sendSuggestionError(res, error, 'Failed to reject suggestion');
   }
 }
 
@@ -307,19 +329,19 @@ export async function rejectSuggestion(req: AuthenticatedRequest, res: Response)
  */
 export async function getStats(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const isAdmin = req.user?.isAdmin;
+    const groupId = resolveGroupId(req);
 
-    if (!isAdmin) {
-      res.status(403).json({
+    if (!groupId) {
+      res.status(400).json({
         success: false,
-        error: 'Only admins can view stats',
-        code: 'FORBIDDEN',
+        error: 'groupId is required',
+        code: 'MISSING_GROUP_ID',
         timestamp: new Date().toISOString(),
       });
       return;
     }
 
-    const stats = await MenuSuggestionService.getStats();
+    const stats = await MenuSuggestionService.getStats(groupId);
 
     res.json({
       success: true,
@@ -342,19 +364,19 @@ export async function getStats(req: AuthenticatedRequest, res: Response): Promis
  */
 export async function getPendingCount(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const isAdmin = req.user?.isAdmin;
+    const groupId = resolveGroupId(req);
 
-    if (!isAdmin) {
-      res.status(403).json({
+    if (!groupId) {
+      res.status(400).json({
         success: false,
-        error: 'Only admins can view pending count',
-        code: 'FORBIDDEN',
+        error: 'groupId is required',
+        code: 'MISSING_GROUP_ID',
         timestamp: new Date().toISOString(),
       });
       return;
     }
 
-    const count = await MenuSuggestionService.getPendingCount();
+    const count = await MenuSuggestionService.getPendingCount(groupId);
 
     res.json({
       success: true,
@@ -378,32 +400,26 @@ export async function getPendingCount(req: AuthenticatedRequest, res: Response):
 export async function deleteSuggestion(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const id = getParam(req.params, 'id');
-    const isAdmin = req.user?.isAdmin;
+    const groupId = resolveGroupId(req);
 
-    if (!isAdmin) {
-      res.status(403).json({
+    if (!groupId) {
+      res.status(400).json({
         success: false,
-        error: 'Only admins can delete suggestions',
-        code: 'FORBIDDEN',
+        error: 'groupId is required',
+        code: 'MISSING_GROUP_ID',
         timestamp: new Date().toISOString(),
       });
       return;
     }
 
-    await MenuSuggestionService.deleteSuggestion(parseInt(id, 10));
+    await MenuSuggestionService.deleteSuggestion(parseInt(id, 10), groupId);
 
     res.status(200).json({
       success: true,
       message: 'Suggestion deleted',
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    logger.error('Error deleting suggestion:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to delete suggestion',
-      code: 'INTERNAL_ERROR',
-      timestamp: new Date().toISOString(),
-    });
+  } catch (error: unknown) {
+    sendSuggestionError(res, error, 'Failed to delete suggestion');
   }
 }

@@ -37,7 +37,7 @@ export function updateStreakAfterVote(userId: number): {
   newMilestone?: any;
 } {
   const streak = getUserStreak(userId);
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().slice(0, 10);
   const lastVoteDate = streak.lastVoteDate;
 
   // Проверяем дату последнего голосования
@@ -48,7 +48,7 @@ export function updateStreakAfterVote(userId: number): {
 
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
 
   const previousStreak = streak.currentStreak;
 

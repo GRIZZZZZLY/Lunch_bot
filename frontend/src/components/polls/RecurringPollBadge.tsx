@@ -57,7 +57,7 @@ export const RecurringPollBadge = ({
   }, [groupId]);
 
   useEffect(() => {
-    loadSchedule();
+    void loadSchedule();
   }, [loadSchedule]);
 
   if (loading || !schedule) {

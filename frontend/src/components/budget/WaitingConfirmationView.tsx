@@ -41,7 +41,7 @@ export const WaitingConfirmationView = ({
     onSuccess: () => {
       haptic.success();
       toast.success('Отметка оплаты отменена');
-      queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
     onError: () => {
       haptic.error();

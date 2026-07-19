@@ -5,7 +5,10 @@ param(
     [string]$CustomUrl = ""
 )
 
-$BOT_TOKEN = "REDACTED-BOT-TOKEN"
+$BOT_TOKEN = $env:BOT_TOKEN
+if ([string]::IsNullOrWhiteSpace($BOT_TOKEN)) {
+    throw "Set BOT_TOKEN in the process environment before running this script."
+}
 
 # Get URL from .env if not provided
 if ([string]::IsNullOrEmpty($CustomUrl)) {

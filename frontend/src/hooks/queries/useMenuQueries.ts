@@ -41,7 +41,7 @@ export const useCreateMenuItem = () => {
     },
     onSuccess: () => {
       // Блюдо могло быть создано в нескольких группах — инвалидируем все списки меню
-      queryClient.invalidateQueries({ queryKey: queryKeys.menu.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.menu.all });
     },
   });
 };
@@ -67,7 +67,7 @@ export const useUpdateMenuItem = () => {
 
       // Инвалидация списка для текущей группы
       if (currentGroupId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
       }
     },
   });
@@ -94,7 +94,7 @@ export const useDeleteMenuItem = () => {
 
       // Инвалидация списка для текущей группы
       if (currentGroupId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
       }
     },
   });
@@ -136,7 +136,7 @@ export const useToggleMenuItemStatus = () => {
       // Обновляем данные
       queryClient.setQueryData(queryKeys.menu.detail(id), data);
       if (currentGroupId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.menu.lists(currentGroupId) });
       }
     },
     onError: (_error: Error, id, context) => {

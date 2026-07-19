@@ -71,7 +71,7 @@ export function BudgetInsightsWidget() {
       }
     }
 
-    loadInsights();
+    void loadInsights();
 
     return () => {
       cancelled = true;

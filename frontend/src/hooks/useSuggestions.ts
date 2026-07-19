@@ -70,11 +70,11 @@ export function useCreateSuggestion() {
     },
     onSuccess: () => {
       // Invalidate ALL suggestion queries
-      queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
-      queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-count'] });
+      void queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
+      void queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['pending-count'] });
       // Force immediate refetch
-      queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
+      void queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
       addNotification({
         type: 'success',
         message: 'Предложение отправлено на рассмотрение',
@@ -107,12 +107,12 @@ export function useApproveSuggestion() {
     },
     onSuccess: () => {
       // Invalidate ALL suggestion queries (admin and user views)
-      queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
-      queryClient.invalidateQueries({ queryKey: ['menu'] });
-      queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-count'] });
+      void queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
+      void queryClient.invalidateQueries({ queryKey: ['menu'] });
+      void queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['pending-count'] });
       // Force immediate refetch
-      queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
+      void queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
       addNotification({
         type: 'success',
         message: 'Предложение одобрено и добавлено в меню',
@@ -145,11 +145,11 @@ export function useRejectSuggestion() {
     },
     onSuccess: () => {
       // Invalidate ALL suggestion queries (admin and user views)
-      queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
-      queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-count'] });
+      void queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
+      void queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['pending-count'] });
       // Force immediate refetch
-      queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
+      void queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
       addNotification({
         type: 'info',
         message: 'Предложение отклонено',
@@ -223,11 +223,11 @@ export function useDeleteSuggestion() {
     },
     onSuccess: () => {
       // Invalidate ALL suggestion queries (admin and user views)
-      queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
-      queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-count'] });
+      void queryClient.invalidateQueries({ queryKey: ['suggestions'], exact: false });
+      void queryClient.invalidateQueries({ queryKey: ['suggestion-stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['pending-count'] });
       // Force immediate refetch
-      queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
+      void queryClient.refetchQueries({ queryKey: ['suggestions'], exact: false });
       addNotification({
         type: 'success',
         message: 'Предложение удалено',

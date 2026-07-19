@@ -85,7 +85,7 @@ const mapRowForPrisma = (row: Record<string, any>, modelName: string) => {
     if (meta.type === 'Boolean') {
       out[meta.name] = raw === 1 || raw === '1' || raw === true;
     } else if (meta.type === 'BigInt') {
-      out[meta.name] = typeof raw === 'bigint' ? raw : BigInt(raw as any);
+      out[meta.name] = typeof raw === 'bigint' ? raw : BigInt(raw);
     } else {
       out[meta.name] = raw;
     }
@@ -355,8 +355,8 @@ async function migrateTable(
           console.error(`❌ Error in batch ${i + 1}/${batches} of ${tableName}:`);
           console.error('   message:', error.message || '<empty>');
           console.error('   name:', error.name);
-          console.error('   code:', (error as any).code);
-          if ((error as any).meta) console.error('   meta:', JSON.stringify((error as any).meta, null, 2));
+          console.error('   code:', (error).code);
+          if ((error).meta) console.error('   meta:', JSON.stringify((error).meta, null, 2));
           if (i === 0) {
             // Dump first row of failing batch for diagnosis
             console.error('   first row sample:', JSON.stringify(batch[0], (_k, v) =>
@@ -483,7 +483,7 @@ async function main() {
     }
 
     // Summary
-    console.log('\n' + '='.repeat(60));
+    console.log(`\n${  '='.repeat(60)}`);
     console.log('📊 Migration Summary\n');
 
     const totalSource = allStats.reduce((sum, s) => sum + s.sourceCount, 0);
@@ -554,7 +554,7 @@ async function main() {
 // Execute
 // ============================================================================
 
-main().catch((error) => {
+main().catch((error: unknown) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });

@@ -63,7 +63,7 @@ cleanupPolls()
     console.log('Done!');
     process.exit(0);
   })
-  .catch((error) => {
+  .catch((error: unknown) => {
     console.error('Failed:', error);
     process.exit(1);
   });

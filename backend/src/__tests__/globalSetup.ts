@@ -26,7 +26,16 @@ export default async function globalSetup(): Promise<void> {
 
   process.env.DATABASE_URL = testDatabaseUrl;
 
-  await ensureTestDatabaseExists(testDatabaseUrl);
+  try {
+    await ensureTestDatabaseExists(testDatabaseUrl);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Cannot prepare PostgreSQL test database at ${redactDatabaseUrl(testDatabaseUrl)}. ` +
+        'Start PostgreSQL or set TEST_DATABASE_URL to a reachable test database. ' +
+        `Original error: ${message}`
+    );
+  }
 
   const backendDir = path.resolve(__dirname, '..', '..');
 
@@ -40,6 +49,18 @@ export default async function globalSetup(): Promise<void> {
       env: { ...process.env, DATABASE_URL: testDatabaseUrl },
     }
   );
+}
+
+function redactDatabaseUrl(databaseUrl: string): string {
+  try {
+    const url = new URL(databaseUrl);
+    if (url.password) {
+      url.password = '***';
+    }
+    return url.toString();
+  } catch {
+    return '<invalid database url>';
+  }
 }
 
 /**

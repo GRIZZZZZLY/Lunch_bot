@@ -328,15 +328,13 @@ export const useTelegram = (): UseTelegramReturn => {
   }, []);
 
   const enableClosingConfirmation = useMemo(() => {
-    return WebApp.enableClosingConfirmation ? () => {
-      WebApp.enableClosingConfirmation();
-    } : undefined;
+    const enable = WebApp.enableClosingConfirmation;
+    return enable ? () => enable.call(WebApp) : undefined;
   }, []);
 
   const disableClosingConfirmation = useMemo(() => {
-    return WebApp.disableClosingConfirmation ? () => {
-      WebApp.disableClosingConfirmation();
-    } : undefined;
+    const disable = WebApp.disableClosingConfirmation;
+    return disable ? () => disable.call(WebApp) : undefined;
   }, []);
 
   return {
