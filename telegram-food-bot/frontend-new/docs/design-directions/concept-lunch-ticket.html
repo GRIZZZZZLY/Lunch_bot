@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Концепт «Обеденный талон»</title>
+<style>
+/* ===== КОНЦЕПТ «ОБЕДЕННЫЙ ТАЛОН» — Rocket Lunch =====
+   Голосование = талон на обед (чек с перфорацией). Таймер — герой.
+   Еда видима (эмодзи-иконография). Настоящие слои: тёплые тени, поднятые
+   поверхности. Один сочный акцент «паприка». */
+@font-face { font-family: 'Onest'; font-weight: 400 800; font-display: swap;
+  src: url('../../public/fonts/onest-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+2116; }
+@font-face { font-family: 'Onest'; font-weight: 400 800; font-display: swap;
+  src: url('../../public/fonts/onest-latin.woff2') format('woff2'); }
+
+* { box-sizing: border-box; margin: 0; }
+body { background: #6B655C; padding: 28px; font-family: 'Onest', system-ui, sans-serif;
+  display: grid; grid-template-columns: repeat(4, 390px); gap: 28px; justify-content: center; }
+.label { position: absolute; top: -22px; left: 4px; font-size: 11px; letter-spacing: .1em;
+  color: #E8E2D6; text-transform: uppercase; }
+
+/* ---------- телефон ---------- */
+.ph { position: relative; width: 390px; height: 844px; overflow: hidden; display: flex;
+  flex-direction: column; border-radius: 20px; box-shadow: 0 24px 60px -24px rgba(0,0,0,.55); }
+
+/* ============ СВЕТЛАЯ: сливочная бумага ============ */
+.light { background: linear-gradient(180deg, #FBF3E4 0%, #F7EFDF 30%, #F5ECDA 100%); color: #221A10; }
+.light .muted { color: #8A7D68; } .light .mid { color: #5C5240; }
+
+/* ============ ТЁМНАЯ: вечерний ресторан ============ */
+.dark { background: linear-gradient(180deg, #1C1610 0%, #17120C 100%); color: #F4EBDC; }
+.dark .muted { color: #8D8270; } .dark .mid { color: #BFB29B; }
+
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* шапка */
+.top { display: flex; justify-content: space-between; align-items: baseline; padding: 20px 20px 0; }
+.brand { font-size: 12px; font-weight: 800; letter-spacing: .14em; color: #D9480F; }
+.dark .brand { color: #FF8A3D; }
+.date { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.h1 { padding: 6px 20px 14px; font-size: 30px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.08; }
+
+.scroll { flex: 1; overflow: hidden; padding: 0 16px; }
+
+/* ---------- ТАЛОН (чек с перфорацией) ---------- */
+.ticket { position: relative; background: #FFFEFA; border-radius: 18px;
+  box-shadow: 0 2px 4px rgba(90,62,20,.06), 0 14px 34px -14px rgba(90,62,20,.28); }
+.dark .ticket { background: #241D13; box-shadow: 0 2px 4px rgba(0,0,0,.4), 0 16px 40px -16px rgba(0,0,0,.7); }
+.ticket-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px 0; }
+.kicker { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #D9480F; }
+.dark .live { color: #FF8A3D; }
+.live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+.timer-row { display: flex; align-items: baseline; gap: 10px; padding: 6px 18px 2px; }
+.timer { font-size: 52px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: #D9480F; }
+.dark .timer { color: #FF8A3D; }
+.timer-cap { font-size: 13px; font-weight: 600; }
+
+.options { padding: 10px 18px 4px; }
+.opt { display: flex; align-items: center; gap: 12px; padding: 11px 0; }
+.opt + .opt { border-top: 1px solid rgba(90,62,20,.09); }
+.dark .opt + .opt { border-top-color: rgba(244,235,220,.08); }
+.emoji { width: 40px; height: 40px; border-radius: 12px; background: #FBF1DC; display: flex;
+  align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.dark .emoji { background: #2E2517; }
+.opt-main { flex: 1; min-width: 0; }
+.opt-name { font-size: 15.5px; font-weight: 600; }
+.opt.lead .opt-name { font-size: 17px; font-weight: 800; }
+.opt-sub { font-size: 12.5px; margin-top: 1px; }
+.opt-bar { height: 5px; border-radius: 99px; background: rgba(90,62,20,.1); margin-top: 7px; overflow: hidden; }
+.dark .opt-bar { background: rgba(244,235,220,.1); }
+.opt-bar i { display: block; height: 100%; border-radius: 99px; background: #E8590C; }
+.opt.lead .opt-bar i { background: linear-gradient(90deg, #E8590C, #F76707); }
+.pct { font-size: 15px; font-weight: 800; }
+.opt.lead .pct { font-size: 19px; color: #D9480F; }
+.dark .opt.lead .pct { color: #FF8A3D; }
+.check { color: #2F9E44; font-weight: 800; font-size: 13px; }
+
+/* перфорация талона */
+.perf { position: relative; height: 26px; }
+.perf::before { content: ''; position: absolute; left: 22px; right: 22px; top: 50%;
+  border-top: 2px dashed rgba(90,62,20,.18); }
+.dark .perf::before { border-top-color: rgba(244,235,220,.14); }
+.perf::after, .perf .n { content: ''; position: absolute; width: 22px; height: 22px; border-radius: 50%;
+  top: 2px; background: #F7EFDF; }
+.perf::after { left: -11px; box-shadow: inset -2px 0 3px rgba(90,62,20,.07); }
+.perf .n { right: -11px; box-shadow: inset 2px 0 3px rgba(90,62,20,.07); }
+.dark .perf::after, .dark .perf .n { background: #191309; box-shadow: none; }
+
+.ticket-cta { padding: 2px 18px 16px; }
+.btn { display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 14px;
+  background: #E8590C; color: #FFF6EC; font-size: 16.5px; font-weight: 800; letter-spacing: -0.01em;
+  box-shadow: 0 10px 22px -10px rgba(217,72,15,.55), inset 0 1px 0 rgba(255,255,255,.22); }
+.cta-note { text-align: center; font-size: 12px; margin-top: 9px; }
+
+/* ---------- строки «Сейчас» ---------- */
+.now { margin-top: 20px; }
+.now-title { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 0 4px 8px; }
+.rowcard { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-radius: 16px;
+  background: rgba(255,254,250,.72); margin-bottom: 8px; box-shadow: 0 6px 18px -10px rgba(90,62,20,.18); }
+.dark .rowcard { background: rgba(36,29,19,.85); box-shadow: 0 6px 18px -10px rgba(0,0,0,.5); }
+.row-main { flex: 1; min-width: 0; }
+.row-name { font-size: 15px; font-weight: 700; }
+.row-sub { font-size: 12.5px; margin-top: 1px; }
+.chip { font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 99px; }
+.chip.amber { background: rgba(232,89,12,.13); color: #C2410C; }
+.dark .chip.amber { background: rgba(255,138,61,.16); color: #FF8A3D; }
+.money { font-size: 16px; font-weight: 800; }
+
+/* ---------- нижняя навигация ---------- */
+.nav { margin: 10px 14px calc(14px + 8px); display: grid; grid-auto-flow: column; gap: 4px;
+  background: #FFFEFA; border-radius: 18px; padding: 7px; box-shadow: 0 -2px 6px rgba(90,62,20,.05), 0 12px 30px -12px rgba(90,62,20,.35); }
+.dark .nav { background: #241D13; box-shadow: 0 12px 30px -12px rgba(0,0,0,.7); }
+.nav a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 6px;
+  border-radius: 12px; font-size: 10.5px; font-weight: 600; color: inherit; text-decoration: none; opacity: .55; }
+.nav a.on { opacity: 1; background: rgba(232,89,12,.12); color: #C2410C; font-weight: 800; }
+.dark .nav a.on { background: rgba(255,138,61,.14); color: #FF8A3D; }
+.nav .ic { font-size: 19px; line-height: 1; }
+
+/* ---------- SHOPPING ---------- */
+.dtop { display: flex; align-items: center; gap: 10px; padding: 18px 20px 4px; }
+.back { font-size: 20px; opacity: .55; }
+.dtitle { flex: 1; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.seg-progress { padding: 10px 20px 2px; }
+.seg-line { display: grid; grid-auto-flow: column; gap: 5px; margin-top: 8px; }
+.seg { height: 7px; border-radius: 99px; background: rgba(90,62,20,.12); }
+.dark .seg { background: rgba(244,235,220,.12); }
+.seg.done { background: #2F9E44; }
+.seg.miss { background: #E03131; }
+.seg-cap { display: flex; justify-content: space-between; align-items: baseline; }
+.seg-cap b { font-size: 17px; font-weight: 800; }
+.seg-cap span { font-size: 12.5px; }
+
+.shop-sec { margin-top: 18px; padding: 0 4px; }
+.sec-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase; padding: 5px 12px; border-radius: 99px; margin-bottom: 6px; }
+.sec-chip.todo { background: rgba(232,89,12,.12); color: #C2410C; }
+.sec-chip.ok { background: rgba(47,158,68,.12); color: #2B8A3E; }
+.sec-chip.no { background: rgba(224,49,49,.1); color: #C92A2A; }
+.dark .sec-chip.todo { background: rgba(255,138,61,.15); color: #FF8A3D; }
+.dark .sec-chip.ok { background: rgba(105,219,124,.13); color: #69DB7C; }
+.dark .sec-chip.no { background: rgba(255,107,107,.12); color: #FF8787; }
+
+.item { padding: 12px 14px; border-radius: 16px; background: rgba(255,254,250,.72); margin-bottom: 8px;
+  box-shadow: 0 6px 18px -10px rgba(90,62,20,.18); }
+.dark .item { background: rgba(36,29,19,.85); box-shadow: 0 6px 18px -10px rgba(0,0,0,.5); }
+.item.focus { background: #FFFEFA; box-shadow: 0 3px 6px rgba(90,62,20,.08), 0 18px 40px -14px rgba(90,62,20,.35);
+  outline: 2px solid rgba(232,89,12,.45); outline-offset: 0; }
+.dark .item.focus { background: #2A2214; box-shadow: 0 18px 40px -14px rgba(0,0,0,.8); outline-color: rgba(255,138,61,.5); }
+.item-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.item-name { font-size: 15.5px; font-weight: 700; }
+.qty { font-weight: 600; opacity: .5; }
+.owner { font-size: 12px; flex-shrink: 0; }
+.note { font-size: 12.5px; margin-top: 1px; }
+.acts { display: flex; gap: 8px; margin-top: 11px; }
+.pill { flex: 1; display: flex; align-items: center; justify-content: center; height: 44px;
+  border-radius: 12px; font-size: 14.5px; font-weight: 700; background: rgba(90,62,20,.07); }
+.dark .pill { background: rgba(244,235,220,.09); }
+.pill.ghost { background: transparent; box-shadow: inset 0 0 0 1.5px rgba(90,62,20,.16); }
+.dark .pill.ghost { box-shadow: inset 0 0 0 1.5px rgba(244,235,220,.18); }
+.pill.solid { background: #E8590C; color: #FFF6EC; box-shadow: 0 8px 18px -8px rgba(217,72,15,.5); }
+.statusline { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.st { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 99px; }
+.st.ok { background: rgba(47,158,68,.13); color: #2B8A3E; }
+.st.no { background: rgba(224,49,49,.1); color: #C92A2A; }
+.dark .st.ok { background: rgba(105,219,124,.14); color: #69DB7C; }
+.dark .st.no { background: rgba(255,107,107,.13); color: #FF8787; }
+
+.field-label { font-size: 12.5px; font-weight: 700; margin-top: 12px; }
+.field { display: flex; align-items: center; margin-top: 6px; height: 52px; border-radius: 12px;
+  background: rgba(90,62,20,.06); padding: 0 14px; font-size: 22px; font-weight: 800; }
+.dark .field { background: rgba(0,0,0,.28); }
+.field .cur { margin-left: auto; opacity: .4; font-size: 16px; }
+.hint { font-size: 12px; margin-top: 6px; }
+
+.cta-zone { padding: 12px 16px calc(16px + 8px); background: linear-gradient(180deg, transparent, rgba(245,236,218,.9) 30%); }
+.dark .cta-zone { background: linear-gradient(180deg, transparent, rgba(23,18,12,.92) 30%); }
+</style></head><body>
+
+<!-- ============ 1. ГЛАВНАЯ · СВЕТЛАЯ ============ -->
+<div class="ph light"><span class="label">Главная · светлая</span>
+  <div class="top"><span class="brand">ROCKET LUNCH</span><span class="date muted">Пт, 18 июля</span></div>
+  <div class="h1">Что едим<br>сегодня?</div>
+  <div class="scroll">
+    <div class="ticket">
+      <div class="ticket-head"><span class="kicker muted">Обеденный талон</span><span class="live">Идёт</span></div>
+      <div class="timer-row"><span class="timer tnum">12:41</span><span class="timer-cap mid">до конца<br>голосования</span></div>
+      <div class="options">
+        <div class="opt lead">
+          <div class="emoji">🍜</div>
+          <div class="opt-main">
+            <div class="opt-name">Том-ям с креветками</div>
+            <div class="opt-sub"><span class="check">✓ ваш голос</span><span class="muted"> · 6 голосов</span></div>
+            <div class="opt-bar"><i style="width:46%"></i></div>
+          </div>
+          <span class="pct tnum">46%</span>
+        </div>
+        <div class="opt">
+          <div class="emoji">🍕</div>
+          <div class="opt-main">
+            <div class="opt-name">Пицца «Маргарита»</div>
+            <div class="opt-sub muted">4 голоса</div>
+            <div class="opt-bar"><i style="width:31%;opacity:.45"></i></div>
+          </div>
+          <span class="pct tnum mid">31%</span>
+        </div>
+        <div class="opt">
+          <div class="emoji">🌯</div>
+          <div class="opt-main">
+            <div class="opt-name">Шаурма классическая</div>
+            <div class="opt-sub muted">3 голоса</div>
+            <div class="opt-bar"><i style="width:23%;opacity:.45"></i></div>
+          </div>
+          <span class="pct tnum mid">23%</span>
+        </div>
+      </div>
+      <div class="perf"><span class="n"></span></div>
+      <div class="ticket-cta">
+        <div class="btn">Переголосовать</div>
+        <div class="cta-note muted">13 голосов · тап по блюду меняет голос</div>
+      </div>
+    </div>
+
+    <div class="now">
+      <div class="now-title muted">Сейчас</div>
+      <div class="rowcard">
+        <div class="emoji">🛒</div>
+        <div class="row-main">
+          <div class="row-name">Пятёрочка у офиса</div>
+          <div class="row-sub muted">Игорь в магазине · 2 из 4</div>
+        </div>
+        <span class="chip amber">В магазине</span>
+      </div>
+      <div class="rowcard">
+        <div class="emoji">🧾</div>
+        <div class="row-main">
+          <div class="row-name">Бюджет команды</div>
+          <div class="row-sub muted">Вы должны за вчерашний обед</div>
+        </div>
+        <span class="money tnum">260 ₽</span>
+      </div>
+    </div>
+  </div>
+  <div class="nav">
+    <a class="on"><span class="ic">🏠</span>Главная</a>
+    <a><span class="ic">🍽️</span>Меню</a>
+    <a><span class="ic">📊</span>Статистика</a>
+    <a><span class="ic">👤</span>Профиль</a>
+  </div>
+</div>
+
+<!-- ============ 2. ГЛАВНАЯ · ТЁМНАЯ ============ -->
+<div class="ph dark"><span class="label">Главная · тёмная</span>
+  <div class="top"><span class="brand">ROCKET LUNCH</span><span class="date muted">Пт, 18 июля</span></div>
+  <div class="h1">Что едим<br>сегодня?</div>
+  <div class="scroll">
+    <div class="ticket">
+      <div class="ticket-head"><span class="kicker muted">Обеденный талон</span><span class="live">Идёт</span></div>
+      <div class="timer-row"><span class="timer tnum">12:41</span><span class="timer-cap mid">до конца<br>голосования</span></div>
+      <div class="options">
+        <div class="opt lead">
+          <div class="emoji">🍜</div>
+          <div class="opt-main">
+            <div class="opt-name">Том-ям с креветками</div>
+            <div class="opt-sub"><span class="check">✓ ваш голос</span><span class="muted"> · 6 голосов</span></div>
+            <div class="opt-bar"><i style="width:46%"></i></div>
+          </div>
+          <span class="pct tnum">46%</span>
+        </div>
+        <div class="opt">
+          <div class="emoji">🍕</div>
+          <div class="opt-main">
+            <div class="opt-name">Пицца «Маргарита»</div>
+            <div class="opt-sub muted">4 голоса</div>
+            <div class="opt-bar"><i style="width:31%;opacity:.45"></i></div>
+          </div>
+          <span class="pct tnum mid">31%</span>
+        </div>
+        <div class="opt">
+          <div class="emoji">🌯</div>
+          <div class="opt-main">
+            <div class="opt-name">Шаурма классическая</div>
+            <div class="opt-sub muted">3 голоса</div>
+            <div class="opt-bar"><i style="width:23%;opacity:.45"></i></div>
+          </div>
+          <span class="pct tnum mid">23%</span>
+        </div>
+      </div>
+      <div class="perf"><span class="n"></span></div>
+      <div class="ticket-cta">
+        <div class="btn">Переголосовать</div>
+        <div class="cta-note muted">13 голосов · тап по блюду меняет голос</div>
+      </div>
+    </div>
+
+    <div class="now">
+      <div class="now-title muted">Сейчас</div>
+      <div class="rowcard">
+        <div class="emoji">🛒</div>
+        <div class="row-main">
+          <div class="row-name">Пятёрочка у офиса</div>
+          <div class="row-sub muted">Игорь в магазине · 2 из 4</div>
+        </div>
+        <span class="chip amber">В магазине</span>
+      </div>
+      <div class="rowcard">
+        <div class="emoji">🧾</div>
+        <div class="row-main">
+          <div class="row-name">Бюджет команды</div>
+          <div class="row-sub muted">Вы должны за вчерашний обед</div>
+        </div>
+        <span class="money tnum">260 ₽</span>
+      </div>
+    </div>
+  </div>
+  <div class="nav">
+    <a class="on"><span class="ic">🏠</span>Главная</a>
+    <a><span class="ic">🍽️</span>Меню</a>
+    <a><span class="ic">📊</span>Статистика</a>
+    <a><span class="ic">👤</span>Профиль</a>
+  </div>
+</div>
+
+<!-- ============ 3. ЗАКУПКА · СВЕТЛАЯ ============ -->
+<div class="ph light"><span class="label">Закупка · в магазине · светлая</span>
+  <div class="dtop"><span class="back">‹</span><span class="dtitle">Пятёрочка у офиса</span><span class="chip amber">В магазине</span></div>
+  <div class="seg-progress">
+    <div class="seg-cap"><b>Обработано 2 из 4</b><span class="muted">осталось 2</span></div>
+    <div class="seg-line"><span class="seg done"></span><span class="seg miss"></span><span class="seg"></span><span class="seg"></span></div>
+  </div>
+  <div class="scroll" style="padding-top:6px">
+    <div class="shop-sec">
+      <span class="sec-chip todo">Осталось · 2</span>
+      <div class="item">
+        <div class="item-top"><span class="item-name">Кофе Lavazza Qualità Oro <span class="qty">×2</span></span><span class="owner muted">для вас</span></div>
+        <div class="note muted">тёмная обжарка, если есть</div>
+        <div class="acts"><span class="pill">Куплено</span><span class="pill ghost">Не нашли</span></div>
+      </div>
+      <div class="item focus">
+        <div class="item-top"><span class="item-name">Хлеб бородинский</span><span class="owner muted">для вас</span></div>
+        <div class="field-label mid">Цена за всё, ₽</div>
+        <div class="field tnum">54<span class="cur">₽</span></div>
+        <div class="hint muted">за обе пачки — не за штуку · 0 допустимо</div>
+        <div class="acts"><span class="pill ghost">Отмена</span><span class="pill solid">Сохранить</span></div>
+      </div>
+    </div>
+    <div class="shop-sec">
+      <span class="sec-chip ok">Куплено · 1</span>
+      <div class="item">
+        <div class="item-top"><span class="item-name">Молоко Простоквашино 3,2% <span class="qty">×2</span></span><span class="owner muted">для Ани</span></div>
+        <div class="statusline"><span class="st ok">✓ Куплено</span><span class="money tnum">112,5 ₽</span></div>
+        <div class="acts"><span class="pill">Изменить цену</span><span class="pill ghost">Не нашли</span></div>
+      </div>
+    </div>
+    <div class="shop-sec">
+      <span class="sec-chip no">Не нашли · 1</span>
+      <div class="item">
+        <div class="item-top"><span class="item-name">Яблоки Гала <span class="qty">×6</span></span><span class="owner muted">для Ани</span></div>
+        <div class="statusline"><span class="st no">Не нашли</span></div>
+        <div class="acts"><span class="pill">Всё-таки куплено</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="cta-zone"><div class="btn" style="opacity:.45">Рассчитать</div></div>
+</div>
+
+<!-- ============ 4. ЗАКУПКА · ТЁМНАЯ ============ -->
+<div class="ph dark"><span class="label">Закупка · в магазине · тёмная</span>
+  <div class="dtop"><span class="back">‹</span><span class="dtitle">Пятёрочка у офиса</span><span class="chip amber">В магазине</span></div>
+  <div class="seg-progress">
+    <div class="seg-cap"><b>Обработано 2 из 4</b><span class="muted">осталось 2</span></div>
+    <div class="seg-line"><span class="seg done"></span><span class="seg miss"></span><span class="seg"></span><span class="seg"></span></div>
+  </div>
+  <div class="scroll" style="padding-top:6px">
+    <div class="shop-sec">
+      <span class="sec-chip todo">Осталось · 2</span>
+      <div class="item">
+        <div class="item-top"><span class="item-name">Кофе Lavazza Qualità Oro <span class="qty">×2</span></span><span class="owner muted">для вас</span></div>
+        <div class="note muted">тёмная обжарка, если есть</div>
+        <div class="acts"><span class="pill">Куплено</span><span class="pill ghost">Не нашли</span></div>
+      </div>
+      <div class="item focus">
+        <div class="item-top"><span class="item-name">Хлеб бородинский</span><span class="owner muted">для вас</span></div>
+        <div class="field-label mid">Цена за всё, ₽</div>
+        <div class="field tnum">54<span class="cur">₽</span></div>
+        <div class="hint muted">за обе пачки — не за штуку · 0 допустимо</div>
+        <div class="acts"><span class="pill ghost">Отмена</span><span class="pill solid">Сохранить</span></div>
+      </div>
+    </div>
+    <div class="shop-sec">
+      <span class="sec-chip ok">Куплено · 1</span>
+      <div class="item">
+        <div class="item-top"><span class="item-name">Молоко Простоквашино 3,2% <span class="qty">×2</span></span><span class="owner muted">для Ани</span></div>
+        <div class="statusline"><span class="st ok">✓ Куплено</span><span class="money tnum">112,5 ₽</span></div>
+        <div class="acts"><span class="pill">Изменить цену</span><span class="pill ghost">Не нашли</span></div>
+      </div>
+    </div>
+    <div class="shop-sec">
+      <span class="sec-chip no">Не нашли · 1</span>
+      <div class="item">
+        <div class="item-top"><span class="item-name">Яблоки Гала <span class="qty">×6</span></span><span class="owner muted">для Ани</span></div>
+        <div class="statusline"><span class="st no">Не нашли</span></div>
+        <div class="acts"><span class="pill">Всё-таки куплено</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="cta-zone"><div class="btn" style="opacity:.45">Рассчитать</div></div>
+</div>
+
+</body></html>
