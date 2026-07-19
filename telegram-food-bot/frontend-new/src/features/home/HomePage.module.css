@@ -270,6 +270,28 @@
   border-top: 1px solid var(--divider);
 }
 
+/* Тап-зона внутри строки бюджета (открывает /budget); кнопка действия — рядом. */
+.rowTapArea {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.rowTapArea:active {
+  opacity: 0.6;
+}
+
 .rowIcon {
   width: 36px;
   height: 36px;

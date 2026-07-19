@@ -297,6 +297,7 @@ export function HomePage() {
         onMarkPaid={(txId) => {
           if (!markPaid.isPending) markPaid.mutate(txId);
         }}
+        onOpenBudget={() => navigate('/budget')}
         onNewRun={() => setCreateOrderOpen(true)}
       />
 
