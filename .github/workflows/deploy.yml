@@ -94,6 +94,14 @@ jobs:
               "$release_project/frontend/.env.production"
           fi
 
+          for runtime_dir in uploads logs; do
+            mkdir -p "$source_project/backend/$runtime_dir"
+            if [ ! -e "$release_project/backend/$runtime_dir" ]; then
+              ln -s "$source_project/backend/$runtime_dir" \
+                "$release_project/backend/$runtime_dir"
+            fi
+          done
+
           (
             cd "$release_project/backend"
             npm ci

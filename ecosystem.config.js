@@ -31,55 +31,57 @@
  * Когда переключим: instances: 2, exec_mode: 'cluster', listen на тот же port.
  * Graceful: SIGINT → drain HTTP + close Prisma + close Redis.
  */
-const path = require('node:path');
+const path = require("node:path");
 
 const appRoot = process.env.APP_ROOT || __dirname;
 const backendEnvFile =
-  process.env.BACKEND_ENV_FILE || path.join(appRoot, 'backend', '.env');
+  process.env.BACKEND_ENV_FILE || path.join(appRoot, "backend", ".env");
 
 module.exports = {
-  apps: [{
-    name: 'rocket-lunch-bot',
-    script: path.join(appRoot, 'backend', 'dist', 'index.js'),
-    cwd: appRoot,
+  apps: [
+    {
+      name: "rocket-lunch-bot",
+      script: path.join(appRoot, "backend", "dist", "index.js"),
+      cwd: path.join(appRoot, "backend"),
 
-    // Process management
-    instances: 1,             // TODO P1-3: 'max' после Redis-backed shared state
-    exec_mode: 'fork',        // TODO P1-3: 'cluster' одновременно с instances
-    autorestart: true,
-    watch: false,
-    max_memory_restart: '1G',
+      // Process management
+      instances: 1, // TODO P1-3: 'max' после Redis-backed shared state
+      exec_mode: "fork", // TODO P1-3: 'cluster' одновременно с instances
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "1G",
 
-    // Environment file
-    env_file: backendEnvFile,
+      // Environment file
+      env_file: backendEnvFile,
 
-    // Environment
-    env: {
-      NODE_ENV: 'production',
+      // Environment
+      env: {
+        NODE_ENV: "production",
+      },
+
+      // Logging
+      error_file: "./logs/pm2-error.log",
+      out_file: "./logs/pm2-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+      merge_logs: true,
+
+      // Crash recovery
+      min_uptime: "10s",
+      max_restarts: 10,
+      restart_delay: 4000,
+
+      // Monitoring
+      instance_var: "INSTANCE_ID",
+
+      // Graceful shutdown
+      //  - SIGINT → backend index.ts должен слушать и drain'ить HTTP, потом
+      //    prisma.$disconnect() + redis.quit() + bot.stop().
+      //  - kill_timeout — окно на graceful drain до SIGKILL.
+      //  - wait_ready — index.ts шлёт process.send('ready') когда полностью встал.
+      kill_timeout: 10000,
+      wait_ready: true,
+      listen_timeout: 10000,
+      shutdown_with_message: true,
     },
-
-    // Logging
-    error_file: './logs/pm2-error.log',
-    out_file: './logs/pm2-out.log',
-    log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-    merge_logs: true,
-
-    // Crash recovery
-    min_uptime: '10s',
-    max_restarts: 10,
-    restart_delay: 4000,
-
-    // Monitoring
-    instance_var: 'INSTANCE_ID',
-
-    // Graceful shutdown
-    //  - SIGINT → backend index.ts должен слушать и drain'ить HTTP, потом
-    //    prisma.$disconnect() + redis.quit() + bot.stop().
-    //  - kill_timeout — окно на graceful drain до SIGKILL.
-    //  - wait_ready — index.ts шлёт process.send('ready') когда полностью встал.
-    kill_timeout: 10000,
-    wait_ready: true,
-    listen_timeout: 10000,
-    shutdown_with_message: true,
-  }]
+  ],
 };
