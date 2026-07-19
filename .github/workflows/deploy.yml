@@ -13,7 +13,7 @@ on:
           - staging
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 concurrency:
   group: deploy-${{ inputs.environment || 'production' }}
@@ -64,6 +64,12 @@ jobs:
           current_link="$release_root/current"
           previous_file="$release_root/.previous-release"
 
+          source_project="$repository"
+          if [ ! -d "$source_project/backend" ]; then
+            source_project="$repository/telegram-food-bot"
+          fi
+          test -d "$source_project/backend"
+
           git -C "$repository" fetch --prune origin "$deploy_ref"
           git -C "$repository" rev-parse --verify "$deploy_sha^{commit}" >/dev/null
           mkdir -p "$release_root"
@@ -72,27 +78,37 @@ jobs:
             git -C "$repository" worktree add --detach "$release_dir" "$deploy_sha"
           fi
 
-          test -f "$repository/backend/.env"
-          install -m 600 "$repository/backend/.env" "$release_dir/backend/.env"
-          if [ -f "$repository/frontend/.env" ]; then
-            install -m 600 "$repository/frontend/.env" "$release_dir/frontend/.env"
+          release_project="$release_dir"
+          if [ ! -d "$release_project/backend" ]; then
+            release_project="$release_dir/telegram-food-bot"
+          fi
+          test -d "$release_project/backend"
+
+          test -f "$source_project/backend/.env"
+          install -m 600 "$source_project/backend/.env" "$release_project/backend/.env"
+          if [ -f "$source_project/frontend/.env" ]; then
+            install -m 600 "$source_project/frontend/.env" "$release_project/frontend/.env"
+          fi
+          if [ -f "$source_project/frontend/.env.production" ]; then
+            install -m 600 "$source_project/frontend/.env.production" \
+              "$release_project/frontend/.env.production"
           fi
 
           (
-            cd "$release_dir/backend"
+            cd "$release_project/backend"
             npm ci
             npm run db:generate
             npm run build:prod
           )
 
           (
-            cd "$release_dir/frontend"
+            cd "$release_project/frontend"
             npm ci
             npm run build
           )
 
           (
-            cd "$release_dir/backend"
+            cd "$release_project/backend"
             npm run db:migrate:prod
           )
 
@@ -105,9 +121,9 @@ jobs:
           ln -sfn "$release_dir" "$release_root/current.next"
           mv -Tf "$release_root/current.next" "$current_link"
 
-          APP_ROOT="$release_dir" \
-          BACKEND_ENV_FILE="$release_dir/backend/.env" \
-            pm2 startOrReload "$release_dir/ecosystem.config.js" \
+          APP_ROOT="$release_project" \
+          BACKEND_ENV_FILE="$release_project/backend/.env" \
+            pm2 startOrReload "$release_project/ecosystem.config.js" \
               --only rocket-lunch-bot --update-env
           pm2 save
 
@@ -169,11 +185,17 @@ jobs:
           esac
           test -d "$previous_release"
 
+          previous_project="$previous_release"
+          if [ ! -d "$previous_project/backend" ]; then
+            previous_project="$previous_release/telegram-food-bot"
+          fi
+          test -d "$previous_project/backend"
+
           ln -sfn "$previous_release" "$release_root/current.next"
           mv -Tf "$release_root/current.next" "$current_link"
-          APP_ROOT="$previous_release" \
-          BACKEND_ENV_FILE="$previous_release/backend/.env" \
-            pm2 startOrReload "$previous_release/ecosystem.config.js" \
+          APP_ROOT="$previous_project" \
+          BACKEND_ENV_FILE="$previous_project/backend/.env" \
+            pm2 startOrReload "$previous_project/ecosystem.config.js" \
               --only rocket-lunch-bot --update-env
           pm2 save
           curl --fail --silent --show-error --retry 6 --retry-delay 5 \
