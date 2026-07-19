@@ -33,6 +33,10 @@ export interface TelegramWebApp {
   /** Bot API 8.0+: инсеты устройства и интерфейса Telegram (могут отсутствовать). */
   safeAreaInset?: { top: number; bottom: number; left: number; right: number };
   contentSafeAreaInset?: { top: number; bottom: number; left: number; right: number };
+  /** Bot API 7.7+: управление системным жестом «свайп вниз сворачивает Mini App». */
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
+  isVerticalSwipesEnabled?: boolean;
   headerColor: string;
   backgroundColor: string;
   ready: () => void;
@@ -111,6 +115,12 @@ export function initTelegramWebApp(): TelegramWebApp | null {
 
   wa.ready();
   wa.expand();
+
+  // Системный свайп-вниз сворачивает весь Mini App — конфликтует со скроллом
+  // списков и drag-to-dismiss шторки. Отключаем (Bot API 7.7+); свернуть
+  // приложение по-прежнему можно стрелкой в шапке Telegram. На старых
+  // клиентах метода нет — жест шторки деградирует в snap-back (pointercancel).
+  wa.disableVerticalSwipes?.();
 
   // Тема (data-theme, подписка на themeChanged) живёт в lib/theme.ts —
   // единственном владельце темы; здесь только жизненный цикл Mini App.
