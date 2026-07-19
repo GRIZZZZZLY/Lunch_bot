@@ -40,8 +40,9 @@ class MenuService {
     return apiService.delete<void>(`/menu/${id}`, groupParams(groupId));
   }
 
-  toggle(id: number) {
-    return apiService.patch<MenuItem>(`/menu/${id}/toggle`);
+  toggle(id: number, groupId?: string) {
+    // B4: явный groupId — иначе interceptor мог отправить действие в чужую группу
+    return apiService.patch<MenuItem>(`/menu/${id}/toggle`, undefined, groupParams(groupId));
   }
 
   search(query: string) {

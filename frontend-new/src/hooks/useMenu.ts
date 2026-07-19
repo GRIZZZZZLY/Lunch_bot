@@ -77,7 +77,7 @@ export function useToggleMenuItem() {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
   return useMutation({
-    mutationFn: (id: number) => menuService.toggle(id),
+    mutationFn: ({ id, groupId }: { id: number; groupId?: string }) => menuService.toggle(id, groupId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.menu.all });
       qc.invalidateQueries({ queryKey: queryKeys.menu.active });

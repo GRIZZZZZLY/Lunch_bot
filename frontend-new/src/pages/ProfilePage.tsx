@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { isGlobalAdmin } from '@/lib/permissions';
 import { usePaymentInfo, usePollHistory, useUpdatePaymentInfo } from '@/hooks/useUser';
 import { useStreak } from '@/hooks/useStreak';
 import { EditPaymentInfoSheet } from '@/components/profile/EditPaymentInfoSheet';
@@ -94,6 +95,9 @@ export function ProfilePage() {
           <div className="row-divider">
             <Row icon="sparkle" label="Мои предложения" tone="warning" onClick={() => navigate('/suggestions/mine')} />
             <Row icon="clock" label="История голосований" tone="warning" onClick={() => navigate('/poll/history')} />
+            {isGlobalAdmin(user) && (
+              <Row icon="gear" label="Управление" tone="warning" onClick={() => navigate('/admin')} />
+            )}
           </div>
         </div>
 

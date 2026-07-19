@@ -1,0 +1,225 @@
+/* Меню — система C: плоская группа-карточка со строками, чипы категорий
+   (активный — чернильный), глобальный переключатель группы. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3) var(--space-4);
+  animation: menuIn 180ms var(--ease-out);
+}
+
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-1);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-22);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 2px 0 0;
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+}
+
+/* глобальный переключатель группы */
+.groupChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  font: inherit;
+  font-size: var(--text-13);
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-tint);
+  padding: 0 var(--space-3);
+  color: var(--text-tertiary);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  font: inherit;
+  font-size: var(--text-15);
+  color: var(--text-primary);
+}
+
+.search input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.cats {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 2px var(--space-1) 4px;
+  scrollbar-width: none;
+}
+
+.cats::-webkit-scrollbar { display: none; }
+
+.cat {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+
+.cat.on {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.cat .count {
+  opacity: 0.55;
+}
+
+/* группа-карточка списка */
+.group {
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.row + .row {
+  border-top: 1px solid var(--divider);
+}
+
+.row.archived .name,
+.row.archived .desc,
+.row.archived .price {
+  opacity: 0.45;
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-15);
+  font-weight: 700;
+}
+
+.desc {
+  display: block;
+  font-size: var(--text-11);
+  margin-top: 1px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.price {
+  font-size: 14.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.addWrap {
+  padding: var(--space-1) var(--space-1) 0;
+}
+
+.viewerNote {
+  margin: 0;
+  padding-top: var(--space-2);
+  text-align: center;
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+}
+
+.stateWrap {
+  padding: var(--space-6) 0;
+}
+
+/* форма блюда */
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.activeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: 12px;
+  background: var(--accent-tint);
+}
+
+.activeRow .name { font-size: var(--text-15); }
+.activeRow .desc { white-space: normal; }
+
+.deleteLink {
+  border: none;
+  background: none;
+  padding: 10px 0;
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--danger);
+  cursor: pointer;
+}

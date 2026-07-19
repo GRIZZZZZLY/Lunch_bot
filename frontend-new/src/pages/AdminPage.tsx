@@ -7,8 +7,11 @@ import { DebtManagementCard } from '@/components/admin/DebtManagementCard';
 import { DataCleanupCard } from '@/components/admin/DataCleanupCard';
 import { ReminderSettingsCard } from '@/components/admin/ReminderSettingsCard';
 import { useAuth } from '@/hooks/useAuth';
-import { isGlobalAdmin } from '@/lib/permissions';
+import { getAdminGroups, isGlobalAdmin } from '@/lib/permissions';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
+import { useMyGroups } from '@/hooks/useUser';
+import { useToast } from '@/hooks/useToast';
+import { resolveTargetGroup } from '@/features/home/lib/selectors';
 import type { CreatePollContext, CreatePollFormState } from '@/components/admin/types';
 import { useActivePolls } from '@/hooks/usePolls';
 import { usePollHistory } from '@/hooks/useUser';
@@ -43,6 +46,8 @@ export function AdminPage() {
   const groupId = useAppStore((s) => s.currentGroupId);
   const { user } = useAuth();
   const isAdmin = isGlobalAdmin(user);
+  const { data: myGroups = [] } = useMyGroups();
+  const toast = useToast();
   useScreenHeader('Управление');
   const [tab, setTab] = useState<Tab>('dashboard');
   const { data: activePolls = [] } = useActivePolls();
@@ -60,6 +65,8 @@ export function AdminPage() {
     [activePolls, history, menuItems],
   );
 
+  const adminGroups = useMemo(() => getAdminGroups(user, myGroups), [user, myGroups]);
+
   const ctx: CreatePollContext = useMemo(
     () => ({
       items: mapMenuToOptions(menuItems),
@@ -70,8 +77,9 @@ export function AdminPage() {
         { key: 'regulars', label: 'Только постоянные', sub: 'скоро' },
         { key: 'manual', label: 'Выбрать вручную', sub: 'скоро' },
       ],
+      groups: adminGroups.map((g) => ({ id: String(g.id), title: g.title })),
     }),
-    [menuItems],
+    [menuItems, adminGroups],
   );
 
   const handleQuickAction = (id: string) => {
@@ -80,22 +88,30 @@ export function AdminPage() {
   };
 
   const handleSubmit = async (form: CreatePollFormState) => {
-    if (!groupId) return;
+    // B6: явный выбор группы (форма → текущая → первая админская), не молчать
+    const targetGroupId = resolveTargetGroup(form.groupId, groupId, adminGroups);
+    if (!targetGroupId) {
+      toast.error('Нет активной группы. Добавьте бота в групповой чат.');
+      return;
+    }
     setSubmitting(true);
     try {
       const duration = form.duration === '15m' ? 15 : form.duration === '1h' ? 60 : 30;
       await pollsService.createFromWebapp({
-        groupId,
+        groupId: targetGroupId,
         duration,
         selectedMenuItems: form.selectedItems.map((id) => Number(id)).filter(Number.isFinite),
         title: form.title.trim() || undefined,
-        isMultiSelect: true,
-        maxSelections: 3,
+        // Q1: одиночный выбор — multi-select UI не существует
+        isMultiSelect: false,
       });
       qc.invalidateQueries({ queryKey: queryKeys.polls.active });
       setLastCreated({ participants: data.usersTotal || 0, closeAt: formatCloseAt(duration) });
       setSheetOpen(false);
       setSuccessOpen(true);
+    } catch (err) {
+      // B6: ошибка создания больше не молчит
+      toast.error(err instanceof Error ? err.message : 'Не удалось создать опрос');
     } finally {
       setSubmitting(false);
     }
