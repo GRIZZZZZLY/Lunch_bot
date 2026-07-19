@@ -41,12 +41,15 @@ export default defineConfig({
     // Vitest 4 держит optimizer-кэш отдельно (node_modules/.vite/vitest) и
     // переиспользует его после dev/build. Отключаем оптимизер в тестах целиком —
     // детерминированность важнее долей секунды на старте.
-    // Вторая причина того же симптома — гонка параллельных воркеров на
-    // Windows (воспроизводилась и с чистым кэшем). Файлы гоняем
-    // последовательно: ~+10с на прогон, зато детерминированно.
+    // Симптом «Vitest failed to find the current suite»/«no tests» на Windows
+    // имел ТРИ слоя: битый optimizer-кэш (deps.optimizer off), гонка воркеров
+    // (fileParallelism off) и баг tinypool с worker_threads (воспроизводился
+    // после vite build даже без кэша). Финальный фикс — процессный пул:
+    // forks + один форк = полная изоляция, детерминированно на всех прогонах.
     // TODO(infra): перепроверить после обновления Vitest > 4.1.x.
     cache: false,
     fileParallelism: false,
+    pool: 'forks',
     deps: {
       optimizer: {
         web: { enabled: false },
