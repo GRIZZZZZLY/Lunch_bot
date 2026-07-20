@@ -29,7 +29,10 @@ class MenuService {
   }
 
   create(data: UpsertMenuItemInput, groupId?: string) {
-    return apiService.post<MenuItem>('/menu', data, groupParams(groupId));
+    // Создание — единственный роут, где бэк ждёт groupIds[] в ТЕЛЕ
+    // (createItem читает req.body.groupIds), а не groupId в query.
+    const groupIds = groupId ? [Number(groupId)] : undefined;
+    return apiService.post<MenuItem>('/menu', { ...data, groupIds });
   }
 
   update(id: number, data: Partial<UpsertMenuItemInput>, groupId?: string) {
