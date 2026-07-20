@@ -185,6 +185,38 @@ export class PollService {
   }
 
   /**
+   * Тихо отменяет голосования, у которых истёк таймер (startedAt + duration),
+   * но кворум не собрался и никто не завершил вручную. Без completePoll —
+   * значит без постинга результатов/рулетки в группу (решение владельца:
+   * вариант B). Иначе такие голосов­ания висят ACTIVE вечно, прячутся из
+   * active-списка и молча блокируют создание новых (POLL_ALREADY_ACTIVE).
+   * Идемпотентно: updateMany с гейтом status='ACTIVE'. Возвращает число отменённых.
+   */
+  static async cancelExpiredPolls(now: Date = new Date()): Promise<number> {
+    const active = await prisma.poll.findMany({
+      where: { status: 'ACTIVE' },
+      select: { id: true, groupId: true, startedAt: true, duration: true },
+    });
+    const expired = active.filter(
+      (p) => p.startedAt.getTime() + p.duration * 60_000 <= now.getTime(),
+    );
+
+    let cancelled = 0;
+    for (const p of expired) {
+      const res = await prisma.poll.updateMany({
+        where: { id: p.id, status: 'ACTIVE' },
+        data: { status: 'CANCELLED', endedAt: now },
+      });
+      if (res.count > 0) {
+        cancelled += 1;
+        void CacheInvalidator.invalidatePoll(p.id, p.groupId);
+        logger.info(`Auto-cancelled expired poll ${p.id} (group ${p.groupId}) — timer elapsed, no quorum`);
+      }
+    }
+    return cancelled;
+  }
+
+  /**
    * Получение голосования по ID с деталями
    */
   static async getPollById(id: number): Promise<PollWithDetails | null> {

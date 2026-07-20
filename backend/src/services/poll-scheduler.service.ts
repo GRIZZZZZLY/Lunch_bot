@@ -1,6 +1,7 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { logger } from '../utils/logger';
 import { RecurringPollService } from './recurring-poll.service';
+import { PollService } from './poll.service';
 
 /**
  * Сервис для автоматического запуска голосований по расписанию
@@ -33,6 +34,7 @@ export class PollSchedulerService {
       '* * * * *', // Каждую минуту
       async () => {
         await this.checkAndExecuteSchedules();
+        await this.closeExpiredPolls();
       },
       {
         timezone: 'Europe/Moscow',
@@ -50,6 +52,19 @@ export class PollSchedulerService {
       void this.cronJob.stop();
       this.cronJob = null;
       logger.info('Poll scheduler stopped');
+    }
+  }
+
+  /**
+   * Тихо отменяет голосования с истёкшим таймером (вариант B — без постинга
+   * результатов в группу). Обёртка с try/catch, чтобы сбой не рвал cron-тик.
+   */
+  private static async closeExpiredPolls(): Promise<void> {
+    try {
+      const n = await PollService.cancelExpiredPolls();
+      if (n > 0) logger.info(`Poll scheduler: auto-cancelled ${n} expired poll(s)`);
+    } catch (error) {
+      logger.error('Poll scheduler: cancelExpiredPolls failed', error);
     }
   }
 
