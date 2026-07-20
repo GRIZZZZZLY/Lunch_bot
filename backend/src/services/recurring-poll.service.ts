@@ -275,6 +275,12 @@ export class RecurringPollService {
           nextRunAt: {
             lte: now,
           },
+          // Не запускаем автоголосования в деактивированных группах (бота выгнали).
+          // group-reconcile.job помечает такие группы isActive=false; без этого
+          // фильтра расписание продолжало тикать и плодило poll'ы в мёртвую группу.
+          group: {
+            isActive: true,
+          },
         },
         include: {
           group: {
@@ -352,6 +358,32 @@ export class RecurringPollService {
           success: false,
           status: 'SKIPPED_CONFLICT',
           message: 'Group already has an active poll',
+        };
+      }
+
+      // 2.5. Бот всё ещё в группе и может туда писать? Если нет — не создаём
+      // «висячий» poll в мёртвой группе и гасим расписание, чтобы не долбить
+      // каждый день (иначе админ получает «✅ создано», а группы уже нет).
+      // Динамический import разрывает потенциальный цикл notification↔poll.
+      const { notificationService } = await import('./notification.service');
+      const botCanPost = await notificationService.botCanPostToGroup(recurring.groupId);
+      if (!botCanPost) {
+        await this.toggleEnabled(recurringId, false);
+        await this.updateRunStatus(
+          recurringId,
+          'FAILED_BOT_REMOVED',
+          'Bot is not a member of the group; schedule disabled'
+        );
+
+        logger.warn('Skipped scheduled poll - bot removed from group; schedule disabled', {
+          recurringId,
+          groupId: recurring.groupId,
+        });
+
+        return {
+          success: false,
+          status: 'FAILED_BOT_REMOVED',
+          message: 'Bot is not a member of the group',
         };
       }
 

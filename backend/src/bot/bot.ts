@@ -525,7 +525,9 @@ export async function startPolling(bot: Bot<BotContext>): Promise<void> {
 
         // ⚡ НОВОЕ: Запускаем scheduler для автоматических голосований
         const { PollSchedulerService } = require('../services/poll-scheduler.service');
-        PollSchedulerService.start();
+        void PollSchedulerService.start().catch((e: unknown) =>
+          logger.error('Poll scheduler start failed', e)
+        );
         logger.info('⚡ Poll scheduler запущен');
       },
     });
@@ -571,7 +573,7 @@ export async function stopBot(bot: Bot<BotContext>): Promise<void> {
     
     // ⚡ НОВОЕ: Останавливаем scheduler
     const { PollSchedulerService } = require('../services/poll-scheduler.service');
-    PollSchedulerService.stop();
+    await PollSchedulerService.stop();
     logger.info('⚡ Poll scheduler остановлен');
     
     await bot.stop();
