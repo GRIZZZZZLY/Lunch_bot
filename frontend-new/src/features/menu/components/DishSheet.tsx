@@ -1,6 +1,6 @@
 /* Форма блюда (создание/правка) — шторка на shared/ui. В режиме правки
    содержит удаление (через ConfirmDialog) — из строки списка оно убрано. */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Switch } from '@/components/rl/primitives';
 import { Button, ConfirmDialog, TextField } from '@/shared/ui';
@@ -38,9 +38,34 @@ export function DishSheet({
   const [cat, setCat] = useState(initial?.category ?? '');
   const [active, setActive] = useState(initial?.isActive !== false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const submittingRef = useRef(false);
+  const wasBusyRef = useRef(busy);
+
+  useEffect(() => {
+    if (wasBusyRef.current && !busy) {
+      submittingRef.current = false;
+    }
+    wasBusyRef.current = busy;
+  }, [busy]);
 
   const priceNum = Number(price.trim().replace(',', '.'));
-  const canSubmit = name.trim().length > 0 && Number.isFinite(priceNum) && priceNum > 0 && !busy;
+  const canSubmit =
+    name.trim().length > 0 &&
+    Number.isFinite(priceNum) &&
+    priceNum > 0 &&
+    !busy;
+
+  const submit = () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    onSubmit({
+      name: name.trim(),
+      price: priceNum,
+      description: desc.trim() || undefined,
+      category: cat.trim() || undefined,
+      isActive: active,
+    });
+  };
 
   return (
     <BottomSheet
@@ -56,15 +81,7 @@ export function DishSheet({
             block
             loading={busy}
             disabled={!canSubmit}
-            onClick={() =>
-              onSubmit({
-                name: name.trim(),
-                price: priceNum,
-                description: desc.trim() || undefined,
-                category: cat.trim() || undefined,
-                isActive: active,
-              })
-            }
+            onClick={submit}
           >
             Сохранить
           </Button>

@@ -4,8 +4,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { isGlobalAdmin } from '@/lib/permissions';
-import { usePaymentInfo, usePollHistory, useUpdatePaymentInfo } from '@/hooks/useUser';
+import { getAdminGroups, isGlobalAdmin } from '@/lib/permissions';
+import { useMyGroups, usePaymentInfo, usePollHistory, useUpdatePaymentInfo } from '@/hooks/useUser';
 import { useStreak } from '@/hooks/useStreak';
 import { EditPaymentInfoSheet } from '@/components/profile/EditPaymentInfoSheet';
 import { FeedbackModal } from '@/components/modals/FeedbackModal';
@@ -25,6 +25,7 @@ function maskPhone(phone: string): string {
 export function ProfilePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: myGroups = [] } = useMyGroups();
   const { data: paymentInfo } = usePaymentInfo();
   const updatePayment = useUpdatePaymentInfo();
   const { data: history = [] } = usePollHistory({ limit: 30 });
@@ -37,6 +38,7 @@ export function ProfilePage() {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Гость';
   const handle = user?.username ? `@${user.username}` : 'Участник команды';
   const completed = history.filter((p) => p.status === 'COMPLETED').length;
+  const canManage = isGlobalAdmin(user) || getAdminGroups(user, myGroups).length > 0;
 
   return (
     <div className={`rl ${styles.screen}`}>
@@ -119,7 +121,7 @@ export function ProfilePage() {
             <Icon name="chevronRight" size={16} />
           </span>
         </button>
-        {isGlobalAdmin(user) && (
+        {canManage && (
           <button type="button" className={styles.row} onClick={() => navigate('/admin')}>
             <div className={styles.rowMain}>
               <span className={styles.rowName}>Управление</span>

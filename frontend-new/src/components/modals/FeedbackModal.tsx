@@ -86,6 +86,7 @@ export function FeedbackModal({ open, onClose }: Props) {
       </div>
       <Field
         as="textarea"
+        aria-label="Текст отзыва"
         value={message}
         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value)}
         placeholder="Расскажите, что понравилось или что улучшить…"

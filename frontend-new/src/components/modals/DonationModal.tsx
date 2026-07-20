@@ -88,6 +88,7 @@ export function DonationModal({ open, onClose, sbpPhone }: Props) {
           }}
         >
           <input
+            aria-label="Своя сумма"
             value={custom}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setCustom(e.target.value.replace(/\D/g, ''))}
             inputMode="numeric"

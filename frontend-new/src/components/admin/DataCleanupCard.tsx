@@ -87,6 +87,11 @@ function Block({
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 90 }}>
           <Field
+            aria-label={
+              title === 'Старые голосования'
+                ? 'Срок для старых голосований'
+                : 'Срок для старых транзакций'
+            }
             type="number"
             value={days}
             className="tnum"

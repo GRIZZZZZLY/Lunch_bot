@@ -41,17 +41,17 @@ export function ReminderSettingsCard() {
 
       <ToggleRow label="Включены" value={enabled} onChange={setEnabled} />
 
-      <FormField label="Интервал (дней)">
-        <NumberField value={intervalDays} onChange={setIntervalDays} min={1} />
+      <FormField label="Интервал (дней)" htmlFor="reminder-interval-days">
+        <NumberField id="reminder-interval-days" value={intervalDays} onChange={setIntervalDays} min={1} />
       </FormField>
-      <FormField label="Мин. возраст долга (дней)">
-        <NumberField value={minDebtAge} onChange={setMinDebtAge} min={0} />
+      <FormField label="Мин. возраст долга (дней)" htmlFor="reminder-min-debt-age">
+        <NumberField id="reminder-min-debt-age" value={minDebtAge} onChange={setMinDebtAge} min={0} />
       </FormField>
-      <FormField label="Максимум напоминаний">
-        <NumberField value={maxReminders} onChange={setMaxReminders} min={1} />
+      <FormField label="Максимум напоминаний" htmlFor="reminder-max-count">
+        <NumberField id="reminder-max-count" value={maxReminders} onChange={setMaxReminders} min={1} />
       </FormField>
-      <FormField label="Шаблон сообщения">
-        <Field as="textarea" rows={3} value={template} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTemplate(e.target.value)} />
+      <FormField label="Шаблон сообщения" htmlFor="reminder-template">
+        <Field id="reminder-template" as="textarea" rows={3} value={template} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTemplate(e.target.value)} />
       </FormField>
 
       <Button variant="primary" icon="check" style={{ width: '100%', marginTop: 4 }} loading={updateReminder.isPending} onClick={saveReminder}>
@@ -82,19 +82,20 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
   );
 }
 
-function FormField({ label, children }: { label: string; children: ReactNode }) {
+function FormField({ label, htmlFor, children }: { label: string; htmlFor: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <label style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
+      <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
       {children}
     </div>
   );
 }
 
-function NumberField({ value, onChange, min }: { value: number; onChange: (n: number) => void; min?: number }) {
+function NumberField({ id, value, onChange, min }: { id: string; value: number; onChange: (n: number) => void; min?: number }) {
   return (
     <div style={{ width: 120 }}>
       <Field
+        id={id}
         type="number"
         min={min}
         value={value}
