@@ -45,7 +45,6 @@ export function AdminPage() {
   const navigate = useNavigate();
   const groupId = useAppStore((s) => s.currentGroupId);
   const { user } = useAuth();
-  const isAdmin = isGlobalAdmin(user);
   const { data: myGroups = [] } = useMyGroups();
   const toast = useToast();
   useScreenHeader('Управление');
@@ -66,6 +65,7 @@ export function AdminPage() {
   );
 
   const adminGroups = useMemo(() => getAdminGroups(user, myGroups), [user, myGroups]);
+  const isAdmin = isGlobalAdmin(user) || adminGroups.length > 0;
 
   const ctx: CreatePollContext = useMemo(
     () => ({

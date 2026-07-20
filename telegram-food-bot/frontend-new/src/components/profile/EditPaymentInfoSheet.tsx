@@ -11,10 +11,10 @@ interface Props {
   onSubmit: (data: PaymentInfo) => void | Promise<void>;
 }
 
-function FormField({ label, children }: { label: string; children: ReactNode }) {
+function FormField({ label, htmlFor, children }: { label: string; htmlFor: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
+      <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
       {children}
     </div>
   );
@@ -58,14 +58,14 @@ export function EditPaymentInfoSheet({ open, initial, busy, onClose, onSubmit }:
         </>
       }
     >
-      <FormField label="Телефон СБП">
-        <Field value={sbpPhone} onChange={(e: ChangeEvent<HTMLInputElement>) => setSbpPhone(e.target.value)} placeholder="+7 (900) 000-00-00" inputMode="tel" className="tnum" />
+      <FormField label="Телефон СБП" htmlFor="payment-sbp-phone">
+        <Field id="payment-sbp-phone" value={sbpPhone} onChange={(e: ChangeEvent<HTMLInputElement>) => setSbpPhone(e.target.value)} placeholder="+7 (900) 000-00-00" inputMode="tel" className="tnum" />
       </FormField>
-      <FormField label="Банк">
-        <Field value={bankName} onChange={(e: ChangeEvent<HTMLInputElement>) => setBankName(e.target.value)} placeholder="Тинькофф, Сбербанк…" />
+      <FormField label="Банк" htmlFor="payment-bank-name">
+        <Field id="payment-bank-name" value={bankName} onChange={(e: ChangeEvent<HTMLInputElement>) => setBankName(e.target.value)} placeholder="Тинькофф, Сбербанк…" />
       </FormField>
-      <FormField label="Номер карты (опционально)">
-        <Field value={cardNumber} onChange={(e: ChangeEvent<HTMLInputElement>) => setCardNumber(e.target.value)} placeholder="0000 0000 0000 0000" inputMode="numeric" className="tnum" />
+      <FormField label="Номер карты (опционально)" htmlFor="payment-card-number">
+        <Field id="payment-card-number" value={cardNumber} onChange={(e: ChangeEvent<HTMLInputElement>) => setCardNumber(e.target.value)} placeholder="0000 0000 0000 0000" inputMode="numeric" className="tnum" />
       </FormField>
     </BottomSheet>
   );

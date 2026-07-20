@@ -121,7 +121,8 @@
   --elevated: #ffffff;
   --text-primary: #23201b;
   --text-secondary: #5d574c;
-  --text-tertiary: #8d8678;
+  /* Минимум 4.5:1 и на canvas, и на surface для обычного мелкого текста. */
+  --text-tertiary: #6b655b;
   --divider: rgba(60, 52, 38, 0.12);
   --accent: #26211a;
   --accent-foreground: #f7f3ea;
@@ -176,7 +177,8 @@
   --elevated: #2f3d4e;
   --text-primary: #edf1f6;
   --text-secondary: #a9b7c6;
-  --text-tertiary: #7c8b9d;
+  /* Минимум 4.5:1 и на canvas, и на surface для обычного мелкого текста. */
+  --text-tertiary: #9baabb;
   --divider: rgba(226, 238, 252, 0.1);
   --accent: #efe7d8;
   --accent-foreground: #1e2836;

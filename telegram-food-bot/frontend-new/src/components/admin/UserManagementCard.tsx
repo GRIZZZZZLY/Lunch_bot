@@ -28,7 +28,7 @@ export function UserManagementCard() {
         </div>
       </div>
       <div style={{ marginBottom: 12 }}>
-        <Field value={search} onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} placeholder="Поиск участника" />
+        <Field aria-label="Поиск участника" value={search} onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} placeholder="Поиск участника" />
       </div>
 
       {isLoading && <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--t-13)' }}>Загрузка…</div>}

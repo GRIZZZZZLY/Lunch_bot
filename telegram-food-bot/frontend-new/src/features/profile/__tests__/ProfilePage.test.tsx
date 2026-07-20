@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
     user: { id: 1, firstName: 'Игорь', username: 'grizzly', isAdmin: false } as unknown,
     paymentInfo: undefined as unknown,
     history: [] as unknown[],
+    groups: [] as Array<{ id: number; title: string; isActive: boolean; role: string }>,
     streak: { current: 0, atRisk: false },
     update: { mutateAsync: vi.fn(), isPending: false },
   },
@@ -17,6 +18,7 @@ vi.mock('react-router-dom', () => ({ useNavigate: () => h.navigate }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.state.user }) }));
 vi.mock('@/hooks/useStreak', () => ({ useStreak: () => ({ streak: h.state.streak }) }));
 vi.mock('@/hooks/useUser', () => ({
+  useMyGroups: () => ({ data: h.state.groups }),
   usePaymentInfo: () => ({ data: h.state.paymentInfo }),
   useUpdatePaymentInfo: () => h.state.update,
   usePollHistory: () => ({ data: h.state.history }),
@@ -38,6 +40,7 @@ beforeEach(() => {
   h.state.user = { id: 1, firstName: 'Игорь', username: 'grizzly', isAdmin: false };
   h.state.paymentInfo = undefined;
   h.state.history = [];
+  h.state.groups = [];
   h.state.streak = { current: 0, atRisk: false };
 });
 
@@ -71,7 +74,7 @@ describe('ProfilePage — система C', () => {
     expect(h.navigate).toHaveBeenCalledWith('/suggestions/mine');
   });
 
-  it('«Управление» видно только глобальному админу', () => {
+  it('«Управление» скрыто у обычного участника', () => {
     render(<ProfilePage />);
     expect(screen.queryByText('Управление')).not.toBeInTheDocument();
   });
@@ -81,6 +84,12 @@ describe('ProfilePage — система C', () => {
     render(<ProfilePage />);
     fireEvent.click(screen.getByText('Управление'));
     expect(h.navigate).toHaveBeenCalledWith('/admin');
+  });
+
+  it('групповой админ видит «Управление»', () => {
+    h.state.groups = [{ id: 1, title: 'Команда', isActive: true, role: 'ADMIN' }];
+    render(<ProfilePage />);
+    expect(screen.getByText('Управление')).toBeInTheDocument();
   });
 
   it('показатели считаются из истории', () => {

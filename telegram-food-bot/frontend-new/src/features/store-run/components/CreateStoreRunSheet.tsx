@@ -5,10 +5,10 @@ import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, Chip, Field } from '@/components/rl/primitives';
 import { COLLECT_PRESETS } from '../lib/selectors';
 
-function FormField({ label, children }: { label: string; children: ReactNode }) {
+function FormField({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
+      <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
       {children}
     </div>
   );
@@ -46,8 +46,8 @@ export function CreateStoreRunSheet({
         </>
       }
     >
-      <FormField label="Откуда заказываем">
-        <Field value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder="Пятёрочка у офиса" />
+      <FormField label="Откуда заказываем" htmlFor="store-run-name">
+        <Field id="store-run-name" value={name} onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder="Пятёрочка у офиса" />
       </FormField>
       <FormField label="Сбор заказов">
         <div style={{ display: 'flex', gap: 8 }}>

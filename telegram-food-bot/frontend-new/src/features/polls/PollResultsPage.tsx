@@ -9,7 +9,7 @@ import { useMenuItems } from '@/hooks/useMenu';
 import { useSSE } from '@/hooks/useSSE';
 import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { Button, Status } from '@/shared/ui';
+import { Button, ErrorState, Status } from '@/shared/ui';
 import { pluralize } from '@/shared/lib/pluralize';
 import styles from './PollResultsPage.module.css';
 
@@ -18,8 +18,10 @@ export function PollResultsPage() {
   const pollId = id ? Number(id) : null;
   const valid = pollId !== null && Number.isFinite(pollId);
 
-  const { data: poll, isLoading: pollLoading } = usePollById(valid ? pollId : null);
-  const { data: results, isLoading: resultsLoading } = usePollResults(valid ? pollId : null);
+  const pollQuery = usePollById(valid ? pollId : null);
+  const resultsQuery = usePollResults(valid ? pollId : null);
+  const { data: poll, isLoading: pollLoading } = pollQuery;
+  const { data: results, isLoading: resultsLoading } = resultsQuery;
   const { data: allMenu = [] } = useMenuItems();
   useSSE({ pollId: valid ? pollId : null, enabled: !!poll && poll.status === 'ACTIVE' });
 
@@ -37,8 +39,22 @@ export function PollResultsPage() {
   const winnerId = flat?.winnerId ?? nested?.winnerMenuItemId;
   const total = totalVotes(poll ?? null) || flat?.totalVotes || nested?.totalVotes || 0;
   const winnerOpt = options.find((o) => Number(o.id) === winnerId);
-  const winnerName = flat?.winnerName || winnerOpt?.name || ranking[0]?.name || 'Без названия';
-  const winnerVotes = winnerOpt?.votes ?? ranking[0]?.votes ?? 0;
+  const leadingVotes = ranking[0]?.votes ?? 0;
+  const tiedWinners = poll?.status !== 'ACTIVE' && leadingVotes > 0
+    ? ranking.filter((option) => option.votes === leadingVotes)
+    : [];
+  const hasMultipleWinners = tiedWinners.length > 1;
+  const winnerIds = new Set(
+    hasMultipleWinners
+      ? tiedWinners.map((option) => Number(option.id))
+      : winnerId == null
+        ? []
+        : [winnerId],
+  );
+  const winnerName = hasMultipleWinners
+    ? tiedWinners.map((option) => option.name).join(' и ')
+    : flat?.winnerName || winnerOpt?.name || ranking[0]?.name || 'Без названия';
+  const winnerVotes = hasMultipleWinners ? leadingVotes : winnerOpt?.votes ?? leadingVotes;
   const responsibleName =
     flat?.responsible?.name ||
     (poll?.votes ?? []).find((v) => v.user?.id === nested?.responsibleUserId)?.user?.firstName;
@@ -55,6 +71,21 @@ export function PollResultsPage() {
 
   if (!valid) return body(<div className={styles.state}>Некорректный идентификатор опроса.</div>);
   if (pollLoading || resultsLoading) return body(<div className={styles.state}>Загружаем результаты…</div>);
+  if (pollQuery.isError || resultsQuery.isError) {
+    const error = (pollQuery.error ?? resultsQuery.error) as { status?: number } | null;
+    const kind = error?.status === 403 ? 'forbidden' : error?.status === 404 ? 'notFound' : 'network';
+    return body(
+      <ErrorState
+        kind={kind}
+        title={kind === 'forbidden' ? 'Нет доступа' : undefined}
+        description={kind === 'forbidden' ? 'Результаты этого голосования недоступны.' : undefined}
+        onRetry={kind === 'network' ? () => {
+          void pollQuery.refetch();
+          void resultsQuery.refetch();
+        } : undefined}
+      />,
+    );
+  }
   if (!poll) return body(<div className={styles.state}>Опрос не найден.</div>);
 
   const maxVotes = Math.max(1, ranking[0]?.votes ?? 0);
@@ -79,7 +110,7 @@ export function PollResultsPage() {
               <div className={styles.rowMain}>
                 <div className={styles.rowName}>
                   {o.name}
-                  {Number(o.id) === winnerId && <Status tone="success">победитель</Status>}
+                  {winnerIds.has(Number(o.id)) && <Status tone="success">победитель</Status>}
                 </div>
                 <div className={styles.bar}>
                   <span className={styles.barFill} style={{ width: `${(o.votes / maxVotes) * 100}%` }} />
