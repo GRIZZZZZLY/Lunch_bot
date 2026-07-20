@@ -1,4 +1,4 @@
-import { PollService } from '../poll.service';
+import { PollService, PollAlreadyActiveError } from '../poll.service';
 import { prisma } from '../../database/client';
 import { Poll, PollResult, Prisma } from '@prisma/client';
 import { CacheInvalidator } from '../cache.service';
@@ -121,6 +121,24 @@ describe('PollService', () => {
   });
 
   describe('createPoll', () => {
+    it('maps a P2002 unique violation (concurrent insert) to PollAlreadyActiveError', async () => {
+      // Гонка: другой процесс/запрос успел вставить ACTIVE poll между нашим
+      // guard-SELECT и INSERT. Частичный уникальный индекс отдаёт P2002 —
+      // createPoll должен перевести это в доменную PollAlreadyActiveError,
+      // а не в общий 'Failed to create poll'.
+      (prisma.poll.findFirst as jest.Mock)
+        .mockResolvedValueOnce(null) // guard: активного poll ещё нет
+        .mockResolvedValueOnce({ id: 99 }); // повторный lookup после нарушения
+      const p2002 = Object.assign(new Error('Unique constraint failed'), {
+        code: 'P2002',
+      });
+      (prisma.poll.create as jest.Mock).mockRejectedValue(p2002);
+
+      await expect(
+        PollService.createPoll({ groupId: 1, duration: 30, createdBy: 1 })
+      ).rejects.toBeInstanceOf(PollAlreadyActiveError);
+    });
+
     it('should create a new poll successfully', async () => {
       const mockData = {
         groupId: 1,

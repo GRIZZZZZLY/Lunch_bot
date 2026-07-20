@@ -114,6 +114,18 @@ echo "✅ Frontend updated ($FRONTEND_DIR)"
 echo "🔄 Reloading application..."
 
 cd backend
+
+# Гигиена: убиваем orphan-процессы бота, не управляемые pm2 (инцидент 2026-07-20 —
+# осиротевший процесс + pm2-процесс запустили два scheduler'а и создали дубль
+# автоголосований). pm2-процесс НЕ трогаем.
+PM2_PID="$(pm2 pid rocket-lunch-bot 2>/dev/null | head -1)"
+for pid in $(pgrep -f 'dist/index.js' 2>/dev/null || true); do
+  if [ -n "$pid" ] && [ "$pid" != "$PM2_PID" ]; then
+    echo "⚠️  Killing stray bot process $pid (not managed by pm2)"
+    kill "$pid" 2>/dev/null || true
+  fi
+done
+
 pm2 reload rocket-lunch-bot
 
 echo "✅ Application reloaded"

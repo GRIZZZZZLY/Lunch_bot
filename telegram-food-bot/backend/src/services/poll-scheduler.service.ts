@@ -1,7 +1,16 @@
 import cron, { type ScheduledTask } from 'node-cron';
+import { Client } from 'pg';
 import { logger } from '../utils/logger';
 import { RecurringPollService } from './recurring-poll.service';
 import { PollService } from './poll.service';
+
+/**
+ * Ключ Postgres advisory-lock для single-instance гарантии scheduler'а.
+ * Только один процесс, удерживающий этот сессионный лок, поднимает cron —
+ * остальные (orphan/дубль-деплой) не плодят параллельные автоголосования.
+ * Держать в синхроне с тестом scheduler-poll.integration.test.ts.
+ */
+export const SCHEDULER_ADVISORY_LOCK_KEY = 918273645;
 
 /**
  * Сервис для автоматического запуска голосований по расписанию
@@ -11,6 +20,8 @@ export class PollSchedulerService {
   private static cronJob: ScheduledTask | null = null;
   private static isRunning = false;
   private static botInstance: any = null;
+  // Выделенное соединение, удерживающее advisory-lock на время жизни процесса.
+  private static lockClient: Client | null = null;
 
   /**
    * Инициализация scheduler с bot instance
@@ -21,11 +32,21 @@ export class PollSchedulerService {
   }
 
   /**
-   * Запуск scheduler (каждую минуту)
+   * Запуск scheduler (каждую минуту).
+   * Поднимает cron только если удалось захватить advisory-lock — иначе тихо
+   * уступает другому процессу (защита от дубль-запуска, инцидент 2026-07-20).
    */
-  static start(): void {
+  static async start(): Promise<void> {
     if (this.cronJob) {
       logger.warn('Poll scheduler already running');
+      return;
+    }
+
+    const acquired = await this.acquireSingletonLock();
+    if (!acquired) {
+      logger.warn(
+        'Poll scheduler not started: another instance holds the advisory lock'
+      );
       return;
     }
 
@@ -45,13 +66,74 @@ export class PollSchedulerService {
   }
 
   /**
-   * Остановка scheduler
+   * Остановка scheduler + освобождение advisory-lock.
    */
-  static stop(): void {
+  static async stop(): Promise<void> {
     if (this.cronJob) {
       void this.cronJob.stop();
       this.cronJob = null;
       logger.info('Poll scheduler stopped');
+    }
+
+    if (this.lockClient) {
+      try {
+        await this.lockClient.query('SELECT pg_advisory_unlock($1)', [
+          SCHEDULER_ADVISORY_LOCK_KEY,
+        ]);
+      } catch {
+        /* соединение могло уже отвалиться — лок снимется сам при разрыве */
+      }
+      try {
+        await this.lockClient.end();
+      } catch {
+        /* ignore */
+      }
+      this.lockClient = null;
+    }
+  }
+
+  /**
+   * Пытается захватить сессионный advisory-lock на выделенном соединении.
+   * true  — лок наш (или уже держим); false — держит другой процесс.
+   * При ошибке/отсутствии DATABASE_URL — fail-open (доступность важнее; основную
+   * защиту от дублей дают уник-индекс polls_one_active_per_group и деплой-гигиена).
+   */
+  private static async acquireSingletonLock(): Promise<boolean> {
+    if (this.lockClient) return true;
+
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      logger.error(
+        'acquireSingletonLock: DATABASE_URL not set; running without single-instance guard'
+      );
+      return true;
+    }
+
+    const client = new Client({ connectionString: databaseUrl });
+    client.on('error', (err) => logger.error('Scheduler lock client error', err));
+
+    try {
+      await client.connect();
+      const res = await client.query('SELECT pg_try_advisory_lock($1) AS locked', [
+        SCHEDULER_ADVISORY_LOCK_KEY,
+      ]);
+      if (res.rows[0]?.locked === true) {
+        this.lockClient = client; // держим соединение → держим лок
+        return true;
+      }
+      await client.end();
+      return false;
+    } catch (err) {
+      logger.error(
+        'acquireSingletonLock failed; running without single-instance guard',
+        err
+      );
+      try {
+        await client.end();
+      } catch {
+        /* ignore */
+      }
+      return true;
     }
   }
 

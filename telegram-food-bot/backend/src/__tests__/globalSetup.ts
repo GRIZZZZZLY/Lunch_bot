@@ -49,6 +49,27 @@ export default async function globalSetup(): Promise<void> {
       env: { ...process.env, DATABASE_URL: testDatabaseUrl },
     }
   );
+
+  // Prisma-схема не умеет выражать частичный (filtered) уникальный индекс, поэтому
+  // накатываем его вручную — так test-БД совпадает с прод (там индекс идёт миграцией).
+  // Гарантирует ≤1 ACTIVE poll на группу даже при конкурентных createPoll.
+  await applyPartialUniqueIndexes(testDatabaseUrl);
+}
+
+/**
+ * Частичные уникальные индексы, которых нет в schema.prisma.
+ * Держим синхронно с prisma/migrations/*_poll_one_active_per_group.
+ */
+async function applyPartialUniqueIndexes(testDatabaseUrl: string): Promise<void> {
+  const client = new Client({ connectionString: testDatabaseUrl });
+  try {
+    await client.connect();
+    await client.query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "polls_one_active_per_group" ON "polls" ("group_id") WHERE "status" = 'ACTIVE'`
+    );
+  } finally {
+    await client.end();
+  }
 }
 
 function redactDatabaseUrl(databaseUrl: string): string {

@@ -102,6 +102,17 @@ export class PollService {
       return poll;
     } catch (error) {
       if (error instanceof PollAlreadyActiveError) throw error;
+      // Гонка: партиал-уникальный индекс polls_one_active_per_group отдал P2002 —
+      // другой конкурентный createPoll успел вставить ACTIVE poll между нашим
+      // guard-SELECT и INSERT (транзакция при этом откатилась). Переводим в
+      // доменную ошибку, чтобы контроллер вернул 400 POLL_ALREADY_ACTIVE.
+      if ((error as { code?: string })?.code === 'P2002') {
+        const existing = await prisma.poll.findFirst({
+          where: { groupId: data.groupId, status: 'ACTIVE' },
+          select: { id: true },
+        });
+        throw new PollAlreadyActiveError(data.groupId, existing?.id ?? -1);
+      }
       logger.error('Error creating poll:', error);
       throw new Error('Failed to create poll');
     }

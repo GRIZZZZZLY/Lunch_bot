@@ -130,7 +130,7 @@ async function startApplication(): Promise<void> {
       // запускался только в onStart polling'а, и на проде (webhook) cron
       // никогда не работал: recurring polls не запускались.
       const { PollSchedulerService } = require('./services/poll-scheduler.service');
-      PollSchedulerService.start();
+      await PollSchedulerService.start();
     } else {
       // Polling / API-only / Bot-only режимы.
       logger.info('🔄 Запуск в polling режиме');
