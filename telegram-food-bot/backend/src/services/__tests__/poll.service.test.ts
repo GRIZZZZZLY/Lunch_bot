@@ -13,6 +13,7 @@ jest.mock('../../database/client', () => ({
       findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       count: jest.fn(),
       aggregate: jest.fn(),
     },
@@ -1018,5 +1019,53 @@ describe('PollService', () => {
 
       expect(result).toBe(false);
     });
+  });
+});
+
+describe('PollService.cancelExpiredPolls', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('отменяет только истёкшие ACTIVE (endedAt=now, status=CANCELLED)', async () => {
+    const now = new Date('2026-07-20T12:00:00Z');
+    (prisma.poll.findMany as jest.Mock).mockResolvedValue([
+      { id: 1, groupId: 5, startedAt: new Date('2026-07-20T11:00:00Z'), duration: 30 }, // истёк 11:30
+      { id: 2, groupId: 5, startedAt: new Date('2026-07-20T11:50:00Z'), duration: 30 }, // до 12:20 — активен
+    ]);
+    (prisma.poll.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+    const n = await PollService.cancelExpiredPolls(now);
+
+    expect(n).toBe(1);
+    expect(prisma.poll.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.poll.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, status: 'ACTIVE' },
+      data: { status: 'CANCELLED', endedAt: now },
+    });
+  });
+
+  it('нет истёкших → updateMany не вызывается, возвращает 0', async () => {
+    const now = new Date('2026-07-20T12:00:00Z');
+    (prisma.poll.findMany as jest.Mock).mockResolvedValue([
+      { id: 3, groupId: 1, startedAt: new Date('2026-07-20T11:55:00Z'), duration: 30 },
+    ]);
+
+    const n = await PollService.cancelExpiredPolls(now);
+
+    expect(n).toBe(0);
+    expect(prisma.poll.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('race: updateMany count=0 (уже закрыт) не засчитывается', async () => {
+    const now = new Date('2026-07-20T12:00:00Z');
+    (prisma.poll.findMany as jest.Mock).mockResolvedValue([
+      { id: 4, groupId: 1, startedAt: new Date('2026-07-20T10:00:00Z'), duration: 30 },
+    ]);
+    (prisma.poll.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+
+    const n = await PollService.cancelExpiredPolls(now);
+
+    expect(n).toBe(0);
   });
 });
