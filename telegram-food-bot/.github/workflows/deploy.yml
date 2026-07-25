@@ -89,7 +89,7 @@ jobs:
 
           frontend_dir=$(sed -n 's/^FRONTEND_DIR=//p' \
             "$source_project/backend/.env" | tail -1 | tr -d '\r"' | xargs)
-          frontend_dir=${frontend_dir:-frontend}
+          frontend_dir=${frontend_dir:-frontend-new}
           case "$frontend_dir" in
             frontend|frontend-new) ;;
             *) echo "Unsupported FRONTEND_DIR: $frontend_dir" >&2; exit 1 ;;

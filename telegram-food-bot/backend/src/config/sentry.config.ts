@@ -2,6 +2,25 @@ import * as Sentry from '@sentry/node';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { logger } from '../utils/logger';
 
+const SENSITIVE_SENTRY_KEY =
+  /^(authorization|cookie|set-cookie|.*token.*|.*secret.*|password|initdata.*|telegramid|chatid|username|firstname|lastname|photourl|payment(card|phone|details)?|phone|cardnumber|invoicepayload|.*chargeid)$/i;
+
+function scrubSensitiveData(value: unknown, depth: number = 0): unknown {
+  if (depth > 8) return '[Truncated]';
+  if (Array.isArray(value)) {
+    return value.map(item => scrubSensitiveData(item, depth + 1));
+  }
+  if (!value || typeof value !== 'object') return value;
+
+  const result: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    result[key] = SENSITIVE_SENTRY_KEY.test(key)
+      ? '[Filtered]'
+      : scrubSensitiveData(nested, depth + 1);
+  }
+  return result;
+}
+
 /**
  * Инициализация Sentry/GlitchTip для мониторинга ошибок в production
  * 
@@ -48,7 +67,7 @@ export function initSentry() {
     ],
 
     // Фильтрация чувствительных данных
-    beforeSend(event, hint) {
+    beforeSend(event) {
       // P0-6: расширенный PII скраб.
       // Auth headers
       if (event.request?.headers) {
@@ -59,10 +78,15 @@ export function initSentry() {
           'set-cookie',
           'x-telegram-bot-token',
           'x-telegram-init-data',
+          'x-telegram-bot-api-secret-token',
           'idempotency-key',
         ]) {
           delete h[key];
         }
+      }
+
+      if (event.request?.url) {
+        event.request.url = event.request.url.split('?')[0];
       }
 
       // Чувствительные env-переменные
@@ -84,11 +108,15 @@ export function initSentry() {
 
       // Параметры запроса/body иногда содержат telegramId, username — для
       // ошибок этого достаточно как контекст, но НЕ для PII-полей вроде phone.
-      if (event.request?.data && typeof event.request.data === 'object') {
-        const data = event.request.data as Record<string, unknown>;
-        for (const key of ['paymentCard', 'paymentPhone', 'phone', 'cardNumber']) {
-          if (key in data) data[key] = '[Filtered]';
-        }
+      if (event.request?.data) {
+        event.request.data = scrubSensitiveData(event.request.data);
+      }
+      event.extra = scrubSensitiveData(event.extra) as typeof event.extra;
+      event.contexts = scrubSensitiveData(
+        event.contexts
+      ) as typeof event.contexts;
+      if (event.user) {
+        event.user = event.user.id ? { id: event.user.id } : undefined;
       }
 
       return event;
@@ -148,12 +176,11 @@ export function captureMessage(message: string, level: Sentry.SeverityLevel = 'i
 /**
  * Set user context
  */
-export function setUserContext(userId: number, username?: string) {
+export function setUserContext(userId: number, _username?: string) {
   const enabled = process.env.ENABLE_SENTRY === 'true' || process.env.ENABLE_GLITCHTIP === 'true';
   if (enabled) {
     Sentry.setUser({
       id: userId.toString(),
-      username,
     });
   }
 }

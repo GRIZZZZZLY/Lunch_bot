@@ -67,7 +67,7 @@ export function useActivePolls(options?: {
  * ```
  */
 export function usePoll(pollId: number | undefined, silent = false) {
-  // SSE подписка — real-time обновления через EventSource.
+  // SSE-подписка — обновления через защищённый поток fetch.
   // При получении события автоматически инвалидирует кеш polls.detail и polls.active.
   // Polling остаётся как fallback на случай обрыва SSE.
   useSSE({

@@ -9,7 +9,10 @@ const router = Router();
 router.use(telegramAuthMiddleware);
 
 // G0-8: критично для createStoreRun (двойной тап = два забега) и settle.
-const storeRunIdempotency = createIdempotencyMiddleware({ scope: 'storeRun' });
+const storeRunIdempotency = createIdempotencyMiddleware({
+  scope: 'storeRun',
+  required: true,
+});
 
 // Reads
 router.get('/active', (req, res) => storeRunController.getActiveForUser(req, res));

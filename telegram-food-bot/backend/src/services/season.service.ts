@@ -4,13 +4,13 @@ import { logger } from '../utils/logger';
 
 /**
  * SeasonService - Управление сезонной системой геймификации
- * 
+ *
  * Функционал:
  * - Создание и ротация сезонов
  * - Получение текущего/прошлых сезонов
  * - Сезонная статистика и лидерборды
  * - Автоматический переход между сезонами
- * 
+ *
  * Sprint 6: Basic Season System
  */
 
@@ -91,7 +91,7 @@ export class SeasonService {
   static async createMonthlySeason(): Promise<Season> {
     try {
       const currentSeason = await this.getCurrentSeason();
-      
+
       // Деактивируем текущий сезон если есть
       if (currentSeason) {
         await prisma.season.update({
@@ -114,8 +114,18 @@ export class SeasonService {
 
       // Определяем название (месяц + год)
       const monthNames = [
-        'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+        'Январь',
+        'Февраль',
+        'Март',
+        'Апрель',
+        'Май',
+        'Июнь',
+        'Июль',
+        'Август',
+        'Сентябрь',
+        'Октябрь',
+        'Ноябрь',
+        'Декабрь',
       ];
       const name = `${monthNames[startDate.getMonth()]} ${startDate.getFullYear()}`;
 
@@ -144,7 +154,9 @@ export class SeasonService {
         },
       });
 
-      logger.info(`Created new season: ${newSeason.number} - ${newSeason.name}`);
+      logger.info(
+        `Created new season: ${newSeason.number} - ${newSeason.name}`
+      );
       return newSeason;
     } catch (error) {
       logger.error('Error creating monthly season:', error);
@@ -202,14 +214,16 @@ export class SeasonService {
       }
 
       const leaderboard = await this.getSeasonLeaderboard(seasonId, 10);
-      
+
       if (leaderboard.length === 0) {
         logger.info('No participants in season, skipping rewards');
         return;
       }
 
-      const rewards = season.rewards 
-        ? (typeof season.rewards === 'string' ? JSON.parse(season.rewards) : season.rewards)
+      const rewards = season.rewards
+        ? typeof season.rewards === 'string'
+          ? JSON.parse(season.rewards)
+          : season.rewards
         : null;
       if (!rewards) {
         logger.warn('No rewards configured for season', { seasonId });
@@ -220,19 +234,24 @@ export class SeasonService {
       for (let i = 0; i < Math.min(3, leaderboard.length); i++) {
         const player = leaderboard[i];
         const reward = rewards.top3[i];
-        
+
         if (reward) {
           // Награждаем XP
-          const { GamificationService } = await import('./gamification.service.js');
+          const { GamificationService } = await import(
+            './gamification.service.js'
+          );
           await GamificationService.awardXP(
             player.userId,
             reward.xp,
             `Награда за ${i + 1} место в сезоне "${season.name}"`,
             'SOCIAL',
-            { seasonId, position: i + 1, badge: reward.badge }
+            { seasonId, position: i + 1, badge: reward.badge },
+            `season:${seasonId}:${player.userId}:position:${i + 1}`
           );
-          
-          logger.info(`Awarded ${reward.xp} XP to user ${player.userId} for position ${i + 1}`);
+
+          logger.info(
+            `Awarded ${reward.xp} XP to user ${player.userId} for position ${i + 1}`
+          );
         }
       }
 
@@ -240,33 +259,43 @@ export class SeasonService {
       for (let i = 3; i < Math.min(10, leaderboard.length); i++) {
         const player = leaderboard[i];
         const reward = rewards.top10;
-        
-        await (await import('./gamification.service.js')).GamificationService.awardXP(
+
+        await (
+          await import('./gamification.service.js')
+        ).GamificationService.awardXP(
           player.userId,
           reward.xp,
           `Награда за топ-10 в сезоне "${season.name}"`,
           'SOCIAL',
-          { seasonId, position: i + 1, badge: reward.badge }
+          { seasonId, position: i + 1, badge: reward.badge },
+          `season:${seasonId}:${player.userId}:position:${i + 1}`
         );
-        
-        logger.info(`Awarded ${reward.xp} XP to user ${player.userId} for top-10`);
+
+        logger.info(
+          `Awarded ${reward.xp} XP to user ${player.userId} for top-10`
+        );
       }
 
       // Вручаем награды всем участникам (10+)
       for (let i = 10; i < leaderboard.length; i++) {
         const player = leaderboard[i];
         const reward = rewards.participant;
-        
-        await (await import('./gamification.service.js')).GamificationService.awardXP(
+
+        await (
+          await import('./gamification.service.js')
+        ).GamificationService.awardXP(
           player.userId,
           reward.xp,
           `Награда за участие в сезоне "${season.name}"`,
           'SOCIAL',
-          { seasonId }
+          { seasonId },
+          `season:${seasonId}:${player.userId}:participant`
         );
       }
 
-      logger.info(`Season ${season.number} rewards distributed to ${leaderboard.length} players`);
+      logger.info(
+        `Season ${season.number} rewards distributed to ${leaderboard.length} players`
+      );
     } catch (error) {
       logger.error('Error awarding season rewards:', error);
     }
@@ -347,7 +376,10 @@ export class SeasonService {
   /**
    * Получить статистику пользователя за сезон
    */
-  static async getUserSeasonStats(userId: number, seasonId?: number): Promise<{
+  static async getUserSeasonStats(
+    userId: number,
+    seasonId?: number
+  ): Promise<{
     seasonId: number;
     seasonName: string;
     totalXP: number;
@@ -361,7 +393,7 @@ export class SeasonService {
   } | null> {
     try {
       // Если seasonId не указан, берем текущий
-      const season = seasonId 
+      const season = seasonId
         ? await this.getSeasonById(seasonId)
         : await this.getCurrentSeason();
 
@@ -421,7 +453,7 @@ export class SeasonService {
   static async checkAndRotateSeason(): Promise<void> {
     try {
       const currentSeason = await this.getCurrentSeason();
-      
+
       if (!currentSeason) {
         logger.info('No active season, creating first season');
         await this.createMonthlySeason();
@@ -429,14 +461,19 @@ export class SeasonService {
       }
 
       const now = new Date();
-      
+
       // Проверяем, не завершился ли сезон
       if (currentSeason.endDate <= now) {
         logger.info(`Season ${currentSeason.number} has ended, rotating...`);
         await this.rotateSeason();
       } else {
-        const daysRemaining = Math.ceil((currentSeason.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        logger.info(`Current season ${currentSeason.number} has ${daysRemaining} days remaining`);
+        const daysRemaining = Math.ceil(
+          (currentSeason.endDate.getTime() - now.getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
+        logger.info(
+          `Current season ${currentSeason.number} has ${daysRemaining} days remaining`
+        );
       }
     } catch (error) {
       logger.error('Error checking and rotating season:', error);

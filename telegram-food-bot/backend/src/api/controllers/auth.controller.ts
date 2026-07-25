@@ -49,7 +49,7 @@ async function resolveGroupIdFromStartParam(startParam: string): Promise<number 
   }
 }
 
-type JwtUserInput = Pick<User, 'id' | 'telegramId' | 'username' | 'isAdmin'>;
+type JwtUserInput = Pick<User, 'id'>;
 
 export class AuthController {
   /**
@@ -104,11 +104,10 @@ export class AuthController {
 
       const isProduction = process.env.NODE_ENV === 'production';
       const skipTelegramValidation = process.env.SKIP_TELEGRAM_VALIDATION === 'true';
-      const allowSkipInProd = process.env.ALLOW_SKIP_VALIDATION_IN_PROD === 'true';
 
       // 🚨 SECURITY: hard-fail SKIP_TELEGRAM_VALIDATION in production unless explicitly allowed.
       // Without this, a misconfigured prod .env silently bypasses signature validation.
-      if (isProduction && skipTelegramValidation && !allowSkipInProd) {
+      if (isProduction && skipTelegramValidation) {
         logger.error('🚨 SKIP_TELEGRAM_VALIDATION blocked in production');
         res.status(500).json({
           success: false,
@@ -225,10 +224,7 @@ export class AuthController {
         return;
       }
 
-      logger.info('✅ InitData validated successfully', {
-        userId: userData.id,
-        username: userData.username,
-      });
+      logger.info('InitData validated successfully');
 
       // Создаем или обновляем пользователя в БД
       const user = await UserService.upsertUser({
@@ -239,11 +235,7 @@ export class AuthController {
         photoUrl: userData.photo_url,
       });
 
-      logger.info('User validated via initData', {
-        userId: user.id,
-        telegramId: userData.id.toString(),
-        username: userData.username
-      });
+      logger.info('User authenticated via Telegram', { userId: user.id });
 
       // Auto-add membership when launched via group deep-link — ONLY if Telegram
       // confirms the user is actually in that group (no self-granted membership).
@@ -428,9 +420,6 @@ export class AuthController {
 function generateJWT(user: JwtUserInput): { accessToken: string; refreshToken: string; expiresIn: number } {
   const payload = {
     userId: user.id,
-    telegramId: user.telegramId.toString(),
-    username: user.username ?? undefined,
-    isAdmin: user.isAdmin,
   };
   
   // ✅ Генерируем ОБА токена: access (1 час) и refresh (7 дней)

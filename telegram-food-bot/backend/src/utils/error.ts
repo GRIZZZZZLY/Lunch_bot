@@ -254,9 +254,7 @@ export function errorHandler(
 ): void {
   logger.error('Express error:', formatErrorForLogging(err, {
     method: req.method,
-    url: req.url,
-    body: req.body,
-    query: req.query,
+    path: req.path,
   }));
 
   if (err instanceof BaseError) {

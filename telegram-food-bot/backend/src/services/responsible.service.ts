@@ -13,7 +13,9 @@ import { getBotInstance } from '../bot/bot-instance';
 /** @deprecated No-op: bot is now accessed via the shared singleton */
 export function initializeResponsibleServiceBot(_bot: unknown): void {}
 
-function botInstance() { return getBotInstance(); }
+function botInstance() {
+  return getBotInstance();
+}
 
 export class ResponsibleService {
   /**
@@ -28,7 +30,8 @@ export class ResponsibleService {
       }
 
       const settings = await GroupService.getGroupSettings(poll.groupId);
-      const mode = settings.responsibleSelectionMode || 'volunteer_with_fallback';
+      const mode =
+        settings.responsibleSelectionMode || 'volunteer_with_fallback';
 
       logger.info('Starting responsible selection', { pollId, mode });
 
@@ -62,14 +65,17 @@ export class ResponsibleService {
   /**
    * Отправка сообщения с кнопкой "Я оформлю!"
    */
-  static async sendVolunteerPrompt(pollId: number, selection: any): Promise<void> {
+  static async sendVolunteerPrompt(
+    pollId: number,
+    selection: any
+  ): Promise<void> {
     try {
       if (!botInstance) {
         logger.error('Bot instance not initialized');
         return;
       }
 
-      const poll = await PollService.getPollById(pollId) as any;
+      const poll = (await PollService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) {
         logger.error('Poll result data not found', { pollId });
         return;
@@ -79,7 +85,8 @@ export class ResponsibleService {
 
       // Рассчитываем общую сумму
       const totalAmount = resultData.winners.reduce(
-        (sum: number, w: any) => sum + multiply(w.menuItemSnapshot.price, w.voteCount),
+        (sum: number, w: any) =>
+          sum + multiply(w.menuItemSnapshot.price, w.voteCount),
         0
       );
 
@@ -107,7 +114,9 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
 `;
 
       const keyboard = {
-        inline_keyboard: [[{ text: '🙋‍♂️ Я оформлю!', callback_data: `volunteer:${pollId}` }]],
+        inline_keyboard: [
+          [{ text: '🙋‍♂️ Я оформлю!', callback_data: `volunteer:${pollId}` }],
+        ],
       };
 
       let messageId = poll.messageId ?? undefined;
@@ -118,12 +127,19 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
           parse_mode: 'Markdown',
           reply_markup: keyboard,
         });
-        logger.info('Volunteer prompt updated in poll message', { pollId, messageId });
-      } else if (chatId && botInstance) {
-        const sentMessage = await botInstance()!.api.sendMessage(chatId, message, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard,
+        logger.info('Volunteer prompt updated in poll message', {
+          pollId,
+          messageId,
         });
+      } else if (chatId && botInstance) {
+        const sentMessage = await botInstance()!.api.sendMessage(
+          chatId,
+          message,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: keyboard,
+          }
+        );
         messageId = sentMessage.message_id;
         logger.info('Volunteer prompt sent', { pollId, messageId });
       }
@@ -137,7 +153,10 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
       }
 
       // Устанавливаем таймаут
-      setTimeout(() => this.handleVolunteerTimeout(pollId), (selection.timeoutMinutes || 3) * 60 * 1000);
+      setTimeout(
+        () => this.handleVolunteerTimeout(pollId),
+        (selection.timeoutMinutes || 3) * 60 * 1000
+      );
     } catch (error) {
       logger.error('Error sending volunteer prompt:', error);
     }
@@ -146,26 +165,53 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
   /**
    * Обработка отклика добровольца
    */
-  static async handleVolunteer(pollId: number, telegramId: number): Promise<void> {
+  static async handleVolunteer(
+    pollId: number,
+    telegramId: number
+  ): Promise<boolean> {
     try {
       const selection = await prisma.responsibleSelection.findUnique({
         where: { pollId },
       });
 
       if (!selection || selection.status !== 'WAITING') {
-        logger.info('Selection not waiting or already completed', { pollId, status: selection?.status });
-        return;
+        logger.info('Selection not waiting or already completed', {
+          pollId,
+          status: selection?.status,
+        });
+        return false;
       }
 
       const user = await UserService.getUserByTelegramId(BigInt(telegramId));
       if (!user) {
-        logger.error('User not found', { telegramId });
-        return;
+        logger.error('User not found for volunteer action');
+        return false;
       }
 
-      // Обновляем selection
-      await prisma.responsibleSelection.update({
-        where: { id: selection.id },
+      const poll = await prisma.poll.findUnique({
+        where: { id: pollId },
+        select: { groupId: true },
+      });
+      const isEligible =
+        poll &&
+        (await GroupService.isUserGroupMember(user.id, poll.groupId)) &&
+        (await prisma.pollParticipant.count({
+          where: {
+            pollId,
+            userId: user.id,
+            status: 'EXPECTED',
+          },
+        })) === 1;
+      if (!isEligible) {
+        logger.warn('Volunteer action rejected for ineligible user', {
+          pollId,
+          userId: user.id,
+        });
+        return false;
+      }
+
+      const claimed = await prisma.responsibleSelection.updateMany({
+        where: { id: selection.id, status: 'WAITING' },
         data: {
           status: 'VOLUNTEER_SELECTED',
           selectedUserId: user.id,
@@ -173,8 +219,11 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
           completedAt: now(),
         },
       });
+      if (claimed.count !== 1) {
+        return false;
+      }
 
-      logger.info('Volunteer selected', { pollId, userId: user.id, firstName: user.firstName });
+      logger.info('Volunteer selected', { pollId, userId: user.id });
 
       // Sprint 6: XP интеграция за волонтёрство
       try {
@@ -184,9 +233,12 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
           reward.amount,
           reward.reason,
           reward.category,
-          { pollId, selectionMode: 'volunteer' }
+          { pollId, selectionMode: 'volunteer' },
+          `poll-volunteer:${pollId}:${user.id}`
         );
-        logger.info(`XP awarded: ${reward.amount} to user ${user.id} for volunteering`);
+        logger.info(
+          `XP awarded: ${reward.amount} to user ${user.id} for volunteering`
+        );
       } catch (xpError) {
         logger.error('Failed to award XP for volunteer:', xpError);
         // Не прерываем основной процесс
@@ -209,8 +261,10 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
       // Переход к фазе 4
       const { BudgetService } = await import('./budget.service.js');
       await BudgetService.processResponsibleSelected(pollId, user.id);
+      return true;
     } catch (error) {
       logger.error('Error handling volunteer:', error);
+      return false;
     }
   }
 
@@ -228,12 +282,17 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
         return;
       }
 
-      logger.info('Volunteer timeout reached, falling back to roulette', { pollId });
+      logger.info('Volunteer timeout reached, falling back to roulette', {
+        pollId,
+      });
 
-      await prisma.responsibleSelection.update({
-        where: { id: selection.id },
+      const timedOut = await prisma.responsibleSelection.updateMany({
+        where: { id: selection.id, status: 'WAITING' },
         data: { status: 'TIMEOUT' },
       });
+      if (timedOut.count !== 1) {
+        return;
+      }
 
       if (selection.messageId && selection.chatId && botInstance) {
         try {
@@ -283,7 +342,10 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
         },
       });
 
-      logger.info('Roulette completed', { pollId, responsibleUserId: result.responsibleUserId });
+      logger.info('Roulette completed', {
+        pollId,
+        responsibleUserId: result.responsibleUserId,
+      });
 
       // Обновляем сообщение в группе (если было сообщение выбора)
       const selection = await prisma.responsibleSelection.findUnique({
@@ -315,9 +377,12 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
           reward.amount,
           reward.reason,
           reward.category,
-          { pollId, selectionMode: 'roulette' }
+          { pollId, selectionMode: 'roulette' },
+          `poll-roulette:${pollId}:${result.responsibleUserId}`
         );
-        logger.info(`XP awarded: ${reward.amount} to user ${result.responsibleUserId} for being selected by roulette`);
+        logger.info(
+          `XP awarded: ${reward.amount} to user ${result.responsibleUserId} for being selected by roulette`
+        );
       } catch (xpError) {
         logger.error('Failed to award XP for roulette selection:', xpError);
         // Не прерываем основной процесс
@@ -325,7 +390,10 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
 
       // Переход к фазе 4
       const { BudgetService } = await import('./budget.service.js');
-      await BudgetService.processResponsibleSelected(pollId, result.responsibleUserId);
+      await BudgetService.processResponsibleSelected(
+        pollId,
+        result.responsibleUserId
+      );
     } catch (error) {
       logger.error('Error running roulette:', error);
     }

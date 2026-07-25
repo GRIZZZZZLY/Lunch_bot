@@ -3,6 +3,7 @@ import { prisma } from '../database/client';
 import { ReminderSettingsService } from '../services/reminder-settings.service';
 import { getBotInstance } from '../bot/bot-instance';
 import { logger } from '../utils/logger';
+import { withDistributedLock } from '../utils/distributed-lock';
 
 /**
  * Форматирование возраста долга
@@ -13,11 +14,11 @@ function formatDebtAge(daysOld: number): string {
   if (daysOld < 5) return `${daysOld} дня назад`;
   if (daysOld < 21) return `${daysOld} дней назад`;
   if (daysOld < 31) return `${daysOld} день назад`;
-  
+
   const weeks = Math.floor(daysOld / 7);
   if (weeks === 1) return '1 неделю назад';
   if (weeks < 5) return `${weeks} недели назад`;
-  
+
   const months = Math.floor(daysOld / 30);
   if (months === 1) return '1 месяц назад';
   return `${months} месяца назад`;
@@ -28,11 +29,12 @@ function formatDebtAge(daysOld: number): string {
  */
 function formatDebtsList(debts: any[]): string {
   return debts
-    .map((debt) => {
+    .map(debt => {
       const creditor = debt.creditor;
       const amount = Number(debt.amount).toFixed(2);
       const daysOld = Math.floor(
-        (Date.now() - new Date(debt.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - new Date(debt.createdAt).getTime()) /
+          (1000 * 60 * 60 * 24)
       );
       return `• ${creditor.firstName} ${creditor.lastName || ''}: ${amount} руб. (${formatDebtAge(daysOld)})`;
     })
@@ -50,7 +52,7 @@ function formatReminderMessage(
   oldestDebtAge: number
 ): string {
   const debtsList = formatDebtsList(debts);
-  
+
   return template
     .replace('{userName}', debtor.firstName)
     .replace('{totalAmount}', totalAmount.toFixed(2))
@@ -110,7 +112,7 @@ async function getGroupDebtors(
 
   for (const transaction of transactions) {
     const debtorId = transaction.fromUserId;
-    
+
     if (!debtorMap.has(debtorId)) {
       debtorMap.set(debtorId, {
         debtor: transaction.fromUser,
@@ -126,9 +128,10 @@ async function getGroupDebtors(
       creditor: transaction.toUser,
     });
     debtorData.totalAmount += Number(transaction.amount);
-    
+
     const debtAge = Math.floor(
-      (Date.now() - new Date(transaction.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+      (Date.now() - new Date(transaction.createdAt).getTime()) /
+        (1000 * 60 * 60 * 24)
     );
     debtorData.oldestDebtAge = Math.max(debtorData.oldestDebtAge, debtAge);
   }
@@ -148,7 +151,7 @@ async function sendRemindersForGroup(
     logger.error('[DebtReminderJob] Bot instance not available');
     return { sent: 0, failed: 0 };
   }
-  
+
   const debtors = await getGroupDebtors(
     groupId,
     settings.minDebtAge,
@@ -225,7 +228,8 @@ async function runDebtReminderJob(): Promise<void> {
 
   try {
     const reminderService = new ReminderSettingsService();
-    const groupsWithReminders = await reminderService.getGroupsWithEnabledReminders();
+    const groupsWithReminders =
+      await reminderService.getGroupsWithEnabledReminders();
 
     if (groupsWithReminders.length === 0) {
       logger.info('[DebtReminderJob] No groups with enabled reminders found');
@@ -270,7 +274,15 @@ export function initDebtReminderJob(): void {
   const cronPattern = '0 10 * * *';
 
   cron.schedule(cronPattern, async () => {
-    await runDebtReminderJob();
+    try {
+      await withDistributedLock(
+        'job:debt-reminder',
+        55 * 60,
+        runDebtReminderJob
+      );
+    } catch (error) {
+      logger.error('[DebtReminderJob] Distributed lock failed:', error);
+    }
   });
 
   logger.info(

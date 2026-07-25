@@ -12,6 +12,7 @@
         "prod-dev": "npm run build && npm run start:watch",
         "dev": "tsx watch src/index.ts",
         "test": "jest",
+        "test:unit": "jest --config jest.unit.config.js",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
         "lint": "eslint .",
@@ -40,7 +41,9 @@
         "knip": "knip --include files,dependencies,unlisted,unresolved,catalog,cycles --treat-config-hints-as-errors",
         "db:validate": "prisma validate",
         "db:format:check": "prisma format --check",
-        "db:migrate:test": "node scripts/verify-test-migrations.mjs"
+        "db:migrate:test": "node scripts/verify-test-migrations.mjs",
+        "e2e:seed": "tsx src/scripts/e2e-seed.ts seed",
+        "e2e:cleanup": "tsx src/scripts/e2e-seed.ts cleanup"
     },
     "keywords": [
         "telegram",
@@ -56,11 +59,9 @@
     "dependencies": {
         "@grammyjs/auto-retry": "^2.0.2",
         "@grammyjs/transformer-throttler": "^1.2.1",
-        "@prisma/adapter-pg": "^7.8.0",
-        "@prisma/client": "^7.3.0",
+        "@prisma/client": "6.19.3",
         "@sentry/node": "^10.37.0",
         "@sentry/profiling-node": "^10.37.0",
-        "@telegram-apps/init-data-node": "^2.0.10",
         "@types/pg": "^8.20.0",
         "compression": "^1.8.1",
         "cors": "^2.8.5",
@@ -98,7 +99,7 @@
         "knip": "6.27.0",
         "nodemon": "^3.1.10",
         "prettier": "^3.6.2",
-        "prisma": "^7.3.0",
+        "prisma": "6.19.3",
         "supertest": "^6.3.4",
         "ts-jest": "^29.4.6",
         "tsx": "^4.5.0",
@@ -108,5 +109,6 @@
     "engines": {
         "node": ">=22.13.0 <23",
         "npm": ">=10.0.0"
-    }
+    },
+    "overrides": {}
 }

@@ -26,6 +26,12 @@ jest.mock('../../database/client', () => ({
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    groupMember: {
+      findUnique: jest.fn(),
+    },
+    pollParticipant: {
+      findUnique: jest.fn(),
+    },
     user: {
       findMany: jest.fn(),
     },
@@ -63,6 +69,8 @@ describe('VoteService', () => {
         vote: prisma.vote,
         poll: prisma.poll,
         menuItem: prisma.menuItem,
+        groupMember: prisma.groupMember,
+        pollParticipant: prisma.pollParticipant,
       })
     );
     (prisma.poll.findUnique as jest.Mock).mockResolvedValue({
@@ -75,6 +83,12 @@ describe('VoteService', () => {
     (prisma.menuItem.count as jest.Mock).mockImplementation(
       ({ where }: { where: { id: { in: number[] } } }) => where.id.in.length
     );
+    (prisma.groupMember.findUnique as jest.Mock).mockResolvedValue({
+      isActive: true,
+    });
+    (prisma.pollParticipant.findUnique as jest.Mock).mockResolvedValue({
+      status: 'EXPECTED',
+    });
   });
 
   describe('createVote', () => {
@@ -184,6 +198,18 @@ describe('VoteService', () => {
   });
 
   describe('createMultipleVotes', () => {
+    it('rejects a user excluded from the poll snapshot', async () => {
+      (prisma.pollParticipant.findUnique as jest.Mock).mockResolvedValue({
+        status: 'EXCLUDED',
+      });
+
+      await expect(
+        VoteService.createMultipleVotes(1, 20, [2])
+      ).rejects.toThrow('User is not eligible to vote in this poll');
+
+      expect(prisma.vote.createMany).not.toHaveBeenCalled();
+    });
+
     it('should create only new votes and return all selected votes', async () => {
       const awardVoteXpSpy = jest
         .spyOn(VoteService as any, 'awardVoteXp')

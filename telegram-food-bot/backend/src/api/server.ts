@@ -1,10 +1,15 @@
 import express from 'express';
+import { Server } from 'http';
 import helmet from 'helmet';
 import compression from 'compression';
 import path from 'path';
 import crypto from 'crypto';
 import { corsMiddleware } from './middleware/cors';
-import { errorHandler, notFoundHandler, requestLogger } from './middleware/error-handler';
+import {
+  errorHandler,
+  notFoundHandler,
+  requestLogger,
+} from './middleware/error-handler';
 import { requestIdMiddleware } from './middleware/request-id';
 import { generalLimiter, authLimiter } from './middleware/rate-limiter';
 import { apiConfig } from '../config/api.config';
@@ -39,8 +44,9 @@ import { metricsMiddleware } from './middleware/metrics';
 export function createApiServer(): express.Application {
   const app = express();
   const isProduction = process.env.NODE_ENV === 'production';
-  const bodyLimit = process.env.API_BODY_LIMIT || '1mb';
-  const trustProxyConfig = process.env.TRUST_PROXY ?? (isProduction ? '1' : 'false');
+  const bodyLimit = process.env.API_BODY_LIMIT || '256kb';
+  const trustProxyConfig =
+    process.env.TRUST_PROXY ?? (isProduction ? '1' : 'false');
 
   if (trustProxyConfig === 'true') {
     app.set('trust proxy', true);
@@ -108,12 +114,14 @@ export function createApiServer(): express.Application {
     cspDirectives.reportUri = [cspReportUri];
   }
 
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: cspDirectives,
-    } as any,
-    crossOriginEmbedderPolicy: false, // Для iframe интеграции
-  }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: cspDirectives,
+      } as any,
+      crossOriginEmbedderPolicy: false, // Для iframe интеграции
+    })
+  );
 
   // Добавляем заголовок для обхода ngrok browser warning
   app.use((req, res, next) => {
@@ -122,35 +130,38 @@ export function createApiServer(): express.Application {
   });
 
   // Compression (Brotli/Gzip) - добавляем ДО body parser
-  app.use(compression({
-    // Brotli compression (лучше gzip на 15-20%)
-    filter: (req, res) => {
-      // Не сжимаем SSE stream — это ломает стриминг
-      if (req.path.includes('/stream')) {
-        return false;
-      }
-      // Не сжимаем если клиент не поддерживает или уже сжато
-      if (req.headers['x-no-compression']) {
-        return false;
-      }
-      // Используем стандартный фильтр compression
-      return compression.filter(req, res);
-    },
-    threshold: 1024, // Сжимаем только файлы > 1KB
-    level: 6, // Баланс между скоростью и степенью сжатия (0-9)
-  }));
+  app.use(
+    compression({
+      // Brotli compression (лучше gzip на 15-20%)
+      filter: (req, res) => {
+        // Не сжимаем SSE stream — это ломает стриминг
+        if (req.path.includes('/stream')) {
+          return false;
+        }
+        // Не сжимаем если клиент не поддерживает или уже сжато
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
+        // Используем стандартный фильтр compression
+        return compression.filter(req, res);
+      },
+      threshold: 1024, // Сжимаем только файлы > 1KB
+      level: 6, // Баланс между скоростью и степенью сжатия (0-9)
+    })
+  );
+
+  app.use(requestIdMiddleware);
+
+  // Отклоняем запрещённые браузерные источники до чтения и разбора тела.
+  app.use('/api', corsMiddleware);
 
   app.use(express.json({ limit: bodyLimit }));
   app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
-  app.use(requestIdMiddleware);
   app.use(requestLogger);
   app.use(metricsMiddleware); // Отслеживание response time
 
   // Health & Monitoring endpoints (без префикса /api)
   app.use('/health', healthRoutes);
-
-  // CORS только для API роутов
-  app.use('/api', corsMiddleware);
 
   // SSE route — подключаем ДО rate-limit (долгоживущие соединения)
   app.use('/api', sseRoutes);
@@ -175,7 +186,10 @@ export function createApiServer(): express.Application {
   app.use('/api/budget', budgetRoutes);
   app.use('/api/metrics', metricsRoutes);
   app.use('/api/feedback', feedbackRoutes);
-  app.use('/api/notifications', require('./routes/notification.routes').default);
+  app.use(
+    '/api/notifications',
+    require('./routes/notification.routes').default
+  );
   app.use('/api/store-runs', require('./routes/store-run.routes').default);
   app.use('/api/gamification', gamificationRoutes);
   app.use('/api/seasons', seasonRoutes);
@@ -201,9 +215,6 @@ export function createApiServer(): express.Application {
     });
   });
 
-  // Статический контент (для будущего использования)
-  app.use('/uploads', express.static(apiConfig.uploadPath));
-
   // Production: Раздача frontend статики из dist/
   // ИСПРАВЛЕНИЕ: Используем process.cwd() - надёжнее чем __dirname
   // process.cwd() всегда указывает на директорию, откуда запущен процесс
@@ -214,20 +225,21 @@ export function createApiServer(): express.Application {
   const isInBackendDir = cwd.endsWith('backend') || cwd.endsWith('backend\\');
   const projectRoot = isInBackendDir ? path.join(cwd, '..') : cwd;
 
-  const frontendDir = process.env.FRONTEND_DIR || 'frontend';
+  const frontendDir = process.env.FRONTEND_DIR || 'frontend-new';
   const frontendDistPath = path.join(projectRoot, frontendDir, 'dist');
   const frontendDistExists = require('fs').existsSync(frontendDistPath);
 
-  logger.info(`CWD: ${cwd}`);
-  logger.info(`Project root: ${projectRoot}`);
-  logger.info(`Frontend dir: ${frontendDir}`);
-  logger.info(`Frontend static path: ${frontendDistPath}`);
-  logger.info(`Frontend dist exists: ${frontendDistExists}`);
+  logger.info('Frontend distribution check complete', {
+    frontendDir,
+    exists: frontendDistExists,
+  });
 
   if (!frontendDistExists) {
     logger.error(`❌ ОШИБКА: ${frontendDir}/dist не найдена!`);
-    logger.error(`Запустите сборку frontend: cd ${frontendDir} && npm run build`);
-    throw new Error(`Frontend dist directory not found: ${frontendDistPath}`);
+    logger.error(
+      `Запустите сборку frontend: cd ${frontendDir} && npm run build`
+    );
+    throw new Error('Frontend distribution directory not found');
   }
 
   app.get('/manifest.webmanifest', (req, res) => {
@@ -238,10 +250,15 @@ export function createApiServer(): express.Application {
   // Настройка кеширования для статических файлов
   app.use((req, res, next) => {
     const path = req.path;
-    
+
     // HTML и service worker файлы - никогда не кэшировать
-    if (path.endsWith('.html') || path === '/' || !path.includes('.') ||
-        path === '/sw.js' || path.startsWith('/workbox-')) {
+    if (
+      path.endsWith('.html') ||
+      path === '/' ||
+      !path.includes('.') ||
+      path === '/sw.js' ||
+      path.startsWith('/workbox-')
+    ) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
@@ -262,18 +279,20 @@ export function createApiServer(): express.Application {
     else {
       res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 час
     }
-    
+
     // Добавляем заголовок версии приложения
     res.setHeader('X-App-Version', '2.0.1');
-    
+
     next();
   });
-  
-  app.use(express.static(frontendDistPath, {
-    maxAge: 0, // Управляем через middleware выше
-    etag: true, // Включаем ETag для проверки изменений
-    lastModified: true, // Включаем Last-Modified
-  }));
+
+  app.use(
+    express.static(frontendDistPath, {
+      maxAge: 0, // Управляем через middleware выше
+      etag: true, // Включаем ETag для проверки изменений
+      lastModified: true, // Включаем Last-Modified
+    })
+  );
 
   // Fallback на index.html для React Router (SPA)
   app.use((req, res, next) => {
@@ -285,7 +304,7 @@ export function createApiServer(): express.Application {
       return next();
     }
     // Отправляем index.html для всех остальных запросов
-    res.sendFile(path.join(frontendDistPath, 'index.html'), (err) => {
+    res.sendFile(path.join(frontendDistPath, 'index.html'), err => {
       if (err) {
         next(err);
       }
@@ -297,7 +316,6 @@ export function createApiServer(): express.Application {
 
   logger.info('API сервер настроен', {
     corsOrigin: apiConfig.corsOrigin,
-    uploadPath: apiConfig.uploadPath,
     maxFileSize: `${apiConfig.maxFileSizeMB}MB`,
     trustProxy: app.get('trust proxy'),
   });
@@ -308,7 +326,7 @@ export function createApiServer(): express.Application {
 /**
  * Запуск API сервера
  */
-export function startApiServer(app: express.Application): void {
+export function startApiServer(app: express.Application): Promise<Server> {
   const port = apiConfig.port;
   const host = apiConfig.host;
 
@@ -316,37 +334,35 @@ export function startApiServer(app: express.Application): void {
   // createApiServer() (например /webhook) не перехватывались раньше времени
   app.use(notFoundHandler);
 
-  app.listen(port, host, () => {
-    logger.info(`🚀 API сервер запущен на http://${host}:${port}`);
-    logger.info('📋 Monitoring endpoints:');
-    logger.info('  GET  /health - проверка состояния');
-    logger.info('  GET  /health/ready - readiness check');
-    logger.info('  GET  /health/live - liveness check');
-    logger.info('  GET  /api/metrics - метрики приложения');
-    logger.info('  GET  /api/metrics/detailed - детальная статистика');
-    logger.info('  GET  /dashboard.html - monitoring dashboard');
-    logger.info('');
-    logger.info('📋 Main API endpoints:');
-    logger.info('  POST /api/auth/validate - валидация пользователя');
-    logger.info('  GET  /api/menu - список блюд');
-    logger.info('  GET  /api/polls/active - активные голосования');
-    logger.info('  GET  /api/budget/debts - долги пользователя');
-    logger.info('  GET  /api/polls/:id/stream - SSE real-time updates');
-    logger.info('');
-    if (process.env.NODE_ENV !== 'production') {
-      logger.info('🧪 Test endpoints (dev/staging):');
-      logger.info('  GET  /api/test/sentry-error - тест Sentry error');
-      logger.info('  GET  /api/test/sentry-message - тест Sentry message');
-      logger.info('');
-    }
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, host);
+    server.requestTimeout = Number(
+      process.env.API_REQUEST_TIMEOUT_MS ?? 30_000
+    );
+    server.headersTimeout = Number(
+      process.env.API_HEADERS_TIMEOUT_MS ?? 35_000
+    );
+    server.keepAliveTimeout = Number(
+      process.env.API_KEEP_ALIVE_TIMEOUT_MS ?? 5_000
+    );
+    const onError = (error: Error): void => {
+      reject(error);
+    };
+
+    server.once('error', onError);
+    server.once('listening', () => {
+      server.off('error', onError);
+      logger.info('API сервер принимает подключения', { host, port });
+      resolve(server);
+    });
   });
 }
 
 /**
  * Graceful shutdown API сервера
  */
-export function stopApiServer(server: any): Promise<void> {
-  return new Promise((resolve) => {
+export function stopApiServer(server: Server): Promise<void> {
+  return new Promise(resolve => {
     server.close(() => {
       logger.info('🛑 API сервер остановлен');
       resolve();

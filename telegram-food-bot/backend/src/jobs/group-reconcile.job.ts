@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { GroupService } from '../services/group.service';
 import { logger } from '../utils/logger';
+import { withDistributedLock } from '../utils/distributed-lock';
 
 /**
  * Инициализация cron-джоба сверки активных групп с реальным членством бота.
@@ -14,13 +15,19 @@ export function initGroupReconcileJob(): void {
 
   cron.schedule(cronExpr, async () => {
     try {
-      const deactivated = await GroupService.reconcileActiveGroups();
-      if (deactivated.length > 0) {
-        logger.info('Group reconcile deactivated stale groups', {
-          count: deactivated.length,
-          ids: deactivated,
-        });
-      }
+      await withDistributedLock(
+        'job:group-reconcile',
+        2 * 60 * 60,
+        async () => {
+          const deactivated = await GroupService.reconcileActiveGroups();
+          if (deactivated.length > 0) {
+            logger.info('Group reconcile deactivated stale groups', {
+              count: deactivated.length,
+              ids: deactivated,
+            });
+          }
+        }
+      );
     } catch (err) {
       logger.error('group reconcile job failed', { err });
     }

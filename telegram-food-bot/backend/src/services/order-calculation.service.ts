@@ -11,6 +11,9 @@ export function initializeOrderCalculationServiceBot(_bot: unknown): void {}
 
 function botInstance() { return getBotInstance(); }
 
+const MAX_ORDER_ITEM_PRICE = 1_000_000;
+const MAX_ADDITIONAL_COST = 1_000_000;
+
 export interface SaveOrderItemData {
   categoryOrderId: number;
   userId: number;
@@ -47,8 +50,14 @@ export class OrderCalculationService {
       throw new Error('Item name is required');
     }
 
-    if (!Number.isFinite(data.price) || data.price <= 0) {
-      throw new Error('Price must be a positive number');
+    if (
+      !Number.isFinite(data.price) ||
+      data.price <= 0 ||
+      data.price > MAX_ORDER_ITEM_PRICE
+    ) {
+      throw new Error(
+        `Price must be between 0 and ${MAX_ORDER_ITEM_PRICE}`
+      );
     }
 
     try {
@@ -224,9 +233,11 @@ export class OrderCalculationService {
       );
 
       if (
+        expectedParticipantIds.size === 0 ||
         hasUnexpectedUsers ||
         hasMissingUsers ||
-        actualParticipantIds.size !== expectedParticipantIds.size
+        actualParticipantIds.size !== expectedParticipantIds.size ||
+        categoryOrder.participantCount !== expectedParticipantIds.size
       ) {
         throw new Error(
           'Cannot finalize: order items must exactly match category participants'
@@ -237,8 +248,36 @@ export class OrderCalculationService {
       if (responsibleUserId === null) {
         throw new Error('Responsible user is not selected yet');
       }
-      const participantCount = categoryOrder.participantCount;
+      const participantCount = expectedParticipantIds.size;
       const orderItemsCount = categoryOrder.orderItems.length;
+
+      const additionalCosts = [
+        toNumber(categoryOrder.deliveryCost),
+        toNumber(categoryOrder.serviceFee),
+        toNumber(categoryOrder.tip),
+      ];
+      if (
+        additionalCosts.some(
+          value =>
+            !Number.isFinite(value) ||
+            value < 0 ||
+            value > MAX_ADDITIONAL_COST
+        )
+      ) {
+        throw new Error('Additional costs are outside the allowed range');
+      }
+      if (
+        categoryOrder.orderItems.some(orderItem => {
+          const value = toNumber(orderItem.price);
+          return (
+            !Number.isFinite(value) ||
+            value <= 0 ||
+            value > MAX_ORDER_ITEM_PRICE
+          );
+        })
+      ) {
+        throw new Error('Order item price is outside the allowed range');
+      }
 
       // Calculate per-person additional costs
       const deliveryShare =
@@ -269,39 +308,51 @@ export class OrderCalculationService {
       // Atomic: insert all transactions + flip CategoryOrder status in one tx.
       // Idempotency: if any transactions for this categoryOrder exist, skip insert.
       // Crash anywhere → both insert and status flip rolled back together.
-      const transactions = await prisma.$transaction(async (tx) => {
-        const existingCount = await tx.transaction.count({
-          where: { categoryOrderId: categoryOrder.id },
+      const result = await prisma.$transaction(async (tx) => {
+        const transition = await tx.categoryOrder.updateMany({
+          where: {
+            id: categoryOrder.id,
+            calculationStatus: { in: ['PENDING', 'IN_PROGRESS'] },
+          },
+          data: {
+            calculationStatus: 'COMPLETED',
+            calculationCompletedAt: new Date(),
+          },
         });
 
-        if (existingCount === 0 && txData.length > 0) {
-          await tx.transaction.createMany({ data: txData });
-        } else if (existingCount > 0) {
-          logger.warn(
-            'Transactions already exist for CategoryOrder, skipping insert (idempotent retry)',
-            { categoryOrderId: categoryOrder.id, existingCount, attemptedCount: txData.length },
-          );
+        if (transition.count === 1 && txData.length > 0) {
+          await tx.transaction.createMany({
+            data: txData,
+            skipDuplicates: true,
+          });
         }
 
         const inserted = await tx.transaction.findMany({
           where: { categoryOrderId: categoryOrder.id },
         });
 
-        // Status update inside same tx — atomic with insert.
-        await tx.categoryOrder.update({
-          where: { id: categoryOrder.id },
-          data: { calculationStatus: 'COMPLETED' },
-        });
+        if (transition.count === 0) {
+          const current = await tx.categoryOrder.findUnique({
+            where: { id: categoryOrder.id },
+            select: { calculationStatus: true },
+          });
+          if (current?.calculationStatus !== 'COMPLETED') {
+            throw new Error('Category order state changed during finalization');
+          }
+        }
 
-        return inserted;
+        return { transactions: inserted, transitioned: transition.count === 1 };
       });
+      const { transactions, transitioned } = result;
 
       logger.info(
         `Atomic finalize for CategoryOrder ${categoryOrderId}: ${transactions.length} transactions + status=COMPLETED committed`,
       );
 
       // Notifications outside tx — DB state already committed, partial fails recoverable.
-      await this.sendDebtNotifications(categoryOrder, transactions);
+      if (transitioned) {
+        await this.sendDebtNotifications(categoryOrder, transactions);
+      }
 
       logger.info(
         `Finalized calculation for CategoryOrder ${categoryOrderId}: ${transactions.length} transactions created`

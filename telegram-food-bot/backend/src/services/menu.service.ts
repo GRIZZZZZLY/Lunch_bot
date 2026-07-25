@@ -27,7 +27,7 @@ export class MenuService {
       // Инвалидируем кэш меню группы
       CacheInvalidator.invalidateMenu(data.groupId);
 
-      logger.info(`Menu item created: ${menuItem.id} (${menuItem.name})`);
+      logger.info('Menu item created', { menuItemId: menuItem.id });
       return menuItem;
     } catch (error) {
       logger.error('Error creating menu item:', error);
@@ -124,7 +124,7 @@ export class MenuService {
       });
 
       CacheInvalidator.invalidateMenu(menuItem.groupId);
-      logger.info(`Menu item updated: ${menuItem.id} (${menuItem.name})`);
+      logger.info('Menu item updated', { menuItemId: menuItem.id });
       return menuItem;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {

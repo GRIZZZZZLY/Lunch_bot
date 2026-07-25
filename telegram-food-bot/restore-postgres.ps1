@@ -1,111 +1,198 @@
-param(
+﻿param(
   [string]$BackupFile,
   [string]$BackupDir = "backups",
   [switch]$NoBackup,
-  [switch]$Force
+  [switch]$Force,
+  [string]$ContainerName = "foodbot-postgres",
+  [string]$DatabaseUser = "foodbot",
+  [string]$DatabaseName = "foodbot_db"
 )
 
 $ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
 
-$containerName = "foodbot-postgres"
-$dbUser = "foodbot"
-$dbName = "foodbot_db"
+function Assert-SafeName([string]$Value, [string]$Label) {
+  if ($Value -notmatch '^[A-Za-z_][A-Za-z0-9_.-]{0,62}$') {
+    throw "$Label содержит недопустимые символы"
+  }
+}
 
-function Get-BackupList {
-  if (-not (Test-Path $BackupDir)) {
-    Write-Host "❌ Папка $BackupDir не найдена" -ForegroundColor Red
-    exit 1
+function Get-BackupList([string]$Root) {
+  if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
+    throw "Каталог резервных копий не найден: $Root"
   }
 
-  $items = Get-ChildItem $BackupDir -Filter "foodbot_backup_*.sql*" |
-    Sort-Object LastWriteTime -Descending
-
+  $items = @(
+    Get-ChildItem -LiteralPath $Root -Filter "foodbot_backup_*.dump" -File |
+      Sort-Object LastWriteTime -Descending
+  )
   if ($items.Count -eq 0) {
-    Write-Host "❌ Backup файлы не найдены" -ForegroundColor Red
-    exit 1
+    throw "Резервные копии не найдены"
   }
-
   return $items
 }
 
-function Select-BackupFile {
-  $items = Get-BackupList
-  Write-Host "`n📋 Доступные backup файлы:" -ForegroundColor Cyan
+Assert-SafeName $ContainerName "Имя контейнера"
+Assert-SafeName $DatabaseUser "Имя пользователя базы"
+Assert-SafeName $DatabaseName "Имя базы"
 
-  for ($i = 0; $i -lt $items.Count; $i++) {
-    $item = $items[$i]
-    $sizeMb = [math]::Round($item.Length / 1MB, 2)
-    $date = $item.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
-    Write-Host "  [$i] $($item.Name)" -ForegroundColor White
-    Write-Host "      Размер: $sizeMb MB | Дата: $date" -ForegroundColor Gray
-  }
-
-  $choice = Read-Host "Выберите номер backup (или 'q' для отмены)"
-  if ($choice -eq 'q') {
-    Write-Host "Отменено" -ForegroundColor Yellow
-    exit 0
-  }
-
-  if ($choice -notmatch '^\d+$' -or [int]$choice -ge $items.Count) {
-    Write-Host "❌ Неверный выбор" -ForegroundColor Red
-    exit 1
-  }
-
-  return $items[[int]$choice].FullName
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+  throw "docker не найден"
 }
+
+$backupRoot = [System.IO.Path]::GetFullPath(
+  (Join-Path (Get-Location) $BackupDir)
+)
 
 if (-not $BackupFile) {
-  $BackupFile = Select-BackupFile
+  $items = @(Get-BackupList $backupRoot)
+  Write-Host "Доступные резервные копии:" -ForegroundColor Cyan
+  for ($index = 0; $index -lt $items.Count; $index++) {
+    Write-Host "[$index] $($items[$index].Name)"
+  }
+
+  $choice = Read-Host "Введите номер или q для отмены"
+  if ($choice -eq "q") {
+    return
+  }
+  if ($choice -notmatch '^\d+$' -or [int]$choice -ge $items.Count) {
+    throw "Неверный выбор"
+  }
+  $BackupFile = $items[[int]$choice].FullName
 }
 
-if (-not (Test-Path $BackupFile)) {
-  Write-Host "❌ Файл не найден: $BackupFile" -ForegroundColor Red
-  exit 1
+$resolvedBackup = [System.IO.Path]::GetFullPath(
+  (Join-Path (Get-Location) $BackupFile)
+)
+if (-not (Test-Path -LiteralPath $resolvedBackup -PathType Leaf)) {
+  throw "Файл не найден: $resolvedBackup"
+}
+if ([System.IO.Path]::GetExtension($resolvedBackup) -ne ".dump") {
+  throw "Поддерживается только проверяемый формат .dump"
 }
 
-Write-Host "`n⚠️  ВНИМАНИЕ: восстановление удалит текущие данные" -ForegroundColor Yellow
-Write-Host "Файл: $BackupFile`n" -ForegroundColor White
+$hashFile = "$resolvedBackup.sha256"
+if (Test-Path -LiteralPath $hashFile) {
+  $expectedHash = ((Get-Content -LiteralPath $hashFile -Raw).Trim() -split '\s+')[0]
+  $actualHash = (Get-FileHash -LiteralPath $resolvedBackup -Algorithm SHA256).Hash
+  if ($expectedHash -ne $actualHash) {
+    throw "Контрольная сумма резервной копии не совпала"
+  }
+} else {
+  Write-Warning "Файл контрольной суммы отсутствует; целостность будет проверена pg_restore."
+}
 
 if (-not $Force) {
-  $confirm = Read-Host "Продолжить? (yes/no)"
-  if ($confirm -ne "yes") {
-    Write-Host "Отменено" -ForegroundColor Yellow
-    exit 0
+  Write-Host "ВНИМАНИЕ: текущая база $DatabaseName будет заменена." -ForegroundColor Yellow
+  $confirmation = Read-Host "Для продолжения введите точное имя базы"
+  if ($confirmation -ne $DatabaseName) {
+    Write-Host "Восстановление отменено." -ForegroundColor Yellow
+    return
   }
 }
 
-if (-not $NoBackup) {
-  Write-Host "`n💾 Создаю backup текущей БД..." -ForegroundColor Cyan
-  .\backup-postgres.ps1
+$containerFile = "/tmp/rocket-lunch-restore-$([guid]::NewGuid().ToString('N')).dump"
+$validationDatabase = "restore_check_$([guid]::NewGuid().ToString('N').Substring(0, 16))"
+Assert-SafeName $validationDatabase "Имя проверочной базы"
+
+try {
+  & docker inspect $ContainerName *> $null
+  if ($LASTEXITCODE -ne 0) {
+    throw "Контейнер $ContainerName недоступен"
+  }
+
+  & docker cp $resolvedBackup "${ContainerName}:${containerFile}"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Не удалось скопировать дамп в контейнер"
+  }
+
+  & docker exec $ContainerName pg_restore --list $containerFile *> $null
+  if ($LASTEXITCODE -ne 0) {
+    throw "Дамп повреждён или имеет неподдерживаемый формат"
+  }
+
+  # Полная пробная загрузка выполняется до изменения рабочей базы.
+  & docker exec $ContainerName createdb `
+    --username $DatabaseUser `
+    $validationDatabase
+  if ($LASTEXITCODE -ne 0) {
+    throw "Не удалось создать проверочную базу"
+  }
+
+  & docker exec $ContainerName pg_restore `
+    --username $DatabaseUser `
+    --dbname $validationDatabase `
+    --exit-on-error `
+    --no-owner `
+    --no-acl `
+    $containerFile
+  if ($LASTEXITCODE -ne 0) {
+    throw "Пробное восстановление завершилось с ошибкой"
+  }
+
+  if (-not $NoBackup) {
+    & (Join-Path $PSScriptRoot "backup-postgres.ps1") `
+      -BackupDir $BackupDir `
+      -ContainerName $ContainerName `
+      -DatabaseUser $DatabaseUser `
+      -DatabaseName $DatabaseName
+    if ($LASTEXITCODE -ne 0) {
+      throw "Не удалось сохранить страховочную копию текущей базы"
+    }
+  } else {
+    Write-Warning "Страховочная копия текущей базы отключена параметром NoBackup."
+  }
+
+  & docker exec $ContainerName psql `
+    --username $DatabaseUser `
+    --dbname postgres `
+    --set ON_ERROR_STOP=1 `
+    --command "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$DatabaseName' AND pid <> pg_backend_pid();"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Не удалось завершить соединения с целевой базой"
+  }
+
+  & docker exec $ContainerName dropdb `
+    --username $DatabaseUser `
+    --if-exists `
+    $DatabaseName
+  if ($LASTEXITCODE -ne 0) {
+    throw "Не удалось удалить целевую базу"
+  }
+
+  & docker exec $ContainerName createdb `
+    --username $DatabaseUser `
+    $DatabaseName
+  if ($LASTEXITCODE -ne 0) {
+    throw "Не удалось создать целевую базу"
+  }
+
+  & docker exec $ContainerName pg_restore `
+    --username $DatabaseUser `
+    --dbname $DatabaseName `
+    --exit-on-error `
+    --no-owner `
+    --no-acl `
+    $containerFile
+  if ($LASTEXITCODE -ne 0) {
+    throw "Восстановление целевой базы завершилось с ошибкой"
+  }
+
+  & docker exec $ContainerName psql `
+    --username $DatabaseUser `
+    --dbname $DatabaseName `
+    --tuples-only `
+    --command "SELECT COUNT(*) FROM users;"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Проверка восстановленной базы завершилась с ошибкой"
+  }
+
+  Write-Host "Восстановление завершено и проверено." -ForegroundColor Green
 }
-
-$workFile = $BackupFile
-$tempDir = $null
-
-if ($BackupFile.EndsWith(".zip")) {
-  $tempDir = Join-Path $env:TEMP ("foodbot-restore-" + [guid]::NewGuid().ToString())
-  New-Item -ItemType Directory -Path $tempDir | Out-Null
-  Expand-Archive -Path $BackupFile -DestinationPath $tempDir -Force
-  $workFile = (Get-ChildItem $tempDir -Filter "*.sql" | Select-Object -First 1).FullName
+finally {
+  & docker exec $ContainerName dropdb `
+    --username $DatabaseUser `
+    --if-exists `
+    $validationDatabase *> $null
+  & docker exec $ContainerName rm -f -- $containerFile *> $null
 }
-
-Write-Host "`n🔄 Восстановление..." -ForegroundColor Cyan
-
-docker exec $containerName psql -U $dbUser -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$dbName' AND pid <> pg_backend_pid();" | Out-Null
-docker exec $containerName psql -U $dbUser -c "DROP DATABASE IF EXISTS $dbName;" | Out-Null
-docker exec $containerName psql -U $dbUser -c "CREATE DATABASE $dbName;" | Out-Null
-
-Get-Content $workFile | docker exec -i $containerName psql -U $dbUser -d $dbName
-
-if ($LASTEXITCODE -ne 0) {
-  Write-Host "❌ Ошибка восстановления" -ForegroundColor Red
-  exit 1
-}
-
-if ($tempDir) {
-  Remove-Item $tempDir -Recurse -Force
-}
-
-$count = docker exec $containerName psql -U $dbUser -d $dbName -t -c "SELECT COUNT(*) FROM users;"
-Write-Host "✅ Восстановление завершено" -ForegroundColor Green
-Write-Host "👥 Пользователей в БД: $($count.Trim())" -ForegroundColor Cyan

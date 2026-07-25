@@ -15,28 +15,39 @@ export function RouletteRevealOverlay({
   winnerName: string;
   onClose: () => void;
 }) {
-  const [phase, setPhase] = useState<'idle' | 'spin' | 'done'>('idle');
-  const [idx, setIdx] = useState(0);
+  if (!open) return null;
+
+  return (
+    <RouletteRun names={names} winnerName={winnerName} onClose={onClose} />
+  );
+}
+
+function RouletteRun({
+  names,
+  winnerName,
+  onClose,
+}: Omit<Parameters<typeof RouletteRevealOverlay>[0], 'open'>) {
+  // Ensure the winner is part of the wheel.
+  const [{ list, winnerIndex }] = useState(() => {
+    const pool = names.includes(winnerName) ? names : [...names, winnerName];
+    const wheel = pool.length >= 2 ? pool : [winnerName, winnerName];
+    return {
+      list: wheel,
+      winnerIndex: Math.max(0, wheel.indexOf(winnerName)),
+    };
+  });
+  const [reduceMotion] = useState(() =>
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+  const [phase, setPhase] = useState<'spin' | 'done'>(() =>
+    reduceMotion ? 'done' : 'spin',
+  );
+  const [idx, setIdx] = useState(() => (reduceMotion ? winnerIndex : 0));
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
-  // Ensure the winner is part of the wheel.
-  const pool = names.includes(winnerName) ? names : [...names, winnerName];
-  const list = pool.length >= 2 ? pool : [winnerName, winnerName];
-  const winnerIndex = Math.max(0, list.indexOf(winnerName));
-
   useEffect(() => {
-    if (!open) {
-      setPhase('idle');
-      setIdx(0);
-      return;
-    }
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) {
-      setIdx(winnerIndex);
-      setPhase('done');
-      return;
-    }
-    setPhase('spin');
+    if (reduceMotion) return;
+
     let i = 0;
     let delay = 60;
     let count = 0;
@@ -54,10 +65,8 @@ export function RouletteRevealOverlay({
     };
     timer.current = setTimeout(step, delay);
     return () => clearTimeout(timer.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [list.length, reduceMotion, winnerIndex]);
 
-  if (!open) return null;
   const current = list[idx] ?? winnerName;
 
   return (

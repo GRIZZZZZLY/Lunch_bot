@@ -5,6 +5,7 @@ import { BudgetService } from '../budget.service';
 
 jest.mock('../../database/client', () => ({
   prisma: {
+    $transaction: jest.fn(),
     groupMember: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -20,7 +21,9 @@ jest.mock('../../database/client', () => ({
       findFirst: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
   },
 }));
@@ -63,6 +66,10 @@ const baseRun = {
 describe('StoreRunService user behaviours', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (prisma.$transaction as jest.Mock).mockImplementation(async cb =>
+      cb(prisma)
+    );
+    (prisma.storeRun.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
   });
 
   it('loads active store runs for groups where the user is active member', async () => {
@@ -154,15 +161,15 @@ describe('StoreRunService user behaviours', () => {
 
   it('lets only the initiator start shopping', async () => {
     (prisma.storeRun.findUnique as jest.Mock).mockResolvedValue(baseRun);
-    (prisma.storeRun.update as jest.Mock).mockResolvedValue({
+    (prisma.storeRun.findUniqueOrThrow as jest.Mock).mockResolvedValue({
       ...baseRun,
       status: 'SHOPPING',
     });
 
     await StoreRunService.startShopping(7, 5);
 
-    expect(prisma.storeRun.update).toHaveBeenCalledWith({
-      where: { id: 7 },
+    expect(prisma.storeRun.updateMany).toHaveBeenCalledWith({
+      where: { id: 7, initiatorId: 5, status: 'COLLECTING' },
       data: { status: 'SHOPPING', shoppingAt: expect.any(Date) },
     });
   });
@@ -201,31 +208,34 @@ describe('StoreRunService user behaviours', () => {
     (BudgetService.createTransactionsForStoreRun as jest.Mock).mockResolvedValue([
       { id: 100 },
     ]);
-    (prisma.storeRun.update as jest.Mock).mockResolvedValue({
+    (prisma.storeRun.findUniqueOrThrow as jest.Mock).mockResolvedValue({
       ...baseRun,
       status: 'SETTLED',
     });
 
     await StoreRunService.settle(7, 5);
 
-    expect(BudgetService.createTransactionsForStoreRun).toHaveBeenCalledWith(7);
-    expect(prisma.storeRun.update).toHaveBeenCalledWith({
-      where: { id: 7 },
+    expect(BudgetService.createTransactionsForStoreRun).toHaveBeenCalledWith(
+      7,
+      prisma
+    );
+    expect(prisma.storeRun.updateMany).toHaveBeenCalledWith({
+      where: { id: 7, initiatorId: 5, status: 'SHOPPING' },
       data: { status: 'SETTLED', settledAt: expect.any(Date) },
     });
   });
 
   it('cancels a collecting run by the initiator', async () => {
     (prisma.storeRun.findUnique as jest.Mock).mockResolvedValue(baseRun);
-    (prisma.storeRun.update as jest.Mock).mockResolvedValue({
+    (prisma.storeRun.findUniqueOrThrow as jest.Mock).mockResolvedValue({
       ...baseRun,
       status: 'CANCELLED',
     });
 
     await StoreRunService.cancelStoreRun(7, 5);
 
-    expect(prisma.storeRun.update).toHaveBeenCalledWith({
-      where: { id: 7 },
+    expect(prisma.storeRun.updateMany).toHaveBeenCalledWith({
+      where: { id: 7, initiatorId: 5, status: 'COLLECTING' },
       data: { status: 'CANCELLED', cancelledAt: expect.any(Date) },
     });
   });

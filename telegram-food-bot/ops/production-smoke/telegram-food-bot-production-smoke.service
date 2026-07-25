@@ -1,0 +1,11 @@
+[Unit]
+Description=Безопасная проверка Telegram Food Bot в продакшене
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/telegram-food-bot/ops/production-smoke
+ExecStart=/usr/bin/docker compose run --rm production-smoke
+TimeoutStartSec=10min

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { userService, type PaymentInfo } from '@/services/user.service';
+import { pollsService } from '@/services/polls.service';
 import { queryKeys } from '@/lib/queryClient';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -48,7 +49,6 @@ export function usePollHistory(params?: { limit?: number; offset?: number }) {
   return useQuery({
     queryKey: queryKeys.polls.history(params),
     queryFn: async () => {
-      const { pollsService } = await import('@/services/polls.service');
       const res = await pollsService.getHistory(params);
       return res.data ?? [];
     },

@@ -75,21 +75,12 @@ export function runSecurityChecks(): void {
  */
 function checkSkipTelegramValidation(isProduction: boolean): SecurityCheckResult {
   const skipValidation = process.env.SKIP_TELEGRAM_VALIDATION === 'true';
-  const allowSkipInProd = process.env.ALLOW_SKIP_VALIDATION_IN_PROD === 'true';
 
-  if (skipValidation && isProduction && !allowSkipInProd) {
+  if (skipValidation && isProduction) {
     return {
       passed: false,
       critical: true,
       message: 'SKIP_TELEGRAM_VALIDATION=true in PRODUCTION! Anyone can impersonate any user!',
-    };
-  }
-
-  if (skipValidation && isProduction && allowSkipInProd) {
-    return {
-      passed: false,
-      critical: false, // NOT critical when explicitly allowed
-      message: 'SKIP_TELEGRAM_VALIDATION=true in PRODUCTION (ALLOWED via ALLOW_SKIP_VALIDATION_IN_PROD) - USE FOR TESTING ONLY!',
     };
   }
 

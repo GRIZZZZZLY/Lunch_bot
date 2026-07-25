@@ -24,38 +24,44 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthGate>
-        <Routes>
-          <Route element={<RootLayout />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/menu" element={<MenuPage />} />
-            <Route path="/stats" element={<StatsPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            {/* Dev-only playground: в production не регистрируется (404); в
-                навигацию не добавлять. */}
-            {import.meta.env.DEV && (
-              <Route
-                path="/dev/ui"
-                element={
-                  <Suspense fallback={null}>
-                    <UiShowcasePage />
-                  </Suspense>
-                }
-              />
-            )}
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-
-          <Route element={<DetailLayout />}>
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="/budget" element={<BudgetPage />} />
-            <Route path="/poll/history" element={<PollHistoryPage />} />
-            <Route path="/poll/:id/results" element={<PollResultsPage />} />
-            <Route path="/store-run/:id" element={<StoreRunPage />} />
-            <Route path="/suggestions" element={<SuggestionsPage />} />
-            <Route path="/suggestions/mine" element={<SuggestionsPage onlyMine />} />
-          </Route>
-        </Routes>
+        <AppRoutes />
       </AuthGate>
     </BrowserRouter>
+  );
+}
+
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route element={<RootLayout />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/menu" element={<MenuPage />} />
+        <Route path="/stats" element={<StatsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        {/* Dev-only playground: в production не регистрируется (404); в
+            навигацию не добавлять. */}
+        {import.meta.env.DEV && (
+          <Route
+            path="/dev/ui"
+            element={
+              <Suspense fallback={null}>
+                <UiShowcasePage />
+              </Suspense>
+            }
+          />
+        )}
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+
+      <Route element={<DetailLayout />}>
+        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/budget" element={<BudgetPage />} />
+        <Route path="/poll/history" element={<PollHistoryPage />} />
+        <Route path="/poll/:id/results" element={<PollResultsPage />} />
+        <Route path="/store-run/:id" element={<StoreRunPage />} />
+        <Route path="/suggestions" element={<SuggestionsPage />} />
+        <Route path="/suggestions/mine" element={<SuggestionsPage onlyMine />} />
+      </Route>
+    </Routes>
   );
 }

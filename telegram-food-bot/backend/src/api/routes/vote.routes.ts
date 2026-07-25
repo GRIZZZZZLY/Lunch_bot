@@ -7,7 +7,10 @@ import { createIdempotencyMiddleware } from '../middleware/idempotency';
 const router = Router();
 
 // G0-8: дедупликация двойных POST'ов (double-tap по кнопке голосования).
-const voteIdempotency = createIdempotencyMiddleware({ scope: 'vote' });
+const voteIdempotency = createIdempotencyMiddleware({
+  scope: 'vote',
+  required: true,
+});
 
 /**
  * Vote Routes - Multiple Vote Support

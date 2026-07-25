@@ -12,6 +12,7 @@ const COLLECT_MIN_MINUTES = 3;
 const COLLECT_MAX_MINUTES = 30;
 const ITEM_NAME_MAX_LEN = 200;
 const ITEM_NOTES_MAX_LEN = 500;
+const ITEM_PRICE_MAX = 1_000_000;
 
 export interface CreateStoreRunInput {
   initiatorId: number;
@@ -101,14 +102,28 @@ export class StoreRunService {
 
     const collectUntil = new Date(Date.now() + collectMinutes * 60 * 1000);
 
-    const storeRun = await prisma.storeRun.create({
-      data: {
-        groupId,
-        initiatorId,
-        storeName: trimmedName,
-        collectUntil,
-      },
-    });
+    let storeRun: StoreRun;
+    try {
+      storeRun = await prisma.storeRun.create({
+        data: {
+          groupId,
+          initiatorId,
+          storeName: trimmedName,
+          collectUntil,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new StoreRunError(
+          'ACTIVE_RUN_EXISTS',
+          'You already have an active store run'
+        );
+      }
+      throw error;
+    }
 
     logger.info('Store run created', {
       storeRunId: storeRun.id,
@@ -183,28 +198,6 @@ export class StoreRunService {
       throw new StoreRunError('INVALID_INPUT', 'At least one item is required');
     }
 
-    const storeRun = await prisma.storeRun.findUnique({
-      where: { id: storeRunId },
-      select: { id: true, status: true, groupId: true },
-    });
-    if (!storeRun) {
-      throw new StoreRunError('NOT_FOUND', 'Store run not found');
-    }
-    if (storeRun.status !== 'COLLECTING') {
-      throw new StoreRunError(
-        'WRONG_STATUS',
-        `Cannot add items: store run is ${storeRun.status}`,
-      );
-    }
-
-    // User must be a member of the group.
-    const membership = await prisma.groupMember.findUnique({
-      where: { groupId_userId: { groupId: storeRun.groupId, userId } },
-    });
-    if (!membership || !membership.isActive) {
-      throw new StoreRunError('FORBIDDEN', 'Not a member of this group');
-    }
-
     const sanitized = rawItems
       .map((it) => this.sanitizeItemInput(it))
       .filter((it): it is { name: string; quantity: number; notes: string | null } => it !== null);
@@ -213,14 +206,45 @@ export class StoreRunService {
       throw new StoreRunError('INVALID_INPUT', 'No valid items after sanitization');
     }
 
-    const created = await prisma.storeItem.createManyAndReturn({
-      data: sanitized.map((item) => ({
-        storeRunId,
-        userId,
-        name: item.name,
-        quantity: item.quantity,
-        notes: item.notes,
-      })),
+    const created = await prisma.$transaction(async tx => {
+      const storeRun = await tx.storeRun.findUnique({
+        where: { id: storeRunId },
+        select: { groupId: true },
+      });
+      if (!storeRun) {
+        throw new StoreRunError('NOT_FOUND', 'Store run not found');
+      }
+
+      // Условное обновление блокирует строку забега до конца транзакции.
+      const guard = await tx.storeRun.updateMany({
+        where: { id: storeRunId, status: 'COLLECTING' },
+        data: { updatedAt: new Date() },
+      });
+      if (guard.count !== 1) {
+        throw new StoreRunError(
+          'WRONG_STATUS',
+          'Cannot add items after collection has ended'
+        );
+      }
+
+      const membership = await tx.groupMember.findUnique({
+        where: {
+          groupId_userId: { groupId: storeRun.groupId, userId },
+        },
+      });
+      if (!membership?.isActive) {
+        throw new StoreRunError('FORBIDDEN', 'Not a member of this group');
+      }
+
+      return tx.storeItem.createManyAndReturn({
+        data: sanitized.map(item => ({
+          storeRunId,
+          userId,
+          name: item.name,
+          quantity: item.quantity,
+          notes: item.notes,
+        })),
+      });
     });
 
     logger.info('Store items added', {
@@ -242,7 +266,7 @@ export class StoreRunService {
   ): Promise<StoreItem> {
     const item = await prisma.storeItem.findUnique({
       where: { id: itemId },
-      include: { storeRun: { select: { status: true } } },
+      include: { storeRun: { select: { id: true, status: true } } },
     });
     if (!item) throw new StoreRunError('NOT_FOUND', 'Item not found');
     if (item.userId !== userId) {
@@ -273,7 +297,19 @@ export class StoreRunService {
       patch.notes = this.sanitizeNotes(data.notes);
     }
 
-    return prisma.storeItem.update({ where: { id: itemId }, data: patch });
+    return prisma.$transaction(async tx => {
+      const guard = await tx.storeRun.updateMany({
+        where: { id: item.storeRun.id, status: 'COLLECTING' },
+        data: { updatedAt: new Date() },
+      });
+      if (guard.count !== 1) {
+        throw new StoreRunError(
+          'WRONG_STATUS',
+          'Cannot edit item after collection has ended'
+        );
+      }
+      return tx.storeItem.update({ where: { id: itemId }, data: patch });
+    });
   }
 
   /**
@@ -282,7 +318,7 @@ export class StoreRunService {
   static async deleteItem(itemId: number, userId: number): Promise<void> {
     const item = await prisma.storeItem.findUnique({
       where: { id: itemId },
-      include: { storeRun: { select: { status: true } } },
+      include: { storeRun: { select: { id: true, status: true } } },
     });
     if (!item) throw new StoreRunError('NOT_FOUND', 'Item not found');
     if (item.userId !== userId) {
@@ -295,7 +331,19 @@ export class StoreRunService {
       );
     }
 
-    await prisma.storeItem.delete({ where: { id: itemId } });
+    await prisma.$transaction(async tx => {
+      const guard = await tx.storeRun.updateMany({
+        where: { id: item.storeRun.id, status: 'COLLECTING' },
+        data: { updatedAt: new Date() },
+      });
+      if (guard.count !== 1) {
+        throw new StoreRunError(
+          'WRONG_STATUS',
+          'Cannot delete item after collection has ended'
+        );
+      }
+      await tx.storeItem.delete({ where: { id: itemId } });
+    });
   }
 
   /**
@@ -310,9 +358,22 @@ export class StoreRunService {
       );
     }
 
-    const updated = await prisma.storeRun.update({
-      where: { id: storeRunId },
+    const transition = await prisma.storeRun.updateMany({
+      where: {
+        id: storeRunId,
+        initiatorId,
+        status: 'COLLECTING',
+      },
       data: { status: 'SHOPPING', shoppingAt: new Date() },
+    });
+    if (transition.count !== 1) {
+      throw new StoreRunError(
+        'WRONG_STATUS',
+        'Store run state changed before shopping started'
+      );
+    }
+    const updated = await prisma.storeRun.findUniqueOrThrow({
+      where: { id: storeRunId },
     });
     logger.info('Store run entered SHOPPING', { storeRunId, initiatorId });
     return updated;
@@ -331,7 +392,7 @@ export class StoreRunService {
     const item = await prisma.storeItem.findUnique({
       where: { id: itemId },
       include: {
-        storeRun: { select: { initiatorId: true, status: true } },
+        storeRun: { select: { id: true, initiatorId: true, status: true } },
       },
     });
     if (!item) throw new StoreRunError('NOT_FOUND', 'Item not found');
@@ -346,17 +407,42 @@ export class StoreRunService {
     }
 
     if (status === 'BOUGHT') {
-      if (price == null || !Number.isFinite(price) || price < 0) {
-        throw new StoreRunError('INVALID_INPUT', 'Price must be non-negative');
+      if (
+        price == null ||
+        !Number.isFinite(price) ||
+        price < 0 ||
+        price > ITEM_PRICE_MAX
+      ) {
+        throw new StoreRunError(
+          'INVALID_INPUT',
+          `Price must be between 0 and ${ITEM_PRICE_MAX}`
+        );
       }
     }
 
-    return prisma.storeItem.update({
-      where: { id: itemId },
-      data: {
-        status,
-        price: status === 'BOUGHT' ? new Prisma.Decimal(price as number) : null,
-      },
+    return prisma.$transaction(async tx => {
+      const guard = await tx.storeRun.updateMany({
+        where: {
+          id: item.storeRun.id,
+          initiatorId,
+          status: 'SHOPPING',
+        },
+        data: { updatedAt: new Date() },
+      });
+      if (guard.count !== 1) {
+        throw new StoreRunError(
+          'WRONG_STATUS',
+          'Cannot set price after settlement'
+        );
+      }
+      return tx.storeItem.update({
+        where: { id: itemId },
+        data: {
+          status,
+          price:
+            status === 'BOUGHT' ? new Prisma.Decimal(price as number) : null,
+        },
+      });
     });
   }
 
@@ -374,17 +460,34 @@ export class StoreRunService {
       );
     }
 
-    const transactions = await BudgetService.createTransactionsForStoreRun(storeRunId);
+    const { updated, transactionCount } = await prisma.$transaction(async tx => {
+      const transition = await tx.storeRun.updateMany({
+        where: {
+          id: storeRunId,
+          initiatorId,
+          status: 'SHOPPING',
+        },
+        data: { status: 'SETTLED', settledAt: new Date() },
+      });
+      if (transition.count !== 1) {
+        throw new StoreRunError(
+          'WRONG_STATUS',
+          'Store run state changed before settlement'
+        );
+      }
 
-    const updated = await prisma.storeRun.update({
-      where: { id: storeRunId },
-      data: { status: 'SETTLED', settledAt: new Date() },
+      const transactions =
+        await BudgetService.createTransactionsForStoreRun(storeRunId, tx);
+      const settled = await tx.storeRun.findUniqueOrThrow({
+        where: { id: storeRunId },
+      });
+      return { updated: settled, transactionCount: transactions.length };
     });
 
     logger.info('Store run settled', {
       storeRunId,
       initiatorId,
-      transactionsCreated: transactions.length,
+      transactionsCreated: transactionCount,
     });
 
     return updated;
@@ -402,9 +505,22 @@ export class StoreRunService {
       );
     }
 
-    const updated = await prisma.storeRun.update({
-      where: { id: storeRunId },
+    const transition = await prisma.storeRun.updateMany({
+      where: {
+        id: storeRunId,
+        initiatorId,
+        status: 'COLLECTING',
+      },
       data: { status: 'CANCELLED', cancelledAt: new Date() },
+    });
+    if (transition.count !== 1) {
+      throw new StoreRunError(
+        'WRONG_STATUS',
+        'Store run state changed before cancellation'
+      );
+    }
+    const updated = await prisma.storeRun.findUniqueOrThrow({
+      where: { id: storeRunId },
     });
     logger.info('Store run cancelled', { storeRunId, initiatorId });
     return updated;

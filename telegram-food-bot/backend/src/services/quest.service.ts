@@ -10,7 +10,13 @@ import { logger } from '../utils/logger';
 import { GamificationService } from './gamification.service';
 
 interface QuestRequirement {
-  type: 'vote_count' | 'win_count' | 'streak' | 'responsible' | 'payment' | 'custom';
+  type:
+    | 'vote_count'
+    | 'win_count'
+    | 'streak'
+    | 'responsible'
+    | 'payment'
+    | 'custom';
   target: number;
   metadata?: Record<string, any>;
 }
@@ -43,7 +49,9 @@ export class QuestService {
       });
 
       // Filter daily quests only
-      const existingDailyQuests = existingQuests.filter((uq) => uq.quest.type === 'DAILY');
+      const existingDailyQuests = existingQuests.filter(
+        uq => uq.quest.type === 'DAILY'
+      );
 
       if (existingDailyQuests.length > 0) {
         logger.info(`User ${userId} already has daily quests for today`);
@@ -61,20 +69,26 @@ export class QuestService {
       }
 
       // Find base quest (DAILY_VOTE)
-      const baseQuest = dailyQuests.find((q) => q.key === 'DAILY_VOTE');
+      const baseQuest = dailyQuests.find(q => q.key === 'DAILY_VOTE');
 
       // Get 3 random quests (excluding base quest)
-      const otherQuests = dailyQuests.filter((q) => q.key !== 'DAILY_VOTE');
-      const randomQuests = this.getRandomItems(otherQuests, Math.min(3, otherQuests.length));
+      const otherQuests = dailyQuests.filter(q => q.key !== 'DAILY_VOTE');
+      const randomQuests = this.getRandomItems(
+        otherQuests,
+        Math.min(3, otherQuests.length)
+      );
 
       // Combine base + random
-      const questsToAssign = baseQuest ? [baseQuest, ...randomQuests] : randomQuests;
+      const questsToAssign = baseQuest
+        ? [baseQuest, ...randomQuests]
+        : randomQuests;
 
       // Create UserQuest records
       for (const quest of questsToAssign) {
-        const requirement: QuestRequirement = typeof quest.requirement === 'string'
-          ? JSON.parse(quest.requirement)
-          : quest.requirement;
+        const requirement: QuestRequirement =
+          typeof quest.requirement === 'string'
+            ? JSON.parse(quest.requirement)
+            : quest.requirement;
         await prisma.userQuest.create({
           data: {
             userId,
@@ -88,7 +102,9 @@ export class QuestService {
         });
       }
 
-      logger.info(`Assigned ${questsToAssign.length} daily quests to user ${userId}`);
+      logger.info(
+        `Assigned ${questsToAssign.length} daily quests to user ${userId}`
+      );
     } catch (error) {
       logger.error('Error assigning daily quests:', error);
       throw error;
@@ -118,7 +134,9 @@ export class QuestService {
         include: { quest: true },
       });
 
-      const existingWeeklyQuests = existingQuests.filter((uq) => uq.quest.type === 'WEEKLY');
+      const existingWeeklyQuests = existingQuests.filter(
+        uq => uq.quest.type === 'WEEKLY'
+      );
 
       if (existingWeeklyQuests.length > 0) {
         logger.info(`User ${userId} already has weekly quests for this week`);
@@ -136,13 +154,17 @@ export class QuestService {
       }
 
       // Get 2 random weekly quests
-      const randomQuests = this.getRandomItems(weeklyQuests, Math.min(2, weeklyQuests.length));
+      const randomQuests = this.getRandomItems(
+        weeklyQuests,
+        Math.min(2, weeklyQuests.length)
+      );
 
       // Create UserQuest records
       for (const quest of randomQuests) {
-        const requirement: QuestRequirement = typeof quest.requirement === 'string'
-          ? JSON.parse(quest.requirement)
-          : quest.requirement;
+        const requirement: QuestRequirement =
+          typeof quest.requirement === 'string'
+            ? JSON.parse(quest.requirement)
+            : quest.requirement;
         await prisma.userQuest.create({
           data: {
             userId,
@@ -156,7 +178,9 @@ export class QuestService {
         });
       }
 
-      logger.info(`Assigned ${randomQuests.length} weekly quests to user ${userId}`);
+      logger.info(
+        `Assigned ${randomQuests.length} weekly quests to user ${userId}`
+      );
     } catch (error) {
       logger.error('Error assigning weekly quests:', error);
       throw error;
@@ -195,7 +219,10 @@ export class QuestService {
         return; // User doesn't have this quest active
       }
 
-      const newProgress = Math.min(userQuest.progress + amount, userQuest.target);
+      const newProgress = Math.min(
+        userQuest.progress + amount,
+        userQuest.target
+      );
 
       // Update progress
       await prisma.userQuest.update({
@@ -220,7 +247,10 @@ export class QuestService {
   /**
    * Complete quest and award XP
    */
-  static async completeQuest(userId: number, userQuestId: number): Promise<void> {
+  static async completeQuest(
+    userId: number,
+    userQuestId: number
+  ): Promise<void> {
     try {
       const userQuest = await prisma.userQuest.findUnique({
         where: { id: userQuestId },
@@ -246,7 +276,8 @@ export class QuestService {
         userQuest.quest.xpReward,
         `Выполнен квест: ${userQuest.quest.title}`,
         userQuest.quest.category as any,
-        { questKey: userQuest.quest.key }
+        { questKey: userQuest.quest.key },
+        `quest:${userQuestId}:${userId}`
       );
 
       logger.info(`Quest completed: ${userQuest.quest.key} for user ${userId}`);
@@ -277,7 +308,7 @@ export class QuestService {
       ],
     });
 
-    return userQuests.map((uq) => ({
+    return userQuests.map(uq => ({
       ...uq.quest,
       progress: uq.progress,
       target: uq.target,
@@ -343,32 +374,33 @@ export class QuestService {
    * Get quest completion stats for user
    */
   static async getQuestStats(userId: number): Promise<any> {
-    const [totalCompleted, dailyCompleted, weeklyCompleted, activeQuests] = await Promise.all([
-      prisma.userQuest.count({
-        where: { userId, status: 'COMPLETED' },
-      }),
-      prisma.userQuest.count({
-        where: {
-          userId,
-          status: 'COMPLETED',
-          quest: { type: 'DAILY' },
-        },
-      }),
-      prisma.userQuest.count({
-        where: {
-          userId,
-          status: 'COMPLETED',
-          quest: { type: 'WEEKLY' },
-        },
-      }),
-      prisma.userQuest.count({
-        where: {
-          userId,
-          status: 'ACTIVE',
-          expiresAt: { gt: new Date() },
-        },
-      }),
-    ]);
+    const [totalCompleted, dailyCompleted, weeklyCompleted, activeQuests] =
+      await Promise.all([
+        prisma.userQuest.count({
+          where: { userId, status: 'COMPLETED' },
+        }),
+        prisma.userQuest.count({
+          where: {
+            userId,
+            status: 'COMPLETED',
+            quest: { type: 'DAILY' },
+          },
+        }),
+        prisma.userQuest.count({
+          where: {
+            userId,
+            status: 'COMPLETED',
+            quest: { type: 'WEEKLY' },
+          },
+        }),
+        prisma.userQuest.count({
+          where: {
+            userId,
+            status: 'ACTIVE',
+            expiresAt: { gt: new Date() },
+          },
+        }),
+      ]);
 
     return {
       totalCompleted,
@@ -411,10 +443,16 @@ export class QuestService {
 
 // Export singleton instance for backward compatibility
 export const questService = {
-  assignDailyQuests: async (userId: number) => QuestService.assignDailyQuests(userId),
-  assignWeeklyQuests: async (userId: number) => QuestService.assignWeeklyQuests(userId),
-  updateQuestProgress: async (userId: number, questKey: string, amount?: number) =>
-    QuestService.updateQuestProgress(userId, questKey, amount),
+  assignDailyQuests: async (userId: number) =>
+    QuestService.assignDailyQuests(userId),
+  assignWeeklyQuests: async (userId: number) =>
+    QuestService.assignWeeklyQuests(userId),
+  updateQuestProgress: async (
+    userId: number,
+    questKey: string,
+    amount?: number
+  ) => QuestService.updateQuestProgress(userId, questKey, amount),
   getUserQuests: async (userId: number) => QuestService.getUserQuests(userId),
-  autoAssignQuests: async (userId: number) => QuestService.autoAssignQuests(userId),
+  autoAssignQuests: async (userId: number) =>
+    QuestService.autoAssignQuests(userId),
 };

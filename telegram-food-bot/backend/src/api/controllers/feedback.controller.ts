@@ -31,7 +31,6 @@ class FeedbackController {
 
       logger.info('📨 [FeedbackController] Received feedback request', {
         hasMessage: !!req.body.message,
-        userId,
       });
 
       const { message } = req.body;
@@ -41,19 +40,23 @@ class FeedbackController {
         logger.warn('⚠️ [FeedbackController] Validation failed: empty message');
         return res.status(400).json({
           success: false,
-          error: 'Message is required and must be a non-empty string'
+          error: 'Message is required and must be a non-empty string',
         });
       }
 
       if (message.trim().length > 1000) {
-        logger.warn('⚠️ [FeedbackController] Validation failed: message too long');
+        logger.warn(
+          '⚠️ [FeedbackController] Validation failed: message too long'
+        );
         return res.status(400).json({
           success: false,
-          error: 'Message is too long (max 1000 characters)'
+          error: 'Message is too long (max 1000 characters)',
         });
       }
 
-      logger.info('🚀 [FeedbackController] Calling feedbackService.sendToAdmin()');
+      logger.info(
+        '🚀 [FeedbackController] Calling feedbackService.sendToAdmin()'
+      );
 
       // Отправляем сообщение создателю бота через Telegram
       await feedbackService.sendToAdmin({
@@ -63,24 +66,25 @@ class FeedbackController {
         firstName,
       });
 
-      logger.info('✅ [FeedbackController] Feedback received and sent successfully', { 
-        userId, 
-        username,
-        messageLength: message.trim().length
-      });
+      logger.info(
+        '✅ [FeedbackController] Feedback received and sent successfully',
+        {
+          messageLength: message.trim().length,
+        }
+      );
 
       return res.json({
         success: true,
         data: {
           id: Date.now(), // Временный ID
           createdAt: new Date().toISOString(),
-        }
+        },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('❌ [FeedbackController] Error processing feedback:', error);
       return res.status(500).json({
         success: false,
-        error: error.message || 'Failed to send feedback'
+        error: 'Failed to send feedback',
       });
     }
   }

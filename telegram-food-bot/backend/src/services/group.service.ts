@@ -44,7 +44,7 @@ export class GroupService {
         },
       });
 
-      logger.info(`Group upserted: ${group.telegramId} (${group.title})`);
+      logger.info('Group upserted', { groupId: group.id });
       return group;
     } catch (error) {
       logger.error('Error upserting group:', error);
@@ -98,7 +98,7 @@ export class GroupService {
         },
       });
 
-      logger.info(`Group updated: ${group.telegramId} (${group.title})`);
+      logger.info('Group updated', { groupId: group.id });
       return group;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -609,7 +609,7 @@ export class GroupService {
         },
       });
 
-      logger.info(`Group deactivated: ${group.telegramId}`);
+      logger.info('Group deactivated', { groupId: group.id });
       return group;
     } catch (error) {
       logger.error('Error deactivating group:', error);

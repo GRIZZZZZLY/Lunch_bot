@@ -1,16 +1,30 @@
 import { Vote, Prisma } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
-import { CreateVoteData, VoteWithDetails, votePublicUserSelect } from '../types/poll.types';
-import { VoteType, CreateVoteWithTypeData, VoteTypeStats } from '../types/vote.types';
+import {
+  CreateVoteData,
+  VoteWithDetails,
+  votePublicUserSelect,
+} from '../types/poll.types';
+import {
+  VoteType,
+  CreateVoteWithTypeData,
+  VoteTypeStats,
+} from '../types/vote.types';
 import { GamificationService } from './gamification.service';
-import { getXPReward, isMultiplierAvailable, calculateXPWithMultiplier, XP_MULTIPLIERS } from '../constants/xp-constants';
+import {
+  getXPReward,
+  isMultiplierAvailable,
+  calculateXPWithMultiplier,
+  XP_MULTIPLIERS,
+} from '../constants/xp-constants';
 import { eventBus } from './event-bus.service';
 
 export class VoteService {
   private static async assertMenuItemsAllowedForPoll(
     tx: Prisma.TransactionClient,
     pollId: number,
+    userId: number,
     menuItemIds: number[]
   ): Promise<void> {
     const uniqueIds = [...new Set(menuItemIds)];
@@ -32,6 +46,31 @@ export class VoteService {
     }
     if (poll.endedAt && poll.endedAt < new Date()) {
       throw new Error('Poll has expired');
+    }
+
+    const [membership, participant] = await Promise.all([
+      tx.groupMember.findUnique({
+        where: {
+          groupId_userId: {
+            groupId: poll.groupId,
+            userId,
+          },
+        },
+        select: { isActive: true },
+      }),
+      tx.pollParticipant.findUnique({
+        where: {
+          pollId_userId: {
+            pollId,
+            userId,
+          },
+        },
+        select: { status: true },
+      }),
+    ]);
+
+    if (!membership?.isActive || participant?.status !== 'EXPECTED') {
+      throw new Error('User is not eligible to vote in this poll');
     }
 
     let selectedIds: number[] | null = null;
@@ -74,38 +113,42 @@ export class VoteService {
    */
   static async createVote(data: CreateVoteData): Promise<Vote> {
     try {
-      // Проверяем, не голосовал ли уже за это блюдо
-      const existingVote = await prisma.vote.findFirst({
-        where: {
-          pollId: data.pollId,
-          userId: data.userId,
-          menuItemId: data.menuItemId,
-        },
+      const { vote, created } = await prisma.$transaction(async tx => {
+        await this.assertMenuItemsAllowedForPoll(tx, data.pollId, data.userId, [
+          data.menuItemId,
+        ]);
+        const existingVote = await tx.vote.findFirst({
+          where: {
+            pollId: data.pollId,
+            userId: data.userId,
+            menuItemId: data.menuItemId,
+          },
+        });
+        if (existingVote) {
+          return { vote: existingVote, created: false };
+        }
+
+        const createdVote = await tx.vote.create({
+          data: {
+            pollId: data.pollId,
+            userId: data.userId,
+            menuItemId: data.menuItemId,
+            voteType: VoteType.MENU_ITEM,
+          },
+        });
+        return { vote: createdVote, created: true };
       });
 
-      if (existingVote) {
-        logger.info(`User ${data.userId} already voted for item ${data.menuItemId} in poll ${data.pollId}`);
-        return existingVote;
+      if (created) {
+        await this.awardVoteXp(data.userId, data.pollId, data.menuItemId);
+
+        eventBus.emit('poll_updated', {
+          pollId: data.pollId,
+          type: 'vote_added',
+          userId: data.userId,
+          timestamp: new Date().toISOString(),
+        });
       }
-
-      const vote = await prisma.vote.create({
-        data: {
-          pollId: data.pollId,
-          userId: data.userId,
-          menuItemId: data.menuItemId,
-          voteType: VoteType.MENU_ITEM,
-        },
-      });
-      logger.info(`Vote created: user ${data.userId} voted for item ${data.menuItemId} in poll ${data.pollId}`);
-
-      await this.awardVoteXp(data.userId, data.pollId, data.menuItemId);
-
-      eventBus.emit('poll_updated', {
-        pollId: data.pollId,
-        type: 'vote_added',
-        userId: data.userId,
-        timestamp: new Date().toISOString(),
-      });
 
       return vote;
     } catch (error) {
@@ -119,16 +162,26 @@ export class VoteService {
    */
   static async createVoteWithType(data: CreateVoteWithTypeData): Promise<Vote> {
     try {
-      const vote = await prisma.vote.create({
-        data: {
-          pollId: data.pollId,
-          userId: data.userId,
-          voteType: data.voteType,
-          menuItemId: data.menuItemId,
-          customOption: data.customOption,
-        },
+      const vote = await prisma.$transaction(async tx => {
+        await this.assertMenuItemsAllowedForPoll(
+          tx,
+          data.pollId,
+          data.userId,
+          data.menuItemId ? [data.menuItemId] : []
+        );
+        return tx.vote.create({
+          data: {
+            pollId: data.pollId,
+            userId: data.userId,
+            voteType: data.voteType,
+            menuItemId: data.menuItemId,
+            customOption: data.customOption,
+          },
+        });
       });
-      logger.info(`Vote created with type: user ${data.userId} voted ${data.voteType} in poll ${data.pollId}`);
+      logger.info(
+        `Vote created with type: user ${data.userId} voted ${data.voteType} in poll ${data.pollId}`
+      );
       return vote;
     } catch (error) {
       logger.error('Error creating vote with type:', error);
@@ -140,7 +193,11 @@ export class VoteService {
    * Создание нескольких голосов за раз (множественный выбор)
    * Используется для голосования за несколько блюд одновременно
    */
-  static async createMultipleVotes(pollId: number, userId: number, menuItemIds: number[]): Promise<Vote[]> {
+  static async createMultipleVotes(
+    pollId: number,
+    userId: number,
+    menuItemIds: number[]
+  ): Promise<Vote[]> {
     try {
       if (!pollId || !userId || !menuItemIds || menuItemIds.length === 0) {
         throw new Error('Invalid parameters for multiple votes');
@@ -148,69 +205,82 @@ export class VoteService {
 
       const uniqueMenuItemIds = [...new Set(menuItemIds)];
 
-      logger.info(`Creating multiple votes: user ${userId} voting for ${uniqueMenuItemIds.length} items in poll ${pollId}`);
+      logger.info(
+        `Creating multiple votes: user ${userId} voting for ${uniqueMenuItemIds.length} items in poll ${pollId}`
+      );
 
       // Атомарная операция: проверка существующих + вставка новых внутри транзакции.
       // Race-safe благодаря @@unique([pollId, userId, menuItemId]):
       // если параллельный запрос вставит тот же vote, БД бросит P2002 и транзакция откатится.
       // SQLite не поддерживает skipDuplicates в Prisma — полагаемся на фильтр + DB constraint.
-      const { allVotes, newlyCreatedItemIds } = await prisma.$transaction(async (tx) => {
-        await this.assertMenuItemsAllowedForPoll(
-          tx,
-          pollId,
-          uniqueMenuItemIds
-        );
-
-        const existingVotes = await tx.vote.findMany({
-          where: {
+      const { allVotes, newlyCreatedItemIds } = await prisma.$transaction(
+        async tx => {
+          await this.assertMenuItemsAllowedForPoll(
+            tx,
             pollId,
             userId,
-            menuItemId: { in: uniqueMenuItemIds },
-          },
-        });
+            uniqueMenuItemIds
+          );
 
-        const existingItemIds = new Set(
-          existingVotes
-            .map(v => v.menuItemId)
-            .filter((id): id is number => id !== null)
-        );
-
-        const newMenuItemIds = uniqueMenuItemIds.filter(id => !existingItemIds.has(id));
-
-        if (newMenuItemIds.length > 0) {
-          await tx.vote.createMany({
-            data: newMenuItemIds.map(menuItemId => ({
+          const existingVotes = await tx.vote.findMany({
+            where: {
               pollId,
               userId,
-              menuItemId,
-              voteType: VoteType.MENU_ITEM,
-            })),
+              menuItemId: { in: uniqueMenuItemIds },
+            },
           });
+
+          const existingItemIds = new Set(
+            existingVotes
+              .map(v => v.menuItemId)
+              .filter((id): id is number => id !== null)
+          );
+
+          const newMenuItemIds = uniqueMenuItemIds.filter(
+            id => !existingItemIds.has(id)
+          );
+
+          if (newMenuItemIds.length > 0) {
+            await tx.vote.createMany({
+              data: newMenuItemIds.map(menuItemId => ({
+                pollId,
+                userId,
+                menuItemId,
+                voteType: VoteType.MENU_ITEM,
+              })),
+            });
+          }
+
+          const finalVotes = await tx.vote.findMany({
+            where: {
+              pollId,
+              userId,
+              menuItemId: { in: uniqueMenuItemIds },
+            },
+            orderBy: { createdAt: 'asc' },
+          });
+
+          const createdIds = finalVotes
+            .filter(
+              v => v.menuItemId !== null && !existingItemIds.has(v.menuItemId)
+            )
+            .map(v => v.menuItemId as number);
+
+          return { allVotes: finalVotes, newlyCreatedItemIds: createdIds };
         }
-
-        const finalVotes = await tx.vote.findMany({
-          where: {
-            pollId,
-            userId,
-            menuItemId: { in: uniqueMenuItemIds },
-          },
-          orderBy: { createdAt: 'asc' },
-        });
-
-        const createdIds = finalVotes
-          .filter(v => v.menuItemId !== null && !existingItemIds.has(v.menuItemId))
-          .map(v => v.menuItemId as number);
-
-        return { allVotes: finalVotes, newlyCreatedItemIds: createdIds };
-      });
+      );
 
       // XP и события — вне транзакции, чтобы их сбои не откатывали голоса.
       if (newlyCreatedItemIds.length > 0) {
         await Promise.all(
-          newlyCreatedItemIds.map(menuItemId => this.awardVoteXp(userId, pollId, menuItemId))
+          newlyCreatedItemIds.map(menuItemId =>
+            this.awardVoteXp(userId, pollId, menuItemId)
+          )
         );
 
-        logger.info(`Multiple votes created: user ${userId} voted for ${newlyCreatedItemIds.length} new items in poll ${pollId}`);
+        logger.info(
+          `Multiple votes created: user ${userId} voted for ${newlyCreatedItemIds.length} new items in poll ${pollId}`
+        );
 
         eventBus.emit('poll_updated', {
           pollId,
@@ -219,7 +289,9 @@ export class VoteService {
           timestamp: new Date().toISOString(),
         });
       } else {
-        logger.info(`User ${userId} already voted for all selected items in poll ${pollId}`);
+        logger.info(
+          `User ${userId} already voted for all selected items in poll ${pollId}`
+        );
       }
 
       return allVotes;
@@ -232,7 +304,11 @@ export class VoteService {
     }
   }
 
-  private static async awardVoteXp(userId: number, pollId: number, menuItemId: number): Promise<void> {
+  private static async awardVoteXp(
+    userId: number,
+    pollId: number,
+    menuItemId: number
+  ): Promise<void> {
     try {
       const reward = getXPReward('VOTE');
       const xpAmount = reward.amount;
@@ -265,7 +341,8 @@ export class VoteService {
         roundedXP,
         reward.reason,
         reward.category,
-        { pollId, menuItemId, baseAmount: reward.amount }
+        { pollId, menuItemId, baseAmount: reward.amount },
+        `vote:${pollId}:${userId}:${menuItemId}`
       );
 
       logger.info(`XP awarded: ${xpAmount} to user ${userId} for voting`);
@@ -288,58 +365,67 @@ export class VoteService {
   static async replaceUserVotes(
     pollId: number,
     userId: number,
-    menuItemIds: number[],
+    menuItemIds: number[]
   ): Promise<{ votes: Vote[]; newlyCreatedItemIds: number[] }> {
     const uniqueMenuItemIds = [...new Set(menuItemIds)];
 
-    const { allVotes, newlyCreatedItemIds } = await prisma.$transaction(async (tx) => {
-      await this.assertMenuItemsAllowedForPoll(tx, pollId, uniqueMenuItemIds);
+    const { allVotes, newlyCreatedItemIds } = await prisma.$transaction(
+      async tx => {
+        await this.assertMenuItemsAllowedForPoll(
+          tx,
+          pollId,
+          userId,
+          uniqueMenuItemIds
+        );
 
-      const existingVotes = await tx.vote.findMany({
-        where: { pollId, userId, menuItemId: { not: null } },
-        select: { menuItemId: true },
-      });
-
-      const existingIds = new Set(
-        existingVotes
-          .map((v) => v.menuItemId)
-          .filter((id): id is number => id !== null),
-      );
-
-      const targetSet = new Set(uniqueMenuItemIds);
-
-      const toRemove = [...existingIds].filter((id) => !targetSet.has(id));
-      const toAdd = uniqueMenuItemIds.filter((id) => !existingIds.has(id));
-
-      if (toRemove.length > 0) {
-        await tx.vote.deleteMany({
-          where: { pollId, userId, menuItemId: { in: toRemove } },
+        const existingVotes = await tx.vote.findMany({
+          where: { pollId, userId, menuItemId: { not: null } },
+          select: { menuItemId: true },
         });
-      }
 
-      if (toAdd.length > 0) {
-        await tx.vote.createMany({
-          data: toAdd.map((menuItemId) => ({
-            pollId,
-            userId,
-            menuItemId,
-            voteType: VoteType.MENU_ITEM,
-          })),
+        const existingIds = new Set(
+          existingVotes
+            .map(v => v.menuItemId)
+            .filter((id): id is number => id !== null)
+        );
+
+        const targetSet = new Set(uniqueMenuItemIds);
+
+        const toRemove = [...existingIds].filter(id => !targetSet.has(id));
+        const toAdd = uniqueMenuItemIds.filter(id => !existingIds.has(id));
+
+        if (toRemove.length > 0) {
+          await tx.vote.deleteMany({
+            where: { pollId, userId, menuItemId: { in: toRemove } },
+          });
+        }
+
+        if (toAdd.length > 0) {
+          await tx.vote.createMany({
+            data: toAdd.map(menuItemId => ({
+              pollId,
+              userId,
+              menuItemId,
+              voteType: VoteType.MENU_ITEM,
+            })),
+          });
+        }
+
+        const finalVotes = await tx.vote.findMany({
+          where: { pollId, userId, menuItemId: { not: null } },
+          orderBy: { createdAt: 'asc' },
         });
+
+        return { allVotes: finalVotes, newlyCreatedItemIds: toAdd };
       }
-
-      const finalVotes = await tx.vote.findMany({
-        where: { pollId, userId, menuItemId: { not: null } },
-        orderBy: { createdAt: 'asc' },
-      });
-
-      return { allVotes: finalVotes, newlyCreatedItemIds: toAdd };
-    });
+    );
 
     // XP и события — вне транзакции (их падение не должно откатить голоса).
     if (newlyCreatedItemIds.length > 0) {
       await Promise.all(
-        newlyCreatedItemIds.map((menuItemId) => this.awardVoteXp(userId, pollId, menuItemId)),
+        newlyCreatedItemIds.map(menuItemId =>
+          this.awardVoteXp(userId, pollId, menuItemId)
+        )
       );
       eventBus.emit('poll_updated', {
         pollId,
@@ -350,7 +436,7 @@ export class VoteService {
     }
 
     logger.info(
-      `replaceUserVotes: poll ${pollId} user ${userId} → ${allVotes.length} votes (new: ${newlyCreatedItemIds.length})`,
+      `replaceUserVotes: poll ${pollId} user ${userId} → ${allVotes.length} votes (new: ${newlyCreatedItemIds.length})`
     );
 
     return { votes: allVotes, newlyCreatedItemIds };
@@ -381,7 +467,11 @@ export class VoteService {
   /**
    * Удалить голос за конкретное блюдо
    */
-  static async deleteVote(pollId: number, userId: number, menuItemId: number): Promise<void> {
+  static async deleteVote(
+    pollId: number,
+    userId: number,
+    menuItemId: number
+  ): Promise<void> {
     try {
       await prisma.vote.deleteMany({
         where: {
@@ -390,7 +480,9 @@ export class VoteService {
           menuItemId,
         },
       });
-      logger.info(`Vote deleted: user ${userId}, poll ${pollId}, item ${menuItemId}`);
+      logger.info(
+        `Vote deleted: user ${userId}, poll ${pollId}, item ${menuItemId}`
+      );
     } catch (error) {
       logger.error('Error deleting vote:', error);
       throw new Error('Failed to delete vote');
@@ -420,13 +512,15 @@ export class VoteService {
   /**
    * Получение детальной разбивки голосов по блюдам (ОПТИМИЗИРОВАНО с groupBy)
    */
-  static async getVoteBreakdown(pollId: number): Promise<Array<{
-    menuItemId: number;
-    menuItemName: string;
-    votes: number;
-    percentage: number;
-    voters: Array<{ id: number; firstName: string; username?: string }>;
-  }>> {
+  static async getVoteBreakdown(pollId: number): Promise<
+    Array<{
+      menuItemId: number;
+      menuItemName: string;
+      votes: number;
+      percentage: number;
+      voters: Array<{ id: number; firstName: string; username?: string }>;
+    }>
+  > {
     try {
       // ✅ Используем groupBy для агрегации в БД вместо JS
       const voteGroups = await prisma.vote.groupBy({
@@ -440,7 +534,10 @@ export class VoteService {
         },
       });
 
-      const totalVotes = voteGroups.reduce((sum, g) => sum + g._count.menuItemId, 0);
+      const totalVotes = voteGroups.reduce(
+        (sum, g) => sum + g._count.menuItemId,
+        0
+      );
 
       if (voteGroups.length === 0) {
         return [];
@@ -448,12 +545,12 @@ export class VoteService {
 
       // Получаем информацию о блюдах и голосующих параллельно
       const menuItemIds = voteGroups.map(g => g.menuItemId!);
-      
+
       // Фильтруем ID для запроса в БД (исключаем специальные ID как -1)
       const realMenuItemIds = menuItemIds.filter(id => id > 0);
-      
+
       const [menuItems, voters] = await Promise.all([
-        realMenuItemIds.length > 0 
+        realMenuItemIds.length > 0
           ? prisma.menuItem.findMany({
               where: { id: { in: realMenuItemIds } },
               select: { id: true, name: true },
@@ -478,12 +575,15 @@ export class VoteService {
       ]);
 
       // Группируем голосующих по блюдам
-      const votersByMenuItem = new Map<number, Array<{
-        id: number;
-        firstName: string;
-        username?: string;
-      }>>();
-      
+      const votersByMenuItem = new Map<
+        number,
+        Array<{
+          id: number;
+          firstName: string;
+          username?: string;
+        }>
+      >();
+
       voters.forEach(vote => {
         if (!vote.menuItemId) return;
         const list = votersByMenuItem.get(vote.menuItemId) || [];
@@ -500,18 +600,21 @@ export class VoteService {
         .map(group => {
           const menuItem = menuItems.find(mi => mi.id === group.menuItemId);
           const voters = votersByMenuItem.get(group.menuItemId!) || [];
-          
+
           // Обработка специальных опций (например, "Еда с собой" с id: -1)
           let menuItemName = menuItem?.name || 'Unknown';
           if (group.menuItemId === -1) {
             menuItemName = 'Еда с собой';
           }
-          
+
           return {
             menuItemId: group.menuItemId!,
             menuItemName,
             votes: group._count.menuItemId,
-            percentage: totalVotes > 0 ? Math.round((group._count.menuItemId / totalVotes) * 100) : 0,
+            percentage:
+              totalVotes > 0
+                ? Math.round((group._count.menuItemId / totalVotes) * 100)
+                : 0,
             voters,
           };
         })
@@ -527,11 +630,9 @@ export class VoteService {
   static async upsertVote(data: CreateVoteData): Promise<Vote> {
     try {
       const vote = await prisma.$transaction(async tx => {
-        await this.assertMenuItemsAllowedForPoll(
-          tx,
-          data.pollId,
-          [data.menuItemId]
-        );
+        await this.assertMenuItemsAllowedForPoll(tx, data.pollId, data.userId, [
+          data.menuItemId,
+        ]);
 
         await tx.vote.deleteMany({
           where: {
@@ -550,7 +651,9 @@ export class VoteService {
         });
       });
 
-      logger.info(`Vote upserted: user ${data.userId} voted for item ${data.menuItemId} in poll ${data.pollId}`);
+      logger.info(
+        `Vote upserted: user ${data.userId} voted for item ${data.menuItemId} in poll ${data.pollId}`
+      );
 
       eventBus.emit('poll_updated', {
         pollId: data.pollId,
@@ -576,21 +679,12 @@ export class VoteService {
   static async upsertVoteWithType(data: CreateVoteWithTypeData): Promise<Vote> {
     try {
       const vote = await prisma.$transaction(async tx => {
-        const poll = await tx.poll.findUnique({
-          where: { id: data.pollId },
-          select: { id: true, status: true, endedAt: true },
-        });
-
-        if (!poll) {
-          throw new Error('Poll not found');
-        }
-        if (poll.status !== 'ACTIVE') {
-          throw new Error('Poll is not active');
-        }
-
-        if (poll.endedAt && poll.endedAt < new Date()) {
-          throw new Error('Poll has expired');
-        }
+        await this.assertMenuItemsAllowedForPoll(
+          tx,
+          data.pollId,
+          data.userId,
+          data.menuItemId ? [data.menuItemId] : []
+        );
 
         await tx.vote.deleteMany({
           where: {
@@ -610,7 +704,9 @@ export class VoteService {
         });
       });
 
-      logger.info(`Vote upserted with type: user ${data.userId} voted ${data.voteType} in poll ${data.pollId}`);
+      logger.info(
+        `Vote upserted with type: user ${data.userId} voted ${data.voteType} in poll ${data.pollId}`
+      );
 
       eventBus.emit('poll_updated', {
         pollId: data.pollId,
@@ -671,7 +767,10 @@ export class VoteService {
   /**
    * Получение голоса пользователя в голосовании (DEPRECATED - используйте getUserVotes)
    */
-  static async getUserVoteInPoll(pollId: number, userId: number): Promise<Vote | null> {
+  static async getUserVoteInPoll(
+    pollId: number,
+    userId: number
+  ): Promise<Vote | null> {
     try {
       // Возвращаем первый голос пользователя (для обратной совместимости)
       const votes = await this.getUserVotes(pollId, userId);
@@ -749,11 +848,13 @@ export class VoteService {
   /**
    * Подсчет голосов по блюдам в голосовании
    */
-  static async getVoteCountByMenuItem(pollId: number): Promise<{
-    menuItemId: number;
-    menuItemName: string;
-    votes: number;
-  }[]> {
+  static async getVoteCountByMenuItem(pollId: number): Promise<
+    {
+      menuItemId: number;
+      menuItemName: string;
+      votes: number;
+    }[]
+  > {
     try {
       const votes = await prisma.vote.findMany({
         where: { pollId },
@@ -774,13 +875,13 @@ export class VoteService {
         // Пропускаем голоса без блюда (BRING_OWN, SKIP)
         if (!vote.menuItemId || !vote.menuItem) return;
 
-        const existing = voteCount.get(vote.menuItemId) || { 
-          name: vote.menuItem.name, 
-          count: 0 
+        const existing = voteCount.get(vote.menuItemId) || {
+          name: vote.menuItem.name,
+          count: 0,
         };
-        voteCount.set(vote.menuItemId, { 
-          name: existing.name, 
-          count: existing.count + 1 
+        voteCount.set(vote.menuItemId, {
+          name: existing.name,
+          count: existing.count + 1,
         });
       });
 
@@ -801,15 +902,17 @@ export class VoteService {
   /**
    * Получение всех пользователей, проголосовавших в голосовании
    */
-  static async getPollVoters(pollId: number): Promise<{
-    id: number;
-    telegramId: bigint;
-    firstName: string;
-    lastName?: string;
-    username?: string;
-    votedFor: string;
-    votedAt: Date;
-  }[]> {
+  static async getPollVoters(pollId: number): Promise<
+    {
+      id: number;
+      telegramId: bigint;
+      firstName: string;
+      lastName?: string;
+      username?: string;
+      votedFor: string;
+      votedAt: Date;
+    }[]
+  > {
     try {
       const votes = await prisma.vote.findMany({
         where: { pollId },
@@ -864,38 +967,34 @@ export class VoteService {
     lastVoteDate?: Date;
   }> {
     try {
-      const [
-        totalVotes,
-        distinctPollVotes,
-        favoriteMenuItemGroups,
-        lastVote,
-      ] = await Promise.all([
-        prisma.vote.count({ where: { userId } }),
-        prisma.vote.findMany({
-          where: { userId },
-          select: { pollId: true },
-          distinct: ['pollId'],
-        }),
-        prisma.vote.groupBy({
-          by: ['menuItemId'],
-          where: {
-            userId,
-            menuItemId: { not: null },
-          },
-          _count: { menuItemId: true },
-          orderBy: {
-            _count: {
-              menuItemId: 'desc',
+      const [totalVotes, distinctPollVotes, favoriteMenuItemGroups, lastVote] =
+        await Promise.all([
+          prisma.vote.count({ where: { userId } }),
+          prisma.vote.findMany({
+            where: { userId },
+            select: { pollId: true },
+            distinct: ['pollId'],
+          }),
+          prisma.vote.groupBy({
+            by: ['menuItemId'],
+            where: {
+              userId,
+              menuItemId: { not: null },
             },
-          },
-          take: 5,
-        }),
-        prisma.vote.findFirst({
-          where: { userId },
-          select: { createdAt: true },
-          orderBy: { createdAt: 'desc' },
-        }),
-      ]);
+            _count: { menuItemId: true },
+            orderBy: {
+              _count: {
+                menuItemId: 'desc',
+              },
+            },
+            take: 5,
+          }),
+          prisma.vote.findFirst({
+            where: { userId },
+            select: { createdAt: true },
+            orderBy: { createdAt: 'desc' },
+          }),
+        ]);
 
       const pollsParticipated = distinctPollVotes.length;
 
@@ -911,12 +1010,19 @@ export class VoteService {
         },
       });
 
-      const menuItemNames = new Map(favoriteMenuItemsData.map(item => [item.id, item.name]));
+      const menuItemNames = new Map(
+        favoriteMenuItemsData.map(item => [item.id, item.name])
+      );
 
       const favoriteMenuItems = favoriteMenuItemGroups
-        .filter((group): group is typeof group & { menuItemId: number } => group.menuItemId !== null)
+        .filter(
+          (group): group is typeof group & { menuItemId: number } =>
+            group.menuItemId !== null
+        )
         .map(group => ({
-          name: menuItemNames.get(group.menuItemId) || `Menu Item #${group.menuItemId}`,
+          name:
+            menuItemNames.get(group.menuItemId) ||
+            `Menu Item #${group.menuItemId}`,
           votes: group._count?.menuItemId || 0,
         }));
 
@@ -990,7 +1096,9 @@ export class VoteService {
         },
       });
 
-      logger.info(`Removed ${result.count} expired votes from ${pollIds.length} polls`);
+      logger.info(
+        `Removed ${result.count} expired votes from ${pollIds.length} polls`
+      );
       return result.count;
     } catch (error) {
       logger.error('Error removing expired votes:', error);
@@ -1005,12 +1113,14 @@ export class VoteService {
     days: number = 30,
     limit: number = 10,
     groupId?: number
-  ): Promise<{
-    menuItemId: number;
-    menuItemName: string;
-    totalVotes: number;
-    uniqueVoters: number;
-  }[]> {
+  ): Promise<
+    {
+      menuItemId: number;
+      menuItemName: string;
+      totalVotes: number;
+      uniqueVoters: number;
+    }[]
+  > {
     try {
       const dateFrom = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
@@ -1058,7 +1168,9 @@ export class VoteService {
         },
       });
 
-      const menuItemNames = new Map(menuItems.map(item => [item.id, item.name]));
+      const menuItemNames = new Map(
+        menuItems.map(item => [item.id, item.name])
+      );
       const uniqueVotersByMenuItem = new Map<number, number>();
 
       uniqueVoterGroups.forEach(group => {
@@ -1072,10 +1184,15 @@ export class VoteService {
       });
 
       return voteGroups
-        .filter((group): group is typeof group & { menuItemId: number } => group.menuItemId !== null)
+        .filter(
+          (group): group is typeof group & { menuItemId: number } =>
+            group.menuItemId !== null
+        )
         .map(group => ({
           menuItemId: group.menuItemId,
-          menuItemName: menuItemNames.get(group.menuItemId) || `Menu Item #${group.menuItemId}`,
+          menuItemName:
+            menuItemNames.get(group.menuItemId) ||
+            `Menu Item #${group.menuItemId}`,
           totalVotes: group._count?.menuItemId || 0,
           uniqueVoters: uniqueVotersByMenuItem.get(group.menuItemId) || 0,
         }));
@@ -1089,11 +1206,13 @@ export class VoteService {
    * Получение списка проголосовавших пользователей
    * (используется в RouletteService)
    */
-  static async getVoters(pollId: number): Promise<Array<{
-    userId: number;
-    userName: string;
-    menuItemName: string;
-  }>> {
+  static async getVoters(pollId: number): Promise<
+    Array<{
+      userId: number;
+      userName: string;
+      menuItemName: string;
+    }>
+  > {
     try {
       const votes = await prisma.vote.findMany({
         where: { pollId },
@@ -1118,7 +1237,9 @@ export class VoteService {
         .filter(vote => vote.menuItem) // Фильтруем голоса с блюдами
         .map(vote => ({
           userId: vote.user.id,
-          userName: vote.user.firstName + (vote.user.lastName ? ` ${vote.user.lastName}` : ''),
+          userName:
+            vote.user.firstName +
+            (vote.user.lastName ? ` ${vote.user.lastName}` : ''),
           menuItemName: vote.menuItem!.name,
         }));
     } catch (error) {

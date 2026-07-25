@@ -9,7 +9,9 @@ import { WELCOME_GREETING } from '../handlers/group.handlers';
 /**
  * Маппинг Telegram chat-member статуса в роль участника группы в нашей БД.
  */
-export function mapChatMemberStatusToRole(status: string): 'CREATOR' | 'ADMIN' | 'MEMBER' {
+export function mapChatMemberStatusToRole(
+  status: string
+): 'CREATOR' | 'ADMIN' | 'MEMBER' {
   if (status === 'creator') return 'CREATOR';
   if (status === 'administrator') return 'ADMIN';
   return 'MEMBER';
@@ -22,7 +24,7 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
   /**
    * Обработка добавления бота в группу
    */
-  bot.on('my_chat_member', async (ctx) => {
+  bot.on('my_chat_member', async ctx => {
     try {
       const oldStatus = ctx.myChatMember.old_chat_member.status;
       const newStatus = ctx.myChatMember.new_chat_member.status;
@@ -58,7 +60,11 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
                 firstName: adder.first_name,
                 lastName: adder.last_name,
               });
-              await GroupService.ensureMemberRole(group.id, adderUser.id, 'CREATOR');
+              await GroupService.ensureMemberRole(
+                group.id,
+                adderUser.id,
+                'CREATOR'
+              );
               logger.info('Bot adder promoted to group CREATOR', {
                 chatId: chat.id,
                 adderId: adder.id,
@@ -66,7 +72,10 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
             } catch (adderError) {
               logger.warn('Failed to promote bot adder', {
                 chatId: chat.id,
-                error: adderError instanceof Error ? adderError.message : String(adderError),
+                error:
+                  adderError instanceof Error
+                    ? adderError.message
+                    : String(adderError),
               });
             }
           }
@@ -100,7 +109,10 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
           } catch (adminError) {
             logger.warn('Failed to sync group admins on bot join', {
               chatId: chat.id,
-              error: adminError instanceof Error ? adminError.message : String(adminError),
+              error:
+                adminError instanceof Error
+                  ? adminError.message
+                  : String(adminError),
             });
           }
 
@@ -128,7 +140,9 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
 
         // Деактивируем группу
         if (chat.type === 'group' || chat.type === 'supergroup') {
-          const group = await GroupService.getGroupByTelegramId(chat.id.toString());
+          const group = await GroupService.getGroupByTelegramId(
+            chat.id.toString()
+          );
           if (group) {
             await GroupService.deactivateGroup(group.id);
           }
@@ -147,7 +161,7 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
    * Регистрирует приглашённых участников в БД (upsert), даже если они
    * никогда не писали сообщений и не нажимали /start.
    */
-  bot.on('chat_member', async (ctx) => {
+  bot.on('chat_member', async ctx => {
     try {
       const chat = ctx.chat;
       if (chat.type !== 'group' && chat.type !== 'supergroup') return;
@@ -169,13 +183,20 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
         await GroupService.updateGroup(group.id, { title: chat.title });
       }
 
-      const ACTIVE_STATUSES = ['member', 'administrator', 'creator', 'restricted'];
+      const ACTIVE_STATUSES = [
+        'member',
+        'administrator',
+        'creator',
+        'restricted',
+      ];
       const INACTIVE_STATUSES = ['left', 'kicked'];
 
       const isJoining =
-        INACTIVE_STATUSES.includes(oldStatus) && ACTIVE_STATUSES.includes(newStatus);
+        INACTIVE_STATUSES.includes(oldStatus) &&
+        ACTIVE_STATUSES.includes(newStatus);
       const isLeaving =
-        ACTIVE_STATUSES.includes(oldStatus) && INACTIVE_STATUSES.includes(newStatus);
+        ACTIVE_STATUSES.includes(oldStatus) &&
+        INACTIVE_STATUSES.includes(newStatus);
 
       if (isJoining) {
         const dbUser = await UserService.upsertUser({
@@ -191,7 +212,9 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
           username: memberUser.username,
         });
       } else if (isLeaving) {
-        const dbUser = await UserService.getUserByTelegramId(BigInt(memberUser.id));
+        const dbUser = await UserService.getUserByTelegramId(
+          BigInt(memberUser.id)
+        );
         if (dbUser) {
           await GroupService.removeMemberFromGroup(group.id, dbUser.id);
           logger.info('Member left group via chat_member', {
@@ -211,7 +234,7 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
    * у бота нет прав на chat_member updates. Требует privacy mode OFF
    * у бота (через @BotFather: /setprivacy → Disable).
    */
-  bot.on('message:new_chat_members', async (ctx) => {
+  bot.on('message:new_chat_members', async ctx => {
     try {
       const chat = ctx.chat;
       if (chat.type !== 'group' && chat.type !== 'supergroup') return;
@@ -249,10 +272,13 @@ export function setupGroupEvents(bot: Bot<BotContext>) {
 /**
  * Настройка Menu Button для конкретной группы
  */
-export async function setupMenuButtonForGroup(bot: Bot<BotContext>, chatId: number) {
+export async function setupMenuButtonForGroup(
+  bot: Bot<BotContext>,
+  chatId: number
+) {
   try {
     const webappUrl = process.env.WEBAPP_URL || 'http://localhost:5173';
-    
+
     await bot.api.setChatMenuButton({
       chat_id: chatId,
       menu_button: {
@@ -264,7 +290,7 @@ export async function setupMenuButtonForGroup(bot: Bot<BotContext>, chatId: numb
       },
     });
 
-    logger.info('Menu button set for group', { chatId });
+    logger.info('Menu button set for group');
   } catch (error) {
     logger.error('Error setting menu button for group:', error);
   }
@@ -276,13 +302,16 @@ export async function setupMenuButtonForGroup(bot: Bot<BotContext>, chatId: numb
 export async function setupDefaultMenuButton(bot: Bot<BotContext>) {
   try {
     const webappUrl = process.env.WEBAPP_URL || 'http://localhost:5173';
-    
+
     // Проверяем что URL использует HTTPS (требование Telegram WebApp)
     if (!webappUrl.startsWith('https://')) {
-      logger.warn('Menu button не установлен: WebApp URL должен использовать HTTPS', { webappUrl });
+      logger.warn(
+        'Menu button не установлен: WebApp URL должен использовать HTTPS',
+        { webappUrl }
+      );
       return;
     }
-    
+
     await bot.api.setChatMenuButton({
       menu_button: {
         type: 'web_app',

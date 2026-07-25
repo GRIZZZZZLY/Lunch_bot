@@ -1,4 +1,5 @@
-import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useState, type ChangeEvent, type ReactNode } from 'react';
+import type { ReminderSettings } from '@/services/admin.service';
 import {
   useNotificationSettings,
   useReminderSettings,
@@ -10,28 +11,7 @@ import { Button, Field, Switch } from '@/components/rl/primitives';
 export function ReminderSettingsCard() {
   const { data: reminder } = useReminderSettings();
   const { data: notif } = useNotificationSettings();
-  const updateReminder = useUpdateReminderSettings();
   const updateNotif = useUpdateNotificationSettings();
-
-  const [intervalDays, setIntervalDays] = useState(1);
-  const [minDebtAge, setMinDebtAge] = useState(1);
-  const [maxReminders, setMaxReminders] = useState(3);
-  const [template, setTemplate] = useState('');
-  const [enabled, setEnabled] = useState(true);
-
-  useEffect(() => {
-    if (reminder) {
-      setIntervalDays(reminder.intervalDays);
-      setMinDebtAge(reminder.minDebtAge);
-      setMaxReminders(reminder.maxReminders);
-      setTemplate(reminder.messageTemplate);
-      setEnabled(reminder.isEnabled);
-    }
-  }, [reminder]);
-
-  const saveReminder = () => {
-    updateReminder.mutate({ isEnabled: enabled, intervalDays, minDebtAge, maxReminders, messageTemplate: template });
-  };
 
   return (
     <div className="card" style={{ padding: 16 }}>
@@ -39,6 +19,46 @@ export function ReminderSettingsCard() {
         Авто-напоминания о долгах
       </div>
 
+      <ReminderSettingsForm
+        key={reminder?.updatedAt ?? 'reminder-defaults'}
+        initial={reminder ?? undefined}
+      />
+
+      <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--t-16)', margin: '18px 0 4px' }}>
+        Уведомления админа
+      </div>
+      {notif && (
+        <div>
+          <ToggleRow label="Новый пользователь" value={notif.notifyOnNewUser} onChange={(v) => updateNotif.mutate({ notifyOnNewUser: v })} />
+          <ToggleRow label="Новое голосование" value={notif.notifyOnNewPoll} onChange={(v) => updateNotif.mutate({ notifyOnNewPoll: v })} />
+          <ToggleRow label="Завершение голосования" value={notif.notifyOnPollEnd} onChange={(v) => updateNotif.mutate({ notifyOnPollEnd: v })} />
+          <ToggleRow label="Оплата долга" value={notif.notifyOnDebtPaid} onChange={(v) => updateNotif.mutate({ notifyOnDebtPaid: v })} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReminderSettingsForm({ initial }: { initial?: ReminderSettings }) {
+  const updateReminder = useUpdateReminderSettings();
+  const [intervalDays, setIntervalDays] = useState(initial?.intervalDays ?? 1);
+  const [minDebtAge, setMinDebtAge] = useState(initial?.minDebtAge ?? 1);
+  const [maxReminders, setMaxReminders] = useState(initial?.maxReminders ?? 3);
+  const [template, setTemplate] = useState(initial?.messageTemplate ?? '');
+  const [enabled, setEnabled] = useState(initial?.isEnabled ?? true);
+
+  const saveReminder = () => {
+    updateReminder.mutate({
+      isEnabled: enabled,
+      intervalDays,
+      minDebtAge,
+      maxReminders,
+      messageTemplate: template,
+    });
+  };
+
+  return (
+    <>
       <ToggleRow label="Включены" value={enabled} onChange={setEnabled} />
 
       <FormField label="Интервал (дней)" htmlFor="reminder-interval-days">
@@ -57,19 +77,7 @@ export function ReminderSettingsCard() {
       <Button variant="primary" icon="check" style={{ width: '100%', marginTop: 4 }} loading={updateReminder.isPending} onClick={saveReminder}>
         Сохранить
       </Button>
-
-      <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--t-16)', margin: '18px 0 4px' }}>
-        Уведомления админа
-      </div>
-      {notif && (
-        <div>
-          <ToggleRow label="Новый пользователь" value={notif.notifyOnNewUser} onChange={(v) => updateNotif.mutate({ notifyOnNewUser: v })} />
-          <ToggleRow label="Новое голосование" value={notif.notifyOnNewPoll} onChange={(v) => updateNotif.mutate({ notifyOnNewPoll: v })} />
-          <ToggleRow label="Завершение голосования" value={notif.notifyOnPollEnd} onChange={(v) => updateNotif.mutate({ notifyOnPollEnd: v })} />
-          <ToggleRow label="Оплата долга" value={notif.notifyOnDebtPaid} onChange={(v) => updateNotif.mutate({ notifyOnDebtPaid: v })} />
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 

@@ -107,7 +107,6 @@ export class AdminService {
           username: true,
           firstName: true,
           lastName: true,
-          participatesInPolls: true,
           createdAt: true,
           updatedAt: true,
           _count: {
@@ -147,7 +146,7 @@ export class AdminService {
           lastName: user.lastName,
           isAdmin: ['ADMIN', 'CREATOR'].includes(role),
           isActive: membership?.isActive ?? true,
-          participatesInPolls: user.participatesInPolls,
+          participatesInPolls: membership?.participatesInPolls ?? true,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
           totalVotes: user._count.votes,
@@ -319,17 +318,21 @@ export class AdminService {
    * Переключение постоянного флага «участвует в голосованиях».
    * Не влияет на уже активные голосования (они работают по снимку PollParticipant).
    */
-  async toggleParticipatesInPolls(userId: number, participates: boolean) {
+  async toggleParticipatesInPolls(
+    userId: number,
+    participates: boolean,
+    groupId: number
+  ) {
     try {
-      const user = await prisma.user.update({
-        where: { id: userId },
+      const member = await prisma.groupMember.update({
+        where: { groupId_userId: { groupId, userId } },
         data: { participatesInPolls: participates },
-        select: { id: true, participatesInPolls: true, firstName: true, lastName: true },
+        select: { userId: true, groupId: true, participatesInPolls: true },
       });
       logger.info(
-        `[AdminService] User ${userId} participatesInPolls -> ${participates}`
+        `[AdminService] Group ${groupId} member ${userId} participation changed`
       );
-      return user;
+      return member;
     } catch (error) {
       logger.error('[AdminService] Error toggling participatesInPolls:', error);
       throw error;

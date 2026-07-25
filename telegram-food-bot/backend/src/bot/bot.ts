@@ -10,16 +10,15 @@ import { PollReminderService } from '../services/poll-reminder.service';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 
-
 // Module-level bot instance for access from services
 let botInstance: Bot<BotContext> | null = null;
 
 // Middleware
 import { authMiddleware } from './middleware/auth';
-import { 
+import {
   loggingMiddleware,
   statsMiddleware,
-  errorLoggingMiddleware
+  errorLoggingMiddleware,
 } from './middleware/logger';
 
 // Commands
@@ -34,12 +33,15 @@ import {
   handleCancelPoll,
   handleRunRoulette,
   handleCompletePoll,
-  handleOpenPollButton
+  handleOpenPollButton,
 } from './handlers/poll.handlers';
 import { registerPaymentHandlers } from './handlers/payments.handlers';
 
 // Events
-import { setupGroupEvents, setupDefaultMenuButton } from './events/group-events';
+import {
+  setupGroupEvents,
+  setupDefaultMenuButton,
+} from './events/group-events';
 
 // Инициализация сессий
 function initial(): SessionData {
@@ -69,7 +71,7 @@ function parseCallbackId(data: string, index: number): number | null {
 export function createBot(): Bot<BotContext> {
   // Настройка прокси или локального API
   let gramBotConfig: BotConfig<BotContext> | undefined;
-  
+
   if (botConfig.localApi.enabled) {
     // Используем локальный Telegram Bot API сервер
     logger.info('🔧 Используется локальный Telegram Bot API сервер', {
@@ -85,17 +87,17 @@ export function createBot(): Bot<BotContext> {
     logger.info('🔧 Используется прокси для подключения к Telegram API', {
       proxy: botConfig.proxy.url.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@'), // Скрываем пароль
     });
-    
+
     try {
       const proxyUrl = botConfig.proxy.url;
       let agent;
-      
+
       if (proxyUrl.startsWith('socks')) {
         agent = new SocksProxyAgent(proxyUrl);
       } else {
         agent = new HttpsProxyAgent(proxyUrl);
       }
-      
+
       gramBotConfig = {
         client: {
           baseFetchConfig: {
@@ -109,9 +111,11 @@ export function createBot(): Bot<BotContext> {
       logger.warn('⚠️  Продолжаем без прокси...');
     }
   } else {
-    logger.warn('⚠️  ВАЖНО: Прокси не настроен! Если Telegram API заблокирован, включите VPN или настройте прокси в .env');
+    logger.warn(
+      '⚠️  ВАЖНО: Прокси не настроен! Если Telegram API заблокирован, включите VPN или настройте прокси в .env'
+    );
   }
-  
+
   botInstance = new Bot<BotContext>(botConfig.token, gramBotConfig);
   const bot = botInstance;
 
@@ -126,10 +130,18 @@ export function createBot(): Bot<BotContext> {
   // re-enter the throttle queue instead of stacking up against the limit.
   bot.api.config.use(
     apiThrottler({
-      global: { reservoir: 30, reservoirRefreshAmount: 30, reservoirRefreshInterval: 1000 },
-      group: { reservoir: 20, reservoirRefreshAmount: 20, reservoirRefreshInterval: 60_000 },
+      global: {
+        reservoir: 30,
+        reservoirRefreshAmount: 30,
+        reservoirRefreshInterval: 1000,
+      },
+      group: {
+        reservoir: 20,
+        reservoirRefreshAmount: 20,
+        reservoirRefreshInterval: 60_000,
+      },
       out: { maxConcurrent: 1, minTime: 1000 },
-    }),
+    })
   );
 
   // 🔁 Auto-retry on transient Telegram API failures.
@@ -140,7 +152,7 @@ export function createBot(): Bot<BotContext> {
     autoRetry({
       maxRetryAttempts: 3,
       maxDelaySeconds: 30,
-    }),
+    })
   );
 
   // Регистрируем типизированный синглтон — все сервисы читают из него
@@ -151,12 +163,14 @@ export function createBot(): Bot<BotContext> {
 
   // Инициализация notification service
   notificationService.initialize(bot);
-  
+
   // Инициализация poll reminder service
   PollReminderService.initialize(bot);
 
   // ⚡ Инициализация Scheduler (использует синглтон через getBotInstance)
-  const { PollSchedulerService } = require('../services/poll-scheduler.service');
+  const {
+    PollSchedulerService,
+  } = require('../services/poll-scheduler.service');
   PollSchedulerService.initialize(bot);
 
   // Глобальные middleware (применяются ко всем обновлениям)
@@ -176,15 +190,17 @@ export function createBot(): Bot<BotContext> {
   bot.command('app', appCommand);
 
   // Обработка callback queries
-  bot.on('callback_query:data', async (ctx) => {
+  bot.on('callback_query:data', async ctx => {
     const data = ctx.callbackQuery.data;
-    
+
     try {
       // Обработка кнопки "Проголосовать" (Deep Linking)
       if (data.startsWith('openpoll:')) {
         const pollId = parseCallbackId(data, 1);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть голосование. Обнови страницу.'
+          );
           return;
         }
         await handleOpenPollButton(ctx as any, pollId);
@@ -202,7 +218,9 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('cancel_poll:')) {
         const pollId = parseCallbackId(data, 1);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть голосование. Обнови страницу.'
+          );
           return;
         }
         await handleCancelPoll(ctx as any, pollId);
@@ -213,7 +231,9 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('run_roulette:')) {
         const pollId = parseCallbackId(data, 1);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть голосование. Обнови страницу.'
+          );
           return;
         }
         await handleRunRoulette(ctx, pollId);
@@ -224,7 +244,9 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('complete_poll:')) {
         const pollId = parseCallbackId(data, 1);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть голосование. Обнови страницу.'
+          );
           return;
         }
         await handleCompletePoll(ctx as any, pollId);
@@ -235,12 +257,23 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('volunteer:')) {
         const pollId = parseCallbackId(data, 1);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть голосование. Обнови страницу.'
+          );
           return;
         }
-        const { ResponsibleService } = await import('../services/responsible.service.js');
-        await ResponsibleService.handleVolunteer(pollId, ctx.from.id);
-        await ctx.answerCallbackQuery('✅ Спасибо! Ты выбран ответственным');
+        const { ResponsibleService } = await import(
+          '../services/responsible.service.js'
+        );
+        const selected = await ResponsibleService.handleVolunteer(
+          pollId,
+          ctx.from.id
+        );
+        await ctx.answerCallbackQuery(
+          selected
+            ? '✅ Спасибо! Ты выбран ответственным'
+            : '❌ Выбор уже завершён или ты не участвуешь в этом голосовании'
+        );
         return;
       }
 
@@ -248,15 +281,24 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('volunteer_category:')) {
         const categoryOrderId = parseCallbackId(data, 1);
         if (!categoryOrderId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть категорию. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть категорию. Обнови страницу.'
+          );
           return;
         }
-        const { MultiCategoryResponsibleService } = await import('../services/multi-category-responsible.service.js');
-        await MultiCategoryResponsibleService.handleVolunteerForCategory(
-          categoryOrderId,
-          BigInt(ctx.from.id)
+        const { MultiCategoryResponsibleService } = await import(
+          '../services/multi-category-responsible.service.js'
         );
-        await ctx.answerCallbackQuery('✅ Спасибо! Ты ответственный за эту категорию');
+        const selected =
+          await MultiCategoryResponsibleService.handleVolunteerForCategory(
+            categoryOrderId,
+            BigInt(ctx.from.id)
+          );
+        await ctx.answerCallbackQuery(
+          selected
+            ? '✅ Спасибо! Ты ответственный за эту категорию'
+            : '❌ Категория уже назначена или ты не участвуешь в ней'
+        );
         return;
       }
 
@@ -264,36 +306,42 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:mark_paid:')) {
         const txId = parseCallbackId(data, 2);
         if (!txId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть платёж. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть платёж. Обнови страницу.'
+          );
           return;
         }
         const { BudgetService } = await import('../services/budget.service.js');
         const { prisma } = await import('../database/client.js');
-        
+
         // ✅ FIX: Проверяем что пользователь - должник
         const tx = await prisma.transaction.findUnique({
           where: { id: txId },
           include: { fromUser: true },
         });
-        
+
         if (!tx) {
           await ctx.answerCallbackQuery('❌ Транзакция не найдена');
           return;
         }
-        
+
         if (Number(tx.fromUser.telegramId) !== ctx.from.id) {
           await ctx.answerCallbackQuery('❌ Отметить можно только свой долг');
           return;
         }
-        
-        await BudgetService.markAsPaid(txId, ctx.from.id);
+
+        await BudgetService.markAsPaid(txId, tx.fromUserId);
         await ctx.answerCallbackQuery('✅ Отмечено как оплачено');
         // Edit the message: remove button and add pending status line
         try {
           const originalText = ctx.callbackQuery.message?.text ?? '';
-          const updatedText = `${originalText  }\n\n⏳ Ожидаем подтверждения от ответственного...`;
-          await ctx.editMessageText(updatedText, { reply_markup: { inline_keyboard: [] } });
-        } catch (e) { /* ignore if edit fails */ }
+          const updatedText = `${originalText}\n\n⏳ Ожидаем подтверждения от ответственного...`;
+          await ctx.editMessageText(updatedText, {
+            reply_markup: { inline_keyboard: [] },
+          });
+        } catch (e) {
+          /* ignore if edit fails */
+        }
         return;
       }
 
@@ -301,33 +349,41 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:confirm:')) {
         const txId = parseCallbackId(data, 2);
         if (!txId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть платёж. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть платёж. Обнови страницу.'
+          );
           return;
         }
         const { BudgetService } = await import('../services/budget.service.js');
         const { prisma } = await import('../database/client.js');
-        
+
         // ✅ FIX: Проверяем что пользователь - кредитор (получатель)
         const tx = await prisma.transaction.findUnique({
           where: { id: txId },
           include: { toUser: true },
         });
-        
+
         if (!tx) {
           await ctx.answerCallbackQuery('❌ Транзакция не найдена');
           return;
         }
-        
+
         if (Number(tx.toUser.telegramId) !== ctx.from.id) {
-          await ctx.answerCallbackQuery('❌ Подтвердить можно только перевод тебе');
+          await ctx.answerCallbackQuery(
+            '❌ Подтвердить можно только перевод тебе'
+          );
           return;
         }
-        
-        await BudgetService.confirmPayment(txId);
+
+        await BudgetService.confirmPayment(txId, tx.toUserId);
         await ctx.answerCallbackQuery('✅ Оплата подтверждена');
         try {
-          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
-        } catch (e) { /* ignore */ }
+          await ctx.editMessageReplyMarkup({
+            reply_markup: { inline_keyboard: [] },
+          });
+        } catch (e) {
+          /* ignore */
+        }
         return;
       }
 
@@ -335,21 +391,32 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:srun_paid:')) {
         const storeRunId = parseCallbackId(data, 2);
         if (!storeRunId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть заказ. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть заказ. Обнови страницу.'
+          );
           return;
         }
         const { BudgetService } = await import('../services/budget.service.js');
-        const result = await BudgetService.markStoreRunPaidByDebtor(storeRunId, ctx.from.id);
+        const result = await BudgetService.markStoreRunPaidByDebtor(
+          storeRunId,
+          ctx.from.id
+        );
         if (!result) {
-          await ctx.answerCallbackQuery('❌ Нет неоплаченных позиций по этому заказу');
+          await ctx.answerCallbackQuery(
+            '❌ Нет неоплаченных позиций по этому заказу'
+          );
           return;
         }
         await ctx.answerCallbackQuery('✅ Отмечено как оплачено');
         try {
           const originalText = ctx.callbackQuery.message?.text ?? '';
-          const updatedText = `${originalText  }\n\n⏳ Ожидаем подтверждения от инициатора...`;
-          await ctx.editMessageText(updatedText, { reply_markup: { inline_keyboard: [] } });
-        } catch (e) { /* ignore if edit fails */ }
+          const updatedText = `${originalText}\n\n⏳ Ожидаем подтверждения от инициатора...`;
+          await ctx.editMessageText(updatedText, {
+            reply_markup: { inline_keyboard: [] },
+          });
+        } catch (e) {
+          /* ignore if edit fails */
+        }
         return;
       }
 
@@ -358,27 +425,33 @@ export function createBot(): Bot<BotContext> {
         const storeRunId = parseCallbackId(data, 2);
         const debtorUserId = parseCallbackId(data, 3);
         if (!storeRunId || !debtorUserId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть платёж. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть платёж. Обнови страницу.'
+          );
           return;
         }
         const { BudgetService } = await import('../services/budget.service.js');
         const result = await BudgetService.confirmStoreRunByDebtor(
           storeRunId,
           debtorUserId,
-          ctx.from.id,
+          ctx.from.id
         );
         if ('error' in result) {
           await ctx.answerCallbackQuery(
             result.error === 'forbidden'
               ? '❌ Подтвердить может только инициатор забега'
-              : '❌ Нечего подтверждать',
+              : '❌ Нечего подтверждать'
           );
           return;
         }
         await ctx.answerCallbackQuery('✅ Оплата подтверждена');
         try {
-          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
-        } catch (e) { /* ignore */ }
+          await ctx.editMessageReplyMarkup({
+            reply_markup: { inline_keyboard: [] },
+          });
+        } catch (e) {
+          /* ignore */
+        }
         return;
       }
 
@@ -386,7 +459,9 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:all_paid:')) {
         const pollId = parseCallbackId(data, 2);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть голосование. Обнови страницу.'
+          );
           return;
         }
         const { BudgetService } = await import('../services/budget.service.js');
@@ -397,15 +472,21 @@ export function createBot(): Bot<BotContext> {
           where: { pollId, toUser: { telegramId: BigInt(ctx.from.id) } },
         });
         if (!tx) {
-          await ctx.answerCallbackQuery('❌ Ты не ответственный по этому заказу');
+          await ctx.answerCallbackQuery(
+            '❌ Ты не ответственный по этому заказу'
+          );
           return;
         }
 
         await BudgetService.markAllPaidByResponsible(pollId, tx.toUserId);
         await ctx.answerCallbackQuery('✅ Все транзакции подтверждены');
         try {
-          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
-        } catch (e) { /* ignore */ }
+          await ctx.editMessageReplyMarkup({
+            reply_markup: { inline_keyboard: [] },
+          });
+        } catch (e) {
+          /* ignore */
+        }
         return;
       }
 
@@ -413,7 +494,9 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('budget:remind:')) {
         const pollId = parseCallbackId(data, 2);
         if (!pollId) {
-          await ctx.answerCallbackQuery('❌ Не получилось открыть голосование. Обнови страницу.');
+          await ctx.answerCallbackQuery(
+            '❌ Не получилось открыть голосование. Обнови страницу.'
+          );
           return;
         }
         const { BudgetService } = await import('../services/budget.service.js');
@@ -424,11 +507,16 @@ export function createBot(): Bot<BotContext> {
           where: { pollId, toUser: { telegramId: BigInt(ctx.from.id) } },
         });
         if (!tx) {
-          await ctx.answerCallbackQuery('❌ Ты не ответственный по этому заказу');
+          await ctx.answerCallbackQuery(
+            '❌ Ты не ответственный по этому заказу'
+          );
           return;
         }
 
-        const resultMessage = await BudgetService.remindAllDebtors(pollId, tx.toUserId);
+        const resultMessage = await BudgetService.remindAllDebtors(
+          pollId,
+          tx.toUserId
+        );
         await ctx.answerCallbackQuery(resultMessage.substring(0, 200)); // Telegram limit 200 chars
         return;
       }
@@ -437,15 +525,32 @@ export function createBot(): Bot<BotContext> {
       if (data.startsWith('recurring:disable:')) {
         const scheduleId = parseCallbackId(data, 2);
         if (!scheduleId) {
-          await ctx.answerCallbackQuery('❌ Некорректный идентификатор расписания');
+          await ctx.answerCallbackQuery(
+            '❌ Некорректный идентификатор расписания'
+          );
           return;
         }
-        const { PollSchedulerService } = await import('../services/poll-scheduler.service.js');
-        
+        const { PollSchedulerService } = await import(
+          '../services/poll-scheduler.service.js'
+        );
+
         try {
-          await PollSchedulerService.handleDisableCallback(scheduleId);
-          await ctx.answerCallbackQuery('✅ Автоматические голосования отключены');
-          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
+          const disabled = await PollSchedulerService.handleDisableCallback(
+            scheduleId,
+            ctx.from.id
+          );
+          if (!disabled) {
+            await ctx.answerCallbackQuery(
+              '❌ Расписание не найдено или нет прав администратора'
+            );
+            return;
+          }
+          await ctx.answerCallbackQuery(
+            '✅ Автоматические голосования отключены'
+          );
+          await ctx.editMessageReplyMarkup({
+            reply_markup: { inline_keyboard: [] },
+          });
         } catch (error) {
           logger.error('Error disabling recurring poll:', error);
           await ctx.answerCallbackQuery('❌ Ошибка отключения');
@@ -471,7 +576,7 @@ export function createBot(): Bot<BotContext> {
   setupGroupEvents(bot);
 
   // Логируем готовность бота
-  void bot.api.getMe().then((botInfo) => {
+  void bot.api.getMe().then(botInfo => {
     logger.info('🤖 Бот инициализирован', {
       id: botInfo.id,
       username: botInfo.username,
@@ -480,7 +585,7 @@ export function createBot(): Bot<BotContext> {
       canReadAllGroupMessages: botInfo.can_read_all_group_messages,
       supportsInlineQueries: botInfo.supports_inline_queries,
     });
-    
+
     // Настраиваем дефолтный Menu Button для личных чатов
     setupDefaultMenuButton(bot).catch((err: unknown) => {
       logger.error('Failed to setup default menu button:', err);
@@ -498,13 +603,16 @@ export async function startPolling(bot: Bot<BotContext>): Promise<void> {
     // Удаляем webhook перед запуском polling (для локальной разработки)
     logger.info('🔄 Удаление webhook перед запуском polling...');
     try {
-      await bot.api.deleteWebhook({ drop_pending_updates: true });
+      await bot.api.deleteWebhook({ drop_pending_updates: false });
       logger.info('✅ Webhook удален');
     } catch (webhookError: any) {
       // Игнорируем ошибки удаления webhook (VPN/прокси проблемы)
-      logger.warn('⚠️ Не удалось удалить webhook (пропускаем):', webhookError.message);
+      logger.warn(
+        '⚠️ Не удалось удалить webhook (пропускаем):',
+        webhookError.message
+      );
     }
-    
+
     await bot.start({
       // Явно подписываемся на chat_member и chat_join_request — иначе Telegram
       // не присылает события о вступлении/выходе других участников группы.
@@ -514,17 +622,20 @@ export async function startPolling(bot: Bot<BotContext>): Promise<void> {
         'message',
         'edited_message',
         'callback_query',
+        'pre_checkout_query',
         'my_chat_member',
         'chat_member',
         'chat_join_request',
       ],
-      onStart: (botInfo) => {
+      onStart: botInfo => {
         logger.info('🚀 Бот запущен в polling режиме', {
           username: botInfo.username,
         });
 
         // ⚡ НОВОЕ: Запускаем scheduler для автоматических голосований
-        const { PollSchedulerService } = require('../services/poll-scheduler.service');
+        const {
+          PollSchedulerService,
+        } = require('../services/poll-scheduler.service');
         void PollSchedulerService.start().catch((e: unknown) =>
           logger.error('Poll scheduler start failed', e)
         );
@@ -540,23 +651,29 @@ export async function startPolling(bot: Bot<BotContext>): Promise<void> {
 /**
  * Настройка webhook для production
  */
-export async function setupWebhook(bot: Bot<BotContext>, webhookUrl: string): Promise<void> {
+export async function setupWebhook(
+  bot: Bot<BotContext>,
+  webhookUrl: string,
+  webhookSecret: string
+): Promise<void> {
   try {
     await bot.api.setWebhook(webhookUrl, {
-      drop_pending_updates: true,
+      drop_pending_updates: false,
+      secret_token: webhookSecret,
       // Те же allowed_updates, что и для polling — нужно явно запрашивать
       // chat_member, иначе Telegram не присылает события о членах группы.
       allowed_updates: [
         'message',
         'edited_message',
         'callback_query',
+        'pre_checkout_query',
         'my_chat_member',
         'chat_member',
         'chat_join_request',
       ],
     });
-    
-    logger.info('🌐 Webhook установлен', { webhookUrl });
+
+    logger.info('🌐 Webhook установлен');
   } catch (error) {
     logger.error('❌ Ошибка установки webhook:', error);
     throw error;
@@ -570,12 +687,14 @@ export async function stopBot(bot: Bot<BotContext>): Promise<void> {
   try {
     // Отменяем все активные напоминания
     PollReminderService.cancelAllReminders();
-    
+
     // ⚡ НОВОЕ: Останавливаем scheduler
-    const { PollSchedulerService } = require('../services/poll-scheduler.service');
+    const {
+      PollSchedulerService,
+    } = require('../services/poll-scheduler.service');
     await PollSchedulerService.stop();
     logger.info('⚡ Poll scheduler остановлен');
-    
+
     await bot.stop();
     logger.info('🛑 Бот остановлен');
   } catch (error) {
@@ -590,5 +709,3 @@ export async function stopBot(bot: Bot<BotContext>): Promise<void> {
 export function getBotInstance(): Bot<BotContext> | null {
   return botInstance;
 }
-
-

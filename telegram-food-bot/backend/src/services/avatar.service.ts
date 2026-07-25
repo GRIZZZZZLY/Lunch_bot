@@ -60,7 +60,7 @@ export class AvatarService {
         return null;
       }
 
-      logger.info(`[AvatarService] 🔄 Fetching avatar for user ${telegramId} from Telegram API`);
+      logger.debug('[AvatarService] Fetching avatar from Telegram');
 
       // Получаем фото профиля через getUserProfilePhotos
       const photos = await bot.api.getUserProfilePhotos(Number(telegramId), {
@@ -68,7 +68,7 @@ export class AvatarService {
       });
 
       if (!photos.photos.length || !photos.photos[0]?.length) {
-        logger.info(`[AvatarService] ℹ️  No avatar found for user ${telegramId}`);
+        logger.debug('[AvatarService] Avatar not found');
         return null;
       }
 
@@ -77,17 +77,15 @@ export class AvatarService {
       const largestPhoto = photoSizes[photoSizes.length - 1];
 
       if (!largestPhoto) {
-        logger.warn(`[AvatarService] ⚠️  No largest photo found for user ${telegramId}`);
+        logger.warn('[AvatarService] Telegram returned an empty photo set');
         return null;
       }
-
-      logger.debug(`[AvatarService] Found photo file_id: ${largestPhoto.file_id}`);
 
       // Получаем URL файла через getFile
       const file = await bot.api.getFile(largestPhoto.file_id);
 
       if (!file.file_path) {
-        logger.warn(`[AvatarService] ⚠️  No file_path for avatar ${largestPhoto.file_id}`);
+        logger.warn('[AvatarService] Telegram avatar has no file path');
         return null;
       }
 
@@ -97,25 +95,22 @@ export class AvatarService {
       // через presentAvatarUrl() — иначе <img src> получит 401 от auth-middleware.
       const avatarUrl = `tg://avatar/${largestPhoto.file_id}`;
 
-      logger.info(`[AvatarService] ✅ Avatar fetched successfully for user ${telegramId}: ${file.file_path} (file_id: ${largestPhoto.file_id})`);
+      logger.debug('[AvatarService] Avatar fetched successfully');
       return avatarUrl;
     } catch (error: any) {
       // Обрабатываем специфичные ошибки Telegram API
       if (error.error_code === 400 && error.description?.includes('USER_ID_INVALID')) {
-        logger.warn(`[AvatarService] ⚠️  Invalid user ID for avatar fetch: ${telegramId}`);
+        logger.warn('[AvatarService] Telegram rejected avatar user');
         return null;
       }
 
       if (error.error_code === 400 && error.description?.includes('Bad Request: user not found')) {
-        logger.warn(`[AvatarService] ⚠️  User not found in Telegram: ${telegramId}`);
+        logger.warn('[AvatarService] Avatar user not found in Telegram');
         return null;
       }
 
-      logger.error(`[AvatarService] ❌ Error fetching avatar from Telegram for ${telegramId}:`, {
-        error_code: error.error_code,
-        description: error.description,
-        message: error.message,
-        stack: error.stack,
+      logger.error('[AvatarService] Telegram avatar request failed', {
+        errorCode: error.error_code,
       });
       return null;
     }
@@ -153,8 +148,6 @@ export class AvatarService {
    */
   static async getUserAvatar(telegramId: bigint): Promise<string | null> {
     try {
-      logger.debug(`[AvatarService] 📷 getUserAvatar called for telegramId: ${telegramId}`);
-
       // 1. Получаем пользователя из БД
       const user = await prisma.user.findUnique({
         where: { telegramId: BigInt(telegramId) },
@@ -166,20 +159,18 @@ export class AvatarService {
       });
 
       if (!user) {
-        logger.warn(`[AvatarService] ⚠️  User not found in DB for avatar fetch: ${telegramId}`);
+        logger.warn('[AvatarService] Avatar user not found in database');
         return null;
       }
 
-      logger.debug(`[AvatarService] Found user in DB: id=${user.id}, hasAvatar=${!!user.avatarUrl}, updatedAt=${user.avatarUpdatedAt}`);
-
       // 2. Проверяем валидность кэша
       if (user.avatarUrl && this.isCacheValid(user.avatarUpdatedAt)) {
-        logger.debug(`[AvatarService] ✅ Avatar cache HIT for user ${telegramId}`);
+        logger.debug('[AvatarService] Avatar cache hit');
         return presentAvatarUrl(user.avatarUrl);
       }
 
       // 3. Кэш невалиден или отсутствует → загружаем из Telegram API
-      logger.info(`[AvatarService] 🔄 Avatar cache MISS for user ${telegramId}, fetching from Telegram API`);
+      logger.debug('[AvatarService] Avatar cache miss');
       const avatarUrl = await this.fetchAvatarFromTelegram(telegramId);
 
       // 4. Обновляем кэш в БД
@@ -187,7 +178,7 @@ export class AvatarService {
 
       return presentAvatarUrl(avatarUrl);
     } catch (error) {
-      logger.error(`[AvatarService] ❌ Error getting user avatar for ${telegramId}:`, error);
+      logger.error('[AvatarService] Failed to get user avatar', error);
       return null;
     }
   }
@@ -288,7 +279,7 @@ export class AvatarService {
       });
 
       if (!user) {
-        logger.warn(`User not found for avatar refresh: ${telegramId}`);
+        logger.warn('[AvatarService] User not found for avatar refresh');
         return null;
       }
 
@@ -297,7 +288,7 @@ export class AvatarService {
 
       return avatarUrl;
     } catch (error) {
-      logger.error(`Error refreshing user avatar for ${telegramId}:`, error);
+      logger.error('[AvatarService] Failed to refresh user avatar', error);
       return null;
     }
   }

@@ -44,26 +44,18 @@ interface UseSSEOptions {
 }
 
 const MAX_RETRIES = 20;
+const RETRY_DELAYS_MS = [1000, 2000, 5000, 10000, 15000];
 
 /**
- * Построить SSE URL с токеном в query string.
- *
- * EventSource не поддерживает кастомные заголовки,
- * поэтому передаём JWT через query parameter.
+ * Построить URL потока. Токен передаётся только в Authorization header.
  */
 function buildSSEUrl(pollId: number): string {
-  const token = apiService.getToken();
   const isProduction = import.meta.env.MODE === 'production';
   const baseUrl = isProduction
     ? ''
     : (import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3001');
 
-  const url = `${baseUrl}/api/polls/${pollId}/stream`;
-
-  if (token) {
-    return `${url}?token=${encodeURIComponent(token)}`;
-  }
-  return url;
+  return `${baseUrl}/api/polls/${pollId}/stream`;
 }
 
 /**
@@ -95,7 +87,7 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<SSEStatus>('disconnected');
 
-  // Используем ref для callbacks чтобы не пересоздавать EventSource
+  // Используем ref для обработчиков, чтобы не пересоздавать подключение.
   const callbacksRef = useRef({
     onPollUpdated,
     onCategoryOrderUpdated,
@@ -116,18 +108,19 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
     }
 
     let retryCount = 0;
+    let stopped = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const abortController = new AbortController();
     setStatus('connecting');
-
-    const es = new EventSource(buildSSEUrl(pollId));
 
     const handleConnected = (): void => {
       setStatus('connected');
       retryCount = 0;
     };
 
-    const handlePollUpdated = (event: MessageEvent): void => {
+    const handlePollUpdated = (rawData: string): void => {
       try {
-        const data: PollUpdatedEvent = JSON.parse(event.data);
+        const data: PollUpdatedEvent = JSON.parse(rawData);
 
         // Инвалидируем React Query кеш
         void queryClient.invalidateQueries({
@@ -143,9 +136,9 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
       }
     };
 
-    const handleCategoryOrderUpdated = (event: MessageEvent): void => {
+    const handleCategoryOrderUpdated = (rawData: string): void => {
       try {
-        const data: CategoryOrderUpdatedEvent = JSON.parse(event.data);
+        const data: CategoryOrderUpdatedEvent = JSON.parse(rawData);
 
         // Инвалидируем category orders (все связанные query keys)
         void queryClient.invalidateQueries({
@@ -167,9 +160,9 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
       }
     };
 
-    const handleResponsibleSelected = (event: MessageEvent): void => {
+    const handleResponsibleSelected = (rawData: string): void => {
       try {
-        const data: ResponsibleSelectedEvent = JSON.parse(event.data);
+        const data: ResponsibleSelectedEvent = JSON.parse(rawData);
 
         void queryClient.invalidateQueries({
           queryKey: queryKeys.polls.detail(pollId),
@@ -190,37 +183,79 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
       }
     };
 
-    es.addEventListener('connected', handleConnected);
-    es.addEventListener('poll_updated', handlePollUpdated);
-    es.addEventListener(
-      'category_order_updated',
-      handleCategoryOrderUpdated
-    );
-    es.addEventListener('responsible_selected', handleResponsibleSelected);
-
-    es.onerror = () => {
-      setStatus('error');
-      retryCount++;
-
-      if (retryCount >= MAX_RETRIES) {
-        es.close();
-        setStatus('disconnected');
+    const dispatchEvent = (block: string): void => {
+      let eventName = 'message';
+      const dataLines: string[] = [];
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) {
+          eventName = line.slice(6).trim();
+        } else if (line.startsWith('data:')) {
+          dataLines.push(line.slice(5).trimStart());
+        }
+      }
+      const data = dataLines.join('\n');
+      if (eventName === 'connected') handleConnected();
+      if (eventName === 'poll_updated') handlePollUpdated(data);
+      if (eventName === 'category_order_updated') {
+        handleCategoryOrderUpdated(data);
+      }
+      if (eventName === 'responsible_selected') {
+        handleResponsibleSelected(data);
       }
     };
 
+    const connect = async (): Promise<void> => {
+      while (!stopped && retryCount < MAX_RETRIES) {
+        try {
+          const token = apiService.getToken();
+          if (!token) throw new Error('Authentication token is missing');
+
+          const response = await fetch(buildSSEUrl(pollId), {
+            headers: {
+              Accept: 'text/event-stream',
+              Authorization: `Bearer ${token}`,
+            },
+            cache: 'no-store',
+            signal: abortController.signal,
+          });
+          if (!response.ok || !response.body) {
+            throw new Error(`SSE request failed with ${response.status}`);
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          while (!stopped) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const blocks = buffer.split(/\r?\n\r?\n/);
+            buffer = blocks.pop() ?? '';
+            blocks.forEach(dispatchEvent);
+          }
+          if (!stopped) throw new Error('SSE stream closed');
+        } catch {
+          if (stopped || abortController.signal.aborted) return;
+          setStatus('error');
+          const delay =
+            RETRY_DELAYS_MS[
+              Math.min(retryCount, RETRY_DELAYS_MS.length - 1)
+            ];
+          retryCount++;
+          await new Promise<void>(resolve => {
+            retryTimer = setTimeout(resolve, delay);
+          });
+        }
+      }
+      if (!stopped) setStatus('disconnected');
+    };
+
+    void connect();
+
     return () => {
-      es.removeEventListener('connected', handleConnected);
-      es.removeEventListener('poll_updated', handlePollUpdated);
-      es.removeEventListener(
-        'category_order_updated',
-        handleCategoryOrderUpdated
-      );
-      es.removeEventListener(
-        'responsible_selected',
-        handleResponsibleSelected
-      );
-      es.onerror = null;
-      es.close();
+      stopped = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      abortController.abort();
     };
   }, [pollId, enabled, queryClient]);
 

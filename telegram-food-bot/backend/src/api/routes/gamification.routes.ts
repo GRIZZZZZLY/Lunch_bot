@@ -14,9 +14,19 @@ import {
   awardXP,
   recalculateRatings,
 } from '../controllers/gamification.controller';
-import { telegramAuthMiddleware } from '../middleware/telegram-auth';
+import {
+  adminMiddleware,
+  telegramAuthMiddleware,
+} from '../middleware/telegram-auth';
+import { createIdempotencyMiddleware } from '../middleware/idempotency';
+import { operationsApiMiddleware } from '../middleware/operations-api';
+import { writeLimiter } from '../middleware/rate-limiter';
 
 const router = Router();
+const gamificationMutationIdempotency = createIdempotencyMiddleware({
+  scope: 'gamification-maintenance',
+  required: true,
+});
 
 // All routes require authentication
 router.use(telegramAuthMiddleware);
@@ -31,7 +41,21 @@ router.get('/user/xp-history', getXPHistory);
 router.get('/leaderboard', getLeaderboard);
 
 // Admin routes
-router.post('/admin/award-xp', awardXP);
-router.post('/admin/recalculate-ratings', recalculateRatings);
+router.post(
+  '/admin/award-xp',
+  adminMiddleware,
+  operationsApiMiddleware,
+  writeLimiter,
+  gamificationMutationIdempotency,
+  awardXP
+);
+router.post(
+  '/admin/recalculate-ratings',
+  adminMiddleware,
+  operationsApiMiddleware,
+  writeLimiter,
+  gamificationMutationIdempotency,
+  recalculateRatings
+);
 
 export default router;

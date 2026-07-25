@@ -1,6 +1,7 @@
 import cors from 'cors';
 import { apiConfig } from '../../config/api.config';
 import { logger } from '../../utils/logger';
+import { AuthorizationError } from '../../utils/error';
 
 /**
  * Настройка CORS для API
@@ -40,15 +41,17 @@ export const corsMiddleware = cors({
       }
       
       logger.warn('CORS: development режим, origin ЗАБЛОКИРОВАН', { origin, allowedOrigins: devOrigins });
-      return callback(new Error('Origin не в whitelist даже для development'));
+      return callback(
+        new AuthorizationError('Origin запрещён политикой CORS')
+      );
     }
 
     // Проверяем разрешенные домены в production
-    if (configAllowedOrigins.includes(origin) || configAllowedOrigins.includes('*')) {
+    if (configAllowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       logger.warn('CORS заблокировал запрос', { origin, allowedOrigins: configAllowedOrigins });
-      callback(new Error('Запрос заблокирован CORS политикой'));
+      callback(new AuthorizationError('Origin запрещён политикой CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -58,6 +61,9 @@ export const corsMiddleware = cors({
     'Content-Type',
     'Accept',
     'Authorization',
+    'Idempotency-Key',
+    'X-Operations-Secret',
+    'X-Request-ID',
     'Cache-Control',
     'Pragma',
   ],
@@ -77,9 +83,10 @@ export const telegramCorsMiddleware = cors({
     }
 
     // Получаем разрешенные домены из конфига
-    const configOrigins = Array.isArray(apiConfig.corsOrigin) 
-      ? apiConfig.corsOrigin 
-      : [apiConfig.corsOrigin];
+    const configOrigins = apiConfig.corsOrigin
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
 
     // 🔐 SECURITY FIX: Telegram CORS тоже проверяем в development
     if (process.env.NODE_ENV === 'development') {
@@ -93,7 +100,9 @@ export const telegramCorsMiddleware = cors({
       }
       
       logger.warn('Telegram CORS: development режим, origin ЗАБЛОКИРОВАН', { origin });
-      return callback(new Error('Telegram CORS: origin не в whitelist'));
+      return callback(
+        new AuthorizationError('Origin запрещён политикой CORS')
+      );
     }
 
     // Разрешенные домены для Telegram
@@ -107,11 +116,11 @@ export const telegramCorsMiddleware = cors({
     // Объединяем настроенные домены и Telegram домены
     const allowedOrigins = [...configOrigins, ...telegramOrigins];
 
-    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       logger.warn('Telegram CORS заблокировал запрос', { origin });
-      callback(null, true); // Для Telegram WebApp все равно разрешаем
+      callback(new AuthorizationError('Origin запрещён политикой CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -121,6 +130,9 @@ export const telegramCorsMiddleware = cors({
     'Content-Type',
     'Accept',
     'Authorization',
+    'Idempotency-Key',
+    'X-Operations-Secret',
+    'X-Request-ID',
     'X-Telegram-Bot-Api-Secret-Token',
   ],
   credentials: false, // Telegram WebApp не поддерживает credentials

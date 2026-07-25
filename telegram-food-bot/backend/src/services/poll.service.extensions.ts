@@ -5,7 +5,11 @@ import { VoteService } from './vote.service';
 import { NotificationService } from './notification.service';
 import { UserService } from './user.service';
 import { logger } from '../utils/logger';
-import { createVoteWebAppKeyboard, createResultsWebAppKeyboard, createResponsibleKeyboard } from '../bot/keyboards/webapp.keyboard';
+import {
+  createVoteWebAppKeyboard,
+  createResultsWebAppKeyboard,
+  createResponsibleKeyboard,
+} from '../bot/keyboards/webapp.keyboard';
 import { createPollStartedMessage } from '../bot/keyboards/poll.keyboard';
 
 import { getBotInstance } from '../bot/bot-instance';
@@ -13,7 +17,9 @@ import { getBotInstance } from '../bot/bot-instance';
 /** @deprecated No-op: bot is now accessed via the shared singleton */
 export function initializePollServiceBot(_bot: unknown): void {}
 
-function botInstance() { return getBotInstance(); }
+function botInstance() {
+  return getBotInstance();
+}
 
 /**
  * Создание голосования из WebApp с отправкой в группу
@@ -29,13 +35,16 @@ export async function createPollFromWebApp(params: {
   maxSelections?: number;
 }): Promise<{ pollId: number; messageId: number }> {
   try {
-    logger.info('🎬 Starting createPollFromWebApp', { groupId: params.groupId, menuItemsCount: params.menuItems.length });
-    
+    logger.info('🎬 Starting createPollFromWebApp', {
+      groupId: params.groupId,
+      menuItemsCount: params.menuItems.length,
+    });
+
     if (!botInstance) {
       logger.error('❌ Bot not initialized in PollService');
       throw new Error('Bot not initialized in PollService');
     }
-    
+
     logger.info('✅ Bot instance confirmed');
 
     const {
@@ -56,7 +65,7 @@ export async function createPollFromWebApp(params: {
       logger.error('❌ Group not found', { groupId });
       throw new Error('Group not found');
     }
-    logger.info('✅ Group found', { telegramId: group.telegramId.toString(), title: group.title });
+    logger.info('Group found for poll creation', { groupId: group.id });
 
     // Создаём голосование в БД с сохранением выбранных блюд
     logger.info('💾 Creating poll in database', { selectedMenuItemIds });
@@ -68,13 +77,16 @@ export async function createPollFromWebApp(params: {
       maxSelections: maxSelections ?? 3,
     });
     logger.info('✅ Poll created in DB', { pollId: poll.id });
-    
+
     // Сохраняем выбранные блюда в БД
     if (selectedMenuItemIds && selectedMenuItemIds.length > 0) {
       await PollService.updatePoll(poll.id, {
         selectedMenuItemIds: JSON.stringify(selectedMenuItemIds),
       });
-      logger.info('✅ Selected menu items saved', { pollId: poll.id, count: selectedMenuItemIds.length });
+      logger.info('✅ Selected menu items saved', {
+        pollId: poll.id,
+        count: selectedMenuItemIds.length,
+      });
     }
 
     // 🔄 Обновляем expectedParticipants при создании голосования (Вариант 5)
@@ -83,19 +95,28 @@ export async function createPollFromWebApp(params: {
         group.telegramId.toString(),
         botInstance
       );
-      
+
       if (realCount && realCount > 0) {
-        const currentSettings = await GroupService.getGroupSettings(poll.groupId);
+        const currentSettings = await GroupService.getGroupSettings(
+          poll.groupId
+        );
         await GroupService.updateGroupSettings(poll.groupId, {
           ...currentSettings,
-          expectedParticipants: realCount
+          expectedParticipants: realCount,
         });
-        logger.info(`✅ Set expectedParticipants for new poll ${poll.id}: ${realCount} members`);
+        logger.info(
+          `✅ Set expectedParticipants for new poll ${poll.id}: ${realCount} members`
+        );
       } else {
-        logger.warn(`⚠️ Could not get real member count for group ${group.id}, using fallback`);
+        logger.warn(
+          `⚠️ Could not get real member count for group ${group.id}, using fallback`
+        );
       }
     } catch (error) {
-      logger.error('Error updating expectedParticipants on poll creation:', error);
+      logger.error(
+        'Error updating expectedParticipants on poll creation:',
+        error
+      );
       // Не критично - продолжаем работу
     }
 
@@ -110,24 +131,22 @@ export async function createPollFromWebApp(params: {
 
     // Отправляем сообщение в группу
     // ВАЖНО: Преобразуем BigInt в число для совместимости с Grammy API
-    const chatId = typeof group.telegramId === 'bigint' 
-      ? Number(group.telegramId) 
-      : group.telegramId;
-    
-    logger.info('📤 Sending message to group', { chatId, messageLength: message.length });
-    
-    const sentMessage = await botInstance()!.api.sendMessage(
-      chatId,
-      message,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard,
-      }
-    );
+    const chatId =
+      typeof group.telegramId === 'bigint'
+        ? Number(group.telegramId)
+        : group.telegramId;
+
+    logger.info('📤 Sending message to group', {
+      messageLength: message.length,
+    });
+
+    const sentMessage = await botInstance()!.api.sendMessage(chatId, message, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard,
+    });
 
     logger.info('✅ Poll message sent to group', {
       pollId: poll.id,
-      groupId: group.telegramId.toString(),
       messageId: sentMessage.message_id,
     });
 
@@ -139,19 +158,29 @@ export async function createPollFromWebApp(params: {
     logger.info('✅ Poll updated with chatId and messageId');
 
     // Устанавливаем таймер для автозавершения
-    setTimeout(async () => {
-      try {
-        const currentPoll = await PollService.getPollById(poll.id);
-        if (currentPoll?.status === 'ACTIVE') {
-          await autoCompletePoll(poll.id, parseInt(group.telegramId.toString()), sentMessage.message_id);
+    setTimeout(
+      async () => {
+        try {
+          const currentPoll = await PollService.getPollById(poll.id);
+          if (currentPoll?.status === 'ACTIVE') {
+            await autoCompletePoll(
+              poll.id,
+              parseInt(group.telegramId.toString()),
+              sentMessage.message_id
+            );
+          }
+        } catch (error) {
+          logger.error('Error in poll auto-completion timeout:', error);
         }
-      } catch (error) {
-        logger.error('Error in poll auto-completion timeout:', error);
-      }
-    }, duration * 60 * 1000);
+      },
+      duration * 60 * 1000
+    );
 
-    logger.info('🎉 Poll created successfully!', { pollId: poll.id, messageId: sentMessage.message_id });
-    
+    logger.info('🎉 Poll created successfully!', {
+      pollId: poll.id,
+      messageId: sentMessage.message_id,
+    });
+
     return {
       pollId: poll.id,
       messageId: sentMessage.message_id,
@@ -177,7 +206,9 @@ async function autoCompletePoll(
       return;
     }
 
-    logger.info(`[UX 2.0] Auto-completing poll ${pollId} - editing existing message`);
+    logger.info(
+      `[UX 2.0] Auto-completing poll ${pollId} - editing existing message`
+    );
 
     // Завершаем голосование
     const result = await PollService.completePoll(pollId);
@@ -199,7 +230,8 @@ async function autoCompletePoll(
 
     // ФАЗА 1: Редактируем сообщение - добавляем результаты (БЕЗ ответственного)
     try {
-      const { createCompactPollMessage, createCompactPollKeyboard } = await import('../bot/keyboards/poll.keyboard');
+      const { createCompactPollMessage, createCompactPollKeyboard } =
+        await import('../bot/keyboards/poll.keyboard');
 
       const completedMessage = createCompactPollMessage(
         poll,
@@ -208,7 +240,7 @@ async function autoCompletePoll(
         0,
         {
           status: 'completed',
-          breakdown
+          breakdown,
         }
       );
 
@@ -220,7 +252,7 @@ async function autoCompletePoll(
         completedMessage,
         {
           parse_mode: 'Markdown',
-          reply_markup: completedKeyboard
+          reply_markup: completedKeyboard,
         }
       );
 
@@ -231,16 +263,30 @@ async function autoCompletePoll(
 
     if (result.totalVotes > 0) {
       try {
-        const { CategoryOrderService } = await import('./category-order.service');
-        const { MultiCategoryResponsibleService } = await import('./multi-category-responsible.service');
+        const { CategoryOrderService } = await import(
+          './category-order.service'
+        );
+        const { MultiCategoryResponsibleService } = await import(
+          './multi-category-responsible.service'
+        );
 
-        const categoryOrders = await CategoryOrderService.createCategoryOrders(pollId);
-        logger.info(`[UX 2.0] Created ${categoryOrders.length} category orders for poll ${pollId}`);
+        const categoryOrders =
+          await CategoryOrderService.createCategoryOrders(pollId);
+        logger.info(
+          `[UX 2.0] Created ${categoryOrders.length} category orders for poll ${pollId}`
+        );
 
-        await MultiCategoryResponsibleService.startMultiCategorySelection(pollId);
-        logger.info(`[UX 2.0] Started multi-category responsible selection for poll ${pollId}`);
+        await MultiCategoryResponsibleService.startMultiCategorySelection(
+          pollId
+        );
+        logger.info(
+          `[UX 2.0] Started multi-category responsible selection for poll ${pollId}`
+        );
       } catch (multiCategoryError) {
-        logger.error('Failed to start multi-category flow in auto-complete, fallback to legacy flow:', multiCategoryError);
+        logger.error(
+          'Failed to start multi-category flow in auto-complete, fallback to legacy flow:',
+          multiCategoryError
+        );
 
         // Legacy fallback to keep auto-complete resilient
         let responsibleUser = null;
@@ -253,7 +299,9 @@ async function autoCompletePoll(
       }
     }
 
-    logger.info(`[UX 2.0] Poll ${pollId} completed successfully - 1 message instead of 3-4!`);
+    logger.info(
+      `[UX 2.0] Poll ${pollId} completed successfully - 1 message instead of 3-4!`
+    );
   } catch (error) {
     logger.error('Error in autoCompletePoll:', error);
   }
@@ -283,9 +331,16 @@ function createPollResultsMessage(data: {
   }
 
   message += `📋 **Топ блюд:**\n\n`;
-  
+
   breakdown.slice(0, 5).forEach((item: any, index: number) => {
-    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+    const medal =
+      index === 0
+        ? '🥇'
+        : index === 1
+          ? '🥈'
+          : index === 2
+            ? '🥉'
+            : `${index + 1}.`;
     message += `${medal} ${item.menuItemName} — ${item.votes} ${getVotesWord(item.votes)} (${item.percentage}%)\n`;
   });
 
@@ -329,36 +384,44 @@ async function sendPersonalNotifications(
     }
 
     const votes = await VoteService.getPollVotes(pollId);
-    
+
     if (votes.length === 0) {
       return;
     }
 
     const winnerItem = breakdown.length > 0 ? breakdown[0] : null;
 
-    logger.info(`Sending personal notifications to ${votes.length} participants`);
+    logger.info(
+      `Sending personal notifications to ${votes.length} participants`
+    );
 
-  let successCount = 0;
-  let failCount = 0;
-  const responsiblePaymentInfo = responsibleUser
-    ? await UserService.getPaymentInfo(responsibleUser.id)
-    : null;
-  if (responsibleUser && !responsiblePaymentInfo?.paymentCard && !responsiblePaymentInfo?.paymentPhone) {
-    logger.warn('Responsible has no payment details', {
-      responsibleId: responsibleUser.id,
-      pollId,
-    });
-  }
+    let successCount = 0;
+    let failCount = 0;
+    const responsiblePaymentInfo = responsibleUser
+      ? await UserService.getPaymentInfo(responsibleUser.id)
+      : null;
+    if (
+      responsibleUser &&
+      !responsiblePaymentInfo?.paymentCard &&
+      !responsiblePaymentInfo?.paymentPhone
+    ) {
+      logger.warn('Responsible has no payment details', {
+        responsibleId: responsibleUser.id,
+        pollId,
+      });
+    }
 
     // Отправляем уведомления параллельно
     await Promise.all(
       votes.map(async (vote: any) => {
         try {
-          const userVote = breakdown.find((b: any) => b.menuItemId === vote.menuItemId);
-          
+          const userVote = breakdown.find(
+            (b: any) => b.menuItemId === vote.menuItemId
+          );
+
           let message = `🎉 **Голосование завершено!**\n\n`;
           message += `📊 **Результаты:**\n`;
-          
+
           if (winnerItem) {
             message += `🏆 Победитель: **${winnerItem.menuItemName}** (${winnerItem.votes} ${getVotesWord(winnerItem.votes)})\n\n`;
           }
@@ -375,14 +438,14 @@ async function sendPersonalNotifications(
 
             const usernameTag = responsibleUser.username
               ? `@${responsibleUser.username}`
-              : 'тег не указан'
+              : 'тег не указан';
             message += `📱 Тег в Telegram: ${usernameTag}\n`;
 
             // Добавляем платёжные данные если есть
             if (responsiblePaymentInfo?.paymentCard) {
               message += `💳 Карта: \`${responsiblePaymentInfo.paymentCard}\`\n`;
             }
-            
+
             if (responsiblePaymentInfo?.paymentPhone) {
               message += `📱 Телефон: ${responsiblePaymentInfo.paymentPhone}\n`;
             }
@@ -391,7 +454,10 @@ async function sendPersonalNotifications(
               message += `📝 Детали: ${responsiblePaymentInfo.paymentDetails}\n`;
             }
 
-            if (!responsiblePaymentInfo?.paymentCard && !responsiblePaymentInfo?.paymentPhone) {
+            if (
+              !responsiblePaymentInfo?.paymentCard &&
+              !responsiblePaymentInfo?.paymentPhone
+            ) {
               message += `\n⚠️ Ответственный пока не добавил реквизиты — напиши ему напрямую.`;
             }
           }
@@ -405,12 +471,17 @@ async function sendPersonalNotifications(
           successCount++;
         } catch (error: any) {
           failCount++;
-          logger.warn(`Could not send notification to user ${vote.user.id}:`, error.message);
+          logger.warn(
+            `Could not send notification to user ${vote.user.id}:`,
+            error.message
+          );
         }
       })
     );
 
-    logger.info(`Personal notifications sent: ${successCount} success, ${failCount} failed`);
+    logger.info(
+      `Personal notifications sent: ${successCount} success, ${failCount} failed`
+    );
   } catch (error) {
     logger.error('Error sending personal notifications:', error);
   }

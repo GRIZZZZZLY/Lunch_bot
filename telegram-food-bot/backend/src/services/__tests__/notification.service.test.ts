@@ -290,7 +290,7 @@ describe('NotificationService.notifyStoreRunParticipantsNoDebt', () => {
     const whereArg = mockUsers.mock.calls[0][0].where;
     expect([...whereArg.id.in].sort((a: number, b: number) => a - b)).toEqual([222, 333]);
     expect(whereArg.isActive).toBe(true);
-    expect(whereArg.participatesInPolls).toBe(true);
+    expect(whereArg.participatesInPolls).toBeUndefined();
 
     expect(send).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenCalledWith(2220, expect.stringContaining('завершён'), expect.any(Object));

@@ -15,7 +15,10 @@ import { logger } from '../../utils/logger';
  * GET /api/gamification/user/stats
  * Get current user's stats (XP, level, rank, ratings, progress)
  */
-export async function getUserStats(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function getUserStats(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const userId = req.user?.id;
 
@@ -40,7 +43,10 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response): Pr
  * GET /api/gamification/user/achievements
  * Get all achievements with user's unlock status
  */
-export async function getUserAchievements(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function getUserAchievements(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const userId = req.user?.id;
 
@@ -49,7 +55,8 @@ export async function getUserAchievements(req: AuthenticatedRequest, res: Respon
       return;
     }
 
-    const achievements = await GamificationService.getAchievementsWithStatus(userId);
+    const achievements =
+      await GamificationService.getAchievementsWithStatus(userId);
 
     res.json({
       success: true,
@@ -65,7 +72,10 @@ export async function getUserAchievements(req: AuthenticatedRequest, res: Respon
  * GET /api/gamification/user/quests
  * Get user's active quests
  */
-export async function getUserQuests(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function getUserQuests(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const userId = req.user?.id;
 
@@ -100,7 +110,10 @@ export async function getUserQuests(req: AuthenticatedRequest, res: Response): P
  * GET /api/gamification/user/xp-history
  * Get user's XP history
  */
-export async function getXPHistory(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function getXPHistory(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const userId = req.user?.id;
 
@@ -127,7 +140,10 @@ export async function getXPHistory(req: AuthenticatedRequest, res: Response): Pr
  * Get leaderboard for a specific category
  * Query params: category (TOTAL|GASTRO|RESPONSIBLE|SOCIAL|EXPLORER), limit, groupId
  */
-export async function getLeaderboard(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function getLeaderboard(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const userId = req.user?.id;
 
@@ -143,7 +159,13 @@ export async function getLeaderboard(req: AuthenticatedRequest, res: Response): 
       : NaN;
 
     // Validate category
-    const validCategories = ['TOTAL', 'GASTRO', 'RESPONSIBLE', 'SOCIAL', 'EXPLORER'];
+    const validCategories = [
+      'TOTAL',
+      'GASTRO',
+      'RESPONSIBLE',
+      'SOCIAL',
+      'EXPLORER',
+    ];
     if (!validCategories.includes(category)) {
       res.status(400).json({ error: 'Invalid category' });
       return;
@@ -191,7 +213,10 @@ export async function getLeaderboard(req: AuthenticatedRequest, res: Response): 
  * Award XP to a user (admin only)
  * Body: { userId, amount, reason, category }
  */
-export async function awardXP(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function awardXP(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const adminUser = req.user;
 
@@ -201,13 +226,32 @@ export async function awardXP(req: AuthenticatedRequest, res: Response): Promise
     }
 
     const { userId, amount, reason, category } = req.body;
+    const validCategories = ['GASTRO', 'RESPONSIBLE', 'SOCIAL', 'EXPLORER'];
 
-    if (!userId || !amount || !reason || !category) {
-      res.status(400).json({ error: 'Missing required fields' });
+    if (
+      !Number.isInteger(userId) ||
+      userId <= 0 ||
+      !Number.isInteger(amount) ||
+      amount <= 0 ||
+      amount > 100_000 ||
+      typeof reason !== 'string' ||
+      reason.trim().length < 1 ||
+      reason.trim().length > 300 ||
+      !validCategories.includes(category)
+    ) {
+      res.status(400).json({ error: 'Invalid XP award parameters' });
       return;
     }
 
-    const result = await GamificationService.awardXP(userId, amount, reason, category);
+    const idempotencyKey = req.header('idempotency-key');
+    const result = await GamificationService.awardXP(
+      userId,
+      amount,
+      reason.trim(),
+      category,
+      { source: 'operations-api' },
+      idempotencyKey ? `operations-xp:${userId}:${idempotencyKey}` : undefined
+    );
 
     res.json({
       success: true,
@@ -224,7 +268,10 @@ export async function awardXP(req: AuthenticatedRequest, res: Response): Promise
  * Recalculate ratings for a user (admin only)
  * Body: { userId }
  */
-export async function recalculateRatings(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function recalculateRatings(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const adminUser = req.user;
 

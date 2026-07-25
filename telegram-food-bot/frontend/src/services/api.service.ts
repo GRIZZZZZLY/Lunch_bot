@@ -86,7 +86,7 @@ class ApiService {
         }
 
         const method = (config.method ?? 'get').toUpperCase();
-        if (['POST', 'PATCH', 'DELETE'].includes(method)) {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
           const existing = config.headers['Idempotency-Key'] ?? config.headers['idempotency-key'];
           if (!existing) {
             config.headers['Idempotency-Key'] = generateIdempotencyKey();

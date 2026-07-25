@@ -3,12 +3,12 @@
 # ===============================================
 # 🔄 Quick Update Script for VPS
 # ===============================================
-# Configurable: BRANCH=feature/store-run (default), FRONTEND_DIR=frontend (default)
+# Configurable: BRANCH=feature/store-run (default), FRONTEND_DIR=frontend-new (default)
 
 set -e
 
 BRANCH="${BRANCH:-feature/store-run}"
-FRONTEND_DIR="${FRONTEND_DIR:-frontend}"
+FRONTEND_DIR="${FRONTEND_DIR:-frontend-new}"
 
 echo "🔄 Starting quick update..."
 echo "   Branch: $BRANCH"

@@ -29,7 +29,8 @@ export function UiShowcasePage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingOpen, setPendingOpen] = useState(false);
   const [price, setPrice] = useState('0');
-  const countdown = useCountdown(Date.now() + 15 * 60_000);
+  const [countdownEnd] = useState(() => Date.now() + 15 * 60_000);
+  const countdown = useCountdown(countdownEnd);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28, padding: '16px 16px 32px' }}>

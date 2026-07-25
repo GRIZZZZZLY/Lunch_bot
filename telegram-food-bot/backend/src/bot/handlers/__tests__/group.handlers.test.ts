@@ -1,9 +1,17 @@
 import { handleOptInButton, WELCOME_GREETING } from '../group.handlers';
 import { UserService } from '../../../services/user.service';
 import { GroupService } from '../../../services/group.service';
+import { prisma } from '../../../database/client';
 
 jest.mock('../../../services/user.service');
 jest.mock('../../../services/group.service');
+jest.mock('../../../database/client', () => ({
+  prisma: {
+    groupMember: {
+      update: jest.fn(),
+    },
+  },
+}));
 jest.mock('../../../utils/logger', () => ({
   logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() },
 }));
@@ -29,7 +37,7 @@ describe('handleOptInButton', () => {
     mockedGroupService.upsertGroup.mockResolvedValue({ id: 7 } as any);
     mockedUserService.upsertUser.mockResolvedValue({ id: 42 } as any);
     mockedGroupService.addMemberToGroup.mockResolvedValue({} as any);
-    mockedUserService.updateUser.mockResolvedValue({} as any);
+    (prisma.groupMember.update as jest.Mock).mockResolvedValue({} as any);
   });
 
   it('registers clicker, adds to group, sets participatesInPolls, answers with toast', async () => {
@@ -41,7 +49,12 @@ describe('handleOptInButton', () => {
       expect.objectContaining({ telegramId: '999', firstName: 'Ann' })
     );
     expect(mockedGroupService.addMemberToGroup).toHaveBeenCalledWith(7, 42);
-    expect(mockedUserService.updateUser).toHaveBeenCalledWith(42, { participatesInPolls: true });
+    expect(prisma.groupMember.update).toHaveBeenCalledWith({
+      where: {
+        groupId_userId: { groupId: 7, userId: 42 },
+      },
+      data: { participatesInPolls: true },
+    });
     expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
       expect.objectContaining({ text: expect.stringContaining('списке') })
     );

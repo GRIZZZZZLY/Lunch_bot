@@ -309,18 +309,14 @@ export function CountUp({
   decimals?: number;
   play?: boolean;
 }) {
-  const [val, setVal] = useState(play ? 0 : to);
+  const [reduceMotion] = useState(() =>
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+  const [val, setVal] = useState(play && !reduceMotion ? 0 : to);
   const raf = useRef(0);
   useEffect(() => {
-    if (!play) {
-      setVal(to);
-      return;
-    }
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) {
-      setVal(to);
-      return;
-    }
+    if (!play || reduceMotion) return;
+
     const start = performance.now();
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / duration);
@@ -330,8 +326,9 @@ export function CountUp({
     };
     raf.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf.current);
-  }, [to, play, duration]);
-  const text = val.toLocaleString('ru-RU', {
+  }, [to, play, duration, reduceMotion]);
+  const displayedValue = play && !reduceMotion ? val : to;
+  const text = displayedValue.toLocaleString('ru-RU', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
@@ -344,33 +341,36 @@ export function CountUp({
   );
 }
 
+function deterministicUnit(index: number, salt: number): number {
+  const value = Math.sin((index + 1) * 12.9898 + salt * 78.233) * 43758.5453;
+  return value - Math.floor(value);
+}
+
 /* Vector confetti burst (transform/opacity only). */
 export function Confetti({ fire, count = 26 }: { fire?: boolean; count?: number }) {
-  const [seed, setSeed] = useState(0);
-  useEffect(() => {
-    if (fire) setSeed((s) => s + 1);
-  }, [fire]);
   if (!fire) return null;
   const palette = ['var(--accent)', 'var(--success)', 'var(--info)', 'var(--warning)'];
   const pieces = Array.from({ length: count }, (_, i) => {
-    const angle = Math.PI * (0.15 + Math.random() * 0.7) * -1;
-    const dist = 60 + Math.random() * 90;
-    const cx = Math.cos(angle) * dist * (Math.random() > 0.5 ? 1 : -1);
+    const angle = Math.PI * (0.15 + deterministicUnit(i, 1) * 0.7) * -1;
+    const dist = 60 + deterministicUnit(i, 2) * 90;
+    const cx =
+      Math.cos(angle) * dist * (deterministicUnit(i, 3) > 0.5 ? 1 : -1);
     const cy = Math.sin(angle) * dist - 20;
     return {
       i,
       cx,
       cy,
-      cr: Math.random() * 720 - 360,
+      cr: deterministicUnit(i, 4) * 720 - 360,
       c: palette[i % palette.length],
-      delay: Math.random() * 80,
-      w: 5 + Math.random() * 5,
-      h: 7 + Math.random() * 7,
-      round: Math.random() > 0.6,
+      delay: deterministicUnit(i, 5) * 80,
+      duration: 700 + deterministicUnit(i, 6) * 400,
+      w: 5 + deterministicUnit(i, 7) * 5,
+      h: 7 + deterministicUnit(i, 8) * 7,
+      round: deterministicUnit(i, 9) > 0.6,
     };
   });
   return (
-    <div key={seed} aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible', zIndex: 5 }}>
+    <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible', zIndex: 5 }}>
       <div style={{ position: 'absolute', left: '50%', top: '42%' }}>
         {pieces.map((p) => (
           <span
@@ -385,7 +385,7 @@ export function Confetti({ fire, count = 26 }: { fire?: boolean; count?: number 
                 '--cx': p.cx + 'px',
                 '--cy': p.cy + 'px',
                 '--cr': p.cr + 'deg',
-                animation: `rl-confetti ${700 + Math.random() * 400}ms var(--ease-out) ${p.delay}ms both`,
+                animation: `rl-confetti ${p.duration}ms var(--ease-out) ${p.delay}ms both`,
               } as CSSProperties
             }
           />

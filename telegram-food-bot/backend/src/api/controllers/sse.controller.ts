@@ -6,9 +6,12 @@ import { logger } from '../../utils/logger';
 
 const HEARTBEAT_INTERVAL_MS = 25_000;
 const MAX_CONNECTIONS_PER_POLL = 50;
+const MAX_CONNECTIONS_PER_USER = 5;
+const MAX_CONNECTIONS_TOTAL = 500;
 
 /** Активные SSE соединения: pollId -> Set<Response> */
 const activeConnections = new Map<number, Set<Response>>();
+const userConnections = new Map<number, Set<Response>>();
 
 /**
  * Получить количество активных соединений (для мониторинга)
@@ -114,7 +117,28 @@ export class SSEController {
       return;
     }
 
-    const userId = user?.id;
+    const userId = user?.id as number;
+    const totalConnections = getSSEConnectionCount().total;
+    const existingUserConnections = userConnections.get(userId);
+
+    if (
+      totalConnections >= MAX_CONNECTIONS_TOTAL ||
+      (existingUserConnections?.size ?? 0) >= MAX_CONNECTIONS_PER_USER
+    ) {
+      logger.warn('SSE connection limit reached', {
+        pollId,
+        totalConnections,
+        userConnections: existingUserConnections?.size ?? 0,
+      });
+      res.setHeader('Retry-After', '30');
+      res.status(503).json({
+        success: false,
+        error: 'Too many streaming connections',
+        code: 'CONNECTION_LIMIT',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
 
     // Настраиваем SSE заголовки
     res.writeHead(200, {
@@ -136,8 +160,13 @@ export class SSEController {
       activeConnections.set(pollId, new Set());
     }
     activeConnections.get(pollId)!.add(res);
+    if (!userConnections.has(userId)) {
+      userConnections.set(userId, new Set());
+    }
+    userConnections.get(userId)!.add(res);
 
-    logger.info(`SSE client connected: poll=${pollId}, user=${userId}`, {
+    logger.info('SSE client connected', {
+      pollId,
       totalConnections: getSSEConnectionCount().total,
     });
 
@@ -179,7 +208,10 @@ export class SSEController {
     subscribeToEvent('responsible_selected');
 
     // Cleanup при отключении клиента
+    let cleanedUp = false;
     const cleanup = (): void => {
+      if (cleanedUp) return;
+      cleanedUp = true;
       clearInterval(heartbeatTimer);
 
       // Отписываемся от EventBus
@@ -196,7 +228,16 @@ export class SSEController {
         }
       }
 
-      logger.info(`SSE client disconnected: poll=${pollId}, user=${userId}`, {
+      const connectionsForUser = userConnections.get(userId);
+      if (connectionsForUser) {
+        connectionsForUser.delete(res);
+        if (connectionsForUser.size === 0) {
+          userConnections.delete(userId);
+        }
+      }
+
+      logger.info('SSE client disconnected', {
+        pollId,
         totalConnections: getSSEConnectionCount().total,
       });
 

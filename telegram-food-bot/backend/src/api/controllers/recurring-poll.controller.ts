@@ -23,8 +23,15 @@ const CreateScheduleSchema = z.object({
   groupId: z.number().int().positive('groupId must be a positive integer'),
   daysOfWeek: DaysOfWeekSchema,
   timeOfDay: TimeOfDaySchema,
-  duration: z.number().int().min(1, 'duration must be at least 1 minute').max(1440),
-  selectedMenuItemIds: z.array(z.number().int().positive()).nullable().optional(),
+  duration: z
+    .number()
+    .int()
+    .min(1, 'duration must be at least 1 minute')
+    .max(1440),
+  selectedMenuItemIds: z
+    .array(z.number().int().positive())
+    .nullable()
+    .optional(),
 });
 
 const UpdateScheduleSchema = z.object({
@@ -32,14 +39,20 @@ const UpdateScheduleSchema = z.object({
   daysOfWeek: DaysOfWeekSchema.optional(),
   timeOfDay: TimeOfDaySchema.optional(),
   duration: z.number().int().min(1).max(1440).optional(),
-  selectedMenuItemIds: z.array(z.number().int().positive()).nullable().optional(),
+  selectedMenuItemIds: z
+    .array(z.number().int().positive())
+    .nullable()
+    .optional(),
   isEnabled: z.boolean().optional(),
 });
 
 /**
  * Получение расписания группы
  */
-export const getGroupSchedule = async (req: Request, res: Response): Promise<void> => {
+export const getGroupSchedule = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const groupId = parseInt(getParam(req.params, 'groupId'), 10);
     const userId = (req as any).user?.id;
@@ -55,14 +68,22 @@ export const getGroupSchedule = async (req: Request, res: Response): Promise<voi
     }
 
     // Проверка прав доступа
-    const hasAccess = await RecurringPollService.checkAdminAccess(userId, groupId);
+    const hasAccess = await RecurringPollService.checkAdminAccess(
+      userId,
+      groupId
+    );
     if (!hasAccess) {
-      res.status(403).json({ success: false, error: 'Access denied. Admin rights required.' });
+      res
+        .status(403)
+        .json({
+          success: false,
+          error: 'Access denied. Admin rights required.',
+        });
       return;
     }
 
     const schedule = await RecurringPollService.getByGroupId(groupId);
-    
+
     res.json({
       success: true,
       data: schedule,
@@ -71,7 +92,7 @@ export const getGroupSchedule = async (req: Request, res: Response): Promise<voi
     logger.error('Error getting group schedule:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to get schedule',
+      error: 'Failed to get schedule',
     });
   }
 };
@@ -79,7 +100,10 @@ export const getGroupSchedule = async (req: Request, res: Response): Promise<voi
 /**
  * Создание нового расписания
  */
-export const createSchedule = async (req: Request, res: Response): Promise<void> => {
+export const createSchedule = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
 
@@ -92,18 +116,29 @@ export const createSchedule = async (req: Request, res: Response): Promise<void>
     if (!parsed.success) {
       res.status(400).json({
         success: false,
-        error: parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+        error: parsed.error.errors
+          .map(e => `${e.path.join('.')}: ${e.message}`)
+          .join('; '),
         code: 'VALIDATION_ERROR',
       });
       return;
     }
 
-    const { groupId, daysOfWeek, timeOfDay, duration, selectedMenuItemIds } = parsed.data;
+    const { groupId, daysOfWeek, timeOfDay, duration, selectedMenuItemIds } =
+      parsed.data;
 
     // Проверка прав доступа
-    const hasAccess = await RecurringPollService.checkAdminAccess(userId, groupId);
+    const hasAccess = await RecurringPollService.checkAdminAccess(
+      userId,
+      groupId
+    );
     if (!hasAccess) {
-      res.status(403).json({ success: false, error: 'Access denied. Admin rights required.' });
+      res
+        .status(403)
+        .json({
+          success: false,
+          error: 'Access denied. Admin rights required.',
+        });
       return;
     }
 
@@ -122,17 +157,20 @@ export const createSchedule = async (req: Request, res: Response): Promise<void>
     });
   } catch (error) {
     logger.error('Error creating schedule:', error);
-    
+
     let statusCode = 500;
     let errorMessage = 'Failed to create schedule';
 
     if (error instanceof Error) {
-      errorMessage = error.message;
-      
-      if (errorMessage.includes('already has a recurring poll')) {
+      if (error.message.includes('already has a recurring poll')) {
         statusCode = 409; // Conflict
-      } else if (errorMessage.includes('Invalid time format') || errorMessage.includes('Duration must be')) {
+        errorMessage = 'Group already has a recurring poll';
+      } else if (
+        error.message.includes('Invalid time format') ||
+        error.message.includes('Duration must be')
+      ) {
         statusCode = 400; // Bad Request
+        errorMessage = 'Invalid schedule parameters';
       }
     }
 
@@ -146,7 +184,10 @@ export const createSchedule = async (req: Request, res: Response): Promise<void>
 /**
  * Обновление расписания
  */
-export const updateSchedule = async (req: Request, res: Response): Promise<void> => {
+export const updateSchedule = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
     const scheduleId = parseInt(getParam(req.params, 'id'), 10);
@@ -165,13 +206,22 @@ export const updateSchedule = async (req: Request, res: Response): Promise<void>
     if (!parsed.success) {
       res.status(400).json({
         success: false,
-        error: parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+        error: parsed.error.errors
+          .map(e => `${e.path.join('.')}: ${e.message}`)
+          .join('; '),
         code: 'VALIDATION_ERROR',
       });
       return;
     }
 
-    const { groupId: bodyGroupId, daysOfWeek, timeOfDay, duration, selectedMenuItemIds, isEnabled } = parsed.data;
+    const {
+      groupId: bodyGroupId,
+      daysOfWeek,
+      timeOfDay,
+      duration,
+      selectedMenuItemIds,
+      isEnabled,
+    } = parsed.data;
 
     // Получаем текущее расписание для проверки прав
     const existing = await RecurringPollService.getByGroupId(bodyGroupId);
@@ -181,9 +231,17 @@ export const updateSchedule = async (req: Request, res: Response): Promise<void>
     }
 
     // Проверка прав доступа
-    const hasAccess = await RecurringPollService.checkAdminAccess(userId, existing.groupId);
+    const hasAccess = await RecurringPollService.checkAdminAccess(
+      userId,
+      existing.groupId
+    );
     if (!hasAccess) {
-      res.status(403).json({ success: false, error: 'Access denied. Admin rights required.' });
+      res
+        .status(403)
+        .json({
+          success: false,
+          error: 'Access denied. Admin rights required.',
+        });
       return;
     }
 
@@ -201,17 +259,20 @@ export const updateSchedule = async (req: Request, res: Response): Promise<void>
     });
   } catch (error) {
     logger.error('Error updating schedule:', error);
-    
+
     let statusCode = 500;
     let errorMessage = 'Failed to update schedule';
 
     if (error instanceof Error) {
-      errorMessage = error.message;
-      
-      if (errorMessage.includes('not found')) {
+      if (error.message.includes('not found')) {
         statusCode = 404;
-      } else if (errorMessage.includes('Invalid time format') || errorMessage.includes('Duration must be')) {
+        errorMessage = 'Schedule not found';
+      } else if (
+        error.message.includes('Invalid time format') ||
+        error.message.includes('Duration must be')
+      ) {
         statusCode = 400;
+        errorMessage = 'Invalid schedule parameters';
       }
     }
 
@@ -225,7 +286,10 @@ export const updateSchedule = async (req: Request, res: Response): Promise<void>
 /**
  * Удаление расписания
  */
-export const deleteSchedule = async (req: Request, res: Response): Promise<void> => {
+export const deleteSchedule = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
     const scheduleId = parseInt(getParam(req.params, 'id'), 10);
@@ -251,7 +315,12 @@ export const deleteSchedule = async (req: Request, res: Response): Promise<void>
       existing.groupId
     );
     if (!hasAccess) {
-      res.status(403).json({ success: false, error: 'Access denied. Admin rights required.' });
+      res
+        .status(403)
+        .json({
+          success: false,
+          error: 'Access denied. Admin rights required.',
+        });
       return;
     }
 
@@ -265,7 +334,7 @@ export const deleteSchedule = async (req: Request, res: Response): Promise<void>
     logger.error('Error deleting schedule:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete schedule',
+      error: 'Failed to delete schedule',
     });
   }
 };
@@ -273,7 +342,10 @@ export const deleteSchedule = async (req: Request, res: Response): Promise<void>
 /**
  * Включение/выключение расписания
  */
-export const toggleSchedule = async (req: Request, res: Response): Promise<void> => {
+export const toggleSchedule = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
     const scheduleId = parseInt(getParam(req.params, 'id'), 10);
@@ -291,7 +363,9 @@ export const toggleSchedule = async (req: Request, res: Response): Promise<void>
     const { isEnabled } = req.body;
 
     if (typeof isEnabled !== 'boolean') {
-      res.status(400).json({ success: false, error: 'isEnabled must be boolean' });
+      res
+        .status(400)
+        .json({ success: false, error: 'isEnabled must be boolean' });
       return;
     }
 
@@ -306,11 +380,19 @@ export const toggleSchedule = async (req: Request, res: Response): Promise<void>
       existing.groupId
     );
     if (!hasAccess) {
-      res.status(403).json({ success: false, error: 'Access denied. Admin rights required.' });
+      res
+        .status(403)
+        .json({
+          success: false,
+          error: 'Access denied. Admin rights required.',
+        });
       return;
     }
 
-    const updated = await RecurringPollService.toggleEnabled(scheduleId, isEnabled);
+    const updated = await RecurringPollService.toggleEnabled(
+      scheduleId,
+      isEnabled
+    );
 
     res.json({
       success: true,
@@ -320,7 +402,7 @@ export const toggleSchedule = async (req: Request, res: Response): Promise<void>
     logger.error('Error toggling schedule:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to toggle schedule',
+      error: 'Failed to toggle schedule',
     });
   }
 };
@@ -328,7 +410,10 @@ export const toggleSchedule = async (req: Request, res: Response): Promise<void>
 /**
  * Получение истории запусков
  */
-export const getExecutionHistory = async (req: Request, res: Response): Promise<void> => {
+export const getExecutionHistory = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
     const groupId = parseInt(getParam(req.params, 'groupId'), 10);
@@ -344,14 +429,25 @@ export const getExecutionHistory = async (req: Request, res: Response): Promise<
     }
 
     // Проверка прав доступа
-    const hasAccess = await RecurringPollService.checkAdminAccess(userId, groupId);
+    const hasAccess = await RecurringPollService.checkAdminAccess(
+      userId,
+      groupId
+    );
     if (!hasAccess) {
-      res.status(403).json({ success: false, error: 'Access denied. Admin rights required.' });
+      res
+        .status(403)
+        .json({
+          success: false,
+          error: 'Access denied. Admin rights required.',
+        });
       return;
     }
 
     const limit = parseInt(req.query.limit as string) || 7;
-    const history = await RecurringPollService.getExecutionHistory(groupId, limit);
+    const history = await RecurringPollService.getExecutionHistory(
+      groupId,
+      limit
+    );
 
     res.json({
       success: true,
@@ -361,7 +457,7 @@ export const getExecutionHistory = async (req: Request, res: Response): Promise<
     logger.error('Error getting execution history:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to get history',
+      error: 'Failed to get history',
     });
   }
 };

@@ -142,7 +142,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
         }
       );
 
-      logger.info(`Direct deep link: Mini App button sent for poll ${pollId}, user ${user.id}`);
+      logger.info('Poll Mini App button sent', { pollId });
       return;
     }
 
@@ -169,7 +169,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
           },
         },
       );
-      logger.info(`Direct deep link: Store run Mini App button sent for run ${storeRunId}, user ${user.id}`);
+      logger.info('Store run Mini App button sent', { storeRunId });
       return;
     }
 

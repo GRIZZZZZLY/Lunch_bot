@@ -23,7 +23,7 @@ export class UserService {
         },
       });
 
-      logger.info(`User created: ${user.telegramId} (${user.firstName})`);
+      logger.info('User created', { userId: user.id });
       return user;
     } catch (error) {
       logger.error('Error creating user:', error);
@@ -62,7 +62,10 @@ export class UserService {
         },
       });
 
-      logger.info(`User upserted: ${user.telegramId} (${user.firstName})${data.photoUrl ? ' with photo' : ''}`);
+      logger.info('User upserted', {
+        userId: user.id,
+        photoConfigured: Boolean(data.photoUrl),
+      });
 
       // Если это новый пользователь и указана группа, отправляем уведомления админам
       if (isNewUser && groupId) {
@@ -199,7 +202,7 @@ export class UserService {
         },
       });
 
-      logger.info(`User updated: ${user.telegramId} (${user.firstName})`);
+      logger.info('User updated', { userId: user.id });
       return user;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -225,7 +228,7 @@ export class UserService {
         },
       });
 
-      logger.info(`Admin status changed: ${user.telegramId} -> ${isAdmin}`);
+      logger.info('Admin status changed', { userId: user.id, isAdmin });
       return user;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -268,7 +271,7 @@ export class UserService {
         },
       });
 
-      logger.info(`User active status changed: ${user.telegramId} -> ${isActive}`);
+      logger.info('User active status changed', { userId: user.id, isActive });
       return user;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {

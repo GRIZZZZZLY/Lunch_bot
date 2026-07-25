@@ -381,7 +381,7 @@ describe('PollService', () => {
       (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
         return await callback(prisma);
       });
-      (prisma.poll.update as jest.Mock).mockResolvedValue({ ...mockPoll, status: 'COMPLETED' });
+      (prisma.poll.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (prisma.pollResult.create as jest.Mock).mockResolvedValue(mockResult);
       (prisma.pollResult.findUnique as jest.Mock).mockResolvedValue(mockResult);
 
@@ -412,14 +412,15 @@ describe('PollService', () => {
     it('should cancel poll successfully', async () => {
       const mockPoll = createMockPoll({ status: 'CANCELLED', endedAt: new Date() });
 
-      (prisma.poll.update as jest.Mock).mockResolvedValue(mockPoll);
+      (prisma.poll.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue(mockPoll);
       // Return null user to skip notification sending
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
       const result = await PollService.cancelPoll(1, 1, 'Test reason');
 
-      expect(prisma.poll.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+      expect(prisma.poll.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, status: 'ACTIVE' },
         data: { 
           status: 'CANCELLED',
           endedAt: expect.any(Date)
@@ -430,17 +431,8 @@ describe('PollService', () => {
     });
 
     it('should throw error if poll not found', async () => {
-      const error = Object.assign(
-        new Error('Record not found.'),
-        {
-          code: 'P2025',
-          clientVersion: '5.6.0',
-          meta: { cause: 'Record not found.' },
-        }
-      );
-      Object.setPrototypeOf(error, Prisma.PrismaClientKnownRequestError.prototype);
-
-      (prisma.poll.update as jest.Mock).mockRejectedValue(error);
+      (prisma.poll.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(PollService.cancelPoll(999, 1)).rejects.toThrow('Poll not found');
     });
@@ -861,9 +853,9 @@ describe('PollService', () => {
   describe('createParticipantSnapshot', () => {
     it('marks active members with participatesInPolls=true as EXPECTED, others as EXCLUDED', async () => {
       (prisma.groupMember.findMany as jest.Mock).mockResolvedValue([
-        { user: { id: 1, isActive: true, participatesInPolls: true } },
-        { user: { id: 2, isActive: true, participatesInPolls: false } },
-        { user: { id: 3, isActive: true, participatesInPolls: true } },
+        { participatesInPolls: true, user: { id: 1, isActive: true } },
+        { participatesInPolls: false, user: { id: 2, isActive: true } },
+        { participatesInPolls: true, user: { id: 3, isActive: true } },
       ]);
       (prisma.pollParticipant.createMany as jest.Mock).mockResolvedValue({ count: 3 });
 
@@ -871,7 +863,7 @@ describe('PollService', () => {
 
       expect(prisma.groupMember.findMany).toHaveBeenCalledWith({
         where: { groupId: 7, isActive: true },
-        include: { user: { select: { id: true, isActive: true, participatesInPolls: true } } },
+        include: { user: { select: { id: true, isActive: true } } },
       });
       expect(prisma.pollParticipant.createMany).toHaveBeenCalledWith({
         data: [
@@ -884,8 +876,8 @@ describe('PollService', () => {
 
     it('skips users with isActive=false', async () => {
       (prisma.groupMember.findMany as jest.Mock).mockResolvedValue([
-        { user: { id: 1, isActive: true, participatesInPolls: true } },
-        { user: { id: 2, isActive: false, participatesInPolls: true } },
+        { participatesInPolls: true, user: { id: 1, isActive: true } },
+        { participatesInPolls: true, user: { id: 2, isActive: false } },
       ]);
       (prisma.pollParticipant.createMany as jest.Mock).mockResolvedValue({ count: 1 });
 

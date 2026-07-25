@@ -5,7 +5,8 @@ jest.mock('../../database/client', () => ({
   prisma: {
     categoryOrder: {
       findUnique: jest.fn(),
-      update: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+      updateMany: jest.fn(),
     },
   },
 }));
@@ -34,7 +35,10 @@ describe('CategoryOrderService costs', () => {
     (prisma.categoryOrder.findUnique as jest.Mock).mockResolvedValue({
       totalItemsAmount: 550,
     });
-    (prisma.categoryOrder.update as jest.Mock).mockResolvedValue({
+    (prisma.categoryOrder.updateMany as jest.Mock).mockResolvedValue({
+      count: 1,
+    });
+    (prisma.categoryOrder.findUniqueOrThrow as jest.Mock).mockResolvedValue({
       id: 3,
       pollId: 7,
       deliveryCost: 90,
@@ -50,8 +54,8 @@ describe('CategoryOrderService costs', () => {
       tip: 0,
     });
 
-    expect(prisma.categoryOrder.update).toHaveBeenCalledWith({
-      where: { id: 3 },
+    expect(prisma.categoryOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: 3, calculationStatus: { not: 'COMPLETED' } },
       data: {
         deliveryCost: 90,
         serviceFee: 10,
@@ -81,6 +85,6 @@ describe('CategoryOrderService costs', () => {
       })
     ).rejects.toThrow('Costs must be non-negative numbers');
 
-    expect(prisma.categoryOrder.update).not.toHaveBeenCalled();
+    expect(prisma.categoryOrder.updateMany).not.toHaveBeenCalled();
   });
 });

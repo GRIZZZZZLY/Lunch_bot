@@ -4,7 +4,6 @@ import { logger } from '../utils/logger';
 import { PollService } from './poll.service';
 import { MenuService } from './menu.service';
 import { GroupService } from './group.service';
-import { UserService } from './user.service';
 import { isSameDay, addMinutes, format, addDays } from 'date-fns';
 
 interface CreateRecurringPollData {
@@ -707,13 +706,6 @@ export class RecurringPollService {
    */
   static async checkAdminAccess(userId: number, groupId: number): Promise<boolean> {
     try {
-      // Проверяем что пользователь суперадмин
-      const user = await UserService.getUserById(userId);
-      if (user?.isAdmin) {
-        return true;
-      }
-
-      // Проверяем что пользователь админ в этой группе
       const member = await prisma.groupMember.findFirst({
         where: {
           userId,

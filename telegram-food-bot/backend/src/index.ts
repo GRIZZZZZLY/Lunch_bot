@@ -1,10 +1,15 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
+import { Server } from 'http';
 import { testConnection, disconnect } from './database/client';
 import { logger } from './utils/logger';
 import { initSentry } from './config/sentry.config';
 import { botConfig } from './config/bot.config';
 import { createBot, startPolling, setupWebhook, stopBot } from './bot/bot';
-import { createApiServer, startApiServer } from './api/server';
+import {
+  createApiServer,
+  startApiServer,
+  stopApiServer,
+} from './api/server';
 import { initializePollServiceBot } from './services/poll.service.extensions';
 import { feedbackService } from './services/feedback.service';
 import { runSecurityChecks } from './utils/security-checks';
@@ -12,14 +17,21 @@ import { validateEnv } from './utils/env';
 import { initDebtReminderJob } from './jobs/debt-reminder.job';
 import { initStoreRunAutoCloseJob } from './jobs/store-run-autoclose.job';
 import { initGroupReconcileJob } from './jobs/group-reconcile.job';
-
-// Загружаем переменные окружения
-dotenv.config();
+import { cacheService } from './services/cache.service';
+import { verifyWebhookSecret } from './utils/webhook-secret';
+import type { Env } from './utils/env';
 
 // 🛡️ Boot-time env schema validation. Fails fast if required vars are
 // missing or malformed (e.g. non-numeric API_PORT, malformed BOT_TOKEN).
-// Must run AFTER dotenv.config() and BEFORE any module that reads env.
-validateEnv();
+let env: Env;
+try {
+  env = validateEnv();
+} catch {
+  // Некоторые импортированные службы уже могли открыть сокет (например,
+  // Redis). Поэтому одного необработанного исключения недостаточно для
+  // гарантированного fail-fast: завершаем процесс явно.
+  process.exit(1);
+}
 
 // 🔐 Sprint 3: Критические проверки безопасности
 // В production приложение НЕ запустится с небезопасными настройками
@@ -37,7 +49,7 @@ initSentry();
 // Это нужно для будущего PM2 split (когда G0-9 Redis prod закрыт и api/bot
 // можно гонять как раздельные процессы). Сейчас по умолчанию остаётся 'full'
 // — старое поведение, ничего не ломается.
-const PROCESS_ROLE = (process.env.PROCESS_ROLE ?? 'full') as 'full' | 'api' | 'bot';
+const PROCESS_ROLE = env.PROCESS_ROLE;
 const RUN_BOT = PROCESS_ROLE === 'full' || PROCESS_ROLE === 'bot';
 const RUN_API = PROCESS_ROLE === 'full' || PROCESS_ROLE === 'api';
 logger.info(`🧩 PROCESS_ROLE=${PROCESS_ROLE} (bot=${RUN_BOT}, api=${RUN_API})`);
@@ -66,6 +78,7 @@ if (bot) {
 
 // Graceful shutdown — single orchestrator, idempotent, hard-cap at 10s.
 let shuttingDown = false;
+let apiServer: Server | null = null;
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
@@ -83,6 +96,8 @@ async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
 
   try {
     if (bot) await stopBot(bot);
+    if (apiServer) await stopApiServer(apiServer);
+    await cacheService.close();
     await disconnect();
     clearTimeout(forceTimer);
     process.exit(0);
@@ -114,6 +129,16 @@ async function startApplication(): Promise<void> {
       await bot.init();
 
       app.post('/webhook', async (req, res) => {
+        const receivedSecret = req.get(
+          'X-Telegram-Bot-Api-Secret-Token'
+        );
+        const expectedSecret = botConfig.webhookSecret;
+        if (!verifyWebhookSecret(receivedSecret, expectedSecret)) {
+          logger.warn('Отклонён webhook Telegram с неверным секретом');
+          res.sendStatus(403);
+          return;
+        }
+
         try {
           await bot.handleUpdate(req.body);
           res.sendStatus(200);
@@ -123,8 +148,12 @@ async function startApplication(): Promise<void> {
         }
       });
 
-      startApiServer(app);
-      await setupWebhook(bot, botConfig.webhookUrl);
+      apiServer = await startApiServer(app);
+      await setupWebhook(
+        bot,
+        botConfig.webhookUrl,
+        botConfig.webhookSecret
+      );
 
       // Scheduler автоголосований стартует и в webhook-режиме — раньше он
       // запускался только в onStart polling'а, и на проде (webhook) cron
@@ -134,7 +163,7 @@ async function startApplication(): Promise<void> {
     } else {
       // Polling / API-only / Bot-only режимы.
       logger.info('🔄 Запуск в polling режиме');
-      if (app) startApiServer(app);
+      if (app) apiServer = await startApiServer(app);
       if (bot) void startPolling(bot);
     }
 
