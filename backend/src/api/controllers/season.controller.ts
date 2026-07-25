@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { GroupService } from '../../services/group.service';
 import { SeasonService } from '../../services/season.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
@@ -107,6 +108,10 @@ export class SeasonController {
     try {
       const seasonId = parseInt(getParam(req.params, 'id'), 10);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const groupId = req.query.groupId
+        ? parseInt(req.query.groupId as string, 10)
+        : NaN;
+      const user = (req as any).user;
 
       if (isNaN(seasonId)) {
         res.status(400).json({
@@ -116,7 +121,30 @@ export class SeasonController {
         return;
       }
 
-      const leaderboard = await SeasonService.getSeasonLeaderboard(seasonId, limit);
+      if (!Number.isInteger(groupId) || groupId <= 0) {
+        res.status(400).json({
+          success: false,
+          error: 'groupId is required',
+        });
+        return;
+      }
+
+      if (
+        !user?.isAdmin &&
+        !(await GroupService.isUserGroupMember(user.id, groupId))
+      ) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied',
+        });
+        return;
+      }
+
+      const leaderboard = await SeasonService.getSeasonLeaderboard(
+        seasonId,
+        limit,
+        groupId
+      );
 
       res.json({
         success: true,
@@ -139,11 +167,20 @@ export class SeasonController {
     try {
       const seasonId = parseInt(getParam(req.params, 'id'), 10);
       const userId = parseInt(getParam(req.params, 'userId'), 10);
+      const requestingUser = (req as any).user;
 
       if (isNaN(seasonId) || isNaN(userId)) {
         res.status(400).json({
           success: false,
           error: 'Invalid season ID or user ID',
+        });
+        return;
+      }
+
+      if (requestingUser.id !== userId && !requestingUser.isAdmin) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied',
         });
         return;
       }
@@ -253,11 +290,20 @@ export class SeasonController {
   static async getCurrentSeasonUserStats(req: Request, res: Response): Promise<void> {
     try {
       const userId = parseInt(getParam(req.params, 'userId'), 10);
+      const requestingUser = (req as any).user;
 
       if (isNaN(userId)) {
         res.status(400).json({
           success: false,
           error: 'Invalid user ID',
+        });
+        return;
+      }
+
+      if (requestingUser.id !== userId && !requestingUser.isAdmin) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied',
         });
         return;
       }

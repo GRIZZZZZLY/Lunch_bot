@@ -176,7 +176,6 @@ export function useUserAvatar(
       if (cached !== null) {
         return {
           userId: userId!,
-          telegramId: '', // Не важно для фронтенда
           avatarUrl: cached,
         };
       }

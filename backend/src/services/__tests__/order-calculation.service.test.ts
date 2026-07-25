@@ -25,6 +25,7 @@ jest.mock('../../database/client', () => ({
 jest.mock('../category-order.service', () => ({
   CategoryOrderService: {
     recalculateTotals: jest.fn(),
+    getParticipants: jest.fn(),
   },
 }));
 
@@ -62,6 +63,7 @@ describe('OrderCalculationService category order behaviours', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (prisma.$transaction as jest.Mock).mockImplementation(async cb => cb(txMock));
+    (CategoryOrderService.getParticipants as jest.Mock).mockResolvedValue([5, 9]);
   });
 
   it('saves a trimmed order item and recalculates totals', async () => {
@@ -182,5 +184,32 @@ describe('OrderCalculationService category order behaviours', () => {
       participantCount: 2,
       orderItemsCount: 2,
     });
+  });
+
+  it('does not create debts for a user outside the category participants', async () => {
+    (prisma.categoryOrder.findUnique as jest.Mock).mockResolvedValue({
+      id: 3,
+      pollId: 7,
+      category: 'Soup',
+      responsibleUserId: 9,
+      participantCount: 2,
+      deliveryCost: 80,
+      serviceFee: 20,
+      tip: 0,
+      orderItems: [
+        { id: 11, userId: 5, price: 300, user: { id: 5 } },
+        { id: 12, userId: 999, price: 250, user: { id: 999 } },
+      ],
+      poll: { id: 7 },
+    });
+
+    await expect(
+      OrderCalculationService.finalizeCalculation(3)
+    ).rejects.toThrow(
+      'Cannot finalize: order items must exactly match category participants'
+    );
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(txMock.transaction.createMany).not.toHaveBeenCalled();
   });
 });

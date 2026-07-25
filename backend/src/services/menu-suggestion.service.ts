@@ -2,7 +2,7 @@ import { MenuSuggestion, Prisma } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { prisma } from '../database/client';
 import { toNumber } from '../utils/decimal';
-import { GroupAccessError } from './group.service';
+import { GroupAccessError, GroupService } from './group.service';
 
 export interface CreateSuggestionDTO {
   name: string;
@@ -42,6 +42,8 @@ export class MenuSuggestionService {
    */
   static async createSuggestion(data: CreateSuggestionDTO): Promise<MenuSuggestion> {
     logger.info(`Creating menu suggestion: ${data.name} by user ${data.suggestedBy}`);
+
+    await GroupService.assertMember(data.suggestedBy, data.groupId);
 
     const suggestion = await prisma.menuSuggestion.create({
       data: {
@@ -199,7 +201,6 @@ export class MenuSuggestionService {
             firstName: true,
             lastName: true,
             username: true,
-            telegramId: true,
           },
         },
         reviewer: {
@@ -260,7 +261,6 @@ export class MenuSuggestionService {
             firstName: true,
             lastName: true,
             username: true,
-            telegramId: true,
           },
         },
         reviewer: {

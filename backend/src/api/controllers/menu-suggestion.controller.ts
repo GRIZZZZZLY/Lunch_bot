@@ -92,13 +92,7 @@ export async function createSuggestion(req: AuthenticatedRequest, res: Response)
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    logger.error('Error creating suggestion:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create suggestion',
-      code: 'INTERNAL_ERROR',
-      timestamp: new Date().toISOString(),
-    });
+    sendSuggestionError(res, error, 'Failed to create suggestion');
   }
 }
 

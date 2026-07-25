@@ -420,7 +420,15 @@ export class GamificationService {
       take: limit,
       where,
       orderBy,
-      include: {
+      select: {
+        userId: true,
+        totalXP: true,
+        level: true,
+        rank: true,
+        gastroRating: true,
+        responsibleRating: true,
+        socialRating: true,
+        explorerRating: true,
         user: {
           select: {
             id: true,
@@ -465,6 +473,17 @@ export class GamificationService {
 
       // Build XP history filter
       const xpWhere: any = actualSeasonId ? { seasonId: actualSeasonId } : {};
+
+      if (groupId) {
+        xpWhere.user = {
+          groupMemberships: {
+            some: {
+              groupId,
+              isActive: true,
+            },
+          },
+        };
+      }
       
       // Filter by category if not TOTAL
       if (category !== 'TOTAL') {
@@ -483,7 +502,7 @@ export class GamificationService {
             amount: 'desc',
           },
         },
-        take: limit * 2, // Take more for group filtering
+        take: limit,
       });
 
       // Get user details
@@ -491,14 +510,6 @@ export class GamificationService {
       const users = await prisma.user.findMany({
         where: {
           id: { in: userIds },
-          ...(groupId && {
-            groupMemberships: {
-              some: {
-                groupId,
-                isActive: true,
-              },
-            },
-          }),
         },
         select: {
           id: true,

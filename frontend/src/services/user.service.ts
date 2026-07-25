@@ -15,7 +15,6 @@ export interface User {
 
 export interface UserAvatar {
   userId: number;
-  telegramId: string;
   avatarUrl: string | null;
 }
 

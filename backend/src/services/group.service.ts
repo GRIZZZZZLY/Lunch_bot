@@ -285,6 +285,41 @@ export class GroupService {
     }
   }
 
+  static async getUsersSharingActiveGroup(
+    requestingUserId: number,
+    targetUserIds: number[]
+  ): Promise<Set<number>> {
+    const uniqueTargetIds = [...new Set(targetUserIds)];
+    const accessibleIds = new Set<number>();
+
+    if (uniqueTargetIds.includes(requestingUserId)) {
+      accessibleIds.add(requestingUserId);
+    }
+
+    if (uniqueTargetIds.length === 0) {
+      return accessibleIds;
+    }
+
+    const memberships = await prisma.groupMember.findMany({
+      where: {
+        userId: { in: uniqueTargetIds },
+        isActive: true,
+        group: {
+          members: {
+            some: {
+              userId: requestingUserId,
+              isActive: true,
+            },
+          },
+        },
+      },
+      select: { userId: true },
+    });
+
+    memberships.forEach(membership => accessibleIds.add(membership.userId));
+    return accessibleIds;
+  }
+
   /**
    * Бросает GroupAccessError('NOT_MEMBER'), если пользователь не активный
    * участник группы. Без обхода по глобальному isAdmin.

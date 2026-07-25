@@ -799,7 +799,16 @@ const useHomePageController = () => {
       setLoadingTopDish(true);
       haptic.light();
 
-      const response = await pollsService.getPopularItems(1);
+      const groupId = currentGroupId || activePoll?.groupId;
+      if (!groupId) {
+        addNotification({
+          type: 'error',
+          message: 'Не удалось определить группу',
+        });
+        return;
+      }
+
+      const response = await pollsService.getPopularItems(1, groupId);
 
       if (response.success && response.data && response.data.length > 0) {
         const [topItem] = response.data;

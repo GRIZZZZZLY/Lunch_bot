@@ -24,6 +24,7 @@ jest.mock('../../database/client', () => ({
     },
     menuItem: {
       findMany: jest.fn(),
+      count: jest.fn(),
     },
     user: {
       findMany: jest.fn(),
@@ -61,7 +62,18 @@ describe('VoteService', () => {
       callback({
         vote: prisma.vote,
         poll: prisma.poll,
+        menuItem: prisma.menuItem,
       })
+    );
+    (prisma.poll.findUnique as jest.Mock).mockResolvedValue({
+      id: 1,
+      status: 'ACTIVE',
+      endedAt: null,
+      groupId: 1,
+      selectedMenuItemIds: null,
+    });
+    (prisma.menuItem.count as jest.Mock).mockImplementation(
+      ({ where }: { where: { id: { in: number[] } } }) => where.id.in.length
     );
   });
 
@@ -219,6 +231,33 @@ describe('VoteService', () => {
       expect(prisma.vote.createMany).not.toHaveBeenCalled();
       expect(result).toEqual(existingVotes);
     });
+
+    it('should reject a menu item from another group', async () => {
+      (prisma.menuItem.count as jest.Mock).mockResolvedValue(0);
+
+      await expect(
+        VoteService.createMultipleVotes(1, 20, [999])
+      ).rejects.toThrow('Menu item is not available for this poll');
+
+      expect(prisma.vote.createMany).not.toHaveBeenCalled();
+    });
+
+    it('should fail closed when the poll menu configuration is malformed', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({
+        id: 1,
+        status: 'ACTIVE',
+        endedAt: null,
+        groupId: 1,
+        selectedMenuItemIds: '{"unexpected":true}',
+      });
+
+      await expect(
+        VoteService.createMultipleVotes(1, 20, [2])
+      ).rejects.toThrow('Poll menu configuration is invalid');
+
+      expect(prisma.menuItem.count).not.toHaveBeenCalled();
+      expect(prisma.vote.createMany).not.toHaveBeenCalled();
+    });
   });
 
   describe('updateVote', () => {
@@ -249,7 +288,13 @@ describe('VoteService', () => {
 
   describe('upsertVote', () => {
     it('should replace previous user votes in transaction', async () => {
-      const poll = { id: 1, status: 'ACTIVE', endedAt: null };
+      const poll = {
+        id: 1,
+        status: 'ACTIVE',
+        endedAt: null,
+        groupId: 1,
+        selectedMenuItemIds: null,
+      };
       const createdVote = createMockVote({ pollId: 1, userId: 7, menuItemId: 9 });
 
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue(poll);

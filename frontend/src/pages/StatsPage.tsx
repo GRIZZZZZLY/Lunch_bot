@@ -173,7 +173,12 @@ const useStatsPageController = () => {
         await Promise.all([
           pollsService.getAllPolls(),
           pollsService.getPollStats(),
-          pollsService.getPopularItems(10),
+          currentGroupId
+            ? pollsService.getPopularItems(10, currentGroupId)
+            : Promise.resolve({
+                success: true as const,
+                data: [] as PopularItem[],
+              }),
           currentGroupId
             ? menuService.getAllItems(currentGroupId)
             : Promise.resolve({

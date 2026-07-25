@@ -209,11 +209,27 @@ export class OrderCalculationService {
         throw new Error('CategoryOrder not found');
       }
 
-      // Verify all participants have OrderItems
-      const progress = await this.getProgress(categoryOrderId);
-      if (!progress.isComplete) {
+      const participantIds = await CategoryOrderService.getParticipants(
+        categoryOrderId
+      );
+      const expectedParticipantIds = new Set(participantIds);
+      const actualParticipantIds = new Set(
+        categoryOrder.orderItems.map(orderItem => orderItem.userId)
+      );
+      const hasUnexpectedUsers = [...actualParticipantIds].some(
+        userId => !expectedParticipantIds.has(userId)
+      );
+      const hasMissingUsers = [...expectedParticipantIds].some(
+        userId => !actualParticipantIds.has(userId)
+      );
+
+      if (
+        hasUnexpectedUsers ||
+        hasMissingUsers ||
+        actualParticipantIds.size !== expectedParticipantIds.size
+      ) {
         throw new Error(
-          `Cannot finalize: only ${progress.filled}/${progress.total} orders filled`
+          'Cannot finalize: order items must exactly match category participants'
         );
       }
 

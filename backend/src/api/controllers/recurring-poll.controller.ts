@@ -240,15 +240,16 @@ export const deleteSchedule = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Получаем расписание для проверки прав
-    const groupId = parseInt(req.query.groupId as string);
-    if (isNaN(groupId)) {
-      res.status(400).json({ success: false, error: 'Group ID required' });
+    const existing = await RecurringPollService.getById(scheduleId);
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Schedule not found' });
       return;
     }
 
-    // Проверка прав доступа
-    const hasAccess = await RecurringPollService.checkAdminAccess(userId, groupId);
+    const hasAccess = await RecurringPollService.checkAdminAccess(
+      userId,
+      existing.groupId
+    );
     if (!hasAccess) {
       res.status(403).json({ success: false, error: 'Access denied. Admin rights required.' });
       return;
@@ -287,15 +288,23 @@ export const toggleSchedule = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const { isEnabled, groupId } = req.body;
+    const { isEnabled } = req.body;
 
     if (typeof isEnabled !== 'boolean') {
       res.status(400).json({ success: false, error: 'isEnabled must be boolean' });
       return;
     }
 
-    // Проверка прав доступа
-    const hasAccess = await RecurringPollService.checkAdminAccess(userId, groupId);
+    const existing = await RecurringPollService.getById(scheduleId);
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Schedule not found' });
+      return;
+    }
+
+    const hasAccess = await RecurringPollService.checkAdminAccess(
+      userId,
+      existing.groupId
+    );
     if (!hasAccess) {
       res.status(403).json({ success: false, error: 'Access denied. Admin rights required.' });
       return;

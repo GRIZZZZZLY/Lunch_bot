@@ -454,12 +454,17 @@ class PollsService {
   /**
    * Получение популярных блюд
    */
-  async getPopularItems(limit: number = 10): Promise<ApiResponse<PopularItem[]>> {
+  async getPopularItems(
+    limit: number,
+    groupId: number
+  ): Promise<ApiResponse<PopularItem[]>> {
     if (USE_MOCK_API) {
       const { mockApiService } = await import('./mockApi.service');
       return await mockApiService.getPopularItems();
     }
-    return await apiService.get<PopularItem[]>(`/polls/popular-items?limit=${limit}`);
+    return await apiService.get<PopularItem[]>(
+      `/polls/popular-items?limit=${limit}&groupId=${groupId}`
+    );
   }
 
   /**

@@ -1213,7 +1213,13 @@ export class PollController {
 
     } catch (error) {
       if (error instanceof Error) {
-        if (['Poll not found', 'Poll is not active', 'Poll has expired'].includes(error.message)) {
+        if ([
+          'Poll not found',
+          'Poll is not active',
+          'Poll has expired',
+          'Menu item is not available for this poll',
+          'Poll menu configuration is invalid',
+        ].includes(error.message)) {
           res.status(400).json({
             success: false,
             error: error.message,
@@ -1371,7 +1377,14 @@ export class PollController {
 
     } catch (error) {
       if (error instanceof Error) {
-        if (['Poll not found', 'Poll is not active', 'Poll has expired', 'Invalid parameters for multiple votes'].includes(error.message)) {
+        if ([
+          'Poll not found',
+          'Poll is not active',
+          'Poll has expired',
+          'Invalid parameters for multiple votes',
+          'Menu item is not available for this poll',
+          'Poll menu configuration is invalid',
+        ].includes(error.message)) {
           res.status(400).json({
             success: false,
             error: error.message,
@@ -1561,6 +1574,9 @@ export class PollController {
         res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
         return;
       }
+
+      const hasAccess = await requireGroupMember(req, res, groupId);
+      if (!hasAccess) return;
 
       const popularItems = await MenuService.getPopularMenuItems(limit, groupId);
 
