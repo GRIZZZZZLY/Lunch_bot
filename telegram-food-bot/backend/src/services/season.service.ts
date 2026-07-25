@@ -275,13 +275,27 @@ export class SeasonService {
   /**
    * Получить лидерборд сезона
    */
-  static async getSeasonLeaderboard(seasonId: number, limit: number = 10): Promise<SeasonLeaderboard[]> {
+  static async getSeasonLeaderboard(
+    seasonId: number,
+    limit: number = 10,
+    groupId?: number
+  ): Promise<SeasonLeaderboard[]> {
     try {
       // Агрегируем XP по пользователям за конкретный сезон
       const xpByUser = await prisma.xPHistory.groupBy({
         by: ['userId'],
         where: {
           seasonId,
+          ...(groupId && {
+            user: {
+              groupMemberships: {
+                some: {
+                  groupId,
+                  isActive: true,
+                },
+              },
+            },
+          }),
         },
         _sum: {
           amount: true,

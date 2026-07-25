@@ -7,6 +7,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../../types/api.types';
 import { GamificationService } from '../../services/gamification.service';
+import { GroupService } from '../../services/group.service';
 import { QuestService } from '../../services/quest.service';
 import { logger } from '../../utils/logger';
 
@@ -137,12 +138,35 @@ export async function getLeaderboard(req: AuthenticatedRequest, res: Response): 
 
     const category = (req.query.category as string) || 'TOTAL';
     const limit = parseInt(req.query.limit as string) || 10;
-    const groupId = req.query.groupId ? parseInt(req.query.groupId as string) : undefined;
+    const groupId = req.query.groupId
+      ? parseInt(req.query.groupId as string, 10)
+      : NaN;
 
     // Validate category
     const validCategories = ['TOTAL', 'GASTRO', 'RESPONSIBLE', 'SOCIAL', 'EXPLORER'];
     if (!validCategories.includes(category)) {
       res.status(400).json({ error: 'Invalid category' });
+      return;
+    }
+
+    if (!Number.isInteger(groupId) || groupId <= 0) {
+      res.status(400).json({
+        success: false,
+        error: 'groupId is required',
+        code: 'MISSING_GROUP_ID',
+      });
+      return;
+    }
+
+    if (
+      !req.user?.isAdmin &&
+      !(await GroupService.isUserGroupMember(userId, groupId))
+    ) {
+      res.status(403).json({
+        success: false,
+        error: 'Access denied',
+        code: 'FORBIDDEN',
+      });
       return;
     }
 

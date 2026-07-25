@@ -331,6 +331,19 @@ export class CategoryOrderController {
         return;
       }
 
+      const isParticipant = await CategoryOrderController.isUserParticipant(
+        categoryOrderId,
+        parsedUserId
+      );
+      if (!isParticipant) {
+        res.status(403).json({
+          success: false,
+          error: 'Order items can only be created for category participants',
+          code: 'FORBIDDEN',
+        });
+        return;
+      }
+
       const orderItem = await OrderCalculationService.saveOrderItem({
         categoryOrderId,
         userId: parsedUserId,

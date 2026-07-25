@@ -214,6 +214,7 @@ export class UserController {
   static async getUserAvatar(req: Request, res: Response): Promise<void> {
     try {
       const userId = getParam(req.params, 'userId');
+      const requestingUser = (req as any).user;
 
       if (!userId) {
         res.status(400).json({
@@ -224,8 +225,33 @@ export class UserController {
         return;
       }
 
+      const parsedUserId = parseInt(userId, 10);
+      if (!Number.isInteger(parsedUserId) || parsedUserId <= 0) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user ID',
+          code: 'INVALID_PARAMS',
+        });
+        return;
+      }
+
+      if (!requestingUser?.isAdmin) {
+        const accessibleUserIds = await GroupService.getUsersSharingActiveGroup(
+          requestingUser.id,
+          [parsedUserId]
+        );
+        if (!accessibleUserIds.has(parsedUserId)) {
+          res.status(404).json({
+            success: false,
+            error: 'User not found',
+            code: 'USER_NOT_FOUND',
+          });
+          return;
+        }
+      }
+
       // Получаем пользователя по ID
-      const user = await UserService.getUserById(parseInt(userId, 10));
+      const user = await UserService.getUserById(parsedUserId);
 
       if (!user) {
         res.status(404).json({
@@ -243,7 +269,6 @@ export class UserController {
         success: true,
         data: {
           userId: user.id,
-          telegramId: user.telegramId.toString(),
           avatarUrl,
         },
         timestamp: new Date().toISOString(),
@@ -267,6 +292,7 @@ export class UserController {
   static async getUserAvatarsBatch(req: Request, res: Response): Promise<void> {
     try {
       const { userIds } = req.body;
+      const requestingUser = (req as any).user;
 
       if (!Array.isArray(userIds) || userIds.length === 0) {
         res.status(400).json({
@@ -288,9 +314,18 @@ export class UserController {
       }
 
       // Получаем пользователей одним запросом вместо N отдельных
-      const parsedIds = userIds.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
+      const parsedIds = userIds
+        .map((id) => parseInt(id, 10))
+        .filter((id) => Number.isInteger(id) && id > 0);
+      const accessibleIds = requestingUser?.isAdmin
+        ? new Set(parsedIds)
+        : await GroupService.getUsersSharingActiveGroup(
+            requestingUser.id,
+            parsedIds
+          );
+      const authorizedIds = parsedIds.filter(id => accessibleIds.has(id));
       const usersById = new Map(
-        (await UserService.getUsersByIds(parsedIds)).map((u) => [u.id, u])
+        (await UserService.getUsersByIds(authorizedIds)).map((u) => [u.id, u])
       );
 
       // Сохраняем исходный порядок userIds, отбрасывая ненайденных
@@ -305,7 +340,6 @@ export class UserController {
       // Формируем результат
       const result = validUsers.map((user) => ({
         userId: user.id,
-        telegramId: user.telegramId.toString(),
         avatarUrl: avatarsMap.get(user.telegramId.toString()) || null,
       }));
 

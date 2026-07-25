@@ -59,6 +59,13 @@ export function Leaderboard({
     let cancelled = false;
 
     async function loadLeaderboard() {
+      if (!groupId) {
+        setEntries([]);
+        setFailed(false);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setFailed(false);

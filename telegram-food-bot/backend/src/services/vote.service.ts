@@ -8,6 +8,67 @@ import { getXPReward, isMultiplierAvailable, calculateXPWithMultiplier, XP_MULTI
 import { eventBus } from './event-bus.service';
 
 export class VoteService {
+  private static async assertMenuItemsAllowedForPoll(
+    tx: Prisma.TransactionClient,
+    pollId: number,
+    menuItemIds: number[]
+  ): Promise<void> {
+    const uniqueIds = [...new Set(menuItemIds)];
+    const poll = await tx.poll.findUnique({
+      where: { id: pollId },
+      select: {
+        status: true,
+        endedAt: true,
+        groupId: true,
+        selectedMenuItemIds: true,
+      },
+    });
+
+    if (!poll) {
+      throw new Error('Poll not found');
+    }
+    if (poll.status !== 'ACTIVE') {
+      throw new Error('Poll is not active');
+    }
+    if (poll.endedAt && poll.endedAt < new Date()) {
+      throw new Error('Poll has expired');
+    }
+
+    let selectedIds: number[] | null = null;
+    if (poll.selectedMenuItemIds) {
+      try {
+        const parsed = JSON.parse(poll.selectedMenuItemIds);
+        if (!Array.isArray(parsed)) {
+          throw new Error('Poll menu configuration is invalid');
+        }
+        selectedIds = parsed.filter(
+          (id): id is number => Number.isInteger(id) && id > 0
+        );
+      } catch {
+        throw new Error('Poll menu configuration is invalid');
+      }
+    }
+
+    if (
+      selectedIds &&
+      uniqueIds.some(menuItemId => !selectedIds.includes(menuItemId))
+    ) {
+      throw new Error('Menu item is not available for this poll');
+    }
+
+    const matchingItems = await tx.menuItem.count({
+      where: {
+        id: { in: uniqueIds },
+        groupId: poll.groupId,
+        isActive: true,
+      },
+    });
+
+    if (matchingItems !== uniqueIds.length) {
+      throw new Error('Menu item is not available for this poll');
+    }
+  }
+
   /**
    * Создание нового голоса (поддерживает множественный выбор)
    */
@@ -94,6 +155,12 @@ export class VoteService {
       // если параллельный запрос вставит тот же vote, БД бросит P2002 и транзакция откатится.
       // SQLite не поддерживает skipDuplicates в Prisma — полагаемся на фильтр + DB constraint.
       const { allVotes, newlyCreatedItemIds } = await prisma.$transaction(async (tx) => {
+        await this.assertMenuItemsAllowedForPoll(
+          tx,
+          pollId,
+          uniqueMenuItemIds
+        );
+
         const existingVotes = await tx.vote.findMany({
           where: {
             pollId,
@@ -158,6 +225,9 @@ export class VoteService {
       return allVotes;
     } catch (error) {
       logger.error('Error creating multiple votes:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
       throw new Error('Failed to create multiple votes');
     }
   }
@@ -223,6 +293,8 @@ export class VoteService {
     const uniqueMenuItemIds = [...new Set(menuItemIds)];
 
     const { allVotes, newlyCreatedItemIds } = await prisma.$transaction(async (tx) => {
+      await this.assertMenuItemsAllowedForPoll(tx, pollId, uniqueMenuItemIds);
+
       const existingVotes = await tx.vote.findMany({
         where: { pollId, userId, menuItemId: { not: null } },
         select: { menuItemId: true },
@@ -455,21 +527,11 @@ export class VoteService {
   static async upsertVote(data: CreateVoteData): Promise<Vote> {
     try {
       const vote = await prisma.$transaction(async tx => {
-        const poll = await tx.poll.findUnique({
-          where: { id: data.pollId },
-          select: { id: true, status: true, endedAt: true },
-        });
-
-        if (!poll) {
-          throw new Error('Poll not found');
-        }
-        if (poll.status !== 'ACTIVE') {
-          throw new Error('Poll is not active');
-        }
-
-        if (poll.endedAt && poll.endedAt < new Date()) {
-          throw new Error('Poll has expired');
-        }
+        await this.assertMenuItemsAllowedForPoll(
+          tx,
+          data.pollId,
+          [data.menuItemId]
+        );
 
         await tx.vote.deleteMany({
           where: {

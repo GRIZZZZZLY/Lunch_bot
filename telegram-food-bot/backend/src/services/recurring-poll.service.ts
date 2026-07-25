@@ -48,6 +48,28 @@ export function initializeRecurringPollServiceBot(_bot: unknown): void {}
 function botInstance() { return getBotInstance(); }
 
 export class RecurringPollService {
+  private static async assertMenuItemsBelongToGroup(
+    groupId: number,
+    menuItemIds: number[] | null | undefined
+  ): Promise<void> {
+    if (menuItemIds == null) {
+      return;
+    }
+
+    const uniqueIds = [...new Set(menuItemIds)];
+    const matchingItems = await prisma.menuItem.count({
+      where: {
+        id: { in: uniqueIds },
+        groupId,
+        isActive: true,
+      },
+    });
+
+    if (matchingItems !== uniqueIds.length) {
+      throw new Error('Selected menu items must be active and belong to the group');
+    }
+  }
+
   /**
    * Создание нового расписания
    */
@@ -74,6 +96,11 @@ export class RecurringPollService {
       if (!group) {
         throw new Error('Group not found');
       }
+
+      await this.assertMenuItemsBelongToGroup(
+        data.groupId,
+        data.selectedMenuItemIds
+      );
 
       // Проверка что уже нет расписания для этой группы
       const existing = await prisma.recurringPoll.findUnique({
@@ -139,6 +166,11 @@ export class RecurringPollService {
       if (!existing) {
         throw new Error('Recurring poll not found');
       }
+
+      await this.assertMenuItemsBelongToGroup(
+        existing.groupId,
+        data.selectedMenuItemIds
+      );
 
       // Парсим текущие дни если не обновляем
       const daysOfWeek = data.daysOfWeek || JSON.parse(existing.daysOfWeek);
@@ -260,6 +292,12 @@ export class RecurringPollService {
       logger.error('Error getting recurring poll by group:', error);
       throw error;
     }
+  }
+
+  static async getById(id: number): Promise<RecurringPoll | null> {
+    return prisma.recurringPoll.findUnique({
+      where: { id },
+    });
   }
 
   /**

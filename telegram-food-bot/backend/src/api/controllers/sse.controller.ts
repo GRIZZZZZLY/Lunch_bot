@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { eventBus, SSEEventName, SSEEventMap } from '../../services/event-bus.service';
+import { GroupService } from '../../services/group.service';
+import { PollService } from '../../services/poll.service';
 import { logger } from '../../utils/logger';
 
 const HEARTBEAT_INTERVAL_MS = 25_000;
@@ -54,7 +56,7 @@ function sendSSEMessage(
  * Требует аутентификации через telegramAuthMiddleware.
  */
 export class SSEController {
-  static stream(req: Request, res: Response): void {
+  static async stream(req: Request, res: Response): Promise<void> {
     const rawPollId = req.params.pollId;
     const pollId = parseInt(
       Array.isArray(rawPollId) ? rawPollId[0] : rawPollId,
@@ -66,6 +68,31 @@ export class SSEController {
         success: false,
         error: 'Invalid poll ID',
         code: 'INVALID_POLL_ID',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const user = (req as any).user;
+    const pollGroupId = await PollService.getPollGroupId(pollId);
+    if (!pollGroupId) {
+      res.status(404).json({
+        success: false,
+        error: 'Poll not found',
+        code: 'POLL_NOT_FOUND',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (
+      !user?.isAdmin &&
+      !(await GroupService.isUserGroupMember(user.id, pollGroupId))
+    ) {
+      res.status(403).json({
+        success: false,
+        error: 'Access denied',
+        code: 'FORBIDDEN',
         timestamp: new Date().toISOString(),
       });
       return;
@@ -87,7 +114,6 @@ export class SSEController {
       return;
     }
 
-    const user = (req as any).user;
     const userId = user?.id;
 
     // Настраиваем SSE заголовки

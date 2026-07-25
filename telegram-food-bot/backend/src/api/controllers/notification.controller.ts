@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { logger } from '../../utils/logger';
 import { prisma } from '../../database/client';
+import { GroupService } from '../../services/group.service';
 import { notificationService } from '../../services/notification.service';
 import { getParam } from '../../utils/request-params';
 
@@ -12,7 +13,7 @@ class NotificationController {
   async remindAdmin(req: Request, res: Response) {
     try {
       const userId = (req as any).user?.id;
-      const { groupId } = req.body;
+      const groupId = Number(req.body.groupId);
 
       if (!userId) {
         return res.status(401).json({ 
@@ -21,10 +22,10 @@ class NotificationController {
         });
       }
 
-      if (!groupId) {
+      if (!Number.isInteger(groupId) || groupId <= 0) {
         return res.status(400).json({ 
           success: false, 
-          error: 'Group ID is required' 
+          error: 'Valid group ID is required'
         });
       }
 
@@ -51,6 +52,14 @@ class NotificationController {
         return res.status(404).json({ 
           success: false, 
           error: 'Group not found' 
+        });
+      }
+
+      if (!(await GroupService.isUserGroupMember(userId, group.id))) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied',
+          code: 'FORBIDDEN',
         });
       }
 
@@ -86,11 +95,17 @@ class NotificationController {
       }
 
       // Получаем всех администраторов группы
-      const admins = await prisma.user.findMany({
+      const adminMemberships = await prisma.groupMember.findMany({
         where: {
-          isAdmin: true,
+          groupId: group.id,
+          isActive: true,
+          role: { in: ['ADMIN', 'CREATOR'] },
         },
+        include: { user: true },
       });
+      const admins = adminMemberships
+        .map(membership => membership.user)
+        .filter(admin => admin.isActive);
 
       if (admins.length === 0) {
         return res.status(404).json({ 
@@ -165,6 +180,7 @@ class NotificationController {
   async getCooldownStatus(req: Request, res: Response) {
     try {
       const userId = (req as any).user?.id;
+      const requestingUser = (req as any).user;
       const groupId = parseInt(getParam(req.params, 'groupId'), 10);
 
       if (!userId) {
@@ -174,10 +190,21 @@ class NotificationController {
         });
       }
 
-      if (!groupId || isNaN(groupId)) {
+      if (!Number.isInteger(groupId) || groupId <= 0) {
         return res.status(400).json({ 
           success: false, 
           error: 'Invalid group ID' 
+        });
+      }
+
+      if (
+        !requestingUser.isAdmin &&
+        !(await GroupService.isUserGroupMember(userId, groupId))
+      ) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied',
+          code: 'FORBIDDEN',
         });
       }
 

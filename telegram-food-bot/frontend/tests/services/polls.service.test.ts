@@ -88,9 +88,11 @@ describe('pollsService legacy method routing', () => {
       ],
     });
 
-    const response = await pollsService.getPopularItems(1);
+    const response = await pollsService.getPopularItems(1, 42);
 
     expect(response.data?.[0].menuItemName).toBe('Борщ');
-    expect(apiGet).toHaveBeenCalledWith('/polls/popular-items?limit=1');
+    expect(apiGet).toHaveBeenCalledWith(
+      '/polls/popular-items?limit=1&groupId=42'
+    );
   });
 });

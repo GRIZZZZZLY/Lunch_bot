@@ -169,6 +169,23 @@ export async function createMultipleVotes(req: Request, res: Response): Promise<
     });
   } catch (error: any) {
     logger.error('[VoteController] Error creating multiple votes:', error);
+    if (
+      error instanceof Error &&
+      [
+        'Poll not found',
+        'Poll is not active',
+        'Poll has expired',
+        'Menu item is not available for this poll',
+        'Poll menu configuration is invalid',
+      ].includes(error.message)
+    ) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'POLL_ERROR',
+      });
+      return;
+    }
     res.status(500).json({
       success: false,
       error: 'Failed to create votes',
