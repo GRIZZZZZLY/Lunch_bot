@@ -189,6 +189,200 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  frontend-new-quality:
+    name: Frontend-new quality
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend-new
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend-new/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check TypeScript
+        run: npm run type-check
+
+      - name: Check Playwright TypeScript
+        run: npm run type-check:e2e
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Validate production smoke configuration
+        env:
+          E2E_ALLOW_PRODUCTION: '1'
+          E2E_PRODUCTION_BASE_URL: https://example.invalid
+          E2E_PRODUCTION_BOT_TOKEN: 000000000:ci-placeholder
+          E2E_PRODUCTION_USER_ID: '700000101'
+          E2E_PRODUCTION_GROUP_NAME: CI placeholder
+        run: npm run test:e2e:production -- --list
+
+  frontend-new-e2e:
+    name: Frontend-new Playwright
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend-new
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend-new/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run critical mobile paths
+        run: npm run test:e2e:smoke
+
+      - name: Run full isolated UI suite
+        run: npm run test:e2e:full
+
+      - name: Upload frontend-new Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-new-playwright-report
+          path: |
+            frontend-new/playwright-report/
+            frontend-new/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  frontend-new-integration:
+    name: Frontend-new + backend + PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: foodbot_e2e_test
+          POSTGRES_USER: foodbot
+          POSTGRES_PASSWORD: foodbot_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U foodbot -d foodbot_e2e_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://foodbot:foodbot_password@localhost:5432/foodbot_e2e_test
+      TEST_DATABASE_URL: postgresql://foodbot:foodbot_password@localhost:5432/foodbot_e2e_test
+      BOT_TOKEN: 777000:test_e2e_bot_token
+      E2E_BOT_TOKEN: 777000:test_e2e_bot_token
+      TELEGRAM_SECRET_KEY: e2e-only-telegram-secret
+      JWT_SECRET: e2e-only-jwt-secret-that-is-at-least-32-characters
+      WEBAPP_URL: http://127.0.0.1:3001
+      CORS_ORIGIN: http://127.0.0.1:3001
+      PROCESS_ROLE: api
+      FRONTEND_DIR: frontend-new
+      API_HOST: 0.0.0.0
+      API_PORT: '3001'
+      ENABLE_RATE_LIMIT: 'false'
+      E2E_INTEGRATION: '1'
+      E2E_INTEGRATION_BASE_URL: http://127.0.0.1:3001
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend-new/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install frontend-new dependencies
+        working-directory: frontend-new
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: frontend-new
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate schema and reset isolated database
+        working-directory: backend
+        run: |
+          npm run db:generate
+          npx prisma db push --force-reset --accept-data-loss --url="$TEST_DATABASE_URL"
+
+      - name: Seed deterministic E2E data
+        working-directory: backend
+        run: npm run e2e:seed
+
+      - name: Build frontend-new and backend
+        run: |
+          npm --prefix frontend-new run build
+          npm --prefix backend run build:prod
+
+      - name: Start API-only server
+        working-directory: backend
+        run: |
+          npm start > ../e2e-backend.log 2>&1 &
+          echo $! > ../e2e-backend.pid
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3001/health/ready > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat ../e2e-backend.log
+          exit 1
+
+      - name: Run real-server contract tests
+        working-directory: frontend-new
+        run: npm run test:e2e:integration
+
+      - name: Clean E2E data
+        if: always()
+        working-directory: backend
+        run: npm run e2e:cleanup
+
+      - name: Upload integration diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-new-integration-report
+          path: |
+            frontend-new/playwright-report/
+            frontend-new/test-results/
+            e2e-backend.log
+          if-no-files-found: ignore
+          retention-days: 14
+
   dependency-security:
     name: Dependency security
     runs-on: ubuntu-latest
@@ -203,8 +397,12 @@ jobs:
 
       - name: Audit frontend dependencies
         working-directory: frontend
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Audit backend dependencies
         working-directory: backend
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit frontend-new dependencies
+        working-directory: frontend-new
+        run: npm run audit:prod

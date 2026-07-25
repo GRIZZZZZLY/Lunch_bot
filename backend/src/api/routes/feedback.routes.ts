@@ -6,7 +6,10 @@ import { createIdempotencyMiddleware } from '../middleware/idempotency';
 
 const router = Router();
 
-const feedbackIdempotency = createIdempotencyMiddleware({ scope: 'feedback' });
+const feedbackIdempotency = createIdempotencyMiddleware({
+  scope: 'feedback',
+  required: true,
+});
 
 /**
  * @route POST /api/feedback

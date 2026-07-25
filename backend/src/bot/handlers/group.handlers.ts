@@ -4,6 +4,7 @@ import { UserService } from '../../services/user.service';
 import { GroupService } from '../../services/group.service';
 import { createGroupWelcomeKeyboard } from '../keyboards/webapp.keyboard';
 import { logger } from '../../utils/logger';
+import { prisma } from '../../database/client';
 
 /**
  * Первая строка приветственного сообщения группы. Константа: ниже неё живёт
@@ -69,7 +70,12 @@ export async function handleOptInButton(
     });
 
     await GroupService.addMemberToGroup(group.id, dbUser.id);
-    await UserService.updateUser(dbUser.id, { participatesInPolls: true });
+    await prisma.groupMember.update({
+      where: {
+        groupId_userId: { groupId: group.id, userId: dbUser.id },
+      },
+      data: { participatesInPolls: true },
+    });
 
     const name = from.first_name?.trim() || 'Гость';
     const currentText = ctx.callbackQuery.message?.text ?? WELCOME_GREETING;

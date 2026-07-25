@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -231,6 +232,7 @@ model Transaction {
   // даёт максимум одну транзакцию. NULL,NULL (poll-транзакции) в Postgres
   // считаются различными, поэтому ограничение их не затрагивает.
   @@unique([storeRunId, storeItemId])
+  @@unique([categoryOrderId, fromUserId], map: "transactions_category_order_debtor_key")
   @@index([pollId])
   @@index([storeRunId])
   @@index([fromUserId, status])
@@ -311,13 +313,14 @@ model AdminReminder {
 }
 
 model GroupMember {
-  id       Int       @id @default(autoincrement())
-  groupId  Int       @map("group_id")
-  userId   Int       @map("user_id")
-  role     String    @default("MEMBER")
-  joinedAt DateTime  @default(now()) @map("joined_at")
-  leftAt   DateTime? @map("left_at")
-  isActive Boolean   @default(true) @map("is_active")
+  id                  Int       @id @default(autoincrement())
+  groupId             Int       @map("group_id")
+  userId              Int       @map("user_id")
+  role                String    @default("MEMBER")
+  joinedAt            DateTime  @default(now()) @map("joined_at")
+  leftAt              DateTime? @map("left_at")
+  isActive            Boolean   @default(true) @map("is_active")
+  participatesInPolls Boolean   @default(true) @map("participates_in_polls")
 
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -486,14 +489,15 @@ model UserStats {
 }
 
 model XPHistory {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  amount    Int
-  reason    String
-  category  String
-  seasonId  Int?     @map("season_id")
-  metadata  String?
-  createdAt DateTime @default(now()) @map("created_at")
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  amount         Int
+  reason         String
+  category       String
+  seasonId       Int?     @map("season_id")
+  metadata       String?
+  idempotencyKey String?  @unique @map("idempotency_key")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   user   User    @relation("UserXPHistory", fields: [userId], references: [id], onDelete: Cascade)
   season Season? @relation(fields: [seasonId], references: [id])

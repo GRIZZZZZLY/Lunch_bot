@@ -46,7 +46,8 @@ export class AdminController {
   private async requireGroupAdmin(
     req: Request,
     res: Response,
-    groupId: number
+    groupId: number,
+    allowGlobalRead: boolean = false
   ): Promise<boolean> {
     const user = (req as any).user;
 
@@ -59,7 +60,7 @@ export class AdminController {
       return false;
     }
 
-    if (user.isAdmin) {
+    if (allowGlobalRead && user.isAdmin) {
       return true;
     }
 
@@ -84,7 +85,7 @@ export class AdminController {
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
 
-      const hasAccess = await this.requireGroupAdmin(req, res, groupId);
+      const hasAccess = await this.requireGroupAdmin(req, res, groupId, true);
       if (!hasAccess) return;
 
       const users = await this.adminService.getAllUsers(groupId);
@@ -123,7 +124,7 @@ export class AdminController {
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
 
-      const hasAccess = await this.requireGroupAdmin(req, res, groupId);
+      const hasAccess = await this.requireGroupAdmin(req, res, groupId, true);
       if (!hasAccess) return;
 
       const stats = await this.adminService.getUserStats(userId, groupId);
@@ -266,7 +267,11 @@ export class AdminController {
       const hasAccess = await this.requireGroupAdmin(req, res, groupId);
       if (!hasAccess) return;
 
-      const user = await this.adminService.toggleParticipatesInPolls(userId, participates);
+      const user = await this.adminService.toggleParticipatesInPolls(
+        userId,
+        participates,
+        groupId
+      );
       res.json({
         success: true,
         data: user,
@@ -301,7 +306,12 @@ export class AdminController {
         res.status(404).json({ success: false, error: 'Poll not found', code: 'POLL_NOT_FOUND' });
         return;
       }
-      const hasAccess = await this.requireGroupAdmin(req, res, pollGroupId);
+      const hasAccess = await this.requireGroupAdmin(
+        req,
+        res,
+        pollGroupId,
+        true
+      );
       if (!hasAccess) return;
 
       const participants = await this.adminService.getPollParticipants(pollId);
@@ -381,7 +391,7 @@ export class AdminController {
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
 
-      const hasAccess = await this.requireGroupAdmin(req, res, groupId);
+      const hasAccess = await this.requireGroupAdmin(req, res, groupId, true);
       if (!hasAccess) return;
 
       const debtors = await this.adminService.getAllDebtors(groupId);
@@ -409,7 +419,7 @@ export class AdminController {
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
 
-      const hasAccess = await this.requireGroupAdmin(req, res, groupId);
+      const hasAccess = await this.requireGroupAdmin(req, res, groupId, true);
       if (!hasAccess) return;
 
       const stats = await this.adminService.getDebtStats(groupId);
@@ -612,7 +622,7 @@ export class AdminController {
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
 
-      const hasAccess = await this.requireGroupAdmin(req, res, groupId);
+      const hasAccess = await this.requireGroupAdmin(req, res, groupId, true);
       if (!hasAccess) return;
 
       const stats = await this.adminService.getCleanupStats(groupId);
@@ -649,7 +659,7 @@ export class AdminController {
         return;
       }
 
-      const hasAccess = await this.requireGroupAdmin(req, res, groupId);
+      const hasAccess = await this.requireGroupAdmin(req, res, groupId, true);
       if (!hasAccess) return;
 
       const requestingUserId: number | undefined = (req as any).user?.id;
@@ -730,7 +740,7 @@ export class AdminController {
         return;
       }
 
-      const hasAccess = await this.requireGroupAdmin(req, res, groupId);
+      const hasAccess = await this.requireGroupAdmin(req, res, groupId, true);
       if (!hasAccess) return;
 
       const settings = await this.reminderSettingsService.getAdminNotificationSettings(groupId);

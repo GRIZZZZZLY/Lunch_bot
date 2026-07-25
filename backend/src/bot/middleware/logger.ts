@@ -12,13 +12,8 @@ export async function loggingMiddleware(ctx: BotContext, next: NextFunction): Pr
   logger.info('Incoming update', {
     updateId: ctx.update.update_id,
     type: getUpdateType(ctx),
-    chatId: ctx.chat?.id,
     chatType: ctx.chat?.type,
-    userId: ctx.from?.id,
-    username: ctx.from?.username,
-    firstName: ctx.from?.first_name,
     ...(ctx.message && { messageId: ctx.message.message_id }),
-    ...(ctx.callbackQuery && { callbackData: ctx.callbackQuery.data }),
   });
 
   try {
@@ -46,7 +41,6 @@ export async function statsMiddleware(ctx: BotContext, next: NextFunction): Prom
   try {
     const updateType = getUpdateType(ctx);
     const chatType = ctx.chat?.type || 'unknown';
-    const userId = ctx.from?.id;
 
     // Здесь можно добавить логику сохранения статистики в БД
     // Например, количество использований команд, активность пользователей и т.д.
@@ -54,7 +48,6 @@ export async function statsMiddleware(ctx: BotContext, next: NextFunction): Prom
     logger.debug('Stats collected', {
       updateType,
       chatType,
-      userId,
       timestamp: new Date().toISOString(),
     });
 
@@ -76,18 +69,13 @@ export async function errorLoggingMiddleware(ctx: BotContext, next: NextFunction
     // Подробное логирование ошибки
     logger.error('Bot error occurred', {
       updateId: ctx.update.update_id,
-      chatId: ctx.chat?.id,
       chatType: ctx.chat?.type,
-      userId: ctx.from?.id,
-      username: ctx.from?.username,
       error: {
         name: error instanceof Error ? error.name : 'UnknownError',
         message: error instanceof Error ? error.message : 'Unknown error occurred',
         stack: error instanceof Error ? error.stack : undefined,
       },
       context: {
-        message: ctx.message?.text,
-        callbackData: ctx.callbackQuery?.data,
         updateType: getUpdateType(ctx),
       },
     });
@@ -173,12 +161,8 @@ export async function commandLoggingMiddleware(ctx: BotContext, next: NextFuncti
     
     logger.info('Command executed', {
       command,
-      userId: ctx.from?.id,
-      username: ctx.from?.username,
-      chatId: ctx.chat?.id,
       chatType: ctx.chat?.type,
       messageId: message.message_id,
-      fullText: message.text,
     });
   }
 

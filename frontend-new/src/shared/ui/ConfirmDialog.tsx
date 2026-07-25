@@ -1,13 +1,40 @@
 /* Диалог подтверждения на базе BottomSheet — наследует focus management,
    Escape, backdrop, Telegram BackButton и восстановление фокуса.
    Не использует window.confirm. Одновременно активен только один. */
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useSyncExternalStore } from 'react';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button } from './Button';
 
-// Счётчик активных диалогов. Владение назначается в useEffect (не в
-// инициализаторе useState — иначе StrictMode ломает guard двойным вызовом).
-let activeConfirmDialogs = 0;
+const confirmDialogIds: string[] = [];
+const confirmDialogListeners = new Set<() => void>();
+
+function notifyConfirmDialogListeners(): void {
+  confirmDialogListeners.forEach(listener => listener());
+}
+
+function registerConfirmDialog(id: string): () => void {
+  if (!confirmDialogIds.includes(id)) {
+    confirmDialogIds.push(id);
+    notifyConfirmDialogListeners();
+  }
+
+  return () => {
+    const index = confirmDialogIds.indexOf(id);
+    if (index >= 0) {
+      confirmDialogIds.splice(index, 1);
+      notifyConfirmDialogListeners();
+    }
+  };
+}
+
+function subscribeToConfirmDialogs(listener: () => void): () => void {
+  confirmDialogListeners.add(listener);
+  return () => confirmDialogListeners.delete(listener);
+}
+
+function getActiveConfirmDialogId(): string | null {
+  return confirmDialogIds[0] ?? null;
+}
 
 export interface ConfirmDialogProps {
   title: string;
@@ -33,19 +60,15 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   // Только один активный confirm: второй смонтированный экземпляр прячется.
-  const [isDuplicate, setIsDuplicate] = useState(false);
-  useEffect(() => {
-    if (activeConfirmDialogs > 0) {
-      setIsDuplicate(true);
-      return;
-    }
-    activeConfirmDialogs += 1;
-    return () => {
-      activeConfirmDialogs -= 1;
-    };
-  }, []);
+  const id = useId();
+  const activeId = useSyncExternalStore(
+    subscribeToConfirmDialogs,
+    getActiveConfirmDialogId,
+    getActiveConfirmDialogId,
+  );
+  useEffect(() => registerConfirmDialog(id), [id]);
 
-  if (isDuplicate) return null;
+  if (activeId !== null && activeId !== id) return null;
 
   return (
     <BottomSheet

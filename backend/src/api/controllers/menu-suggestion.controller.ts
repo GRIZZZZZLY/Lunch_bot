@@ -6,17 +6,20 @@ import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
 
 function resolveGroupId(req: AuthenticatedRequest): number | null {
-  const raw = (req.params?.groupId ?? req.query?.groupId ?? req.body?.groupId) as
-    | string
-    | number
-    | undefined;
+  const raw = (req.params?.groupId ??
+    req.query?.groupId ??
+    req.body?.groupId) as string | number | undefined;
   const groupId = typeof raw === 'string' ? parseInt(raw, 10) : raw;
   return typeof groupId === 'number' && Number.isFinite(groupId) && groupId > 0
     ? groupId
     : null;
 }
 
-function sendSuggestionError(res: Response, error: unknown, fallbackMessage: string): void {
+function sendSuggestionError(
+  res: Response,
+  error: unknown,
+  fallbackMessage: string
+): void {
   if (error instanceof GroupAccessError) {
     res.status(403).json({
       success: false,
@@ -30,7 +33,7 @@ function sendSuggestionError(res: Response, error: unknown, fallbackMessage: str
   logger.error(fallbackMessage, error);
   res.status(500).json({
     success: false,
-    error: error instanceof Error ? error.message : fallbackMessage,
+    error: fallbackMessage,
     code: 'INTERNAL_ERROR',
     timestamp: new Date().toISOString(),
   });
@@ -39,9 +42,18 @@ function sendSuggestionError(res: Response, error: unknown, fallbackMessage: str
 /**
  * Создать новое предложение блюда
  */
-export async function createSuggestion(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function createSuggestion(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
-    const { name, description, price, imageUrl, groupId: rawGroupId } = req.body;
+    const {
+      name,
+      description,
+      price,
+      imageUrl,
+      groupId: rawGroupId,
+    } = req.body;
     const userId = req.user?.id;
 
     if (!userId) {
@@ -99,7 +111,10 @@ export async function createSuggestion(req: AuthenticatedRequest, res: Response)
 /**
  * Получить все предложения (с фильтрами)
  */
-export async function getSuggestions(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function getSuggestions(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const { status, limit, offset, groupId: rawGroupId } = req.query;
     const userId = req.user?.id;
@@ -163,7 +178,10 @@ export async function getSuggestions(req: AuthenticatedRequest, res: Response): 
 /**
  * Получить предложение по ID
  */
-export async function getSuggestionById(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function getSuggestionById(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const id = getParam(req.params, 'id');
     const userId = req.user?.id;
@@ -223,7 +241,10 @@ export async function getSuggestionById(req: AuthenticatedRequest, res: Response
 /**
  * Одобрить предложение (только админ)
  */
-export async function approveSuggestion(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function approveSuggestion(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const id = getParam(req.params, 'id');
     const userId = req.user?.id;
@@ -271,7 +292,10 @@ export async function approveSuggestion(req: AuthenticatedRequest, res: Response
 /**
  * Отклонить предложение (только админ)
  */
-export async function rejectSuggestion(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function rejectSuggestion(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const id = getParam(req.params, 'id');
     const { reason } = req.body;
@@ -321,7 +345,10 @@ export async function rejectSuggestion(req: AuthenticatedRequest, res: Response)
 /**
  * Получить статистику предложений (только админ)
  */
-export async function getStats(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function getStats(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const groupId = resolveGroupId(req);
 
@@ -356,7 +383,10 @@ export async function getStats(req: AuthenticatedRequest, res: Response): Promis
 /**
  * Получить количество ожидающих предложений (только админ)
  */
-export async function getPendingCount(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function getPendingCount(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const groupId = resolveGroupId(req);
 
@@ -391,7 +421,10 @@ export async function getPendingCount(req: AuthenticatedRequest, res: Response):
 /**
  * Удалить предложение (только админ, только отклонённые)
  */
-export async function deleteSuggestion(req: AuthenticatedRequest, res: Response): Promise<void> {
+export async function deleteSuggestion(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
   try {
     const id = getParam(req.params, 'id');
     const groupId = resolveGroupId(req);

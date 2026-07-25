@@ -7,7 +7,7 @@ set -euo pipefail
 
 BRANCH="${BRANCH:-feature/store-run}"
 DOMAIN="${DOMAIN:-rocketlunch.dpdns.org}"
-FRONTEND_DIR="${FRONTEND_DIR:-frontend}"
+FRONTEND_DIR="${FRONTEND_DIR:-frontend-new}"
 APP_ROOT="$(pwd)"
 
 echo "Развёртывание ветки $BRANCH; клиент: $FRONTEND_DIR"

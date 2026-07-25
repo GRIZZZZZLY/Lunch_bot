@@ -19,18 +19,28 @@ async function requirePollAccess(
   pollId: number
 ): Promise<boolean> {
   if (!user?.id) {
-    res.status(401).json({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    res
+      .status(401)
+      .json({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     return false;
   }
   const pollGroupId = await PollService.getPollGroupId(pollId);
   if (!pollGroupId) {
-    res.status(404).json({ success: false, error: 'Poll not found', code: 'POLL_NOT_FOUND' });
+    res
+      .status(404)
+      .json({
+        success: false,
+        error: 'Poll not found',
+        code: 'POLL_NOT_FOUND',
+      });
     return false;
   }
   if (user.isAdmin) return true;
   const isMember = await GroupService.isUserGroupMember(user.id, pollGroupId);
   if (!isMember) {
-    res.status(403).json({ success: false, error: 'Access denied', code: 'FORBIDDEN' });
+    res
+      .status(403)
+      .json({ success: false, error: 'Access denied', code: 'FORBIDDEN' });
     return false;
   }
   return true;
@@ -38,7 +48,10 @@ async function requirePollAccess(
 
 // Zod схемы валидации (Sprint 1)
 const TransactionIdSchema = z.object({
-  transactionId: z.number().int().positive('transactionId must be a positive integer'),
+  transactionId: z
+    .number()
+    .int()
+    .positive('transactionId must be a positive integer'),
 });
 
 const PollIdParamSchema = z.object({
@@ -53,13 +66,15 @@ const StatusQuerySchema = z.object({
   status: z.enum(['PENDING', 'PAID', 'CONFIRMED']).optional(),
 });
 
-const DateRangeQuerySchema = z.object({
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
-}).refine(
-  data => !(data.from && data.to && new Date(data.from) > new Date(data.to)),
-  { message: 'from date must be before to date' }
-);
+const DateRangeQuerySchema = z
+  .object({
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
+  })
+  .refine(
+    data => !(data.from && data.to && new Date(data.from) > new Date(data.to)),
+    { message: 'from date must be before to date' }
+  );
 
 const SetOrderCostsSchema = z.object({
   deliveryCost: z.number().min(0).max(100000, 'deliveryCost max 100000'),
@@ -88,7 +103,11 @@ export class BudgetController {
         return;
       }
 
-      const status = req.query.status as 'PENDING' | 'PAID' | 'CONFIRMED' | undefined;
+      const status = req.query.status as
+        | 'PENDING'
+        | 'PAID'
+        | 'CONFIRMED'
+        | undefined;
       const activeOnly = req.query.activeOnly === 'true';
 
       const debts = await this.budgetService.getUserDebts(
@@ -117,7 +136,11 @@ export class BudgetController {
         return;
       }
 
-      const status = req.query.status as 'PENDING' | 'PAID' | 'CONFIRMED' | undefined;
+      const status = req.query.status as
+        | 'PENDING'
+        | 'PAID'
+        | 'CONFIRMED'
+        | undefined;
       const activeOnly = req.query.activeOnly === 'true';
 
       const credits = await this.budgetService.getUserCredits(
@@ -142,7 +165,9 @@ export class BudgetController {
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
-        res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+        res
+          .status(401)
+          .json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
         return;
       }
 
@@ -160,22 +185,23 @@ export class BudgetController {
       const { transactionId } = parseResult.data;
 
       // ✅ FIX IDOR: Проверяем что пользователь - должник (fromUserId)
-      const transaction = await this.budgetService.getTransactionById(transactionId);
-      
+      const transaction =
+        await this.budgetService.getTransactionById(transactionId);
+
       if (!transaction) {
         res.status(404).json({ error: 'Transaction not found' });
         return;
       }
 
       if (transaction.fromUserId !== authenticatedUser.id) {
-        res.status(403).json({ 
+        res.status(403).json({
           error: 'Access denied',
-          message: 'Ты можешь отметить оплаченными только свои долги'
+          message: 'Ты можешь отметить оплаченными только свои долги',
         });
         return;
       }
 
-      await this.budgetService.markAsPaid(transactionId);
+      await this.budgetService.markAsPaid(transactionId, authenticatedUser.id);
 
       res.json({ success: true });
     } catch (error) {
@@ -193,7 +219,9 @@ export class BudgetController {
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
-        res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+        res
+          .status(401)
+          .json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
         return;
       }
 
@@ -211,22 +239,26 @@ export class BudgetController {
       const { transactionId } = parseResult.data;
 
       // ✅ FIX IDOR: Проверяем что пользователь - кредитор/ответственный (toUserId)
-      const transaction = await this.budgetService.getTransactionById(transactionId);
-      
+      const transaction =
+        await this.budgetService.getTransactionById(transactionId);
+
       if (!transaction) {
         res.status(404).json({ error: 'Transaction not found' });
         return;
       }
 
       if (transaction.toUserId !== authenticatedUser.id) {
-        res.status(403).json({ 
+        res.status(403).json({
           error: 'Access denied',
-          message: 'Ты можешь подтвердить только платежи в твой адрес'
+          message: 'Ты можешь подтвердить только платежи в твой адрес',
         });
         return;
       }
 
-      await this.budgetService.confirmPayment(transactionId);
+      await this.budgetService.confirmPayment(
+        transactionId,
+        authenticatedUser.id
+      );
 
       res.json({ success: true });
     } catch (error) {
@@ -244,7 +276,9 @@ export class BudgetController {
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
-        res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+        res
+          .status(401)
+          .json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
         return;
       }
 
@@ -262,22 +296,26 @@ export class BudgetController {
       const { transactionId } = parseResult.data;
 
       // ✅ FIX IDOR: Проверяем что пользователь - должник (fromUserId)
-      const transaction = await this.budgetService.getTransactionById(transactionId);
-      
+      const transaction =
+        await this.budgetService.getTransactionById(transactionId);
+
       if (!transaction) {
         res.status(404).json({ error: 'Transaction not found' });
         return;
       }
 
       if (transaction.fromUserId !== authenticatedUser.id) {
-        res.status(403).json({ 
+        res.status(403).json({
           error: 'Access denied',
-          message: 'Ты можешь отменять только свои отметки оплаты'
+          message: 'Ты можешь отменять только свои отметки оплаты',
         });
         return;
       }
 
-      await this.budgetService.cancelMarkAsPaid(transactionId);
+      await this.budgetService.cancelMarkAsPaid(
+        transactionId,
+        authenticatedUser.id
+      );
 
       res.json({ success: true });
     } catch (error) {
@@ -295,7 +333,9 @@ export class BudgetController {
       const authenticatedUser = (req as any).user;
 
       if (!authenticatedUser) {
-        res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+        res
+          .status(401)
+          .json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
         return;
       }
 
@@ -303,7 +343,9 @@ export class BudgetController {
       if (!parsed.success) {
         res.status(400).json({
           success: false,
-          error: parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+          error: parsed.error.errors
+            .map(e => `${e.path.join('.')}: ${e.message}`)
+            .join('; '),
           code: 'VALIDATION_ERROR',
         });
         return;
@@ -367,18 +409,23 @@ export class BudgetController {
       if (!parsed.success) {
         res.status(400).json({
           success: false,
-          error: parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+          error: parsed.error.errors
+            .map(e => `${e.path.join('.')}: ${e.message}`)
+            .join('; '),
           code: 'VALIDATION_ERROR',
         });
         return;
       }
 
-      await this.budgetService.sendReminder(parsed.data.transactionId, authenticatedUser.id);
+      await this.budgetService.sendReminder(
+        parsed.data.transactionId,
+        authenticatedUser.id
+      );
 
       res.json({ success: true, message: 'Reminder sent' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[BudgetController] Error sending reminder:', error);
-      res.status(500).json({ error: error.message || 'Failed to send reminder' });
+      res.status(500).json({ error: 'Failed to send reminder' });
     }
   }
 
@@ -401,18 +448,21 @@ export class BudgetController {
         return;
       }
 
-      const result = await this.budgetService.sendRemindersToAll(pollId, authenticatedUser.id);
+      const result = await this.budgetService.sendRemindersToAll(
+        pollId,
+        authenticatedUser.id
+      );
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         sentCount: result.sentCount,
         failedCount: result.failedCount,
         totalCount: result.totalCount,
         failedUsers: result.failedUsers,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[BudgetController] Error sending reminders to all:', error);
-      res.status(500).json({ error: error.message || 'Failed to send reminders' });
+      res.status(500).json({ error: 'Failed to send reminders' });
     }
   }
 
@@ -444,9 +494,9 @@ export class BudgetController {
       );
 
       res.json({ success: true, data: serializeData(totals) });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[BudgetController] Error getting poll totals:', error);
-      res.status(500).json({ error: error.message || 'Failed to get poll totals' });
+      res.status(500).json({ error: 'Failed to get poll totals' });
     }
   }
 
@@ -476,12 +526,16 @@ export class BudgetController {
 
       // Validate input
       if (typeof deliveryCost !== 'number' || deliveryCost < 0) {
-        res.status(400).json({ error: 'deliveryCost must be a non-negative number' });
+        res
+          .status(400)
+          .json({ error: 'deliveryCost must be a non-negative number' });
         return;
       }
 
       if (typeof serviceFee !== 'number' || serviceFee < 0) {
-        res.status(400).json({ error: 'serviceFee must be a non-negative number' });
+        res
+          .status(400)
+          .json({ error: 'serviceFee must be a non-negative number' });
         return;
       }
 
@@ -506,7 +560,9 @@ export class BudgetController {
       }
 
       if (error.message === 'Only responsible person can set order costs') {
-        res.status(403).json({ error: 'Access denied', message: error.message });
+        res
+          .status(403)
+          .json({ error: 'Access denied', message: error.message });
         return;
       }
 
@@ -572,7 +628,8 @@ export class BudgetController {
       const pollIdNum = parseInt(pollId);
       if (!(await requirePollAccess(res, authenticatedUser, pollIdNum))) return;
 
-      const breakdown = await this.budgetService.getPollCostBreakdown(pollIdNum);
+      const breakdown =
+        await this.budgetService.getPollCostBreakdown(pollIdNum);
 
       res.json({ success: true, data: serializeData(breakdown) });
     } catch (error: any) {

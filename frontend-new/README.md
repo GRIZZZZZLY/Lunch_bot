@@ -1,15 +1,15 @@
-# frontend-new — параллельный redesign
+# frontend-new — основной интерфейс Rocket Lunch
 
-Новый интерфейс **Rocket Lunch**, собираемый на основе HTML-экспортов из `claude.ai/design`
-(см. `docs/design-prompts/exports/`). Работает параллельно с основным `frontend/` — не
-затрагивая его.
+Основной интерфейс **Rocket Lunch** на React 18, TypeScript и Vite. Сервер и
+сценарии выпуска используют его по умолчанию через
+`FRONTEND_DIR=frontend-new`; каталог `frontend/` оставлен только для временного
+отката.
 
 ## Статус
 
-**Фаза C:** bootstrap + дизайн-система + Header + BottomNavigation + placeholder-страницы.
-
-Бизнес-логики (API, Telegram SDK, Zustand-стор, голосование, Budget Tracker) здесь ещё
-**нет**. Добавится в следующих фазах по мере портирования страниц.
+Рабочий Mini App: авторизация Telegram, группы, меню, голосования, закупки,
+бюджет, предложения, статистика, профиль и административные разделы. Качество
+проверяется TypeScript, ESLint без предупреждений, Vitest и Playwright.
 
 ## Запуск
 

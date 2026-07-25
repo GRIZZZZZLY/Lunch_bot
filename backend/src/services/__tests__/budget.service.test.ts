@@ -150,7 +150,9 @@ describe('BudgetService Mini App behaviours', () => {
   });
 
   it('does not let a debtor mark a confirmed transaction as paid again', async () => {
+    (prisma.transaction.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
     (prisma.transaction.findUnique as jest.Mock).mockResolvedValueOnce({
+      fromUserId: 5,
       status: 'CONFIRMED',
     });
 
@@ -161,26 +163,25 @@ describe('BudgetService Mini App behaviours', () => {
   });
 
   it('cancels only a non-confirmed payment mark', async () => {
+    (prisma.transaction.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
     (prisma.transaction.findUnique as jest.Mock).mockResolvedValueOnce({
-      status: 'PAID',
-    });
-    (prisma.transaction.update as jest.Mock).mockResolvedValue({
       id: 11,
+      fromUserId: 5,
+      status: 'PAID',
       amount: 300,
       fromUser: { firstName: 'Bob' },
       toUser: { telegramId: BigInt(9) },
     });
 
-    await service.cancelMarkAsPaid(11);
+    await service.cancelMarkAsPaid(11, 5);
 
-    expect(prisma.transaction.update).toHaveBeenCalledWith({
-      where: { id: 11 },
+    expect(prisma.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: 11, fromUserId: 5, status: 'PAID' },
       data: {
         status: 'PENDING',
         paidAt: null,
         confirmedAt: null,
       },
-      include: { fromUser: true, toUser: true },
     });
   });
 

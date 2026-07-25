@@ -1,6 +1,6 @@
 import { MenuSuggestionService } from '../menu-suggestion.service';
 import { prisma } from '../../database/client';
-import { GroupAccessError } from '../group.service';
+import { GroupAccessError, GroupService } from '../group.service';
 
 jest.mock('../../database/client', () => ({
   prisma: {
@@ -48,6 +48,7 @@ const createSuggestion = (overrides?: Record<string, unknown>) => ({
 describe('MenuSuggestionService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(GroupService, 'assertMember').mockResolvedValue();
   });
 
   it('creates a suggestion inside the selected group', async () => {

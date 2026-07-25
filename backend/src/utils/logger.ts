@@ -3,6 +3,7 @@ import { getRequestContext } from './request-context';
 
 const logLevel = process.env.LOG_LEVEL || 'info';
 const logFormat = process.env.LOG_FORMAT || 'combined';
+const isProduction = process.env.NODE_ENV === 'production';
 
 /**
  * Winston format that merges AsyncLocalStorage request context into each log
@@ -14,9 +15,51 @@ const requestContextFormat = winston.format((info) => {
   if (ctx) {
     if (ctx.requestId && !info.requestId) info.requestId = ctx.requestId;
     if (ctx.userId !== undefined && info.userId === undefined) info.userId = ctx.userId;
-    if (ctx.telegramId !== undefined && info.telegramId === undefined) {
-      info.telegramId = ctx.telegramId;
+  }
+  return info;
+});
+
+const SENSITIVE_LOG_KEY =
+  /^(authorization|cookie|set-cookie|.*token.*|.*secret.*|password|initdata.*|telegramid|chatid|username|firstname|lastname|photourl|avatarurl|fileid|filepath|payment(card|phone|details)?|invoicepayload|.*chargeid|callbackdata|fulltext|messagetext|body|query|url|error|stack|description)$/i;
+
+function redactLogValue(value: unknown, depth: number = 0): unknown {
+  if (depth > 8) {
+    return '[Truncated]';
+  }
+  if (Array.isArray(value)) {
+    return value.map(item => redactLogValue(item, depth + 1));
+  }
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+  if (value instanceof Error) {
+    if (isProduction) {
+      return { name: value.name };
     }
+    return {
+      name: value.name,
+      message: value.message,
+      stack: value.stack,
+    };
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    result[key] = SENSITIVE_LOG_KEY.test(key)
+      ? '[Filtered]'
+      : redactLogValue(nested, depth + 1);
+  }
+  return result;
+}
+
+const sensitiveDataFormat = winston.format(info => {
+  for (const key of Object.keys(info)) {
+    if (key === 'message' || key === 'level' || key === 'timestamp') {
+      continue;
+    }
+    info[key] = SENSITIVE_LOG_KEY.test(key)
+      ? '[Filtered]'
+      : redactLogValue(info[key]);
   }
   return info;
 });
@@ -26,6 +69,7 @@ const developmentFormat = winston.format.combine(
   requestContextFormat(),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
+  sensitiveDataFormat(),
   winston.format.colorize(),
   winston.format.printf(({ level, message, timestamp, stack, ...meta }) => {
     let logMessage = `${timestamp} [${level}]: ${message}`;
@@ -53,6 +97,20 @@ const productionFormat = winston.format.combine(
   requestContextFormat(),
   winston.format.timestamp(),
   winston.format.errors({ stack: true }),
+  winston.format(info => {
+    if (info.exception || info.rejection) {
+      info.message = info.exception
+        ? 'Unhandled process exception'
+        : 'Unhandled promise rejection';
+      delete info.trace;
+      delete info.process;
+      delete info.os;
+      delete info.date;
+    }
+    delete info.stack;
+    return info;
+  })(),
+  sensitiveDataFormat(),
   winston.format.printf((info) => JSON.stringify(info, bigIntReplacer))
 );
 
@@ -96,21 +154,11 @@ export const logger = winston.createLogger({
   level: logLevel,
   format: loggerFormat,
   transports,
-  exitOnError: false,
+  // Необработанное исключение означает неизвестное состояние процесса.
+  // После записи журнала Winston обязан завершить его, чтобы оркестратор
+  // мог безопасно перезапустить экземпляр.
+  exitOnError: true,
 });
-
-// Логирование необработанных исключений
-logger.exceptions.handle(
-  new winston.transports.Console({
-    format: loggerFormat
-  })
-);
-
-logger.rejections.handle(
-  new winston.transports.Console({
-    format: loggerFormat
-  })
-);
 
 // Тестовые логи при запуске
 logger.info('🔍 Logger инициализирован', {

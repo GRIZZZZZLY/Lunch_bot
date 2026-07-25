@@ -26,7 +26,12 @@ const PollIdParamsSchema = z.object({
   pollId: z.string().regex(/^\d+$/, 'pollId must be numeric').transform(Number),
 });
 
-async function requirePollAccess(req: Request, res: Response, pollId: number): Promise<boolean> {
+async function requirePollAccess(
+  req: Request,
+  res: Response,
+  pollId: number,
+  allowGlobalRead: boolean = false
+): Promise<boolean> {
   const user = req.user as { id?: number; isAdmin?: boolean } | undefined;
 
   if (!user?.id) {
@@ -50,7 +55,7 @@ async function requirePollAccess(req: Request, res: Response, pollId: number): P
     return false;
   }
 
-  if (user.isAdmin) {
+  if (allowGlobalRead && user.isAdmin) {
     return true;
   }
 
@@ -177,6 +182,7 @@ export async function createMultipleVotes(req: Request, res: Response): Promise<
         'Poll has expired',
         'Menu item is not available for this poll',
         'Poll menu configuration is invalid',
+        'User is not eligible to vote in this poll',
       ].includes(error.message)
     ) {
       res.status(400).json({
@@ -227,7 +233,7 @@ export async function getUserVotes(req: Request, res: Response): Promise<void> {
 
     const { pollId } = parseResult.data;
 
-    const hasAccess = await requirePollAccess(req, res, pollId);
+    const hasAccess = await requirePollAccess(req, res, pollId, true);
     if (!hasAccess) return;
 
     const votes = await VoteService.getUserVotes(pollId, userId);

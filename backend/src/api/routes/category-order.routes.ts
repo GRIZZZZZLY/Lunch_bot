@@ -4,8 +4,14 @@ import {
   telegramAuthMiddleware,
   adminMiddleware,
 } from '../middleware/telegram-auth';
+import { createIdempotencyMiddleware } from '../middleware/idempotency';
+import { writeLimiter } from '../middleware/rate-limiter';
 
 const router = express.Router();
+const categoryOrderMutationIdempotency = createIdempotencyMiddleware({
+  scope: 'category-order',
+  required: true,
+});
 
 /**
  * GET /api/polls/:pollId/category-orders
@@ -40,6 +46,8 @@ router.get(
 router.post(
   '/category-orders/:id/order-items',
   telegramAuthMiddleware,
+  writeLimiter,
+  categoryOrderMutationIdempotency,
   CategoryOrderController.saveOrderItem
 );
 
@@ -50,6 +58,8 @@ router.post(
 router.delete(
   '/order-items/:id',
   telegramAuthMiddleware,
+  writeLimiter,
+  categoryOrderMutationIdempotency,
   CategoryOrderController.deleteOrderItem
 );
 
@@ -80,12 +90,16 @@ router.get(
 router.post(
   '/category-orders/:id/finalize',
   telegramAuthMiddleware,
+  writeLimiter,
+  categoryOrderMutationIdempotency,
   CategoryOrderController.finalizeCalculation
 );
 
 router.post(
   '/category-orders/:id/volunteer',
   telegramAuthMiddleware,
+  writeLimiter,
+  categoryOrderMutationIdempotency,
   CategoryOrderController.volunteerForCategory
 );
 
@@ -96,6 +110,8 @@ router.post(
 router.put(
   '/category-orders/:id/costs',
   telegramAuthMiddleware,
+  writeLimiter,
+  categoryOrderMutationIdempotency,
   CategoryOrderController.updateCosts
 );
 

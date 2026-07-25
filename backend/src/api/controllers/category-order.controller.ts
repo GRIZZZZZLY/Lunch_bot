@@ -9,7 +9,10 @@ import { toNumber } from '../../utils/decimal';
 import { serializeBigInt } from '../../utils/serialize';
 
 export class CategoryOrderController {
-  private static getAuthUser(req: Request, res: Response): { id: number; isAdmin: boolean } | null {
+  private static getAuthUser(
+    req: Request,
+    res: Response
+  ): { id: number; isAdmin: boolean } | null {
     const user = (req as any).user;
     if (!user) {
       res.status(401).json({
@@ -41,18 +44,18 @@ export class CategoryOrderController {
     categoryOrderId: number,
     userId: number
   ): Promise<boolean> {
-    const participantUserIds = await CategoryOrderService.getParticipants(
-      categoryOrderId
-    );
+    const participantUserIds =
+      await CategoryOrderService.getParticipants(categoryOrderId);
 
     return participantUserIds.includes(userId);
   }
 
   private static async canAccessPoll(
     pollId: number,
-    user: { id: number; isAdmin: boolean }
+    user: { id: number; isAdmin: boolean },
+    allowGlobalRead: boolean = false
   ): Promise<boolean> {
-    if (user.isAdmin) {
+    if (allowGlobalRead && user.isAdmin) {
       return true;
     }
 
@@ -103,7 +106,8 @@ export class CategoryOrderController {
 
       const hasAccess = await CategoryOrderController.canAccessPoll(
         pollId,
-        user
+        user,
+        true
       );
       if (!hasAccess) {
         res.status(403).json({
@@ -156,7 +160,11 @@ export class CategoryOrderController {
         return;
       }
 
-      const hasAccess = await CategoryOrderController.canAccessPoll(pollId, user);
+      const hasAccess = await CategoryOrderController.canAccessPoll(
+        pollId,
+        user,
+        true
+      );
       if (!hasAccess) {
         res.status(403).json({
           success: false,
@@ -166,16 +174,19 @@ export class CategoryOrderController {
         return;
       }
 
-      const categoryOrders = await CategoryOrderService.getCategoryOrdersForPoll(pollId);
+      const categoryOrders =
+        await CategoryOrderService.getCategoryOrdersForPoll(pollId);
 
       // Один запрос голосов на все категории вместо getParticipants на каждую
-      const participantsByCategory = await CategoryOrderService.getParticipantsByCategoriesForPoll(
-        pollId,
-        categoryOrders.map(order => order.category)
-      );
+      const participantsByCategory =
+        await CategoryOrderService.getParticipantsByCategoriesForPoll(
+          pollId,
+          categoryOrders.map(order => order.category)
+        );
 
       const myCategoryOrders = categoryOrders.filter(
-        order => participantsByCategory.get(order.category)?.has(user.id) ?? false
+        order =>
+          participantsByCategory.get(order.category)?.has(user.id) ?? false
       );
 
       res.json({
@@ -293,7 +304,8 @@ export class CategoryOrderController {
       ) {
         res.status(400).json({
           success: false,
-          error: 'userId must be positive, itemName is required, price must be positive',
+          error:
+            'userId must be positive, itemName is required, price must be positive',
           code: 'VALIDATION_ERROR',
         });
         return;
@@ -491,9 +503,8 @@ export class CategoryOrderController {
         return;
       }
 
-      const progress = await OrderCalculationService.getProgress(
-        categoryOrderId
-      );
+      const progress =
+        await OrderCalculationService.getProgress(categoryOrderId);
 
       res.json({
         success: true,
@@ -553,9 +564,8 @@ export class CategoryOrderController {
         return;
       }
 
-      const participantUserIds = await CategoryOrderService.getParticipants(
-        categoryOrderId
-      );
+      const participantUserIds =
+        await CategoryOrderService.getParticipants(categoryOrderId);
 
       // Fetch user details
       const users = await prisma.user.findMany({
@@ -628,9 +638,8 @@ export class CategoryOrderController {
         return;
       }
 
-      const result = await OrderCalculationService.finalizeCalculation(
-        categoryOrderId
-      );
+      const result =
+        await OrderCalculationService.finalizeCalculation(categoryOrderId);
 
       res.json({
         success: true,
@@ -642,10 +651,7 @@ export class CategoryOrderController {
       logger.error('Error finalizing calculation:', error);
       res.status(500).json({
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to finalize calculation',
+        error: 'Failed to finalize calculation',
         code: 'FINALIZATION_ERROR',
       });
     }
@@ -655,7 +661,10 @@ export class CategoryOrderController {
    * POST /api/category-orders/:id/volunteer
    * Volunteer as responsible from Mini App
    */
-  static async volunteerForCategory(req: Request, res: Response): Promise<void> {
+  static async volunteerForCategory(
+    req: Request,
+    res: Response
+  ): Promise<void> {
     try {
       const user = CategoryOrderController.getAuthUser(req, res);
       if (!user) return;
@@ -670,7 +679,8 @@ export class CategoryOrderController {
         return;
       }
 
-      const categoryOrder = await CategoryOrderService.getCategoryOrder(categoryOrderId);
+      const categoryOrder =
+        await CategoryOrderService.getCategoryOrder(categoryOrderId);
       if (!categoryOrder) {
         res.status(404).json({
           success: false,
@@ -680,7 +690,10 @@ export class CategoryOrderController {
         return;
       }
 
-      const hasAccess = await CategoryOrderController.canAccessPoll(categoryOrder.pollId, user);
+      const hasAccess = await CategoryOrderController.canAccessPoll(
+        categoryOrder.pollId,
+        user
+      );
       if (!hasAccess) {
         res.status(403).json({
           success: false,
@@ -704,12 +717,23 @@ export class CategoryOrderController {
         return;
       }
 
-      await MultiCategoryResponsibleService.handleVolunteerForCategory(
-        categoryOrderId,
-        dbUser.telegramId
-      );
+      const selected =
+        await MultiCategoryResponsibleService.handleVolunteerForCategory(
+          categoryOrderId,
+          dbUser.telegramId
+        );
+      if (!selected) {
+        res.status(409).json({
+          success: false,
+          error:
+            'Category is already assigned or user is not an eligible participant',
+          code: 'VOLUNTEER_NOT_AVAILABLE',
+        });
+        return;
+      }
 
-      const updatedOrder = await CategoryOrderService.getCategoryOrder(categoryOrderId);
+      const updatedOrder =
+        await CategoryOrderService.getCategoryOrder(categoryOrderId);
 
       res.json({
         success: true,
@@ -922,9 +946,8 @@ export class CategoryOrderController {
         return;
       }
 
-      const items = await OrderCalculationService.getOrderItems(
-        categoryOrderId
-      );
+      const items =
+        await OrderCalculationService.getOrderItems(categoryOrderId);
 
       res.json({
         success: true,

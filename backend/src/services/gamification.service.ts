@@ -5,6 +5,7 @@
  * Uses new UserStats model with multi-category ratings
  */
 
+import { Prisma } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 
@@ -16,6 +17,8 @@ interface AchievementRequirement {
 }
 
 export class GamificationService {
+  private static readonly XP_TRANSACTION_MAX_ATTEMPTS = 10;
+
   /**
    * Calculate level from total XP using exponential formula
    * Formula: XP for level N = 100 * N^1.5
@@ -56,68 +59,158 @@ export class GamificationService {
     amount: number,
     reason: string,
     category: 'GASTRO' | 'RESPONSIBLE' | 'SOCIAL' | 'EXPLORER',
-    metadata?: Record<string, any>
-  ): Promise<{ stats: any; leveledUp: boolean; oldLevel: number; newLevel: number }> {
+    metadata?: Record<string, unknown>,
+    idempotencyKey?: string
+  ): Promise<{
+    stats: unknown;
+    applied: boolean;
+    leveledUp: boolean;
+    oldLevel: number;
+    newLevel: number;
+  }> {
+    if (
+      !Number.isInteger(userId) ||
+      userId <= 0 ||
+      !Number.isInteger(amount) ||
+      amount <= 0 ||
+      amount > 100_000 ||
+      reason.length < 1 ||
+      reason.length > 300 ||
+      (idempotencyKey &&
+        (idempotencyKey.length < 8 || idempotencyKey.length > 200))
+    ) {
+      throw new Error('Invalid XP award parameters');
+    }
+
     try {
-      // Get current season (if exists). Inlined to avoid cycle with SeasonService.
-      const currentSeason = await prisma.season.findFirst({
-        where: { isActive: true },
-        orderBy: { number: 'desc' },
-      });
-      
-      // Get or create user stats
-      let stats = await prisma.userStats.findUnique({
-        where: { userId },
-      });
-
-      if (!stats) {
-        stats = await prisma.userStats.create({
-          data: { userId },
-        });
+      const metadataJson = metadata ? JSON.stringify(metadata) : undefined;
+      if (metadataJson && metadataJson.length > 4_000) {
+        throw new Error('XP metadata is too large');
       }
 
-      const oldLevel = stats.level;
-      const newTotalXP = stats.totalXP + amount;
-      const newLevel = this.calculateLevel(newTotalXP);
-      const newRank = this.getRankTitle(newLevel);
-      const leveledUp = newLevel > oldLevel;
+      let result:
+        | {
+            stats: unknown;
+            applied: boolean;
+            leveledUp: boolean;
+            oldLevel: number;
+            newLevel: number;
+          }
+        | undefined;
 
-      // Create XP history record with season link
-      await prisma.xPHistory.create({
-        data: {
-          userId,
-          amount,
-          reason,
-          category,
-          seasonId: currentSeason?.id || null, // Link to current season
-          metadata: metadata ? JSON.stringify(metadata) : undefined,
-        },
-      });
+      for (
+        let attempt = 1;
+        attempt <= this.XP_TRANSACTION_MAX_ATTEMPTS;
+        attempt += 1
+      ) {
+        try {
+          result = await prisma.$transaction(
+            async tx => {
+              if (idempotencyKey) {
+                const existing = await tx.xPHistory.findUnique({
+                  where: { idempotencyKey },
+                  select: { id: true },
+                });
+                if (existing) {
+                  const stats = await tx.userStats.findUniqueOrThrow({
+                    where: { userId },
+                  });
+                  return {
+                    stats,
+                    applied: false,
+                    leveledUp: false,
+                    oldLevel: stats.level,
+                    newLevel: stats.level,
+                  };
+                }
+              }
 
-      // Update user stats
-      const updatedStats = await prisma.userStats.update({
-        where: { userId },
-        data: {
-          totalXP: newTotalXP,
-          level: newLevel,
-          rank: newRank,
-        },
-      });
+              const currentSeason = await tx.season.findFirst({
+                where: { isActive: true },
+                orderBy: { number: 'desc' },
+              });
+              const stats = await tx.userStats.upsert({
+                where: { userId },
+                create: { userId },
+                update: {},
+              });
+              const oldLevel = stats.level;
 
-      // If leveled up, trigger achievement check
-      if (leveledUp) {
+              await tx.xPHistory.create({
+                data: {
+                  userId,
+                  amount,
+                  reason,
+                  category,
+                  seasonId: currentSeason?.id ?? null,
+                  metadata: metadataJson,
+                  idempotencyKey,
+                },
+              });
+
+              const incremented = await tx.userStats.update({
+                where: { userId },
+                data: {
+                  totalXP: { increment: amount },
+                },
+              });
+              const newLevel = this.calculateLevel(incremented.totalXP);
+              const updatedStats = await tx.userStats.update({
+                where: { userId },
+                data: {
+                  level: newLevel,
+                  rank: this.getRankTitle(newLevel),
+                },
+              });
+
+              return {
+                stats: updatedStats,
+                applied: true,
+                leveledUp: newLevel > oldLevel,
+                oldLevel,
+                newLevel,
+              };
+            },
+            {
+              isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            }
+          );
+          break;
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            (error.code === 'P2034' ||
+              (error.code === 'P2002' && Boolean(idempotencyKey))) &&
+            attempt < this.XP_TRANSACTION_MAX_ATTEMPTS
+          ) {
+            const backoffMs =
+              Math.min(10 * 2 ** (attempt - 1), 250) +
+              Math.floor(Math.random() * 25);
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      if (!result) {
+        throw new Error('XP transaction retry limit reached');
+      }
+
+      if (result.applied && result.leveledUp) {
         await this.checkAchievements(userId);
-        logger.info(`User ${userId} leveled up from ${oldLevel} to ${newLevel}!`);
+        logger.info(
+          `User ${userId} leveled up from ${result.oldLevel} to ${result.newLevel}!`
+        );
       }
 
-      logger.info(`Awarded ${amount} XP to user ${userId}: ${reason}`);
+      if (result.applied) {
+        logger.info(`Awarded ${amount} XP to user ${userId}: ${reason}`);
+      } else {
+        logger.info('Duplicate XP event ignored', { userId });
+      }
 
-      return {
-        stats: updatedStats,
-        leveledUp,
-        oldLevel,
-        newLevel,
-      };
+      return result;
     } catch (error) {
       logger.error('Error awarding XP:', error);
       throw error;
@@ -277,14 +370,15 @@ export class GamificationService {
       for (const achievement of allAchievements) {
         // Skip if already unlocked
         const alreadyUnlocked = stats.user.achievements.some(
-          (ua) => ua.achievementId === achievement.id
+          ua => ua.achievementId === achievement.id
         );
         if (alreadyUnlocked) continue;
 
         // Parse requirement
-        const req: AchievementRequirement = typeof achievement.requirement === 'string'
-          ? JSON.parse(achievement.requirement)
-          : achievement.requirement;
+        const req: AchievementRequirement =
+          typeof achievement.requirement === 'string'
+            ? JSON.parse(achievement.requirement)
+            : achievement.requirement;
 
         // Check if requirement met
         const unlocked = this.checkAchievementRequirement(stats, req);
@@ -357,7 +451,9 @@ export class GamificationService {
         { achievementKey: achievement.key }
       );
 
-      logger.info(`Achievement unlocked: ${achievement.key} for user ${userId}`);
+      logger.info(
+        `Achievement unlocked: ${achievement.key} for user ${userId}`
+      );
     } catch (error) {
       // Ignore duplicate key errors (already unlocked)
       if (!(error as any).code?.includes('UNIQUE')) {
@@ -484,7 +580,7 @@ export class GamificationService {
           },
         };
       }
-      
+
       // Filter by category if not TOTAL
       if (category !== 'TOTAL') {
         xpWhere.category = category;
@@ -679,10 +775,10 @@ export class GamificationService {
     ]);
 
     const unlockedMap = new Map(
-      userAchievements.map((ua) => [ua.achievementId, ua.unlockedAt])
+      userAchievements.map(ua => [ua.achievementId, ua.unlockedAt])
     );
 
-    return allAchievements.map((achievement) => ({
+    return allAchievements.map(achievement => ({
       ...achievement,
       unlocked: unlockedMap.has(achievement.id),
       unlockedAt: unlockedMap.get(achievement.id),
@@ -692,10 +788,12 @@ export class GamificationService {
 
 // Export singleton instance for backward compatibility
 export const gamificationService = {
-  getUserProgress: async (userId: number) => GamificationService.getUserStats(userId),
+  getUserProgress: async (userId: number) =>
+    GamificationService.getUserStats(userId),
   addXP: async (userId: number, amount: number, reason?: string) =>
     GamificationService.awardXP(userId, amount, reason || 'unknown', 'SOCIAL'),
-  checkAchievements: async (userId: number) => GamificationService.checkAchievements(userId),
+  checkAchievements: async (userId: number) =>
+    GamificationService.checkAchievements(userId),
   getLeaderboard: async (limit?: number, groupId?: number) =>
     GamificationService.getLeaderboard('TOTAL', limit, groupId),
 };

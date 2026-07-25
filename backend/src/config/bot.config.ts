@@ -9,6 +9,9 @@ export const botConfig = {
   
   // Webhook URL для production
   webhookUrl: process.env.BOT_WEBHOOK_URL || '',
+
+  // Секрет проверяется в заголовке каждого запроса от Telegram
+  webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
   
   // Секретный ключ для валидации Telegram данных
   secretKey: process.env.TELEGRAM_SECRET_KEY || process.env.BOT_TOKEN || '',
@@ -46,8 +49,8 @@ export const botConfig = {
     // Порт для webhook сервера
     port: parseInt(process.env.WEBHOOK_PORT || '8443'),
     
-    // Путь для webhook
-    path: process.env.WEBHOOK_PATH || `/webhook/${process.env.BOT_TOKEN}`,
+    // Стабильный путь без токена и других секретов
+    path: '/webhook',
     
     // SSL настройки (если нужны)
     ssl: {
@@ -146,6 +149,15 @@ function validateConfig() {
   
   if (botConfig.mode === 'webhook' && !botConfig.webhookUrl) {
     errors.push('BOT_WEBHOOK_URL is required for webhook mode');
+  }
+
+  if (
+    botConfig.mode === 'webhook' &&
+    !/^[A-Za-z0-9_-]{32,256}$/.test(botConfig.webhookSecret)
+  ) {
+    errors.push(
+      'TELEGRAM_WEBHOOK_SECRET must contain 32-256 letters, digits, underscores or hyphens in webhook mode'
+    );
   }
   
   if (botConfig.polling.interval < 100) {

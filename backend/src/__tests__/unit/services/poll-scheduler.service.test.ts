@@ -1,12 +1,22 @@
+import { User } from '@prisma/client';
 import { PollSchedulerService } from '../../../services/poll-scheduler.service';
 import { RecurringPollService } from '../../../services/recurring-poll.service';
+import { UserService } from '../../../services/user.service';
 
 jest.mock('../../../services/recurring-poll.service', () => ({
   RecurringPollService: {
     executeScheduledPoll: jest.fn(),
     getActiveSchedules: jest.fn(),
     getNextRunInfo: jest.fn().mockReturnValue('Завтра в 12:30'),
+    getById: jest.fn(),
+    checkAdminAccess: jest.fn(),
     toggleEnabled: jest.fn(),
+  },
+}));
+
+jest.mock('../../../services/user.service', () => ({
+  UserService: {
+    getUserByTelegramId: jest.fn(),
   },
 }));
 
@@ -24,10 +34,13 @@ type SchedulerInternals = {
 };
 
 const runSchedulerTick = (): Promise<void> =>
-  (PollSchedulerService as unknown as SchedulerInternals).checkAndExecuteSchedules();
+  (
+    PollSchedulerService as unknown as SchedulerInternals
+  ).checkAndExecuteSchedules();
 const mockedRecurringPollService = RecurringPollService as jest.Mocked<
   typeof RecurringPollService
 >;
+const mockedUserService = UserService as jest.Mocked<typeof UserService>;
 
 const schedule = {
   createdAt: new Date('2026-07-01T09:00:00.000Z'),
@@ -57,6 +70,25 @@ const schedule = {
   updatedAt: new Date('2026-07-01T09:00:00.000Z'),
 };
 
+const createUser = (id: number, telegramId: bigint): User => ({
+  id,
+  telegramId,
+  username: null,
+  firstName: 'Admin',
+  lastName: null,
+  photoUrl: null,
+  avatarUrl: null,
+  avatarUpdatedAt: null,
+  isAdmin: false,
+  isActive: true,
+  participatesInPolls: true,
+  paymentCard: null,
+  paymentPhone: null,
+  paymentDetails: null,
+  createdAt: new Date('2026-07-01T09:00:00.000Z'),
+  updatedAt: new Date('2026-07-01T09:00:00.000Z'),
+});
+
 describe('PollSchedulerService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -65,7 +97,7 @@ describe('PollSchedulerService', () => {
 
   afterEach(() => {
     jest.useRealTimers();
-    PollSchedulerService.stop();
+    void PollSchedulerService.stop();
   });
 
   it('executes a due schedule once and notifies the schedule creator', async () => {
@@ -81,7 +113,9 @@ describe('PollSchedulerService', () => {
 
     await runSchedulerTick();
 
-    expect(mockedRecurringPollService.executeScheduledPoll).toHaveBeenCalledWith(4);
+    expect(
+      mockedRecurringPollService.executeScheduledPoll
+    ).toHaveBeenCalledWith(4);
     expect(sendMessage).toHaveBeenCalledWith(
       500,
       expect.stringContaining('Автоматическое голосование создано'),
@@ -100,20 +134,41 @@ describe('PollSchedulerService', () => {
 
     await runSchedulerTick();
 
-    expect(mockedRecurringPollService.executeScheduledPoll).not.toHaveBeenCalled();
+    expect(
+      mockedRecurringPollService.executeScheduledPoll
+    ).not.toHaveBeenCalled();
   });
 
   it('disables recurring polls from callback actions', async () => {
+    mockedRecurringPollService.getById.mockResolvedValue(schedule);
+    mockedUserService.getUserByTelegramId.mockResolvedValue(
+      createUser(5, 500n)
+    );
+    mockedRecurringPollService.checkAdminAccess.mockResolvedValue(true);
     mockedRecurringPollService.toggleEnabled.mockResolvedValue({
       ...schedule,
       isEnabled: false,
     });
 
-    await PollSchedulerService.handleDisableCallback(4);
+    const result = await PollSchedulerService.handleDisableCallback(4, 500);
 
+    expect(result).toBe(true);
     expect(mockedRecurringPollService.toggleEnabled).toHaveBeenCalledWith(
       4,
       false
     );
+  });
+
+  it('does not disable a schedule for an administrator of another group', async () => {
+    mockedRecurringPollService.getById.mockResolvedValue(schedule);
+    mockedUserService.getUserByTelegramId.mockResolvedValue(
+      createUser(8, 800n)
+    );
+    mockedRecurringPollService.checkAdminAccess.mockResolvedValue(false);
+
+    const result = await PollSchedulerService.handleDisableCallback(4, 800);
+
+    expect(result).toBe(false);
+    expect(mockedRecurringPollService.toggleEnabled).not.toHaveBeenCalled();
   });
 });

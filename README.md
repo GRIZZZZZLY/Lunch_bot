@@ -171,7 +171,8 @@ telegram-food-bot/
 - **@twa-dev/sdk** — интеграция с Telegram WebApp (haptics, theme)
 - **vite-plugin-pwa** — офлайн-режим и service worker
 - **Sentry/React** — отслеживание ошибок фронта
-- ⚠️ `frontend-new/` — параллельный редизайн v2 (минимализм/футуризм, 3 цветовые схемы × светлая/тёмная тема), переключается через `FRONTEND_DIR`
+- `frontend-new/` — основной интерфейс Rocket Lunch; `frontend/` сохранён как
+  предыдущая версия для временного отката через `FRONTEND_DIR=frontend`
 
 ### Инфраструктура / DevOps
 - **PostgreSQL 16** — основная БД (через Docker локально)

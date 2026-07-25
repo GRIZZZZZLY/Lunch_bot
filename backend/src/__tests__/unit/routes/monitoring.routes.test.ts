@@ -83,7 +83,7 @@ describe('monitoring routes', () => {
   describe('health routes', () => {
     const app = createRouteApp('/health', healthRoutes);
 
-    it('returns service health with database and memory state', async () => {
+    it('returns minimal service and database health', async () => {
       mockedPrisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
 
       const response = await request(app).get('/health').expect(200);
@@ -91,20 +91,14 @@ describe('monitoring routes', () => {
       expect(response.body).toEqual(
         expect.objectContaining({
           database: 'connected',
-          environment: 'test',
           status: 'healthy',
           timestamp: expect.any(String),
           uptime: expect.any(String),
           uptimeSeconds: expect.any(Number),
         })
       );
-      expect(response.body.memory).toEqual(
-        expect.objectContaining({
-          total: expect.any(Number),
-          unit: 'MB',
-          used: expect.any(Number),
-        })
-      );
+      expect(response.body.environment).toBeUndefined();
+      expect(response.body.memory).toBeUndefined();
     });
 
     it('returns readiness and liveness checks', async () => {

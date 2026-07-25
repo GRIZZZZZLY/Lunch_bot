@@ -61,8 +61,13 @@ function isValidKey(key: unknown): key is string {
   );
 }
 
-function buildCacheKey(scope: string, userScope: string, clientKey: string): string {
-  return `idem:${scope}:${userScope}:${clientKey}`;
+function buildCacheKey(
+  scope: string,
+  operation: string,
+  userScope: string,
+  clientKey: string
+): string {
+  return `idem:${scope}:${operation}:${userScope}:${clientKey}`;
 }
 
 export function createIdempotencyMiddleware(options: IdempotencyOptions) {
@@ -72,7 +77,7 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
   return async function idempotencyMiddleware(
     req: Request,
     res: Response,
-    next: NextFunction,
+    next: NextFunction
   ): Promise<void> {
     const rawKey = req.header(IDEMPOTENCY_HEADER);
 
@@ -95,7 +100,8 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
         success: false,
         error: 'Invalid Idempotency-Key',
         code: 'IDEMPOTENCY_KEY_INVALID',
-        message: 'Idempotency-Key должен быть 8..200 символов из [A-Za-z0-9_-:.]',
+        message:
+          'Idempotency-Key должен быть 8..200 символов из [A-Za-z0-9_-:.]',
       });
       return;
     }
@@ -104,20 +110,35 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
     // чтобы один Idempotency-Key от разных пользователей не схлопывался.
     const user = (req as any).user;
     const userScope =
-      user?.id != null ? `u${user.id}` : `ip${(req.ip ?? 'unknown').replace(/[^0-9a-z.:]/gi, '_')}`;
+      user?.id != null
+        ? `u${user.id}`
+        : `ip${(req.ip ?? 'unknown').replace(/[^0-9a-z.:]/gi, '_')}`;
 
-    const cacheKey = buildCacheKey(scope, userScope, rawKey);
+    // Один и тот же клиентский ключ в разных маршрутах не должен возвращать
+    // ответ другой операции. Query-параметры намеренно не включаем: они могут
+    // содержать чувствительные данные и не меняют смысл повторной отправки.
+    const operation = `${req.method}:${req.baseUrl}${req.path}`.replace(
+      /[^A-Za-z0-9_:/.-]/g,
+      '_'
+    );
+    const cacheKey = buildCacheKey(scope, operation, userScope, rawKey);
 
     // 1) Проверяем существующий маркер.
     let marker: Marker | undefined;
     try {
       marker = await cacheService.get<Marker>(cacheKey);
-    } catch (err) {
-      logger.warn('idempotency: cache.get failed, passing through', {
-        scope,
-        cacheKey,
-        error: (err as Error).message,
-      });
+    } catch {
+      logger.warn('idempotency: cache read failed', { scope });
+      if (options.required) {
+        res.setHeader('Retry-After', '5');
+        res.status(503).json({
+          success: false,
+          error: 'Idempotency storage unavailable',
+          code: 'IDEMPOTENCY_UNAVAILABLE',
+          message: 'Сервис временно недоступен. Повторите запрос позже.',
+        });
+        return;
+      }
       return next();
     }
 
@@ -146,14 +167,47 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
     // 2) Ставим in-flight маркер. SET с коротким TTL — если процесс упадёт,
     //    маркер сам исчезнет и пользователь сможет ретраить.
     const inflight: Marker = { state: 'inflight', at: Date.now() };
-    const stored = await cacheService.set(cacheKey, inflight, INFLIGHT_TTL_SECONDS);
-    if (!stored) {
-      // Redis недоступен — пропускаем без дедупликации, но логируем.
-      logger.warn('idempotency: cache disabled, passing through without dedup', {
-        scope,
-        cacheKey,
-      });
+    const acquisition = await cacheService.setIfAbsent(
+      cacheKey,
+      inflight,
+      INFLIGHT_TTL_SECONDS
+    );
+    if (acquisition === 'unavailable') {
+      logger.warn('idempotency: cache unavailable', { scope });
+      if (options.required) {
+        res.setHeader('Retry-After', '5');
+        res.status(503).json({
+          success: false,
+          error: 'Idempotency storage unavailable',
+          code: 'IDEMPOTENCY_UNAVAILABLE',
+          message: 'Сервис временно недоступен. Повторите запрос позже.',
+        });
+        return;
+      }
       return next();
+    }
+
+    if (acquisition === 'exists') {
+      const existing = await cacheService.get<Marker>(cacheKey);
+      if (existing?.state === 'done') {
+        metricsService.incrementIdempotencyReplay(scope, 'replay');
+        res.setHeader(REPLAYED_HEADER, 'true');
+        if (existing.response.contentType) {
+          res.setHeader('Content-Type', existing.response.contentType);
+        }
+        res.status(existing.response.status).json(existing.response.body);
+        return;
+      }
+
+      metricsService.incrementIdempotencyReplay(scope, 'inflight');
+      res.setHeader('Retry-After', '2');
+      res.status(409).json({
+        success: false,
+        error: 'Duplicate request in progress',
+        code: 'IDEMPOTENCY_INFLIGHT',
+        message: 'Повторный запрос с тем же Idempotency-Key ещё выполняется.',
+      });
+      return;
     }
 
     // 3) Перехватываем res.json чтобы закешировать успешный ответ.
@@ -167,16 +221,14 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
           response: {
             status: res.statusCode,
             body,
-            contentType: (res.getHeader('Content-Type') as string | undefined) ?? 'application/json',
+            contentType:
+              (res.getHeader('Content-Type') as string | undefined) ??
+              'application/json',
           },
         };
         // fire-and-forget — не блокируем ответ клиенту.
-        cacheService.set(cacheKey, done, ttlSeconds).catch((err: unknown) => {
-          logger.warn('idempotency: cache.set(done) failed', {
-            scope,
-            cacheKey,
-            error: (err as Error).message,
-          });
+        cacheService.set(cacheKey, done, ttlSeconds).catch(() => {
+          logger.warn('idempotency: response cache write failed', { scope });
         });
       } else {
         // 5xx — снимаем in-flight, чтобы клиент мог ретраить.

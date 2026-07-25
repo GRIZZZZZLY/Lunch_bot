@@ -9,7 +9,10 @@ const router = Router();
 
 // G0-8: критично для платёжных переходов — double-tap на mark-paid/confirm
 // без дедупликации = дублирующая транзакция в БД.
-const budgetIdempotency = createIdempotencyMiddleware({ scope: 'budget' });
+const budgetIdempotency = createIdempotencyMiddleware({
+  scope: 'budget',
+  required: true,
+});
 
 // Initialize service and controller
 const budgetService = new BudgetService();

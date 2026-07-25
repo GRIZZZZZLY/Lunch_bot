@@ -1,0 +1,23 @@
+services:
+  production-smoke:
+    build:
+      context: ../..
+      dockerfile: frontend-new/Dockerfile.production-smoke
+    env_file:
+      - .env
+    environment:
+      CI: '1'
+      HOME: /tmp/pw-home
+      E2E_PRODUCTION_REPORT_DIR: /artifacts/report
+      E2E_PRODUCTION_RESULTS_DIR: /artifacts/results
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g,mode=1777
+    shm_size: 1gb
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./artifacts:/artifacts

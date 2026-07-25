@@ -1,6 +1,7 @@
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CategoryOrderService } from './category-order.service';
+import { GroupService } from './group.service';
 // SQLite: enum replaced with string constants
 const CategorySelectionStatus = {
   VOLUNTEER_OPEN: 'VOLUNTEER_OPEN',
@@ -15,9 +16,13 @@ import { now, addMinutesToDate } from '../utils/date';
 import { getBotInstance } from '../bot/bot-instance';
 
 /** @deprecated No-op: bot is now accessed via the shared singleton */
-export function initializeMultiCategoryResponsibleServiceBot(_bot: unknown): void {}
+export function initializeMultiCategoryResponsibleServiceBot(
+  _bot: unknown
+): void {}
 
-function botInstance() { return getBotInstance(); }
+function botInstance() {
+  return getBotInstance();
+}
 const pendingCategorySelections = new Map<number, Set<number>>();
 
 export class MultiCategoryResponsibleService {
@@ -67,7 +72,9 @@ export class MultiCategoryResponsibleService {
     };
   }
 
-  private static async updateCategorySelectionMessage(pollId: number): Promise<void> {
+  private static async updateCategorySelectionMessage(
+    pollId: number
+  ): Promise<void> {
     try {
       if (!botInstance) {
         return;
@@ -89,24 +96,27 @@ export class MultiCategoryResponsibleService {
         return;
       }
 
-      const categoryOrders = await CategoryOrderService.getCategoryOrdersForPoll(
-        pollId
-      );
-      const pendingSelections = pendingCategorySelections.get(pollId) ?? new Set();
-      const { message: selectionMessage, keyboard } = this.buildCategorySelectionMessage(
-        categoryOrders,
-        pendingSelections
-      );
+      const categoryOrders =
+        await CategoryOrderService.getCategoryOrdersForPoll(pollId);
+      const pendingSelections =
+        pendingCategorySelections.get(pollId) ?? new Set();
+      const { message: selectionMessage, keyboard } =
+        this.buildCategorySelectionMessage(categoryOrders, pendingSelections);
 
       if (pendingSelections.size === 0) {
         pendingCategorySelections.delete(pollId);
       }
 
-      const { createCompactPollMessage } = await import('../bot/keyboards/poll.keyboard');
+      const { createCompactPollMessage } = await import(
+        '../bot/keyboards/poll.keyboard'
+      );
       const { VoteService } = await import('./vote.service');
 
       const breakdown = await VoteService.getVoteBreakdown(pollId);
-      const totalVotes = breakdown.reduce((sum: number, item: any) => sum + item.votes, 0);
+      const totalVotes = breakdown.reduce(
+        (sum: number, item: any) => sum + item.votes,
+        0
+      );
 
       let itemCount = 0;
       if (poll.selectedMenuItemIds) {
@@ -166,7 +176,10 @@ export class MultiCategoryResponsibleService {
       // Process each category
       for (const categoryOrder of categoryOrders) {
         // Skip if already has responsible (single participant auto-assigned)
-        if (categoryOrder.selectionStatus !== CategorySelectionStatus.VOLUNTEER_OPEN) {
+        if (
+          categoryOrder.selectionStatus !==
+          CategorySelectionStatus.VOLUNTEER_OPEN
+        ) {
           logger.info(
             `Category "${categoryOrder.category}" already resolved, skipping selection`
           );
@@ -211,9 +224,8 @@ export class MultiCategoryResponsibleService {
         return;
       }
 
-      const categoryOrder = await CategoryOrderService.getCategoryOrder(
-        categoryOrderId
-      );
+      const categoryOrder =
+        await CategoryOrderService.getCategoryOrder(categoryOrderId);
 
       if (!categoryOrder) {
         logger.error('CategoryOrder not found', { categoryOrderId });
@@ -240,23 +252,24 @@ export class MultiCategoryResponsibleService {
   static async handleVolunteerForCategory(
     categoryOrderId: number,
     telegramId: bigint
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
-      const categoryOrder = await CategoryOrderService.getCategoryOrder(
-        categoryOrderId
-      );
+      const categoryOrder =
+        await CategoryOrderService.getCategoryOrder(categoryOrderId);
 
       if (!categoryOrder) {
         logger.error('CategoryOrder not found', { categoryOrderId });
-        return;
+        return false;
       }
 
       // Check if already assigned
-      if (categoryOrder.selectionStatus !== CategorySelectionStatus.VOLUNTEER_OPEN) {
+      if (
+        categoryOrder.selectionStatus !== CategorySelectionStatus.VOLUNTEER_OPEN
+      ) {
         logger.info('Category already has responsible assigned', {
           categoryOrderId,
         });
-        return;
+        return false;
       }
 
       const user = await prisma.user.findUnique({
@@ -264,14 +277,26 @@ export class MultiCategoryResponsibleService {
       });
 
       if (!user) {
-        logger.error('User not found', { telegramId });
-        return;
+        logger.error('User not found for category volunteer action');
+        return false;
+      }
+
+      if (
+        !(await GroupService.isUserGroupMember(
+          user.id,
+          categoryOrder.poll.groupId
+        ))
+      ) {
+        logger.warn('Inactive group member cannot volunteer for category', {
+          userId: user.id,
+          categoryOrderId,
+        });
+        return false;
       }
 
       // Get participants for this category
-      const participants = await CategoryOrderService.getParticipants(
-        categoryOrderId
-      );
+      const participants =
+        await CategoryOrderService.getParticipants(categoryOrderId);
 
       // Verify user is a participant
       if (!participants.includes(user.id)) {
@@ -286,7 +311,7 @@ export class MultiCategoryResponsibleService {
             '❌ Ты не участвуешь в этой категории!'
           );
         }
-        return;
+        return false;
       }
 
       // Check if user is already responsible for another category in this poll
@@ -310,7 +335,7 @@ export class MultiCategoryResponsibleService {
             `❌ Ты уже ответственный за "${existingResponsibility.category}"! Один человек = одна категория.`
           );
         }
-        return;
+        return false;
       }
 
       // Assign responsible
@@ -336,14 +361,18 @@ export class MultiCategoryResponsibleService {
         user.id,
         xpReward.amount,
         xpReward.reason,
-        xpReward.category
+        xpReward.category,
+        { categoryOrderId, selectionMode: 'volunteer' },
+        `category-volunteer:${categoryOrderId}:${user.id}`
       );
 
       logger.info(
         `User ${user.id} volunteered as responsible for category "${categoryOrder.category}"`
       );
+      return true;
     } catch (error) {
       logger.error('Error handling volunteer for category:', error);
+      return false;
     }
   }
 
@@ -354,9 +383,8 @@ export class MultiCategoryResponsibleService {
     categoryOrderId: number
   ): Promise<void> {
     try {
-      const categoryOrder = await CategoryOrderService.getCategoryOrder(
-        categoryOrderId
-      );
+      const categoryOrder =
+        await CategoryOrderService.getCategoryOrder(categoryOrderId);
 
       if (!categoryOrder) {
         logger.error('CategoryOrder not found', { categoryOrderId });
@@ -364,7 +392,9 @@ export class MultiCategoryResponsibleService {
       }
 
       // Check if still needs responsible
-      if (categoryOrder.selectionStatus !== CategorySelectionStatus.VOLUNTEER_OPEN) {
+      if (
+        categoryOrder.selectionStatus !== CategorySelectionStatus.VOLUNTEER_OPEN
+      ) {
         logger.info('Category already has responsible, skipping timeout', {
           categoryOrderId,
         });
@@ -386,9 +416,8 @@ export class MultiCategoryResponsibleService {
    */
   static async runRouletteForCategory(categoryOrderId: number): Promise<void> {
     try {
-      const categoryOrder = await CategoryOrderService.getCategoryOrder(
-        categoryOrderId
-      );
+      const categoryOrder =
+        await CategoryOrderService.getCategoryOrder(categoryOrderId);
 
       if (!categoryOrder) {
         logger.error('CategoryOrder not found', { categoryOrderId });
@@ -396,9 +425,8 @@ export class MultiCategoryResponsibleService {
       }
 
       // Get participants
-      const participantIds = await CategoryOrderService.getParticipants(
-        categoryOrderId
-      );
+      const participantIds =
+        await CategoryOrderService.getParticipants(categoryOrderId);
 
       if (participantIds.length === 0) {
         logger.error('No participants found for roulette', { categoryOrderId });
@@ -460,7 +488,9 @@ export class MultiCategoryResponsibleService {
         winnerId,
         xpReward.amount,
         xpReward.reason,
-        xpReward.category
+        xpReward.category,
+        { categoryOrderId, selectionMode: 'roulette' },
+        `category-roulette:${categoryOrderId}:${winnerId}`
       );
 
       const pending = pendingCategorySelections.get(categoryOrder.pollId);
@@ -502,7 +532,10 @@ export class MultiCategoryResponsibleService {
         categoryOrder.id
       );
 
-      const participantMessages: Record<string, { messageId: number; chatId: string }> = {};
+      const participantMessages: Record<
+        string,
+        { messageId: number; chatId: string }
+      > = {};
 
       for (const userId of participantIds) {
         if (userId === responsible.id) {

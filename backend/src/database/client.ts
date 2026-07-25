@@ -1,6 +1,5 @@
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
 import { logger } from '../utils/logger';
 
 dotenv.config();
@@ -10,16 +9,9 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Создание Prisma Client. PostgreSQL через @prisma/adapter-pg
-// (Prisma 7 client engine требует adapter или accelerateUrl).
-//
-// P2-2: pgBouncer-aware конфиг pool'а.
-//   - @prisma/adapter-pg использует node-postgres pool под капотом, поэтому
-//     prepared statements можно держать включёнными без `pgbouncer=true`-флага
-//     (это специфично для рагулярного binary engine Prisma, а не adapter).
-//   - PG_POOL_MAX / PG_IDLE_TIMEOUT_MS / PG_CONNECTION_TIMEOUT_MS — тюнинг
-//     под cluster mode и pgBouncer (transaction pool). В fork-mode по умолчанию
-//     достаточно 10 соединений на процесс.
+// Prisma 6 используется со штатным PostgreSQL-движком. Prisma 7 требует
+// перевода всего CommonJS-сервера на ESM; смешивание Prisma 7 с текущей
+// CommonJS-сборкой ломает передачу параметров запросов.
 const createPrismaClient = (): PrismaClient => {
   const databaseUrl = process.env.DATABASE_URL;
 
@@ -33,23 +25,7 @@ const createPrismaClient = (): PrismaClient => {
     );
   }
 
-  const poolMax = Number.parseInt(process.env.PG_POOL_MAX ?? '10', 10);
-  const idleTimeoutMillis = Number.parseInt(process.env.PG_IDLE_TIMEOUT_MS ?? '30000', 10);
-  const connectionTimeoutMillis = Number.parseInt(
-    process.env.PG_CONNECTION_TIMEOUT_MS ?? '5000',
-    10,
-  );
-
-  // PrismaPg type takes only `connectionString` strictly; pool tuning идёт
-  // через стандартные PG* env-переменные node-postgres (PGPOOLMAX etc) или
-  // через расширенный конструктор, который не часть public API.
-  // Здесь ограничиваемся документированием тюнинга через env.
-  void poolMax;
-  void idleTimeoutMillis;
-  void connectionTimeoutMillis;
-
-  const adapter = new PrismaPg({ connectionString: databaseUrl });
-  return new PrismaClient({ adapter });
+  return new PrismaClient({ datasourceUrl: databaseUrl });
 };
 
 // Singleton: используем один экземпляр Prisma Client

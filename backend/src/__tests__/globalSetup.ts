@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import { Client } from 'pg';
 
@@ -7,8 +7,8 @@ import { Client } from 'pg';
  *
  * Готовит выделенную PostgreSQL-БД для тестов:
  *   1. Подключается к maintenance-БД `postgres`, создаёт test-БД если её нет.
- *   2. Через `prisma db push --force-reset` накатывает актуальную схему,
- *      попутно сбрасывая всё содержимое (чтобы каждый прогон стартовал с чистого листа).
+ *   2. Через `prisma migrate deploy` применяет ту же неразрушающую цепочку
+ *      миграций, которая используется при выпуске.
  *
  * Переменные окружения:
  *   - TEST_DATABASE_URL — если задано, используется как есть.
@@ -39,37 +39,18 @@ export default async function globalSetup(): Promise<void> {
 
   const backendDir = path.resolve(__dirname, '..', '..');
 
-  // --url переопределяет DATABASE_URL из prisma.config.ts (который читает .env)
-  // и гарантирует, что push идёт именно в test-БД.
-  execSync(
-    `npx prisma db push --force-reset --accept-data-loss --url="${testDatabaseUrl}"`,
-    {
-      cwd: backendDir,
-      stdio: 'inherit',
-      env: { ...process.env, DATABASE_URL: testDatabaseUrl },
-    }
+  const prismaCli = path.resolve(
+    backendDir,
+    'node_modules',
+    'prisma',
+    'build',
+    'index.js'
   );
-
-  // Prisma-схема не умеет выражать частичный (filtered) уникальный индекс, поэтому
-  // накатываем его вручную — так test-БД совпадает с прод (там индекс идёт миграцией).
-  // Гарантирует ≤1 ACTIVE poll на группу даже при конкурентных createPoll.
-  await applyPartialUniqueIndexes(testDatabaseUrl);
-}
-
-/**
- * Частичные уникальные индексы, которых нет в schema.prisma.
- * Держим синхронно с prisma/migrations/*_poll_one_active_per_group.
- */
-async function applyPartialUniqueIndexes(testDatabaseUrl: string): Promise<void> {
-  const client = new Client({ connectionString: testDatabaseUrl });
-  try {
-    await client.connect();
-    await client.query(
-      `CREATE UNIQUE INDEX IF NOT EXISTS "polls_one_active_per_group" ON "polls" ("group_id") WHERE "status" = 'ACTIVE'`
-    );
-  } finally {
-    await client.end();
-  }
+  execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
+    cwd: backendDir,
+    stdio: 'inherit',
+    env: { ...process.env, DATABASE_URL: testDatabaseUrl },
+  });
 }
 
 function redactDatabaseUrl(databaseUrl: string): string {

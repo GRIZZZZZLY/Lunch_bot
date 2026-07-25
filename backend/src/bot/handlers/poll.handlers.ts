@@ -3,10 +3,43 @@ import { BotContext } from '../../types/bot.types';
 import { PollService } from '../../services/poll.service';
 import { VoteService } from '../../services/vote.service';
 import { UserService } from '../../services/user.service';
-import { RouletteService, RouletteResult } from '../../services/roulette.service';
+import {
+  RouletteService,
+  RouletteResult,
+} from '../../services/roulette.service';
 import { NotificationService } from '../../services/notification.service';
+import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { createResultsMessage } from '../keyboards/poll.keyboard';
+
+async function getAuthorizedGroupAdmin(
+  ctx: CallbackQueryContext<BotContext> | Context,
+  pollId: number
+): Promise<{
+  poll: NonNullable<Awaited<ReturnType<typeof PollService.getPollById>>>;
+  user: NonNullable<
+    Awaited<ReturnType<typeof UserService.getUserByTelegramId>>
+  >;
+} | null> {
+  const telegramUser = ctx.from;
+  if (!telegramUser) {
+    return null;
+  }
+
+  const [poll, user] = await Promise.all([
+    PollService.getPollById(pollId),
+    UserService.getUserByTelegramId(BigInt(telegramUser.id)),
+  ]);
+  if (
+    !poll ||
+    !user ||
+    !(await GroupService.isUserGroupAdmin(user.id, poll.groupId))
+  ) {
+    return null;
+  }
+
+  return { poll, user };
+}
 
 /**
  * Обработка завершения голосования
@@ -16,36 +49,24 @@ export async function handleCompletePoll(
   pollId: number
 ): Promise<void> {
   try {
-    const user = ctx.from;
-    if (!user) {
-      await ctx.answerCallbackQuery('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
+    const authorization = await getAuthorizedGroupAdmin(ctx, pollId);
+    if (!authorization) {
+      await ctx.answerCallbackQuery(
+        '❌ Только администратор этой группы может завершить голосование'
+      );
       return;
-    }
-
-    // Проверяем права администратора
-    const isAdmin = await UserService.isAdmin(BigInt(user.id));
-    const chat = ctx.chat;
-
-    if (!isAdmin && chat) {
-      const member = await ctx.api.getChatMember(chat.id, user.id);
-      const isChatAdmin = ['creator', 'administrator'].includes(member.status);
-      
-      if (!isChatAdmin) {
-        await ctx.answerCallbackQuery('❌ Только администраторы могут завершать голосование');
-        return;
-      }
     }
 
     // Завершаем голосование
     const result = await PollService.completePoll(pollId);
-    
+
     await ctx.answerCallbackQuery('✅ Голосование завершено');
-    
+
     // Обновляем сообщение
     const votes = await VoteService.getPollVotes(pollId);
     const breakdown = await VoteService.getVoteBreakdown(pollId);
     const voteTypeStats = await VoteService.getVoteTypeStats(pollId);
-    
+
     const resultsMessage = createResultsMessage({
       poll: result,
       result,
@@ -58,13 +79,12 @@ export async function handleCompletePoll(
       parse_mode: 'Markdown',
     });
 
-    logger.info(`Poll completed: ${pollId} by user ${user.id}`);
+    logger.info('Poll completed from bot callback', { pollId });
 
     // Автоматически запускаем рулетку если включено
     if (process.env.AUTO_ROULETTE_ENABLED === 'true' && votes.length > 0) {
       setTimeout(() => handleRunRoulette(ctx, pollId), 2000);
     }
-
   } catch (error) {
     logger.error('Error in handleCompletePoll:', error);
     await ctx.answerCallbackQuery('❌ Ошибка при завершении голосования');
@@ -79,13 +99,16 @@ export async function handleRunRoulette(
   pollId: number
 ): Promise<void> {
   try {
-    const poll = await PollService.getPollById(pollId);
-    if (!poll) {
+    const authorization = await getAuthorizedGroupAdmin(ctx, pollId);
+    if (!authorization) {
       if ('answerCallbackQuery' in ctx) {
-        await ctx.answerCallbackQuery('❌ Голосование не найдено');
+        await ctx.answerCallbackQuery(
+          '❌ Голосование не найдено или нет прав администратора'
+        );
       }
       return;
     }
+    const { poll } = authorization;
 
     // Проверяем, что голосование завершено
     if (poll.status === 'ACTIVE') {
@@ -135,14 +158,16 @@ export async function handleRunRoulette(
     // Отправляем уведомление ответственному
     if (process.env.NOTIFICATION_ENABLED === 'true') {
       const notificationService = new NotificationService();
-      await notificationService.notifyResponsible(pollId, result.responsibleUserId);
+      await notificationService.notifyResponsible(
+        pollId,
+        result.responsibleUserId
+      );
     }
 
     logger.info(`Roulette completed for poll ${pollId}`, {
       responsibleUserId: result.responsibleUserId,
       winnerItem: result.winnerMenuItemId,
     });
-
   } catch (error) {
     logger.error('Error in handleRunRoulette:', error);
     if ('answerCallbackQuery' in ctx) {
@@ -161,8 +186,7 @@ async function showRouletteAnimation(
   try {
     const { animationData, responsibleUserName, winnerMenuItemName } = result;
 
-    const initialText =
-      '🎰 *Крутим рулетку...*\nВыбираем, кто оформит заказ.';
+    const initialText = '🎰 *Крутим рулетку...*\nВыбираем, кто оформит заказ.';
     let rouletteMessage: any = null;
 
     if ('callbackQuery' in ctx && ctx.callbackQuery?.message) {
@@ -175,18 +199,22 @@ async function showRouletteAnimation(
           { parse_mode: 'Markdown' }
         );
       } catch (error) {
-        rouletteMessage = await ctx.reply(initialText, { parse_mode: 'Markdown' });
+        rouletteMessage = await ctx.reply(initialText, {
+          parse_mode: 'Markdown',
+        });
       }
     } else {
-      rouletteMessage = await ctx.reply(initialText, { parse_mode: 'Markdown' });
+      rouletteMessage = await ctx.reply(initialText, {
+        parse_mode: 'Markdown',
+      });
     }
 
     // Анимация "прокрутки" участников
     for (let i = 0; i < animationData.steps.length; i++) {
       const step = animationData.steps[i];
-      
+
       await new Promise(resolve => setTimeout(resolve, step.delay));
-      
+
       try {
         await ctx.api.editMessageText(
           rouletteMessage.chat.id,
@@ -201,7 +229,7 @@ async function showRouletteAnimation(
 
     // Финальное сообщение
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     let finalMessage = `🎉 *Рулетка выбрала ответственного*\n\n`;
     finalMessage += `🎯 ${responsibleUserName} оформляет заказ\n`;
 
@@ -215,7 +243,6 @@ async function showRouletteAnimation(
       finalMessage,
       { parse_mode: 'Markdown' }
     );
-
   } catch (error) {
     logger.error('Error in showRouletteAnimation:', error);
   }
@@ -229,50 +256,29 @@ export async function handleCancelPoll(
   pollId: number
 ): Promise<void> {
   try {
-    const user = ctx.from;
-    if (!user) {
-      await ctx.answerCallbackQuery('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
+    const authorization = await getAuthorizedGroupAdmin(ctx, pollId);
+    if (!authorization) {
+      await ctx.answerCallbackQuery(
+        '❌ Только администратор этой группы может отменить голосование'
+      );
       return;
     }
-
-    // Проверяем права администратора
-    const isAdmin = await UserService.isAdmin(BigInt(user.id));
-    const chat = ctx.chat;
-
-    if (!isAdmin && chat) {
-      const member = await ctx.api.getChatMember(chat.id, user.id);
-      const isChatAdmin = ['creator', 'administrator'].includes(member.status);
-      
-      if (!isChatAdmin) {
-        await ctx.answerCallbackQuery('❌ Только администраторы могут отменять голосование');
-        return;
-      }
-    }
-
-    // Получаем пользователя из БД
-    let dbUser = await UserService.getUserByTelegramId(BigInt(user.id));
-    if (!dbUser) {
-      dbUser = await UserService.createUser({
-        telegramId: user.id.toString(),
-        username: user.username,
-        firstName: user.first_name,
-        lastName: user.last_name,
-      });
-    }
+    const dbUser = authorization.user;
 
     // Отменяем голосование с уведомлениями
     await PollService.cancelPoll(pollId, dbUser.id, 'Отменено администратором');
-    
+
     await ctx.answerCallbackQuery('🚫 Голосование отменено');
-    
+
     await ctx.editMessageText(
-      '🚫 *Голосование отменено админом*\n' +
-      'Участники получили уведомление.',
+      '🚫 *Голосование отменено админом*\n' + 'Участники получили уведомление.',
       { parse_mode: 'Markdown' }
     );
 
-    logger.info(`Poll cancelled: ${pollId} by user ${user.id} (${dbUser.id})`);
-
+    logger.info('Poll cancelled from bot callback', {
+      pollId,
+      userId: dbUser.id,
+    });
   } catch (error) {
     logger.error('Error in handleCancelPoll:', error);
     await ctx.answerCallbackQuery('❌ Ошибка при отмене голосования');
@@ -290,7 +296,9 @@ export async function handleOpenPollButton(
   try {
     const user = ctx.from;
     if (!user) {
-      await ctx.answerCallbackQuery('❌ Не удалось распознать пользователя. Перезапусти бота командой /start');
+      await ctx.answerCallbackQuery(
+        '❌ Не удалось распознать пользователя. Перезапусти бота командой /start'
+      );
       return;
     }
 
@@ -321,10 +329,9 @@ export async function handleOpenPollButton(
       url: deepLinkUrl,
     });
 
-    logger.info(`Deep link generated for poll ${pollId}, user ${user.id}`);
+    logger.info('Poll deep link generated', { pollId });
   } catch (error) {
     logger.error('Error in handleOpenPollButton:', error);
     await ctx.answerCallbackQuery('❌ Ошибка при открытии голосования');
   }
 }
-

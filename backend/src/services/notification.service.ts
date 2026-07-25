@@ -743,11 +743,10 @@ export class NotificationService {
       where: {
         groupId: storeRun.groupId,
         isActive: true,
+        participatesInPolls: true,
         userId: { not: storeRun.initiatorId },
-        // Удалёнщик (participatesInPolls=false) не в офисе — магазин ему не нужен ни в каком кейсе.
         user: {
           isActive: true,
-          participatesInPolls: true,
         },
       },
       include: { user: true },
@@ -864,7 +863,6 @@ export class NotificationService {
       where: {
         id: { in: participantIds },
         isActive: true,
-        participatesInPolls: true,
       },
       select: { id: true, telegramId: true, firstName: true },
     });
@@ -1245,7 +1243,6 @@ export class NotificationService {
       where: {
         id: { in: noDebtIds },
         isActive: true,
-        participatesInPolls: true,
       },
       select: { id: true, telegramId: true },
     });

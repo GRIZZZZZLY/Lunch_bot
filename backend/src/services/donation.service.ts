@@ -12,6 +12,24 @@ export type DonationStatus =
 
 const MIN_AMOUNT_STARS = 1;
 const MAX_AMOUNT_STARS = 1000;
+const STARS_CURRENCY = 'XTR';
+
+interface StarsPaymentData {
+  invoicePayload: string;
+  telegramUserId: number;
+  currency: string;
+  totalAmount: number;
+}
+
+interface PreCheckoutValidation {
+  ok: boolean;
+  error?: string;
+}
+
+function extractDonationId(invoicePayload: string): string | null {
+  const match = /^donation:([A-Za-z0-9_-]{1,128})$/.exec(invoicePayload);
+  return match?.[1] ?? null;
+}
 
 function getStarsRate(): number {
   // Сколько Stars в 1 ₽ (для derived amountRub в БД, аналитика)
@@ -41,6 +59,41 @@ export function validateAmountStars(amountStars: unknown): number {
 }
 
 class DonationService {
+  async validateStarsPreCheckout(
+    payment: StarsPaymentData
+  ): Promise<PreCheckoutValidation> {
+    const donationId = extractDonationId(payment.invoicePayload);
+    if (
+      !donationId ||
+      payment.currency !== STARS_CURRENCY ||
+      !Number.isSafeInteger(payment.telegramUserId) ||
+      !Number.isSafeInteger(payment.totalAmount) ||
+      payment.totalAmount < MIN_AMOUNT_STARS
+    ) {
+      return { ok: false, error: 'Некорректные параметры платежа' };
+    }
+
+    const donation = await prisma.donation.findUnique({
+      where: { id: donationId },
+      select: {
+        method: true,
+        status: true,
+        amountStars: true,
+        user: { select: { telegramId: true } },
+      },
+    });
+
+    const matches =
+      donation?.method === 'STARS' &&
+      donation.status === 'PENDING' &&
+      donation.amountStars === payment.totalAmount &&
+      donation.user.telegramId === BigInt(payment.telegramUserId);
+
+    return matches
+      ? { ok: true }
+      : { ok: false, error: 'Счёт устарел или не соответствует платежу' };
+  }
+
   /**
    * Создать инвойс Telegram Stars и pending-запись Donation.
    * Возвращает ссылку, которую фронт открывает через Telegram.WebApp.openInvoice.
@@ -104,45 +157,73 @@ class DonationService {
    * Идемпотентно — повторный вызов с тем же chargeId не дублирует обновление.
    */
   async confirmStarsPayment(
-    invoicePayload: string,
-    telegramChargeId: string
+    payment: StarsPaymentData & { telegramChargeId: string }
   ): Promise<void> {
-    const match = /^donation:(.+)$/.exec(invoicePayload);
-    if (!match) {
-      logger.warn('successful_payment with non-donation payload', {
-        invoicePayload,
-      });
-      return;
+    if (
+      !payment.telegramChargeId ||
+      payment.telegramChargeId.length > 256
+    ) {
+      throw new Error('Invalid Telegram payment charge identifier');
     }
-    const donationId = match[1];
 
-    // Atomic conditional update — guarantees only ONE caller flips PENDING → CONFIRMED
-    // even if Telegram redelivers successful_payment (or two workers race).
-    // updateMany returns count of rows actually updated (0 if already CONFIRMED).
+    const donationId = extractDonationId(payment.invoicePayload);
+    if (!donationId) {
+      throw new Error('Successful payment does not match the donation');
+    }
+
+    const chargeOwner = await prisma.donation.findUnique({
+      where: { externalId: payment.telegramChargeId },
+      select: { id: true },
+    });
+    if (chargeOwner) {
+      if (chargeOwner.id === donationId) {
+        logger.info('Donation payment already confirmed');
+        return;
+      }
+      throw new Error('Telegram charge is already assigned');
+    }
+
+    const validation = await this.validateStarsPreCheckout(payment);
+    if (!validation.ok) {
+      throw new Error('Successful payment does not match the donation');
+    }
+
     const updateResult = await prisma.donation.updateMany({
       where: {
         id: donationId,
-        status: { not: 'CONFIRMED' },
+        user: { telegramId: BigInt(payment.telegramUserId) },
+        method: 'STARS',
+        status: 'PENDING',
+        amountStars: payment.totalAmount,
       },
       data: {
         status: 'CONFIRMED',
-        externalId: telegramChargeId,
+        externalId: payment.telegramChargeId,
         confirmedAt: new Date(),
       },
     });
 
     if (updateResult.count === 0) {
-      // Donation either doesn't exist or is already CONFIRMED — no side effects.
-      const exists = await prisma.donation.findUnique({
+      const existing = await prisma.donation.findUnique({
         where: { id: donationId },
-        select: { id: true, status: true },
+        select: {
+          status: true,
+          externalId: true,
+          amountStars: true,
+          user: { select: { telegramId: true } },
+        },
       });
-      if (!exists) {
-        logger.error('Donation not found for confirmation', { donationId });
-      } else {
-        logger.info('Donation already confirmed (idempotent)', { donationId });
+      const isSameConfirmedPayment =
+        existing?.status === 'CONFIRMED' &&
+        existing.externalId === payment.telegramChargeId &&
+        existing.amountStars === payment.totalAmount &&
+        existing.user.telegramId === BigInt(payment.telegramUserId);
+      if (isSameConfirmedPayment) {
+        logger.info('Donation payment already confirmed');
+        return;
       }
-      return;
+
+      throw new Error('Donation payment could not be confirmed atomically');
     }
 
     const donation = await prisma.donation.findUnique({ where: { id: donationId } });
@@ -152,9 +233,8 @@ class DonationService {
       return;
     }
 
-    logger.info('✅ Stars donation confirmed', {
+    logger.info('Stars donation confirmed', {
       donationId,
-      telegramChargeId,
       userId: donation.userId,
       amountStars: donation.amountStars,
     });

@@ -14,32 +14,6 @@ vi.mock('@/services/api.service', () => ({
   },
 }));
 
-class FakeEventSource {
-  static instances: FakeEventSource[] = [];
-
-  listeners = new Map<string, (event: MessageEvent) => void>();
-  onerror: (() => void) | null = null;
-  close = vi.fn();
-
-  constructor(public url: string) {
-    FakeEventSource.instances.push(this);
-  }
-
-  addEventListener(type: string, listener: (event: MessageEvent) => void) {
-    this.listeners.set(type, listener);
-  }
-
-  removeEventListener(type: string, listener: (event: MessageEvent) => void) {
-    if (this.listeners.get(type) === listener) {
-      this.listeners.delete(type);
-    }
-  }
-
-  dispatch(type: string, data: unknown) {
-    this.listeners.get(type)?.({ data: JSON.stringify(data) } as MessageEvent);
-  }
-}
-
 const createWrapper = (queryClient: QueryClient) => {
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -51,9 +25,7 @@ const createWrapper = (queryClient: QueryClient) => {
 describe('useSSE', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    FakeEventSource.instances = [];
     getTokenMock.mockReturnValue('jwt-token');
-    vi.stubGlobal('EventSource', FakeEventSource);
   });
 
   afterEach(() => {
@@ -63,7 +35,21 @@ describe('useSSE', () => {
   });
 
   it('connects to the poll stream with token and invalidates poll queries on updates', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let streamController:
+      | ReadableStreamDefaultController<Uint8Array>
+      | undefined;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller;
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: stream,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -80,19 +66,30 @@ describe('useSSE', () => {
     );
 
     await waitFor(() => {
-      expect(FakeEventSource.instances).toHaveLength(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(FakeEventSource.instances[0].url).toContain(
-      '/api/polls/7/stream?token=jwt-token'
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/polls/7/stream'),
+      expect.objectContaining({
+        headers: {
+          Accept: 'text/event-stream',
+          Authorization: 'Bearer jwt-token',
+        },
+      })
     );
+    expect(fetchMock.mock.calls[0][0]).not.toContain('token=');
 
-    FakeEventSource.instances[0].dispatch('poll_updated', {
-      pollId: 7,
-      timestamp: '2026-07-01T12:00:00.000Z',
-      type: 'vote_added',
-      userId: 5,
-    });
+    const event = [
+      'event: connected',
+      'data: {}',
+      '',
+      'event: poll_updated',
+      'data: {"pollId":7,"timestamp":"2026-07-01T12:00:00.000Z","type":"vote_added","userId":5}',
+      '',
+      '',
+    ].join('\n');
+    streamController?.enqueue(new TextEncoder().encode(event));
 
     await waitFor(() => {
       expect(onPollUpdated).toHaveBeenCalledWith(
@@ -105,6 +102,5 @@ describe('useSSE', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ['polls', 'active'],
     });
-    expect(logSpy).not.toHaveBeenCalled();
   });
 });

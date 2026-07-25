@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useState, type ChangeEvent, type ReactNode } from 'react';
 import type { PaymentInfo } from '@/services/user.service';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, Field } from '@/components/rl/primitives';
@@ -21,19 +21,22 @@ function FormField({ label, htmlFor, children }: { label: string; htmlFor: strin
 }
 
 export function EditPaymentInfoSheet({ open, initial, busy, onClose, onSubmit }: Props) {
-  const [sbpPhone, setSbpPhone] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-
-  useEffect(() => {
-    if (open) {
-      setSbpPhone(initial?.sbpPhone ?? '');
-      setBankName(initial?.bankName ?? '');
-      setCardNumber(initial?.cardNumber ?? '');
-    }
-  }, [open, initial]);
-
   if (!open) return null;
+
+  return (
+    <EditPaymentInfoForm
+      initial={initial}
+      busy={busy}
+      onClose={onClose}
+      onSubmit={onSubmit}
+    />
+  );
+}
+
+function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, 'open'>) {
+  const [sbpPhone, setSbpPhone] = useState(initial?.sbpPhone ?? '');
+  const [bankName, setBankName] = useState(initial?.bankName ?? '');
+  const [cardNumber, setCardNumber] = useState(initial?.cardNumber ?? '');
 
   const handleSave = () => {
     onSubmit({

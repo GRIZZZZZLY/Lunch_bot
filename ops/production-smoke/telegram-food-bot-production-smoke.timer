@@ -1,0 +1,12 @@
+[Unit]
+Description=Запуск проверки Telegram Food Bot каждые 10 минут
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+RandomizedDelaySec=30
+Persistent=true
+Unit=telegram-food-bot-production-smoke.service
+
+[Install]
+WantedBy=timers.target

@@ -576,29 +576,29 @@ export class BudgetService {
   /**
    * Отметить как оплаченное
    */
-  static async markAsPaid(txId: number, telegramId: number): Promise<any> {
+  static async markAsPaid(txId: number, actorUserId: number): Promise<any> {
     try {
-      // ✅ FIX: Проверяем текущий статус - нельзя понизить CONFIRMED
-      const currentTx = await prisma.transaction.findUnique({
-        where: { id: txId },
-        select: { status: true },
-      });
-
-      if (!currentTx) throw new Error('Transaction not found');
-      if (currentTx.status === 'CONFIRMED')
-        throw new Error('Cannot modify confirmed payment');
-      if (currentTx.status === 'PAID') {
-        return await prisma.transaction.findUnique({
-          where: { id: txId },
-          include: { fromUser: true, toUser: true, menuItem: true },
-        });
-      }
-
-      const tx = await prisma.transaction.update({
-        where: { id: txId },
+      const transition = await prisma.transaction.updateMany({
+        where: {
+          id: txId,
+          fromUserId: actorUserId,
+          status: 'PENDING',
+        },
         data: { status: 'PAID', paidAt: now() },
+      });
+      const tx = await prisma.transaction.findUnique({
+        where: { id: txId },
         include: { fromUser: true, toUser: true, menuItem: true },
       });
+      if (!tx) throw new Error('Transaction not found');
+      if (tx.fromUserId !== actorUserId) throw new Error('Access denied');
+      if (transition.count === 0) {
+        if (tx.status === 'PAID') return tx;
+        if (tx.status === 'CONFIRMED') {
+          throw new Error('Cannot modify confirmed payment');
+        }
+        throw new Error('Transaction state changed');
+      }
 
       logger.info('Transaction marked as paid', { txId });
 
@@ -633,29 +633,29 @@ export class BudgetService {
   /**
    * Подтвердить оплату
    */
-  static async confirmPayment(txId: number): Promise<any> {
+  static async confirmPayment(txId: number, actorUserId: number): Promise<any> {
     try {
-      // ✅ FIX: Проверяем что транзакция в статусе PAID
-      const currentTx = await prisma.transaction.findUnique({
-        where: { id: txId },
-        select: { status: true },
-      });
-
-      if (!currentTx) throw new Error('Transaction not found');
-      if (currentTx.status === 'CONFIRMED') {
-        return await prisma.transaction.findUnique({
-          where: { id: txId },
-          include: { fromUser: true, toUser: true },
-        });
-      }
-      if (currentTx.status === 'PENDING')
-        throw new Error('Cannot confirm unpaid transaction');
-
-      const tx = await prisma.transaction.update({
-        where: { id: txId },
+      const transition = await prisma.transaction.updateMany({
+        where: {
+          id: txId,
+          toUserId: actorUserId,
+          status: 'PAID',
+        },
         data: { status: 'CONFIRMED', confirmedAt: now() },
+      });
+      const tx = await prisma.transaction.findUnique({
+        where: { id: txId },
         include: { fromUser: true, toUser: true },
       });
+      if (!tx) throw new Error('Transaction not found');
+      if (tx.toUserId !== actorUserId) throw new Error('Access denied');
+      if (transition.count === 0) {
+        if (tx.status === 'CONFIRMED') return tx;
+        if (tx.status === 'PENDING') {
+          throw new Error('Cannot confirm unpaid transaction');
+        }
+        throw new Error('Transaction state changed');
+      }
 
       logger.info('Transaction confirmed', { txId });
 
@@ -712,12 +712,18 @@ export class BudgetService {
     responsibleUserId: number
   ): Promise<void> {
     try {
-      const transactions = await prisma.transaction.findMany({
+      const transitioned = await prisma.transaction.updateManyAndReturn({
         where: {
           pollId,
           toUserId: responsibleUserId,
           status: { in: ['PENDING', 'PAID'] },
         },
+        data: { status: 'CONFIRMED', confirmedAt: now() },
+        select: { id: true },
+      });
+
+      const transactions = await prisma.transaction.findMany({
+        where: { id: { in: transitioned.map(tx => tx.id) } },
         include: { fromUser: true, toUser: true },
       });
 
@@ -727,12 +733,6 @@ export class BudgetService {
         });
         return;
       }
-
-      // Подтверждаем все транзакции одним запросом вместо N последовательных update
-      await prisma.transaction.updateMany({
-        where: { id: { in: transactions.map(tx => tx.id) } },
-        data: { status: 'CONFIRMED', confirmedAt: now() },
-      });
 
       // Уведомляем каждого должника (Telegram неизбежно O(n))
       if (botInstance()) {
@@ -981,33 +981,15 @@ export class BudgetService {
   /**
    * Пометить транзакцию как оплаченную
    */
-  async markAsPaid(transactionId: number) {
-    try {
-      // Получаем транзакцию чтобы взять telegramId
-      const tx = await prisma.transaction.findUnique({
-        where: { id: transactionId },
-        include: { fromUser: true },
-      });
-
-      if (!tx) {
-        throw new Error('Transaction not found');
-      }
-
-      return BudgetService.markAsPaid(
-        transactionId,
-        Number(tx.fromUser.telegramId)
-      );
-    } catch (error) {
-      logger.error('Error marking as paid:', error);
-      throw error;
-    }
+  async markAsPaid(transactionId: number, actorUserId: number) {
+    return BudgetService.markAsPaid(transactionId, actorUserId);
   }
 
   /**
    * Подтвердить получение платежа
    */
-  async confirmPayment(transactionId: number) {
-    return BudgetService.confirmPayment(transactionId);
+  async confirmPayment(transactionId: number, actorUserId: number) {
+    return BudgetService.confirmPayment(transactionId, actorUserId);
   }
 
   /**
@@ -1023,40 +1005,33 @@ export class BudgetService {
   /**
    * Отменить пометку оплаты (вернуть в PENDING)
    */
-  async cancelMarkAsPaid(transactionId: number) {
+  async cancelMarkAsPaid(transactionId: number, actorUserId: number) {
     try {
-      // ✅ FIX: Проверяем текущий статус - нельзя отменить подтверждённый платёж
-      const currentTx = await prisma.transaction.findUnique({
-        where: { id: transactionId },
-        select: { status: true },
-      });
-
-      if (!currentTx) {
-        throw new Error('Transaction not found');
-      }
-
-      if (currentTx.status === 'CONFIRMED') {
-        throw new Error('Cannot cancel confirmed payment');
-      }
-
-      if (currentTx.status === 'PENDING') {
-        logger.warn('Transaction already in PENDING status', { transactionId });
-        return await prisma.transaction.findUnique({
-          where: { id: transactionId },
-          include: { fromUser: true, toUser: true },
-        });
-      }
-
-      const tx = await prisma.transaction.update({
-        where: { id: transactionId },
+      const transition = await prisma.transaction.updateMany({
+        where: {
+          id: transactionId,
+          fromUserId: actorUserId,
+          status: 'PAID',
+        },
         data: {
           status: 'PENDING',
           paidAt: null,
-          // ✅ FIX: Очищаем confirmedAt при отмене
           confirmedAt: null,
         },
+      });
+      const tx = await prisma.transaction.findUnique({
+        where: { id: transactionId },
         include: { fromUser: true, toUser: true },
       });
+      if (!tx) throw new Error('Transaction not found');
+      if (tx.fromUserId !== actorUserId) throw new Error('Access denied');
+      if (transition.count === 0) {
+        if (tx.status === 'PENDING') return tx;
+        if (tx.status === 'CONFIRMED') {
+          throw new Error('Cannot cancel confirmed payment');
+        }
+        throw new Error('Transaction state changed');
+      }
 
       logger.info('Transaction mark cancelled', { transactionId });
 
@@ -1620,10 +1595,11 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
    * Идемпотентно: если для данного storeRunId транзакции уже есть — возвращает существующие.
    */
   static async createTransactionsForStoreRun(
-    storeRunId: number
+    storeRunId: number,
+    db: Prisma.TransactionClient = prisma
   ): Promise<Transaction[]> {
     try {
-      const storeRun = await prisma.storeRun.findUnique({
+      const storeRun = await db.storeRun.findUnique({
         where: { id: storeRunId },
         include: {
           items: true,
@@ -1662,8 +1638,8 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       // создание идемпотентным даже при конкурентном вызове (двойной клик
       // «завершить забег»). findMany после вставки гарантирует, что вернётся
       // полный набор транзакций забега независимо от того, кто их создал.
-      await prisma.transaction.createMany({ data, skipDuplicates: true });
-      const created = await prisma.transaction.findMany({
+      await db.transaction.createMany({ data, skipDuplicates: true });
+      const created = await db.transaction.findMany({
         where: { storeRunId },
       });
 

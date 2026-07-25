@@ -38,10 +38,6 @@ async function requireGroupMember(
   const user = getAuthUser(req, res);
   if (!user) return false;
 
-  if (user.isAdmin) {
-    return true;
-  }
-
   const hasAccess = await GroupService.isUserGroupMember(user.id, groupId);
   if (!hasAccess) {
     res.status(403).json({
@@ -62,10 +58,6 @@ async function requireGroupAdmin(
 ): Promise<boolean> {
   const user = getAuthUser(req, res);
   if (!user) return false;
-
-  if (user.isAdmin) {
-    return true;
-  }
 
   const hasAccess = await GroupService.isUserGroupAdmin(user.id, groupId);
   if (!hasAccess) {
@@ -741,24 +733,19 @@ export class PollController {
    */
   static async createPollFromWebApp(req: Request, res: Response): Promise<void> {
     try {
-      logger.info('🚀 START createPollFromWebApp');
-      
       const { groupId, duration, selectedMenuItems, title, isMultiSelect, maxSelections } = req.body;
       const user = (req as any).user;
 
-      // Детальное логирование для отладки
       logger.info('Creating poll from WebApp', {
         groupId,
         duration,
-        selectedMenuItems,
-        title,
         isMultiSelect,
         maxSelections,
         userId: user?.id,
-        body: req.body
+        selectedItemsCount: Array.isArray(selectedMenuItems)
+          ? selectedMenuItems.length
+          : 0,
       });
-      
-      logger.info('📊 After initial logging, before validation');
 
       // Валидация
       if (!groupId || isNaN(parseInt(groupId))) {
@@ -1083,13 +1070,23 @@ export class PollController {
 
       // Получаем причину отмены из тела запроса (опционально)
       const { reason } = req.body || {};
+      if (
+        reason !== undefined &&
+        (typeof reason !== 'string' || reason.length > 500)
+      ) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid cancellation reason',
+          code: 'INVALID_BODY',
+        });
+        return;
+      }
 
       const poll = await PollService.cancelPoll(id, user.id, reason || 'Отменено через API');
 
       logger.info('Poll cancelled via API', {
         pollId: id,
         cancelledBy: user.id,
-        reason: reason || 'Отменено через API'
       });
 
       res.json({
@@ -1105,6 +1102,17 @@ export class PollController {
           success: false,
           error: 'Poll not found',
           code: 'POLL_NOT_FOUND'
+        });
+        return;
+      }
+      if (
+        error instanceof Error &&
+        error.message === 'Only an active poll can be cancelled'
+      ) {
+        res.status(409).json({
+          success: false,
+          error: error.message,
+          code: 'INVALID_POLL_STATE',
         });
         return;
       }
@@ -1127,16 +1135,6 @@ export class PollController {
       const pollId = parseInt(getParam(req.params, 'id'), 10);
       const { menuItemId } = req.body;
       const user = (req as any).user;
-
-      // 🔍 DEBUG: Логируем информацию о пользователе
-      logger.info('🔍 DEBUG: Vote request from user:', {
-        userId: user.id,
-        telegramId: user.telegramId,
-        firstName: user.firstName,
-        username: user.username,
-        pollId,
-        menuItemId,
-      });
 
       if (isNaN(pollId)) {
         res.status(400).json({
@@ -1219,6 +1217,8 @@ export class PollController {
           'Poll has expired',
           'Menu item is not available for this poll',
           'Poll menu configuration is invalid',
+          'User is not eligible to vote in this poll',
+          'User is not eligible to vote in this poll',
         ].includes(error.message)) {
           res.status(400).json({
             success: false,
@@ -1247,16 +1247,6 @@ export class PollController {
       const pollId = parseInt(getParam(req.params, 'id'), 10);
       const { menuItemIds } = req.body;
       const user = (req as any).user;
-
-      logger.info('🔍 DEBUG: Multiple vote request from user:', {
-        userId: user.id,
-        telegramId: user.telegramId,
-        firstName: user.firstName,
-        username: user.username,
-        pollId,
-        menuItemIds,
-        count: menuItemIds?.length || 0,
-      });
 
       // Валидация pollId
       if (isNaN(pollId)) {
@@ -1574,7 +1564,6 @@ export class PollController {
         res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
         return;
       }
-
       const hasAccess = await requireGroupMember(req, res, groupId);
       if (!hasAccess) return;
 

@@ -1,8 +1,4 @@
-import {
-  CategoryOrder,
-  OrderItem,
-  Prisma,
-} from '@prisma/client';
+import { CategoryOrder, OrderItem, Prisma } from '@prisma/client';
 
 // SQLite: enum replaced with string constants
 const CategorySelectionStatus = {
@@ -11,11 +7,14 @@ const CategorySelectionStatus = {
   SELECTED_ROULETTE: 'SELECTED_ROULETTE',
   VOLUNTEER_OPEN: 'VOLUNTEER_OPEN',
 } as const;
-type CategorySelectionStatus = typeof CategorySelectionStatus[keyof typeof CategorySelectionStatus];
+type CategorySelectionStatus =
+  (typeof CategorySelectionStatus)[keyof typeof CategorySelectionStatus];
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { toNumber } from '../utils/decimal';
 import { eventBus } from './event-bus.service';
+
+const MAX_ADDITIONAL_COST = 1_000_000;
 
 export interface CreateCategoryOrderData {
   pollId: number;
@@ -69,7 +68,7 @@ export class CategoryOrderService {
 
       // Group votes by category
       const categoryMap = new Map<string, Set<number>>();
-      
+
       for (const vote of votes) {
         if (!vote.menuItem) {
           logger.warn(`Skipping vote ${vote.id}: menuItem is missing`);
@@ -90,14 +89,14 @@ export class CategoryOrderService {
 
       // Filter categories with at least 1 participant
       const categoryOrders: CategoryOrder[] = [];
-      
+
       for (const [category, userIds] of categoryMap.entries()) {
         if (userIds.size === 0) {
           continue;
         }
 
         const participantCount = userIds.size;
-        
+
         // For single participant, auto-assign as responsible
         if (participantCount === 1) {
           const userId = Array.from(userIds)[0];
@@ -112,7 +111,7 @@ export class CategoryOrderService {
               calculationStatus: 'PENDING',
             },
           });
-          
+
           categoryOrders.push(categoryOrder);
           logger.info(
             `Created CategoryOrder ${categoryOrder.id} for category "${category}" with auto-responsible user ${userId}`
@@ -130,7 +129,7 @@ export class CategoryOrderService {
               calculationStatus: 'PENDING',
             },
           });
-          
+
           categoryOrders.push(categoryOrder);
           logger.info(
             `Created CategoryOrder ${categoryOrder.id} for category "${category}" with ${participantCount} participants (responsible pending)`
@@ -271,14 +270,24 @@ export class CategoryOrderService {
           ? CategorySelectionStatus.SELECTED_VOLUNTEER
           : CategorySelectionStatus.SELECTED_ROULETTE;
 
-      const categoryOrder = await prisma.categoryOrder.update({
-        where: { id: categoryOrderId },
+      const updated = await prisma.categoryOrder.updateMany({
+        where: {
+          id: categoryOrderId,
+          selectionStatus: CategorySelectionStatus.VOLUNTEER_OPEN,
+          responsibleUserId: null,
+        },
         data: {
           responsibleUserId: userId,
           selectionStatus,
           selectionMode: mode,
           updatedAt: new Date(),
         },
+      });
+      if (updated.count !== 1) {
+        throw new Error('CategoryOrder is already assigned');
+      }
+      const categoryOrder = await prisma.categoryOrder.findUniqueOrThrow({
+        where: { id: categoryOrderId },
       });
 
       logger.info(
@@ -331,7 +340,7 @@ export class CategoryOrderService {
         distinct: ['userId'],
       });
 
-      return votes.map((v) => v.userId);
+      return votes.map(v => v.userId);
     } catch (error) {
       logger.error('Error getting participants:', error);
       throw new Error('Failed to get participants');
@@ -407,7 +416,8 @@ export class CategoryOrderService {
         `Updated CategoryOrder ${categoryOrderId} status to ${status}`
       );
 
-      const eventType = status === 'COMPLETED' ? 'finalized' as const : 'updated' as const;
+      const eventType =
+        status === 'COMPLETED' ? ('finalized' as const) : ('updated' as const);
       eventBus.emit('category_order_updated', {
         categoryOrderId,
         pollId: categoryOrder.pollId,
@@ -439,7 +449,10 @@ export class CategoryOrderService {
       !Number.isFinite(tip) ||
       deliveryCost < 0 ||
       serviceFee < 0 ||
-      tip < 0
+      tip < 0 ||
+      deliveryCost > MAX_ADDITIONAL_COST ||
+      serviceFee > MAX_ADDITIONAL_COST ||
+      tip > MAX_ADDITIONAL_COST
     ) {
       throw new Error('Costs must be non-negative numbers');
     }
@@ -458,8 +471,11 @@ export class CategoryOrderService {
       const totalItemsAmount = toNumber(categoryOrder?.totalItemsAmount);
       const totalAmount = totalItemsAmount + totalAdditionalCosts;
 
-      const updated = await prisma.categoryOrder.update({
-        where: { id: categoryOrderId },
+      const result = await prisma.categoryOrder.updateMany({
+        where: {
+          id: categoryOrderId,
+          calculationStatus: { not: 'COMPLETED' },
+        },
         data: {
           deliveryCost,
           serviceFee,
@@ -469,6 +485,12 @@ export class CategoryOrderService {
           totalAmount,
           updatedAt: new Date(),
         },
+      });
+      if (result.count !== 1) {
+        throw new Error('Completed category order costs cannot be changed');
+      }
+      const updated = await prisma.categoryOrder.findUniqueOrThrow({
+        where: { id: categoryOrderId },
       });
 
       logger.info(

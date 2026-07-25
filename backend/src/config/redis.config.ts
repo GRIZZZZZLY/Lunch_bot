@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+import Redis, { type RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger';
 
 /**
@@ -15,25 +15,21 @@ import { logger } from '../utils/logger';
 // Redis ВЫКЛЮЧЕН по умолчанию - нужно явно включить через REDIS_ENABLED=true
 export const REDIS_ENABLED = process.env.REDIS_ENABLED === 'true';
 
-const redisConfig = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD || undefined,
-  db: parseInt(process.env.REDIS_DB || '0'),
-
+const redisUrl = process.env.REDIS_URL?.trim();
+const redisOptions: RedisOptions = {
   // Connection options
   retryStrategy: (times: number) => {
     // Если Redis отключен - не пытаемся переподключаться
     if (!REDIS_ENABLED) {
       return null;
     }
-    // Максимум 5 попыток переподключения
-    if (times > 5) {
-      logger.error('❌ Redis max retries exceeded, giving up');
-      return null;
+    // Redis обязателен в production. Продолжаем переподключение, чтобы
+    // экземпляр сам восстановил готовность после краткого сбоя зависимости.
+    // Отдельные команды при этом быстро завершаются по maxRetriesPerRequest.
+    const delay = Math.min(times * 100, 2000);
+    if (times === 1 || times % 10 === 0) {
+      logger.warn('Redis connection retry scheduled', { attempt: times, delay });
     }
-    const delay = Math.min(times * 50, 2000);
-    logger.warn(`Redis connection retry attempt ${times}, delay: ${delay}ms`);
     return delay;
   },
 
@@ -54,14 +50,18 @@ const redisConfig = {
  * Create Redis client
  */
 export function createRedisClient(): Redis {
-  const client = new Redis(redisConfig);
+  const client = redisUrl
+    ? new Redis(redisUrl, redisOptions)
+    : new Redis({
+        ...redisOptions,
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        password: process.env.REDIS_PASSWORD || undefined,
+        db: parseInt(process.env.REDIS_DB || '0', 10),
+      });
 
   client.on('connect', () => {
-    logger.info('✅ Redis connected', {
-      host: redisConfig.host,
-      port: redisConfig.port,
-      db: redisConfig.db,
-    });
+    logger.info('✅ Redis connected');
   });
 
   client.on('ready', () => {

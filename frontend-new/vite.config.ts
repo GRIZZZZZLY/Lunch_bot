@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   resolve: {
     alias: {
@@ -31,9 +31,10 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: mode !== 'production',
   },
   test: {
+    exclude: ['tests/e2e/**', 'tests/production/**', 'node_modules/**', 'dist/**'],
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     // Битый deps-optimizer кэш в node_modules/.vite ронял все suites
@@ -57,4 +58,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

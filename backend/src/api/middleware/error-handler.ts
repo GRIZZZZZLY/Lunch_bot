@@ -17,23 +17,77 @@ export function errorHandler(
 ): void {
   const requestId = req.requestId;
 
-  logger.error('API Error:', formatErrorForLogging(err, {
-    requestId,
-    method: req.method,
-    url: req.url,
-    query: req.query,
-    body: req.body,
-    userAgent: req.get('User-Agent'),
-    ip: req.ip,
-  }));
+  logger.error(
+    'API request failed',
+    process.env.NODE_ENV === 'production'
+      ? {
+          requestId,
+          method: req.method,
+          path: req.path,
+          errorName: err.name,
+          errorCode:
+            err instanceof BaseError
+              ? err.code
+              : (err as { code?: unknown }).code,
+        }
+      : formatErrorForLogging(err, {
+          requestId,
+          method: req.method,
+          path: req.path,
+        })
+  );
 
   if (res.headersSent) {
     return next(err);
   }
 
-  const instance = req.url;
+  const instance = req.path;
 
-  // 1) Наши собственные ошибки (BaseError и потомки).
+  // 1) Ошибки разбора тела запроса от body-parser/Express.
+  const parserError = err as Error & {
+    status?: number;
+    statusCode?: number;
+    type?: string;
+  };
+  if (
+    parserError.status === 413 ||
+    parserError.statusCode === 413 ||
+    parserError.type === 'entity.too.large'
+  ) {
+    sendProblem(
+      res,
+      makeProblem({
+        status: 413,
+        code: 'PAYLOAD_TOO_LARGE',
+        title: 'Payload too large',
+        detail: 'Request body exceeds the allowed size',
+        instance,
+        traceId: requestId,
+      })
+    );
+    return;
+  }
+  if (
+    parserError.status === 400 ||
+    parserError.statusCode === 400 ||
+    parserError.type === 'entity.parse.failed' ||
+    parserError.type === 'request.aborted'
+  ) {
+    sendProblem(
+      res,
+      makeProblem({
+        status: 400,
+        code: 'INVALID_REQUEST_BODY',
+        title: 'Invalid request body',
+        detail: 'Request body is malformed',
+        instance,
+        traceId: requestId,
+      })
+    );
+    return;
+  }
+
+  // 2) Наши собственные ошибки (BaseError и потомки).
   if (err instanceof BaseError) {
     const extensions: Record<string, unknown> = {};
     if (err instanceof ValidationError) {
@@ -60,7 +114,7 @@ export function errorHandler(
     return;
   }
 
-  // 2) Zod / generic ValidationError по name (для legacy импортов).
+  // 3) Zod / generic ValidationError по name (для legacy импортов).
   if (err.name === 'ValidationError') {
     sendProblem(
       res,
@@ -76,7 +130,7 @@ export function errorHandler(
     return;
   }
 
-  // 3) Prisma известные ошибки.
+  // 4) Prisma известные ошибки.
   if (err.name === 'PrismaClientKnownRequestError') {
     const prismaError = err as any;
 
@@ -113,7 +167,7 @@ export function errorHandler(
     }
   }
 
-  // 4) Fallback — 500.
+  // 5) Fallback — 500.
   sendProblem(
     res,
     makeProblem({
@@ -143,8 +197,8 @@ export function notFoundHandler(
       status: 404,
       code: 'ROUTE_NOT_FOUND',
       title: 'Not found',
-      detail: `Маршрут ${req.method} ${req.url} не найден`,
-      instance: req.url,
+      detail: `Маршрут ${req.method} ${req.path} не найден`,
+      instance: req.path,
       traceId: req.requestId,
     }),
   );
@@ -168,11 +222,9 @@ export function requestLogger(
     logger.info('API Request', {
       requestId: req.requestId,
       method: req.method,
-      url: req.url,
       statusCode: res.statusCode,
       duration: `${duration}ms`,
-      userAgent: req.get('User-Agent'),
-      ip: req.ip,
+      path: req.path,
       contentLength: res.get('Content-Length'),
     });
 

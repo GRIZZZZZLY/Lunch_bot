@@ -3,6 +3,7 @@ import { Client } from 'pg';
 import { logger } from '../utils/logger';
 import { RecurringPollService } from './recurring-poll.service';
 import { PollService } from './poll.service';
+import { UserService } from './user.service';
 
 /**
  * Ключ Postgres advisory-lock для single-instance гарантии scheduler'а.
@@ -62,7 +63,9 @@ export class PollSchedulerService {
       }
     );
 
-    logger.info('✅ Poll scheduler started (checking every minute, timezone: Europe/Moscow)');
+    logger.info(
+      '✅ Poll scheduler started (checking every minute, timezone: Europe/Moscow)'
+    );
   }
 
   /**
@@ -110,13 +113,14 @@ export class PollSchedulerService {
     }
 
     const client = new Client({ connectionString: databaseUrl });
-    client.on('error', (err) => logger.error('Scheduler lock client error', err));
+    client.on('error', err => logger.error('Scheduler lock client error', err));
 
     try {
       await client.connect();
-      const res = await client.query('SELECT pg_try_advisory_lock($1) AS locked', [
-        SCHEDULER_ADVISORY_LOCK_KEY,
-      ]);
+      const res = await client.query(
+        'SELECT pg_try_advisory_lock($1) AS locked',
+        [SCHEDULER_ADVISORY_LOCK_KEY]
+      );
       if (res.rows[0]?.locked === true) {
         this.lockClient = client; // держим соединение → держим лок
         return true;
@@ -144,7 +148,8 @@ export class PollSchedulerService {
   private static async closeExpiredPolls(): Promise<void> {
     try {
       const n = await PollService.cancelExpiredPolls();
-      if (n > 0) logger.info(`Poll scheduler: auto-cancelled ${n} expired poll(s)`);
+      if (n > 0)
+        logger.info(`Poll scheduler: auto-cancelled ${n} expired poll(s)`);
     } catch (error) {
       logger.error('Poll scheduler: cancelExpiredPolls failed', error);
     }
@@ -210,7 +215,7 @@ export class PollSchedulerService {
           // Проверка: не выполняли ли уже сегодня
           if (schedule.lastRunAt) {
             const lastRun = new Date(schedule.lastRunAt);
-            const isSameDay = 
+            const isSameDay =
               lastRun.getDate() === now.getDate() &&
               lastRun.getMonth() === now.getMonth() &&
               lastRun.getFullYear() === now.getFullYear();
@@ -232,7 +237,9 @@ export class PollSchedulerService {
             timeOfDay: schedule.timeOfDay,
           });
 
-          const result = await RecurringPollService.executeScheduledPoll(schedule.id);
+          const result = await RecurringPollService.executeScheduledPoll(
+            schedule.id
+          );
 
           logger.info('Scheduled poll execution result', {
             scheduleId: schedule.id,
@@ -265,7 +272,12 @@ export class PollSchedulerService {
    */
   private static async notifyAdmin(
     schedule: any,
-    result: { success: boolean; pollId?: number; status: string; message: string }
+    result: {
+      success: boolean;
+      pollId?: number;
+      status: string;
+      message: string;
+    }
   ): Promise<void> {
     if (!this.botInstance) return;
 
@@ -278,11 +290,11 @@ export class PollSchedulerService {
         await this.botInstance.api.sendMessage(
           adminTelegramId,
           `✅ *Автоматическое голосование создано!*\n\n` +
-          `📍 Группа: ${groupTitle}\n` +
-          `⏰ Время: ${schedule.timeOfDay}\n` +
-          `🍽️ Блюд: ${schedule.selectedMenuItemIds ? JSON.parse(schedule.selectedMenuItemIds).length : 'все активные'}\n` +
-          `⏱️ Длительность: ${schedule.duration} мин\n\n` +
-          `Голосование #${result.pollId} активно!`,
+            `📍 Группа: ${groupTitle}\n` +
+            `⏰ Время: ${schedule.timeOfDay}\n` +
+            `🍽️ Блюд: ${schedule.selectedMenuItemIds ? JSON.parse(schedule.selectedMenuItemIds).length : 'все активные'}\n` +
+            `⏱️ Длительность: ${schedule.duration} мин\n\n` +
+            `Голосование #${result.pollId} активно!`,
           { parse_mode: 'Markdown' }
         );
       } else if (result.status === 'SKIPPED_CONFLICT') {
@@ -290,33 +302,39 @@ export class PollSchedulerService {
         await this.botInstance.api.sendMessage(
           adminTelegramId,
           `⚠️ *Автоголосование пропущено*\n\n` +
-          `📍 Группа: ${groupTitle}\n` +
-          `❗ Причина: Уже есть активное голосование\n\n` +
-          `Следующая попытка: ${RecurringPollService.getNextRunInfo(schedule)}`,
+            `📍 Группа: ${groupTitle}\n` +
+            `❗ Причина: Уже есть активное голосование\n\n` +
+            `Следующая попытка: ${RecurringPollService.getNextRunInfo(schedule)}`,
           { parse_mode: 'Markdown' }
         );
       } else if (result.status === 'FAILED_NO_MENU') {
         // Ошибка - меню пусто
         const webAppUrl = process.env.WEBAPP_URL || '';
-        
+
         await this.botInstance.api.sendMessage(
           adminTelegramId,
           `❌ *Автоголосование не создано*\n\n` +
-          `📍 Группа: ${groupTitle}\n` +
-          `❗ Причина: Нет активных блюд в меню (минимум 2)\n\n` +
-          `🔧 *Что делать:*\n` +
-          `1. Добавьте блюда через Mini App → Меню\n` +
-          `2. Или временно отключите автоголосования\n\n` +
-          `Следующая попытка: ${RecurringPollService.getNextRunInfo(schedule)}`,
+            `📍 Группа: ${groupTitle}\n` +
+            `❗ Причина: Нет активных блюд в меню (минимум 2)\n\n` +
+            `🔧 *Что делать:*\n` +
+            `1. Добавьте блюда через Mini App → Меню\n` +
+            `2. Или временно отключите автоголосования\n\n` +
+            `Следующая попытка: ${RecurringPollService.getNextRunInfo(schedule)}`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
                 [
-                  { text: '🍽️ Настроить меню', web_app: { url: `${webAppUrl}/menu` } },
+                  {
+                    text: '🍽️ Настроить меню',
+                    web_app: { url: `${webAppUrl}/menu` },
+                  },
                 ],
                 [
-                  { text: '⏸️ Отключить авто', callback_data: `recurring:disable:${schedule.id}` },
+                  {
+                    text: '⏸️ Отключить авто',
+                    callback_data: `recurring:disable:${schedule.id}`,
+                  },
                 ],
               ],
             },
@@ -327,9 +345,9 @@ export class PollSchedulerService {
         await this.botInstance.api.sendMessage(
           adminTelegramId,
           `❌ *Ошибка автоголосования*\n\n` +
-          `📍 Группа: ${groupTitle}\n` +
-          `❗ Ошибка: ${result.message}\n\n` +
-          `Следующая попытка: ${RecurringPollService.getNextRunInfo(schedule)}`,
+            `📍 Группа: ${groupTitle}\n` +
+            `❗ Ошибка: ${result.message}\n\n` +
+            `Следующая попытка: ${RecurringPollService.getNextRunInfo(schedule)}`,
           { parse_mode: 'Markdown' }
         );
       }
@@ -341,10 +359,29 @@ export class PollSchedulerService {
   /**
    * Обработка callback query для отключения расписания
    */
-  static async handleDisableCallback(scheduleId: number): Promise<void> {
+  static async handleDisableCallback(
+    scheduleId: number,
+    telegramUserId: number
+  ): Promise<boolean> {
     try {
+      const schedule = await RecurringPollService.getById(scheduleId);
+      const user = await UserService.getUserByTelegramId(
+        BigInt(telegramUserId)
+      );
+      if (
+        !schedule ||
+        !user ||
+        !(await RecurringPollService.checkAdminAccess(
+          user.id,
+          schedule.groupId
+        ))
+      ) {
+        return false;
+      }
+
       await RecurringPollService.toggleEnabled(scheduleId, false);
       logger.info('Recurring poll disabled via callback', { scheduleId });
+      return true;
     } catch (error) {
       logger.error('Error disabling recurring poll:', error);
       throw error;

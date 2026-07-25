@@ -11,6 +11,7 @@
  */
 
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { logger } from '../utils/logger';
 
 /**
@@ -18,10 +19,9 @@ import { logger } from '../utils/logger';
  */
 export interface JwtPayload {
   userId: number;
-  telegramId: string;
-  username?: string;
-  isAdmin: boolean;
   type: 'access' | 'refresh';
+  jti?: string;
+  exp?: number;
 }
 
 /**
@@ -29,7 +29,9 @@ export interface JwtPayload {
  */
 const JWT_SECRET = process.env.JWT_SECRET?.trim() || '';
 const JWT_EXPIRATION = '1h'; // Access token - 1 час (короткое окно при XSS/leak)
-const JWT_REFRESH_EXPIRATION = '30d'; // Refresh token - 30 дней (frontend renews via /auth/refresh)
+const JWT_REFRESH_EXPIRATION = '7d';
+const JWT_ISSUER = 'rocket-lunch-api';
+const JWT_AUDIENCE = 'rocket-lunch-mini-app';
 
 if (!JWT_SECRET) {
   logger.error('🚨 CRITICAL SECURITY ERROR: JWT_SECRET is not configured');
@@ -53,7 +55,9 @@ if (!isProduction && JWT_SECRET.length < 32) {
  * @param payload - Данные для токена
  * @returns JWT токен (валиден 7 дней)
  */
-export function generateAccessToken(payload: Omit<JwtPayload, 'type'>): string {
+export function generateAccessToken(
+  payload: Pick<JwtPayload, 'userId'>
+): string {
   try {
     const tokenPayload: JwtPayload = {
       ...payload,
@@ -63,11 +67,13 @@ export function generateAccessToken(payload: Omit<JwtPayload, 'type'>): string {
     const token = jwt.sign(tokenPayload, JWT_SECRET, {
       expiresIn: JWT_EXPIRATION,
       algorithm: 'HS256',
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+      jwtid: crypto.randomUUID(),
     });
 
     logger.debug('🔐 Access token generated', {
       userId: payload.userId,
-      telegramId: payload.telegramId,
       expiresIn: JWT_EXPIRATION,
     });
 
@@ -84,7 +90,9 @@ export function generateAccessToken(payload: Omit<JwtPayload, 'type'>): string {
  * @param payload - Данные для токена
  * @returns JWT refresh токен (валиден 30 дней)
  */
-export function generateRefreshToken(payload: Omit<JwtPayload, 'type'>): string {
+export function generateRefreshToken(
+  payload: Pick<JwtPayload, 'userId'>
+): string {
   try {
     const tokenPayload: JwtPayload = {
       ...payload,
@@ -94,6 +102,9 @@ export function generateRefreshToken(payload: Omit<JwtPayload, 'type'>): string 
     const token = jwt.sign(tokenPayload, JWT_SECRET, {
       expiresIn: JWT_REFRESH_EXPIRATION,
       algorithm: 'HS256',
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+      jwtid: crypto.randomUUID(),
     });
 
     logger.debug('🔐 Refresh token generated', {
@@ -118,7 +129,18 @@ export function verifyToken(token: string): JwtPayload | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
       algorithms: ['HS256'],
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
     }) as JwtPayload;
+
+    if (
+      !Number.isSafeInteger(decoded.userId) ||
+      decoded.userId <= 0 ||
+      !['access', 'refresh'].includes(decoded.type)
+    ) {
+      logger.warn('JWT payload has invalid claims');
+      return null;
+    }
 
     logger.debug('✅ Token verified successfully', {
       userId: decoded.userId,
@@ -213,7 +235,7 @@ export function getTokenExpiration(token: string): Date | null {
  * @param payload - Данные для токенов
  * @returns { accessToken, refreshToken }
  */
-export function generateTokenPair(payload: Omit<JwtPayload, 'type'>): {
+export function generateTokenPair(payload: Pick<JwtPayload, 'userId'>): {
   accessToken: string;
   refreshToken: string;
 } {

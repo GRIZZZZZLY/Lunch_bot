@@ -41,7 +41,7 @@ export class MenuSuggestionService {
    * Создать новое предложение
    */
   static async createSuggestion(data: CreateSuggestionDTO): Promise<MenuSuggestion> {
-    logger.info(`Creating menu suggestion: ${data.name} by user ${data.suggestedBy}`);
+    logger.info('Creating menu suggestion', { userId: data.suggestedBy });
 
     await GroupService.assertMember(data.suggestedBy, data.groupId);
 
@@ -156,7 +156,10 @@ export class MenuSuggestionService {
     reviewerId: number,
     groupId?: number
   ): Promise<{ suggestion: MenuSuggestion; menuItem: any }> {
-    logger.info(`Approving suggestion ${suggestionId} by admin ${reviewerId}`);
+    logger.info('Approving menu suggestion', {
+      suggestionId,
+      userId: reviewerId,
+    });
 
     const suggestion = await prisma.menuSuggestion.findUnique({
       where: { id: suggestionId },

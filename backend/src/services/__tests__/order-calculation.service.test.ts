@@ -50,7 +50,8 @@ jest.mock('../user.service', () => ({
 
 const txMock = {
   categoryOrder: {
-    update: jest.fn(),
+    findUnique: jest.fn(),
+    updateMany: jest.fn(),
   },
   transaction: {
     count: jest.fn(),
@@ -64,6 +65,7 @@ describe('OrderCalculationService category order behaviours', () => {
     jest.clearAllMocks();
     (prisma.$transaction as jest.Mock).mockImplementation(async cb => cb(txMock));
     (CategoryOrderService.getParticipants as jest.Mock).mockResolvedValue([5, 9]);
+    txMock.categoryOrder.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it('saves a trimmed order item and recalculates totals', async () => {
@@ -119,7 +121,7 @@ describe('OrderCalculationService category order behaviours', () => {
         price: 0,
         enteredBy: 9,
       })
-    ).rejects.toThrow('Price must be a positive number');
+    ).rejects.toThrow('Price must be between 0 and 1000000');
 
     expect(prisma.orderItem.create).not.toHaveBeenCalled();
     expect(prisma.orderItem.update).not.toHaveBeenCalled();
@@ -127,7 +129,7 @@ describe('OrderCalculationService category order behaviours', () => {
 
   it('finalizes calculation atomically and creates debts for non-responsible participants', async () => {
     (prisma.categoryOrder.findUnique as jest.Mock)
-      .mockResolvedValueOnce({
+      .mockResolvedValue({
         id: 3,
         pollId: 7,
         category: 'Soup',
@@ -141,10 +143,6 @@ describe('OrderCalculationService category order behaviours', () => {
           { id: 12, userId: 9, price: 250, user: { id: 9 } },
         ],
         poll: { id: 7 },
-      })
-      .mockResolvedValueOnce({
-        participantCount: 2,
-        _count: { orderItems: 2 },
       });
     txMock.transaction.count.mockResolvedValue(0);
     txMock.transaction.findMany.mockResolvedValue([
@@ -174,10 +172,17 @@ describe('OrderCalculationService category order behaviours', () => {
           status: 'PENDING',
         },
       ],
+      skipDuplicates: true,
     });
-    expect(txMock.categoryOrder.update).toHaveBeenCalledWith({
-      where: { id: 3 },
-      data: { calculationStatus: 'COMPLETED' },
+    expect(txMock.categoryOrder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 3,
+        calculationStatus: { in: ['PENDING', 'IN_PROGRESS'] },
+      },
+      data: {
+        calculationStatus: 'COMPLETED',
+        calculationCompletedAt: expect.any(Date),
+      },
     });
     expect(result).toEqual({
       transactionsCreated: 1,

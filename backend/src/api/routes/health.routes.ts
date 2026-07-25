@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../database/client';
 import { logger } from '../../utils/logger';
+import { cacheService } from '../../services/cache.service';
 
 const router = Router();
 
@@ -23,12 +24,6 @@ router.get('/', async (req, res) => {
       uptimeSeconds: Math.floor(uptime),
       timestamp: new Date().toISOString(),
       database: 'connected',
-      memory: {
-        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-        unit: 'MB',
-      },
-      environment: process.env.NODE_ENV || 'development',
     });
   } catch (error) {
     logger.error('Health check failed', { error });
@@ -49,6 +44,10 @@ router.get('/ready', async (req, res) => {
   try {
     // Проверяем что приложение полностью готово
     await prisma.$queryRaw`SELECT 1`;
+    const cacheReady = await cacheService.healthCheck();
+    if (!cacheReady) {
+      throw new Error('Redis is not ready');
+    }
 
     res.status(200).json({
       ready: true,

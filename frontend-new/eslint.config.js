@@ -18,15 +18,12 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      // Легаси-код смешивает компоненты и helpers в одном файле; включим при разборке (фазы 4–6).
+      // Легаси-код смешивает компоненты и вспомогательные функции в одном файле.
       'react-refresh/only-export-components': 'off',
-      // Новые строгие правила react-hooks v6 ловят реальные легаси-паттерны
-      // (Date.now в useMemo, sync-state-в-effect, Math.random в render).
-      // Пока warn: каждый случай чинится в своей фазе миграции (4–6), после чего — error.
-      'react-hooks/purity': 'warn',
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/refs': 'warn',
-      'react-hooks/immutability': 'warn',
+      'react-hooks/purity': 'error',
+      'react-hooks/set-state-in-effect': 'error',
+      'react-hooks/refs': 'error',
+      'react-hooks/immutability': 'error',
     },
   },
   {
