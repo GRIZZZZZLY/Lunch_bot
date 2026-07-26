@@ -66,7 +66,7 @@ npm run build
 npm run audit:prod
 ```
 
-CI на ветке `feature/store-run` выполняет эти проверки с PostgreSQL. Не
+CI на ветке `main` выполняет эти проверки с PostgreSQL. Не
 выпускать коммит с красным CI.
 
 ## 4. Резервная копия до миграции

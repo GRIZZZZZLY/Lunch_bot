@@ -988,7 +988,7 @@ git add -A && git commit -m "test(multitenant): manual verification fixes" || ec
 - [ ] **Step 5: Commit/push финал**
 
 ```bash
-git push origin feature/store-run
+git push origin main
 ```
 
 ---

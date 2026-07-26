@@ -8,7 +8,7 @@ Guidance for Claude Code (claude.ai/code) working in this repo.
 
 **Current Status:** ✅ Production Ready
 **Version:** 2.0.0
-**Git Branch:** `feature/store-run` (active deploy branch — NOT main, NOT feature/new_version)
+**Git Branch:** `main` (canonical and active deploy branch)
 **Domain:** rocket-lunch.duckdns.org
 **Bot:** @rocket_lunch_bot
 **Tests:** 258/258 passing (100%)
@@ -453,7 +453,7 @@ Start scripts auto-copy correct .env file.
 
 **Key steps (35-40 min):**
 1. Install deps (Node.js 22, PM2, Nginx, Certbot)
-2. Clone repo → checkout `feature/new_version` branch
+2. Clone repo → use the default `main` branch
 3. Run `./deploy-vps.sh` (auto-installs, builds, starts)
 4. Configure Nginx + SSL cert
 5. Set Telegram webhook + menu button
@@ -464,8 +464,8 @@ Start scripts auto-copy correct .env file.
 - [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) — Checklist
 
 **Important notes:**
-- ⚠️ Project on `feature/store-run` branch (NOT main, NOT feature/new_version)
-- ⚠️ Deploy-скрипты могут ссылаться на `feature/new_version` — проверь перед запуском
+- ✅ Project uses `main` as the canonical and deployable branch
+- ✅ Deploy scripts use `main` by default
 - ✅ Zero-downtime updates via PM2 reload
 - ✅ Configured for rocket-lunch.duckdns.org
 - ✅ Migration history восстановлена в prisma/migrations/ (init + baseline_drift_and_poll_participants) — `migrate deploy` сработает на проде
@@ -487,7 +487,7 @@ Backend serves frontend static files from `frontend/dist/` in production.
 
 ## Important Notes
 
-- **Git Branch**: `feature/store-run` (NOT main, NOT feature/new_version) — может потребоваться поправить deploy-скрипты под актуальную ветку
+- **Git Branch**: `main` — canonical and active deploy branch
 - **Database location**: `backend/prisma/dev.db` (SQLite) — production needs PostgreSQL
 - **Backup before migrations**: DB has production data
 - **Proxy config**: required for Telegram API in some regions (check `backend/src/config/bot.config.ts`)
@@ -619,7 +619,7 @@ Always check docs before architectural changes.
 
 **Ready for Deployment:**
 - Domain: rocket-lunch.duckdns.org
-- Branch: feature/new_version
+- Branch: main
 - Scripts: `./deploy-vps.sh` and `./update-vps.sh`
 - Docs: see [START_HERE.md](START_HERE.md)
 

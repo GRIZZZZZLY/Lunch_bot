@@ -18,7 +18,7 @@
 #  10. Locks down /etc/sudoers
 #
 # Usage:
-#   curl -O https://raw.githubusercontent.com/<you>/<repo>/feature/store-run/telegram-food-bot/vps-security-setup.sh
+#   curl -O https://raw.githubusercontent.com/<you>/<repo>/main/vps-security-setup.sh
 #   chmod +x vps-security-setup.sh
 #   DEPLOY_USER=deploy SSH_PORT=22 SSH_PUBKEY="ssh-ed25519 AAAA... user@laptop" sudo ./vps-security-setup.sh
 #

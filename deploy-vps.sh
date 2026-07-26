@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-BRANCH="${BRANCH:-feature/store-run}"
+BRANCH="${BRANCH:-main}"
 DOMAIN="${DOMAIN:-rocketlunch.dpdns.org}"
 FRONTEND_DIR="${FRONTEND_DIR:-frontend-new}"
 APP_ROOT="$(pwd)"

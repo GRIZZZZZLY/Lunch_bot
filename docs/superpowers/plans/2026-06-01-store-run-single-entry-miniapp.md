@@ -243,7 +243,7 @@ git commit -m "refactor(store-run): remove PM text-entry path (Mini App is the s
 - [ ] **Step 1: Push**
 
 ```bash
-git push origin feature/store-run
+git push origin main
 ```
 
 - [ ] **Step 2: Деплой на VPS**

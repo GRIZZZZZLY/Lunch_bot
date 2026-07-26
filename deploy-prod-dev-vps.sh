@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-BRANCH="${BRANCH:-feature/store-run}"
+BRANCH="${BRANCH:-main}"
 APP_ROOT="$(pwd)"
 
 git fetch origin "$BRANCH"

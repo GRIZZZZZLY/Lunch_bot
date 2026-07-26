@@ -184,7 +184,7 @@ telegram-food-bot/
 ## 📊 Статус проекта
 
 ✅ **Версия**: 2.1.0 — Production Ready, развёрнут на VPS
-✅ **Активная ветка**: `feature/store-run` (деплой-ветка — НЕ `main`)
+✅ **Активная ветка**: `main` (основная ветка и источник для развёртывания)
 ✅ **Прод-домен**: [rocketlunch.dpdns.org](https://rocketlunch.dpdns.org) · бот [@rocket_lunch_bot](https://t.me/rocket_lunch_bot)
 ✅ **Backend**: полностью реализован, ~258 тестов (Jest) зелёные
 ✅ **Frontend**: полностью реализован, работает на iOS и Android

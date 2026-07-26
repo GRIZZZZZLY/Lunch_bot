@@ -201,7 +201,7 @@ export function useActivePolls(options?: { enabled?: boolean }) {
 4. **CSS**: Tailwind with `cn()` utility for class merging
 5. **Service pattern**: Static methods in class-based services
 6. **Never cache polls**: Always fetch fresh to avoid stale data
-7. **Branch**: Project is on `feature/new_version` branch, NOT main
+7. **Branch**: `main` is the canonical and deployable branch
 
 ## Test File Locations
 
