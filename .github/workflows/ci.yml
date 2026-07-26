@@ -94,6 +94,7 @@ jobs:
       TELEGRAM_SECRET_KEY: ci-only-secret
       JWT_SECRET: ci-only-jwt-secret-that-is-at-least-32-characters
       WEBAPP_URL: http://localhost:5173
+      FRONTEND_DIR: frontend
     defaults:
       run:
         working-directory: backend
