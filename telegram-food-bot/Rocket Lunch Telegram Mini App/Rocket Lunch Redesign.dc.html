@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&amp;family=Onest:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#15110D;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+</style>
+</helmet>
+<section id="1a" style="display:flex;flex-direction:column;gap:64px;padding:56px 48px 96px;min-height:100vh;background:#15110D;font-family:'Onest',sans-serif;color:#F6EEE2">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="rl-grain"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix type="saturate" values="0"></feColorMatrix></filter></svg>
+
+<div style="display:flex;align-items:center;gap:16px">
+<a href="#1a" style="display:flex;align-items:center;justify-content:center;height:28px;padding:0 12px;border-radius:999px;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.25);color:#F5A845;font-size:12px;font-weight:700;font-family:ui-monospace,monospace;text-decoration:none">1a</a>
+<div style="display:flex;flex-direction:column;gap:3px">
+<h1 style="margin:0;font-family:'Unbounded',sans-serif;font-size:20px;font-weight:600;letter-spacing:-0.03em;color:#F6EEE2">Rocket Lunch — редизайн визуального языка</h1>
+<span style="font-size:13px;color:#8A7A64">Telegram Mini App · 390×844 · тёмная тема — основная · Unbounded + Onest</span>
+</div>
+</div>
+
+<!-- ═══ БЛОК A: ОСНОВНЫЕ ЭКРАНЫ ═══ -->
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:4px">
+<h2 style="margin:0;font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;letter-spacing:-0.02em;color:#F6EEE2">Основные экраны</h2>
+<span style="font-size:13px;color:#8A7A64">4 таба в тёмной теме + Home в светлой</span>
+</div>
+<div style="display:flex;gap:44px;flex-wrap:wrap;align-items:flex-start">
+
+<!-- Home · тёмная -->
+<div style="display:flex;flex-direction:column;gap:16px;align-items:center">
+<div data-screen-label="Home · тёмная" style="width:390px;height:844px;border-radius:48px;position:relative;overflow:hidden;flex-shrink:0;background:radial-gradient(120% 55% at 85% -8%,rgba(244,158,55,0.13),transparent 60%),radial-gradient(80% 40% at -10% 105%,rgba(224,126,18,0.07),transparent 60%),linear-gradient(180deg,#1C150C 0%,#171009 100%);box-shadow:0 0 0 1px rgba(255,255,255,0.05),0 0 0 12px #0C0906,0 0 0 13px rgba(255,214,160,0.10),0 44px 80px -32px rgba(0,0,0,0.8)">
+<svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.045;pointer-events:none;mix-blend-mode:overlay" aria-hidden="true"><rect width="100%" height="100%" filter="url(#rl-grain)"></rect></svg>
+<div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:relative;z-index:2;color:#F6EEE2">
+<span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">9:41</span>
+<div style="display:flex;align-items:center;gap:6px">
+<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"></rect><rect x="4.5" y="4.5" width="3" height="6.5" rx="1"></rect><rect x="9" y="2.5" width="3" height="8.5" rx="1"></rect><rect x="13.5" y="0.5" width="3" height="10.5" rx="1"></rect></svg>
+<svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" opacity="0.4"></rect><rect x="2" y="2" width="14" height="8" rx="2" fill="currentColor"></rect><rect x="23" y="4" width="2" height="4" rx="1" fill="currentColor" opacity="0.4"></rect></svg>
+</div>
+</div>
+<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 22px;position:relative;z-index:2">
+<div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:600;color:#F6EEE2">Rocket Lunch</span><span style="font-size:11px;color:#8A7A64">мини-приложение</span></div>
+<div style="display:flex;align-items:center;height:32px;border-radius:16px;background:rgba(255,235,205,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.08)">
+<button aria-label="Ещё" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:16px 0 0 16px;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"></circle><circle cx="12" cy="12" r="1.9"></circle><circle cx="12" cy="19" r="1.9"></circle></svg></button>
+<div style="width:1px;height:16px;background:rgba(255,220,170,0.12)"></div>
+<button aria-label="Закрыть" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:0 16px 16px 0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+</div>
+<div style="position:absolute;top:92px;left:0;right:0;bottom:0;padding:6px 16px 120px;display:flex;flex-direction:column;gap:14px;z-index:1;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:5px;padding:4px 4px 0">
+<span style="font-size:11px;font-weight:600;letter-spacing:0.12em;color:#8A7A64;text-transform:uppercase">Среда, 2 июля</span>
+<h3 style="margin:0;font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;letter-spacing:-0.03em;line-height:1.25;color:#F6EEE2">Доброе утро, Игорь</h3>
+<span style="font-size:13.5px;color:#C4B49C;line-height:1.5">Время решать, что заказываем сегодня</span>
+</div>
+<sc-if value="{{ stateA }}" hint-placeholder-val="{{ false }}">
+<div style="border-radius:26px;padding:26px 20px 20px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);display:flex;flex-direction:column;align-items:center;gap:7px;position:relative;overflow:hidden;text-align:center">
+<div style="position:absolute;top:-70px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(244,158,55,0.13),transparent 70%);pointer-events:none"></div>
+<div style="position:relative;width:96px;height:96px;margin-bottom:6px;display:flex;align-items:center;justify-content:center">
+<div style="position:absolute;inset:0;border-radius:50%;border:1.5px dashed rgba(244,158,55,0.35)"></div>
+<div style="width:66px;height:66px;border-radius:50%;background:rgba(244,158,55,0.10);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.18);display:flex;align-items:center;justify-content:center;color:#F5A845"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.25"></circle><circle cx="12" cy="12" r="3.5"></circle></svg></div>
+<div style="position:absolute;left:-80px;top:8px;transform:rotate(-6deg);padding:5px 10px;border-radius:999px;border:1px dashed rgba(255,220,170,0.25);font-size:11px;color:#8A7A64;white-space:nowrap">Том-ям?</div>
+<div style="position:absolute;right:-82px;bottom:4px;transform:rotate(5deg);padding:5px 10px;border-radius:999px;border:1px dashed rgba(255,220,170,0.25);font-size:11px;color:#8A7A64;white-space:nowrap">Шаурма?</div>
+</div>
+<span style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;letter-spacing:-0.02em;position:relative">Сегодня ещё не решали</span>
+<span style="font-size:13px;color:#C4B49C;line-height:1.6;max-width:250px;position:relative">Запустите голосование — команда выберет обед за пару минут</span>
+<button style="width:100%;margin-top:10px;height:50px;border-radius:17px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);color:#2A1602;font-family:inherit;font-size:15px;font-weight:700;box-shadow:0 12px 26px -10px rgba(235,135,25,0.5),0 3px 8px -2px rgba(235,135,25,0.35),inset 0 1px 0 rgba(255,255,255,0.3);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);position:relative" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.97)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:3px">Запустить голосование</button>
+</div>
+</sc-if>
+<sc-if value="{{ stateB }}" hint-placeholder-val="{{ true }}">
+<div style="border-radius:26px;padding:18px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden">
+<div style="position:absolute;top:-70px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(244,158,55,0.15),transparent 70%);pointer-events:none"></div>
+<div style="display:flex;align-items:center;justify-content:space-between;position:relative">
+<div style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:#8FCB7F;box-shadow:0 0 10px rgba(143,203,127,0.8)"></span><span style="font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#C4B49C">Голосование идёт</span></div>
+<div style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:13px;background:rgba(244,158,55,0.12);color:#F5A845;box-shadow:inset 0 0 0 1px rgba(244,158,55,0.2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg><span style="font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums">12:45</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:11px;position:relative">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:14px;font-weight:600;color:#F6EEE2">Том-ям</span><span style="font-size:12px;color:#C4B49C;font-variant-numeric:tabular-nums">4 голоса</span></div>
+<div style="height:7px;border-radius:4px;background:rgba(255,225,180,0.07);overflow:hidden"><div style="width:57%;height:100%;border-radius:4px;background:linear-gradient(90deg,#E07E12,#F7B254)"></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:14px;font-weight:500;color:#E8D9C2">Пад-тай с курицей</span><span style="font-size:12px;color:#C4B49C;font-variant-numeric:tabular-nums">2 голоса</span></div>
+<div style="height:7px;border-radius:4px;background:rgba(255,225,180,0.07);overflow:hidden"><div style="width:29%;height:100%;border-radius:4px;background:rgba(244,158,55,0.45)"></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:14px;font-weight:500;color:#E8D9C2">Шаурма</span><span style="font-size:12px;color:#C4B49C;font-variant-numeric:tabular-nums">1 голос</span></div>
+<div style="height:7px;border-radius:4px;background:rgba(255,225,180,0.07);overflow:hidden"><div style="width:14%;height:100%;border-radius:4px;background:rgba(244,158,55,0.28)"></div></div>
+</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;position:relative">
+<div style="display:flex;align-items:center">
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#F2A65A,#D97E2A);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#2A1602;border:2px solid #241B10">И</div>
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#E88A6A,#C75B3C);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#2A0F06;border:2px solid #241B10;margin-left:-8px">А</div>
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#D9BC6A,#A67B2E);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#241802;border:2px solid #241B10;margin-left:-8px">М</div>
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#9CCB84,#5F9A4E);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#10250B;border:2px solid #241B10;margin-left:-8px">Н</div>
+<div style="width:28px;height:28px;border-radius:50%;background:rgba(255,225,180,0.10);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#C4B49C;border:2px solid #241B10;margin-left:-8px">+3</div>
+</div>
+<span style="font-size:12px;color:#8A7A64">Проголосовало 7 из 8</span>
+</div>
+<button style="height:50px;border-radius:17px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);color:#2A1602;font-family:inherit;font-size:15px;font-weight:700;box-shadow:0 12px 26px -10px rgba(235,135,25,0.5),0 3px 8px -2px rgba(235,135,25,0.35),inset 0 1px 0 rgba(255,255,255,0.3);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);position:relative" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.97)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:3px">Голосовать</button>
+</div>
+</sc-if>
+<sc-if value="{{ stateC }}" hint-placeholder-val="{{ false }}">
+<div style="border-radius:26px;padding:18px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden">
+<div style="position:absolute;top:-70px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(244,158,55,0.18),transparent 70%);pointer-events:none"></div>
+<div style="position:absolute;top:16px;right:74px;width:5px;height:5px;border-radius:50%;background:#F5A845;opacity:0.6"></div>
+<div style="position:absolute;top:36px;right:38px;width:4px;height:4px;border-radius:1.5px;background:#8FCB7F;opacity:0.55;transform:rotate(24deg)"></div>
+<div style="position:absolute;top:12px;right:126px;width:4px;height:4px;border-radius:50%;background:#E8B54A;opacity:0.5"></div>
+<div style="position:absolute;top:56px;right:20px;width:5px;height:5px;border-radius:50%;background:#EE7A5F;opacity:0.4"></div>
+<div style="display:flex;align-items:center;justify-content:space-between;position:relative">
+<span style="font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#C4B49C">Итоги голосования</span>
+<div style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:13px;background:rgba(125,195,110,0.12);color:#9BD48F;box-shadow:inset 0 0 0 1px rgba(125,195,110,0.22)"><span style="width:6px;height:6px;border-radius:50%;background:#8FCB7F"></span><span style="font-size:12px;font-weight:600">Завершено</span></div>
+</div>
+<div style="display:flex;align-items:center;gap:14px;position:relative">
+<div style="width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,rgba(247,178,84,0.25),rgba(224,126,18,0.15));box-shadow:inset 0 0 0 1px rgba(244,158,55,0.3);display:flex;align-items:center;justify-content:center;color:#F5A845;flex-shrink:0"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.25"></circle><circle cx="12" cy="12" r="3.5"></circle></svg></div>
+<div style="display:flex;flex-direction:column;gap:3px">
+<span style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:600;letter-spacing:-0.02em">Том-ям</span>
+<span style="font-size:12.5px;color:#C4B49C">4 голоса из 7 · 420 ₽ с человека</span>
+</div>
+</div>
+<div style="height:1px;background:rgba(255,220,170,0.08);position:relative"></div>
+<div style="display:flex;align-items:center;gap:12px;position:relative">
+<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#D9BC6A,#A67B2E);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#241802;flex-shrink:0">М</div>
+<div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0">
+<span style="font-size:10.5px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#8A7A64">Ответственный за заказ</span>
+<span style="font-size:15px;font-weight:600">Миша</span>
+</div>
+<button style="height:38px;padding:0 14px;border-radius:13px;border:none;cursor:pointer;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.22);color:#F5A845;font-family:inherit;font-size:13px;font-weight:600;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-1px)" style-active="transform:scale(0.95)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px">Скинуться · СБП</button>
+</div>
+</div>
+</sc-if>
+<div style="border-radius:26px;padding:18px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);display:flex;flex-direction:column;gap:13px">
+<div style="display:flex;align-items:center;justify-content:space-between">
+<span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;letter-spacing:-0.02em">Бюджет команды</span>
+<button style="display:flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:999px;border:none;cursor:pointer;background:rgba(255,225,180,0.07);color:#C4B49C;font-family:inherit;font-size:12px;font-weight:500;box-shadow:inset 0 0 0 1px rgba(255,220,170,0.09);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-1px)" style-active="transform:scale(0.95)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px">Этот месяц<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5L12 15l5.5-5.5"></path></svg></button>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+<div style="border-radius:17px;padding:13px 14px;background:rgba(125,195,110,0.10);box-shadow:inset 0 0 0 1px rgba(125,195,110,0.20);display:flex;flex-direction:column;gap:5px">
+<div style="display:flex;align-items:center;gap:6px;color:#8FCB7F"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 7.5l-9 9"></path><path d="M7.5 9.5v7h7"></path></svg><span style="font-size:11.5px;color:#A9C79B;font-weight:500">Вам должны</span></div>
+<span style="font-size:20px;font-weight:700;color:#9BD48F;font-variant-numeric:tabular-nums;letter-spacing:-0.01em">1 250 ₽</span>
+</div>
+<div style="border-radius:17px;padding:13px 14px;background:rgba(238,110,80,0.09);box-shadow:inset 0 0 0 1px rgba(238,110,80,0.20);display:flex;flex-direction:column;gap:5px">
+<div style="display:flex;align-items:center;gap:6px;color:#EE7A5F"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5l9-9"></path><path d="M16.5 14.5v-7h-7"></path></svg><span style="font-size:11.5px;color:#DDA091;font-weight:500">Вы должны</span></div>
+<span style="font-size:20px;font-weight:700;color:#F08A72;font-variant-numeric:tabular-nums;letter-spacing:-0.01em">340 ₽</span>
+</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;padding-top:11px;border-top:1px solid rgba(255,220,170,0.08)">
+<span style="font-size:13px;color:#C4B49C">Итог месяца</span><span style="font-size:16px;font-weight:700;color:#9BD48F;font-variant-numeric:tabular-nums">+910 ₽</span>
+</div>
+</div>
+</div>
+<sc-if value="{{ showFab }}" hint-placeholder-val="{{ true }}">
+<button aria-label="Создать голосование или добавить блюдо" style="position:absolute;right:18px;bottom:108px;width:58px;height:58px;border-radius:20px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);color:#2A1602;display:flex;align-items:center;justify-content:center;box-shadow:0 14px 30px -10px rgba(235,135,25,0.55),0 4px 10px -2px rgba(235,135,25,0.4),inset 0 1px 0 rgba(255,255,255,0.35);z-index:3;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-3px) scale(1.03)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.8);outline-offset:3px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5.5v13"></path><path d="M5.5 12h13"></path></svg></button>
+</sc-if>
+<nav style="position:absolute;left:14px;right:14px;bottom:26px;height:66px;border-radius:24px;background:linear-gradient(180deg,rgba(53,40,24,0.94),rgba(40,30,18,0.97));box-shadow:inset 0 1px 0 rgba(255,230,190,0.08),0 18px 40px -14px rgba(8,4,0,0.85),0 4px 12px -4px rgba(10,5,0,0.6);display:flex;align-items:center;padding:7px;z-index:3">
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.18);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#F5A845;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5L12 3.5l8.5 7"></path><path d="M5.5 9.5V20h13V9.5"></path></svg><span style="font-size:10.5px;font-weight:600;letter-spacing:0.02em">Главная</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v5a2 2 0 0 0 4 0V3"></path><path d="M8 3v18"></path><path d="M17 3c-1.5 2-2 4-2 6s.7 3 2 3v9"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Меню</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 20v-7"></path><path d="M12 20V5"></path><path d="M19 20v-10"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Статистика</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.75"></circle><path d="M4.5 20.5c1.6-3.8 4.6-5 7.5-5s5.9 1.2 7.5 5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Профиль</span></button>
+</nav>
+<div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:120px;height:5px;border-radius:3px;background:rgba(255,255,255,0.22);z-index:3"></div>
+</div>
+<div style="max-width:390px;text-align:center;font-size:12px;line-height:1.6;color:#8A7A64"><span style="color:#C4B49C;font-weight:600">Home · тёмная тема</span> — активное голосование, бюджет, FAB над таб-баром</div>
+</div>
+<!-- Меню -->
+<div style="display:flex;flex-direction:column;gap:16px;align-items:center">
+<div data-screen-label="Меню" style="width:390px;height:844px;border-radius:48px;position:relative;overflow:hidden;flex-shrink:0;background:radial-gradient(120% 55% at 85% -8%,rgba(244,158,55,0.13),transparent 60%),radial-gradient(80% 40% at -10% 105%,rgba(224,126,18,0.07),transparent 60%),linear-gradient(180deg,#1C150C 0%,#171009 100%);box-shadow:0 0 0 1px rgba(255,255,255,0.05),0 0 0 12px #0C0906,0 0 0 13px rgba(255,214,160,0.10),0 44px 80px -32px rgba(0,0,0,0.8)">
+<svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.045;pointer-events:none;mix-blend-mode:overlay" aria-hidden="true"><rect width="100%" height="100%" filter="url(#rl-grain)"></rect></svg>
+<div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:relative;z-index:2;color:#F6EEE2">
+<span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">9:41</span>
+<div style="display:flex;align-items:center;gap:6px">
+<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"></rect><rect x="4.5" y="4.5" width="3" height="6.5" rx="1"></rect><rect x="9" y="2.5" width="3" height="8.5" rx="1"></rect><rect x="13.5" y="0.5" width="3" height="10.5" rx="1"></rect></svg>
+<svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" opacity="0.4"></rect><rect x="2" y="2" width="14" height="8" rx="2" fill="currentColor"></rect><rect x="23" y="4" width="2" height="4" rx="1" fill="currentColor" opacity="0.4"></rect></svg>
+</div>
+</div>
+<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 22px;position:relative;z-index:2">
+<div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:600;color:#F6EEE2">Rocket Lunch</span><span style="font-size:11px;color:#8A7A64">мини-приложение</span></div>
+<div style="display:flex;align-items:center;height:32px;border-radius:16px;background:rgba(255,235,205,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.08)">
+<button aria-label="Ещё" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:16px 0 0 16px;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"></circle><circle cx="12" cy="12" r="1.9"></circle><circle cx="12" cy="19" r="1.9"></circle></svg></button>
+<div style="width:1px;height:16px;background:rgba(255,220,170,0.12)"></div>
+<button aria-label="Закрыть" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:0 16px 16px 0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+</div>
+<div style="position:absolute;top:92px;left:0;right:0;bottom:0;padding:6px 16px 116px;display:flex;flex-direction:column;gap:13px;z-index:1;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:4px;padding:4px 4px 0">
+<h3 style="margin:0;font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;letter-spacing:-0.03em;color:#F6EEE2">Меню</h3>
+<span style="font-size:12.5px;color:#8A7A64">12 блюд · 4 категории · Rocket Lunch</span>
+</div>
+<div style="height:48px;border-radius:17px;background:rgba(40,30,18,0.85);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.09),inset 0 2px 6px rgba(0,0,0,0.25);display:flex;align-items:center;gap:10px;padding:0 16px;color:#8A7A64;flex-shrink:0">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M19.5 19.5L16 16"></path></svg>
+<span style="font-size:14px">Найти блюдо или категорию</span>
+</div>
+<div style="display:flex;gap:8px;overflow:hidden;flex-shrink:0">
+<button style="height:36px;padding:0 15px;border-radius:999px;border:none;cursor:pointer;background:rgba(244,158,55,0.16);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.28);color:#F5A845;font-family:inherit;font-size:13px;font-weight:600;flex-shrink:0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-1px)" style-active="transform:scale(0.95)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px">Все</button>
+<button style="height:36px;padding:0 15px;border-radius:999px;border:none;cursor:pointer;background:rgba(255,225,180,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.09);color:#C4B49C;font-family:inherit;font-size:13px;font-weight:500;flex-shrink:0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-1px)" style-active="transform:scale(0.95)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px">Супы</button>
+<button style="height:36px;padding:0 15px;border-radius:999px;border:none;cursor:pointer;background:rgba(255,225,180,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.09);color:#C4B49C;font-family:inherit;font-size:13px;font-weight:500;flex-shrink:0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-1px)" style-active="transform:scale(0.95)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px">Азиатская</button>
+<button style="height:36px;padding:0 15px;border-radius:999px;border:none;cursor:pointer;background:rgba(255,225,180,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.09);color:#C4B49C;font-family:inherit;font-size:13px;font-weight:500;flex-shrink:0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-1px)" style-active="transform:scale(0.95)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px">Стритфуд</button>
+<button style="height:36px;padding:0 15px;border-radius:999px;border:none;cursor:pointer;background:rgba(255,225,180,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.09);color:#C4B49C;font-family:inherit;font-size:13px;font-weight:500;flex-shrink:0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-1px)" style-active="transform:scale(0.95)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px">Боулы</button>
+</div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<div style="border-radius:20px;padding:12px 14px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.05),0 10px 24px -14px rgba(8,4,0,0.7),0 2px 6px -2px rgba(12,6,0,0.4);display:flex;align-items:center;gap:12px">
+<div style="width:46px;height:46px;border-radius:15px;background:rgba(238,110,80,0.13);box-shadow:inset 0 0 0 1px rgba(238,110,80,0.18);display:flex;align-items:center;justify-content:center;color:#F0906A;flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.25"></circle><circle cx="12" cy="12" r="3.5"></circle></svg></div>
+<div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">
+<span style="font-size:15px;font-weight:600;color:#F6EEE2">Том-ям</span>
+<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:#8A7A64">Супы</span><span style="width:3px;height:3px;border-radius:50%;background:#8A7A64"></span><span style="font-size:12.5px;font-weight:600;color:#E8D9C2;font-variant-numeric:tabular-nums">420 ₽</span></div>
+</div>
+<button aria-label="Активно" style="width:46px;height:28px;border-radius:999px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);position:relative;flex-shrink:0;box-shadow:inset 0 1px 2px rgba(120,60,0,0.35);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.93)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px"><span style="position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#FFF6E8;box-shadow:0 2px 4px rgba(60,30,0,0.4)"></span></button>
+</div>
+<div style="border-radius:20px;padding:12px 14px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.05),0 10px 24px -14px rgba(8,4,0,0.7),0 2px 6px -2px rgba(12,6,0,0.4);display:flex;align-items:center;gap:12px">
+<div style="width:46px;height:46px;border-radius:15px;background:rgba(244,158,55,0.13);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.18);display:flex;align-items:center;justify-content:center;color:#F5A845;flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.25"></circle><circle cx="12" cy="12" r="3.5"></circle></svg></div>
+<div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">
+<span style="font-size:15px;font-weight:600;color:#F6EEE2">Пад-тай с курицей</span>
+<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:#8A7A64">Азиатская</span><span style="width:3px;height:3px;border-radius:50%;background:#8A7A64"></span><span style="font-size:12.5px;font-weight:600;color:#E8D9C2;font-variant-numeric:tabular-nums">390 ₽</span></div>
+</div>
+<button aria-label="Активно" style="width:46px;height:28px;border-radius:999px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);position:relative;flex-shrink:0;box-shadow:inset 0 1px 2px rgba(120,60,0,0.35);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.93)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px"><span style="position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#FFF6E8;box-shadow:0 2px 4px rgba(60,30,0,0.4)"></span></button>
+</div>
+<div style="border-radius:20px;padding:12px 14px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.05),0 10px 24px -14px rgba(8,4,0,0.7),0 2px 6px -2px rgba(12,6,0,0.4);display:flex;align-items:center;gap:12px">
+<div style="width:46px;height:46px;border-radius:15px;background:rgba(140,190,110,0.13);box-shadow:inset 0 0 0 1px rgba(140,190,110,0.18);display:flex;align-items:center;justify-content:center;color:#9CCB84;flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.25"></circle><circle cx="12" cy="12" r="3.5"></circle></svg></div>
+<div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">
+<span style="font-size:15px;font-weight:600;color:#F6EEE2">Поке с лососем</span>
+<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:#8A7A64">Боулы</span><span style="width:3px;height:3px;border-radius:50%;background:#8A7A64"></span><span style="font-size:12.5px;font-weight:600;color:#E8D9C2;font-variant-numeric:tabular-nums">480 ₽</span></div>
+</div>
+<button aria-label="Активно" style="width:46px;height:28px;border-radius:999px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);position:relative;flex-shrink:0;box-shadow:inset 0 1px 2px rgba(120,60,0,0.35);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.93)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px"><span style="position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#FFF6E8;box-shadow:0 2px 4px rgba(60,30,0,0.4)"></span></button>
+</div>
+<div style="border-radius:20px;padding:12px 14px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.05),0 10px 24px -14px rgba(8,4,0,0.7),0 2px 6px -2px rgba(12,6,0,0.4);display:flex;align-items:center;gap:12px">
+<div style="width:46px;height:46px;border-radius:15px;background:rgba(232,181,74,0.13);box-shadow:inset 0 0 0 1px rgba(232,181,74,0.18);display:flex;align-items:center;justify-content:center;color:#E8B54A;flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.25"></circle><circle cx="12" cy="12" r="3.5"></circle></svg></div>
+<div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">
+<span style="font-size:15px;font-weight:600;color:#F6EEE2">Шаурма</span>
+<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:#8A7A64">Стритфуд</span><span style="width:3px;height:3px;border-radius:50%;background:#8A7A64"></span><span style="font-size:12.5px;font-weight:600;color:#E8D9C2;font-variant-numeric:tabular-nums">260 ₽</span></div>
+</div>
+<button aria-label="Активно" style="width:46px;height:28px;border-radius:999px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);position:relative;flex-shrink:0;box-shadow:inset 0 1px 2px rgba(120,60,0,0.35);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.93)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px"><span style="position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#FFF6E8;box-shadow:0 2px 4px rgba(60,30,0,0.4)"></span></button>
+</div>
+<div style="border-radius:20px;padding:12px 14px;background:linear-gradient(180deg,#241B11,#1F1710);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.06);display:flex;align-items:center;gap:12px;opacity:0.75">
+<div style="width:46px;height:46px;border-radius:15px;background:rgba(255,225,180,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.08);display:flex;align-items:center;justify-content:center;color:#8A7A64;flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.25"></circle><circle cx="12" cy="12" r="3.5"></circle></svg></div>
+<div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">
+<span style="font-size:15px;font-weight:600;color:#B0A28B">Цезарь-ролл</span>
+<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:#8A7A64">Стритфуд · в архиве</span><span style="width:3px;height:3px;border-radius:50%;background:#8A7A64"></span><span style="font-size:12.5px;font-weight:600;color:#8A7A64;font-variant-numeric:tabular-nums">310 ₽</span></div>
+</div>
+<button aria-label="В архиве" style="width:46px;height:28px;border-radius:999px;border:none;cursor:pointer;background:rgba(255,225,180,0.10);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.12);position:relative;flex-shrink:0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.93)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px"><span style="position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#8A7A64;box-shadow:0 2px 4px rgba(0,0,0,0.35)"></span></button>
+</div>
+</div>
+<button style="height:40px;border-radius:14px;border:none;cursor:pointer;background:none;color:#F5A845;font-family:inherit;font-size:13px;font-weight:600;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-1px)" style-active="transform:scale(0.97)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px">Ещё 7 блюд</button>
+</div>
+<nav style="position:absolute;left:14px;right:14px;bottom:26px;height:66px;border-radius:24px;background:linear-gradient(180deg,rgba(53,40,24,0.94),rgba(40,30,18,0.97));box-shadow:inset 0 1px 0 rgba(255,230,190,0.08),0 18px 40px -14px rgba(8,4,0,0.85),0 4px 12px -4px rgba(10,5,0,0.6);display:flex;align-items:center;padding:7px;z-index:3">
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5L12 3.5l8.5 7"></path><path d="M5.5 9.5V20h13V9.5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Главная</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.18);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#F5A845;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v5a2 2 0 0 0 4 0V3"></path><path d="M8 3v18"></path><path d="M17 3c-1.5 2-2 4-2 6s.7 3 2 3v9"></path></svg><span style="font-size:10.5px;font-weight:600;letter-spacing:0.02em">Меню</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 20v-7"></path><path d="M12 20V5"></path><path d="M19 20v-10"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Статистика</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.75"></circle><path d="M4.5 20.5c1.6-3.8 4.6-5 7.5-5s5.9 1.2 7.5 5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Профиль</span></button>
+</nav>
+<div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:120px;height:5px;border-radius:3px;background:rgba(255,255,255,0.22);z-index:3"></div>
+</div>
+<div style="max-width:390px;text-align:center;font-size:12px;line-height:1.6;color:#8A7A64"><span style="color:#C4B49C;font-weight:600">Меню</span> — поиск, категории, тумблер «активно / архив», категорийные тинты</div>
+</div>
+<!-- Статистика -->
+<div style="display:flex;flex-direction:column;gap:16px;align-items:center">
+<div data-screen-label="Статистика" style="width:390px;height:844px;border-radius:48px;position:relative;overflow:hidden;flex-shrink:0;background:radial-gradient(120% 55% at 85% -8%,rgba(244,158,55,0.13),transparent 60%),radial-gradient(80% 40% at -10% 105%,rgba(224,126,18,0.07),transparent 60%),linear-gradient(180deg,#1C150C 0%,#171009 100%);box-shadow:0 0 0 1px rgba(255,255,255,0.05),0 0 0 12px #0C0906,0 0 0 13px rgba(255,214,160,0.10),0 44px 80px -32px rgba(0,0,0,0.8)">
+<svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.045;pointer-events:none;mix-blend-mode:overlay" aria-hidden="true"><rect width="100%" height="100%" filter="url(#rl-grain)"></rect></svg>
+<div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:relative;z-index:2;color:#F6EEE2">
+<span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">9:41</span>
+<div style="display:flex;align-items:center;gap:6px">
+<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"></rect><rect x="4.5" y="4.5" width="3" height="6.5" rx="1"></rect><rect x="9" y="2.5" width="3" height="8.5" rx="1"></rect><rect x="13.5" y="0.5" width="3" height="10.5" rx="1"></rect></svg>
+<svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" opacity="0.4"></rect><rect x="2" y="2" width="14" height="8" rx="2" fill="currentColor"></rect><rect x="23" y="4" width="2" height="4" rx="1" fill="currentColor" opacity="0.4"></rect></svg>
+</div>
+</div>
+<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 22px;position:relative;z-index:2">
+<div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:600;color:#F6EEE2">Rocket Lunch</span><span style="font-size:11px;color:#8A7A64">мини-приложение</span></div>
+<div style="display:flex;align-items:center;height:32px;border-radius:16px;background:rgba(255,235,205,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.08)">
+<button aria-label="Ещё" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:16px 0 0 16px;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"></circle><circle cx="12" cy="12" r="1.9"></circle><circle cx="12" cy="19" r="1.9"></circle></svg></button>
+<div style="width:1px;height:16px;background:rgba(255,220,170,0.12)"></div>
+<button aria-label="Закрыть" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:0 16px 16px 0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+</div>
+<div style="position:absolute;top:92px;left:0;right:0;bottom:0;padding:6px 16px 116px;display:flex;flex-direction:column;gap:12px;z-index:1;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:4px;padding:4px 4px 0">
+<h3 style="margin:0;font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;letter-spacing:-0.03em;color:#F6EEE2">Статистика</h3>
+<span style="font-size:12.5px;color:#8A7A64">Июнь · команда из 8 человек</span>
+</div>
+<div style="border-radius:24px;padding:15px 12px 12px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:8px;padding:0 6px">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5A845" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"></path><path d="M7 5H4.5a2.5 2.5 0 0 0 2.6 3"></path><path d="M17 5h2.5a2.5 2.5 0 0 1-2.6 3"></path><path d="M12 14v4"></path><path d="M8.5 20.5h7"></path></svg>
+<span style="font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#C4B49C">Лидерборд команды</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:center;gap:11px;padding:3px 8px;border-radius:13px">
+<span style="width:16px;text-align:center;font-size:13px;font-weight:700;color:#E8B54A;font-variant-numeric:tabular-nums;flex-shrink:0">1</span>
+<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#E88A6A,#C75B3C);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#2A0F06;flex-shrink:0">А</div>
+<div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0"><span style="font-size:14px;font-weight:600">Аня</span><span style="font-size:11px;color:#8A7A64">26 обедов</span></div>
+<div style="display:flex;align-items:center;gap:4px;color:#E8B54A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.5 3-1.5 4.5-3 6.5-1.5 2-2 3.5-2 5a5 5 0 0 0 10 0c0-4.5-3.5-6-5-11.5z"></path></svg><span style="font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums">8</span></div>
+</div>
+<div style="display:flex;align-items:center;gap:11px;padding:3px 8px;border-radius:13px;background:rgba(244,158,55,0.10);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.16)">
+<span style="width:16px;text-align:center;font-size:13px;font-weight:700;color:#C4B49C;font-variant-numeric:tabular-nums;flex-shrink:0">2</span>
+<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#F2A65A,#D97E2A);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#2A1602;flex-shrink:0">И</div>
+<div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0"><span style="font-size:14px;font-weight:600">Игорь · вы</span><span style="font-size:11px;color:#8A7A64">24 обеда</span></div>
+<div style="display:flex;align-items:center;gap:4px;color:#E8B54A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.5 3-1.5 4.5-3 6.5-1.5 2-2 3.5-2 5a5 5 0 0 0 10 0c0-4.5-3.5-6-5-11.5z"></path></svg><span style="font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums">6</span></div>
+</div>
+<div style="display:flex;align-items:center;gap:11px;padding:3px 8px;border-radius:13px">
+<span style="width:16px;text-align:center;font-size:13px;font-weight:700;color:#8A7A64;font-variant-numeric:tabular-nums;flex-shrink:0">3</span>
+<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#D9BC6A,#A67B2E);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#241802;flex-shrink:0">М</div>
+<div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0"><span style="font-size:14px;font-weight:600">Миша</span><span style="font-size:11px;color:#8A7A64">21 обед</span></div>
+<div style="display:flex;align-items:center;gap:4px;color:#E8B54A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.5 3-1.5 4.5-3 6.5-1.5 2-2 3.5-2 5a5 5 0 0 0 10 0c0-4.5-3.5-6-5-11.5z"></path></svg><span style="font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums">5</span></div>
+</div>
+<div style="display:flex;align-items:center;gap:11px;padding:3px 8px;border-radius:13px">
+<span style="width:16px;text-align:center;font-size:13px;font-weight:700;color:#8A7A64;font-variant-numeric:tabular-nums;flex-shrink:0">4</span>
+<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#9CCB84,#5F9A4E);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#10250B;flex-shrink:0">Н</div>
+<div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0"><span style="font-size:14px;font-weight:600">Настя</span><span style="font-size:11px;color:#8A7A64">17 обедов</span></div>
+<div style="display:flex;align-items:center;gap:4px;color:#E8B54A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.5 3-1.5 4.5-3 6.5-1.5 2-2 3.5-2 5a5 5 0 0 0 10 0c0-4.5-3.5-6-5-11.5z"></path></svg><span style="font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums">3</span></div>
+</div>
+<div style="display:flex;align-items:center;gap:11px;padding:3px 8px;border-radius:13px">
+<span style="width:16px;text-align:center;font-size:13px;font-weight:700;color:#8A7A64;font-variant-numeric:tabular-nums;flex-shrink:0">5</span>
+<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#D98E96,#B65E6C);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#2A0D11;flex-shrink:0">Л</div>
+<div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0"><span style="font-size:14px;font-weight:600">Лена</span><span style="font-size:11px;color:#8A7A64">12 обедов</span></div>
+<div style="display:flex;align-items:center;gap:4px;color:#E8B54A"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.5 3-1.5 4.5-3 6.5-1.5 2-2 3.5-2 5a5 5 0 0 0 10 0c0-4.5-3.5-6-5-11.5z"></path></svg><span style="font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums">2</span></div>
+</div>
+</div>
+</div>
+<div style="border-radius:24px;padding:15px 16px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);display:flex;flex-direction:column;gap:11px">
+<span style="font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#C4B49C">Ваш профиль обеда</span>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<span style="height:30px;display:inline-flex;align-items:center;padding:0 12px;border-radius:999px;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.22);color:#F5A845;font-size:12.5px;font-weight:600">Том-ям ×9</span>
+<span style="height:30px;display:inline-flex;align-items:center;padding:0 12px;border-radius:999px;background:rgba(255,225,180,0.07);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.09);color:#E8D9C2;font-size:12.5px;font-weight:500">Поке с лососем ×6</span>
+<span style="height:30px;display:inline-flex;align-items:center;padding:0 12px;border-radius:999px;background:rgba(255,225,180,0.07);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.09);color:#E8D9C2;font-size:12.5px;font-weight:500">Шаурма ×4</span>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;padding-top:9px;border-top:1px solid rgba(255,220,170,0.08)">
+<span style="font-size:13px;color:#C4B49C">Участие в голосованиях</span>
+<span style="font-size:15px;font-weight:700;color:#F5A845;font-variant-numeric:tabular-nums">87%</span>
+</div>
+</div>
+<div style="border-radius:24px;padding:15px 16px 13px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);display:flex;flex-direction:column;gap:10px">
+<span style="font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#C4B49C">Траты по неделям · июнь</span>
+<div style="display:flex;align-items:flex-end;gap:12px;height:96px;padding:0 2px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:100%">
+<span style="font-size:10px;color:#C4B49C;font-variant-numeric:tabular-nums">2 340</span>
+<div style="width:100%;height:42px;border-radius:8px 8px 5px 5px;background:linear-gradient(180deg,rgba(244,158,55,0.5),rgba(224,126,18,0.22))"></div>
+<span style="font-size:10px;color:#8A7A64">1–7</span>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:100%">
+<span style="font-size:10px;color:#F5A845;font-weight:700;font-variant-numeric:tabular-nums">3 120</span>
+<div style="width:100%;height:58px;border-radius:8px 8px 5px 5px;background:linear-gradient(180deg,#F7B254,#E07E12);box-shadow:0 6px 16px -6px rgba(235,135,25,0.5)"></div>
+<span style="font-size:10px;color:#8A7A64">8–14</span>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:100%">
+<span style="font-size:10px;color:#C4B49C;font-variant-numeric:tabular-nums">2 890</span>
+<div style="width:100%;height:53px;border-radius:8px 8px 5px 5px;background:linear-gradient(180deg,rgba(244,158,55,0.5),rgba(224,126,18,0.22))"></div>
+<span style="font-size:10px;color:#8A7A64">15–21</span>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:100%">
+<span style="font-size:10px;color:#C4B49C;font-variant-numeric:tabular-nums">1 450</span>
+<div style="width:100%;height:26px;border-radius:8px 8px 5px 5px;background:linear-gradient(180deg,rgba(244,158,55,0.5),rgba(224,126,18,0.22))"></div>
+<span style="font-size:10px;color:#8A7A64">22–28</span>
+</div>
+</div>
+</div>
+</div>
+<nav style="position:absolute;left:14px;right:14px;bottom:26px;height:66px;border-radius:24px;background:linear-gradient(180deg,rgba(53,40,24,0.94),rgba(40,30,18,0.97));box-shadow:inset 0 1px 0 rgba(255,230,190,0.08),0 18px 40px -14px rgba(8,4,0,0.85),0 4px 12px -4px rgba(10,5,0,0.6);display:flex;align-items:center;padding:7px;z-index:3">
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5L12 3.5l8.5 7"></path><path d="M5.5 9.5V20h13V9.5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Главная</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v5a2 2 0 0 0 4 0V3"></path><path d="M8 3v18"></path><path d="M17 3c-1.5 2-2 4-2 6s.7 3 2 3v9"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Меню</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.18);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#F5A845;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 20v-7"></path><path d="M12 20V5"></path><path d="M19 20v-10"></path></svg><span style="font-size:10.5px;font-weight:600;letter-spacing:0.02em">Статистика</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.75"></circle><path d="M4.5 20.5c1.6-3.8 4.6-5 7.5-5s5.9 1.2 7.5 5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Профиль</span></button>
+</nav>
+<div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:120px;height:5px;border-radius:3px;background:rgba(255,255,255,0.22);z-index:3"></div>
+</div>
+<div style="max-width:390px;text-align:center;font-size:12px;line-height:1.6;color:#8A7A64"><span style="color:#C4B49C;font-weight:600">Статистика</span> — лидерборд со streak, профиль обеда, траты по неделям</div>
+</div>
+<!-- Профиль -->
+<div style="display:flex;flex-direction:column;gap:16px;align-items:center">
+<div data-screen-label="Профиль" style="width:390px;height:844px;border-radius:48px;position:relative;overflow:hidden;flex-shrink:0;background:radial-gradient(120% 55% at 85% -8%,rgba(244,158,55,0.13),transparent 60%),radial-gradient(80% 40% at -10% 105%,rgba(224,126,18,0.07),transparent 60%),linear-gradient(180deg,#1C150C 0%,#171009 100%);box-shadow:0 0 0 1px rgba(255,255,255,0.05),0 0 0 12px #0C0906,0 0 0 13px rgba(255,214,160,0.10),0 44px 80px -32px rgba(0,0,0,0.8)">
+<svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.045;pointer-events:none;mix-blend-mode:overlay" aria-hidden="true"><rect width="100%" height="100%" filter="url(#rl-grain)"></rect></svg>
+<div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:relative;z-index:2;color:#F6EEE2">
+<span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">9:41</span>
+<div style="display:flex;align-items:center;gap:6px">
+<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"></rect><rect x="4.5" y="4.5" width="3" height="6.5" rx="1"></rect><rect x="9" y="2.5" width="3" height="8.5" rx="1"></rect><rect x="13.5" y="0.5" width="3" height="10.5" rx="1"></rect></svg>
+<svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" opacity="0.4"></rect><rect x="2" y="2" width="14" height="8" rx="2" fill="currentColor"></rect><rect x="23" y="4" width="2" height="4" rx="1" fill="currentColor" opacity="0.4"></rect></svg>
+</div>
+</div>
+<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 22px;position:relative;z-index:2">
+<div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:600;color:#F6EEE2">Rocket Lunch</span><span style="font-size:11px;color:#8A7A64">мини-приложение</span></div>
+<div style="display:flex;align-items:center;height:32px;border-radius:16px;background:rgba(255,235,205,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.08)">
+<button aria-label="Ещё" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:16px 0 0 16px;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"></circle><circle cx="12" cy="12" r="1.9"></circle><circle cx="12" cy="19" r="1.9"></circle></svg></button>
+<div style="width:1px;height:16px;background:rgba(255,220,170,0.12)"></div>
+<button aria-label="Закрыть" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:0 16px 16px 0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+</div>
+<div style="position:absolute;top:92px;left:0;right:0;bottom:0;padding:6px 16px 116px;display:flex;flex-direction:column;gap:13px;z-index:1;overflow:hidden">
+<div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:6px;text-align:center">
+<div style="width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,#F2A65A,#D97E2A);display:flex;align-items:center;justify-content:center;font-size:27px;font-weight:700;color:#2A1602;box-shadow:0 0 0 3px #171009,0 0 0 4.5px rgba(244,158,55,0.45),0 14px 30px -10px rgba(235,135,25,0.4)">И</div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<span style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:600;letter-spacing:-0.02em">Игорь Соколов</span>
+<span style="font-size:13px;color:#8A7A64">@igor_sokolov</span>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
+<div style="border-radius:18px;padding:12px 6px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.05),0 10px 24px -14px rgba(8,4,0,0.7);display:flex;flex-direction:column;align-items:center;gap:2px">
+<span style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;color:#F6EEE2">24</span><span style="font-size:10.5px;color:#8A7A64">Голосований</span>
+</div>
+<div style="border-radius:18px;padding:12px 6px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.05),0 10px 24px -14px rgba(8,4,0,0.7);display:flex;flex-direction:column;align-items:center;gap:2px">
+<span style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;color:#F6EEE2">18</span><span style="font-size:10.5px;color:#8A7A64">Завершено</span>
+</div>
+<div style="border-radius:18px;padding:12px 6px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.05),0 10px 24px -14px rgba(8,4,0,0.7);display:flex;flex-direction:column;align-items:center;gap:2px">
+<span style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;color:#F5A845">87%</span><span style="font-size:10.5px;color:#8A7A64">Активность</span>
+</div>
+</div>
+<div style="border-radius:22px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);overflow:hidden;display:flex;flex-direction:column">
+<button style="display:flex;align-items:center;gap:12px;padding:11px 14px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateX(2px)" style-active="transform:scale(0.98)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px">
+<div style="width:34px;height:34px;border-radius:11px;background:rgba(244,158,55,0.10);display:flex;align-items:center;justify-content:center;color:#F5A845;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13.5A8.5 8.5 0 1 1 10.5 4a7 7 0 0 0 9.5 9.5z"></path></svg></div>
+<span style="flex:1;font-size:14px;font-weight:500;color:#F6EEE2">Оформление</span>
+<span style="font-size:12.5px;color:#8A7A64">Тёмное</span>
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A64" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6.5L15 12l-5.5 5.5"></path></svg>
+</button>
+<div style="height:1px;background:rgba(255,220,170,0.07);margin:0 14px"></div>
+<div style="display:flex;align-items:center;gap:12px;padding:11px 14px">
+<div style="width:34px;height:34px;border-radius:11px;background:rgba(244,158,55,0.10);display:flex;align-items:center;justify-content:center;color:#F5A845;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 4.5 1.8 5.5 1.8 5.5H4.7s1.8-1 1.8-5.5"></path><path d="M10.3 19a1.9 1.9 0 0 0 3.4 0"></path></svg></div>
+<span style="flex:1;font-size:14px;font-weight:500;color:#F6EEE2">Уведомления</span>
+<button aria-label="Уведомления включены" style="width:46px;height:28px;border-radius:999px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);position:relative;flex-shrink:0;box-shadow:inset 0 1px 2px rgba(120,60,0,0.35);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.93)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px"><span style="position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#FFF6E8;box-shadow:0 2px 4px rgba(60,30,0,0.4)"></span></button>
+</div>
+<div style="height:1px;background:rgba(255,220,170,0.07);margin:0 14px"></div>
+<button style="display:flex;align-items:center;gap:12px;padding:11px 14px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateX(2px)" style-active="transform:scale(0.98)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px">
+<div style="width:34px;height:34px;border-radius:11px;background:rgba(244,158,55,0.10);display:flex;align-items:center;justify-content:center;color:#F5A845;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="5.5" width="18" height="13" rx="2.5"></rect><path d="M3 10h18"></path></svg></div>
+<span style="flex:1;font-size:14px;font-weight:500;color:#F6EEE2">Реквизиты СБП</span>
+<span style="font-size:12.5px;color:#8A7A64;font-variant-numeric:tabular-nums">··· 4276</span>
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A64" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6.5L15 12l-5.5 5.5"></path></svg>
+</button>
+<div style="height:1px;background:rgba(255,220,170,0.07);margin:0 14px"></div>
+<button style="display:flex;align-items:center;gap:12px;padding:11px 14px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateX(2px)" style-active="transform:scale(0.98)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px">
+<div style="width:34px;height:34px;border-radius:11px;background:rgba(244,158,55,0.10);display:flex;align-items:center;justify-content:center;color:#F5A845;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M3.5 12h17"></path><path d="M12 3.5c2.5 2.5 2.5 14.5 0 17"></path><path d="M12 3.5c-2.5 2.5-2.5 14.5 0 17"></path></svg></div>
+<span style="flex:1;font-size:14px;font-weight:500;color:#F6EEE2">Язык</span>
+<span style="font-size:12.5px;color:#8A7A64">Русский</span>
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A64" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6.5L15 12l-5.5 5.5"></path></svg>
+</button>
+</div>
+<div style="border-radius:22px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);overflow:hidden;display:flex;flex-direction:column">
+<button style="display:flex;align-items:center;gap:12px;padding:11px 14px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateX(2px)" style-active="transform:scale(0.98)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px">
+<div style="width:34px;height:34px;border-radius:11px;background:rgba(232,181,74,0.10);display:flex;align-items:center;justify-content:center;color:#E8B54A;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5"></path><path d="M10.5 21h3"></path><path d="M12 3a5.5 5.5 0 0 1 3.5 9.7c-.7.6-1 1.4-1 2.3h-5c0-.9-.3-1.7-1-2.3A5.5 5.5 0 0 1 12 3z"></path></svg></div>
+<span style="flex:1;font-size:14px;font-weight:500;color:#F6EEE2">Мои предложения</span>
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A64" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6.5L15 12l-5.5 5.5"></path></svg>
+</button>
+<div style="height:1px;background:rgba(255,220,170,0.07);margin:0 14px"></div>
+<button style="display:flex;align-items:center;gap:12px;padding:11px 14px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateX(2px)" style-active="transform:scale(0.98)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px">
+<div style="width:34px;height:34px;border-radius:11px;background:rgba(232,181,74,0.10);display:flex;align-items:center;justify-content:center;color:#E8B54A;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></div>
+<span style="flex:1;font-size:14px;font-weight:500;color:#F6EEE2">История голосований</span>
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A64" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6.5L15 12l-5.5 5.5"></path></svg>
+</button>
+</div>
+<button style="height:50px;border-radius:17px;border:none;cursor:pointer;background:rgba(244,158,55,0.12);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.25);color:#F5A845;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;font-size:14px;font-weight:600;flex-shrink:0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.97)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:3px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5S4.5 16 3.2 11.3A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8.8 4.3C19.5 16 12 20.5 12 20.5z"></path></svg>Поддержать проект</button>
+</div>
+<nav style="position:absolute;left:14px;right:14px;bottom:26px;height:66px;border-radius:24px;background:linear-gradient(180deg,rgba(53,40,24,0.94),rgba(40,30,18,0.97));box-shadow:inset 0 1px 0 rgba(255,230,190,0.08),0 18px 40px -14px rgba(8,4,0,0.85),0 4px 12px -4px rgba(10,5,0,0.6);display:flex;align-items:center;padding:7px;z-index:3">
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5L12 3.5l8.5 7"></path><path d="M5.5 9.5V20h13V9.5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Главная</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v5a2 2 0 0 0 4 0V3"></path><path d="M8 3v18"></path><path d="M17 3c-1.5 2-2 4-2 6s.7 3 2 3v9"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Меню</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 20v-7"></path><path d="M12 20V5"></path><path d="M19 20v-10"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Статистика</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.18);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#F5A845;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.75"></circle><path d="M4.5 20.5c1.6-3.8 4.6-5 7.5-5s5.9 1.2 7.5 5"></path></svg><span style="font-size:10.5px;font-weight:600;letter-spacing:0.02em">Профиль</span></button>
+</nav>
+<div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:120px;height:5px;border-radius:3px;background:rgba(255,255,255,0.22);z-index:3"></div>
+</div>
+<div style="max-width:390px;text-align:center;font-size:12px;line-height:1.6;color:#8A7A64"><span style="color:#C4B49C;font-weight:600">Профиль</span> — статистика, настройки (оформление живёт здесь), СБП, поддержка</div>
+</div>
+<!-- Home · светлая -->
+<div style="display:flex;flex-direction:column;gap:16px;align-items:center">
+<div data-screen-label="Home · светлая" style="width:390px;height:844px;border-radius:48px;position:relative;overflow:hidden;flex-shrink:0;background:radial-gradient(120% 55% at 85% -8%,rgba(240,150,50,0.20),transparent 60%),radial-gradient(80% 40% at -10% 105%,rgba(217,120,16,0.10),transparent 60%),linear-gradient(180deg,#F9F2E8 0%,#F2E8D9 100%);box-shadow:0 0 0 1px rgba(255,255,255,0.05),0 0 0 12px #0C0906,0 0 0 13px rgba(255,214,160,0.10),0 44px 80px -32px rgba(0,0,0,0.8)">
+<svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.035;pointer-events:none;mix-blend-mode:multiply" aria-hidden="true"><rect width="100%" height="100%" filter="url(#rl-grain)"></rect></svg>
+<div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:relative;z-index:2;color:#2B2115">
+<span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">9:41</span>
+<div style="display:flex;align-items:center;gap:6px">
+<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"></rect><rect x="4.5" y="4.5" width="3" height="6.5" rx="1"></rect><rect x="9" y="2.5" width="3" height="8.5" rx="1"></rect><rect x="13.5" y="0.5" width="3" height="10.5" rx="1"></rect></svg>
+<svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" opacity="0.4"></rect><rect x="2" y="2" width="14" height="8" rx="2" fill="currentColor"></rect><rect x="23" y="4" width="2" height="4" rx="1" fill="currentColor" opacity="0.4"></rect></svg>
+</div>
+</div>
+<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 22px;position:relative;z-index:2">
+<div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:600;color:#2B2115">Rocket Lunch</span><span style="font-size:11px;color:#9B8A72">мини-приложение</span></div>
+<div style="display:flex;align-items:center;height:32px;border-radius:16px;background:rgba(90,60,20,0.06);box-shadow:inset 0 0 0 1px rgba(90,60,20,0.10)">
+<button aria-label="Ещё" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#6E5F4B;cursor:pointer;border-radius:16px 0 0 16px;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(217,120,16,0.6);outline-offset:-2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"></circle><circle cx="12" cy="12" r="1.9"></circle><circle cx="12" cy="19" r="1.9"></circle></svg></button>
+<div style="width:1px;height:16px;background:rgba(90,60,20,0.14)"></div>
+<button aria-label="Закрыть" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#6E5F4B;cursor:pointer;border-radius:0 16px 16px 0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(217,120,16,0.6);outline-offset:-2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+</div>
+<div style="position:absolute;top:92px;left:0;right:0;bottom:0;padding:6px 16px 120px;display:flex;flex-direction:column;gap:14px;z-index:1;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:5px;padding:4px 4px 0">
+<span style="font-size:11px;font-weight:600;letter-spacing:0.12em;color:#9B8A72;text-transform:uppercase">Среда, 2 июля</span>
+<h3 style="margin:0;font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;letter-spacing:-0.03em;line-height:1.25;color:#2B2115">Доброе утро, Игорь</h3>
+<span style="font-size:13.5px;color:#6E5F4B;line-height:1.5">Время решать, что заказываем сегодня</span>
+</div>
+<div style="border-radius:26px;padding:18px;background:linear-gradient(180deg,#FFFDF9,#FBF4E9);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 14px 30px -16px rgba(125,75,15,0.30),0 3px 8px -4px rgba(125,75,15,0.15);display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden">
+<div style="position:absolute;top:-70px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(240,150,50,0.14),transparent 70%);pointer-events:none"></div>
+<div style="display:flex;align-items:center;justify-content:space-between;position:relative">
+<div style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:#5F9A4E;box-shadow:0 0 8px rgba(95,154,78,0.7)"></span><span style="font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#6E5F4B">Голосование идёт</span></div>
+<div style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:13px;background:rgba(224,126,18,0.10);color:#C96F0C;box-shadow:inset 0 0 0 1px rgba(224,126,18,0.20)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg><span style="font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums">12:45</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:11px;position:relative">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:14px;font-weight:600;color:#2B2115">Том-ям</span><span style="font-size:12px;color:#6E5F4B;font-variant-numeric:tabular-nums">4 голоса</span></div>
+<div style="height:7px;border-radius:4px;background:rgba(140,95,40,0.10);overflow:hidden"><div style="width:57%;height:100%;border-radius:4px;background:linear-gradient(90deg,#E07E12,#F7B254)"></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:14px;font-weight:500;color:#4A3D2C">Пад-тай с курицей</span><span style="font-size:12px;color:#6E5F4B;font-variant-numeric:tabular-nums">2 голоса</span></div>
+<div style="height:7px;border-radius:4px;background:rgba(140,95,40,0.10);overflow:hidden"><div style="width:29%;height:100%;border-radius:4px;background:rgba(224,126,18,0.45)"></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:14px;font-weight:500;color:#4A3D2C">Шаурма</span><span style="font-size:12px;color:#6E5F4B;font-variant-numeric:tabular-nums">1 голос</span></div>
+<div style="height:7px;border-radius:4px;background:rgba(140,95,40,0.10);overflow:hidden"><div style="width:14%;height:100%;border-radius:4px;background:rgba(224,126,18,0.30)"></div></div>
+</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;position:relative">
+<div style="display:flex;align-items:center">
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#F2A65A,#D97E2A);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#2A1602;border:2px solid #FFFDF9">И</div>
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#E88A6A,#C75B3C);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#2A0F06;border:2px solid #FFFDF9;margin-left:-8px">А</div>
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#D9BC6A,#A67B2E);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#241802;border:2px solid #FFFDF9;margin-left:-8px">М</div>
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#9CCB84,#5F9A4E);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#10250B;border:2px solid #FFFDF9;margin-left:-8px">Н</div>
+<div style="width:28px;height:28px;border-radius:50%;background:rgba(140,95,40,0.10);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#6E5F4B;border:2px solid #FFFDF9;margin-left:-8px">+3</div>
+</div>
+<span style="font-size:12px;color:#9B8A72">Проголосовало 7 из 8</span>
+</div>
+<button style="height:50px;border-radius:17px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);color:#2A1602;font-family:inherit;font-size:15px;font-weight:700;box-shadow:0 12px 26px -10px rgba(200,110,15,0.45),0 3px 8px -2px rgba(200,110,15,0.3),inset 0 1px 0 rgba(255,255,255,0.4);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);position:relative" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.97)" style-focus="outline:2px solid rgba(217,120,16,0.6);outline-offset:3px">Голосовать</button>
+</div>
+<div style="border-radius:26px;padding:18px;background:linear-gradient(180deg,#FFFDF9,#FBF4E9);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 14px 30px -16px rgba(125,75,15,0.30),0 3px 8px -4px rgba(125,75,15,0.15);display:flex;flex-direction:column;gap:13px">
+<div style="display:flex;align-items:center;justify-content:space-between">
+<span style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:600;letter-spacing:-0.02em;color:#2B2115">Бюджет команды</span>
+<button style="display:flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:999px;border:none;cursor:pointer;background:rgba(90,60,20,0.06);color:#6E5F4B;font-family:inherit;font-size:12px;font-weight:500;box-shadow:inset 0 0 0 1px rgba(90,60,20,0.10);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-1px)" style-active="transform:scale(0.95)" style-focus="outline:2px solid rgba(217,120,16,0.6);outline-offset:2px">Этот месяц<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5L12 15l5.5-5.5"></path></svg></button>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+<div style="border-radius:17px;padding:13px 14px;background:rgba(110,180,95,0.13);box-shadow:inset 0 0 0 1px rgba(110,180,95,0.28);display:flex;flex-direction:column;gap:5px">
+<div style="display:flex;align-items:center;gap:6px;color:#47823A"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 7.5l-9 9"></path><path d="M7.5 9.5v7h7"></path></svg><span style="font-size:11.5px;color:#4E7A42;font-weight:500">Вам должны</span></div>
+<span style="font-size:20px;font-weight:700;color:#3E7A30;font-variant-numeric:tabular-nums;letter-spacing:-0.01em">1 250 ₽</span>
+</div>
+<div style="border-radius:17px;padding:13px 14px;background:rgba(225,105,80,0.11);box-shadow:inset 0 0 0 1px rgba(225,105,80,0.26);display:flex;flex-direction:column;gap:5px">
+<div style="display:flex;align-items:center;gap:6px;color:#C2503B"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5l9-9"></path><path d="M16.5 14.5v-7h-7"></path></svg><span style="font-size:11.5px;color:#A85B49;font-weight:500">Вы должны</span></div>
+<span style="font-size:20px;font-weight:700;color:#B7472F;font-variant-numeric:tabular-nums;letter-spacing:-0.01em">340 ₽</span>
+</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;padding-top:11px;border-top:1px solid rgba(140,95,40,0.12)">
+<span style="font-size:13px;color:#6E5F4B">Итог месяца</span><span style="font-size:16px;font-weight:700;color:#3E7A30;font-variant-numeric:tabular-nums">+910 ₽</span>
+</div>
+</div>
+</div>
+<sc-if value="{{ showFab }}" hint-placeholder-val="{{ true }}">
+<button aria-label="Создать голосование или добавить блюдо" style="position:absolute;right:18px;bottom:108px;width:58px;height:58px;border-radius:20px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);color:#2A1602;display:flex;align-items:center;justify-content:center;box-shadow:0 14px 30px -10px rgba(200,110,15,0.5),0 4px 10px -2px rgba(200,110,15,0.35),inset 0 1px 0 rgba(255,255,255,0.4);z-index:3;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-3px) scale(1.03)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(217,120,16,0.7);outline-offset:3px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5.5v13"></path><path d="M5.5 12h13"></path></svg></button>
+</sc-if>
+<nav style="position:absolute;left:14px;right:14px;bottom:26px;height:66px;border-radius:24px;background:linear-gradient(180deg,rgba(255,253,248,0.96),rgba(250,242,230,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 18px 40px -14px rgba(110,65,10,0.35),0 4px 12px -4px rgba(110,65,10,0.18);display:flex;align-items:center;padding:7px;z-index:3">
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:rgba(224,126,18,0.12);box-shadow:inset 0 0 0 1px rgba(224,126,18,0.18);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#C96F0C;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(217,120,16,0.6);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5L12 3.5l8.5 7"></path><path d="M5.5 9.5V20h13V9.5"></path></svg><span style="font-size:10.5px;font-weight:600;letter-spacing:0.02em">Главная</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#9B8A72;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(217,120,16,0.6);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v5a2 2 0 0 0 4 0V3"></path><path d="M8 3v18"></path><path d="M17 3c-1.5 2-2 4-2 6s.7 3 2 3v9"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Меню</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#9B8A72;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(217,120,16,0.6);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 20v-7"></path><path d="M12 20V5"></path><path d="M19 20v-10"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Статистика</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#9B8A72;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(217,120,16,0.6);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.75"></circle><path d="M4.5 20.5c1.6-3.8 4.6-5 7.5-5s5.9 1.2 7.5 5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Профиль</span></button>
+</nav>
+<div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:120px;height:5px;border-radius:3px;background:rgba(0,0,0,0.22);z-index:3"></div>
+</div>
+<div style="max-width:390px;text-align:center;font-size:12px;line-height:1.6;color:#8A7A64"><span style="color:#C4B49C;font-weight:600">Home · светлая тема</span> — та же композиция на тёплом кремовом фоне</div>
+</div>
+</div>
+</div>
+
+<!-- ═══ БЛОК B: СОСТОЯНИЯ ВИДЖЕТА ═══ -->
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:4px">
+<h2 style="margin:0;font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;letter-spacing:-0.02em;color:#F6EEE2">Виджет голосования — три состояния</h2>
+<span style="font-size:13px;color:#8A7A64">Пусто → активно → завершено</span>
+</div>
+<div style="display:flex;gap:44px;flex-wrap:wrap;align-items:flex-start">
+<div style="display:flex;flex-direction:column;gap:14px;align-items:center;width:390px">
+<div data-screen-label="Виджет · нет голосования" style="width:390px;border-radius:34px;padding:18px 16px;background:radial-gradient(120% 80% at 85% -10%,rgba(244,158,55,0.13),transparent 60%),linear-gradient(180deg,#1C150C,#171009);box-shadow:0 0 0 1px rgba(255,214,160,0.08),0 24px 50px -24px rgba(0,0,0,0.7);position:relative;overflow:hidden">
+<svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.045;pointer-events:none;mix-blend-mode:overlay" aria-hidden="true"><rect width="100%" height="100%" filter="url(#rl-grain)"></rect></svg>
+<div style="border-radius:26px;padding:26px 20px 20px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);display:flex;flex-direction:column;align-items:center;gap:7px;position:relative;overflow:hidden;text-align:center">
+<div style="position:absolute;top:-70px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(244,158,55,0.13),transparent 70%);pointer-events:none"></div>
+<div style="position:relative;width:96px;height:96px;margin-bottom:6px;display:flex;align-items:center;justify-content:center">
+<div style="position:absolute;inset:0;border-radius:50%;border:1.5px dashed rgba(244,158,55,0.35)"></div>
+<div style="width:66px;height:66px;border-radius:50%;background:rgba(244,158,55,0.10);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.18);display:flex;align-items:center;justify-content:center;color:#F5A845"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.25"></circle><circle cx="12" cy="12" r="3.5"></circle></svg></div>
+<div style="position:absolute;left:-80px;top:8px;transform:rotate(-6deg);padding:5px 10px;border-radius:999px;border:1px dashed rgba(255,220,170,0.25);font-size:11px;color:#8A7A64;white-space:nowrap">Том-ям?</div>
+<div style="position:absolute;right:-82px;bottom:4px;transform:rotate(5deg);padding:5px 10px;border-radius:999px;border:1px dashed rgba(255,220,170,0.25);font-size:11px;color:#8A7A64;white-space:nowrap">Шаурма?</div>
+</div>
+<span style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:600;letter-spacing:-0.02em;position:relative;color:#F6EEE2">Сегодня ещё не решали</span>
+<span style="font-size:13px;color:#C4B49C;line-height:1.6;max-width:250px;position:relative">Запустите голосование — команда выберет обед за пару минут</span>
+<button style="width:100%;margin-top:10px;height:50px;border-radius:17px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);color:#2A1602;font-family:inherit;font-size:15px;font-weight:700;box-shadow:0 12px 26px -10px rgba(235,135,25,0.5),0 3px 8px -2px rgba(235,135,25,0.35),inset 0 1px 0 rgba(255,255,255,0.3);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);position:relative" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.97)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:3px">Запустить голосование</button>
+</div>
+</div>
+<div style="max-width:390px;text-align:center;font-size:12px;line-height:1.6;color:#8A7A64"><span style="color:#C4B49C;font-weight:600">(a) Нет голосования</span> — пустое состояние с подсказками-призраками</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:14px;align-items:center;width:390px">
+<div data-screen-label="Виджет · активное голосование" style="width:390px;border-radius:34px;padding:18px 16px;background:radial-gradient(120% 80% at 85% -10%,rgba(244,158,55,0.13),transparent 60%),linear-gradient(180deg,#1C150C,#171009);box-shadow:0 0 0 1px rgba(255,214,160,0.08),0 24px 50px -24px rgba(0,0,0,0.7);position:relative;overflow:hidden">
+<svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.045;pointer-events:none;mix-blend-mode:overlay" aria-hidden="true"><rect width="100%" height="100%" filter="url(#rl-grain)"></rect></svg>
+<div style="border-radius:26px;padding:18px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden">
+<div style="position:absolute;top:-70px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(244,158,55,0.15),transparent 70%);pointer-events:none"></div>
+<div style="display:flex;align-items:center;justify-content:space-between;position:relative">
+<div style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:#8FCB7F;box-shadow:0 0 10px rgba(143,203,127,0.8)"></span><span style="font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#C4B49C">Голосование идёт</span></div>
+<div style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:13px;background:rgba(244,158,55,0.12);color:#F5A845;box-shadow:inset 0 0 0 1px rgba(244,158,55,0.2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg><span style="font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums">12:45</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:11px;position:relative">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:14px;font-weight:600;color:#F6EEE2">Том-ям</span><span style="font-size:12px;color:#C4B49C;font-variant-numeric:tabular-nums">4 голоса</span></div>
+<div style="height:7px;border-radius:4px;background:rgba(255,225,180,0.07);overflow:hidden"><div style="width:57%;height:100%;border-radius:4px;background:linear-gradient(90deg,#E07E12,#F7B254)"></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:14px;font-weight:500;color:#E8D9C2">Пад-тай с курицей</span><span style="font-size:12px;color:#C4B49C;font-variant-numeric:tabular-nums">2 голоса</span></div>
+<div style="height:7px;border-radius:4px;background:rgba(255,225,180,0.07);overflow:hidden"><div style="width:29%;height:100%;border-radius:4px;background:rgba(244,158,55,0.45)"></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:14px;font-weight:500;color:#E8D9C2">Шаурма</span><span style="font-size:12px;color:#C4B49C;font-variant-numeric:tabular-nums">1 голос</span></div>
+<div style="height:7px;border-radius:4px;background:rgba(255,225,180,0.07);overflow:hidden"><div style="width:14%;height:100%;border-radius:4px;background:rgba(244,158,55,0.28)"></div></div>
+</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;position:relative">
+<div style="display:flex;align-items:center">
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#F2A65A,#D97E2A);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#2A1602;border:2px solid #241B10">И</div>
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#E88A6A,#C75B3C);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#2A0F06;border:2px solid #241B10;margin-left:-8px">А</div>
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#D9BC6A,#A67B2E);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#241802;border:2px solid #241B10;margin-left:-8px">М</div>
+<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#9CCB84,#5F9A4E);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#10250B;border:2px solid #241B10;margin-left:-8px">Н</div>
+<div style="width:28px;height:28px;border-radius:50%;background:rgba(255,225,180,0.10);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#C4B49C;border:2px solid #241B10;margin-left:-8px">+3</div>
+</div>
+<span style="font-size:12px;color:#8A7A64">Проголосовало 7 из 8</span>
+</div>
+<button style="height:50px;border-radius:17px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);color:#2A1602;font-family:inherit;font-size:15px;font-weight:700;box-shadow:0 12px 26px -10px rgba(235,135,25,0.5),0 3px 8px -2px rgba(235,135,25,0.35),inset 0 1px 0 rgba(255,255,255,0.3);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);position:relative" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.97)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:3px">Голосовать</button>
+</div>
+</div>
+<div style="max-width:390px;text-align:center;font-size:12px;line-height:1.6;color:#8A7A64"><span style="color:#C4B49C;font-weight:600">(b) Активное голосование</span> — таймер, топ-3, аватары, счётчик 7 из 8</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:14px;align-items:center;width:390px">
+<div data-screen-label="Виджет · завершено" style="width:390px;border-radius:34px;padding:18px 16px;background:radial-gradient(120% 80% at 85% -10%,rgba(244,158,55,0.13),transparent 60%),linear-gradient(180deg,#1C150C,#171009);box-shadow:0 0 0 1px rgba(255,214,160,0.08),0 24px 50px -24px rgba(0,0,0,0.7);position:relative;overflow:hidden">
+<svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.045;pointer-events:none;mix-blend-mode:overlay" aria-hidden="true"><rect width="100%" height="100%" filter="url(#rl-grain)"></rect></svg>
+<div style="border-radius:26px;padding:18px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5);display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden">
+<div style="position:absolute;top:-70px;right:-50px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(244,158,55,0.18),transparent 70%);pointer-events:none"></div>
+<div style="position:absolute;top:16px;right:74px;width:5px;height:5px;border-radius:50%;background:#F5A845;opacity:0.6"></div>
+<div style="position:absolute;top:36px;right:38px;width:4px;height:4px;border-radius:1.5px;background:#8FCB7F;opacity:0.55;transform:rotate(24deg)"></div>
+<div style="position:absolute;top:12px;right:126px;width:4px;height:4px;border-radius:50%;background:#E8B54A;opacity:0.5"></div>
+<div style="position:absolute;top:56px;right:20px;width:5px;height:5px;border-radius:50%;background:#EE7A5F;opacity:0.4"></div>
+<div style="display:flex;align-items:center;justify-content:space-between;position:relative">
+<span style="font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#C4B49C">Итоги голосования</span>
+<div style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:13px;background:rgba(125,195,110,0.12);color:#9BD48F;box-shadow:inset 0 0 0 1px rgba(125,195,110,0.22)"><span style="width:6px;height:6px;border-radius:50%;background:#8FCB7F"></span><span style="font-size:12px;font-weight:600">Завершено</span></div>
+</div>
+<div style="display:flex;align-items:center;gap:14px;position:relative">
+<div style="width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,rgba(247,178,84,0.25),rgba(224,126,18,0.15));box-shadow:inset 0 0 0 1px rgba(244,158,55,0.3);display:flex;align-items:center;justify-content:center;color:#F5A845;flex-shrink:0"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.25"></circle><circle cx="12" cy="12" r="3.5"></circle></svg></div>
+<div style="display:flex;flex-direction:column;gap:3px">
+<span style="font-family:'Unbounded',sans-serif;font-size:18px;font-weight:600;letter-spacing:-0.02em;color:#F6EEE2">Том-ям</span>
+<span style="font-size:12.5px;color:#C4B49C">4 голоса из 7 · 420 ₽ с человека</span>
+</div>
+</div>
+<div style="height:1px;background:rgba(255,220,170,0.08);position:relative"></div>
+<div style="display:flex;align-items:center;gap:12px;position:relative">
+<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#D9BC6A,#A67B2E);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#241802;flex-shrink:0">М</div>
+<div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0">
+<span style="font-size:10.5px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#8A7A64">Ответственный за заказ</span>
+<span style="font-size:15px;font-weight:600;color:#F6EEE2">Миша</span>
+</div>
+<button style="height:38px;padding:0 14px;border-radius:13px;border:none;cursor:pointer;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.22);color:#F5A845;font-family:inherit;font-size:13px;font-weight:600;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-1px)" style-active="transform:scale(0.95)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:2px">Скинуться · СБП</button>
+</div>
+</div>
+</div>
+<div style="max-width:390px;text-align:center;font-size:12px;line-height:1.6;color:#8A7A64"><span style="color:#C4B49C;font-weight:600">(c) Завершено</span> — победитель, ответственный, сдержанный праздник</div>
+</div>
+</div>
+</div>
+
+<!-- ═══ БЛОК C: ПУСТЫЕ СОСТОЯНИЯ ═══ -->
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:4px">
+<h2 style="margin:0;font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;letter-spacing:-0.02em;color:#F6EEE2">Пустые состояния</h2>
+<span style="font-size:13px;color:#8A7A64">У каждого экрана — свой характер</span>
+</div>
+<div style="display:flex;gap:44px;flex-wrap:wrap;align-items:flex-start">
+<!-- Меню · пусто -->
+<div style="display:flex;flex-direction:column;gap:16px;align-items:center">
+<div data-screen-label="Меню · пусто" style="width:390px;height:844px;border-radius:48px;position:relative;overflow:hidden;flex-shrink:0;background:radial-gradient(120% 55% at 85% -8%,rgba(244,158,55,0.13),transparent 60%),radial-gradient(80% 40% at -10% 105%,rgba(224,126,18,0.07),transparent 60%),linear-gradient(180deg,#1C150C 0%,#171009 100%);box-shadow:0 0 0 1px rgba(255,255,255,0.05),0 0 0 12px #0C0906,0 0 0 13px rgba(255,214,160,0.10),0 44px 80px -32px rgba(0,0,0,0.8)">
+<svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.045;pointer-events:none;mix-blend-mode:overlay" aria-hidden="true"><rect width="100%" height="100%" filter="url(#rl-grain)"></rect></svg>
+<div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:relative;z-index:2;color:#F6EEE2">
+<span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">9:41</span>
+<div style="display:flex;align-items:center;gap:6px">
+<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"></rect><rect x="4.5" y="4.5" width="3" height="6.5" rx="1"></rect><rect x="9" y="2.5" width="3" height="8.5" rx="1"></rect><rect x="13.5" y="0.5" width="3" height="10.5" rx="1"></rect></svg>
+<svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" opacity="0.4"></rect><rect x="2" y="2" width="14" height="8" rx="2" fill="currentColor"></rect><rect x="23" y="4" width="2" height="4" rx="1" fill="currentColor" opacity="0.4"></rect></svg>
+</div>
+</div>
+<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 22px;position:relative;z-index:2">
+<div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:600;color:#F6EEE2">Rocket Lunch</span><span style="font-size:11px;color:#8A7A64">мини-приложение</span></div>
+<div style="display:flex;align-items:center;height:32px;border-radius:16px;background:rgba(255,235,205,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.08)">
+<button aria-label="Ещё" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:16px 0 0 16px;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"></circle><circle cx="12" cy="12" r="1.9"></circle><circle cx="12" cy="19" r="1.9"></circle></svg></button>
+<div style="width:1px;height:16px;background:rgba(255,220,170,0.12)"></div>
+<button aria-label="Закрыть" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:0 16px 16px 0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+</div>
+<div style="position:absolute;top:92px;left:0;right:0;bottom:0;padding:6px 16px 116px;display:flex;flex-direction:column;gap:13px;z-index:1;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:4px;padding:4px 4px 0">
+<h3 style="margin:0;font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;letter-spacing:-0.03em;color:#F6EEE2">Меню</h3>
+<span style="font-size:12.5px;color:#8A7A64">0 блюд · Rocket Lunch</span>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding-bottom:30px">
+<div style="position:relative;width:130px;height:130px;margin-bottom:10px;display:flex;align-items:center;justify-content:center">
+<div style="position:absolute;inset:0;border-radius:50%;border:1.5px dashed rgba(244,158,55,0.3)"></div>
+<div style="position:absolute;inset:16px;border-radius:50%;border:1px dashed rgba(255,220,170,0.15)"></div>
+<div style="width:78px;height:78px;border-radius:50%;background:rgba(244,158,55,0.10);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.18),0 16px 36px -16px rgba(235,135,25,0.4);display:flex;align-items:center;justify-content:center;color:#F5A845"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v5a2 2 0 0 0 4 0V3"></path><path d="M8 3v18"></path><path d="M17 3c-1.5 2-2 4-2 6s.7 3 2 3v9"></path></svg></div>
+<div style="position:absolute;left:-56px;top:14px;transform:rotate(-7deg);padding:5px 11px;border-radius:999px;border:1px dashed rgba(255,220,170,0.25);font-size:11px;color:#8A7A64;white-space:nowrap">Поке?</div>
+<div style="position:absolute;right:-72px;top:50px;transform:rotate(5deg);padding:5px 11px;border-radius:999px;border:1px dashed rgba(255,220,170,0.25);font-size:11px;color:#8A7A64;white-space:nowrap">Том-ям?</div>
+<div style="position:absolute;left:-44px;bottom:6px;transform:rotate(4deg);padding:5px 11px;border-radius:999px;border:1px dashed rgba(255,220,170,0.25);font-size:11px;color:#8A7A64;white-space:nowrap">Пад-тай?</div>
+</div>
+<span style="font-family:'Unbounded',sans-serif;font-size:17px;font-weight:600;letter-spacing:-0.02em;color:#F6EEE2">Меню пустое</span>
+<span style="font-size:13px;color:#C4B49C;line-height:1.7;max-width:250px">Добавьте первое блюдо — команде будет за что голосовать уже сегодня</span>
+<button style="margin-top:8px;height:50px;padding:0 24px;border-radius:17px;border:none;cursor:pointer;background:linear-gradient(135deg,#F7B254,#E07E12);color:#2A1602;font-family:inherit;font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 12px 26px -10px rgba(235,135,25,0.5),0 3px 8px -2px rgba(235,135,25,0.35),inset 0 1px 0 rgba(255,255,255,0.3);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.97)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:3px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5.5v13"></path><path d="M5.5 12h13"></path></svg>Добавить блюдо</button>
+</div>
+</div>
+<nav style="position:absolute;left:14px;right:14px;bottom:26px;height:66px;border-radius:24px;background:linear-gradient(180deg,rgba(53,40,24,0.94),rgba(40,30,18,0.97));box-shadow:inset 0 1px 0 rgba(255,230,190,0.08),0 18px 40px -14px rgba(8,4,0,0.85),0 4px 12px -4px rgba(10,5,0,0.6);display:flex;align-items:center;padding:7px;z-index:3">
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5L12 3.5l8.5 7"></path><path d="M5.5 9.5V20h13V9.5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Главная</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.18);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#F5A845;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v5a2 2 0 0 0 4 0V3"></path><path d="M8 3v18"></path><path d="M17 3c-1.5 2-2 4-2 6s.7 3 2 3v9"></path></svg><span style="font-size:10.5px;font-weight:600;letter-spacing:0.02em">Меню</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 20v-7"></path><path d="M12 20V5"></path><path d="M19 20v-10"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Статистика</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.75"></circle><path d="M4.5 20.5c1.6-3.8 4.6-5 7.5-5s5.9 1.2 7.5 5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Профиль</span></button>
+</nav>
+<div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:120px;height:5px;border-radius:3px;background:rgba(255,255,255,0.22);z-index:3"></div>
+</div>
+<div style="max-width:390px;text-align:center;font-size:12px;line-height:1.6;color:#8A7A64"><span style="color:#C4B49C;font-weight:600">Меню · пусто</span> — вилка и нож ждут, подсказки-призраки намекают, с чего начать</div>
+</div>
+<!-- Статистика · пусто -->
+<div style="display:flex;flex-direction:column;gap:16px;align-items:center">
+<div data-screen-label="Статистика · пусто" style="width:390px;height:844px;border-radius:48px;position:relative;overflow:hidden;flex-shrink:0;background:radial-gradient(120% 55% at 85% -8%,rgba(244,158,55,0.13),transparent 60%),radial-gradient(80% 40% at -10% 105%,rgba(224,126,18,0.07),transparent 60%),linear-gradient(180deg,#1C150C 0%,#171009 100%);box-shadow:0 0 0 1px rgba(255,255,255,0.05),0 0 0 12px #0C0906,0 0 0 13px rgba(255,214,160,0.10),0 44px 80px -32px rgba(0,0,0,0.8)">
+<svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.045;pointer-events:none;mix-blend-mode:overlay" aria-hidden="true"><rect width="100%" height="100%" filter="url(#rl-grain)"></rect></svg>
+<div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:relative;z-index:2;color:#F6EEE2">
+<span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">9:41</span>
+<div style="display:flex;align-items:center;gap:6px">
+<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"></rect><rect x="4.5" y="4.5" width="3" height="6.5" rx="1"></rect><rect x="9" y="2.5" width="3" height="8.5" rx="1"></rect><rect x="13.5" y="0.5" width="3" height="10.5" rx="1"></rect></svg>
+<svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="currentColor" opacity="0.4"></rect><rect x="2" y="2" width="14" height="8" rx="2" fill="currentColor"></rect><rect x="23" y="4" width="2" height="4" rx="1" fill="currentColor" opacity="0.4"></rect></svg>
+</div>
+</div>
+<div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 22px;position:relative;z-index:2">
+<div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:600;color:#F6EEE2">Rocket Lunch</span><span style="font-size:11px;color:#8A7A64">мини-приложение</span></div>
+<div style="display:flex;align-items:center;height:32px;border-radius:16px;background:rgba(255,235,205,0.06);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.08)">
+<button aria-label="Ещё" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:16px 0 0 16px;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"></circle><circle cx="12" cy="12" r="1.9"></circle><circle cx="12" cy="19" r="1.9"></circle></svg></button>
+<div style="width:1px;height:16px;background:rgba(255,220,170,0.12)"></div>
+<button aria-label="Закрыть" style="width:40px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#C4B49C;cursor:pointer;border-radius:0 16px 16px 0;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-active="transform:scale(0.9)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+</div>
+</div>
+<div style="position:absolute;top:92px;left:0;right:0;bottom:0;padding:6px 16px 116px;display:flex;flex-direction:column;gap:13px;z-index:1;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:4px;padding:4px 4px 0">
+<h3 style="margin:0;font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;letter-spacing:-0.03em;color:#F6EEE2">Статистика</h3>
+<span style="font-size:12.5px;color:#8A7A64">Здесь будут лидерборд и траты</span>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding-bottom:30px">
+<div style="display:flex;align-items:flex-end;gap:10px;height:96px;margin-bottom:4px">
+<div style="width:26px;height:34px;border-radius:7px 7px 4px 4px;background:rgba(255,225,180,0.08);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.10)"></div>
+<div style="width:26px;height:58px;border-radius:7px 7px 4px 4px;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.22)"></div>
+<div style="width:26px;height:80px;border-radius:7px 7px 4px 4px;border:1.5px dashed rgba(244,158,55,0.4);display:flex;align-items:flex-start;justify-content:center;padding-top:6px;color:#F5A845"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"></path><path d="M12 14v4"></path><path d="M8.5 20.5h7"></path></svg></div>
+<div style="width:26px;height:46px;border-radius:7px 7px 4px 4px;background:rgba(255,225,180,0.08);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.10)"></div>
+</div>
+<div style="width:200px;height:1px;border-top:1.5px dashed rgba(255,220,170,0.18);margin-bottom:6px"></div>
+<span style="font-family:'Unbounded',sans-serif;font-size:17px;font-weight:600;letter-spacing:-0.02em;color:#F6EEE2">Пока нет статистики</span>
+<span style="font-size:13px;color:#C4B49C;line-height:1.7;max-width:260px">Проведите первое голосование — лидерборд и графики построятся сами</span>
+<button style="margin-top:8px;height:50px;padding:0 24px;border-radius:17px;border:none;cursor:pointer;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.25);color:#F5A845;font-family:inherit;font-size:14px;font-weight:600;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.97)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:3px">Запустить голосование</button>
+</div>
+</div>
+<nav style="position:absolute;left:14px;right:14px;bottom:26px;height:66px;border-radius:24px;background:linear-gradient(180deg,rgba(53,40,24,0.94),rgba(40,30,18,0.97));box-shadow:inset 0 1px 0 rgba(255,230,190,0.08),0 18px 40px -14px rgba(8,4,0,0.85),0 4px 12px -4px rgba(10,5,0,0.6);display:flex;align-items:center;padding:7px;z-index:3">
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5L12 3.5l8.5 7"></path><path d="M5.5 9.5V20h13V9.5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Главная</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v5a2 2 0 0 0 4 0V3"></path><path d="M8 3v18"></path><path d="M17 3c-1.5 2-2 4-2 6s.7 3 2 3v9"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Меню</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:rgba(244,158,55,0.14);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.18);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#F5A845;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 20v-7"></path><path d="M12 20V5"></path><path d="M19 20v-10"></path></svg><span style="font-size:10.5px;font-weight:600;letter-spacing:0.02em">Статистика</span></button>
+<button style="flex:1;height:52px;border-radius:17px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8A7A64;font-family:inherit;transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1)" style-hover="transform:translateY(-2px)" style-active="transform:scale(0.94)" style-focus="outline:2px solid rgba(244,158,55,0.75);outline-offset:-2px"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.75"></circle><path d="M4.5 20.5c1.6-3.8 4.6-5 7.5-5s5.9 1.2 7.5 5"></path></svg><span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em">Профиль</span></button>
+</nav>
+<div style="position:absolute;bottom:9px;left:50%;transform:translateX(-50%);width:120px;height:5px;border-radius:3px;background:rgba(255,255,255,0.22);z-index:3"></div>
+</div>
+<div style="max-width:390px;text-align:center;font-size:12px;line-height:1.6;color:#8A7A64"><span style="color:#C4B49C;font-weight:600">Статистика · пусто</span> — призрачный график с кубком вместо серой иконки</div>
+</div>
+</div>
+</div>
+
+<!-- ═══ БЛОК D: ТОКЕНЫ ═══ -->
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:4px">
+<h2 style="margin:0;font-family:'Unbounded',sans-serif;font-size:15px;font-weight:600;letter-spacing:-0.02em;color:#F6EEE2">Design tokens</h2>
+<span style="font-size:13px;color:#8A7A64">Палитра · шрифтовая пара · отступы · радиусы · тени</span>
+</div>
+<div data-screen-label="Design tokens" style="max-width:1480px;border-radius:32px;padding:32px 36px 36px;background:linear-gradient(180deg,#201811,#1B140D);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 24px 50px -24px rgba(0,0,0,0.7);display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:32px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<span style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#8A7A64">Палитра · dark</span>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:8px;background:#1A130B;box-shadow:inset 0 0 0 1px rgba(255,214,160,0.15);flex-shrink:0"></span><span style="flex:1;font-size:13px;color:#E8D9C2">Base · фон</span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">#1A130B</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:8px;background:#241B10;box-shadow:inset 0 0 0 1px rgba(255,214,160,0.15);flex-shrink:0"></span><span style="flex:1;font-size:13px;color:#E8D9C2">Elevated · карточки</span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">#241B10</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:8px;background:#2F2315;box-shadow:inset 0 0 0 1px rgba(255,214,160,0.15);flex-shrink:0"></span><span style="flex:1;font-size:13px;color:#E8D9C2">Floating · таб-бар, FAB</span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">#2F2315</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:8px;background:#F49E37;flex-shrink:0"></span><span style="flex:1;font-size:13px;color:#E8D9C2">Accent · янтарь</span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">#F49E37</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:8px;background:#E07E12;flex-shrink:0"></span><span style="flex:1;font-size:13px;color:#E8D9C2">Accent deep</span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">#E07E12</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:8px;background:#8FCB7F;flex-shrink:0"></span><span style="flex:1;font-size:13px;color:#E8D9C2">Позитив · «вам должны»</span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">#8FCB7F</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:8px;background:#EE7A5F;flex-shrink:0"></span><span style="flex:1;font-size:13px;color:#E8D9C2">Негатив · «вы должны»</span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">#EE7A5F</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:8px;background:#E8B54A;flex-shrink:0"></span><span style="flex:1;font-size:13px;color:#E8D9C2">Ожидание · streak</span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">#E8B54A</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:8px;background:#F6EEE2;flex-shrink:0"></span><span style="flex:1;font-size:13px;color:#E8D9C2">Текст 1 / 2 / 3</span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">#F6EEE2 · #C4B49C · #8A7A64</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:26px;height:26px;border-radius:8px;background:#F8F1E8;flex-shrink:0"></span><span style="flex:1;font-size:13px;color:#E8D9C2">Light · фон / карточка</span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">#F8F1E8 · #FFFDF9</span></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<span style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#8A7A64">Типографика</span>
+<div style="display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:16px;background:rgba(255,225,180,0.05);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.08)">
+<span style="font-family:'Unbounded',sans-serif;font-size:21px;font-weight:600;letter-spacing:-0.03em;color:#F6EEE2">Доброе утро</span>
+<span style="font-size:11.5px;color:#8A7A64;font-family:ui-monospace,monospace">Unbounded · display · 500–700 · tracking −0.03em</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:16px;background:rgba(255,225,180,0.05);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.08)">
+<span style="font-size:13.5px;color:#E8D9C2;line-height:1.7">Чистый гротеск для интерфейса и длинного текста — полная кириллица, спокойный ритм строк.</span>
+<span style="font-size:11.5px;color:#8A7A64;font-family:ui-monospace,monospace">Onest · text · 400–700 · line-height 1.7</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:16px;background:rgba(255,225,180,0.05);box-shadow:inset 0 0 0 1px rgba(255,220,170,0.08)">
+<span style="font-size:18px;font-weight:700;color:#F6EEE2;font-variant-numeric:tabular-nums">1 250 ₽ · 12:45 · 87%</span>
+<span style="font-size:11.5px;color:#8A7A64;font-family:ui-monospace,monospace">цифры · font-variant-numeric: tabular-nums</span>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<span style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#8A7A64">Отступы · 4pt-сетка</span>
+<div style="display:flex;flex-direction:column;gap:7px">
+<div style="display:flex;align-items:center;gap:10px"><span style="width:4px;height:14px;border-radius:2px;background:#F49E37"></span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">4</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:14px;border-radius:2px;background:#F49E37"></span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">8</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:12px;height:14px;border-radius:2px;background:#F49E37"></span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">12 · зазор карточек</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:16px;height:14px;border-radius:2px;background:#F49E37"></span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">16 · поля экрана</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:20px;height:14px;border-radius:2px;background:#F49E37"></span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">20 · паддинг карточки</span></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:14px;border-radius:2px;background:#F49E37"></span><span style="font-size:12px;color:#8A7A64;font-family:ui-monospace,monospace">32 · секции</span></div>
+</div>
+<span style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#8A7A64;margin-top:8px">Радиусы</span>
+<div style="display:flex;align-items:flex-end;gap:12px">
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px"><span style="width:44px;height:44px;border-radius:11px;background:rgba(244,158,55,0.12);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.3)"></span><span style="font-size:11px;color:#8A7A64;font-family:ui-monospace,monospace">11</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px"><span style="width:44px;height:44px;border-radius:17px;background:rgba(244,158,55,0.12);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.3)"></span><span style="font-size:11px;color:#8A7A64;font-family:ui-monospace,monospace">17</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px"><span style="width:44px;height:44px;border-radius:26px;background:rgba(244,158,55,0.12);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.3)"></span><span style="font-size:11px;color:#8A7A64;font-family:ui-monospace,monospace">26</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px"><span style="width:44px;height:28px;border-radius:999px;background:rgba(244,158,55,0.12);box-shadow:inset 0 0 0 1px rgba(244,158,55,0.3)"></span><span style="font-size:11px;color:#8A7A64;font-family:ui-monospace,monospace">pill</span></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<span style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#8A7A64">Тени · три слоя глубины</span>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="border-radius:16px;padding:12px 14px;background:#1A130B;box-shadow:inset 0 0 0 1px rgba(255,214,160,0.10)">
+<span style="font-size:12.5px;color:#E8D9C2;font-weight:600">Base</span>
+<div style="font-size:11px;color:#8A7A64;font-family:ui-monospace,monospace;line-height:1.6;margin-top:3px">без тени · hairline inset 0 0 0 1px rgba(255,214,160,.10)</div>
+</div>
+<div style="border-radius:16px;padding:12px 14px;background:linear-gradient(180deg,#281E12,#221810);box-shadow:inset 0 1px 0 rgba(255,230,190,0.06),0 14px 34px -16px rgba(8,4,0,0.8),0 3px 8px -3px rgba(12,6,0,0.5)">
+<span style="font-size:12.5px;color:#E8D9C2;font-weight:600">Elevated</span>
+<div style="font-size:11px;color:#8A7A64;font-family:ui-monospace,monospace;line-height:1.6;margin-top:3px">inset 0 1px 0 rgba(255,230,190,.06)<br>0 14px 34px −16px rgba(8,4,0,.8)<br>0 3px 8px −3px rgba(12,6,0,.5)</div>
+</div>
+<div style="border-radius:16px;padding:12px 14px;background:linear-gradient(180deg,rgba(53,40,24,0.94),rgba(40,30,18,0.97));box-shadow:inset 0 1px 0 rgba(255,230,190,0.08),0 18px 40px -14px rgba(8,4,0,0.85),0 4px 12px -4px rgba(10,5,0,0.6)">
+<span style="font-size:12.5px;color:#E8D9C2;font-weight:600">Floating</span>
+<div style="font-size:11px;color:#8A7A64;font-family:ui-monospace,monospace;line-height:1.6;margin-top:3px">inset 0 1px 0 rgba(255,230,190,.08)<br>0 18px 40px −14px rgba(8,4,0,.85)<br>0 4px 12px −4px rgba(10,5,0,.6)</div>
+</div>
+<div style="border-radius:16px;padding:12px 14px;background:linear-gradient(135deg,#F7B254,#E07E12);box-shadow:0 12px 26px -10px rgba(235,135,25,0.5),0 3px 8px -2px rgba(235,135,25,0.35),inset 0 1px 0 rgba(255,255,255,0.3)">
+<span style="font-size:12.5px;color:#2A1602;font-weight:700">Accent glow</span>
+<div style="font-size:11px;color:rgba(42,22,2,0.75);font-family:ui-monospace,monospace;line-height:1.6;margin-top:3px">0 12px 26px −10px rgba(235,135,25,.5) + inset highlight</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;homeVoteState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Нет голосования&quot;,&quot;Активное голосование&quot;,&quot;Завершено&quot;],&quot;default&quot;:&quot;Активное голосование&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Главный экран&quot;},&quot;showFab&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Главный экран&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.props.homeVoteState ?? 'Активное голосование';
+    return {
+      stateA: s === 'Нет голосования',
+      stateB: s !== 'Нет голосования' && s !== 'Завершено',
+      stateC: s === 'Завершено',
+      showFab: this.props.showFab ?? true
+    };
+  }
+}
+</script>
+</body>
+</html>
