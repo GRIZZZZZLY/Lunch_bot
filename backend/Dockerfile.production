@@ -17,8 +17,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
+# Generate Prisma Client. Prisma config validates the URL even though generation
+# does not connect to a database.
+RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma generate
 
 # Build TypeScript
 RUN npm run build:prod

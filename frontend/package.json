@@ -19,7 +19,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "knip": "knip --include files,dependencies,unlisted,unresolved,catalog,cycles --treat-config-hints-as-errors",
-    "react-doctor": "react-doctor . --yes --verbose --no-color --blocking warning",
+    "react-doctor": "react-doctor src --yes --verbose --no-color --blocking warning",
     "test:e2e": "playwright test",
     "lighthouse": "lhci autorun",
     "size:check": "node scripts/check-bundle-size.mjs"

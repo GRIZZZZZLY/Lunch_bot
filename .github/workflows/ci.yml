@@ -92,6 +92,7 @@ jobs:
       TEST_DATABASE_URL: postgresql://foodbot:foodbot_password@localhost:5432/foodbot_test_db
       BOT_TOKEN: 000000000:test-token
       TELEGRAM_SECRET_KEY: ci-only-secret
+      JWT_SECRET: ci-only-jwt-secret-that-is-at-least-32-characters
       WEBAPP_URL: http://localhost:5173
     defaults:
       run:
@@ -338,7 +339,7 @@ jobs:
         working-directory: backend
         run: |
           npm run db:generate
-          npx prisma db push --force-reset --accept-data-loss --url="$TEST_DATABASE_URL"
+          npx prisma db push --force-reset --accept-data-loss
 
       - name: Seed deterministic E2E data
         working-directory: backend

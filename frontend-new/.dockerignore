@@ -6,5 +6,4 @@ test-results
 .env
 .env.*
 docs
-tests
 *.log
