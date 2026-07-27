@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { RecurringPollService } from '../../services/recurring-poll.service';
+import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
 
@@ -67,18 +68,15 @@ export const getGroupSchedule = async (
       return;
     }
 
-    // Проверка прав доступа
-    const hasAccess = await RecurringPollService.checkAdminAccess(
-      userId,
-      groupId
-    );
-    if (!hasAccess) {
-      res
-        .status(403)
-        .json({
-          success: false,
-          error: 'Access denied. Admin rights required.',
-        });
+    // Читать расписание может любой участник группы: команде полезно знать,
+    // когда стартует автоголосование. Менять его по-прежнему может только админ.
+    const isMember = await GroupService.isUserGroupMember(userId, groupId);
+    if (!isMember) {
+      res.status(403).json({
+        success: false,
+        error: 'Access denied',
+        code: 'FORBIDDEN',
+      });
       return;
     }
 

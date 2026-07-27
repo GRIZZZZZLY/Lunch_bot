@@ -11,11 +11,13 @@ export function WinnerRow({
   onOpen,
 }: {
   winnerName: string;
-  winnerVotes: number;
-  totalVotes: number;
+  winnerVotes?: number;
+  totalVotes?: number;
   responsibleName?: string;
   onOpen: () => void;
 }) {
+  // Голосование могло закрыться без голосов — «0 из» без числа выглядит поломкой.
+  const hasVotes = Number.isFinite(totalVotes) && (totalVotes as number) > 0;
   return (
     <button type="button" className={`${styles.row} ${styles.tappable}`} onClick={onOpen}>
       <span className={`${styles.rowIcon} ${styles.win}`} aria-hidden>
@@ -24,9 +26,13 @@ export function WinnerRow({
       <span className={styles.rowMain}>
         <span className={styles.rowName}>Победил: {winnerName}</span>
         <span className={styles.rowSub}>
-          <span className="tnum">
-            {winnerVotes} из {totalVotes}
-          </span>
+          {hasVotes ? (
+            <span className="tnum">
+              {winnerVotes ?? 0} из {totalVotes}
+            </span>
+          ) : (
+            <span>голосов не было</span>
+          )}
           {responsibleName ? ` · ответственный: ${responsibleName}` : ''}
         </span>
       </span>

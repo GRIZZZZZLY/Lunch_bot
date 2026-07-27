@@ -11,6 +11,8 @@ import { getDeepLinkPollId } from '@/lib/telegram';
 import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
 import { getAdminGroups, isGlobalAdmin } from '@/lib/permissions';
 import { queryKeys } from '@/lib/queryClient';
+import { isSameLocalDay } from '@/lib/date';
+import { formatScheduleHint } from '@/lib/schedule';
 import {
   useActivePoll,
   useCancelPoll,
@@ -23,7 +25,7 @@ import {
   useVote,
   useWithdrawVote,
 } from '@/hooks/usePolls';
-import { useCreateRecurringPoll } from '@/hooks/useRecurringPoll';
+import { useCreateRecurringPoll, useRecurringSchedule } from '@/hooks/useRecurringPoll';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyGroups } from '@/hooks/useUser';
 import { useMenuItems } from '@/hooks/useMenu';
@@ -83,7 +85,12 @@ export function HomePage() {
   useSSE({ pollId: activePoll?.id ?? null, enabled: !!activePoll });
 
   const { data: lastCompletedPoll } = useLastCompletedPoll();
-  const { data: lastPollResult } = usePollResults(lastCompletedPoll?.id ?? null);
+  // Итог показываем только за текущие сутки: вчерашний победитель на главной
+  // уже неинформативен. Сам запрос оставляем — он нужен для повтора опроса.
+  const winnerIsFresh = isSameLocalDay(lastCompletedPoll?.closedAt ?? lastCompletedPoll?.createdAt);
+  const { data: lastPollResult } = usePollResults(
+    winnerIsFresh ? lastCompletedPoll?.id ?? null : null,
+  );
   const { data: allMenu = [] } = useMenuItems();
   const { data: myGroups = [] } = useMyGroups();
 
@@ -101,6 +108,10 @@ export function HomePage() {
   const [sheetGroupId, setSheetGroupId] = useState<string | null>(null);
   const createPollMutation = useCreatePoll();
   const createRecurringMutation = useCreateRecurringPoll();
+  const { data: recurringSchedule } = useRecurringSchedule(
+    currentGroupId ? Number(currentGroupId) : null,
+  );
+  const scheduleHint = formatScheduleHint(recurringSchedule);
 
   /* ---- view-model голосования ---- */
   const options: PollOptionVM[] = useMemo(
@@ -117,7 +128,7 @@ export function HomePage() {
 
   /* ---- победитель ---- */
   const winnerVM = useMemo(() => {
-    if (!lastCompletedPoll || !lastPollResult) return null;
+    if (!lastCompletedPoll || !lastPollResult || !winnerIsFresh) return null;
     const opts = mapPollToOptions(lastCompletedPoll, allMenu);
     const top = [...opts].sort((a, b) => b.votes - a.votes)[0];
     const winnerVotes =
@@ -129,7 +140,7 @@ export function HomePage() {
       responsibleName: lastPollResult.responsible?.name,
       pollId: lastCompletedPoll.id,
     };
-  }, [lastCompletedPoll, lastPollResult, allMenu]);
+  }, [lastCompletedPoll, lastPollResult, allMenu, winnerIsFresh]);
 
   /* ---- создание голосования ---- */
   const adminGroups = useMemo(() => getAdminGroups(user, myGroups), [myGroups, user]);
@@ -285,7 +296,7 @@ export function HomePage() {
           onCancel={() => cancelPoll.mutate({ pollId: activePoll.id })}
         />
       ) : (
-        <EmptyTicket canCreate={canCreate} onCreate={onCreatePollAction} />
+        <EmptyTicket canCreate={canCreate} onCreate={onCreatePollAction} scheduleHint={scheduleHint} />
       )}
 
       <NowSection

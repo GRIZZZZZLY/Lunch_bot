@@ -21,6 +21,9 @@ const h = vi.hoisted(() => {
       debts: [] as unknown[],
       credits: [] as unknown[],
       runs: [] as unknown[],
+      lastCompleted: null as unknown,
+      lastResult: null as unknown,
+      schedule: null as unknown,
       markPaid: { mutate: vi.fn(), isPending: false },
     },
   };
@@ -30,15 +33,19 @@ vi.mock('@/hooks/usePolls', () => ({
   useActivePoll: () => h.q(h.state.activePoll, { error: h.state.activeError, isError: !!h.state.activeError }),
   usePollById: () => h.q(null),
   useMyVotes: () => h.q(null),
-  useLastCompletedPoll: () => h.q(null),
-  usePollResults: () => h.q(null),
+  useLastCompletedPoll: () => h.q(h.state.lastCompleted),
+  // Отключённый запрос (id === null) данных не отдаёт — как в react-query.
+  usePollResults: (id: number | null) => h.q(id ? h.state.lastResult : null),
   useVote: h.m,
   useWithdrawVote: h.m,
   useCompletePoll: h.m,
   useCancelPoll: h.m,
   useCreatePoll: h.m,
 }));
-vi.mock('@/hooks/useRecurringPoll', () => ({ useCreateRecurringPoll: h.m }));
+vi.mock('@/hooks/useRecurringPoll', () => ({
+  useCreateRecurringPoll: h.m,
+  useRecurringSchedule: () => h.q(h.state.schedule),
+}));
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 1, firstName: 'Игорь', isAdmin: false }, isLoading: false }),
 }));
@@ -74,6 +81,9 @@ beforeEach(() => {
   h.state.debts = [];
   h.state.credits = [];
   h.state.runs = [];
+  h.state.lastCompleted = null;
+  h.state.lastResult = null;
+  h.state.schedule = null;
   h.state.markPaid = { mutate: vi.fn(), isPending: false };
   delete window.Telegram;
 });
@@ -134,5 +144,80 @@ describe('HomePage — состояния', () => {
     renderHome();
     expect(screen.getByText('Пятёрочка у офиса')).toBeInTheDocument();
     expect(screen.getByText('В магазине')).toBeInTheDocument();
+  });
+});
+
+describe('HomePage — итог прошедшего голосования', () => {
+  const result = { winnerId: 3, winnerName: 'Борщ', totalVotes: 4, responsible: { name: 'Игорь' } };
+
+  it('победитель за текущие сутки показан', () => {
+    h.state.lastCompleted = {
+      id: 21,
+      status: 'COMPLETED',
+      duration: 30,
+      createdAt: new Date().toISOString(),
+      closedAt: new Date().toISOString(),
+      menuItems: [],
+    };
+    h.state.lastResult = result;
+    renderHome();
+    expect(screen.getByText('Победил: Борщ')).toBeInTheDocument();
+  });
+
+  it('без голосов вместо «0 из» — понятная подпись', () => {
+    h.state.lastCompleted = {
+      id: 22,
+      status: 'COMPLETED',
+      duration: 30,
+      createdAt: new Date().toISOString(),
+      closedAt: new Date().toISOString(),
+      menuItems: [],
+    };
+    h.state.lastResult = { winnerId: 3, winnerName: 'Борщ', totalVotes: 0 };
+    renderHome();
+    expect(screen.getByText('голосов не было')).toBeInTheDocument();
+    expect(screen.queryByText(/из/)).not.toBeInTheDocument();
+  });
+
+  it('победитель прошлых суток не показывается', () => {
+    const yesterday = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
+    h.state.lastCompleted = {
+      id: 20,
+      status: 'COMPLETED',
+      duration: 30,
+      createdAt: yesterday,
+      closedAt: yesterday,
+      menuItems: [],
+    };
+    h.state.lastResult = result;
+    renderHome();
+    expect(screen.queryByText(/Победил:/)).not.toBeInTheDocument();
+  });
+});
+
+describe('HomePage — расписание автоголосования', () => {
+  it('включённое расписание видно в пустом талоне', () => {
+    h.state.schedule = { isEnabled: true, daysOfWeek: [1, 2, 3, 4, 5], timeOfDay: '11:30' };
+    renderHome();
+    expect(screen.getByText('Автозапуск в 11:30, по будням')).toBeInTheDocument();
+  });
+
+  it('выключенное расписание не показывается', () => {
+    h.state.schedule = { isEnabled: false, daysOfWeek: [1, 2, 3, 4, 5], timeOfDay: '11:30' };
+    renderHome();
+    expect(screen.queryByText(/Автозапуск/)).not.toBeInTheDocument();
+  });
+
+  it('при активном голосовании подпись не мешает', () => {
+    h.state.schedule = { isEnabled: true, daysOfWeek: [1, 2, 3, 4, 5], timeOfDay: '11:30' };
+    h.state.activePoll = {
+      id: 10,
+      status: 'ACTIVE',
+      duration: 30,
+      createdAt: new Date().toISOString(),
+      menuItems: [],
+    };
+    renderHome();
+    expect(screen.queryByText(/Автозапуск/)).not.toBeInTheDocument();
   });
 });

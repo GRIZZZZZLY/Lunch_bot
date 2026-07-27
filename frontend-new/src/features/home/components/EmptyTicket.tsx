@@ -4,7 +4,16 @@ import { Button } from '@/shared/ui';
 import { Icon } from '@/components/rl/Icon';
 import styles from '../HomePage.module.css';
 
-export function EmptyTicket({ canCreate, onCreate }: { canCreate: boolean; onCreate: () => void }) {
+export function EmptyTicket({
+  canCreate,
+  onCreate,
+  scheduleHint,
+}: {
+  canCreate: boolean;
+  onCreate: () => void;
+  /** Подпись расписания автоголосования, например «Автозапуск в 11:30, по будням». */
+  scheduleHint?: string | null;
+}) {
   return (
     <section className={styles.group} aria-label="Голосование не запущено">
       <div className={styles.groupHead}>
@@ -33,6 +42,11 @@ export function EmptyTicket({ canCreate, onCreate }: { canCreate: boolean; onCre
       ) : (
         <div style={{ height: 8 }} />
       )}
+      {scheduleHint ? (
+        <p className={styles.ctaNote}>
+          <Icon name="clock" size={12} /> {scheduleHint}
+        </p>
+      ) : null}
     </section>
   );
 }
