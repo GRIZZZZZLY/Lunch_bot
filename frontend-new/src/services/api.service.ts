@@ -11,6 +11,12 @@ const SAFE_METHODS = new Set(['get', 'head', 'options']);
 class ApiService {
   private client: AxiosInstance;
   private token: string | null = null;
+  /**
+   * Мутации, которые сейчас в полёте, по ключу «метод + URL + параметры + тело».
+   * Двойной тап шлёт тот же запрос второй раз до ответа на первый — отдаём тот
+   * же промис вместо второго обращения к серверу.
+   */
+  private inflight = new Map<string, Promise<unknown>>();
   private reauthenticate: (() => Promise<boolean>) | null = null;
   private shouldRetryAuth = createAuthRetryHandler(() =>
     this.reauthenticate ? this.reauthenticate() : Promise.resolve(false),
@@ -106,29 +112,70 @@ class ApiService {
     this.reauthenticate = fn;
   }
 
+  /**
+   * Схлопывает повторную отправку той же мутации, пока первая не завершилась.
+   * Ключ намеренно включает тело: два подряд «добавить молоко» — это одно
+   * действие, а «добавить молоко» и «добавить хлеб» — два разных.
+   */
+  private dedupe<T>(key: string, run: () => Promise<ApiResponse<T>>): Promise<ApiResponse<T>> {
+    const existing = this.inflight.get(key) as Promise<ApiResponse<T>> | undefined;
+    if (existing) return existing;
+
+    const pending = run().finally(() => {
+      this.inflight.delete(key);
+    });
+    this.inflight.set(key, pending);
+    return pending;
+  }
+
+  private mutationKey(
+    method: string,
+    url: string,
+    data: unknown,
+    config?: AxiosRequestConfig,
+  ): string {
+    const serialize = (value: unknown): string => {
+      try {
+        return JSON.stringify(value ?? null) ?? 'null';
+      } catch {
+        // Несериализуемое тело не с чем сравнивать — такой запрос не схлопываем.
+        return `unserializable:${this.inflight.size}:${Math.random()}`;
+      }
+    };
+    return `${method} ${url} ${serialize(config?.params)} ${serialize(data)}`;
+  }
+
   async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     const r = await this.client.get<ApiResponse<T>>(url, config);
     return r.data;
   }
 
   async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const r = await this.client.post<ApiResponse<T>>(url, data, config);
-    return r.data;
+    return this.dedupe(this.mutationKey('POST', url, data, config), async () => {
+      const r = await this.client.post<ApiResponse<T>>(url, data, config);
+      return r.data;
+    });
   }
 
   async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const r = await this.client.put<ApiResponse<T>>(url, data, config);
-    return r.data;
+    return this.dedupe(this.mutationKey('PUT', url, data, config), async () => {
+      const r = await this.client.put<ApiResponse<T>>(url, data, config);
+      return r.data;
+    });
   }
 
   async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const r = await this.client.patch<ApiResponse<T>>(url, data, config);
-    return r.data;
+    return this.dedupe(this.mutationKey('PATCH', url, data, config), async () => {
+      const r = await this.client.patch<ApiResponse<T>>(url, data, config);
+      return r.data;
+    });
   }
 
   async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const r = await this.client.delete<ApiResponse<T>>(url, config);
-    return r.data;
+    return this.dedupe(this.mutationKey('DELETE', url, undefined, config), async () => {
+      const r = await this.client.delete<ApiResponse<T>>(url, config);
+      return r.data;
+    });
   }
 
   async getPaginated<T = unknown>(
