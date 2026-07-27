@@ -87,7 +87,9 @@ export function HomePage() {
   const { data: lastCompletedPoll } = useLastCompletedPoll();
   // Итог показываем только за текущие сутки: вчерашний победитель на главной
   // уже неинформативен. Сам запрос оставляем — он нужен для повтора опроса.
-  const winnerIsFresh = isSameLocalDay(lastCompletedPoll?.closedAt ?? lastCompletedPoll?.createdAt);
+  const winnerIsFresh = isSameLocalDay(
+    lastCompletedPoll?.endedAt ?? lastCompletedPoll?.closedAt ?? lastCompletedPoll?.createdAt,
+  );
   const { data: lastPollResult } = usePollResults(
     winnerIsFresh ? lastCompletedPoll?.id ?? null : null,
   );

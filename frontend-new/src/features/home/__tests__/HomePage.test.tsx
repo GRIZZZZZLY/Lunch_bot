@@ -156,7 +156,21 @@ describe('HomePage — итог прошедшего голосования', ()
       status: 'COMPLETED',
       duration: 30,
       createdAt: new Date().toISOString(),
-      closedAt: new Date().toISOString(),
+      endedAt: new Date().toISOString(),
+      menuItems: [],
+    };
+    h.state.lastResult = result;
+    renderHome();
+    expect(screen.getByText('Победил: Борщ')).toBeInTheDocument();
+  });
+
+  it('опрос, начатый вчера и закрытый сегодня, показывается', () => {
+    h.state.lastCompleted = {
+      id: 23,
+      status: 'COMPLETED',
+      duration: 30,
+      createdAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+      endedAt: new Date().toISOString(),
       menuItems: [],
     };
     h.state.lastResult = result;
@@ -170,7 +184,7 @@ describe('HomePage — итог прошедшего голосования', ()
       status: 'COMPLETED',
       duration: 30,
       createdAt: new Date().toISOString(),
-      closedAt: new Date().toISOString(),
+      endedAt: new Date().toISOString(),
       menuItems: [],
     };
     h.state.lastResult = { winnerId: 3, winnerName: 'Борщ', totalVotes: 0 };
@@ -186,7 +200,7 @@ describe('HomePage — итог прошедшего голосования', ()
       status: 'COMPLETED',
       duration: 30,
       createdAt: yesterday,
-      closedAt: yesterday,
+      endedAt: yesterday,
       menuItems: [],
     };
     h.state.lastResult = result;

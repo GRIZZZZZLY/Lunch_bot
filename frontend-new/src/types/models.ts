@@ -36,6 +36,8 @@ export interface Poll {
   status: PollStatus;
   duration: number;
   createdAt: string;
+  /** Момент завершения (API отдаёт `endedAt`; `closedAt` — легаси-псевдоним). */
+  endedAt?: string | null;
   closedAt?: string;
   creatorId?: number;
   menuItems?: PollMenuItemLink[];
