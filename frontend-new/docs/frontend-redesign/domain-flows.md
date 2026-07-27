@@ -37,7 +37,7 @@
 ### 0.4 SSE realtime
 
 `src/hooks/useSSE.ts:35-112`:
-- URL `GET /api/polls/:pollId/stream?token=<jwt>` — токен в query, не в заголовке (`:24-33`);
+- URL `GET /api/polls/:pollId/stream`; JWT передаётся только в заголовке `Authorization` и не попадает в адрес, историю или журналы прокси;
 - событие `poll_updated` инвалидирует `polls.byId`, `polls.active`, `polls.myVotes`, `polls.results` (`:72-83`);
 - reconnect с backoff `[1s,2s,5s,10s,15s]`, максимум 20 попыток (`:21-22, :85-98`);
 - статус (`idle|connecting|connected|disconnected|error`) возвращается, но нигде в UI не отображается.

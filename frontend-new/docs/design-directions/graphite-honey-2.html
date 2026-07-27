@@ -1,0 +1,73 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Направление A — Графит и мёд 2.0</title>
+<link rel="stylesheet" href="../../ds-bundle/styles.css">
+<link rel="stylesheet" href="base.css">
+<style>
+/* ============ A. ГРАФИТ И МЁД 2.0 ============
+   Эволюция текущего бренда: тёплая бумага вместо холодного серого,
+   мёд темнее и «дороже», радиусы умереннее, Unbounded только в бренд-местах,
+   плотный вертикальный ритм, честные 1px разделители. */
+:root {
+  --radius-card: 16px;
+  --radius-block: 12px;
+  --radius-control: 12px;
+}
+[data-theme='light'] {
+  --canvas: #F5F1E8;
+  --surface: #FFFDF8;
+  --surface-secondary: #ECE6D8;
+  --elevated: #FFFFFF;
+  --text-primary: #1B1810;
+  --text-secondary: #5C564A;
+  --text-tertiary: #8E8778;
+  --divider: rgba(27, 24, 16, 0.13);
+  --accent: #8F6203;
+  --accent-foreground: #FFF8EA;
+  --accent-hover: #7A5302;
+  --accent-active: #654502;
+  --accent-tint: rgba(143, 98, 3, 0.10);
+  --accent-ring: rgba(143, 98, 3, 0.22);
+  --focus-ring: rgba(143, 98, 3, 0.55);
+  --success: #3E7233; --success-tint: rgba(62,114,51,.11); --success-foreground: #F3FAF0;
+  --warning: #935F06; --warning-tint: rgba(147,95,6,.13);
+  --danger: #A63A22; --danger-tint: rgba(166,58,34,.10); --danger-foreground: #FFF5F2;
+  --info: #23628F; --info-tint: rgba(35,98,143,.11);
+  --overlay: rgba(20, 16, 8, 0.5);
+  --accent-grad: none;
+}
+[data-theme='dark'] {
+  --canvas: #121110;
+  --surface: #1C1A17;
+  --surface-secondary: #171512;
+  --elevated: #24211D;
+  --text-primary: #F1EDE3;
+  --text-secondary: #B3ACA0;
+  --text-tertiary: #7C766A;
+  --divider: rgba(241, 237, 227, 0.11);
+  --accent: #E3A030;
+  --accent-foreground: #1E1402;
+  --accent-hover: #ECB255;
+  --accent-active: #C9881B;
+  --accent-tint: rgba(227, 160, 48, 0.13);
+  --accent-ring: rgba(227, 160, 48, 0.22);
+  --focus-ring: rgba(227, 160, 48, 0.5);
+  --success: #8CC17B; --success-tint: rgba(140,193,123,.12); --success-foreground: #0F2009;
+  --warning: #DFAE4E; --warning-tint: rgba(223,174,78,.13);
+  --danger: #E0785C; --danger-tint: rgba(224,120,92,.12); --danger-foreground: #260C05;
+  --info: #6FAEDC; --info-tint: rgba(111,174,220,.13);
+  --overlay: rgba(0,0,0,.6);
+  --accent-grad: none;
+}
+/* бренд-акценты: Unbounded только у логотипа и greeting; заголовки — Onest */
+.scr-title { font-family: var(--font-body); font-weight: 700; }
+.scr-h1 { font-family: var(--font-brand); font-weight: 600; font-size: 24px; }
+/* фирменная деталь: медовая засечка слева у заголовков секций */
+.scr-sechead { border-left: 3px solid var(--accent); padding-left: 8px; }
+</style>
+</head><body>
+<div id="root"></div>
+<script src="../../ds-bundle/_vendor/react.js"></script>
+<script src="../../ds-bundle/_vendor/react-dom.js"></script>
+<script src="../../ds-bundle/_ds_bundle.js"></script>
+<script src="screens.js"></script>
+</body></html>

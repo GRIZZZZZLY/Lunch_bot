@@ -1,0 +1,83 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Направление B — Telegram-native utility</title>
+<link rel="stylesheet" href="../../ds-bundle/styles.css">
+<link rel="stylesheet" href="base.css">
+<style>
+/* ============ B. TELEGRAM-NATIVE UTILITY ============
+   Инструмент внутри Telegram: системные шрифты, iOS-grouped канвас,
+   телеграмный синий как рабочий акцент, группы-поверхности с инсет-
+   разделителями, радиусы 10-12, ноль декора. Мёд остаётся только в логотипе. */
+:root {
+  --radius-card: 12px;
+  --radius-block: 10px;
+  --radius-control: 10px;
+  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
+  --font-brand: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, system-ui, sans-serif;
+}
+[data-theme='light'] {
+  --canvas: #EFEFF4;
+  --surface: #FFFFFF;
+  --surface-secondary: #F2F2F7;
+  --elevated: #FFFFFF;
+  --text-primary: #000000;
+  --text-secondary: #59595E;
+  --text-tertiary: #86868B;
+  --divider: rgba(60, 60, 67, 0.16);
+  --accent: #007AFF;
+  --accent-foreground: #FFFFFF;
+  --accent-hover: #0071EB;
+  --accent-active: #0062CC;
+  --accent-tint: rgba(0, 122, 255, 0.10);
+  --accent-ring: rgba(0, 122, 255, 0.22);
+  --focus-ring: rgba(0, 122, 255, 0.55);
+  --success: #34A853; --success-tint: rgba(52,168,83,.11); --success-foreground: #FFFFFF;
+  --warning: #B25E00; --warning-tint: rgba(178,94,0,.11);
+  --danger: #E53935; --danger-tint: rgba(229,57,53,.10); --danger-foreground: #FFFFFF;
+  --info: #007AFF; --info-tint: rgba(0,122,255,.10);
+  --overlay: rgba(0,0,0,.4);
+  --accent-grad: none;
+}
+[data-theme='dark'] {
+  --canvas: #000000;
+  --surface: #1C1C1E;
+  --surface-secondary: #2C2C2E;
+  --elevated: #2C2C2E;
+  --text-primary: #FFFFFF;
+  --text-secondary: #AEAEB2;
+  --text-tertiary: #7C7C80;
+  --divider: rgba(84, 84, 88, 0.42);
+  --accent: #0A84FF;
+  --accent-foreground: #FFFFFF;
+  --accent-hover: #2492FF;
+  --accent-active: #0071EB;
+  --accent-tint: rgba(10, 132, 255, 0.14);
+  --accent-ring: rgba(10, 132, 255, 0.26);
+  --focus-ring: rgba(10, 132, 255, 0.55);
+  --success: #30D158; --success-tint: rgba(48,209,88,.13); --success-foreground: #04270E;
+  --warning: #FFB340; --warning-tint: rgba(255,179,64,.13);
+  --danger: #FF453A; --danger-tint: rgba(255,69,58,.13); --danger-foreground: #2B0503;
+  --info: #0A84FF; --info-tint: rgba(10,132,255,.14);
+  --overlay: rgba(0,0,0,.55);
+  --accent-grad: none;
+}
+/* iOS-grouped: секции = группы на поверхности, разделители с инсетом */
+.scr-section { background: var(--surface); border-radius: var(--radius-card); padding: 4px 14px 6px; }
+.scr-sechead { padding: 10px 0 6px; }
+.scr-seclabel { text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em; color: var(--text-tertiary); font-weight: 500; }
+.scr-seccount { font-size: 12px; }
+.scr-row { border-top-color: var(--divider); }
+.scr-section .scr-row:first-of-type { border-top: none; }
+.scr-greeting { padding-top: 16px; }
+.scr-h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+/* логотип сохраняет мёд бренда */
+.scr-logo { background: #D68914; color: #261A02; border-radius: 8px; }
+.scr-appbar, .scr-cta, .scr-nav { background: var(--canvas); }
+.scr-appbar { border-bottom-color: transparent; }
+</style>
+</head><body>
+<div id="root"></div>
+<script src="../../ds-bundle/_vendor/react.js"></script>
+<script src="../../ds-bundle/_vendor/react-dom.js"></script>
+<script src="../../ds-bundle/_ds_bundle.js"></script>
+<script src="screens.js"></script>
+</body></html>

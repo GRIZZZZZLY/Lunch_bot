@@ -1,223 +1,157 @@
 # AGENTS.md
 
-Guidelines for AI coding agents working in this repository.
+Правила для программных агентов, работающих в этом репозитории.
 
-## Project Overview
+## Проект
 
-Telegram Food Bot - a monorepo with Node.js/TypeScript backend (Grammy.js, Express, Prisma) and React/TypeScript frontend (Vite, Zustand, React Query).
+Rocket Lunch — Telegram Mini App для совместных обедов.
 
-## Build/Lint/Test Commands
+- `backend/`: Node.js, TypeScript, Grammy, Express, Prisma, PostgreSQL.
+- `frontend-new/`: основной React-интерфейс.
+- `frontend/`: предыдущий интерфейс для временного отката.
+- Основная ветка: `main`.
 
-### Backend (`backend/`)
+## Команды
 
-```bash
-npm run build           # Compile TypeScript
-npm run dev             # Start with tsx watch (hot reload)
-npm test                # Run Jest tests
-npm run test:watch      # Jest watch mode
-npm run test:coverage   # Tests with coverage
-npm run lint            # ESLint check
-npm run lint:fix        # ESLint auto-fix
-npm run format          # Prettier format
-npm run db:push         # Push Prisma schema changes
-npm run db:generate     # Generate Prisma client
-```
-
-**Running single tests (Jest):**
-```bash
-npm test -- --testPathPattern="poll.service"     # Match pattern
-npm test -- src/__tests__/poll.service.test.ts   # Specific file
-npm test -- -t "should create a new poll"        # Match test name
-```
-
-### Frontend (`frontend/`)
+### Сервер
 
 ```bash
-npm run build           # Vite production build
-npm run dev             # Dev server (port 5173)
-npm test                # Run Vitest
-npm run test:ui         # Vitest UI
-npm run lint            # ESLint check
-npm run lint:fix        # ESLint auto-fix
-npm run format          # Prettier format
-npm run type-check      # TypeScript check (no emit)
+cd backend
+npm run dev
+npm run build:prod
+npm run lint
+npm test
+npm run test:coverage
+npm run db:generate
+npm run db:validate
+npm run db:migrate
 ```
 
-**Running single tests (Vitest):**
+Один тест:
+
 ```bash
-npm test -- VotingPage                           # Match pattern
-npm test -- tests/components/VotingPage.test.tsx # Specific file
-npm test -- -t "should render"                   # Match test name
+npm test -- src/services/__tests__/poll.service.test.ts
+npm test -- -t "название теста"
 ```
 
-## Code Style Guidelines
+### Основной интерфейс
 
-### Formatting (Prettier)
-
-- Semicolons: required
-- Quotes: single quotes, JSX single quotes
-- Trailing commas: ES5
-- Print width: 80
-- Tab width: 2 (spaces, not tabs)
-- Arrow parens: avoid when possible
-
-### TypeScript
-
-- **Backend:** strict mode, explicit return types required
-- **Frontend:** relaxed strict, return types optional
-- Use interfaces for objects, type aliases for unions
-- Avoid `any`, prefer `unknown` for truly unknown types
-- Use path aliases (`@/`) for imports
-
-### Naming Conventions
-
-| Element | Convention | Example |
-|---------|------------|---------|
-| Files (services) | `*.service.ts` | `poll.service.ts` |
-| Files (controllers) | `*.controller.ts` | `poll.controller.ts` |
-| Files (routes) | `*.routes.ts` | `poll.routes.ts` |
-| Files (types) | `*.types.ts` | `poll.types.ts` |
-| Files (React) | PascalCase.tsx | `VotingPage.tsx` |
-| Files (hooks) | `use*.ts` | `usePolls.ts` |
-| Files (tests) | `*.test.ts(x)` | `poll.service.test.ts` |
-| Classes | PascalCase | `PollService` |
-| Functions | camelCase | `createPoll` |
-| Interfaces/Types | PascalCase | `CreatePollData` |
-| Constants | SCREAMING_SNAKE | `CACHE_TTL` |
-| DB columns | snake_case via `@map()` | `first_name` |
-
-### Import Order
-
-1. External libraries (node_modules)
-2. Internal modules with path aliases (`@/`)
-3. Relative imports
-
-```typescript
-// External
-import { Request, Response } from 'express';
-import { Poll, Vote } from '@prisma/client';
-
-// Internal aliases
-import { prisma } from '@/database/client';
-import { logger } from '@/utils/logger';
-import { CreatePollData } from '@/types/poll.types';
-
-// Relative
-import { GroupService } from './group.service';
+```bash
+cd frontend-new
+npm run dev
+npm run type-check
+npm run type-check:e2e
+npm run lint
+npm test
+npm run build
+npm run test:e2e:smoke
+npm run test:e2e:full
 ```
 
-### Error Handling
+### Предыдущий интерфейс
 
-**Backend Services:**
-```typescript
-static async createPoll(data: CreatePollData): Promise<Poll> {
-  try {
-    const poll = await prisma.poll.create({ data });
-    logger.info(`Poll created: ${poll.id}`);
-    return poll;
-  } catch (error) {
-    logger.error('Error creating poll:', error);
-    throw new Error('Failed to create poll');
-  }
-}
+Проверяйте `frontend/`, если изменение затрагивает общую серверную схему,
+порядок выпуска или совместимость отката:
+
+```bash
+cd frontend
+npm run type-check
+npm run lint
+npm test -- --run
+npm run build
 ```
 
-**Backend Controllers:**
-```typescript
-static async getPolls(req: Request, res: Response): Promise<void> {
-  try {
-    const polls = await PollService.getActivePolls();
-    res.json({ success: true, data: polls, timestamp: new Date().toISOString() });
-  } catch (error) {
-    logger.error('Error getting polls:', error);
-    res.status(500).json({ success: false, error: 'Failed to get polls', code: 'INTERNAL_ERROR' });
-  }
-}
-```
+## Форматирование
 
-**Frontend (React Query):**
-```typescript
-const response = await pollsService.getActivePolls();
-if (!response.success) {
-  throw new Error(response.error || 'Failed to fetch polls');
-}
-return response.data;
-```
+- точка с запятой обязательна;
+- одинарные кавычки;
+- отступ — два пробела;
+- завершающая запятая по правилам ES5;
+- рекомендуемая ширина строки — 80 символов.
 
-### Type Patterns
+Следуйте конфигурации ESLint и Prettier конкретного пакета. Не форматируйте
+несвязанные файлы.
 
-**API Responses:**
-```typescript
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  code?: string;
-  timestamp: string;
-}
-```
+## TypeScript
 
-**DTOs:**
-```typescript
-export interface CreatePollData {
-  groupId: number;
-  duration: number;
-  createdBy: number;
-  title?: string;
-}
-```
+- Не используйте `any`, если можно описать тип; для неизвестных данных
+  используйте `unknown`.
+- Для объектов предпочитайте `interface`, для объединений — `type`.
+- Сервер работает в строгом режиме; публичные методы сервиса должны иметь
+  явный возвращаемый тип.
+- Не дублируйте типы ответа API, если общий тип уже существует.
 
-### React Patterns
+## Имена
 
-**Components:**
-```typescript
-export interface ButtonProps {
-  children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'destructive';
-  onClick?: () => void;
-}
+| Сущность | Правило | Пример |
+|---|---|---|
+| Сервис | `*.service.ts` | `poll.service.ts` |
+| Контроллер | `*.controller.ts` | `poll.controller.ts` |
+| Маршруты | `*.routes.ts` | `poll.routes.ts` |
+| React-компонент | PascalCase | `VotingPage.tsx` |
+| Хук | `use*.ts` | `usePolls.ts` |
+| Тест | `*.test.ts(x)` | `poll.service.test.ts` |
+| Константа | SCREAMING_SNAKE_CASE | `CACHE_TTL` |
 
-export const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', onClick }) => {
-  // ...
-};
-```
+## Импорты
 
-**Hooks:**
-```typescript
-export function useActivePolls(options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: queryKeys.polls.active(),
-    queryFn: async () => { /* ... */ },
-    enabled: options?.enabled ?? true,
-  });
-}
-```
+Порядок:
 
-## Critical Rules
+1. внешние пакеты;
+2. внутренние модули через `@/`;
+3. относительные импорты.
 
-1. **Logger over console**: Use `logger.info/error/warn()`, never `console.log` in production code
-2. **Prisma only**: Never use raw SQL, always use Prisma ORM
-3. **BigInt serialization**: Use `serializeBigInt()` helper for JSON responses
-4. **CSS**: Tailwind with `cn()` utility for class merging
-5. **Service pattern**: Static methods in class-based services
-6. **Never cache polls**: Always fetch fresh to avoid stale data
-7. **Branch**: `main` is the canonical and deployable branch
+## Серверные правила
 
-## Test File Locations
+1. Используйте `logger.info/error/warn`, а не `console.log`.
+2. Обращайтесь к базе только через Prisma.
+3. Сериализуйте `BigInt` общим помощником.
+4. Не кэшируйте активные голосования.
+5. Проверяйте членство и роль пользователя на сервере; `groupId` клиента не
+   является доказательством доступа.
+6. Изменяющие операции должны сохранять идемпотентность и атомарность.
+7. Не записывайте Telegram `initData`, JWT, токены и строки подключения в
+   журналы.
+8. Для продакшена Redis обязателен.
 
-- **Backend:** `src/__tests__/` and `src/services/__tests__/`
-- **Frontend:** `tests/` directory
-- **Coverage threshold:** 70% minimum
+## Интерфейс
 
-## Key Entry Points
+- Используйте существующие токены и компоненты `frontend-new`.
+- Минимальная область касания — 44×44 пикселя.
+- Проверяйте ширину 390 px, светлую и тёмную темы, safe area Telegram.
+- Для объединения классов используйте существующий `cn()`.
+- Не применяйте `transition-all`; анимируйте `transform` и `opacity`.
+- Не переносите новую функциональность в `frontend/` без прямого требования.
 
-- Backend entry: `backend/src/index.ts`
-- API routes: `backend/src/api/server.ts`
-- Bot setup: `backend/src/bot/bot.ts`
-- Frontend entry: `frontend/src/main.tsx`
-- App router: `frontend/src/App.tsx`
+## Ошибки
 
-## Path Aliases
+- Сервисы записывают исходную ошибку в журнал и возвращают безопасную ошибку
+  предметной области.
+- Контроллеры используют единый формат ошибок и корректный HTTP-статус.
+- Не раскрывайте стеки и внутренние детали в продакшен-ответах.
 
-**Backend:** `@/` -> `src/`, plus `@/bot/*`, `@/api/*`, `@/services/*`, `@/utils/*`, `@/types/*`
-**Frontend:** `@/` -> `src/`, plus `@/components/*`, `@/pages/*`, `@/hooks/*`, `@/services/*`
+## Тесты
+
+- Серверные тесты: `backend/src/__tests__/` и
+  `backend/src/services/__tests__/`.
+- Тесты основного интерфейса: рядом с кодом и в `frontend-new/tests/`.
+- Сквозные тесты: `frontend-new/tests/e2e/`.
+- Порог покрытия не понижать ради прохождения CI.
+- Интеграционные тесты запускаются только на отдельной тестовой PostgreSQL-базе.
+
+## Точки входа
+
+- сервер: `backend/src/index.ts`;
+- регистрация API: `backend/src/api/server.ts`;
+- Telegram-бот: `backend/src/bot/bot.ts`;
+- основной интерфейс: `frontend-new/src/main.tsx`;
+- маршрутизация: `frontend-new/src/App.tsx`.
+
+## Документация
+
+- Главный обзор: `README.md`.
+- Индекс: `docs/README.md`.
+- Не создавайте журналы сессий и отчёты `*_COMPLETE.md`.
+- Обновляйте живой документ вместе с изменением поведения.
+- Используйте относительные ссылки внутри репозитория.
+- История завершённых работ хранится в Git.

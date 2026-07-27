@@ -1,7 +1,9 @@
 # Система C — «Нейтрали, цвет = значение» (выбрана владельцем 2026-07-19)
 
-Финальный борд: [shots/system-c-board.png](shots/system-c-board.png) ·
-живой: [system-c-board.html](system-c-board.html). Фактура фона —
+Финальный борд:
+[system-c-board.png](../design-directions/shots/system-c-board.png) ·
+живой: [system-c-board.html](../design-directions/system-c-board.html).
+Фактура фона —
 **перфолента-точки** (выбор владельца).
 
 ## Принцип

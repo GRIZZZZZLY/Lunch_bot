@@ -1,84 +1,100 @@
-# 🚀 Quick Start - Telegram Food Bot
+# Установка и первый запуск
 
-## Запуск за 3 шага:
+## Требования
 
-### 1️⃣ Установите ngrok:
-```powershell
-winget install ngrok
-```
+- Node.js `>=22.13 <23`;
+- npm 10 или новее;
+- Docker Desktop;
+- Git;
+- Telegram-токен от BotFather — для запуска настоящего бота;
+- `cloudflared` — только для проверки Mini App внутри Telegram.
 
-### 2️⃣ Запустите всё:
-```powershell
-.\start-dev.ps1
-```
-
-Откроется **5 окон терминала**:
-- ✅ Backend (порт 3001)
-- ✅ Frontend (порт 5173)  
-- ✅ Proxy (порт 8080)
-- ✅ ngrok (HTTPS)
-- ✅ **URL Updater (автонастройка!)** ⭐
-
-### 3️⃣ Скопируйте ngrok URL в окно URL Updater:
-
-**В окне 5 (URL Updater):**
-1. Скопируйте ngrok URL из окна 4:
-   ```
-   https://abc123.ngrok-free.app
-   ```
-2. Вставьте URL в окно URL Updater и нажмите Enter
-
-**Всё остальное произойдет автоматически!** ✨
-- ✅ Обновятся файлы `.env`
-- ✅ Перезапустится Backend
-- ✅ Готово к тестированию!
-
----
-
-## ✅ Готово!
-
-Откройте бота в Telegram:
-- Найдите `@rocket_lunch_bot`
-- Нажмите кнопку "📋 Мои группы" (слева от поля ввода)
-- WebApp откроется! 🎉
-
----
-
-## 🛑 Остановка всех сервисов:
+## Клонирование
 
 ```powershell
-.\stop-dev.ps1
+git clone https://github.com/GRIZZZZZLY/Lunch_bot.git
+Set-Location Lunch_bot
 ```
 
-Или закройте все окна терминалов вручную.
+## Переменные окружения
 
----
+```powershell
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend-new/.env.example frontend-new/.env
+```
 
-## 📖 Документация:
+В `backend/.env` задайте:
 
-- **WEBAPP_QUICK_START.md** - полная инструкция
-- **DEV_README.md** - информация о dev окружении
-- **DEV_MANUAL_TESTING.md** - сценарии тестирования
-- **WEBAPP_SETUP.md** - детальная настройка туннелей
+- `DATABASE_URL`;
+- `BOT_TOKEN`;
+- `JWT_SECRET`;
+- `TELEGRAM_BOT_USERNAME`;
+- `WEBAPP_URL`;
+- `CORS_ORIGIN`;
+- `FRONTEND_DIR=frontend-new`.
 
----
+Не используйте примерные секреты в продакшене.
 
-## 🐛 Проблемы?
+## Локальные службы
 
-### WebApp не открывается:
-1. Проверьте что ngrok запущен
-2. Проверьте что WEBAPP_URL в backend\.env - HTTPS
-3. Перезапустите Backend
+```powershell
+docker compose up -d postgres redis
+```
 
-### Ошибка авторизации:
-1. Проверьте что backend перезапущен после обновления .env
-2. Проверьте что CORS_ORIGIN содержит ngrok URL
-3. В логах backend должно быть: "✅ Default menu button set"
+Проверьте состояние:
 
-### CORS ошибки:
-1. Добавьте ngrok URL в CORS_ORIGIN (backend\.env)
-2. Перезапустите Backend
+```powershell
+docker compose ps
+```
 
----
+## Зависимости и база
 
-**Готово! Приятной разработки! 🚀**
+```powershell
+npm --prefix backend ci
+npm --prefix frontend-new ci
+npm --prefix backend run db:generate
+npm --prefix backend run db:push
+```
+
+## Запуск без Telegram
+
+Терминал 1:
+
+```powershell
+npm --prefix backend run dev
+```
+
+Терминал 2:
+
+```powershell
+npm --prefix frontend-new run dev
+```
+
+- интерфейс: `http://localhost:5174`;
+- API: `http://localhost:3001`;
+- готовность: `http://localhost:3001/health/ready`.
+
+## Запуск внутри Telegram
+
+Установите Cloudflare Tunnel:
+
+```powershell
+winget install --id Cloudflare.cloudflared
+```
+
+Затем:
+
+```powershell
+.\start-prod-dev.ps1
+```
+
+Сценарий использует `frontend-new`, получает временный HTTPS-адрес и обновляет
+локальное окружение. Проверяйте, что в Telegram настроен тот же бот, чей токен
+находится в `backend/.env`.
+
+## Следующие шаги
+
+- [разработка](../02-development/README.md);
+- [тестирование](../05-testing/README.md);
+- [настройка BotFather](../04-deployment/BOTFATHER_SETUP.md);
+- [развёртывание](../../DEPLOYMENT.md).

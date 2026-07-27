@@ -1,180 +1,71 @@
-# Deployment (Ubuntu VPS + Nginx + SSL)
+# Развёртывание Rocket Lunch
 
-This guide covers production deployment on Ubuntu VPS with Nginx and Let’s Encrypt.
+Канонический способ выпуска — защищённое окружение GitHub Actions и неизменяемая
+сборка из конкретного коммита. Рабочий процесс:
+`.github/workflows/deploy.yml`.
 
-## Prerequisites
+## Требования к серверу
 
-- Ubuntu 20.04/22.04 VPS
-- Domain with A record to VPS IP
-- SSH access (non-root user recommended)
-- Docker + Docker Compose
-- Node.js 22+
-- Nginx + Certbot
+- Ubuntu с Node.js 22, npm 10, PostgreSQL 16, Redis, Nginx и PM2;
+- репозиторий с основной веткой `main`;
+- заполненный `backend/.env` с `NODE_ENV=production`,
+  `FRONTEND_DIR=frontend-new`, `REDIS_ENABLED=true` и безопасными секретами;
+- настроенный TLS и проксирование Nginx;
+- проверенная резервная копия PostgreSQL.
 
-## 1) Server Setup
+Полный список условий выпуска:
+[RELEASE_RUNBOOK.md](docs/09-production-readiness/RELEASE_RUNBOOK.md).
 
-```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y git curl ca-certificates
-```
+## Секреты GitHub Actions
 
-## 2) Install Docker
+В окружении `production` или `staging` должны быть:
 
-```bash
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-```
+| Секрет | Назначение |
+|---|---|
+| `SSH_PRIVATE_KEY` | закрытый ключ для подключения |
+| `SERVER_HOST` | имя или адрес сервера |
+| `SERVER_USER` | пользователь SSH |
+| `SERVER_PATH` | путь к клону репозитория на сервере |
 
-## 3) Install Node.js 22
+Секреты приложения остаются в `backend/.env` на сервере и не копируются в Git.
 
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-```
+## Выпуск
 
-## 4) Install Nginx + Certbot
+1. Убедитесь, что нужный коммит находится в `main`.
+2. Дождитесь обязательных проверок CI.
+3. Создайте тег вида `vX.Y.Z` или запустите `Deploy to Production` вручную.
+4. Следите за заданием GitHub Actions.
+5. Проверьте `/health`, `/health/ready` и основной сценарий Mini App.
 
-```bash
-sudo apt install -y nginx
-sudo apt install -y certbot python3-certbot-nginx
-```
+Рабочий процесс создаёт отдельный каталог релиза, собирает сервер и
+`frontend-new`, применяет миграции, переключает символическую ссылку и
+перезапускает PM2. При ошибке выполняется возврат к предыдущему релизу.
 
-## 5) Clone and Configure
+## Ручное обновление
 
-```bash
-cd /home/ubuntu
-git clone <repo-url>
-cd telegram-food-bot/backend
-cp .env.production.example .env.production
-nano .env.production
-```
-
-Set at минимум:
-
-```
-NODE_ENV=production
-DATABASE_URL=postgresql://<user>:<password>@localhost:5432/foodbot_db
-TELEGRAM_BOT_TOKEN=...
-```
-
-## 6) Start PostgreSQL
+Ручной сценарий нужен только при недоступности GitHub Actions:
 
 ```bash
-cd /home/ubuntu/telegram-food-bot
-docker compose -f docker-compose.production.yml up -d postgres
+cd /opt/telegram-food-bot
+BRANCH=main FRONTEND_DIR=frontend-new ./update-vps.sh
 ```
 
-## 7) Build and Migrate
+Всегда задавайте `BRANCH=main` явно, если локальная копия сценария ещё содержит
+старое значение по умолчанию.
+
+## Проверка и откат
 
 ```bash
-cd /home/ubuntu/telegram-food-bot/backend
-npm ci --production
-npx prisma migrate deploy
-npx prisma generate
-npm run build
+curl --fail https://rocketlunch.dpdns.org/health
+curl --fail https://rocketlunch.dpdns.org/health/ready
+pm2 status
+pm2 logs rocket-lunch-bot --lines 100
 ```
 
-## 8) systemd Service (Backend)
+Порядок проверки миграций, дымовой проверки и отката:
+[RELEASE_RUNBOOK.md](docs/09-production-readiness/RELEASE_RUNBOOK.md).
 
-Create `/etc/systemd/system/telegram-food-bot.service`:
+## Резервные копии
 
-```ini
-[Unit]
-Description=Telegram Food Bot Backend
-After=network.target
-
-[Service]
-WorkingDirectory=/home/ubuntu/telegram-food-bot/backend
-Environment=NODE_ENV=production
-ExecStart=/usr/bin/node /home/ubuntu/telegram-food-bot/backend/dist/index.js
-Restart=always
-User=ubuntu
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable telegram-food-bot
-sudo systemctl start telegram-food-bot
-sudo systemctl status telegram-food-bot
-```
-
-## 9) Nginx Reverse Proxy
-
-Create `/etc/nginx/sites-available/telegram-food-bot`:
-
-```nginx
-server {
-    listen 80;
-    server_name example.com www.example.com;
-
-    location /api/ {
-        proxy_pass http://127.0.0.1:3001/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Optional: serve MiniApp static build
-    # location / {
-    #     root /home/ubuntu/telegram-food-bot/frontend/dist;
-    #     try_files $uri /index.html;
-    # }
-}
-```
-
-Enable config:
-
-```bash
-sudo ln -s /etc/nginx/sites-available/telegram-food-bot /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-## 10) SSL (Let’s Encrypt)
-
-```bash
-sudo certbot --nginx -d example.com -d www.example.com
-sudo certbot renew --dry-run
-```
-
-## 11) GlitchTip (optional, recommended)
-
-```bash
-docker compose -f docker-compose.production.yml up -d redis glitchtip glitchtip-worker
-docker compose -f docker-compose.production.yml run --rm glitchtip-migrate
-```
-
-Create admin user:
-
-```bash
-docker exec -it foodbot-glitchtip ./manage.py createsuperuser
-```
-
-Open `https://glitchtip.your-domain.com`, create project, copy DSN.
-
-## 12) Backups (cron)
-
-```bash
-crontab -e
-```
-
-Example daily backup (3 AM):
-
-```
-0 3 * * * cd /home/ubuntu/telegram-food-bot && ./scripts/backup-postgres.sh --compress --keep 30 --silent
-```
-
-## Verification
-
-```bash
-curl http://127.0.0.1:3001/api/health
-```
-
-Expected: `{ "status": "healthy" }` and database connected.
+До миграций создайте дамп и проверьте его размер. Инструкция:
+[BACKUP_RESTORE_GUIDE.md](docs/BACKUP_RESTORE_GUIDE.md).

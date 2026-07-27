@@ -1,57 +1,57 @@
 # frontend-new — основной интерфейс Rocket Lunch
 
-Основной интерфейс **Rocket Lunch** на React 18, TypeScript и Vite. Сервер и
-сценарии выпуска используют его по умолчанию через
-`FRONTEND_DIR=frontend-new`; каталог `frontend/` оставлен только для временного
-отката.
-
-## Статус
-
-Рабочий Mini App: авторизация Telegram, группы, меню, голосования, закупки,
-бюджет, предложения, статистика, профиль и административные разделы. Качество
-проверяется TypeScript, ESLint без предупреждений, Vitest и Playwright.
+Рабочий Telegram Mini App на React 18, TypeScript и Vite. Сервер и выпуск
+используют этот каталог по умолчанию через `FRONTEND_DIR=frontend-new`.
+`frontend/` сохранён только для временного отката.
 
 ## Запуск
 
 ```powershell
-cd frontend-new
-npm install
+Copy-Item .env.example .env
+npm ci
 npm run dev
 ```
 
-Приложение откроется на [http://localhost:5174](http://localhost:5174).
-Запросы `/api/*` проксируются на бэкенд `localhost:3001`, так что можно поднимать
-одновременно с основным фронтом (5173).
+Интерфейс: [http://localhost:5174](http://localhost:5174). Запросы `/api`
+проксируются на `http://localhost:3001`.
 
-Быстрый запуск через скрипт:
+Из корня проекта можно запустить среду с Telegram-туннелем:
 
 ```powershell
-cd ..
-.\start-dev-new.ps1
+.\start-prod-dev.ps1
 ```
 
-## Что куда положено
+## Проверки
 
-```
-frontend-new/
-├── src/
-│   ├── styles/index.css       ← CSS-переменные (light + dark) + Tailwind
-│   ├── lib/cn.ts              ← хелпер для классов
-│   ├── components/
-│   │   ├── ui/                ← Button, Card, Badge
-│   │   └── layout/            ← Header, BottomNavigation
-│   ├── pages/PlaceholderPage.tsx
-│   ├── App.tsx                ← BrowserRouter + chrome
-│   └── main.tsx               ← entry, переключение темы из Telegram.WebApp
-├── tailwind.config.js
-├── vite.config.ts             ← порт 5174, proxy /api → :3001
-├── index.html
-└── package.json
+```powershell
+npm run type-check
+npm run type-check:e2e
+npm run lint
+npm test
+npm run build
+npm run test:e2e:smoke
 ```
 
-## Источник дизайна
+## Структура
 
-Все токены (цвета, градиенты, тени, радиусы) взяты из:
-`docs/design-prompts/exports/Rocket Lunch Design System (standalone).html`
+```text
+src/
+├── app/          — запуск приложения и маршрутизация
+├── components/   — общие компоненты
+├── features/     — пользовательские сценарии
+├── hooks/        — React Query и предметные хуки
+├── lib/          — Telegram, состояние запросов и помощники
+├── pages/        — экраны верхнего уровня
+├── services/     — клиент REST API
+└── styles/       — токены, темы и общие стили
+```
 
-При расхождениях эталон — этот HTML-файл.
+## Документы
+
+- `docs/design-guidelines/` — действующие визуальные правила;
+- `docs/design-handoff/` — состояния и передача макетов;
+- `docs/frontend-redesign/` — карта кода и предметные потоки;
+- `tests/e2e/COVERAGE.md` — матрица сквозных сценариев.
+
+При расхождении документа с кодом и тестами источником истины являются код и
+тесты. Исправьте документ в том же изменении.

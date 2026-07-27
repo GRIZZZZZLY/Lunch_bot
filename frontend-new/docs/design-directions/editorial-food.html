@@ -1,0 +1,88 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Направление C — Editorial food</title>
+<link rel="stylesheet" href="../../ds-bundle/styles.css">
+<link rel="stylesheet" href="base.css">
+<style>
+/* ============ C. EDITORIAL FOOD ============
+   Гастрономический журнал: бумага и чернила, серифные заголовки (системная
+   Georgia — без внешних шрифтов), терракотовый акцент, жёсткие тёмные
+   линейки, почти прямые углы, UPPERCASE-рубрики с разрядкой. */
+:root {
+  --radius-card: 4px;
+  --radius-block: 4px;
+  --radius-control: 4px;
+  --radius-pill: 3px;
+  --font-brand: Georgia, 'Times New Roman', 'Noto Serif', serif;
+}
+[data-theme='light'] {
+  --canvas: #FAF5EC;
+  --surface: #FAF5EC;
+  --surface-secondary: #F1E9DB;
+  --elevated: #FFFFFF;
+  --text-primary: #191410;
+  --text-secondary: #55493D;
+  --text-tertiary: #8A7C6C;
+  --divider: rgba(25, 20, 16, 0.55);
+  --accent: #A83E12;
+  --accent-foreground: #FBEFE7;
+  --accent-hover: #8F340E;
+  --accent-active: #782B0B;
+  --accent-tint: rgba(168, 62, 18, 0.09);
+  --accent-ring: rgba(168, 62, 18, 0.25);
+  --focus-ring: rgba(168, 62, 18, 0.55);
+  --success: #4A6B34; --success-tint: rgba(74,107,52,.11); --success-foreground: #F4F8EE;
+  --warning: #8F6508; --warning-tint: rgba(143,101,8,.12);
+  --danger: #A83E12; --danger-tint: rgba(168,62,18,.09); --danger-foreground: #FBEFE7;
+  --info: #3D5A73; --info-tint: rgba(61,90,115,.10);
+  --overlay: rgba(20, 14, 8, 0.5);
+  --accent-grad: none;
+}
+[data-theme='dark'] {
+  --canvas: #16120E;
+  --surface: #16120E;
+  --surface-secondary: #221C15;
+  --elevated: #241E16;
+  --text-primary: #EFE6D7;
+  --text-secondary: #BBAD99;
+  --text-tertiary: #857763;
+  --divider: rgba(239, 230, 215, 0.45);
+  --accent: #D96438;
+  --accent-foreground: #24100A;
+  --accent-hover: #E37A50;
+  --accent-active: #C0552E;
+  --accent-tint: rgba(217, 100, 56, 0.13);
+  --accent-ring: rgba(217, 100, 56, 0.26);
+  --focus-ring: rgba(217, 100, 56, 0.5);
+  --success: #96B67E; --success-tint: rgba(150,182,126,.12); --success-foreground: #131F0B;
+  --warning: #D3A544; --warning-tint: rgba(211,165,68,.13);
+  --danger: #D96438; --danger-tint: rgba(217,100,56,.12); --danger-foreground: #24100A;
+  --info: #7FA3BE; --info-tint: rgba(127,163,190,.12);
+  --overlay: rgba(0,0,0,.6);
+  --accent-grad: none;
+}
+/* журнальная типографика */
+.scr-h1 { font-family: var(--font-brand); font-size: 30px; font-weight: 700; letter-spacing: 0; line-height: 1.1; }
+.scr-title { font-family: var(--font-brand); font-weight: 700; }
+.scr-logotype { font-family: var(--font-brand); font-style: italic; }
+.scr-caption { letter-spacing: 0.14em; }
+/* жёсткие линейки: секции открываются толстой чертой, рубрика UPPERCASE */
+.scr-section { margin-top: 26px; }
+.scr-sechead { border-top: 2px solid var(--divider); padding-top: 8px; }
+.scr-seclabel { text-transform: uppercase; letter-spacing: 0.12em; font-size: 11.5px; }
+.scr-row { border-top-width: 1px; border-top-color: rgba(25,20,16,0.18); }
+[data-theme='dark'] .scr-row { border-top-color: rgba(239,230,215,0.16); }
+.scr-row-name { font-weight: 450; }
+.scr-money { font-family: var(--font-brand); font-size: 16px; }
+.scr-time { font-family: var(--font-brand); font-size: 28px; }
+.scr-appbar { border-bottom: 2px solid var(--divider); }
+.scr-logo { border-radius: 2px; }
+.scr-bar { height: 4px; border-radius: 0; }
+.scr-bar-fill { border-radius: 0; }
+</style>
+</head><body>
+<div id="root"></div>
+<script src="../../ds-bundle/_vendor/react.js"></script>
+<script src="../../ds-bundle/_vendor/react-dom.js"></script>
+<script src="../../ds-bundle/_ds_bundle.js"></script>
+<script src="screens.js"></script>
+</body></html>

@@ -1,6 +1,7 @@
 # Code Map — frontend-new (аудит app shell и Telegram-интеграции)
 
-> Источник истины — код на ветке `main`, состояние на 2026-07-17.
+> Источник истины — код в `main`. Карта составлена 2026-07-17 и должна
+> обновляться вместе со структурными изменениями.
 > Все ссылки вида `file:line` указывают на файлы внутри `frontend-new/`.
 
 ## 1. Точки входа
@@ -97,7 +98,7 @@ axios (api.service.ts) → services/*.service.ts → hooks/use*.ts (React Query)
 
 - **`services/api.service.ts`**: axios-инстанс; `baseURL = '/api'` в production, иначе `VITE_API_URL` (`api.service.ts:12-15`); токен из `sessionStorage['auth_token']`; request-interceptor добавляет `Authorization: Bearer` и **автоматически инжектит `groupId`** из `useAppStore.getState().currentGroupId` в query-параметры каждого запроса (`api.service.ts:25-36`) — мульти-тенантность прозрачна для вызывающих.
 - **`lib/queryClient.ts:3-15`** — глобальные дефолты: `retry: 1`, `refetchOnWindowFocus: true`, `staleTime: 30s`, `gcTime: 5m`. `queryKeys` (`queryClient.ts:17-59`) — единый реестр ключей (polls, menu, suggestions, budget, storeRuns, admin).
-- **Real-time**: `hooks/useSSE.ts` — EventSource на активное голосование с backoff-реконнектом (`useSSE.ts:21-22`: задержки 1–15 с, до 20 попыток); подключается из `HomePage.tsx:101`.
+- **Обновления в реальном времени**: `hooks/useSSE.ts` — поток `fetch` с JWT только в заголовке `Authorization` и повторным подключением (задержки 1–15 с, до 20 попыток); подключается из `HomePage.tsx`.
 - **Mappers** (`lib/adminMappers.ts`, `pollMappers.ts`, `budgetMappers.ts`, `profileMappers.ts`) — чистые функции преобразования ответа API в props виджетов; вызываются в страницах через `useMemo` (пример: `AdminPage.tsx:55-58` `buildDashboard`).
 
 ## 5. Telegram-интеграция (src/lib/telegram.ts)
