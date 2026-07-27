@@ -4,11 +4,7 @@ import { queryKeys } from '@/lib/queryClient';
 import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
 import type { Poll } from '@/types/models';
-
-function errMsg(err: unknown, fallback: string): string {
-  if (err instanceof Error) return err.message;
-  return fallback;
-}
+import { apiErrorMessage } from '@/lib/apiError';
 
 export function useActivePolls() {
   const authStatus = useAppStore((s) => s.authStatus);
@@ -94,7 +90,7 @@ export function useVote() {
       pushToast({ type: 'success', message: 'Голос учтён' });
     },
     onError: (err) => {
-      pushToast({ type: 'error', message: errMsg(err, 'Не удалось проголосовать') });
+      pushToast({ type: 'error', message: apiErrorMessage(err, 'Не удалось проголосовать') });
     },
   });
 }
@@ -121,7 +117,7 @@ export function useWithdrawVote() {
       pushToast({ type: 'info', message: 'Голос снят' });
     },
     onError: (err) => {
-      pushToast({ type: 'error', message: errMsg(err, 'Не удалось снять голос') });
+      pushToast({ type: 'error', message: apiErrorMessage(err, 'Не удалось снять голос') });
     },
   });
 }
@@ -143,7 +139,7 @@ export function useCompletePoll() {
       pushToast({ type: 'success', message: 'Голосование закрыто' });
     },
     onError: (err) => {
-      pushToast({ type: 'error', message: errMsg(err, 'Не удалось закрыть голосование') });
+      pushToast({ type: 'error', message: apiErrorMessage(err, 'Не удалось закрыть голосование') });
     },
   });
 }
@@ -160,7 +156,7 @@ export function useCancelPoll() {
       pushToast({ type: 'info', message: 'Голосование отменено' });
     },
     onError: (err) => {
-      pushToast({ type: 'error', message: errMsg(err, 'Не удалось отменить голосование') });
+      pushToast({ type: 'error', message: apiErrorMessage(err, 'Не удалось отменить голосование') });
     },
   });
 }

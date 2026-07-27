@@ -9,10 +9,7 @@ import {
 import { queryKeys } from '@/lib/queryClient';
 import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
-
-function errMsg(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback;
-}
+import { apiErrorMessage } from '@/lib/apiError';
 
 export function useActiveStoreRuns() {
   const authStatus = useAppStore((s) => s.authStatus);
@@ -56,7 +53,7 @@ export function useCreateStoreRun() {
       qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
       push({ type: 'success', message: 'Закупка создана' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось создать закупку') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось создать закупку') }),
   });
 }
 
@@ -69,7 +66,7 @@ export function useAddStoreItems(runId: number) {
       qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) });
       qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось добавить позицию') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось добавить позицию') }),
   });
 }
 
@@ -109,7 +106,7 @@ export function useStartShopping(runId: number) {
       qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
       push({ type: 'info', message: 'Сбор закрыт — идём в магазин' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось закрыть сбор') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось закрыть сбор') }),
   });
 }
 
@@ -124,7 +121,7 @@ export function useSettleStoreRun(runId: number) {
       qc.invalidateQueries({ queryKey: ['budget'] });
       push({ type: 'success', message: 'Закупка рассчитана' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось рассчитать закупку') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось рассчитать закупку') }),
   });
 }
 
@@ -138,6 +135,6 @@ export function useCancelStoreRun(runId: number) {
       qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
       push({ type: 'info', message: 'Закупка отменена' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось отменить закупку') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось отменить закупку') }),
   });
 }

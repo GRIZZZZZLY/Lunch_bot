@@ -7,6 +7,8 @@ import { newIdempotencyKey } from '@/lib/idempotency';
 const TOKEN_KEY = 'auth_token';
 const IDEMPOTENCY_HEADER = 'Idempotency-Key';
 const SAFE_METHODS = new Set(['get', 'head', 'options']);
+/** Дольше держать ключ незавершённого действия нет смысла — это уже не «повтор». */
+const ACTION_KEY_TTL_MS = 10 * 60 * 1000;
 
 class ApiService {
   private client: AxiosInstance;
@@ -17,6 +19,8 @@ class ApiService {
    * же промис вместо второго обращения к серверу.
    */
   private inflight = new Map<string, Promise<unknown>>();
+  /** Ключи идемпотентности незавершённых действий: одно нажатие — один ключ. */
+  private actionKeys = new Map<string, { key: string; at: number }>();
   private reauthenticate: (() => Promise<boolean>) | null = null;
   private shouldRetryAuth = createAuthRetryHandler(() =>
     this.reauthenticate ? this.reauthenticate() : Promise.resolve(false),
@@ -128,6 +132,62 @@ class ApiService {
     return pending;
   }
 
+  /**
+   * Ключ идемпотентности живёт до тех пор, пока судьба действия неизвестна.
+   * Сеть отвалилась или сервер ответил 5xx — мы не знаем, применилось ли
+   * действие, поэтому повтор идёт с тем же ключом и получает от сервера
+   * закешированный ответ первой попытки вместо второй закупки или второго
+   * голоса. Как только пришёл однозначный вердикт (успех или 4xx), ключ
+   * сбрасывается: следующее нажатие — уже новое действие.
+   */
+  private actionKey(mutationKey: string): string {
+    const now = Date.now();
+    for (const [k, entry] of this.actionKeys) {
+      if (now - entry.at > ACTION_KEY_TTL_MS) this.actionKeys.delete(k);
+    }
+
+    const existing = this.actionKeys.get(mutationKey);
+    if (existing) return existing.key;
+
+    const key = newIdempotencyKey();
+    this.actionKeys.set(mutationKey, { key, at: now });
+    return key;
+  }
+
+  /** 4xx (кроме 409 «уже выполняется») — сервер вынес вердикт, ключ больше не нужен. */
+  private releaseActionKey(mutationKey: string, error?: unknown): void {
+    if (error === undefined) {
+      this.actionKeys.delete(mutationKey);
+      return;
+    }
+    const status = (error as { status?: number } | null)?.status;
+    if (typeof status === 'number' && status >= 400 && status < 500 && status !== 409) {
+      this.actionKeys.delete(mutationKey);
+    }
+  }
+
+  private async mutate<T>(
+    mutationKey: string,
+    config: AxiosRequestConfig | undefined,
+    send: (config: AxiosRequestConfig) => Promise<AxiosResponse<ApiResponse<T>>>,
+  ): Promise<ApiResponse<T>> {
+    return this.dedupe(mutationKey, async () => {
+      const key = this.actionKey(mutationKey);
+      const withKey: AxiosRequestConfig = {
+        ...config,
+        headers: { ...(config?.headers as Record<string, string> | undefined), [IDEMPOTENCY_HEADER]: key },
+      };
+      try {
+        const r = await send(withKey);
+        this.releaseActionKey(mutationKey);
+        return r.data;
+      } catch (error) {
+        this.releaseActionKey(mutationKey, error);
+        throw error;
+      }
+    });
+  }
+
   private mutationKey(
     method: string,
     url: string,
@@ -151,31 +211,27 @@ class ApiService {
   }
 
   async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.dedupe(this.mutationKey('POST', url, data, config), async () => {
-      const r = await this.client.post<ApiResponse<T>>(url, data, config);
-      return r.data;
-    });
+    return this.mutate<T>(this.mutationKey('POST', url, data, config), config, (cfg) =>
+      this.client.post<ApiResponse<T>>(url, data, cfg),
+    );
   }
 
   async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.dedupe(this.mutationKey('PUT', url, data, config), async () => {
-      const r = await this.client.put<ApiResponse<T>>(url, data, config);
-      return r.data;
-    });
+    return this.mutate<T>(this.mutationKey('PUT', url, data, config), config, (cfg) =>
+      this.client.put<ApiResponse<T>>(url, data, cfg),
+    );
   }
 
   async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.dedupe(this.mutationKey('PATCH', url, data, config), async () => {
-      const r = await this.client.patch<ApiResponse<T>>(url, data, config);
-      return r.data;
-    });
+    return this.mutate<T>(this.mutationKey('PATCH', url, data, config), config, (cfg) =>
+      this.client.patch<ApiResponse<T>>(url, data, cfg),
+    );
   }
 
   async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.dedupe(this.mutationKey('DELETE', url, undefined, config), async () => {
-      const r = await this.client.delete<ApiResponse<T>>(url, config);
-      return r.data;
-    });
+    return this.mutate<T>(this.mutationKey('DELETE', url, undefined, config), config, (cfg) =>
+      this.client.delete<ApiResponse<T>>(url, cfg),
+    );
   }
 
   async getPaginated<T = unknown>(

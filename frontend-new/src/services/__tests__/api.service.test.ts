@@ -159,3 +159,73 @@ describe('apiService — защита от двойного тапа', () => {
     expect(client.get).toHaveBeenCalledTimes(2);
   });
 });
+
+/** Ключ идемпотентности из n-го вызова client.post. */
+function sentKey(call: number): string | undefined {
+  const config = client.post.mock.calls[call]?.[2] as
+    | { headers?: Record<string, string> }
+    | undefined;
+  return config?.headers?.['Idempotency-Key'];
+}
+
+describe('apiService — стабильный ключ действия', () => {
+  it('повтор после сетевой ошибки идёт с тем же ключом (сервер отдаст replay)', async () => {
+    client.post.mockRejectedValueOnce({ success: false, code: 'NETWORK_ERROR' });
+    await expect(apiService.post('/store-runs', { storeName: 'Кб' })).rejects.toBeTruthy();
+
+    client.post.mockResolvedValueOnce({ data: { success: true } });
+    await apiService.post('/store-runs', { storeName: 'Кб' });
+
+    expect(sentKey(0)).toBeDefined();
+    expect(sentKey(1)).toBe(sentKey(0));
+  });
+
+  it('5xx тоже неизвестный исход — ключ сохраняется', async () => {
+    client.post.mockRejectedValueOnce({ status: 500 });
+    await expect(apiService.post('/votes', { pollId: 1 })).rejects.toBeTruthy();
+
+    client.post.mockResolvedValueOnce({ data: { success: true } });
+    await apiService.post('/votes', { pollId: 1 });
+
+    expect(sentKey(1)).toBe(sentKey(0));
+  });
+
+  it('409 «уже выполняется» — ключ сохраняется', async () => {
+    client.post.mockRejectedValueOnce({ status: 409, code: 'IDEMPOTENCY_INFLIGHT' });
+    await expect(apiService.post('/store-runs/1/settle', {})).rejects.toBeTruthy();
+
+    client.post.mockResolvedValueOnce({ data: { success: true } });
+    await apiService.post('/store-runs/1/settle', {});
+
+    expect(sentKey(1)).toBe(sentKey(0));
+  });
+
+  it('после успеха следующее нажатие — новое действие с новым ключом', async () => {
+    client.post.mockResolvedValue({ data: { success: true } });
+
+    await apiService.post('/feedback', { text: 'ок' });
+    await apiService.post('/feedback', { text: 'ок' });
+
+    expect(sentKey(0)).toBeDefined();
+    expect(sentKey(1)).not.toBe(sentKey(0));
+  });
+
+  it('после 4xx ключ не переиспользуется — сервер закешировал отказ', async () => {
+    client.post.mockRejectedValueOnce({ status: 400, code: 'POLL_ALREADY_ACTIVE' });
+    await expect(apiService.post('/polls', { title: 'Обед' })).rejects.toBeTruthy();
+
+    client.post.mockResolvedValueOnce({ data: { success: true } });
+    await apiService.post('/polls', { title: 'Обед' });
+
+    expect(sentKey(1)).not.toBe(sentKey(0));
+  });
+
+  it('у разных действий ключи разные', async () => {
+    client.post.mockResolvedValue({ data: { success: true } });
+
+    await apiService.post('/store-runs/1/items', { items: [{ name: 'Молоко' }] });
+    await apiService.post('/store-runs/1/items', { items: [{ name: 'Хлеб' }] });
+
+    expect(sentKey(1)).not.toBe(sentKey(0));
+  });
+});

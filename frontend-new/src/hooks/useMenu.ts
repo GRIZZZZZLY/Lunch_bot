@@ -4,14 +4,7 @@ import { queryKeys } from '@/lib/queryClient';
 import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
 import type { MenuItem } from '@/types/models';
-
-function errMsg(err: unknown, fallback: string): string {
-  const e = err as { response?: { data?: { error?: string; code?: string } }; message?: string };
-  const code = e?.response?.data?.code;
-  if (code === 'ACCESS_DENIED') return 'Доступ запрещён: нужны права администратора';
-  if (code === 'NOT_AUTHENTICATED') return 'Не авторизованы — перезапустите Mini App';
-  return e?.response?.data?.error || e?.message || fallback;
-}
+import { apiErrorMessage } from '@/lib/apiError';
 
 export function useMenuItems(options?: { activeOnly?: boolean; groupId?: string | null }) {
   const authStatus = useAppStore((s) => s.authStatus);
@@ -42,7 +35,7 @@ export function useCreateMenuItem() {
       qc.invalidateQueries({ queryKey: queryKeys.menu.all });
       push({ type: 'success', message: `Блюдо «${vars.data.name}» добавлено` });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось добавить блюдо') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось добавить блюдо') }),
   });
 }
 
@@ -56,7 +49,7 @@ export function useUpdateMenuItem() {
       qc.invalidateQueries({ queryKey: queryKeys.menu.all });
       push({ type: 'success', message: 'Блюдо обновлено' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось обновить блюдо') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось обновить блюдо') }),
   });
 }
 
@@ -69,7 +62,7 @@ export function useDeleteMenuItem() {
       qc.invalidateQueries({ queryKey: queryKeys.menu.all });
       push({ type: 'info', message: 'Блюдо удалено' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось удалить блюдо') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось удалить блюдо') }),
   });
 }
 
@@ -82,6 +75,6 @@ export function useToggleMenuItem() {
       qc.invalidateQueries({ queryKey: queryKeys.menu.all });
       qc.invalidateQueries({ queryKey: queryKeys.menu.active });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось переключить блюдо') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось переключить блюдо') }),
   });
 }

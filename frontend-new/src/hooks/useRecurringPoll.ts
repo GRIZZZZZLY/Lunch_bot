@@ -5,8 +5,7 @@ import {
   type UpdateRecurringPollInput,
 } from '@/services/recurring-poll.service';
 import { useToastStore } from '@/store/useToastStore';
-
-const errMsg = (err: unknown, fb: string) => (err instanceof Error ? err.message : fb);
+import { apiErrorMessage } from '@/lib/apiError';
 
 export function useRecurringSchedule(groupId: number | null) {
   return useQuery({
@@ -30,7 +29,7 @@ export function useCreateRecurringPoll() {
       qc.invalidateQueries({ queryKey: ['recurring', vars.groupId] });
       push({ type: 'success', message: 'Расписание сохранено', title: '🔁 Автозапуск настроен' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось сохранить расписание') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось сохранить расписание') }),
   });
 }
 
@@ -44,7 +43,7 @@ export function useUpdateRecurringPoll() {
       qc.invalidateQueries({ queryKey: ['recurring', vars.input.groupId] });
       push({ type: 'success', message: 'Расписание обновлено' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось обновить расписание') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось обновить расписание') }),
   });
 }
 
@@ -57,7 +56,7 @@ export function useToggleRecurringPoll() {
     onSuccess: (_res, vars) => {
       qc.invalidateQueries({ queryKey: ['recurring', vars.groupId] });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось переключить расписание') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось переключить расписание') }),
   });
 }
 
@@ -70,6 +69,6 @@ export function useDeleteRecurringPoll() {
       qc.invalidateQueries({ queryKey: ['recurring', vars.groupId] });
       push({ type: 'info', message: 'Расписание удалено' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось удалить расписание') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось удалить расписание') }),
   });
 }

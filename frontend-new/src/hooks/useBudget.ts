@@ -3,10 +3,7 @@ import { budgetService } from '@/services/budget.service';
 import { queryKeys } from '@/lib/queryClient';
 import { useAuth } from './useAuth';
 import { useToastStore } from '@/store/useToastStore';
-
-function errMsg(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback;
-}
+import { apiErrorMessage } from '@/lib/apiError';
 
 export function useDebts(params?: { status?: string }) {
   const { isAuthenticated } = useAuth();
@@ -49,7 +46,7 @@ export function useMarkPaid() {
       invalidateBudget(qc);
       push({ type: 'success', message: 'Отмечено как оплачено. Ждём подтверждения.' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось отметить оплату') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось отметить оплату') }),
   });
 }
 
@@ -62,7 +59,7 @@ export function useConfirmPayment() {
       invalidateBudget(qc);
       push({ type: 'success', message: 'Оплата подтверждена' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось подтвердить оплату') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось подтвердить оплату') }),
   });
 }
 
@@ -75,7 +72,7 @@ export function useCancelMark() {
       invalidateBudget(qc);
       push({ type: 'info', message: 'Отметка снята' });
     },
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось отменить отметку') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось отменить отметку') }),
   });
 }
 
@@ -84,6 +81,6 @@ export function useSendReminder() {
   return useMutation({
     mutationFn: (transactionId: number) => budgetService.sendReminder(transactionId),
     onSuccess: () => push({ type: 'success', message: 'Напоминание отправлено' }),
-    onError: (err) => push({ type: 'error', message: errMsg(err, 'Не удалось отправить напоминание') }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось отправить напоминание') }),
   });
 }
