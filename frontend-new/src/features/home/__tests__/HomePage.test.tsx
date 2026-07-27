@@ -44,6 +44,8 @@ vi.mock('@/hooks/usePolls', () => ({
 }));
 vi.mock('@/hooks/useRecurringPoll', () => ({
   useCreateRecurringPoll: h.m,
+  useUpdateRecurringPoll: h.m,
+  useDeleteRecurringPoll: h.m,
   useRecurringSchedule: () => h.q(h.state.schedule),
 }));
 vi.mock('@/hooks/useAuth', () => ({

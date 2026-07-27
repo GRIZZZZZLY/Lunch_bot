@@ -16,11 +16,33 @@ export interface ScheduleLike {
   timeOfDay: string;
 }
 
-export function parseDaysOfWeek(days: number[] | string | null | undefined): number[] {
-  const raw: unknown = typeof days === 'string' ? safeParse(days) : days;
+/** Массив чисел из значения, которое могло прийти строкой JSON. */
+export function parseNumberArray(value: number[] | string | null | undefined): number[] {
+  const raw: unknown = typeof value === 'string' ? safeParse(value) : value;
   if (!Array.isArray(raw)) return [];
-  const valid = raw.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6);
+  return raw.filter((n): n is number => Number.isInteger(n));
+}
+
+export function parseDaysOfWeek(days: number[] | string | null | undefined): number[] {
+  const valid = parseNumberArray(days).filter((d) => d >= 0 && d <= 6);
   return [...new Set(valid)].sort((a, b) => a - b);
+}
+
+/** Порядок подписей в форме создания опроса: рабочая неделя, затем выходные. */
+export const DAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
+const LABEL_TO_NUM: Record<string, number> = { Пн: 1, Вт: 2, Ср: 3, Чт: 4, Пт: 5, Сб: 6, Вс: 0 };
+
+/** Номера дней (0 — воскресенье) → подписи чипов формы. */
+export function daysToLabels(days: number[]): string[] {
+  return DAY_LABELS.filter((label) => days.includes(LABEL_TO_NUM[label]));
+}
+
+/** Подписи чипов формы → номера дней для бэкенда. */
+export function labelsToDays(labels: string[]): number[] {
+  const days = labels
+    .map((label) => LABEL_TO_NUM[label])
+    .filter((n): n is number => typeof n === 'number');
+  return [...new Set(days)].sort((a, b) => a - b);
 }
 
 function safeParse(value: string): unknown {

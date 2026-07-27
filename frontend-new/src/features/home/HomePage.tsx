@@ -12,7 +12,7 @@ import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
 import { getAdminGroups, isGlobalAdmin } from '@/lib/permissions';
 import { queryKeys } from '@/lib/queryClient';
 import { isSameLocalDay } from '@/lib/date';
-import { formatScheduleHint } from '@/lib/schedule';
+import { daysToLabels, formatScheduleHint, labelsToDays, parseDaysOfWeek, parseNumberArray } from '@/lib/schedule';
 import {
   useActivePoll,
   useCancelPoll,
@@ -25,7 +25,12 @@ import {
   useVote,
   useWithdrawVote,
 } from '@/hooks/usePolls';
-import { useCreateRecurringPoll, useRecurringSchedule } from '@/hooks/useRecurringPoll';
+import {
+  useCreateRecurringPoll,
+  useDeleteRecurringPoll,
+  useRecurringSchedule,
+  useUpdateRecurringPoll,
+} from '@/hooks/useRecurringPoll';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyGroups } from '@/hooks/useUser';
 import { useMenuItems } from '@/hooks/useMenu';
@@ -33,7 +38,7 @@ import { useDebts, useCredits, useMarkPaid } from '@/hooks/useBudget';
 import { useSSE } from '@/hooks/useSSE';
 import { useToast } from '@/hooks/useToast';
 import { useEffect } from 'react';
-import { CreatePollSheet } from '@/components/admin/CreatePollSheet';
+import { CreatePollSheet, type SheetSchedule } from '@/components/admin/CreatePollSheet';
 import type { CreatePollContext, CreatePollFormState, MenuItemOption } from '@/components/admin/types';
 import { CreateStoreRunSheet } from '@/features/store-run/components/CreateStoreRunSheet';
 import { useActiveStoreRuns, useCreateStoreRun } from '@/hooks/useStoreRun';
@@ -55,7 +60,13 @@ const DURATION_TO_MINUTES: Record<CreatePollFormState['duration'], number> = {
   custom: 30,
 };
 
-const DAY_TO_NUM: Record<string, number> = { Вс: 0, Пн: 1, Вт: 2, Ср: 3, Чт: 4, Пт: 5, Сб: 6 };
+/** Минуты расписания → чип длительности; нестандартные значения остаются «кастомными». */
+function durationKeyOf(minutes: number): CreatePollFormState['duration'] {
+  if (minutes === 15) return '15m';
+  if (minutes === 30) return '30m';
+  if (minutes === 60) return '1h';
+  return 'custom';
+}
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -110,10 +121,8 @@ export function HomePage() {
   const [sheetGroupId, setSheetGroupId] = useState<string | null>(null);
   const createPollMutation = useCreatePoll();
   const createRecurringMutation = useCreateRecurringPoll();
-  const { data: recurringSchedule } = useRecurringSchedule(
-    currentGroupId ? Number(currentGroupId) : null,
-  );
-  const scheduleHint = formatScheduleHint(recurringSchedule);
+  const updateRecurringMutation = useUpdateRecurringPoll();
+  const deleteRecurringMutation = useDeleteRecurringPoll();
 
   /* ---- view-model голосования ---- */
   const options: PollOptionVM[] = useMemo(
@@ -149,6 +158,22 @@ export function HomePage() {
   const canCreate = adminGroups.length > 0 || (isGlobalAdmin(user) && !!currentGroupId);
   const effectiveSheetGroupId = sheetGroupId ?? currentGroupId;
   const { data: sheetMenu = [] } = useMenuItems({ activeOnly: true, groupId: effectiveSheetGroupId });
+  // Расписание запрашиваем для группы, выбранной в шторке: иначе правили бы чужое.
+  const { data: recurringSchedule } = useRecurringSchedule(
+    effectiveSheetGroupId ? Number(effectiveSheetGroupId) : null,
+  );
+  const scheduleHint = formatScheduleHint(recurringSchedule);
+  const sheetSchedule = useMemo<SheetSchedule | null>(() => {
+    if (!recurringSchedule) return null;
+    return {
+      id: recurringSchedule.id,
+      isEnabled: recurringSchedule.isEnabled,
+      days: daysToLabels(parseDaysOfWeek(recurringSchedule.daysOfWeek)),
+      time: recurringSchedule.timeOfDay,
+      durationKey: durationKeyOf(recurringSchedule.duration),
+      itemIds: parseNumberArray(recurringSchedule.selectedMenuItemIds).map(String),
+    };
+  }, [recurringSchedule]);
 
   const createPollCtx = useMemo<CreatePollContext>(() => {
     const items: MenuItemOption[] = sheetMenu
@@ -179,17 +204,30 @@ export function HomePage() {
     const duration = DURATION_TO_MINUTES[form.duration];
     try {
       if (form.recurring) {
-        const daysOfWeek = form.recurringDays
-          .map((d) => DAY_TO_NUM[d])
-          .filter((n): n is number => typeof n === 'number');
+        const daysOfWeek = labelsToDays(form.recurringDays);
         if (daysOfWeek.length === 0) throw new Error('Выберите хотя бы один день недели');
-        await createRecurringMutation.mutateAsync({
+        // «Кастомную» длительность чипы не хранят — при правке сохраняем исходную,
+        // иначе расписание на 90 минут молча стало бы 30-минутным.
+        const scheduleDuration =
+          form.duration === 'custom' && recurringSchedule?.duration
+            ? recurringSchedule.duration
+            : duration;
+        const payload = {
           groupId: Number(groupId),
           daysOfWeek,
           timeOfDay: form.recurringTime,
-          duration,
+          duration: scheduleDuration,
           selectedMenuItemIds: selectedMenuItems.length ? selectedMenuItems : null,
-        });
+        };
+        if (recurringSchedule) {
+          // Сохранение = «хочу, чтобы работало»: выключенное расписание включаем.
+          await updateRecurringMutation.mutateAsync({
+            id: recurringSchedule.id,
+            input: { ...payload, isEnabled: true },
+          });
+        } else {
+          await createRecurringMutation.mutateAsync(payload);
+        }
       } else {
         // Q1: одиночный выбор — multi-select UI не существует
         await createPollMutation.mutateAsync({
@@ -204,6 +242,19 @@ export function HomePage() {
       setCreateOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Не удалось создать опрос');
+    }
+  };
+
+  const handleDeleteSchedule = async () => {
+    if (!recurringSchedule) return;
+    try {
+      await deleteRecurringMutation.mutateAsync({
+        id: recurringSchedule.id,
+        groupId: recurringSchedule.groupId,
+      });
+      setCreateOpen(false);
+    } catch {
+      // сообщение уже показал хук
     }
   };
 
@@ -318,7 +369,14 @@ export function HomePage() {
         open={createOpen}
         ctx={createPollCtx}
         initial={currentGroupId ? { groupId: currentGroupId } : undefined}
-        submitting={createPollMutation.isPending || createRecurringMutation.isPending}
+        submitting={
+          createPollMutation.isPending ||
+          createRecurringMutation.isPending ||
+          updateRecurringMutation.isPending
+        }
+        schedule={sheetSchedule}
+        deletingSchedule={deleteRecurringMutation.isPending}
+        onDeleteSchedule={handleDeleteSchedule}
         onClose={() => {
           setCreateOpen(false);
           setSheetGroupId(null);

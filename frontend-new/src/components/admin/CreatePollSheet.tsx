@@ -3,6 +3,7 @@ import type { CreatePollContext, CreatePollFormState, DurationOption, MenuItemOp
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, Checkbox, Chip, Field, Switch } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
+import { DAY_LABELS } from '@/lib/schedule';
 
 const DURATION_CHIPS: { key: DurationOption; label: string }[] = [
   { key: '15m', label: '15 мин' },
@@ -11,15 +12,29 @@ const DURATION_CHIPS: { key: DurationOption; label: string }[] = [
   { key: 'custom', label: 'Кастомное' },
 ];
 
-const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const WEEKDAYS = [...DAY_LABELS];
+
+/** Уже настроенное расписание выбранной группы — в подписях формы, а не в формате API. */
+export interface SheetSchedule {
+  id: number;
+  isEnabled: boolean;
+  days: string[];
+  time: string;
+  durationKey: DurationOption;
+  itemIds: string[];
+}
 
 interface Props {
   open: boolean;
   ctx: CreatePollContext;
   initial?: Partial<CreatePollFormState>;
   submitting?: boolean;
+  /** Расписание автозапуска выбранной группы, если оно уже создано. */
+  schedule?: SheetSchedule | null;
+  deletingSchedule?: boolean;
   onClose: () => void;
   onSubmit: (state: CreatePollFormState) => void;
+  onDeleteSchedule?: () => void;
   /** Вызывается при смене группы — родитель перезагружает меню этой группы */
   onGroupChange?: (groupId: string) => void;
 }
@@ -46,7 +61,18 @@ function Label({ children }: { children: ReactNode }) {
   );
 }
 
-export function CreatePollSheet({ open, ctx, initial, submitting, onClose, onSubmit, onGroupChange }: Props) {
+export function CreatePollSheet({
+  open,
+  ctx,
+  initial,
+  submitting,
+  schedule,
+  deletingSchedule,
+  onClose,
+  onSubmit,
+  onDeleteSchedule,
+  onGroupChange,
+}: Props) {
   const [state, setState] = useState<CreatePollFormState>(() => makeInitial(ctx, initial));
 
   // Компонент не размонтируется между открытиями — на каждое открытие
@@ -69,7 +95,30 @@ export function CreatePollSheet({ open, ctx, initial, submitting, onClose, onSub
 
   const selectedCount = state.selectedItems.length;
   const itemsError = selectedCount < ctx.minItems;
-  const canSubmit = !itemsError && !submitting;
+  // Правка существующего расписания: блюда у него свои, заново выбирать их не нужно.
+  const editingSchedule = state.recurring && !!schedule;
+  const daysMissing = state.recurring && state.recurringDays.length === 0;
+  const canSubmit = (editingSchedule || !itemsError) && !daysMissing && !submitting;
+  const submitLabel = state.recurring
+    ? schedule
+      ? 'Сохранить расписание'
+      : 'Создать расписание'
+    : 'Запустить опрос';
+
+  /** Включение переключателя при живом расписании подставляет его настройки. */
+  const setRecurring = (on: boolean) =>
+    setState((prev) =>
+      on && schedule
+        ? {
+            ...prev,
+            recurring: true,
+            recurringDays: schedule.days,
+            recurringTime: schedule.time,
+            duration: schedule.durationKey,
+            selectedItems: schedule.itemIds.length ? schedule.itemIds : prev.selectedItems,
+          }
+        : { ...prev, recurring: on },
+    );
 
   const toggleItem = (id: string) =>
     setState((prev) => {
@@ -92,8 +141,15 @@ export function CreatePollSheet({ open, ctx, initial, submitting, onClose, onSub
       title="Создать опрос"
       onClose={onClose}
       footer={
-        <Button variant="primary" icon="flame" style={{ width: '100%' }} loading={submitting} disabled={!canSubmit} onClick={() => canSubmit && onSubmit(state)}>
-          Запустить опрос
+        <Button
+          variant="primary"
+          icon={state.recurring ? 'clock' : 'flame'}
+          style={{ width: '100%' }}
+          loading={submitting}
+          disabled={!canSubmit}
+          onClick={() => canSubmit && onSubmit(state)}
+        >
+          {submitLabel}
         </Button>
       }
     >
@@ -136,10 +192,14 @@ export function CreatePollSheet({ open, ctx, initial, submitting, onClose, onSub
             Повторяющийся опрос
           </div>
           <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>
-            {state.recurring ? 'каждую рабочую неделю' : 'запланировать на несколько дней'}
+            {schedule
+              ? `сейчас ${schedule.time}${schedule.isEnabled ? '' : ' · выключено'} — можно изменить`
+              : state.recurring
+                ? 'каждую рабочую неделю'
+                : 'запланировать на несколько дней'}
           </div>
         </div>
-        <Switch on={state.recurring} disabled={submitting} onChange={(v) => setState({ ...state, recurring: v })} aria-label="Повторяющийся опрос" />
+        <Switch on={state.recurring} disabled={submitting} onChange={setRecurring} aria-label="Повторяющийся опрос" />
       </div>
 
       {state.recurring && (
@@ -152,6 +212,11 @@ export function CreatePollSheet({ open, ctx, initial, submitting, onClose, onSub
               </Chip>
             ))}
           </div>
+          {daysMissing && (
+            <div style={{ marginTop: 6, fontSize: 'var(--t-11)', color: 'var(--danger)' }}>
+              Выберите хотя бы один день
+            </div>
+          )}
           <Label>Время запуска</Label>
           <Field
             value={state.recurringTime}
@@ -159,6 +224,18 @@ export function CreatePollSheet({ open, ctx, initial, submitting, onClose, onSub
             disabled={submitting}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setState({ ...state, recurringTime: e.target.value })}
           />
+          {schedule && onDeleteSchedule && (
+            <Button
+              variant="ghost"
+              icon="trash"
+              style={{ width: '100%', marginTop: 12 }}
+              loading={deletingSchedule}
+              disabled={submitting || deletingSchedule}
+              onClick={onDeleteSchedule}
+            >
+              Удалить расписание
+            </Button>
+          )}
         </>
       )}
 
@@ -244,7 +321,9 @@ function MenuRow({ item, on, disabled, onToggle }: { item: MenuItemOption; on: b
       role="button"
       aria-pressed={on}
     >
-      <Checkbox on={on} onChange={() => !disabled && onToggle()} aria-label={item.name} />
+      {/* Клик по чекбоксу всплывает в строку: свой обработчик переключал бы блюдо
+          дважды, и тап точно по квадратику не давал ничего. */}
+      <Checkbox on={on} aria-label={item.name} />
       <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--accent-tint)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="menu" size={18} />
       </div>

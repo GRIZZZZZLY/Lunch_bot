@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatScheduleHint, parseDaysOfWeek } from '../schedule';
+import { daysToLabels, formatScheduleHint, labelsToDays, parseDaysOfWeek, parseNumberArray } from '../schedule';
 
 describe('parseDaysOfWeek', () => {
   it('принимает массив и JSON-строку', () => {
@@ -42,5 +42,27 @@ describe('formatScheduleHint', () => {
 
   it('расписание без поля isEnabled считаем включённым', () => {
     expect(formatScheduleHint({ daysOfWeek: [1], timeOfDay: '11:30' })).toBe('Автозапуск в 11:30, пн');
+  });
+});
+
+describe('daysToLabels / labelsToDays', () => {
+  it('туда и обратно без потерь, порядок — рабочая неделя вперёд', () => {
+    expect(daysToLabels([1, 2, 3, 4, 5])).toEqual(['Пн', 'Вт', 'Ср', 'Чт', 'Пт']);
+    expect(daysToLabels([0, 6])).toEqual(['Сб', 'Вс']);
+    expect(labelsToDays(['Вс', 'Пн'])).toEqual([0, 1]);
+    expect(labelsToDays(daysToLabels([0, 3, 6]))).toEqual([0, 3, 6]);
+  });
+
+  it('незнакомые подписи и дубли отбрасываются', () => {
+    expect(labelsToDays(['Пн', 'Пн', 'вторник'])).toEqual([1]);
+    expect(labelsToDays([])).toEqual([]);
+  });
+});
+
+describe('parseNumberArray', () => {
+  it('читает JSON-строку и массив, чистит нецелые', () => {
+    expect(parseNumberArray('[4,3,15]')).toEqual([4, 3, 15]);
+    expect(parseNumberArray([1, 2.5, 3])).toEqual([1, 3]);
+    expect(parseNumberArray(null)).toEqual([]);
   });
 });
