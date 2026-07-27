@@ -2,8 +2,11 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import type { ApiResponse, PaginatedResponse } from '@/types/api';
 import { useAppStore } from '@/store/useAppStore';
 import { createAuthRetryHandler } from '@/lib/authRetry';
+import { newIdempotencyKey } from '@/lib/idempotency';
 
 const TOKEN_KEY = 'auth_token';
+const IDEMPOTENCY_HEADER = 'Idempotency-Key';
+const SAFE_METHODS = new Set(['get', 'head', 'options']);
 
 class ApiService {
   private client: AxiosInstance;
@@ -36,6 +39,13 @@ class ApiService {
       const groupId = useAppStore.getState().currentGroupId;
       if (groupId) {
         config.params = { groupId, ...(config.params ?? {}) };
+      }
+      // Бэкенд требует Idempotency-Key на write-endpoint'ах. Ключ ставим один
+      // раз на запрос: ретрай того же config (например после ре-авторизации)
+      // переиспользует его и получает закешированный ответ вместо дубля.
+      const method = (config.method ?? 'get').toLowerCase();
+      if (!SAFE_METHODS.has(method) && !config.headers.has(IDEMPOTENCY_HEADER)) {
+        config.headers.set(IDEMPOTENCY_HEADER, newIdempotencyKey());
       }
       return config;
     });

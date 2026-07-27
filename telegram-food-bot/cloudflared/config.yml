@@ -1,0 +1,8 @@
+tunnel: 259f85e5-9838-463d-a03a-cf4efa264c77
+credentials-file: /home/nonroot/.cloudflared/259f85e5-9838-463d-a03a-cf4efa264c77.json
+protocol: http2
+
+ingress:
+  - hostname: rocketlunch.dpdns.org
+    service: http://host.docker.internal:3001
+  - service: http_status:404

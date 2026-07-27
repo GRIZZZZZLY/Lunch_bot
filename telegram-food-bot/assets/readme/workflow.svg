@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="390" viewBox="0 0 1200 390"
+     role="img" aria-labelledby="title desc">
+  <title id="title">Сценарий командного обеда в Rocket Lunch</title>
+  <desc id="desc">Четыре шага: меню группы, голосование, совместная закупка и расчёт между участниками.</desc>
+
+  <defs>
+    <pattern id="paper-dots" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="2" fill="#DDD6C8"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="390" rx="30" fill="#F3EFE7"/>
+  <rect width="1200" height="390" rx="30" fill="url(#paper-dots)" opacity="0.7"/>
+
+  <text x="58" y="62"
+        fill="#23201B" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+        font-size="36" font-weight="800" letter-spacing="-0.8">
+    Один обед — четыре связанных шага
+  </text>
+  <text x="58" y="96"
+        fill="#5D574C" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+        font-size="20">
+    Данные остаются внутри выбранной Telegram-группы.
+  </text>
+
+  <path d="M165 229H1035" stroke="#CFC7B8" stroke-width="4" stroke-dasharray="10 12"/>
+
+  <g id="menu" transform="translate(58 132)">
+    <rect width="250" height="208" rx="24" fill="#FDFBF6" stroke="#E2DCD0" stroke-width="2"/>
+    <circle cx="38" cy="38" r="21" fill="#26211A"/>
+    <text x="38" y="45" text-anchor="middle"
+          fill="#F7F3EA" font-family="ui-monospace,'SFMono-Regular',Consolas,monospace"
+          font-size="18" font-weight="800">01</text>
+    <text x="28" y="92"
+          fill="#23201B" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="25" font-weight="800">Меню группы</text>
+    <text x="28" y="130"
+          fill="#5D574C" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="18">Администратор ведёт</text>
+    <text x="28" y="158"
+          fill="#5D574C" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="18">свой набор блюд.</text>
+  </g>
+
+  <g id="vote" transform="translate(336 132)">
+    <rect width="250" height="208" rx="24" fill="#FDFBF6" stroke="#E2DCD0" stroke-width="2"/>
+    <circle cx="38" cy="38" r="21" fill="#B4451F"/>
+    <text x="38" y="45" text-anchor="middle"
+          fill="#FFF7F2" font-family="ui-monospace,'SFMono-Regular',Consolas,monospace"
+          font-size="18" font-weight="800">02</text>
+    <text x="28" y="92"
+          fill="#23201B" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="25" font-weight="800">Голосование</text>
+    <text x="28" y="130"
+          fill="#5D574C" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="18">Результаты меняются</text>
+    <text x="28" y="158"
+          fill="#5D574C" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="18">в реальном времени.</text>
+  </g>
+
+  <g id="store-run" transform="translate(614 132)">
+    <rect width="250" height="208" rx="24" fill="#FDFBF6" stroke="#E2DCD0" stroke-width="2"/>
+    <circle cx="38" cy="38" r="21" fill="#9A6604"/>
+    <text x="38" y="45" text-anchor="middle"
+          fill="#FFF8EA" font-family="ui-monospace,'SFMono-Regular',Consolas,monospace"
+          font-size="18" font-weight="800">03</text>
+    <text x="28" y="92"
+          fill="#23201B" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="25" font-weight="800">Закупка</text>
+    <text x="28" y="130"
+          fill="#5D574C" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="18">Общий список, статусы</text>
+    <text x="28" y="158"
+          fill="#5D574C" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="18">и ответственный.</text>
+  </g>
+
+  <g id="settlement" transform="translate(892 132)">
+    <rect width="250" height="208" rx="24" fill="#FDFBF6" stroke="#E2DCD0" stroke-width="2"/>
+    <circle cx="38" cy="38" r="21" fill="#3E7A34"/>
+    <text x="38" y="45" text-anchor="middle"
+          fill="#F3FFF0" font-family="ui-monospace,'SFMono-Regular',Consolas,monospace"
+          font-size="18" font-weight="800">04</text>
+    <text x="28" y="92"
+          fill="#23201B" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="25" font-weight="800">Расчёт</text>
+    <text x="28" y="130"
+          fill="#5D574C" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="18">Суммы, долги и история</text>
+    <text x="28" y="158"
+          fill="#5D574C" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="18">участников.</text>
+  </g>
+</svg>

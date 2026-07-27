@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="440" viewBox="0 0 1200 440"
+     role="img" aria-labelledby="title desc">
+  <title id="title">Rocket Lunch — командные обеды внутри Telegram</title>
+  <desc id="desc">Тёмная обложка с названием Rocket Lunch и обеденным талоном, который показывает голосование, закупку и расчёт.</desc>
+
+  <defs>
+    <pattern id="dots" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="2" fill="#425166" opacity="0.55"/>
+    </pattern>
+    <clipPath id="ticket-clip">
+      <rect x="765" y="38" width="381" height="364" rx="30"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1200" height="440" rx="34" fill="#202A37"/>
+  <rect width="1200" height="440" rx="34" fill="url(#dots)" opacity="0.54"/>
+
+  <g id="title-block" transform="translate(62 54)">
+    <g transform="translate(0 0)">
+      <rect width="54" height="54" rx="16" fill="#FF9066"/>
+      <circle cx="27" cy="27" r="4" fill="#202A37"/>
+      <path d="M27 11v7M27 36v7M11 27h7M36 27h7M16 16l5 5M33 33l5 5M38 16l-5 5M21 33l-5 5"
+            stroke="#202A37" stroke-width="3.5" stroke-linecap="round"/>
+    </g>
+    <text x="72" y="34"
+          fill="#A9B7C6" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="20" font-weight="700" letter-spacing="1.4">
+      TELEGRAM MINI APP · КОМАНДНЫЕ ОБЕДЫ
+    </text>
+
+    <text x="0" y="146"
+          fill="#EDF1F6" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="78" font-weight="800" letter-spacing="-3">
+      Rocket Lunch
+    </text>
+    <text x="0" y="196"
+          fill="#EDF1F6" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="28" font-weight="650">
+      От общего выбора блюда —
+    </text>
+    <text x="0" y="234"
+          fill="#EDF1F6" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="28" font-weight="650">
+      до закупки и расчёта.
+    </text>
+    <text x="0" y="288"
+          fill="#A9B7C6" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="21">
+      Меню группы · живое голосование · общий список покупок
+    </text>
+
+    <g transform="translate(0 328)">
+      <rect width="610" height="44" rx="22" fill="#283544" stroke="#425166"/>
+      <circle cx="25" cy="22" r="6" fill="#82C972"/>
+      <text x="43" y="29"
+            fill="#D8E0E9" font-family="ui-monospace,'SFMono-Regular',Consolas,monospace"
+            font-size="18">
+        React · TypeScript · Express · PostgreSQL
+      </text>
+    </g>
+  </g>
+
+  <g id="lunch-ticket" clip-path="url(#ticket-clip)">
+    <rect x="765" y="38" width="381" height="364" rx="30" fill="#FDFBF6"/>
+    <circle cx="765" cy="220" r="17" fill="#202A37"/>
+    <circle cx="1146" cy="220" r="17" fill="#202A37"/>
+
+    <text x="799" y="82"
+          fill="#8D8678" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="18" font-weight="750" letter-spacing="1.2">
+      ОФИС · СЕГОДНЯ
+    </text>
+    <text x="799" y="121"
+          fill="#23201B" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="28" font-weight="800">
+      Обеденный талон
+    </text>
+
+    <g transform="translate(799 151)">
+      <text x="0" y="0"
+            fill="#5D574C" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+            font-size="18" font-weight="650">
+        ГОЛОСОВАНИЕ
+      </text>
+      <text x="0" y="35"
+            fill="#23201B" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+            font-size="22" font-weight="750">
+        Том-ям с креветками
+      </text>
+      <text x="299" y="35" text-anchor="end"
+            fill="#B4451F" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+            font-size="22" font-weight="800">
+        46%
+      </text>
+      <rect x="0" y="52" width="299" height="8" rx="4" fill="#ECE7DC"/>
+      <rect x="0" y="52" width="138" height="8" rx="4" fill="#B4451F"/>
+    </g>
+
+    <path d="M799 235h313" stroke="#D8D2C7" stroke-width="2" stroke-dasharray="9 10"/>
+
+    <g transform="translate(799 272)">
+      <rect width="42" height="42" rx="13" fill="#F4E9D4"/>
+      <path d="M12 14h4l3 15h14l4-11H18" fill="none" stroke="#9A6604"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="22" cy="33" r="2" fill="#9A6604"/>
+      <circle cx="33" cy="33" r="2" fill="#9A6604"/>
+      <text x="58" y="19"
+            fill="#23201B" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+            font-size="21" font-weight="750">
+        Закупка
+      </text>
+      <text x="299" y="19" text-anchor="end"
+            fill="#9A6604" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+            font-size="20" font-weight="800">
+        3 из 4
+      </text>
+      <text x="58" y="45"
+            fill="#8D8678" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+            font-size="18">
+        Игорь в магазине
+      </text>
+    </g>
+
+    <g transform="translate(799 340)">
+      <circle cx="21" cy="20" r="20" fill="#E8F0E4"/>
+      <path d="M12 20l6 6 12-13" fill="none" stroke="#3E7A34"
+            stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="58" y="27"
+            fill="#23201B" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+            font-size="21" font-weight="750">
+        Расчёт закрыт
+      </text>
+      <text x="299" y="27" text-anchor="end"
+            fill="#3E7A34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+            font-size="21" font-weight="800">
+        580 ₽
+      </text>
+    </g>
+  </g>
+</svg>

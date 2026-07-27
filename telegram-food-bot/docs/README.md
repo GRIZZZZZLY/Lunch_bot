@@ -1,226 +1,44 @@
-# 📚 Документация проекта Telegram Food Bot
+# Документация Rocket Lunch
 
-Добро пожаловать в документацию! Здесь вы найдете всю информацию о проекте.
+Этот каталог содержит только живые руководства и спецификации, которые нужны
+для разработки, эксплуатации или проверки текущего приложения. Завершённые
+планы и старые отчёты доступны через историю Git.
 
----
+## Начало работы
 
-## 🚀 Быстрый старт
+- [Установка и первый запуск](01-getting-started/README.md)
+- [Разработка](02-development/README.md)
+- [Тестирование](05-testing/README.md)
+- [Обзор API](07-api/README.md)
 
-### ⚡ Самое актуальное (январь 2025):
-1. 🎨 **[07-ux-audit/UX_AUDIT_COMPLETE_2025-01.md](./07-ux-audit/UX_AUDIT_COMPLETE_2025-01.md)** - Полный UX/UI аудит + приоритизированный план оптимизаций
-2. 🏆 **[08-multi-winner/MULTI_WINNER_VOTING_IMPLEMENTATION.md](./08-multi-winner/MULTI_WINNER_VOTING_IMPLEMENTATION.md)** - Multi-Winner Voting: Implementation Guide
-3. 🗺️ **[ROADMAP.md](./ROADMAP.md)** - План развития проекта
-4. 🏗️ **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Архитектура системы
-5. 📡 **[API.md](./API.md)** - API документация
+## Архитектура и эксплуатация
 
-### Для быстрого старта:
-- 🚀 **[01-getting-started/QUICK_START.md](./01-getting-started/QUICK_START.md)** - Быстрый старт
-- ⚙️ **[SETUP.md](./SETUP.md)** - Настройка окружения
-- 💻 **[02-development/README.md](./02-development/README.md)** - Руководство по разработке
+- [Архитектура](ARCHITECTURE.md)
+- [Развёртывание](../DEPLOYMENT.md)
+- [Резервное копирование](BACKUP_RESTORE_GUIDE.md)
+- [Карта продакшен-системы](09-production-readiness/SYSTEM_MAP.md)
+- [Порядок выпуска и отката](09-production-readiness/RELEASE_RUNBOOK.md)
+- [Остаточные риски](09-production-readiness/RESIDUAL_RISKS.md)
+- [Проверка продакшена](09-production-readiness/PRODUCTION_SMOKE_TEST.md)
 
----
+## Telegram
 
-## 📂 Структура документации
+- [Настройка BotFather](04-deployment/BOTFATHER_SETUP.md)
+- Ограничения личных и групповых чатов описаны в
+  [настройке BotFather](04-deployment/BOTFATHER_SETUP.md).
 
-### 📁 01-getting-started/
-Документы для быстрого старта:
-- `FRONTEND_QUICK_START.md` - Быстрый старт с фронтендом
+## Основной интерфейс
 
-### 📁 02-development/
-Руководства по разработке:
-- `ADD_APP_COMMAND.md` - Добавление команд бота
-- `DEBUG_LOGS_GUIDE.md` - Отладка
-- `DEV_MODE.md` - Режим разработки
-- `QUICK_DEBUG.md` - Быстрая отладка
+Текущие документы дизайна и поведения находятся рядом с кодом:
 
-### 📁 03-architecture/
-Архитектура проекта:
-- `03-architecture/PROJECT_PLAN.md` - Общий план проекта
+- [`frontend-new/README.md`](../frontend-new/README.md)
+- [`frontend-new/docs/design-guidelines/`](../frontend-new/docs/design-guidelines/)
+- [`frontend-new/docs/design-handoff/`](../frontend-new/docs/design-handoff/)
+- [`frontend-new/docs/frontend-redesign/`](../frontend-new/docs/frontend-redesign/)
+- [матрица сквозных тестов](../frontend-new/tests/e2e/COVERAGE.md)
 
-### 📁 04-deployment/
-Деплой и продакшен:
-- `NGROK_RESTART_GUIDE.md` - Работа с ngrok
-- `PRODUCTION_BUILD_GUIDE.md` - Билд для продакшена
-- `SETUP_GITHUB.md` - Настройка GitHub
-- `04-deployment/README.md` - Деплой на Timeweb
+## Правило актуальности
 
-### 📁 05-testing/
-Тестирование:
-- `05-testing/README.md` - Подробное руководство по тестированию
-
-### 📁 07-ux-audit/ ⭐
-**UX/UI аудит и оптимизации (январь 2025):**
-- `UX_AUDIT_COMPLETE_2025-01.md` - Полный аудит 30+ проблем
-- `P0_FINAL_REPORT.md` - Критичные исправления (accessibility, performance, security)
-- `P1_FINAL_COMPLETE.md` - Production-ready оптимизации (React Query, Sentry, Analytics)
-- `P2_FINAL_COMPLETE.md` - Advanced UX (E2E tests, pull-to-refresh, swipe, undo/redo)
-
-### 📁 08-multi-winner/ ⭐
-**Multi-Winner Voting документация (новое!):**
-- `MULTI_WINNER_VOTING_IMPLEMENTATION.md` - Полное руководство по внедрению (1859 строк)
-- `MULTI_WINNER_API_SPEC.md` - OpenAPI-style спецификация
-- `MULTI_WINNER_FAQ.md` - FAQ + Troubleshooting
-- `examples/` - Готовые примеры кода
-- `diagrams/` - Mermaid диаграммы flow
-
-### 📁 archive/
-Архив устаревших документов (см. [archive/README.md](./archive/README.md)):
-- `sessions/` - Отчеты о рабочих сессиях
-- `snapshots/` - Snapshots состояния проекта
-- `redesign/` - Завершенные работы по редизайну
-- `ux-old/` - Старая UX документация (заменена на 07-ux-audit/)
-- `reports/` - Завершенные отчеты
-- `frontend-history/` - История frontend трансформаций
-
----
-
-## 🎯 Текущий статус проекта (январь 2025)
-
-### Фронтенд: ✅ v2.0 - Production Ready (8.8/10)
-**Завершено:**
-- ✅ Glassmorphism дизайн система
-- ✅ Динамическая цветовая палитра (peach, mint, lavender, coral, butter)
-- ✅ Темная и светлая темы с плавным переключением
-- ✅ Полный редизайн всех страниц (HomePage, MenuPage, StatsPage, VotingPage)
-- ✅ P0/P1/P2 UX оптимизации (см. 07-ux-audit/)
-  - Accessibility: WCAG AA 78% (было 54%)
-  - Performance: FCP 1.2s, TTI 2.0s
-  - React Query + optimistic updates
-  - Sentry + Analytics
-  - E2E + Component тестирование
-  - Pull-to-refresh, Swipe gestures, Undo/Redo
-
-**В разработке:**
-- 🚧 Multi-Winner Voting (spec готова - см. 08-multi-winner/)
-- 🚧 AI персонализация (P3)
-
-### Бэкенд: ✅ Production Ready
-- ✅ Prisma ORM + SQLite
-- ✅ RESTful API
-- ✅ Telegram Bot API интеграция
-- ✅ Авторизация через Telegram WebApp
-- ✅ Roulette система
-- ✅ Voting система (single-winner)
-
----
-
-## 🛠️ Технологии
-
-### Frontend:
-- **React** + TypeScript
-- **Vite** - build tool
-- **Tailwind CSS** - стилизация
-- **Framer Motion** - анимации
-- **shadcn/ui** - UI компоненты
-- **Zustand** - state management
-- **React Query** - data fetching
-
-### Backend:
-- **Node.js** + Express
-- **Prisma** - ORM
-- **SQLite** - база данных
-- **Telegram Bot API**
-
----
-
-## 📊 Последние изменения (10.01.2025)
-
-### 🎉 Крупные обновления:
-- ✅ **UX/UI Аудит завершен** - 30+ проблем выявлено, все P0/P1/P2 задачи реализованы
-- ✅ **Multi-Winner Voting Spec** - Полная документация по новому сценарию голосования
-- ✅ **Архивация документации** - Устаревшие документы организованы в archive/
-
-### 📚 Документация:
-- Создана папка `07-ux-audit/` с полным UX аудитом (2029 строк)
-- Создана папка `08-multi-winner/` с Implementation Guide (1859 строк)
-- Архивированы завершенные работы (sessions, snapshots, redesign, ux-old, reports)
-- Обновлен главный README.md с актуальными ссылками
-
-### 🐛 Исправлено:
-- Импорт HomePage
-- Фон на светлой/темной теме
-- Видимость ThemeToggle
-
-### 🎨 Обновлено:
-- DonationModal - новый дизайн
-- PaymentMethodCard - GlassCard + новые цвета
-- AmountSelector - градиенты
-
-**Подробнее:** [SESSION_CHANGES_2025-10-07.md](./SESSION_CHANGES_2025-10-07.md)
-
----
-
-## 🎨 Дизайн-система
-
-### Цветовая палитра:
-```
-🍑 Peach   - Основные действия (#FF7851)
-🌿 Mint    - Успех, меню (#5CAE87)
-💜 Lavender - Премиум, статистика (#8B5CF6)
-🔴 Coral   - Энергия, активность (#FF5A4A)
-🌟 Butter  - Предупреждения, донаты (#FFBF1F)
-```
-
-### Ключевые компоненты:
-- **GlassCard** - glassmorphism карточки (3 уровня)
-- **GradientButton** - кнопки с градиентами (7 вариантов)
-- **ThemeToggle** - переключатель темы
-- **DonationBar** - swipeable notification bar
-
----
-
-## 🚀 Что делать дальше?
-
-### Приоритет 1 - Quick Actions v2.0 ⭐
-- [ ] Реализовать гибридный подход для Quick Actions
-- [ ] Hero Action с динамическим контентом (60% пространства)
-- [ ] 4 сценария в зависимости от статуса голосования
-- [ ] Функция "Повторить прошлое" (доступна всем!)
-- [ ] "Выбрать за меня" с конфетти
-- [ ] "Результаты Live" с auto-refresh
-- [ ] Модалки подтверждения
-- [ ] API метод getLastCompletedPoll()
-
-**📋 Детали:** [QUICK_ACTIONS_SPEC.md](./QUICK_ACTIONS_SPEC.md)
-
-### Приоритет 2 - Остальные страницы:
-- [ ] MenuPage - применить новый дизайн
-- [ ] VotingPage - обновить poll cards
-- [ ] StatsPage - новые графики
-- [ ] ProfilePage - glassmorphism карточки
-
-### Приоритет 2 - Дополнительные фичи:
-- [ ] Toast notifications с GlassCard
-- [ ] Loading states с shimmer
-- [ ] Empty states
-- [ ] Page transitions
-
-### Приоритет 3 - Оптимизация:
-- [ ] Code splitting
-- [ ] Image optimization
-- [ ] Performance monitoring
-
----
-
-## 📞 Контакты и ссылки
-
-- **GitHub:** (добавьте ссылку)
-- **Telegram Bot:** (добавьте ссылку)
-
----
-
-## 📝 Примечания для AI ассистентов
-
-При работе над проектом:
-1. ✅ Всегда читай `FRONTEND_QUICK_REFERENCE.md` для быстрого понимания контекста
-2. ✅ Смотри `HomePage.tsx` как эталон использования компонентов
-3. ✅ Используй существующую цветовую палитру (peach, mint, lavender, coral, butter)
-4. ✅ Применяй GlassCard и GradientButton для консистентности
-5. ✅ Добавляй Framer Motion анимации
-6. ✅ Тестируй мобильные жесты (свайпы)
-7. ✅ Обновляй документацию после изменений
-
----
-
-**Последнее обновление:** 07.10.2025  
-**Версия:** v2.0
+Если документ описывает текущее поведение, обновляйте его вместе с кодом.
+Одноразовые исследования, журналы сессий и завершённые планы не должны
+оставаться отдельными источниками истины.

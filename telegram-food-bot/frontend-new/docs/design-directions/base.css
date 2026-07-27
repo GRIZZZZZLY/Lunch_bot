@@ -1,0 +1,79 @@
+/* Общий каркас витрины направлений — всё на семантических токенах.
+   Направление = токен-оверрайды + свои правила в HTML. */
+* { box-sizing: border-box; }
+body { margin: 0; display: flex; justify-content: center; padding: 24px; background: #888; }
+
+.scr-phone {
+  width: 390px; height: 844px; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: var(--canvas); color: var(--text-primary);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.25);
+}
+.scr-body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* app bar */
+.scr-appbar { display: flex; align-items: center; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid var(--divider); }
+.scr-logo { width: 30px; height: 30px; border-radius: var(--radius-control); background: var(--accent); color: var(--accent-foreground); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.scr-logotype { font-family: var(--font-brand); font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+.scr-detail { gap: 8px; }
+.scr-back { display: flex; color: var(--text-secondary); }
+.scr-title { margin: 0; flex: 1; font-size: 17px; font-weight: 700; font-family: var(--font-brand); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.scr-scroll { flex: 1; overflow: hidden; padding: 4px 16px 16px; }
+
+/* greeting */
+.scr-greeting { padding: 14px 0 4px; }
+.scr-caption { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+.scr-h1 { margin: 4px 0 0; font-family: var(--font-brand); font-size: 26px; line-height: 1.15; letter-spacing: -0.02em; }
+
+/* sections */
+.scr-section { margin-top: 22px; }
+.scr-sechead { display: flex; align-items: baseline; gap: 6px; padding-bottom: 8px; }
+.scr-seclabel { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.scr-seccount { font-size: 13px; color: var(--text-tertiary); }
+
+/* rows */
+.scr-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--divider); }
+.scr-row.scr-col { flex-direction: column; align-items: stretch; gap: 10px; }
+.scr-row-top { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; }
+.scr-row-main { flex: 1; min-width: 0; }
+.scr-row-name { font-size: 15px; font-weight: 500; }
+.scr-row-sub { font-size: 13px; color: var(--text-tertiary); }
+.scr-qty { color: var(--text-tertiary); font-weight: 500; }
+.scr-owner { font-size: 13px; color: var(--text-tertiary); flex-shrink: 0; }
+.scr-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.scr-money { font-size: 15px; font-weight: 600; }
+
+/* summary / countdown / progress */
+.scr-summary { display: flex; align-items: center; gap: 12px; padding: 14px 0 4px; }
+.scr-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-tint); color: var(--accent); font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.scr-countdown, .scr-progress { padding: 10px 0 2px; display: flex; flex-direction: column; gap: 6px; }
+.scr-countdown-row { display: flex; align-items: baseline; justify-content: space-between; }
+.scr-time { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+.scr-progress-label { font-size: 15px; font-weight: 600; }
+.scr-bar { height: 6px; border-radius: var(--radius-pill); background: var(--divider); overflow: hidden; }
+.scr-bar-fill { height: 100%; background: var(--accent); border-radius: var(--radius-pill); }
+
+/* poll */
+.scr-pollmeta { display: flex; align-items: center; justify-content: space-between; padding: 2px 0 10px; }
+.scr-votes { font-size: 13px; color: var(--text-tertiary); }
+.scr-option { padding: 9px 0; display: flex; flex-direction: column; gap: 6px; }
+.scr-option-top { display: flex; justify-content: space-between; align-items: baseline; }
+.scr-option-name { font-size: 15px; }
+.scr-option.mine .scr-option-name { font-weight: 650; color: var(--accent); }
+.scr-option-pct { font-size: 13px; color: var(--text-secondary); }
+.scr-cta-inline { padding-top: 12px; }
+
+/* item actions / editor / status line */
+.scr-item-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.scr-item-actions > * { flex: 1 1 auto; min-width: 110px; }
+.scr-editor { display: flex; flex-direction: column; gap: 10px; }
+.scr-statusline { display: flex; align-items: center; gap: 10px; }
+
+/* sticky CTA + nav */
+.scr-cta { padding: 12px 16px 18px; border-top: 1px solid var(--divider); background: var(--canvas); }
+.scr-nav { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border-top: 1px solid var(--divider); background: var(--canvas); padding: 8px 8px 16px; }
+.scr-nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; font-size: 10.5px; color: var(--text-tertiary); }
+.scr-nav-item.on { color: var(--accent); font-weight: 600; }

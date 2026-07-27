@@ -1,6 +1,7 @@
 # План миграции frontend-new
 
-> **Прогресс (2026-07-18):** Фазы 1, 2A/2B/2C и 3 (3A–3F) завершены.
+> **Прогресс (обновлено 2026-07-26):** Фазы 1, 2A/2B/2C и 3 (3A–3F)
+> завершены.
 > Store Run целиком на `features/store-run` (4 статуса × роли), legacy-экран
 > удалён, баги B1/B2/B3 (+B4 для Store Run) закрыты. Визуальный слой — временный
 > baseline: финальный дизайн придёт из Penpot (`../design-handoff/`).
@@ -25,7 +26,9 @@
 
 ## Принципы
 
-1. Код — источник истины. README и PARITY_ROADMAP устарели, на них не опираемся.
+1. Код и тесты — источник истины. `README.md` содержит актуальный порядок
+   запуска; исторические цифры аудита ниже не следует принимать за текущее
+   состояние без сверки с кодом.
 2. Сохраняем все реальные потоки из `domain-flows.md` (раздел 10): API-контракты, hooks, services, типы, TanStack Query, Zustand (auth + group), SSE, deep links.
 3. Вертикальные срезы, не «большой переезд»: фундамент → Store Run → остальное.
 4. Мёртвый код удаляем только после того, как живой путь мигрировал (фаза 7).
@@ -38,7 +41,8 @@
 - Токены: две параллельные системы (`index.css` 42 переменные / `.dark` и `redesign-v2.css` 58 / `[data-theme]`), 2 конфликта значений; Telegram `themeParams` не используются.
 - 628 inline-style объектов, 88 градиентов, 14 glass-деклараций; Tailwind фактически мёртв (~20 utility-классов из 743 `className=`).
 - Store Run: state machine на бэкенде полная (cron авто-переходы), фронт — 2 бага и ~8 UX-разрывов.
-- Тестов и линта нет вообще.
+- На момент исходного аудита тестов и линта не было. Сейчас настроены ESLint,
+  Vitest, Playwright, проверка TypeScript и production build в CI.
 
 ## Реестр багов
 
@@ -119,7 +123,8 @@
 - Зависимости: удалить `framer-motion`, `recharts`, `clsx`, `tailwind-merge`, `lucide-react`; **удалить Tailwind** (tailwindcss, autoprefixer при ненадобности, конфиги) после миграции последних живых call-sites (Q2).
 - Group context: когда все вызовы передают groupId явно и покрыты тестами — удалить автоподстановку из interceptor.
 - Route-level lazy loading — если реально уменьшает бандл.
-- Production build, деплой-проверка deep-link refresh (FRONTEND_DIR toggle; `update-vps.sh` не билдит frontend-new).
+- Production build и проверка обновления deep-link; `frontend-new` выбран
+  основным в `FRONTEND_DIR` и сценариях развёртывания.
 
 ## Тестирование (сквозное)
 
