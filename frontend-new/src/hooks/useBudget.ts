@@ -99,6 +99,23 @@ export function useConfirmPayment() {
   });
 }
 
+/**
+ * Отмена подтверждения. Оптимистики нет намеренно: окно (сутки) проверяет
+ * сервер, и показать долг вернувшимся, чтобы через миг отобрать, — плохой обмен
+ * на денежном экране. Ждём ответа и говорим результат.
+ */
+export function useUndoConfirmation() {
+  const qc = useQueryClient();
+  const push = useToastStore((s) => s.push);
+  return useMutation({
+    mutationFn: (transactionId: number) => budgetService.undoConfirmation(transactionId),
+    onSuccess: () => push({ type: 'info', message: 'Подтверждение отменено, участник уведомлён' }),
+    onError: (err) =>
+      push({ type: 'error', message: apiErrorMessage(err, 'Не удалось отменить подтверждение') }),
+    onSettled: () => invalidateBudget(qc),
+  });
+}
+
 export function useCancelMark() {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);

@@ -268,6 +268,66 @@ export class BudgetController {
   }
 
   /**
+   * POST /api/budget/undo-confirmation
+   * Сборщик отменяет своё подтверждение (окно — сутки).
+   *
+   * Отдельные коды на «не подтверждено» и «окно истекло»: интерфейсу нужно
+   * различать «кнопки быть не должно» и «поздно», а 500 на ожидаемый отказ
+   * выглядел бы поломкой сервера.
+   */
+  async undoConfirmation(req: Request, res: Response): Promise<void> {
+    try {
+      const authenticatedUser = (req as any).user;
+      if (!authenticatedUser) {
+        res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+        return;
+      }
+
+      const parseResult = TransactionIdSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        res.status(400).json({
+          error: 'Validation error',
+          code: 'VALIDATION_ERROR',
+          details: parseResult.error.errors,
+        });
+        return;
+      }
+
+      const { transactionId } = parseResult.data;
+      const transaction = await this.budgetService.getTransactionById(transactionId);
+      if (!transaction) {
+        res.status(404).json({ error: 'Transaction not found' });
+        return;
+      }
+      if (transaction.toUserId !== authenticatedUser.id) {
+        res.status(403).json({
+          error: 'Access denied',
+          message: 'Отменить подтверждение может только получатель платежа',
+        });
+        return;
+      }
+
+      await BudgetService.undoConfirmation(transactionId, authenticatedUser.id);
+      res.json({ success: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message === 'Undo window has expired') {
+        res.status(409).json({
+          error: 'Отменить можно в течение суток после подтверждения',
+          code: 'UNDO_WINDOW_EXPIRED',
+        });
+        return;
+      }
+      if (message === 'Only a confirmed payment can be undone' || message === 'Transaction state changed') {
+        res.status(409).json({ error: 'Платёж уже не подтверждён', code: 'WRONG_STATUS' });
+        return;
+      }
+      logger.error('[BudgetController] Error undoing confirmation:', error);
+      res.status(500).json({ error: 'Failed to undo confirmation' });
+    }
+  }
+
+  /**
    * POST /api/budget/cancel-mark
    * Отменить пометку оплаты
    */

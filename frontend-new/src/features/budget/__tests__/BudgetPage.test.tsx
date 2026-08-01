@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
     confirmPayment: { mutate: vi.fn(), isPending: false, variables: undefined as unknown },
     sendReminder: { mutate: vi.fn(), isPending: false, variables: undefined as unknown },
     remindAll: { mutate: vi.fn(), isPending: false, variables: undefined as unknown },
+    undoConfirmation: { mutate: vi.fn(), isPending: false, variables: undefined as unknown },
   },
 }));
 
@@ -41,6 +42,7 @@ vi.mock('@/hooks/useBudget', () => ({
   useConfirmPayment: () => h.state.confirmPayment,
   useSendReminder: () => h.state.sendReminder,
   useRemindAll: () => h.state.remindAll,
+  useUndoConfirmation: () => h.state.undoConfirmation,
 }));
 
 import { BudgetPage } from '../BudgetPage';
@@ -64,7 +66,7 @@ beforeEach(() => {
   h.state.creditsError = false;
   h.state.debtsRefetch = vi.fn();
   h.state.creditsRefetch = vi.fn();
-  for (const m of [h.state.markPaid, h.state.cancelMark, h.state.confirmPayment, h.state.sendReminder, h.state.remindAll]) {
+  for (const m of [h.state.markPaid, h.state.cancelMark, h.state.confirmPayment, h.state.sendReminder, h.state.remindAll, h.state.undoConfirmation]) {
     Object.assign(m, { mutate: vi.fn(), isPending: false, variables: undefined });
   }
 });
@@ -161,7 +163,7 @@ describe('BudgetPage — сборщик', () => {
     expect(h.state.confirmPayment.mutate).not.toHaveBeenCalled();
 
     const dialog = screen.getByRole('alertdialog');
-    expect(dialog).toHaveTextContent('отменить подтверждение нельзя');
+    expect(dialog).toHaveTextContent('Передумать можно в течение суток');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Подтвердить' }));
     expect(h.state.confirmPayment.mutate).toHaveBeenCalledWith(9);
   });
@@ -211,5 +213,34 @@ describe('BudgetPage — сборщик', () => {
     h.state.credits = [tx({ id: 9, status: 'CONFIRMED' })];
     render(<BudgetPage />);
     expect(screen.getByText('Все рассчитались')).toBeInTheDocument();
+  });
+});
+
+/* Раньше подтверждённое уходило из активных, и ошибочное подтверждение нельзя
+   было исправить вообще. Окно — сутки; проверяет сервер, экран лишь показывает. */
+describe('BudgetPage — отмена подтверждения', () => {
+  const freshlyConfirmed = () =>
+    tx({ id: 9, status: 'CONFIRMED', confirmedAt: new Date().toISOString(), fromUser: { id: 2, firstName: 'Ян' } });
+
+  it('свежее подтверждение можно отменить — через диалог', () => {
+    h.state.credits = [freshlyConfirmed()];
+    render(<BudgetPage />);
+    expect(screen.getByText('Подтверждено сегодня')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Отменить подтверждение: Ян/ }));
+    expect(h.state.undoConfirmation.mutate).not.toHaveBeenCalled();
+
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toHaveTextContent('участник получит уведомление');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Отменить подтверждение' }));
+    expect(h.state.undoConfirmation.mutate).toHaveBeenCalledWith(9);
+  });
+
+  it('подтверждение старше суток отменить нельзя — блока нет', () => {
+    h.state.credits = [
+      tx({ id: 9, status: 'CONFIRMED', confirmedAt: '2026-01-01T00:00:00.000Z', fromUser: { id: 2, firstName: 'Ян' } }),
+    ];
+    render(<BudgetPage />);
+    expect(screen.queryByText('Подтверждено сегодня')).not.toBeInTheDocument();
   });
 });

@@ -457,7 +457,9 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
     }
     const budgetMutation: Record<string, (tx: Transaction) => void> = {
       '/budget/mark-paid': (tx) => { tx.status = 'PAID'; },
-      '/budget/confirm-payment': (tx) => { tx.status = 'CONFIRMED'; },
+      '/budget/confirm-payment': (tx) => { tx.status = 'CONFIRMED'; tx.confirmedAt = new Date().toISOString(); },
+      // окно отмены проверяет сервер; мок повторяет только смену статуса
+      '/budget/undo-confirmation': (tx) => { tx.status = 'PAID'; tx.confirmedAt = null; },
       '/budget/cancel-mark': (tx) => { tx.status = 'PENDING'; },
       '/budget/send-reminder': () => undefined,
     };

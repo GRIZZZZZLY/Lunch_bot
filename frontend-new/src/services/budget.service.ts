@@ -29,6 +29,11 @@ class BudgetService {
     return apiService.post<void>('/budget/confirm-payment', { transactionId });
   }
 
+  /** Отмена своего подтверждения. Окно — сутки, проверяет сервер. */
+  undoConfirmation(transactionId: number) {
+    return apiService.post<void>('/budget/undo-confirmation', { transactionId });
+  }
+
   cancelMark(transactionId: number) {
     return apiService.post<void>('/budget/cancel-mark', { transactionId });
   }

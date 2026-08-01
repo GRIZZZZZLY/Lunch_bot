@@ -170,3 +170,30 @@ describe('buildBudget — роль сборщика (кредиты)', () => {
     expect(vm.isEmpty).toBe(false);
   });
 });
+
+/* Подтверждённое уходит из активных, поэтому промах было нельзя исправить.
+   Окно — сутки; хозяин правила сервер, здесь только показ. */
+describe('buildBudget — окно отмены подтверждения', () => {
+  const NOW = new Date('2026-07-20T12:00:00');
+
+  it('подтверждён час назад → можно отменить', () => {
+    const vm = buildBudget([], [tx({ id: 9, status: 'CONFIRMED', confirmedAt: '2026-07-20T11:00:00', fromUser: { id: 2, firstName: 'Ян' } })], NOW);
+    expect(vm.undoable.map((c) => c.id)).toEqual([9]);
+    expect(vm.undoable[0].name).toBe('Ян');
+  });
+
+  it('подтверждён два дня назад → окно истекло', () => {
+    const vm = buildBudget([], [tx({ id: 9, status: 'CONFIRMED', confirmedAt: '2026-07-18T11:00:00' })], NOW);
+    expect(vm.undoable).toEqual([]);
+  });
+
+  it('нет confirmedAt → в окно не попадает, а не считается свежим', () => {
+    const vm = buildBudget([], [tx({ id: 9, status: 'CONFIRMED' })], NOW);
+    expect(vm.undoable).toEqual([]);
+  });
+
+  it('активные кредиты в окно отмены не попадают', () => {
+    const vm = buildBudget([], [tx({ id: 9, status: 'PAID' })], NOW);
+    expect(vm.undoable).toEqual([]);
+  });
+});

@@ -704,6 +704,71 @@ export class BudgetService {
     }
   }
 
+  /** Окно отмены подтверждения: сутки с момента подтверждения (решение владельца). */
+  static readonly UNDO_CONFIRM_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+  /**
+   * Сборщик отменяет своё подтверждение и возвращает долг в PAID.
+   *
+   * Подтверждение необратимо закрывало долг: промах по кнопке в списке из восьми
+   * человек означал недополученные деньги без способа исправить это в продукте.
+   * Отменять может ТОЛЬКО получатель (toUserId) и только в течение суток —
+   * иначе это переписывание истории задним числом.
+   *
+   * Должника уведомляем обязательно: ему уже сказали «оплата подтверждена», и
+   * молча вернуть долг было бы хуже самой ошибки.
+   */
+  static async undoConfirmation(txId: number, actorUserId: number): Promise<any> {
+    try {
+      const existing = await prisma.transaction.findUnique({
+        where: { id: txId },
+        include: { fromUser: true, toUser: true },
+      });
+      if (!existing) throw new Error('Transaction not found');
+      if (existing.toUserId !== actorUserId) throw new Error('Access denied');
+      if (existing.status !== 'CONFIRMED') {
+        throw new Error('Only a confirmed payment can be undone');
+      }
+      const confirmedAt = existing.confirmedAt?.getTime();
+      if (
+        confirmedAt == null ||
+        Date.now() - confirmedAt > BudgetService.UNDO_CONFIRM_WINDOW_MS
+      ) {
+        throw new Error('Undo window has expired');
+      }
+
+      /* Тот же атомарный guard, что в confirmPayment: между проверкой и записью
+         статус мог измениться (например, параллельная отмена). */
+      const transition = await prisma.transaction.updateMany({
+        where: { id: txId, toUserId: actorUserId, status: 'CONFIRMED' },
+        data: { status: 'PAID', confirmedAt: null },
+      });
+      if (transition.count === 0) throw new Error('Transaction state changed');
+
+      logger.info('Payment confirmation undone', { txId, actorUserId });
+
+      if (botInstance()) {
+        const text =
+          `↩️ Подтверждение оплаты отменено\n\n` +
+          `${existing.toUser.firstName} отменил(а) подтверждение ${formatCurrency(existing.amount)}. ` +
+          `Долг снова ждёт подтверждения — свяжитесь, если это ошибка.`;
+        try {
+          await botInstance()!.api.sendMessage(Number(existing.fromUser.telegramId), text);
+        } catch (e) {
+          logger.warn('Could not notify debtor about undone confirmation', { txId });
+        }
+      }
+
+      return prisma.transaction.findUnique({
+        where: { id: txId },
+        include: { fromUser: true, toUser: true },
+      });
+    } catch (error) {
+      logger.error('Error undoing confirmation:', error);
+      throw error;
+    }
+  }
+
   /**
    * Принудительно подтвердить все транзакции по pollId (кнопка "Все оплатили")
    */

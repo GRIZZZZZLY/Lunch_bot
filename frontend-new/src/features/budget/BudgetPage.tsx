@@ -11,6 +11,7 @@ import {
   useMarkPaid,
   useRemindAll,
   useSendReminder,
+  useUndoConfirmation,
 } from '@/hooks/useBudget';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { ConfirmDialog, EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
@@ -126,6 +127,7 @@ export function BudgetPage() {
   const confirmPayment = useConfirmPayment();
   const sendReminder = useSendReminder();
   const remindAll = useRemindAll();
+  const undoConfirmation = useUndoConfirmation();
 
   /* Подстановка пустого массива внутри useMemo, а не рядом с ним: `?? []`
      снаружи создаёт новый массив на каждый рендер и мемоизация теряется. */
@@ -154,6 +156,7 @@ export function BudgetPage() {
      защита стояла на обратимом действии должника. */
   const [confirming, setConfirming] = useState<CreditLineVM | null>(null);
   const [remindingAll, setRemindingAll] = useState(false);
+  const [undoing, setUndoing] = useState<CreditLineVM | null>(null);
   const pendingDebtors = vm.owed.filter((c) => c.status === 'PENDING');
   const remindEveryone = () => remindAll.mutate(pendingDebtors.map((c) => c.id));
 
@@ -373,6 +376,45 @@ export function BudgetPage() {
         </section>
       )}
 
+      {/* Отмена промаха. Подтверждённое уходит из активных, и до этого блока
+          исправить ошибочное подтверждение было нельзя вообще. Окно — сутки,
+          хозяин правила сервер; здесь только показ. */}
+      {vm.undoable.length > 0 && (
+        <section className={styles.group} aria-labelledby="budget-undo-heading">
+          <div className={styles.groupHead}>
+            <h2 id="budget-undo-heading" className={styles.groupTitle}>
+              Подтверждено сегодня
+            </h2>
+          </div>
+          <p className={styles.groupNote}>
+            Если подтвердили по ошибке — отмените в течение суток. Участник получит уведомление.
+          </p>
+          {vm.undoable.map((c) => (
+            <div key={c.id} className={styles.row}>
+              <div className={styles.avatar} aria-hidden>
+                {c.name[0].toUpperCase()}
+              </div>
+              <div className={styles.rowMain}>
+                <span className={styles.rowPerson}>
+                  <span className={styles.rowName}>{c.name}</span>
+                  <Status tone="success">Закрыт</Status>
+                </span>
+                <Reference value={c.reference} />
+                <span className={`tnum ${styles.rowAmount}`}>{formatPrice(c.amount)}</span>
+              </div>
+              <Button
+                variant="ghost"
+                loading={undoConfirmation.isPending && undoConfirmation.variables === c.id}
+                aria-label={`Отменить подтверждение: ${c.name}, ${formatPrice(c.amount)}`}
+                onClick={() => setUndoing(c)}
+              >
+                Отменить
+              </Button>
+            </div>
+          ))}
+        </section>
+      )}
+
       {vm.allCollected && vm.owed.length === 0 && (
         <div className={styles.successLine}>
           <div className={styles.successText}>
@@ -388,7 +430,9 @@ export function BudgetPage() {
       {confirming && (
         <ConfirmDialog
           title="Подтвердить оплату?"
-          description={`${confirming.name} — ${formatPrice(confirming.amount)}. Долг закроется окончательно, отменить подтверждение нельзя.`}
+          /* Раньше здесь стояло «отменить нельзя» — после появления окна отмены
+             это стало неправдой. Копия обязана совпадать с поведением. */
+          description={`${confirming.name} — ${formatPrice(confirming.amount)}. Долг закроется. Передумать можно в течение суток.`}
           confirmLabel="Подтвердить"
           pending={isBusy(confirming.id, 'confirm')}
           onConfirm={() => {
@@ -397,6 +441,23 @@ export function BudgetPage() {
             confirmPayment.mutate(id);
           }}
           onCancel={() => setConfirming(null)}
+        />
+      )}
+
+      {undoing && (
+        <ConfirmDialog
+          title="Отменить подтверждение?"
+          description={`Долг ${undoing.name} на ${formatPrice(undoing.amount)} снова станет неоплаченным, участник получит уведомление.`}
+          confirmLabel="Отменить подтверждение"
+          cancelLabel="Оставить"
+          destructive
+          pending={undoConfirmation.isPending}
+          onConfirm={() => {
+            const id = undoing.id;
+            setUndoing(null);
+            undoConfirmation.mutate(id);
+          }}
+          onCancel={() => setUndoing(null)}
         />
       )}
 

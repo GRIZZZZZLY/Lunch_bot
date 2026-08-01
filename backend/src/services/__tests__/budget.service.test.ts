@@ -268,3 +268,69 @@ describe('BudgetService Mini App behaviours', () => {
     });
   });
 });
+
+/* Отмена подтверждения. Деньги: проверяем и окно, и права, и то, что при отказе
+   статус не меняется. Окно — сутки (решение владельца, 2026-08-01). */
+describe('BudgetService.undoConfirmation', () => {
+  const base = {
+    id: 42,
+    toUserId: 7,
+    fromUserId: 8,
+    amount: 300,
+    status: 'CONFIRMED',
+    fromUser: { id: 8, firstName: 'Ян', telegramId: '111' },
+    toUser: { id: 7, firstName: 'Игорь', telegramId: '222' },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (prisma.transaction.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+  });
+
+  it('возвращает подтверждённый долг в PAID в пределах суток', async () => {
+    (prisma.transaction.findUnique as jest.Mock).mockResolvedValue({
+      ...base,
+      confirmedAt: new Date(Date.now() - 60 * 60 * 1000),
+    });
+
+    await BudgetService.undoConfirmation(42, 7);
+
+    expect(prisma.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: 42, toUserId: 7, status: 'CONFIRMED' },
+      data: { status: 'PAID', confirmedAt: null },
+    });
+  });
+
+  it('после суток отказывает и статус не трогает', async () => {
+    (prisma.transaction.findUnique as jest.Mock).mockResolvedValue({
+      ...base,
+      confirmedAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
+    });
+
+    await expect(BudgetService.undoConfirmation(42, 7)).rejects.toThrow('Undo window has expired');
+    expect(prisma.transaction.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('отменить может только получатель платежа', async () => {
+    (prisma.transaction.findUnique as jest.Mock).mockResolvedValue({
+      ...base,
+      confirmedAt: new Date(),
+    });
+
+    await expect(BudgetService.undoConfirmation(42, 999)).rejects.toThrow('Access denied');
+    expect(prisma.transaction.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('неподтверждённый платёж отменить нельзя', async () => {
+    (prisma.transaction.findUnique as jest.Mock).mockResolvedValue({
+      ...base,
+      status: 'PAID',
+      confirmedAt: null,
+    });
+
+    await expect(BudgetService.undoConfirmation(42, 7)).rejects.toThrow(
+      'Only a confirmed payment can be undone',
+    );
+    expect(prisma.transaction.updateMany).not.toHaveBeenCalled();
+  });
+});

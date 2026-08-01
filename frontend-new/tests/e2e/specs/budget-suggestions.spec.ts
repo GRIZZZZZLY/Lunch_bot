@@ -35,14 +35,15 @@ test.describe('Бюджет и долги', () => {
   test.describe('ответственный', () => {
     test.use({ scenario: 'budget-responsible', role: 'responsible' });
 
-    /* Подтверждение необратимо — между касанием и мутацией стоит диалог. */
+    /* Подтверждение закрывает долг, поэтому между касанием и мутацией стоит
+       диалог. Отменить можно, но только в течение суток — окно проверяет сервер. */
     test('подтверждает оплату через диалог и завершает расчёт', async ({ appPage, api }) => {
       await appPage.goto('/budget');
       await appPage.getByRole('button', { name: /^Подтвердить/ }).click();
       expect(api.requests('POST', '/budget/confirm-payment')).toHaveLength(0);
 
       const dialog = appPage.getByRole('alertdialog');
-      await expect(dialog).toContainText('отменить подтверждение нельзя');
+      await expect(dialog).toContainText('Передумать можно в течение суток');
       await dialog.getByRole('button', { name: 'Подтвердить' }).click();
       expect(api.lastRequest('POST', '/budget/confirm-payment')?.body).toEqual({ transactionId: 803 });
       await expect(appPage.getByText('Все рассчитались')).toBeVisible();

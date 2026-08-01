@@ -41,6 +41,9 @@ export interface CreditLineVM {
   reminded: string;
 }
 
+/** Окно отмены подтверждения. Хозяин правила — сервер; здесь только показ. */
+export const UNDO_CONFIRM_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 export interface BudgetVM {
   myDebts: DebtLineVM[];
   myDebtTotal: number;
@@ -50,6 +53,8 @@ export interface BudgetVM {
   owedExpected: number; // всего к получению, ₽
   owedCount: number;
   allCollected: boolean; // мне были должны, все рассчитались
+  /** Подтверждённые за последние сутки — их ещё можно отменить. */
+  undoable: CreditLineVM[];
   isEmpty: boolean;
 }
 
@@ -168,6 +173,23 @@ export function buildBudget(
     .reduce((s, c) => s + c.amount, 0);
   const owedCount = credits.length;
 
+  /* Подтверждённое уходит из активных, и отменить промах было негде. Держим
+     сутки — ровно то окно, которое разрешает сервер. */
+  const undoable = credits
+    .filter((c) => {
+      if (c.status !== 'CONFIRMED' || !c.confirmedAt) return false;
+      const age = now.getTime() - new Date(c.confirmedAt).getTime();
+      return age >= 0 && age <= UNDO_CONFIRM_WINDOW_MS;
+    })
+    .map((c) => ({
+      id: c.id,
+      name: personName(c.fromUser),
+      amount: c.amount,
+      status: 'PAID' as const,
+      reference: referenceOf(c),
+      reminded: '',
+    }));
+
   return {
     myDebts,
     myDebtTotal,
@@ -177,6 +199,7 @@ export function buildBudget(
     owedExpected,
     owedCount,
     allCollected: owedCount > 0 && owed.length === 0,
+    undoable,
     isEmpty:
       myDebts.length === 0 && owed.length === 0 && !hadConfirmedDebt && owedCount === 0,
   };

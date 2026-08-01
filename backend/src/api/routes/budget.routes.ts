@@ -34,6 +34,7 @@ router.get('/poll-breakdown/:pollId', (req, res) => budgetController.getPollCost
 // POST routes
 router.post('/mark-paid', writeLimiter, budgetIdempotency, (req, res) => budgetController.markAsPaid(req, res));
 router.post('/confirm-payment', writeLimiter, budgetIdempotency, (req, res) => budgetController.confirmPayment(req, res));
+router.post('/undo-confirmation', writeLimiter, budgetIdempotency, (req, res) => budgetController.undoConfirmation(req, res));
 router.post('/cancel-mark', writeLimiter, budgetIdempotency, (req, res) => budgetController.cancelMark(req, res));
 router.post('/mark-all-paid', writeLimiter, budgetIdempotency, (req, res) => budgetController.markAllPaid(req, res));
 router.post('/send-reminder', reminderLimiter, budgetIdempotency, (req, res) => budgetController.sendReminder(req, res));
