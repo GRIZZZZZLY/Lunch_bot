@@ -1,6 +1,9 @@
 /* Sticky CTA-зона COLLECTING. Участник — одна primary «Добавить позицию».
-   Инициатор — одна primary «Закрыть сбор» (disabled при 0) + вторичная
-   destructive «Отменить закупку». Двух конкурирующих primary нет. */
+   Инициатор — primary «Закрыть сбор» (disabled при 0) и отмена НИЖЕ рангом:
+   на пустом сборе заблокированная primary оставляла уничтожение единственной
+   живой кнопкой, поэтому пустому экрану даём созидательное действие, а отмену
+   держим узкой текстовой — она не равна закрытию сбора и не должна так
+   выглядеть. */
 import { Button } from '@/components/rl/primitives';
 import styles from '../StoreRunPage.module.css';
 
@@ -26,14 +29,23 @@ export function StoreRunActions({
       </div>
     );
   }
+  const empty = itemCount === 0;
   return (
     <div className={styles.cta}>
-      <Button block disabled={itemCount === 0} onClick={onClose}>
-        Закрыть сбор
-      </Button>
-      <Button variant="ghost" block className={styles.cancelText} onClick={onCancel}>
-        Отменить закупку
-      </Button>
+      {empty ? (
+        <Button block onClick={onAdd}>
+          Добавить позицию
+        </Button>
+      ) : (
+        <Button block onClick={onClose}>
+          Закрыть сбор
+        </Button>
+      )}
+      <div className={styles.ctaMinor}>
+        <button type="button" className={styles.cancelText} onClick={onCancel}>
+          Отменить закупку
+        </button>
+      </div>
     </div>
   );
 }

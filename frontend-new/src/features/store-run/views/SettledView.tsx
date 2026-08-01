@@ -30,9 +30,10 @@ export function SettledView({
   const isInitiator = isInitiatorOf(run, currentUserId);
   const items = run.items;
 
+  // Расчёт — денежный домен (щавель), а не общий success.
   const statusAction = useMemo(
     () => (
-      <Status tone="success" icon="check">
+      <Status tone="money" icon="check">
         Рассчитано
       </Status>
     ),
@@ -80,8 +81,18 @@ export function SettledView({
         )}
       </div>
 
-      {receivable > 0 ? (
-        <InlineNotice tone="info">Расчёты созданы. Участники увидят суммы в Telegram.</InlineNotice>
+      {/* Копия разъезжается по ролям: «участники увидят суммы» — фраза
+          инициатора, участнику она ничего не сообщает о его собственном долге. */}
+      {isInitiator ? (
+        receivable > 0 ? (
+          <InlineNotice tone="info">Расчёты созданы. Участники увидят суммы в Telegram.</InlineNotice>
+        ) : (
+          <InlineNotice tone="info">Дополнительные расчёты не требуются.</InlineNotice>
+        )
+      ) : myDebt > 0 ? (
+        <InlineNotice tone="info">
+          Перевод {run.initiator.firstName} ждёт в бюджете — отметьте оплату там.
+        </InlineNotice>
       ) : (
         <InlineNotice tone="info">Дополнительные расчёты не требуются.</InlineNotice>
       )}
@@ -90,10 +101,21 @@ export function SettledView({
         <ParticipantBreakdown entries={breakdown} currentUserId={currentUserId} />
       )}
 
+      {/* Должнику экран без выхода к оплате — тупик: сумма названа, а погасить
+          её отсюда нельзя. Ведём в бюджет, где живёт «Оплатил». */}
       <div className={styles.endNav}>
-        <Button variant="secondary" onClick={() => navigate('/')}>
-          На главную
-        </Button>
+        {!isInitiator && myDebt > 0 ? (
+          <>
+            <Button onClick={() => navigate('/budget')}>Перейти к оплате</Button>
+            <Button variant="ghost" onClick={() => navigate('/')}>
+              На главную
+            </Button>
+          </>
+        ) : (
+          <Button variant="secondary" onClick={() => navigate('/')}>
+            На главную
+          </Button>
+        )}
       </div>
     </div>
   );

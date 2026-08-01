@@ -369,9 +369,12 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
     const storeItemPrice = path.match(/^\/store-runs\/(\d+)\/items\/(\d+)\/price$/);
     if (method === 'POST' && storeItemPrice) {
       const input = bodyRecord(body);
+      // BOUGHT без цены — легальное состояние API: Number(null) дал бы 0
+      // и подменил «цена не указана» настоящим нулём.
+      const bought = input.status !== 'NOT_FOUND';
       const item = updateStoreItem(state, Number(storeItemPrice[1]), Number(storeItemPrice[2]), {
-        status: input.status === 'NOT_FOUND' ? 'NOT_FOUND' : 'BOUGHT',
-        price: input.status === 'NOT_FOUND' ? null : Number(input.price),
+        status: bought ? 'BOUGHT' : 'NOT_FOUND',
+        price: bought && input.price != null ? Number(input.price) : null,
       });
       await route.fulfill({ json: ok(item ?? null) });
       return;

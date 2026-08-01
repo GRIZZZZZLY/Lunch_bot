@@ -3,6 +3,7 @@
    показывает InlineNotice «Сбор закрывается…». */
 import { useEffect, useRef } from 'react';
 import { useCountdown } from '@/shared/lib/useCountdown';
+import { spokenDuration } from '@/shared/lib/spokenTime';
 import { InlineNotice } from '@/shared/ui';
 import styles from '../StoreRunPage.module.css';
 
@@ -48,11 +49,20 @@ export function CollectionCountdown({
   return (
     <div className={styles.countdown}>
       <div className={styles.countdownRow}>
-        <span className={`tnum ${styles.countdownTime}${low ? ` ${styles.low}` : ''}`}>{label}</span>
-        <span className={styles.countdownEnd}>до {endTime}</span>
+        <span
+          className={`tnum ${styles.countdownTime}${low ? ` ${styles.low}` : ''}`}
+          role="timer"
+          aria-label={`До конца сбора ${spokenDuration(cd.hours, cd.minutes, cd.seconds)}`}
+        >
+          <span aria-hidden="true">{label}</span>
+        </span>
+        {/* Последняя минута не должна опознаваться одним лишь красным: справа
+            вместо времени закрытия встаёт слово. */}
+        <span className={styles.countdownEnd}>{low ? 'меньше минуты' : `до ${endTime}`}</span>
       </div>
-      <div className={styles.bar}>
-        <div className={styles.barFill} style={{ width: `${fraction * 100}%` }} />
+      {/* Полоса дублирует таймер: озвучивать её значит читать одно дважды. */}
+      <div className={styles.bar} aria-hidden="true">
+        <div className={styles.barFill} style={{ transform: `translateX(${fraction * 100 - 100}%)` }} />
       </div>
     </div>
   );

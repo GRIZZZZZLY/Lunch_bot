@@ -127,10 +127,13 @@ describe('CollectingView — права', () => {
 });
 
 describe('CollectingView — empty', () => {
-  it('пусто: инициатору close disabled, cancel доступен, есть add', () => {
+  /* Раньше на пустом сборе primary была заблокирована, и единственной живой
+     кнопкой оставалось уничтожение закупки. Пустой экран ведёт к добавлению. */
+  it('пусто: главное действие — добавить, «Закрыть сбор» не показывается', () => {
     renderView(mkRun({ items: [] }), 1);
     expect(screen.getByText('Пока пусто')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Закрыть сбор' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Закрыть сбор' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Добавить позицию' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Отменить закупку' })).toBeEnabled();
   });
 });

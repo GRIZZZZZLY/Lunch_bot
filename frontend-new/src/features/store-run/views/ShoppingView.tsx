@@ -3,11 +3,12 @@
    текущая сумма. Серверный status — источник истины; локально в SETTLED не
    переводим (это делает refetch → диспетчер). */
 import { useCallback, useMemo, useState } from 'react';
-import { useSettleStoreRun } from '@/hooks/useStoreRun';
+import { useSetItemPrice, useSettleStoreRun } from '@/hooks/useStoreRun';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { Avatar } from '@/components/rl/primitives';
 import { ConfirmDialog, InlineNotice, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
+import { pluralize } from '@/shared/lib/pluralize';
 import type { StoreItem, StoreRunWithRelations } from '@/services/store-run.service';
 import {
   boughtWithoutPrice,
@@ -17,20 +18,12 @@ import {
   personalDebtTotal,
 } from '../lib/selectors';
 import { ShoppingProgress } from '../components/ShoppingProgress';
-import { ShoppingItemRow } from '../components/ShoppingItemRow';
+import { ShoppingItemRow, type MarkItem } from '../components/ShoppingItemRow';
 import { ReadOnlyShoppingItemRow } from '../components/ReadOnlyShoppingItemRow';
 import styles from '../StoreRunPage.module.css';
 
 const AUTO_CANCEL_NOTE =
   'Завершите расчёт после покупки. Незавершённая закупка может быть отменена автоматически.';
-
-function plural(n: number, one: string, few: string, many: string): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return `${n} ${one}`;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return `${n} ${few}`;
-  return `${n} ${many}`;
-}
 
 function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
@@ -51,13 +44,15 @@ export function ShoppingView({
   currentUserId: number | null;
 }) {
   const settle = useSettleStoreRun(run.id);
+  const setPrice = useSetItemPrice(run.id);
   const isInitiator = isInitiatorOf(run, currentUserId);
   const items = run.items;
   const progress = useMemo(() => computeProgress(items), [items]);
 
+  // Система C: закупка говорит шафраном (--shop), а не служебным warning.
   const statusAction = useMemo(
     () => (
-      <Status tone="warning" icon="cart">
+      <Status tone="shop" icon="cart">
         В магазине
       </Status>
     ),
@@ -65,18 +60,26 @@ export function ShoppingView({
   );
   useScreenHeader(run.storeName, statusAction);
 
-  const [activeIds, setActiveIds] = useState<ReadonlySet<number>>(new Set());
+  /* Отметка живёт здесь, а не в строке: оптимистичное обновление сразу
+     переносит строку в другую секцию и размонтирует её, а вместе с ней —
+     колбэки отката. Владелец мутации должен пережить свою строку. */
+  const [pendingId, setPendingId] = useState<number | null>(null);
   const [confirmSettle, setConfirmSettle] = useState(false);
 
-  const onPendingChange = useCallback((itemId: number, pending: boolean) => {
-    setActiveIds((prev) => {
-      if (pending === prev.has(itemId)) return prev;
-      const next = new Set(prev);
-      if (pending) next.add(itemId);
-      else next.delete(itemId);
-      return next;
-    });
-  }, []);
+  const markItem = useCallback<MarkItem>(
+    (itemId, price, status, handlers) => {
+      setPendingId(itemId);
+      setPrice.mutate(
+        { itemId, payload: { price, status } },
+        {
+          onSuccess: () => handlers?.onSuccess?.(),
+          onError: (e) => handlers?.onError?.(e),
+          onSettled: () => setPendingId(null),
+        },
+      );
+    },
+    [setPrice],
+  );
 
   if (!isInitiator) {
     return <ParticipantShopping run={run} currentUserId={currentUserId} progress={progress} />;
@@ -87,9 +90,8 @@ export function ShoppingView({
   const notFound = items.filter((i) => i.status === 'NOT_FOUND');
 
   const noPrice = boughtWithoutPrice(items);
-  const anyItemMutating = activeIds.size > 0;
   const settlePending = settle.isPending;
-  const settleDisabled = anyItemMutating || settlePending || noPrice.length > 0;
+  const settleDisabled = pendingId !== null || settlePending || noPrice.length > 0;
 
   const scrollToFirstNoPrice = () => {
     const first = noPrice[0];
@@ -108,9 +110,9 @@ export function ShoppingView({
     <ShoppingItemRow
       key={item.id}
       item={item}
-      runId={run.id}
       disabled={settlePending}
-      onPendingChange={onPendingChange}
+      pending={pendingId === item.id}
+      onMark={markItem}
     />
   );
 
@@ -128,12 +130,17 @@ export function ShoppingView({
         </>
       )}
 
+      {/* Не ошибка, а оставшийся шаг: цены проставляют по чеку, когда покупки
+          уже отмечены. Поэтому warning и role="status", а не alert. */}
       {noPrice.length > 0 && (
-        <InlineNotice tone="critical" title={`У ${plural(noPrice.length, 'купленной позиции', 'купленных позиций', 'купленных позиций')} не указана цена`}>
-          Укажите цену, иначе позиция не попадёт в расчёт.
+        <InlineNotice
+          tone="warning"
+          title={`Осталось проставить ${pluralize(noPrice.length, 'цену', 'цены', 'цен')}`}
+        >
+          Без цены позиция не попадёт в расчёт.
           <br />
           <button type="button" className={styles.noticeLink} onClick={scrollToFirstNoPrice}>
-            Показать
+            Показать первую
           </button>
         </InlineNotice>
       )}
@@ -148,7 +155,12 @@ export function ShoppingView({
 
       {confirmSettle && (
         <ConfirmDialog
-          title={`${plural(progress.requested, 'позиция не обработана', 'позиции не обработано', 'позиций не обработано')}`}
+          title={pluralize(
+            progress.requested,
+            'позиция не обработана',
+            'позиции не обработано',
+            'позиций не обработано',
+          )}
           description="Они не попадут в расчёт. Продолжить?"
           confirmLabel="Рассчитать без них"
           pending={settlePending}
@@ -195,8 +207,10 @@ function ParticipantShopping({
         <InlineNotice tone="info">У вас нет позиций в этой закупке.</InlineNotice>
       )}
 
+      {/* Сумма растёт по мере того, как инициатор проставляет цены, — участник
+          смотрит именно на неё, и молча она меняться не должна. */}
       {mine.length > 0 && (
-        <div className={styles.personalSum}>
+        <div className={styles.personalSum} role="status">
           Ваша текущая сумма: <strong className="tnum">{formatPrice(personal)}</strong>
         </div>
       )}

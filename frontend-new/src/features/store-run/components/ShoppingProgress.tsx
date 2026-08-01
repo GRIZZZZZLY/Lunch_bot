@@ -8,14 +8,17 @@ export function ShoppingProgress({ progress }: { progress: Progress }) {
   const pct = total > 0 ? (processed / total) * 100 : 0;
   return (
     <div className={styles.progress}>
-      <div className={styles.progressRow}>
+      {/* role="status" — счётчик меняется после каждой отметки, и без живой
+          области экран остаётся молчаливым: строка уехала в другую секцию,
+          сколько осталось — неизвестно. */}
+      <div className={styles.progressRow} role="status">
         <span className={`tnum ${styles.progressLabel}`}>
           Обработано {processed} из {total}
         </span>
         {requested > 0 && <span className={`tnum ${styles.progressLeft}`}>осталось {requested}</span>}
       </div>
-      <div className={styles.bar}>
-        <div className={styles.barFill} style={{ width: `${pct}%` }} />
+      <div className={styles.bar} aria-hidden="true">
+        <div className={styles.barFill} style={{ transform: `translateX(${pct - 100}%)` }} />
       </div>
     </div>
   );

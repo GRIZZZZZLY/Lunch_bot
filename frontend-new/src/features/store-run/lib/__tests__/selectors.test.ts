@@ -112,6 +112,16 @@ describe('parsePriceInput (ввод пользователя)', () => {
     ['-5', null],
     [-5, null],
     ['  7,25 ', 7.25],
+    // разряды пробелом — так цену копируют из чека или банка
+    ['1 340', 1340],
+    ['1 340,50', 1340.5],
+    // копейки: без округления сюда протекала бы двоичная дробь
+    ['249.999', 250],
+    ['0.005', 0.01],
+    // граница API: 100 000 включительно, больше — не цена
+    ['100000', 100000],
+    ['100000.01', null],
+    [100001, null],
   ])('%p → %p', (input, expected) => {
     expect(parsePriceInput(input as string | number | null | undefined)).toBe(expected);
   });
@@ -123,6 +133,12 @@ describe('formatPrice', () => {
     expect(formatPrice(0).endsWith('₽')).toBe(true);
     expect(formatPrice(1340).replace(/\s/g, ' ')).toBe('1 340 ₽');
     expect(formatPrice(12.5).endsWith('₽')).toBe(true);
+  });
+
+  it('показывает копейки парой цифр и только когда они есть', () => {
+    expect(formatPrice(12.5).replace(/\s/g, ' ')).toBe('12,50 ₽');
+    expect(formatPrice(12.05).replace(/\s/g, ' ')).toBe('12,05 ₽');
+    expect(formatPrice(12).replace(/\s/g, ' ')).toBe('12 ₽');
   });
 });
 
@@ -198,7 +214,7 @@ describe('hasRequested / boughtWithoutPrice', () => {
     expect(hasRequested(fixture())).toBe(true);
     expect(hasRequested([item(2, 'BOUGHT', '10')])).toBe(false);
   });
-  it('boughtWithoutPrice — BOUGHT с price==null (защитный guard settle)', () => {
+  it('boughtWithoutPrice — BOUGHT с price==null (блокирует settle)', () => {
     const items = [item(2, 'BOUGHT', null), item(3, 'BOUGHT', '10'), item(3, 'NOT_FOUND', null)];
     const bad = boughtWithoutPrice(items);
     expect(bad).toHaveLength(1);

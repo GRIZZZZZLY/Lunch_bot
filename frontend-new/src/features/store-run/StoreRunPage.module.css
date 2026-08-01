@@ -4,7 +4,7 @@
   gap: var(--space-6);
   padding: var(--space-4) var(--space-4) 0;
   /* мягкий вход экрана после skeleton — единый, без stagger */
-  animation: screenIn 180ms var(--ease-out);
+  animation: screenIn var(--motion-base) var(--ease-out);
 }
 
 @keyframes screenIn {
@@ -29,7 +29,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .initiator {
@@ -47,7 +47,7 @@
 .countdown {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-1);
 }
 
 .countdownRow {
@@ -62,10 +62,7 @@
   font-size: var(--text-22);
   font-weight: 700;
   letter-spacing: -0.02em;
-}
-
-.countdownTime {
-  transition: color 300ms var(--ease-out);
+  transition: color var(--motion-slow) var(--ease-out);
 }
 
 .countdownTime.low {
@@ -84,20 +81,25 @@
   overflow: hidden;
 }
 
+/* transform, а не width: полоса сбора тикает каждую секунду и держится так
+   5–30 минут — анимация ширины всё это время гоняла бы layout. */
 .barFill {
   height: 100%;
+  width: 100%;
   border-radius: var(--radius-pill);
   background: var(--accent);
-  transition: width 1s linear, background-color 300ms var(--ease-out);
+  transition: transform 1s linear, background-color var(--motion-slow) var(--ease-out);
 }
 
-/* Система C: цвет полосы = домен. Таймер сбора — шафран, прогресс покупок — зелёный. */
+/* Система C: цвет полосы = домен. Таймер сбора — шафран, прогресс покупок —
+   щавель. Fallback убран: токены существуют, а запасной вариант лишь прятал бы
+   их пропажу вместо того, чтобы её показать. */
 .countdown .barFill {
-  background: var(--shop, var(--warning));
+  background: var(--shop);
 }
 
 .progress .barFill {
-  background: var(--money, var(--success));
+  background: var(--money);
 }
 
 /* секции участников */
@@ -185,7 +187,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4) calc(var(--space-4) + var(--safe-area-bottom, 0px));
+  /* Безопасную зону уже добавляет DetailLayout своему <main>; вторая добавка
+     здесь давала двойной отступ снизу. */
+  padding: var(--space-3) var(--space-4) var(--space-4);
   background: var(--canvas);
   border-top: 1px solid var(--divider);
   /* компенсируем горизонтальный padding .screen */
@@ -193,8 +197,41 @@
   margin-right: calc(-1 * var(--space-4));
 }
 
+.ctaMinor {
+  display: flex;
+  justify-content: center;
+}
+
+/* Отмена — не равноправная вторая кнопка: узкая, по содержимому, но с полной
+   тап-зоной и всеми состояниями. */
 .cancelText {
-  color: var(--danger);
+  border: none;
+  background: none;
+  padding: var(--space-2) var(--space-4);
+  min-height: var(--control-md);
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--danger-on-tint);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .cancelText:hover {
+    background: var(--danger-tint);
+  }
+}
+
+.cancelText:active {
+  background: var(--danger-tint);
+  opacity: 0.8;
+}
+
+.cancelText:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
 }
 
 /* служебные состояния */
@@ -219,7 +256,7 @@
 .progress {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-1);
 }
 
 .progressRow {
@@ -310,17 +347,46 @@
   font-size: var(--text-18);
 }
 
+/* Единственный интерактив внутри нотиса. Был сырым --danger на тинте (3.80 в
+   тёмной теме) высотой ~20 px и вовсе без состояний. */
 .noticeLink {
-  margin-top: 4px;
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  margin-top: var(--space-1);
+  margin-left: calc(-1 * var(--space-2));
+  padding: var(--space-1) var(--space-2);
+  min-height: var(--control-md);
   border: none;
-  padding: 0;
+  border-radius: var(--radius-control-sm);
+  background: none;
   font: inherit;
-  color: var(--danger);
   font-weight: 600;
+  color: var(--warning-on-tint);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .noticeLink:hover {
+    background: var(--warning-tint);
+  }
+}
+
+.noticeLink:active {
+  opacity: 0.8;
+}
+
+.noticeLink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
+}
+
+/* Купленное без цены: состояние ожидаемое, поэтому подпись, а не тревога. */
+.rowPriceMissing {
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
 }
 
 /* ---- терминальные состояния ---- */
@@ -415,6 +481,8 @@
 /* вторичная навигация в конце контента (не sticky) */
 .endNav {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-4) 0 var(--space-6);
 }

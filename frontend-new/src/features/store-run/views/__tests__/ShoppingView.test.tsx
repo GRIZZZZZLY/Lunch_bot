@@ -60,11 +60,15 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks());
 
+/* Имя кнопки строки включает позицию: в списке из десяти покупок десять
+   одинаковых «Куплено» скринридеру ничего не сообщают. */
+const rowBtn = (action: string, name: string) => ({ name: `${action}: ${name}` });
+
 describe('ShoppingView — права', () => {
   it('инициатор видит контролы', () => {
     renderView(mkRun([mkItem(2, 'Молоко', 'REQUESTED', { id: 10 })]), 1);
-    expect(screen.getByRole('button', { name: 'Куплено' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Не нашли' })).toBeInTheDocument();
+    expect(screen.getByRole('button', rowBtn('Куплено', 'Молоко'))).toBeInTheDocument();
+    expect(screen.getByRole('button', rowBtn('Не нашли', 'Молоко'))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Рассчитать' })).toBeInTheDocument();
   });
 
@@ -75,7 +79,7 @@ describe('ShoppingView — права', () => {
       mkItem(2, 'Молоко', 'REQUESTED', { id: 10 }),
     ];
     renderView(mkRun(items), 3);
-    expect(screen.queryByRole('button', { name: 'Куплено' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', rowBtn('Куплено', 'Молоко'))).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Рассчитать' })).not.toBeInTheDocument();
     expect(screen.getByText(/Обработано 2 из 3/)).toBeInTheDocument();
     expect(screen.getByText(/Ваша текущая сумма/)).toBeInTheDocument();
@@ -90,56 +94,85 @@ describe('ShoppingView — права', () => {
 });
 
 describe('ShoppingView — REQUESTED', () => {
-  it('«Куплено» открывает поле, mutation до сохранения не вызывается', async () => {
+  it('«Куплено» отмечает в одно касание и без цены', async () => {
     renderView(mkRun([mkItem(2, 'Молоко', 'REQUESTED', { id: 10 })]), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Куплено' }));
-    expect(screen.getByLabelText('Цена за всё, ₽')).toBeInTheDocument();
-    expect(h.setPrice.mutate).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', rowBtn('Куплено', 'Молоко')));
+    expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({
+      itemId: 10,
+      payload: { price: null, status: 'BOUGHT' },
+    });
+    // поле цены по дороге не показывается: в магазине это лишний шаг
+    expect(screen.queryByLabelText('Цена за всё, ₽')).not.toBeInTheDocument();
+  });
+
+  it('«Не нашли» отправляет NOT_FOUND/null', async () => {
+    renderView(mkRun([mkItem(2, 'Молоко', 'REQUESTED', { id: 10 })]), 1);
+    await userEvent.click(screen.getByRole('button', rowBtn('Не нашли', 'Молоко')));
+    expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({ itemId: 10, payload: { price: null, status: 'NOT_FOUND' } });
+  });
+});
+
+describe('ShoppingView — цена отдельным шагом', () => {
+  const unpriced = () => mkRun([mkItem(2, 'Молоко', 'BOUGHT', { id: 10, price: null })]);
+
+  it('купленное без цены помечено и предлагает её указать', () => {
+    renderView(unpriced(), 1);
+    expect(screen.getByText('цена не указана')).toBeInTheDocument();
+    expect(screen.getByRole('button', rowBtn('Указать цену', 'Молоко'))).toBeInTheDocument();
   });
 
   it('пустая/невалидная цена не отправляется', async () => {
-    renderView(mkRun([mkItem(2, 'Молоко', 'REQUESTED', { id: 10 })]), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Куплено' }));
+    renderView(unpriced(), 1);
+    await userEvent.click(screen.getByRole('button', rowBtn('Указать цену', 'Молоко')));
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(h.setPrice.mutate).not.toHaveBeenCalled();
-    expect(screen.getByText('Введите цену (0 и больше)')).toBeInTheDocument();
+    expect(screen.getByText('Введите цену от 0 до 100 000')).toBeInTheDocument();
   });
 
   it("'12,50' отправляет 12.5", async () => {
-    renderView(mkRun([mkItem(2, 'Молоко', 'REQUESTED', { id: 10 })]), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Куплено' }));
+    renderView(unpriced(), 1);
+    await userEvent.click(screen.getByRole('button', rowBtn('Указать цену', 'Молоко')));
     await userEvent.type(screen.getByLabelText('Цена за всё, ₽'), '12,50');
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({ itemId: 10, payload: { price: 12.5, status: 'BOUGHT' } });
   });
 
   it('0 отправляется как 0', async () => {
-    renderView(mkRun([mkItem(2, 'Молоко', 'REQUESTED', { id: 10 })]), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Куплено' }));
+    renderView(unpriced(), 1);
+    await userEvent.click(screen.getByRole('button', rowBtn('Указать цену', 'Молоко')));
     await userEvent.type(screen.getByLabelText('Цена за всё, ₽'), '0');
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({ itemId: 10, payload: { price: 0, status: 'BOUGHT' } });
   });
 
+  it('цена больше 100 000 не отправляется', async () => {
+    renderView(unpriced(), 1);
+    await userEvent.click(screen.getByRole('button', rowBtn('Указать цену', 'Молоко')));
+    await userEvent.type(screen.getByLabelText('Цена за всё, ₽'), '100001');
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(h.setPrice.mutate).not.toHaveBeenCalled();
+  });
+
   it('quantity>1 показывает «Цена за всё (×N), ₽»', async () => {
-    renderView(mkRun([mkItem(2, 'Молоко', 'REQUESTED', { id: 10, quantity: 3 })]), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Куплено' }));
+    renderView(mkRun([mkItem(2, 'Молоко', 'BOUGHT', { id: 10, price: null, quantity: 3 })]), 1);
+    await userEvent.click(screen.getByRole('button', rowBtn('Указать цену', 'Молоко')));
     expect(screen.getByLabelText('Цена за всё (×3), ₽')).toBeInTheDocument();
   });
 
-  it('error сохраняет введённый raw', async () => {
+  it('отказ сервера остаётся у поля и сохраняет введённый raw', async () => {
     h.setPrice.mutate.mockImplementation((_a, opts) => opts?.onError?.(new Error('нет сети')));
-    renderView(mkRun([mkItem(2, 'Молоко', 'REQUESTED', { id: 10 })]), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Куплено' }));
+    renderView(unpriced(), 1);
+    await userEvent.click(screen.getByRole('button', rowBtn('Указать цену', 'Молоко')));
     await userEvent.type(screen.getByLabelText('Цена за всё, ₽'), '55');
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(screen.getByLabelText('Цена за всё, ₽')).toHaveValue('55');
     expect(screen.getByText('нет сети')).toBeInTheDocument();
   });
 
-  it('«Не нашли» отправляет NOT_FOUND/null', async () => {
-    renderView(mkRun([mkItem(2, 'Молоко', 'REQUESTED', { id: 10 })]), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Не нашли' }));
+  it('без цены «Не нашли» не спрашивает подтверждения — стирать нечего', async () => {
+    renderView(unpriced(), 1);
+    await userEvent.click(screen.getByRole('button', rowBtn('Не нашли', 'Молоко')));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({ itemId: 10, payload: { price: null, status: 'NOT_FOUND' } });
   });
 });
@@ -148,7 +181,7 @@ describe('ShoppingView — BOUGHT / NOT_FOUND', () => {
   it('BOUGHT показывает цену, редактирование prefilled и сохраняется', async () => {
     renderView(mkRun([mkItem(2, 'Молоко', 'BOUGHT', { id: 10, price: 120 })]), 1);
     expect(screen.getByText(/120/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Изменить цену' }));
+    await userEvent.click(screen.getByRole('button', rowBtn('Изменить цену', 'Молоко')));
     const input = screen.getByLabelText('Цена за всё, ₽');
     expect(input).toHaveValue('120');
     await userEvent.clear(input);
@@ -159,7 +192,7 @@ describe('ShoppingView — BOUGHT / NOT_FOUND', () => {
 
   it('BOUGHT → «Не нашли» стирает цену только после подтверждения', async () => {
     renderView(mkRun([mkItem(2, 'Молоко', 'BOUGHT', { id: 10, price: 120 })]), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Не нашли' }));
+    await userEvent.click(screen.getByRole('button', rowBtn('Не нашли', 'Молоко')));
     expect(h.setPrice.mutate).not.toHaveBeenCalled();
 
     const dialog = screen.getByRole('alertdialog');
@@ -167,19 +200,17 @@ describe('ShoppingView — BOUGHT / NOT_FOUND', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
     expect(h.setPrice.mutate).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Не нашли' }));
+    await userEvent.click(screen.getByRole('button', rowBtn('Не нашли', 'Молоко')));
     await userEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Убрать цену' }),
     );
     expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({ itemId: 10, payload: { price: null, status: 'NOT_FOUND' } });
   });
 
-  it('NOT_FOUND → «Всё-таки куплено» открывает поле и сохраняет BOUGHT', async () => {
+  it('NOT_FOUND → «Всё-таки куплено» возвращает в BOUGHT одним касанием', async () => {
     renderView(mkRun([mkItem(2, 'Молоко', 'NOT_FOUND', { id: 10 })]), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Всё-таки куплено' }));
-    await userEvent.type(screen.getByLabelText('Цена за всё, ₽'), '75');
-    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
-    expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({ itemId: 10, payload: { price: 75, status: 'BOUGHT' } });
+    await userEvent.click(screen.getByRole('button', rowBtn('Всё-таки куплено', 'Молоко')));
+    expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({ itemId: 10, payload: { price: null, status: 'BOUGHT' } });
   });
 });
 
@@ -212,12 +243,16 @@ describe('ShoppingView — settle', () => {
   it('BOUGHT без цены блокирует settle и показывает количество', () => {
     renderView(mkRun([mkItem(2, 'Молоко', 'BOUGHT', { id: 10, price: null })]), 1);
     expect(screen.getByRole('button', { name: 'Рассчитать' })).toBeDisabled();
-    expect(screen.getByText(/не указана цена/)).toBeInTheDocument();
+    expect(screen.getByText('Осталось проставить 1 цену')).toBeInTheDocument();
   });
 
-  it('активная item-мутация блокирует settle', () => {
-    h.setPrice.isPending = true;
+  /* Отметка в полёте блокирует расчёт: settle по недосчитанному списку создал
+     бы транзакции мимо позиции, которая как раз меняет статус. */
+  it('активная item-мутация блокирует settle', async () => {
     renderView(mkRun([mkItem(2, 'Молоко', 'REQUESTED', { id: 10 })]), 1);
+    expect(screen.getByRole('button', { name: 'Рассчитать' })).toBeEnabled();
+    // mutate замокан и не вызывает onSettled — отметка остаётся «в полёте»
+    await userEvent.click(screen.getByRole('button', rowBtn('Куплено', 'Молоко')));
     expect(screen.getByRole('button', { name: 'Рассчитать' })).toBeDisabled();
   });
 

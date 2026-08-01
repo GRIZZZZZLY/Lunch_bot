@@ -87,11 +87,13 @@ test.describe('Закупка: действия инициатора', () => {
     expect(api.requests('POST', '/store-runs/601/cancel')).toHaveLength(1);
   });
 
-  test('не позволяет закрыть пустой сбор', async ({ appPage, api }) => {
+  test('пустой сбор ведёт к добавлению, а не к отмене', async ({ appPage, api }) => {
     api.state.storeRuns[0].items = [];
     await appPage.goto('/store-run/601');
     await expect(appPage.getByText('Пока пусто')).toBeVisible();
-    await expect(appPage.getByRole('button', { name: 'Закрыть сбор' })).toBeDisabled();
+    // закрывать нечего — кнопки нет вовсе, а не заблокированная
+    await expect(appPage.getByRole('button', { name: 'Закрыть сбор' })).toHaveCount(0);
+    await expect(appPage.getByRole('button', { name: 'Добавить позицию' }).first()).toBeEnabled();
     await expect(appPage.getByRole('button', { name: 'Отменить закупку' })).toBeEnabled();
   });
 
@@ -106,9 +108,18 @@ test.describe('Закупка: действия инициатора', () => {
 test.describe('Закупка: покупки инициатора', () => {
   test.use({ scenario: 'store-shopping', role: 'storeInitiator' });
 
-  test('принимает нулевую цену, показывает количество и отмечает отсутствие', async ({ appPage, api }) => {
+  test('отмечает покупку одним касанием, затем принимает нулевую цену и отсутствие', async ({ appPage, api }) => {
     await appPage.goto('/store-run/601');
-    await appPage.getByRole('button', { name: 'Куплено' }).click();
+
+    // одно касание — позиция уже куплена, цена ещё не нужна
+    await appPage.getByRole('button', { name: 'Куплено: Молоко 3,2%' }).click();
+    expect(api.lastRequest('POST', '/store-runs/601/items/701/price')?.body).toEqual({
+      price: null,
+      status: 'BOUGHT',
+    });
+    await expect(appPage.getByText('цена не указана')).toBeVisible();
+
+    await appPage.getByRole('button', { name: 'Указать цену: Молоко 3,2%' }).click();
     const price = appPage.getByRole('textbox', { name: 'Цена за всё (×2), ₽' });
     await price.fill('0');
     await appPage.getByRole('button', { name: 'Сохранить' }).click();
@@ -119,12 +130,12 @@ test.describe('Закупка: покупки инициатора', () => {
     await expect(appPage.getByText(/0\s?₽/).first()).toBeVisible();
 
     // у купленной позиции цена уже введена — сброс идёт через подтверждение
-    await appPage.getByRole('button', { name: 'Не нашли' }).first().click();
+    await appPage.getByRole('button', { name: 'Не нашли: Молоко 3,2%' }).click();
     const resetPrice = appPage.getByRole('alertdialog');
     await expect(resetPrice).toContainText('Молоко 3,2%');
-    expect(api.requests('POST', '/store-runs/601/items/701/price')).toHaveLength(1);
-    await resetPrice.getByRole('button', { name: 'Убрать цену' }).click();
     expect(api.requests('POST', '/store-runs/601/items/701/price')).toHaveLength(2);
+    await resetPrice.getByRole('button', { name: 'Убрать цену' }).click();
+    expect(api.requests('POST', '/store-runs/601/items/701/price')).toHaveLength(3);
     await expect(appPage.getByText('Не нашли').first()).toBeVisible();
   });
 
@@ -141,17 +152,18 @@ test.describe('Закупка: покупки инициатора', () => {
   test('не разрешает расчёт купленной позиции без цены', async ({ appPage, api }) => {
     api.state.storeRuns[0].items[1].price = null;
     await appPage.goto('/store-run/601');
-    await expect(appPage.getByText(/не указана цена/)).toBeVisible();
+    await expect(appPage.getByText('Осталось проставить 1 цену')).toBeVisible();
     await expect(appPage.getByRole('button', { name: 'Рассчитать' })).toBeDisabled();
   });
 
   test('не принимает отрицательную или пустую цену', async ({ appPage }) => {
     await appPage.goto('/store-run/601');
-    await appPage.getByRole('button', { name: 'Куплено' }).click();
+    await appPage.getByRole('button', { name: 'Куплено: Молоко 3,2%' }).click();
+    await appPage.getByRole('button', { name: 'Указать цену: Молоко 3,2%' }).click();
     const price = appPage.getByRole('textbox', { name: 'Цена за всё (×2), ₽' });
     await price.fill('-1');
     await appPage.getByRole('button', { name: 'Сохранить' }).click();
-    await expect(appPage.getByText('Введите цену (0 и больше)')).toBeVisible();
+    await expect(appPage.getByText('Введите цену от 0 до 100 000')).toBeVisible();
     await expect(price).toHaveValue('-1');
   });
 });

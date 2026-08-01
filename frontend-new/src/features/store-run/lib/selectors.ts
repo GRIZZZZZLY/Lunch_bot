@@ -24,23 +24,41 @@ export function priceNum(value: string | number | null | undefined): number | nu
   return Number.isFinite(n) ? n : null;
 }
 
+/** Верхняя граница цены позиции — та же, что у API (SetPriceSchema). */
+export const PRICE_MAX = 100_000;
+
 /**
- * Значение из поля ввода цены. null = «нет пригодной цены» (пусто ИЛИ невалидно —
- * оба блокируют сабмит). Поддержаны десятичная запятая и `0`; отрицательные,
- * NaN, Infinity отклоняются.
+ * Значение из поля ввода цены. null = «нет пригодной цены» (пусто, невалидно
+ * ИЛИ вне диапазона — все три блокируют сабмит). Поддержаны десятичная запятая,
+ * пробелы-разделители разрядов и `0`; отрицательные, NaN, Infinity и суммы
+ * больше PRICE_MAX отклоняются. Результат округляется до копеек: без этого
+ * двоичная дробь протаскивала в деньги значения вида 249.99899999999997.
  */
 export function parsePriceInput(value: string | number | null | undefined): number | null {
   if (value == null) return null;
-  if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : null;
-  const trimmed = value.trim().replace(',', '.');
-  if (trimmed === '') return null;
-  const n = Number(trimmed);
-  return Number.isFinite(n) && n >= 0 ? n : null;
+  let n: number;
+  if (typeof value === 'number') {
+    n = value;
+  } else {
+    // \s покрывает и обычный пробел, и NBSP из копипаста разрядов.
+    const cleaned = value.replace(/\s/g, '').replace(',', '.');
+    if (cleaned === '') return null;
+    n = Number(cleaned);
+  }
+  if (!Number.isFinite(n) || n < 0 || n > PRICE_MAX) return null;
+  return Math.round(n * 100) / 100;
 }
 
-/** Форматирование суммы: ru-RU + ₽. */
+/**
+ * Форматирование суммы: ru-RU + ₽. Копейки показываем только когда они есть —
+ * «249,5 ₽» для денег выглядит обрубком, а «1 340,00 ₽» для обеда шумит.
+ */
 export function formatPrice(n: number): string {
-  return `${n.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽`;
+  const hasKopecks = Math.round(n * 100) % 100 !== 0;
+  return `${n.toLocaleString('ru-RU', {
+    minimumFractionDigits: hasKopecks ? 2 : 0,
+    maximumFractionDigits: 2,
+  })} ₽`;
 }
 
 /* ------------------------------------------------------------------ roles */
@@ -108,7 +126,11 @@ export function hasRequested(items: StoreItem[]): boolean {
   return items.some((item) => item.status === 'REQUESTED');
 }
 
-/** BOUGHT-позиции без цены — защитный guard для settle (обычно бэкенд не создаёт). */
+/**
+ * BOUGHT без цены — штатное промежуточное состояние: покупку отмечают одним
+ * касанием, цену вносят позже. Такие позиции не попадают в деньги, поэтому
+ * settle с ними запрещён и здесь, и в сервисе.
+ */
 export function boughtWithoutPrice(items: StoreItem[]): StoreItem[] {
   return items.filter((item) => item.status === 'BOUGHT' && priceNum(item.price) == null);
 }

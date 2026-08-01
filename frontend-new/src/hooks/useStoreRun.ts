@@ -4,6 +4,7 @@ import {
   type AddItemInput,
   type CreateStoreRunPayload,
   type SetPricePayload,
+  type StoreRunWithRelations,
   type UpdateItemInput,
 } from '@/services/store-run.service';
 import { queryKeys } from '@/lib/queryClient';
@@ -72,27 +73,60 @@ export function useAddStoreItems(runId: number) {
 
 export function useUpdateStoreItem(runId: number) {
   const qc = useQueryClient();
+  const push = useToastStore((s) => s.push);
   return useMutation({
     mutationFn: ({ itemId, data }: { itemId: number; data: UpdateItemInput }) =>
       storeRunService.updateItem(runId, itemId, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось изменить позицию') }),
   });
 }
 
 export function useDeleteStoreItem(runId: number) {
   const qc = useQueryClient();
+  const push = useToastStore((s) => s.push);
   return useMutation({
     mutationFn: (itemId: number) => storeRunService.deleteItem(runId, itemId),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) }),
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось удалить позицию') }),
   });
 }
 
+/* Отметка позиции применяется оптимистично: в магазине связь слабая, а ждать
+   round-trip на каждой покупке — половина сценария. Отказ откатывает список к
+   снимку и говорит вслух: без тоста строка просто вернулась бы в прежний
+   статус, и инициатор считал бы позицию отмеченной.
+   ВАЖНО: наблюдатель этой мутации должен жить дольше строки — оптимистичное
+   обновление сразу переносит строку в другую секцию, она размонтируется, и
+   привязанные к ней колбэки отката уже не сработают. Поэтому хук вызывается
+   на уровне ShoppingView, а не внутри ShoppingItemRow. */
 export function useSetItemPrice(runId: number) {
   const qc = useQueryClient();
+  const push = useToastStore((s) => s.push);
+  const key = queryKeys.storeRuns.detail(runId);
   return useMutation({
     mutationFn: ({ itemId, payload }: { itemId: number; payload: SetPricePayload }) =>
       storeRunService.setItemPrice(runId, itemId, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) }),
+    onMutate: async ({ itemId, payload }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<StoreRunWithRelations | null>(key);
+      qc.setQueryData<StoreRunWithRelations | null>(key, (old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((i) =>
+                i.id === itemId ? { ...i, status: payload.status, price: payload.price } : i,
+              ),
+            }
+          : old,
+      );
+      return { previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx) qc.setQueryData(key, ctx.previous);
+      push({ type: 'error', message: apiErrorMessage(err, 'Не удалось сохранить отметку') });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 }
 

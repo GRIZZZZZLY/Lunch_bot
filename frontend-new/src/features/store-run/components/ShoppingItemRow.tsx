@@ -1,13 +1,30 @@
-/* Мутирующая строка чеклиста (инициатор). useSetItemPrice вызывается здесь —
-   pending скоупится по строке; о своём pending строка сообщает родителю
-   (onPendingChange) для блокировки settle. Возврата в REQUESTED нет (API). */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useSetItemPrice } from '@/hooks/useStoreRun';
+/* Мутирующая строка чеклиста (инициатор). «Куплено» отмечается ОДНИМ касанием
+   и без цены: в магазине занята одна рука, а цены чаще проставляют по чеку на
+   кассе. Цена — отдельный необязательный шаг; закупку без неё не рассчитать
+   (guard в ShoppingView и в сервисе).
+   Мутацию строка не держит: оптимистичное обновление сразу переносит её в
+   другую секцию и размонтирует, поэтому владелец мутации — ShoppingView, а
+   строка лишь сообщает намерение через onMark. Возврата в REQUESTED нет (API). */
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ConfirmDialog, Status, TextField } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import type { StoreItem } from '@/services/store-run.service';
 import { formatPrice, parsePriceInput, priceNum } from '../lib/selectors';
 import styles from '../StoreRunPage.module.css';
+
+type PendingAction = 'bought' | 'notFound' | 'price';
+
+export interface MarkHandlers {
+  onSuccess?: () => void;
+  onError?: (e: unknown) => void;
+}
+
+export type MarkItem = (
+  itemId: number,
+  price: number | null,
+  status: 'BOUGHT' | 'NOT_FOUND',
+  handlers?: MarkHandlers,
+) => void;
 
 function priceLabel(quantity: number): string {
   return quantity > 1 ? `Цена за всё (×${quantity}), ₽` : 'Цена за всё, ₽';
@@ -15,29 +32,27 @@ function priceLabel(quantity: number): string {
 
 export function ShoppingItemRow({
   item,
-  runId,
   disabled,
-  onPendingChange,
+  pending,
+  onMark,
 }: {
   item: StoreItem;
-  runId: number;
+  /** Экран занят другой операцией (settle). */
   disabled: boolean;
-  onPendingChange: (itemId: number, pending: boolean) => void;
+  /** В полёте отметка именно этой позиции. */
+  pending: boolean;
+  onMark: MarkItem;
 }) {
-  const setPrice = useSetItemPrice(runId);
   const [pricing, setPricing] = useState(false);
   const [confirmingNotFound, setConfirmingNotFound] = useState(false);
+  const [action, setAction] = useState<PendingAction | null>(null);
   const [raw, setRaw] = useState('');
   const [error, setError] = useState<string | undefined>();
   const rowRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const pending = setPrice.isPending;
   const rowDisabled = disabled || pending;
-
-  useEffect(() => {
-    onPendingChange(item.id, pending);
-  }, [pending, item.id, onPendingChange]);
+  const busy = (which: PendingAction) => pending && action === which;
 
   useLayoutEffect(() => {
     if (pricing) {
@@ -46,8 +61,10 @@ export function ShoppingItemRow({
     }
   }, [pricing]);
 
-  const openPricing = (initial: string) => {
-    setRaw(initial);
+  const pn = priceNum(item.price);
+
+  const openPricing = () => {
+    setRaw(pn != null ? String(pn) : '');
     setError(undefined);
     setPricing(true);
   };
@@ -57,42 +74,57 @@ export function ShoppingItemRow({
     setError(undefined);
   };
 
-  const save = () => {
+  const mark = (
+    which: PendingAction,
+    price: number | null,
+    status: 'BOUGHT' | 'NOT_FOUND',
+    handlers?: MarkHandlers,
+  ) => {
+    setAction(which);
+    onMark(item.id, price, status, {
+      onSuccess: () => {
+        setPricing(false);
+        setConfirmingNotFound(false);
+        handlers?.onSuccess?.();
+      },
+      onError: handlers?.onError,
+    });
+  };
+
+  /** Отметка покупки без цены — основной путь в магазине. */
+  const markBought = () => {
+    if (rowDisabled) return;
+    mark('bought', null, 'BOUGHT');
+  };
+
+  const savePrice = () => {
     if (pending) return;
     const n = parsePriceInput(raw);
     if (n === null) {
-      setError('Введите цену (0 и больше)');
+      setError('Введите цену от 0 до 100 000');
       return;
     }
-    setPrice.mutate(
-      { itemId: item.id, payload: { price: n, status: 'BOUGHT' } },
-      {
-        onSuccess: () => setPricing(false),
-        onError: (e) => setError(e instanceof Error ? e.message : 'Не удалось сохранить цену'),
-      },
-    );
+    /* Отказ показываем у самого поля: клавиатура поднята, ввод не потерян, и
+       переносить причину в тост наверху экрана здесь неуместно. */
+    mark('price', n, 'BOUGHT', {
+      onError: (e) => setError(e instanceof Error ? e.message : 'Не удалось сохранить цену'),
+    });
   };
 
-  const markNotFound = () => {
-    if (rowDisabled) return;
-    setPrice.mutate(
-      { itemId: item.id, payload: { price: null, status: 'NOT_FOUND' } },
-      { onSuccess: () => setConfirmingNotFound(false) },
-    );
-  };
+  const markNotFound = () => mark('notFound', null, 'NOT_FOUND');
 
-  /* У купленной позиции цена уже введена, а NOT_FOUND её стирает — это
-     единственное деструктивное действие потока, спрашиваем подтверждение. */
+  /* Подтверждаем, только если есть что стереть: у купленной позиции без цены
+     терять нечего, и лишний диалог в магазине — это лишнее касание. */
   const requestNotFound = () => {
     if (rowDisabled) return;
-    if (item.status === 'BOUGHT') {
+    if (item.status === 'BOUGHT' && pn != null) {
       setConfirmingNotFound(true);
       return;
     }
     markNotFound();
   };
 
-  const pn = priceNum(item.price);
+  const noPrice = item.status === 'BOUGHT' && pn == null;
 
   return (
     <div className={styles.shopRow} id={`sr-item-${item.id}`} ref={rowRef}>
@@ -110,9 +142,11 @@ export function ShoppingItemRow({
       {item.status === 'BOUGHT' && !pricing && (
         <div className={styles.rowStatusLine}>
           <Status tone="success" icon="check">Куплено</Status>
-          <span className={`tnum ${styles.rowPrice}`}>
-            {pn != null ? formatPrice(pn) : 'цена не указана'}
-          </span>
+          {pn != null ? (
+            <span className={`tnum ${styles.rowPrice}`}>{formatPrice(pn)}</span>
+          ) : (
+            <span className={styles.rowPriceMissing}>цена не указана</span>
+          )}
         </div>
       )}
       {item.status === 'NOT_FOUND' && !pricing && (
@@ -134,7 +168,7 @@ export function ShoppingItemRow({
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                save();
+                savePrice();
               } else if (e.key === 'Escape') {
                 cancelPricing();
               }
@@ -144,7 +178,7 @@ export function ShoppingItemRow({
             <Button variant="secondary" block disabled={pending} onClick={cancelPricing}>
               Отмена
             </Button>
-            <Button block loading={pending} onClick={save}>
+            <Button block loading={busy('price')} onClick={savePrice}>
               Сохранить
             </Button>
           </div>
@@ -153,26 +187,59 @@ export function ShoppingItemRow({
         <div className={styles.itemActions}>
           {item.status === 'REQUESTED' && (
             <>
-              <Button variant="secondary" disabled={rowDisabled} onClick={() => openPricing('')}>
+              <Button
+                variant="secondary"
+                disabled={rowDisabled}
+                loading={busy('bought')}
+                aria-label={`Куплено: ${item.name}`}
+                onClick={markBought}
+              >
                 Куплено
               </Button>
-              <Button variant="secondary" disabled={rowDisabled} loading={pending} onClick={requestNotFound}>
+              {/* Не близнец «Куплено»: соседние противоположные действия в одно
+                  касание — риск промаха, поэтому вес разный. */}
+              <Button
+                variant="ghost"
+                disabled={rowDisabled}
+                loading={busy('notFound')}
+                aria-label={`Не нашли: ${item.name}`}
+                onClick={requestNotFound}
+              >
                 Не нашли
               </Button>
             </>
           )}
           {item.status === 'BOUGHT' && (
             <>
-              <Button variant="secondary" disabled={rowDisabled} onClick={() => openPricing(pn != null ? String(pn) : '')}>
-                Изменить цену
+              {/* Пока цены нет, она блокирует расчёт — это и есть главное
+                  действие строки, поэтому primary, а не вторичная. */}
+              <Button
+                variant={noPrice ? 'primary' : 'secondary'}
+                disabled={rowDisabled}
+                aria-label={`${noPrice ? 'Указать цену' : 'Изменить цену'}: ${item.name}`}
+                onClick={openPricing}
+              >
+                {noPrice ? 'Указать цену' : 'Изменить цену'}
               </Button>
-              <Button variant="ghost" disabled={rowDisabled} onClick={requestNotFound}>
+              <Button
+                variant="ghost"
+                disabled={rowDisabled}
+                loading={busy('notFound')}
+                aria-label={`Не нашли: ${item.name}`}
+                onClick={requestNotFound}
+              >
                 Не нашли
               </Button>
             </>
           )}
           {item.status === 'NOT_FOUND' && (
-            <Button variant="secondary" disabled={rowDisabled} onClick={() => openPricing('')}>
+            <Button
+              variant="secondary"
+              disabled={rowDisabled}
+              loading={busy('bought')}
+              aria-label={`Всё-таки куплено: ${item.name}`}
+              onClick={markBought}
+            >
               Всё-таки куплено
             </Button>
           )}
@@ -182,14 +249,10 @@ export function ShoppingItemRow({
       {confirmingNotFound && (
         <ConfirmDialog
           title={`Отметить «${item.name}» как ненайденную?`}
-          description={
-            pn != null
-              ? `Цена ${formatPrice(pn)} будет удалена, позиция не войдёт в расчёт.`
-              : 'Позиция не войдёт в расчёт.'
-          }
+          description={`Цена ${formatPrice(pn ?? 0)} будет удалена, позиция не войдёт в расчёт.`}
           confirmLabel="Убрать цену"
           destructive
-          pending={pending}
+          pending={busy('notFound')}
           onConfirm={markNotFound}
           onCancel={() => setConfirmingNotFound(false)}
         />

@@ -5,6 +5,7 @@
    плюс ghost, оба под ConfirmDialog. */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useCountdown } from '@/shared/lib/useCountdown';
+import { spokenDuration } from '@/shared/lib/spokenTime';
 import { ConfirmDialog, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
@@ -16,14 +17,9 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-/** Остаток словами — визуальный «12:07» скринридер читает как время суток. */
 function spokenRemaining(h: number, m: number, s: number, expired: boolean): string {
   if (expired) return 'Голосование завершается';
-  const parts: string[] = [];
-  if (h > 0) parts.push(`${h} ч`);
-  if (m > 0) parts.push(`${m} мин`);
-  parts.push(`${s} с`);
-  return `До конца голосования ${parts.join(' ')}`;
+  return `До конца голосования ${spokenDuration(h, m, s)}`;
 }
 
 /**

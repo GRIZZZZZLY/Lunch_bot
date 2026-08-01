@@ -75,9 +75,9 @@ describe('StoreRunPage — диспетчер', () => {
   it('COLLECTING → новый экран (CollectingView)', () => {
     h.useStoreRun.mockReturnValue(ok(run('COLLECTING')));
     renderPage();
-    // secondary add инициатора + empty state нового экрана
+    // empty state нового экрана + CTA-зона инициатора
     expect(screen.getByText('Пока пусто')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Закрыть сбор' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Отменить закупку' })).toBeInTheDocument();
   });
 
   it('SHOPPING → новый ShoppingView (не legacy)', () => {
@@ -115,7 +115,7 @@ describe('StoreRunPage — диспетчер', () => {
   it('переход COLLECTING → SHOPPING после обновления статуса показывает ShoppingView', () => {
     h.useStoreRun.mockReturnValue(ok(run('COLLECTING')));
     const { rerender } = renderPage();
-    expect(screen.getByRole('button', { name: 'Закрыть сбор' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Отменить закупку' })).toBeInTheDocument();
 
     h.useStoreRun.mockReturnValue(ok(run('SHOPPING')));
     rerender(
