@@ -18,6 +18,7 @@ import { Icon } from '@/components/rl/Icon';
 import { EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
 import { Button, IconButton, Switch } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
+import { formatPrice } from '@/features/store-run/lib/selectors';
 import { useRovingFocus } from '@/shared/lib/useRovingFocus';
 import { DishSheet, type DishInput } from './components/DishSheet';
 import styles from './MenuPage.module.css';
@@ -144,12 +145,28 @@ export default function MenuPage() {
               aria-label="Поиск блюд"
               onChange={(e) => setQuery(e.target.value)}
             />
+            {/* На телефоне запрос иначе стирается забоем по одному символу. */}
+            {query && (
+              <button
+                type="button"
+                className={styles.searchClear}
+                aria-label="Очистить поиск"
+                onClick={() => setQuery('')}
+              >
+                <Icon name="x" size={16} />
+              </button>
+            )}
           </label>
+          {/* aria-pressed, а не только цвет: рядом, в той же шапке, переключатель
+              групп сделан правильным tablist с aria-selected, а фильтр категорий
+              не сообщал своё состояние вообще. Здесь не tablist — панелей нет,
+              фильтруется один и тот же список, поэтому переключатель-кнопка. */}
           <div className={styles.cats}>
             {categories.map((c) => (
               <button
                 key={c.id}
                 type="button"
+                aria-pressed={category === c.id}
                 className={`${styles.cat}${category === c.id ? ` ${styles.on}` : ''}`}
                 onClick={() => setCategory(c.id)}
               >
@@ -211,17 +228,25 @@ export default function MenuPage() {
           {filtered.map((d) => (
             <div key={d.id} className={`${styles.row}${d.active ? '' : ` ${styles.archived}`}`}>
               <div className={styles.rowMain}>
+                {/* Имя занимает строку целиком, чип «Скрыто» уехал к описанию.
+                    Рядом с именем он отбирал ~90 px: сначала «Борщ со сметаной»
+                    переносился на две строки, а с обрезкой превращался в
+                    «Борщ со см…». Имя — то, по чему ищут блюдо, и оно получает
+                    всю ширину; во второй строке запас есть. */}
                 <div className={styles.name}>
-                  {d.name}
-                  {!d.active && <Status tone="neutral">Скрыто</Status>}
+                  <span className={styles.dishName}>{d.name}</span>
                 </div>
-                {(d.desc || d.category) && (
-                  <span className={styles.desc}>
-                    {d.desc || d.category}
-                  </span>
-                )}
+                <div className={styles.meta}>
+                  {!d.active && <Status tone="neutral">Скрыто</Status>}
+                  {(d.desc || d.category) && (
+                    <span className={styles.desc}>{d.desc || d.category}</span>
+                  )}
+                </div>
               </div>
-              <span className={`tnum ${styles.price}`}>{d.price} ₽</span>
+              {/* formatPrice, а не «{price} ₽»: это было единственное место в
+                  продукте, где деньги шли без разрядов — «1340 ₽» против
+                  «1 340 ₽» на остальных экранах. */}
+              <span className={`tnum ${styles.price}`}>{formatPrice(d.price)}</span>
               {isAdmin && (
                 <div className={styles.rowActions}>
                   <Switch

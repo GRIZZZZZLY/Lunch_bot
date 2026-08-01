@@ -5,7 +5,7 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-3) var(--space-4);
-  animation: menuIn 180ms var(--ease-out);
+  animation: menuIn var(--motion-base) var(--ease-out);
 }
 
 @keyframes menuIn {
@@ -29,7 +29,7 @@
 }
 
 .subtitle {
-  margin: 2px 0 0;
+  margin: var(--space-1) 0 0;
   font-size: var(--text-11);
   color: var(--text-tertiary);
 }
@@ -38,7 +38,7 @@
 .groupChip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
   min-height: 44px;
   padding: 0 var(--space-3);
   border: none;
@@ -50,6 +50,22 @@
   font-weight: 700;
   color: var(--text-primary);
   cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .groupChip:hover {
+    background: var(--accent-tint);
+  }
+}
+
+.groupChip:active {
+  opacity: 0.8;
+}
+
+.groupChip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
 }
 
 .search {
@@ -57,10 +73,18 @@
   align-items: center;
   gap: var(--space-2);
   height: 44px;
-  border-radius: 12px;
+  border-radius: var(--radius-control-sm);
   background: var(--accent-tint);
   padding: 0 var(--space-3);
   color: var(--text-tertiary);
+}
+
+/* Фокус на поле поиска не был виден вообще: у input стоит `outline: none`, а
+   замены не было ни у него, ни у обёртки. Кольцо вешаем на обёртку — рамка
+   должна обнимать всё поле вместе с иконкой и кнопкой очистки. */
+.search:focus-within {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
 }
 
 .search input {
@@ -80,19 +104,23 @@
 
 .cats {
   display: flex;
-  gap: 7px;
+  gap: var(--space-2);
   overflow-x: auto;
-  padding: 2px var(--space-1) 4px;
+  padding: var(--space-1) var(--space-1);
   scrollbar-width: none;
 }
 
 .cats::-webkit-scrollbar { display: none; }
 
+/* Визуально 36 px, но зона касания — 44 через ::after: поднимать сам чип до 44
+   значит раздуть полосу фильтров, а замер показал ровно 36 при минимуме 44.
+   Идиома взята у глобального .chip (redesign-v2.css). */
 .cat {
+  position: relative;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-1);
   min-height: 36px;
   padding: 0 var(--space-3);
   border: none;
@@ -100,11 +128,37 @@
   background: var(--surface);
   box-shadow: var(--shadow-1);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--text-13);
   font-weight: 700;
   color: var(--text-secondary);
   cursor: pointer;
   transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+
+.cat::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--control-md);
+  min-height: 100%;
+  transform: translateY(-50%);
+}
+
+@media (hover: hover) {
+  .cat:not(.on):hover {
+    background: var(--accent-tint);
+  }
+}
+
+.cat:active {
+  opacity: 0.8;
+}
+
+.cat:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
 }
 
 .cat.on {
@@ -118,7 +172,7 @@
 
 /* группа-карточка списка */
 .group {
-  border-radius: 14px;
+  border-radius: var(--radius-block);
   background: var(--surface);
   box-shadow: var(--shadow-2);
 }
@@ -134,10 +188,16 @@
   border-top: 1px solid var(--divider);
 }
 
+/* Скрытое блюдо гасим ИЕРАРХИЕЙ, а не прозрачностью. `opacity: 0.45` опускала
+   имя до 2.77 в светлой теме и 3.55 в тёмной, описание — до 1.92 и 2.25 при
+   пороге 4.5. И это ровно те строки, которые администратор ищет, чтобы вернуть
+   блюдо в голосование. Токены были в порядке — контраст убивала прозрачность,
+   поэтому проверка по токенам такое не поймает.
+   Что блюдо скрыто, говорит чип «Скрыто» — он в строке и так. */
 .row.archived .name,
-.row.archived .desc,
 .row.archived .price {
-  opacity: 0.45;
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .rowMain {
@@ -148,15 +208,36 @@
 .name {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
+  min-width: 0;
   font-size: var(--text-15);
   font-weight: 700;
+}
+
+/* Сжимается имя, чип «Скрыто» держит ширину: иначе длинное название
+   переносилось на две строки и строка списка распухала. */
+.dishName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Вторая строка: чип «Скрыто» держит ширину, сжимается описание. */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.meta > :not(.desc) {
+  flex-shrink: 0;
 }
 
 .desc {
   display: block;
   font-size: var(--text-11);
-  margin-top: 1px;
   color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
@@ -164,7 +245,7 @@
 }
 
 .price {
-  font-size: 14.5px;
+  font-size: var(--text-15);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -172,7 +253,7 @@
 .rowActions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
@@ -205,21 +286,77 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3);
-  border-radius: 12px;
+  border-radius: var(--radius-control-sm);
   background: var(--accent-tint);
 }
 
 .activeRow .name { font-size: var(--text-15); }
 .activeRow .desc { white-space: normal; }
 
+/* Удаление уводим из основного потока формы: раньше красная ссылка стояла в
+   шестидесяти пикселях над «Сохранить», и палец шёл к сохранению прямо над ней.
+   Разделитель отделяет её от полей, ширина — по содержимому, а не на всю строку. */
+.dangerZone {
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--divider);
+  display: flex;
+  justify-content: center;
+}
+
 .deleteLink {
   border: none;
   background: none;
-  padding: 10px 0;
-  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  min-height: var(--control-md);
+  border-radius: var(--radius-control-sm);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--text-13);
   font-weight: 700;
-  color: var(--danger);
+  color: var(--danger-on-tint);
   cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .deleteLink:hover {
+    background: var(--danger-tint);
+  }
+}
+
+.deleteLink:active {
+  background: var(--danger-tint);
+  opacity: 0.8;
+}
+
+.deleteLink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+}
+
+/* Кнопка очистки поиска: на телефоне запрос иначе стирается забоем. */
+.searchClear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--control-md);
+  height: var(--control-md);
+  margin-right: calc(-1 * var(--space-2));
+  border: none;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .searchClear:hover {
+    color: var(--text-primary);
+  }
+}
+
+.searchClear:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-tint), 0 0 0 4px var(--focus-ring);
 }

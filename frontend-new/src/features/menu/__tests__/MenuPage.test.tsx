@@ -155,3 +155,45 @@ describe('buildCategories', () => {
     ]);
   });
 });
+
+/* Находки критики 2026-08-01: фильтр не сообщал состояние, деньги шли без
+   разрядов, поиск нельзя было очистить одним касанием. */
+describe('MenuPage — состояние фильтра, деньги и поиск', () => {
+  it('выбранная категория объявлена через aria-pressed, а не только цветом', () => {
+    render(<MenuPage />);
+
+    const all = screen.getByRole('button', { name: /^Все/ });
+    const soups = screen.getByRole('button', { name: /^Супы/ });
+    expect(all).toHaveAttribute('aria-pressed', 'true');
+    expect(soups).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(soups);
+    expect(screen.getByRole('button', { name: /^Супы/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /^Все/ })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('цена набрана с разрядами, как на остальных экранах', () => {
+    h.state.items = [dish({ id: 3, name: 'Стейк', price: 1340 })];
+    render(<MenuPage />);
+    // «1 340 ₽», а не «1340 ₽»; пробел-разделитель нормализуем
+    const price = screen.getByText(/1.340/);
+    expect(price.textContent?.replace(/\s/g, ' ')).toBe('1 340 ₽');
+  });
+
+  it('очистка поиска возвращает список одним касанием', () => {
+    render(<MenuPage />);
+    const search = screen.getByRole('textbox', { name: 'Поиск блюд' });
+
+    fireEvent.change(search, { target: { value: 'несуществующее' } });
+    expect(screen.getByText('Ничего не нашлось')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить поиск' }));
+    expect(screen.queryByText('Ничего не нашлось')).not.toBeInTheDocument();
+    expect(search).toHaveValue('');
+  });
+
+  it('кнопки очистки нет, пока поиск пуст', () => {
+    render(<MenuPage />);
+    expect(screen.queryByRole('button', { name: 'Очистить поиск' })).not.toBeInTheDocument();
+  });
+});

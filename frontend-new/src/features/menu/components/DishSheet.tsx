@@ -125,10 +125,14 @@ export function DishSheet({
           </div>
           <Switch on={active} onChange={setActive} aria-label="Активно" />
         </div>
+        {/* Удаление за разделителем и по содержимому, а не во всю ширину прямо
+            над «Сохранить»: раньше палец шёл к сохранению над красной ссылкой. */}
         {initial && onDelete && (
-          <button type="button" className={styles.deleteLink} onClick={() => setConfirmDelete(true)}>
-            Удалить блюдо
-          </button>
+          <div className={styles.dangerZone}>
+            <button type="button" className={styles.deleteLink} onClick={() => setConfirmDelete(true)}>
+              Удалить блюдо
+            </button>
+          </div>
         )}
       </div>
 
