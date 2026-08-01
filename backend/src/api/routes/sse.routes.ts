@@ -17,4 +17,13 @@ router.get(
   SSEController.stream
 );
 
+/**
+ * GET /api/sse/me/stream
+ *
+ * Персональный поток денежных событий. Тот же режим, что у потока опроса:
+ * JWT в заголовке, вне rate-limit и compression (см. server.ts — путь должен
+ * попадать в те же исключения, иначе сжатие буферизует поток).
+ */
+router.get('/sse/me/stream', telegramAuthMiddleware, SSEController.streamMe);
+
 export default router;

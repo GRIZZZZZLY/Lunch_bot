@@ -1,5 +1,6 @@
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
+import { eventBus } from './event-bus.service';
 import { PollService } from './poll.service';
 import { UserService } from './user.service';
 import { Prisma, Transaction, User, MenuItem, StoreItem } from '@prisma/client';
@@ -601,6 +602,7 @@ export class BudgetService {
       }
 
       logger.info('Transaction marked as paid', { txId });
+      BudgetService.emitDebtUpdated(tx);
 
       // Уведомляем ответственного
       if (botInstance()) {
@@ -658,6 +660,7 @@ export class BudgetService {
       }
 
       logger.info('Transaction confirmed', { txId });
+      BudgetService.emitDebtUpdated(tx);
 
       // Уведомляем участника — редактируем существующее долговое сообщение если есть,
       // иначе отправляем новое
@@ -708,6 +711,28 @@ export class BudgetService {
   static readonly UNDO_CONFIRM_WINDOW_MS = 24 * 60 * 60 * 1000;
 
   /**
+   * Сообщить обеим сторонам, что долг сменил состояние.
+   *
+   * Адресат — люди, а не сущность: у магазинной транзакции опроса может не быть,
+   * и привязать событие к pollId было бы нечем. Клиент по этому событию
+   * перезапрашивает бюджет, поэтому payload держим минимальным — суммы и имена
+   * ходят обычным ответом API, а не через поток.
+   */
+  private static emitDebtUpdated(tx: {
+    id: number;
+    fromUserId: number;
+    toUserId: number;
+    status: string;
+  }): void {
+    eventBus.emit('debt_updated', {
+      transactionId: tx.id,
+      status: tx.status as 'PENDING' | 'PAID' | 'CONFIRMED',
+      audience: [tx.fromUserId, tx.toUserId],
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
    * Сборщик отменяет своё подтверждение и возвращает долг в PAID.
    *
    * Подтверждение необратимо закрывало долг: промах по кнопке в списке из восьми
@@ -746,6 +771,7 @@ export class BudgetService {
       if (transition.count === 0) throw new Error('Transaction state changed');
 
       logger.info('Payment confirmation undone', { txId, actorUserId });
+      BudgetService.emitDebtUpdated({ ...existing, status: 'PAID' });
 
       if (botInstance()) {
         const text =
@@ -1123,6 +1149,7 @@ export class BudgetService {
       }
 
       logger.info('Transaction mark cancelled', { transactionId });
+      BudgetService.emitDebtUpdated(tx);
 
       // Уведомляем ответственного
       if (botInstance()) {

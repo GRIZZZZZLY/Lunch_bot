@@ -16,9 +16,13 @@ const userConnections = new Map<number, Set<Response>>();
 /**
  * Получить количество активных соединений (для мониторинга)
  */
+/** Персональные потоки (деньги): userId -> Set<Response>. */
+const personalConnections = new Map<number, Set<Response>>();
+
 export function getSSEConnectionCount(): {
   total: number;
   byPoll: Record<number, number>;
+  personal: number;
 } {
   let total = 0;
   const byPoll: Record<number, number> = {};
@@ -28,7 +32,14 @@ export function getSSEConnectionCount(): {
     total += connections.size;
   });
 
-  return { total, byPoll };
+  /* Персональные потоки тоже в total: иначе метрика недооценивает нагрузку и
+     лимит MAX_CONNECTIONS_TOTAL считался бы по половине соединений. */
+  let personal = 0;
+  personalConnections.forEach((connections) => {
+    personal += connections.size;
+  });
+
+  return { total: total + personal, byPoll, personal };
 }
 
 /**
@@ -244,6 +255,101 @@ export class SSEController {
       if (!res.writableEnded) {
         res.end();
       }
+    };
+
+    req.on('close', cleanup);
+    req.on('error', cleanup);
+  }
+
+  /**
+   * SSE endpoint: GET /api/sse/me/stream
+   *
+   * Персональный поток денежных событий. Привязан к пользователю, а не к опросу:
+   * бюджет показывает «мои долги / вам должны», а магазинная транзакция опроса
+   * может не иметь вовсе. Авторизация тривиальна — поток отдаётся владельцу
+   * токена и никому больше, и фильтр по audience гарантирует, что чужой переход
+   * сюда не попадёт.
+   */
+  static async streamMe(req: Request, res: Response): Promise<void> {
+    const user = (req as any).user;
+    const userId = user?.id as number;
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        code: 'UNAUTHORIZED',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const openForUser =
+      (personalConnections.get(userId)?.size ?? 0) +
+      (userConnections.get(userId)?.size ?? 0);
+    if (
+      getSSEConnectionCount().total >= MAX_CONNECTIONS_TOTAL ||
+      openForUser >= MAX_CONNECTIONS_PER_USER
+    ) {
+      logger.warn('Personal SSE connection limit reached', { userId, openForUser });
+      res.setHeader('Retry-After', '30');
+      res.status(503).json({
+        success: false,
+        error: 'Too many streaming connections',
+        code: 'CONNECTION_LIMIT',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    sendSSEMessage(res, 'connected', { userId, timestamp: new Date().toISOString() });
+
+    if (!personalConnections.has(userId)) {
+      personalConnections.set(userId, new Set());
+    }
+    personalConnections.get(userId)!.add(res);
+    logger.info('Personal SSE client connected', {
+      userId,
+      totalConnections: getSSEConnectionCount().total,
+    });
+
+    const heartbeatTimer = setInterval(() => {
+      if (!sendSSEMessage(res, 'heartbeat', { timestamp: new Date().toISOString() })) {
+        cleanup();
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+
+    /* Фильтр по адресату: событие уходит только тем двоим, кого касается. */
+    const onDebtUpdated = (data: SSEEventMap['debt_updated']): void => {
+      if (!data.audience.includes(userId)) return;
+      sendSSEMessage(res, 'debt_updated', data);
+    };
+    eventBus.on('debt_updated', onDebtUpdated);
+
+    let cleanedUp = false;
+    const cleanup = (): void => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      clearInterval(heartbeatTimer);
+      eventBus.off('debt_updated', onDebtUpdated);
+
+      const connections = personalConnections.get(userId);
+      if (connections) {
+        connections.delete(res);
+        if (connections.size === 0) personalConnections.delete(userId);
+      }
+
+      logger.info('Personal SSE client disconnected', {
+        userId,
+        totalConnections: getSSEConnectionCount().total,
+      });
+      if (!res.writableEnded) res.end();
     };
 
     req.on('close', cleanup);

@@ -6,7 +6,11 @@ import { useAuth } from './useAuth';
 import { useToastStore } from '@/store/useToastStore';
 import { apiErrorMessage } from '@/lib/apiError';
 
-export function useDebts(params?: { status?: string }) {
+/* `live` — жив ли персональный поток (useMoneyStream). Пока он жив, опрос не
+   нужен: сервер сам скажет об изменении. Опрос остаётся страховкой на случай,
+   когда поток не поднялся, — молчащий экран денег хуже лишнего запроса.
+   По умолчанию false, поэтому вызывающие без потока (Главная) не меняются. */
+export function useDebts(params?: { status?: string }, live = false) {
   const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: queryKeys.budget.debts(params),
@@ -16,11 +20,11 @@ export function useDebts(params?: { status?: string }) {
     },
     enabled: isAuthenticated,
     staleTime: 10_000,
-    refetchInterval: 15_000,
+    refetchInterval: live ? false : 15_000,
   });
 }
 
-export function useCredits(params?: { status?: string }) {
+export function useCredits(params?: { status?: string }, live = false) {
   const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: queryKeys.budget.credits(params),
@@ -30,7 +34,7 @@ export function useCredits(params?: { status?: string }) {
     },
     enabled: isAuthenticated,
     staleTime: 10_000,
-    refetchInterval: 15_000,
+    refetchInterval: live ? false : 15_000,
   });
 }
 

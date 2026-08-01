@@ -45,6 +45,9 @@ vi.mock('@/hooks/useBudget', () => ({
   useUndoConfirmation: () => h.state.undoConfirmation,
 }));
 
+/* Поток мокаем: в юнит-тестах он полез бы в сеть, а проверяем мы экран. */
+vi.mock('@/hooks/useMoneyStream', () => ({ useMoneyStream: () => 'idle' }));
+
 import { BudgetPage } from '../BudgetPage';
 
 const tx = (over: Record<string, unknown>) => ({

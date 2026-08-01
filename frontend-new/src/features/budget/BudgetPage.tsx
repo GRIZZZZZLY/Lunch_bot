@@ -13,6 +13,7 @@ import {
   useSendReminder,
   useUndoConfirmation,
 } from '@/hooks/useBudget';
+import { useMoneyStream } from '@/hooks/useMoneyStream';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { ConfirmDialog, EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
@@ -120,8 +121,12 @@ function Reference({ value }: { value: BudgetReference }) {
 
 export function BudgetPage() {
   useScreenHeader('Бюджет команды');
-  const debtsQuery = useDebts();
-  const creditsQuery = useCredits();
+  /* Живой поток вместо двух опросов по 15 с. Опрос остаётся страховкой: пока
+     поток не подтвердил соединение, запросы идут как раньше. */
+  const streamStatus = useMoneyStream();
+  const live = streamStatus === 'connected';
+  const debtsQuery = useDebts(undefined, live);
+  const creditsQuery = useCredits(undefined, live);
   const markPaid = useMarkPaid();
   const cancelMark = useCancelMark();
   const confirmPayment = useConfirmPayment();

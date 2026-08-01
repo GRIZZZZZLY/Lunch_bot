@@ -95,8 +95,13 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
     const delay = state.delays[pathKey(method, path)];
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
 
+    /* Персональный поток денег ведёт себя как поток опроса: отдаём кадр
+       `connected` и закрываем — клиент переподключится с backoff, а опрос
+       останется страховкой. Проверка Bearer здесь содержательная: токен для
+       денежного потока не должен уезжать в URL. */
+    const personalStream = path === '/sse/me/stream';
     const pollStream = path.match(/^\/polls\/(\d+)\/stream$/);
-    if (method === 'GET' && pollStream) {
+    if (method === 'GET' && (pollStream || personalStream)) {
       const authorization = request.headers().authorization;
       if (!authorization?.startsWith('Bearer e2e-')) {
         state.unexpectedRequests.push(

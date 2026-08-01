@@ -8,6 +8,21 @@ export interface SSEEventMap {
   poll_updated: PollUpdatedEvent;
   category_order_updated: CategoryOrderUpdatedEvent;
   responsible_selected: ResponsibleSelectedEvent;
+  debt_updated: DebtUpdatedEvent;
+}
+
+/**
+ * Изменение долга. В отличие от событий опроса адресуется не сущности, а ЛЮДЯМ:
+ * бюджет — экран «мои долги / вам должны», и знать о переходе должны ровно двое
+ * участников. Поэтому audience, а не pollId — так канал не приходится привязывать
+ * к опросу, которого у магазинных транзакций может не быть вовсе.
+ */
+export interface DebtUpdatedEvent {
+  transactionId: number;
+  status: 'PENDING' | 'PAID' | 'CONFIRMED';
+  /** Кому это событие адресовано: должник и получатель. */
+  audience: number[];
+  timestamp: string;
 }
 
 export interface PollUpdatedEvent {
