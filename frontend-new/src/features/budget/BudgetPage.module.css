@@ -116,6 +116,45 @@
   color: var(--text-tertiary);
 }
 
+/* Ссылка на источник долга. Подчёркивание — единственный носитель того, что это
+   ссылка (цвет остаётся служебным), плюс тап-зона 44 px псевдоэлементом:
+   поднимать 11-й кегль до 44 px по-настоящему значило бы раздуть строку. */
+.rowRefLink {
+  position: relative;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-decoration-color: var(--divider);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.rowRefLink::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--control-md);
+  min-height: 100%;
+  transform: translateY(-50%);
+}
+
+@media (hover: hover) {
+  .rowRefLink:hover {
+    text-decoration-color: var(--text-secondary);
+  }
+}
+
+.rowRefLink:active {
+  opacity: 0.7;
+}
+
+.rowRefLink:focus-visible {
+  outline: none;
+  border-radius: var(--radius-control-sm);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+}
+
 .rowRefSubject {
   min-width: 4ch;
   overflow: hidden;

@@ -7,13 +7,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { StoreRunWithRelations } from '@/services/store-run.service';
 import { queryKeys } from '@/lib/queryClient';
 
-const h = vi.hoisted(() => ({ setItemPrice: vi.fn() }));
+const h = vi.hoisted(() => ({ setItemPrice: vi.fn(), deleteItem: vi.fn() }));
 
 vi.mock('@/services/store-run.service', () => ({
-  storeRunService: { setItemPrice: h.setItemPrice },
+  storeRunService: { setItemPrice: h.setItemPrice, deleteItem: h.deleteItem },
 }));
 
-import { useSetItemPrice } from '../useStoreRun';
+import { useDeleteStoreItem, useSetItemPrice } from '../useStoreRun';
 
 const RUN_ID = 5;
 const KEY = queryKeys.storeRuns.detail(RUN_ID);
@@ -45,6 +45,7 @@ const itemPrice = () => qc.getQueryData<StoreRunWithRelations>(KEY)?.items[0].pr
 
 beforeEach(() => {
   h.setItemPrice.mockReset();
+  h.deleteItem.mockReset();
   qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   qc.setQueryData(KEY, seededRun());
 });
@@ -77,5 +78,20 @@ describe('useSetItemPrice — оптимистичная отметка', () => 
     // отказ не оставляет позицию помеченной: иначе она выглядела бы купленной
     expect(itemStatus()).toBe('REQUESTED');
     expect(itemPrice()).toBeNull();
+  });
+});
+
+/* Удаление позиции применяется оптимистично: строка исчезает сразу, отказ
+   возвращает список. Владелец мутации — CollectingView, он живёт дольше строки. */
+describe('useDeleteStoreItem — оптимистичное удаление', () => {
+  it('строка исчезает до ответа и возвращается при отказе', async () => {
+    h.deleteItem.mockRejectedValue(new Error('нет сети'));
+    const { result } = renderHook(() => useDeleteStoreItem(RUN_ID), { wrapper });
+
+    expect(qc.getQueryData<StoreRunWithRelations>(KEY)?.items).toHaveLength(1);
+    result.current.mutate(10);
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(qc.getQueryData<StoreRunWithRelations>(KEY)?.items.map((i) => i.id)).toEqual([10]);
   });
 });

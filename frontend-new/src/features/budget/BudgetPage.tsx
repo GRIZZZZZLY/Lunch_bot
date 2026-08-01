@@ -2,6 +2,7 @@
    транзакциях: должник отмечает оплату и отменяет отметку, сборщик
    подтверждает оплату и напоминает. Две роли могут сосуществовать. */
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   useCancelMark,
   useConfirmPayment,
@@ -89,6 +90,20 @@ function PayTo({ value }: { value: PayToVM }) {
    одному и тому же человеку. */
 function Reference({ value }: { value: BudgetReference }) {
   if (!value.subject && !value.when) return null;
+
+  /* Ссылкой, если источник известен: 180 ₽ за «Пятёрочку» без разбивки —
+     это просьба поверить на слово. Тап-зона добирается до 44 px
+     псевдоэлементом (идиома .chip::after), чтобы строка не разрослась. */
+  if (value.href) {
+    return (
+      <Link to={value.href} className={`${styles.rowRef} ${styles.rowRefLink}`}>
+        {value.subject && <span className={styles.rowRefSubject}>{value.subject}</span>}
+        {value.subject && value.when ? ' ' : null}
+        {value.when && <span className={styles.rowRefWhen}>{value.when}</span>}
+      </Link>
+    );
+  }
+
   return (
     <span className={styles.rowRef}>
       {value.subject && <span className={styles.rowRefSubject}>{value.subject}</span>}

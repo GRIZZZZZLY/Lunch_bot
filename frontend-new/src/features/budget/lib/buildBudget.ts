@@ -20,6 +20,8 @@ export interface DebtLineVM {
 export interface BudgetReference {
   subject: string;
   when: string;
+  /** Куда ведёт ссылка «за что». null, если API не дал ни забега, ни опроса. */
+  href: string | null;
 }
 
 export interface PayTo {
@@ -112,11 +114,17 @@ function remindedOf(t: Transaction): string {
  * целиком, а именно дата различает два долга одному человеку.
  */
 function referenceOf(t: Transaction): BudgetReference {
+  /* Ссылка на источник: прочитать «Пятёрочка у офиса» можно было и раньше, а
+     открыть закупку и увидеть, из чего сложились 180 ₽, — нет. Забег важнее
+     опроса: в нём видна разбивка по позициям. */
+  const runId = t.storeRun?.id ?? t.storeRunId ?? null;
+  const href = runId != null ? `/store-run/${runId}` : t.pollId != null ? `/poll/${t.pollId}/results` : null;
   return {
     subject: t.menuItem?.name || t.storeRun?.storeName || '',
     when: t.createdAt
       ? new Date(t.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
       : '',
+    href,
   };
 }
 

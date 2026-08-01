@@ -20,22 +20,27 @@ function tx(over: Partial<Transaction>): Transaction {
 describe('buildBudget — за что долг', () => {
   it('обеденный долг → блюдо и дата', () => {
     const vm = buildBudget([tx({ id: 5, menuItem: { id: 2, name: 'Паста карбонара' } })], []);
-    expect(vm.myDebts[0].reference).toEqual({ subject: 'Паста карбонара', when: '20 июля' });
+    expect(vm.myDebts[0].reference).toEqual({ subject: 'Паста карбонара', when: '20 июля', href: '/poll/1/results' });
   });
 
   it('магазинный долг → название магазина и дата', () => {
     const vm = buildBudget([tx({ id: 5, storeRun: { id: 9, storeName: 'Пятёрочка' } })], []);
-    expect(vm.myDebts[0].reference).toEqual({ subject: 'Пятёрочка', when: '20 июля' });
+    expect(vm.myDebts[0].reference).toEqual({ subject: 'Пятёрочка', when: '20 июля', href: '/store-run/9' });
   });
 
   it('API не дал ни блюда, ни магазина → только дата, без выдуманного текста', () => {
     const vm = buildBudget([tx({ id: 5 })], []);
-    expect(vm.myDebts[0].reference).toEqual({ subject: '', when: '20 июля' });
+    expect(vm.myDebts[0].reference).toEqual({ subject: '', when: '20 июля', href: '/poll/1/results' });
+  });
+
+  it('ни забега, ни опроса → ссылки нет, а не выдуманный путь', () => {
+    const vm = buildBudget([tx({ id: 5, pollId: null })], []);
+    expect(vm.myDebts[0].reference.href).toBeNull();
   });
 
   it('кредит тоже получает ссылку', () => {
     const vm = buildBudget([], [tx({ id: 7, menuItem: { id: 2, name: 'Борщ' } })]);
-    expect(vm.owed[0].reference).toEqual({ subject: 'Борщ', when: '20 июля' });
+    expect(vm.owed[0].reference).toEqual({ subject: 'Борщ', when: '20 июля', href: '/poll/1/results' });
   });
 });
 

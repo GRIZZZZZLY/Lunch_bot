@@ -71,24 +71,54 @@ export function useAddStoreItems(runId: number) {
   });
 }
 
+/* Правка и удаление позиции применяются оптимистично: это правки на месте,
+   откат к снимку возвращает список целиком. Переходы статуса забега
+   (start-shopping / settle / cancel) оптимистики НЕ получают сознательно — они
+   меняют весь экран, и показать не тот экран, а потом отобрать, хуже честного
+   спиннера на подтверждённом действии.
+   Владелец мутаций — CollectingView, который живёт дольше своих строк. */
 export function useUpdateStoreItem(runId: number) {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
+  const key = queryKeys.storeRuns.detail(runId);
   return useMutation({
     mutationFn: ({ itemId, data }: { itemId: number; data: UpdateItemInput }) =>
       storeRunService.updateItem(runId, itemId, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) }),
-    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось изменить позицию') }),
+    onMutate: async ({ itemId, data }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<StoreRunWithRelations | null>(key);
+      qc.setQueryData<StoreRunWithRelations | null>(key, (old) =>
+        old ? { ...old, items: old.items.map((i) => (i.id === itemId ? { ...i, ...data } : i)) } : old,
+      );
+      return { previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx) qc.setQueryData(key, ctx.previous);
+      push({ type: 'error', message: apiErrorMessage(err, 'Не удалось изменить позицию') });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 }
 
 export function useDeleteStoreItem(runId: number) {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
+  const key = queryKeys.storeRuns.detail(runId);
   return useMutation({
     mutationFn: (itemId: number) => storeRunService.deleteItem(runId, itemId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(runId) }),
-    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось удалить позицию') }),
+    onMutate: async (itemId) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<StoreRunWithRelations | null>(key);
+      qc.setQueryData<StoreRunWithRelations | null>(key, (old) =>
+        old ? { ...old, items: old.items.filter((i) => i.id !== itemId) } : old,
+      );
+      return { previous };
+    },
+    onError: (err, _id, ctx) => {
+      if (ctx) qc.setQueryData(key, ctx.previous);
+      push({ type: 'error', message: apiErrorMessage(err, 'Не удалось удалить позицию') });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 }
 
