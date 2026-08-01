@@ -9,7 +9,6 @@ export interface DebtLineVM {
   name: string; // кому должен (кредитор)
   amount: number;
   status: 'PENDING' | 'PAID';
-  ageMin: number;
 }
 
 export interface CreditLineVM {
@@ -36,11 +35,7 @@ function personName(u?: { firstName?: string; username?: string }): string {
   return u?.firstName || u?.username || 'Участник';
 }
 
-export function buildBudget(
-  debts: Transaction[],
-  credits: Transaction[],
-  now: Date = new Date(),
-): BudgetVM {
+export function buildBudget(debts: Transaction[], credits: Transaction[]): BudgetVM {
   const myDebts = debts
     .filter((d) => d.status !== 'CONFIRMED')
     .map((d) => ({
@@ -48,7 +43,6 @@ export function buildBudget(
       name: personName(d.creditor),
       amount: d.amount,
       status: d.status as 'PENDING' | 'PAID',
-      ageMin: Math.max(0, Math.round((now.getTime() - new Date(d.createdAt).getTime()) / 60000)),
     }))
     // сначала неоплаченные, внутри — по убыванию суммы
     .sort((a, b) => (a.status === b.status ? b.amount - a.amount : a.status === 'PENDING' ? -1 : 1));

@@ -61,10 +61,15 @@ function RouteFallback() {
    простое, а не в момент нажатия. */
 function usePrefetchTabs() {
   useEffect(() => {
+    /* Отказ гасим явно: `void` не ловит reject, и упавшая предзагрузка
+       (например «Unable to preload CSS» после редеплоя или на плохой связи)
+       всплывала необработанной ошибкой страницы. Префетч спекулятивен —
+       настоящая навигация повторит import сама. */
+    const swallow = () => undefined;
     const prefetch = () => {
-      void import('@/features/menu/MenuPage');
-      void import('@/features/stats/StatsPage');
-      void import('@/features/profile/ProfilePage');
+      import('@/features/menu/MenuPage').catch(swallow);
+      import('@/features/stats/StatsPage').catch(swallow);
+      import('@/features/profile/ProfilePage').catch(swallow);
     };
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(prefetch, { timeout: 4000 });

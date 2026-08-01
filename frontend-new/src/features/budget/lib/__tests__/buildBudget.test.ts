@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { buildBudget } from '../buildBudget';
 import type { Transaction } from '@/types/models';
 
-const NOW = new Date('2026-07-20T12:00:00');
-
 function tx(over: Partial<Transaction>): Transaction {
   return {
     id: 1,
@@ -19,28 +17,28 @@ function tx(over: Partial<Transaction>): Transaction {
 
 describe('buildBudget — жизненный цикл долга', () => {
   it('нет транзакций → isEmpty', () => {
-    const vm = buildBudget([], [], NOW);
+    const vm = buildBudget([], []);
     expect(vm.isEmpty).toBe(true);
     expect(vm.myDebts).toEqual([]);
     expect(vm.owed).toEqual([]);
   });
 
-  it('PENDING долг → в myDebts, возраст в минутах', () => {
-    const vm = buildBudget([tx({ id: 5, status: 'PENDING', creditor: { id: 3, firstName: 'Оля' } })], [], NOW);
+  it('PENDING долг → в myDebts', () => {
+    const vm = buildBudget([tx({ id: 5, status: 'PENDING', creditor: { id: 3, firstName: 'Оля' } })], []);
     expect(vm.myDebts).toHaveLength(1);
-    expect(vm.myDebts[0]).toMatchObject({ id: 5, name: 'Оля', amount: 300, status: 'PENDING', ageMin: 30 });
+    expect(vm.myDebts[0]).toMatchObject({ id: 5, name: 'Оля', amount: 300, status: 'PENDING' });
     expect(vm.myDebtTotal).toBe(300);
     expect(vm.isEmpty).toBe(false);
   });
 
   it('PAID долг → всё ещё активен (ждёт подтверждения)', () => {
-    const vm = buildBudget([tx({ id: 5, status: 'PAID' })], [], NOW);
+    const vm = buildBudget([tx({ id: 5, status: 'PAID' })], []);
     expect(vm.myDebts[0].status).toBe('PAID');
     expect(vm.settledRecently).toBe(false);
   });
 
   it('CONFIRMED долг → ушёл из активных, settledRecently=true', () => {
-    const vm = buildBudget([tx({ id: 5, status: 'CONFIRMED' })], [], NOW);
+    const vm = buildBudget([tx({ id: 5, status: 'CONFIRMED' })], []);
     expect(vm.myDebts).toEqual([]);
     expect(vm.settledRecently).toBe(true);
     expect(vm.isEmpty).toBe(false);
@@ -54,7 +52,6 @@ describe('buildBudget — жизненный цикл долга', () => {
         tx({ id: 3, status: 'PENDING', amount: 400 }),
       ],
       [],
-      NOW,
     );
     expect(vm.myDebts.map((d) => d.id)).toEqual([3, 2, 1]);
     expect(vm.myDebtTotal).toBe(1100);
@@ -70,7 +67,6 @@ describe('buildBudget — роль сборщика (кредиты)', () => {
         tx({ id: 2, status: 'PAID', amount: 200, debtor: { id: 4, firstName: 'Оля' } }),
         tx({ id: 3, status: 'PENDING', amount: 100, debtor: { id: 5, firstName: 'Míra' } }),
       ],
-      NOW,
     );
     expect(vm.owedExpected).toBe(600);
     expect(vm.owedReceived).toBe(300);
@@ -82,7 +78,7 @@ describe('buildBudget — роль сборщика (кредиты)', () => {
   });
 
   it('все кредиты CONFIRMED → allCollected, owed пуст, не isEmpty', () => {
-    const vm = buildBudget([], [tx({ id: 1, status: 'CONFIRMED', creditorId: 1, debtorId: 2 })], NOW);
+    const vm = buildBudget([], [tx({ id: 1, status: 'CONFIRMED', creditorId: 1, debtorId: 2 })]);
     expect(vm.owed).toEqual([]);
     expect(vm.allCollected).toBe(true);
     expect(vm.isEmpty).toBe(false);
@@ -92,7 +88,6 @@ describe('buildBudget — роль сборщика (кредиты)', () => {
     const vm = buildBudget(
       [tx({ id: 1, status: 'PENDING', amount: 300 })],
       [tx({ id: 2, status: 'PAID', amount: 200 })],
-      NOW,
     );
     expect(vm.myDebts).toHaveLength(1);
     expect(vm.owed).toHaveLength(1);

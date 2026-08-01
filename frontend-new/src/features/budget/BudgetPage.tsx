@@ -11,32 +11,78 @@ import {
   useSendReminder,
 } from '@/hooks/useBudget';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { EmptyState, Skeleton, Status } from '@/shared/ui';
+import { EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { formatPrice } from '@/features/store-run/lib/selectors';
 import { buildBudget } from './lib/buildBudget';
 import styles from './BudgetPage.module.css';
 
+type BusyKind = 'mark' | 'cancel' | 'confirm' | 'remind';
+
 export function BudgetPage() {
   useScreenHeader('Бюджет команды');
-  const { data: debts = [], isLoading: debtsLoading } = useDebts();
-  const { data: credits = [], isLoading: creditsLoading } = useCredits();
+  const debtsQuery = useDebts();
+  const creditsQuery = useCredits();
   const markPaid = useMarkPaid();
   const cancelMark = useCancelMark();
   const confirmPayment = useConfirmPayment();
   const sendReminder = useSendReminder();
 
-  const vm = useMemo(() => buildBudget(debts, credits), [debts, credits]);
-  const busyId = markPaid.variables ?? cancelMark.variables ?? confirmPayment.variables ?? sendReminder.variables;
+  /* Подстановка пустого массива внутри useMemo, а не рядом с ним: `?? []`
+     снаружи создаёт новый массив на каждый рендер и мемоизация теряется. */
+  const vm = useMemo(
+    () => buildBudget(debtsQuery.data ?? [], creditsQuery.data ?? []),
+    [debtsQuery.data, creditsQuery.data],
+  );
 
-  if (debtsLoading || creditsLoading) {
+  /* Занятость — явная пара «кто и чем занят», а не цепочка `??` по variables:
+     TanStack сохраняет variables ПОСЛЕ завершения мутации, поэтому цепочка
+     залипала на первой сработавшей, и следующая мутация на другой строке
+     теряла и спиннер, и блокировку — второе касание уходило на сервер. */
+  const busy: { id: number | undefined; kind: BusyKind } | null = markPaid.isPending
+    ? { id: markPaid.variables, kind: 'mark' }
+    : cancelMark.isPending
+      ? { id: cancelMark.variables, kind: 'cancel' }
+      : confirmPayment.isPending
+        ? { id: confirmPayment.variables, kind: 'confirm' }
+        : sendReminder.isPending
+          ? { id: sendReminder.variables, kind: 'remind' }
+          : null;
+  const isBusy = (id: number, kind: BusyKind) => busy?.kind === kind && busy.id === id;
+
+  if (debtsQuery.isLoading || creditsQuery.isLoading) {
     return (
       <div className={`rl ${styles.screen}`}>
         <div className={styles.group} style={{ padding: 16 }}>
           <Skeleton variant="text" width="40%" />
           <div style={{ height: 12 }} />
           <Skeleton variant="block" height={56} />
+        </div>
+      </div>
+    );
+  }
+
+  /* Отказ чтения нельзя показывать как «долгов нет»: раньше error никто не
+     читал, данные подставлялись пустым массивом, и человек с долгом на 600 ₽
+     видел «Нет активных расчётов». Проверяем ДО пустого состояния и только
+     когда данных нет вовсе — упавший фоновой рефетч не должен прятать
+     уже показанные суммы. */
+  const debtsFailed = debtsQuery.isError && debtsQuery.data === undefined;
+  const creditsFailed = creditsQuery.isError && creditsQuery.data === undefined;
+  if (debtsFailed || creditsFailed) {
+    return (
+      <div className={`rl ${styles.screen}`}>
+        <div className={styles.stateWrap}>
+          <ErrorState
+            kind="network"
+            title="Не удалось загрузить расчёты"
+            description="Суммы не показаны — это сбой связи, а не отсутствие долгов."
+            onRetry={() => {
+              if (debtsFailed) debtsQuery.refetch();
+              if (creditsFailed) creditsQuery.refetch();
+            }}
+          />
         </div>
       </div>
     );
@@ -59,10 +105,15 @@ export function BudgetPage() {
   return (
     <div className={`rl ${styles.screen}`}>
       {vm.myDebts.length > 0 && (
-        <section className={styles.group} aria-label="Мои долги">
+        <section className={styles.group} aria-labelledby="budget-debts-heading">
           <div className={styles.groupHead}>
-            <span className={styles.groupTitle}>Мои долги</span>
-            <span className={`tnum ${styles.groupTotal}`}>{formatPrice(vm.myDebtTotal)}</span>
+            <h2 id="budget-debts-heading" className={styles.groupTitle}>
+              Мои долги
+            </h2>
+            {/* Итог меняется после каждого действия — озвучиваем. */}
+            <span className={`tnum ${styles.groupTotal}`} role="status">
+              {formatPrice(vm.myDebtTotal)}
+            </span>
           </div>
           {vm.myDebts.map((d) => (
             <div key={d.id} className={styles.row}>
@@ -74,7 +125,7 @@ export function BudgetPage() {
                     Статус говорит чип у имени: и текстовый дубль не нужен, и
                     зона действия остаётся под одну кнопку — строка не переносится. */}
                 <span className={styles.rowPerson}>
-                  <span>{d.name}</span>
+                  <span className={styles.rowName}>{d.name}</span>
                   {d.status === 'PAID' && <Status tone="warning">Ждёт</Status>}
                 </span>
                 <span className={`tnum ${styles.rowAmount}`}>{formatPrice(d.amount)}</span>
@@ -82,7 +133,8 @@ export function BudgetPage() {
               {d.status === 'PENDING' ? (
                 <Button
                   variant="primary"
-                  loading={busyId === d.id && markPaid.isPending}
+                  loading={isBusy(d.id, 'mark')}
+                  aria-label={`Оплатил: ${d.name}, ${formatPrice(d.amount)}`}
                   onClick={() => markPaid.mutate(d.id)}
                 >
                   Оплатил
@@ -90,7 +142,8 @@ export function BudgetPage() {
               ) : (
                 <Button
                   variant="ghost"
-                  loading={busyId === d.id && cancelMark.isPending}
+                  loading={isBusy(d.id, 'cancel')}
+                  aria-label={`Отменить отметку: ${d.name}, ${formatPrice(d.amount)}`}
                   onClick={() => cancelMark.mutate(d.id)}
                 >
                   Отменить отметку
@@ -112,14 +165,26 @@ export function BudgetPage() {
       )}
 
       {vm.owed.length > 0 && (
-        <section className={styles.group} aria-label="Вам должны">
+        <section className={styles.group} aria-labelledby="budget-owed-heading">
           <div className={styles.groupHead}>
-            <span className={styles.groupTitle}>Вам должны</span>
-            <span className={`tnum ${styles.groupTotal}`}>
+            <h2 id="budget-owed-heading" className={styles.groupTitle}>
+              Вам должны
+            </h2>
+            <span className={`tnum ${styles.groupTotal}`} role="status">
               {formatPrice(vm.owedReceived)} из {formatPrice(vm.owedExpected)}
             </span>
           </div>
-          <div className={styles.progress}>
+          <div
+            className={styles.progress}
+            role="progressbar"
+            /* progressbar без имени — serious-нарушение (axe: aria-progressbar-name);
+               aria-valuetext его не заменяет. */
+            aria-label="Собрано от участников"
+            aria-valuemin={0}
+            aria-valuemax={vm.owedExpected}
+            aria-valuenow={vm.owedReceived}
+            aria-valuetext={`Получено ${formatPrice(vm.owedReceived)} из ${formatPrice(vm.owedExpected)}`}
+          >
             <span
               className={styles.progressFill}
               style={{ width: `${vm.owedExpected > 0 ? (vm.owedReceived / vm.owedExpected) * 100 : 0}%` }}
@@ -131,18 +196,20 @@ export function BudgetPage() {
                 {c.name[0].toUpperCase()}
               </div>
               <div className={styles.rowMain}>
+                {/* Чип, а не фраза: «отметил оплату» занимала ~110 px и вытесняла
+                    имя до «М…» — на 390 px было не видно, чей платёж
+                    подтверждаешь. Заодно строка стала как в «Моих долгах». */}
                 <span className={styles.rowPerson}>
-                  <span>{c.name}</span>
-                  <span className={styles.rowPersonNote}>
-                    {c.status === 'PAID' ? 'отметил оплату' : 'ждёт оплаты'}
-                  </span>
+                  <span className={styles.rowName}>{c.name}</span>
+                  {c.status === 'PAID' && <Status tone="warning">Отметил</Status>}
                 </span>
                 <span className={`tnum ${styles.rowAmount}`}>{formatPrice(c.amount)}</span>
               </div>
               {c.status === 'PAID' ? (
                 <Button
                   variant="primary"
-                  loading={busyId === c.id && confirmPayment.isPending}
+                  loading={isBusy(c.id, 'confirm')}
+                  aria-label={`Подтвердить: ${c.name}, ${formatPrice(c.amount)}`}
                   onClick={() => confirmPayment.mutate(c.id)}
                 >
                   Подтвердить
@@ -150,7 +217,8 @@ export function BudgetPage() {
               ) : (
                 <Button
                   variant="secondary"
-                  loading={busyId === c.id && sendReminder.isPending}
+                  loading={isBusy(c.id, 'remind')}
+                  aria-label={`Напомнить: ${c.name}, ${formatPrice(c.amount)}`}
                   onClick={() => sendReminder.mutate(c.id)}
                 >
                   Напомнить

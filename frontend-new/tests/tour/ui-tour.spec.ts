@@ -397,6 +397,16 @@ test.describe('07 Бюджет', () => {
       await app.getByRole('button', { name: 'Оплатил' }).click();
       await shot(app, '07-budget/04-debtor-error', 200);
     });
+
+    /* Аудит: что видит должник, когда СПИСОК не загрузился. Страница читает
+       только isLoading, поэтому отказ чтения падает в `debts = []`. */
+    test('долги не загрузились', async ({ app, api }) => {
+      api.state.failures['GET /budget/debts'] = { abort: true };
+      await app.goto('/budget');
+      await shot(app, '07-budget/07-debts-load-failed');
+      // после исчерпания retry (queryClient: retry 1) состояние меняется
+      await shot(app, '07-budget/07b-debts-load-failed-settled', 3_000);
+    });
   });
 
   test.describe('ответственный', () => {
@@ -706,6 +716,22 @@ test.describe('12 Тёмная тема', () => {
       });
       await app.goto('/store-run/601');
       await shot(app, '12-dark/07b-store-run-unpriced');
+    });
+  });
+
+  test.describe('бюджет', () => {
+    test.use({ scenario: 'budget-debtor', role: 'debtor' });
+    test('мои долги', async ({ app }) => {
+      await app.goto('/budget');
+      await shot(app, '12-dark/09-budget-debtor');
+    });
+  });
+
+  test.describe('бюджет, сборщик', () => {
+    test.use({ scenario: 'budget-responsible', role: 'responsible' });
+    test('вам должны', async ({ app }) => {
+      await app.goto('/budget');
+      await shot(app, '12-dark/09b-budget-responsible');
     });
   });
 
