@@ -11,7 +11,8 @@ import {
   useSendReminder,
 } from '@/hooks/useBudget';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { Button, EmptyState, Skeleton, Status } from '@/shared/ui';
+import { EmptyState, Skeleton, Status } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { formatPrice } from '@/features/store-run/lib/selectors';
 import { buildBudget } from './lib/buildBudget';
@@ -69,11 +70,14 @@ export function BudgetPage() {
                 {d.name[0].toUpperCase()}
               </div>
               <div className={styles.rowMain}>
-                <span className={styles.rowName}>{d.name}</span>
-                <span className={`tnum ${styles.rowSub}`}>
-                  {formatPrice(d.amount)}
-                  {d.status === 'PAID' && ' · ждёт подтверждения'}
+                {/* Сумма — главное на денежном экране, имя контрагента вторично.
+                    Статус говорит чип у имени: и текстовый дубль не нужен, и
+                    зона действия остаётся под одну кнопку — строка не переносится. */}
+                <span className={styles.rowPerson}>
+                  <span>{d.name}</span>
+                  {d.status === 'PAID' && <Status tone="warning">Ждёт</Status>}
                 </span>
+                <span className={`tnum ${styles.rowAmount}`}>{formatPrice(d.amount)}</span>
               </div>
               {d.status === 'PENDING' ? (
                 <Button
@@ -84,16 +88,13 @@ export function BudgetPage() {
                   Оплатил
                 </Button>
               ) : (
-                <div className={styles.rowAction}>
-                  <Status tone="warning">Ждёт</Status>
-                  <Button
-                    variant="ghost"
-                    loading={busyId === d.id && cancelMark.isPending}
-                    onClick={() => cancelMark.mutate(d.id)}
-                  >
-                    Отменить
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  loading={busyId === d.id && cancelMark.isPending}
+                  onClick={() => cancelMark.mutate(d.id)}
+                >
+                  Отменить отметку
+                </Button>
               )}
             </div>
           ))}
@@ -130,11 +131,13 @@ export function BudgetPage() {
                 {c.name[0].toUpperCase()}
               </div>
               <div className={styles.rowMain}>
-                <span className={styles.rowName}>{c.name}</span>
-                <span className={`tnum ${styles.rowSub}`}>
-                  {formatPrice(c.amount)}
-                  {c.status === 'PAID' ? ' · отметил оплату' : ' · ждёт оплаты'}
+                <span className={styles.rowPerson}>
+                  <span>{c.name}</span>
+                  <span className={styles.rowPersonNote}>
+                    {c.status === 'PAID' ? 'отметил оплату' : 'ждёт оплаты'}
+                  </span>
                 </span>
+                <span className={`tnum ${styles.rowAmount}`}>{formatPrice(c.amount)}</span>
               </div>
               {c.status === 'PAID' ? (
                 <Button

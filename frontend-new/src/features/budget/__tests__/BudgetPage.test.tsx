@@ -68,12 +68,23 @@ describe('BudgetPage — должник', () => {
     expect(h.state.markPaid.mutate).toHaveBeenCalledWith(7);
   });
 
-  it('PAID → «Отменить» зовёт cancelMark(id), статус «Ждёт»', () => {
+  it('PAID → «Отменить отметку» зовёт cancelMark(id), статус «Ждёт»', () => {
     h.state.debts = [tx({ id: 7, status: 'PAID', creditor: { id: 3, firstName: 'Оля' } })];
     render(<BudgetPage />);
     expect(screen.getByText('Ждёт')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Отменить' }));
+    // статус говорит только чип — текстового дубля в строке быть не должно
+    expect(screen.queryByText(/ждёт подтверждения/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить отметку' }));
     expect(h.state.cancelMark.mutate).toHaveBeenCalledWith(7);
+  });
+
+  it('сумма долга — отдельный узел, а не хвост подписи с именем', () => {
+    h.state.debts = [tx({ id: 7, amount: 420, status: 'PENDING', creditor: { id: 3, firstName: 'Оля' } })];
+    render(<BudgetPage />);
+    const person = screen.getByText('Оля');
+    expect(person.textContent).toBe('Оля');
+    // сумма живёт соседним узлом строки, а не суффиксом подписи
+    expect(person.closest('div')?.querySelector('.tnum')?.textContent).toBe('420 ₽');
   });
 
   it('CONFIRMED → секция «Долг закрыт»', () => {

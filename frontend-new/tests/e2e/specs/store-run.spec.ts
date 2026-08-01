@@ -118,7 +118,12 @@ test.describe('Закупка: покупки инициатора', () => {
     });
     await expect(appPage.getByText(/0\s?₽/).first()).toBeVisible();
 
+    // у купленной позиции цена уже введена — сброс идёт через подтверждение
     await appPage.getByRole('button', { name: 'Не нашли' }).first().click();
+    const resetPrice = appPage.getByRole('alertdialog');
+    await expect(resetPrice).toContainText('Молоко 3,2%');
+    expect(api.requests('POST', '/store-runs/601/items/701/price')).toHaveLength(1);
+    await resetPrice.getByRole('button', { name: 'Убрать цену' }).click();
     expect(api.requests('POST', '/store-runs/601/items/701/price')).toHaveLength(2);
     await expect(appPage.getByText('Не нашли').first()).toBeVisible();
   });

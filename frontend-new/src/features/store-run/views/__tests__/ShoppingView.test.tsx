@@ -157,9 +157,20 @@ describe('ShoppingView — BOUGHT / NOT_FOUND', () => {
     expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({ itemId: 10, payload: { price: 130, status: 'BOUGHT' } });
   });
 
-  it('BOUGHT → «Не нашли»', async () => {
+  it('BOUGHT → «Не нашли» стирает цену только после подтверждения', async () => {
     renderView(mkRun([mkItem(2, 'Молоко', 'BOUGHT', { id: 10, price: 120 })]), 1);
     await userEvent.click(screen.getByRole('button', { name: 'Не нашли' }));
+    expect(h.setPrice.mutate).not.toHaveBeenCalled();
+
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toHaveTextContent('Отметить «Молоко» как ненайденную?');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
+    expect(h.setPrice.mutate).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Не нашли' }));
+    await userEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Убрать цену' }),
+    );
     expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({ itemId: 10, payload: { price: null, status: 'NOT_FOUND' } });
   });
 

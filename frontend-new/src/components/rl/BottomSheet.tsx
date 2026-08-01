@@ -6,6 +6,7 @@
    Программные закрытия (успех мутации — родитель убирает open) остаются
    мгновенными намеренно: успех должен ощущаться быстрым. */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { IconButton } from './primitives';
 import { pushOverlay } from '@/lib/backButton';
 
@@ -24,6 +25,20 @@ export function shouldDismissSheet(offsetPx: number, elapsedMs: number, sheetHei
 
 function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/* Ловушка по Tab не останавливает виртуальный курсор скринридера: фон надо
+   гасить `inert`. Лист живёт в портале у body, поэтому inert вешается на #root
+   целиком. Счётчик — на случай ConfirmDialog поверх обычного листа. */
+let openSheetCount = 0;
+
+function deactivateBackground(): () => void {
+  openSheetCount += 1;
+  if (openSheetCount === 1) document.getElementById('root')?.setAttribute('inert', '');
+  return () => {
+    openSheetCount = Math.max(0, openSheetCount - 1);
+    if (openSheetCount === 0) document.getElementById('root')?.removeAttribute('inert');
+  };
 }
 
 export function BottomSheet({
@@ -79,6 +94,7 @@ export function BottomSheet({
 
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const reactivateBackground = deactivateBackground();
 
     sheetRef.current?.focus();
 
@@ -116,6 +132,8 @@ export function BottomSheet({
       document.removeEventListener('keydown', onKeyDown, true);
       document.body.style.overflow = prevOverflow;
       registration.release();
+      // inert снимается до возврата фокуса: внутри inert-поддерева focus() не сработает
+      reactivateBackground();
       previouslyFocused?.focus?.();
     };
   }, []);
@@ -155,7 +173,7 @@ export function BottomSheet({
     }
   };
 
-  return (
+  return createPortal(
     <div className="rl">
       <div
         onClick={beginClose}
@@ -183,6 +201,8 @@ export function BottomSheet({
             paddingBottom: 'calc(20px + var(--safe-area-bottom, 0px))',
             maxHeight: '86vh',
             overflowY: 'auto',
+            // без contain прокрутка «пробивает» лист и уводит фон под ним
+            overscrollBehavior: 'contain',
             outline: 'none',
             touchAction: 'pan-y',
           }}
@@ -192,12 +212,17 @@ export function BottomSheet({
             <h3 id={titleId} className="font-head tight" style={{ margin: 0, fontSize: 'var(--text-18)', fontWeight: 700, lineHeight: 1.2 }}>
               {title}
             </h3>
-            <IconButton variant="ghost" size="sm" name="x" aria-label="Закрыть" onClick={beginClose} />
+            {/* при closable=false beginClose выходит по guard — не показываем
+                элемент управления, который выглядит рабочим и ничего не делает */}
+            {closable && (
+              <IconButton variant="ghost" size="sm" name="x" aria-label="Закрыть" onClick={beginClose} />
+            )}
           </div>
           {children}
           {footer && <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>{footer}</div>}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

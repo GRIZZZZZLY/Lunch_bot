@@ -7,9 +7,11 @@
   "include": [
     "playwright.config.ts",
     "playwright.production.config.ts",
+    "playwright.tour.config.ts",
     "src/vite-env.d.ts",
     "tests/e2e/**/*.ts",
-    "tests/production/**/*.ts"
+    "tests/production/**/*.ts",
+    "tests/tour/**/*.ts"
   ],
   "references": []
 }

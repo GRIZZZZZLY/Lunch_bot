@@ -3,7 +3,8 @@
    (onPendingChange) для блокировки settle. Возврата в REQUESTED нет (API). */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSetItemPrice } from '@/hooks/useStoreRun';
-import { Button, Status, TextField } from '@/shared/ui';
+import { ConfirmDialog, Status, TextField } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import type { StoreItem } from '@/services/store-run.service';
 import { formatPrice, parsePriceInput, priceNum } from '../lib/selectors';
 import styles from '../StoreRunPage.module.css';
@@ -25,6 +26,7 @@ export function ShoppingItemRow({
 }) {
   const setPrice = useSetItemPrice(runId);
   const [pricing, setPricing] = useState(false);
+  const [confirmingNotFound, setConfirmingNotFound] = useState(false);
   const [raw, setRaw] = useState('');
   const [error, setError] = useState<string | undefined>();
   const rowRef = useRef<HTMLDivElement>(null);
@@ -73,7 +75,21 @@ export function ShoppingItemRow({
 
   const markNotFound = () => {
     if (rowDisabled) return;
-    setPrice.mutate({ itemId: item.id, payload: { price: null, status: 'NOT_FOUND' } });
+    setPrice.mutate(
+      { itemId: item.id, payload: { price: null, status: 'NOT_FOUND' } },
+      { onSuccess: () => setConfirmingNotFound(false) },
+    );
+  };
+
+  /* У купленной позиции цена уже введена, а NOT_FOUND её стирает — это
+     единственное деструктивное действие потока, спрашиваем подтверждение. */
+  const requestNotFound = () => {
+    if (rowDisabled) return;
+    if (item.status === 'BOUGHT') {
+      setConfirmingNotFound(true);
+      return;
+    }
+    markNotFound();
   };
 
   const pn = priceNum(item.price);
@@ -140,7 +156,7 @@ export function ShoppingItemRow({
               <Button variant="secondary" disabled={rowDisabled} onClick={() => openPricing('')}>
                 Куплено
               </Button>
-              <Button variant="secondary" disabled={rowDisabled} loading={pending} onClick={markNotFound}>
+              <Button variant="secondary" disabled={rowDisabled} loading={pending} onClick={requestNotFound}>
                 Не нашли
               </Button>
             </>
@@ -150,7 +166,7 @@ export function ShoppingItemRow({
               <Button variant="secondary" disabled={rowDisabled} onClick={() => openPricing(pn != null ? String(pn) : '')}>
                 Изменить цену
               </Button>
-              <Button variant="ghost" disabled={rowDisabled} onClick={markNotFound}>
+              <Button variant="ghost" disabled={rowDisabled} onClick={requestNotFound}>
                 Не нашли
               </Button>
             </>
@@ -161,6 +177,22 @@ export function ShoppingItemRow({
             </Button>
           )}
         </div>
+      )}
+
+      {confirmingNotFound && (
+        <ConfirmDialog
+          title={`Отметить «${item.name}» как ненайденную?`}
+          description={
+            pn != null
+              ? `Цена ${formatPrice(pn)} будет удалена, позиция не войдёт в расчёт.`
+              : 'Позиция не войдёт в расчёт.'
+          }
+          confirmLabel="Убрать цену"
+          destructive
+          pending={pending}
+          onConfirm={markNotFound}
+          onCancel={() => setConfirmingNotFound(false)}
+        />
       )}
     </div>
   );

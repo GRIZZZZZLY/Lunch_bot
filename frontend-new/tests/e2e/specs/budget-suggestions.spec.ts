@@ -15,10 +15,8 @@ test.describe('Бюджет и долги', () => {
       await appPage.getByRole('button', { name: 'Оплатил' }).click();
       expect(api.lastRequest('POST', '/budget/mark-paid')?.body).toEqual({ transactionId: 801 });
       await expect(appPage.getByText('Отмечено как оплачено. Ждём подтверждения.')).toBeVisible();
-      const markedDebt = appPage
-        .getByText('420 ₽ · ждёт подтверждения', { exact: true })
-        .locator('../..');
-      await markedDebt.getByRole('button', { name: 'Отменить' }).click();
+      const markedDebt = appPage.getByText('420 ₽', { exact: true }).locator('../..');
+      await markedDebt.getByRole('button', { name: 'Отменить отметку' }).click();
       expect(api.lastRequest('POST', '/budget/cancel-mark')?.body).toEqual({ transactionId: 801 });
       await expect(appPage.getByText('Отметка снята')).toBeVisible();
     });
@@ -27,7 +25,9 @@ test.describe('Бюджет и долги', () => {
       api.fail('POST', '/budget/mark-paid', { status: 403, error: 'Операция запрещена', code: 'FORBIDDEN' });
       await appPage.goto('/budget');
       await appPage.getByRole('button', { name: 'Оплатил' }).click();
-      await expect(appPage.getByText('Не удалось отметить оплату')).toBeVisible();
+      // apiError.ts переводит код в человеческий текст; запасной текст вызова
+      // виден только на неизвестном коде (см. 9b08db1e)
+      await expect(appPage.getByText('Недостаточно прав для этого действия.')).toBeVisible();
       await expect(appPage.getByRole('button', { name: 'Оплатил' })).toBeVisible();
     });
   });
