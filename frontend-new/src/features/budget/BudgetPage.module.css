@@ -102,6 +102,36 @@
   text-overflow: ellipsis;
 }
 
+/* За что долг — отдельной строкой, а не хвостом к имени: в имени длинный текст
+   уже один раз выдавил его до одной буквы. Внутри строки сжимается название,
+   дата ширину держит. */
+.rowRef {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  overflow: hidden;
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+}
+
+.rowRefSubject {
+  min-width: 4ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowRefWhen {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Разделитель ставит вёрстка, а не текст: при обрезанном названии точка должна
+   остаться на своём месте. */
+.rowRefSubject + .rowRefWhen::before {
+  content: '· ';
+}
+
 .rowAmount {
   display: block;
   font-size: var(--text-16);

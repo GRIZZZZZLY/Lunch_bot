@@ -15,10 +15,23 @@ import { EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { formatPrice } from '@/features/store-run/lib/selectors';
-import { buildBudget } from './lib/buildBudget';
+import { buildBudget, type BudgetReference } from './lib/buildBudget';
 import styles from './BudgetPage.module.css';
 
 type BusyKind = 'mark' | 'cancel' | 'confirm' | 'remind';
+
+/* За что и когда. Дата держит ширину, название сжимается: иначе длинное
+   «Пятёрочка у офиса» съедало дату, а именно она различает два долга
+   одному и тому же человеку. */
+function Reference({ value }: { value: BudgetReference }) {
+  if (!value.subject && !value.when) return null;
+  return (
+    <span className={styles.rowRef}>
+      {value.subject && <span className={styles.rowRefSubject}>{value.subject}</span>}
+      {value.when && <span className={styles.rowRefWhen}>{value.when}</span>}
+    </span>
+  );
+}
 
 export function BudgetPage() {
   useScreenHeader('Бюджет команды');
@@ -128,6 +141,7 @@ export function BudgetPage() {
                   <span className={styles.rowName}>{d.name}</span>
                   {d.status === 'PAID' && <Status tone="warning">Ждёт</Status>}
                 </span>
+                <Reference value={d.reference} />
                 <span className={`tnum ${styles.rowAmount}`}>{formatPrice(d.amount)}</span>
               </div>
               {d.status === 'PENDING' ? (
@@ -203,6 +217,7 @@ export function BudgetPage() {
                   <span className={styles.rowName}>{c.name}</span>
                   {c.status === 'PAID' && <Status tone="warning">Отметил</Status>}
                 </span>
+                <Reference value={c.reference} />
                 <span className={`tnum ${styles.rowAmount}`}>{formatPrice(c.amount)}</span>
               </div>
               {c.status === 'PAID' ? (

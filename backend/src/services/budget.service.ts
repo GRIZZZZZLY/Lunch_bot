@@ -917,6 +917,9 @@ export class BudgetService {
           fromUser: true, // Кто должен (сам пользователь)
           toUser: true, // Кому должен
           menuItem: true,
+          // За что долг: обеденная транзакция несёт блюдо, магазинная — забег.
+          // Без этого строка бюджета показывала только имя и сумму.
+          storeRun: { select: { id: true, storeName: true } },
           poll: {
             include: {
               group: true,
@@ -958,6 +961,8 @@ export class BudgetService {
         include: {
           fromUser: true,
           menuItem: true,
+          // См. getUserDebts: за что долг — блюдо или магазин.
+          storeRun: { select: { id: true, storeName: true } },
           poll: {
             include: {
               group: true,

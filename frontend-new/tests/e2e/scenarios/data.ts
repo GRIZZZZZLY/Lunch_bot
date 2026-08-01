@@ -307,6 +307,8 @@ function makeTransactions(): { debts: Transaction[]; credits: Transaction[] } {
         createdAt: CREATED_AT,
         creditor: USERS.initiator,
         debtor: USERS.current,
+        // за что долг: обеденная транзакция несёт блюдо
+        menuItem: { id: 12, name: 'Паста карбонара' },
       },
       {
         id: 802,
@@ -318,6 +320,8 @@ function makeTransactions(): { debts: Transaction[]; credits: Transaction[] } {
         createdAt: CREATED_AT,
         creditor: USERS.initiator,
         debtor: USERS.current,
+        // а магазинная — забег: две строки к одному человеку теперь различимы
+        storeRun: { id: 601, storeName: 'Пятёрочка у офиса' },
       },
     ],
     credits: [
@@ -331,6 +335,7 @@ function makeTransactions(): { debts: Transaction[]; credits: Transaction[] } {
         createdAt: CREATED_AT,
         creditor: USERS.current,
         debtor: { id: 303, firstName: 'Мария', username: 'maria_e2e' },
+        menuItem: { id: 102, name: 'Борщ со сметаной' },
       },
     ],
   };

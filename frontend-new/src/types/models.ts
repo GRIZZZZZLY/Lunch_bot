@@ -104,4 +104,9 @@ export interface Transaction {
   debtor?: Pick<User, 'id' | 'firstName' | 'username'>;
   creditor?: Pick<User, 'id' | 'firstName' | 'username'>;
   poll?: Pick<Poll, 'id' | 'createdAt' | 'closedAt' | 'status'>;
+  /* За что долг. Обеденная транзакция несёт блюдо, магазинная — забег; API
+     отдавал menuItem и раньше, но тип его не описывал, и бюджет показывал
+     только имя с суммой. */
+  menuItem?: { id: number; name: string };
+  storeRun?: { id: number; storeName: string };
 }

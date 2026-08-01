@@ -9,6 +9,13 @@ export interface DebtLineVM {
   name: string; // кому должен (кредитор)
   amount: number;
   status: 'PENDING' | 'PAID';
+  /** За что и когда. subject пустой, если API не дал ни блюда, ни магазина. */
+  reference: BudgetReference;
+}
+
+export interface BudgetReference {
+  subject: string;
+  when: string;
 }
 
 export interface CreditLineVM {
@@ -16,6 +23,7 @@ export interface CreditLineVM {
   name: string; // кто должен (должник)
   amount: number;
   status: 'PENDING' | 'PAID';
+  reference: BudgetReference;
 }
 
 export interface BudgetVM {
@@ -35,6 +43,25 @@ function personName(u?: { firstName?: string; username?: string }): string {
   return u?.firstName || u?.username || 'Участник';
 }
 
+/**
+ * За что долг. Две строки «Игорь · 420 ₽» и «Игорь · 180 ₽» не различить: обед
+ * это или магазин, за какой день — экран не говорил. Источник — блюдо
+ * (обеденная транзакция) или название магазина (закупка); дату берём из самой
+ * транзакции, она есть всегда. Если API не дал ни того ни другого, остаётся
+ * только дата, а не выдуманный текст.
+ *
+ * Двумя частями, а не склеенной строкой: длинное название иначе съедает дату
+ * целиком, а именно дата различает два долга одному человеку.
+ */
+function referenceOf(t: Transaction): BudgetReference {
+  return {
+    subject: t.menuItem?.name || t.storeRun?.storeName || '',
+    when: t.createdAt
+      ? new Date(t.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+      : '',
+  };
+}
+
 export function buildBudget(debts: Transaction[], credits: Transaction[]): BudgetVM {
   const myDebts = debts
     .filter((d) => d.status !== 'CONFIRMED')
@@ -43,6 +70,7 @@ export function buildBudget(debts: Transaction[], credits: Transaction[]): Budge
       name: personName(d.creditor),
       amount: d.amount,
       status: d.status as 'PENDING' | 'PAID',
+      reference: referenceOf(d),
     }))
     // сначала неоплаченные, внутри — по убыванию суммы
     .sort((a, b) => (a.status === b.status ? b.amount - a.amount : a.status === 'PENDING' ? -1 : 1));
@@ -56,6 +84,7 @@ export function buildBudget(debts: Transaction[], credits: Transaction[]): Budge
       name: personName(c.debtor),
       amount: c.amount,
       status: c.status as 'PENDING' | 'PAID',
+      reference: referenceOf(c),
     }))
     // сначала те, кто отметил оплату (их надо подтвердить)
     .sort((a, b) => (a.status === b.status ? b.amount - a.amount : a.status === 'PAID' ? -1 : 1));

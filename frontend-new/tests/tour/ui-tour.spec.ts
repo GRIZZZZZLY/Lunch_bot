@@ -401,7 +401,12 @@ test.describe('07 Бюджет', () => {
     /* Аудит: что видит должник, когда СПИСОК не загрузился. Страница читает
        только isLoading, поэтому отказ чтения падает в `debts = []`. */
     test('долги не загрузились', async ({ app, api }) => {
-      api.state.failures['GET /budget/debts'] = { abort: true };
+      api.state.failures['GET /budget/debts'] = {
+        status: 503,
+        error: 'Сеть недоступна',
+        code: 'NETWORK',
+        abort: true,
+      };
       await app.goto('/budget');
       await shot(app, '07-budget/07-debts-load-failed');
       // после исчерпания retry (queryClient: retry 1) состояние меняется
