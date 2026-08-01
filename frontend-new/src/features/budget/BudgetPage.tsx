@@ -28,6 +28,11 @@ function Reference({ value }: { value: BudgetReference }) {
   return (
     <span className={styles.rowRef}>
       {value.subject && <span className={styles.rowRefSubject}>{value.subject}</span>}
+      {/* Настоящий пробел, а не только flex-gap: видимую точку рисует CSS, и без
+          этого узла текст строки склеивался бы в «Паста карбонара14 июля».
+          Во flex-контейнере узел из одних пробелов элементом не становится,
+          поэтому на вёрстку он не влияет. */}
+      {value.subject && value.when ? ' ' : null}
       {value.when && <span className={styles.rowRefWhen}>{value.when}</span>}
     </span>
   );

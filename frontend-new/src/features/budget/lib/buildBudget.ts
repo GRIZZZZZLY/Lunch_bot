@@ -33,7 +33,6 @@ export interface BudgetVM {
   owed: CreditLineVM[];
   owedReceived: number; // подтверждено, ₽
   owedExpected: number; // всего к получению, ₽
-  owedPaidCount: number; // оплатили или подтверждено
   owedCount: number;
   allCollected: boolean; // мне были должны, все рассчитались
   isEmpty: boolean;
@@ -92,7 +91,6 @@ export function buildBudget(debts: Transaction[], credits: Transaction[]): Budge
   const owedReceived = credits
     .filter((c) => c.status === 'CONFIRMED')
     .reduce((s, c) => s + c.amount, 0);
-  const owedPaidCount = credits.filter((c) => c.status !== 'PENDING').length;
   const owedCount = credits.length;
 
   return {
@@ -102,7 +100,6 @@ export function buildBudget(debts: Transaction[], credits: Transaction[]): Budge
     owed,
     owedReceived,
     owedExpected,
-    owedPaidCount,
     owedCount,
     allCollected: owedCount > 0 && owed.length === 0,
     isEmpty:

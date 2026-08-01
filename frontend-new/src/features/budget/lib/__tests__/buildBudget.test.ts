@@ -94,7 +94,6 @@ describe('buildBudget — роль сборщика (кредиты)', () => {
     );
     expect(vm.owedExpected).toBe(600);
     expect(vm.owedReceived).toBe(300);
-    expect(vm.owedPaidCount).toBe(2);
     expect(vm.owedCount).toBe(3);
     // активные (не CONFIRMED): PAID раньше PENDING
     expect(vm.owed.map((c) => c.id)).toEqual([2, 3]);
