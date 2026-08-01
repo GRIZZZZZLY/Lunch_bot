@@ -61,6 +61,7 @@ export class RecurringPollService {
         id: { in: uniqueIds },
         groupId,
         isActive: true,
+        deletedAt: null,
       },
     });
 

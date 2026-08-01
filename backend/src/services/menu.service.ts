@@ -83,8 +83,11 @@ export class MenuService {
    */
   static async getMenuItemById(id: number): Promise<MenuItem | null> {
     try {
-      return await prisma.menuItem.findUnique({
-        where: { id },
+      // findFirst, а не findUnique: удалённое блюдо для каталожного GET /menu/:id
+      // должно выглядеть как отсутствующее (404), иначе его можно открыть по
+      // прямой ссылке и отредактировать.
+      return await prisma.menuItem.findFirst({
+        where: { id, deletedAt: null },
       });
     } catch (error) {
       logger.error('Error getting menu item by ID:', error);
@@ -103,9 +106,9 @@ export class MenuService {
     try {
       const existing = await prisma.menuItem.findUnique({
         where: { id },
-        select: { groupId: true },
+        select: { groupId: true, deletedAt: true },
       });
-      if (!existing) {
+      if (!existing || existing.deletedAt) {
         throw new Error('Menu item not found');
       }
       await GroupService.assertAdmin(actingUserId, existing.groupId);
@@ -161,37 +164,24 @@ export class MenuService {
       }
       await GroupService.assertAdmin(actingUserId, menuItem.groupId);
 
-      // Если есть связанные данные, сначала очищаем их
-      if (menuItem._count.votes > 0 || menuItem._count.pollResults > 0) {
-        logger.info(`Menu item ${id} has related data, cleaning up...`, {
-          votes: menuItem._count.votes,
-          pollResults: menuItem._count.pollResults,
-        });
-
-        // Удаляем связанные голоса (set menuItemId to null)
-        await prisma.vote.updateMany({
-          where: { menuItemId: id },
-          data: { menuItemId: null },
-        });
-
-        // Удаляем связанные результаты голосований (set winnerMenuItemId to null)
-        await prisma.pollResult.updateMany({
-          where: { winnerMenuItemId: id },
-          data: { winnerMenuItemId: null },
-        });
-      }
-
-      // Теперь можно безопасно удалить блюдо
-      await prisma.menuItem.delete({
-        where: { id, groupId: menuItem.groupId },
+      /* МЯГКОЕ удаление. Раньше здесь обнулялись menuItemId у всех голосов и
+         winnerMenuItemId у всех результатов, после чего запись удалялась —
+         администратор убирал блюдо, которое больше не готовят, и молча стирал
+         победителей в завершённых опросах всей группы.
+         Теперь блюдо помечается и уходит из каталога, а связи истории целы.
+         isActive гасим заодно: удалённое не должно попасть в голосование, даже
+         если какой-то путь чтения забудет про deletedAt. */
+      await prisma.menuItem.updateMany({
+        where: { id, groupId: menuItem.groupId, deletedAt: null },
+        data: { deletedAt: new Date(), isActive: false },
       });
 
       // Инвалидируем кэш меню группы
       CacheInvalidator.invalidateMenu(menuItem.groupId);
 
-      logger.info(`Menu item deleted: ${id}`, {
-        cleanedVotes: menuItem._count.votes,
-        cleanedResults: menuItem._count.pollResults,
+      logger.info(`Menu item soft-deleted: ${id}`, {
+        keptVotes: menuItem._count.votes,
+        keptResults: menuItem._count.pollResults,
       });
     } catch (error) {
       if (error instanceof Error && error.name === 'GroupAccessError') throw error;
@@ -217,7 +207,7 @@ export class MenuService {
   static async getAllMenuItems(groupId: number): Promise<MenuItem[]> {
     try {
       return await prisma.menuItem.findMany({
-        where: { groupId },
+        where: { groupId, deletedAt: null },
         orderBy: [
           { isActive: 'desc' },
           { name: 'asc' },
@@ -243,6 +233,7 @@ export class MenuService {
         where: {
           id: { in: ids },
           isActive: true,
+          deletedAt: null,
         },
         orderBy: { name: 'asc' },
       });
@@ -266,7 +257,7 @@ export class MenuService {
         async () => {
           logger.info('🔍 [MenuService] Fetching from DB (cache miss)', { groupId });
           const dbItems = await prisma.menuItem.findMany({
-            where: { isActive: true, groupId },
+            where: { isActive: true, groupId, deletedAt: null },
             select: {
               id: true,
               name: true,
@@ -278,6 +269,7 @@ export class MenuService {
               groupId: true,
               createdAt: true,
               updatedAt: true,
+              deletedAt: true,
             },
             orderBy: { name: 'asc' },
           });
@@ -337,10 +329,12 @@ export class MenuService {
       // Сначала получаем текущий статус и groupId
       const currentItem = await prisma.menuItem.findUnique({
         where: { id },
-        select: { isActive: true, groupId: true },
+        select: { isActive: true, groupId: true, deletedAt: true },
       });
 
-      if (!currentItem) {
+      // Удалённое блюдо не «показываем обратно»: иначе переключатель вернул бы
+      // его в голосование в обход каталога, где его уже нет.
+      if (!currentItem || currentItem.deletedAt) {
         throw new Error('Menu item not found');
       }
       await GroupService.assertAdmin(actingUserId, currentItem.groupId);
@@ -380,7 +374,7 @@ export class MenuService {
   static async getPopularMenuItems(limit: number = 10, groupId: number): Promise<MenuItemWithStats[]> {
     try {
       const popularItems = await prisma.menuItem.findMany({
-        where: { isActive: true, groupId },
+        where: { isActive: true, groupId, deletedAt: null },
         include: {
           _count: {
             select: {
@@ -421,13 +415,14 @@ export class MenuService {
   }> {
     try {
       const [total, active, avgPriceResult] = await Promise.all([
-        prisma.menuItem.count({ where: { groupId } }),
-        prisma.menuItem.count({ where: { isActive: true, groupId } }),
+        prisma.menuItem.count({ where: { groupId, deletedAt: null } }),
+        prisma.menuItem.count({ where: { isActive: true, groupId, deletedAt: null } }),
         prisma.menuItem.aggregate({
           where: {
             price: { not: null },
             isActive: true,
             groupId,
+            deletedAt: null,
           },
           _avg: { price: true },
         }),
@@ -466,7 +461,7 @@ export class MenuService {
       }
 
       const result = await prisma.menuItem.updateMany({
-        where: { id: { in: ids }, groupId: { in: uniqueGroupIds } },
+        where: { id: { in: ids }, groupId: { in: uniqueGroupIds }, deletedAt: null },
         data: { isActive, updatedAt: new Date() },
       });
 

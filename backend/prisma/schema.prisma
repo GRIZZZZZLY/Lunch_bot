@@ -91,6 +91,10 @@ model MenuItem {
   groupId      Int           @map("group_id")
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
+  /* Мягкое удаление. Жёсткое рвало историю: обнуляло menuItemId у всех голосов
+     и winnerMenuItemId у всех результатов, из-за чего в завершённых опросах
+     пропадал победитель. Блюдо уходит из каталога, связи остаются. */
+  deletedAt    DateTime?     @map("deleted_at")
   creator      User          @relation(fields: [createdBy], references: [id])
   group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
   pollResults  PollResult[]
@@ -99,6 +103,7 @@ model MenuItem {
 
   @@index([isActive])
   @@index([groupId, isActive])
+  @@index([groupId, deletedAt])
   @@map("menu_items")
 }
 

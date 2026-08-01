@@ -7,6 +7,7 @@ jest.mock('../../../database/client', () => ({
     menuItem: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
@@ -83,6 +84,7 @@ describe('MenuService', () => {
         groupId: createData.groupId,
         createdAt: new Date(),
         updatedAt: new Date(),
+        deletedAt: null,
       };
 
       (prisma.menuItem.create as jest.Mock).mockResolvedValue(expectedMenuItem);
@@ -125,6 +127,7 @@ describe('MenuService', () => {
         groupId: createData.groupId,
         createdAt: new Date(),
         updatedAt: new Date(),
+        deletedAt: null,
       };
 
       (prisma.menuItem.create as jest.Mock).mockResolvedValue(expectedMenuItem);
@@ -166,23 +169,24 @@ describe('MenuService', () => {
         groupId: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
+        deletedAt: null,
       };
 
-      (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(expectedMenuItem);
+      (prisma.menuItem.findFirst as jest.Mock).mockResolvedValue(expectedMenuItem);
 
       // Act
       const result = await MenuService.getMenuItemById(menuItemId);
 
       // Assert
-      expect(prisma.menuItem.findUnique).toHaveBeenCalledWith({
-        where: { id: menuItemId },
+      expect(prisma.menuItem.findFirst).toHaveBeenCalledWith({
+        where: { id: menuItemId, deletedAt: null },
       });
       expect(result).toEqual(expectedMenuItem);
     });
 
     it('should return null when menu item not found', async () => {
       // Arrange
-      (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.menuItem.findFirst as jest.Mock).mockResolvedValue(null);
 
       // Act
       const result = await MenuService.getMenuItemById(999);
@@ -193,7 +197,7 @@ describe('MenuService', () => {
 
     it('should throw error when database operation fails', async () => {
       // Arrange
-      (prisma.menuItem.findUnique as jest.Mock).mockRejectedValue(new Error('Database error'));
+      (prisma.menuItem.findFirst as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       // Act & Assert
       await expect(MenuService.getMenuItemById(1)).rejects.toThrow('Failed to get menu item');
@@ -220,6 +224,7 @@ describe('MenuService', () => {
         groupId: 1,
         createdAt: new Date('2024-01-01'),
         updatedAt: new Date(),
+        deletedAt: null,
       };
 
       (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue({ groupId: 1 });
@@ -286,7 +291,7 @@ describe('MenuService', () => {
       };
 
       (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(menuItemWithCounts);
-      (prisma.menuItem.delete as jest.Mock).mockResolvedValue({});
+      (prisma.menuItem.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
       // Act
       await MenuService.deleteMenuItem(menuItemId, ACTING_USER);
@@ -305,13 +310,18 @@ describe('MenuService', () => {
       });
       expect(prisma.vote.updateMany).not.toHaveBeenCalled();
       expect(prisma.pollResult.updateMany).not.toHaveBeenCalled();
-      expect(prisma.menuItem.delete).toHaveBeenCalledWith({
-        where: { id: menuItemId, groupId: 1 },
+      expect(prisma.menuItem.updateMany).toHaveBeenCalledWith({
+        where: { id: menuItemId, groupId: 1, deletedAt: null },
+        data: { deletedAt: expect.any(Date), isActive: false },
       });
+      expect(prisma.menuItem.delete).not.toHaveBeenCalled();
       expect(CacheInvalidator.invalidateMenu).toHaveBeenCalled();
     });
 
-    it('should delete menu item and clean up related data', async () => {
+    /* Регрессия: удаление блюда с историей. Раньше здесь обнулялись menuItemId
+       у всех голосов и winnerMenuItemId у всех результатов — победители
+       завершённых опросов исчезали. Теперь история неприкосновенна. */
+    it('не трогает историю: голоса и результаты опросов остаются на месте', async () => {
       // Arrange
       const menuItemId = 1;
       const menuItemWithCounts = {
@@ -332,24 +342,18 @@ describe('MenuService', () => {
       };
 
       (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(menuItemWithCounts);
-      (prisma.vote.updateMany as jest.Mock).mockResolvedValue({ count: 5 });
-      (prisma.pollResult.updateMany as jest.Mock).mockResolvedValue({ count: 2 });
-      (prisma.menuItem.delete as jest.Mock).mockResolvedValue({});
+      (prisma.menuItem.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
       // Act
       await MenuService.deleteMenuItem(menuItemId, ACTING_USER);
 
       // Assert
-      expect(prisma.vote.updateMany).toHaveBeenCalledWith({
-        where: { menuItemId },
-        data: { menuItemId: null },
-      });
-      expect(prisma.pollResult.updateMany).toHaveBeenCalledWith({
-        where: { winnerMenuItemId: menuItemId },
-        data: { winnerMenuItemId: null },
-      });
-      expect(prisma.menuItem.delete).toHaveBeenCalledWith({
-        where: { id: menuItemId, groupId: 1 },
+      expect(prisma.vote.updateMany).not.toHaveBeenCalled();
+      expect(prisma.pollResult.updateMany).not.toHaveBeenCalled();
+      expect(prisma.menuItem.delete).not.toHaveBeenCalled();
+      expect(prisma.menuItem.updateMany).toHaveBeenCalledWith({
+        where: { id: menuItemId, groupId: 1, deletedAt: null },
+        data: { deletedAt: expect.any(Date), isActive: false },
       });
       expect(CacheInvalidator.invalidateMenu).toHaveBeenCalled();
     });
@@ -371,10 +375,57 @@ describe('MenuService', () => {
       };
 
       (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(menuItemWithCounts);
-      (prisma.menuItem.delete as jest.Mock).mockRejectedValue(new Error('Database error'));
+      (prisma.menuItem.updateMany as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       // Act & Assert
       await expect(MenuService.deleteMenuItem(1, ACTING_USER)).rejects.toThrow('Failed to delete menu item');
+    });
+  });
+
+  /* Удалённое блюдо должно вести себя как отсутствующее везде, где его можно
+     было бы вернуть в оборот: иначе переключатель «Показать» поднимет его в
+     голосование в обход каталога, где его уже нет. */
+  describe('мягкое удаление: блюдо исчезает из каталога', () => {
+    it('getAllMenuItems не отдаёт удалённые', async () => {
+      (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([]);
+
+      await MenuService.getAllMenuItems(1);
+
+      expect(prisma.menuItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { groupId: 1, deletedAt: null } }),
+      );
+    });
+
+    it('getMenuItemById отдаёт null для удалённого', async () => {
+      (prisma.menuItem.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(MenuService.getMenuItemById(1)).resolves.toBeNull();
+      expect(prisma.menuItem.findFirst).toHaveBeenCalledWith({
+        where: { id: 1, deletedAt: null },
+      });
+    });
+
+    it('toggleMenuItemStatus не оживляет удалённое', async () => {
+      (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue({
+        isActive: false,
+        groupId: 1,
+        deletedAt: new Date(),
+      });
+
+      await expect(MenuService.toggleMenuItemStatus(1, ACTING_USER)).rejects.toThrow('Menu item not found');
+      expect(prisma.menuItem.update).not.toHaveBeenCalled();
+    });
+
+    it('updateMenuItem не редактирует удалённое', async () => {
+      (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue({
+        groupId: 1,
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        MenuService.updateMenuItem(1, { name: 'Новое имя' }, ACTING_USER),
+      ).rejects.toThrow('Menu item not found');
+      expect(prisma.menuItem.update).not.toHaveBeenCalled();
     });
   });
 
@@ -393,6 +444,7 @@ describe('MenuService', () => {
           groupId: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
+          deletedAt: null,
         },
         {
           id: 2,
@@ -405,6 +457,7 @@ describe('MenuService', () => {
           groupId: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
+          deletedAt: null,
         },
       ];
 
@@ -415,7 +468,7 @@ describe('MenuService', () => {
 
       // Assert
       expect(prisma.menuItem.findMany).toHaveBeenCalledWith({
-        where: { groupId: 1 },
+        where: { groupId: 1, deletedAt: null },
         orderBy: [
           { isActive: 'desc' },
           { name: 'asc' },
@@ -448,6 +501,7 @@ describe('MenuService', () => {
           groupId: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
+          deletedAt: null,
         },
       ];
 
@@ -486,6 +540,7 @@ describe('MenuService', () => {
           groupId: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
+          deletedAt: null,
         },
       ];
 
@@ -534,6 +589,7 @@ describe('MenuService', () => {
         groupId: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
+        deletedAt: null,
       };
 
       (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(currentItem);
@@ -545,7 +601,7 @@ describe('MenuService', () => {
       // Assert
       expect(prisma.menuItem.findUnique).toHaveBeenCalledWith({
         where: { id: menuItemId },
-        select: { isActive: true, groupId: true },
+        select: { isActive: true, groupId: true, deletedAt: true },
       });
       expect(prisma.menuItem.update).toHaveBeenCalledWith({
         where: { id: menuItemId, groupId: 1 },
@@ -607,7 +663,7 @@ describe('MenuService', () => {
 
       // Assert
       expect(prisma.menuItem.findMany).toHaveBeenCalledWith({
-        where: { isActive: true, groupId: 1 },
+        where: { isActive: true, groupId: 1, deletedAt: null },
         include: {
           _count: {
             select: {
@@ -690,6 +746,7 @@ describe('MenuService', () => {
           groupId: {
             in: [1],
           },
+          deletedAt: null,
         },
         data: {
           isActive,
@@ -716,7 +773,7 @@ describe('MenuService', () => {
       (cacheService.getOrSet as jest.Mock).mockImplementation(async (_k: string, fn: any) => fn());
       await MenuService.getActiveMenuItems(7);
       expect(prisma.menuItem.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { isActive: true, groupId: 7 } })
+        expect.objectContaining({ where: { isActive: true, groupId: 7, deletedAt: null } })
       );
     });
 
