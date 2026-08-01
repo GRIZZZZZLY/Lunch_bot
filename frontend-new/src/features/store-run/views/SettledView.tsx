@@ -4,7 +4,8 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { Button, InlineNotice, Status } from '@/shared/ui';
+import { InlineNotice, Status } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import type { StoreRunWithRelations } from '@/services/store-run.service';
 import {
   computeBreakdown,

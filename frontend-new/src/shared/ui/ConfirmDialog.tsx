@@ -3,7 +3,7 @@
    Не использует window.confirm. Одновременно активен только один. */
 import { useEffect, useId, useSyncExternalStore } from 'react';
 import { BottomSheet } from '@/components/rl/BottomSheet';
-import { Button } from './Button';
+import { Button } from '@/components/rl/primitives';
 
 const confirmDialogIds: string[] = [];
 const confirmDialogListeners = new Set<() => void>();
@@ -81,7 +81,7 @@ export function ConfirmDialog({
           <Button variant="secondary" block onClick={onCancel} disabled={pending}>
             {cancelLabel}
           </Button>
-          <Button variant={destructive ? 'destructive' : 'primary'} block loading={pending} onClick={onConfirm}>
+          <Button variant={destructive ? 'danger' : 'primary'} block loading={pending} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </>

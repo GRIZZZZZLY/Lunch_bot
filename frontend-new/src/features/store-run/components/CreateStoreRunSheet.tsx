@@ -8,7 +8,7 @@ import { COLLECT_PRESETS } from '../lib/selectors';
 function FormField({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
+      <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 'var(--text-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
       {children}
     </div>
   );

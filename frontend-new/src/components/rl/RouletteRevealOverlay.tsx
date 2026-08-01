@@ -73,24 +73,24 @@ function RouletteRun({
     <div className="rl" role="dialog" aria-modal="true">
       <div
         className="glass"
-        style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'color-mix(in srgb, var(--bg-base) 78%, transparent)' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'color-mix(in srgb, var(--canvas) 78%, transparent)' }}
         onClick={phase === 'done' ? onClose : undefined}
       />
       <div style={{ position: 'fixed', inset: 0, zIndex: 61, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <div className="surf-floating anim-pop" style={{ position: 'relative', width: '100%', maxWidth: 320, padding: 28, textAlign: 'center', overflow: 'hidden' }}>
           <Confetti fire={phase === 'done'} count={32} />
-          <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: 4 }}>
+          <div style={{ fontSize: 'var(--text-13)', color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: 4 }}>
             {phase === 'done' ? 'Сегодня заказывает' : 'Выбираем ответственного'}
           </div>
           <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, margin: '6px 0 14px' }}>
             <Avatar name={current} size={56} ring={phase === 'done'} />
-            <div className="font-head tight" style={{ fontSize: 'var(--t-28)', fontWeight: 700 }}>
+            <div className="font-head tight" style={{ fontSize: 'var(--text-28)', fontWeight: 700 }}>
               {current}
             </div>
           </div>
           {phase === 'done' && (
             <div className="anim-rise" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16, color: 'var(--accent)' }}>
-              <Icon name="crown" size={18} /> <span style={{ fontWeight: 600, fontSize: 'var(--t-13)' }}>Ответственный выбран</span>
+              <Icon name="crown" size={18} /> <span style={{ fontWeight: 600, fontSize: 'var(--text-13)' }}>Ответственный выбран</span>
             </div>
           )}
           <div style={{ display: 'flex', gap: 8 }}>

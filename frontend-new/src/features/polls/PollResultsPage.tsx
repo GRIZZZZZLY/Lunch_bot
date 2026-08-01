@@ -9,7 +9,8 @@ import { useMenuItems } from '@/hooks/useMenu';
 import { useSSE } from '@/hooks/useSSE';
 import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { Button, ErrorState, Status } from '@/shared/ui';
+import { ErrorState, Status } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import styles from './PollResultsPage.module.css';
 

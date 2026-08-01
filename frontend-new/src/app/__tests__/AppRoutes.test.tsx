@@ -75,17 +75,24 @@ describe('AppRoutes — React Router 7', () => {
     ['/store-run/17', 'Закупка', 'detail-layout'],
     ['/suggestions', 'Предложения', 'detail-layout'],
     ['/suggestions/mine', 'Мои предложения', 'detail-layout'],
-  ])('открывает %s в нужной раскладке', (path, content, layout) => {
+    // Все маршруты, кроме Главной, ленивые — ждём разрешения чанка.
+  ])('открывает %s в нужной раскладке', async (path, content, layout) => {
     renderRoute(path);
 
-    expect(screen.getByText(content)).toBeInTheDocument();
+    expect(await screen.findByText(content)).toBeInTheDocument();
     expect(screen.getByTestId(layout)).toBeInTheDocument();
   });
 
-  it('неизвестный внутренний адрес показывает страницу 404', () => {
+  it('Главная не ленивая: первый экран рисуется без ожидания чанка', () => {
+    renderRoute('/');
+
+    expect(screen.getByText('Главная')).toBeInTheDocument();
+  });
+
+  it('неизвестный внутренний адрес показывает страницу 404', async () => {
     renderRoute('/unknown/path');
 
-    expect(screen.getByText('Страница не найдена')).toBeInTheDocument();
+    expect(await screen.findByText('Страница не найдена')).toBeInTheDocument();
     expect(screen.getByTestId('root-layout')).toBeInTheDocument();
   });
 });

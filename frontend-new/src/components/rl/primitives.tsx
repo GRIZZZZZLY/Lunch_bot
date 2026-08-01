@@ -11,6 +11,7 @@ import {
   type ReactNode,
   type TextareaHTMLAttributes,
 } from 'react';
+import { useRovingFocus } from '@/shared/lib/useRovingFocus';
 import { Icon, type IconName } from './Icon';
 
 export function Spinner({ size = 18, className = '' }: { size?: number; className?: string }) {
@@ -40,6 +41,8 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   icon?: IconName;
   iconRight?: IconName;
   loading?: boolean;
+  /** Растянуть на всю ширину контейнера. */
+  block?: boolean;
 }
 
 export function Button({
@@ -48,18 +51,28 @@ export function Button({
   icon,
   iconRight,
   loading,
+  block = false,
   disabled,
   children,
   className = '',
+  // Без явного type кнопка внутри <form> считается submit и отправляет форму.
+  type = 'button',
   ...rest
 }: ButtonProps) {
   const cls = ['btn', `btn--${variant}`];
   if (size === 'sm') cls.push('btn--sm');
   if (size === 'lg') cls.push('btn--lg');
+  if (block) cls.push('btn--block');
   if (loading) cls.push('is-loading');
   if (className) cls.push(className);
   return (
-    <button className={cls.join(' ')} disabled={disabled || loading} {...rest}>
+    <button
+      type={type}
+      className={cls.join(' ')}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...rest}
+    >
       {loading && <Spinner className="btn__spin" />}
       {icon && <Icon name={icon} size={size === 'sm' ? 16 : 18} />}
       {children && <span>{children}</span>}
@@ -83,6 +96,7 @@ export function IconButton({
   loading,
   disabled,
   className = '',
+  type = 'button',
   ...rest
 }: IconButtonProps) {
   const cls = ['btn', 'btn--icon', `btn--${variant}`];
@@ -91,7 +105,13 @@ export function IconButton({
   if (loading) cls.push('is-loading');
   if (className) cls.push(className);
   return (
-    <button className={cls.join(' ')} disabled={disabled || loading} {...rest}>
+    <button
+      type={type}
+      className={cls.join(' ')}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...rest}
+    >
       {loading ? <Spinner className="btn__spin" /> : <Icon name={name} size={size === 'sm' ? 18 : 20} />}
     </button>
   );
@@ -202,7 +222,14 @@ export interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Chip({ on, icon, children, ...rest }: ChipProps) {
   return (
-    <button type="button" className={'chip press' + (on ? ' on' : '')} {...rest}>
+    // aria-pressed: выбранное состояние чипа несёт только цвет и рамка, на слух
+    // выбранный день недели ничем не отличался от невыбранного.
+    <button
+      type="button"
+      aria-pressed={!!on}
+      className={'chip press' + (on ? ' on' : '')}
+      {...rest}
+    >
       {icon && <Icon name={icon} size={15} />}
       {children}
     </button>
@@ -223,20 +250,31 @@ export function Segmented<T extends string>({
   value: T;
   onChange: (next: T) => void;
 }) {
+  // role="tablist" обещает стрелочную навигацию — без неё каждая вкладка была
+  // отдельной остановкой табуляции, а стрелки не работали вовсе.
+  const { getItemProps } = useRovingFocus(
+    options.length,
+    options.findIndex((o) => o.value === value),
+  );
   return (
     <div className="seg" role="tablist">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="tab"
-          aria-selected={value === o.value}
-          className={value === o.value ? 'on' : ''}
-          onClick={() => onChange(o.value)}
-        >
-          {o.label}
-        </button>
-      ))}
+      {options.map((o, idx) => {
+        const { ref, ...roving } = getItemProps(idx);
+        return (
+          <button
+            key={o.value}
+            ref={ref}
+            type="button"
+            role="tab"
+            aria-selected={value === o.value}
+            className={value === o.value ? 'on' : ''}
+            onClick={() => onChange(o.value)}
+            {...roving}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -277,7 +315,7 @@ export function Avatar({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: 'var(--font-head)',
+        fontFamily: 'var(--font-body)',
         fontWeight: 600,
         fontSize: size * 0.38,
         color: gInk,
@@ -285,7 +323,7 @@ export function Avatar({
         background: src
           ? `center/cover url(${src})`
           : `linear-gradient(135deg, ${gFrom}, ${gTo})`,
-        boxShadow: ring ? '0 0 0 2px var(--bg-elevated), 0 0 0 4px var(--accent)' : 'none',
+        boxShadow: ring ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)' : 'none',
       }}
     >
       {!src && initials}

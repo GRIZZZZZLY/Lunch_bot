@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Button } from '../Button';
+import { Button } from '@/components/rl/primitives';
 import { TextField } from '../TextField';
 import { Status } from '../Status';
 import { InlineNotice } from '../InlineNotice';

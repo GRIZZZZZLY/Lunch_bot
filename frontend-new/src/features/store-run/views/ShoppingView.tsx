@@ -6,7 +6,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { useSettleStoreRun } from '@/hooks/useStoreRun';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { Avatar } from '@/components/rl/primitives';
-import { Button, ConfirmDialog, InlineNotice, Status } from '@/shared/ui';
+import { ConfirmDialog, InlineNotice, Status } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import type { StoreItem, StoreRunWithRelations } from '@/services/store-run.service';
 import {
   boughtWithoutPrice,

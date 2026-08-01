@@ -1,36 +1,36 @@
 /* ROCKET LUNCH — REDESIGN V2, component/utility classes scoped under ".rl".
    Все токены и темы — в tokens.css (единственный источник).
    Wrap subtree in <div className="rl">. */
-.rl .font-head { font-family: var(--font-head); letter-spacing: -0.03em; }
+.rl .font-head { font-family: var(--font-body); letter-spacing: -0.03em; }
 .rl .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
 .rl .tight { letter-spacing: -0.03em; }
-.rl .hairline { border: 1px solid var(--border-subtle); }
+.rl .hairline { border: 1px solid var(--divider); }
 .rl .surf-elevated {
-  background: var(--card-grad, var(--bg-elevated));
+  background: var(--card-grad, var(--surface));
   border: 1px solid transparent;
-  border-radius: var(--r-card);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-2);
 }
 .rl .surf-floating {
-  background: var(--float-grad, var(--bg-floating));
+  background: var(--float-grad, var(--elevated));
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
   border: 1px solid transparent;
-  border-radius: var(--r-card);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-3);
 }
 .rl .glass {
   background: var(--surface-glass);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
   backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--divider);
 }
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-.rl .glass { background: var(--bg-floating); }
+.rl .glass { background: var(--elevated); }
 }
 .rl .focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--bg-elevated), 0 0 0 4px var(--border-strong);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
 }
 @keyframes rl-rise {
   from { opacity: 0; transform: translateY(10px); }
@@ -60,18 +60,18 @@
   0%, 80%, 100% { transform: scale(0.5); opacity: 0.4; }
   40%           { transform: scale(1); opacity: 1; }
 }
-.rl .anim-rise { animation: rl-rise var(--dur-3) var(--ease-out) both; }
+.rl .anim-rise { animation: rl-rise var(--motion-slow) var(--ease-out) both; }
 /* BottomSheet: fade скрима и симметричный уход панели вниз (см. BottomSheet.tsx) */
-.rl.sheet-scrim, .rl .sheet-scrim { animation: rl-fade-in var(--dur-2) var(--ease-out) both; }
+.rl.sheet-scrim, .rl .sheet-scrim { animation: rl-fade-in var(--motion-base) var(--ease-out) both; }
 .rl .sheet-scrim.is-closing { opacity: 0; transition: opacity 200ms var(--ease-out); }
 .rl .sheet-panel.is-closing { transform: translateY(100%); transition: transform 200ms var(--ease-out); }
 @keyframes rl-fade-in { from { opacity: 0; } to { opacity: 1; } }
-.rl .anim-pop { animation: rl-pop var(--dur-3) var(--ease-spring) both; }
+.rl .anim-pop { animation: rl-pop var(--motion-slow) var(--ease-spring) both; }
 .rl .spin { animation: rl-spin 0.8s linear infinite; }
 .rl .skeleton {
   position: relative;
   overflow: hidden;
-  background: var(--border-subtle);
+  background: var(--divider);
   border-radius: 8px;
 }
 .rl .skeleton::after {
@@ -79,26 +79,48 @@
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, var(--bg-elevated), transparent);
+  background: linear-gradient(90deg, transparent, var(--surface), transparent);
   opacity: 0.5;
   animation: rl-shimmer 1.4s var(--ease-out) infinite;
 }
-.rl .press { transition: transform var(--dur-1) var(--ease-spring); }
+.rl .press { transition: transform var(--motion-fast) var(--ease-spring); }
 .rl .press:active { transform: scale(0.97); }
+/* prefers-reduced-motion: убираем движение, но НЕ обратную связь.
+   Прежняя редакция глушила и transition-duration тоже, а вместе с ним —
+   единственный сигнал, что действие принято: бар голосования, заливку круга
+   и смену статуса нельзя было отличить от «ничего не произошло».
+   Новое правило: ключевые кадры выключены (они всегда движение или цикл),
+   переходы живут, но только у свойств, которые ничего не двигают. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    animation-duration: 0.001ms !important;
+    animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+    transition-property: color, background-color, border-color, box-shadow, opacity, fill, stroke !important;
+    transition-duration: 120ms !important;
   }
-  .skeleton::after { animation: none; }
+  .skeleton::after { animation: none !important; }
 }
 .rl .scroll-area::-webkit-scrollbar { width: 0; height: 0; }
 .rl .scroll-area { scrollbar-width: none; }
+/* Текст только для скринридера: живые обновления (SSE) и расшифровки того,
+   что визуально понятно, а на слух — нет. */
+.rl .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 
 /* ===== COMPONENTS (scoped under .rl) ===== */
 
-.rl{font-family:var(--font-body);font-size:var(--t-15);line-height:1.6;color:var(--text-primary);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+.rl{font-family:var(--font-body);font-size:var(--text-15);line-height:1.6;color:var(--text-primary);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
 .rl *{box-sizing:border-box;}
 .rl button{font-family:inherit;}
 .rl .btn {
@@ -111,31 +133,33 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-2);
+  gap: var(--space-2);
   height: 44px;
-  padding: 0 var(--sp-4);
-  border-radius: var(--r-btn);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-control);
   border: 1px solid var(--_bd);
   background: var(--_bg);
   color: var(--_fg);
   font-family: var(--font-body);
-  font-size: var(--t-15);
+  font-size: var(--text-15);
   font-weight: 600;
   letter-spacing: -0.01em;
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
-  transition: transform var(--dur-1) var(--ease-spring),
-              background-color var(--dur-1) var(--ease-out),
-              border-color var(--dur-1) var(--ease-out),
-              box-shadow var(--dur-1) var(--ease-out),
-              opacity var(--dur-1) var(--ease-out);
+  transition: transform var(--motion-fast) var(--ease-spring),
+              background-color var(--motion-fast) var(--ease-out),
+              border-color var(--motion-fast) var(--ease-out),
+              box-shadow var(--motion-fast) var(--ease-out),
+              opacity var(--motion-fast) var(--ease-out);
 }
-.rl .btn:hover:not(:disabled):not(.is-loading) { background: var(--_bgh); border-color: var(--_bgh); }
+@media (hover: hover) {
+  .rl .btn:hover:not(:disabled):not(.is-loading) { background: var(--_bgh); border-color: var(--_bgh); }
+}
 .rl .btn:active:not(:disabled):not(.is-loading) { background: var(--_bga); transform: scale(0.97); }
 .rl .btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--border-strong);
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
 }
 .rl .btn:disabled,
 .rl .btn.is-disabled { opacity: 0.45; cursor: not-allowed; }
@@ -144,34 +168,41 @@
   position: absolute; inset: 0; margin: auto;
   width: 18px; height: 18px; color: var(--_fg);
 }
-.rl .btn--sm { height: 38px; padding: 0 var(--sp-3); font-size: var(--t-13); border-radius: 12px; }
-.rl .btn--lg { height: 52px; padding: 0 var(--sp-6); font-size: var(--t-16); }
+.rl .btn--sm { height: 38px; padding: 0 var(--space-3); font-size: var(--text-13); border-radius: 12px; }
+.rl .btn--lg { height: 52px; padding: 0 var(--space-6); font-size: var(--text-16); }
+.rl .btn--block { width: 100%; }
 .rl .btn--icon { width: 44px; padding: 0; }
 .rl .btn--icon.btn--sm { width: 36px; }
 .rl .btn--icon.btn--lg { width: 48px; }
 .rl .btn--primary { box-shadow: var(--shadow-1); font-weight: 700; }
 .rl .btn--secondary {
-  --_bg: var(--bg-elevated); --_fg: var(--text-primary);
-  --_bd: var(--border-subtle); --_bgh: var(--bg-base); --_bga: var(--bg-base);
+  --_bg: var(--surface); --_fg: var(--text-primary);
+  --_bd: var(--divider); --_bgh: var(--canvas); --_bga: var(--canvas);
   box-shadow: var(--shadow-1);
 }
-.rl .btn--secondary:hover:not(:disabled) { border-color: var(--text-tertiary); }
+@media (hover: hover) {
+  .rl .btn--secondary:hover:not(:disabled) { border-color: var(--text-tertiary); }
+}
 .rl .btn--outline {
   --_bg: transparent; --_fg: var(--accent);
-  --_bd: var(--border-strong); --_bgh: var(--accent-tint); --_bga: var(--accent-tint);
+  --_bd: var(--focus-ring); --_bgh: var(--accent-tint); --_bga: var(--accent-tint);
 }
 .rl .btn--ghost {
   --_bg: transparent; --_fg: var(--text-secondary);
-  --_bd: transparent; --_bgh: var(--bg-base); --_bga: var(--border-subtle);
+  --_bd: transparent; --_bgh: var(--canvas); --_bga: var(--divider);
 }
-.rl .btn--ghost:hover:not(:disabled) { color: var(--text-primary); }
+@media (hover: hover) {
+  .rl .btn--ghost:hover:not(:disabled) { color: var(--text-primary); }
+}
 .rl .btn--link {
   --_bg: transparent; --_fg: var(--accent); --_bd: transparent;
   --_bgh: transparent; --_bga: transparent;
   height: auto; padding: 0; border-radius: 4px; text-decoration: underline;
   text-underline-offset: 3px; box-shadow: none;
 }
-.rl .btn--link:hover:not(:disabled) { color: var(--accent-hover); }
+@media (hover: hover) {
+  .rl .btn--link:hover:not(:disabled) { color: var(--accent-hover); }
+}
 .rl .btn--success { --_bg: var(--success); --_fg: var(--success-foreground, #fff); --_bgh: color-mix(in srgb, var(--success) 86%, #000); --_bga: color-mix(in srgb, var(--success) 74%, #000); }
 .rl .btn--warning { --_bg: var(--warning); --_fg: var(--warning-foreground, #fff); --_bgh: color-mix(in srgb, var(--warning) 86%, #000); --_bga: color-mix(in srgb, var(--warning) 74%, #000); }
 .rl .btn--danger { --_bg: var(--danger);  --_fg: var(--danger-foreground, #fff); --_bgh: color-mix(in srgb, var(--danger) 86%, #000);  --_bga: color-mix(in srgb, var(--danger) 74%, #000); }
@@ -182,163 +213,175 @@
   background: var(--accent-grad, var(--accent)); color: var(--accent-foreground);
   border: none; cursor: pointer;
   box-shadow: var(--shadow-2);
-  transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease-out);
+  transition: transform var(--motion-base) var(--ease-spring), box-shadow var(--motion-base) var(--ease-out);
 }
-.rl .fab:hover { transform: translateY(-2px) scale(1.03); }
+@media (hover: hover) {
+  .rl .fab:hover { transform: translateY(-2px) scale(1.03); }
+}
 .rl .fab:active { transform: scale(0.95); }
-.rl .fab:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--bg-base), 0 0 0 5px var(--border-strong); }
+.rl .fab:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--canvas), 0 0 0 5px var(--focus-ring); }
 .rl .fab.is-open { transform: rotate(45deg); }
 .rl .field {
   width: 100%;
   height: 44px;
-  padding: 0 var(--sp-3);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-block);
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-block);
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: var(--t-15);
-  transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+  font-size: var(--text-15);
+  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 .rl .field::placeholder { color: var(--text-tertiary); }
-.rl .field:hover:not(:disabled) { border-color: var(--text-tertiary); }
-.rl .field:focus { outline: none; border-color: var(--border-strong); box-shadow: 0 0 0 3px var(--accent-tint); }
+@media (hover: hover) {
+  .rl .field:hover:not(:disabled) { border-color: var(--text-tertiary); }
+}
+.rl .field:focus { outline: none; border-color: var(--focus-ring); box-shadow: 0 0 0 3px var(--accent-tint); }
 .rl .field:disabled { opacity: 0.5; cursor: not-allowed; }
 .rl .field.is-error { border-color: var(--danger); }
 .rl .field.is-error:focus { box-shadow: 0 0 0 3px var(--danger-tint); }
-.rl textarea.field { height: auto; min-height: 88px; padding: var(--sp-3); line-height: 1.55; resize: vertical; }
+.rl textarea.field { height: auto; min-height: 88px; padding: var(--space-3); line-height: 1.55; resize: vertical; }
 .rl .search-bar {
-  display: flex; align-items: center; gap: var(--sp-2);
-  height: 48px; padding: 0 var(--sp-4);
+  display: flex; align-items: center; gap: var(--space-2);
+  height: 48px; padding: 0 var(--space-4);
   border-radius: 17px;
-  background: color-mix(in srgb, var(--bg-elevated) 85%, transparent);
-  box-shadow: inset 0 0 0 1px var(--border-subtle), inset 0 2px 6px rgba(0, 0, 0, 0.12);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  box-shadow: inset 0 0 0 1px var(--divider), inset 0 2px 6px rgba(0, 0, 0, 0.12);
   color: var(--text-tertiary);
 }
 .rl .search-bar input {
   flex: 1; border: none; background: transparent; outline: none;
-  color: var(--text-primary); font-family: var(--font-body); font-size: var(--t-15);
+  color: var(--text-primary); font-family: var(--font-body); font-size: var(--text-15);
 }
 .rl .search-bar input::placeholder { color: var(--text-tertiary); }
 .rl .range { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 999px;
-  background: var(--border-subtle); outline: none; }
+  background: var(--divider); outline: none; }
 .rl .range::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%;
-  background: var(--accent); border: 3px solid var(--bg-elevated); box-shadow: var(--shadow-1);
-  cursor: pointer; transition: transform var(--dur-1) var(--ease-spring);
+  background: var(--accent); border: 3px solid var(--surface); box-shadow: var(--shadow-1);
+  cursor: pointer; transition: transform var(--motion-fast) var(--ease-spring);
 }
 .rl .range::-webkit-slider-thumb:active { transform: scale(1.15); }
 .rl .range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent);
-  border: 3px solid var(--bg-elevated); cursor: pointer; }
+  border: 3px solid var(--surface); cursor: pointer; }
 .rl .switch {
   position: relative; width: 46px; height: 28px; border-radius: 999px;
-  background: var(--border-subtle); border: 1px solid var(--border-subtle); cursor: pointer; padding: 0;
-  transition: background-color var(--dur-2) var(--ease-out);
+  background: var(--divider); border: 1px solid var(--divider); cursor: pointer; padding: 0;
+  transition: background-color var(--motion-base) var(--ease-out);
 }
 .rl .switch::after {
   content: ""; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px;
-  border-radius: 50%; background: var(--bg-floating); box-shadow: var(--shadow-1);
-  transition: transform var(--dur-2) var(--ease-spring);
+  border-radius: 50%; background: var(--elevated); box-shadow: var(--shadow-1);
+  transition: transform var(--motion-base) var(--ease-spring);
 }
 .rl .switch.on { background: var(--accent-grad, var(--accent)); border-color: transparent; }
 .rl .switch.on::after { transform: translateX(18px); }
-.rl .switch:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--border-strong); }
+.rl .switch:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring); }
 .rl .switch:disabled { opacity: 0.5; cursor: not-allowed; }
 .rl .checkbox {
-  width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--border-subtle);
-  background: var(--bg-elevated); display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--divider);
+  background: var(--surface); display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; color: var(--accent-foreground);
-  transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 .rl .checkbox.on { background: var(--accent-grad, var(--accent)); border-color: transparent; }
-.rl .checkbox:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--border-strong); }
+.rl .checkbox:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring); }
 .rl .badge {
   display: inline-flex; align-items: center; gap: 5px;
   height: 24px; padding: 0 10px; border-radius: 999px;
-  font-size: var(--t-11); font-weight: 600; letter-spacing: 0.01em;
+  font-size: var(--text-11); font-weight: 600; letter-spacing: 0.01em;
   font-family: var(--font-body);
 }
-.rl .badge--neutral { background: var(--border-subtle); color: var(--text-secondary); }
+.rl .badge--neutral { background: var(--divider); color: var(--text-secondary); }
 .rl .badge--accent { background: var(--accent-tint); color: var(--accent); }
-.rl .badge--success { background: var(--success-tint); color: var(--success); }
-.rl .badge--danger { background: var(--danger-tint);  color: var(--danger); }
-.rl .badge--warning { background: var(--warning-tint); color: var(--warning); }
-.rl .badge--info { background: var(--info-tint);    color: var(--info); }
+.rl .badge--success { background: var(--success-tint); color: var(--success-on-tint); }
+.rl .badge--danger { background: var(--danger-tint);  color: var(--danger-on-tint); }
+.rl .badge--warning { background: var(--warning-tint); color: var(--warning-on-tint); }
+.rl .badge--info { background: var(--info-tint);    color: var(--info-on-tint); }
 .rl .chip {
   display: inline-flex; align-items: center; gap: 6px;
-  height: 36px; padding: 0 var(--sp-3); border-radius: 999px;
-  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-  color: var(--text-secondary); font-size: var(--t-13); font-weight: 500; cursor: pointer;
-  transition: transform var(--dur-1) var(--ease-spring), background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  height: 36px; padding: 0 var(--space-3); border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--divider);
+  color: var(--text-secondary); font-size: var(--text-13); font-weight: 500; cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-spring), background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
 }
-.rl .chip:hover { border-color: var(--text-tertiary); color: var(--text-primary); }
+/* Под пальцем :hover залипает после тапа и держится до касания в другом месте:
+   чип остаётся «наведённым» и путается с выбранным. Отдаём hover только тем,
+   у кого есть чем наводить. */
+@media (hover: hover) {
+  @media (hover: hover) {
+    .rl .chip:hover { border-color: var(--text-tertiary); color: var(--text-primary); }
+  }
+}
 .rl .chip:active { transform: scale(0.96); }
-.rl .chip.on { background: var(--accent-tint); border-color: var(--border-strong); color: var(--accent); }
-.rl .chip:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--border-strong); }
+.rl .chip.on { background: var(--accent-tint); border-color: var(--focus-ring); color: var(--accent); }
+.rl .chip:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring); }
 .rl .seg {
   display: inline-flex; padding: 3px; gap: 2px;
-  background: var(--border-subtle); border-radius: 12px;
+  background: var(--divider); border-radius: 12px;
 }
 .rl .seg button {
   border: none; background: transparent; cursor: pointer;
   padding: 7px 14px; border-radius: 9px; font-family: var(--font-body);
-  font-size: var(--t-13); font-weight: 600; color: var(--text-secondary);
-  transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+  font-size: var(--text-13); font-weight: 600; color: var(--text-secondary);
+  transition: color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out);
 }
-.rl .seg button.on { background: var(--bg-floating); color: var(--text-primary); box-shadow: var(--shadow-1); }
-.rl .seg button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 3px var(--border-strong); }
-.rl .tbl { width: 100%; border-collapse: collapse; font-size: var(--t-13); }
+.rl .seg button.on { background: var(--elevated); color: var(--text-primary); box-shadow: var(--shadow-1); }
+.rl .seg button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 3px var(--focus-ring); }
+.rl .tbl { width: 100%; border-collapse: collapse; font-size: var(--text-13); }
 .rl .tbl th { text-align: left; font-weight: 600; color: var(--text-tertiary);
-  font-size: var(--t-11); text-transform: uppercase; letter-spacing: 0.05em;
-  padding: var(--sp-2) var(--sp-3); }
-.rl .tbl td { padding: var(--sp-3); border-top: 1px solid var(--border-subtle); color: var(--text-primary); }
-.rl .tbl tr:hover td { background: var(--bg-base); }
-.rl .card { background: var(--card-grad, var(--bg-elevated)); border: 1px solid transparent;
-  border-radius: var(--r-card); box-shadow: var(--shadow-2); }
-.rl .dish-row {
-  display: flex; align-items: center; gap: var(--sp-3);
-  padding: var(--sp-3); border-radius: var(--r-block);
-  border: 1px solid transparent; cursor: pointer; position: relative;
-  transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-spring);
+  font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.05em;
+  padding: var(--space-2) var(--space-3); }
+.rl .tbl td { padding: var(--space-3); border-top: 1px solid var(--divider); color: var(--text-primary); }
+@media (hover: hover) {
+  .rl .tbl tr:hover td { background: var(--canvas); }
 }
-.rl .dish-row:hover { background: var(--bg-base); border-color: var(--border-subtle); }
+.rl .card { background: var(--card-grad, var(--surface)); border: 1px solid transparent;
+  border-radius: var(--radius-card); box-shadow: var(--shadow-2); }
+/* Строка блюда бывает и <button> (выбор блюд в шторке опроса): сбрасываем
+   собственные стили кнопки, иначе она приезжает со своим шрифтом и центровкой. */
+.rl .dish-row {
+  display: flex; align-items: center; gap: var(--space-3);
+  width: 100%; background: none; font: inherit; color: inherit; text-align: left;
+  padding: var(--space-3); border-radius: var(--radius-block);
+  border: 1px solid transparent; cursor: pointer; position: relative;
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-spring);
+}
+@media (hover: hover) {
+  .rl .dish-row:hover { background: var(--canvas); border-color: var(--divider); }
+}
 .rl .dish-row:active { transform: scale(0.99); }
-.rl .dish-row.is-voted { background: var(--accent-tint); border-color: var(--border-strong); }
-.rl .votebar { height: 6px; border-radius: 999px; background: var(--border-subtle); overflow: hidden; }
+.rl .dish-row.is-voted { background: var(--accent-tint); border-color: var(--focus-ring); }
+.rl .votebar { height: 6px; border-radius: 999px; background: var(--divider); overflow: hidden; }
 .rl .votebar > i { display: block; height: 100%; border-radius: 999px;
   background: var(--vote, var(--accent));
-  transform-origin: left; transition: transform var(--dur-3) var(--ease-out); }
-.rl .qvote {
-  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-  border: 1.5px solid var(--border-subtle); background: var(--bg-elevated);
-  display: inline-flex; align-items: center; justify-content: center;
-  color: var(--text-tertiary); cursor: pointer;
-  transition: transform var(--dur-1) var(--ease-spring), background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
-}
-.rl .qvote:hover { border-color: var(--border-strong); color: var(--accent); }
-.rl .qvote:active { transform: scale(0.9); }
-.rl .qvote.on { background: var(--accent-grad, var(--accent)); border-color: transparent; color: var(--accent-foreground); }
+  transform-origin: left; transition: transform var(--motion-slow) var(--ease-out); }
 .rl .list-item {
-  display: flex; align-items: center; gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4); cursor: pointer;
-  transition: background-color var(--dur-1) var(--ease-out);
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
 }
-.rl .list-item:hover { background: var(--bg-base); }
-.rl .row-divider > * + * { border-top: 1px solid var(--border-subtle); }
+@media (hover: hover) {
+  .rl .list-item:hover { background: var(--canvas); }
+}
+.rl .row-divider > * + * { border-top: 1px solid var(--divider); }
 .rl .tile {
-  display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4);
-  border-radius: var(--r-block); border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated); cursor: pointer; text-align: left;
-  transition: transform var(--dur-1) var(--ease-spring), border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+  display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4);
+  border-radius: var(--radius-block); border: 1px solid var(--divider);
+  background: var(--surface); cursor: pointer; text-align: left;
+  transition: transform var(--motion-fast) var(--ease-spring), border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
-.rl .tile:hover { border-color: var(--border-strong); box-shadow: var(--shadow-2); transform: translateY(-2px); }
+@media (hover: hover) {
+  .rl .tile:hover { border-color: var(--focus-ring); box-shadow: var(--shadow-2); transform: translateY(-2px); }
+}
 .rl .tile:active { transform: scale(0.98); }
 .rl .bottomnav {
   /* колонок столько, сколько табов в конфиге (src/app/navigation.ts) */
   display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; align-items: stretch; gap: 2px;
   height: var(--nav-h); padding: 7px;
   border-radius: 24px; border: none;
-  background: var(--float-grad, var(--bg-floating));
+  background: var(--float-grad, var(--elevated));
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
   box-shadow: var(--shadow-3);
@@ -348,7 +391,7 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   border-radius: 17px;
   color: var(--text-tertiary); font-size: 10.5px; font-weight: 500; font-family: var(--font-body);
-  transition: color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out);
+  transition: color var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
 }
 .rl .navbtn.on {
   color: var(--accent); font-weight: 600;
@@ -361,10 +404,47 @@
   min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
   background: var(--danger); color: #fff; font-size: 9px; font-weight: 700;
   display: inline-flex; align-items: center; justify-content: center;
-  border: 1.5px solid var(--bg-floating);
+  border: 1.5px solid var(--elevated);
 }
 .rl .toast {
-  display: flex; align-items: flex-start; gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4); border-radius: var(--r-block);
-  box-shadow: var(--shadow-3); border: 1px solid var(--border-subtle);
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-block);
+  box-shadow: var(--shadow-3); border: 1px solid var(--divider);
+}
+
+/* ===== ХИТБОКСЫ КАСАНИЯ =====
+   Продукт живёт только в Telegram и только под пальцем, поэтому 44×44 —
+   обязательный минимум. Эти контролы визуально меньше намеренно (чипы в ряд по
+   семь, компактный переключатель), и увеличивать их вид нельзя. Растягиваем
+   область касания невидимым псевдоэлементом.
+   По вертикали — всегда; по горизонтали — только у одиночной иконочной кнопки:
+   у элементов, стоящих в ряд, горизонтальные хитбоксы сомкнулись бы и палец
+   попадал бы в соседа. */
+.rl .chip,
+.rl .seg button,
+.rl .btn--sm {
+  position: relative;
+}
+
+/* У .switch псевдоэлемент ::after занят ползунком — берём ::before. */
+.rl .chip::after,
+.rl .seg button::after,
+.rl .btn--sm::after,
+.rl .switch::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--control-md);
+  min-height: 100%;
+  transform: translateY(-50%);
+}
+
+.rl .btn--icon.btn--sm::after {
+  left: 50%;
+  right: auto;
+  width: var(--control-md);
+  min-width: 100%;
+  transform: translate(-50%, -50%);
 }

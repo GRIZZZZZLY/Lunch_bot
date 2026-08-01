@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  color: var(--text-primary, var(--ink));
+  color: var(--text-primary, var(--text-primary));
 }
 
 .box {
@@ -17,7 +17,7 @@
 
 .title {
   margin: 0;
-  font-family: var(--font-head, inherit);
+  font-family: var(--font-body, inherit);
   font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.02em;

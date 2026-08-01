@@ -54,6 +54,14 @@ describe('budgetRow — свод сценариев в строку', () => {
     expect(row.amount).toBe(360);
     expect(row.payableTxId).toBe(7);
   });
+  it('payableAmount — сумма именно погашаемой транзакции, а не всех долгов', () => {
+    const row = budgetRow([tx({ id: 7, amount: 300 }), tx({ id: 8, amount: 200 })], []);
+    expect(row.amount).toBe(500);
+    expect(row.payableTxId).toBe(7);
+    // «Оплатил · 500 ₽» гасило бы 300 ₽ и молча оставляло второй перевод
+    expect(row.payableAmount).toBe(300);
+    expect(row.payableCount).toBe(2);
+  });
   it('только PAID → awaiting без действия', () => {
     const row = budgetRow([tx({ status: 'PAID', amount: 120 })], []);
     expect(row.kind).toBe('awaiting');
@@ -63,10 +71,11 @@ describe('budgetRow — свод сценариев в строку', () => {
   it('CONFIRMED-долги игнорируются', () => {
     expect(budgetRow([tx({ status: 'CONFIRMED' })], []).kind).toBe('hidden');
   });
-  it('кредиты → collector с общей суммой и подтверждённым', () => {
+  it('кредиты → collector: «вам должны» считает только неполученное', () => {
     const row = budgetRow([], [tx({ amount: 300 }), tx({ amount: 200, status: 'CONFIRMED' })]);
     expect(row.kind).toBe('collector');
-    expect(row.amount).toBe(500);
+    // подтверждённые 200 ₽ уже получены — в долге им не место
+    expect(row.amount).toBe(300);
     expect(row.confirmed).toBe(200);
   });
   it('долг приоритетнее кредитов', () => {

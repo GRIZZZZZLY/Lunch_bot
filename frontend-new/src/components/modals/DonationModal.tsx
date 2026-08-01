@@ -39,7 +39,7 @@ export function DonationModal({ open, onClose, sbpPhone }: Props) {
         </Button>
       }
     >
-      <p style={{ margin: '0 0 14px', fontSize: 'var(--t-13)', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+      <p style={{ margin: '0 0 14px', fontSize: 'var(--text-13)', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
         Rocket Lunch — open source. Ваш донат покрывает сервер и помогает добавлять новые фичи.
       </p>
 
@@ -57,13 +57,13 @@ export function DonationModal({ open, onClose, sbpPhone }: Props) {
               }}
               style={{
                 padding: 14,
-                borderRadius: 'var(--r-block)',
-                border: `1px solid ${on ? 'var(--border-strong)' : 'var(--border-subtle)'}`,
-                background: on ? 'var(--accent-tint)' : 'var(--bg-elevated)',
+                borderRadius: 'var(--radius-block)',
+                border: `1px solid ${on ? 'var(--focus-ring)' : 'var(--divider)'}`,
+                background: on ? 'var(--accent-tint)' : 'var(--surface)',
                 color: on ? 'var(--accent)' : 'var(--text-primary)',
-                fontFamily: 'var(--font-head)',
+                fontFamily: 'var(--font-body)',
                 fontWeight: 700,
-                fontSize: 'var(--t-15)',
+                fontSize: 'var(--text-15)',
                 cursor: 'pointer',
               }}
             >
@@ -74,7 +74,7 @@ export function DonationModal({ open, onClose, sbpPhone }: Props) {
       </div>
 
       <div style={{ marginTop: 14 }}>
-        <div style={{ fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Своя сумма</div>
+        <div style={{ fontSize: 'var(--text-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Своя сумма</div>
         <div
           style={{
             display: 'flex',
@@ -82,9 +82,9 @@ export function DonationModal({ open, onClose, sbpPhone }: Props) {
             gap: 6,
             height: 44,
             padding: '0 12px',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--r-block)',
-            background: 'var(--bg-elevated)',
+            border: '1px solid var(--divider)',
+            borderRadius: 'var(--radius-block)',
+            background: 'var(--surface)',
           }}
         >
           <input
@@ -94,14 +94,14 @@ export function DonationModal({ open, onClose, sbpPhone }: Props) {
             inputMode="numeric"
             placeholder="0"
             className="tnum"
-            style={{ flex: 1, border: 'none', outline: 'none', fontSize: 'var(--t-15)', background: 'transparent', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}
+            style={{ flex: 1, border: 'none', outline: 'none', fontSize: 'var(--text-15)', background: 'transparent', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}
           />
           <span style={{ color: 'var(--text-tertiary)' }}>₽</span>
         </div>
       </div>
 
       {!sbpPhone && (
-        <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 'var(--r-block)', background: 'var(--warning-tint)', color: 'var(--warning)', fontSize: 'var(--t-13)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 'var(--radius-block)', background: 'var(--warning-tint)', color: 'var(--warning)', fontSize: 'var(--text-13)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Icon name="alert" size={16} /> СБП-телефон получателя пока не настроен.
         </div>
       )}

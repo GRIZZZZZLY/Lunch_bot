@@ -22,7 +22,7 @@ export function BackHeader({
         onClick={onBack}
         style={{ transform: 'rotate(180deg)' }}
       />
-      <h1 className="font-head tight" style={{ margin: 0, flex: 1, fontSize: 'var(--t-18)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <h1 className="font-head tight" style={{ margin: 0, flex: 1, fontSize: 'var(--text-18)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {title}
       </h1>
       {action}
@@ -49,7 +49,7 @@ export function CircularTimer({
   return (
     <div style={{ position: 'relative', width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }} aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border-subtle)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--divider)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -60,7 +60,7 @@ export function CircularTimer({
           strokeLinecap="round"
           strokeDasharray={circ}
           strokeDashoffset={circ * (1 - frac)}
-          style={{ transition: 'stroke-dashoffset 1s linear, stroke var(--dur-2)' }}
+          style={{ transition: 'stroke-dashoffset 1s linear, stroke var(--motion-base)' }}
         />
       </svg>
       <div
@@ -97,7 +97,7 @@ export function AvatarStack({
   return (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       {shown.map((p, i) => (
-        <div key={i} style={{ marginLeft: i ? -8 : 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-elevated)' }}>
+        <div key={i} style={{ marginLeft: i ? -8 : 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--surface)' }}>
           <Avatar name={p} size={size} />
         </div>
       ))}
@@ -109,8 +109,8 @@ export function AvatarStack({
             width: size,
             height: size,
             borderRadius: '50%',
-            background: 'var(--bg-base)',
-            boxShadow: '0 0 0 2px var(--bg-elevated)',
+            background: 'var(--canvas)',
+            boxShadow: '0 0 0 2px var(--surface)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -160,7 +160,7 @@ export function SectionTitle({
       {icon && <Icon name={icon} size={18} style={{ color: 'var(--text-secondary)' }} />}
       <h3
         className="font-head"
-        style={{ margin: 0, fontSize: 'var(--t-16)', fontWeight: 600, letterSpacing: '-0.02em', flex: 1 }}
+        style={{ margin: 0, fontSize: 'var(--text-16)', fontWeight: 600, letterSpacing: '-0.02em', flex: 1 }}
       >
         {children}
       </h3>

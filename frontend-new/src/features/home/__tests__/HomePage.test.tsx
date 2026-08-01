@@ -91,9 +91,10 @@ beforeEach(() => {
 });
 
 describe('HomePage — состояния', () => {
-  it('без активного голосования — пустой талон; без прав нет primary CTA', () => {
+  it('без групп — талон честно говорит, что ждать некого', () => {
     renderHome();
-    expect(screen.getByText('Сегодня ещё не решали')).toBeInTheDocument();
+    expect(screen.getByText('Группы пока нет')).toBeInTheDocument();
+    expect(screen.getByText(/Добавьте бота в групповой чат/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Запустить голосование' })).not.toBeInTheDocument();
     expect(screen.getByText(/Добрый|Доброе/)).toBeInTheDocument();
   });
@@ -105,17 +106,46 @@ describe('HomePage — состояния', () => {
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument();
   });
 
+  it('сбой опроса не уносит с экрана деньги и закупки — их запросы живы', () => {
+    h.state.activeError = { code: 'NETWORK_ERROR' };
+    h.state.debts = [{ id: 7, amount: 260, status: 'PENDING' }];
+    h.state.runs = [
+      { id: 5, storeName: 'Пятёрочка у офиса', status: 'SHOPPING', items: [{}], initiator: { firstName: 'Игорь' } },
+    ];
+    renderHome();
+    expect(screen.getByText('Не удалось загрузить')).toBeInTheDocument();
+    expect(screen.getByText('Бюджет команды')).toBeInTheDocument();
+    expect(screen.getByText('Пятёрочка у офиса')).toBeInTheDocument();
+  });
+
   it('активное голосование → талон с таймером и вариантами', () => {
     h.state.activePoll = {
       id: 10,
       status: 'ACTIVE',
       duration: 30,
       createdAt: new Date().toISOString(),
-      menuItems: [],
+      menuItems: [
+        { menuItemId: 1, menuItem: { id: 1, name: 'Плов' }, _count: { votes: 2 } },
+        { menuItemId: 2, menuItem: { id: 2, name: 'Борщ' }, _count: { votes: 1 } },
+      ],
     };
     renderHome();
     expect(screen.getByText('Обеденный талон')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Голосовать' })).toBeInTheDocument();
+    expect(screen.getByRole('timer')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+  });
+
+  it('блюда удалили из меню — талон объясняет пустоту вместо голой radiogroup', () => {
+    h.state.activePoll = {
+      id: 11,
+      status: 'ACTIVE',
+      duration: 30,
+      createdAt: new Date().toISOString(),
+      menuItems: [],
+    };
+    renderHome();
+    expect(screen.getByText(/больше нет в меню/)).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
   });
 
   it('долг → строка бюджета с кнопкой «Оплатил», клик зовёт markPaid', async () => {
@@ -124,6 +154,23 @@ describe('HomePage — состояния', () => {
     const pay = screen.getByRole('button', { name: /Оплатил/ });
     await userEvent.click(pay);
     expect(h.state.markPaid.mutate).toHaveBeenCalledWith(7);
+  });
+
+  it('кнопка подписана суммой той транзакции, которую гасит', () => {
+    h.state.debts = [
+      { id: 7, amount: 300, status: 'PENDING' },
+      { id: 8, amount: 200, status: 'PENDING' },
+    ];
+    renderHome();
+    // два перевода одной кнопкой не гасятся: разбор уходит в /budget
+    expect(screen.queryByRole('button', { name: /Оплатил/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/2 перевода/)).toBeInTheDocument();
+  });
+
+  it('один долг — кнопка с его собственной суммой', () => {
+    h.state.debts = [{ id: 7, amount: 300, status: 'PENDING' }];
+    renderHome();
+    expect(screen.getByRole('button', { name: /Оплатил/ })).toHaveTextContent('300');
   });
 
   it('сборщику — сумма без кнопки', () => {

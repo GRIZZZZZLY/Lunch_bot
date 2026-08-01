@@ -120,7 +120,7 @@ export function AdminPage() {
   return (
     <div className="rl">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px 4px' }}>
-        <h1 className="font-head tight" style={{ margin: 0, flex: 1, fontSize: 'var(--t-22)', fontWeight: 700 }}>
+        <h1 className="font-head tight" style={{ margin: 0, flex: 1, fontSize: 'var(--text-22)', fontWeight: 700 }}>
           Админ-панель
         </h1>
         <Badge tone="accent" icon="gear">
@@ -140,7 +140,7 @@ export function AdminPage() {
 
       {!isAdmin && (
         <div style={{ padding: '12px 20px' }}>
-          <div className="card" style={{ padding: 20, color: 'var(--text-secondary)', fontSize: 'var(--t-13)' }}>
+          <div className="card" style={{ padding: 20, color: 'var(--text-secondary)', fontSize: 'var(--text-13)' }}>
             Раздел доступен только администраторам группы.
           </div>
         </div>
@@ -179,10 +179,10 @@ function Dashboard({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '12px 20px 16px' }}>
       {/* checklist */}
       <div className="card" style={{ padding: 20 }}>
-        <div className="font-head tight" style={{ fontSize: 'var(--t-18)', fontWeight: 700 }}>
+        <div className="font-head tight" style={{ fontSize: 'var(--text-18)', fontWeight: 700 }}>
           {data.checklistHeading}
         </div>
-        <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', marginTop: 2 }}>{data.checklistSubtitle}</div>
+        <div style={{ fontSize: 'var(--text-13)', color: 'var(--text-tertiary)', marginTop: 2 }}>{data.checklistSubtitle}</div>
         {data.checklist.length > 0 && (
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {data.checklist.map((it) => (
@@ -193,13 +193,13 @@ function Dashboard({
                   alignItems: 'center',
                   gap: 10,
                   padding: '10px 12px',
-                  borderRadius: 'var(--r-block)',
-                  background: it.urgent ? 'var(--danger-tint)' : 'var(--bg-base)',
+                  borderRadius: 'var(--radius-block)',
+                  background: it.urgent ? 'var(--danger-tint)' : 'var(--canvas)',
                   color: it.urgent ? 'var(--danger)' : 'var(--text-primary)',
                 }}
               >
                 <Icon name={it.urgent ? 'alert' : 'clock'} size={16} />
-                <span style={{ flex: 1, fontSize: 'var(--t-13)' }}>{it.label}</span>
+                <span style={{ flex: 1, fontSize: 'var(--text-13)' }}>{it.label}</span>
               </div>
             ))}
           </div>
@@ -214,7 +214,7 @@ function Dashboard({
               <Icon name={QUICK_ICON[qa.id] ?? 'sparkle'} size={19} />
             </div>
             <div>
-              <div className="font-head" style={{ fontSize: 'var(--t-13)', fontWeight: 600 }}>{qa.title}</div>
+              <div className="font-head" style={{ fontSize: 'var(--text-13)', fontWeight: 600 }}>{qa.title}</div>
               <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{qa.subtitle}</div>
             </div>
           </button>
@@ -224,16 +224,16 @@ function Dashboard({
       {/* stats */}
       <div style={{ display: 'flex', gap: 10 }}>
         {data.stats.map((s, i) => (
-          <div key={i} style={{ flex: 1, padding: 14, borderRadius: 'var(--r-block)', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
-            <div className="font-head tnum tight" style={{ fontSize: 'var(--t-22)', fontWeight: 700 }}>{s.num}</div>
-            <div style={{ fontSize: 'var(--t-11)', color: 'var(--text-tertiary)', marginTop: 2, lineHeight: 1.2 }}>{s.label.replace(/<br\s*\/?>/g, ' ')}</div>
+          <div key={i} style={{ flex: 1, padding: 14, borderRadius: 'var(--radius-block)', background: 'var(--surface)', border: '1px solid var(--divider)' }}>
+            <div className="font-head tnum tight" style={{ fontSize: 'var(--text-22)', fontWeight: 700 }}>{s.num}</div>
+            <div style={{ fontSize: 'var(--text-11)', color: 'var(--text-tertiary)', marginTop: 2, lineHeight: 1.2 }}>{s.label.replace(/<br\s*\/?>/g, ' ')}</div>
           </div>
         ))}
       </div>
 
       {/* weekday chart */}
       <div className="card" style={{ padding: 20 }}>
-        <SectionTitle icon="stats" right={<span className="tnum" style={{ fontSize: 'var(--t-11)', color: 'var(--text-tertiary)' }}>{data.chart.subtitle}</span>}>
+        <SectionTitle icon="stats" right={<span className="tnum" style={{ fontSize: 'var(--text-11)', color: 'var(--text-tertiary)' }}>{data.chart.subtitle}</span>}>
           {data.chart.title}
         </SectionTitle>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 90, paddingTop: 8 }}>
@@ -245,7 +245,7 @@ function Dashboard({
                     width: '100%',
                     height: `${Math.max(4, b.value)}%`,
                     borderRadius: 6,
-                    background: b.peak ? 'var(--accent)' : b.muted ? 'var(--border-subtle)' : 'var(--accent-tint)',
+                    background: b.peak ? 'var(--accent)' : b.muted ? 'var(--divider)' : 'var(--accent-tint)',
                   }}
                 />
               </div>
@@ -271,8 +271,8 @@ function Dashboard({
                   <Icon name="flame" size={20} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="font-head" style={{ fontSize: 'var(--t-15)', fontWeight: 600 }}>{p.title}</div>
-                  <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }} className="tnum">{p.meta}</div>
+                  <div className="font-head" style={{ fontSize: 'var(--text-15)', fontWeight: 600 }}>{p.title}</div>
+                  <div style={{ fontSize: 'var(--text-13)', color: 'var(--text-tertiary)' }} className="tnum">{p.meta}</div>
                 </div>
                 <Badge tone="accent" icon="flame">Активен</Badge>
               </button>

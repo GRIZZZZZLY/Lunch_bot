@@ -1,34 +1,41 @@
 /* «Сегодня ещё не решали» — пустое состояние голосования. Primary CTA
    только у тех, кто может создавать (одна primary на экран). */
-import { Button } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
 import styles from '../HomePage.module.css';
 
 export function EmptyTicket({
   canCreate,
+  hasGroup = true,
   onCreate,
   scheduleHint,
 }: {
   canCreate: boolean;
+  /** Есть ли вообще группа: без неё ждать админа бессмысленно. */
+  hasGroup?: boolean;
   onCreate: () => void;
   /** Подпись расписания автоголосования, например «Автозапуск в 11:30, по будням». */
   scheduleHint?: string | null;
 }) {
+  const title = hasGroup ? 'Сегодня ещё не решали' : 'Группы пока нет';
+  const text = canCreate
+    ? 'Запустите голосование — команда выберет обед за пару минут.'
+    : hasGroup
+      ? 'Дождитесь, пока админ запустит голосование, — придёт уведомление.'
+      : 'Добавьте бота в групповой чат — обед выбирают всей командой, а не по одному.';
   return (
-    <section className={styles.group} aria-label="Голосование не запущено">
+    <section className={styles.group} aria-labelledby="ticket-heading">
       <div className={styles.groupHead}>
-        <span className={styles.kicker}>Обеденный талон</span>
+        <h2 id="ticket-heading" className={styles.kicker}>
+          Обеденный талон
+        </h2>
       </div>
       <div className={styles.emptyBody}>
-        <div className={styles.rowIcon + ' ' + styles.win} aria-hidden>
-          <Icon name="flame" size={18} />
+        <div className={`${styles.rowIcon} ${hasGroup ? styles.win : styles.shop}`} aria-hidden>
+          <Icon name={hasGroup ? 'flame' : 'users'} size={18} />
         </div>
-        <div className={styles.emptyTitle}>Сегодня ещё не решали</div>
-        <p className={styles.emptyText}>
-          {canCreate
-            ? 'Запустите голосование — команда выберет обед за пару минут.'
-            : 'Дождитесь, пока админ запустит голосование, — придёт уведомление.'}
-        </p>
+        <div className={styles.emptyTitle}>{title}</div>
+        <p className={styles.emptyText}>{text}</p>
       </div>
       <div className={styles.perf}>
         <span className={styles.notch} />
@@ -40,7 +47,7 @@ export function EmptyTicket({
           </Button>
         </div>
       ) : (
-        <div style={{ height: 8 }} />
+        <div className={styles.stubSpacer} />
       )}
       {scheduleHint ? (
         <p className={styles.ctaNote}>

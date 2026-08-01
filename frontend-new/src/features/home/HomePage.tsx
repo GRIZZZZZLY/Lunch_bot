@@ -115,7 +115,6 @@ export function HomePage() {
   const createStoreRun = useCreateStoreRun();
 
   /* ---- локальный UI-state ---- */
-  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createOrderOpen, setCreateOrderOpen] = useState(false);
   const [sheetGroupId, setSheetGroupId] = useState<string | null>(null);
@@ -156,6 +155,9 @@ export function HomePage() {
   /* ---- создание голосования ---- */
   const adminGroups = useMemo(() => getAdminGroups(user, myGroups), [myGroups, user]);
   const canCreate = adminGroups.length > 0 || (isGlobalAdmin(user) && !!currentGroupId);
+  /* «Ждём админа» и «бота вообще нет в чате» — разные тупики: во втором
+     ждать бессмысленно, и раньше пустой талон говорил новичку неправду. */
+  const hasGroup = myGroups.length > 0 || !!currentGroupId;
   const effectiveSheetGroupId = sheetGroupId ?? currentGroupId;
   const { data: sheetMenu = [] } = useMenuItems({ activeOnly: true, groupId: effectiveSheetGroupId });
   // Расписание запрашиваем для группы, выбранной в шторке: иначе правили бы чужое.
@@ -283,31 +285,61 @@ export function HomePage() {
 
   const budget = useMemo(() => budgetRow(debts, credits), [debts, credits]);
 
-  /* ---- служебные состояния ---- */
-  if (authLoading || pollLoading) {
-    return (
-      <div className={`rl ${styles.screen}`}>
-        <Greeting loading />
-        <div className={styles.group} style={{ padding: 16 }}>
+  /* Служебные состояния голосования локальны для талона: закупки и бюджет
+     живут в собственных запросах и обычно уже в кеше — терять их из-за
+     моргнувшей сети на опросе значит прятать горящий долг. */
+  const ticketSlot = (() => {
+    if (authLoading || pollLoading) {
+      return (
+        <div className={`${styles.group} ${styles.ticketPad}`}>
           <Skeleton variant="text" width="40%" height={10} />
-          <div style={{ height: 12 }} />
+          <div className={styles.skeletonGap} />
           <Skeleton variant="block" height={110} />
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={`rl ${styles.screen}`}>
-        <Greeting name={user?.firstName} />
+      );
+    }
+    if (error) {
+      return (
         <ErrorState
           kind="network"
           onRetry={() => qc.invalidateQueries({ queryKey: queryKeys.polls.active })}
         />
-      </div>
+      );
+    }
+    if (activePoll && endsAt) {
+      return (
+        <LunchTicket
+          title={(activePoll as { title?: string }).title || 'Что заказываем на обед?'}
+          options={options}
+          totalVotes={participants}
+          endsAt={endsAt}
+          onExpire={onPollExpire}
+          myChoiceId={myChoiceId}
+          voting={voteMutation.isPending || withdrawMutation.isPending}
+          onVote={(menuItemId) => {
+            if (!voteMutation.isPending) {
+              voteMutation.mutate({ pollId: activePoll.id, menuItemId });
+            }
+          }}
+          onWithdraw={() => {
+            if (!withdrawMutation.isPending) withdrawMutation.mutate(activePoll.id);
+          }}
+          isAdmin={canCreate}
+          mutating={completePoll.isPending || cancelPoll.isPending}
+          onCloseEarly={() => completePoll.mutate(activePoll.id)}
+          onCancel={() => cancelPoll.mutate({ pollId: activePoll.id })}
+        />
+      );
+    }
+    return (
+      <EmptyTicket
+        canCreate={canCreate}
+        hasGroup={hasGroup}
+        onCreate={onCreatePollAction}
+        scheduleHint={scheduleHint}
+      />
     );
-  }
+  })();
 
   const winner = winnerVM ? (
     <WinnerRow
@@ -321,36 +353,9 @@ export function HomePage() {
 
   return (
     <div className={`rl ${styles.screen}`}>
-      <Greeting name={user?.firstName} />
+      <Greeting name={user?.firstName} loading={authLoading} />
 
-      {activePoll && endsAt ? (
-        <LunchTicket
-          title={(activePoll as { title?: string }).title || 'Что заказываем на обед?'}
-          options={options}
-          totalVotes={participants}
-          endsAt={endsAt}
-          onExpire={onPollExpire}
-          selectedId={selectedId}
-          myChoiceId={myChoiceId}
-          hasVoted={myChoiceId !== null}
-          voting={voteMutation.isPending || withdrawMutation.isPending}
-          onSelect={setSelectedId}
-          onVote={() => {
-            if (selectedId != null && !voteMutation.isPending) {
-              voteMutation.mutate({ pollId: activePoll.id, menuItemId: selectedId });
-            }
-          }}
-          onWithdraw={() => {
-            if (!withdrawMutation.isPending) withdrawMutation.mutate(activePoll.id);
-          }}
-          isAdmin={canCreate}
-          mutating={completePoll.isPending || cancelPoll.isPending}
-          onCloseEarly={() => completePoll.mutate(activePoll.id)}
-          onCancel={() => cancelPoll.mutate({ pollId: activePoll.id })}
-        />
-      ) : (
-        <EmptyTicket canCreate={canCreate} onCreate={onCreatePollAction} scheduleHint={scheduleHint} />
-      )}
+      {ticketSlot}
 
       <NowSection
         winner={winner}

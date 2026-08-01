@@ -33,10 +33,10 @@ export function SuccessSheet({ open, participants, closeAt, onShare, onOpen }: P
         <div className="anim-pop" style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--accent-tint)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
           <Icon name="check" size={32} stroke={2.2} />
         </div>
-        <div className="font-head tight" style={{ fontSize: 'var(--t-18)', fontWeight: 700 }}>
+        <div className="font-head tight" style={{ fontSize: 'var(--text-18)', fontWeight: 700 }}>
           Голосование отправлено
         </div>
-        <p style={{ margin: '6px 0 0', fontSize: 'var(--t-13)', color: 'var(--text-tertiary)', maxWidth: 260, lineHeight: 1.5 }}>
+        <p style={{ margin: '6px 0 0', fontSize: 'var(--text-13)', color: 'var(--text-tertiary)', maxWidth: 260, lineHeight: 1.5 }}>
           <span className="tnum">{participants}</span> участников получили уведомление. Закроется в{' '}
           <span className="tnum">{closeAt}</span>.
         </p>

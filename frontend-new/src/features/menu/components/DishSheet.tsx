@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Switch } from '@/components/rl/primitives';
-import { Button, ConfirmDialog, TextField } from '@/shared/ui';
+import { ConfirmDialog, TextField } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import type { MenuItem } from '@/types/models';
 import styles from '../MenuPage.module.css';
 

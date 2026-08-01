@@ -64,6 +64,14 @@ export interface BudgetRowModel {
   amount: number;
   /** Транзакция для действия «Оплатил» (только kind='debt'). */
   payableTxId: number | null;
+  /**
+   * Сумма именно той транзакции, которую погасит «Оплатил». Отдельно от
+   * `amount`: подписывать кнопку общей суммой долгов — значит обещать
+   * погашение всех, а помечать одну.
+   */
+  payableAmount: number;
+  /** Сколько активных долгов стоит за `amount` (kind='debt'). */
+  payableCount: number;
   /** collector: сколько уже подтверждено. */
   confirmed: number;
 }
@@ -84,6 +92,8 @@ export function budgetRow(debts: Transaction[], credits: Transaction[]): BudgetR
       kind: 'debt',
       amount: activeDebts.reduce((s, d) => s + d.amount, 0),
       payableTxId: pending.id,
+      payableAmount: pending.amount,
+      payableCount: activeDebts.length,
       confirmed: 0,
     };
   }
@@ -93,16 +103,22 @@ export function budgetRow(debts: Transaction[], credits: Transaction[]): BudgetR
       kind: 'awaiting',
       amount: paid.reduce((s, d) => s + d.amount, 0),
       payableTxId: null,
+      payableAmount: 0,
+      payableCount: 0,
       confirmed: 0,
     };
   }
   if (activeCredits.length > 0) {
     return {
       kind: 'collector',
-      amount: credits.reduce((s, c) => s + c.amount, 0),
+      // Только активные: подтверждённые деньги уже получены и в «вам должны»
+      // превращали закрытый расчёт в вечную задолженность.
+      amount: activeCredits.reduce((s, c) => s + c.amount, 0),
       payableTxId: null,
+      payableAmount: 0,
+      payableCount: 0,
       confirmed: credits.filter((c) => c.status === 'CONFIRMED').reduce((s, c) => s + c.amount, 0),
     };
   }
-  return { kind: 'hidden', amount: 0, payableTxId: null, confirmed: 0 };
+  return { kind: 'hidden', amount: 0, payableTxId: null, payableAmount: 0, payableCount: 0, confirmed: 0 };
 }

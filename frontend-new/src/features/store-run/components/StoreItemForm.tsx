@@ -2,7 +2,8 @@
    quantity int 1..99, notes ≤500. Сабмит заблокирован при невалидности/busy.
    Ошибка сети не сбрасывает поля — родитель просто не закрывает sheet. */
 import { useState } from 'react';
-import { Button, TextField } from '@/shared/ui';
+import { TextField } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 
 export interface StoreItemFormValues {
   name: string;

@@ -1,6 +1,6 @@
 /* Строка позиции в COLLECTING. Владелец (canManage) видит edit/delete (44×44);
    остальные — read-only. Владелец подписан на уровне секции, в строке не дублируется. */
-import { IconButton } from '@/shared/ui';
+import { IconButton } from '@/components/rl/primitives';
 import type { StoreItem } from '@/services/store-run.service';
 import styles from '../StoreRunPage.module.css';
 

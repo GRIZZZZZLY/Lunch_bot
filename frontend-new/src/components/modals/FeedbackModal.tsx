@@ -44,7 +44,7 @@ export function FeedbackModal({ open, onClose }: Props) {
           <div className="anim-pop" style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--success-tint)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
             <Icon name="check" size={32} stroke={2.2} />
           </div>
-          <div className="font-head tight" style={{ fontSize: 'var(--t-18)', fontWeight: 700 }}>
+          <div className="font-head tight" style={{ fontSize: 'var(--text-18)', fontWeight: 700 }}>
             Отзыв отправлен
           </div>
         </div>
@@ -68,7 +68,7 @@ export function FeedbackModal({ open, onClose }: Props) {
       }
     >
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Оценка</div>
+        <div style={{ fontSize: 'var(--text-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Оценка</div>
         <div style={{ display: 'flex', gap: 6 }}>
           {[1, 2, 3, 4, 5].map((n) => (
             <button

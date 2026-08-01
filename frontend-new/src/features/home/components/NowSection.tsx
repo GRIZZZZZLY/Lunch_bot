@@ -1,17 +1,20 @@
 /* Секция «Сейчас»: победитель последнего голосования, активные закупки,
    компактная строка бюджета, вторичная кнопка «Новая закупка» (FAB удалён). */
 import type { ReactNode } from 'react';
-import { Button, Status } from '@/shared/ui';
+import { Status, type StatusTone } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
 import { formatPrice } from '@/features/store-run/lib/selectors';
 import type { StoreRunListItem } from '@/services/store-run.service';
-import { pluralItems, type BudgetRowModel } from '../lib/selectors';
+import { plural, pluralItems, type BudgetRowModel } from '../lib/selectors';
 import styles from '../HomePage.module.css';
 
-const RUN_STATUS: Record<string, { tone: 'warning' | 'success' | 'danger' | 'neutral'; label: string }> = {
-  COLLECTING: { tone: 'warning', label: 'Сбор' },
-  SHOPPING: { tone: 'warning', label: 'В магазине' },
-  SETTLED: { tone: 'success', label: 'Рассчитано' },
+/* Домен закупки говорит шафраном (--shop), расчёт — щавелем (--money):
+   статус голосования на этом же экране носит терракоту и не сливается. */
+const RUN_STATUS: Record<string, { tone: StatusTone; label: string }> = {
+  COLLECTING: { tone: 'shop', label: 'Сбор' },
+  SHOPPING: { tone: 'shop', label: 'В магазине' },
+  SETTLED: { tone: 'money', label: 'Рассчитано' },
   CANCELLED: { tone: 'danger', label: 'Отменено' },
 };
 
@@ -37,9 +40,11 @@ export function NowSection({
   const hasContent = winner != null || runs.length > 0 || budget.kind !== 'hidden';
 
   return (
-    <section className={styles.group} aria-label="Сейчас">
+    <section className={styles.group} aria-labelledby="now-heading">
       <div className={styles.groupHead}>
-        <span className={styles.kicker}>Сейчас</span>
+        <h2 id="now-heading" className={styles.kicker}>
+          Сейчас
+        </h2>
       </div>
 
       {winner}
@@ -59,7 +64,8 @@ export function NowSection({
             <span className={styles.rowMain}>
               <span className={styles.rowName}>{r.storeName}</span>
               <span className={styles.rowSub}>
-                {r.initiator.firstName} · <span className="prog tnum">{pluralItems(r.items.length)}</span>
+                {r.initiator.firstName} ·{' '}
+                <span className={`tnum ${styles.prog}`}>{pluralItems(r.items.length)}</span>
               </span>
             </span>
             <Status tone={st.tone}>{st.label}</Status>
@@ -76,15 +82,36 @@ export function NowSection({
             <span className={styles.rowMain}>
               <span className={styles.rowName}>Бюджет команды</span>
               <span className={styles.rowSub}>
-                {budget.kind === 'debt' && 'Вы должны за обед'}
+                {budget.kind === 'debt' &&
+                  (budget.payableCount > 1 ? (
+                    <>
+                      Вы должны за обед ·{' '}
+                      <span className="tnum">
+                        {plural(budget.payableCount, 'перевод', 'перевода', 'переводов')}
+                      </span>
+                    </>
+                  ) : (
+                    'Вы должны за обед'
+                  ))}
                 {budget.kind === 'awaiting' && 'Оплата ждёт подтверждения'}
-                {budget.kind === 'collector' && 'Вам должны участники'}
+                {budget.kind === 'collector' &&
+                  (budget.confirmed > 0 ? (
+                    <>
+                      Вам должны участники · получено{' '}
+                      <span className="tnum">{formatPrice(budget.confirmed)}</span>
+                    </>
+                  ) : (
+                    'Вам должны участники'
+                  ))}
               </span>
             </span>
           </button>
-          {budget.kind === 'debt' && budget.payableTxId != null ? (
+          {/* Одна кнопка гасит одну транзакцию: при нескольких долгах суммы
+              разные, и подпись «Оплатил · всё» была бы обещанием, которого
+              мутация не выполняет. Несколько переводов разбираем в /budget. */}
+          {budget.kind === 'debt' && budget.payableTxId != null && budget.payableCount === 1 ? (
             <Button variant="secondary" loading={paying} onClick={() => onMarkPaid(budget.payableTxId!)}>
-              Оплатил · {formatPrice(budget.amount)}
+              Оплатил · {formatPrice(budget.payableAmount)}
             </Button>
           ) : (
             <span className={`tnum ${styles.moneyVal}`}>{formatPrice(budget.amount)}</span>

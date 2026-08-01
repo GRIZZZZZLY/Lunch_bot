@@ -34,7 +34,7 @@ export default defineConfig(({ mode }) => ({
     sourcemap: mode !== 'production',
   },
   test: {
-    exclude: ['tests/e2e/**', 'tests/production/**', 'node_modules/**', 'dist/**'],
+    exclude: ['tests/e2e/**', 'tests/production/**', 'tests/tour/**', 'node_modules/**', 'dist/**'],
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     // Битый deps-optimizer кэш в node_modules/.vite ронял все suites

@@ -69,6 +69,9 @@
   --radius-card: 26px;
   --radius-block: 17px;
   --radius-control: 17px;
+  /* Мелкие контролы и плитки-иконки: у .btn--sm этот радиус уже был вшит
+     числом, теперь он токен. */
+  --radius-control-sm: 12px;
   --radius-pill: 999px;
 
   /* control heights */
@@ -131,6 +134,7 @@
   --accent-tint: rgba(38, 33, 26, 0.07);
   --accent-ring: rgba(38, 33, 26, 0.18);
   --vote: #b4451f;
+  --vote-foreground: #fdf1ee;
   --vote-tint: rgba(180, 69, 31, 0.1);
   --shop: #9a6604;
   --shop-tint: rgba(154, 102, 4, 0.11);
@@ -148,6 +152,22 @@
   --info: #58718f;
   --info-tint: rgba(88, 113, 143, 0.1);
   --info-foreground: #f2f5f9;
+  /* Текст поверх собственного тинта (чипы Status, аватары бюджета). Базовые
+     --success/--warning/--danger/--info подобраны против --surface; на своём
+     же тинте фон светлее, и мелкий текст проваливался ниже 4.5:1
+     (замерено axe: warning 3.7, success 3.99, info 3.91). Значения ниже —
+     та же H и C, ниже L, пересчитаны против самого тёмного тинт-фона. */
+  --success-on-tint: #37692e;
+  --money-on-tint: #37692e;
+  --warning-on-tint: #855703;
+  --danger-on-tint: #a5341f;
+  --info-on-tint: #4a6178;
+  /* Доменные чипы Status: базовые --vote/--shop на своём тинте дают 4.69 и
+     4.6 — впритык к порогу. Ниже L при той же H/C, замер против самого
+     тёмного тинт-фона: vote 5.31, shop 5.4. */
+  --vote-on-tint: #a53f1c;
+  --shop-on-tint: var(--warning-on-tint);
+
   --overlay: rgba(28, 22, 14, 0.5);
   --focus-ring: rgba(38, 33, 26, 0.5);
   --texture-dot: rgba(90, 62, 20, 0.07);
@@ -187,6 +207,7 @@
   --accent-tint: rgba(239, 231, 216, 0.09);
   --accent-ring: rgba(239, 231, 216, 0.22);
   --vote: #ff9066;
+  --vote-foreground: #2a0e06;
   --vote-tint: rgba(255, 144, 102, 0.13);
   --shop: #e8ac4a;
   --shop-tint: rgba(232, 172, 74, 0.13);
@@ -204,6 +225,20 @@
   --info: #8fb3d9;
   --info-tint: rgba(143, 179, 217, 0.13);
   --info-foreground: #0e1826;
+
+  /* В тёмной теме тинт затемняет фон, поэтому большинству токенов хватает
+     базового значения. Но не всем: пересчёт по значениям токенов (тинт поверх
+     --surface) дал danger 3.80, info 4.47 и vote 4.49 — ниже порога. Прежний
+     комментарий утверждал обратное со ссылкой на axe; замер это не подтвердил.
+     Три исключения ниже подняты по L при той же H/C. */
+  --success-on-tint: var(--success);
+  --money-on-tint: var(--money);
+  --warning-on-tint: var(--warning);
+  --danger-on-tint: #ff9d85;
+  --info-on-tint: #a3c2e2;
+  --vote-on-tint: #ffa07a;
+  --shop-on-tint: var(--shop);
+
   --overlay: rgba(8, 14, 22, 0.6);
   --focus-ring: rgba(239, 231, 216, 0.45);
   --texture-dot: rgba(226, 238, 252, 0.05);
@@ -220,74 +255,6 @@
   --shadow-3: 0 2px 4px rgba(4, 10, 18, 0.45), 0 12px 30px -14px rgba(4, 10, 18, 0.75);
 }
 
-/* ============================================================
-   COMPATIBILITY ALIASES — потребители: redesign-v2.css (классы .rl),
-   budget.css, toast.css, inline-стили компонентов.
-   Мигрируются на канонические имена по фазам; удалить весь блок — фаза 7.
-   ============================================================ */
-:root,
-[data-theme='light'],
-[data-theme='dark'] {
-  /* TODO(фаза 4–6 → удалить в фазе 7): базовые поверхности и текст */
-  --bg-base: var(--canvas);
-  --bg-elevated: var(--surface);
-  --bg-floating: var(--elevated);
-  --border-subtle: var(--divider);
-  --border-strong: var(--focus-ring);
-  --surface-2: var(--surface-secondary);
-  --ink: var(--text-primary);
-  --ink-2: var(--text-secondary);
-  --ink-3: var(--text-tertiary);
-  --line: var(--divider);
-  --line-2: var(--divider);
-  --pri: var(--accent);
-  --pri-ink: var(--accent-foreground);
-  --page-ink: var(--text-primary);
-  --page-muted: var(--text-tertiary);
-  --page-line: var(--divider);
-  /* TODO(фаза 7): радиальные page-подсветки удалены в 2B — плоский канвас */
-  --page-bg: var(--canvas);
-  --bg-page: var(--canvas);
-  /* TODO(фаза 4–6): типографика */
-  --sans: var(--font-body);
-  --display: var(--font-brand);
-  --mono: var(--font-mono);
-  /* Система C: заголовки — Onest (Unbounded остаётся ТОЛЬКО в логотипе,
-     точечно через --font-brand) */
-  --font-head: var(--font-body);
-  --t-11: var(--text-11);
-  --t-13: var(--text-13);
-  --t-15: var(--text-15);
-  --t-16: var(--text-16);
-  --t-18: var(--text-18);
-  --t-22: var(--text-22);
-  --t-28: var(--text-28);
-  /* TODO(фаза 7): шкалы под старыми именами */
-  --sp-1: var(--space-1);
-  --sp-2: var(--space-2);
-  --sp-3: var(--space-3);
-  --sp-4: var(--space-4);
-  --sp-6: var(--space-6);
-  --sp-8: var(--space-8);
-  --sp-12: var(--space-12);
-  --sp-16: var(--space-16);
-  --r-card: var(--radius-card);
-  --r-block: var(--radius-block);
-  --r-btn: var(--radius-control);
-  --r-pill: var(--radius-pill);
-  --dur-1: var(--motion-fast);
-  --dur-2: var(--motion-base);
-  --dur-3: var(--motion-slow);
-  /* TODO(фаза 7): тени под старыми именами */
-  --shadow-card: var(--shadow-1);
-  --shadow-elev: var(--shadow-2);
-  /* TODO(фаза 2B → удалено с кнопок/FAB/шапки; alias оставлен для прочих
-     потребителей (CardGlow и др.), нейтральная тень вместо цветного свечения.
-     Удалить в фазе 4 вместе с CardGlow. */
-  --accent-glow: var(--shadow-2);
-  /* TODO(фаза 7): константа старого layout */
-  --safe-top: 12px;
-}
 
 /* TODO(фаза 7, вместе с components/ui/Card и старым budget.css):
    пастельная палитра и градиенты старого дизайна */

@@ -18,7 +18,7 @@ export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
           gap: 12,
           height: 56,
           padding: '0 16px',
-          borderBottom: '1px solid var(--border-subtle)',
+          borderBottom: '1px solid var(--divider)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
@@ -26,10 +26,12 @@ export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
             style={{
               width: 32,
               height: 32,
-              borderRadius: 10,
+              borderRadius: 'var(--radius-control-sm)',
               flexShrink: 0,
               background: 'var(--vote, var(--accent))',
-              color: 'var(--danger-foreground, #fff)',
+              // Пара к --vote: раньше здесь стоял --danger-foreground, и правка
+              // danger-палитры увела бы цвет логотипа.
+              color: 'var(--vote-foreground, #fff)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -43,7 +45,7 @@ export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
               // Unbounded — только бренд (система C)
               fontFamily: 'var(--font-brand)',
               fontWeight: 700,
-              fontSize: 'var(--t-16)',
+              fontSize: 'var(--text-16)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',

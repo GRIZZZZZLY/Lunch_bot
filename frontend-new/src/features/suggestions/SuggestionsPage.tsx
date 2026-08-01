@@ -15,7 +15,8 @@ import { useMyGroups } from '@/hooks/useUser';
 import { useAppStore } from '@/store/useAppStore';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { BottomSheet } from '@/components/rl/BottomSheet';
-import { Button, ConfirmDialog, EmptyState, ErrorState, Status, TextField } from '@/shared/ui';
+import { ConfirmDialog, EmptyState, ErrorState, Status, TextField } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import type { MenuSuggestion, SuggestionStatus } from '@/types/models';
 import styles from './SuggestionsPage.module.css';
 
@@ -266,7 +267,7 @@ function RejectSheet({
             Отмена
           </Button>
           <Button
-            variant="destructive"
+            variant="danger"
             block
             loading={busy}
             onClick={() => onSubmit(reason.trim() || undefined)}

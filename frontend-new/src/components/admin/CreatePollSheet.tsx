@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import type { CreatePollContext, CreatePollFormState, DurationOption, MenuItemOption } from './types';
 import { BottomSheet } from '@/components/rl/BottomSheet';
-import { Button, Checkbox, Chip, Field, Switch } from '@/components/rl/primitives';
+import { Button, Chip, Field, Switch } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
 import { DAY_LABELS } from '@/lib/schedule';
 
@@ -55,7 +55,7 @@ function makeInitial(ctx: CreatePollContext, override?: Partial<CreatePollFormSt
 
 function Label({ children }: { children: ReactNode }) {
   return (
-    <div style={{ fontSize: 'var(--t-11)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', margin: '16px 0 10px' }}>
+    <div style={{ fontSize: 'var(--text-11)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', margin: '16px 0 10px' }}>
       {children}
     </div>
   );
@@ -183,15 +183,15 @@ export function CreatePollSheet({
           gap: 12,
           marginTop: 16,
           padding: '12px 14px',
-          borderRadius: 'var(--r-block)',
-          background: 'var(--bg-base)',
+          borderRadius: 'var(--radius-block)',
+          background: 'var(--canvas)',
         }}
       >
         <div>
-          <div className="font-head" style={{ fontSize: 'var(--t-15)', fontWeight: 600 }}>
+          <div className="font-head" style={{ fontSize: 'var(--text-15)', fontWeight: 600 }}>
             Повторяющийся опрос
           </div>
-          <div style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>
+          <div style={{ fontSize: 'var(--text-13)', color: 'var(--text-tertiary)' }}>
             {schedule
               ? `сейчас ${schedule.time}${schedule.isEnabled ? '' : ' · выключено'} — можно изменить`
               : state.recurring
@@ -213,7 +213,7 @@ export function CreatePollSheet({
             ))}
           </div>
           {daysMissing && (
-            <div style={{ marginTop: 6, fontSize: 'var(--t-11)', color: 'var(--danger)' }}>
+            <div style={{ marginTop: 6, fontSize: 'var(--text-11)', color: 'var(--danger)' }}>
               Выберите хотя бы один день
             </div>
           )}
@@ -254,8 +254,8 @@ export function CreatePollSheet({
           padding: '8px 12px',
           marginBottom: 8,
           borderRadius: 999,
-          border: `1px solid ${itemsError ? 'var(--danger)' : 'var(--border-subtle)'}`,
-          fontSize: 'var(--t-11)',
+          border: `1px solid ${itemsError ? 'var(--danger)' : 'var(--divider)'}`,
+          fontSize: 'var(--text-11)',
           fontWeight: 600,
           color: itemsError ? 'var(--danger)' : 'var(--text-secondary)',
         }}
@@ -274,19 +274,28 @@ export function CreatePollSheet({
         ))}
       </div>
 
+      {/* Выбор из одного варианта — не выбор: секция появляется, только когда
+          адресатов правда несколько, иначе новичок ищет, между чем решает. */}
+      {ctx.audiences.length > 1 && (
+      <>
       <Label>Участники</Label>
       <div className="card" style={{ overflow: 'hidden' }}>
         <div className="row-divider">
           {ctx.audiences.map((a) => {
             const on = state.audience === a.key;
             return (
-              <div
+              /* Кнопка, а не div с ролью: у прежнего варианта не было ни
+                 tabIndex, ни обработчика клавиш — роль обещала радиогруппу,
+                 которой с клавиатуры не существовало. */
+              <button
                 key={a.key}
-                className="list-item"
-                style={{ cursor: 'pointer' }}
-                onClick={() => !submitting && setState({ ...state, audience: a.key })}
+                type="button"
                 role="radio"
                 aria-checked={on}
+                disabled={submitting}
+                className="list-item"
+                style={{ cursor: 'pointer', width: '100%', background: 'none', border: 'none', font: 'inherit', color: 'inherit', textAlign: 'left' }}
+                onClick={() => setState({ ...state, audience: a.key })}
               >
                 <span
                   style={{
@@ -294,7 +303,7 @@ export function CreatePollSheet({
                     height: 20,
                     borderRadius: '50%',
                     flexShrink: 0,
-                    border: `2px solid ${on ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                    border: `2px solid ${on ? 'var(--accent)' : 'var(--divider)'}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -302,38 +311,46 @@ export function CreatePollSheet({
                 >
                   {on && <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)' }} />}
                 </span>
-                <span style={{ flex: 1, fontSize: 'var(--t-15)', fontWeight: 500 }}>{a.label}</span>
-                <span style={{ fontSize: 'var(--t-13)', color: 'var(--text-tertiary)' }}>{a.sub}</span>
-              </div>
+                <span style={{ flex: 1, fontSize: 'var(--text-15)', fontWeight: 500 }}>{a.label}</span>
+                <span style={{ fontSize: 'var(--text-13)', color: 'var(--text-tertiary)' }}>{a.sub}</span>
+              </button>
             );
           })}
         </div>
       </div>
+      </>
+      )}
     </BottomSheet>
   );
 }
 
 function MenuRow({ item, on, disabled, onToggle }: { item: MenuItemOption; on: boolean; disabled?: boolean; onToggle: () => void }) {
   return (
-    <div
+    /* Строка — настоящая кнопка с ролью checkbox: раньше это был div с
+       role="button" без tabIndex, и с клавиатуры до него было не добраться —
+       единственной остановкой оказывался вложенный чекбокс. Вложенную кнопку
+       убрали: квадратик теперь просто рисунок состояния. */
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={on}
+      disabled={disabled}
       className={'dish-row' + (on ? ' is-voted' : '')}
       onClick={() => !disabled && onToggle()}
-      role="button"
-      aria-pressed={on}
     >
-      {/* Клик по чекбоксу всплывает в строку: свой обработчик переключал бы блюдо
-          дважды, и тап точно по квадратику не давал ничего. */}
-      <Checkbox on={on} aria-label={item.name} />
+      <span className={'checkbox' + (on ? ' on' : '')} aria-hidden="true">
+        {on && <Icon name="check" size={15} stroke={2.4} />}
+      </span>
       <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--accent-tint)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="menu" size={18} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 'var(--t-15)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
-        <div style={{ fontSize: 'var(--t-11)', color: 'var(--text-tertiary)' }} className="tnum">
+        <div style={{ fontSize: 'var(--text-15)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+        <div style={{ fontSize: 'var(--text-11)', color: 'var(--text-tertiary)' }} className="tnum">
           {item.restaurant ? `${item.restaurant} · ` : ''}
           {item.price} ₽
         </div>
       </div>
-    </div>
+    </button>
   );
 }

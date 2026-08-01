@@ -1,16 +1,12 @@
 /* Главная — система C: плоские группы-карточки, талон с перфорацией,
    домены-значения (--vote/--shop/--money). */
+/* Появление экрана не анимируем: Главную открывают десятки раз в день, и
+   180 мс входа — налог на каждое открытие, а не авторский момент. */
 .screen {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-3) var(--space-4);
-  animation: homeIn 180ms var(--ease-out);
-}
-
-@keyframes homeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 /* приветствие */
@@ -35,7 +31,7 @@
 
 /* группа-карточка */
 .group {
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--surface);
   box-shadow: var(--shadow-2);
 }
@@ -49,7 +45,8 @@
 }
 
 .kicker {
-  font-size: 11.5px;
+  margin: 0;
+  font-size: var(--text-11);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -64,11 +61,13 @@
   padding: 2px var(--space-4) 0;
 }
 
+/* Таймер уступает кегль названию блюда: секунды — фон решения, а не оно
+   само. Крупнее становится только на последней минуте, вместе с --danger. */
 .timer {
-  font-size: 34px;
+  font-size: var(--text-22);
   font-weight: 800;
   letter-spacing: -0.03em;
-  transition: color 300ms var(--ease-out);
+  transition: color var(--motion-slow) var(--ease-out);
 }
 
 .timer.low {
@@ -85,65 +84,127 @@
   padding-top: 4px;
 }
 
+.emptyOptions {
+  margin: 0;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  font-size: var(--text-13);
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+/* Строка блюда и есть голос: одно касание отправляет его. */
 .option {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   width: 100%;
   padding: 10px var(--space-4);
-  border: none;
+  border: 1px solid transparent;
   background: none;
   text-align: left;
   font: inherit;
   color: inherit;
   cursor: pointer;
-  transition: background-color var(--motion-fast) var(--ease-out);
+  transition: background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-spring);
 }
 
-.option:active {
+.option:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.option:disabled {
+  cursor: progress;
+}
+
+/* Строка идёт от края до края, и двойное кольцо с зазором цвета фона показало
+   бы на подсвеченной строке полосу чужого оттенка. Для полноширинных строк
+   кольцо одинарное и вписанное — фон подставлять не нужно. */
+.option:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -3px;
+}
+
+/* Отданный голос: подложка действия и рамка, как задаёт vote row в DESIGN.md. */
+.option.voted {
   background: var(--accent-tint);
+  border-color: var(--accent-ring);
+}
+
+/* Тинт затемняет фон строки: третичный текст и терракота на нём проваливались
+   ниже 4.5:1 в тёмной теме (4.12 и 4.39). */
+.option.voted .optionSub {
+  color: var(--text-secondary);
 }
 
 .option + .option {
   border-top: 1px solid var(--divider);
 }
 
+/* Круг-индикатор голоса; во включённом состоянии заливается цветом действия. */
+.voteDot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1.5px solid var(--divider);
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-foreground);
+  transition: background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
+}
+
+.option.voted .voteDot {
+  background: var(--accent);
+  border-color: transparent;
+}
+
+/* Единственный авторский момент экрана — «штамп»: принятый голос печатает
+   талон. Печать приходит крупной и оседает, без отскока: отскок читался бы как
+   «отпечаток отпружинил». Живёт в LunchTicket через WAAPI, потому что повторный
+   голос обязан переигрывать её, а состояния «штампуется» в CSS не существует. */
+
 .optionMain {
   flex: 1;
   min-width: 0;
 }
 
+/* Название блюда переносится, а не обрезается: это то самое, ради чего человек
+   пришёл на экран. Перенос неразрывных строк сейчас и так приходит по
+   наследству от предка, но объявлен здесь явно: свойство наследуемое, и правка
+   выше по дереву молча забрала бы его у самого длинного текста на экране. */
 .optionName {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: var(--text-15);
+  display: block;
+  font-size: var(--text-16);
   font-weight: 600;
+  overflow-wrap: break-word;
 }
 
 .option.lead .optionName {
-  font-size: var(--text-16);
+  font-size: var(--text-18);
   font-weight: 800;
 }
 
-.check {
-  color: var(--vote);
-  flex-shrink: 0;
-  display: inline-flex;
-}
-
 .optionSub {
+  display: block;
   font-size: var(--text-11);
   margin-top: 1px;
   color: var(--text-tertiary);
 }
 
+/* «ваш голос» появляется только в проголосованной строке, а её фон затемнён
+   тинтом — поэтому сразу *-on-tint, без второго правила поверх. */
 .optionSub .mine {
-  color: var(--vote);
+  color: var(--vote-on-tint);
   font-weight: 700;
 }
 
 .bar {
+  display: block;
   height: 4.5px;
   border-radius: var(--radius-pill);
   background: var(--accent-tint);
@@ -151,25 +212,35 @@
   overflow: hidden;
 }
 
+/* Заполнение едет transform'ом, а не width: анимировать layout-свойство
+   запрещено правилами проекта. Левый торец скругляет overflow родителя. */
 .barFill {
   display: block;
+  width: 100%;
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--vote);
-  transition: width var(--motion-slow) var(--ease-out);
+  transform: translateX(-100%);
+  transition: transform var(--motion-slow) var(--ease-out);
 }
 
+/* Аутсайдеры глушатся, но остаются читаемыми: 0.3 в тёмной теме исчезали. */
 .option:not(.lead) .barFill {
-  opacity: 0.3;
+  opacity: 0.55;
 }
 
+/* Колонка процентов держит ширину: без неё «9%» → «10%» на живом SSE дёргает
+   название блюда и бар влево-вправо. */
 .pct {
-  font-size: 14px;
+  min-width: 4ch;
+  font-size: var(--text-13);
   font-weight: 800;
+  text-align: right;
+  color: var(--text-tertiary);
 }
 
 .option.lead .pct {
-  font-size: 17px;
+  font-size: var(--text-16);
   color: var(--vote);
 }
 
@@ -213,16 +284,55 @@
   flex: 1;
 }
 
+/* Корешок талона под перфорацией: состояние голоса и отзыв. */
+.stub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-4) var(--space-2);
+}
+
+.stubNote {
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
 .ghostAction {
   border: none;
   background: none;
-  padding: 10px 2px;
+  padding: var(--space-3);
+  min-height: var(--control-md);
+  border-radius: var(--radius-control);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--text-13);
   font-weight: 700;
   color: var(--vote);
   cursor: pointer;
   white-space: nowrap;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .ghostAction:hover:not(:disabled) {
+    background: var(--vote-tint);
+  }
+}
+
+.ghostAction:active:not(:disabled) {
+  background: var(--vote-tint);
+  opacity: 0.8;
+}
+
+.ghostAction:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ghostAction:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
 }
 
 .ctaNote {
@@ -232,15 +342,29 @@
   text-align: center;
 }
 
-/* admin-блок талона */
+/* admin-блок талона: безопасное действие держит ширину, разрушительное —
+   текстовая кнопка сбоку. Визуальный паритет между ними был ловушкой. */
 .adminRow {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-4) var(--space-3);
 }
 
-.adminRow > * {
+.adminRow > :first-child {
   flex: 1;
+}
+
+.adminRow .ghostAction {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+@media (hover: hover) {
+  .adminRow .ghostAction:hover:not(:disabled) {
+    background: var(--danger-tint);
+    color: var(--danger-on-tint);
+  }
 }
 
 /* строки секции «Сейчас» */
@@ -262,8 +386,21 @@
   transition: background-color var(--motion-fast) var(--ease-out);
 }
 
+/* Залипший после тапа hover на строке неотличим от подсветки «мой голос»
+   и от выбранного состояния — отдаём его только указателю. */
+@media (hover: hover) {
+  .row.tappable:hover {
+    background: var(--accent-tint);
+  }
+}
+
 .row.tappable:active {
   background: var(--accent-tint);
+}
+
+.row.tappable:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 
 .row + .row {
@@ -284,18 +421,29 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: var(--radius-control-sm);
   transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .rowTapArea:hover {
+    opacity: 0.75;
+  }
 }
 
 .rowTapArea:active {
   opacity: 0.6;
 }
 
+.rowTapArea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+}
+
 .rowIcon {
   width: 36px;
   height: 36px;
-  border-radius: 11px;
+  border-radius: var(--radius-control-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -324,7 +472,7 @@
 
 .rowName {
   display: block;
-  font-size: 14.5px;
+  font-size: var(--text-15);
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -354,6 +502,19 @@
   padding: var(--space-1) var(--space-4) var(--space-3);
 }
 
+/* скелетон талона: геометрия по шкале, без инлайновых распорок */
+.ticketPad {
+  padding: var(--space-4);
+}
+
+.skeletonGap {
+  height: var(--space-3);
+}
+
+.stubSpacer {
+  height: var(--space-2);
+}
+
 /* пустой талон */
 .emptyBody {
   display: flex;
@@ -367,6 +528,7 @@
 .emptyTitle {
   font-size: var(--text-16);
   font-weight: 800;
+  overflow-wrap: break-word;
 }
 
 .emptyText {

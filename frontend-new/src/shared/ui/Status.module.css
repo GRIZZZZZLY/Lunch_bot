@@ -20,19 +20,35 @@
   background: var(--accent-tint);
   color: var(--accent);
 }
+/* Цвет текста берётся из *-on-tint: базовые --success/--warning/--danger/--info
+   рассчитаны на --surface и на собственном тинте не дотягивают до 4.5:1. */
 .success {
   background: var(--success-tint);
-  color: var(--success);
+  color: var(--success-on-tint);
 }
 .warning {
   background: var(--warning-tint);
-  color: var(--warning);
+  color: var(--warning-on-tint);
 }
 .danger {
   background: var(--danger-tint);
-  color: var(--danger);
+  color: var(--danger-on-tint);
 }
 .info {
   background: var(--info-tint);
-  color: var(--info);
+  color: var(--info-on-tint);
+}
+
+/* Домены: голос — терракота, закупка — шафран, деньги — щавель. */
+.vote {
+  background: var(--vote-tint);
+  color: var(--vote-on-tint);
+}
+.shop {
+  background: var(--shop-tint);
+  color: var(--shop-on-tint);
+}
+.money {
+  background: var(--money-tint);
+  color: var(--money-on-tint);
 }

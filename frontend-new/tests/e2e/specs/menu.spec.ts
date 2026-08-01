@@ -47,7 +47,9 @@ test.describe('Управление меню', () => {
     await sheet.getByRole('textbox', { name: 'Категория' }).fill('Поке');
     await sheet.getByRole('button', { name: 'Сохранить' }).click();
 
-    await expect(appPage.getByText('Поке с лососем')).toBeVisible();
+    // exact: иначе локатор ловит и строку списка, и текст тоста «Блюдо «…»
+    // добавлено» — совпадение зависело от того, успел ли тост погаснуть.
+    await expect(appPage.getByText('Поке с лососем', { exact: true })).toBeVisible();
     expect(api.lastRequest('POST', '/menu')?.body).toMatchObject({
       name: 'Поке с лососем',
       price: 610,
@@ -97,7 +99,8 @@ test.describe('Управление меню', () => {
     await sheet.getByRole('textbox', { name: 'Название' }).fill('Ризотто');
     await sheet.getByRole('textbox', { name: 'Цена, ₽' }).fill('550');
     await sheet.getByRole('button', { name: 'Сохранить' }).click();
-    await expect(appPage.getByText('Не удалось добавить блюдо')).toBeVisible();
+    // код INTERNAL_ERROR переводится apiError.ts, запасной текст не показывается
+    await expect(appPage.getByText('Ошибка на сервере. Попробуйте ещё раз.')).toBeVisible();
     await expect(sheet.getByRole('textbox', { name: 'Название' })).toHaveValue('Ризотто');
     expect(api.requests('POST', '/menu')).toHaveLength(1);
   });

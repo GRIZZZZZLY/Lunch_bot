@@ -1,7 +1,7 @@
 /* Sticky CTA-зона COLLECTING. Участник — одна primary «Добавить позицию».
    Инициатор — одна primary «Закрыть сбор» (disabled при 0) + вторичная
    destructive «Отменить закупку». Двух конкурирующих primary нет. */
-import { Button } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import styles from '../StoreRunPage.module.css';
 
 export function StoreRunActions({

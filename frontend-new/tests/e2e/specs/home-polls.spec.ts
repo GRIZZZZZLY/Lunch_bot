@@ -3,11 +3,11 @@ import { expect, test } from '../fixtures/test';
 test.describe('Голосование участника', () => {
   test.use({ scenario: 'active-poll-unvoted', role: 'member' });
 
-  test('@smoke участник выбирает блюдо и отправляет голос', async ({ appPage, api }) => {
+  test('@smoke участник голосует одним касанием по строке блюда', async ({ appPage, api }) => {
     await appPage.goto('/');
-    await expect(appPage.getByRole('radiogroup', { name: 'Варианты обеда' })).toBeVisible();
+    await expect(appPage.getByRole('radiogroup')).toBeVisible();
+    // строка и есть голос: отдельной кнопки подтверждения больше нет
     await appPage.getByRole('radio', { name: /Борщ со сметаной/ }).click();
-    await appPage.getByRole('button', { name: 'Голосовать' }).click();
 
     await expect(appPage.getByText('Голос учтён')).toBeVisible();
     const request = api.lastRequest('POST', '/polls/501/vote');
@@ -30,7 +30,6 @@ test.describe('Изменение голоса', () => {
     await expect(appPage.getByRole('button', { name: 'Отозвать голос' })).toBeVisible();
 
     await appPage.getByRole('radio', { name: /Паста карбонара/ }).click();
-    await appPage.getByRole('button', { name: 'Переголосовать' }).click();
     expect(api.lastRequest('POST', '/polls/501/vote')?.body).toEqual({ menuItemId: 12 });
 
     await appPage.getByRole('button', { name: 'Отозвать голос' }).click();
@@ -42,17 +41,26 @@ test.describe('Изменение голоса', () => {
 test.describe('Управление голосованием', () => {
   test.use({ scenario: 'active-poll-unvoted', role: 'admin' });
 
-  test('администратор завершает активное голосование', async ({ appPage, api }) => {
+  test('администратор завершает активное голосование через подтверждение', async ({ appPage, api }) => {
     await appPage.goto('/');
     await appPage.getByRole('button', { name: 'Завершить сейчас' }).click();
+    await expect(appPage.getByText('Завершить голосование?')).toBeVisible();
+    await appPage.getByRole('button', { name: 'Завершить', exact: true }).click();
     await expect(appPage.getByText('Голосование закрыто')).toBeVisible();
     expect(api.requests('PATCH', '/polls/501/complete')).toHaveLength(1);
     await expect(appPage.getByText('Сегодня ещё не решали')).toBeVisible();
   });
 
-  test('администратор отменяет активное голосование', async ({ appPage, api }) => {
+  test('отмена голосования требует подтверждения и предупреждает о потере голосов', async ({ appPage, api }) => {
     await appPage.goto('/');
     await appPage.getByRole('button', { name: 'Отменить', exact: true }).click();
+    await expect(appPage.getByText(/Голоса участников будут удалены/)).toBeVisible();
+    // отказ от подтверждения ничего не рушит
+    await appPage.getByRole('button', { name: 'Оставить' }).click();
+    expect(api.requests('PATCH', '/polls/501/cancel')).toHaveLength(0);
+
+    await appPage.getByRole('button', { name: 'Отменить', exact: true }).click();
+    await appPage.getByRole('button', { name: 'Отменить голосование' }).click();
     await expect(appPage.getByText('Голосование отменено')).toBeVisible();
     expect(api.requests('PATCH', '/polls/501/cancel')).toHaveLength(1);
   });
@@ -69,8 +77,8 @@ test.describe('Создание голосования', () => {
     const submit = appPage.getByRole('button', { name: 'Запустить опрос' });
     await expect(submit).toBeDisabled();
 
-    await createSheet.getByRole('button', { name: /Борщ со сметаной/ }).click();
-    await createSheet.getByRole('button', { name: /Паста карбонара/ }).click();
+    await createSheet.getByRole('checkbox', { name: /Борщ со сметаной/ }).click();
+    await createSheet.getByRole('checkbox', { name: /Паста карбонара/ }).click();
     await expect(submit).toBeEnabled();
     await submit.click();
 
@@ -84,6 +92,7 @@ test.describe('Создание голосования', () => {
     await expect(appPage.getByText('Голосование отправлено в группу')).toBeVisible();
     await expect(appPage.getByRole('button', { name: 'Завершить сейчас' })).toBeVisible();
     await appPage.getByRole('button', { name: 'Завершить сейчас' }).click();
+    await appPage.getByRole('button', { name: 'Завершить', exact: true }).click();
     await expect(appPage.getByText('Голосование закрыто')).toBeVisible();
     await appPage.waitForLoadState('networkidle');
     await appPage.goto('/poll/502/results');
@@ -96,9 +105,10 @@ test.describe('Создание голосования', () => {
     await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
     const createSheet = appPage.getByRole('dialog', { name: 'Создать опрос' });
     await appPage.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
-    await createSheet.getByRole('button', { name: /Борщ со сметаной/ }).click();
-    await createSheet.getByRole('button', { name: /Паста карбонара/ }).click();
-    await appPage.getByRole('button', { name: 'Запустить опрос' }).click();
+    await createSheet.getByRole('checkbox', { name: /Борщ со сметаной/ }).click();
+    await createSheet.getByRole('checkbox', { name: /Паста карбонара/ }).click();
+    // в режиме расписания кнопка называется иначе (см. CreatePollSheet.submitLabel)
+    await appPage.getByRole('button', { name: 'Создать расписание' }).click();
 
     const request = api.lastRequest('POST', '/recurring');
     expect(request?.body).toMatchObject({
@@ -107,6 +117,20 @@ test.describe('Создание голосования', () => {
       timeOfDay: '12:00',
       selectedMenuItemIds: [11, 12],
     });
+  });
+
+  test('чипы дней ловят палец за пределами видимой пилюли (хитбокс 44)', async ({ appPage }) => {
+    await appPage.goto('/');
+    await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
+    await appPage.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
+
+    const chip = appPage.getByRole('button', { name: 'Сб', exact: true });
+    const box = (await chip.boundingBox())!;
+    expect(box.height).toBeLessThan(44); // вид намеренно компактный
+
+    // тап на 4 px выше верхней кромки пилюли: попасть должен всё равно чип
+    await appPage.mouse.click(box.x + box.width / 2, box.y - 4);
+    await expect(chip).toHaveClass(/\bon\b/);
   });
 });
 

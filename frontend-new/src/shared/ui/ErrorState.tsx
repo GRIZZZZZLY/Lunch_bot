@@ -1,7 +1,7 @@
 /* Экранное состояние ошибки. Компонент не знает про API: страница передаёт
    тексты (или выбирает пресет kind) и обработчик retry. */
 import { Icon, type IconName } from '@/components/rl/Icon';
-import { Button } from './Button';
+import { Button } from '@/components/rl/primitives';
 import styles from './StateViews.module.css';
 
 export type ErrorKind = 'network' | 'forbidden' | 'notFound';

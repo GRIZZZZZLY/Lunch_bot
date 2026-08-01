@@ -3,7 +3,7 @@ import { useAppStore, type AuthStatus } from '@/store/useAppStore';
 import { getWebApp } from '@/lib/telegram';
 import { bootstrapAuth } from '@/lib/bootstrap';
 import { Spinner } from '@/components/rl/primitives';
-import { Button } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import styles from './AuthGate.module.css';
 
 export type AuthView = 'loading' | 'app' | 'error' | 'outside-telegram';

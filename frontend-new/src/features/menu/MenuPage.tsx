@@ -15,9 +15,10 @@ import { useAppStore } from '@/store/useAppStore';
 import { isGroupAdminRole } from '@/lib/permissions';
 import type { MenuItem } from '@/types/models';
 import { Icon } from '@/components/rl/Icon';
-import { Switch } from '@/components/rl/primitives';
-import { Button, EmptyState, ErrorState, IconButton, Skeleton, Status } from '@/shared/ui';
+import { EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
+import { Button, IconButton, Switch } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
+import { useRovingFocus } from '@/shared/lib/useRovingFocus';
 import { DishSheet, type DishInput } from './components/DishSheet';
 import styles from './MenuPage.module.css';
 
@@ -56,6 +57,11 @@ export default function MenuPage() {
   const setCurrentGroupId = useAppStore((s) => s.setCurrentGroupId);
   const { data: myGroups = [] } = useMyGroups();
   const activeGroups = useMemo(() => myGroups.filter((g) => g.isActive), [myGroups]);
+  // Смена группы перезапрашивает меню, поэтому стрелки только двигают фокус.
+  const groupTabs = useRovingFocus(
+    activeGroups.length,
+    activeGroups.findIndex((g) => String(g.id) === currentGroupId),
+  );
   const activeGroup = activeGroups.find((g) => String(g.id) === currentGroupId);
 
   // Управление меню — по РОЛИ в выбранной группе (совпадает с бэком:
@@ -108,18 +114,23 @@ export default function MenuPage() {
 
       {activeGroups.length > 1 && (
         <div className={styles.cats} role="tablist" aria-label="Группа">
-          {activeGroups.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              role="tab"
-              aria-selected={String(g.id) === currentGroupId}
-              className={`${styles.cat}${String(g.id) === currentGroupId ? ` ${styles.on}` : ''}`}
-              onClick={() => switchGroup(String(g.id))}
-            >
-              {g.title}
-            </button>
-          ))}
+          {activeGroups.map((g, idx) => {
+            const { ref, ...roving } = groupTabs.getItemProps(idx);
+            return (
+              <button
+                key={g.id}
+                ref={ref}
+                type="button"
+                role="tab"
+                aria-selected={String(g.id) === currentGroupId}
+                className={`${styles.cat}${String(g.id) === currentGroupId ? ` ${styles.on}` : ''}`}
+                onClick={() => switchGroup(String(g.id))}
+                {...roving}
+              >
+                {g.title}
+              </button>
+            );
+          })}
         </div>
       )}
 

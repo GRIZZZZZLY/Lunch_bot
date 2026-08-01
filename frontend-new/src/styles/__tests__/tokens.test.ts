@@ -89,9 +89,55 @@ describe('визуальный фундамент 2B', () => {
     }
   });
 
-  it('accent-glow снят с кнопок и FAB (alias остаётся для легаси)', () => {
-    expect(redesignCss).not.toContain('var(--accent-glow)');
-    expect(tokensCss).toContain('--accent-glow: var(--shadow-2)');
+  it('доменные тона Status опираются на собственные *-on-tint', () => {
+    const statusCss = readFileSync(
+      join(process.cwd(), 'src', 'shared', 'ui', 'Status.module.css'),
+      'utf8',
+    );
+    for (const role of ['vote', 'shop', 'money'] as const) {
+      for (const theme of ['light', 'dark'] as const) {
+        expect(
+          themeBlock(tokensCss, theme),
+          `--${role}-on-tint отсутствует в теме ${theme}`,
+        ).toContain(`--${role}-on-tint:`);
+      }
+      expect(statusCss).toContain(`background: var(--${role}-tint)`);
+      expect(statusCss).toContain(`color: var(--${role}-on-tint)`);
+    }
+  });
+
+  it('текст на тинте берёт *-on-tint, а не базовый статусный токен', () => {
+    const statusCss = readFileSync(
+      join(process.cwd(), 'src', 'shared', 'ui', 'Status.module.css'),
+      'utf8',
+    );
+    for (const role of ['success', 'warning', 'danger', 'info'] as const) {
+      for (const theme of ['light', 'dark'] as const) {
+        expect(
+          themeBlock(tokensCss, theme),
+          `--${role}-on-tint отсутствует в теме ${theme}`,
+        ).toContain(`--${role}-on-tint:`);
+      }
+      // базовые токены рассчитаны на --surface и на своём тинте дают <4.5:1
+      expect(statusCss).toContain(`color: var(--${role}-on-tint)`);
+      expect(redesignCss).toContain(`.badge--${role} { background: var(--${role}-tint)`);
+      expect(redesignCss).not.toContain(`var(--${role}-tint); color: var(--${role}); }`);
+    }
+  });
+
+  it('фаза 7 закрыта: блок совместимых алиасов удалён, потребителей не осталось', () => {
+    // Алиасы (--t-*, --sp-*, --bg-*, --ink*, --r-*, --dur-*, --accent-glow…)
+    // были вторым словарём поверх канонического. Один и тот же отступ жил под
+    // двумя именами, и выбор между ними зависел от того, кто писал файл.
+    expect(tokensCss).not.toContain('COMPATIBILITY ALIASES');
+    for (const alias of ['--accent-glow', '--bg-base', '--ink', '--pri', '--sans', '--safe-top']) {
+      expect(tokensCss, `${alias} всё ещё объявлен`).not.toContain(`${alias}:`);
+    }
+    for (const css of [redesignCss, indexCss, tokensCss]) {
+      for (const alias of ['var(--t-15)', 'var(--sp-4)', 'var(--r-card)', 'var(--dur-2)']) {
+        expect(css, `${alias} всё ещё используется`).not.toContain(alias);
+      }
+    }
   });
 
   it('шрифты self-hosted, без Google Fonts CDN', () => {

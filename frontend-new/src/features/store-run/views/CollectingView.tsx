@@ -23,7 +23,7 @@ import { ParticipantSection } from '../components/ParticipantSection';
 import { StoreRunActions } from '../components/StoreRunActions';
 import { AddStoreItemSheet } from '../components/AddStoreItemSheet';
 import { EditStoreItemSheet } from '../components/EditStoreItemSheet';
-import { Button } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import styles from '../StoreRunPage.module.css';
 
 export function CollectingView({

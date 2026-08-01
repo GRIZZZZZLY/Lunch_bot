@@ -116,12 +116,31 @@ describe('CreatePollSheet — расписания нет', () => {
     expect(screen.getByRole('button', { name: 'Запустить опрос' })).toBeEnabled();
   });
 
-  it('тап точно по чекбоксу выбирает блюдо, а не переключает его дважды', async () => {
+  it('строка блюда — единственный контрол: один тап переключает ровно один раз', async () => {
     renderSheet();
-    const checkbox = screen.getByRole('checkbox', { name: 'Борщ' });
-    await userEvent.click(checkbox);
-    expect(checkbox).toHaveAttribute('aria-checked', 'true');
-    await userEvent.click(checkbox);
-    expect(checkbox).toHaveAttribute('aria-checked', 'false');
+    const row = screen.getByRole('checkbox', { name: /Борщ/ });
+    // вложенной кнопки внутри строки больше нет — двойного переключения не бывает
+    expect(row.querySelector('button')).toBeNull();
+    await userEvent.click(row);
+    expect(row).toHaveAttribute('aria-checked', 'true');
+    await userEvent.click(row);
+    expect(row).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('строка блюда доступна с клавиатуры', async () => {
+    renderSheet();
+    const row = screen.getByRole('checkbox', { name: /Борщ/ });
+    row.focus();
+    expect(row).toHaveFocus();
+    await userEvent.keyboard(' ');
+    expect(row).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('чипы дней сообщают выбор скринридеру', async () => {
+    renderSheet();
+    await userEvent.click(screen.getByRole('switch', { name: 'Повторяющийся опрос' }));
+    const sat = screen.getByRole('button', { name: 'Сб', pressed: false });
+    await userEvent.click(sat);
+    expect(screen.getByRole('button', { name: 'Сб' })).toHaveAttribute('aria-pressed', 'true');
   });
 });

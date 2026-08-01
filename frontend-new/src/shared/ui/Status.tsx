@@ -5,7 +5,18 @@ import type { ReactNode } from 'react';
 import { Icon, type IconName } from '@/components/rl/Icon';
 import styles from './Status.module.css';
 
-export type StatusTone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger' | 'info';
+/* Доменные тона (vote/shop/money) отличают «идёт голосование» от «идёт
+   закупка»: без них оба состояния носили warning и совпадали тон-в-тон. */
+export type StatusTone =
+  | 'neutral'
+  | 'accent'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info'
+  | 'vote'
+  | 'shop'
+  | 'money';
 
 export interface StatusProps {
   tone?: StatusTone;

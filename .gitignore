@@ -136,3 +136,6 @@ stdout.txt
 
 # Local Claude Code permissions (per-developer)
 .claude/settings.local.json
+
+# Локальное состояние дизайн-инструмента (снимки отчётов, конфиг live-режима)
+.impeccable/

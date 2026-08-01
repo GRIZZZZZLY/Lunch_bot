@@ -15,7 +15,7 @@ export function ReminderSettingsCard() {
 
   return (
     <div className="card" style={{ padding: 16 }}>
-      <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--t-16)', marginBottom: 8 }}>
+      <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--text-16)', marginBottom: 8 }}>
         Авто-напоминания о долгах
       </div>
 
@@ -24,7 +24,7 @@ export function ReminderSettingsCard() {
         initial={reminder ?? undefined}
       />
 
-      <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--t-16)', margin: '18px 0 4px' }}>
+      <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--text-16)', margin: '18px 0 4px' }}>
         Уведомления админа
       </div>
       {notif && (
@@ -84,7 +84,7 @@ function ReminderSettingsForm({ initial }: { initial?: ReminderSettings }) {
 function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
-      <span style={{ fontSize: 'var(--t-15)' }}>{label}</span>
+      <span style={{ fontSize: 'var(--text-15)' }}>{label}</span>
       <Switch on={value} onChange={onChange} aria-label={label} />
     </div>
   );
@@ -93,7 +93,7 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
 function FormField({ label, htmlFor, children }: { label: string; htmlFor: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 'var(--t-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
+      <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 'var(--text-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
       {children}
     </div>
   );

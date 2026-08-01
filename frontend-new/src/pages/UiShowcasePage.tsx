@@ -1,17 +1,8 @@
 /* DEV-only витрина примитивов Phase 2C (/dev/ui). В production маршрут
    не регистрируется. Нужна для визуальной проверки и скриншотов тем. */
 import { useState } from 'react';
-import {
-  Button,
-  ConfirmDialog,
-  EmptyState,
-  ErrorState,
-  IconButton,
-  InlineNotice,
-  Skeleton,
-  Status,
-  TextField,
-} from '@/shared/ui';
+import { ConfirmDialog, EmptyState, ErrorState, InlineNotice, Skeleton, Status, TextField } from '@/shared/ui';
+import { Button, IconButton } from '@/components/rl/primitives';
 import { useCountdown } from '@/shared/lib/useCountdown';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -39,13 +30,13 @@ export function UiShowcasePage() {
           <Button>Primary</Button>
           <Button variant="secondary">Secondary</Button>
           <Button variant="ghost">Ghost</Button>
-          <Button variant="destructive">Destructive</Button>
+          <Button variant="danger">Destructive</Button>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           <Button disabled>Disabled</Button>
           <Button loading>Загрузка не меняет ширину</Button>
           <IconButton name="plus" aria-label="Добавить" variant="secondary" />
-          <IconButton name="x" aria-label="Удалить" variant="destructive" />
+          <IconButton name="x" aria-label="Удалить" variant="danger" />
         </div>
         <Button block>Block-кнопка на всю ширину</Button>
       </Section>
@@ -118,7 +109,7 @@ export function UiShowcasePage() {
 
       <Section title="ConfirmDialog">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
+          <Button variant="danger" onClick={() => setConfirmOpen(true)}>
             Удалить позицию
           </Button>
           <Button variant="secondary" onClick={() => setPendingOpen(true)}>

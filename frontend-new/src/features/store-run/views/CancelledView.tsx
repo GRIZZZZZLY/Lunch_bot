@@ -4,7 +4,8 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { Button, EmptyState, InlineNotice, Status } from '@/shared/ui';
+import { EmptyState, InlineNotice, Status } from '@/shared/ui';
+import { Button } from '@/components/rl/primitives';
 import type { StoreRunWithRelations } from '@/services/store-run.service';
 import { cancellationKind, groupItemsByParticipant } from '../lib/selectors';
 import { ReadOnlyShoppingItemRow } from '../components/ReadOnlyShoppingItemRow';
