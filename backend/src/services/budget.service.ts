@@ -914,8 +914,24 @@ export class BudgetService {
       const debts = await prisma.transaction.findMany({
         where,
         include: {
-          fromUser: true, // Кто должен (сам пользователь)
-          toUser: true, // Кому должен
+          /* Явные select вместо `true`. `include: { user: true }` возвращает ВСЕ
+             колонки User, включая paymentCard / paymentPhone / paymentDetails —
+             реквизиты уезжали клиенту в обе стороны, в том числе там, где они не
+             нужны. Здесь список СВОИХ долгов, поэтому реквизиты получателя
+             отдаём осознанно: именно по ним человек и переводит деньги, а право
+             их видеть даёт сам факт непогашенного долга (where: fromUserId = я).
+             Свои собственные реквизиты в этом ответе не нужны. */
+          fromUser: { select: { id: true, firstName: true, username: true } },
+          toUser: {
+            select: {
+              id: true,
+              firstName: true,
+              username: true,
+              paymentPhone: true,
+              paymentCard: true,
+              paymentDetails: true,
+            },
+          },
           menuItem: true,
           // За что долг: обеденная транзакция несёт блюдо, магазинная — забег.
           // Без этого строка бюджета показывала только имя и сумму.
@@ -959,7 +975,10 @@ export class BudgetService {
       const credits = await prisma.transaction.findMany({
         where,
         include: {
-          fromUser: true,
+          /* Только имя должника. Раньше `fromUser: true` отдавал сборщику КАРТУ
+             и ТЕЛЕФОН должника — они здесь не нужны ни для чего: деньги идут в
+             обратную сторону. См. getUserDebts про обратный случай. */
+          fromUser: { select: { id: true, firstName: true, username: true } },
           menuItem: true,
           // См. getUserDebts: за что долг — блюдо или магазин.
           storeRun: { select: { id: true, storeName: true } },

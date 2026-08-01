@@ -48,7 +48,7 @@ test.describe('Доступность: долги', () => {
     test.use({ scenario: 'budget-debtor', role: 'debtor' });
     test('@smoke светлая тема без serious-нарушений', async ({ appPage }) => {
       await appPage.goto('/budget');
-      await expect(appPage.getByRole('button', { name: 'Оплатил' })).toBeVisible();
+      await expect(appPage.getByRole('button', { name: /^Отметить/ })).toBeVisible();
       await expectNoSeriousViolations(appPage);
     });
   });

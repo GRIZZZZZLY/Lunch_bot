@@ -148,10 +148,10 @@ describe('HomePage — состояния', () => {
     expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
   });
 
-  it('долг → строка бюджета с кнопкой «Оплатил», клик зовёт markPaid', async () => {
+  it('долг → строка бюджета с кнопкой «Отметить», клик зовёт markPaid', async () => {
     h.state.debts = [{ id: 7, amount: 260, status: 'PENDING' }];
     renderHome();
-    const pay = screen.getByRole('button', { name: /Оплатил/ });
+    const pay = screen.getByRole('button', { name: /Отметить/ });
     await userEvent.click(pay);
     expect(h.state.markPaid.mutate).toHaveBeenCalledWith(7);
   });
@@ -163,21 +163,21 @@ describe('HomePage — состояния', () => {
     ];
     renderHome();
     // два перевода одной кнопкой не гасятся: разбор уходит в /budget
-    expect(screen.queryByRole('button', { name: /Оплатил/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Отметить/ })).not.toBeInTheDocument();
     expect(screen.getByText(/2 перевода/)).toBeInTheDocument();
   });
 
   it('один долг — кнопка с его собственной суммой', () => {
     h.state.debts = [{ id: 7, amount: 300, status: 'PENDING' }];
     renderHome();
-    expect(screen.getByRole('button', { name: /Оплатил/ })).toHaveTextContent('300');
+    expect(screen.getByRole('button', { name: /Отметить/ })).toHaveTextContent('300');
   });
 
   it('сборщику — сумма без кнопки', () => {
     h.state.credits = [{ id: 3, amount: 500, status: 'PENDING' }];
     renderHome();
     expect(screen.getByText('Вам должны участники')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Оплатил/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Отметить/ })).not.toBeInTheDocument();
   });
 
   it('активная закупка — строкой со статусом', () => {

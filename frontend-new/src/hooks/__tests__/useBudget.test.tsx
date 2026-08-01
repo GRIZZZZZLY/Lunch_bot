@@ -27,8 +27,8 @@ const tx = (over: Partial<Transaction>): Transaction =>
   ({
     id: 1,
     pollId: 1,
-    debtorId: 2,
-    creditorId: 3,
+    fromUserId: 2,
+    toUserId: 3,
     amount: 300,
     status: 'PENDING',
     createdAt: '2026-07-20T11:30:00',

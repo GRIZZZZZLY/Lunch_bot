@@ -326,13 +326,13 @@ test.describe('06 Админ-панель', () => {
         {
           id: 801,
           pollId: 401,
-          debtorId: 101,
-          creditorId: 202,
+          fromUserId: 101,
+          toUserId: 202,
           amount: 600,
           status: 'PENDING',
           createdAt: '2026-07-14T09:00:00.000Z',
-          debtor: api.state.user,
-          creditor: { ...api.state.user, id: 202, firstName: 'Игорь' },
+          fromUser: api.state.user,
+          toUser: { ...api.state.user, id: 202, firstName: 'Игорь' },
         },
       ];
       await app.goto('/admin');
@@ -383,7 +383,7 @@ test.describe('07 Бюджет', () => {
     test('долги и отметка об оплате', async ({ app }) => {
       await app.goto('/budget');
       await shot(app, '07-budget/02-debtor');
-      await app.getByRole('button', { name: 'Оплатил' }).click();
+      await app.getByRole('button', { name: /^Отметить/ }).click();
       await shot(app, '07-budget/03-debtor-marked-paid', 200);
     });
 
@@ -394,7 +394,7 @@ test.describe('07 Бюджет', () => {
         code: 'FORBIDDEN',
       };
       await app.goto('/budget');
-      await app.getByRole('button', { name: 'Оплатил' }).click();
+      await app.getByRole('button', { name: /^Отметить/ }).click();
       await shot(app, '07-budget/04-debtor-error', 200);
     });
 

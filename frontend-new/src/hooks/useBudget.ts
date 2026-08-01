@@ -117,6 +117,52 @@ export function useCancelMark() {
   });
 }
 
+/**
+ * Напомнить всем сразу. Сборщик с восемью должниками иначе делает восемь
+ * одинаковых касаний. Последовательно, а не Promise.all: это исходящие
+ * сообщения в Telegram, и упереться в лимит записи на середине хуже, чем
+ * отправить чуть медленнее. Возвращаем сколько дошло — частичный успех тоже
+ * результат, и он должен быть назван.
+ *
+ * Массового ПОДТВЕРЖДЕНИЯ здесь сознательно нет: подтверждение необратимо, и
+ * пакетировать необратимое денежное действие нельзя. См. ConfirmDialog на
+ * одиночном подтверждении — там мы, наоборот, добавляем трение.
+ */
+export function useRemindAll() {
+  const qc = useQueryClient();
+  const push = useToastStore((s) => s.push);
+  return useMutation({
+    mutationFn: async (transactionIds: number[]) => {
+      let sent = 0;
+      let lastError: unknown = null;
+      for (const id of transactionIds) {
+        try {
+          await budgetService.sendReminder(id);
+          sent += 1;
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      return { sent, total: transactionIds.length, lastError };
+    },
+    onSuccess: ({ sent, total, lastError }) => {
+      if (sent === 0) {
+        push({ type: 'error', message: apiErrorMessage(lastError, 'Не удалось отправить напоминания') });
+        return;
+      }
+      push({
+        type: sent === total ? 'success' : 'info',
+        message:
+          sent === total
+            ? `Напоминания отправлены: ${sent}`
+            : `Отправлено ${sent} из ${total} — остальные не ушли`,
+      });
+    },
+    onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось отправить напоминания') }),
+    onSettled: () => invalidateBudget(qc),
+  });
+}
+
 export function useSendReminder() {
   const push = useToastStore((s) => s.push);
   return useMutation({

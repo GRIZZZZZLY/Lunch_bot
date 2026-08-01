@@ -42,9 +42,11 @@
   color: var(--money);
 }
 
+/* flex-start, а не center: строка стала многострочной (за что · когда · сумма ·
+   реквизиты), и по центру аватар с кнопкой висели в пустоте. */
 .row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
 }
@@ -130,6 +132,89 @@
    остаться на своём месте. */
 .rowRefSubject + .rowRefWhen::before {
   content: '· ';
+}
+
+/* Разъяснение под шапкой секции: один раз на группу, не в каждой строке. */
+.groupNote {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: var(--text-11);
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}
+
+.groupAction {
+  display: flex;
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+/* Куда переводить. Реквизиты — не украшение строки, поэтому у них своя
+   поверхность и полноценная тап-зона на копирование. */
+.payTo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* nowrap обязателен: без него номер телефона рвался по дефисам на две строки,
+   а номер карты — на четыре, и строка долга разрасталась до полэкрана. */
+.payToItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-md);
+  white-space: nowrap;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-control-sm);
+  background: var(--canvas);
+  font: inherit;
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .payToItem:hover {
+    background: var(--money-tint);
+  }
+}
+
+.payToItem:active {
+  background: var(--money-tint);
+  opacity: 0.8;
+}
+
+.payToItem:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+}
+
+.payToLabel {
+  font-size: var(--text-11);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.payToNote {
+  font-size: var(--text-13);
+  color: var(--text-secondary);
+}
+
+/* Сколько ждём / сколько напоминали. */
+.rowWaiting {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rowAmount {

@@ -91,22 +91,42 @@ export interface MenuSuggestion {
 
 export type TransactionStatus = 'PENDING' | 'PAID' | 'CONFIRMED';
 
+/**
+ * Транзакция долга. Имена полей — КАК В API (Prisma-модель + include), а не как
+ * удобнее читать: fromUser всегда должник, toUser всегда получатель.
+ *
+ * Раньше здесь стояли `debtor`/`creditor`/`debtorId`/`creditorId`, которых бэкенд
+ * не присылает никогда (serializeBigInt ключи не переименовывает). Поля молча
+ * были undefined, и экран бюджета показывал «Участник» вместо каждого имени.
+ * Мок e2e при этом отдавал именно `debtor`/`creditor`, поэтому тесты и снимки
+ * показывали имена, которых в проде не было.
+ */
 export interface Transaction {
   id: number;
-  pollId: number;
-  debtorId: number;
-  creditorId: number;
+  pollId: number | null;
+  storeRunId?: number | null;
+  fromUserId: number;
+  toUserId: number;
   amount: number;
   status: TransactionStatus;
   createdAt: string;
-  paidAt?: string;
-  confirmedAt?: string;
-  debtor?: Pick<User, 'id' | 'firstName' | 'username'>;
-  creditor?: Pick<User, 'id' | 'firstName' | 'username'>;
+  paidAt?: string | null;
+  confirmedAt?: string | null;
+  /** Кто должен. */
+  fromUser?: Pick<User, 'id' | 'firstName' | 'username'>;
+  /** Кому должен. Реквизиты приходят ТОЛЬКО в списке своих долгов — там, где по
+   *  ним и переводят; в списке кредитов их нет и быть не должно. */
+  toUser?: Pick<User, 'id' | 'firstName' | 'username'> & {
+    paymentPhone?: string | null;
+    paymentCard?: string | null;
+    paymentDetails?: string | null;
+  };
   poll?: Pick<Poll, 'id' | 'createdAt' | 'closedAt' | 'status'>;
-  /* За что долг. Обеденная транзакция несёт блюдо, магазинная — забег; API
-     отдавал menuItem и раньше, но тип его не описывал, и бюджет показывал
-     только имя с суммой. */
+  /* За что долг: обеденная транзакция несёт блюдо, магазинная — забег. */
   menuItem?: { id: number; name: string };
   storeRun?: { id: number; storeName: string };
+  /* Сколько раз напоминали и когда. Скалярные колонки — API отдавал их и раньше,
+     тип не объявлял. */
+  reminderCount?: number;
+  lastReminderAt?: string | null;
 }

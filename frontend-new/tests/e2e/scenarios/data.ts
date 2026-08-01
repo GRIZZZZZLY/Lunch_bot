@@ -300,42 +300,49 @@ function makeTransactions(): { debts: Transaction[]; credits: Transaction[] } {
       {
         id: 801,
         pollId: 401,
-        debtorId: USERS.current.id,
-        creditorId: USERS.initiator.id,
+        fromUserId: USERS.current.id,
+        toUserId: USERS.initiator.id,
         amount: 420,
         status: 'PENDING',
         createdAt: CREATED_AT,
-        creditor: USERS.initiator,
-        debtor: USERS.current,
+        /* Реквизиты получателя приходят вместе со СВОИМ долгом — по ним и
+           переводят. В кредитах их нет: деньги идут в обратную сторону. */
+        toUser: { ...USERS.initiator, paymentPhone: '+7 900 123-45-67', paymentCard: '4276 5500 1234 5678' },
+        fromUser: USERS.current,
         // за что долг: обеденная транзакция несёт блюдо
         menuItem: { id: 12, name: 'Паста карбонара' },
       },
       {
         id: 802,
         pollId: 401,
-        debtorId: USERS.current.id,
-        creditorId: USERS.initiator.id,
+        fromUserId: USERS.current.id,
+        toUserId: USERS.initiator.id,
         amount: 180,
         status: 'PAID',
         createdAt: CREATED_AT,
-        creditor: USERS.initiator,
-        debtor: USERS.current,
+        toUser: { ...USERS.initiator, paymentPhone: '+7 900 123-45-67' },
+        fromUser: USERS.current,
         // а магазинная — забег: две строки к одному человеку теперь различимы
         storeRun: { id: 601, storeName: 'Пятёрочка у офиса' },
+        // отмечено сутки назад — экран должен показать, сколько уже ждём
+        paidAt: '2026-07-19T09:00:00.000Z',
       },
     ],
     credits: [
       {
         id: 803,
         pollId: 401,
-        debtorId: 303,
-        creditorId: USERS.current.id,
+        fromUserId: 303,
+        toUserId: USERS.current.id,
         amount: 390,
         status: 'PAID',
         createdAt: CREATED_AT,
-        creditor: USERS.current,
-        debtor: { id: 303, firstName: 'Мария', username: 'maria_e2e' },
+        toUser: USERS.current,
+        fromUser: { id: 303, firstName: 'Мария', username: 'maria_e2e' },
         menuItem: { id: 102, name: 'Борщ со сметаной' },
+        // память о напоминаниях: сборщик должен видеть, что уже напоминал
+        reminderCount: 2,
+        lastReminderAt: '2026-07-19T09:00:00.000Z',
       },
     ],
   };

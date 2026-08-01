@@ -6,11 +6,15 @@ import type { Transaction } from '@/types/models';
 
 export interface DebtLineVM {
   id: number;
-  name: string; // кому должен (кредитор)
+  name: string; // кому должен (toUser)
   amount: number;
   status: 'PENDING' | 'PAID';
   /** За что и когда. subject пустой, если API не дал ни блюда, ни магазина. */
   reference: BudgetReference;
+  /** Куда переводить. null, если получатель реквизиты не заполнил. */
+  payTo: PayTo | null;
+  /** Сколько уже ждёт подтверждения. Пусто, пока не отмечено. */
+  waiting: string;
 }
 
 export interface BudgetReference {
@@ -18,12 +22,21 @@ export interface BudgetReference {
   when: string;
 }
 
+export interface PayTo {
+  /** Телефон для СБП — основной способ в продукте. */
+  phone?: string;
+  card?: string;
+  note?: string;
+}
+
 export interface CreditLineVM {
   id: number;
-  name: string; // кто должен (должник)
+  name: string; // кто должен (fromUser)
   amount: number;
   status: 'PENDING' | 'PAID';
   reference: BudgetReference;
+  /** Память о напоминаниях: «напоминали 2 раза, 14 июля». Пусто, если ни разу. */
+  reminded: string;
 }
 
 export interface BudgetVM {
@@ -40,6 +53,52 @@ export interface BudgetVM {
 
 function personName(u?: { firstName?: string; username?: string }): string {
   return u?.firstName || u?.username || 'Участник';
+}
+
+/** Реквизиты получателя. Пустые поля не превращаем в пустой объект. */
+function payToOf(t: Transaction): PayTo | null {
+  const phone = t.toUser?.paymentPhone?.trim() || undefined;
+  const card = t.toUser?.paymentCard?.trim() || undefined;
+  const note = t.toUser?.paymentDetails?.trim() || undefined;
+  if (!phone && !card && !note) return null;
+  return { phone, card, note };
+}
+
+/** «2 дня», «14 часов», «5 минут» — без «назад»: подпись даёт контекст. */
+function humanSince(from: string, now: Date): string {
+  const ms = now.getTime() - new Date(from).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'меньше минуты';
+  if (min < 60) return pluralRu(min, 'минуту', 'минуты', 'минут');
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return pluralRu(hours, 'час', 'часа', 'часов');
+  return pluralRu(Math.floor(hours / 24), 'день', 'дня', 'дней');
+}
+
+/* Своя плюрализация, а не общий pluralize: тот склеивает число со словом, а
+   здесь число иногда нужно без него («напоминали 2 раза»). */
+function pluralRu(n: number, one: string, few: string, many: string): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  const word = m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many;
+  return `${n} ${word}`;
+}
+
+/**
+ * Память о напоминаниях. Сборщик, не видя её, напоминает повторно и выглядит
+ * навязчивым; должник не понимает, забыли о нём или ещё не дошли.
+ */
+function remindedOf(t: Transaction): string {
+  const count = t.reminderCount ?? 0;
+  if (count < 1) return '';
+  const when = t.lastReminderAt
+    ? new Date(t.lastReminderAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+    : '';
+  /* Короткая форма: «напоминали 2 раза, 19 июля» не влезала в ширину строки и
+     обрезалась ровно по дате — а дата здесь и есть полезная часть. */
+  const times = pluralRu(count, 'напоминание', 'напоминания', 'напоминаний');
+  return when ? `${times} · ${when}` : times;
 }
 
 /**
@@ -61,15 +120,22 @@ function referenceOf(t: Transaction): BudgetReference {
   };
 }
 
-export function buildBudget(debts: Transaction[], credits: Transaction[]): BudgetVM {
+export function buildBudget(
+  debts: Transaction[],
+  credits: Transaction[],
+  now: Date = new Date(),
+): BudgetVM {
   const myDebts = debts
     .filter((d) => d.status !== 'CONFIRMED')
     .map((d) => ({
       id: d.id,
-      name: personName(d.creditor),
+      name: personName(d.toUser),
       amount: d.amount,
       status: d.status as 'PENDING' | 'PAID',
       reference: referenceOf(d),
+      payTo: payToOf(d),
+      // ждём подтверждения с момента отметки, а не с создания долга
+      waiting: d.status === 'PAID' && d.paidAt ? humanSince(d.paidAt, now) : '',
     }))
     // сначала неоплаченные, внутри — по убыванию суммы
     .sort((a, b) => (a.status === b.status ? b.amount - a.amount : a.status === 'PENDING' ? -1 : 1));
@@ -80,10 +146,11 @@ export function buildBudget(debts: Transaction[], credits: Transaction[]): Budge
     .filter((c) => c.status !== 'CONFIRMED')
     .map((c) => ({
       id: c.id,
-      name: personName(c.debtor),
+      name: personName(c.fromUser),
       amount: c.amount,
       status: c.status as 'PENDING' | 'PAID',
       reference: referenceOf(c),
+      reminded: remindedOf(c),
     }))
     // сначала те, кто отметил оплату (их надо подтвердить)
     .sort((a, b) => (a.status === b.status ? b.amount - a.amount : a.status === 'PAID' ? -1 : 1));

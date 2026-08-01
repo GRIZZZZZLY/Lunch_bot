@@ -108,13 +108,13 @@ test.describe('Глобальный администратор', () => {
     api.state.debts = [{
       id: 801,
       pollId: 401,
-      debtorId: 101,
-      creditorId: 202,
+      fromUserId: 101,
+      toUserId: 202,
       amount: 600,
       status: 'PENDING',
       createdAt: '2026-07-14T09:00:00.000Z',
-      debtor: api.state.user,
-      creditor: { ...api.state.user, id: 202, firstName: 'Игорь' },
+      fromUser: api.state.user,
+      toUser: { ...api.state.user, id: 202, firstName: 'Игорь' },
     }];
     await appPage.goto('/admin');
     await expect(appPage.getByText('Админ-панель')).toBeVisible();

@@ -107,11 +107,19 @@ export function NowSection({
             </span>
           </button>
           {/* Одна кнопка гасит одну транзакцию: при нескольких долгах суммы
-              разные, и подпись «Оплатил · всё» была бы обещанием, которого
-              мутация не выполняет. Несколько переводов разбираем в /budget. */}
+              разные, и подпись «за всё» была бы обещанием, которого мутация не
+              выполняет. Несколько переводов разбираем в /budget.
+              «Отметить», а не «Оплатил»: кнопка ничего не переводит, прошедшее
+              время читалось как «уже списано», и род оно тоже не угадывает.
+              Та же подпись, что в бюджете, — действие одно. */}
           {budget.kind === 'debt' && budget.payableTxId != null && budget.payableCount === 1 ? (
-            <Button variant="secondary" loading={paying} onClick={() => onMarkPaid(budget.payableTxId!)}>
-              Оплатил · {formatPrice(budget.payableAmount)}
+            <Button
+              variant="secondary"
+              loading={paying}
+              aria-label={`Отметить оплату: ${formatPrice(budget.payableAmount)}`}
+              onClick={() => onMarkPaid(budget.payableTxId!)}
+            >
+              Отметить · {formatPrice(budget.payableAmount)}
             </Button>
           ) : (
             <span className={`tnum ${styles.moneyVal}`}>{formatPrice(budget.amount)}</span>

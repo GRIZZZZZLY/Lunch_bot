@@ -1,24 +1,88 @@
 /* Бюджет команды (Phase 6b, система C). Полный сценарный цикл на сырых
    транзакциях: должник отмечает оплату и отменяет отметку, сборщик
    подтверждает оплату и напоминает. Две роли могут сосуществовать. */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   useCancelMark,
   useConfirmPayment,
   useCredits,
   useDebts,
   useMarkPaid,
+  useRemindAll,
   useSendReminder,
 } from '@/hooks/useBudget';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
+import { ConfirmDialog, EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { formatPrice } from '@/features/store-run/lib/selectors';
-import { buildBudget, type BudgetReference } from './lib/buildBudget';
+import { Icon } from '@/components/rl/Icon';
+import {
+  buildBudget,
+  type BudgetReference,
+  type CreditLineVM,
+  type PayTo as PayToVM,
+} from './lib/buildBudget';
 import styles from './BudgetPage.module.css';
 
 type BusyKind = 'mark' | 'cancel' | 'confirm' | 'remind';
+
+/**
+ * Куда переводить. Раньше реквизиты существовали только в сообщении бота, и с
+ * экрана оплаты заплатить было нельзя — приходилось выходить в чат и искать
+ * нужное сообщение. Телефон СБП первым: это основной способ в продукте.
+ *
+ * Копирование — не обязательный путь: номер остаётся видимым текстом, поэтому
+ * недоступный clipboard (небезопасный контекст) ничего не ломает.
+ */
+function PayTo({ value }: { value: PayToVM }) {
+  const [copied, setCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!copied) return;
+    const t = window.setTimeout(() => setCopied(null), 1600);
+    return () => window.clearTimeout(t);
+  }, [copied]);
+
+  /* Один способ, а не все сразу: два блока (СБП и карта) занимали пол-экрана и
+     заставляли выбирать там, где выбор не нужен. Телефон СБП — основной способ
+     в продукте, карта только если телефона нет. */
+  const item = value.phone
+    ? { label: 'СБП', text: value.phone }
+    : value.card
+      ? { label: 'Карта', text: value.card }
+      : null;
+
+  if (!item) {
+    return value.note ? <span className={styles.payToNote}>{value.note}</span> : null;
+  }
+
+  const copy = () => {
+    navigator.clipboard
+      ?.writeText(item.text)
+      .then(() => setCopied(item.text))
+      .catch(() => undefined);
+  };
+
+  return (
+    <span className={styles.payTo}>
+      <button
+        type="button"
+        className={styles.payToItem}
+        aria-label={`Скопировать ${item.label}: ${item.text}`}
+        onClick={copy}
+      >
+        <span className={styles.payToLabel}>{item.label}</span>
+        <span className="tnum">{item.text}</span>
+        <Icon name={copied ? 'check' : 'copy'} size={14} />
+      </button>
+      {/* Успех копирования нужно объявить: иконка меняется молча. */}
+      <span className="sr-only" role="status">
+        {copied ? 'Скопировано' : ''}
+      </span>
+    </span>
+  );
+}
 
 /* За что и когда. Дата держит ширину, название сжимается: иначе длинное
    «Пятёрочка у офиса» съедало дату, а именно она различает два долга
@@ -46,6 +110,7 @@ export function BudgetPage() {
   const cancelMark = useCancelMark();
   const confirmPayment = useConfirmPayment();
   const sendReminder = useSendReminder();
+  const remindAll = useRemindAll();
 
   /* Подстановка пустого массива внутри useMemo, а не рядом с ним: `?? []`
      снаружи создаёт новый массив на каждый рендер и мемоизация теряется. */
@@ -68,6 +133,14 @@ export function BudgetPage() {
           ? { id: sendReminder.variables, kind: 'remind' }
           : null;
   const isBusy = (id: number, kind: BusyKind) => busy?.kind === kind && busy.id === id;
+
+  /* Подтверждение необратимо: CONFIRMED нельзя отменить ни в интерфейсе, ни в
+     API. Промах в списке из восьми человек закрывал чужой долг навсегда, а
+     защита стояла на обратимом действии должника. */
+  const [confirming, setConfirming] = useState<CreditLineVM | null>(null);
+  const [remindingAll, setRemindingAll] = useState(false);
+  const pendingDebtors = vm.owed.filter((c) => c.status === 'PENDING');
+  const remindEveryone = () => remindAll.mutate(pendingDebtors.map((c) => c.id));
 
   if (debtsQuery.isLoading || creditsQuery.isLoading) {
     return (
@@ -128,11 +201,20 @@ export function BudgetPage() {
             <h2 id="budget-debts-heading" className={styles.groupTitle}>
               Мои долги
             </h2>
+            {/* Кнопка называется «Отметить», а не «Оплатил»: она ничего не
+                переводит, и прошедшее время читалось как «уже списано».
+                Инфинитив заодно снимает вопрос рода. */}
             {/* Итог меняется после каждого действия — озвучиваем. */}
             <span className={`tnum ${styles.groupTotal}`} role="status">
               {formatPrice(vm.myDebtTotal)}
             </span>
           </div>
+          {/* Главное недоразумение экрана: человек нажимал «Оплатил» и уходил в
+              уверенности, что рассчитался. Говорим прямо, один раз на секцию. */}
+          <p className={styles.groupNote}>
+            Переведите деньги сами, а кнопкой сообщите об этом получателю —
+            приложение денег не переводит.
+          </p>
           {vm.myDebts.map((d) => (
             <div key={d.id} className={styles.row}>
               <div className={styles.avatar} aria-hidden>
@@ -148,15 +230,24 @@ export function BudgetPage() {
                 </span>
                 <Reference value={d.reference} />
                 <span className={`tnum ${styles.rowAmount}`}>{formatPrice(d.amount)}</span>
+                {/* Куда переводить — здесь, а не в чате с ботом: это единственный
+                    момент, когда номер нужен. Показываем до отметки; после неё
+                    важнее, сколько уже ждём подтверждения. */}
+                {d.status === 'PENDING' && d.payTo && <PayTo value={d.payTo} />}
+                {/* Без слова «подтверждения»: его говорит чип «Ждёт», а полная
+                    фраза не влезала в ширину и обрезалась. */}
+                {d.status === 'PAID' && d.waiting && (
+                  <span className={styles.rowWaiting}>уже {d.waiting}</span>
+                )}
               </div>
               {d.status === 'PENDING' ? (
                 <Button
                   variant="primary"
                   loading={isBusy(d.id, 'mark')}
-                  aria-label={`Оплатил: ${d.name}, ${formatPrice(d.amount)}`}
+                  aria-label={`Отметить оплату: ${d.name}, ${formatPrice(d.amount)}`}
                   onClick={() => markPaid.mutate(d.id)}
                 >
-                  Оплатил
+                  Отметить
                 </Button>
               ) : (
                 <Button
@@ -193,6 +284,21 @@ export function BudgetPage() {
               {formatPrice(vm.owedReceived)} из {formatPrice(vm.owedExpected)}
             </span>
           </div>
+          {/* Массовое напоминание — от двух должников: на одном оно ничего не
+              экономит, а кнопку в шапку добавляет. */}
+          {pendingDebtors.length > 1 && (
+            <div className={styles.groupAction}>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon="bell"
+                loading={remindAll.isPending}
+                onClick={() => setRemindingAll(true)}
+              >
+                Напомнить всем · {pendingDebtors.length}
+              </Button>
+            </div>
+          )}
           <div
             className={styles.progress}
             role="progressbar"
@@ -224,13 +330,16 @@ export function BudgetPage() {
                 </span>
                 <Reference value={c.reference} />
                 <span className={`tnum ${styles.rowAmount}`}>{formatPrice(c.amount)}</span>
+                {/* Память о напоминаниях: без неё сборщик напоминает повторно,
+                    не зная, что уже напоминал. */}
+                {c.reminded && <span className={styles.rowWaiting}>{c.reminded}</span>}
               </div>
               {c.status === 'PAID' ? (
                 <Button
                   variant="primary"
                   loading={isBusy(c.id, 'confirm')}
                   aria-label={`Подтвердить: ${c.name}, ${formatPrice(c.amount)}`}
-                  onClick={() => confirmPayment.mutate(c.id)}
+                  onClick={() => setConfirming(c)}
                 >
                   Подтвердить
                 </Button>
@@ -259,6 +368,35 @@ export function BudgetPage() {
           </div>
           <Status tone="success">закрыто</Status>
         </div>
+      )}
+
+      {confirming && (
+        <ConfirmDialog
+          title="Подтвердить оплату?"
+          description={`${confirming.name} — ${formatPrice(confirming.amount)}. Долг закроется окончательно, отменить подтверждение нельзя.`}
+          confirmLabel="Подтвердить"
+          pending={isBusy(confirming.id, 'confirm')}
+          onConfirm={() => {
+            const id = confirming.id;
+            setConfirming(null);
+            confirmPayment.mutate(id);
+          }}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
+
+      {remindingAll && (
+        <ConfirmDialog
+          title={`Напомнить ${pluralize(pendingDebtors.length, 'участнику', 'участникам', 'участникам')}?`}
+          description="Каждый получит сообщение в Telegram. Отменить отправку нельзя."
+          confirmLabel="Напомнить всем"
+          pending={sendReminder.isPending}
+          onConfirm={() => {
+            setRemindingAll(false);
+            remindEveryone();
+          }}
+          onCancel={() => setRemindingAll(false)}
+        />
       )}
     </div>
   );
