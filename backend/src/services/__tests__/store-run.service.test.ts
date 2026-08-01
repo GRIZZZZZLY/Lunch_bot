@@ -11,6 +11,7 @@ jest.mock('../../database/client', () => ({
       findUnique: jest.fn(),
     },
     storeItem: {
+      count: jest.fn(),
       createManyAndReturn: jest.fn(),
       delete: jest.fn(),
       findUnique: jest.fn(),
@@ -70,6 +71,7 @@ describe('StoreRunService user behaviours', () => {
       cb(prisma)
     );
     (prisma.storeRun.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (prisma.storeItem.count as jest.Mock).mockResolvedValue(0);
   });
 
   it('loads active store runs for groups where the user is active member', async () => {
@@ -200,6 +202,33 @@ describe('StoreRunService user behaviours', () => {
     });
   });
 
+  it('accepts BOUGHT without a price so the price can be filled in later', async () => {
+    (prisma.storeItem.findUnique as jest.Mock).mockResolvedValue({
+      id: 11,
+      storeRun: { initiatorId: 5, status: 'SHOPPING' },
+    });
+    (prisma.storeItem.update as jest.Mock).mockResolvedValue({ id: 11 });
+
+    await StoreRunService.setItemPrice(11, 5, null, 'BOUGHT');
+
+    expect(prisma.storeItem.update).toHaveBeenCalledWith({
+      where: { id: 11 },
+      data: { status: 'BOUGHT', price: null },
+    });
+  });
+
+  it('still rejects an out-of-range price', async () => {
+    (prisma.storeItem.findUnique as jest.Mock).mockResolvedValue({
+      id: 11,
+      storeRun: { initiatorId: 5, status: 'SHOPPING' },
+    });
+
+    await expect(
+      StoreRunService.setItemPrice(11, 5, -1, 'BOUGHT')
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    expect(prisma.storeItem.update).not.toHaveBeenCalled();
+  });
+
   it('settles a shopping run and creates budget transactions', async () => {
     (prisma.storeRun.findUnique as jest.Mock).mockResolvedValue({
       ...baseRun,
@@ -222,6 +251,24 @@ describe('StoreRunService user behaviours', () => {
     expect(prisma.storeRun.updateMany).toHaveBeenCalledWith({
       where: { id: 7, initiatorId: 5, status: 'SHOPPING' },
       data: { status: 'SETTLED', settledAt: expect.any(Date) },
+    });
+  });
+
+  it('refuses to settle while a bought item has no price', async () => {
+    (prisma.storeRun.findUnique as jest.Mock).mockResolvedValue({
+      ...baseRun,
+      status: 'SHOPPING',
+    });
+    (prisma.storeItem.count as jest.Mock).mockResolvedValue(2);
+
+    await expect(StoreRunService.settle(7, 5)).rejects.toMatchObject({
+      code: 'INVALID_INPUT',
+    });
+
+    // Транзакция откатывается — денег не создаём, забег остаётся SHOPPING.
+    expect(BudgetService.createTransactionsForStoreRun).not.toHaveBeenCalled();
+    expect(prisma.storeItem.count).toHaveBeenCalledWith({
+      where: { storeRunId: 7, status: 'BOUGHT', price: null },
     });
   });
 

@@ -12,7 +12,10 @@ const COLLECT_MIN_MINUTES = 3;
 const COLLECT_MAX_MINUTES = 30;
 const ITEM_NAME_MAX_LEN = 200;
 const ITEM_NOTES_MAX_LEN = 500;
-const ITEM_PRICE_MAX = 1_000_000;
+/* Держим вровень с SetPriceSchema в контроллере: zod отсекает раньше сервиса,
+   и разъехавшийся предел означал бы, что сообщение об ошибке называет не ту
+   границу, по которой запрос на самом деле отклонён. */
+const ITEM_PRICE_MAX = 100_000;
 
 export interface CreateStoreRunInput {
   initiatorId: number;
@@ -406,13 +409,11 @@ export class StoreRunService {
       );
     }
 
-    if (status === 'BOUGHT') {
-      if (
-        price == null ||
-        !Number.isFinite(price) ||
-        price < 0 ||
-        price > ITEM_PRICE_MAX
-      ) {
+    /* BOUGHT без цены — легальное промежуточное состояние: в магазине отмечают
+       покупку одним касанием, цену вносят потом (часто по чеку на кассе). Такая
+       позиция не попадает в деньги, и settle её не пропустит (см. ниже). */
+    if (status === 'BOUGHT' && price != null) {
+      if (!Number.isFinite(price) || price < 0 || price > ITEM_PRICE_MAX) {
         throw new StoreRunError(
           'INVALID_INPUT',
           `Price must be between 0 and ${ITEM_PRICE_MAX}`
@@ -440,7 +441,9 @@ export class StoreRunService {
         data: {
           status,
           price:
-            status === 'BOUGHT' ? new Prisma.Decimal(price as number) : null,
+            status === 'BOUGHT' && price != null
+              ? new Prisma.Decimal(price)
+              : null,
         },
       });
     });
@@ -473,6 +476,20 @@ export class StoreRunService {
         throw new StoreRunError(
           'WRONG_STATUS',
           'Store run state changed before settlement'
+        );
+      }
+
+      /* Купленное без цены в деньги не попадает — молча потерять чужую позицию
+         нельзя. Считаем ПОСЛЕ перехода: строка забега уже заблокирована, и
+         параллельный setItemPrice не проскочит между проверкой и расчётом.
+         Throw откатывает транзакцию, забег остаётся SHOPPING. */
+      const unpriced = await tx.storeItem.count({
+        where: { storeRunId, status: 'BOUGHT', price: null },
+      });
+      if (unpriced > 0) {
+        throw new StoreRunError(
+          'INVALID_INPUT',
+          `Cannot settle: ${unpriced} bought item(s) have no price`,
         );
       }
 
