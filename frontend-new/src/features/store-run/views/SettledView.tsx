@@ -90,8 +90,10 @@ export function SettledView({
           <InlineNotice tone="info">Дополнительные расчёты не требуются.</InlineNotice>
         )
       ) : myDebt > 0 ? (
+        /* Имя подставляется в именительном падеже: склонять имя из API нельзя,
+           а «Перевод Игорь ждёт» — не по-русски. */
         <InlineNotice tone="info">
-          Перевод {run.initiator.firstName} ждёт в бюджете — отметьте оплату там.
+          {run.initiator.firstName} получит перевод, когда вы отметите оплату в бюджете.
         </InlineNotice>
       ) : (
         <InlineNotice tone="info">Дополнительные расчёты не требуются.</InlineNotice>

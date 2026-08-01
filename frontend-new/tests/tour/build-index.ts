@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const TOUR_DIR = path.resolve(process.cwd(), 'ui-tour');
+/* Тот же якорь, что в fixture.ts, но через import.meta: globalTeardown Playwright
+   грузит как ES-модуль, и `__dirname` здесь не определён (в тестовых файлах —
+   определён). Привязка к cwd не годится: тур запускают и из корня репозитория. */
+const TOUR_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../ui-tour');
 
 const SECTION_TITLES: Record<string, string> = {
   '01-entry': 'Точки входа и авторизация',

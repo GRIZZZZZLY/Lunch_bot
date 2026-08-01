@@ -50,10 +50,10 @@ export function CancelledView({
       ) : (
         groups.map((group) => (
           <section key={group.userId} className={styles.section}>
-            <div className={styles.sectionHead}>
-              {group.isMine ? 'Ваши позиции' : group.user?.firstName ?? 'Участник'}{' '}
+            <h2 className={styles.sectionHead}>
+              {group.isMine ? 'Ваши позиции' : group.user?.firstName ?? 'Участник'}
               <span className={styles.sectionCount}>· {group.items.length}</span>
-            </div>
+            </h2>
             <div className={styles.rows}>
               {group.items.map((item) => (
                 <ReadOnlyShoppingItemRow key={item.id} item={item} showOwner={false} requestedLabel="Запрошено" />

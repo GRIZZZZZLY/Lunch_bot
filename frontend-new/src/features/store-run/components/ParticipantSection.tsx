@@ -18,9 +18,13 @@ export function ParticipantSection({
 }) {
   return (
     <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        {title} <span className={styles.sectionCount}>· {items.length}</span>
-      </div>
+      {/* Настоящий заголовок, а не div: секции дают структуру экрана, и без
+          него у скринридера нет плана документа. Пробел перед счётчиком даёт
+          flex-gap, литеральный удваивал бы отступ. */}
+      <h2 className={styles.sectionHead}>
+        {title}
+        <span className={styles.sectionCount}>· {items.length}</span>
+      </h2>
       <div className={styles.rows}>
         {items.map((item) => (
           <StoreItemRow

@@ -28,9 +28,10 @@ const AUTO_CANCEL_NOTE =
 function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
     <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        {title} <span className={styles.sectionCount}>· {count}</span>
-      </div>
+      <h2 className={styles.sectionHead}>
+        {title}
+        <span className={styles.sectionCount}>· {count}</span>
+      </h2>
       <div className={styles.rows}>{children}</div>
     </section>
   );

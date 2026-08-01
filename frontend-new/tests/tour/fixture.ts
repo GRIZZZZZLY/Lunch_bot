@@ -1,6 +1,7 @@
 import { test as base, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { installApiMock } from '../e2e/mocks/api';
 import { installTelegramMock } from '../e2e/mocks/telegram';
 import {
@@ -15,7 +16,15 @@ import {
  * диагностических утверждений — задача снять состояние экрана, а не проверить его.
  */
 
-export const TOUR_DIR = path.resolve(process.cwd(), 'ui-tour');
+/* Привязка к самому файлу, а не к cwd: тур запускают и из корня репозитория
+   (`--config frontend-new/playwright.tour.config.ts`), и оттуда галерея легла бы
+   рядом с репозиторием, где её не покрывает `frontend-new/.gitignore` — три
+   мегабайта снимков просились в коммит. Через import.meta, а не `__dirname`:
+   Playwright грузит эти файлы как ES-модули. */
+export const TOUR_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../ui-tour',
+);
 
 interface TourFixtures {
   role: E2ERole;

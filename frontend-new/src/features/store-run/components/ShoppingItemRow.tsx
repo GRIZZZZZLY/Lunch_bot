@@ -211,10 +211,11 @@ export function ShoppingItemRow({
           )}
           {item.status === 'BOUGHT' && (
             <>
-              {/* Пока цены нет, она блокирует расчёт — это и есть главное
-                  действие строки, поэтому primary, а не вторичная. */}
+              {/* Не primary, даже когда цена блокирует расчёт: графитовая CTA
+                  на экране одна («Рассчитать»), а при пяти позициях без цены
+                  вышло бы пять чёрных плит. Куда идти — говорит нотис. */}
               <Button
-                variant={noPrice ? 'primary' : 'secondary'}
+                variant="secondary"
                 disabled={rowDisabled}
                 aria-label={`${noPrice ? 'Указать цену' : 'Изменить цену'}: ${item.name}`}
                 onClick={openPricing}

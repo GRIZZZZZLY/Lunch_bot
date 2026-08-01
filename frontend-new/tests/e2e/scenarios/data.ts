@@ -83,6 +83,8 @@ export interface E2EState {
 
 const CREATED_AT = '2026-07-14T09:00:00.000Z';
 const ACTIVE_CREATED_AT = '2026-07-20T09:00:00.000Z';
+/** Закупка открыта в 09:00, сбор до 10:00 — окно часа, как в жизни. */
+const RUN_CREATED_AT = '2026-07-20T09:00:00.000Z';
 
 export const USERS = {
   current: {
@@ -265,11 +267,14 @@ export function makeStoreRun(
     storeName: 'Пятёрочка у офиса',
     status,
     collectUntil: '2026-07-20T10:00:00.000Z',
-    shoppingAt: status === 'SHOPPING' || status === 'SETTLED' ? CREATED_AT : null,
+    shoppingAt: status === 'SHOPPING' || status === 'SETTLED' ? RUN_CREATED_AT : null,
     settledAt: status === 'SETTLED' ? '2026-07-14T10:00:00.000Z' : null,
-    cancelledAt: status === 'CANCELLED' ? '2026-07-14T10:00:00.000Z' : null,
-    createdAt: CREATED_AT,
-    updatedAt: CREATED_AT,
+    /* Отдельная метка, а не общий CREATED_AT: полоса сбора считается как
+       remaining / (collectUntil − createdAt). С общей меткой окно выходило почти
+       двое суток, полоса оказывалась пустой при живом таймере, и компонент было
+       не разглядеть ни на снимках, ни глазами. Реальное окно — 3..30 минут. */
+    createdAt: RUN_CREATED_AT,
+    updatedAt: RUN_CREATED_AT,
     initiator,
     group: { id: 1, telegramId: '-100000000001', title: 'Команда Ракета' },
     items,

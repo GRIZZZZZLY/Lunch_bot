@@ -507,6 +507,13 @@ test.describe('09 Закупка', () => {
       await shot(app, '09-store-run/12-cancel-confirm');
     });
 
+    test('последняя минута сбора', async ({ app, api }) => {
+      // состояние опознаётся не только красным — справа встаёт слово
+      api.state.storeRuns[0].collectUntil = '2026-07-20T09:05:40.000Z';
+      await app.goto('/store-run/601');
+      await shot(app, '09-store-run/14-collecting-last-minute');
+    });
+
     test('пустой сбор', async ({ app, api }) => {
       api.state.storeRuns[0].items = [];
       await app.goto('/store-run/601');
@@ -517,16 +524,31 @@ test.describe('09 Закупка', () => {
   test.describe('в магазине, инициатор', () => {
     test.use({ scenario: 'store-shopping', role: 'storeInitiator' });
 
-    test('отметка цен и расчёт', async ({ app }) => {
+    test('отметка одним касанием, цена отдельным шагом, расчёт', async ({ app }) => {
       await app.goto('/store-run/601');
       await shot(app, '09-store-run/20-shopping-initiator');
-      await app.getByRole('button', { name: 'Куплено' }).click();
-      await shot(app, '09-store-run/21-price-dialog');
-      await app.keyboard.press('Escape');
+
+      // одно касание: позиция уже куплена, цены ещё нет — расчёт заблокирован
+      await app.getByRole('button', { name: 'Куплено: Молоко 3,2%' }).click();
+      await shot(app, '09-store-run/21-bought-without-price');
+
+      await app.getByRole('button', { name: 'Указать цену: Молоко 3,2%' }).click();
+      await shot(app, '09-store-run/21b-price-editor');
+      await app.getByRole('textbox', { name: /Цена за всё/ }).fill('249,50');
+      await shot(app, '09-store-run/21c-price-filled');
+      await app.getByRole('button', { name: 'Сохранить' }).click();
+      await shot(app, '09-store-run/21d-price-saved');
+
       // сброс уже введённой цены спрашивает подтверждение
-      await app.getByRole('button', { name: 'Не нашли' }).last().click();
-      await shot(app, '09-store-run/21b-reset-price-confirm');
+      await app.getByRole('button', { name: 'Не нашли: Молоко 3,2%' }).click();
+      await shot(app, '09-store-run/21e-reset-price-confirm');
       await app.getByRole('alertdialog').getByRole('button', { name: 'Отмена' }).click();
+    });
+
+    /* Отдельный сценарий: диалог расчёта появляется, только пока осталась
+       необработанная позиция. В предыдущем тесте их уже не остаётся. */
+    test('расчёт с необработанной позицией', async ({ app }) => {
+      await app.goto('/store-run/601');
       await app.getByRole('button', { name: 'Рассчитать' }).click();
       await shot(app, '09-store-run/22-settle-confirm');
       await app.getByRole('alertdialog').getByRole('button', { name: 'Рассчитать без них' }).click();
@@ -547,6 +569,19 @@ test.describe('09 Закупка', () => {
     test('итог закупки', async ({ app }) => {
       await app.goto('/store-run/601');
       await shot(app, '09-store-run/30-settled');
+    });
+  });
+
+  /* Нотис «осталось проставить цены» — единственный интерактив внутри нотиса и
+     самая правленая часть поверхности: цвет, состояния, тап-зона. */
+  test.describe('в магазине: цены не проставлены', () => {
+    test.use({ scenario: 'store-shopping', role: 'storeInitiator' });
+    test('нотис и заблокированный расчёт', async ({ app, api }) => {
+      api.state.storeRuns[0].items.forEach((item) => {
+        if (item.status === 'BOUGHT') item.price = null;
+      });
+      await app.goto('/store-run/601');
+      await shot(app, '09-store-run/25-unpriced-notice');
     });
   });
 
@@ -661,6 +696,24 @@ test.describe('12 Тёмная тема', () => {
     test('покупки', async ({ app }) => {
       await app.goto('/store-run/601');
       await shot(app, '12-dark/07-store-run');
+    });
+
+    /* В тёмной теме .noticeLink и раньше падал по контрасту (3.80) — тёмный
+       кадр этого нотиса нужен отдельно. */
+    test('нотис о непроставленных ценах', async ({ app, api }) => {
+      api.state.storeRuns[0].items.forEach((item) => {
+        if (item.status === 'BOUGHT') item.price = null;
+      });
+      await app.goto('/store-run/601');
+      await shot(app, '12-dark/07b-store-run-unpriced');
+    });
+  });
+
+  test.describe('закупка рассчитана, должник', () => {
+    test.use({ scenario: 'store-settled', role: 'storeParticipant' });
+    test('выход к оплате', async ({ app }) => {
+      await app.goto('/store-run/601');
+      await shot(app, '12-dark/07c-store-run-settled');
     });
   });
 

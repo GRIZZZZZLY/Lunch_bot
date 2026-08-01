@@ -98,8 +98,11 @@
   background: var(--shop);
 }
 
+/* Прогресс покупок отвечает на касание, а не тикает по секунде: унаследованная
+   от таймера секунда заставляла полосу ползти, когда счётчик уже показал 2 из 2. */
 .progress .barFill {
   background: var(--money);
+  transition: transform var(--motion-base) var(--ease-out);
 }
 
 /* секции участников */
@@ -108,7 +111,9 @@
   flex-direction: column;
 }
 
+/* h2 по разметке: сбрасываем браузерные margin/размер, вид остаётся тем же. */
 .sectionHead {
+  margin: 0;
   display: flex;
   align-items: center;
   gap: var(--space-2);

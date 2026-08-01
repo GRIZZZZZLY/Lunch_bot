@@ -93,18 +93,14 @@ export function CollectingView({
     <div className={styles.screen}>
       {summary}
 
+      {/* У пустого состояния нет action: то же «Добавить позицию» стоит primary
+          в прилипшей CTA-зоне — под большим пальцем. Две одинаковые кнопки на
+          одном экране только делят внимание. */}
       {items.length === 0 ? (
         <EmptyState
           icon="cart"
           title="Пока пусто"
           description="Добавьте первую позицию — остальные подтянутся."
-          action={
-            isInitiator ? (
-              <Button variant="secondary" onClick={() => setAddOpen(true)}>
-                Добавить позицию
-              </Button>
-            ) : undefined
-          }
         />
       ) : (
         <>
