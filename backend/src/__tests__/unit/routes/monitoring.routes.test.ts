@@ -159,8 +159,12 @@ describe('monitoring routes', () => {
     });
 
     it('returns current SSE connection metrics', async () => {
+      /* personal — счётчик персональных потоков (деньги). Маршрут отдаёт объект
+         счётчика целиком, поэтому поле обязано доехать до ответа: без него
+         дежурный не видит, сколько человек висит на своих долгах. */
       mockedGetSSEConnectionCount.mockReturnValue({
         byPoll: { 7: 2, 8: 1 },
+        personal: 4,
         total: 3,
       });
 
@@ -169,6 +173,7 @@ describe('monitoring routes', () => {
       expect(response.body).toEqual({
         data: {
           byPoll: { '7': 2, '8': 1 },
+          personal: 4,
           total: 3,
         },
         success: true,
