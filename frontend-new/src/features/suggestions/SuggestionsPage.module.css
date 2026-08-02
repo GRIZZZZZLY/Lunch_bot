@@ -12,13 +12,17 @@
   padding: 0 var(--space-1);
 }
 
-/* 44 px — минимальная область касания правил проекта. Было 36: переключатель
-   стоит в верхней зоне экрана, куда большой палец и так дотягивается с трудом. */
+/* Визуально 36 px, зона касания — 44 через ::after. Это домашняя идиома
+   проекта: так же устроены .chip и .seg button в redesign-v2.css и .cat в
+   меню. Поднимать сам чип до 44 значит раздуть полосу фильтров и разойтись
+   с каждой второй полосой пилюль в приложении — замер показал, что зона
+   касания и так честные 44×44. */
 .filter {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
-  padding: 0 var(--space-4);
+  min-height: 36px;
+  padding: 0 var(--space-3);
   border: none;
   border-radius: var(--radius-pill);
   background: var(--surface);
@@ -31,6 +35,17 @@
   transition:
     transform 120ms var(--ease-out),
     background-color 120ms var(--ease-out);
+}
+
+.filter::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--control-md);
+  min-height: 100%;
+  transform: translateY(-50%);
 }
 
 .filter:hover {

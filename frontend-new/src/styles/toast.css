@@ -1,6 +1,10 @@
 .toast-stack {
   position: fixed;
-  top: 16px;
+  /* Безопасную зону учитывают все остальные фиксированные элементы продукта —
+     нижняя навигация, шторка, шапка DetailLayout. Тост был единственным, кто
+     отмерял свои 16 px от края вьюпорта: под вырезом и шапкой Telegram он
+     заезжал под системные элементы. */
+  top: calc(16px + var(--safe-area-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
@@ -24,7 +28,7 @@
   pointer-events: auto;
   animation: toast-in 220ms cubic-bezier(.2,.7,.2,1) both;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--text-13);
   line-height: 1.3;
 }
 
@@ -37,14 +41,18 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--text-13);
   color: #fff;
 }
 
-.toast-success .toast-icon { background: var(--mint-500); }
-.toast-error   .toast-icon { background: var(--coral-500); }
-.toast-warning .toast-icon { background: var(--butter-500); color: #2b2118; }
-.toast-info    .toast-icon { background: var(--lav-500); }
+/* Тосты красились пастелью прежнего дизайна (--mint-500 и соседи): единственный
+   в продукте набор статусных цветов, который не менялся между темами и не
+   совпадал ни с плашками, ни с уведомлениями. Теперь те же семантические пары,
+   что и у InlineNotice со Status, вместе с их читаемым передним планом. */
+.toast-success .toast-icon { background: var(--success); color: var(--success-foreground); }
+.toast-error   .toast-icon { background: var(--danger);  color: var(--danger-foreground); }
+.toast-warning .toast-icon { background: var(--warning); color: var(--warning-foreground); }
+.toast-info    .toast-icon { background: var(--info);    color: var(--info-foreground); }
 
 .toast-body {
   flex: 1;
@@ -54,7 +62,7 @@
 .toast-title {
   font-weight: 600;
   margin-bottom: 2px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 
 .toast-msg {

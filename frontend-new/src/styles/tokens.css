@@ -320,30 +320,8 @@
 }
 
 
-/* TODO(фаза 7, вместе с components/ui/Card и старым budget.css):
-   пастельная палитра и градиенты старого дизайна */
-:root {
-  --peach-400: #ff9d66;
-  --peach-500: #d86a2c;
-  --peach-600: #b84d12;
-  --lav-400: #a78bfa;
-  --lav-500: #8b5cf6;
-  --mint-400: #34d399;
-  --mint-500: #22b573;
-  --coral-400: #f87171;
-  --coral-500: #e55a4f;
-  --butter-400: #f4c15d;
-  --butter-500: #e6a93d;
-  --succ-soft: #9fd4b3;
-  --warn-soft: #d9d394;
-  --err-soft: #d4a5a5;
-  --g-peach: linear-gradient(135deg, #f3c4a7, #f7d5c1);
-  --g-lav: linear-gradient(135deg, #d1c1fc, #e5ddfe);
-  --g-sage: linear-gradient(135deg, #8ce0b9, #b3ebd1);
-  --g-sky: linear-gradient(135deg, #7dd3fc, #bae6fd);
-  --g-rose: linear-gradient(135deg, #fca5a5, #fecaca);
-  --g-butter: linear-gradient(135deg, #fde7a6, #f9d978);
-  --g-coral: linear-gradient(135deg, #fca5a5, #f87171);
-  --g-mint: linear-gradient(135deg, #8ce0b9, #b3ebd1);
-  --g-peachlav: linear-gradient(135deg, #f3c4a7, #d1c1fc);
-}
+/* Пастельная палитра и градиенты прежнего дизайна удалены вместе с
+   styles/budget.css, единственным их потребителем: экран бюджета давно живёт
+   на CSS-модуле и на цветах Системы C. Ждать «фазы 7» было незачем — файл
+   не импортировался ниоткуда, а токены держали в палитре второй, конкурирующий
+   набор цветов. */
