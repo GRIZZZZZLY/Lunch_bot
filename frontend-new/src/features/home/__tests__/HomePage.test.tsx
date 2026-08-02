@@ -5,9 +5,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const h = vi.hoisted(() => {
+  /* isSuccess обязателен: барьер первого экрана спрашивает у запросов «ответ
+     получен?» именно так, а не по наличию data. Мок без этого поля выглядит для
+     страницы как вечно ждущий запрос, и она честно остаётся под скелетом. */
   const q = (data: unknown, extra: Record<string, unknown> = {}) => ({
     data,
     isLoading: false,
+    isSuccess: true,
     isError: false,
     error: null,
     ...extra,
