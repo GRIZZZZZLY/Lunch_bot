@@ -91,6 +91,15 @@
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
+  /* motion: переход между страницами и появление контента (styles/motion.css).
+     Бюджет держим коротким: Mini App открывают из чата, и переход длиннее
+     ~200ms читается как «приложение стало медленнее», а не как плавность. */
+  --motion-page: 180ms;
+  --motion-in: 200ms;
+  --stagger-step: 24ms;
+  --shift-page: 8px;
+  --shift-in: 10px;
+
   /* z-index */
   --z-header: 40;
   --z-nav: 40;

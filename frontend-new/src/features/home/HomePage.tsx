@@ -352,7 +352,7 @@ export function HomePage() {
   ) : null;
 
   return (
-    <div className={`rl ${styles.screen}`}>
+    <div className={`rl anim-in-children ${styles.screen}`}>
       <Greeting name={user?.firstName} loading={authLoading} />
 
       {ticketSlot}

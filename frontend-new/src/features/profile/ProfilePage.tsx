@@ -66,7 +66,7 @@ export function ProfilePage() {
     statsUnknown ? '—' : `${n}${suffix && atCap ? '+' : ''}`;
 
   return (
-    <div className={`rl ${styles.screen}`}>
+    <div className={`rl anim-in-children ${styles.screen}`}>
       <div className={styles.header}>
         <div className={styles.avatar} aria-hidden>
           {name[0].toUpperCase()}

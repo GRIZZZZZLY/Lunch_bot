@@ -38,7 +38,7 @@ export function CancelledView({
   );
 
   return (
-    <div className={styles.screen}>
+    <div className={`anim-in ${styles.screen}`}>
       <InlineNotice tone="warning">
         {kind === 'manual'
           ? 'Закупка отменена инициатором.'

@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import './styles/tokens.css';
 import './styles/index.css';
 import './styles/redesign-v2.css';
+import './styles/motion.css';
 import App from './App';
 import { initTelegramWebApp } from './lib/telegram';
 import { applyThemeNow, initThemeSync } from './lib/theme';

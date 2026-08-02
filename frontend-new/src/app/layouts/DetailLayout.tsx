@@ -2,13 +2,15 @@
    без BottomNavigation и без второго брендового header.
    Назад: Telegram BackButton (в браузере — in-app fallback-кнопка);
    открытый оверлей закрывается раньше навигации (lib/backButton.ts). */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { RouteFallback } from '@/components/common/RouteFallback';
 import { ToastContainer } from '@/components/common/ToastContainer';
 import { IconButton } from '@/components/rl/primitives';
 import { getWebApp } from '@/lib/telegram';
 import { closeTopOverlay, setBaseBackHandler } from '@/lib/backButton';
+import { usePageTransition, useRouteFocus } from '@/lib/motion';
 import {
   ScreenHeaderContext,
   type ScreenHeaderApi,
@@ -20,7 +22,12 @@ const EMPTY_HEADER: ScreenHeaderState = { title: '' };
 export function DetailLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
   const [header, setHeaderState] = useState<ScreenHeaderState>(EMPTY_HEADER);
+
+  usePageTransition(pageRef, location.pathname);
+  useRouteFocus(mainRef, location.pathname);
 
   // location.key === 'default' — приложение открыто сразу на этом экране
   // (deep link / refresh): внутренней истории нет, назад ведёт на главную.
@@ -90,11 +97,21 @@ export function DetailLayout() {
         </div>
 
         <main
+          ref={mainRef}
+          tabIndex={-1}
           className="flex-1 overflow-y-auto"
           style={{ paddingBottom: 'calc(24px + var(--safe-area-bottom, 0px))' }}
         >
           <ErrorBoundary>
-            <Outlet />
+            {/* См. RootLayout: key перезапускает анимацию входа при переходе
+                между detail-экранами, где layout остаётся тем же. */}
+            <div key={location.pathname} ref={pageRef} className="anim-page">
+              {/* См. RootLayout: граница внутри layout'а сохраняет контекстную
+                  шапку с заголовком, пока грузится чанк экрана. */}
+              <Suspense fallback={<RouteFallback />}>
+                <Outlet />
+              </Suspense>
+            </div>
           </ErrorBoundary>
         </main>
       </ScreenHeaderContext.Provider>

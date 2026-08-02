@@ -90,7 +90,7 @@ export function CollectingView({
   ) : null;
 
   return (
-    <div className={styles.screen}>
+    <div className={`anim-in ${styles.screen}`}>
       {summary}
 
       {/* У пустого состояния нет action: то же «Добавить позицию» стоит primary

@@ -24,7 +24,7 @@ export function PollHistoryPage() {
 
   if (isLoading && polls.length === 0) {
     return (
-      <div className={`rl ${styles.screen}`}>
+      <div className={`rl anim-in-children ${styles.screen}`}>
         <div className={styles.group}>
           <div className={styles.skeletonWrap}>
             {[0, 1, 2, 3].map((i) => (
@@ -38,7 +38,7 @@ export function PollHistoryPage() {
 
   if (polls.length === 0) {
     return (
-      <div className={`rl ${styles.screen}`}>
+      <div className={`rl anim-in-children ${styles.screen}`}>
         <div className={styles.stateWrap}>
           <EmptyState
             icon="clock"
@@ -51,7 +51,7 @@ export function PollHistoryPage() {
   }
 
   return (
-    <div className={`rl ${styles.screen}`}>
+    <div className={`rl anim-in-children ${styles.screen}`}>
       <div className={styles.group}>
         {polls.map((p) => {
           const meta = STATUS[p.status] ?? STATUS.COMPLETED;

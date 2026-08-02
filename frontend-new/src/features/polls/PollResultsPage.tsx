@@ -68,7 +68,7 @@ export function PollResultsPage() {
 
   useScreenHeader(poll ? `Опрос #${poll.id}` : 'Результаты');
 
-  const body = (content: ReactNode) => <div className={`rl ${styles.screen}`}>{content}</div>;
+  const body = (content: ReactNode) => <div className={`rl anim-in-children ${styles.screen}`}>{content}</div>;
 
   if (!valid) return body(<div className={styles.state}>Некорректный идентификатор опроса.</div>);
   if (pollLoading || resultsLoading) return body(<div className={styles.state}>Загружаем результаты…</div>);

@@ -1,0 +1,133 @@
+/* ROCKET LUNCH — motion layer.
+   Все токены — в tokens.css (единственный источник).
+
+   Два механизма, оба на CSS-анимациях:
+
+   1) .anim-page — появление новой страницы при навигации. Раньше это делала
+      каждая страница сама (девять одинаковых `@keyframes …In` в CSS-модулях,
+      без направления и без общего бюджета); теперь механизм один. Направление
+      даёт lib/motion.ts классами .is-forward / .is-back: вперёд — контент
+      входит справа, назад — слева. Уходящая страница не анимируется: роутер
+      снимает её сразу, и на сдвиге 8px разницы не видно, зато ничего не
+      задерживает навигацию.
+
+   2) .anim-in / .anim-in-children — появление контента внутри страницы: данные
+      на месте скелета, догруженный список, смена состояния закупки. Работает
+      от монтирования узла, так что ничего запускать вручную не нужно.
+
+   Почему не View Transitions API: он включается только у data-роутера
+   (createBrowserRouter + RouterProvider), а здесь <BrowserRouter> — флаг
+   `viewTransition` был бы молчаливой заглушкой. Вдобавок React 18 обновляет
+   DOM асинхронно, и снимок «новой» страницы поймал бы Suspense-скелет
+   ленивого чанка вместо её содержимого. Появится data-роутер — переход
+   можно поднять на снимки, разметка к этому готова.
+
+   Анимируем только opacity и transform: обе на compositor, переход не
+   удлиняет навигацию (правило из CLAUDE.md — никаких transition-all). */
+
+/* ============================================================
+   1. Переход между страницами
+   ============================================================ */
+
+@keyframes rl-page-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(var(--shift-page));
+  }
+}
+
+@keyframes rl-page-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--shift-page)));
+  }
+}
+
+/* Холодный старт не анимируется вовсе: у .anim-page без направления анимации
+   нет. Первое открытие Mini App, deep link и перезагрузка — это не переход,
+   а именно то место, где 180ms входа читаются налогом на каждый запуск
+   (решение из HomePage.module.css, теперь общее для всех страниц).
+   Анимация появляется только у навигации, где есть откуда и куда. */
+.anim-page.is-forward {
+  animation: rl-page-in-forward var(--motion-page) var(--ease-out) both;
+}
+
+.anim-page.is-back {
+  animation: rl-page-in-back var(--motion-page) var(--ease-out) both;
+}
+
+/* ============================================================
+   2. Появление контента
+   ============================================================ */
+
+@keyframes rl-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--shift-in));
+  }
+}
+
+.anim-in {
+  animation: rl-in var(--motion-in) var(--ease-out) both;
+}
+
+/* Каскад по прямым детям контейнера: шаг задаётся здесь, а не в разметке,
+   поэтому странице достаётся один класс вместо счётчика на каждый элемент.
+
+   Специфичность держим на одном классе (без `.rl` и без `:nth-child` в
+   зачёте): у ребёнка может быть своя анимация из redesign-v2.css — .anim-rise
+   у панели шита, .anim-pop у карточки — и она должна побеждать, иначе каскад
+   молча её подменит. */
+.anim-in-children > * {
+  animation: rl-in var(--motion-in) var(--ease-out) both;
+}
+
+.anim-in-children > *:where(:nth-child(2)) {
+  animation-delay: var(--stagger-step);
+}
+
+.anim-in-children > *:where(:nth-child(3)) {
+  animation-delay: calc(2 * var(--stagger-step));
+}
+
+.anim-in-children > *:where(:nth-child(4)) {
+  animation-delay: calc(3 * var(--stagger-step));
+}
+
+.anim-in-children > *:where(:nth-child(5)) {
+  animation-delay: calc(4 * var(--stagger-step));
+}
+
+/* Потолок каскада: дальше пятого элемента задержка не растёт. Длинный список
+   иначе доезжает секунду, и это уже ожидание, а не плавность. */
+.anim-in-children > *:where(:nth-child(n + 6)) {
+  animation-delay: calc(4 * var(--stagger-step));
+}
+
+/* Пока страница входит, каскад внутри неё выключен: две наложенные анимации
+   умножают прозрачность и растягивают появление до ~300ms вместо 180ms —
+   контент читается вялым, хотя приложение быстрое. Страница въезжает целиком,
+   а каскад достаётся тому, что появляется потом: данным на месте скелета,
+   догруженному списку. Классы направления снимаются по animationend
+   (lib/motion.ts), поэтому это правило действует только на время входа. */
+.anim-page.is-forward .anim-in,
+.anim-page.is-back .anim-in,
+.anim-page.is-forward .anim-in-children > *,
+.anim-page.is-back .anim-in-children > * {
+  animation: none;
+}
+
+/* ============================================================
+   3. prefers-reduced-motion
+   ============================================================ */
+
+/* Правило `*` из redesign-v2.css уже сводит длительность анимаций к 0.01ms;
+   здесь снимаем их полностью, чтобы не осталось ни сдвига, ни задержки
+   каскада — контент просто на месте. */
+@media (prefers-reduced-motion: reduce) {
+  .anim-page,
+  .anim-in,
+  .anim-in-children > * {
+    animation: none !important;
+  }
+}

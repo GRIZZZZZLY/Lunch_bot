@@ -26,7 +26,7 @@ export function StatsPage() {
 
   if (authLoading || historyLoading) {
     return (
-      <div className={`rl ${styles.screen}`}>
+      <div className={`rl anim-in-children ${styles.screen}`}>
         <h1 className={styles.title}>Статистика</h1>
         <div className={styles.group} style={{ padding: 16 }}>
           <Skeleton variant="text" width="45%" />
@@ -42,7 +42,7 @@ export function StatsPage() {
      несостоявшийся запрос. */
   if (historyQuery.isError) {
     return (
-      <div className={`rl ${styles.screen}`}>
+      <div className={`rl anim-in-children ${styles.screen}`}>
         <h1 className={styles.title}>Статистика</h1>
         <InlineNotice tone="critical">
           Не удалось прочитать историю голосований, поэтому статистику показать не из чего.{' '}
@@ -56,7 +56,7 @@ export function StatsPage() {
 
   if (vm.pollsTotal === 0) {
     return (
-      <div className={`rl ${styles.screen}`}>
+      <div className={`rl anim-in-children ${styles.screen}`}>
         <h1 className={styles.title}>Статистика</h1>
         <div className={styles.stateWrap}>
           <EmptyState
@@ -70,7 +70,7 @@ export function StatsPage() {
   }
 
   return (
-    <div className={`rl ${styles.screen}`}>
+    <div className={`rl anim-in-children ${styles.screen}`}>
       <h1 className={styles.title}>Статистика</h1>
 
       <section className={styles.group} aria-label="Ваше участие">

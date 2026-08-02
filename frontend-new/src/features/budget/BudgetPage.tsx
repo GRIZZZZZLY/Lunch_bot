@@ -181,7 +181,7 @@ export function BudgetPage() {
 
   if (debtsQuery.isLoading || creditsQuery.isLoading) {
     return (
-      <div className={`rl ${styles.screen}`}>
+      <div className={`rl anim-in-children ${styles.screen}`}>
         <div className={styles.group} style={{ padding: 16 }}>
           <Skeleton variant="text" width="40%" />
           <div style={{ height: 12 }} />
@@ -200,7 +200,7 @@ export function BudgetPage() {
   const creditsFailed = creditsQuery.isError && creditsQuery.data === undefined;
   if (debtsFailed || creditsFailed) {
     return (
-      <div className={`rl ${styles.screen}`}>
+      <div className={`rl anim-in-children ${styles.screen}`}>
         <div className={styles.stateWrap}>
           <ErrorState
             kind="network"
@@ -218,7 +218,7 @@ export function BudgetPage() {
 
   if (vm.isEmpty) {
     return (
-      <div className={`rl ${styles.screen}`}>
+      <div className={`rl anim-in-children ${styles.screen}`}>
         <div className={styles.stateWrap}>
           <EmptyState
             icon="wallet"
@@ -231,7 +231,7 @@ export function BudgetPage() {
   }
 
   return (
-    <div className={`rl ${styles.screen}`}>
+    <div className={`rl anim-in-children ${styles.screen}`}>
       {vm.myDebts.length > 0 && (
         <section className={styles.group} aria-labelledby="budget-debts-heading">
           <div className={styles.groupHead}>

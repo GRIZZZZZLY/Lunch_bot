@@ -3,8 +3,8 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthGate } from '@/components/common/AuthGate';
 import { RootLayout } from '@/app/layouts/RootLayout';
 import { DetailLayout } from '@/app/layouts/DetailLayout';
+import { RouteFallback } from '@/components/common/RouteFallback';
 import { HomePage } from '@/features/home/HomePage';
-import { Skeleton } from '@/shared/ui';
 
 /* Главная едет в основном чанке: это первый экран, и ленивая загрузка добавила
    бы ему лишний рейс по сети. Всё остальное грузится по требованию — Mini App
@@ -44,19 +44,6 @@ const UiShowcasePage = lazy(() =>
   import('@/pages/UiShowcasePage').then((m) => ({ default: m.UiShowcasePage })),
 );
 
-/** Заглушка маршрута: шапка и навигация на месте, меняется только контент. */
-function RouteFallback() {
-  return (
-    <div className="rl" style={{ padding: 'var(--space-4) var(--space-3)' }}>
-      <Skeleton variant="text" width="45%" height={12} />
-      <div style={{ height: 'var(--space-4)' }} />
-      <Skeleton variant="block" height={120} />
-      <div style={{ height: 'var(--space-3)' }} />
-      <Skeleton variant="block" height={72} />
-    </div>
-  );
-}
-
 /* Вкладки нижней навигации — один тап от Главной, поэтому их чанки тянем на
    простое, а не в момент нажатия. */
 function usePrefetchTabs() {
@@ -93,6 +80,8 @@ export default function App() {
 export function AppRoutes() {
   usePrefetchTabs();
   return (
+    /* Внешняя граница — подстраховка для маршрутов вне layout'ов: рабочую
+       заглушку показывают сами layout'ы, сохраняя шапку и навигацию. */
     <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route element={<RootLayout />}>

@@ -102,7 +102,7 @@ export default function MenuPage() {
   };
 
   return (
-    <div className={`rl ${styles.screen}`}>
+    <div className={`rl anim-in-children ${styles.screen}`}>
       <div className={styles.head}>
         <div>
           <h1 className={styles.title}>Меню</h1>
