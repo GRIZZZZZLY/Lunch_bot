@@ -72,6 +72,25 @@ async function requireGroupAdmin(
   return true;
 }
 
+/**
+ * Разбирает необязательный ?groupId=.
+ *
+ * Раньше проверка выглядела как `groupId && isNaN(groupId)` и не срабатывала
+ * никогда: NaN — ложное значение, поэтому ветка с 400 была недостижима, а
+ * `?groupId=abc` молча отдавал данные по ВСЕМ доступным группам вместо ошибки.
+ *
+ * @returns число, `undefined` (параметра нет) или `null` (параметр испорчен)
+ */
+function parseOptionalGroupId(req: Request): number | undefined | null {
+  const raw = req.query.groupId as string | undefined;
+  if (!raw) return undefined;
+
+  const groupId = parseInt(raw, 10);
+  if (!Number.isFinite(groupId) || groupId <= 0) return null;
+
+  return groupId;
+}
+
 async function getAccessibleGroupIds(
   req: Request,
   res: Response
@@ -132,11 +151,11 @@ export class PollController {
    */
   static async getPollHistory(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = req.query.groupId ? parseInt(req.query.groupId as string) : undefined;
+      const groupId = parseOptionalGroupId(req);
       const limit = parseInt(req.query.limit as string) || 20;
       const offset = parseInt(req.query.offset as string) || 0;
 
-      if (groupId && isNaN(groupId)) {
+      if (groupId === null) {
         res.status(400).json({
           success: false,
           error: 'Invalid groupId parameter',
@@ -186,9 +205,9 @@ export class PollController {
    */
   static async getLastCompleted(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = req.query.groupId ? parseInt(req.query.groupId as string) : undefined;
+      const groupId = parseOptionalGroupId(req);
 
-      if (groupId && isNaN(groupId)) {
+      if (groupId === null) {
         res.status(400).json({
           success: false,
           error: 'Invalid groupId parameter',
@@ -365,9 +384,9 @@ export class PollController {
    */
   static async getPollStats(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = req.query.groupId ? parseInt(req.query.groupId as string) : undefined;
+      const groupId = parseOptionalGroupId(req);
 
-      if (groupId && isNaN(groupId)) {
+      if (groupId === null) {
         res.status(400).json({
           success: false,
           error: 'Invalid groupId parameter',

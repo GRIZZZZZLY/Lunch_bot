@@ -1,7 +1,13 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    /* tsconfig.json объявляет только "node", и в тестах `jest.Mock` для eslint
+       превращался в any. Типозависимые правила на этом ломались молча:
+       no-unnecessary-type-assertion считал «ненужным» каждое приведение в
+       моках, --fix их удалял, и тесты перестали компилироваться под ts-jest.
+       Линтеру нужны те же типы, что и компилятору тестов. */
+    "types": ["node", "jest"]
   },
   "include": [
     "src/**/*.ts",

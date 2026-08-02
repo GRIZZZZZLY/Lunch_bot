@@ -965,7 +965,7 @@ describe('PollService', () => {
     beforeEach(() => {
       settingsSpy = jest
         .spyOn(GroupService, 'getGroupSettings')
-        .mockResolvedValue({ autoCompleteEnabled: true } as any);
+        .mockResolvedValue({ autoCompleteEnabled: true });
     });
 
     afterEach(() => {
