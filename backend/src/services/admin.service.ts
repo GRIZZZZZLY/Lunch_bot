@@ -717,22 +717,84 @@ export class AdminService {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-      const result = await prisma.poll.deleteMany({
+      const where = {
+        status: 'COMPLETED',
+        groupId,
+        endedAt: { lt: cutoffDate },
+      } as const;
+
+      /* Transaction.poll объявлен onDelete: Cascade, поэтому удаление опроса
+         уносит и его транзакции. Раньше здесь стоял голый deleteMany: админ
+         чистил «старые голосования», и вместе с ними бесследно исчезали
+         НЕПОГАШЕННЫЕ долги за те обеды. Диалог про деньги не говорил ни слова.
+
+         Опросы, за которыми ещё висят деньги, пропускаем. Долг считается
+         закрытым в CONFIRMED и FORGIVEN; PENDING и PAID — это ещё живые
+         деньги (PAID значит «должник отметил», а сборщик не подтвердил). */
+      const withLiveDebt = await prisma.poll.findMany({
         where: {
-          status: 'COMPLETED',
-          groupId,
-          endedAt: {
-            lt: cutoffDate,
-          },
+          ...where,
+          transactions: { some: { status: { notIn: ['CONFIRMED', 'FORGIVEN'] } } },
         },
+        select: { id: true },
+      });
+      const skippedIds = withLiveDebt.map((p) => p.id);
+
+      const result = await prisma.poll.deleteMany({
+        where: skippedIds.length ? { ...where, id: { notIn: skippedIds } } : where,
       });
 
-      logger.info(`[AdminService] Cleaned ${result.count} old polls (>${daysOld} days)`);
-      return { deleted: result.count };
+      logger.info(
+        `[AdminService] Cleaned ${result.count} old polls (>${daysOld} days), ` +
+          `skipped ${skippedIds.length} with unsettled debts`,
+      );
+      return {
+        deleted: result.count,
+        skipped: skippedIds.length,
+        skippedReason: skippedIds.length ? 'unsettled_debts' : undefined,
+      };
     } catch (error) {
       logger.error('[AdminService] Error cleaning old polls:', error);
       throw error;
     }
+  }
+
+  /**
+   * Что будет удалено при очистке за произвольный срок.
+   *
+   * Статистика отдаёт только срезы 30/60/90, а поле в интерфейсе принимает
+   * любое число: админ ставил 45 дней и подтверждал необратимое удаление,
+   * не зная объёма. Здесь считается ровно тот набор, который удалит кнопка.
+   */
+  async previewPollCleanup(daysOld: number, groupId: number) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+    const where = { status: 'COMPLETED', groupId, endedAt: { lt: cutoffDate } } as const;
+
+    const [total, blocked] = await Promise.all([
+      prisma.poll.count({ where }),
+      prisma.poll.count({
+        where: {
+          ...where,
+          transactions: { some: { status: { notIn: ['CONFIRMED', 'FORGIVEN'] } } },
+        },
+      }),
+    ]);
+    return { deletable: total - blocked, blockedByDebt: blocked };
+  }
+
+  /** То же для транзакций: удаляются только закрытые. */
+  async previewTransactionCleanup(daysOld: number, groupId: number) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+    const deletable = await prisma.transaction.count({
+      where: {
+        status: { in: ['CONFIRMED', 'FORGIVEN'] },
+        paidAt: { lt: cutoffDate },
+        poll: { groupId },
+      },
+    });
+    return { deletable, blockedByDebt: 0 };
   }
 
   /**
@@ -745,7 +807,7 @@ export class AdminService {
 
       const result = await prisma.transaction.deleteMany({
         where: {
-          status: { in: ['PAID', 'FORGIVEN'] },
+          status: { in: ['CONFIRMED', 'FORGIVEN'] },
           paidAt: {
             lt: cutoffDate,
           },
@@ -790,21 +852,21 @@ export class AdminService {
         }),
         prisma.transaction.count({
           where: {
-            status: { in: ['PAID', 'FORGIVEN'] },
+            status: { in: ['CONFIRMED', 'FORGIVEN'] },
             paidAt: { lt: date30 },
             poll: { groupId },
           },
         }),
         prisma.transaction.count({
           where: {
-            status: { in: ['PAID', 'FORGIVEN'] },
+            status: { in: ['CONFIRMED', 'FORGIVEN'] },
             paidAt: { lt: date60 },
             poll: { groupId },
           },
         }),
         prisma.transaction.count({
           where: {
-            status: { in: ['PAID', 'FORGIVEN'] },
+            status: { in: ['CONFIRMED', 'FORGIVEN'] },
             paidAt: { lt: date90 },
             poll: { groupId },
           },

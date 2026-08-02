@@ -7,6 +7,7 @@ import type {
   WeekBar,
 } from '@/components/admin/types';
 import type { MenuItem, Poll } from '@/types/models';
+import { pluralize } from '@/shared/lib/pluralize';
 
 const ICON_TONES: MenuItemIconTone[] = ['default', 'lav', 'sage', 'butter', 'rose', 'sky'];
 const POLL_TONES: PollItemTone[] = ['peach', 'lav', 'sage', 'butter', 'rose'];
@@ -71,30 +72,45 @@ export function buildDashboard(args: {
     : 0;
 
   return {
+    /* Склонение было сломано на всём, кроме единицы и двойки: «5 активных
+       опроса». Считает pluralize, как везде в продукте. */
     checklistHeading: activePolls.length
-      ? `${activePolls.length} активн${activePolls.length === 1 ? 'ый опрос' : 'ых опроса'}`
+      ? pluralize(activePolls.length, 'активный опрос', 'активных опроса', 'активных опросов')
       : 'Нет срочных задач',
-    checklistSubtitle: 'обновлено только что',
     checklist: activePolls.slice(0, 3).map((p) => ({
       id: `poll-${p.id}`,
       label: `Опрос #${p.id} — следить за ходом`,
       urgent: (Date.now() - new Date(p.createdAt).getTime()) / 60_000 > p.duration - 5,
     })),
+    /* «Рассылка» и «Модерация» отсюда убраны: плитки нажимались, а
+       handleQuickAction их не обрабатывал — тап не делал ничего. Подпись
+       «скоро» этого не отменяла. Заглушки того же рода уже удалены из
+       профиля («Уведомления», «Язык»). */
     quickActions: [
       { id: 'create-poll', emoji: '✚', title: 'Создать опрос', subtitle: 'из меню', tone: 'peach' },
-      { id: 'manage-menu', emoji: '🍽', title: 'Управление меню', subtitle: `${menuCount} блюд`, tone: 'sage' },
-      { id: 'broadcast', emoji: '📢', title: 'Рассылка', subtitle: 'скоро', tone: 'lav' },
-      { id: 'moderation', emoji: '🛡', title: 'Модерация', subtitle: 'скоро', tone: 'rose' },
+      {
+        id: 'manage-menu',
+        emoji: '🍽',
+        title: 'Управление меню',
+        subtitle: pluralize(menuCount, 'блюдо', 'блюда', 'блюд'),
+        tone: 'sage',
+      },
     ],
+    /* Переносы задавались тегом <br> прямо в данных, а на месте показа
+       вычищались регуляркой. Вёрстке здесь не место — перенос делает CSS. */
     stats: [
-      { num: String(totalPolls), label: 'опросов<br>всего' },
-      { num: String(avgVotes), label: 'средн.<br>голосов' },
-      { num: String(menuCount), label: 'блюд<br>в меню' },
+      { num: String(totalPolls), label: 'опросов всего' },
+      { num: String(avgVotes), label: 'средн. голосов' },
+      { num: String(menuCount), label: 'блюд в меню' },
     ],
     chart: {
       title: 'Опросы по дням недели',
-      subtitle: 'вся история',
+      /* «вся история» было неправдой: история приходит страницей. */
+      subtitle: pluralize(totalPolls, 'опрос', 'опроса', 'опросов'),
       bars: buildWeekdayChart(history),
+      /* На двух-трёх опросах это не ритм недели, а один случайный день,
+         поданный как аналитика. */
+      meaningful: totalPolls >= 4,
     },
     users: [],
     usersTotal: 0,

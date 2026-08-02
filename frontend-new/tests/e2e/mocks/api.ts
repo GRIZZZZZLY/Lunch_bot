@@ -571,6 +571,20 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
       await route.fulfill({ json: ok({ oldPolls: { count30Days: 3, count60Days: 2, count90Days: 1 }, oldTransactions: { count30Days: 2, count60Days: 1, count90Days: 0 } }) });
       return;
     }
+    /* Предпросмотр очистки: сколько уйдёт и сколько удержат непогашенные
+       долги. Без этой ручки диалог удаления откатывался к тексту без чисел, а
+       именно чисел ему и не хватало. */
+    if (method === 'GET' && path === '/admin/cleanup/preview') {
+      const kind = url.searchParams.get('kind');
+      await route.fulfill({
+        json: ok(
+          kind === 'transactions'
+            ? { deletable: 2, blockedByDebt: 0 }
+            : { deletable: 3, blockedByDebt: 1 },
+        ),
+      });
+      return;
+    }
     if (method === 'GET' && path.startsWith('/admin/reminder-settings/')) {
       await route.fulfill({ json: ok({ id: 1, groupId: 1, isEnabled: true, intervalDays: 3, messageTemplate: 'Напоминание', minDebtAge: 2, maxReminders: 3, createdAt: CREATED_AT, updatedAt: CREATED_AT }) });
       return;

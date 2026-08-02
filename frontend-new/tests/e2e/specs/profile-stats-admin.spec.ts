@@ -104,8 +104,8 @@ for (const role of ['creator', 'admin'] as const) {
       await appPage.goto('/profile');
       await expect(appPage.getByRole('button', { name: /Управление/ })).toBeVisible();
       await appPage.getByRole('button', { name: /Управление/ }).click();
-      await expect(appPage.getByText('Админ-панель')).toBeVisible();
-      await expect(appPage.getByRole('button', { name: /Создать опрос из меню/ })).toBeVisible();
+      await expect(appPage.getByRole('tab', { name: 'Обзор' })).toBeVisible();
+      await expect(appPage.getByRole('button', { name: /Создать опрос/ })).toBeVisible();
     });
   });
 }
@@ -126,27 +126,27 @@ test.describe('Глобальный администратор', () => {
       toUser: { ...api.state.user, id: 202, firstName: 'Игорь' },
     }];
     await appPage.goto('/admin');
-    await expect(appPage.getByText('Админ-панель')).toBeVisible();
+    await expect(appPage.getByRole('tab', { name: 'Обзор' })).toBeVisible();
 
-    await appPage.getByRole('button', { name: 'Люди' }).click();
+    await appPage.getByRole('tab', { name: 'Люди' }).click();
     await expect(appPage.getByText(/Пользователи/)).toBeVisible();
     await appPage.getByRole('textbox', { name: 'Поиск участника' }).fill('Анна');
-    await appPage.getByRole('button', { name: 'Админ' }).click();
+    await appPage.getByRole('button', { name: /^Снять админа/ }).click();
     expect(api.lastRequest('PUT', '/admin/users/101/admin')?.body).toEqual({ isAdmin: false });
-    await appPage.getByRole('button', { name: 'Активен' }).click();
+    await appPage.getByRole('button', { name: /^Заблокировать/ }).click();
     expect(api.lastRequest('PUT', '/admin/users/101/active')?.body).toEqual({ isActive: false });
 
-    await appPage.getByRole('button', { name: 'Долги' }).click();
+    await appPage.getByRole('tab', { name: 'Долги' }).click();
     await expect(appPage.getByText('Должников')).toBeVisible();
     await appPage.getByRole('button', { name: 'Напомнить всем' }).click();
     expect(api.requests('POST', '/admin/debts/remind-all')).toHaveLength(1);
-    await appPage.getByRole('button', { name: 'Напомнить', exact: true }).click();
+    await appPage.getByRole('button', { name: /^Напомнить об этом долге/ }).click();
     expect(api.requests('POST', '/admin/debts/801/remind')).toHaveLength(1);
-    await appPage.getByRole('button', { name: 'Списать' }).click();
+    await appPage.getByRole('button', { name: /^Списать этот долг/ }).click();
     await appPage.getByRole('alertdialog').getByRole('button', { name: 'Списать' }).click();
     expect(api.requests('POST', '/admin/debts/801/forgive')).toHaveLength(1);
 
-    await appPage.getByRole('button', { name: 'Очистка' }).click();
+    await appPage.getByRole('tab', { name: 'Очистка' }).click();
     await expect(appPage.getByText('Очистка данных')).toBeVisible();
     await appPage.getByRole('spinbutton', { name: 'Срок для старых голосований' }).fill('60');
     await appPage.getByRole('button', { name: 'Удалить' }).first().click();
@@ -155,7 +155,7 @@ test.describe('Глобальный администратор', () => {
     await appPage.getByRole('alertdialog').getByRole('button', { name: 'Удалить' }).click();
     expect(api.lastRequest('DELETE', '/admin/cleanup/old-transactions')?.query.daysOld).toBe('90');
 
-    await appPage.getByRole('button', { name: 'Напомин.' }).click();
+    await appPage.getByRole('tab', { name: 'Напоминания' }).click();
     await expect(appPage.getByText('Авто-напоминания о долгах')).toBeVisible();
     await appPage.getByRole('switch', { name: 'Включены' }).click();
     await appPage.getByRole('button', { name: 'Сохранить' }).click();

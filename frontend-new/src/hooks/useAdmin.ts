@@ -129,6 +129,27 @@ export function useCleanupStats() {
   });
 }
 
+/**
+ * Предпросмотр очистки за конкретный срок. Включается только когда диалог
+ * открыт: запрашивать его на каждое нажатие стрелки в поле незачем.
+ */
+export function useCleanupPreview(
+  kind: 'polls' | 'transactions' | null,
+  daysOld: number,
+) {
+  const groupId = useGroupId();
+  return useQuery({
+    queryKey: ['admin', 'cleanup-preview', groupId, kind, daysOld],
+    queryFn: async () => {
+      if (!groupId || !kind) return null;
+      const res = await adminService.previewCleanup(daysOld, groupId, kind);
+      return res.data ?? null;
+    },
+    enabled: !!groupId && !!kind,
+    staleTime: 10_000,
+  });
+}
+
 export function useCleanupOldPolls() {
   const qc = useQueryClient();
   const groupId = useGroupId();

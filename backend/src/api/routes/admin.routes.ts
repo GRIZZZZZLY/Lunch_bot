@@ -165,6 +165,15 @@ router.get('/cleanup/stats', (req, res) =>
   adminController.getCleanupStats(req, res)
 );
 
+/**
+ * GET /api/admin/cleanup/preview?daysOld=N&kind=polls|transactions
+ * Что именно удалит очистка за этот срок: сколько уйдёт и сколько
+ * пропустится из-за непогашенных долгов.
+ */
+router.get('/cleanup/preview', (req, res) =>
+  adminController.previewCleanup(req, res)
+);
+
 // ===== Reminder Settings Routes =====
 
 /**

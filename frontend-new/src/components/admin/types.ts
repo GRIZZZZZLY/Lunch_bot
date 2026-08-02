@@ -59,13 +59,14 @@ export interface PollItem {
 export interface AdminDashboardData {
   checklist: AdminChecklistItem[];
   checklistHeading: string;
-  checklistSubtitle: string;
   quickActions: QuickAction[];
   stats: StatTriple[];
   chart: {
     title: string;
     subtitle: string;
     bars: WeekBar[];
+    /** Хватает ли данных, чтобы график говорил о ритме недели, а не об одном дне. */
+    meaningful: boolean;
   };
   alert?: SuspiciousAlert;
   users: AdminUser[];
@@ -104,7 +105,6 @@ export interface CreatePollFormState {
   recurringDays: string[];
   recurringTime: string;
   selectedItems: string[];
-  audience: AudienceKey;
   groupId?: string;
 }
 
@@ -117,6 +117,5 @@ export interface CreatePollContext {
   items: MenuItemOption[];
   maxItems: number;
   minItems: number;
-  audiences: AudienceOption[];
   groups?: GroupOption[];
 }

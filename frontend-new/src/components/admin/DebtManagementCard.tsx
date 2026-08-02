@@ -8,12 +8,15 @@ import {
 } from '@/hooks/useAdmin';
 import type { DebtorInfo } from '@/services/admin.service';
 import { Button, IconButton } from '@/components/rl/primitives';
-import { ConfirmDialog } from '@/shared/ui';
+import { ConfirmDialog, InlineNotice } from '@/shared/ui';
+import { formatPrice } from '@/features/store-run/lib/selectors';
+import { pluralize } from '@/shared/lib/pluralize';
+import styles from './AdminCards.module.css';
 
-type ForgiveTarget = { id: number; amount: number };
+type ForgiveTarget = { id: number; amount: number; who: string; toWhom: string };
 
 export function DebtManagementCard() {
-  const { data: debtors = [], isLoading } = useAdminDebtors();
+  const { data: debtors = [], isLoading, isError, refetch } = useAdminDebtors();
   const { data: stats } = useDebtStats();
   const forgive = useForgiveDebt();
   const remindAll = useRemindAllDebtors();
@@ -21,43 +24,69 @@ export function DebtManagementCard() {
   const [forgiveTarget, setForgiveTarget] = useState<ForgiveTarget | null>(null);
 
   return (
-    <div className="card" style={{ padding: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--text-16)' }}>
-          Долги
-        </div>
-        <Button size="sm" variant="warning" icon="bell" loading={remindAll.isPending} disabled={debtors.length === 0} onClick={() => remindAll.mutate()}>
+    <div className={styles.card}>
+      <div className={styles.head}>
+        <h2 className={styles.title}>Долги</h2>
+        <Button
+          size="sm"
+          variant="warning"
+          icon="bell"
+          loading={remindAll.isPending}
+          disabled={debtors.length === 0 || isError}
+          onClick={() => remindAll.mutate()}
+        >
           Напомнить всем
         </Button>
       </div>
 
-      {stats && (
-        <div style={{ display: 'flex', gap: 8, padding: 12, borderRadius: 'var(--radius-block)', background: 'var(--canvas)', marginBottom: 12 }}>
-          <Stat label="Должников" value={String(stats.totalDebtors)} />
-          <Stat label="Сумма" value={`${stats.totalDebtAmount} ₽`} />
-          <Stat label="Средн." value={`${Math.round(stats.avgDebtPerUser)} ₽`} />
-          <Stat label="Старый" value={`${stats.oldestDebtAge}д`} />
-        </div>
+      {/* Раньше отказ чтения выглядел как «Долгов нет» — на денежном экране
+          это прямая ложь. */}
+      {isError ? (
+        <InlineNotice tone="critical">
+          Не удалось загрузить долги.{' '}
+          <button type="button" className={styles.retry} onClick={() => refetch()}>
+            Повторить
+          </button>
+        </InlineNotice>
+      ) : (
+        <>
+          {stats && (
+            <div className={`${styles.block} ${styles.controls} ${styles.statsRow}`}>
+              <Stat label="Должников" value={String(stats.totalDebtors)} />
+              {/* formatPrice, а не «{n} ₽»: это было единственное место в
+                  продукте, где деньги шли без разрядов. */}
+              <Stat label="Сумма" value={formatPrice(stats.totalDebtAmount)} />
+              <Stat label="Средн." value={formatPrice(Math.round(stats.avgDebtPerUser))} />
+              <Stat label="Старый" value={`${stats.oldestDebtAge} д`} />
+            </div>
+          )}
+
+          {isLoading && <p className={styles.muted}>Загрузка…</p>}
+          {!isLoading && debtors.length === 0 && <p className={styles.muted}>Долгов нет</p>}
+
+          <div className={styles.list}>
+            {debtors.map((d) => (
+              <DebtorRow
+                key={d.userId}
+                debtor={d}
+                busyId={remindOne.isPending ? remindOne.variables : undefined}
+                onForgive={setForgiveTarget}
+                onRemind={(id) => remindOne.mutate(id)}
+              />
+            ))}
+          </div>
+        </>
       )}
-
-      {isLoading && <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--text-13)' }}>Загрузка…</div>}
-      {!isLoading && debtors.length === 0 && <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--text-13)' }}>Долгов нет</div>}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {debtors.map((d) => (
-          <DebtorRow
-            key={d.userId}
-            debtor={d}
-            onForgive={(id, amount) => setForgiveTarget({ id, amount })}
-            onRemind={(id) => remindOne.mutate(id)}
-          />
-        ))}
-      </div>
 
       {forgiveTarget && (
         <ConfirmDialog
           title="Списать долг?"
-          description={`${forgiveTarget.amount} ₽ будут списаны без оплаты. Действие необратимо.`}
+          /* Кого и кому — раньше диалог называл только сумму, и в списке из
+             восьми человек промах закрывал чужой долг навсегда.
+             Стрелкой, а не «долг X перед Y»: русские имена в такой фразе
+             требуют падежей, а склонять их кодом нельзя — получалось «долг
+             Анна Тестова перед Игорь». Стрелка та же, что в строке списка. */
+          description={`${forgiveTarget.who} → ${forgiveTarget.toWhom}, ${formatPrice(forgiveTarget.amount)}. Деньги никто не получит, вернуть запись нельзя.`}
           confirmLabel="Списать"
           destructive
           pending={forgive.isPending}
@@ -73,33 +102,51 @@ export function DebtManagementCard() {
 
 function DebtorRow({
   debtor,
+  busyId,
   onForgive,
   onRemind,
 }: {
   debtor: DebtorInfo;
-  onForgive: (id: number, amount: number) => void;
+  busyId?: number;
+  onForgive: (t: ForgiveTarget) => void;
   onRemind: (id: number) => void;
 }) {
   return (
-    <div style={{ padding: '10px 12px', background: 'var(--canvas)', borderRadius: 'var(--radius-block)' }}>
-      <div style={{ fontSize: 'var(--text-15)', fontWeight: 600 }}>{debtor.userName}</div>
-      <div style={{ fontSize: 'var(--text-11)', color: 'var(--text-tertiary)', marginTop: 2 }} className="tnum">
-        {debtor.debtCount} долгов · {debtor.totalDebt} ₽
+    <div className={styles.block}>
+      <div className={styles.blockTitle}>{debtor.userName}</div>
+      <div className={`tnum ${styles.rowSub}`}>
+        {pluralize(debtor.debtCount, 'долг', 'долга', 'долгов')} · {formatPrice(debtor.totalDebt)}
       </div>
-      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div className={`${styles.list} ${styles.notice}`}>
         {debtor.debts.map((d) => (
-          <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-13)' }}>
-            <span style={{ flex: 1 }} className="tnum">
-              {d.amount} ₽ → {d.toUser.firstName}
+          <div key={d.id} className={styles.controls}>
+            <span className={`tnum ${styles.rowMain}`}>
+              {formatPrice(d.amount)} → {d.toUser.firstName}
             </span>
-            <IconButton size="sm" variant="ghost" name="bell" aria-label="Напомнить" onClick={() => onRemind(d.id)} />
+            {/* Подписи были одинаковыми у всех строк: диктор десять раз
+                подряд говорил «Списать», не называя, чей это долг. */}
+            <IconButton
+              size="sm"
+              variant="ghost"
+              name="bell"
+              loading={busyId === d.id}
+              aria-label={`Напомнить об этом долге: ${debtor.userName} → ${d.toUser.firstName}, ${formatPrice(d.amount)}`}
+              onClick={() => onRemind(d.id)}
+            />
             <IconButton
               size="sm"
               variant="ghost"
               name="x"
-              aria-label="Списать"
-              style={{ color: 'var(--danger)' }}
-              onClick={() => onForgive(d.id, d.amount)}
+              className={styles.forgive}
+              aria-label={`Списать этот долг: ${debtor.userName} → ${d.toUser.firstName}, ${formatPrice(d.amount)}`}
+              onClick={() =>
+                onForgive({
+                  id: d.id,
+                  amount: d.amount,
+                  who: debtor.userName,
+                  toWhom: d.toUser.firstName,
+                })
+              }
             />
           </div>
         ))}
@@ -110,9 +157,9 @@ function DebtorRow({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ flex: 1, textAlign: 'center' }}>
-      <div className="font-head tnum" style={{ fontWeight: 700, fontSize: 'var(--text-15)' }}>{value}</div>
-      <div style={{ fontSize: 'var(--text-11)', color: 'var(--text-tertiary)' }}>{label}</div>
+    <div className={styles.rowMain} style={{ textAlign: 'center' }}>
+      <div className={`tnum ${styles.blockTitle}`}>{value}</div>
+      <div className={styles.rowSub}>{label}</div>
     </div>
   );
 }

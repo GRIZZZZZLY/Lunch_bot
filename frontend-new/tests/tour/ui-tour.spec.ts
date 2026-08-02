@@ -338,22 +338,22 @@ test.describe('06 Админ-панель', () => {
       await app.goto('/admin');
       await shot(app, '06-admin/01-overview');
 
-      await app.getByRole('button', { name: 'Люди' }).click();
+      await app.getByRole('tab', { name: 'Люди' }).click();
       await shot(app, '06-admin/02-people');
 
-      await app.getByRole('button', { name: 'Долги' }).click();
+      await app.getByRole('tab', { name: 'Долги' }).click();
       await shot(app, '06-admin/03-debts');
-      await app.getByRole('button', { name: 'Списать' }).click();
+      await app.getByRole('button', { name: /^Списать этот долг/ }).click();
       await shot(app, '06-admin/04-debts-forgive-confirm');
       await app.getByRole('alertdialog').getByRole('button', { name: 'Отмена' }).click();
 
-      await app.getByRole('button', { name: 'Очистка' }).click();
+      await app.getByRole('tab', { name: 'Очистка' }).click();
       await shot(app, '06-admin/05-cleanup');
       await app.getByRole('button', { name: 'Удалить' }).first().click();
       await shot(app, '06-admin/06-cleanup-confirm');
       await app.getByRole('alertdialog').getByRole('button', { name: 'Отмена' }).click();
 
-      await app.getByRole('button', { name: 'Напомин.' }).click();
+      await app.getByRole('tab', { name: 'Напоминания' }).click();
       await shot(app, '06-admin/07-reminders');
     });
   });

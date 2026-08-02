@@ -45,6 +45,18 @@ export interface CleanupStats {
   oldTransactions: { count30Days: number; count60Days: number; count90Days: number };
 }
 
+/** Что удалит очистка за конкретный срок и что удержат непогашенные долги. */
+export interface CleanupPreview {
+  deletable: number;
+  blockedByDebt: number;
+}
+
+export interface CleanupResult {
+  deleted: number;
+  skipped: number;
+  skippedReason?: string;
+}
+
 export interface ReminderSettings {
   id: number;
   groupId: number;
@@ -105,14 +117,23 @@ class AdminService {
   }
 
   cleanupOldPolls(daysOld: number, groupId: number) {
-    return apiService.delete<{ deleted: number }>(
+    return apiService.delete<CleanupResult>(
       `/admin/cleanup/old-polls?daysOld=${daysOld}&groupId=${groupId}`,
     );
   }
 
   cleanupOldTransactions(daysOld: number, groupId: number) {
-    return apiService.delete<{ deleted: number }>(
+    return apiService.delete<CleanupResult>(
       `/admin/cleanup/old-transactions?daysOld=${daysOld}&groupId=${groupId}`,
+    );
+  }
+
+  /* Сколько уйдёт за конкретный срок. Статистика отдаёт только 30/60/90, а
+     поле принимает любое число: подтверждать необратимое удаление вслепую
+     нельзя. */
+  previewCleanup(daysOld: number, groupId: number, kind: 'polls' | 'transactions') {
+    return apiService.get<CleanupPreview>(
+      `/admin/cleanup/preview?daysOld=${daysOld}&kind=${kind}&groupId=${groupId}`,
     );
   }
 

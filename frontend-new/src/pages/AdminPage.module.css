@@ -1,0 +1,388 @@
+/* Админ-панель — система C. Экран собран целиком на инлайн-стилях: 120 блоков
+   style={{…}} и 93 голых числа, ни одного CSS-модуля — единственный такой
+   экран в продукте. Отсюда и отсутствие состояний: инлайн-стиль не умеет
+   :hover и :focus-visible, поэтому их просто не было ни у одной самодельной
+   плитки, карточки и кнопки. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  animation: adminIn var(--motion-base) var(--ease-out);
+}
+
+@keyframes adminIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Вкладки. Пятая («Напоминания») уезжала за правый край на 390 px, и о том,
+   что полосу можно листать, ничто не сообщало. Затенение у края — знак, что
+   дальше есть ещё. */
+.tabsWrap {
+  position: relative;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: var(--space-1) var(--space-1);
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.tabs::-webkit-scrollbar { display: none; }
+
+.tabsWrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--space-6);
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--canvas));
+}
+
+/* Визуально 36 px, зона касания 44 через ::after — как у чипов меню: поднимать
+   сам чип до 44 значит раздуть полосу фильтров. */
+.tab {
+  position: relative;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  font: inherit;
+  font-size: var(--text-13);
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+
+.tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--control-md);
+  min-height: 100%;
+  transform: translateY(-50%);
+}
+
+@media (hover: hover) {
+  .tab[aria-selected='false']:hover {
+    background: var(--accent-tint);
+  }
+}
+
+.tab:active {
+  opacity: 0.8;
+}
+
+.tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
+}
+
+.tab[aria-selected='true'] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.retry {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.retry:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+  border-radius: var(--space-1);
+}
+
+.card {
+  border-radius: var(--radius-block);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  padding: var(--space-4);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--text-18);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.cardSub {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.checkItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control-sm);
+  background: var(--canvas);
+  font-size: var(--text-13);
+}
+
+.checkItem.urgent {
+  background: var(--danger-tint);
+  color: var(--danger-on-tint);
+}
+
+.checkItemLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Быстрые действия. Было четыре плитки, две из которых («Рассылка»,
+   «Модерация») нажимались и молча ничего не делали — заглушки того же рода,
+   что удалены из профиля. Остались только работающие. */
+.quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+/* Иконка сверху, а не слева: в две колонки на 390 px «Управление меню»
+   отъедало у заголовка половину ширины и переносилось, пока соседняя плитка
+   оставалась в одну строку — колонки выглядели сломанными. */
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: var(--control-lg);
+  padding: var(--space-3);
+  border: none;
+  border-radius: var(--radius-block);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    background: var(--accent-tint);
+  }
+}
+
+.tile:active {
+  background: var(--accent-tint);
+  opacity: 0.85;
+}
+
+.tile:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
+}
+
+.tileIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border-radius: var(--radius-control-sm);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.tileMain {
+  min-width: 0;
+}
+
+.tileTitle {
+  display: block;
+  font-size: var(--text-13);
+  font-weight: 700;
+}
+
+.tileSub {
+  display: block;
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+}
+
+.stats {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.stat {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-block);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.statNum {
+  display: block;
+  font-size: var(--text-22);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.statLabel {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-11);
+  line-height: 1.2;
+  color: var(--text-tertiary);
+}
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  height: 90px;
+  padding-top: var(--space-2);
+}
+
+.chartCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  height: 100%;
+}
+
+.chartBarWrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.chartBar {
+  width: 100%;
+  border-radius: var(--space-1);
+  background: var(--accent-tint);
+}
+
+.chartBar.peak { background: var(--accent); }
+.chartBar.muted { background: var(--divider); }
+
+.chartDay {
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+}
+
+.pollRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  border: none;
+  border-radius: var(--radius-block);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .pollRow:hover {
+    background: var(--accent-tint);
+  }
+}
+
+.pollRow:active {
+  background: var(--accent-tint);
+  opacity: 0.85;
+}
+
+.pollRow:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
+}
+
+.pollIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--control-md);
+  height: var(--control-md);
+  border-radius: var(--radius-control-sm);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.pollMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.pollTitle {
+  display: block;
+  font-size: var(--text-15);
+  font-weight: 700;
+}
+
+.pollMeta {
+  display: block;
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+}
+
+.pollList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.denied {
+  padding: var(--space-6) var(--space-4);
+  border-radius: var(--radius-block);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  text-align: center;
+  font-size: var(--text-13);
+  color: var(--text-secondary);
+}

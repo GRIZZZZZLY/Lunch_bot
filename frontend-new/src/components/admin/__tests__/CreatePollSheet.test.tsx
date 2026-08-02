@@ -11,7 +11,6 @@ const ctx: CreatePollContext = {
   ],
   maxItems: 8,
   minItems: 2,
-  audiences: [{ key: 'all', label: 'Вся группа', sub: 'все участники' }],
   groups: [{ id: '1', title: 'Тест на проде' }],
 };
 

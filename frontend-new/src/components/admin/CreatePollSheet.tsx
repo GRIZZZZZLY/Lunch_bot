@@ -47,7 +47,6 @@ function makeInitial(ctx: CreatePollContext, override?: Partial<CreatePollFormSt
     recurringDays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'],
     recurringTime: '12:00',
     selectedItems: [],
-    audience: ctx.audiences[0]?.key ?? 'all',
     groupId: ctx.groups?.[0]?.id,
     ...override,
   };
@@ -273,53 +272,6 @@ export function CreatePollSheet({
           <MenuRow key={it.id} item={it} on={state.selectedItems.includes(it.id)} disabled={submitting} onToggle={() => toggleItem(it.id)} />
         ))}
       </div>
-
-      {/* Выбор из одного варианта — не выбор: секция появляется, только когда
-          адресатов правда несколько, иначе новичок ищет, между чем решает. */}
-      {ctx.audiences.length > 1 && (
-      <>
-      <Label>Участники</Label>
-      <div className="card" style={{ overflow: 'hidden' }}>
-        <div className="row-divider">
-          {ctx.audiences.map((a) => {
-            const on = state.audience === a.key;
-            return (
-              /* Кнопка, а не div с ролью: у прежнего варианта не было ни
-                 tabIndex, ни обработчика клавиш — роль обещала радиогруппу,
-                 которой с клавиатуры не существовало. */
-              <button
-                key={a.key}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                disabled={submitting}
-                className="list-item"
-                style={{ cursor: 'pointer', width: '100%', background: 'none', border: 'none', font: 'inherit', color: 'inherit', textAlign: 'left' }}
-                onClick={() => setState({ ...state, audience: a.key })}
-              >
-                <span
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: '50%',
-                    flexShrink: 0,
-                    border: `2px solid ${on ? 'var(--accent)' : 'var(--divider)'}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {on && <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)' }} />}
-                </span>
-                <span style={{ flex: 1, fontSize: 'var(--text-15)', fontWeight: 500 }}>{a.label}</span>
-                <span style={{ fontSize: 'var(--text-13)', color: 'var(--text-tertiary)' }}>{a.sub}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      </>
-      )}
     </BottomSheet>
   );
 }

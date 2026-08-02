@@ -7,54 +7,80 @@ import {
   useUpdateReminderSettings,
 } from '@/hooks/useAdmin';
 import { Button, Field, Switch } from '@/components/rl/primitives';
+import { InlineNotice } from '@/shared/ui';
+import styles from './AdminCards.module.css';
 
 export function ReminderSettingsCard() {
-  const { data: reminder } = useReminderSettings();
-  const { data: notif } = useNotificationSettings();
+  const reminderQuery = useReminderSettings();
+  const notifQuery = useNotificationSettings();
   const updateNotif = useUpdateNotificationSettings();
+  const reminder = reminderQuery.data;
+  const notif = notifQuery.data;
 
   return (
-    <div className="card" style={{ padding: 16 }}>
-      <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--text-16)', marginBottom: 8 }}>
-        Авто-напоминания о долгах
-      </div>
+    <div className={styles.card}>
+      <h2 className={styles.title}>Авто-напоминания о долгах</h2>
 
-      <ReminderSettingsForm
-        key={reminder?.updatedAt ?? 'reminder-defaults'}
-        initial={reminder ?? undefined}
-      />
+      {reminderQuery.isLoading && <p className={styles.muted}>Загрузка…</p>}
 
-      <div className="font-head" style={{ fontWeight: 700, fontSize: 'var(--text-16)', margin: '18px 0 4px' }}>
-        Уведомления админа
-      </div>
-      {notif && (
-        <div>
-          <ToggleRow label="Новый пользователь" value={notif.notifyOnNewUser} onChange={(v) => updateNotif.mutate({ notifyOnNewUser: v })} />
-          <ToggleRow label="Новое голосование" value={notif.notifyOnNewPoll} onChange={(v) => updateNotif.mutate({ notifyOnNewPoll: v })} />
-          <ToggleRow label="Завершение голосования" value={notif.notifyOnPollEnd} onChange={(v) => updateNotif.mutate({ notifyOnPollEnd: v })} />
-          <ToggleRow label="Оплата долга" value={notif.notifyOnDebtPaid} onChange={(v) => updateNotif.mutate({ notifyOnDebtPaid: v })} />
-        </div>
+      {/* Форма показывалась ВСЕГДА, подставляя дефолты `?? 1 / ?? 3 / ?? ''`.
+          При упавшем чтении админ видел пустой шаблон и единицы, а «Сохранить»
+          записывало это поверх настоящих настроек. Пока не прочитали —
+          сохранять нечего. */}
+      {reminderQuery.isError && (
+        <InlineNotice tone="critical">
+          Не удалось прочитать настройки, поэтому форма скрыта — иначе её можно
+          было бы сохранить поверх настоящих значений.{' '}
+          <button type="button" className={styles.retry} onClick={() => reminderQuery.refetch()}>
+            Повторить
+          </button>
+        </InlineNotice>
+      )}
+
+      {reminder && (
+        <ReminderSettingsForm key={reminder.updatedAt ?? 'reminder'} initial={reminder} />
+      )}
+
+      <h2 className={`${styles.title} ${styles.sectionGap}`}>Уведомления админа</h2>
+
+      {notifQuery.isError ? (
+        <InlineNotice tone="critical">
+          Не удалось прочитать настройки уведомлений.{' '}
+          <button type="button" className={styles.retry} onClick={() => notifQuery.refetch()}>
+            Повторить
+          </button>
+        </InlineNotice>
+      ) : (
+        notif && (
+          <div>
+            <ToggleRow label="Новый пользователь" value={notif.notifyOnNewUser} onChange={(v) => updateNotif.mutate({ notifyOnNewUser: v })} />
+            <ToggleRow label="Новое голосование" value={notif.notifyOnNewPoll} onChange={(v) => updateNotif.mutate({ notifyOnNewPoll: v })} />
+            <ToggleRow label="Завершение голосования" value={notif.notifyOnPollEnd} onChange={(v) => updateNotif.mutate({ notifyOnPollEnd: v })} />
+            <ToggleRow label="Оплата долга" value={notif.notifyOnDebtPaid} onChange={(v) => updateNotif.mutate({ notifyOnDebtPaid: v })} />
+          </div>
+        )
       )}
     </div>
   );
 }
 
-function ReminderSettingsForm({ initial }: { initial?: ReminderSettings }) {
+function ReminderSettingsForm({ initial }: { initial: ReminderSettings }) {
   const updateReminder = useUpdateReminderSettings();
-  const [intervalDays, setIntervalDays] = useState(initial?.intervalDays ?? 1);
-  const [minDebtAge, setMinDebtAge] = useState(initial?.minDebtAge ?? 1);
-  const [maxReminders, setMaxReminders] = useState(initial?.maxReminders ?? 3);
-  const [template, setTemplate] = useState(initial?.messageTemplate ?? '');
-  const [enabled, setEnabled] = useState(initial?.isEnabled ?? true);
+  const [intervalDays, setIntervalDays] = useState(initial.intervalDays);
+  const [minDebtAge, setMinDebtAge] = useState(initial.minDebtAge);
+  const [maxReminders, setMaxReminders] = useState(initial.maxReminders);
+  const [template, setTemplate] = useState(initial.messageTemplate ?? '');
+  const [enabled, setEnabled] = useState(initial.isEnabled);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
+  /* Отказ сохранения раньше не показывался: mutate без onError, кнопка
+     переставала крутиться, и всё. */
   const saveReminder = () => {
-    updateReminder.mutate({
-      isEnabled: enabled,
-      intervalDays,
-      minDebtAge,
-      maxReminders,
-      messageTemplate: template,
-    });
+    setSaveError(null);
+    updateReminder.mutate(
+      { isEnabled: enabled, intervalDays, minDebtAge, maxReminders, messageTemplate: template },
+      { onError: () => setSaveError('Не удалось сохранить настройки. Проверьте связь и попробуйте ещё раз.') },
+    );
   };
 
   return (
@@ -74,7 +100,13 @@ function ReminderSettingsForm({ initial }: { initial?: ReminderSettings }) {
         <Field id="reminder-template" as="textarea" rows={3} value={template} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTemplate(e.target.value)} />
       </FormField>
 
-      <Button variant="primary" icon="check" style={{ width: '100%', marginTop: 4 }} loading={updateReminder.isPending} onClick={saveReminder}>
+      {saveError && (
+        <div className={styles.notice}>
+          <InlineNotice tone="critical">{saveError}</InlineNotice>
+        </div>
+      )}
+
+      <Button variant="primary" icon="check" style={{ width: '100%' }} loading={updateReminder.isPending} onClick={saveReminder}>
         Сохранить
       </Button>
     </>
@@ -83,8 +115,8 @@ function ReminderSettingsForm({ initial }: { initial?: ReminderSettings }) {
 
 function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
-      <span style={{ fontSize: 'var(--text-15)' }}>{label}</span>
+    <div className={styles.toggleRow}>
+      <span className={styles.toggleLabel}>{label}</span>
       <Switch on={value} onChange={onChange} aria-label={label} />
     </div>
   );
@@ -92,8 +124,10 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
 
 function FormField({ label, htmlFor, children }: { label: string; htmlFor: string; children: ReactNode }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <label htmlFor={htmlFor} style={{ display: 'block', fontSize: 'var(--text-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</label>
+    <div className={styles.field}>
+      <label htmlFor={htmlFor} className={styles.fieldLabel}>
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -101,7 +135,7 @@ function FormField({ label, htmlFor, children }: { label: string; htmlFor: strin
 
 function NumberField({ id, value, onChange, min }: { id: string; value: number; onChange: (n: number) => void; min?: number }) {
   return (
-    <div style={{ width: 120 }}>
+    <div className={styles.daysField}>
       <Field
         id={id}
         type="number"

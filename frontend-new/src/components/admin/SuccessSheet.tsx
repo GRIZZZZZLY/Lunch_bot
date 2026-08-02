@@ -1,16 +1,21 @@
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, Confetti } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
+import styles from './SuccessSheet.module.css';
 
 interface Props {
   open: boolean;
-  participants: number;
   closeAt: string;
-  onShare?: () => void;
   onOpen?: () => void;
 }
 
-export function SuccessSheet({ open, participants, closeAt, onShare, onOpen }: Props) {
+/* Число участников отсюда убрано: страница передавала сюда usersTotal, а тот
+   в buildDashboard жёстко равен нулю — после каждого запуска лист сообщал
+   «0 участников получили уведомление». Сколько человек получило рассылку,
+   фронт не знает, и выдумывать это число незачем.
+
+   Кнопка «Поделиться» тоже убрана: обработчик был `() => undefined`. */
+export function SuccessSheet({ open, closeAt, onOpen }: Props) {
   if (!open) return null;
 
   return (
@@ -18,26 +23,19 @@ export function SuccessSheet({ open, participants, closeAt, onShare, onOpen }: P
       title="Опрос запущен"
       onClose={() => onOpen?.()}
       footer={
-        <>
-          <Button variant="secondary" style={{ flex: 1 }} onClick={onOpen}>
-            К опросу
-          </Button>
-          <Button variant="primary" icon="send" style={{ flex: 1 }} onClick={onShare}>
-            Поделиться
-          </Button>
-        </>
+        <Button variant="primary" style={{ width: '100%' }} onClick={onOpen}>
+          Понятно
+        </Button>
       }
     >
       <Confetti fire />
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '8px 0 6px', position: 'relative' }}>
-        <div className="anim-pop" style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--accent-tint)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+      <div className={styles.body}>
+        <div className={`anim-pop ${styles.mark}`}>
           <Icon name="check" size={32} stroke={2.2} />
         </div>
-        <div className="font-head tight" style={{ fontSize: 'var(--text-18)', fontWeight: 700 }}>
-          Голосование отправлено
-        </div>
-        <p style={{ margin: '6px 0 0', fontSize: 'var(--text-13)', color: 'var(--text-tertiary)', maxWidth: 260, lineHeight: 1.5 }}>
-          <span className="tnum">{participants}</span> участников получили уведомление. Закроется в{' '}
+        <p className={styles.title}>Голосование отправлено</p>
+        <p className={styles.note}>
+          Команда получит уведомление. Опрос закроется в{' '}
           <span className="tnum">{closeAt}</span>.
         </p>
       </div>

@@ -567,10 +567,16 @@ export class AdminController {
       
       const result = await this.adminService.cleanupOldPolls(daysOld, groupId);
       
+      /* Пропущенные называем вслух: молча удалить меньше, чем просили, — это
+         то же враньё, что молча удалить лишнее. */
+      const skippedNote = result.skipped
+        ? `, пропущено ${result.skipped} — за ними ещё висят непогашенные долги`
+        : '';
+
       res.json({
         success: true,
         data: result,
-        message: `Удалено ${result.deleted} голосований старше ${daysOld} дней`,
+        message: `Удалено ${result.deleted} голосований старше ${daysOld} дней${skippedNote}`,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
@@ -637,6 +643,39 @@ export class AdminController {
       res.status(500).json({
         success: false,
         error: 'Failed to get cleanup stats',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+
+  /**
+   * Что удалит очистка за конкретный срок.
+   *
+   * Статистика отдаёт срезы 30/60/90, а поле в интерфейсе принимает любое
+   * число: админ подтверждал необратимое удаление за 45 дней, не зная объёма.
+   */
+  async previewCleanup(req: Request, res: Response): Promise<void> {
+    try {
+      const daysOld = parseInt(req.query.daysOld as string) || 30;
+      const kind = req.query.kind === 'transactions' ? 'transactions' : 'polls';
+
+      const groupId = this.getGroupId(req, res);
+      if (!groupId) return;
+
+      const hasAccess = await this.requireGroupAdmin(req, res, groupId, true);
+      if (!hasAccess) return;
+
+      const data =
+        kind === 'polls'
+          ? await this.adminService.previewPollCleanup(daysOld, groupId)
+          : await this.adminService.previewTransactionCleanup(daysOld, groupId);
+
+      res.json({ success: true, data, timestamp: new Date().toISOString() });
+    } catch (error) {
+      logger.error('[AdminController] Error previewing cleanup:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to preview cleanup',
         code: 'INTERNAL_ERROR',
       });
     }

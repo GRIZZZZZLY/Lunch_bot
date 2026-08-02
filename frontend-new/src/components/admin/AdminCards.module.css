@@ -1,0 +1,173 @@
+/* Общая поверхность карточек админки. До этого весь экран жил на инлайн-стилях
+   (120 блоков, 93 голых числа, ноль CSS-модулей — единственный такой экран
+   продукта), поэтому у кнопок и строк не было ни наведения, ни кольца фокуса:
+   инлайн-стиль их просто не умеет. */
+.card {
+  border-radius: var(--radius-block);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  padding: var(--space-4);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.muted {
+  font-size: var(--text-13);
+  color: var(--text-tertiary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.block {
+  padding: var(--space-3);
+  border-radius: var(--radius-control-sm);
+  background: var(--canvas);
+}
+
+.blockTitle {
+  font-size: var(--text-15);
+  font-weight: 700;
+}
+
+.counts {
+  display: flex;
+  gap: var(--space-3);
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.daysField {
+  width: 90px;
+}
+
+.daysUnit {
+  font-size: var(--text-13);
+  color: var(--text-secondary);
+}
+
+.pushRight {
+  margin-left: auto;
+}
+
+.notice {
+  margin-top: var(--space-3);
+}
+
+.statsRow {
+  margin-bottom: var(--space-2);
+}
+
+/* Списание необратимо, поэтому кнопка остаётся тихой: заливка сделала бы её
+   самым заметным элементом строки и приглашала бы нажать. Красным — только
+   значок. */
+.forgive {
+  color: var(--danger-on-tint);
+}
+
+/* Строка человека или должника. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.row + .row {
+  border-top: 1px solid var(--divider);
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowName {
+  display: block;
+  font-size: var(--text-15);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowSub {
+  display: block;
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.retry {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.retry:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+  border-radius: var(--space-1);
+}
+
+.field {
+  margin-bottom: var(--space-3);
+}
+
+.fieldLabel {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--control-md);
+}
+
+.toggleLabel {
+  font-size: var(--text-15);
+}
+
+.sectionGap {
+  margin-top: var(--space-4);
+}
