@@ -1,9 +1,54 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { UserService } from '../../services/user.service';
 import { GroupService } from '../../services/group.service';
 import { AvatarService } from '../../services/avatar.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
+
+/**
+ * Реквизиты для переводов. Проверка была только на `typeof === 'string'`:
+ * прямой вызов API принимал любую строку как реквизит, по которому людям
+ * предлагается отправить деньги.
+ *
+ * Схему ссылки проверяем именно здесь, а не только на клиенте: значение
+ * показывается ДРУГИМ участникам кнопкой «Перевести по ссылке», и
+ * `javascript:`-адрес из чужого профиля исполнился бы под пальцем того, кто
+ * платит. Клиентская проверка защищает только того, кто её проходит.
+ */
+const PAYMENT_LINK_SCHEMES = ['http:', 'https:'];
+
+const paymentLink = z
+  .string()
+  .trim()
+  .max(500, 'Ссылка слишком длинная')
+  .refine((value) => {
+    try {
+      return PAYMENT_LINK_SCHEMES.includes(new URL(value).protocol);
+    } catch {
+      return false;
+    }
+  }, 'Ссылка должна начинаться с https://');
+
+const paymentPhone = z
+  .string()
+  .trim()
+  .max(30)
+  .refine((value) => {
+    const digits = value.replace(/\D/g, '');
+    return digits.length >= 10 && digits.length <= 15;
+  }, 'В номере телефона должно быть от 10 до 15 цифр');
+
+/* Пустая строка означает «реквизит убрали» и должна доходить до сервиса как
+   очистка поля, а не отвергаться проверкой формата. */
+const emptiable = <T extends z.ZodTypeAny>(schema: T) =>
+  z.union([z.literal(''), schema]).nullish();
+
+const PaymentInfoSchema = z.object({
+  paymentPhone: emptiable(paymentPhone),
+  paymentCard: emptiable(paymentLink),
+  paymentDetails: z.string().trim().max(200).nullish(),
+});
 
 export class UserController {
   /**
@@ -89,7 +134,6 @@ export class UserController {
   static async updatePaymentInfo(req: Request, res: Response): Promise<void> {
     try {
       const user = (req as any).user;
-      const { paymentCard, paymentPhone, paymentDetails } = req.body;
 
       if (!user) {
         res.status(401).json({
@@ -100,29 +144,28 @@ export class UserController {
         return;
       }
 
-      // Валидация
-      if (paymentCard && typeof paymentCard !== 'string') {
+      const parsed = PaymentInfoSchema.safeParse(req.body);
+      if (!parsed.success) {
         res.status(400).json({
           success: false,
-          error: 'Invalid payment card format',
-          code: 'INVALID_PAYMENT_CARD',
+          error: parsed.error.issues[0]?.message ?? 'Invalid payment info',
+          code: 'INVALID_PAYMENT_INFO',
+          issues: parsed.error.issues,
         });
         return;
       }
-
-      if (paymentPhone && typeof paymentPhone !== 'string') {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid payment phone format',
-          code: 'INVALID_PAYMENT_PHONE',
-        });
-        return;
-      }
+      /* Сервис различает три случая: undefined — «поле не трогать», пустая
+         строка — «очистить». null от клиента означает именно очистку, поэтому
+         превращаем его в пустую строку; отсутствующий ключ так и остаётся
+         отсутствующим. Без этого убрать свои реквизиты было нельзя вовсе:
+         клиент слал undefined, ключ пропадал из JSON, и сервер сохранял
+         старое значение. */
+      const clearable = (v: string | null | undefined) => (v === null ? '' : v);
 
       const updatedUser = await UserService.updatePaymentInfo(user.id, {
-        paymentCard,
-        paymentPhone,
-        paymentDetails,
+        paymentCard: clearable(parsed.data.paymentCard),
+        paymentPhone: clearable(parsed.data.paymentPhone),
+        paymentDetails: clearable(parsed.data.paymentDetails),
       });
 
       logger.info(`Payment info updated for user ${user.id}`);

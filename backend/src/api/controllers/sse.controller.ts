@@ -325,19 +325,25 @@ export class SSEController {
       }
     }, HEARTBEAT_INTERVAL_MS);
 
-    /* Фильтр по адресату: событие уходит только тем двоим, кого касается. */
-    const onDebtUpdated = (data: SSEEventMap['debt_updated']): void => {
-      if (!data.audience.includes(userId)) return;
-      sendSSEMessage(res, 'debt_updated', data);
-    };
-    eventBus.on('debt_updated', onDebtUpdated);
+    /* Фильтр по адресату: событие уходит только тем, кого оно касается.
+       Адресные события перечислены здесь одним списком — у каждого поле
+       audience, и обработчик у всех один. */
+    const addressed = ['debt_updated', 'store_run_updated'] as const;
+    const listeners = addressed.map((name) => {
+      const handler = (data: { audience: number[] }): void => {
+        if (!data.audience.includes(userId)) return;
+        sendSSEMessage(res, name, data);
+      };
+      eventBus.on(name, handler as never);
+      return { name, handler };
+    });
 
     let cleanedUp = false;
     const cleanup = (): void => {
       if (cleanedUp) return;
       cleanedUp = true;
       clearInterval(heartbeatTimer);
-      eventBus.off('debt_updated', onDebtUpdated);
+      for (const { name, handler } of listeners) eventBus.off(name, handler as never);
 
       const connections = personalConnections.get(userId);
       if (connections) {

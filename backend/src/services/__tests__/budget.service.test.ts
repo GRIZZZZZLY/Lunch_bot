@@ -2,6 +2,7 @@ import { BudgetService } from '../budget.service';
 import { prisma } from '../../database/client';
 
 const mockSendMessage = jest.fn();
+const mockEditMessageText = jest.fn();
 
 jest.mock('../../database/client', () => ({
   prisma: {
@@ -30,6 +31,7 @@ jest.mock('../../bot/bot-instance', () => ({
   getBotInstance: () => ({
     api: {
       sendMessage: mockSendMessage,
+      editMessageText: mockEditMessageText,
     },
   }),
 }));
@@ -299,6 +301,44 @@ describe('BudgetService.undoConfirmation', () => {
       where: { id: 42, toUserId: 7, status: 'CONFIRMED' },
       data: { status: 'PAID', confirmedAt: null },
     });
+  });
+
+  /* Регрессия. При подтверждении старое сообщение о долге переписывается в
+     «✅ Оплата подтверждена!». После отмены оно так и висело в чате должника,
+     утверждая обратное только что присланному уведомлению — два
+     противоречащих факта об одном событии в одной переписке. */
+  it('переписывает устаревшее «оплата подтверждена» в чате должника', async () => {
+    (prisma.transaction.findUnique as jest.Mock).mockResolvedValue({
+      ...base,
+      confirmedAt: new Date(Date.now() - 60 * 60 * 1000),
+      debtMessageId: 555,
+      debtChatId: '111',
+    });
+
+    await BudgetService.undoConfirmation(42, 7);
+
+    expect(mockEditMessageText).toHaveBeenCalledWith(
+      '111',
+      555,
+      expect.stringContaining('Подтверждение оплаты отменено'),
+      expect.objectContaining({ reply_markup: { inline_keyboard: [] } }),
+    );
+    // и должник всё равно получает отдельное уведомление
+    expect(mockSendMessage).toHaveBeenCalledWith(111, expect.stringContaining('отменено'));
+  });
+
+  it('без сохранённого сообщения просто уведомляет, не падая', async () => {
+    (prisma.transaction.findUnique as jest.Mock).mockResolvedValue({
+      ...base,
+      confirmedAt: new Date(Date.now() - 60 * 60 * 1000),
+      debtMessageId: null,
+      debtChatId: null,
+    });
+
+    await BudgetService.undoConfirmation(42, 7);
+
+    expect(mockEditMessageText).not.toHaveBeenCalled();
+    expect(mockSendMessage).toHaveBeenCalled();
   });
 
   it('после суток отказывает и статус не трогает', async () => {

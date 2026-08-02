@@ -106,10 +106,13 @@ function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, '
          которых API не знает: PUT отвечал 200 и записывал undefined в каждое
          поле. Ничего не сохранялось, и сказать об этом было нечему — отказа
          ведь не было. */
+      /* null, а не undefined, для пустого поля: undefined выпадает из JSON,
+         ключ до сервера не доезжает, и тот оставляет прежнее значение —
+         убрать свои реквизиты было невозможно. null означает «очистить». */
       await onSubmit({
-        paymentPhone: normalizePhone(phone),
-        paymentDetails: details.trim() || undefined,
-        paymentCard: link.trim() || undefined,
+        paymentPhone: normalizePhone(phone) ?? null,
+        paymentDetails: details.trim() || null,
+        paymentCard: link.trim() || null,
       });
     } catch {
       setSaveError('Не удалось сохранить реквизиты. Проверьте связь и попробуйте ещё раз.');

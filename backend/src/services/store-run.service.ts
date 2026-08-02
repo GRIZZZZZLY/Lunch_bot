@@ -3,6 +3,7 @@ import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { BudgetService } from './budget.service';
 import { GroupService } from './group.service';
+import { eventBus } from './event-bus.service';
 
 export type StoreRunStatus = 'COLLECTING' | 'SHOPPING' | 'SETTLED' | 'CANCELLED';
 export type StoreItemStatus = 'REQUESTED' | 'BOUGHT' | 'NOT_FOUND';
@@ -256,6 +257,7 @@ export class StoreRunService {
       count: created.length,
     });
 
+    await this.emitStoreRunUpdated(storeRunId);
     return created;
   }
 
@@ -300,7 +302,7 @@ export class StoreRunService {
       patch.notes = this.sanitizeNotes(data.notes);
     }
 
-    return prisma.$transaction(async tx => {
+    const updatedItem = await prisma.$transaction(async tx => {
       const guard = await tx.storeRun.updateMany({
         where: { id: item.storeRun.id, status: 'COLLECTING' },
         data: { updatedAt: new Date() },
@@ -313,6 +315,9 @@ export class StoreRunService {
       }
       return tx.storeItem.update({ where: { id: itemId }, data: patch });
     });
+
+    await this.emitStoreRunUpdated(item.storeRun.id);
+    return updatedItem;
   }
 
   /**
@@ -347,6 +352,8 @@ export class StoreRunService {
       }
       await tx.storeItem.delete({ where: { id: itemId } });
     });
+
+    await this.emitStoreRunUpdated(item.storeRun.id);
   }
 
   /**
@@ -379,6 +386,7 @@ export class StoreRunService {
       where: { id: storeRunId },
     });
     logger.info('Store run entered SHOPPING', { storeRunId, initiatorId });
+    await this.emitStoreRunUpdated(storeRunId);
     return updated;
   }
 
@@ -421,7 +429,7 @@ export class StoreRunService {
       }
     }
 
-    return prisma.$transaction(async tx => {
+    const priced = await prisma.$transaction(async tx => {
       const guard = await tx.storeRun.updateMany({
         where: {
           id: item.storeRun.id,
@@ -447,6 +455,9 @@ export class StoreRunService {
         },
       });
     });
+
+    await this.emitStoreRunUpdated(item.storeRun.id);
+    return priced;
   }
 
   /**
@@ -507,6 +518,7 @@ export class StoreRunService {
       transactionsCreated: transactionCount,
     });
 
+    await this.emitStoreRunUpdated(storeRunId);
     return updated;
   }
 
@@ -540,6 +552,7 @@ export class StoreRunService {
       where: { id: storeRunId },
     });
     logger.info('Store run cancelled', { storeRunId, initiatorId });
+    await this.emitStoreRunUpdated(storeRunId);
     return updated;
   }
 
@@ -562,6 +575,9 @@ export class StoreRunService {
     const ids = closed.map((r) => r.id);
     if (ids.length > 0) {
       logger.info('Store runs auto-closed to SHOPPING', { count: ids.length, ids });
+      /* Именно здесь событие нужнее всего: человек сидит на экране и ждёт,
+         когда сбор закончится сам. */
+      for (const id of ids) await this.emitStoreRunUpdated(id);
     }
     return ids;
   }
@@ -585,6 +601,7 @@ export class StoreRunService {
     const ids = expired.map((r) => r.id);
     if (ids.length > 0) {
       logger.info('Stale SHOPPING store runs auto-cancelled', { count: ids.length, ids, timeoutMin });
+      for (const id of ids) await this.emitStoreRunUpdated(id);
     }
     return ids;
   }
@@ -592,6 +609,40 @@ export class StoreRunService {
   // ------------------------------------------------------------------
   // Helpers
   // ------------------------------------------------------------------
+
+  /**
+   * Сообщить участникам забега, что он изменился.
+   *
+   * Адресуем людям, а не забегу: экран смотрят инициатор и те, кто в этот забег
+   * заказал. Раньше экран опрашивал сервер каждые 30 секунд и столько же не
+   * знал, что кто-то добавил позицию или проставил цену.
+   *
+   * Ошибку рассылки глотаем: событие — ускорение поверх опроса, и уронить из-за
+   * него уже совершённую покупку было бы хуже, чем опоздать на один цикл.
+   */
+  private static async emitStoreRunUpdated(storeRunId: number): Promise<void> {
+    try {
+      const run = await prisma.storeRun.findUnique({
+        where: { id: storeRunId },
+        select: {
+          status: true,
+          initiatorId: true,
+          items: { select: { userId: true } },
+        },
+      });
+      if (!run) return;
+
+      const audience = [...new Set([run.initiatorId, ...run.items.map((i) => i.userId)])];
+      eventBus.emit('store_run_updated', {
+        storeRunId,
+        status: run.status,
+        audience,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.warn('Failed to emit store_run_updated', { storeRunId, error });
+    }
+  }
 
   private static async requireInitiator(
     storeRunId: number,

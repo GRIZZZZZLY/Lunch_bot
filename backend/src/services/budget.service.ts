@@ -778,6 +778,27 @@ export class BudgetService {
           `↩️ Подтверждение оплаты отменено\n\n` +
           `${existing.toUser.firstName} отменил(а) подтверждение ${formatCurrency(existing.amount)}. ` +
           `Долг снова ждёт подтверждения — свяжитесь, если это ошибка.`;
+
+        /* Сначала правим СТАРОЕ сообщение о долге. При подтверждении оно
+           переписывается в «✅ Оплата подтверждена!», и после отмены висело в
+           чате должника, утверждая обратное новому уведомлению. Одно и то же
+           событие не должно оставлять в переписке два противоречащих факта.
+
+           Сообщение «Все оплатили!» не трогаем: оно уходит самому сборщику —
+           тому, кто отмену и сделал, — и его message_id нигде не сохраняется. */
+        if (existing.debtMessageId && existing.debtChatId) {
+          try {
+            await botInstance()!.api.editMessageText(
+              existing.debtChatId,
+              existing.debtMessageId,
+              text,
+              { reply_markup: { inline_keyboard: [] } },
+            );
+          } catch (e) {
+            logger.warn('Could not edit stale confirmation message on undo', { txId });
+          }
+        }
+
         try {
           await botInstance()!.api.sendMessage(Number(existing.fromUser.telegramId), text);
         } catch (e) {

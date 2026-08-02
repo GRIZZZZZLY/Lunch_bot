@@ -26,7 +26,7 @@ export function useActiveStoreRuns() {
   });
 }
 
-export function useStoreRun(id: number | null | undefined) {
+export function useStoreRun(id: number | null | undefined, live = false) {
   const authStatus = useAppStore((s) => s.authStatus);
   return useQuery({
     queryKey: queryKeys.storeRuns.detail(id ?? 0),
@@ -37,7 +37,11 @@ export function useStoreRun(id: number | null | undefined) {
     },
     enabled: !!id && authStatus === 'authenticated',
     staleTime: 10_000,
+    /* Пока живёт поток событий, опрос не нужен. Он остаётся страховкой на
+       случай, когда поток в вебвью Telegram не поднялся: молчащий экран
+       закупки хуже лишнего запроса. */
     refetchInterval: (query) => {
+      if (live) return false;
       const data = query.state.data;
       if (!data) return 30_000;
       return data.status === 'SETTLED' || data.status === 'CANCELLED' ? false : 15_000;

@@ -9,6 +9,7 @@ export interface SSEEventMap {
   category_order_updated: CategoryOrderUpdatedEvent;
   responsible_selected: ResponsibleSelectedEvent;
   debt_updated: DebtUpdatedEvent;
+  store_run_updated: StoreRunUpdatedEvent;
 }
 
 /**
@@ -21,6 +22,20 @@ export interface DebtUpdatedEvent {
   transactionId: number;
   status: 'PENDING' | 'PAID' | 'CONFIRMED';
   /** Кому это событие адресовано: должник и получатель. */
+  audience: number[];
+  timestamp: string;
+}
+
+/**
+ * Изменение закупки. Адресуется людям, а не сущности, по той же причине, что и
+ * долг: экран смотрят инициатор и все, кто заказал в этот забег, а не «все, у
+ * кого открыт опрос». Раньше экран закупки опрашивал сервер каждые 30 секунд и
+ * столько же не знал, что кто-то добавил позицию или проставил цену.
+ */
+export interface StoreRunUpdatedEvent {
+  storeRunId: number;
+  status: string;
+  /** Кому адресовано: инициатор и заказавшие в этот забег. */
   audience: number[];
   timestamp: string;
 }

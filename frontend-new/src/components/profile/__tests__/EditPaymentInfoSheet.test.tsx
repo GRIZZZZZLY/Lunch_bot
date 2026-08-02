@@ -214,7 +214,9 @@ describe('EditPaymentInfoSheet', () => {
     fireEvent.blur(field);
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ paymentPhone: undefined }),
+      /* null, а не undefined: undefined выпадает из JSON, и сервер оставил бы
+         прежний номер — убрать реквизит было бы нельзя. */
+      expect.objectContaining({ paymentPhone: null }),
     );
   });
 });

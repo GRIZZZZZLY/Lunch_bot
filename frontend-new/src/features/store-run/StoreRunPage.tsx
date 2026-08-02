@@ -4,6 +4,7 @@
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useStoreRun } from '@/hooks/useStoreRun';
+import { useStoreRunStream } from '@/hooks/useStoreRunStream';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { ErrorState, Skeleton, type ErrorKind } from '@/shared/ui';
 import { CollectingView } from './views/CollectingView';
@@ -69,7 +70,13 @@ export function StoreRunPage() {
   const valid = runId !== null && Number.isFinite(runId) && runId > 0;
 
   const { user } = useAuth();
-  const { data: run, isLoading, isError, error, refetch } = useStoreRun(valid ? runId : null);
+  /* Живой поток вместо опроса каждые 15 секунд. Опрос остаётся страховкой:
+     пока поток не подтвердил соединение, запросы идут как раньше. */
+  const streamStatus = useStoreRunStream(valid ? runId : null);
+  const { data: run, isLoading, isError, error, refetch } = useStoreRun(
+    valid ? runId : null,
+    streamStatus === 'connected',
+  );
 
   if (!valid) return <StoreRunErrorView kind="notFound" />;
   if (isLoading) return <StoreRunLoadingView />;

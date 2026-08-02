@@ -8,9 +8,9 @@ import type { User } from '@/types/models';
    «СБП не задано». Экран бюджета всё это время читал правильные имена —
    расходился только профиль. */
 export interface PaymentInfo {
-  paymentPhone?: string;
-  paymentCard?: string;
-  paymentDetails?: string;
+  paymentPhone?: string | null;
+  paymentCard?: string | null;
+  paymentDetails?: string | null;
 }
 
 export interface UserAvatar {
