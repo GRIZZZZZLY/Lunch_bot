@@ -82,10 +82,16 @@ export function HomePage() {
   const { data: fallbackActivePoll, isLoading: activeLoading, error } = useActivePoll();
   const activePoll = deepLinkPollId ? deepLinkPoll ?? null : fallbackActivePoll;
   const pollLoading = deepLinkPollId ? deepLinkLoading : activeLoading;
-  /* Талон — первое, на что смотрят при открытии. Скелет здесь показываем
-     только если ответ действительно задерживается: мелькнувший на 80ms скелет
-     читается как вторая загрузка сразу после первой. */
-  const showTicketSkeleton = useDelayedLoading(authLoading || pollLoading);
+  /* Талон — первое, на что смотрят при открытии, и окно молчания здесь короче
+     общего: 100ms вместо 180.
+
+     Причина из записи с телефона: ответ на опрос приходит ~330ms после
+     монтирования, и при 180ms скелет не успевал появиться — на месте талона
+     всё это время была пустота, а потом контент вставал рывком. Ожидание
+     длиннее трёх кадров надо объяснять, а не прятать: скелет держит место и
+     говорит «сейчас будет». Мелькнуть он теперь не может — минимальное время
+     жизни у него своё (useDelayedLoading). */
+  const showTicketSkeleton = useDelayedLoading(authLoading || pollLoading, 100);
 
   useEffect(() => {
     if (deepLinkPollId && deepLinkPoll && deepLinkPoll.status !== 'ACTIVE') {
@@ -300,7 +306,9 @@ export function HomePage() {
         <div className={`${styles.group} ${styles.ticketPad}`}>
           <Skeleton variant="text" width="40%" height={10} />
           <div className={styles.skeletonGap} />
-          <Skeleton variant="block" height={110} />
+          {/* 154px даёт скелету ровно ту же высоту, что у пустого талона (208
+              с паддингами): смена скелета на данные проходит без сдвига. */}
+          <Skeleton variant="block" height={154} />
         </div>
       );
     }
@@ -361,7 +369,9 @@ export function HomePage() {
     <div className={`rl ${styles.screen}`}>
       <Greeting name={user?.firstName} loading={authLoading} />
 
-      {ticketSlot}
+      {/* Обёртка держит место под талон (styles.ticketSlot): без неё приход
+          данных сдвигал всё ниже на треть экрана. */}
+      <div className={styles.ticketSlot}>{ticketSlot}</div>
 
       <NowSection
         winner={winner}
