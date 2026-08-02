@@ -62,6 +62,9 @@ export function mockResponse(): MockResponse {
 
   res.getHeader = jest.fn((name: string) => res.headers[name.toLowerCase()]);
 
+  /* Express-псевдоним getHeader: им пользуется requestLogger. */
+  res.get = jest.fn((name: string) => res.headers[name.toLowerCase()]);
+
   res.removeHeader = jest.fn((name: string) => {
     delete res.headers[name.toLowerCase()];
   });
