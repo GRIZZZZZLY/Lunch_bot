@@ -89,11 +89,17 @@ test.describe('Статистика', () => {
     });
   });
 
-  test('обрабатывает ошибку истории без падения страницы', async ({ appPage, api }) => {
+  /* Тест закреплял баг: отказ чтения истории показывался как «Пока нет
+     данных… после первых голосований команды», то есть как факт о команде.
+     Проверяем противоположное — что экран говорит про несостоявшийся запрос
+     и даёт повторить. */
+  test('ошибка истории показывается ошибкой, а не отсутствием данных', async ({ appPage, api }) => {
     api.fail('GET', '/polls', { status: 500, error: 'История недоступна', code: 'INTERNAL_ERROR' });
     await appPage.goto('/stats');
     await expect(appPage.locator('#root')).not.toBeEmpty();
-    await expect(appPage.getByText('Пока нет данных')).toBeVisible();
+    await expect(appPage.getByText(/Не удалось прочитать историю/)).toBeVisible();
+    await expect(appPage.getByText('Пока нет данных')).toHaveCount(0);
+    await expect(appPage.getByRole('button', { name: 'Повторить' })).toBeVisible();
   });
 });
 

@@ -21,14 +21,14 @@
 }
 
 .group {
-  border-radius: 14px;
+  border-radius: var(--radius-block);
   background: var(--surface);
   box-shadow: var(--shadow-2);
 }
 
 .groupHead {
   padding: var(--space-3) var(--space-4) var(--space-2);
-  font-size: 11.5px;
+  font-size: var(--text-11);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -54,7 +54,7 @@
 .rowName {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   font-size: var(--text-15);
   font-weight: 700;
 }
@@ -73,7 +73,7 @@
 }
 
 .rank {
-  width: 22px;
+  width: var(--space-6);
   flex-shrink: 0;
   font-size: var(--text-13);
   font-weight: 800;
@@ -84,7 +84,7 @@
   height: 4.5px;
   border-radius: var(--radius-pill);
   background: var(--accent-tint);
-  margin-top: 7px;
+  margin-top: var(--space-2);
   overflow: hidden;
 }
 
@@ -99,12 +99,12 @@
 .partLine {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 2px var(--space-4) var(--space-2);
 }
 
 .partBig {
-  font-size: 28px;
+  font-size: var(--text-28);
   font-weight: 800;
   letter-spacing: -0.02em;
 }
@@ -118,8 +118,36 @@
   padding: 0 var(--space-4) var(--space-3);
 }
 
+/* --vote, а не --money: денег на этом экране нет вовсе, а зелёный домен
+   рядом с терракотовыми полосами лидеров читался как разница по смыслу,
+   которой не существует. Участие в голосованиях — тот же домен, что и они. */
 .partBarWrap .barFill {
-  background: var(--money);
+  background: var(--vote);
+}
+
+/* Оговорки под показателем: чем именно ограничена цифра. */
+.note {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+}
+
+.retry {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.retry:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+  border-radius: var(--space-1);
 }
 
 /* недели месяца */
@@ -136,7 +164,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-1);
 }
 
 .weekBar {
@@ -154,8 +182,10 @@
   font-weight: 800;
 }
 
+/* Было 10,5 px — мельче самого мелкого токена шкалы, как подписи показателей
+   в профиле до правки. */
 .weekLabel {
-  font-size: 10.5px;
+  font-size: var(--text-11);
   color: var(--text-tertiary);
 }
 

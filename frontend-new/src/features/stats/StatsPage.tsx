@@ -2,17 +2,24 @@
    истории голосований — участие, серия, топ команды, любимые блюда,
    активность по неделям. Плоские секции, не дашборд из плиток. */
 import { useMemo } from 'react';
-import { usePollHistory } from '@/hooks/useUser';
+import { PROFILE_HISTORY_LIMIT, usePollHistory } from '@/hooks/useUser';
 import { useAuth } from '@/hooks/useAuth';
-import { EmptyState, Skeleton, Status } from '@/shared/ui';
-import { pluralize } from '@/shared/lib/pluralize';
+import { EmptyState, InlineNotice, Skeleton, Status } from '@/shared/ui';
+import { pluralize, pluralForm } from '@/shared/lib/pluralize';
 import { buildVM } from './lib/buildVM';
 import styles from './StatsPage.module.css';
 
 export function StatsPage() {
   const { user, isLoading: authLoading } = useAuth();
-  const { data: polls = [], isLoading: historyLoading } = usePollHistory({ limit: 60 });
+  /* Тот же лимит, что у профиля, серии и админки: четыре разных значения
+     означали четыре отдельных запроса за одной и той же историей. */
+  const historyQuery = usePollHistory({ limit: PROFILE_HISTORY_LIMIT });
+  const polls = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
+  const historyLoading = historyQuery.isLoading;
   const vm = useMemo(() => buildVM(polls, user?.id ?? null), [polls, user?.id]);
+  /* История приходит страницей: «N из 60» брало знаменатель из размера
+     страницы и выдавало его за число голосований команды. */
+  const atCap = polls.length >= PROFILE_HISTORY_LIMIT;
   const maxLeader = vm.leaders[0]?.lunches ?? 0;
   const maxWeek = Math.max(1, ...vm.weeks.map((w) => w.count));
   const me = vm.leaders.find((l) => l.isMe);
@@ -26,6 +33,23 @@ export function StatsPage() {
           <div style={{ height: 10 }} />
           <Skeleton variant="block" height={80} />
         </div>
+      </div>
+    );
+  }
+
+  /* Отказ чтения раньше попадал сюда же и подавался как «Пока нет данных…
+     после первых голосований команды» — то есть как факт о команде, а не как
+     несостоявшийся запрос. */
+  if (historyQuery.isError) {
+    return (
+      <div className={`rl ${styles.screen}`}>
+        <h1 className={styles.title}>Статистика</h1>
+        <InlineNotice tone="critical">
+          Не удалось прочитать историю голосований, поэтому статистику показать не из чего.{' '}
+          <button type="button" className={styles.retry} onClick={() => historyQuery.refetch()}>
+            Повторить
+          </button>
+        </InlineNotice>
       </div>
     );
   }
@@ -55,8 +79,18 @@ export function StatsPage() {
           <span className={`tnum ${styles.partBig}`}>
             {vm.pollsWithMe} из {vm.pollsTotal}
           </span>
-          <span className={styles.partCap}>голосований · {vm.participation}%</span>
+          {/* Склонение по знаменателю: было жёстко «голосований», и при одном
+              опросе выходило «1 из 1 голосований». */}
+          <span className={styles.partCap}>
+            {pluralForm(vm.pollsTotal, 'голосования', 'голосований', 'голосований')} ·{' '}
+            {vm.participation}%
+          </span>
         </div>
+        {atCap && (
+          <p className={styles.note}>
+            считаем по последним {vm.pollsTotal} голосованиям — более ранние сюда не попали
+          </p>
+        )}
         <div className={styles.partBarWrap}>
           <div className={styles.bar}>
             <span className={styles.barFill} style={{ width: `${vm.participation}%` }} />
@@ -80,9 +114,14 @@ export function StatsPage() {
           <div className={styles.groupHead}>
             Команда · {pluralize(vm.teamCount, 'участник', 'участника', 'участников')}
           </div>
-          {vm.leaders.map((l, i) => (
+          {/* Пока у всех поровну, места не показываем: четыре полосы во всю
+              ширину с номерами 1–4 читаются как рейтинг, которого нет. */}
+          {vm.allTied && <p className={styles.note}>пока у всех поровну</p>}
+          {vm.leaders.map((l) => (
             <div key={l.id} className={styles.row}>
-              <span className={`tnum ${styles.rank}`}>{i + 1}</span>
+              {/* Пустая колонка, а не символ: точка на месте номера читалась
+                  как мусор. Ширина .rank фиксированная, выравнивание держится. */}
+              <span className={`tnum ${styles.rank}`}>{vm.allTied ? '' : l.rank}</span>
               <div className={styles.rowMain}>
                 <div className={styles.rowName}>
                   {l.name}

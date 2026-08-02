@@ -8,11 +8,15 @@ export interface LeaderVM {
   lunches: number;
   streak: number;
   isMe: boolean;
+  /** Место с учётом равенства: у одинаковых значений оно одно на всех. */
+  rank: number;
 }
 
 export interface StatsVM {
   teamCount: number;
   leaders: LeaderVM[];
+  /** У всех лидеров одинаковое число обедов — ранжировать нечего. */
+  allTied: boolean;
   myDishes: { name: string; count: number }[];
   participation: number;
   pollsWithMe: number;
@@ -22,7 +26,8 @@ export interface StatsVM {
 }
 
 export function buildVM(polls: Poll[], myId: number | null, now: Date = new Date()): StatsVM {
-  const members = new Map<number, LeaderVM>();
+  /* Место известно только после сортировки, поэтому копим без него. */
+  const members = new Map<number, Omit<LeaderVM, 'rank'>>();
   let pollsWithMe = 0;
   const myDishCounts = new Map<string, number>();
 
@@ -81,9 +86,27 @@ export function buildVM(polls: Poll[], myId: number | null, now: Date = new Date
   }
 
   const rawMonth = now.toLocaleDateString('ru-RU', { month: 'long' });
+
+  /* Место с учётом равенства. Раньше номер был просто порядковым: при четырёх
+     участниках с одним обедом каждый экран показывал 1, 2, 3, 4 — рейтинг там,
+     где все равны, и «первое место» доставалось тому, кто раньше попал в Map. */
+  const sorted = [...members.values()].sort((a, b) => b.lunches - a.lunches);
+  let rank = 0;
+  let prevLunches: number | null = null;
+  const ranked = sorted.map((leader, index) => {
+    if (leader.lunches !== prevLunches) {
+      rank = index + 1;
+      prevLunches = leader.lunches;
+    }
+    return { ...leader, rank };
+  });
+
   return {
     teamCount: members.size,
-    leaders: [...members.values()].sort((a, b) => b.lunches - a.lunches).slice(0, 5),
+    leaders: ranked.slice(0, 5),
+    /* Все ли поровну: четыре одинаковых полосы во всю ширину читаются как
+       «каждый на максимуме», хотя это лишь нормировка на общий максимум. */
+    allTied: sorted.length > 1 && sorted[0].lunches === sorted[sorted.length - 1].lunches,
     myDishes: [...myDishCounts.entries()]
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
