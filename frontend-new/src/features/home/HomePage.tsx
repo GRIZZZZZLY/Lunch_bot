@@ -167,6 +167,12 @@ export function HomePage() {
   }, []);
   const revealed = firstScreenReady || capReached;
 
+  /* Каскад раскрытия ставим только если экран действительно ждал данные. Тёплый
+     кэш отдаёт всё на первом же рендере — раскрывать нечего, и приход в этом
+     случае несёт сборка кадра (холодный старт) или переход между страницами.
+     Так каскад с ними никогда не накладывается, и глушить его не нужно. */
+  const [waitedForData] = useState(() => !firstScreenReady);
+
   /* Окно молчания короче общего: 100ms вместо 180. Причина из записи: ответ
      приходит ~330ms после монтирования, и при 180ms скелет не успевал
      появиться — на месте контента была пустота, а потом он вставал рывком.
@@ -449,7 +455,7 @@ export function HomePage() {
   }
 
   return (
-    <div className={`rl ${styles.screen}`}>
+    <div className={`rl ${styles.screen}${waitedForData ? ' anim-cascade' : ''}`}>
       <Greeting name={user?.firstName} loading={authLoading} />
 
       {/* Обёртка держит место под талон (styles.ticketSlot): без неё приход

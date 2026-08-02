@@ -33,16 +33,58 @@ if [ -z "${UPDATE_VPS_REEXEC:-}" ]; then
       git checkout "$BRANCH"
   fi
 
+  # Коммит ДО подтягивания: по нему второй проход поймёт, что именно приехало,
+  # и не станет пересобирать то, что не менялось.
+  BEFORE_SHA=$(git rev-parse HEAD)
+
   git pull origin "$BRANCH"
 
   echo "✅ Changes pulled — перезапуск обновлённого скрипта"
   export UPDATE_VPS_REEXEC=1
+  export UPDATE_VPS_BEFORE="$BEFORE_SHA"
   exec bash "$0" "$@"
 fi
 
 # ===============================================
+# 1a. Что именно приехало
+# ===============================================
+# Полная сборка занимала минуты, и почти всегда впустую: правка в одном CSS
+# запускала npm install бэкенда (548 МБ дерева), tsc, миграции, бэкфилл и
+# перезапуск pm2. Здесь каждый шаг спрашивает, менялось ли то, что он собирает.
+#
+# FULL=1 (собрать всё) — когда предыдущий коммит неизвестен: так будет на первом
+# запуске этой версии скрипта (её тянет ещё старая) и при ручном вызове с
+# выставленным UPDATE_VPS_REEXEC. Незнание всегда трактуем в пользу полной сборки.
+FULL=0
+CHANGED=""
+if [ -z "${UPDATE_VPS_BEFORE:-}" ]; then
+  FULL=1
+  echo "🧱 Предыдущий коммит неизвестен — собираем всё"
+elif [ "$UPDATE_VPS_BEFORE" = "$(git rev-parse HEAD)" ]; then
+  echo "✅ Обновлений нет — сборка не нужна"
+  exit 0
+else
+  CHANGED=$(git diff --name-only "$UPDATE_VPS_BEFORE" HEAD)
+  echo "📋 Изменено файлов: $(printf '%s\n' "$CHANGED" | grep -c . || true)"
+fi
+
+touched() {
+  [ "$FULL" = 1 ] && return 0
+  printf '%s\n' "$CHANGED" | grep -qE "$1"
+}
+
+BACKEND_TOUCHED=0
+touched '^backend/' && BACKEND_TOUCHED=1
+FRONT_TOUCHED=0
+touched "^${FRONTEND_DIR}/" && FRONT_TOUCHED=1
+
+echo "   Бэкенд: $([ "$BACKEND_TOUCHED" = 1 ] && echo 'пересобрать' || echo 'без изменений')"
+echo "   Фронтенд: $([ "$FRONT_TOUCHED" = 1 ] && echo 'пересобрать' || echo 'без изменений')"
+
+# ===============================================
 # 2. Update Backend
 # ===============================================
+if [ "$BACKEND_TOUCHED" = 1 ]; then
 echo "🔨 Updating backend..."
 
 cd backend
@@ -51,18 +93,35 @@ cd backend
 # ВАЖНО: `npm run build` (tsc) требует devDeps (@types/*, typescript).
 # Раньше тут было `--only=production` → tsc падал с TS7016 (нет @types/express)
 # и `set -e` прерывал деплой ДО pm2 reload. Не возвращать --only=production.
-npm install
+#
+# Установка только при смене манифеста: на неизменном дереве npm install всё
+# равно проверяет 548 МБ и стоит десятки секунд, ничего не меняя.
+if touched '^backend/package(-lock)?\.json$' || [ ! -d node_modules ]; then
+  npm install
+else
+  echo "⏭️  Зависимости бэкенда не менялись"
+fi
 
 # Regenerate Prisma Client BEFORE tsc. `npm install` is a no-op when deps are
 # unchanged and does NOT re-run `prisma generate`, leaving a STALE client without
 # new schema fields (e.g. groupId) → tsc fails with "X does not exist in type ...".
-npx prisma generate
+# Отсутствие клиента проверяем отдельно: без него tsc падёт, даже если схема
+# в этом коммите не менялась.
+if touched '^backend/prisma/schema\.prisma$' || [ ! -d node_modules/.prisma/client ]; then
+  npx prisma generate
+else
+  echo "⏭️  Схема Prisma не менялась"
+fi
 
 # Rebuild
 npm run build
 
 # Database migrations (if any new ones in prisma/migrations/)
-npm run db:migrate:prod
+if touched '^backend/prisma/migrations/'; then
+  npm run db:migrate:prod
+else
+  echo "⏭️  Новых миграций нет"
+fi
 
 # Backfill PollParticipant snapshots (idempotent, safe to run on every update)
 npx tsx scripts/backfill-poll-participants.ts || echo "⚠️ Backfill failed (non-critical)"
@@ -70,16 +129,24 @@ npx tsx scripts/backfill-poll-participants.ts || echo "⚠️ Backfill failed (n
 cd ..
 
 echo "✅ Backend updated"
+else
+  echo "⏭️  Бэкенд не менялся — сборка, миграции и бэкфилл пропущены"
+fi
 
 # ===============================================
 # 3. Update Frontend
 # ===============================================
+if [ "$FRONT_TOUCHED" = 1 ]; then
 echo "🎨 Updating frontend..."
 
 cd "$FRONTEND_DIR"
 
-# Install new dependencies if any
-npm install
+# Install new dependencies if any — тоже только при смене манифеста.
+if touched "^${FRONTEND_DIR}/package(-lock)?\.json$" || [ ! -d node_modules ]; then
+  npm install
+else
+  echo "⏭️  Зависимости фронтенда не менялись"
+fi
 
 # Сохраняем ассеты предыдущей сборки. vite (emptyOutDir) стирает dist целиком,
 # поэтому уже-открытые клиенты на СТАРОМ app shell ловят 404 на lazy-чанки
@@ -111,10 +178,18 @@ find dist/assets -type f -mtime +14 -delete 2>/dev/null || true
 cd ..
 
 echo "✅ Frontend updated ($FRONTEND_DIR)"
+else
+  echo "⏭️  Фронтенд не менялся — сборка пропущена"
+fi
 
 # ===============================================
 # 4. Reload Application (zero-downtime)
 # ===============================================
+# Только если менялся бэкенд. Статику Express отдаёт с диска на каждый запрос
+# (express.static + sendFile в api/server.ts), поэтому новая сборка фронтенда
+# начинает раздаваться сама — перезапуск ей не нужен и стоит лишнего простоя
+# соединений SSE.
+if [ "$BACKEND_TOUCHED" = 1 ]; then
 echo "🔄 Reloading application..."
 
 cd backend
@@ -132,11 +207,18 @@ done
 
 pm2 reload rocket-lunch-bot
 
+cd ..
+
 echo "✅ Application reloaded"
+else
+  echo "⏭️  Бэкенд не менялся — перезапуск не нужен, статика уже свежая"
+fi
 
 # ===============================================
 # 5. Health Check
 # ===============================================
+# Проверяем всегда, даже когда ничего не перезапускали: деплой обязан
+# заканчиваться утверждением о живом приложении, а не о выполненных шагах.
 echo "🏥 Running health check..."
 
 sleep 3
