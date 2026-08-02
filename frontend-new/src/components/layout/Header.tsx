@@ -9,16 +9,25 @@ interface HeaderProps {
 
 export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
   return (
-    <div className="rl" style={{ position: 'sticky', top: 0, zIndex: 40 }}>
+    <div
+      className="rl"
+      style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 40,
+        // Обёртка прозрачная: точечная фактура (body::before) должна
+        // просвечивать в отступах, иначе шапка снова читается плашкой.
+        padding: '8px 12px',
+      }}
+    >
       <header
-        className="glass"
+        className="surf-elevated"
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 12,
           height: 56,
           padding: '0 16px',
-          borderBottom: '1px solid var(--divider)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
@@ -37,7 +46,9 @@ export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
               justifyContent: 'center',
             }}
           >
-            <Icon name="sparkle" size={18} stroke={2} />
+            {/* 22/1.5, а не 18/2: у ракеты стабилизаторы и окно тонут, если
+                обводка толще, а тайл всего 32px. */}
+            <Icon name="rocket" size={22} stroke={1.5} />
           </div>
           <div
             className="tight"
