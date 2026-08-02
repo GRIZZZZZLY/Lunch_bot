@@ -114,7 +114,7 @@ describe('GET /api/polls/:pollId/category-orders', () => {
   });
 
   it('голосования нет — 403 (существование чужого опроса не раскрываем)', async () => {
-    prismaMock.poll.findUnique.mockResolvedValue(null as never);
+    prismaMock.poll.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.getCategoryOrdersForPoll(
@@ -140,7 +140,7 @@ describe('GET /api/polls/:pollId/category-orders', () => {
   });
 
   it('глобальный админ читает без членства', async () => {
-    prismaMock.groupMember.findUnique.mockResolvedValue(null as never);
+    prismaMock.groupMember.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.getCategoryOrdersForPoll(
@@ -224,7 +224,7 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
   });
 
   it('нет доступа к голосованию — 403', async () => {
-    prismaMock.groupMember.findUnique.mockResolvedValue(null as never);
+    prismaMock.groupMember.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.getMyCategoryOrdersForPoll(
@@ -435,7 +435,7 @@ describe('POST /api/category-orders/:id/order-items', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null as never);
+    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.saveOrderItem(
@@ -542,7 +542,7 @@ describe('DELETE /api/order-items/:id', () => {
   });
 
   it('позиции нет — 404', async () => {
-    prismaMock.orderItem.findUnique.mockResolvedValue(null as never);
+    prismaMock.orderItem.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.deleteOrderItem(
@@ -554,7 +554,7 @@ describe('DELETE /api/order-items/:id', () => {
   });
 
   it('категория позиции исчезла — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null as never);
+    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.deleteOrderItem(
@@ -645,7 +645,7 @@ describe('GET /api/category-orders/:id/progress', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null as never);
+    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.getProgress(
@@ -736,7 +736,7 @@ describe('GET /api/category-orders/:id/participants', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null as never);
+    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.getParticipants(
@@ -825,7 +825,7 @@ describe('POST /api/category-orders/:id/finalize', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null as never);
+    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.finalizeCalculation(
@@ -909,7 +909,7 @@ describe('POST /api/category-orders/:id/volunteer', () => {
   });
 
   it('нет доступа к голосованию — 403; глобальный админ здесь не исключение', async () => {
-    prismaMock.groupMember.findUnique.mockResolvedValue(null as never);
+    prismaMock.groupMember.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.volunteerForCategory(
@@ -921,7 +921,7 @@ describe('POST /api/category-orders/:id/volunteer', () => {
   });
 
   it('пользователя нет в базе — 404', async () => {
-    prismaMock.user.findUnique.mockResolvedValue(null as never);
+    prismaMock.user.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.volunteerForCategory(
@@ -1083,7 +1083,7 @@ describe('PUT /api/category-orders/:id/costs', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null as never);
+    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.updateCosts(
@@ -1244,7 +1244,7 @@ describe('GET /api/category-orders/:id/order-items', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null as never);
+    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.getOrderItems(

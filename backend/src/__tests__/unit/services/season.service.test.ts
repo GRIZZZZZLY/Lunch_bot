@@ -120,7 +120,7 @@ describe('чтение сезонов', () => {
 
 describe('createMonthlySeason', () => {
   beforeEach(() => {
-    prismaMock.season.findFirst.mockResolvedValue(null as never);
+    prismaMock.season.findFirst.mockResolvedValue(null);
     prismaMock.season.create.mockImplementation((async (args: {
       data: Record<string, unknown>;
     }) => ({ id: 10, ...args.data })) as never);
@@ -145,7 +145,7 @@ describe('createMonthlySeason', () => {
   it('номер продолжает нумерацию последнего сезона', async () => {
     // Первый findFirst — активный сезон, второй — последний по номеру.
     prismaMock.season.findFirst
-      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ number: 7 } as never);
 
     const season = await SeasonService.createMonthlySeason();
@@ -193,7 +193,7 @@ describe('rotateSeason', () => {
   });
 
   it('без активного сезона просто создаёт первый', async () => {
-    prismaMock.season.findFirst.mockResolvedValue(null as never);
+    prismaMock.season.findFirst.mockResolvedValue(null);
 
     await SeasonService.rotateSeason();
 
@@ -238,7 +238,7 @@ describe('awardSeasonRewards', () => {
       Array.from({ length: count }, (_, i) => ({
         userId: i + 1,
         _sum: { amount: 1000 - i },
-      })) as never
+      }))
     );
     prismaMock.user.findMany.mockResolvedValue(
       Array.from({ length: count }, (_, i) => ({
@@ -308,7 +308,7 @@ describe('awardSeasonRewards', () => {
   });
 
   it('сезона нет — награды не выдаются', async () => {
-    prismaMock.season.findUnique.mockResolvedValue(null as never);
+    prismaMock.season.findUnique.mockResolvedValue(null);
 
     await SeasonService.awardSeasonRewards(3);
 
@@ -474,7 +474,7 @@ describe('getUserSeasonStats', () => {
   });
 
   it('сезона нет — null', async () => {
-    prismaMock.season.findUnique.mockResolvedValue(null as never);
+    prismaMock.season.findUnique.mockResolvedValue(null);
 
     await expect(SeasonService.getUserSeasonStats(1, 3)).resolves.toBeNull();
   });
@@ -523,7 +523,7 @@ describe('checkAndRotateSeason', () => {
   });
 
   it('без активного сезона создаёт первый', async () => {
-    prismaMock.season.findFirst.mockResolvedValue(null as never);
+    prismaMock.season.findFirst.mockResolvedValue(null);
 
     await SeasonService.checkAndRotateSeason();
 

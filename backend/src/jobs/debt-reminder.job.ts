@@ -5,23 +5,40 @@ import { getBotInstance } from '../bot/bot-instance';
 import { logger } from '../utils/logger';
 import { withDistributedLock } from '../utils/distributed-lock';
 
+/** Русское число: 1 день, 2 дня, 5 дней. */
+function pluralize(count: number, one: string, few: string, many: string): string {
+  if (count % 10 === 1 && count % 100 !== 11) return one;
+  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+    return few;
+  }
+  return many;
+}
+
 /**
- * Форматирование возраста долга
+ * Форматирование возраста долга.
+ *
+ * Дни считались по трём диапазонам с фиксированной формой слова, и в
+ * диапазоне 21–30 получалось «25 день назад». Форма теперь выбирается по
+ * числу — это единственное, что видит человек в напоминании.
+ *
+ * Ветки недель ниже достижимы только на 31–34 днях (при daysOld ≥ 31 недель
+ * всегда ≥ 4), поэтому «1 неделю назад» и «2 недели назад» не выводятся
+ * никогда. Оставлено как есть: менять формулировки для 31+ дней — отдельный
+ * разговор, а не часть починки падежа.
  */
 function formatDebtAge(daysOld: number): string {
   if (daysOld === 0) return 'сегодня';
   if (daysOld === 1) return 'вчера';
-  if (daysOld < 5) return `${daysOld} дня назад`;
-  if (daysOld < 21) return `${daysOld} дней назад`;
-  if (daysOld < 31) return `${daysOld} день назад`;
+  if (daysOld < 31) {
+    return `${daysOld} ${pluralize(daysOld, 'день', 'дня', 'дней')} назад`;
+  }
 
   const weeks = Math.floor(daysOld / 7);
   if (weeks === 1) return '1 неделю назад';
-  if (weeks < 5) return `${weeks} недели назад`;
+  if (weeks < 5) return `${weeks} ${pluralize(weeks, 'неделю', 'недели', 'недель')} назад`;
 
   const months = Math.floor(daysOld / 30);
-  if (months === 1) return '1 месяц назад';
-  return `${months} месяца назад`;
+  return `${months} ${pluralize(months, 'месяц', 'месяца', 'месяцев')} назад`;
 }
 
 /**
