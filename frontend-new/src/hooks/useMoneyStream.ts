@@ -10,6 +10,7 @@ import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/useAppStore';
 import { useEventStream, type SSEStatus, type StreamEvent } from './useEventStream';
+import { liveKey, markLiveChange } from '@/shared/lib/liveChanges';
 
 export interface DebtUpdatedEvent {
   transactionId: number;
@@ -23,12 +24,22 @@ export function useMoneyStream(enabled = true): SSEStatus {
   const authStatus = useAppStore((s) => s.authStatus);
 
   const handle = useCallback(
-    ({ event }: StreamEvent) => {
+    ({ event, data }: StreamEvent) => {
       if (event !== 'debt_updated') return;
       /* Перезапрашиваем, а не патчим кэш из события: суммы и итоги считает
          сервер, и класть в поток деньги только чтобы их продублировать — способ
          разъехаться с источником истины. */
       void qc.invalidateQueries({ queryKey: ['budget'] });
+
+      /* Но какая именно строка изменилась — знает только событие. Без этого
+         обновление приезжает молча и неотличимо от «так и было». data — сырой
+         JSON-текст кадра (см. StreamEvent), битый кадр не должен ронять экран. */
+      try {
+        const payload = JSON.parse(data) as Partial<DebtUpdatedEvent>;
+        if (payload.transactionId) markLiveChange(liveKey.debt(payload.transactionId));
+      } catch {
+        // кадр без разбираемого тела: обновление всё равно приехало
+      }
     },
     [qc],
   );

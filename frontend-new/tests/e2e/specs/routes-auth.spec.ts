@@ -112,6 +112,20 @@ test.describe('Общие проверки Mini App', () => {
       );
     expect(navigationFits).toBe(true);
 
+    /* Ждём конца анимаций входа, иначе axe меряет цвет посреди затухания:
+       --text-tertiary #6b655b читается как #7c766d и даёт 4.28 при пороге 4.5.
+       Это не дефект палитры, а гонка — тот же случай уже описан в
+       money-a11y.spec.ts. Бесконечные анимации (шиммер, спиннер) пропускаем,
+       иначе ожидание не кончится никогда. */
+    await appPage.evaluate(() =>
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+          .map((a) => a.finished.catch(() => undefined)),
+      ),
+    );
+
     const results = await new AxeBuilder({ page: appPage })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();

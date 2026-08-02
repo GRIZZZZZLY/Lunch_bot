@@ -2,6 +2,7 @@
    нет. Транспорт подменяем на useEventStream-заглушку: проверяем решение хука,
    а не разбор SSE (он общий и покрыт поведением экрана опроса). */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { _resetLiveChanges, liveKey, useLiveChanges } from '@/shared/lib/liveChanges';
 import type { ReactNode } from 'react';
 import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -57,5 +58,37 @@ describe('useMoneyStream', () => {
     h.lastOptions?.onEvent({ event: 'poll_updated', data: '{}' });
 
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+/* Строка, изменившаяся не по вашей воле, должна отличаться от неизменившейся:
+   поток сбрасывает кэш, строка молча перерисовывается, и без метки «только что
+   приехало» неотличимо от «так и было». Событие называет транзакцию — берём id
+   оттуда. */
+describe('useMoneyStream — метка живого изменения', () => {
+  beforeEach(() => _resetLiveChanges());
+
+  it('метит именно ту транзакцию, которую назвал сервер', () => {
+    renderHook(() => useMoneyStream(), { wrapper });
+
+    h.lastOptions?.onEvent({
+      event: 'debt_updated',
+      data: JSON.stringify({ transactionId: 42, status: 'PAID', audience: [1], timestamp: 'x' }),
+    });
+
+    const { result } = renderHook(() => useLiveChanges());
+    expect(result.current.has(liveKey.debt(42))).toBe(true);
+    expect(result.current.has(liveKey.debt(43))).toBe(false);
+  });
+
+  it('битый кадр не метит ничего и не роняет обработчик', () => {
+    renderHook(() => useMoneyStream(), { wrapper });
+
+    expect(() =>
+      h.lastOptions?.onEvent({ event: 'debt_updated', data: 'не json' }),
+    ).not.toThrow();
+
+    const { result } = renderHook(() => useLiveChanges());
+    expect(result.current.size).toBe(0);
   });
 });

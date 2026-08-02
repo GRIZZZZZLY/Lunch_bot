@@ -20,6 +20,7 @@ import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { isSafePaymentLink } from '@/shared/lib/phone';
 import { openExternalLink } from '@/lib/telegram';
+import { liveKey, useLiveChanges } from '@/shared/lib/liveChanges';
 import { formatPrice } from '@/features/store-run/lib/selectors';
 import { Icon } from '@/components/rl/Icon';
 import {
@@ -31,6 +32,12 @@ import {
 import styles from './BudgetPage.module.css';
 
 type BusyKind = 'mark' | 'cancel' | 'confirm' | 'remind';
+
+/* Строка, изменившаяся по потоку, помечается на полторы секунды. Своё действие
+   сюда не попадает: у него есть нажатие, спиннер и оптимистичное обновление. */
+function rowClass(base: string, live: ReadonlySet<string>, key: string): string {
+  return live.has(key) ? `${base} live-flash live-money is-live` : `${base} live-flash live-money`;
+}
 
 /**
  * Куда переводить. Раньше реквизиты существовали только в сообщении бота, и с
@@ -138,6 +145,9 @@ export function BudgetPage() {
   /* Живой поток вместо двух опросов по 15 с. Опрос остаётся страховкой: пока
      поток не подтвердил соединение, запросы идут как раньше. */
   const streamStatus = useMoneyStream();
+  /* Что приехало по потоку прямо сейчас: строку, изменившуюся не по вашей
+     воле, иначе от неизменившейся не отличить. */
+  const liveChanges = useLiveChanges();
   const live = streamStatus === 'connected';
   const debtsQuery = useDebts(undefined, live);
   const creditsQuery = useCredits(undefined, live);
@@ -253,7 +263,7 @@ export function BudgetPage() {
             приложение денег не переводит.
           </p>
           {vm.myDebts.map((d) => (
-            <div key={d.id} className={styles.row}>
+            <div key={d.id} className={rowClass(styles.row, liveChanges, liveKey.debt(d.id))}>
               <div className={styles.avatar} aria-hidden>
                 {d.name[0].toUpperCase()}
               </div>
@@ -353,7 +363,7 @@ export function BudgetPage() {
             />
           </div>
           {vm.owed.map((c) => (
-            <div key={c.id} className={styles.row}>
+            <div key={c.id} className={rowClass(styles.row, liveChanges, liveKey.debt(c.id))}>
               <div className={styles.avatar} aria-hidden>
                 {c.name[0].toUpperCase()}
               </div>
@@ -409,7 +419,7 @@ export function BudgetPage() {
             Если подтвердили по ошибке — отмените в течение суток. Участник получит уведомление.
           </p>
           {vm.undoable.map((c) => (
-            <div key={c.id} className={styles.row}>
+            <div key={c.id} className={rowClass(styles.row, liveChanges, liveKey.debt(c.id))}>
               <div className={styles.avatar} aria-hidden>
                 {c.name[0].toUpperCase()}
               </div>

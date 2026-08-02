@@ -13,6 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/useAppStore';
 import { queryKeys } from '@/lib/queryClient';
 import { useEventStream, type SSEStatus, type StreamEvent } from './useEventStream';
+import { liveKey, markLiveChange } from '@/shared/lib/liveChanges';
 
 export interface StoreRunUpdatedEvent {
   storeRunId: number;
@@ -45,6 +46,11 @@ export function useStoreRunStream(storeRunId?: number | null, enabled = true): S
       void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
       if (payload?.storeRunId) {
         void qc.invalidateQueries({ queryKey: queryKeys.storeRuns.detail(payload.storeRunId) });
+        /* Какая именно позиция изменилась, событие не говорит, и подсвечивать
+           весь список значило бы устроить рябь. Метим забег: его изменение
+           видно в одной сводке «куплено X из Y» — том самом числе, которое и
+           меняется, когда кто-то проставил цену. */
+        markLiveChange(liveKey.storeRun(payload.storeRunId));
       }
     },
     [qc],

@@ -18,6 +18,7 @@ import {
   personalDebtTotal,
 } from '../lib/selectors';
 import { ShoppingProgress } from '../components/ShoppingProgress';
+import { liveKey, useLiveChange } from '@/shared/lib/liveChanges';
 import { ShoppingItemRow, type MarkItem } from '../components/ShoppingItemRow';
 import { ReadOnlyShoppingItemRow } from '../components/ReadOnlyShoppingItemRow';
 import styles from '../StoreRunPage.module.css';
@@ -44,6 +45,7 @@ export function ShoppingView({
   run: StoreRunWithRelations;
   currentUserId: number | null;
 }) {
+  const liveRun = useLiveChange(liveKey.storeRun(run.id));
   const settle = useSettleStoreRun(run.id);
   const setPrice = useSetItemPrice(run.id);
   const isInitiator = isInitiatorOf(run, currentUserId);
@@ -119,7 +121,7 @@ export function ShoppingView({
 
   return (
     <div className={`anim-in ${styles.screen}`}>
-      <ShoppingProgress progress={progress} />
+      <ShoppingProgress progress={progress} live={liveRun} />
 
       {items.length === 0 ? (
         <InlineNotice tone="info">В закупке нет позиций.</InlineNotice>
@@ -182,6 +184,9 @@ function ParticipantShopping({
   currentUserId: number | null;
   progress: ReturnType<typeof computeProgress>;
 }) {
+  /* Участнику знак нужнее, чем инициатору: цены здесь проставляет не он, и
+     число «обработано» меняется целиком чужими руками. */
+  const liveRun = useLiveChange(liveKey.storeRun(run.id));
   const items = run.items;
   const mine = items.filter((i) => currentUserId != null && i.userId === currentUserId);
   const others = items.filter((i) => !(currentUserId != null && i.userId === currentUserId));
@@ -196,7 +201,7 @@ function ParticipantShopping({
         </div>
       </div>
 
-      <ShoppingProgress progress={progress} />
+      <ShoppingProgress progress={progress} live={liveRun} />
 
       {mine.length > 0 ? (
         <Section title="Ваши позиции" count={mine.length}>
