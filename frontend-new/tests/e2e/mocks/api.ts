@@ -187,7 +187,20 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
       return;
     }
     if (path === '/user/payment-info') {
-      if (method === 'PUT') state.paymentInfo = { ...state.paymentInfo, ...bodyRecord(body) };
+      /* Берём ТОЛЬКО те поля, что знает сервер (user.controller.updatePaymentInfo).
+         Раньше здесь стоял `...bodyRecord(body)` — мок соглашался с клиентом по
+         построению и потому не мог поймать расхождение имён. Клиент слал
+         sbpPhone/bankName/cardNumber, API читает paymentPhone/paymentCard/
+         paymentDetails: PUT отвечал 200 и не записывал ничего. Тесты проходили
+         четыре круга, а профиль в проде не сохранял ни разу. */
+      if (method === 'PUT') {
+        const b = bodyRecord(body) as Record<string, unknown>;
+        const next = { ...state.paymentInfo };
+        for (const key of ['paymentPhone', 'paymentCard', 'paymentDetails'] as const) {
+          if (key in b) next[key] = b[key] as string | undefined;
+        }
+        state.paymentInfo = next;
+      }
       await route.fulfill({ json: ok(state.paymentInfo) });
       return;
     }

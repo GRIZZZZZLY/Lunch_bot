@@ -1,4 +1,4 @@
-/* Реквизиты для переводов: показ и проверка.
+/* Реквизиты для переводов: показ, ввод и проверка.
 
    Раньше собственный номер в профиле выводился замаскированным («+7 *** 33»).
    Строка существует ровно для того, чтобы человек убедился, что деньги придут
@@ -6,8 +6,25 @@
    что показываем целиком и разбиваем на группы, чтобы ошибку было видно
    глазом. Номер карты маской остаётся: он на этом экране и не показывается. */
 
+export const PHONE_PREFIX = '+7 ';
+
 export function phoneDigits(raw: string): string {
   return raw.replace(/\D/g, '');
+}
+
+/**
+ * Значащие цифры номера — без кода страны.
+ *
+ * Восьмёрку отбрасываем ТОЛЬКО когда из-за неё цифр становится больше десяти:
+ * привычное «8 926…» так и остаётся «+7 926…», а петербургское «812» не
+ * превращается в «12» — код города тоже начинается с восьмёрки, и слепое
+ * отбрасывание ломало бы реальные номера.
+ */
+function localDigits(raw: string): string {
+  let d = phoneDigits(raw);
+  if (d[0] === '7' || d[0] === '8') d = d.slice(1);
+  if (d.length > 10 && d[0] === '8') d = d.slice(1);
+  return d.slice(0, 10);
 }
 
 /**
@@ -25,13 +42,38 @@ export function formatPhone(raw: string): string {
   return raw.trim();
 }
 
-/** Сообщение об ошибке или null. Пустая строка допустима — реквизит необязателен. */
+/**
+ * Форматирование по мере набора. «+7 » подставляется само и держится:
+ * человеку остаётся набрать десять цифр, а не вспоминать код страны.
+ * Набранная первой восьмёрка поглощается префиксом — так номер и диктуют.
+ * Очистить поле можно, выделив его целиком и стерев: тогда реквизит
+ * считается незаполненным.
+ */
+export function formatPhoneInput(raw: string): string {
+  if (!raw.trim()) return '';
+  const d = localDigits(raw);
+  if (!d) return PHONE_PREFIX;
+  let out = `${PHONE_PREFIX}${d.slice(0, 3)}`;
+  if (d.length > 3) out += ` ${d.slice(3, 6)}`;
+  if (d.length > 6) out += `-${d.slice(6, 8)}`;
+  if (d.length > 8) out += `-${d.slice(8, 10)}`;
+  return out;
+}
+
+/** Остался один префикс — значит номер не задан, а не задан неверно. */
+export function isPhoneEmpty(raw: string): boolean {
+  return localDigits(raw).length === 0;
+}
+
+/** Что уходит на сервер: пустое поле — это отсутствие реквизита, а не «+7». */
+export function normalizePhone(raw: string): string | undefined {
+  return isPhoneEmpty(raw) ? undefined : formatPhone(raw);
+}
+
+/** Сообщение об ошибке или null. Пустое поле допустимо — реквизит необязателен. */
 export function validatePhone(raw: string): string | null {
-  const v = raw.trim();
-  if (!v) return null;
-  const d = phoneDigits(v);
-  if (d.length < 10) return 'Похоже, в номере не хватает цифр';
-  if (d.length > 15) return 'В номере слишком много цифр';
+  if (isPhoneEmpty(raw)) return null;
+  if (localDigits(raw).length < 10) return 'Похоже, в номере не хватает цифр';
   return null;
 }
 

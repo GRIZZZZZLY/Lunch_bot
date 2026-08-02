@@ -12,9 +12,18 @@ test.describe('Профиль и настройки', () => {
     await payment.getByRole('textbox', { name: 'Банк' }).fill('Альфа-Банк');
     await payment.getByRole('button', { name: 'Сохранить' }).click();
     expect(api.lastRequest('PUT', '/user/payment-info')?.body).toMatchObject({
-      sbpPhone: '+7 999 000-11-22',
-      bankName: 'Альфа-Банк',
+      paymentPhone: '+7 999 000-11-22',
+      paymentDetails: 'Альфа-Банк',
     });
+    await expect(appPage.getByText('Альфа-Банк')).toBeVisible();
+
+    /* Круг «сохранил → перечитал». Раньше форма слала sbpPhone/bankName, а API
+       читает paymentPhone/paymentDetails: PUT отвечал 200, не записывая ничего.
+       Проверки только на тело запроса это не ловили, потому что мок возвращал
+       эхом присланное. Перезагрузка спрашивает у сервера заново — если имена
+       снова разойдутся, номер отсюда исчезнет. */
+    await appPage.reload();
+    await expect(appPage.getByText('СБП +7 999 000-11-22')).toBeVisible();
     await expect(appPage.getByText('Альфа-Банк')).toBeVisible();
 
     const appearance = appPage.getByRole('region', { name: 'Оформление' });

@@ -138,11 +138,11 @@ export function ProfilePage() {
             {/* Номер целиком, не «+7 *** 33»: строка нужна, чтобы убедиться,
                 что деньги придут куда надо, и маска этому мешала. */}
             <span className={`tnum ${styles.rowName}`}>
-              {paymentInfo?.sbpPhone ? `СБП ${formatPhone(paymentInfo.sbpPhone)}` : 'СБП не задано'}
+              {paymentInfo?.paymentPhone ? `СБП ${formatPhone(paymentInfo.paymentPhone)}` : 'СБП не задано'}
             </span>
             <span className={styles.rowSub}>
-              {paymentInfo?.sbpPhone
-                ? paymentInfo.bankName || 'банк не указан'
+              {paymentInfo?.paymentPhone
+                ? paymentInfo.paymentDetails || 'банк не указан'
                 : 'без них вам не смогут перевести деньги'}
             </span>
           </div>
@@ -228,7 +228,17 @@ export function ProfilePage() {
         }}
       />
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
-      <DonationModal open={donationOpen} onClose={() => setDonationOpen(false)} sbpPhone={paymentInfo?.sbpPhone} />
+      {/* Номер ПРОЕКТА, а не свой. Сюда передавались реквизиты самого
+          пользователя, и «Поддержать проект» открывало перевод себе же. Пока
+          профиль не сохранял реквизиты, номер всегда был пуст и кнопка стояла
+          отключённой — ошибка не проявлялась. Теперь чтение работает, поэтому
+          адресат задаётся явно; без VITE_DONATION_SBP_PHONE лист честно
+          говорит, что телефон получателя не настроен. */}
+      <DonationModal
+        open={donationOpen}
+        onClose={() => setDonationOpen(false)}
+        sbpPhone={import.meta.env.VITE_DONATION_SBP_PHONE as string | undefined}
+      />
     </div>
   );
 }

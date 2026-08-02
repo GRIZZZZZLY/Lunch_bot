@@ -80,7 +80,7 @@ describe('ProfilePage — система C', () => {
   /* Раньше номер выводился как «+7 *** 67». Строка нужна, чтобы человек
      убедился, что деньги придут куда надо, — маска ровно это и ломала. */
   it('реквизиты: свой номер показан целиком и разбит на группы', () => {
-    h.state.paymentInfo = { sbpPhone: '+79261234567', bankName: 'Сбер' };
+    h.state.paymentInfo = { paymentPhone: '+79261234567', paymentDetails: 'Сбер' };
     render(<ProfilePage />);
     expect(screen.getByText('СБП +7 926 123-45-67')).toBeInTheDocument();
     expect(screen.getByText('Сбер')).toBeInTheDocument();
@@ -91,7 +91,7 @@ describe('ProfilePage — система C', () => {
      пропадала, как только был указан банк, — то есть ровно тогда, когда
      реквизиты кому-то начинали показываться. */
   it('подсказка про реквизиты не исчезает после заполнения банка', () => {
-    h.state.paymentInfo = { sbpPhone: '+79261234567', bankName: 'Сбер' };
+    h.state.paymentInfo = { paymentPhone: '+79261234567', paymentDetails: 'Сбер' };
     render(<ProfilePage />);
     expect(screen.getByText(/Участники увидят их/)).toBeInTheDocument();
   });

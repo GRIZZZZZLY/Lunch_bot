@@ -68,7 +68,7 @@ export interface E2EState {
   debts: Transaction[];
   credits: Transaction[];
   suggestions: MenuSuggestion[];
-  paymentInfo: { sbpPhone?: string; bankName?: string; cardNumber?: string };
+  paymentInfo: { paymentPhone?: string; paymentCard?: string; paymentDetails?: string };
   failures: Record<string, FailureRule>;
   delays: Record<string, number>;
   requests: RequestRecord[];
@@ -417,9 +417,9 @@ export function createScenario(name: ScenarioName, role: E2ERole): E2EState {
     credits: [],
     suggestions: [],
     paymentInfo: {
-      sbpPhone: '+7 900 111-22-33',
-      bankName: 'Т-Банк',
-      cardNumber: '2200 0000 0000 1234',
+      paymentPhone: '+7 900 111-22-33',
+      paymentDetails: 'Т-Банк',
+      paymentCard: '2200 0000 0000 1234',
     },
     failures: {},
     delays: {},

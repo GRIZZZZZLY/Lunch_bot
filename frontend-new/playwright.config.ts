@@ -58,6 +58,9 @@ export default defineConfig({
   webServer: {
     command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4174',
     url: previewUrl,
+    /* Адресат «Поддержать проект» задаётся явно: без него кнопка отключена,
+       а зависеть от локального .env, которого нет в репозитории, тесты не должны. */
+    env: { VITE_DONATION_SBP_PHONE: '+7 900 000-00-00' },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

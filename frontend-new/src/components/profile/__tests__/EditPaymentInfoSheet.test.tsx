@@ -17,8 +17,8 @@ describe('EditPaymentInfoSheet', () => {
         {...props}
         open
         initial={{
-          sbpPhone: '+7 900 111-22-33',
-          bankName: 'Первый банк',
+          paymentPhone: '+7 900 111-22-33',
+          paymentDetails: 'Первый банк',
         }}
       />,
     );
@@ -32,9 +32,9 @@ describe('EditPaymentInfoSheet', () => {
         {...props}
         open
         initial={{
-          sbpPhone: '+7 901 444-55-66',
-          bankName: 'Новый банк',
-          cardNumber: '  1111 2222 3333 4444  ',
+          paymentPhone: '+7 901 444-55-66',
+          paymentDetails: 'Новый банк',
+          paymentCard: '  1111 2222 3333 4444  ',
         }}
       />,
     );
@@ -47,9 +47,9 @@ describe('EditPaymentInfoSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     expect(onSubmit).toHaveBeenCalledWith({
-      sbpPhone: '+7 901 444-55-66',
-      bankName: 'Новый банк',
-      cardNumber: '1111 2222 3333 4444',
+      paymentPhone: '+7 901 444-55-66',
+      paymentDetails: 'Новый банк',
+      paymentCard: '1111 2222 3333 4444',
     });
   });
 
@@ -67,7 +67,7 @@ describe('EditPaymentInfoSheet', () => {
         busy={false}
         onClose={vi.fn()}
         onSubmit={onSubmit}
-        initial={{ sbpPhone: '+7 900 111-22-33', bankName: 'Банк' }}
+        initial={{ paymentPhone: '+7 900 111-22-33', paymentDetails: 'Банк' }}
       />,
     );
 
@@ -85,7 +85,7 @@ describe('EditPaymentInfoSheet', () => {
     _resetBackButtonForTests();
     const onSubmit = vi.fn();
     render(
-      <EditPaymentInfoSheet open busy={false} onClose={vi.fn()} onSubmit={onSubmit} initial={{ sbpPhone: '123' }} />,
+      <EditPaymentInfoSheet open busy={false} onClose={vi.fn()} onSubmit={onSubmit} initial={{ paymentPhone: '123' }} />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
@@ -103,7 +103,7 @@ describe('EditPaymentInfoSheet', () => {
         busy={false}
         onClose={vi.fn()}
         onSubmit={onSubmit}
-        initial={{ sbpPhone: '+7 900 111-22-33', cardNumber: '1111 2222' }}
+        initial={{ paymentPhone: '+7 900 111-22-33', paymentCard: '1111 2222' }}
       />,
     );
 
@@ -111,5 +111,87 @@ describe('EditPaymentInfoSheet', () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByText(/16–19 цифр/)).toBeInTheDocument();
+  });
+
+  /* Регрессия, из-за которой профиль не сохранял НИЧЕГО. Форма слала
+     sbpPhone/bankName/cardNumber, а API читает paymentPhone/paymentCard/
+     paymentDetails: PUT отвечал 200 и записывал undefined в каждое поле.
+     Отказа не было, показывать было нечего, тесты проходили — потому что
+     e2e-мок возвращал эхом то, что прислал клиент. Здесь имена закреплены. */
+  it('отправляет ровно те имена полей, что читает сервер', () => {
+    _resetBackButtonForTests();
+    const onSubmit = vi.fn();
+    render(
+      <EditPaymentInfoSheet
+        open
+        busy={false}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+        initial={{ paymentPhone: '+7 900 111-22-33', paymentDetails: 'Т-Банк' }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(Object.keys(onSubmit.mock.calls[0][0]).sort()).toEqual([
+      'paymentCard',
+      'paymentDetails',
+      'paymentPhone',
+    ]);
+  });
+
+  it('поле телефона открывается с «+7 », его не набирают руками', () => {
+    _resetBackButtonForTests();
+    render(<EditPaymentInfoSheet open busy={false} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    expect(screen.getByLabelText('Телефон СБП')).toHaveValue('+7 ');
+  });
+
+  it('форматирует номер по мере набора', () => {
+    _resetBackButtonForTests();
+    render(<EditPaymentInfoSheet open busy={false} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    const field = screen.getByLabelText('Телефон СБП');
+
+    fireEvent.change(field, { target: { value: '+7 926' } });
+    expect(field).toHaveValue('+7 926');
+
+    fireEvent.change(field, { target: { value: '+7 9261234567' } });
+    expect(field).toHaveValue('+7 926 123-45-67');
+  });
+
+  /* Привычное «8 926…» должно давать «+7 926…», но код Петербурга тоже
+     начинается с восьмёрки, поэтому её отбрасывает только переполнение
+     десяти цифр, а не сам факт восьмёрки в начале. */
+  it('привычная восьмёрка не удваивает код страны, а «812» остаётся кодом города', () => {
+    _resetBackButtonForTests();
+    render(<EditPaymentInfoSheet open busy={false} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    const field = screen.getByLabelText('Телефон СБП');
+
+    fireEvent.change(field, { target: { value: '+7 89261234567' } });
+    expect(field).toHaveValue('+7 926 123-45-67');
+
+    fireEvent.change(field, { target: { value: '+7 8123456789' } });
+    expect(field).toHaveValue('+7 812 345-67-89');
+  });
+
+  /* «+7» — это не реквизит. Уходя с пустого поля, оставляем его пустым,
+     иначе на сервер уедет код страны как номер для перевода. */
+  it('уход с поля, где остался один префикс, очищает его', () => {
+    _resetBackButtonForTests();
+    const onSubmit = vi.fn();
+    render(<EditPaymentInfoSheet open busy={false} onClose={vi.fn()} onSubmit={onSubmit} />);
+    const field = screen.getByLabelText('Телефон СБП');
+
+    fireEvent.blur(field);
+    expect(field).toHaveValue('');
+
+    fireEvent.focus(field);
+    expect(field).toHaveValue('+7 ');
+
+    fireEvent.blur(field);
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentPhone: undefined }),
+    );
   });
 });

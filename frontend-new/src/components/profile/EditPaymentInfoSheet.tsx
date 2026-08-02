@@ -3,7 +3,14 @@ import type { PaymentInfo } from '@/services/user.service';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, Field } from '@/components/rl/primitives';
 import { InlineNotice } from '@/shared/ui';
-import { validateCard, validatePhone } from '@/shared/lib/phone';
+import {
+  PHONE_PREFIX,
+  formatPhoneInput,
+  isPhoneEmpty,
+  normalizePhone,
+  validateCard,
+  validatePhone,
+} from '@/shared/lib/phone';
 
 interface Props {
   open: boolean;
@@ -71,17 +78,19 @@ export function EditPaymentInfoSheet({ open, initial, busy, onClose, onSubmit }:
 }
 
 function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, 'open'>) {
-  const [sbpPhone, setSbpPhone] = useState(initial?.sbpPhone ?? '');
-  const [bankName, setBankName] = useState(initial?.bankName ?? '');
-  const [cardNumber, setCardNumber] = useState(initial?.cardNumber ?? '');
+  /* Поле открывается с «+7 »: код страны у всех один, и набирать его руками
+     каждый раз незачем. */
+  const [phone, setPhone] = useState(() => formatPhoneInput(initial?.paymentPhone ?? '') || PHONE_PREFIX);
+  const [details, setDetails] = useState(initial?.paymentDetails ?? '');
+  const [card, setCard] = useState(initial?.paymentCard ?? '');
   const [saveError, setSaveError] = useState<string | null>(null);
   /* Показываем ошибки полей только после попытки сохранить: подчёркивать
      «не хватает цифр» на третьей набранной цифре — ругаться на человека,
      который ещё печатает. */
   const [tried, setTried] = useState(false);
 
-  const phoneError = tried ? validatePhone(sbpPhone) : null;
-  const cardError = tried ? validateCard(cardNumber) : null;
+  const phoneError = tried ? validatePhone(phone) : null;
+  const cardError = tried ? validateCard(card) : null;
 
   /* Раньше handleSave вызывал onSubmit и выбрасывал возвращённый промис.
      Отказ сервера при этом не показывался НИГДЕ: лист оставался открытым,
@@ -90,13 +99,17 @@ function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, '
      сохранены, — и потом не понимал, почему деньги не приходят. */
   const handleSave = async () => {
     setTried(true);
-    if (validatePhone(sbpPhone) || validateCard(cardNumber)) return;
+    if (validatePhone(phone) || validateCard(card)) return;
     setSaveError(null);
     try {
+      /* Имена — как на проводе. Раньше уходили sbpPhone/bankName/cardNumber,
+         которых API не знает: PUT отвечал 200 и записывал undefined в каждое
+         поле. Ничего не сохранялось, и сказать об этом было нечему — отказа
+         ведь не было. */
       await onSubmit({
-        sbpPhone: sbpPhone.trim() || undefined,
-        bankName: bankName.trim() || undefined,
-        cardNumber: cardNumber.trim() || undefined,
+        paymentPhone: normalizePhone(phone),
+        paymentDetails: details.trim() || undefined,
+        paymentCard: card.trim() || undefined,
       });
     } catch {
       setSaveError('Не удалось сохранить реквизиты. Проверьте связь и попробуйте ещё раз.');
@@ -126,9 +139,15 @@ function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, '
       <FormField label="Телефон СБП" htmlFor="payment-sbp-phone" error={phoneError}>
         <Field
           id="payment-sbp-phone"
-          value={sbpPhone}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setSbpPhone(e.target.value)}
-          placeholder="+7 (900) 000-00-00"
+          value={phone}
+          /* Формат наводится по мере набора, а не после: иначе человек видит
+             собственный номер в чужом виде только на экране профиля. */
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setPhone(formatPhoneInput(e.target.value))}
+          onFocus={() => setPhone((v) => v || PHONE_PREFIX)}
+          /* Уход с поля, где остался один префикс, — это «номер не задан».
+             Иначе «+7» ушло бы на сервер как реквизит. */
+          onBlur={() => setPhone((v) => (isPhoneEmpty(v) ? '' : v))}
+          placeholder="+7 900 000-00-00"
           inputMode="tel"
           className="tnum"
           aria-invalid={!!phoneError}
@@ -136,13 +155,13 @@ function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, '
         />
       </FormField>
       <FormField label="Банк" htmlFor="payment-bank-name">
-        <Field id="payment-bank-name" value={bankName} onChange={(e: ChangeEvent<HTMLInputElement>) => setBankName(e.target.value)} placeholder="Тинькофф, Сбербанк…" />
+        <Field id="payment-bank-name" value={details} onChange={(e: ChangeEvent<HTMLInputElement>) => setDetails(e.target.value)} placeholder="Тинькофф, Сбербанк…" />
       </FormField>
       <FormField label="Номер карты (опционально)" htmlFor="payment-card-number" error={cardError}>
         <Field
           id="payment-card-number"
-          value={cardNumber}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setCardNumber(e.target.value)}
+          value={card}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setCard(e.target.value)}
           placeholder="0000 0000 0000 0000"
           inputMode="numeric"
           className="tnum"
