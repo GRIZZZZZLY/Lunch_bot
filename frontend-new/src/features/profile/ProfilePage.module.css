@@ -4,7 +4,7 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-3) var(--space-4);
-  animation: profIn 180ms var(--ease-out);
+  animation: profIn var(--motion-base) var(--ease-out);
 }
 
 @keyframes profIn {
@@ -19,6 +19,10 @@
   padding: 0 var(--space-1);
 }
 
+.headerMain {
+  min-width: 0;
+}
+
 .avatar {
   width: 56px;
   height: 56px;
@@ -26,7 +30,7 @@
   flex-shrink: 0;
   background: var(--vote-tint);
   color: var(--vote);
-  font-size: 20px;
+  font-size: var(--text-18);
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -53,36 +57,70 @@
 
 .stat {
   flex: 1;
+  min-width: 0;
   text-align: center;
-  padding: 10px 4px;
-  border-radius: 12px;
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--radius-control-sm);
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
 
 .stat b {
   display: block;
-  font-size: 17px;
+  font-size: var(--text-18);
   font-weight: 800;
 }
 
+/* Было 10,5 px — мельче самого мелкого токена шкалы. Контраст здесь в норме
+   (5.58:1), проблема была именно в кегле. */
 .stat span {
-  font-size: 10.5px;
+  font-size: var(--text-11);
   color: var(--text-tertiary);
 }
 
+.statsNote {
+  margin: calc(-1 * var(--space-2)) var(--space-1) 0;
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.retry {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.retry:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+  border-radius: var(--space-1);
+}
+
 .group {
-  border-radius: 14px;
+  border-radius: var(--radius-block);
   background: var(--surface);
   box-shadow: var(--shadow-2);
 }
 
 .groupHead {
   padding: var(--space-3) var(--space-4) var(--space-2);
-  font-size: 11.5px;
+  font-size: var(--text-11);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.groupHint {
+  margin: calc(-1 * var(--space-1)) 0 0;
+  padding: 0 var(--space-4) var(--space-2);
+  font-size: var(--text-11);
   color: var(--text-tertiary);
 }
 
@@ -91,7 +129,7 @@
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  min-height: 52px;
+  min-height: var(--control-lg);
   padding: var(--space-2) var(--space-4);
   border: none;
   background: none;
@@ -103,6 +141,30 @@
 button.row {
   cursor: pointer;
   transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+/* Строки не имели ни наведения, ни собственного кольца фокуса: с клавиатуры
+   рисовался браузерный `outline: auto`, а весь остальной продукт показывает
+   токен --focus-ring. Радиус повторяет карточку, чтобы кольцо у первой и
+   последней строки не срезало её угол. */
+@media (hover: hover) {
+  button.row:hover {
+    background: var(--accent-tint);
+  }
+}
+
+button.row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--focus-ring);
+  border-radius: 0;
+}
+
+/* Заголовок раздела стоит выше любой строки, поэтому сверху скруглять нечего,
+   а вот нижняя строка обязана повторить угол карточки — иначе кольцо срезает
+   её и выглядит отдельной плашкой внутри карточки. */
+button.row:last-of-type:focus-visible {
+  border-bottom-left-radius: var(--radius-block);
+  border-bottom-right-radius: var(--radius-block);
 }
 
 button.row:active {
@@ -139,7 +201,7 @@ button.row:active {
 
 .link {
   color: var(--vote);
-  font-size: 14px;
+  font-size: var(--text-13);
   font-weight: 700;
   white-space: nowrap;
 }

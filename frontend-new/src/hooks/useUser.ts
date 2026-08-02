@@ -44,6 +44,12 @@ export function useUpdatePaymentInfo() {
   });
 }
 
+/* Профиль и расчёт серии читают одну и ту же историю. Раньше страница просила
+   30 записей, а useStreak — 90: разные ключи React Query, а значит два сетевых
+   запроса к одному эндпоинту при каждом открытии профиля. Один лимит на двоих
+   склеивает их в один запрос. */
+export const PROFILE_HISTORY_LIMIT = 90;
+
 export function usePollHistory(params?: { limit?: number; offset?: number }) {
   const authStatus = useAppStore((s) => s.authStatus);
   return useQuery({

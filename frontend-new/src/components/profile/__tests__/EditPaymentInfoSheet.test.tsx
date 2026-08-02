@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { EditPaymentInfoSheet } from '../EditPaymentInfoSheet';
 import { _resetBackButtonForTests } from '@/lib/backButton';
 
@@ -51,5 +51,65 @@ describe('EditPaymentInfoSheet', () => {
       bankName: 'Новый банк',
       cardNumber: '1111 2222 3333 4444',
     });
+  });
+
+  /* Регрессия. handleSave вызывал onSubmit и выбрасывал возвращённый промис:
+     отказ сервера не показывался НИГДЕ — лист оставался открытым, кнопка
+     переставала крутиться, сообщения не было, а в консоли висело
+     необработанное отклонение. Человек уходил уверенным, что реквизиты
+     сохранены, и потом не понимал, почему деньги не приходят. */
+  it('показывает отказ сервера, а не молчит', async () => {
+    _resetBackButtonForTests();
+    const onSubmit = vi.fn().mockRejectedValue(new Error('500'));
+    render(
+      <EditPaymentInfoSheet
+        open
+        busy={false}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+        initial={{ sbpPhone: '+7 900 111-22-33', bankName: 'Банк' }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Не удалось сохранить реквизиты/)).toBeInTheDocument();
+    });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  /* Любая строка уходила на сервер как реквизит для денег: проверки не было
+     ни на клиенте, ни в форме. */
+  it('не отправляет заведомо неверный телефон', () => {
+    _resetBackButtonForTests();
+    const onSubmit = vi.fn();
+    render(
+      <EditPaymentInfoSheet open busy={false} onClose={vi.fn()} onSubmit={onSubmit} initial={{ sbpPhone: '123' }} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/не хватает цифр/)).toBeInTheDocument();
+  });
+
+  it('не отправляет номер карты неверной длины', () => {
+    _resetBackButtonForTests();
+    const onSubmit = vi.fn();
+    render(
+      <EditPaymentInfoSheet
+        open
+        busy={false}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+        initial={{ sbpPhone: '+7 900 111-22-33', cardNumber: '1111 2222' }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/16–19 цифр/)).toBeInTheDocument();
   });
 });
