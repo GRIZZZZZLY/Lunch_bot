@@ -4,7 +4,7 @@
    Направление выводится из смены пути, а не передаётся из места навигации:
    так его получают все переходы сразу, включая Telegram BackButton и жест
    «назад» браузера, где никакого нашего кода в цепочке нет. */
-import { useEffect, useLayoutEffect, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
 import { ROOT_TABS } from '@/app/navigation';
 
 export type TransitionDirection = 'forward' | 'back' | 'fade';
@@ -44,6 +44,30 @@ export function resolveDirection(from: string, to: string): TransitionDirection 
 let committedPath: string | null = null;
 
 const DIRECTION_MARKERS = ['is-forward', 'is-back'] as const;
+
+/* Первое монтирование за сессию — сборка кадра. Флаг модульный: layout'ы
+   монтируются заново при каждом возврате с detail-экрана, и локальное
+   состояние объявляло бы сборкой каждый такой возврат. */
+let booted = false;
+
+/**
+ * Собирается ли кадр прямо сейчас: true только при первом монтировании за
+ * сессию — открытие Mini App, deep link, перезагрузка.
+ *
+ * Значение снимается в рендере, а флаг поднимается в эффекте: шапка, контент и
+ * таббар рендерятся в одном проходе и обязаны получить один ответ. Поднимай
+ * флаг в рендере — второй компонент увидел бы его уже поднятым, приехал бы без
+ * анимации и разорвал композицию.
+ */
+export function useBootReveal(): boolean {
+  const [isBoot] = useState(() => !booted);
+
+  useEffect(() => {
+    booted = true;
+  }, []);
+
+  return isBoot;
+}
 
 /**
  * Вешает класс направления на контейнер страницы.
@@ -124,7 +148,9 @@ export function useRouteFocus(ref: RefObject<HTMLElement>, key: string): void {
   }, [ref, key]);
 }
 
-/* Только для тестов: модульная память о пути живёт дольше рендера. */
+/* Только для тестов: модульная память о пути и о состоявшемся запуске живёт
+   дольше рендера, поэтому между тестами её надо снимать явно. */
 export function __resetTransitionMemory(): void {
   committedPath = null;
+  booted = false;
 }

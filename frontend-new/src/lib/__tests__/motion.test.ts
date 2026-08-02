@@ -1,8 +1,14 @@
 /* Направление перехода: порядок табов, вложенность detail-экранов и то, что
    память о предыдущем пути переживает смену layout'а. */
 import { afterEach, describe, expect, it } from 'vitest';
-import { renderHook } from '@testing-library/react';
-import { __resetTransitionMemory, resolveDirection, usePageTransition } from '../motion';
+import { createElement } from 'react';
+import { render, renderHook } from '@testing-library/react';
+import {
+  __resetTransitionMemory,
+  resolveDirection,
+  useBootReveal,
+  usePageTransition,
+} from '../motion';
 
 afterEach(() => {
   __resetTransitionMemory();
@@ -94,5 +100,37 @@ describe('usePageTransition', () => {
 
     const backToProfile = mount('/profile');
     expect(backToProfile.el.classList.contains('is-back')).toBe(true);
+  });
+});
+
+describe('useBootReveal', () => {
+  it('первое монтирование за сессию — сборка кадра', () => {
+    const { result } = renderHook(() => useBootReveal());
+    expect(result.current).toBe(true);
+  });
+
+  it('шапка, контент и таббар в одном проходе получают один ответ', () => {
+    /* Именно один проход, а не три renderHook: те дают три отдельных коммита, и
+       эффект первого поднял бы флаг до рендера второго. В приложении все трое
+       живут в одном дереве, и если бы флаг поднимался в рендере, кто-то один
+       приехал бы без анимации — композиция сборки разорвалась бы. */
+    const seen: boolean[] = [];
+    function Probe() {
+      seen.push(useBootReveal());
+      return null;
+    }
+
+    render(
+      createElement('div', null, createElement(Probe), createElement(Probe), createElement(Probe)),
+    );
+
+    expect(seen).toEqual([true, true, true]);
+  });
+
+  it('возврат с detail-экрана перемонтирует layout, но открытием не является', () => {
+    renderHook(() => useBootReveal()).unmount();
+
+    const again = renderHook(() => useBootReveal());
+    expect(again.result.current).toBe(false);
   });
 });

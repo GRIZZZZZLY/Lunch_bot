@@ -10,7 +10,7 @@ import { ToastContainer } from '@/components/common/ToastContainer';
 import { IconButton } from '@/components/rl/primitives';
 import { getWebApp } from '@/lib/telegram';
 import { closeTopOverlay, setBaseBackHandler } from '@/lib/backButton';
-import { usePageTransition, useRouteFocus } from '@/lib/motion';
+import { useBootReveal, usePageTransition, useRouteFocus } from '@/lib/motion';
 import {
   ScreenHeaderContext,
   type ScreenHeaderApi,
@@ -25,6 +25,9 @@ export function DetailLayout() {
   const mainRef = useRef<HTMLElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const [header, setHeaderState] = useState<ScreenHeaderState>(EMPTY_HEADER);
+  /* Deep link открывает Mini App прямо здесь, минуя вкладки: кадр собирается
+     так же, только без таббара — его на detail-экране нет. */
+  const boot = useBootReveal();
 
   usePageTransition(pageRef, location.pathname);
   useRouteFocus(mainRef, location.pathname);
@@ -58,6 +61,7 @@ export function DetailLayout() {
     <div className="rl flex flex-col min-h-[100dvh] mx-auto w-full max-w-[430px]">
       <ScreenHeaderContext.Provider value={headerApi}>
         <div
+          className={boot ? 'anim-boot-top' : undefined}
           style={{
             position: 'sticky',
             top: 0,
@@ -99,7 +103,7 @@ export function DetailLayout() {
         <main
           ref={mainRef}
           tabIndex={-1}
-          className="flex-1 overflow-y-auto"
+          className={`flex-1 overflow-y-auto${boot ? ' anim-boot-content' : ''}`}
           style={{ paddingBottom: 'calc(24px + var(--safe-area-bottom, 0px))' }}
         >
           <ErrorBoundary>

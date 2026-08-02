@@ -35,10 +35,11 @@
 - radius: `--radius-card 26 / --radius-block 17 / --radius-control 17 / --radius-pill`
 - control: `--control-sm 38 / --control-md 44 (минимум touch) / --control-lg 52`
 - motion: `--motion-fast 150 / base 220 / slow 300`, `--ease-out/-spring`;
-  переход между страницами и появление контента — `--motion-page 180 /
-  --motion-in 200 / --shift-page 8 / --shift-in 10` (слой `styles/motion.css`:
-  `.anim-page` на навигации, `.anim-in` — на том, что изменилось при открытом
-  экране; приход данных не анимируется)
+  слой `styles/motion.css` добавляет `--motion-page 260 / --motion-in 200` и
+  расстояния `--shift-page 16 / --shift-in 10 / --shift-boot 14`.
+  `.anim-boot-*` — сборка кадра при первом открытии (шапка, контент, таббар),
+  `.anim-page` — навигация, `.anim-in` — то, что изменилось при открытом экране.
+  Приход данных не анимируется. Заметность даёт расстояние: 8 px не читались.
 - z-index: `--z-header 40 / --z-nav 40 / --z-scrim 44 / --z-fab 45 / --z-overlay 60 / --z-sheet 61 / --z-toast 70`
 - safe-area: `--safe-area-*`, `--viewport-stable-height` (JS-синхронизация с Telegram) — **не трогать**, инфраструктура
 

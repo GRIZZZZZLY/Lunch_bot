@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon } from '@/components/rl/Icon';
 import { SchemeThemeToggle } from '@/components/rl/SchemeThemeToggle';
+import { useBootReveal } from '@/lib/motion';
 
 interface HeaderProps {
   title?: string;
@@ -8,9 +9,12 @@ interface HeaderProps {
 }
 
 export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
+  // Верхняя грань кадра: при первом открытии оседает сверху (styles/motion.css).
+  const boot = useBootReveal();
+
   return (
     <div
-      className="rl"
+      className={boot ? 'rl anim-boot-top' : 'rl'}
       style={{
         position: 'sticky',
         top: 0,

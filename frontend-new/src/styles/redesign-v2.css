@@ -379,6 +379,8 @@
 .rl .bottomnav {
   /* колонок столько, сколько табов в конфиге (src/app/navigation.ts) */
   display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; align-items: stretch; gap: 2px;
+  /* система отсчёта для переезжающей плитки (.nav-pill) */
+  position: relative;
   height: var(--nav-h); padding: 7px;
   border-radius: 24px; border: none;
   background: var(--float-grad, var(--elevated));
@@ -393,11 +395,29 @@
   color: var(--text-tertiary); font-size: 10.5px; font-weight: 500; font-family: var(--font-body);
   transition: color var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
 }
+/* Подложку активной вкладки красит .nav-pill, а не сама кнопка: заливка на
+   кнопке гасла на одной и зажигалась на другой, то есть переход между
+   вкладками был двумя событиями вместо одного переезда. Кнопке остаётся то,
+   что переезжать не может, — цвет и вес подписи. */
 .rl .navbtn.on {
   color: var(--accent); font-weight: 600;
+}
+/* Геометрию плитки считаем из отступов панели: колонка равна
+   (ширина - 14px паддинга - 2px * (N-1) зазоров) / N, а шаг переезда — колонка
+   плюс зазор, то есть 100% собственной ширины плюс 2px. Числа берутся из этого
+   же правила выше, поэтому смена паддинга не разъедет плитку с кнопками. */
+.rl .nav-pill {
+  position: absolute;
+  top: 7px; bottom: 7px; left: 7px;
+  width: calc((100% - 14px - 2px * (var(--nav-tabs, 4) - 1)) / var(--nav-tabs, 4));
+  border-radius: 17px;
   background: var(--accent-tint);
   box-shadow: inset 0 0 0 1px var(--accent-ring, transparent);
+  transform: translateX(calc(var(--nav-index, 0) * (100% + 2px)));
+  transition: transform var(--motion-base) var(--ease-spring), opacity var(--motion-fast) var(--ease-out);
 }
+/* Маршрут вне вкладок (404): подсвечивать нечего, плитка уходит на месте. */
+.rl .nav-pill.is-hidden { opacity: 0; }
 .rl .navbtn .nav-dot { display: none; }
 .rl .navbtn .nav-badge {
   position: absolute; top: 4px; right: 50%; margin-right: -22px;

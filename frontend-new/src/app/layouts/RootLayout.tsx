@@ -8,12 +8,16 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { RouteFallback } from '@/components/common/RouteFallback';
 import { ToastContainer } from '@/components/common/ToastContainer';
 import { ROOT_TABS } from '@/app/navigation';
-import { usePageTransition, useRouteFocus } from '@/lib/motion';
+import { useBootReveal, usePageTransition, useRouteFocus } from '@/lib/motion';
 
 export function RootLayout() {
   const mainRef = useRef<HTMLElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
+  /* Сборка кадра висит на <main>, а не на контейнере страницы: тот пересоздаётся
+     под key={pathname} и уже несёт анимацию перехода. Две анимации на одном
+     узле — это снова два прихода подряд. */
+  const boot = useBootReveal();
   usePageTransition(pageRef, pathname);
   useRouteFocus(mainRef, pathname);
 
@@ -24,7 +28,7 @@ export function RootLayout() {
       <main
         ref={mainRef}
         tabIndex={-1}
-        className="flex-1 overflow-y-auto"
+        className={`flex-1 overflow-y-auto${boot ? ' anim-boot-content' : ''}`}
         style={{ paddingBottom: 'calc(88px + var(--safe-area-bottom, 0px))' }}
       >
         <ErrorBoundary>
