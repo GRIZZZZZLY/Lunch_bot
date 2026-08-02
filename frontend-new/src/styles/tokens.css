@@ -39,6 +39,34 @@
   src: url('/fonts/unbounded-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122;
 }
+/* Бренд целиком — это одна строка «Rocket Lunch» в шапке, и до этой правки
+   ради неё тянулся весь латинский Unbounded: 51 КБ, вне preload, с
+   font-display: swap. На записи с телефона было видно результат — заголовок
+   рисовался в Onest и через ~250ms подменялся, отдельным рывком поверх всего
+   остального.
+
+   Здесь сабсет ровно под глифы этой строки: 3 КБ, в preload (index.html).
+   Правило объявлено ПОСЛЕ полного латинского: при перекрывающихся
+   unicode-range побеждает последнее, поэтому эти одиннадцать символов берутся
+   из сабсета, а любой другой латинский глиф — из полного файла, который в
+   норме не скачивается вообще.
+
+   font-display: optional, а не swap: подмены на середине показа не будет ни при
+   каких условиях. Не успел приехать за отведённое браузером окно — заголовок
+   останется в Onest до конца сессии, и это тише, чем прыжок шрифта. С 3 КБ в
+   preload не успеть трудно.
+
+   Пересобрать после смены заголовка или начертания:
+   npm i --no-save subset-font && node -e "require('subset-font')(require('fs').readFileSync('public/fonts/unbounded-latin.woff2'),'Rocket Lunch',{targetFormat:'woff2'}).then(b=>require('fs').writeFileSync('public/fonts/unbounded-brand.woff2',b))" */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: optional;
+  src: url('/fonts/unbounded-brand.woff2') format('woff2');
+  unicode-range: U+0020, U+004C, U+0052, U+0063, U+0065, U+0068, U+006B, U+006E,
+    U+006F, U+0074, U+0075;
+}
 
 /* ---------- Scales (не зависят от темы) ---------- */
 :root {

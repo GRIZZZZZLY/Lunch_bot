@@ -10,9 +10,14 @@
     <meta http-equiv="Expires" content="0" />
 
     <!-- Шрифты self-hosted (public/fonts), объявлены в src/styles/tokens.css.
-         Preload — только основной Onest; Unbounded (бренд) грузится по мере надобности. -->
+         Preload — основной Onest и брендовый сабсет: 3 КБ ровно под строку
+         «Rocket Lunch» в шапке. Без него заголовок рисовался в Onest и через
+         ~250ms подменялся на Unbounded отдельным рывком. Полный латинский
+         Unbounded (51 КБ) остался объявленным, но в норме не скачивается —
+         см. unicode-range в tokens.css. -->
     <link rel="preload" href="/fonts/onest-cyrillic.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/unbounded-brand.woff2" as="font" type="font/woff2" crossorigin />
 
     <!-- defer, а не блокирующий: разбор HTML не должен ждать рейса на
          telegram.org. Порядок сохраняется — defer-скрипты и модули выполняются

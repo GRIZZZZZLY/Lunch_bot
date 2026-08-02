@@ -12,16 +12,24 @@ import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
 import { apiErrorMessage } from '@/lib/apiError';
 
-export function useActiveStoreRuns() {
-  const authStatus = useAppStore((s) => s.authStatus);
-  return useQuery({
+/* Опции отдельно от хука: их берёт предзагрузка первого экрана
+   (lib/prefetch.ts). */
+export function activeStoreRunsQueryOptions() {
+  return {
     queryKey: queryKeys.storeRuns.active(),
     queryFn: async () => {
       const res = await storeRunService.getActive();
       return res.data ?? [];
     },
-    enabled: authStatus === 'authenticated',
     staleTime: 15_000,
+  };
+}
+
+export function useActiveStoreRuns() {
+  const authStatus = useAppStore((s) => s.authStatus);
+  return useQuery({
+    ...activeStoreRunsQueryOptions(),
+    enabled: authStatus === 'authenticated',
     refetchInterval: 30_000,
   });
 }

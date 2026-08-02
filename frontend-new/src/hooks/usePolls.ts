@@ -6,16 +6,25 @@ import { useToastStore } from '@/store/useToastStore';
 import type { Poll } from '@/types/models';
 import { apiErrorMessage } from '@/lib/apiError';
 
-export function useActivePolls() {
-  const authStatus = useAppStore((s) => s.authStatus);
-  return useQuery({
+/* Опции отдельно от хуков: их же берёт предзагрузка первого экрана
+   (lib/prefetch.ts). Ключ и queryFn должны быть общими, иначе предзагрузка
+   греет соседнюю ячейку кэша и барьер всё равно ждёт сеть. */
+export function activePollsQueryOptions() {
+  return {
     queryKey: queryKeys.polls.active,
     queryFn: async () => {
       const res = await pollsService.getActive();
       return (res.data ?? []) as Poll[];
     },
-    enabled: authStatus === 'authenticated',
     staleTime: 0,
+  };
+}
+
+export function useActivePolls() {
+  const authStatus = useAppStore((s) => s.authStatus);
+  return useQuery({
+    ...activePollsQueryOptions(),
+    enabled: authStatus === 'authenticated',
     refetchInterval: 30_000,
   });
 }
@@ -38,18 +47,34 @@ export function usePollById(pollId: number | null) {
   });
 }
 
-export function useLastCompletedPoll() {
-  const authStatus = useAppStore((s) => s.authStatus);
-  return useQuery({
+export function lastCompletedPollQueryOptions() {
+  return {
     queryKey: ['polls', 'last-completed'],
     queryFn: async () => {
       const res = await pollsService.getLastCompleted();
       return (res.data ?? null) as Poll | null;
     },
-    enabled: authStatus === 'authenticated',
     staleTime: 10_000,
+  };
+}
+
+export function useLastCompletedPoll() {
+  const authStatus = useAppStore((s) => s.authStatus);
+  return useQuery({
+    ...lastCompletedPollQueryOptions(),
+    enabled: authStatus === 'authenticated',
     refetchInterval: 15_000,
   });
+}
+
+export function pollResultsQueryOptions(pollId: number) {
+  return {
+    queryKey: queryKeys.polls.results(pollId),
+    queryFn: async () => {
+      const res = await pollsService.getResults(pollId);
+      return res.data ?? null;
+    },
+  };
 }
 
 export function usePollResults(pollId: number | null) {

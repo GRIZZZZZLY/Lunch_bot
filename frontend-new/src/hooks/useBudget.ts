@@ -10,30 +10,45 @@ import { apiErrorMessage } from '@/lib/apiError';
    нужен: сервер сам скажет об изменении. Опрос остаётся страховкой на случай,
    когда поток не поднялся, — молчащий экран денег хуже лишнего запроса.
    По умолчанию false, поэтому вызывающие без потока (Главная) не меняются. */
-export function useDebts(params?: { status?: string }, live = false) {
-  const { isAuthenticated } = useAuth();
-  return useQuery({
+/* Опции отдельно от хука: их берёт предзагрузка первого экрана
+   (lib/prefetch.ts). Ключ и queryFn общие — иначе предзагрузка греет соседнюю
+   ячейку кэша, и барьер Главной всё равно ждёт сеть. */
+export function debtsQueryOptions(params?: { status?: string }) {
+  return {
     queryKey: queryKeys.budget.debts(params),
     queryFn: async () => {
       const res = await budgetService.getDebts(params);
       return res.data ?? [];
     },
-    enabled: isAuthenticated,
     staleTime: 10_000,
+  };
+}
+
+export function useDebts(params?: { status?: string }, live = false) {
+  const { isAuthenticated } = useAuth();
+  return useQuery({
+    ...debtsQueryOptions(params),
+    enabled: isAuthenticated,
     refetchInterval: live ? false : 15_000,
   });
 }
 
-export function useCredits(params?: { status?: string }, live = false) {
-  const { isAuthenticated } = useAuth();
-  return useQuery({
+export function creditsQueryOptions(params?: { status?: string }) {
+  return {
     queryKey: queryKeys.budget.credits(params),
     queryFn: async () => {
       const res = await budgetService.getCredits(params);
       return res.data ?? [];
     },
-    enabled: isAuthenticated,
     staleTime: 10_000,
+  };
+}
+
+export function useCredits(params?: { status?: string }, live = false) {
+  const { isAuthenticated } = useAuth();
+  return useQuery({
+    ...creditsQueryOptions(params),
+    enabled: isAuthenticated,
     refetchInterval: live ? false : 15_000,
   });
 }

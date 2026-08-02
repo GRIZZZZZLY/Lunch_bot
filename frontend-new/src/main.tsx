@@ -11,6 +11,7 @@ import { applyThemeNow, initThemeSync } from './lib/theme';
 import { initViewportSync } from './lib/viewport';
 import { queryClient } from './lib/queryClient';
 import { bootstrapAuth } from './lib/bootstrap';
+import { prefetchFirstScreen } from './lib/prefetch';
 import { captureError, installGlobalHandlers } from './lib/monitoring';
 import { initSentry } from './lib/sentry';
 
@@ -22,9 +23,13 @@ applyThemeNow();
 initThemeSync();
 initViewportSync();
 
-bootstrapAuth().catch((err) => {
-  captureError(err, { source: 'main:bootstrapAuth' });
-});
+bootstrapAuth()
+  /* Запросы первого экрана — сразу после авторизации и до того, как React
+     дойдёт до эффектов: ждать начинаем раньше, а не дольше (lib/prefetch.ts). */
+  .then(prefetchFirstScreen)
+  .catch((err) => {
+    captureError(err, { source: 'main:bootstrapAuth' });
+  });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

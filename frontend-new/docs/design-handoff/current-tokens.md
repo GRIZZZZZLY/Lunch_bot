@@ -31,7 +31,10 @@
 - spacing: `--space-1..16` (4/8/12/16/24/32/48/64)
 - type: `--text-11/13/15/16/18/22/28`; `--font-body` = Onest (self-host),
   `--font-brand` = Unbounded (только бренд; сейчас через легаси-alias
-  `--font-head` стоит на заголовках — кандидат на пересмотр в Penpot)
+  `--font-head` стоит на заголовках — кандидат на пересмотр в Penpot).
+  Бренд поставляется сабсетом под строку «Rocket Lunch»: 3 КБ,
+  `unbounded-brand.woff2`, в preload, `font-display: optional`. Смените
+  заголовок — пересоберите сабсет (команда в комментарии у `@font-face`)
 - radius: `--radius-card 26 / --radius-block 17 / --radius-control 17 / --radius-pill`
 - control: `--control-sm 38 / --control-md 44 (минимум touch) / --control-lg 52`
 - motion: `--motion-fast 150 / base 220 / slow 300`, кривые

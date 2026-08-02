@@ -1,6 +1,7 @@
 import { authService } from '@/services/auth.service';
 import { userService } from '@/services/user.service';
 import { useAppStore } from '@/store/useAppStore';
+import { queryClient } from './queryClient';
 import { getInitData } from './telegram';
 import { captureError, identifyUser } from './monitoring';
 
@@ -20,6 +21,10 @@ export async function bootstrapAuth(): Promise<void> {
         const groups = (await userService.getMyGroups()).data ?? [];
         const active = groups.find((g) => g.isActive) ?? groups[0];
         if (active) store.setCurrentGroupId(String(active.id));
+        /* Тот же список тут же просит useMyGroups — это был второй запрос за
+           одними данными на каждом открытии. Кладём ответ в кэш под его ключом:
+           хук получает группы готовыми, а барьер первого экрана не ждёт сеть. */
+        queryClient.setQueryData(['user', 'groups'], groups);
       } catch (groupErr) {
         captureError(groupErr, { source: 'bootstrapAuth:groups' });
       }

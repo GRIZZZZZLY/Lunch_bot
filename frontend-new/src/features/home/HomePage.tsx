@@ -78,20 +78,12 @@ export function HomePage() {
 
   /* ---- активное голосование (deep link приоритетен) ---- */
   const deepLinkPollId = useMemo(() => getDeepLinkPollId(), []);
-  const { data: deepLinkPoll, isLoading: deepLinkLoading } = usePollById(deepLinkPollId);
-  const { data: fallbackActivePoll, isLoading: activeLoading, error } = useActivePoll();
+  const deepLinkQuery = usePollById(deepLinkPollId);
+  const { data: deepLinkPoll, isLoading: deepLinkLoading } = deepLinkQuery;
+  const activeQuery = useActivePoll();
+  const { data: fallbackActivePoll, isLoading: activeLoading, error } = activeQuery;
   const activePoll = deepLinkPollId ? deepLinkPoll ?? null : fallbackActivePoll;
   const pollLoading = deepLinkPollId ? deepLinkLoading : activeLoading;
-  /* Талон — первое, на что смотрят при открытии, и окно молчания здесь короче
-     общего: 100ms вместо 180.
-
-     Причина из записи с телефона: ответ на опрос приходит ~330ms после
-     монтирования, и при 180ms скелет не успевал появиться — на месте талона
-     всё это время была пустота, а потом контент вставал рывком. Ожидание
-     длиннее трёх кадров надо объяснять, а не прятать: скелет держит место и
-     говорит «сейчас будет». Мелькнуть он теперь не может — минимальное время
-     жизни у него своё (useDelayedLoading). */
-  const showTicketSkeleton = useDelayedLoading(authLoading || pollLoading, 100);
 
   useEffect(() => {
     if (deepLinkPollId && deepLinkPoll && deepLinkPoll.status !== 'ACTIVE') {
@@ -106,23 +98,81 @@ export function HomePage() {
   const cancelPoll = useCancelPoll();
   useSSE({ pollId: activePoll?.id ?? null, enabled: !!activePoll });
 
-  const { data: lastCompletedPoll } = useLastCompletedPoll();
+  const lastCompletedQuery = useLastCompletedPoll();
+  const lastCompletedPoll = lastCompletedQuery.data;
   // Итог показываем только за текущие сутки: вчерашний победитель на главной
   // уже неинформативен. Сам запрос оставляем — он нужен для повтора опроса.
   const winnerIsFresh = isSameLocalDay(
     lastCompletedPoll?.endedAt ?? lastCompletedPoll?.closedAt ?? lastCompletedPoll?.createdAt,
   );
-  const { data: lastPollResult } = usePollResults(
-    winnerIsFresh ? lastCompletedPoll?.id ?? null : null,
-  );
-  const { data: allMenu = [] } = useMenuItems();
-  const { data: myGroups = [] } = useMyGroups();
+  const resultsQuery = usePollResults(winnerIsFresh ? lastCompletedPoll?.id ?? null : null);
+  const lastPollResult = resultsQuery.data;
+  /* Объект запроса нужен барьеру (он спрашивает, приехали ли данные), а список
+     берём деструктуризацией с умолчанием: `?? []` в теле создаёт новый массив
+     на каждый рендер и попадает в зависимости useMemo ниже. */
+  const menuQuery = useMenuItems();
+  const { data: allMenu = [] } = menuQuery;
+  const groupsQuery = useMyGroups();
+  const { data: myGroups = [] } = groupsQuery;
 
   /* ---- бюджет и закупки ---- */
-  const { data: debts = [] } = useDebts();
-  const { data: credits = [] } = useCredits();
+  const debtsQuery = useDebts();
+  const { data: debts = [] } = debtsQuery;
+  const creditsQuery = useCredits();
+  const { data: credits = [] } = creditsQuery;
   const markPaid = useMarkPaid();
-  const { data: activeRuns = [] } = useActiveStoreRuns();
+  const runsQuery = useActiveStoreRuns();
+  const { data: activeRuns = [] } = runsQuery;
+
+  /* ---- барьер первого экрана ----
+
+     Запись с телефона показала четыре отдельных проявления за 280ms: заголовок,
+     приветствие с карточкой «Сейчас», талон рывком, и уже внутри «Сейчас» —
+     строка победителя. Каждое было честным ответом своего запроса, но человек
+     видит не запросы, а как экран собирается четырьмя толчками.
+
+     «Приехало» — это isSuccess или isError, а не наличие data. Первая редакция
+     смотрела на `data !== undefined` и открывала барьер сразу: useActivePoll
+     нормализует ответ в `q.data?.[0] ?? null`, то есть отдаёт null вместо
+     undefined ещё во время загрузки. Зонд это и показал — приветствие с
+     «Сейчас» проступали за 130ms до талона.
+
+     isLoading здесь тоже не годится: у цепочки «последний опрос → его
+     результат» есть кадр, где ни один запрос не помечен загружающимся, и барьер
+     открылся бы в него. Ошибка считается ответом — экран, ждущий упавший
+     запрос, не откроется никогда. Отключённый запрос не «приехал», поэтому
+     ожидаемость зависимых спрашиваем отдельно (winnerExpected, deepLinkPollId),
+     а от вечного ожидания страхует потолок ниже. */
+  const arrived = (q: { isSuccess: boolean; isError: boolean }) => q.isSuccess || q.isError;
+  const pollArrived = deepLinkPollId ? arrived(deepLinkQuery) : arrived(activeQuery);
+  const winnerExpected = winnerIsFresh && !!lastCompletedPoll?.id;
+  const firstScreenReady =
+    !authLoading &&
+    pollArrived &&
+    arrived(lastCompletedQuery) &&
+    (!winnerExpected || arrived(resultsQuery)) &&
+    arrived(menuQuery) &&
+    arrived(groupsQuery) &&
+    arrived(debtsQuery) &&
+    arrived(creditsQuery) &&
+    arrived(runsQuery);
+
+  /* Предохранитель: барьер без потолка — это риск вечного скелета. Достаточно
+     одного запроса, выключенного по причине, которой мы здесь не знаем (нет
+     группы, чужой сценарий), чтобы экран не открылся никогда. */
+  const [capReached, setCapReached] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setCapReached(true), 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const revealed = firstScreenReady || capReached;
+
+  /* Окно молчания короче общего: 100ms вместо 180. Причина из записи: ответ
+     приходит ~330ms после монтирования, и при 180ms скелет не успевал
+     появиться — на месте контента была пустота, а потом он вставал рывком.
+     Ожидание длиннее трёх кадров надо объяснять, а не прятать. Мелькнуть
+     скелет не может — минимальное время жизни у него своё. */
+  const showFirstScreenSkeleton = useDelayedLoading(!revealed, 100);
   const createStoreRun = useCreateStoreRun();
 
   /* ---- локальный UI-state ---- */
@@ -300,8 +350,10 @@ export function HomePage() {
      живут в собственных запросах и обычно уже в кеше — терять их из-за
      моргнувшей сети на опросе значит прятать горящий долг. */
   const ticketSlot = (() => {
+    /* Достижимо только через предохранитель барьера: обычная загрузка до
+       раскрытия экрана не доходит. */
     if (authLoading || pollLoading) {
-      if (!showTicketSkeleton) return null;
+      if (!showFirstScreenSkeleton) return null;
       return (
         <div className={`${styles.group} ${styles.ticketPad}`}>
           <Skeleton variant="text" width="40%" height={10} />
@@ -364,6 +416,37 @@ export function HomePage() {
       onOpen={() => navigate(`/poll/${winnerVM.pollId}/results`)}
     />
   ) : null;
+
+  /* Один скелет вместо четырёх проявлений подряд. Высоты — реальные (208px под
+     талон, 140 под «Сейчас»), поэтому раскрытие ничего не сдвигает: меняется
+     только содержимое уже занятых мест. */
+  if (!revealed) {
+    return (
+      <div className={`rl ${styles.screen}`}>
+        <Greeting name={user?.firstName} loading />
+
+        <div className={styles.ticketSlot}>
+          {showFirstScreenSkeleton && (
+            <div className={`${styles.group} ${styles.ticketPad}`}>
+              <Skeleton variant="text" width="40%" height={10} />
+              <div className={styles.skeletonGap} />
+              <Skeleton variant="block" height={154} />
+            </div>
+          )}
+        </div>
+
+        <div className={styles.nowSlot}>
+          {showFirstScreenSkeleton && (
+            <div className={`${styles.group} ${styles.ticketPad}`}>
+              <Skeleton variant="text" width="30%" height={10} />
+              <div className={styles.skeletonGap} />
+              <Skeleton variant="block" height={56} />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`rl ${styles.screen}`}>
