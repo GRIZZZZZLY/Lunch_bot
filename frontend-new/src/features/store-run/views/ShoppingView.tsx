@@ -120,7 +120,7 @@ export function ShoppingView({
   );
 
   return (
-    <div className={`anim-in ${styles.screen}`}>
+    <div className={styles.screen}>
       <ShoppingProgress progress={progress} live={liveRun} />
 
       {items.length === 0 ? (
@@ -193,7 +193,7 @@ function ParticipantShopping({
   const personal = currentUserId != null ? personalDebtTotal(items, currentUserId, run.initiatorId) : 0;
 
   return (
-    <div className={`anim-in ${styles.screen}`}>
+    <div className={styles.screen}>
       <div className={styles.summaryTop}>
         <Avatar name={run.initiator.firstName} size={40} />
         <div className={styles.summaryMeta}>

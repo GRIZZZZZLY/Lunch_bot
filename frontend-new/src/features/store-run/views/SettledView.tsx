@@ -48,7 +48,7 @@ export function SettledView({
   const breakdown = useMemo(() => computeBreakdown(items, run.initiatorId), [items, run.initiatorId]);
 
   return (
-    <div className={`anim-in ${styles.screen}`}>
+    <div className={styles.screen}>
       <div className={styles.summaryFigures}>
         {isInitiator ? (
           <>

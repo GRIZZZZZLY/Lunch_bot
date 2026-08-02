@@ -20,6 +20,7 @@ import { Button, IconButton, Switch } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { formatPrice } from '@/features/store-run/lib/selectors';
 import { useRovingFocus } from '@/shared/lib/useRovingFocus';
+import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
 import { DishSheet, type DishInput } from './components/DishSheet';
 import styles from './MenuPage.module.css';
 
@@ -90,6 +91,9 @@ export default function MenuPage() {
     return list;
   }, [dishes, category, query]);
 
+  /* Скелет — только на настоящем ожидании; пустые состояния по-прежнему ждут
+     конца загрузки, иначе в окне молчания мелькнёт «меню пустое». */
+  const showSkeleton = useDelayedLoading(isLoading);
   const isEmpty = !isLoading && !error && dishes.length === 0;
   const isNoResults = !isLoading && !error && !isEmpty && filtered.length === 0;
 
@@ -102,7 +106,7 @@ export default function MenuPage() {
   };
 
   return (
-    <div className={`rl anim-in-children ${styles.screen}`}>
+    <div className={`rl ${styles.screen}`}>
       <div className={styles.head}>
         <div>
           <h1 className={styles.title}>Меню</h1>
@@ -183,7 +187,7 @@ export default function MenuPage() {
         </div>
       )}
 
-      {isLoading && (
+      {showSkeleton && (
         <div className={styles.group} style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>

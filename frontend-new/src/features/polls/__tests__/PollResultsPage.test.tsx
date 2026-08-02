@@ -59,10 +59,13 @@ describe('PollResultsPage — состояния', () => {
     expect(screen.getByText('Некорректный идентификатор опроса.')).toBeInTheDocument();
   });
 
-  it('загрузка → «Загружаем результаты…»', () => {
+  /* Состояние загрузки молчит первые миллисекунды: на быстром ответе оно
+     мелькало и читалось как лишний шаг перед результатами. */
+  it('загрузка сначала молчит, потом → «Загружаем результаты…»', async () => {
     h.state.pollLoading = true;
     render(<PollResultsPage />);
-    expect(screen.getByText('Загружаем результаты…')).toBeInTheDocument();
+    expect(screen.queryByText('Загружаем результаты…')).not.toBeInTheDocument();
+    expect(await screen.findByText('Загружаем результаты…')).toBeInTheDocument();
   });
 
   it('нет опроса → «Опрос не найден.»', () => {

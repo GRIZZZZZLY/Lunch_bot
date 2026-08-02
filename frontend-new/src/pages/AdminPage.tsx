@@ -136,7 +136,7 @@ export function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <div className={`rl anim-in-children ${styles.screen}`}>
+      <div className={`rl ${styles.screen}`}>
         <p className={styles.denied}>Раздел доступен только администраторам группы.</p>
       </div>
     );
@@ -148,7 +148,7 @@ export function AdminPage() {
     activePollsQuery.isLoading || historyQuery.isLoading || menuQuery.isLoading;
 
   return (
-    <div className={`rl anim-in-children ${styles.screen}`}>
+    <div className={`rl ${styles.screen}`}>
       {/* Заголовок был двойным: DetailLayout уже рисует h1 «Управление», а
           страница добавляла свой «Админ-панель». Вместо дубля — группа, к
           которой относится всё, что здесь делается. */}

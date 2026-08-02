@@ -44,6 +44,7 @@ import { CreateStoreRunSheet } from '@/features/store-run/components/CreateStore
 import { useActiveStoreRuns, useCreateStoreRun } from '@/hooks/useStoreRun';
 import { useAppStore } from '@/store/useAppStore';
 import { ErrorState, Skeleton } from '@/shared/ui';
+import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
 import { Greeting } from './components/Greeting';
 import { LunchTicket } from './components/LunchTicket';
 import { EmptyTicket } from './components/EmptyTicket';
@@ -81,6 +82,10 @@ export function HomePage() {
   const { data: fallbackActivePoll, isLoading: activeLoading, error } = useActivePoll();
   const activePoll = deepLinkPollId ? deepLinkPoll ?? null : fallbackActivePoll;
   const pollLoading = deepLinkPollId ? deepLinkLoading : activeLoading;
+  /* Талон — первое, на что смотрят при открытии. Скелет здесь показываем
+     только если ответ действительно задерживается: мелькнувший на 80ms скелет
+     читается как вторая загрузка сразу после первой. */
+  const showTicketSkeleton = useDelayedLoading(authLoading || pollLoading);
 
   useEffect(() => {
     if (deepLinkPollId && deepLinkPoll && deepLinkPoll.status !== 'ACTIVE') {
@@ -290,6 +295,7 @@ export function HomePage() {
      моргнувшей сети на опросе значит прятать горящий долг. */
   const ticketSlot = (() => {
     if (authLoading || pollLoading) {
+      if (!showTicketSkeleton) return null;
       return (
         <div className={`${styles.group} ${styles.ticketPad}`}>
           <Skeleton variant="text" width="40%" height={10} />
@@ -352,7 +358,7 @@ export function HomePage() {
   ) : null;
 
   return (
-    <div className={`rl anim-in-children ${styles.screen}`}>
+    <div className={`rl ${styles.screen}`}>
       <Greeting name={user?.firstName} loading={authLoading} />
 
       {ticketSlot}

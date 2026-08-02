@@ -5,6 +5,10 @@ import { RootLayout } from '@/app/layouts/RootLayout';
 import { DetailLayout } from '@/app/layouts/DetailLayout';
 import { RouteFallback } from '@/components/common/RouteFallback';
 import { HomePage } from '@/features/home/HomePage';
+import { menuItemsQueryOptions } from '@/hooks/useMenu';
+import { PROFILE_HISTORY_LIMIT, pollHistoryQueryOptions } from '@/hooks/useUser';
+import { queryClient } from '@/lib/queryClient';
+import { useAppStore } from '@/store/useAppStore';
 
 /* Главная едет в основном чанке: это первый экран, и ленивая загрузка добавила
    бы ему лишний рейс по сети. Всё остальное грузится по требованию — Mini App
@@ -44,9 +48,14 @@ const UiShowcasePage = lazy(() =>
   import('@/pages/UiShowcasePage').then((m) => ({ default: m.UiShowcasePage })),
 );
 
-/* Вкладки нижней навигации — один тап от Главной, поэтому их чанки тянем на
-   простое, а не в момент нажатия. */
+/* Вкладки нижней навигации — один тап от Главной, поэтому на простое тянем и
+   их чанки, и их данные. Данные здесь не роскошь: без них первый заход на
+   вкладку показывает скелет, потом контент — два состояния подряд на месте
+   одного. Предзагрузка убирает саму паузу вместо того, чтобы её украшать. */
 function usePrefetchTabs() {
+  const authStatus = useAppStore((s) => s.authStatus);
+  const currentGroupId = useAppStore((s) => s.currentGroupId);
+
   useEffect(() => {
     /* Отказ гасим явно: `void` не ловит reject, и упавшая предзагрузка
        (например «Unable to preload CSS» после редеплоя или на плохой связи)
@@ -57,6 +66,16 @@ function usePrefetchTabs() {
       import('@/features/menu/MenuPage').catch(swallow);
       import('@/features/stats/StatsPage').catch(swallow);
       import('@/features/profile/ProfilePage').catch(swallow);
+
+      /* До авторизации запросы вернут 401 и запишут в кэш ошибку — ждём.
+         Ключи и queryFn берём из тех же фабрик, что и хуки страниц, иначе
+         предзагрузка греет соседнюю ячейку и толку от неё ноль.
+         Статистика и профиль читают одну историю с общим лимитом. */
+      if (authStatus !== 'authenticated') return;
+      queryClient.prefetchQuery(menuItemsQueryOptions({ groupId: currentGroupId })).catch(swallow);
+      queryClient
+        .prefetchQuery(pollHistoryQueryOptions({ limit: PROFILE_HISTORY_LIMIT }))
+        .catch(swallow);
     };
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(prefetch, { timeout: 4000 });
@@ -64,7 +83,7 @@ function usePrefetchTabs() {
     }
     const t = window.setTimeout(prefetch, 2000);
     return () => window.clearTimeout(t);
-  }, []);
+  }, [authStatus, currentGroupId]);
 }
 
 export default function App() {

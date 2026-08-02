@@ -50,15 +50,22 @@ export function useUpdatePaymentInfo() {
    склеивает их в один запрос. */
 export const PROFILE_HISTORY_LIMIT = 90;
 
-export function usePollHistory(params?: { limit?: number; offset?: number }) {
-  const authStatus = useAppStore((s) => s.authStatus);
-  return useQuery({
+/* См. menuItemsQueryOptions: те же опции нужны предзагрузке на простое. */
+export function pollHistoryQueryOptions(params?: { limit?: number; offset?: number }) {
+  return {
     queryKey: queryKeys.polls.history(params),
     queryFn: async () => {
       const res = await pollsService.getHistory(params);
       return res.data ?? [];
     },
-    enabled: authStatus === 'authenticated',
     staleTime: 30_000,
+  };
+}
+
+export function usePollHistory(params?: { limit?: number; offset?: number }) {
+  const authStatus = useAppStore((s) => s.authStatus);
+  return useQuery({
+    ...pollHistoryQueryOptions(params),
+    enabled: authStatus === 'authenticated',
   });
 }

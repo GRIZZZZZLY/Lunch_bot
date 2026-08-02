@@ -18,6 +18,7 @@ import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { ConfirmDialog, EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
+import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
 import { isSafePaymentLink } from '@/shared/lib/phone';
 import { openExternalLink } from '@/lib/telegram';
 import { liveKey, useLiveChanges } from '@/shared/lib/liveChanges';
@@ -188,15 +189,19 @@ export function BudgetPage() {
   const [undoing, setUndoing] = useState<CreditLineVM | null>(null);
   const pendingDebtors = vm.owed.filter((c) => c.status === 'PENDING');
   const remindEveryone = () => remindAll.mutate(pendingDebtors.map((c) => c.id));
+  const loading = debtsQuery.isLoading || creditsQuery.isLoading;
+  const showSkeleton = useDelayedLoading(loading);
 
-  if (debtsQuery.isLoading || creditsQuery.isLoading) {
+  if (loading) {
     return (
-      <div className={`rl anim-in-children ${styles.screen}`}>
-        <div className={styles.group} style={{ padding: 16 }}>
-          <Skeleton variant="text" width="40%" />
-          <div style={{ height: 12 }} />
-          <Skeleton variant="block" height={56} />
-        </div>
+      <div className={`rl ${styles.screen}`}>
+        {showSkeleton && (
+          <div className={styles.group} style={{ padding: 16 }}>
+            <Skeleton variant="text" width="40%" />
+            <div style={{ height: 12 }} />
+            <Skeleton variant="block" height={56} />
+          </div>
+        )}
       </div>
     );
   }
@@ -210,7 +215,7 @@ export function BudgetPage() {
   const creditsFailed = creditsQuery.isError && creditsQuery.data === undefined;
   if (debtsFailed || creditsFailed) {
     return (
-      <div className={`rl anim-in-children ${styles.screen}`}>
+      <div className={`rl ${styles.screen}`}>
         <div className={styles.stateWrap}>
           <ErrorState
             kind="network"
@@ -228,7 +233,7 @@ export function BudgetPage() {
 
   if (vm.isEmpty) {
     return (
-      <div className={`rl anim-in-children ${styles.screen}`}>
+      <div className={`rl ${styles.screen}`}>
         <div className={styles.stateWrap}>
           <EmptyState
             icon="wallet"
@@ -241,7 +246,7 @@ export function BudgetPage() {
   }
 
   return (
-    <div className={`rl anim-in-children ${styles.screen}`}>
+    <div className={`rl ${styles.screen}`}>
       {vm.myDebts.length > 0 && (
         <section className={styles.group} aria-labelledby="budget-debts-heading">
           <div className={styles.groupHead}>

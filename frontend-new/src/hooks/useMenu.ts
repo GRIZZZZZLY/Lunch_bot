@@ -6,12 +6,14 @@ import { useToastStore } from '@/store/useToastStore';
 import type { MenuItem } from '@/types/models';
 import { apiErrorMessage } from '@/lib/apiError';
 
-export function useMenuItems(options?: { activeOnly?: boolean; groupId?: string | null }) {
-  const authStatus = useAppStore((s) => s.authStatus);
+/* Опции запроса отдельно от хука: их же берёт предзагрузка на простое
+   (App.tsx). Дублировать ключ и queryFn нельзя — разойдутся, и предзагрузка
+   станет тихо греть чужую ячейку кэша. */
+export function menuItemsQueryOptions(options?: { activeOnly?: boolean; groupId?: string | null }) {
   const activeOnly = options?.activeOnly ?? false;
   const groupId = options?.groupId ?? null;
   const baseKey = activeOnly ? queryKeys.menu.active : queryKeys.menu.all;
-  return useQuery({
+  return {
     // groupId в ключе: меню per-group, явная группа не должна делить кэш с текущей
     queryKey: groupId ? [...baseKey, groupId] : baseKey,
     queryFn: async () => {
@@ -20,8 +22,15 @@ export function useMenuItems(options?: { activeOnly?: boolean; groupId?: string 
         : await menuService.getAll(groupId ?? undefined);
       return (res.data ?? []) as MenuItem[];
     },
-    enabled: authStatus === 'authenticated',
     staleTime: 30_000,
+  };
+}
+
+export function useMenuItems(options?: { activeOnly?: boolean; groupId?: string | null }) {
+  const authStatus = useAppStore((s) => s.authStatus);
+  return useQuery({
+    ...menuItemsQueryOptions(options),
+    enabled: authStatus === 'authenticated',
   });
 }
 

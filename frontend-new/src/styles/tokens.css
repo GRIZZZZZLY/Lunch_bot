@@ -96,7 +96,6 @@
      ~200ms читается как «приложение стало медленнее», а не как плавность. */
   --motion-page: 180ms;
   --motion-in: 200ms;
-  --stagger-step: 24ms;
   --shift-page: 8px;
   --shift-in: 10px;
 

@@ -12,6 +12,7 @@ import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { ErrorState, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
+import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
 import styles from './PollResultsPage.module.css';
 
 export function PollResultsPage() {
@@ -24,6 +25,7 @@ export function PollResultsPage() {
   const { data: poll, isLoading: pollLoading } = pollQuery;
   const { data: results, isLoading: resultsLoading } = resultsQuery;
   const { data: allMenu = [] } = useMenuItems();
+  const showLoadingNote = useDelayedLoading(pollLoading || resultsLoading);
   useSSE({ pollId: valid ? pollId : null, enabled: !!poll && poll.status === 'ACTIVE' });
 
   const options = useMemo(() => mapPollToOptions(poll ?? null, allMenu), [poll, allMenu]);
@@ -68,10 +70,15 @@ export function PollResultsPage() {
 
   useScreenHeader(poll ? `Опрос #${poll.id}` : 'Результаты');
 
-  const body = (content: ReactNode) => <div className={`rl anim-in-children ${styles.screen}`}>{content}</div>;
+  const body = (content: ReactNode) => <div className={`rl ${styles.screen}`}>{content}</div>;
 
   if (!valid) return body(<div className={styles.state}>Некорректный идентификатор опроса.</div>);
-  if (pollLoading || resultsLoading) return body(<div className={styles.state}>Загружаем результаты…</div>);
+  /* «Загружаем результаты…» — тоже состояние: на быстром ответе оно мелькает и
+     читается как лишний шаг. Возврат оставляем всегда, чтобы в окне молчания
+     ниже не отрисовался пустой результат. */
+  if (pollLoading || resultsLoading) {
+    return body(showLoadingNote ? <div className={styles.state}>Загружаем результаты…</div> : null);
+  }
   if (pollQuery.isError || resultsQuery.isError) {
     const error = (pollQuery.error ?? resultsQuery.error) as { status?: number } | null;
     const kind = error?.status === 403 ? 'forbidden' : error?.status === 404 ? 'notFound' : 'network';

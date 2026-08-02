@@ -36,9 +36,9 @@
 - control: `--control-sm 38 / --control-md 44 (минимум touch) / --control-lg 52`
 - motion: `--motion-fast 150 / base 220 / slow 300`, `--ease-out/-spring`;
   переход между страницами и появление контента — `--motion-page 180 /
-  --motion-in 200 / --stagger-step 24 / --shift-page 8 / --shift-in 10`
-  (слой `styles/motion.css`: `.anim-page` на навигации, `.anim-in` и
-  `.anim-in-children` внутри страницы)
+  --motion-in 200 / --shift-page 8 / --shift-in 10` (слой `styles/motion.css`:
+  `.anim-page` на навигации, `.anim-in` — на том, что изменилось при открытом
+  экране; приход данных не анимируется)
 - z-index: `--z-header 40 / --z-nav 40 / --z-scrim 44 / --z-fab 45 / --z-overlay 60 / --z-sheet 61 / --z-toast 70`
 - safe-area: `--safe-area-*`, `--viewport-stable-height` (JS-синхронизация с Telegram) — **не трогать**, инфраструктура
 

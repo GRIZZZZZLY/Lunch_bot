@@ -60,7 +60,7 @@ export function SuggestionsPage({ onlyMine = false }: { onlyMine?: boolean }) {
   );
 
   return (
-    <div className={`rl anim-in-children ${styles.screen}`}>
+    <div className={`rl ${styles.screen}`}>
       <div className={styles.filters}>
         {(['all', 'mine'] as const).map((t) => (
           <button
