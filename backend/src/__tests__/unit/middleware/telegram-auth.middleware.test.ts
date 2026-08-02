@@ -54,7 +54,7 @@ const jwtService = asServiceMock(JwtService);
 const validateInitData = asMock(validateTelegramInitData);
 const { parseInitDataUnsafe } = jest.requireMock(
   '../../../utils/telegram-auth'
-) as { parseInitDataUnsafe: jest.Mock };
+);
 
 const USER = { id: 1, telegramId: BigInt(555), isActive: true, isAdmin: false };
 /** JWT начинается с 'eyJ' — по этому признаку middleware отличает его от initData. */

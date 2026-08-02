@@ -132,22 +132,22 @@ beforeEach(() => {
   asMock(prismaMock.responsibleSelection.create).mockResolvedValue({
     id: 1,
     timeoutMinutes: 3,
-  } as never);
+  });
   asMock(prismaMock.responsibleSelection.findUnique).mockResolvedValue({
     id: 1,
     status: 'WAITING',
     messageId: 42,
     chatId: BigInt(-1001),
-  } as never);
+  });
   asMock(prismaMock.responsibleSelection.update).mockResolvedValue({
     id: 1,
-  } as never);
+  });
   asMock(prismaMock.responsibleSelection.updateMany).mockResolvedValue({
     count: 1,
-  } as never);
-  asMock(prismaMock.pollResult.update).mockResolvedValue({ id: 1 } as never);
-  asMock(prismaMock.poll.findUnique).mockResolvedValue({ groupId: 100 } as never);
-  asMock(prismaMock.pollParticipant.count).mockResolvedValue(1 as never);
+  });
+  asMock(prismaMock.pollResult.update).mockResolvedValue({ id: 1 });
+  asMock(prismaMock.poll.findUnique).mockResolvedValue({ groupId: 100 });
+  asMock(prismaMock.pollParticipant.count).mockResolvedValue(1);
 });
 
 afterEach(() => {
@@ -297,7 +297,7 @@ describe('handleVolunteer', () => {
   it('гонка: если роль уже занята, второй отклик не проходит', async () => {
     asMock(prismaMock.responsibleSelection.updateMany).mockResolvedValue({
       count: 0,
-    } as never);
+    });
 
     const claimed = await ResponsibleService.handleVolunteer(5, 555);
 
@@ -309,7 +309,7 @@ describe('handleVolunteer', () => {
     asMock(prismaMock.responsibleSelection.findUnique).mockResolvedValue({
       id: 1,
       status: 'VOLUNTEER_SELECTED',
-    } as never);
+    });
 
     await expect(ResponsibleService.handleVolunteer(5, 555)).resolves.toBe(
       false
@@ -318,7 +318,7 @@ describe('handleVolunteer', () => {
 
   it('процесса выбора нет — отклик игнорируется', async () => {
     asMock(prismaMock.responsibleSelection.findUnique).mockResolvedValue(
-      null as never
+      null
     );
 
     await expect(ResponsibleService.handleVolunteer(5, 555)).resolves.toBe(
@@ -344,7 +344,7 @@ describe('handleVolunteer', () => {
   });
 
   it('тот, кого не ждут в этом голосовании, роль не получает', async () => {
-    asMock(prismaMock.pollParticipant.count).mockResolvedValue(0 as never);
+    asMock(prismaMock.pollParticipant.count).mockResolvedValue(0);
 
     await expect(ResponsibleService.handleVolunteer(5, 555)).resolves.toBe(
       false
@@ -352,7 +352,7 @@ describe('handleVolunteer', () => {
   });
 
   it('голосования нет — отклик отклоняется', async () => {
-    asMock(prismaMock.poll.findUnique).mockResolvedValue(null as never);
+    asMock(prismaMock.poll.findUnique).mockResolvedValue(null);
 
     await expect(ResponsibleService.handleVolunteer(5, 555)).resolves.toBe(
       false
@@ -398,7 +398,7 @@ describe('handleVolunteerTimeout', () => {
     asMock(prismaMock.responsibleSelection.findUnique).mockResolvedValue({
       id: 1,
       status: 'VOLUNTEER_SELECTED',
-    } as never);
+    });
 
     await ResponsibleService.handleVolunteerTimeout(5);
 
@@ -408,7 +408,7 @@ describe('handleVolunteerTimeout', () => {
   it('гонка с добровольцем: перевод в TIMEOUT не удался — рулетки нет', async () => {
     asMock(prismaMock.responsibleSelection.updateMany).mockResolvedValue({
       count: 0,
-    } as never);
+    });
 
     await ResponsibleService.handleVolunteerTimeout(5);
 
@@ -417,7 +417,7 @@ describe('handleVolunteerTimeout', () => {
 
   it('процесса нет — тихо выходим', async () => {
     asMock(prismaMock.responsibleSelection.findUnique).mockResolvedValue(
-      null as never
+      null
     );
 
     await expect(
@@ -503,7 +503,7 @@ describe('runRouletteAndProceed', () => {
       id: 1,
       messageId: null,
       chatId: null,
-    } as never);
+    });
 
     await ResponsibleService.runRouletteAndProceed(5);
 
