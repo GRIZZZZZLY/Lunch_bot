@@ -334,7 +334,7 @@ export class SSEController {
         if (!data.audience.includes(userId)) return;
         sendSSEMessage(res, name, data);
       };
-      eventBus.on(name, handler as never);
+      eventBus.on(name, handler);
       return { name, handler };
     });
 
@@ -343,7 +343,7 @@ export class SSEController {
       if (cleanedUp) return;
       cleanedUp = true;
       clearInterval(heartbeatTimer);
-      for (const { name, handler } of listeners) eventBus.off(name, handler as never);
+      for (const { name, handler } of listeners) eventBus.off(name, handler);
 
       const connections = personalConnections.get(userId);
       if (connections) {
