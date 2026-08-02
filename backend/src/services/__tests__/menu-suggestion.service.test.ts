@@ -118,10 +118,64 @@ describe('MenuSuggestionService', () => {
     );
 
     await expect(
-      (MenuSuggestionService.deleteSuggestion as any)(10, 2)
+      (MenuSuggestionService.deleteSuggestion as any)(10, 3, 2)
     ).rejects.toBeInstanceOf(GroupAccessError);
 
     expect(prisma.menuSuggestion.delete).not.toHaveBeenCalled();
+  });
+
+  /* Регрессия. Кнопка «Удалить» показывалась автору его же предложения на
+     рассмотрении, а операцию не пропускали сразу два замка: админская мидлвара
+     на маршруте и запрет на статус PENDING здесь. Сработать она не могла ни
+     разу, и молчала при этом — отказ сервера интерфейс не показывал. */
+  it('автор отзывает своё предложение, пока оно на рассмотрении', async () => {
+    (prisma.menuSuggestion.findUnique as jest.Mock).mockResolvedValue(
+      createSuggestion({ groupId: 1, status: 'PENDING', suggestedBy: 3 })
+    );
+    const asAdmin = jest.spyOn(GroupService, 'isUserGroupAdmin');
+
+    await (MenuSuggestionService.deleteSuggestion as any)(10, 3, 1);
+
+    expect(prisma.menuSuggestion.delete).toHaveBeenCalledWith({ where: { id: 10 } });
+    // Автору права модератора не нужны — их даже не спрашивают.
+    expect(asAdmin).not.toHaveBeenCalled();
+  });
+
+  it('чужое предложение посторонний не удаляет', async () => {
+    (prisma.menuSuggestion.findUnique as jest.Mock).mockResolvedValue(
+      createSuggestion({ groupId: 1, status: 'PENDING', suggestedBy: 3 })
+    );
+    jest.spyOn(GroupService, 'isUserGroupAdmin').mockResolvedValue(false);
+
+    await expect(
+      (MenuSuggestionService.deleteSuggestion as any)(10, 99, 1)
+    ).rejects.toBeInstanceOf(GroupAccessError);
+
+    expect(prisma.menuSuggestion.delete).not.toHaveBeenCalled();
+  });
+
+  it('админ группы не удаляет ожидающее — сначала отклонить, чтобы осталась причина', async () => {
+    (prisma.menuSuggestion.findUnique as jest.Mock).mockResolvedValue(
+      createSuggestion({ groupId: 1, status: 'PENDING', suggestedBy: 3 })
+    );
+    jest.spyOn(GroupService, 'isUserGroupAdmin').mockResolvedValue(true);
+
+    await expect(
+      (MenuSuggestionService.deleteSuggestion as any)(10, 7, 1)
+    ).rejects.toThrow('Cannot delete pending suggestion. Reject it first.');
+
+    expect(prisma.menuSuggestion.delete).not.toHaveBeenCalled();
+  });
+
+  it('админ группы убирает уже разобранное', async () => {
+    (prisma.menuSuggestion.findUnique as jest.Mock).mockResolvedValue(
+      createSuggestion({ groupId: 1, status: 'REJECTED', suggestedBy: 3 })
+    );
+    jest.spyOn(GroupService, 'isUserGroupAdmin').mockResolvedValue(true);
+
+    await (MenuSuggestionService.deleteSuggestion as any)(10, 7, 1);
+
+    expect(prisma.menuSuggestion.delete).toHaveBeenCalledWith({ where: { id: 10 } });
   });
 
   it('counts suggestion stats inside the selected group', async () => {

@@ -69,8 +69,11 @@ router.post('/:id/reject', groupAdminMiddleware, rejectSuggestion);
 
 /**
  * DELETE /api/suggestions/:id
- * Удалить предложение (только админ, только отклонённые)
+ * Удалить предложение.
+ * Право проверяет сервис, потому что прав два: автор отзывает своё, пока оно
+ * на рассмотрении, а админ группы убирает уже разобранное. Админской мидлвары
+ * здесь быть не может — она отсекала бы автора, которому кнопка и показана.
  */
-router.delete('/:id', groupAdminMiddleware, deleteSuggestion);
+router.delete('/:id', deleteSuggestion);
 
 export default router;

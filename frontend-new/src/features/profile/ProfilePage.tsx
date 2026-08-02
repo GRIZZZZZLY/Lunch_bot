@@ -4,7 +4,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { getAdminGroups, isGlobalAdmin } from '@/lib/permissions';
+import { getAdminGroups, isGlobalAdmin, isGroupAdminRole } from '@/lib/permissions';
+import { usePendingSuggestionsCount } from '@/hooks/useSuggestions';
 import {
   PROFILE_HISTORY_LIMIT,
   useMyGroups,
@@ -53,6 +54,19 @@ export function ProfilePage() {
     () => myGroups.find((g) => String(g.id) === currentGroupId),
     [myGroups, currentGroupId],
   );
+
+  /* Та же группа, что откроется на экране предложений: без явного выбора обе
+     стороны берут первую активную. Иначе профиль считал бы очередь по одной
+     группе, а показывал по другой. */
+  const suggestionsGroup = useMemo(() => {
+    const active = myGroups.filter((g) => g.isActive);
+    return active.find((g) => String(g.id) === currentGroupId) ?? active[0];
+  }, [myGroups, currentGroupId]);
+  const moderatesSuggestions = isGroupAdminRole(suggestionsGroup?.role);
+  const { data: pendingSuggestions = 0 } = usePendingSuggestionsCount({
+    groupId: suggestionsGroup ? String(suggestionsGroup.id) : undefined,
+    enabled: moderatesSuggestions,
+  });
 
   /* История упирается в лимит страницы. Раньше её длина выводилась как итог, и
      у активного участника показатель замирал на потолке, выглядя фактом.
@@ -162,6 +176,24 @@ export function ProfilePage() {
             <Icon name="chevronRight" size={16} />
           </span>
         </button>
+        {/* Единственный вход в очередь модерации. Раньше на «Все предложения»
+            не вела ни одна кнопка: админ мог попасть туда только вручную
+            переключив фильтр на экране своих предложений. */}
+        {moderatesSuggestions && (
+          <button type="button" className={styles.row} onClick={() => navigate('/suggestions')}>
+            <div className={styles.rowMain}>
+              <span className={styles.rowName}>Предложения группы</span>
+              {pendingSuggestions > 0 && (
+                <span className={styles.rowSub}>
+                  {pluralize(pendingSuggestions, 'ждёт', 'ждут', 'ждут')} решения
+                </span>
+              )}
+            </div>
+            <span className={styles.chev}>
+              <Icon name="chevronRight" size={16} />
+            </span>
+          </button>
+        )}
         <button type="button" className={styles.row} onClick={() => navigate('/poll/history')}>
           <div className={styles.rowMain}>
             <span className={styles.rowName}>История голосований</span>

@@ -4,6 +4,12 @@ import type { StoreItem, StoreRunWithRelations } from '../../../src/services/sto
 import { activeStoreRunList, makeActivePoll, makeStoreRun, type E2EState } from '../scenarios/data';
 
 const ok = <T>(data: T) => ({ success: true, data, timestamp: '2026-07-20T09:00:00.000Z' });
+const fail = (error: string, code: string) => ({ success: false, error, code });
+
+/** Роль в группе, как её видит сервер: глобальный isAdmin здесь не в счёт. */
+function isGroupAdmin(state: E2EState): boolean {
+  return state.groups.some((g) => g.isActive && (g.role === 'ADMIN' || g.role === 'CREATOR'));
+}
 
 async function bodyOf(route: Route): Promise<unknown> {
   const request = route.request();
@@ -490,12 +496,30 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
     }
 
     if (method === 'GET' && path === '/suggestions') {
+      /* Сервер отдаёт чужие предложения только админу ГРУППЫ и только когда
+         передан groupId. Мок раньше читал параметр onlyMine, которого клиент
+         не шлёт, и игнорировал groupId, который шлёт, — из-за чего e2e видел
+         очередь там, где живой сервер отдал бы пустой список. */
       const status = url.searchParams.get('status');
-      const onlyMine = url.searchParams.get('onlyMine') === 'true';
-      const suggestions = state.suggestions.filter((item) =>
-        (!status || item.status === status) && (!onlyMine || item.suggestedBy === state.user.id),
+      const moderates = url.searchParams.get('groupId') ? isGroupAdmin(state) : false;
+      const suggestions = state.suggestions.filter(
+        (item) =>
+          (!status || item.status === status) &&
+          (moderates || item.suggestedBy === state.user.id),
       );
       await route.fulfill({ json: ok(suggestions) });
+      return;
+    }
+    if (method === 'GET' && path === '/suggestions/pending-count') {
+      if (!isGroupAdmin(state)) {
+        await route.fulfill({
+          status: 403,
+          json: fail('Group admin access required', 'ACCESS_DENIED'),
+        });
+        return;
+      }
+      const count = state.suggestions.filter((item) => item.status === 'PENDING').length;
+      await route.fulfill({ json: ok({ count }) });
       return;
     }
     if (method === 'POST' && path === '/suggestions') {
@@ -534,7 +558,34 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
     }
     const suggestionById = path.match(/^\/suggestions\/(\d+)$/);
     if (method === 'DELETE' && suggestionById) {
-      state.suggestions = state.suggestions.filter((item) => item.id !== Number(suggestionById[1]));
+      /* Право проверяет сервер, и оно двойное: автор отзывает своё, пока оно
+         на рассмотрении, админ группы убирает уже разобранное. Мок отвечал 200
+         всегда — поэтому e2e не мог поймать, что кнопка отзыва была наглухо
+         закрыта админской мидлварой. */
+      const target = state.suggestions.find((item) => item.id === Number(suggestionById[1]));
+      if (!target) {
+        await route.fulfill({ status: 404, json: fail('Suggestion not found', 'NOT_FOUND') });
+        return;
+      }
+      const isAuthor = target.suggestedBy === state.user.id;
+      const isPending = target.status === 'PENDING';
+      if (!(isAuthor && isPending)) {
+        if (!isGroupAdmin(state)) {
+          await route.fulfill({
+            status: 403,
+            json: fail('Удалить может автор своего предложения или админ группы', 'NOT_ADMIN'),
+          });
+          return;
+        }
+        if (isPending) {
+          await route.fulfill({
+            status: 500,
+            json: fail('Failed to delete suggestion', 'INTERNAL_ERROR'),
+          });
+          return;
+        }
+      }
+      state.suggestions = state.suggestions.filter((item) => item.id !== target.id);
       await route.fulfill({ json: ok(null) });
       return;
     }

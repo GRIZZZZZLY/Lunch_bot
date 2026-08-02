@@ -15,6 +15,8 @@ const h = vi.hoisted(() => ({
     currentGroupId: null as string | null,
     streak: { current: 0, atRisk: false },
     update: { mutateAsync: vi.fn(), isPending: false },
+    pendingSuggestions: 0,
+    pendingArgs: undefined as unknown,
   },
 }));
 
@@ -36,6 +38,12 @@ vi.mock('@/hooks/useUser', () => ({
     isError: h.state.historyFailed,
     refetch: h.refetch,
   }),
+}));
+vi.mock('@/hooks/useSuggestions', () => ({
+  usePendingSuggestionsCount: (args: unknown) => {
+    h.state.pendingArgs = args;
+    return { data: h.state.pendingSuggestions };
+  },
 }));
 // Модалки тянут React Query (useSendFeedback) — вне скоупа страницы, мокаем.
 vi.mock('@/components/modals/FeedbackModal', () => ({
@@ -60,6 +68,46 @@ beforeEach(() => {
   h.state.groups = [];
   h.state.currentGroupId = null;
   h.state.streak = { current: 0, atRisk: false };
+  h.state.pendingSuggestions = 0;
+  h.state.pendingArgs = undefined;
+});
+
+/* Единственный вход в очередь модерации. Пока его не было, «Все предложения»
+   не открывались из приложения вообще: профиль вёл на /suggestions/mine. */
+describe('ProfilePage — вход в очередь предложений', () => {
+  it('участнику строки «Предложения группы» нет', () => {
+    h.state.groups = [{ id: 10, title: 'Обед', isActive: true, role: 'MEMBER' }];
+    h.state.currentGroupId = '10';
+    render(<ProfilePage />);
+    expect(screen.queryByText('Предложения группы')).not.toBeInTheDocument();
+  });
+
+  it('админ группы попадает в очередь и видит, сколько ждёт решения', () => {
+    h.state.groups = [{ id: 10, title: 'Обед', isActive: true, role: 'ADMIN' }];
+    h.state.currentGroupId = '10';
+    h.state.pendingSuggestions = 2;
+    render(<ProfilePage />);
+    expect(screen.getByText('2 ждут решения')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Предложения группы'));
+    expect(h.navigate).toHaveBeenCalledWith('/suggestions');
+  });
+
+  it('одно предложение — «ждёт», а не «ждут»', () => {
+    h.state.groups = [{ id: 10, title: 'Обед', isActive: true, role: 'CREATOR' }];
+    h.state.currentGroupId = '10';
+    h.state.pendingSuggestions = 1;
+    render(<ProfilePage />);
+    expect(screen.getByText('1 ждёт решения')).toBeInTheDocument();
+  });
+
+  /* Эндпоинт закрыт админской мидлварой: спросить его без прав — это 403 при
+     каждом открытии профиля. */
+  it('счётчик не запрашивается без прав модерации', () => {
+    h.state.groups = [{ id: 10, title: 'Обед', isActive: true, role: 'MEMBER' }];
+    h.state.currentGroupId = '10';
+    render(<ProfilePage />);
+    expect(h.state.pendingArgs).toEqual({ groupId: '10', enabled: false });
+  });
 });
 
 describe('ProfilePage — система C', () => {

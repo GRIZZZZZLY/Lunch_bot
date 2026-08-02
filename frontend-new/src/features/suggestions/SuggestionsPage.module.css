@@ -12,20 +12,33 @@
   padding: 0 var(--space-1);
 }
 
+/* 44 px — минимальная область касания правил проекта. Было 36: переключатель
+   стоит в верхней зоне экрана, куда большой палец и так дотягивается с трудом. */
 .filter {
   display: inline-flex;
   align-items: center;
-  min-height: 36px;
-  padding: 0 var(--space-3);
+  min-height: 44px;
+  padding: 0 var(--space-4);
   border: none;
   border-radius: var(--radius-pill);
   background: var(--surface);
   box-shadow: var(--shadow-1);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--text-13);
   font-weight: 700;
   color: var(--text-secondary);
   cursor: pointer;
+  transition:
+    transform 120ms var(--ease-out),
+    background-color 120ms var(--ease-out);
+}
+
+.filter:hover {
+  background: var(--surface-secondary);
+}
+
+.filter:active {
+  transform: scale(0.97);
 }
 
 .filter.on {
@@ -33,8 +46,34 @@
   color: var(--accent-foreground);
 }
 
+.filter.on:hover {
+  background: var(--accent);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 var(--space-2);
+  font-size: var(--text-13);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.sectionCount {
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
 .group {
-  border-radius: 14px;
+  border-radius: var(--radius-block);
   background: var(--surface);
   box-shadow: var(--shadow-2);
 }
@@ -63,7 +102,7 @@
 }
 
 .price {
-  font-size: 14.5px;
+  font-size: var(--text-15);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -82,6 +121,12 @@
   flex-wrap: wrap;
 }
 
+/* Кто и когда предложил: админ одобряет блюдо, а не строку в таблице. */
+.author {
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+}
+
 .reason {
   margin: 0;
   font-size: var(--text-11);
@@ -95,6 +140,12 @@
 
 .actions > * {
   flex: 1;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .ctaWrap {

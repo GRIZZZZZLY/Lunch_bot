@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useAppStore } from '@/store/useAppStore';
 
 const h = vi.hoisted(() => ({
+  navigate: vi.fn(),
   q: (data: unknown, extra: Record<string, unknown> = {}) => ({
     data,
     isLoading: false,
@@ -21,6 +22,7 @@ const h = vi.hoisted(() => ({
   },
 }));
 
+vi.mock('react-router-dom', () => ({ useNavigate: () => h.navigate }));
 vi.mock('@/hooks/useMenu', () => ({
   useMenuItems: () => h.q(h.state.items, { error: h.state.error, isError: !!h.state.error }),
   useCreateMenuItem: h.m,
@@ -54,6 +56,7 @@ const group = (id: number, title: string, role = 'MEMBER') => ({
 });
 
 beforeEach(() => {
+  h.navigate.mockReset();
   h.state.items = [dish(), dish({ id: 2, name: 'Пицца «Маргарита»', category: 'Пицца', price: 380 })];
   h.state.groups = [group(10, 'Офис', 'MEMBER')];
   h.state.user = { id: 1, firstName: 'Игорь', isAdmin: false };
@@ -69,7 +72,14 @@ describe('MenuPage — участник', () => {
     expect(screen.getByText('420 ₽')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Добавить блюдо' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Изменить/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Предложите его в «Предложениях»/)).toBeInTheDocument();
+  });
+
+  /* Была подсказка «предложите его в „Предложениях“ из профиля» — инструкция
+     проложить путь самому вместо кнопки, которая туда ведёт. */
+  it('участнику предлагают действие, а не маршрут до него', () => {
+    render(<MenuPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Предложить блюдо' }));
+    expect(h.navigate).toHaveBeenCalledWith('/suggestions/mine');
   });
 
   it('поиск фильтрует; пустой результат — EmptyState', () => {

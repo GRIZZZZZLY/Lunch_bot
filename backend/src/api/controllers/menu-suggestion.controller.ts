@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../../types/api.types';
 import { MenuSuggestionService } from '../../services/menu-suggestion.service';
-import { GroupAccessError } from '../../services/group.service';
+import { GroupAccessError, GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
 
@@ -118,7 +118,6 @@ export async function getSuggestions(
   try {
     const { status, limit, offset, groupId: rawGroupId } = req.query;
     const userId = req.user?.id;
-    const isAdmin = req.user?.isAdmin;
 
     if (!userId) {
       res.status(401).json({
@@ -130,23 +129,29 @@ export async function getSuggestions(
       return;
     }
 
-    // Обычные пользователи видят только свои предложения
     const filters: any = {};
 
     if (status) {
       filters.status = status as string;
     }
 
-    if (!isAdmin) {
-      filters.suggestedBy = userId;
-    }
+    const parsedGroupId = rawGroupId ? parseInt(rawGroupId as string, 10) : NaN;
+    const groupId = Number.isFinite(parsedGroupId) && parsedGroupId > 0 ? parsedGroupId : null;
 
-    // groupId опционален: если передан — фильтруем по группе; без него админ видит все группы
-    if (rawGroupId) {
-      const parsedGroupId = parseInt(rawGroupId as string, 10);
-      if (!isNaN(parsedGroupId)) {
-        filters.groupId = parsedGroupId;
+    /* Чужие предложения видит админ ГРУППЫ — тем же правилом, что approve и
+       reject, и тем же, по которому интерфейс рисует кнопки модерации.
+       Глобальный users.is_admin здесь не при чём: по нему админ группы получал
+       только свои предложения и пустую очередь, а глобальный админ без роли —
+       чужие предложения из всех групп сразу.
+       Без groupId группу не с чем сверить, поэтому отдаём только свои. */
+    if (groupId) {
+      filters.groupId = groupId;
+      const moderates = await GroupService.isUserGroupAdmin(userId, groupId);
+      if (!moderates) {
+        filters.suggestedBy = userId;
       }
+    } else {
+      filters.suggestedBy = userId;
     }
 
     if (limit) {
@@ -427,7 +432,18 @@ export async function deleteSuggestion(
 ): Promise<void> {
   try {
     const id = getParam(req.params, 'id');
+    const userId = req.user?.id;
     const groupId = resolveGroupId(req);
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        code: 'UNAUTHORIZED',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
 
     if (!groupId) {
       res.status(400).json({
@@ -439,7 +455,7 @@ export async function deleteSuggestion(
       return;
     }
 
-    await MenuSuggestionService.deleteSuggestion(parseInt(id, 10), groupId);
+    await MenuSuggestionService.deleteSuggestion(parseInt(id, 10), userId, groupId);
 
     res.status(200).json({
       success: true,

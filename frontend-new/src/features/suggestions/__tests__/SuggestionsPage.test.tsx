@@ -87,19 +87,73 @@ describe('SuggestionsPage — участник', () => {
   it('фильтр «Мои» показывает только свои', () => {
     h.state.items = [sug(), sug({ id: 2, name: 'Чужое блюдо', suggestedBy: 99 })];
     render(<SuggestionsPage />);
-    fireEvent.click(screen.getByRole('button', { name: 'Мои' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Мои' }));
     expect(screen.getByText('Поке с лососем')).toBeInTheDocument();
     expect(screen.queryByText('Чужое блюдо')).not.toBeInTheDocument();
   });
 
-  it('удаление своего PENDING — через ConfirmDialog', () => {
+  it('отзыв своего PENDING — через ConfirmDialog', () => {
     h.state.items = [sug()];
     render(<SuggestionsPage />);
-    fireEvent.click(screen.getByRole('button', { name: 'Удалить' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Отозвать' }));
     const dialog = screen.getByRole('alertdialog');
-    expect(within(dialog).getByText('Удалить предложение?')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Удалить' }));
+    expect(within(dialog).getByText('Отозвать предложение?')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Отозвать' }));
     expect(h.state.del.mutate).toHaveBeenCalledWith({ id: 1, groupId: '10' }, expect.anything());
+  });
+
+  /* Регрессия. Сервер отвечал на отзыв 403, а страница молчала: диалог
+     оставался открытым, строка не менялась, и человек жал снова. Ни одного
+     onError в файле не было. */
+  it('отказ сервера произносится вслух и остаётся у строки', () => {
+    h.state.items = [sug()];
+    h.state.del.mutate = vi.fn((_vars, opts) =>
+      opts?.onError?.({ success: false, error: 'Group admin access required', code: 'ACCESS_DENIED' }),
+    );
+    render(<SuggestionsPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Отозвать' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Отозвать' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Доступ запрещён: нужны права администратора группы.',
+    );
+    // Диалог закрыт: причина уже сказана, повторный тап ничего не изменит.
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Поке с лососем')).toBeInTheDocument();
+  });
+
+  it('ошибка отправки не стирает заполненную форму', () => {
+    h.state.create.mutate = vi.fn((_vars, opts) =>
+      opts?.onError?.({ success: false, error: 'Network error', code: 'NETWORK_ERROR' }),
+    );
+    render(<SuggestionsPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Предложить блюдо' }));
+    fireEvent.change(screen.getByLabelText('Название'), { target: { value: 'Рамен' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Нет связи с сервером. Проверьте интернет.');
+    expect(screen.getByLabelText('Название')).toHaveValue('Рамен');
+  });
+
+  it('в строке видно, кто и когда предложил', () => {
+    h.state.items = [sug({ suggestedBy: 99, suggester: { id: 99, firstName: 'Анна' } })];
+    render(<SuggestionsPage />);
+    expect(screen.getByText('Анна · 19 июля')).toBeInTheDocument();
+  });
+
+  it('своё предложение подписано «Вы», а не именем', () => {
+    h.state.items = [sug({ suggester: { id: 1, firstName: 'Игорь' } })];
+    render(<SuggestionsPage />);
+    expect(screen.getByText('Вы · 19 июля')).toBeInTheDocument();
+  });
+
+  it('переключатель — настоящий tablist, а не пара кнопок', () => {
+    render(<SuggestionsPage />);
+    const tabs = within(screen.getByRole('tablist')).getAllByRole('tab');
+    expect(tabs).toHaveLength(2);
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(tabs[1]);
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
   });
 
   it('участник не видит админ-действий; статусы словами', () => {
@@ -120,10 +174,37 @@ describe('SuggestionsPage — админ группы', () => {
     h.state.items = [sug({ suggestedBy: 1 })];
   });
 
-  it('одобряет PENDING с groupId', () => {
+  /* Одобрение необратимо создаёт блюдо в меню, а подтверждения не имело —
+     в отличие от обратимых отклонения и отзыва. */
+  it('одобряет PENDING с groupId — после подтверждения', () => {
     render(<SuggestionsPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Одобрить' }));
-    expect(h.state.approve.mutate).toHaveBeenCalledWith({ id: 1, groupId: '10' });
+    expect(h.state.approve.mutate).not.toHaveBeenCalled();
+
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('Добавить блюдо в меню?')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Одобрить' }));
+    expect(h.state.approve.mutate).toHaveBeenCalledWith({ id: 1, groupId: '10' }, expect.anything());
+  });
+
+  it('отмена подтверждения ничего не меняет', () => {
+    render(<SuggestionsPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Одобрить' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Отмена' }));
+    expect(h.state.approve.mutate).not.toHaveBeenCalled();
+  });
+
+  /* Очередь и архив шли одним списком: улёгшееся решение полугодовой давности
+     весило столько же, сколько строка, которую ждут. */
+  it('очередь отделена от разобранного', () => {
+    h.state.items = [
+      sug({ id: 1, status: 'PENDING' }),
+      sug({ id: 2, name: 'Фалафель', status: 'APPROVED' }),
+      sug({ id: 3, name: 'Рамен', status: 'REJECTED' }),
+    ];
+    render(<SuggestionsPage />);
+    expect(screen.getByRole('heading', { name: /Ждут решения/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Разобранные/ })).toHaveTextContent('2');
   });
 
   it('отклонение — шторка с причиной, без window.prompt', () => {

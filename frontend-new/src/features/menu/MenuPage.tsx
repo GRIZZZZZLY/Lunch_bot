@@ -3,6 +3,7 @@
    закупки, бюджет) следует за ним. Toggle блюда — с явным groupId (B4).
    FAB удалён: «Добавить блюдо» — кнопка под списком и в пустом состоянии. */
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   useMenuItems,
   useCreateMenuItem,
@@ -18,7 +19,7 @@ import { Icon } from '@/components/rl/Icon';
 import { EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
 import { Button, IconButton, Switch } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
-import { formatPrice } from '@/features/store-run/lib/selectors';
+import { formatPrice } from '@/shared/lib/money';
 import { useRovingFocus } from '@/shared/lib/useRovingFocus';
 import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
 import { DishSheet, type DishInput } from './components/DishSheet';
@@ -53,6 +54,7 @@ export function buildCategories(dishes: Pick<Dish, 'category'>[]): { id: string;
 }
 
 export default function MenuPage() {
+  const navigate = useNavigate();
   // Группа — глобальный контекст всего продукта (решение плана миграции):
   // никаких локальных «только для меню» групп.
   const currentGroupId = useAppStore((s) => s.currentGroupId);
@@ -283,9 +285,11 @@ export default function MenuPage() {
               Добавить блюдо
             </Button>
           ) : (
-            <p className={styles.viewerNote}>
-              Хотите блюдо, которого нет? Предложите его в «Предложениях» из профиля.
-            </p>
+            // Была инструкция «пойдите найдите» вместо действия: путь до
+            // экрана предложений человек должен был проложить сам.
+            <Button variant="secondary" block onClick={() => navigate('/suggestions/mine')}>
+              Предложить блюдо
+            </Button>
           )}
         </div>
       )}

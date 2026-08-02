@@ -80,18 +80,41 @@ test.describe('Предложения участника', () => {
     });
   });
 
-  test('фильтрует свои статусы и удаляет ожидающее предложение с подтверждением', async ({ appPage, api }) => {
+  /* Участнику сервер отдаёт только его собственные предложения — «Фалафель»
+     чужой, и его не видно ни на одной вкладке. Раньше мок отдавал всем всё, и
+     тест закреплял поведение мока, а не сервера. */
+  test('видит только свои статусы и отзывает ожидающее с подтверждением', async ({ appPage, api }) => {
     await appPage.goto('/suggestions');
-    await expect(appPage.getByText('Одобрено')).toBeVisible();
     await expect(appPage.getByText('Отклонено')).toBeVisible();
-    await appPage.getByRole('button', { name: 'Мои' }).click();
     await expect(appPage.getByText('Фалафель')).toHaveCount(0);
-    await appPage.getByRole('button', { name: 'Удалить' }).click();
+    await appPage.getByRole('tab', { name: 'Мои' }).click();
+    await expect(appPage.getByText('Том-ям')).toBeVisible();
+
+    await appPage.getByRole('button', { name: 'Отозвать' }).click();
     const confirm = appPage.getByRole('alertdialog');
     await expect(confirm).toContainText('Том-ям');
-    await confirm.getByRole('button', { name: 'Удалить' }).click();
+    await confirm.getByRole('button', { name: 'Отозвать' }).click();
     expect(api.requests('DELETE', '/suggestions/901')).toHaveLength(1);
     await expect(appPage.getByText('Том-ям')).toHaveCount(0);
+  });
+
+  /* Регрессия сквозь весь стек. Маршрут удаления был закрыт админской
+     мидлварой, а кнопка показывалась участнику — сработать она не могла ни
+     разу и молчала при отказе. Здесь проверяется вторая половина: что отказ
+     виден, если он всё-таки придёт. */
+  test('отказ сервера на отзыв виден, а не проглочен', async ({ appPage, api }) => {
+    api.fail('DELETE', '/suggestions/901', {
+      status: 403,
+      error: 'Group admin access required',
+      code: 'ACCESS_DENIED',
+    });
+    await appPage.goto('/suggestions');
+    await appPage.getByRole('button', { name: 'Отозвать' }).click();
+    await appPage.getByRole('alertdialog').getByRole('button', { name: 'Отозвать' }).click();
+
+    await expect(appPage.getByRole('alert')).toContainText('нужны права администратора группы');
+    await expect(appPage.getByRole('alertdialog')).toHaveCount(0);
+    await expect(appPage.getByText('Том-ям')).toBeVisible();
   });
 
   test('показывает ошибку загрузки и повторяет запрос', async ({ appPage, api }) => {
@@ -110,7 +133,11 @@ test.describe('Модерация предложений', () => {
   test('групповой администратор принимает и отклоняет предложения', async ({ appPage, api }) => {
     api.state.suggestions[1].status = 'PENDING';
     await appPage.goto('/suggestions');
+    // Одобрение необратимо создаёт блюдо в меню, поэтому спрашивает подтверждение.
     await appPage.getByRole('button', { name: 'Одобрить' }).first().click();
+    const approve = appPage.getByRole('alertdialog');
+    await expect(approve).toContainText('Добавить блюдо в меню?');
+    await approve.getByRole('button', { name: 'Одобрить' }).click();
     expect(api.lastRequest('POST', '/suggestions/901/approve')?.body).toEqual({ groupId: '1' });
     await expect(appPage.getByText('Одобрено').first()).toBeVisible();
 

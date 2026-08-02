@@ -317,9 +317,20 @@ export class MenuSuggestionService {
   }
 
   /**
-   * Удалить предложение (только для отклонённых и старых)
+   * Удалить предложение.
+   *
+   * Два разных права на одну операцию:
+   *  - автор отзывает СВОЁ, пока оно на рассмотрении. Ровно это и предлагает
+   *    интерфейс участнику; раньше маршрут был закрыт админской мидлварой и
+   *    кнопка не могла сработать ни разу;
+   *  - админ группы убирает уже РАЗОБРАННОЕ. Ожидающее решения он не удаляет —
+   *    сначала отклоняет, чтобы у автора осталась причина.
    */
-  static async deleteSuggestion(suggestionId: number, groupId?: number): Promise<void> {
+  static async deleteSuggestion(
+    suggestionId: number,
+    actorId: number,
+    groupId?: number
+  ): Promise<void> {
     const suggestion = await prisma.menuSuggestion.findUnique({
       where: { id: suggestionId },
     });
@@ -328,18 +339,32 @@ export class MenuSuggestionService {
       throw new Error('Suggestion not found');
     }
 
-    // Можно удалять только отклонённые предложения
     this.assertSuggestionGroup(suggestion, groupId);
 
-    if (suggestion.status === 'PENDING') {
-      throw new Error('Cannot delete pending suggestion. Reject it first.');
+    const isAuthor = suggestion.suggestedBy === actorId;
+    const isPending = suggestion.status === 'PENDING';
+
+    if (!(isAuthor && isPending)) {
+      const moderates = await GroupService.isUserGroupAdmin(
+        actorId,
+        suggestion.groupId
+      );
+      if (!moderates) {
+        throw new GroupAccessError(
+          'NOT_ADMIN',
+          'Удалить может автор своего предложения или админ группы'
+        );
+      }
+      if (isPending) {
+        throw new Error('Cannot delete pending suggestion. Reject it first.');
+      }
     }
 
     await prisma.menuSuggestion.delete({
       where: { id: suggestionId },
     });
 
-    logger.info(`Suggestion ${suggestionId} deleted`);
+    logger.info(`Suggestion ${suggestionId} deleted`, { actorId, isAuthor });
   }
 }
 
