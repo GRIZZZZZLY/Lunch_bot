@@ -197,7 +197,7 @@
 }
 
 /* nowrap обязателен: без него номер телефона рвался по дефисам на две строки,
-   а номер карты — на четыре, и строка долга разрасталась до полэкрана. */
+   и строка долга разрасталась до полэкрана. */
 .payToItem {
   display: inline-flex;
   align-items: center;
@@ -228,6 +228,42 @@
 }
 
 .payToItem:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+}
+
+/* Перевод по ссылке — главное действие строки: по нему открывается банк, а
+   телефон рядом надо скопировать и вставить руками. Поэтому заливка домена
+   денег, а не контурная кнопка, как у копирования. */
+.payToLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-md);
+  white-space: nowrap;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control-sm);
+  background: var(--money-tint);
+  font: inherit;
+  font-size: var(--text-13);
+  font-weight: 700;
+  color: var(--money-on-tint);
+  cursor: pointer;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .payToLink:hover {
+    opacity: 0.85;
+  }
+}
+
+.payToLink:active {
+  opacity: 0.75;
+}
+
+.payToLink:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
 }

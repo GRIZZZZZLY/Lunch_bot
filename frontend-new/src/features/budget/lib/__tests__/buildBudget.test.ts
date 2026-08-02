@@ -55,7 +55,27 @@ describe('buildBudget — куда платить и сколько ждём', (
       [],
       NOW,
     );
-    expect(vm.myDebts[0].payTo).toEqual({ phone: '+7 900 111-22-33', card: undefined, note: undefined });
+    expect(vm.myDebts[0].payTo).toEqual({ phone: '+7 900 111-22-33', link: undefined, note: undefined });
+  });
+
+  /* В колонке paymentCard теперь ссылка СБП, а не номер карты: поле в профиле
+     заменено, а имя колонки оставлено — миграция ради подписи не нужна. */
+  it('ссылка СБП приезжает из paymentCard', () => {
+    const vm = buildBudget(
+      [
+        tx({
+          id: 5,
+          toUser: { id: 3, firstName: 'Оля', paymentCard: ' https://www.tinkoff.ru/rm/abc ' },
+        }),
+      ],
+      [],
+      NOW,
+    );
+    expect(vm.myDebts[0].payTo).toEqual({
+      link: 'https://www.tinkoff.ru/rm/abc',
+      phone: undefined,
+      note: undefined,
+    });
   });
 
   it('реквизиты не заполнены → payTo = null, а не пустой объект', () => {

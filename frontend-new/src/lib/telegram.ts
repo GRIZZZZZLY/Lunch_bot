@@ -46,6 +46,8 @@ export interface TelegramWebApp {
   setBackgroundColor?: (color: string) => void;
   onEvent: (event: string, handler: () => void) => void;
   offEvent: (event: string, handler: () => void) => void;
+  /** Открыть внешнюю ссылку в браузере поверх Mini App. */
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
   MainButton: {
     text: string;
     color: string;
@@ -161,4 +163,18 @@ export function getDeepLinkPollId(): number | null {
   const cleaned = param.startsWith('vote_') ? param.slice(5) : param;
   const n = Number(cleaned);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Открыть внешнюю ссылку. Внутри Telegram — через WebApp.openLink: обычный
+ * `window.open` в Mini App блокируется или открывает вкладку, из которой не
+ * вернуться в приложение. Вне Telegram (браузер, тесты) — обычным способом.
+ */
+export function openExternalLink(url: string): void {
+  const wa = getWebApp();
+  if (wa?.openLink) {
+    wa.openLink(url);
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
 }

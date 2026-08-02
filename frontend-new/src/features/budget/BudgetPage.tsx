@@ -18,6 +18,8 @@ import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { ConfirmDialog, EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
+import { isSafePaymentLink } from '@/shared/lib/phone';
+import { openExternalLink } from '@/lib/telegram';
 import { formatPrice } from '@/features/store-run/lib/selectors';
 import { Icon } from '@/components/rl/Icon';
 import {
@@ -47,20 +49,18 @@ function PayTo({ value }: { value: PayToVM }) {
     return () => window.clearTimeout(t);
   }, [copied]);
 
-  /* Один способ, а не все сразу: два блока (СБП и карта) занимали пол-экрана и
-     заставляли выбирать там, где выбор не нужен. Телефон СБП — основной способ
-     в продукте, карта только если телефона нет. */
-  const item = value.phone
-    ? { label: 'СБП', text: value.phone }
-    : value.card
-      ? { label: 'Карта', text: value.card }
-      : null;
+  /* Ссылка главнее телефона: по ней плательщик попадает прямо в свой банк, а
+     номер надо скопировать, переключиться в банк и вставить. Телефон при этом
+     остаётся видимым — на случай, если ссылка не откроется. */
+  const link = isSafePaymentLink(value.link) ? value.link! : undefined;
+  const item = value.phone ? { label: 'СБП', text: value.phone } : null;
 
-  if (!item) {
+  if (!item && !link) {
     return value.note ? <span className={styles.payToNote}>{value.note}</span> : null;
   }
 
   const copy = () => {
+    if (!item) return;
     navigator.clipboard
       ?.writeText(item.text)
       .then(() => setCopied(item.text))
@@ -69,16 +69,30 @@ function PayTo({ value }: { value: PayToVM }) {
 
   return (
     <span className={styles.payTo}>
-      <button
-        type="button"
-        className={styles.payToItem}
-        aria-label={`Скопировать ${item.label}: ${item.text}`}
-        onClick={copy}
-      >
-        <span className={styles.payToLabel}>{item.label}</span>
-        <span className="tnum">{item.text}</span>
-        <Icon name={copied ? 'check' : 'copy'} size={14} />
-      </button>
+      {link && (
+        <button
+          type="button"
+          className={styles.payToLink}
+          /* openExternalLink, а не <a target="_blank">: внутри Mini App обычная
+             вкладка открывается так, что вернуться в приложение нельзя. */
+          onClick={() => openExternalLink(link)}
+        >
+          <Icon name="arrowRight" size={14} />
+          Перевести по ссылке
+        </button>
+      )}
+      {item && (
+        <button
+          type="button"
+          className={styles.payToItem}
+          aria-label={`Скопировать ${item.label}: ${item.text}`}
+          onClick={copy}
+        >
+          <span className={styles.payToLabel}>{item.label}</span>
+          <span className="tnum">{item.text}</span>
+          <Icon name={copied ? 'check' : 'copy'} size={14} />
+        </button>
+      )}
       {/* Успех копирования нужно объявить: иконка меняется молча. */}
       <span className="sr-only" role="status">
         {copied ? 'Скопировано' : ''}

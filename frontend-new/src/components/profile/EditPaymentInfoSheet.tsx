@@ -8,7 +8,7 @@ import {
   formatPhoneInput,
   isPhoneEmpty,
   normalizePhone,
-  validateCard,
+  validatePaymentLink,
   validatePhone,
 } from '@/shared/lib/phone';
 
@@ -82,7 +82,7 @@ function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, '
      каждый раз незачем. */
   const [phone, setPhone] = useState(() => formatPhoneInput(initial?.paymentPhone ?? '') || PHONE_PREFIX);
   const [details, setDetails] = useState(initial?.paymentDetails ?? '');
-  const [card, setCard] = useState(initial?.paymentCard ?? '');
+  const [link, setLink] = useState(initial?.paymentCard ?? '');
   const [saveError, setSaveError] = useState<string | null>(null);
   /* Показываем ошибки полей только после попытки сохранить: подчёркивать
      «не хватает цифр» на третьей набранной цифре — ругаться на человека,
@@ -90,7 +90,7 @@ function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, '
   const [tried, setTried] = useState(false);
 
   const phoneError = tried ? validatePhone(phone) : null;
-  const cardError = tried ? validateCard(card) : null;
+  const linkError = tried ? validatePaymentLink(link) : null;
 
   /* Раньше handleSave вызывал onSubmit и выбрасывал возвращённый промис.
      Отказ сервера при этом не показывался НИГДЕ: лист оставался открытым,
@@ -99,7 +99,7 @@ function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, '
      сохранены, — и потом не понимал, почему деньги не приходят. */
   const handleSave = async () => {
     setTried(true);
-    if (validatePhone(phone) || validateCard(card)) return;
+    if (validatePhone(phone) || validatePaymentLink(link)) return;
     setSaveError(null);
     try {
       /* Имена — как на проводе. Раньше уходили sbpPhone/bankName/cardNumber,
@@ -109,7 +109,7 @@ function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, '
       await onSubmit({
         paymentPhone: normalizePhone(phone),
         paymentDetails: details.trim() || undefined,
-        paymentCard: card.trim() || undefined,
+        paymentCard: link.trim() || undefined,
       });
     } catch {
       setSaveError('Не удалось сохранить реквизиты. Проверьте связь и попробуйте ещё раз.');
@@ -157,16 +157,20 @@ function EditPaymentInfoForm({ initial, busy, onClose, onSubmit }: Omit<Props, '
       <FormField label="Банк" htmlFor="payment-bank-name">
         <Field id="payment-bank-name" value={details} onChange={(e: ChangeEvent<HTMLInputElement>) => setDetails(e.target.value)} placeholder="Тинькофф, Сбербанк…" />
       </FormField>
-      <FormField label="Номер карты (опционально)" htmlFor="payment-card-number" error={cardError}>
+      {/* Ссылка вместо номера карты: банк отдаёт её кнопкой «поделиться», и по
+          ней плательщик попадает сразу в свой банк — это быстрее, чем копировать
+          цифры. Колонка в базе осталась paymentCard: переименовывать её ради
+          подписи не стоило миграции. */}
+      <FormField label="Ссылка на СБП (опционально)" htmlFor="payment-link" error={linkError}>
         <Field
-          id="payment-card-number"
-          value={card}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setCard(e.target.value)}
-          placeholder="0000 0000 0000 0000"
-          inputMode="numeric"
-          className="tnum"
-          aria-invalid={!!cardError}
-          aria-describedby={cardError ? 'payment-card-number-error' : undefined}
+          id="payment-link"
+          value={link}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setLink(e.target.value)}
+          placeholder="https://www.tinkoff.ru/rm/..."
+          inputMode="url"
+          autoComplete="url"
+          aria-invalid={!!linkError}
+          aria-describedby={linkError ? 'payment-link-error' : undefined}
         />
       </FormField>
     </BottomSheet>

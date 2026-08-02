@@ -307,7 +307,7 @@ function makeTransactions(): { debts: Transaction[]; credits: Transaction[] } {
         createdAt: CREATED_AT,
         /* Реквизиты получателя приходят вместе со СВОИМ долгом — по ним и
            переводят. В кредитах их нет: деньги идут в обратную сторону. */
-        toUser: { ...USERS.initiator, paymentPhone: '+7 900 123-45-67', paymentCard: '4276 5500 1234 5678' },
+        toUser: { ...USERS.initiator, paymentPhone: '+7 900 123-45-67', paymentCard: 'https://www.tinkoff.ru/rm/test-link' },
         fromUser: USERS.current,
         // за что долг: обеденная транзакция несёт блюдо
         menuItem: { id: 12, name: 'Паста карбонара' },
@@ -419,7 +419,7 @@ export function createScenario(name: ScenarioName, role: E2ERole): E2EState {
     paymentInfo: {
       paymentPhone: '+7 900 111-22-33',
       paymentDetails: 'Т-Банк',
-      paymentCard: '2200 0000 0000 1234',
+      paymentCard: 'https://www.tinkoff.ru/rm/test-link',
     },
     failures: {},
     delays: {},

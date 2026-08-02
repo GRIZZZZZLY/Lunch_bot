@@ -77,12 +77,32 @@ export function validatePhone(raw: string): string | null {
   return null;
 }
 
-/** Сообщение об ошибке или null. Пустая строка допустима — карта необязательна. */
-export function validateCard(raw: string): string | null {
+/**
+ * Ссылка СБП — та самая, что банк отдаёт кнопкой «поделиться»: один тап, и у
+ * плательщика открывается его банк. Поле заменило ввод номера карты, а колонка
+ * в базе осталась прежней (paymentCard) — переименовывать её ради подписи не
+ * стоило миграции, тем более что номер карты не был заполнен ни у кого.
+ *
+ * Сообщение об ошибке или null. Пустая строка допустима — ссылка необязательна.
+ */
+export function validatePaymentLink(raw: string): string | null {
   const v = raw.trim();
   if (!v) return null;
-  const d = phoneDigits(v);
-  if (d.length !== v.replace(/[\s-]/g, '').length) return 'В номере карты только цифры';
-  if (d.length < 16 || d.length > 19) return 'В номере карты 16–19 цифр';
+  let url: URL;
+  try {
+    url = new URL(v);
+  } catch {
+    return 'Это не похоже на ссылку — вставьте её из банка целиком';
+  }
+  /* Только http(s): javascript: и data: из чужого профиля открывать нельзя,
+     а по ним же и кликают. */
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    return 'Ссылка должна начинаться с https://';
+  }
   return null;
+}
+
+/** Ссылку показываем и открываем только если она безопасна. */
+export function isSafePaymentLink(raw?: string | null): boolean {
+  return !!raw && validatePaymentLink(raw) === null && raw.trim().length > 0;
 }

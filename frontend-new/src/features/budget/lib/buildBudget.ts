@@ -25,9 +25,10 @@ export interface BudgetReference {
 }
 
 export interface PayTo {
-  /** Телефон для СБП — основной способ в продукте. */
+  /** Готовая ссылка СБП: один тап открывает банк. Главнее телефона. */
+  link?: string;
+  /** Телефон для СБП — способ, если ссылки нет. */
   phone?: string;
-  card?: string;
   note?: string;
 }
 
@@ -65,10 +66,14 @@ function personName(u?: { firstName?: string; username?: string }): string {
 /** Реквизиты получателя. Пустые поля не превращаем в пустой объект. */
 function payToOf(t: Transaction): PayTo | null {
   const phone = t.toUser?.paymentPhone?.trim() || undefined;
-  const card = t.toUser?.paymentCard?.trim() || undefined;
+  /* В колонке paymentCard теперь лежит ссылка СБП, а не номер карты: поле в
+     профиле заменено на «Ссылка на СБП», а имя колонки оставлено прежним,
+     чтобы не тащить миграцию ради переименования. Номер карты в проде не был
+     заполнен ни у кого, так что терять было нечего. */
+  const link = t.toUser?.paymentCard?.trim() || undefined;
   const note = t.toUser?.paymentDetails?.trim() || undefined;
-  if (!phone && !card && !note) return null;
-  return { phone, card, note };
+  if (!phone && !link && !note) return null;
+  return { link, phone, note };
 }
 
 /** «2 дня», «14 часов», «5 минут» — без «назад»: подпись даёт контекст. */

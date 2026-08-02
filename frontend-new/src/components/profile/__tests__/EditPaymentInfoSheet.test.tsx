@@ -34,7 +34,7 @@ describe('EditPaymentInfoSheet', () => {
         initial={{
           paymentPhone: '+7 901 444-55-66',
           paymentDetails: 'Новый банк',
-          paymentCard: '  1111 2222 3333 4444  ',
+          paymentCard: '  https://www.tinkoff.ru/rm/abc  ',
         }}
       />,
     );
@@ -49,7 +49,7 @@ describe('EditPaymentInfoSheet', () => {
     expect(onSubmit).toHaveBeenCalledWith({
       paymentPhone: '+7 901 444-55-66',
       paymentDetails: 'Новый банк',
-      paymentCard: '1111 2222 3333 4444',
+      paymentCard: 'https://www.tinkoff.ru/rm/abc',
     });
   });
 
@@ -94,7 +94,9 @@ describe('EditPaymentInfoSheet', () => {
     expect(screen.getByText(/не хватает цифр/)).toBeInTheDocument();
   });
 
-  it('не отправляет номер карты неверной длины', () => {
+  /* Поле «Номер карты» заменено на «Ссылка на СБП»: по ссылке плательщик
+     попадает сразу в свой банк, а цифры карты надо копировать руками. */
+  it('не отправляет то, что не является ссылкой', () => {
     _resetBackButtonForTests();
     const onSubmit = vi.fn();
     render(
@@ -103,14 +105,35 @@ describe('EditPaymentInfoSheet', () => {
         busy={false}
         onClose={vi.fn()}
         onSubmit={onSubmit}
-        initial={{ paymentPhone: '+7 900 111-22-33', paymentCard: '1111 2222' }}
+        initial={{ paymentPhone: '+7 900 111-22-33', paymentCard: 'просто текст' }}
       />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByText(/16–19 цифр/)).toBeInTheDocument();
+    expect(screen.getByText(/не похоже на ссылку/i)).toBeInTheDocument();
+  });
+
+  /* javascript:-ссылка из чужого профиля исполнилась бы по тапу того, кто
+     платит. Схему проверяем на вводе и ещё раз перед показом. */
+  it('не принимает ссылку с опасной схемой', () => {
+    _resetBackButtonForTests();
+    const onSubmit = vi.fn();
+    render(
+      <EditPaymentInfoSheet
+        open
+        busy={false}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+        initial={{ paymentCard: 'javascript:alert(1)' }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/должна начинаться с https/i)).toBeInTheDocument();
   });
 
   /* Регрессия, из-за которой профиль не сохранял НИЧЕГО. Форма слала

@@ -117,6 +117,41 @@ describe('BudgetPage — должник', () => {
     expect(h.state.cancelMark.mutate).toHaveBeenCalledWith(7);
   });
 
+  /* Ссылка СБП — главное действие строки: по ней открывается банк, а телефон
+     надо скопировать и вставить руками. Телефон при этом остаётся видимым. */
+  it('ссылка СБП даёт кнопку перевода и не прячет телефон', () => {
+    h.state.debts = [
+      tx({
+        id: 7,
+        status: 'PENDING',
+        toUser: {
+          id: 3,
+          firstName: 'Оля',
+          paymentPhone: '+7 900 111-22-33',
+          paymentCard: 'https://www.tinkoff.ru/rm/abc',
+        },
+      }),
+    ];
+    render(<BudgetPage />);
+    expect(screen.getByRole('button', { name: 'Перевести по ссылке' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Скопировать СБП/ })).toBeInTheDocument();
+  });
+
+  /* javascript:-ссылка из чужого профиля исполнилась бы по тапу плательщика.
+     Проверка схемы стоит и на вводе, и здесь — данные могли попасть в базу
+     мимо формы. */
+  it('ссылку с опасной схемой не показывает вовсе', () => {
+    h.state.debts = [
+      tx({
+        id: 7,
+        status: 'PENDING',
+        toUser: { id: 3, firstName: 'Оля', paymentCard: 'javascript:alert(1)' },
+      }),
+    ];
+    render(<BudgetPage />);
+    expect(screen.queryByRole('button', { name: 'Перевести по ссылке' })).not.toBeInTheDocument();
+  });
+
   it('сумма долга — отдельный узел, а не хвост подписи с именем', () => {
     h.state.debts = [tx({ id: 7, amount: 420, status: 'PENDING', toUser: { id: 3, firstName: 'Оля' } })];
     render(<BudgetPage />);
