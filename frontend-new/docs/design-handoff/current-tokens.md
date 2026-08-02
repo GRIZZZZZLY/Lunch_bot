@@ -34,9 +34,12 @@
   `--font-head` стоит на заголовках — кандидат на пересмотр в Penpot)
 - radius: `--radius-card 26 / --radius-block 17 / --radius-control 17 / --radius-pill`
 - control: `--control-sm 38 / --control-md 44 (минимум touch) / --control-lg 52`
-- motion: `--motion-fast 150 / base 220 / slow 300`, `--ease-out/-spring`;
+- motion: `--motion-fast 150 / base 220 / slow 300`, кривые
+  `--ease-out / --ease-spring / --ease-arrive` (третья — только сборка кадра:
+  `--ease-out` отдаёт 75 % пути за 60 мс и читается вспышкой);
   слой `styles/motion.css` добавляет `--motion-page 260 / --motion-in 200` и
-  расстояния `--shift-page 16 / --shift-in 10 / --shift-boot 14`.
+  расстояния `--shift-page 16 / --shift-in 10 / --shift-boot 22 /
+  --shift-boot-top 16`.
   `.anim-boot-*` — сборка кадра при первом открытии (шапка, контент, таббар),
   `.anim-page` — навигация, `.anim-in` — то, что изменилось при открытом экране.
   Приход данных не анимируется. Заметность даёт расстояние: 8 px не читались.

@@ -46,8 +46,13 @@
 
    Кадр собирается: шапка оседает сверху, контент поднимается снизу, таббар
    закрывает композицию последним. Смещения разные, потому что элементы приходят
-   со своих краёв, а задержки — 0/60/120ms: это не каскад «всё подряд», а один
+   со своих краёв, а задержки — 0/40/80ms: это не каскад «всё подряд», а один
    жест сборки, и читается он как одно событие.
+
+   Задержки были 60/120ms, и покадровый замер показал, что таббар при них
+   догоняет уже приехавший контент вместо того, чтобы закрывать кадр. Кривая
+   здесь своя — --ease-arrive; почему не общая --ease-out, объяснено в
+   tokens.css рядом с ней.
 
    Играет строго один раз за сессию (useBootReveal в lib/motion.ts): возврат с
    detail-экрана перемонтирует layout, но открытием приложения не является.
@@ -59,7 +64,7 @@
 @keyframes rl-boot-top {
   from {
     opacity: 0;
-    transform: translateY(calc(-1 * var(--shift-in)));
+    transform: translateY(calc(-1 * var(--shift-boot-top)));
   }
 }
 
@@ -78,15 +83,15 @@
 }
 
 .anim-boot-top {
-  animation: rl-boot-top var(--motion-slow) var(--ease-out) both;
+  animation: rl-boot-top var(--motion-slow) var(--ease-arrive) both;
 }
 
 .anim-boot-content {
-  animation: rl-boot-content var(--motion-slow) var(--ease-out) 60ms both;
+  animation: rl-boot-content var(--motion-slow) var(--ease-arrive) 40ms both;
 }
 
 .anim-boot-bottom {
-  animation: rl-boot-bottom var(--motion-slow) var(--ease-out) 120ms both;
+  animation: rl-boot-bottom var(--motion-slow) var(--ease-arrive) 80ms both;
 }
 
 /* ============================================================
@@ -110,13 +115,19 @@
 /* Без направления анимации нет: сборкой кадра при первом открытии занят
    раздел 1, и наложение двух приходов на один контейнер дало бы ту самую
    двойную загрузку. Здесь работает только навигация — там есть откуда и куда,
-   и сдвиг по X сообщает именно это. */
+   и сдвиг по X сообщает именно это.
+
+   Кривая та же, что у сборки. Замер на --ease-out: из 16px хода к 80-й мс
+   пройдено 14, прозрачность 0.88 — переход фактически кончался на 80-й мс, а
+   оставшиеся 180 досаживали два пикселя. Номинально 260ms, воспринимаемо ~90.
+   С --ease-arrive на 80-й мс страница ещё в пути (0.67, сдвиг 5.3px), движение
+   живёт до ~200ms; расстояние и длительность те же. */
 .anim-page.is-forward {
-  animation: rl-page-in-forward var(--motion-page) var(--ease-out) both;
+  animation: rl-page-in-forward var(--motion-page) var(--ease-arrive) both;
 }
 
 .anim-page.is-back {
-  animation: rl-page-in-back var(--motion-page) var(--ease-out) both;
+  animation: rl-page-in-back var(--motion-page) var(--ease-arrive) both;
 }
 
 /* ============================================================
@@ -130,8 +141,10 @@
   }
 }
 
+/* Тоже приход, поэтому и кривая приходов: смена состояния закупки — событие,
+   которое человек должен УВИДЕТЬ, а не обнаружить по факту. */
 .anim-in {
-  animation: rl-in var(--motion-in) var(--ease-out) both;
+  animation: rl-in var(--motion-in) var(--ease-arrive) both;
 }
 
 /* Пока страница входит, внутренние появления выключены: две наложенные
