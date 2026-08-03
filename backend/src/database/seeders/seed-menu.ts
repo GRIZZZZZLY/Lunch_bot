@@ -202,6 +202,23 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const shouldClear = args.includes('--clear');
 
+  /* Сидер — инструмент разработки, и он не умеет работать по группам:
+     seedMenu() пишет в первую группу из findFirst(), а clearMenu() делает
+     deleteMany({}) БЕЗ фильтра, то есть стирает меню всех групп сразу.
+     На боевой базе это необратимо, а имя скрипта об этом не предупреждает.
+     Запуск в production запрещаем; осознанный обход — SEED_ALLOW_PRODUCTION. */
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.SEED_ALLOW_PRODUCTION !== 'true'
+  ) {
+    logger.error(
+      'Сидер не запускается в production: seedMenu() пишет в произвольную группу, ' +
+        'а --clear удаляет меню ВСЕХ групп. Для осознанного запуска — ' +
+        'SEED_ALLOW_PRODUCTION=true.'
+    );
+    process.exit(1);
+  }
+
   void (async () => {
     try {
       if (shouldClear) {
