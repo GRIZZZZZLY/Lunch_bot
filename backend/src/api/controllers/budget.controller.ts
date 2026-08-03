@@ -35,7 +35,9 @@ async function requirePollAccess(
       });
     return false;
   }
-  if (user.isAdmin) return true;
+  /* Прежде здесь глобальный флаг открывал бюджет любой группы. Понятия
+     глобального администратора больше нет: доступ решает членство в группе
+     голосования. */
   const isMember = await GroupService.isUserGroupMember(user.id, pollGroupId);
   if (!isMember) {
     res

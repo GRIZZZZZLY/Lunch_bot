@@ -12,7 +12,7 @@ export class CategoryOrderController {
   private static getAuthUser(
     req: Request,
     res: Response
-  ): { id: number; isAdmin: boolean } | null {
+  ): { id: number } | null {
     const user = (req as any).user;
     if (!user) {
       res.status(401).json({
@@ -23,9 +23,10 @@ export class CategoryOrderController {
       return null;
     }
 
+    /* Флаг администратора здесь больше не возвращается: ни одна проверка ниже
+       его не читает, а решение принимает роль в группе. */
     return {
       id: Number(user.id),
-      isAdmin: Boolean(user.isAdmin),
     };
   }
 
@@ -52,13 +53,8 @@ export class CategoryOrderController {
 
   private static async canAccessPoll(
     pollId: number,
-    user: { id: number; isAdmin: boolean },
-    allowGlobalRead: boolean = false
+    user: { id: number }
   ): Promise<boolean> {
-    if (allowGlobalRead && user.isAdmin) {
-      return true;
-    }
-
     const poll = await prisma.poll.findUnique({
       where: { id: pollId },
       select: { groupId: true },
@@ -104,11 +100,7 @@ export class CategoryOrderController {
         return;
       }
 
-      const hasAccess = await CategoryOrderController.canAccessPoll(
-        pollId,
-        user,
-        true
-      );
+      const hasAccess = await CategoryOrderController.canAccessPoll(pollId, user);
       if (!hasAccess) {
         res.status(403).json({
           success: false,
@@ -160,11 +152,7 @@ export class CategoryOrderController {
         return;
       }
 
-      const hasAccess = await CategoryOrderController.canAccessPoll(
-        pollId,
-        user,
-        true
-      );
+      const hasAccess = await CategoryOrderController.canAccessPoll(pollId, user);
       if (!hasAccess) {
         res.status(403).json({
           success: false,
@@ -243,7 +231,7 @@ export class CategoryOrderController {
         user.id
       );
 
-      if (!user.isAdmin && responsibleUserId !== user.id && !isParticipant) {
+      if (responsibleUserId !== user.id && !isParticipant) {
         res.status(403).json({
           success: false,
           error: 'Access denied',
@@ -494,7 +482,7 @@ export class CategoryOrderController {
         user.id
       );
 
-      if (!user.isAdmin && !isResponsible && !isParticipant) {
+      if (!isResponsible && !isParticipant) {
         res.status(403).json({
           success: false,
           error: 'Access denied',
@@ -555,7 +543,7 @@ export class CategoryOrderController {
         return;
       }
 
-      if (!user.isAdmin && responsibleUserId !== user.id) {
+      if (responsibleUserId !== user.id) {
         res.status(403).json({
           success: false,
           error: 'Access denied',
@@ -875,8 +863,11 @@ export class CategoryOrderController {
         return;
       }
 
-      // Check if user is admin
-      if (!user?.isAdmin) {
+      /* Право на историю правок проверяет groupAdminMiddleware на маршруте:
+         это данные группы, и решает роль в ней. Здесь остаётся только проверка
+         аутентификации — дублировать авторизацию в контроллере значит рано или
+         поздно развести две проверки. */
+      if (!user) {
         res.status(403).json({
           success: false,
           error: 'Admin access required',
@@ -937,7 +928,7 @@ export class CategoryOrderController {
         return;
       }
 
-      if (!user.isAdmin && responsibleUserId !== user.id) {
+      if (responsibleUserId !== user.id) {
         res.status(403).json({
           success: false,
           error: 'Access denied',

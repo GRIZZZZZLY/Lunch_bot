@@ -180,10 +180,8 @@ export async function getLeaderboard(
       return;
     }
 
-    if (
-      !req.user?.isAdmin &&
-      !(await GroupService.isUserGroupMember(userId, groupId))
-    ) {
+    // Доступ решает членство в группе; глобального администратора больше нет.
+    if (!(await GroupService.isUserGroupMember(userId, groupId))) {
       res.status(403).json({
         success: false,
         error: 'Access denied',

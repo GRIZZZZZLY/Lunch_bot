@@ -56,8 +56,12 @@ export async function getBudgetInsightsByUserId(req: AuthenticatedRequest, res: 
       return;
     }
 
-    // Проверяем права доступа (только сам пользователь или админ)
-    if (requestingUserId !== targetUserId && !req.user?.isAdmin) {
+    /* Аналитика расходов — личные финансовые данные, и открывал их прежде
+       глобальный флаг. Такого понятия больше нет, а роль в группе права на
+       чужой кошелёк не даёт: доступ остаётся только к своим данным.
+       Маршрут /budget/:userId тем самым равен /budget и является кандидатом на
+       удаление — клиент его не вызывает. */
+    if (requestingUserId !== targetUserId) {
       res.status(403).json({ success: false, error: 'Access denied' });
       return;
     }

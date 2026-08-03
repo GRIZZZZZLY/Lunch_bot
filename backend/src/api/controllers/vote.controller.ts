@@ -26,13 +26,14 @@ const PollIdParamsSchema = z.object({
   pollId: z.string().regex(/^\d+$/, 'pollId must be numeric').transform(Number),
 });
 
+/* Параметр allowGlobalRead и ветка по users.is_admin удалены: доступ к
+   голосованию даёт членство в его группе, а не глобальный флаг. */
 async function requirePollAccess(
   req: Request,
   res: Response,
-  pollId: number,
-  allowGlobalRead: boolean = false
+  pollId: number
 ): Promise<boolean> {
-  const user = req.user as { id?: number; isAdmin?: boolean } | undefined;
+  const user = req.user as { id?: number } | undefined;
 
   if (!user?.id) {
     res.status(401).json({
@@ -53,10 +54,6 @@ async function requirePollAccess(
       timestamp: new Date().toISOString(),
     });
     return false;
-  }
-
-  if (allowGlobalRead && user.isAdmin) {
-    return true;
   }
 
   const hasAccess = await GroupService.isUserGroupMember(user.id, pollGroupId);
@@ -233,7 +230,7 @@ export async function getUserVotes(req: Request, res: Response): Promise<void> {
 
     const { pollId } = parseResult.data;
 
-    const hasAccess = await requirePollAccess(req, res, pollId, true);
+    const hasAccess = await requirePollAccess(req, res, pollId);
     if (!hasAccess) return;
 
     const votes = await VoteService.getUserVotes(pollId, userId);

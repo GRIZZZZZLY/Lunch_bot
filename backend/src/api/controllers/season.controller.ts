@@ -129,10 +129,8 @@ export class SeasonController {
         return;
       }
 
-      if (
-        !user?.isAdmin &&
-        !(await GroupService.isUserGroupMember(user.id, groupId))
-      ) {
+      // Рейтинг сезона по группе виден её участникам.
+      if (!(await GroupService.isUserGroupMember(user.id, groupId))) {
         res.status(403).json({
           success: false,
           error: 'Access denied',
