@@ -6,7 +6,6 @@ import { botConfig } from '../config/bot.config';
 import { logger } from '../utils/logger';
 import { setupErrorHandlers } from '../utils/error';
 import { notificationService } from '../services/notification.service';
-import { PollReminderService } from '../services/poll-reminder.service';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 
@@ -163,9 +162,6 @@ export function createBot(): Bot<BotContext> {
 
   // Инициализация notification service
   notificationService.initialize(bot);
-
-  // Инициализация poll reminder service
-  PollReminderService.initialize(bot);
 
   // ⚡ Инициализация Scheduler (использует синглтон через getBotInstance)
   const {
@@ -685,9 +681,6 @@ export async function setupWebhook(
  */
 export async function stopBot(bot: Bot<BotContext>): Promise<void> {
   try {
-    // Отменяем все активные напоминания
-    PollReminderService.cancelAllReminders();
-
     // ⚡ НОВОЕ: Останавливаем scheduler
     const {
       PollSchedulerService,

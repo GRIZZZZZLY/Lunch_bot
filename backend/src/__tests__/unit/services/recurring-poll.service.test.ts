@@ -12,7 +12,6 @@ import { RecurringPollService } from '../../../services/recurring-poll.service';
 import { PollService } from '../../../services/poll.service';
 import { MenuService } from '../../../services/menu.service';
 import { notificationService } from '../../../services/notification.service';
-import { PollReminderService } from '../../../services/poll-reminder.service';
 import { getBotInstance } from '../../../bot/bot-instance';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock, asServiceMock } from '../../helpers/mocks';
@@ -37,10 +36,6 @@ jest.mock('../../../services/notification.service', () => ({
   notificationService: { botCanPostToGroup: jest.fn() },
 }));
 
-jest.mock('../../../services/poll-reminder.service', () => ({
-  PollReminderService: { scheduleReminders: jest.fn() },
-}));
-
 jest.mock('../../../bot/bot-instance', () => ({ getBotInstance: jest.fn() }));
 
 jest.mock('../../../utils/logger', () => ({
@@ -50,7 +45,6 @@ jest.mock('../../../utils/logger', () => ({
 const pollService = asServiceMock(PollService);
 const menuService = asServiceMock(MenuService);
 const notifications = asServiceMock(notificationService);
-const reminders = asServiceMock(PollReminderService);
 const botInstance = asMock(getBotInstance);
 
 /** Понедельник, 09:00 по местному времени процесса. */
@@ -396,11 +390,6 @@ describe('executeScheduledPoll', () => {
       where: { id: 5 },
       data: { selectedMenuItemIds: '[1,2]', isAutomatic: true },
     });
-    expect(reminders.scheduleReminders).toHaveBeenCalledWith(
-      5,
-      30,
-      BigInt(-1001)
-    );
   });
 
   it('сообщение уходит в группу, messageId сохраняется', async () => {

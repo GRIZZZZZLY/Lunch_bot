@@ -501,15 +501,12 @@ export class RecurringPollService {
         }
       }
 
-      // 6. Запланировать напоминания и авто-завершение
-      const { PollReminderService } = await import('./poll-reminder.service');
-      PollReminderService.scheduleReminders(
-        poll.id,
-        recurring.duration,
-        recurring.group.telegramId
-      );
+      /* Напоминаний здесь больше нет. Группа получает ОДНО сообщение, которое
+         обновляется каждую минуту (emoji ⏰ → ⚠️ → 🔥), вместо трёх отдельных
+         рассылок. PollReminderService, который тут вызывался, уже год не ставил
+         ни одного таймера и удалён. */
 
-      // 7. Обновить статус выполнения
+      // 6. Обновить статус выполнения
       await this.updateRunStatus(recurringId, 'SUCCESS', `Poll ${poll.id} created`);
 
       logger.info('Scheduled poll executed successfully', {
