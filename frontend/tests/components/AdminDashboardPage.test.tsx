@@ -212,8 +212,13 @@ describe('AdminDashboardPage Mini App flow', () => {
       adminServiceMocks.getAdminNotificationSettings
     ).toHaveBeenCalledWith(2);
 
+    /* findBy*, а не getBy*: waitFor выше дожидается только ВЫЗОВА сервиса, а
+       страница до последнего setState держит спиннер (см. AdminDashboardPage:
+       `if (authLoading || loading || groupsLoading)`). Синхронная проверка
+       гонится с перерисовкой: локально микрозадачи успевают, на загруженном
+       раннере CI — нет, и тест падал «не нашёл заголовок» через один прогон. */
     expect(
-      screen.getByRole('heading', { name: /Панель администратора/i })
+      await screen.findByRole('heading', { name: /Панель администратора/i })
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Обзор/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Пользователи/i })).toBeInTheDocument();
