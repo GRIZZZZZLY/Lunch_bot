@@ -160,10 +160,17 @@ jobs:
           exit 1
           ENDSSH
 
+      # Публичная проверка идёт по ПУБЛИЧНОМУ адресу, а не по SERVER_HOST.
+      # SERVER_HOST — адрес для ssh (у нас это IP), и https по нему не отвечает:
+      # nginx не знает такого имени и отдаёт 421 Misdirected Request. Обратное
+      # тоже верно: публичный домен живёт за Cloudflare-туннелем, и ssh туда не
+      # проходит. Одно значение для обоих шагов не годится, поэтому адрес
+      # health-проверки задаётся отдельно (переменной окружения, не секретом —
+      # домен и так публичный).
       - name: Check public health endpoint
         env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-        run: curl --fail --silent --show-error --retry 5 --retry-delay 5 "https://$SERVER_HOST/health"
+          HEALTH_URL: ${{ vars.PUBLIC_HEALTH_URL || 'https://rocketlunch.dpdns.org/health' }}
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 5 "$HEALTH_URL"
 
   rollback:
     name: Restore previous release
