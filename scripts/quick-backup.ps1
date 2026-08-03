@@ -23,9 +23,9 @@ if (Test-Path $TempBackupPath) {
 New-Item -ItemType Directory -Path $TempBackupPath | Out-Null
 
 # Copy frontend (excluding node_modules)
-Write-Host "[INFO] Copying frontend..." -ForegroundColor Cyan
-$FrontendSrc = Join-Path $ProjectRoot "frontend"
-$FrontendDst = Join-Path $TempBackupPath "frontend"
+Write-Host "[INFO] Copying frontend-new..." -ForegroundColor Cyan
+$FrontendSrc = Join-Path $ProjectRoot "frontend-new"
+$FrontendDst = Join-Path $TempBackupPath "frontend-new"
 $null = robocopy $FrontendSrc $FrontendDst /E /XD node_modules .next dist build coverage .vite /NFL /NDL /NJH /NJS
 
 # Copy backend (excluding node_modules)

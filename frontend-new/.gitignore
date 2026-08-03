@@ -16,3 +16,6 @@ test-results-tour/
 ui-tour/
 production-playwright-report/
 production-test-results/
+
+# Отчёты Lighthouse CI: генерируются на каждом прогоне.
+.lighthouseci/

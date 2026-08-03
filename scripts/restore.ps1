@@ -133,15 +133,15 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 if (-not $Backend -or $Frontend) {
     Write-Log "🔄 Восстановление Frontend..." $ColorInfo
     
-    $FrontendBackup = Join-Path $ProjectRoot "frontend.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-    $FrontendPath = Join-Path $ProjectRoot "frontend"
+    $FrontendBackup = Join-Path $ProjectRoot "frontend-new.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+    $FrontendPath = Join-Path $ProjectRoot "frontend-new"
     
     if (Test-Path $FrontendPath) {
         Move-Item -Path $FrontendPath -Destination $FrontendBackup -Force
         Write-Log "  → Текущий frontend сохранен: $FrontendBackup" $ColorWarning
     }
     
-    $FrontendSrc = Join-Path $TempDir "frontend"
+    $FrontendSrc = Join-Path $TempDir "frontend-new"
     Copy-Item -Path $FrontendSrc -Destination $FrontendPath -Recurse -Force
     Write-Log "✅ Frontend восстановлен" $ColorSuccess
 }
@@ -183,7 +183,7 @@ if (-not $SkipInstall) {
     
     if (-not $Backend -or $Frontend) {
         Write-Log "  → Frontend npm install..." $ColorInfo
-        Push-Location (Join-Path $ProjectRoot "frontend")
+        Push-Location (Join-Path $ProjectRoot "frontend-new")
         npm install --silent 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
             Write-Log "  ✅ Frontend dependencies installed" $ColorSuccess

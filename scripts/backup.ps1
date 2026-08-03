@@ -43,10 +43,10 @@ New-Item -ItemType Directory -Path $TempBackupPath | Out-Null
 
 Write-Log "📦 Копирование файлов..." $ColorInfo
 
-# Копировать frontend
+# Копировать frontend-new
 Write-Log "  → Frontend..." $ColorInfo
-$FrontendSrc = Join-Path $ProjectRoot "frontend"
-$FrontendDst = Join-Path $TempBackupPath "frontend"
+$FrontendSrc = Join-Path $ProjectRoot "frontend-new"
+$FrontendDst = Join-Path $TempBackupPath "frontend-new"
 
 if ($IncludeNodeModules) {
     Copy-Item -Path $FrontendSrc -Destination $FrontendDst -Recurse -Force

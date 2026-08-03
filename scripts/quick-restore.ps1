@@ -112,17 +112,17 @@ try {
 
 # Restore Frontend
 if (-not $BackendOnly) {
-    Write-Host "[INFO] Restoring frontend..." -ForegroundColor Cyan
+    Write-Host "[INFO] Restoring frontend-new..." -ForegroundColor Cyan
     
-    $FrontendBackup = Join-Path $ProjectRoot "frontend.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-    $FrontendPath = Join-Path $ProjectRoot "frontend"
+    $FrontendBackup = Join-Path $ProjectRoot "frontend-new.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+    $FrontendPath = Join-Path $ProjectRoot "frontend-new"
     
     if (Test-Path $FrontendPath) {
         Move-Item -Path $FrontendPath -Destination $FrontendBackup -Force -ErrorAction SilentlyContinue
         Write-Host "[INFO] Current frontend backed up to: $FrontendBackup" -ForegroundColor Yellow
     }
     
-    $FrontendSrc = Join-Path $TempDir "frontend"
+    $FrontendSrc = Join-Path $TempDir "frontend-new"
     Copy-Item -Path $FrontendSrc -Destination $FrontendPath -Recurse -Force
     Write-Host "[SUCCESS] Frontend restored" -ForegroundColor Green
 }
@@ -164,7 +164,7 @@ Write-Host "[INFO] Installing dependencies..." -ForegroundColor Cyan
 
 if (-not $BackendOnly) {
     Write-Host "[INFO] Frontend npm install..." -ForegroundColor Cyan
-    Push-Location (Join-Path $ProjectRoot "frontend")
+    Push-Location (Join-Path $ProjectRoot "frontend-new")
     npm install --silent 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "[SUCCESS] Frontend dependencies installed" -ForegroundColor Green

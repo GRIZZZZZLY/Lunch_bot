@@ -22,7 +22,9 @@
     "test:e2e:production": "playwright test --config=playwright.production.config.ts",
     "test:e2e:ui": "playwright test --ui --project=mobile-chromium",
     "ui-tour": "playwright test --config=playwright.tour.config.ts",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "lighthouse": "lhci autorun",
+    "size:check": "node scripts/check-bundle-size.mjs"
   },
   "dependencies": {
     "@sentry/react": "^10.49.0",
@@ -35,6 +37,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^10.0.1",
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
