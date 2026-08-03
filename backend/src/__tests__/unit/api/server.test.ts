@@ -66,11 +66,49 @@ type ServerModule = typeof import('../../../api/server');
 let frontendDir: string;
 let existsSpy: jest.SpyInstance;
 
-function loadServer(): ServerModule {
+/* Сервер читает конфигурацию при импорте, поэтому под разные наборы переменных
+   окружения нужен свой экземпляр модуля. Но каждый isolateModules заново тянет
+   весь граф приложения (helmet, роуты, Prisma), а под `--coverage` он ещё и
+   инструментируется — 26 загрузок в этом файле давали минуты и падение по
+   таймауту на загруженной машине. Кэшируем по тем переменным, которые сервер и
+   api.config действительно читают: наборов остаётся единицы вместо 26. */
+const SERVER_ENV_KEYS = [
+  'NODE_ENV',
+  'FRONTEND_DIR',
+  'CSP_REPORT_URI',
+  'TRUST_PROXY',
+  'API_BODY_LIMIT',
+  'ENABLE_RATE_LIMIT',
+  'API_PORT',
+  'API_REQUEST_TIMEOUT_MS',
+  'API_HEADERS_TIMEOUT_MS',
+  'API_KEEP_ALIVE_TIMEOUT_MS',
+] as const;
+
+const serverModuleCache = new Map<string, ServerModule>();
+
+/**
+ * Загрузка в обход кэша. Нужна там, где проверяется побочный эффект самой
+ * загрузки: у изолированного модуля свой экземпляр мока логгера, и переиспользо-
+ * ванный модуль пишет в тот, который тест уже не видит.
+ */
+function loadServerFresh(): ServerModule {
   let mod: ServerModule = null as unknown as ServerModule;
   jest.isolateModules(() => {
     mod = require('../../../api/server');
   });
+  return mod;
+}
+
+function loadServer(): ServerModule {
+  const key = SERVER_ENV_KEYS.map(name => `${name}=${process.env[name]}`).join(
+    '\n'
+  );
+  const cached = serverModuleCache.get(key);
+  if (cached) return cached;
+
+  const mod = loadServerFresh();
+  serverModuleCache.set(key, mod);
   return mod;
 }
 
@@ -364,7 +402,7 @@ describe('createApiServer', () => {
   it('в продакшене тестовые эндпоинты не подключаются', () => {
     const { logger } = jest.requireMock('../../../utils/logger');
     process.env.NODE_ENV = 'production';
-    const { createApiServer } = loadServer();
+    const { createApiServer } = loadServerFresh();
 
     createApiServer();
 
@@ -375,7 +413,7 @@ describe('createApiServer', () => {
 
   it('вне продакшена тестовые эндпоинты подключаются', () => {
     const { logger } = jest.requireMock('../../../utils/logger');
-    const { createApiServer } = loadServer();
+    const { createApiServer } = loadServerFresh();
 
     createApiServer();
 
