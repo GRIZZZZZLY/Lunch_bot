@@ -172,6 +172,92 @@ jobs:
           HEALTH_URL: ${{ vars.PUBLIC_HEALTH_URL || 'https://rocketlunch.dpdns.org/health' }}
         run: curl --fail --silent --show-error --retry 5 --retry-delay 5 "$HEALTH_URL"
 
+      # Каждый релиз — отдельный worktree со своими node_modules, ~800 МБ.
+      # Ничего не удалялось, и три релиза занимали 3.3 ГБ; без чистки диск
+      # кончается за несколько десятков деплоев.
+      #
+      # Шаг идёт ПОСЛЕ health-проверки: пока новый релиз не подтверждён, старые
+      # трогать нельзя — они и есть цель откота.
+      #
+      # continue-on-error обязателен. Job деплоя завершился успехом, релиз уже
+      # живой; падение уборки не должно запускать job rollback и откатывать
+      # здоровый релиз. Причина видна в логе шага.
+      - name: Prune old releases
+        continue-on-error: true
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PATH: ${{ secrets.SERVER_PATH }}
+          KEEP_RELEASES: ${{ vars.KEEP_RELEASES || 3 }}
+        run: |
+          ssh "$SERVER_USER@$SERVER_HOST" bash -s -- \
+            "$SERVER_PATH" "$KEEP_RELEASES" <<'ENDSSH'
+          set -uo pipefail
+
+          repository=$1
+          keep=${2:-3}
+
+          release_root="${repository%/}-releases"
+          current_link="$release_root/current"
+          previous_file="$release_root/.previous-release"
+
+          if [ ! -d "$release_root" ]; then
+            echo "No release root at $release_root, nothing to prune"
+            exit 0
+          fi
+
+          current=$(readlink -f "$current_link" 2>/dev/null || true)
+          previous_raw=$(cat "$previous_file" 2>/dev/null || true)
+          previous=$(readlink -f "$previous_raw" 2>/dev/null || true)
+
+          echo "current : ${current:-<none>}"
+          echo "previous: ${previous:-<none>}"
+          echo "keep    : $keep"
+
+          # Собираем список заранее, а не через вложенный heredoc: внутри
+          # heredoc'а этого шага ещё один heredoc зависел бы от отступов YAML.
+          releases=$(find "$release_root" -mindepth 1 -maxdepth 1 -type d \
+            -printf '%T@\t%p\n' | sort -rn | cut -f2-)
+
+          kept=0
+          removed=0
+
+          while IFS= read -r dir; do
+            [ -n "$dir" ] || continue
+            name=$(basename "$dir")
+
+            # Удаляем только каталоги релизов: имя — ровно 40 hex-символов.
+            # Всё остальное рядом (и сам симлинк current) не наше дело.
+            if [ ${#name} -ne 40 ] \
+              || [ -n "$(printf '%s' "$name" | tr -d '0-9a-f')" ]; then
+              echo "skip (not a release dir): $dir"
+              continue
+            fi
+
+            if [ "$dir" = "$current" ] || [ "$dir" = "$previous" ]; then
+              kept=$((kept + 1))
+              echo "keep (active): $dir"
+              continue
+            fi
+
+            if [ "$kept" -lt "$keep" ]; then
+              kept=$((kept + 1))
+              echo "keep (recent): $dir"
+              continue
+            fi
+
+            removed=$((removed + 1))
+            echo "remove: $dir"
+            if ! git -C "$repository" worktree remove --force "$dir" 2>/dev/null; then
+              rm -rf -- "$dir" || echo "warn: could not remove $dir"
+            fi
+          done <<< "$releases"
+
+          echo "kept: $kept, removed: $removed"
+          git -C "$repository" worktree prune 2>/dev/null || true
+          df -h "$repository" | tail -1
+          ENDSSH
+
   rollback:
     name: Restore previous release
     runs-on: ubuntu-latest
