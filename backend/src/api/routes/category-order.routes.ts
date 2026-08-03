@@ -1,9 +1,7 @@
 import express from 'express';
 import { CategoryOrderController } from '../controllers/category-order.controller';
-import {
-  telegramAuthMiddleware,
-  adminMiddleware,
-} from '../middleware/telegram-auth';
+import { telegramAuthMiddleware } from '../middleware/telegram-auth';
+import { groupAdminMiddleware } from '../middleware/group-admin';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
 import { writeLimiter } from '../middleware/rate-limiter';
 
@@ -117,12 +115,13 @@ router.put(
 
 /**
  * GET /api/order-items/:id/edit-history
- * Get edit history (admin only)
+ * История правок позиции: данные группы, поэтому право даёт роль в группе.
+ * groupAdminMiddleware ждёт groupId в params, query или теле запроса.
  */
 router.get(
   '/order-items/:id/edit-history',
   telegramAuthMiddleware,
-  adminMiddleware,
+  groupAdminMiddleware,
   CategoryOrderController.getEditHistory
 );
 

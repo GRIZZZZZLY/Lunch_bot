@@ -253,45 +253,11 @@ export async function telegramAuthMiddleware(
   }
 }
 
-/**
- * Middleware для проверки админских прав
- */
-export async function adminMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const user = (req as any).user;
-
-    if (!user) {
-      res.status(401).json({
-        success: false,
-        error: 'User not authenticated',
-        code: 'NOT_AUTHENTICATED',
-      });
-      return;
-    }
-
-    if (!user.isAdmin) {
-      res.status(403).json({
-        success: false,
-        error: 'Admin access required',
-        code: 'ACCESS_DENIED',
-      });
-      return;
-    }
-
-    next();
-  } catch (error) {
-    logger.error('Admin middleware error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR',
-    });
-  }
-}
+/* adminMiddleware удалён вместе с понятием глобального администратора.
+   Права на ресурс группы даёт роль в group_members — groupAdminMiddleware;
+   служебные операции уровня инстанса (метрики, сезоны, квесты) закрыты
+   отдельным секретом — operationsApiMiddleware. Флаг users.is_admin больше не
+   участвует ни в одной проверке доступа. */
 
 /**
  * Middleware для валидации Telegram initData в теле запроса

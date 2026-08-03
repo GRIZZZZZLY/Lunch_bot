@@ -14,10 +14,7 @@ import {
   awardXP,
   recalculateRatings,
 } from '../controllers/gamification.controller';
-import {
-  adminMiddleware,
-  telegramAuthMiddleware,
-} from '../middleware/telegram-auth';
+import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
 import { operationsApiMiddleware } from '../middleware/operations-api';
 import { writeLimiter } from '../middleware/rate-limiter';
@@ -43,7 +40,6 @@ router.get('/leaderboard', getLeaderboard);
 // Admin routes
 router.post(
   '/admin/award-xp',
-  adminMiddleware,
   operationsApiMiddleware,
   writeLimiter,
   gamificationMutationIdempotency,
@@ -51,7 +47,6 @@ router.post(
 );
 router.post(
   '/admin/recalculate-ratings',
-  adminMiddleware,
   operationsApiMiddleware,
   writeLimiter,
   gamificationMutationIdempotency,

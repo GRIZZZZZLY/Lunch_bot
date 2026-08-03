@@ -1,9 +1,6 @@
 import { Router } from 'express';
 import { SeasonController } from '../controllers/season.controller';
-import {
-  adminMiddleware,
-  telegramAuthMiddleware,
-} from '../middleware/telegram-auth';
+import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
 import { operationsApiMiddleware } from '../middleware/operations-api';
 import { writeLimiter } from '../middleware/rate-limiter';
@@ -59,7 +56,6 @@ router.get(
 router.post(
   '/rotate',
   telegramAuthMiddleware,
-  adminMiddleware,
   operationsApiMiddleware,
   writeLimiter,
   seasonMutationIdempotency,
@@ -70,7 +66,6 @@ router.post(
 router.post(
   '/create',
   telegramAuthMiddleware,
-  adminMiddleware,
   operationsApiMiddleware,
   writeLimiter,
   seasonMutationIdempotency,

@@ -2,10 +2,8 @@ import express, { Router } from 'express';
 import request from 'supertest';
 import healthRoutes from '../../../api/routes/health.routes';
 import metricsRoutes from '../../../api/routes/metrics.routes';
-import {
-  adminMiddleware,
-  telegramAuthMiddleware,
-} from '../../../api/middleware/telegram-auth';
+import { telegramAuthMiddleware } from '../../../api/middleware/telegram-auth';
+import { operationsApiMiddleware } from '../../../api/middleware/operations-api';
 import { getSSEConnectionCount } from '../../../api/controllers/sse.controller';
 import { prisma } from '../../../database/client';
 import { metricsService } from '../../../services/metrics.service';
@@ -26,7 +24,10 @@ jest.mock('../../../services/metrics.service', () => ({
 
 jest.mock('../../../api/middleware/telegram-auth', () => ({
   telegramAuthMiddleware: jest.fn((_req, _res, next) => next()),
-  adminMiddleware: jest.fn((_req, _res, next) => next()),
+}));
+
+jest.mock('../../../api/middleware/operations-api', () => ({
+  operationsApiMiddleware: jest.fn((_req, _res, next) => next()),
 }));
 
 jest.mock('../../../api/controllers/sse.controller', () => ({
@@ -59,9 +60,12 @@ const mockedGetSSEConnectionCount =
   getSSEConnectionCount as jest.MockedFunction<typeof getSSEConnectionCount>;
 const mockedTelegramAuthMiddleware =
   telegramAuthMiddleware as jest.MockedFunction<typeof telegramAuthMiddleware>;
-const mockedAdminMiddleware = adminMiddleware as jest.MockedFunction<
-  typeof adminMiddleware
->;
+/* Метрики относятся к инстансу, а не к группе, поэтому закрыты отдельным
+   секретом, а не бывшим глобальным флагом администратора. */
+const mockedOperationsMiddleware =
+  operationsApiMiddleware as jest.MockedFunction<
+    typeof operationsApiMiddleware
+  >;
 
 const baseMetrics = {
   activePolls: 2,
@@ -126,14 +130,14 @@ describe('monitoring routes', () => {
   describe('metrics routes', () => {
     const app = createRouteApp('/api/metrics', metricsRoutes);
 
-    it('returns current metrics through telegram and admin middleware', async () => {
+    it('returns current metrics behind auth and the operations secret', async () => {
       mockedMetricsService.collectMetrics.mockResolvedValue(baseMetrics);
 
       const response = await request(app).get('/api/metrics').expect(200);
 
       expect(response.body).toEqual(baseMetrics);
       expect(mockedTelegramAuthMiddleware).toHaveBeenCalled();
-      expect(mockedAdminMiddleware).toHaveBeenCalled();
+      expect(mockedOperationsMiddleware).toHaveBeenCalled();
     });
 
     it('returns detailed metrics combined with the latest in-memory counters', async () => {

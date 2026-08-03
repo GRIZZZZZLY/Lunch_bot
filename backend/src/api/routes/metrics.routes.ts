@@ -1,13 +1,19 @@
 import { Router } from 'express';
 import { metricsService } from '../../services/metrics.service';
 import { logger } from '../../utils/logger';
-import { adminMiddleware, telegramAuthMiddleware } from '../middleware/telegram-auth';
+import { telegramAuthMiddleware } from '../middleware/telegram-auth';
+import { operationsApiMiddleware } from '../middleware/operations-api';
 import { getSSEConnectionCount } from '../controllers/sse.controller';
 
 const router = Router();
 
+/* Метрики относятся к инстансу целиком, а не к какой-либо группе, поэтому
+   «администратор группы» здесь ничего не выражает. Прежний глобальный флаг
+   users.is_admin отменён как понятие, и служебные операции закрыты отдельным
+   секретом: ENABLE_OPERATIONS_API=true плюс заголовок X-Operations-Secret.
+   Из интерфейса эти маршруты не вызываются — только с сервера. */
 router.use(telegramAuthMiddleware);
-router.use(adminMiddleware);
+router.use(operationsApiMiddleware);
 
 /**
  * GET /api/metrics

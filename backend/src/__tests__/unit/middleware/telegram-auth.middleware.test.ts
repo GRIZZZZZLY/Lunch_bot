@@ -14,7 +14,6 @@
  */
 import {
   telegramAuthMiddleware,
-  adminMiddleware,
   validateInitDataMiddleware,
   optionalAuthMiddleware,
 } from '../../../api/middleware/telegram-auth';
@@ -405,56 +404,10 @@ describe('telegramAuthMiddleware — режим обхода подписи', ()
   });
 });
 
-describe('adminMiddleware', () => {
-  it('админа пропускает', async () => {
-    const next = jest.fn();
-
-    await adminMiddleware(
-      mockRequest({ user: { id: 1, isAdmin: true } }),
-      mockResponse(),
-      next
-    );
-
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('без аутентификации — 401', async () => {
-    const res = mockResponse();
-    const next = jest.fn();
-
-    await adminMiddleware(mockRequest(), res, next);
-
-    expect(res.statusCode).toBe(401);
-    expect(res.body).toMatchObject({ code: 'NOT_AUTHENTICATED' });
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it('обычному пользователю — 403', async () => {
-    const res = mockResponse();
-    const next = jest.fn();
-
-    await adminMiddleware(
-      mockRequest({ user: { id: 1, isAdmin: false } }),
-      res,
-      next
-    );
-
-    expect(res.statusCode).toBe(403);
-    expect(res.body).toMatchObject({ code: 'ACCESS_DENIED' });
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it('неожиданная ошибка — 500', async () => {
-    const res = mockResponse();
-    (res.status as jest.Mock).mockImplementationOnce(() => {
-      throw new Error('response broken');
-    });
-
-    await adminMiddleware(mockRequest(), res, jest.fn());
-
-    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
-  });
-});
+/* Тесты adminMiddleware удалены вместе с самим middleware: понятия глобального
+   администратора больше нет. Права на ресурс группы проверяет
+   groupAdminMiddleware (см. middleware/guards.test.ts), служебные операции —
+   operationsApiMiddleware там же. */
 
 describe('validateInitDataMiddleware', () => {
   it('валидный initData кладёт данные Telegram в запрос', async () => {

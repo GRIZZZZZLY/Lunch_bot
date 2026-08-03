@@ -1,9 +1,7 @@
 import express from 'express';
 import { pollController } from '../controllers/poll.controller';
-import {
-  telegramAuthMiddleware,
-  adminMiddleware,
-} from '../middleware/telegram-auth';
+import { telegramAuthMiddleware } from '../middleware/telegram-auth';
+import { groupAdminMiddleware } from '../middleware/group-admin';
 import {
   voteLimiter,
   pollCreationLimiter,
@@ -64,10 +62,13 @@ router.get(
  * GET /api/polls/user-stats/:userId
  * Получение статистики конкретного пользователя (только админы)
  */
+/* Статистика чужого человека — данные его группы, поэтому право на неё даёт
+   роль в группе, а не бывший глобальный флаг. groupAdminMiddleware ждёт groupId
+   в params, query или теле запроса. */
 router.get(
   '/user-stats/:userId',
   telegramAuthMiddleware,
-  adminMiddleware,
+  groupAdminMiddleware,
   pollController.getUserStatsByUserId
 );
 
