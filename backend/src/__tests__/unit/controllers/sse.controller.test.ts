@@ -232,12 +232,15 @@ describe('GET /api/polls/:pollId/stream', () => {
     expect(getSSEConnectionCount().total).toBe(0);
   });
 
-  it('глобальный админ подключается без проверки членства', async () => {
+  /* Поток событий голосования — данные группы. Прежний обход по глобальному
+     флагу удалён: не участник не подключается, кем бы он ни был. */
+  it('не участник не подключается, даже с прежним глобальным флагом', async () => {
     groupService.isUserGroupMember.mockResolvedValue(false);
     const { res } = await openPollStream({ user: { id: 9, isAdmin: true } });
 
-    expect(res.statusCode).toBe(200);
-    expect(groupService.isUserGroupMember).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(403);
+    expect(groupService.isUserGroupMember).toHaveBeenCalled();
+    expect(getSSEConnectionCount().total).toBe(0);
   });
 
   it('шестое соединение одного пользователя отклоняется с Retry-After', async () => {

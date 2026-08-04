@@ -156,13 +156,17 @@ describe('GET /api/polls/active', () => {
     expect(body.data[0].endTime).toBe('2026-08-02T12:30:00.000Z');
   });
 
-  it('для глобального админа не ограничивает выборку группами', async () => {
+  /* Прежде глобальный флаг давал undefined — «фильтра нет, видно всё». Понятия
+     глобального администратора больше нет: выборка всегда сужается до групп
+     самого человека, и у того, кто ни в одной группе не состоит, она пустая. */
+  it('выборка сужается до групп человека, даже с прежним флагом', async () => {
     pollService.getActivePolls.mockResolvedValue([]);
+    groupService.getGroupsForUser.mockResolvedValue([] as never);
 
     await PollController.getActivePolls(adminRequest(), mockResponse());
 
-    expect(pollService.getActivePolls).toHaveBeenCalledWith(undefined);
-    expect(groupService.getGroupsForUser).not.toHaveBeenCalled();
+    expect(groupService.getGroupsForUser).toHaveBeenCalled();
+    expect(pollService.getActivePolls).toHaveBeenCalledWith([]);
   });
 
   it('обычному пользователю показывает только его группы, без дублей', async () => {
@@ -250,7 +254,8 @@ describe('GET /api/polls/history', () => {
 
     await PollController.getPollHistory(adminRequest(), mockResponse());
 
-    expect(pollService.getPollHistory).toHaveBeenCalledWith(undefined, 20, 0);
+    // Список групп человека, а не undefined: обход по глобальному флагу удалён.
+    expect(pollService.getPollHistory).toHaveBeenCalledWith([], 20, 0);
   });
 
   it('с groupId проверяет членство и запрашивает историю одной группы', async () => {
@@ -532,7 +537,8 @@ describe('GET /api/polls/stats', () => {
     await PollController.getPollStats(adminRequest(), res);
 
     expect(res.body).toMatchObject({ success: true, data: { total: 3 } });
-    expect(pollService.getPollStats).toHaveBeenCalledWith(undefined);
+    // Группы человека, а не «все»: глобального администратора больше нет.
+    expect(pollService.getPollStats).toHaveBeenCalledWith([]);
   });
 
   it('с groupId сужает выборку после проверки членства', async () => {

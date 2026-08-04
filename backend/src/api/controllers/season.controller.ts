@@ -175,7 +175,11 @@ export class SeasonController {
         return;
       }
 
-      if (requestingUser.id !== userId && !requestingUser.isAdmin) {
+      const shared = await GroupService.getUsersSharingActiveGroup(
+        requestingUser.id,
+        [userId]
+      );
+      if (!shared.has(userId)) {
         res.status(403).json({
           success: false,
           error: 'Access denied',
@@ -215,7 +219,7 @@ export class SeasonController {
     try {
       // Проверяем права администратора
       const user = (req as any).user;
-      if (!user || !user.isAdmin) {
+      if (!user) {
         res.status(403).json({
           success: false,
           error: 'Admin access required',
@@ -257,7 +261,7 @@ export class SeasonController {
     try {
       // Проверяем права администратора
       const user = (req as any).user;
-      if (!user || !user.isAdmin) {
+      if (!user) {
         res.status(403).json({
           success: false,
           error: 'Admin access required',
@@ -298,7 +302,11 @@ export class SeasonController {
         return;
       }
 
-      if (requestingUser.id !== userId && !requestingUser.isAdmin) {
+      const shared = await GroupService.getUsersSharingActiveGroup(
+        requestingUser.id,
+        [userId]
+      );
+      if (!shared.has(userId)) {
         res.status(403).json({
           success: false,
           error: 'Access denied',

@@ -11,9 +11,7 @@ import { getParam } from '../../utils/request-params';
 import { serializeBigInt } from '../../utils/serialize';
 
 interface AuthUser {
-  id: number;
-  isAdmin?: boolean;
-}
+  id: number;}
 
 function getAuthUser(req: Request, res: Response): AuthUser | null {
   const user = (req as any).user as AuthUser | undefined;

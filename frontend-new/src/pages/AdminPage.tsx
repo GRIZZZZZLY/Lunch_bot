@@ -6,8 +6,7 @@ import { UserManagementCard } from '@/components/admin/UserManagementCard';
 import { DebtManagementCard } from '@/components/admin/DebtManagementCard';
 import { DataCleanupCard } from '@/components/admin/DataCleanupCard';
 import { ReminderSettingsCard } from '@/components/admin/ReminderSettingsCard';
-import { useAuth } from '@/hooks/useAuth';
-import { getAdminGroups, isGlobalAdmin } from '@/lib/permissions';
+import { getAdminGroups } from '@/lib/permissions';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { PROFILE_HISTORY_LIMIT, useMyGroups, usePollHistory } from '@/hooks/useUser';
 import { useToast } from '@/hooks/useToast';
@@ -46,7 +45,6 @@ const QUICK_ICON: Record<string, IconName> = {
 export function AdminPage() {
   const navigate = useNavigate();
   const groupId = useAppStore((s) => s.currentGroupId);
-  const { user } = useAuth();
   const { data: myGroups = [] } = useMyGroups();
   const toast = useToast();
   useScreenHeader('Управление');
@@ -75,8 +73,8 @@ export function AdminPage() {
     [activePolls, history, menuItems],
   );
 
-  const adminGroups = useMemo(() => getAdminGroups(user, myGroups), [user, myGroups]);
-  const isAdmin = isGlobalAdmin(user) || adminGroups.length > 0;
+  const adminGroups = useMemo(() => getAdminGroups(myGroups), [myGroups]);
+  const isAdmin = adminGroups.length > 0;
   const activeGroup = useMemo(
     () => myGroups.find((g) => String(g.id) === groupId),
     [myGroups, groupId],

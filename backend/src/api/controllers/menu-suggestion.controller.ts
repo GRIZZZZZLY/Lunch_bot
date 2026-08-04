@@ -190,7 +190,6 @@ export async function getSuggestionById(
   try {
     const id = getParam(req.params, 'id');
     const userId = req.user?.id;
-    const isAdmin = req.user?.isAdmin;
 
     if (!userId) {
       res.status(401).json({
@@ -216,8 +215,20 @@ export async function getSuggestionById(
       return;
     }
 
-    // Обычные пользователи видят только свои предложения
-    if (!isAdmin && suggestion.suggestedBy !== userId) {
+    /* Раньше здесь пускал глобальный флаг users.is_admin, тогда как список
+       предложений (getSuggestions) уже спрашивал роль в группе. Две системы
+       прав на одном ресурсе расходились молча: администратор группы без
+       глобального флага видел очередь модерации, но получал 403 на любом чужом
+       предложении, а глобальный администратор без членства читал предложения
+       ЛЮБОЙ группы — groupId в этом пути не проверялся вовсе.
+       Теперь источник один: своё предложение или роль администратора в группе
+       этого предложения. */
+    const moderates = await GroupService.isUserGroupAdmin(
+      userId,
+      suggestion.groupId
+    );
+
+    if (!moderates && suggestion.suggestedBy !== userId) {
       res.status(403).json({
         success: false,
         error: 'Forbidden',

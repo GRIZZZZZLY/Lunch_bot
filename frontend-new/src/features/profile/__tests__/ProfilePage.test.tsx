@@ -157,15 +157,21 @@ describe('ProfilePage — система C', () => {
     expect(screen.queryByText('Управление')).not.toBeInTheDocument();
   });
 
-  it('админ видит «Управление» и переходит в /admin', () => {
-    h.state.user = { id: 1, firstName: 'Игорь', isAdmin: true };
+  /* Прежде «Управление» открывал глобальный флаг user.isAdmin. Такого понятия
+     больше нет: ссылку показывает только роль ADMIN или CREATOR в группе. */
+  it('админ группы видит «Управление» и переходит в /admin', () => {
+    h.state.groups = [
+      { id: 1, title: 'Команда', isActive: true, role: 'ADMIN' },
+    ];
     render(<ProfilePage />);
     fireEvent.click(screen.getByText('Управление'));
     expect(h.navigate).toHaveBeenCalledWith('/admin');
   });
 
-  it('групповой админ видит «Управление»', () => {
-    h.state.groups = [{ id: 1, title: 'Команда', isActive: true, role: 'ADMIN' }];
+  it('создателю группы «Управление» тоже доступно', () => {
+    h.state.groups = [
+      { id: 1, title: 'Команда', isActive: true, role: 'CREATOR' },
+    ];
     render(<ProfilePage />);
     expect(screen.getByText('Управление')).toBeInTheDocument();
   });

@@ -15,7 +15,7 @@ import { serializeBigInt as serializeData } from '../../utils/serialize';
  */
 async function requirePollAccess(
   res: Response,
-  user: { id?: number; isAdmin?: boolean } | undefined,
+  user: { id?: number } | undefined,
   pollId: number
 ): Promise<boolean> {
   if (!user?.id) {

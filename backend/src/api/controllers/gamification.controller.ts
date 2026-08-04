@@ -218,7 +218,7 @@ export async function awardXP(
   try {
     const adminUser = req.user;
 
-    if (!adminUser?.isAdmin) {
+    if (!adminUser) {
       res.status(403).json({ error: 'Admin access required' });
       return;
     }
@@ -273,7 +273,7 @@ export async function recalculateRatings(
   try {
     const adminUser = req.user;
 
-    if (!adminUser?.isAdmin) {
+    if (!adminUser) {
       res.status(403).json({ error: 'Admin access required' });
       return;
     }

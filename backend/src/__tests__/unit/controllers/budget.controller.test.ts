@@ -760,8 +760,11 @@ describe('GET /api/budget/poll-totals/:pollId', () => {
     expect(service.calculateTotals).not.toHaveBeenCalled();
   });
 
-  it('глобальный админ проходит без проверки членства', async () => {
-    service.calculateTotals.mockResolvedValue({ total: 0 });
+  /* Прежде здесь глобальный флаг открывал бюджет любой группы. Понятия
+     глобального администратора больше нет: членство проверяется всегда, и
+     чужой человек с любым флагом получает 403. */
+  it('членство проверяется даже у того, кто прежде был глобальным админом', async () => {
+    groupService.isUserGroupMember.mockResolvedValue(false);
     const res = mockResponse();
 
     await controller.getPollTotals(
@@ -769,8 +772,9 @@ describe('GET /api/budget/poll-totals/:pollId', () => {
       res
     );
 
-    expect(groupService.isUserGroupMember).not.toHaveBeenCalled();
-    expect(res.statusCode).toBe(200);
+    expect(groupService.isUserGroupMember).toHaveBeenCalledWith(9, 100);
+    expect(res.statusCode).toBe(403);
+    expect(service.calculateTotals).not.toHaveBeenCalled();
   });
 
   it('ошибка сервиса — 500', async () => {

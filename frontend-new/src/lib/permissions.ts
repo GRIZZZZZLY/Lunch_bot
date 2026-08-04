@@ -1,29 +1,26 @@
-/* Единый критерий административных прав.
-   Глобальный User.isAdmin даёт права везде; роль ADMIN/CREATOR в группе — права
-   в этой группе. Страницы, где список групп не загружен, используют
-   isGlobalAdmin; переход на per-group критерий — вместе с явным group context
-   (фаза 5 плана миграции). */
-import type { User } from '@/types/models';
+/* Единый критерий административных прав: роль ADMIN или CREATOR в конкретной
+   группе, и ничего кроме.
+
+   Глобального администратора больше нет. Прежний `isGlobalAdmin` читал
+   User.isAdmin — колонку, которую сервер больше не присылает и не спрашивает ни
+   в одной проверке доступа. Пока она существовала, на одном ресурсе жили две
+   системы прав: интерфейс рисовал кнопки по глобальному флагу, а сервер
+   отвечал по роли в группе. Расхождение давало не ошибку, а пустой список или
+   403 на собственной очереди модерации. */
 import type { UserGroup } from '@/services/user.service';
-
-type UserLike = Pick<User, 'isAdmin'> | null | undefined;
-
-export function isGlobalAdmin(user: UserLike): boolean {
-  return !!user?.isAdmin;
-}
 
 export function isGroupAdminRole(role: string | null | undefined): boolean {
   const r = (role ?? '').toUpperCase();
   return r === 'ADMIN' || r === 'CREATOR';
 }
 
-export function isGroupAdmin(user: UserLike, group: Pick<UserGroup, 'role'> | null | undefined): boolean {
-  return isGlobalAdmin(user) || isGroupAdminRole(group?.role);
+export function isGroupAdmin(
+  group: Pick<UserGroup, 'role'> | null | undefined
+): boolean {
+  return isGroupAdminRole(group?.role);
 }
 
 /** Активные группы, в которых пользователь может выполнять админ-действия. */
-export function getAdminGroups(user: UserLike, groups: UserGroup[]): UserGroup[] {
-  const active = groups.filter((g) => g.isActive);
-  if (isGlobalAdmin(user)) return active;
-  return active.filter((g) => isGroupAdminRole(g.role));
+export function getAdminGroups(groups: UserGroup[]): UserGroup[] {
+  return groups.filter(g => g.isActive && isGroupAdminRole(g.role));
 }

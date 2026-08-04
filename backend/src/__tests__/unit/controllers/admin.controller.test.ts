@@ -1,9 +1,13 @@
 /**
- * Админ-панель группы. Здесь два разных права, и путать их нельзя:
- * читать статистику может глобальный админ, а МЕНЯТЬ (списать долг, снять
- * права, удалить старые голосования) — только админ конкретной группы.
- * Каждый мутирующий эндпоинт проверяется на то, что без прав группы сервис
- * не вызывается.
+ * Админ-панель группы. И чтение статистики, и изменения (списать долг, снять
+ * права, удалить старые голосования) требуют роли администратора в КОНКРЕТНОЙ
+ * группе. Каждый мутирующий эндпоинт проверяется на то, что без прав группы
+ * сервис не вызывается.
+ *
+ * Прежде чтение открывал ещё и глобальный флаг users.is_admin. Понятие удалено:
+ * две системы прав на одном ресурсе расходились молча — интерфейс рисовал
+ * кнопки по одному критерию, сервер отвечал по другому, и вместо ошибки человек
+ * получал пустой список.
  */
 import { AdminController } from '../../../api/controllers/admin.controller';
 import { GroupService } from '../../../services/group.service';
@@ -151,20 +155,11 @@ describe('определение группы', () => {
   });
 });
 
-describe('чтение: глобальный админ допускается', () => {
-  it('getAllUsers: глобальный админ читает без прав в группе', async () => {
-    groupService.isUserGroupAdmin.mockResolvedValue(false);
-    const res = mockResponse();
-
-    await controller.getAllUsers(
-      mockRequest({ user: GLOBAL_ADMIN, query: { groupId: '100' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(200);
-    expect(groupService.isUserGroupAdmin).not.toHaveBeenCalled();
-  });
-
+/* Прежде здесь проверялось, что глобальный флаг users.is_admin открывает
+   чтение любой группы. Такого понятия больше нет: и чтение, и запись выводятся
+   из одной роли в group_members, поэтому тесты «глобальный админ читает»
+   удалены — соседние «не админ группы — 403» покрывают правило целиком. */
+describe('чтение требует роль в группе', () => {
   it('getAllUsers: не админ группы — 403', async () => {
     groupService.isUserGroupAdmin.mockResolvedValue(false);
     const res = mockResponse();
@@ -749,16 +744,6 @@ describe('PUT /api/admin/polls/:pollId/participants/:userId', () => {
 describe('долги', () => {
   const query = { groupId: '100' };
 
-  it('список должников отдаётся глобальному админу', async () => {
-    groupService.isUserGroupAdmin.mockResolvedValue(false);
-    adminStub.getAllDebtors.mockResolvedValue([{ id: 1 }]);
-    const res = mockResponse();
-
-    await controller.getAllDebtors(mockRequest({ user: GLOBAL_ADMIN, query }), res);
-
-    expect(res.body).toMatchObject({ data: [{ id: 1 }] });
-  });
-
   it('список должников: не админ группы — 403', async () => {
     groupService.isUserGroupAdmin.mockResolvedValue(false);
     const res = mockResponse();
@@ -1022,15 +1007,6 @@ describe('очистка старых данных', () => {
     expect(res.statusCode).toBe(500);
   });
 
-  it('статистика очистки доступна глобальному админу', async () => {
-    groupService.isUserGroupAdmin.mockResolvedValue(false);
-    const res = mockResponse();
-
-    await controller.getCleanupStats(mockRequest({ user: GLOBAL_ADMIN, query }), res);
-
-    expect(res.body).toMatchObject({ data: { polls: 1 } });
-  });
-
   it('статистика очистки: не админ — 403', async () => {
     groupService.isUserGroupAdmin.mockResolvedValue(false);
     const res = mockResponse();
@@ -1113,18 +1089,6 @@ describe('настройки напоминаний', () => {
 
     expect(reminderStub.getReminderSettings).toHaveBeenCalledWith(100, 1);
     expect(res.body).toMatchObject({ data: { enabled: true } });
-  });
-
-  it('чтение доступно глобальному админу', async () => {
-    groupService.isUserGroupAdmin.mockResolvedValue(false);
-    const res = mockResponse();
-
-    await controller.getReminderSettings(
-      mockRequest({ user: GLOBAL_ADMIN, params }),
-      res
-    );
-
-    expect(res.statusCode).toBe(200);
   });
 
   it('чтение: нечисловой groupId — 400', async () => {
