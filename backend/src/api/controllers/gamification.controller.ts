@@ -180,10 +180,8 @@ export async function getLeaderboard(
       return;
     }
 
-    if (
-      !req.user?.isAdmin &&
-      !(await GroupService.isUserGroupMember(userId, groupId))
-    ) {
+    // Доступ решает членство в группе; глобального администратора больше нет.
+    if (!(await GroupService.isUserGroupMember(userId, groupId))) {
       res.status(403).json({
         success: false,
         error: 'Access denied',
@@ -220,7 +218,7 @@ export async function awardXP(
   try {
     const adminUser = req.user;
 
-    if (!adminUser?.isAdmin) {
+    if (!adminUser) {
       res.status(403).json({ error: 'Admin access required' });
       return;
     }
@@ -275,7 +273,7 @@ export async function recalculateRatings(
   try {
     const adminUser = req.user;
 
-    if (!adminUser?.isAdmin) {
+    if (!adminUser) {
       res.status(403).json({ error: 'Admin access required' });
       return;
     }

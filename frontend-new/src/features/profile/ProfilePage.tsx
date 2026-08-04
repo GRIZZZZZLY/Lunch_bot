@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { getAdminGroups, isGlobalAdmin, isGroupAdminRole } from '@/lib/permissions';
+import { getAdminGroups, isGroupAdminRole } from '@/lib/permissions';
 import { usePendingSuggestionsCount } from '@/hooks/useSuggestions';
 import {
   PROFILE_HISTORY_LIMIT,
@@ -49,7 +49,7 @@ export function ProfilePage() {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Гость';
   const handle = user?.username ? `@${user.username}` : 'Участник команды';
   const completed = history.filter((p) => p.status === 'COMPLETED').length;
-  const canManage = isGlobalAdmin(user) || getAdminGroups(user, myGroups).length > 0;
+  const canManage = getAdminGroups(myGroups).length > 0;
   const activeGroup = useMemo(
     () => myGroups.find((g) => String(g.id) === currentGroupId),
     [myGroups, currentGroupId],

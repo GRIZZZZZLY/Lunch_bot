@@ -15,7 +15,7 @@ import { serializeBigInt as serializeData } from '../../utils/serialize';
  */
 async function requirePollAccess(
   res: Response,
-  user: { id?: number; isAdmin?: boolean } | undefined,
+  user: { id?: number } | undefined,
   pollId: number
 ): Promise<boolean> {
   if (!user?.id) {
@@ -35,7 +35,9 @@ async function requirePollAccess(
       });
     return false;
   }
-  if (user.isAdmin) return true;
+  /* Прежде здесь глобальный флаг открывал бюджет любой группы. Понятия
+     глобального администратора больше нет: доступ решает членство в группе
+     голосования. */
   const isMember = await GroupService.isUserGroupMember(user.id, pollGroupId);
   if (!isMember) {
     res

@@ -22,7 +22,12 @@ jest.mock('../../../services/season.service', () => ({
 }));
 
 jest.mock('../../../services/group.service', () => ({
-  GroupService: { isUserGroupMember: jest.fn() },
+  GroupService: {
+    isUserGroupMember: jest.fn(),
+    /* Чужую статистику сезона показываем по общей активной группе — идиома
+       проекта вместо прежнего обхода по глобальному флагу users.is_admin. */
+    getUsersSharingActiveGroup: jest.fn(),
+  },
 }));
 
 jest.mock('../../../utils/logger', () => ({
@@ -39,6 +44,13 @@ const SEASON = { id: 3, name: 'Август 2026' };
 beforeEach(() => {
   jest.clearAllMocks();
   groupService.isUserGroupMember.mockResolvedValue(true);
+  /* Мок повторяет контракт настоящей функции: себя человек видит всегда,
+     остальных — только при общей активной группе. По умолчанию общей группы
+     нет, поэтому чужая статистика закрыта, а своя доступна. */
+  groupService.getUsersSharingActiveGroup.mockImplementation(
+    async (requestingUserId: number, targetIds: number[]) =>
+      new Set(targetIds.filter(id => id === requestingUserId))
+  );
 });
 
 describe('GET /api/seasons', () => {
@@ -225,7 +237,8 @@ describe('GET /api/seasons/:id/leaderboard', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('глобальный админ смотрит любой лидерборд', async () => {
+  /* Лидерборд группы виден её участникам. Обход по глобальному флагу удалён. */
+  it('лидерборд чужой группы закрыт и для прежнего глобального админа', async () => {
     groupService.isUserGroupMember.mockResolvedValue(false);
     const res = mockResponse();
 
@@ -234,7 +247,7 @@ describe('GET /api/seasons/:id/leaderboard', () => {
       res
     );
 
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(403);
   });
 
   it('ошибка сервиса — 500', async () => {
@@ -267,7 +280,7 @@ describe('GET /api/seasons/:id/stats/:userId', () => {
     expect(res.body).toMatchObject({ data: { xp: 250 } });
   });
 
-  it('чужую статистику видит только админ', async () => {
+  it('чужую статистику без общей группы не отдают', async () => {
     const res = mockResponse();
 
     await SeasonController.getUserSeasonStats(
@@ -279,11 +292,14 @@ describe('GET /api/seasons/:id/stats/:userId', () => {
     expect(seasons.getUserSeasonStats).not.toHaveBeenCalled();
   });
 
-  it('админ смотрит чужую статистику', async () => {
+  /* Право на чужую статистику даёт общая активная группа, а не прежний
+     глобальный флаг: людей из своей команды видно, посторонних — нет. */
+  it('статистику человека из общей группы посмотреть можно', async () => {
+    groupService.getUsersSharingActiveGroup.mockResolvedValue(new Set([2]));
     const res = mockResponse();
 
     await SeasonController.getUserSeasonStats(
-      mockRequest({ user: ADMIN, params: { id: '3', userId: '2' } }),
+      mockRequest({ user: USER, params: { id: '3', userId: '2' } }),
       res
     );
 
@@ -403,13 +419,17 @@ describe('POST /api/seasons/rotate', () => {
     expect(res.body).toMatchObject({ message: 'Season rotated successfully' });
   });
 
-  it('не админ — 403', async () => {
+  /* Сезон относится к инстансу целиком: в схеме у него нет groupId, поэтому
+     «администратор группы» тут ничего не выражает. Маршрут закрыт секретом
+     operationsApiMiddleware, а контроллер проверяет только аутентификацию —
+     прежняя проверка глобального флага удалена. */
+  it('аутентифицированный проходит: право даёт секрет на маршруте', async () => {
     const res = mockResponse();
 
     await SeasonController.rotateSeason(mockRequest({ user: USER }), res);
 
-    expect(res.statusCode).toBe(403);
-    expect(seasons.rotateSeason).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(seasons.rotateSeason).toHaveBeenCalled();
   });
 
   it('без аутентификации — 403', async () => {
@@ -449,13 +469,14 @@ describe('POST /api/seasons/create', () => {
     expect(res.body).toMatchObject({ message: 'Season created successfully' });
   });
 
-  it('не админ — 403', async () => {
+  /* Как и rotate: маршрут закрыт секретом Operations API. */
+  it('аутентифицированный проходит: право даёт секрет на маршруте', async () => {
     const res = mockResponse();
 
     await SeasonController.createMonthlySeason(mockRequest({ user: USER }), res);
 
-    expect(res.statusCode).toBe(403);
-    expect(seasons.createMonthlySeason).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(seasons.createMonthlySeason).toHaveBeenCalled();
   });
 
   it('ошибка сервиса — 500', async () => {

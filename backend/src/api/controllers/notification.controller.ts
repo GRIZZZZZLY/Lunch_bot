@@ -198,7 +198,6 @@ class NotificationController {
       }
 
       if (
-        !requestingUser.isAdmin &&
         !(await GroupService.isUserGroupMember(userId, groupId))
       ) {
         return res.status(403).json({

@@ -99,10 +99,8 @@ export class SSEController {
       return;
     }
 
-    if (
-      !user?.isAdmin &&
-      !(await GroupService.isUserGroupMember(user.id, pollGroupId))
-    ) {
+    // Поток событий голосования доступен участникам его группы.
+    if (!(await GroupService.isUserGroupMember(user.id, pollGroupId))) {
       res.status(403).json({
         success: false,
         error: 'Access denied',

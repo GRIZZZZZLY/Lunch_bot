@@ -91,7 +91,10 @@ describe('GET /api/insights/budget/:userId', () => {
     expect(insights.getBudgetInsights).not.toHaveBeenCalled();
   });
 
-  it('админ получает чужую аналитику', async () => {
+  /* Аналитика расходов — личные финансовые данные. Прежде их открывал
+     глобальный флаг; такого понятия больше нет, а роль в группе права на чужой
+     кошелёк не даёт. Доступ остался только к своим данным. */
+  it('чужую аналитику не отдают никому, включая прежнего админа', async () => {
     const res = mockResponse();
 
     await getBudgetInsightsByUserId(
@@ -99,7 +102,8 @@ describe('GET /api/insights/budget/:userId', () => {
       res
     );
 
-    expect(insights.getBudgetInsights).toHaveBeenCalledWith(2);
+    expect(res.statusCode).toBe(403);
+    expect(insights.getBudgetInsights).not.toHaveBeenCalled();
   });
 
   it('без аутентификации — 401', async () => {

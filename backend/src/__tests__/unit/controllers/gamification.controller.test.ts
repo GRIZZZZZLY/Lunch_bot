@@ -263,7 +263,8 @@ describe('GET /api/gamification/leaderboard', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('глобальный админ смотрит любой лидерборд', async () => {
+  /* Лидерборд группы виден её участникам. Обход по глобальному флагу удалён. */
+  it('лидерборд чужой группы закрыт и для прежнего глобального админа', async () => {
     groupService.isUserGroupMember.mockResolvedValue(false);
     const res = mockResponse();
 
@@ -272,7 +273,7 @@ describe('GET /api/gamification/leaderboard', () => {
       res
     );
 
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(403);
   });
 
   it('без аутентификации — 401', async () => {
@@ -339,13 +340,18 @@ describe('POST /api/gamification/admin/award-xp', () => {
     );
   });
 
-  it('не админ — 403', async () => {
+  /* Авторизацию этого маршрута делает operationsApiMiddleware: начисление XP,
+     сезоны и квесты относятся к инстансу целиком, groupId у них нет, и закрыты
+     они отдельным секретом X-Operations-Secret. Контроллер проверяет только
+     аутентификацию — прежняя проверка глобального флага удалена вместе с
+     понятием глобального администратора. */
+  it('аутентифицированный проходит: право даёт секрет на маршруте', async () => {
     const res = mockResponse();
 
     await awardXP(authRequest({ user: USER, body }), res);
 
-    expect(res.statusCode).toBe(403);
-    expect(gamification.awardXP).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(gamification.awardXP).toHaveBeenCalled();
   });
 
   it('без аутентификации — 403', async () => {
@@ -400,12 +406,14 @@ describe('POST /api/gamification/admin/recalculate-ratings', () => {
     });
   });
 
-  it('не админ — 403', async () => {
+  /* Как и award-xp: маршрут закрыт секретом Operations API, контроллер
+     проверяет только аутентификацию. */
+  it('аутентифицированный проходит: право даёт секрет на маршруте', async () => {
     const res = mockResponse();
 
     await recalculateRatings(authRequest({ user: USER, body: { userId: 2 } }), res);
 
-    expect(res.statusCode).toBe(403);
+    expect(res.statusCode).toBe(200);
   });
 
   it('без userId — 400', async () => {

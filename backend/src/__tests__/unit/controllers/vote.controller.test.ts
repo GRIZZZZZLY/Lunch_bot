@@ -337,7 +337,9 @@ describe('GET /api/votes/:pollId/user', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('глобальный админ читает чужую группу', async () => {
+  /* Чтение голосов чужой группы закрыто для всех: параметр allowGlobalRead и
+     обход по users.is_admin удалены вместе с понятием глобального админа. */
+  it('чужую группу не читает никто, включая прежнего глобального админа', async () => {
     groupService.isUserGroupMember.mockResolvedValue(false);
     const res = mockResponse();
 
@@ -346,8 +348,8 @@ describe('GET /api/votes/:pollId/user', () => {
       res
     );
 
-    expect(res.statusCode).toBe(200);
-    expect(groupService.isUserGroupMember).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(403);
+    expect(groupService.isUserGroupMember).toHaveBeenCalledWith(1, 100);
   });
 
   it('не участник и не админ — 403', async () => {

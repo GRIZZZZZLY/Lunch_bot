@@ -11,9 +11,7 @@ import { getParam } from '../../utils/request-params';
 import { serializeBigInt } from '../../utils/serialize';
 
 interface AuthUser {
-  id: number;
-  isAdmin?: boolean;
-}
+  id: number;}
 
 function getAuthUser(req: Request, res: Response): AuthUser | null {
   const user = (req as any).user as AuthUser | undefined;
@@ -98,10 +96,9 @@ async function getAccessibleGroupIds(
   const user = getAuthUser(req, res);
   if (!user) return null;
 
-  if (user.isAdmin) {
-    return undefined;
-  }
-
+  /* undefined означало «фильтра нет, видно всё» и выдавалось по глобальному
+     флагу. Теперь выборка всегда сужена до групп самого человека: администратор
+     отвечает за свою группу, а не за все. */
   const memberships = await GroupService.getGroupsForUser(user.id, true);
   const groupIds = memberships.map(member => member.groupId);
   return Array.from(new Set(groupIds));

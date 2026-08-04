@@ -350,7 +350,9 @@ describe('GET /api/notifications/cooldown/:groupId', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('глобальный админ смотрит cooldown любой группы', async () => {
+  /* Cooldown чужой группы больше не виден никому: обход по users.is_admin
+     удалён вместе с понятием глобального администратора. */
+  it('cooldown чужой группы закрыт и для прежнего глобального админа', async () => {
     groupService.isUserGroupMember.mockResolvedValue(false);
     const res = mockResponse();
 
@@ -359,7 +361,7 @@ describe('GET /api/notifications/cooldown/:groupId', () => {
       res
     );
 
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(403);
   });
 
   it('ошибка базы — 500', async () => {

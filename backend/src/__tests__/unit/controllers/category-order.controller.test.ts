@@ -139,7 +139,7 @@ describe('GET /api/polls/:pollId/category-orders', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('глобальный админ читает без членства', async () => {
+  it('без членства в группе — 403, кем бы человек ни был', async () => {
     prismaMock.groupMember.findUnique.mockResolvedValue(null);
     const res = mockResponse();
 
@@ -148,7 +148,7 @@ describe('GET /api/polls/:pollId/category-orders', () => {
       res
     );
 
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(403);
   });
 
   it('ошибка сервиса — 500', async () => {
@@ -288,7 +288,7 @@ describe('GET /api/category-orders/:id', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('глобальный админ видит любую категорию', async () => {
+  it('посторонний категорию не видит, прежний флаг не помогает', async () => {
     const res = mockResponse();
 
     await CategoryOrderController.getCategoryOrder(
@@ -296,7 +296,7 @@ describe('GET /api/category-orders/:id', () => {
       res
     );
 
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(403);
   });
 
   it('без аутентификации — 401', async () => {
@@ -598,7 +598,9 @@ describe('GET /api/category-orders/:id/progress', () => {
   it.each([
     ['ответственный', RESPONSIBLE],
     ['участник', PARTICIPANT],
-    ['глобальный админ', GLOBAL_ADMIN],
+    /* Прежнего глобального админа в списке больше нет: прогресс виден
+       ответственному и участникам категории, посторонний получает 403
+       (проверяется отдельным тестом ниже). */
   ])('%s видит прогресс', async (_label, user) => {
     const res = mockResponse();
 
@@ -691,7 +693,7 @@ describe('GET /api/category-orders/:id/participants', () => {
     expect(res.body).toMatchObject({ data: [{ id: 1 }] });
   });
 
-  it('глобальный админ тоже получает', async () => {
+  it('посторонний состав участников не получает', async () => {
     const res = mockResponse();
 
     await CategoryOrderController.getParticipants(
@@ -699,7 +701,7 @@ describe('GET /api/category-orders/:id/participants', () => {
       res
     );
 
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(403);
   });
 
   it('участник (не ответственный) — 403', async () => {
@@ -1136,7 +1138,12 @@ describe('GET /api/order-items/:id/edit-history', () => {
     expect(res.body).toMatchObject({ count: 1 });
   });
 
-  it('ответственный — 403 (история только для админа)', async () => {
+  /* Право на историю правок проверяет groupAdminMiddleware на маршруте — это
+     данные группы, и решает роль в ней. В контроллере осталась только проверка
+     аутентификации: дублировать авторизацию в двух местах значит рано или
+     поздно развести две проверки, что уже случилось с прежним глобальным
+     флагом. */
+  it('аутентифицированный проходит: право даёт мидлвара маршрута', async () => {
     const res = mockResponse();
 
     await CategoryOrderController.getEditHistory(
@@ -1144,8 +1151,8 @@ describe('GET /api/order-items/:id/edit-history', () => {
       res
     );
 
-    expect(res.statusCode).toBe(403);
-    expect(calculations.getEditHistory).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(calculations.getEditHistory).toHaveBeenCalledWith(7);
   });
 
   it('без аутентификации — 403', async () => {
@@ -1199,7 +1206,7 @@ describe('GET /api/category-orders/:id/order-items', () => {
     expect(res.body).toMatchObject({ count: 2 });
   });
 
-  it('глобальный админ видит позиции', async () => {
+  it('посторонний позиции не видит', async () => {
     const res = mockResponse();
 
     await CategoryOrderController.getOrderItems(
@@ -1207,7 +1214,7 @@ describe('GET /api/category-orders/:id/order-items', () => {
       res
     );
 
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(403);
   });
 
   it('участник — 403', async () => {

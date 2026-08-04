@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { getDeepLinkPollId } from '@/lib/telegram';
 import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
-import { getAdminGroups, isGlobalAdmin } from '@/lib/permissions';
+import { getAdminGroups } from '@/lib/permissions';
 import { queryKeys } from '@/lib/queryClient';
 import { isSameLocalDay } from '@/lib/date';
 import { daysToLabels, formatScheduleHint, labelsToDays, parseDaysOfWeek, parseNumberArray } from '@/lib/schedule';
@@ -220,8 +220,8 @@ export function HomePage() {
   }, [lastCompletedPoll, lastPollResult, allMenu, winnerIsFresh]);
 
   /* ---- создание голосования ---- */
-  const adminGroups = useMemo(() => getAdminGroups(user, myGroups), [myGroups, user]);
-  const canCreate = adminGroups.length > 0 || (isGlobalAdmin(user) && !!currentGroupId);
+  const adminGroups = useMemo(() => getAdminGroups(myGroups), [myGroups]);
+  const canCreate = adminGroups.length > 0;
   /* «Ждём админа» и «бота вообще нет в чате» — разные тупики: во втором
      ждать бессмысленно, и раньше пустой талон говорил новичку неправду. */
   const hasGroup = myGroups.length > 0 || !!currentGroupId;
