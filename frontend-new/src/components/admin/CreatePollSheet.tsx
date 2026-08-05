@@ -4,6 +4,7 @@ import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, Chip, Field, Switch } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
 import { DAY_LABELS } from '@/lib/schedule';
+import { formatPriceOrDash } from '@/shared/lib/money';
 
 const DURATION_CHIPS: { key: DurationOption; label: string }[] = [
   { key: '15m', label: '15 мин' },
@@ -300,7 +301,8 @@ function MenuRow({ item, on, disabled, onToggle }: { item: MenuItemOption; on: b
         <div style={{ fontSize: 'var(--text-15)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
         <div style={{ fontSize: 'var(--text-11)', color: 'var(--text-tertiary)' }} className="tnum">
           {item.restaurant ? `${item.restaurant} · ` : ''}
-          {item.price} ₽
+          {/* Без цены была строка «Столовая ·  ₽» — теперь прочерк. */}
+          {formatPriceOrDash(item.price)}
         </div>
       </div>
     </button>

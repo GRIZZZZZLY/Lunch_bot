@@ -86,7 +86,8 @@ export interface MenuItemOption {
   emoji: string;
   name: string;
   restaurant: string;
-  price: number;
+  /** null — блюдо без цены (`MenuItem.price` необязателен в схеме). */
+  price: number | null;
   iconTone?: MenuItemIconTone;
 }
 

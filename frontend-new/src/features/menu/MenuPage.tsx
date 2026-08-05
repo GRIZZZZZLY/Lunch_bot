@@ -19,7 +19,7 @@ import { Icon } from '@/components/rl/Icon';
 import { EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
 import { Button, IconButton, Switch } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
-import { formatPrice } from '@/shared/lib/money';
+import { formatPriceOrDash } from '@/shared/lib/money';
 import { useRovingFocus } from '@/shared/lib/useRovingFocus';
 import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
 import { DishSheet, type DishInput } from './components/DishSheet';
@@ -30,7 +30,7 @@ interface Dish {
   name: string;
   desc: string;
   category: string;
-  price: number;
+  price: number | null;
   active: boolean;
 }
 
@@ -251,8 +251,15 @@ export default function MenuPage() {
               </div>
               {/* formatPrice, а не «{price} ₽»: это было единственное место в
                   продукте, где деньги шли без разрядов — «1340 ₽» против
-                  «1 340 ₽» на остальных экранах. */}
-              <span className={`tnum ${styles.price}`}>{formatPrice(d.price)}</span>
+                  «1 340 ₽» на остальных экранах.
+                  OrDash — потому что цена в схеме необязательная: блюдо без
+                  суммы роняло весь экран на `null.toLocaleString`. */}
+              <span
+                className={`tnum ${styles.price}`}
+                aria-label={d.price == null ? 'Цена не указана' : undefined}
+              >
+                {formatPriceOrDash(d.price)}
+              </span>
               {isAdmin && (
                 <div className={styles.rowActions}>
                   <Switch

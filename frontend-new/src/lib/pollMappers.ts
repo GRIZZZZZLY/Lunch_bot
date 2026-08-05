@@ -6,7 +6,8 @@ export interface VoteOption {
   id: string | number;
   emoji: string;
   name: string;
-  price: number;
+  /** null — блюдо без цены (`MenuItem.price` необязателен в схеме). */
+  price: number | null;
   minutes: number;
   votes: number;
   palette: VotePalette;

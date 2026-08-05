@@ -35,7 +35,9 @@ export function DishSheet({
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [desc, setDesc] = useState(initial?.description ?? '');
-  const [price, setPrice] = useState(initial ? String(initial.price) : '');
+  // `String(null)` давал в поле цены литерал «null»: блюдо без суммы редактируется
+  // как новое, с пустым полем (валидация всё равно требует price > 0).
+  const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : '');
   const [cat, setCat] = useState(initial?.category ?? '');
   const [active, setActive] = useState(initial?.isActive !== false);
   const [confirmDelete, setConfirmDelete] = useState(false);

@@ -11,7 +11,10 @@ export interface User {
 export interface MenuItem {
   id: number;
   name: string;
-  price: number;
+  /** `Decimal?` в схеме: блюдо можно создать без цены (бот, сид, одобренное
+      предложение без суммы), и API отдаёт `null` как есть. Тип обязан это
+      признавать — иначе `formatPrice(null)` падает на `toLocaleString`. */
+  price: number | null;
   category?: string;
   emoji?: string;
   description?: string;

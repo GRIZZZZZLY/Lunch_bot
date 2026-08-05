@@ -190,6 +190,17 @@ describe('MenuPage — состояние фильтра, деньги и пои
     expect(price.textContent?.replace(/\s/g, ' ')).toBe('1 340 ₽');
   });
 
+  it('блюдо без цены показывает прочерк, а не роняет экран', () => {
+    // price в схеме — Decimal?, API отдаёт null как есть. Раньше это был
+    // null.toLocaleString и «Что-то пошло не так» на весь экран.
+    h.state.items = [dish({ id: 4, name: 'Комплимент от повара', price: null })];
+    render(<MenuPage />);
+
+    expect(screen.getByText('Комплимент от повара')).toBeInTheDocument();
+    expect(screen.getByLabelText('Цена не указана')).toHaveTextContent('—');
+    expect(screen.queryByText(/Что-то пошло не так/)).not.toBeInTheDocument();
+  });
+
   it('очистка поиска возвращает список одним касанием', () => {
     render(<MenuPage />);
     const search = screen.getByRole('textbox', { name: 'Поиск блюд' });

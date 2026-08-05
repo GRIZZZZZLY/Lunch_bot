@@ -11,3 +11,14 @@ export function formatPrice(n: number): string {
     maximumFractionDigits: 2,
   })} ₽`;
 }
+
+/**
+ * Цена может отсутствовать: `MenuItem.price` — `Decimal?`, блюдо создаётся и
+ * без суммы. Тогда показываем прочерк, а не «0 ₽» (ноль означал бы «бесплатно»)
+ * и не пустое место (выглядит как потерянная вёрстка).
+ */
+export const NO_PRICE = '—';
+
+export function formatPriceOrDash(n: number | null | undefined): string {
+  return n == null ? NO_PRICE : formatPrice(n);
+}
