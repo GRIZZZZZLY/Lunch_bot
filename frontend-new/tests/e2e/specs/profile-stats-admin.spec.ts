@@ -116,8 +116,11 @@ for (const role of ['creator', 'admin'] as const) {
   });
 }
 
-test.describe('Глобальный администратор', () => {
-  test.use({ role: 'globalAdmin' });
+/* Раньше этот набор шёл под ролью globalAdmin и держался на users.is_admin.
+   Панель теперь открывает только роль в группе, поэтому проход по вкладкам
+   выполняет администратор группы — тот, кому эти действия и принадлежат. */
+test.describe('Администратор группы: все вкладки панели', () => {
+  test.use({ role: 'admin' });
 
   test('@smoke открывает все вкладки панели и их основные действия', async ({ appPage, api }) => {
     api.state.debts = [{
@@ -136,11 +139,15 @@ test.describe('Глобальный администратор', () => {
 
     await appPage.getByRole('tab', { name: 'Люди' }).click();
     await expect(appPage.getByText(/Пользователи/)).toBeVisible();
-    await appPage.getByRole('textbox', { name: 'Поиск участника' }).fill('Анна');
+    /* Действия направлены на Игоря, а не на саму себя: панель существует ради
+       управления другими, и флаг users.is_admin в фикстуре стоит именно у него.
+       Раньше здесь искали Анну — она была «глобальным администратором», и тест
+       снимал админа сам с себя. */
+    await appPage.getByRole('textbox', { name: 'Поиск участника' }).fill('Игорь');
     await appPage.getByRole('button', { name: /^Снять админа/ }).click();
-    expect(api.lastRequest('PUT', '/admin/users/101/admin')?.body).toEqual({ isAdmin: false });
+    expect(api.lastRequest('PUT', '/admin/users/202/admin')?.body).toEqual({ isAdmin: false });
     await appPage.getByRole('button', { name: /^Заблокировать/ }).click();
-    expect(api.lastRequest('PUT', '/admin/users/101/active')?.body).toEqual({ isActive: false });
+    expect(api.lastRequest('PUT', '/admin/users/202/active')?.body).toEqual({ isActive: false });
 
     await appPage.getByRole('tab', { name: 'Долги' }).click();
     await expect(appPage.getByText('Должников')).toBeVisible();

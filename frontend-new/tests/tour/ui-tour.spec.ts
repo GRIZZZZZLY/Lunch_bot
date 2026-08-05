@@ -318,8 +318,8 @@ test.describe('05 Профиль', () => {
 });
 
 test.describe('06 Админ-панель', () => {
-  test.describe('глобальный администратор', () => {
-    test.use({ role: 'globalAdmin' });
+  test.describe('администратор группы', () => {
+    test.use({ role: 'admin' });
 
     test('вкладки панели', async ({ app, api }) => {
       api.state.debts = [
@@ -699,7 +699,7 @@ test.describe('12 Тёмная тема', () => {
   });
 
   test.describe('админ-панель', () => {
-    test.use({ role: 'globalAdmin' });
+    test.use({ role: 'admin' });
     test('обзор', async ({ app }) => {
       await app.goto('/admin');
       await shot(app, '12-dark/06-admin');

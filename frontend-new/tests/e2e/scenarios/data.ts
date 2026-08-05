@@ -6,11 +6,13 @@ import type {
   StoreRunWithRelations,
 } from '../../../src/services/store-run.service';
 
+/* Роли глобального администратора здесь нет намеренно: право выводится только
+   из роли в группе, и фикстура, дающая доступ мимо неё, снова развела бы две
+   системы прав. */
 export type E2ERole =
   | 'creator'
   | 'admin'
   | 'member'
-  | 'globalAdmin'
   | 'storeInitiator'
   | 'storeParticipant'
   | 'responsible'
@@ -391,9 +393,11 @@ function makeSuggestions(): MenuSuggestion[] {
 export function createScenario(name: ScenarioName, role: E2ERole): E2EState {
   const completed = makeCompletedPoll();
   const tx = makeTransactions();
+  /* users.is_admin ещё существует в схеме, но ничего не открывает: колонку
+     читает только карточка управления людьми, чтобы показать чужой флаг. */
   const currentUser = {
     ...USERS.current,
-    isAdmin: role === 'globalAdmin',
+    isAdmin: false,
   };
   const state: E2EState = {
     role,

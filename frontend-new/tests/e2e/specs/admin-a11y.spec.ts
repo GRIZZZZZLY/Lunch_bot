@@ -35,7 +35,7 @@ async function expectNoSeriousViolations(page: Page) {
 }
 
 test.describe('Доступность: админка', () => {
-  test.use({ role: 'globalAdmin' });
+  test.use({ role: 'admin' });
 
   for (const tab of ['Обзор', 'Люди', 'Долги', 'Очистка', 'Напоминания'] as const) {
     test(`вкладка «${tab}» без serious-нарушений`, async ({ appPage }) => {
