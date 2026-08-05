@@ -115,6 +115,10 @@ ai-docs/
 .tmp-*-states/
 .tmp-*/
 
+# Temporary frontend dist built by the server tests; removed in afterAll, but a
+# crashed run leaves it behind and it must never reach a commit
+backend/tmp-frontend-*/
+
 # Ad-hoc lint/build report artifacts
 backend_out.txt
 backend/backend_out.txt
