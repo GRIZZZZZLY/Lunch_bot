@@ -10,6 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getDeepLinkPollId } from '@/lib/telegram';
 import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
 import { getAdminGroups } from '@/lib/permissions';
+import { apiErrorMessage } from '@/lib/apiError';
 import { queryKeys } from '@/lib/queryClient';
 import { isSameLocalDay } from '@/lib/date';
 import { daysToLabels, formatScheduleHint, labelsToDays, parseDaysOfWeek, parseNumberArray } from '@/lib/schedule';
@@ -310,7 +311,7 @@ export function HomePage() {
       }
       setCreateOpen(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Не удалось создать опрос');
+      toast.error(apiErrorMessage(err, 'Не удалось создать опрос'));
     }
   };
 

@@ -7,6 +7,7 @@ import { DebtManagementCard } from '@/components/admin/DebtManagementCard';
 import { DataCleanupCard } from '@/components/admin/DataCleanupCard';
 import { ReminderSettingsCard } from '@/components/admin/ReminderSettingsCard';
 import { getAdminGroups } from '@/lib/permissions';
+import { apiErrorMessage } from '@/lib/apiError';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { PROFILE_HISTORY_LIMIT, useMyGroups, usePollHistory } from '@/hooks/useUser';
 import { useToast } from '@/hooks/useToast';
@@ -125,8 +126,9 @@ export function AdminPage() {
       setSheetOpen(false);
       setSuccessOpen(true);
     } catch (err) {
-      // B6: ошибка создания больше не молчит
-      toast.error(err instanceof Error ? err.message : 'Не удалось создать опрос');
+      // B6: ошибка создания больше не молчит; перехватчик API реджектит
+      // объектом `{ code, status }`, а не Error — причину достаёт apiErrorMessage.
+      toast.error(apiErrorMessage(err, 'Не удалось создать опрос'));
     } finally {
       setSubmitting(false);
     }

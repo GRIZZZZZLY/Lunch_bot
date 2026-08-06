@@ -16,9 +16,10 @@ const h = vi.hoisted(() => {
     error: null,
     ...extra,
   });
+  const m = () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false });
   return {
     q,
-    m: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+    m,
     state: {
       activePoll: null as unknown,
       activeError: null as unknown,
@@ -29,6 +30,16 @@ const h = vi.hoisted(() => {
       lastResult: null as unknown,
       schedule: null as unknown,
       markPaid: { mutate: vi.fn(), isPending: false },
+      groups: [] as unknown[],
+      createPoll: m(),
+      toast: {
+        success: vi.fn(),
+        error: vi.fn(),
+        warning: vi.fn(),
+        info: vi.fn(),
+        dismiss: vi.fn(),
+        clear: vi.fn(),
+      },
     },
   };
 });
@@ -44,7 +55,29 @@ vi.mock('@/hooks/usePolls', () => ({
   useWithdrawVote: h.m,
   useCompletePoll: h.m,
   useCancelPoll: h.m,
-  useCreatePoll: h.m,
+  useCreatePoll: () => h.state.createPoll,
+}));
+vi.mock('@/hooks/useToast', () => ({ useToast: () => h.state.toast }));
+/* Шторка создания в этих тестах не при чём — стаб дёргает onSubmit готовой
+   формой, чтобы проверить обработчик, а не UI формы. */
+vi.mock('@/components/admin/CreatePollSheet', () => ({
+  CreatePollSheet: ({ onSubmit }: { onSubmit: (f: unknown) => void }) => (
+    <button
+      onClick={() =>
+        onSubmit({
+          title: '',
+          duration: '30m',
+          recurring: false,
+          recurringDays: [],
+          recurringTime: '11:00',
+          selectedItems: ['1', '2'],
+          groupId: '1',
+        })
+      }
+    >
+      submit-poll-form
+    </button>
+  ),
 }));
 vi.mock('@/hooks/useRecurringPoll', () => ({
   useCreateRecurringPoll: h.m,
@@ -55,7 +88,7 @@ vi.mock('@/hooks/useRecurringPoll', () => ({
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 1, firstName: 'Игорь', isAdmin: false }, isLoading: false }),
 }));
-vi.mock('@/hooks/useUser', () => ({ useMyGroups: () => h.q([]) }));
+vi.mock('@/hooks/useUser', () => ({ useMyGroups: () => h.q(h.state.groups) }));
 vi.mock('@/hooks/useMenu', () => ({ useMenuItems: () => h.q([]) }));
 vi.mock('@/hooks/useBudget', () => ({
   useDebts: () => h.q(h.state.debts),
@@ -91,6 +124,16 @@ beforeEach(() => {
   h.state.lastResult = null;
   h.state.schedule = null;
   h.state.markPaid = { mutate: vi.fn(), isPending: false };
+  h.state.groups = [];
+  h.state.createPoll = h.m();
+  h.state.toast = {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+    dismiss: vi.fn(),
+    clear: vi.fn(),
+  };
   delete window.Telegram;
 });
 
@@ -259,6 +302,23 @@ describe('HomePage — итог прошедшего голосования', ()
     h.state.lastResult = result;
     renderHome();
     expect(screen.queryByText(/Победил:/)).not.toBeInTheDocument();
+  });
+});
+
+describe('HomePage — ошибка создания опроса', () => {
+  it('реджект API-объектом показывает причину, а не общий fallback', async () => {
+    h.state.groups = [{ id: 1, title: 'Офис', isActive: true, role: 'ADMIN' }];
+    h.state.createPoll = {
+      mutate: vi.fn(),
+      isPending: false,
+      /* Перехватчик api.service реджектит именно голым объектом, не Error. */
+      mutateAsync: vi
+        .fn()
+        .mockRejectedValue({ code: 'POLL_ALREADY_ACTIVE', error: 'Group already has an active poll', status: 400 }),
+    };
+    renderHome();
+    await userEvent.click(screen.getByRole('button', { name: 'submit-poll-form' }));
+    expect(h.state.toast.error).toHaveBeenCalledWith('В этой группе уже идёт голосование.');
   });
 });
 

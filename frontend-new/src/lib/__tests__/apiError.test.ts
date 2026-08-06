@@ -13,6 +13,22 @@ describe('apiErrorMessage', () => {
     );
   });
 
+  it('знает коды создания опроса из webapp', () => {
+    const fallback = 'Не удалось создать опрос';
+    expect(apiErrorMessage({ code: 'NOT_ENOUGH_ITEMS' }, fallback)).toBe(
+      'Для голосования нужно минимум два активных блюда в меню.',
+    );
+    expect(apiErrorMessage({ code: 'GROUP_NOT_FOUND' }, fallback)).toBe(
+      'Группа не найдена — проверьте, что бот ещё в чате.',
+    );
+    expect(apiErrorMessage({ code: 'INVALID_DURATION' }, fallback)).toBe(
+      'Недопустимая длительность голосования.',
+    );
+    expect(apiErrorMessage({ code: 'BOT_NOT_AVAILABLE' }, fallback)).toBe(
+      'Бот сейчас недоступен. Попробуйте через минуту.',
+    );
+  });
+
   it('не показывает английский текст с сервера', () => {
     const message = apiErrorMessage({ error: 'Group already has an active poll' }, FALLBACK);
     expect(message).toBe(FALLBACK);
