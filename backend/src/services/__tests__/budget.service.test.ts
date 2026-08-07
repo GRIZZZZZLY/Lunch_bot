@@ -1,4 +1,5 @@
 import { BudgetService } from '../budget.service';
+import { OrderCostsService } from '../order-costs.service';
 import { prisma } from '../../database/client';
 
 const mockSendMessage = jest.fn();
@@ -57,6 +58,7 @@ const txMock = {
 
 describe('BudgetService Mini App behaviours', () => {
   const service = new BudgetService();
+  const orderCostsService = new OrderCostsService();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -93,7 +95,7 @@ describe('BudgetService Mini App behaviours', () => {
     ]);
     txMock.transaction.update.mockResolvedValue({});
 
-    await service.setOrderCosts(7, 9, {
+    await orderCostsService.setOrderCosts(7, 9, {
       deliveryCost: 90,
       serviceFee: 0,
       tip: 0,
@@ -140,7 +142,7 @@ describe('BudgetService Mini App behaviours', () => {
     ]);
     (prisma.pollOrderCosts.findUnique as jest.Mock).mockResolvedValue(null);
 
-    const result = await service.getPollCostBreakdown(7);
+    const result = await orderCostsService.getPollCostBreakdown(7);
 
     expect(result.totalItemsCost).toBe(300);
     expect(result.grandTotal).toBe(300);

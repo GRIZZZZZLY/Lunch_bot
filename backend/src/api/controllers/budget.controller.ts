@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { BudgetService } from '../../services/budget.service';
+import { OrderCostsService } from '../../services/order-costs.service';
 import { PollService } from '../../services/poll.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
@@ -87,9 +88,11 @@ const SetOrderCostsSchema = z.object({
 
 export class BudgetController {
   private budgetService: BudgetService;
+  private orderCostsService: OrderCostsService;
 
-  constructor(budgetService: BudgetService) {
+  constructor(budgetService: BudgetService, orderCostsService: OrderCostsService) {
     this.budgetService = budgetService;
+    this.orderCostsService = orderCostsService;
   }
 
   /**
@@ -606,7 +609,7 @@ export class BudgetController {
         return;
       }
 
-      const orderCosts = await this.budgetService.setOrderCosts(
+      const orderCosts = await this.orderCostsService.setOrderCosts(
         parseInt(pollId),
         authenticatedUser.id,
         { deliveryCost, serviceFee, tip, notes }
@@ -654,7 +657,7 @@ export class BudgetController {
       const pollIdNum = parseInt(pollId);
       if (!(await requirePollAccess(res, authenticatedUser, pollIdNum))) return;
 
-      const orderCosts = await this.budgetService.getOrderCosts(pollIdNum);
+      const orderCosts = await this.orderCostsService.getOrderCosts(pollIdNum);
 
       if (!orderCosts) {
         res.status(404).json({ error: 'Order costs not found for this poll' });
@@ -691,7 +694,7 @@ export class BudgetController {
       if (!(await requirePollAccess(res, authenticatedUser, pollIdNum))) return;
 
       const breakdown =
-        await this.budgetService.getPollCostBreakdown(pollIdNum);
+        await this.orderCostsService.getPollCostBreakdown(pollIdNum);
 
       res.json({ success: true, data: serializeData(breakdown) });
     } catch (error: any) {

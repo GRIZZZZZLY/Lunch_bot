@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { BudgetController } from '../controllers/budget.controller';
 import { BudgetService } from '../../services/budget.service';
+import { OrderCostsService } from '../../services/order-costs.service';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { reminderLimiter, writeLimiter } from '../middleware/rate-limiter';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
@@ -16,7 +17,8 @@ const budgetIdempotency = createIdempotencyMiddleware({
 
 // Initialize service and controller
 const budgetService = new BudgetService();
-const budgetController = new BudgetController(budgetService);
+const orderCostsService = new OrderCostsService();
+const budgetController = new BudgetController(budgetService, orderCostsService);
 
 // Apply auth middleware to all routes
 router.use(telegramAuthMiddleware);

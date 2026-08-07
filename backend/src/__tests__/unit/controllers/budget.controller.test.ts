@@ -46,6 +46,12 @@ function serviceStub() {
     sendReminder: jest.fn(),
     sendRemindersToAll: jest.fn(),
     calculateTotals: jest.fn(),
+  };
+}
+
+/** Order-costs — отдельный сервис, отдельный аргумент конструктора. */
+function orderCostsServiceStub() {
+  return {
     setOrderCosts: jest.fn(),
     getOrderCosts: jest.fn(),
     getPollCostBreakdown: jest.fn(),
@@ -53,6 +59,7 @@ function serviceStub() {
 }
 
 let service: ReturnType<typeof serviceStub>;
+let orderCostsService: ReturnType<typeof orderCostsServiceStub>;
 let controller: BudgetController;
 
 const DEBTOR = { id: 1, isAdmin: false };
@@ -61,8 +68,10 @@ const CREDITOR = { id: 2, isAdmin: false };
 beforeEach(() => {
   jest.clearAllMocks();
   service = serviceStub();
+  orderCostsService = orderCostsServiceStub();
   controller = new BudgetController(
-    service as unknown as ConstructorParameters<typeof BudgetController>[0]
+    service as unknown as ConstructorParameters<typeof BudgetController>[0],
+    orderCostsService as unknown as ConstructorParameters<typeof BudgetController>[1]
   );
   pollService.getPollGroupId.mockResolvedValue(100);
   groupService.isUserGroupMember.mockResolvedValue(true);
@@ -794,7 +803,7 @@ describe('POST /api/budget/order-costs/:pollId', () => {
   const body = { deliveryCost: 300, serviceFee: 50, tip: 100, notes: 'самовывоз' };
 
   it('ответственный задаёт стоимости заказа', async () => {
-    service.setOrderCosts.mockResolvedValue({ id: 1, ...body });
+    orderCostsService.setOrderCosts.mockResolvedValue({ id: 1, ...body });
     const res = mockResponse();
 
     await controller.setOrderCosts(
@@ -802,7 +811,7 @@ describe('POST /api/budget/order-costs/:pollId', () => {
       res
     );
 
-    expect(service.setOrderCosts).toHaveBeenCalledWith(12, 2, body);
+    expect(orderCostsService.setOrderCosts).toHaveBeenCalledWith(12, 2, body);
     expect(res.body).toMatchObject({ success: true });
   });
 
@@ -845,11 +854,11 @@ describe('POST /api/budget/order-costs/:pollId', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(service.setOrderCosts).not.toHaveBeenCalled();
+    expect(orderCostsService.setOrderCosts).not.toHaveBeenCalled();
   });
 
   it('голосования нет — 404', async () => {
-    service.setOrderCosts.mockRejectedValue(new Error('Poll not found'));
+    orderCostsService.setOrderCosts.mockRejectedValue(new Error('Poll not found'));
     const res = mockResponse();
 
     await controller.setOrderCosts(
@@ -861,7 +870,7 @@ describe('POST /api/budget/order-costs/:pollId', () => {
   });
 
   it('не ответственный — 403', async () => {
-    service.setOrderCosts.mockRejectedValue(
+    orderCostsService.setOrderCosts.mockRejectedValue(
       new Error('Only responsible person can set order costs')
     );
     const res = mockResponse();
@@ -875,7 +884,7 @@ describe('POST /api/budget/order-costs/:pollId', () => {
   });
 
   it('прочая ошибка — 500', async () => {
-    service.setOrderCosts.mockRejectedValue(new Error('boom'));
+    orderCostsService.setOrderCosts.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.setOrderCosts(
@@ -889,7 +898,7 @@ describe('POST /api/budget/order-costs/:pollId', () => {
 
 describe('GET /api/budget/order-costs/:pollId', () => {
   it('отдаёт стоимости заказа участнику группы', async () => {
-    service.getOrderCosts.mockResolvedValue({ id: 1, deliveryCost: 300 });
+    orderCostsService.getOrderCosts.mockResolvedValue({ id: 1, deliveryCost: 300 });
     const res = mockResponse();
 
     await controller.getOrderCosts(
@@ -901,7 +910,7 @@ describe('GET /api/budget/order-costs/:pollId', () => {
   });
 
   it('стоимости не заданы — 404', async () => {
-    service.getOrderCosts.mockResolvedValue(null);
+    orderCostsService.getOrderCosts.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.getOrderCosts(
@@ -941,11 +950,11 @@ describe('GET /api/budget/order-costs/:pollId', () => {
     );
 
     expect(res.statusCode).toBe(403);
-    expect(service.getOrderCosts).not.toHaveBeenCalled();
+    expect(orderCostsService.getOrderCosts).not.toHaveBeenCalled();
   });
 
   it('ошибка сервиса — 500', async () => {
-    service.getOrderCosts.mockRejectedValue(new Error('boom'));
+    orderCostsService.getOrderCosts.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getOrderCosts(
@@ -959,7 +968,7 @@ describe('GET /api/budget/order-costs/:pollId', () => {
 
 describe('GET /api/budget/poll-breakdown/:pollId', () => {
   it('отдаёт разбивку по участникам', async () => {
-    service.getPollCostBreakdown.mockResolvedValue([{ userId: 1, amount: 500 }]);
+    orderCostsService.getPollCostBreakdown.mockResolvedValue([{ userId: 1, amount: 500 }]);
     const res = mockResponse();
 
     await controller.getPollCostBreakdown(
@@ -1002,7 +1011,7 @@ describe('GET /api/budget/poll-breakdown/:pollId', () => {
   });
 
   it('ошибка сервиса — 500', async () => {
-    service.getPollCostBreakdown.mockRejectedValue(new Error('boom'));
+    orderCostsService.getPollCostBreakdown.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getPollCostBreakdown(
