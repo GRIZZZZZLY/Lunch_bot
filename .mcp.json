@@ -1,10 +1,20 @@
 {
-    "mcpServers":  {
-                       "om":  {
-                                  "command":  "node",
-                                  "args":  [
-                                               "C:/obsidian-mind/.claude/scripts/om-mcp.mjs"
-                                           ]
-                              }
-                   }
+  "mcpServers": {
+    "om": {
+      "command": "node",
+      "args": [
+        "C:/obsidian-mind/.claude/scripts/om-mcp.mjs"
+      ]
+    },
+    "repowise": {
+      "command": "repowise",
+      "args": [
+        "mcp",
+        "E:/Launch_bot/telegram-food-bot",
+        "--transport",
+        "stdio"
+      ],
+      "description": "repowise: codebase intelligence \u2014 docs, graph, git signals, dead code, decisions"
+    }
+  }
 }

@@ -143,3 +143,6 @@ stdout.txt
 
 # Локальное состояние дизайн-инструмента (снимки отчётов, конфиг live-режима)
 .impeccable/
+
+# Repowise index (локальный кэш/БД, регенерируется repowise init)
+.repowise/
