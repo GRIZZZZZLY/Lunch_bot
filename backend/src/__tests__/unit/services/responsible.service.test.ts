@@ -12,7 +12,7 @@ import { PollService } from '../../../services/poll.service';
 import { UserService } from '../../../services/user.service';
 import { GroupService } from '../../../services/group.service';
 import { RouletteService } from '../../../services/roulette.service';
-import { BudgetService } from '../../../services/budget.service';
+import { PollFlowService } from '../../../services/poll-flow.service';
 import { getBotInstance } from '../../../bot/bot-instance';
 import { awardXP } from '../../helpers/gamification-mock';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
@@ -52,15 +52,15 @@ jest.mock('../../../services/gamification.service', () =>
   require('../../helpers/gamification-mock')
 );
 
-/* Сервис бюджета подтягивается динамически с расширением .js — для jest это
+/* PollFlowService подтягивается динамически с расширением .js — для jest это
    отдельный путь модуля, нужен второй мок. */
-jest.mock('../../../services/budget.service', () => ({
-  BudgetService: { processResponsibleSelected: jest.fn() },
+jest.mock('../../../services/poll-flow.service', () => ({
+  PollFlowService: { processResponsibleSelected: jest.fn() },
 }));
 
 jest.mock(
-  '../../../services/budget.service.js',
-  () => require('../../../services/budget.service'),
+  '../../../services/poll-flow.service.js',
+  () => require('../../../services/poll-flow.service'),
   { virtual: true }
 );
 
@@ -73,7 +73,7 @@ jest.mock('../../../utils/logger', () => ({
 const pollService = asServiceMock(PollService);
 const userService = asServiceMock(UserService);
 const groupService = asServiceMock(GroupService);
-const budgetService = asServiceMock(BudgetService);
+const pollFlowService = asServiceMock(PollFlowService);
 const botInstance = asMock(getBotInstance);
 
 const NOW = new Date('2026-08-03T12:00:00.000Z');
@@ -127,7 +127,7 @@ beforeEach(() => {
   });
   groupService.isUserGroupMember.mockResolvedValue(true);
   userService.getUserByTelegramId.mockResolvedValue(USER);
-  budgetService.processResponsibleSelected.mockResolvedValue(undefined);
+  pollFlowService.processResponsibleSelected.mockResolvedValue(undefined);
 
   asMock(prismaMock.responsibleSelection.create).mockResolvedValue({
     id: 1,
@@ -291,7 +291,7 @@ describe('handleVolunteer', () => {
       { pollId: 5, selectionMode: 'volunteer' },
       'poll-volunteer:5:7'
     );
-    expect(budgetService.processResponsibleSelected).toHaveBeenCalledWith(5, 7);
+    expect(pollFlowService.processResponsibleSelected).toHaveBeenCalledWith(5, 7);
   });
 
   it('гонка: если роль уже занята, второй отклик не проходит', async () => {
@@ -302,7 +302,7 @@ describe('handleVolunteer', () => {
     const claimed = await ResponsibleService.handleVolunteer(5, 555);
 
     expect(claimed).toBe(false);
-    expect(budgetService.processResponsibleSelected).not.toHaveBeenCalled();
+    expect(pollFlowService.processResponsibleSelected).not.toHaveBeenCalled();
   });
 
   it('процесс уже завершён — отклик игнорируется', async () => {
@@ -363,7 +363,7 @@ describe('handleVolunteer', () => {
     asMock(awardXP).mockRejectedValue(new Error('xp down'));
 
     await expect(ResponsibleService.handleVolunteer(5, 555)).resolves.toBe(true);
-    expect(budgetService.processResponsibleSelected).toHaveBeenCalled();
+    expect(pollFlowService.processResponsibleSelected).toHaveBeenCalled();
   });
 
   it('падение правки сообщения не отменяет назначение', async () => {
@@ -508,7 +508,7 @@ describe('runRouletteAndProceed', () => {
     await ResponsibleService.runRouletteAndProceed(5);
 
     expect(editMessageText).not.toHaveBeenCalled();
-    expect(budgetService.processResponsibleSelected).toHaveBeenCalled();
+    expect(pollFlowService.processResponsibleSelected).toHaveBeenCalled();
   });
 
   it('падение начисления XP не отменяет расчёты', async () => {
@@ -516,7 +516,7 @@ describe('runRouletteAndProceed', () => {
 
     await ResponsibleService.runRouletteAndProceed(5);
 
-    expect(budgetService.processResponsibleSelected).toHaveBeenCalledWith(5, 7);
+    expect(pollFlowService.processResponsibleSelected).toHaveBeenCalledWith(5, 7);
   });
 
   it('падение рулетки не выбрасывается наружу', async () => {
@@ -525,6 +525,6 @@ describe('runRouletteAndProceed', () => {
     await expect(
       ResponsibleService.runRouletteAndProceed(5)
     ).resolves.toBeUndefined();
-    expect(budgetService.processResponsibleSelected).not.toHaveBeenCalled();
+    expect(pollFlowService.processResponsibleSelected).not.toHaveBeenCalled();
   });
 });

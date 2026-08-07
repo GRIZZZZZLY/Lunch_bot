@@ -1,13 +1,13 @@
 /**
  * BudgetService, методы экземпляра: cancelMarkAsPaid и делегирующие обёртки
- * над статикой (markAsPaid/confirmPayment/markAllPaidByResponsible/
- * calculateTotals).
+ * над статикой (markAsPaid/confirmPayment/markAllPaidByResponsible).
  *
  * Статические методы (перевод статусов, уведомления) покрыты в
  * services/__tests__/budget.service.test.ts. Расходы на заказ переехали в
  * OrderCostsService (order-costs.service.test.ts), напоминания — в
  * ReminderService (reminder.service.test.ts), долги/кредиты/статистика — в
- * BudgetQueryService (budget-query.service.test.ts).
+ * BudgetQueryService (budget-query.service.test.ts), создание транзакций из
+ * голосования и уведомления — в PollFlowService (poll-flow.service.test.ts).
  */
 import { BudgetService } from '../../../services/budget.service';
 import { getBotInstance } from '../../../bot/bot-instance';
@@ -192,23 +192,17 @@ describe('делегирующие обёртки', () => {
     const markAll = jest
       .spyOn(BudgetService, 'markAllPaidByResponsible')
       .mockResolvedValue(undefined);
-    const calculateTotals = jest
-      .spyOn(BudgetService, 'calculateTotals')
-      .mockResolvedValue({ totalOrder: 0 } as never);
 
     await service.markAsPaid(10, 1);
     await service.confirmPayment(10, 2);
     await service.markAllPaidByResponsible(5, 2);
-    await service.calculateTotals(5, 2);
 
     expect(markAsPaid).toHaveBeenCalledWith(10, 1);
     expect(confirmPayment).toHaveBeenCalledWith(10, 2);
     expect(markAll).toHaveBeenCalledWith(5, 2);
-    expect(calculateTotals).toHaveBeenCalledWith(5, 2);
 
     markAsPaid.mockRestore();
     confirmPayment.mockRestore();
     markAll.mockRestore();
-    calculateTotals.mockRestore();
   });
 });

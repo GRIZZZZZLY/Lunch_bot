@@ -259,8 +259,8 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
       }
 
       // Переход к фазе 4
-      const { BudgetService } = await import('./budget.service.js');
-      await BudgetService.processResponsibleSelected(pollId, user.id);
+      const { PollFlowService } = await import('./poll-flow.service.js');
+      await PollFlowService.processResponsibleSelected(pollId, user.id);
       return true;
     } catch (error) {
       logger.error('Error handling volunteer:', error);
@@ -389,8 +389,8 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
       }
 
       // Переход к фазе 4
-      const { BudgetService } = await import('./budget.service.js');
-      await BudgetService.processResponsibleSelected(
+      const { PollFlowService } = await import('./poll-flow.service.js');
+      await PollFlowService.processResponsibleSelected(
         pollId,
         result.responsibleUserId
       );

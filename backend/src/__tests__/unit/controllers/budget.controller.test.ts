@@ -39,7 +39,6 @@ function serviceStub() {
     confirmPayment: jest.fn(),
     cancelMarkAsPaid: jest.fn(),
     markAllPaidByResponsible: jest.fn(),
-    calculateTotals: jest.fn(),
   };
 }
 
@@ -70,10 +69,18 @@ function queryServiceStub() {
   };
 }
 
+/** Poll-flow — создание транзакций из голосования, тут только calculateTotals. */
+function pollFlowServiceStub() {
+  return {
+    calculateTotals: jest.fn(),
+  };
+}
+
 let service: ReturnType<typeof serviceStub>;
 let orderCostsService: ReturnType<typeof orderCostsServiceStub>;
 let reminderService: ReturnType<typeof reminderServiceStub>;
 let queryService: ReturnType<typeof queryServiceStub>;
+let pollFlowService: ReturnType<typeof pollFlowServiceStub>;
 let controller: BudgetController;
 
 const DEBTOR = { id: 1, isAdmin: false };
@@ -85,11 +92,13 @@ beforeEach(() => {
   orderCostsService = orderCostsServiceStub();
   reminderService = reminderServiceStub();
   queryService = queryServiceStub();
+  pollFlowService = pollFlowServiceStub();
   controller = new BudgetController(
     service as unknown as ConstructorParameters<typeof BudgetController>[0],
     orderCostsService as unknown as ConstructorParameters<typeof BudgetController>[1],
     reminderService as unknown as ConstructorParameters<typeof BudgetController>[2],
-    queryService as unknown as ConstructorParameters<typeof BudgetController>[3]
+    queryService as unknown as ConstructorParameters<typeof BudgetController>[3],
+    pollFlowService as unknown as ConstructorParameters<typeof BudgetController>[4]
   );
   pollService.getPollGroupId.mockResolvedValue(100);
   groupService.isUserGroupMember.mockResolvedValue(true);
@@ -733,7 +742,7 @@ describe('POST /api/budget/send-reminders-all', () => {
 
 describe('GET /api/budget/poll-totals/:pollId', () => {
   it('участник группы получает итоги заказа', async () => {
-    service.calculateTotals.mockResolvedValue({ total: 1500 });
+    pollFlowService.calculateTotals.mockResolvedValue({ total: 1500 });
     const res = mockResponse();
 
     await controller.getPollTotals(
@@ -741,7 +750,7 @@ describe('GET /api/budget/poll-totals/:pollId', () => {
       res
     );
 
-    expect(service.calculateTotals).toHaveBeenCalledWith(12, 1);
+    expect(pollFlowService.calculateTotals).toHaveBeenCalledWith(12, 1);
     expect(res.body).toMatchObject({ data: { total: 1500 } });
   });
 
@@ -784,7 +793,7 @@ describe('GET /api/budget/poll-totals/:pollId', () => {
     );
 
     expect(res.statusCode).toBe(403);
-    expect(service.calculateTotals).not.toHaveBeenCalled();
+    expect(pollFlowService.calculateTotals).not.toHaveBeenCalled();
   });
 
   /* Прежде здесь глобальный флаг открывал бюджет любой группы. Понятия
@@ -801,11 +810,11 @@ describe('GET /api/budget/poll-totals/:pollId', () => {
 
     expect(groupService.isUserGroupMember).toHaveBeenCalledWith(9, 100);
     expect(res.statusCode).toBe(403);
-    expect(service.calculateTotals).not.toHaveBeenCalled();
+    expect(pollFlowService.calculateTotals).not.toHaveBeenCalled();
   });
 
   it('ошибка сервиса — 500', async () => {
-    service.calculateTotals.mockRejectedValue(new Error('boom'));
+    pollFlowService.calculateTotals.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getPollTotals(

@@ -1,14 +1,16 @@
 /**
- * BudgetService, статические методы: превращение результатов голосования в долги
- * и переходы их статусов. Это деньги, поэтому закреплены именно те свойства,
+ * BudgetService, статические методы: платёжный state-machine (переходы
+ * статусов долга). Это деньги, поэтому закреплены именно те свойства,
  * потеря которых стоит денег:
  *
- * - создание транзакций идемпотентно: повторный вызов не удваивает долги;
- * - ответственный не платит сам себе;
  * - переходы статусов атомарны (updateMany со статусом в условии), поэтому
  *   гонка не превращает PENDING в CONFIRMED «мимо» PAID;
  * - отменить подтверждение может только получатель и только в течение суток,
  *   и должнику об этом сообщают обязательно — ему уже сказали обратное.
+ *
+ * Создание долгов из голосования и уведомления о нём (processResponsibleSelected/
+ * createTransactionsFromPoll/calculateTotals/sendBudgetNotifications) переехали
+ * в PollFlowService — тесты в poll-flow.service.test.ts.
  */
 import { BudgetService } from '../../../services/budget.service';
 import { PollService } from '../../../services/poll.service';
@@ -138,192 +140,6 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
-});
-
-describe('createTransactionsFromPoll', () => {
-  it('создаёт долг каждому, кроме ответственного', async () => {
-    await BudgetService.createTransactionsFromPoll(5, 2);
-
-    expect(prismaMock.transaction.createMany).toHaveBeenCalledWith({
-      data: [
-        {
-          pollId: 5,
-          fromUserId: 1,
-          toUserId: 2,
-          amount: 250,
-          menuItemId: 1,
-          status: 'PENDING',
-        },
-      ],
-    });
-  });
-
-  it('повторный вызов не удваивает долги', async () => {
-    asMock(prismaMock.transaction.count).mockResolvedValue(2);
-
-    await BudgetService.createTransactionsFromPoll(5, 2);
-
-    expect(prismaMock.transaction.createMany).not.toHaveBeenCalled();
-  });
-
-  it('без должников (все — ответственный) вставки нет', async () => {
-    pollService.getPollById.mockResolvedValue(
-      pollFixture({
-        result: {
-          rouletteData: JSON.stringify({
-            winners: [
-              {
-                menuItemId: 1,
-                menuItemName: 'Плов',
-                voteCount: 1,
-                menuItemSnapshot: { price: 250 },
-                voters: [{ userId: 2, firstName: 'Аня' }],
-              },
-            ],
-            bringOwn: { count: 0, voters: [] },
-          }),
-        },
-      })
-    );
-
-    await BudgetService.createTransactionsFromPoll(5, 2);
-
-    expect(prismaMock.transaction.createMany).not.toHaveBeenCalled();
-  });
-
-  it('без результатов голосования — понятная ошибка', async () => {
-    pollService.getPollById.mockResolvedValue(pollFixture({ result: null }));
-
-    await expect(
-      BudgetService.createTransactionsFromPoll(5, 2)
-    ).rejects.toThrow('Poll result data not found');
-  });
-});
-
-describe('calculateTotals', () => {
-  it('считает сумму заказа, долю ответственного и возврат', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      txFixture({ amount: 250 }),
-    ] as never);
-
-    const totals = await BudgetService.calculateTotals(5, 2);
-
-    expect(totals).toEqual({
-      totalOrder: 500,
-      totalToReturn: 250,
-      responsibleShare: 250,
-      netCost: 250,
-    });
-  });
-
-  it('ответственный без заказа имеет нулевую долю', async () => {
-    const totals = await BudgetService.calculateTotals(5, 99);
-
-    expect(totals.responsibleShare).toBe(0);
-  });
-
-  it('без результатов — ошибка', async () => {
-    pollService.getPollById.mockResolvedValue(pollFixture({ result: null }));
-
-    await expect(BudgetService.calculateTotals(5, 2)).rejects.toThrow(
-      'Poll result data not found'
-    );
-  });
-});
-
-describe('processResponsibleSelected', () => {
-  it('создаёт долги и рассылает уведомления', async () => {
-    await BudgetService.processResponsibleSelected(5, 2);
-
-    expect(prismaMock.transaction.createMany).toHaveBeenCalled();
-    // Ответственному и должнику.
-    expect(sendMessage).toHaveBeenCalled();
-  });
-
-  it('падение записи в базу выбрасывается наружу — вызывающий повторит', async () => {
-    asMock(prismaMock.transaction.createMany).mockRejectedValue(
-      new Error('db down')
-    );
-
-    await expect(
-      BudgetService.processResponsibleSelected(5, 2)
-    ).rejects.toThrow('db down');
-  });
-
-  it('падение уведомлений не откатывает уже созданные долги', async () => {
-    sendMessage.mockRejectedValue(new Error('telegram down'));
-
-    await expect(
-      BudgetService.processResponsibleSelected(5, 2)
-    ).resolves.toBeUndefined();
-    expect(prismaMock.transaction.createMany).toHaveBeenCalled();
-  });
-});
-
-describe('sendBudgetNotifications', () => {
-  it('ответственный получает список заказов и итоги', async () => {
-    await BudgetService.sendBudgetNotifications(5, 2, [txFixture()]);
-
-    const responsibleMessage = sendMessage.mock.calls[0][1] as string;
-    expect(responsibleMessage).toContain('Ты оформляешь заказ');
-    expect(responsibleMessage).toContain('Плов — 2 чел. (500.00₽)');
-    expect(responsibleMessage).toContain('Своё: Оля');
-    expect(responsibleMessage).toContain('Сумма заказа: 500.00₽');
-  });
-
-  it('карта ответственного показывается ему замаскированной', async () => {
-    await BudgetService.sendBudgetNotifications(5, 2, [txFixture()]);
-
-    const responsibleMessage = sendMessage.mock.calls[0][1] as string;
-    expect(responsibleMessage).not.toContain('1234567890123456');
-  });
-
-  it('должник получает сумму и реквизиты', async () => {
-    await BudgetService.sendBudgetNotifications(5, 2, [txFixture()]);
-
-    const debtMessage = sendMessage.mock.calls[1][1] as string;
-    expect(debtMessage).toContain('Твой заказ: Плов');
-    expect(debtMessage).toContain('Ответственный:* Аня');
-    expect(debtMessage).toContain('+79990001122');
-    expect(debtMessage).toContain('СБП');
-  });
-
-  it('групповое сообщение обновляется итогами', async () => {
-    await BudgetService.sendBudgetNotifications(5, 2, [txFixture()]);
-
-    expect(editMessageText).toHaveBeenCalledWith(
-      -1001,
-      42,
-      expect.stringContaining('Ответственный:* Аня'),
-      { parse_mode: 'Markdown' }
-    );
-  });
-
-  it('без сообщения выбора группу не правим', async () => {
-    asMock(prismaMock.responsibleSelection.findUnique).mockResolvedValue(
-      null
-    );
-
-    await BudgetService.sendBudgetNotifications(5, 2, [txFixture()]);
-
-    expect(editMessageText).not.toHaveBeenCalled();
-  });
-
-  it('неизвестный ответственный останавливает рассылку', async () => {
-    userService.getUserById.mockResolvedValue(null);
-
-    await BudgetService.sendBudgetNotifications(5, 2, [txFixture()]);
-
-    expect(sendMessage).not.toHaveBeenCalled();
-  });
-
-  it('ответственный без реквизитов всё равно получает сводку', async () => {
-    userService.getPaymentInfo.mockResolvedValue(null);
-
-    await BudgetService.sendBudgetNotifications(5, 2, [txFixture()]);
-
-    expect(sendMessage.mock.calls[0][1]).toContain('Ты оформляешь заказ');
-  });
 });
 
 describe('markAsPaid', () => {

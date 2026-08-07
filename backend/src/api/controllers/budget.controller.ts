@@ -4,6 +4,7 @@ import { BudgetService } from '../../services/budget.service';
 import { OrderCostsService } from '../../services/order-costs.service';
 import { ReminderService } from '../../services/reminder.service';
 import { BudgetQueryService } from '../../services/budget-query.service';
+import { PollFlowService } from '../../services/poll-flow.service';
 import { PollService } from '../../services/poll.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
@@ -93,17 +94,20 @@ export class BudgetController {
   private orderCostsService: OrderCostsService;
   private reminderService: ReminderService;
   private queryService: BudgetQueryService;
+  private pollFlowService: PollFlowService;
 
   constructor(
     budgetService: BudgetService,
     orderCostsService: OrderCostsService,
     reminderService: ReminderService,
-    queryService: BudgetQueryService
+    queryService: BudgetQueryService,
+    pollFlowService: PollFlowService
   ) {
     this.budgetService = budgetService;
     this.orderCostsService = orderCostsService;
     this.reminderService = reminderService;
     this.queryService = queryService;
+    this.pollFlowService = pollFlowService;
   }
 
   /**
@@ -564,7 +568,7 @@ export class BudgetController {
       const pollIdNum = parseInt(pollId);
       if (!(await requirePollAccess(res, authenticatedUser, pollIdNum))) return;
 
-      const totals = await this.budgetService.calculateTotals(
+      const totals = await this.pollFlowService.calculateTotals(
         pollIdNum,
         authenticatedUser.id
       );
