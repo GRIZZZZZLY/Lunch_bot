@@ -7,6 +7,41 @@ import { logger } from '../../utils/logger';
 import { JwtService } from '../../services/jwt.service';
 import { prisma } from '../../database/client';
 
+async function resolveGroupIdFromPollVote(rawPollId: string): Promise<number | null> {
+  const pollId = parseInt(rawPollId, 10);
+  if (!Number.isFinite(pollId)) return null;
+  const poll = await prisma.poll.findUnique({ where: { id: pollId }, select: { groupId: true } });
+  return poll?.groupId ?? null;
+}
+
+async function resolveGroupIdFromStoreRun(rawRunId: string): Promise<number | null> {
+  const runId = parseInt(rawRunId, 10);
+  if (!Number.isFinite(runId)) return null;
+  const run = await prisma.storeRun.findUnique({ where: { id: runId }, select: { groupId: true } });
+  return run?.groupId ?? null;
+}
+
+async function resolveGroupIdFromGroupTelegramId(rawTelegramId: string): Promise<number | null> {
+  if (!rawTelegramId) return null;
+  let telegramId: bigint;
+  try {
+    telegramId = BigInt(rawTelegramId);
+  } catch {
+    return null;
+  }
+  const group = await prisma.group.findUnique({ where: { telegramId }, select: { id: true } });
+  return group?.id ?? null;
+}
+
+/** Deep-link prefix → resolver, tried in order; the first matching prefix wins. */
+const START_PARAM_RESOLVERS: ReadonlyArray<{ prefix: string; resolve: (raw: string) => Promise<number | null> }> = [
+  { prefix: 'vote_', resolve: resolveGroupIdFromPollVote },
+  { prefix: 'storerun_', resolve: resolveGroupIdFromStoreRun },
+  { prefix: 'menu_', resolve: resolveGroupIdFromGroupTelegramId },
+  { prefix: 'add_', resolve: resolveGroupIdFromGroupTelegramId },
+  { prefix: 'poll_', resolve: resolveGroupIdFromGroupTelegramId },
+];
+
 /**
  * Resolve Telegram WebApp start_param to internal group.id.
  * Accepts deep-link prefixes: vote_<pollId>, storerun_<id>, menu_<groupTgId>,
@@ -14,35 +49,9 @@ import { prisma } from '../../database/client';
  */
 async function resolveGroupIdFromStartParam(startParam: string): Promise<number | null> {
   try {
-    if (startParam.startsWith('vote_')) {
-      const pollId = parseInt(startParam.slice('vote_'.length), 10);
-      if (!Number.isFinite(pollId)) return null;
-      const poll = await prisma.poll.findUnique({ where: { id: pollId }, select: { groupId: true } });
-      return poll?.groupId ?? null;
-    }
-    if (startParam.startsWith('storerun_')) {
-      const runId = parseInt(startParam.slice('storerun_'.length), 10);
-      if (!Number.isFinite(runId)) return null;
-      const run = await prisma.storeRun.findUnique({ where: { id: runId }, select: { groupId: true } });
-      return run?.groupId ?? null;
-    }
-    for (const prefix of ['menu_', 'add_', 'poll_']) {
-      if (!startParam.startsWith(prefix)) continue;
-      const raw = startParam.slice(prefix.length);
-      if (!raw) return null;
-      let telegramId: bigint;
-      try {
-        telegramId = BigInt(raw);
-      } catch {
-        return null;
-      }
-      const group = await prisma.group.findUnique({
-        where: { telegramId },
-        select: { id: true },
-      });
-      return group?.id ?? null;
-    }
-    return null;
+    const entry = START_PARAM_RESOLVERS.find(({ prefix }) => startParam.startsWith(prefix));
+    if (!entry) return null;
+    return await entry.resolve(startParam.slice(entry.prefix.length));
   } catch (error) {
     logger.warn('Failed to resolve start_param to group', { startParam, error });
     return null;
