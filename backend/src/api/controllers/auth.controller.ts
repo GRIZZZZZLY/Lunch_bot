@@ -51,6 +51,177 @@ async function resolveGroupIdFromStartParam(startParam: string): Promise<number 
 
 type JwtUserInput = Pick<User, 'id'>;
 
+type AuthUserSerializable = Pick<
+  User,
+  'id' | 'telegramId' | 'username' | 'firstName' | 'lastName' | 'isActive' | 'photoUrl' | 'createdAt' | 'updatedAt'
+>;
+
+/**
+ * Shape the four near-duplicate auth response payloads shared: the same
+ * id/telegramId conversions and name fields, differing only in which
+ * optional fields (photoUrl, createdAt, updatedAt) each endpoint exposes.
+ */
+function serializeAuthUser(
+  user: AuthUserSerializable,
+  options: { photoUrl?: boolean; createdAt?: boolean; updatedAt?: boolean } = {},
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
+    telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    isActive: user.isActive,
+  };
+  if (options.photoUrl) payload.photoUrl = user.photoUrl;
+  if (options.createdAt) payload.createdAt = user.createdAt;
+  if (options.updatedAt) payload.updatedAt = user.updatedAt;
+  return payload;
+}
+
+type InitDataFormatError = {
+  status: number;
+  body: { success: false; error: string; code: string };
+};
+
+/** Guard: initData must be a non-empty string under 5000 chars. */
+function checkInitDataFormat(initData: unknown): InitDataFormatError | null {
+  if (!initData) {
+    logger.warn('❌ No initData provided');
+    return { status: 400, body: { success: false, error: 'Missing initData', code: 'INVALID_REQUEST' } };
+  }
+  if (typeof initData !== 'string') {
+    logger.warn('❌ initData is not a string');
+    return { status: 400, body: { success: false, error: 'initData must be a string', code: 'INVALID_REQUEST' } };
+  }
+  if (initData.trim().length === 0) {
+    logger.warn('❌ initData is empty');
+    return { status: 400, body: { success: false, error: 'initData cannot be empty', code: 'INVALID_REQUEST' } };
+  }
+  if (initData.length > 5000) {
+    logger.warn('❌ initData is too long');
+    return { status: 400, body: { success: false, error: 'initData is too long', code: 'INVALID_REQUEST' } };
+  }
+  return null;
+}
+
+/**
+ * Dev-only bypass of Telegram signature validation. Always sends a response
+ * (real Telegram user if initData parses, otherwise a TEST_USER_ID fallback);
+ * callers must return right after awaiting this.
+ */
+async function handleSkipTelegramValidation(initData: string, res: Response): Promise<void> {
+  logger.info('🔓 SKIP_TELEGRAM_VALIDATION: extracting REAL user from initData');
+
+  // Пробуем извлечь реальные данные пользователя
+  if (initData && initData.trim().length > 0 && initData !== 'mock_jwt_token_12345678') {
+    const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
+    const telegramUser = parseInitDataUnsafe(initData);
+
+    if (telegramUser) {
+      // Создаём/обновляем пользователя с РЕАЛЬНЫМ ID из Telegram
+      const user = await UserService.upsertUser({
+        telegramId: telegramUser.id.toString(),
+        username: telegramUser.username || `user_${telegramUser.id}`,
+        firstName: telegramUser.first_name,
+        lastName: telegramUser.last_name,
+        photoUrl: telegramUser.photo_url,
+      });
+
+      logger.info('✅ SKIP mode: authenticated with REAL Telegram user', {
+        userId: user.id,
+        telegramId: telegramUser.id,
+        username: telegramUser.username
+      });
+
+      res.json({
+        success: true,
+        user: serializeAuthUser(user, { createdAt: true }),
+        ...generateJWT(user),
+      });
+      return;
+    }
+  }
+
+  // Fallback: используем TEST_USER_ID только если нет реальных данных
+  logger.warn('⚠️ SKIP_TELEGRAM_VALIDATION: No real initData - using TEST_USER_ID fallback');
+  const testUserId = process.env.TEST_USER_ID || '123456789';
+  const user = await UserService.upsertUser({
+    telegramId: testUserId,
+    username: 'dev_user',
+    firstName: 'Dev',
+    lastName: 'User',
+  });
+
+  logger.info('✅ SKIP mode: fallback test user', {
+    userId: user.id,
+    telegramId: testUserId
+  });
+
+  res.json({
+    success: true,
+    user: serializeAuthUser(user, { createdAt: true }),
+    ...generateJWT(user),
+  });
+}
+
+/** Guard: initData must carry hash/signature and pass Telegram's HMAC check. */
+function validateInitDataSignature(
+  initData: string,
+  params: URLSearchParams,
+  res: Response,
+): ReturnType<typeof validateTelegramInitData> {
+  if (!params.has('hash') && !params.has('signature')) {
+    logger.error('❌ InitData missing hash/signature field');
+    res.status(400).json({
+      success: false,
+      error: 'Invalid initData format',
+      code: 'INVALID_REQUEST'
+    });
+    return null;
+  }
+
+  const userData = validateTelegramInitData(initData);
+  if (!userData) {
+    logger.error('❌ InitData signature validation failed');
+    res.status(401).json({
+      success: false,
+      error: 'Invalid initData signature',
+      code: 'INVALID_INIT_DATA'
+    });
+    return null;
+  }
+
+  return userData;
+}
+
+/** Auto-add membership when launched via group deep-link — ONLY if Telegram confirms the user is actually in that group (no self-granted membership). */
+async function autoAddMembershipFromStartParam(
+  params: URLSearchParams,
+  user: Pick<User, 'id' | 'telegramId'>,
+): Promise<void> {
+  const startParam = params.get('start_param');
+  if (!startParam) return;
+
+  const groupId = await resolveGroupIdFromStartParam(startParam);
+  if (!groupId) return;
+
+  try {
+    const group = await GroupService.getGroupById(groupId);
+    if (!group) return;
+
+    const added = await GroupService.addMemberFromStartParam(
+      { id: group.id, telegramId: group.telegramId },
+      { id: user.id, telegramId: user.telegramId },
+    );
+    if (added) {
+      logger.info('Verified membership via start_param', { userId: user.id, groupId });
+    }
+  } catch (err) {
+    logger.warn('Membership auto-add failed', { userId: user.id, groupId, err });
+  }
+}
+
 export class AuthController {
   /**
    * POST /api/auth/validate
@@ -61,44 +232,9 @@ export class AuthController {
       const { initData } = req.body;
 
       // 🔒 Базовая валидация формата (работает ВСЕГДА, даже в SKIP режиме)
-      // 400 Bad Request - невалидный формат данных
-      if (!initData) {
-        logger.warn('❌ No initData provided');
-        res.status(400).json({
-          success: false,
-          error: 'Missing initData',
-          code: 'INVALID_REQUEST'
-        });
-        return;
-      }
-
-      if (typeof initData !== 'string') {
-        logger.warn('❌ initData is not a string');
-        res.status(400).json({
-          success: false,
-          error: 'initData must be a string',
-          code: 'INVALID_REQUEST'
-        });
-        return;
-      }
-
-      if (initData.trim().length === 0) {
-        logger.warn('❌ initData is empty');
-        res.status(400).json({
-          success: false,
-          error: 'initData cannot be empty',
-          code: 'INVALID_REQUEST'
-        });
-        return;
-      }
-
-      if (initData.length > 5000) {
-        logger.warn('❌ initData is too long');
-        res.status(400).json({
-          success: false,
-          error: 'initData is too long',
-          code: 'INVALID_REQUEST'
-        });
+      const formatError = checkInitDataFormat(initData);
+      if (formatError) {
+        res.status(formatError.status).json(formatError.body);
         return;
       }
 
@@ -118,76 +254,8 @@ export class AuthController {
       }
 
       // ⚠️ SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи (только не в production)
-      // Используем РЕАЛЬНЫЙ ID пользователя из initData
       if (!isProduction && skipTelegramValidation) {
-        logger.info('🔓 SKIP_TELEGRAM_VALIDATION: extracting REAL user from initData');
-        
-        // Пробуем извлечь реальные данные пользователя
-        if (initData && initData.trim().length > 0 && initData !== 'mock_jwt_token_12345678') {
-          const { parseInitDataUnsafe } = await import('../../utils/telegram-auth');
-          const telegramUser = parseInitDataUnsafe(initData);
-          
-          if (telegramUser) {
-            // Создаём/обновляем пользователя с РЕАЛЬНЫМ ID из Telegram
-            const user = await UserService.upsertUser({
-              telegramId: telegramUser.id.toString(),
-              username: telegramUser.username || `user_${telegramUser.id}`,
-              firstName: telegramUser.first_name,
-              lastName: telegramUser.last_name,
-              photoUrl: telegramUser.photo_url,
-            });
-
-            logger.info('✅ SKIP mode: authenticated with REAL Telegram user', {
-              userId: user.id,
-              telegramId: telegramUser.id,
-              username: telegramUser.username
-            });
-
-            res.json({
-              success: true,
-              user: {
-                id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
-                telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
-                username: user.username,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                isActive: user.isActive,
-                createdAt: user.createdAt,
-              },
-              ...generateJWT(user),
-            });
-            return;
-          }
-        }
-        
-        // Fallback: используем TEST_USER_ID только если нет реальных данных
-        logger.warn('⚠️ SKIP_TELEGRAM_VALIDATION: No real initData - using TEST_USER_ID fallback');
-        const testUserId = process.env.TEST_USER_ID || '123456789';
-        const user = await UserService.upsertUser({
-          telegramId: testUserId,
-          username: 'dev_user',
-          firstName: 'Dev',
-          lastName: 'User',
-        });
-
-        logger.info('✅ SKIP mode: fallback test user', {
-          userId: user.id,
-          telegramId: testUserId
-        });
-
-        res.json({
-          success: true,
-          user: {
-            id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
-            telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
-            username: user.username,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            isActive: user.isActive,
-            createdAt: user.createdAt,
-          },
-          ...generateJWT(user),
-        });
+        await handleSkipTelegramValidation(initData, res);
         return;
       }
 
@@ -197,30 +265,9 @@ export class AuthController {
         nodeEnv: process.env.NODE_ENV,
       });
 
-      // Проверяем наличие обязательных полей (hash или signature)
       const params = new URLSearchParams(initData);
-      if (!params.has('hash') && !params.has('signature')) {
-        logger.error('❌ InitData missing hash/signature field');
-        res.status(400).json({
-          success: false,
-          error: 'Invalid initData format',
-          code: 'INVALID_REQUEST'
-        });
-        return;
-      }
-
-      // Валидируем подпись (поддерживает оба формата: hash и signature)
-      const userData = validateTelegramInitData(initData);
-      if (!userData) {
-        // Формат валиден, но подпись неправильная -> 401 Unauthorized
-        logger.error('❌ InitData signature validation failed');
-        res.status(401).json({
-          success: false,
-          error: 'Invalid initData signature',
-          code: 'INVALID_INIT_DATA'
-        });
-        return;
-      }
+      const userData = validateInitDataSignature(initData, params, res);
+      if (!userData) return;
 
       logger.info('InitData validated successfully');
 
@@ -235,41 +282,11 @@ export class AuthController {
 
       logger.info('User authenticated via Telegram', { userId: user.id });
 
-      // Auto-add membership when launched via group deep-link — ONLY if Telegram
-      // confirms the user is actually in that group (no self-granted membership).
-      const startParam = params.get('start_param');
-      if (startParam) {
-        const groupId = await resolveGroupIdFromStartParam(startParam);
-        if (groupId) {
-          try {
-            const group = await GroupService.getGroupById(groupId);
-            if (group) {
-              const added = await GroupService.addMemberFromStartParam(
-                { id: group.id, telegramId: group.telegramId },
-                { id: user.id, telegramId: user.telegramId },
-              );
-              if (added) {
-                logger.info('Verified membership via start_param', { userId: user.id, groupId });
-              }
-            }
-          } catch (err) {
-            logger.warn('Membership auto-add failed', { userId: user.id, groupId, err });
-          }
-        }
-      }
+      await autoAddMembershipFromStartParam(params, user);
 
       res.json({
         success: true,
-        user: {
-          id: typeof user.id === 'bigint' ? Number(user.id) : user.id,
-          telegramId: typeof user.telegramId === 'bigint' ? user.telegramId.toString() : user.telegramId,
-          username: user.username,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          photoUrl: user.photoUrl,
-          isActive: user.isActive,
-          createdAt: user.createdAt,
-        },
+        user: serializeAuthUser(user, { photoUrl: true, createdAt: true }),
         ...generateJWT(user),
       });
 
@@ -384,15 +401,7 @@ export class AuthController {
 
       res.json({
         success: true,
-        user: {
-          id: typeof freshUser.id === 'bigint' ? Number(freshUser.id) : freshUser.id,
-          telegramId: typeof freshUser.telegramId === 'bigint' ? freshUser.telegramId.toString() : freshUser.telegramId,
-          username: freshUser.username,
-          firstName: freshUser.firstName,
-          lastName: freshUser.lastName,
-          isActive: freshUser.isActive,
-          updatedAt: freshUser.updatedAt,
-        },
+        user: serializeAuthUser(freshUser, { updatedAt: true }),
         ...generateJWT(freshUser),
       });
 
