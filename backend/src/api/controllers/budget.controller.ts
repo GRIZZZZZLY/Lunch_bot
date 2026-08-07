@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { BudgetService } from '../../services/budget.service';
 import { OrderCostsService } from '../../services/order-costs.service';
+import { ReminderService } from '../../services/reminder.service';
 import { PollService } from '../../services/poll.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
@@ -89,10 +90,16 @@ const SetOrderCostsSchema = z.object({
 export class BudgetController {
   private budgetService: BudgetService;
   private orderCostsService: OrderCostsService;
+  private reminderService: ReminderService;
 
-  constructor(budgetService: BudgetService, orderCostsService: OrderCostsService) {
+  constructor(
+    budgetService: BudgetService,
+    orderCostsService: OrderCostsService,
+    reminderService: ReminderService
+  ) {
     this.budgetService = budgetService;
     this.orderCostsService = orderCostsService;
+    this.reminderService = reminderService;
   }
 
   /**
@@ -482,7 +489,7 @@ export class BudgetController {
         return;
       }
 
-      await this.budgetService.sendReminder(
+      await this.reminderService.sendReminder(
         parsed.data.transactionId,
         authenticatedUser.id
       );
@@ -513,7 +520,7 @@ export class BudgetController {
         return;
       }
 
-      const result = await this.budgetService.sendRemindersToAll(
+      const result = await this.reminderService.sendRemindersToAll(
         pollId,
         authenticatedUser.id
       );

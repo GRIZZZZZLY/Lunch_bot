@@ -43,8 +43,6 @@ function serviceStub() {
     cancelMarkAsPaid: jest.fn(),
     markAllPaidByResponsible: jest.fn(),
     getUserStats: jest.fn(),
-    sendReminder: jest.fn(),
-    sendRemindersToAll: jest.fn(),
     calculateTotals: jest.fn(),
   };
 }
@@ -58,8 +56,17 @@ function orderCostsServiceStub() {
   };
 }
 
+/** Напоминания — тоже отдельный сервис. */
+function reminderServiceStub() {
+  return {
+    sendReminder: jest.fn(),
+    sendRemindersToAll: jest.fn(),
+  };
+}
+
 let service: ReturnType<typeof serviceStub>;
 let orderCostsService: ReturnType<typeof orderCostsServiceStub>;
+let reminderService: ReturnType<typeof reminderServiceStub>;
 let controller: BudgetController;
 
 const DEBTOR = { id: 1, isAdmin: false };
@@ -69,9 +76,11 @@ beforeEach(() => {
   jest.clearAllMocks();
   service = serviceStub();
   orderCostsService = orderCostsServiceStub();
+  reminderService = reminderServiceStub();
   controller = new BudgetController(
     service as unknown as ConstructorParameters<typeof BudgetController>[0],
-    orderCostsService as unknown as ConstructorParameters<typeof BudgetController>[1]
+    orderCostsService as unknown as ConstructorParameters<typeof BudgetController>[1],
+    reminderService as unknown as ConstructorParameters<typeof BudgetController>[2]
   );
   pollService.getPollGroupId.mockResolvedValue(100);
   groupService.isUserGroupMember.mockResolvedValue(true);
@@ -617,7 +626,7 @@ describe('POST /api/budget/send-reminder', () => {
       res
     );
 
-    expect(service.sendReminder).toHaveBeenCalledWith(7, 2);
+    expect(reminderService.sendReminder).toHaveBeenCalledWith(7, 2);
     expect(res.body).toMatchObject({ success: true, message: 'Reminder sent' });
   });
 
@@ -642,7 +651,7 @@ describe('POST /api/budget/send-reminder', () => {
   });
 
   it('ошибка сервиса — 500', async () => {
-    service.sendReminder.mockRejectedValue(new Error('boom'));
+    reminderService.sendReminder.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.sendReminder(
@@ -656,7 +665,7 @@ describe('POST /api/budget/send-reminder', () => {
 
 describe('POST /api/budget/send-reminders-all', () => {
   it('возвращает счётчики доставки', async () => {
-    service.sendRemindersToAll.mockResolvedValue({
+    reminderService.sendRemindersToAll.mockResolvedValue({
       sentCount: 2,
       failedCount: 1,
       totalCount: 3,
@@ -697,11 +706,11 @@ describe('POST /api/budget/send-reminders-all', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(service.sendRemindersToAll).not.toHaveBeenCalled();
+    expect(reminderService.sendRemindersToAll).not.toHaveBeenCalled();
   });
 
   it('ошибка сервиса — 500', async () => {
-    service.sendRemindersToAll.mockRejectedValue(new Error('boom'));
+    reminderService.sendRemindersToAll.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.sendRemindersAll(

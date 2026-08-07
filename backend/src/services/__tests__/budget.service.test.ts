@@ -1,5 +1,6 @@
 import { BudgetService } from '../budget.service';
 import { OrderCostsService } from '../order-costs.service';
+import { ReminderService } from '../reminder.service';
 import { prisma } from '../../database/client';
 
 const mockSendMessage = jest.fn();
@@ -59,6 +60,7 @@ const txMock = {
 describe('BudgetService Mini App behaviours', () => {
   const service = new BudgetService();
   const orderCostsService = new OrderCostsService();
+  const reminderService = new ReminderService();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -200,7 +202,7 @@ describe('BudgetService Mini App behaviours', () => {
       poll: { group: { title: 'Team' } },
     });
 
-    const result = await service.sendReminder(11, 123);
+    const result = await reminderService.sendReminder(11, 123);
 
     expect(result).toMatchObject({
       success: false,
@@ -229,7 +231,7 @@ describe('BudgetService Mini App behaviours', () => {
     ]);
     mockSendMessage.mockResolvedValue({});
 
-    const result = await service.sendRemindersToAll(7, 9);
+    const result = await reminderService.sendRemindersToAll(7, 9);
 
     expect(result).toEqual({
       sentCount: 1,

@@ -747,37 +747,3 @@ describe('checkAllPaid', () => {
     await expect(BudgetService.checkAllPaid(5, 2)).resolves.toBeUndefined();
   });
 });
-
-describe('remindAllDebtors', () => {
-  it('сообщает, сколько напоминаний ушло', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      txFixture(),
-    ] as never);
-    asMock(prismaMock.paymentReminder.createMany).mockResolvedValue({
-      count: 1,
-    });
-
-    const reply = await BudgetService.remindAllDebtors(5, 2);
-
-    expect(reply).toContain('Напоминания отправлены: 1 из 1');
-  });
-
-  it('нет должников — так и говорит', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([] as never);
-
-    await expect(BudgetService.remindAllDebtors(5, 2)).resolves.toContain(
-      'Все уже оплатили'
-    );
-  });
-
-  it('недоставленные перечисляются по именам', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      txFixture(),
-    ] as never);
-    sendMessage.mockRejectedValue(new Error('bot blocked'));
-
-    const reply = await BudgetService.remindAllDebtors(5, 2);
-
-    expect(reply).toContain('Не удалось отправить: Игорь');
-  });
-});

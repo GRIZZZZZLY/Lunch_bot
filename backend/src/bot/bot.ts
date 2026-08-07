@@ -495,7 +495,7 @@ export function createBot(): Bot<BotContext> {
           );
           return;
         }
-        const { BudgetService } = await import('../services/budget.service.js');
+        const { ReminderService } = await import('../services/reminder.service.js');
         const { prisma } = await import('../database/client.js');
 
         // Проверяем что нажавший — ответственный по этому poll
@@ -509,7 +509,7 @@ export function createBot(): Bot<BotContext> {
           return;
         }
 
-        const resultMessage = await BudgetService.remindAllDebtors(
+        const resultMessage = await ReminderService.remindAllDebtors(
           pollId,
           tx.toUserId
         );
