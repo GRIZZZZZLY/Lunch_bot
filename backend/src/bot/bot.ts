@@ -392,8 +392,8 @@ export function createBot(): Bot<BotContext> {
           );
           return;
         }
-        const { BudgetService } = await import('../services/budget.service.js');
-        const result = await BudgetService.markStoreRunPaidByDebtor(
+        const { StoreRunBudgetService } = await import('../services/store-run-budget.service.js');
+        const result = await StoreRunBudgetService.markStoreRunPaidByDebtor(
           storeRunId,
           ctx.from.id
         );
@@ -426,8 +426,8 @@ export function createBot(): Bot<BotContext> {
           );
           return;
         }
-        const { BudgetService } = await import('../services/budget.service.js');
-        const result = await BudgetService.confirmStoreRunByDebtor(
+        const { StoreRunBudgetService } = await import('../services/store-run-budget.service.js');
+        const result = await StoreRunBudgetService.confirmStoreRunByDebtor(
           storeRunId,
           debtorUserId,
           ctx.from.id

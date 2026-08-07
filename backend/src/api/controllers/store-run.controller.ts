@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { StoreRunService, StoreRunError } from '../../services/store-run.service';
 import { notificationService } from '../../services/notification.service';
-import { BudgetService } from '../../services/budget.service';
+import { StoreRunBudgetService } from '../../services/store-run-budget.service';
 import { logger } from '../../utils/logger';
 import { serializeBigInt as serializeData } from '../../utils/serialize';
 
@@ -327,7 +327,7 @@ export class StoreRunController {
       const run = await StoreRunService.settle(id, user.id);
 
       // Fire-and-forget: разослать должникам суммы/реквизиты, инициатору — сводку.
-      BudgetService.notifyStoreRunSettled(id).catch((err: unknown) =>
+      StoreRunBudgetService.notifyStoreRunSettled(id).catch((err: unknown) =>
         logger.error('Failed to notify store run settled', { storeRunId: id, err }),
       );
 

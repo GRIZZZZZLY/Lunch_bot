@@ -14,7 +14,7 @@
  * 4. Подтвердить оплату может только инициатор забега — иначе должник
  *    закрывал бы долг сам себе.
  */
-import { BudgetService } from '../../../services/budget.service';
+import { StoreRunBudgetService } from '../../../services/store-run-budget.service';
 import { UserService } from '../../../services/user.service';
 import { getBotInstance } from '../../../bot/bot-instance';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
@@ -149,7 +149,7 @@ describe('createTransactionsForStoreRun', () => {
       ])
     );
 
-    await BudgetService.createTransactionsForStoreRun(30);
+    await StoreRunBudgetService.createTransactionsForStoreRun(30);
 
     expect(insertedRows()).toEqual([
       expect.objectContaining({
@@ -171,7 +171,7 @@ describe('createTransactionsForStoreRun', () => {
       ])
     );
 
-    await BudgetService.createTransactionsForStoreRun(30);
+    await StoreRunBudgetService.createTransactionsForStoreRun(30);
 
     expect(insertedRows()).toHaveLength(1);
     expect(insertedRows()[0]).toMatchObject({ fromUserId: 2 });
@@ -185,7 +185,7 @@ describe('createTransactionsForStoreRun', () => {
       ])
     );
 
-    await BudgetService.createTransactionsForStoreRun(30);
+    await StoreRunBudgetService.createTransactionsForStoreRun(30);
 
     expect(insertedRows().map(row => row.storeItemId)).toEqual([11]);
   });
@@ -195,7 +195,7 @@ describe('createTransactionsForStoreRun', () => {
       storeRun([{ id: 10, userId: 2, price: null }])
     );
 
-    await BudgetService.createTransactionsForStoreRun(30);
+    await StoreRunBudgetService.createTransactionsForStoreRun(30);
 
     expect(asMock(prismaMock.transaction.createMany)).not.toHaveBeenCalled();
   });
@@ -206,7 +206,7 @@ describe('createTransactionsForStoreRun', () => {
     );
 
     await expect(
-      BudgetService.createTransactionsForStoreRun(30)
+      StoreRunBudgetService.createTransactionsForStoreRun(30)
     ).resolves.toEqual([]);
     expect(logger.info).toHaveBeenCalledWith('No billable items for store run', {
       storeRunId: 30,
@@ -221,7 +221,7 @@ describe('createTransactionsForStoreRun', () => {
       transaction({ fromUserId: 2 }),
     ]);
 
-    const result = await BudgetService.createTransactionsForStoreRun(30);
+    const result = await StoreRunBudgetService.createTransactionsForStoreRun(30);
 
     expect(asMock(prismaMock.transaction.createMany)).toHaveBeenCalledWith(
       expect.objectContaining({ skipDuplicates: true })
@@ -232,7 +232,7 @@ describe('createTransactionsForStoreRun', () => {
 
   it('несуществующий забег — ошибка', async () => {
     await expect(
-      BudgetService.createTransactionsForStoreRun(30)
+      StoreRunBudgetService.createTransactionsForStoreRun(30)
     ).rejects.toThrow('Store run 30 not found');
   });
 
@@ -247,7 +247,7 @@ describe('createTransactionsForStoreRun', () => {
       },
     };
 
-    await BudgetService.createTransactionsForStoreRun(30, tx as never);
+    await StoreRunBudgetService.createTransactionsForStoreRun(30, tx as never);
 
     expect(tx.transaction.createMany).toHaveBeenCalled();
     expect(asMock(prismaMock.transaction.createMany)).not.toHaveBeenCalled();
@@ -262,7 +262,7 @@ describe('createTransactionsForStoreRun', () => {
     );
 
     await expect(
-      BudgetService.createTransactionsForStoreRun(30)
+      StoreRunBudgetService.createTransactionsForStoreRun(30)
     ).rejects.toThrow('db down');
   });
 });
@@ -284,7 +284,7 @@ describe('notifyStoreRunSettled', () => {
       { id: 3, fromUserId: 3, amount: 300, itemName: 'Сыр' },
     ]);
 
-    await BudgetService.notifyStoreRunSettled(30);
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     // По одному письму каждому должнику плюс сводка инициатору.
     expect(api.sendMessage).toHaveBeenCalledTimes(3);
@@ -297,7 +297,7 @@ describe('notifyStoreRunSettled', () => {
   it('в письме есть название магазина, получатель и кнопка «Оплатил»', async () => {
     settled([{ fromUserId: 2, amount: 150 }]);
 
-    await BudgetService.notifyStoreRunSettled(30);
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     expect(sentTo(1002)).toContain('Пятёрочка');
     expect(sentTo(1002)).toContain('U1');
@@ -308,7 +308,7 @@ describe('notifyStoreRunSettled', () => {
   it('номер карты приходит замаскированным', async () => {
     settled([{ fromUserId: 2 }]);
 
-    await BudgetService.notifyStoreRunSettled(30);
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     const text = sentTo(1002) as string;
     expect(text).not.toContain('2200123456789012');
@@ -323,7 +323,7 @@ describe('notifyStoreRunSettled', () => {
     });
     settled([{ fromUserId: 2 }]);
 
-    await BudgetService.notifyStoreRunSettled(30);
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     const text = sentTo(1002) as string;
     expect(text).toContain('+79990001122');
@@ -334,7 +334,7 @@ describe('notifyStoreRunSettled', () => {
     users.getPaymentInfo.mockResolvedValue(null);
     settled([{ fromUserId: 2 }]);
 
-    await BudgetService.notifyStoreRunSettled(30);
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     expect(sentTo(1002)).toContain('не заполнил реквизиты');
   });
@@ -344,7 +344,7 @@ describe('notifyStoreRunSettled', () => {
       initiator: user(1, { lastName: 'Петров' }),
     });
 
-    await BudgetService.notifyStoreRunSettled(30);
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     expect(sentTo(1002)).toContain('U1 Петров');
   });
@@ -355,7 +355,7 @@ describe('notifyStoreRunSettled', () => {
       { id: 2, fromUserId: 3, amount: 250 },
     ]);
 
-    await BudgetService.notifyStoreRunSettled(30);
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     const summary = sentTo(1001) as string;
     expect(summary).toContain('Тебе вернут: 400');
@@ -366,7 +366,7 @@ describe('notifyStoreRunSettled', () => {
   it('без долгов рассылки нет', async () => {
     settled([]);
 
-    await BudgetService.notifyStoreRunSettled(30);
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     expect(api.sendMessage).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledWith(
@@ -379,7 +379,7 @@ describe('notifyStoreRunSettled', () => {
     asMock(prismaMock.storeRun.findUnique).mockResolvedValue(null);
 
     await expect(
-      BudgetService.notifyStoreRunSettled(30)
+      StoreRunBudgetService.notifyStoreRunSettled(30)
     ).resolves.toBeUndefined();
     expect(api.sendMessage).not.toHaveBeenCalled();
   });
@@ -387,7 +387,7 @@ describe('notifyStoreRunSettled', () => {
   it('без бота рассылка не запускается', async () => {
     asMock(getBotInstance).mockReturnValue(null);
 
-    await BudgetService.notifyStoreRunSettled(30);
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     expect(logger.error).toHaveBeenCalledWith(
       'notifyStoreRunSettled: bot not initialized',
@@ -406,7 +406,7 @@ describe('notifyStoreRunSettled', () => {
       .mockResolvedValue({ message_id: 1 });
 
     await expect(
-      BudgetService.notifyStoreRunSettled(30)
+      StoreRunBudgetService.notifyStoreRunSettled(30)
     ).resolves.toBeUndefined();
     expect(api.sendMessage).toHaveBeenCalledTimes(3);
     expect(logger.error).toHaveBeenCalledWith(
@@ -422,7 +422,7 @@ describe('notifyStoreRunSettled', () => {
     );
 
     await expect(
-      BudgetService.notifyStoreRunSettled(30)
+      StoreRunBudgetService.notifyStoreRunSettled(30)
     ).resolves.toBeUndefined();
     expect(logger.error).toHaveBeenCalledWith(
       'Error sending store run settle notifications:',
@@ -445,7 +445,7 @@ describe('markStoreRunPaidByDebtor', () => {
       { id: 2, fromUserId: 2, amount: 50 },
     ]);
 
-    const result = await BudgetService.markStoreRunPaidByDebtor(30, 1002);
+    const result = await StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002);
 
     expect(asMock(prismaMock.transaction.updateMany)).toHaveBeenCalledWith({
       where: { storeRunId: 30, fromUserId: 2, status: 'PENDING' },
@@ -457,7 +457,7 @@ describe('markStoreRunPaidByDebtor', () => {
   it('инициатор получает уведомление с кнопкой подтверждения', async () => {
     debtorWith([{ fromUserId: 2, amount: 150 }]);
 
-    await BudgetService.markStoreRunPaidByDebtor(30, 1002);
+    await StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002);
 
     expect(sentTo(1001)).toContain('Получена оплата по магазину');
     const call = api.sendMessage.mock.calls.find(c => c[0] === 1001);
@@ -466,7 +466,7 @@ describe('markStoreRunPaidByDebtor', () => {
 
   it('незнакомый пользователь ничего не отмечает', async () => {
     await expect(
-      BudgetService.markStoreRunPaidByDebtor(30, 9999)
+      StoreRunBudgetService.markStoreRunPaidByDebtor(30, 9999)
     ).resolves.toBeNull();
     expect(asMock(prismaMock.transaction.updateMany)).not.toHaveBeenCalled();
   });
@@ -476,7 +476,7 @@ describe('markStoreRunPaidByDebtor', () => {
     asMock(prismaMock.transaction.findMany).mockResolvedValue([]);
 
     await expect(
-      BudgetService.markStoreRunPaidByDebtor(30, 1002)
+      StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002)
     ).resolves.toBeNull();
     expect(asMock(prismaMock.transaction.updateMany)).not.toHaveBeenCalled();
   });
@@ -486,7 +486,7 @@ describe('markStoreRunPaidByDebtor', () => {
     asMock(getBotInstance).mockReturnValue(null);
 
     await expect(
-      BudgetService.markStoreRunPaidByDebtor(30, 1002)
+      StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002)
     ).resolves.toMatchObject({ count: 1 });
     expect(api.sendMessage).not.toHaveBeenCalled();
   });
@@ -505,7 +505,7 @@ describe('confirmStoreRunByDebtor', () => {
       { id: 2, fromUserId: 2, amount: 50 },
     ]);
 
-    const result = await BudgetService.confirmStoreRunByDebtor(30, 2, 1001);
+    const result = await StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001);
 
     expect(asMock(prismaMock.transaction.updateMany)).toHaveBeenCalledWith({
       where: {
@@ -522,7 +522,7 @@ describe('confirmStoreRunByDebtor', () => {
     pending([{ fromUserId: 2 }]);
 
     await expect(
-      BudgetService.confirmStoreRunByDebtor(30, 2, 1002)
+      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1002)
     ).resolves.toEqual({ error: 'forbidden' });
     expect(asMock(prismaMock.transaction.updateMany)).not.toHaveBeenCalled();
   });
@@ -531,14 +531,14 @@ describe('confirmStoreRunByDebtor', () => {
     pending([]);
 
     await expect(
-      BudgetService.confirmStoreRunByDebtor(30, 2, 1001)
+      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001)
     ).resolves.toEqual({ error: 'no_tx' });
   });
 
   it('должник узнаёт о подтверждении', async () => {
     pending([{ fromUserId: 2, amount: 150 }]);
 
-    await BudgetService.confirmStoreRunByDebtor(30, 2, 1001);
+    await StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001);
 
     expect(sentTo(1002)).toContain('Оплата подтверждена');
   });
@@ -548,7 +548,7 @@ describe('confirmStoreRunByDebtor', () => {
     asMock(getBotInstance).mockReturnValue(null);
 
     await expect(
-      BudgetService.confirmStoreRunByDebtor(30, 2, 1001)
+      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001)
     ).resolves.toEqual({ count: 1 });
     expect(api.sendMessage).not.toHaveBeenCalled();
   });

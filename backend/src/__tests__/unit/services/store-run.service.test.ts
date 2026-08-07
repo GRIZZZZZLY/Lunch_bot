@@ -19,7 +19,7 @@ import {
   StoreRunService,
   StoreRunError,
 } from '../../../services/store-run.service';
-import { BudgetService } from '../../../services/budget.service';
+import { StoreRunBudgetService } from '../../../services/store-run-budget.service';
 import { GroupService } from '../../../services/group.service';
 import { eventBus } from '../../../services/event-bus.service';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
@@ -29,8 +29,8 @@ jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
 );
 
-jest.mock('../../../services/budget.service', () => ({
-  BudgetService: { createTransactionsForStoreRun: jest.fn() },
+jest.mock('../../../services/store-run-budget.service', () => ({
+  StoreRunBudgetService: { createTransactionsForStoreRun: jest.fn() },
 }));
 
 jest.mock('../../../services/group.service', () => ({
@@ -46,7 +46,7 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const { logger } = jest.requireMock('../../../utils/logger');
-const budget = asServiceMock(BudgetService);
+const budget = asServiceMock(StoreRunBudgetService);
 const groups = asServiceMock(GroupService);
 const bus = asServiceMock(eventBus);
 

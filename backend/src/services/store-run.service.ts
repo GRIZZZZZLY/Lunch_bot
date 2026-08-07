@@ -1,7 +1,7 @@
 import { Prisma, StoreRun, StoreItem } from '@prisma/client';
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
-import { BudgetService } from './budget.service';
+import { StoreRunBudgetService } from './store-run-budget.service';
 import { GroupService } from './group.service';
 import { eventBus } from './event-bus.service';
 
@@ -505,7 +505,7 @@ export class StoreRunService {
       }
 
       const transactions =
-        await BudgetService.createTransactionsForStoreRun(storeRunId, tx);
+        await StoreRunBudgetService.createTransactionsForStoreRun(storeRunId, tx);
       const settled = await tx.storeRun.findUniqueOrThrow({
         where: { id: storeRunId },
       });

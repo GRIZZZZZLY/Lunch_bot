@@ -7,7 +7,7 @@
 import { StoreRunController } from '../../../api/controllers/store-run.controller';
 import { StoreRunService } from '../../../services/store-run.service';
 import { notificationService } from '../../../services/notification.service';
-import { BudgetService } from '../../../services/budget.service';
+import { StoreRunBudgetService } from '../../../services/store-run-budget.service';
 import { mockRequest, mockResponse } from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
 
@@ -51,8 +51,8 @@ jest.mock('../../../services/notification.service', () => ({
   },
 }));
 
-jest.mock('../../../services/budget.service', () => ({
-  BudgetService: { notifyStoreRunSettled: jest.fn() },
+jest.mock('../../../services/store-run-budget.service', () => ({
+  StoreRunBudgetService: { notifyStoreRunSettled: jest.fn() },
 }));
 
 jest.mock('../../../utils/logger', () => ({
@@ -66,7 +66,7 @@ const {
 
 const storeRunService = asServiceMock(StoreRunService);
 const notifications = notificationService as unknown as Record<string, jest.Mock>;
-const budgetStatics = BudgetService as unknown as Record<string, jest.Mock>;
+const budgetStatics = StoreRunBudgetService as unknown as Record<string, jest.Mock>;
 
 const USER = { id: 1 };
 const controller = new StoreRunController();

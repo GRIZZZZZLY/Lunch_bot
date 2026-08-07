@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { StoreRunService } from '../store-run.service';
 import { prisma } from '../../database/client';
-import { BudgetService } from '../budget.service';
+import { StoreRunBudgetService } from '../store-run-budget.service';
 
 jest.mock('../../database/client', () => ({
   prisma: {
@@ -38,8 +38,8 @@ jest.mock('../../utils/logger', () => ({
   },
 }));
 
-jest.mock('../budget.service', () => ({
-  BudgetService: {
+jest.mock('../store-run-budget.service', () => ({
+  StoreRunBudgetService: {
     createTransactionsForStoreRun: jest.fn(),
   },
 }));
@@ -234,7 +234,7 @@ describe('StoreRunService user behaviours', () => {
       ...baseRun,
       status: 'SHOPPING',
     });
-    (BudgetService.createTransactionsForStoreRun as jest.Mock).mockResolvedValue([
+    (StoreRunBudgetService.createTransactionsForStoreRun as jest.Mock).mockResolvedValue([
       { id: 100 },
     ]);
     (prisma.storeRun.findUniqueOrThrow as jest.Mock).mockResolvedValue({
@@ -244,7 +244,7 @@ describe('StoreRunService user behaviours', () => {
 
     await StoreRunService.settle(7, 5);
 
-    expect(BudgetService.createTransactionsForStoreRun).toHaveBeenCalledWith(
+    expect(StoreRunBudgetService.createTransactionsForStoreRun).toHaveBeenCalledWith(
       7,
       prisma
     );
@@ -266,7 +266,7 @@ describe('StoreRunService user behaviours', () => {
     });
 
     // Транзакция откатывается — денег не создаём, забег остаётся SHOPPING.
-    expect(BudgetService.createTransactionsForStoreRun).not.toHaveBeenCalled();
+    expect(StoreRunBudgetService.createTransactionsForStoreRun).not.toHaveBeenCalled();
     expect(prisma.storeItem.count).toHaveBeenCalledWith({
       where: { storeRunId: 7, status: 'BOUGHT', price: null },
     });
