@@ -3,6 +3,7 @@ import { BudgetController } from '../controllers/budget.controller';
 import { BudgetService } from '../../services/budget.service';
 import { OrderCostsService } from '../../services/order-costs.service';
 import { ReminderService } from '../../services/reminder.service';
+import { BudgetQueryService } from '../../services/budget-query.service';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { reminderLimiter, writeLimiter } from '../middleware/rate-limiter';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
@@ -20,10 +21,12 @@ const budgetIdempotency = createIdempotencyMiddleware({
 const budgetService = new BudgetService();
 const orderCostsService = new OrderCostsService();
 const reminderService = new ReminderService();
+const queryService = new BudgetQueryService();
 const budgetController = new BudgetController(
   budgetService,
   orderCostsService,
-  reminderService
+  reminderService,
+  queryService
 );
 
 // Apply auth middleware to all routes

@@ -35,14 +35,10 @@ const groupService = GroupService as jest.Mocked<typeof GroupService>;
 /** Экземпляр сервиса, который контроллер получает через конструктор. */
 function serviceStub() {
   return {
-    getUserDebts: jest.fn(),
-    getUserCredits: jest.fn(),
-    getTransactionById: jest.fn(),
     markAsPaid: jest.fn(),
     confirmPayment: jest.fn(),
     cancelMarkAsPaid: jest.fn(),
     markAllPaidByResponsible: jest.fn(),
-    getUserStats: jest.fn(),
     calculateTotals: jest.fn(),
   };
 }
@@ -64,9 +60,20 @@ function reminderServiceStub() {
   };
 }
 
+/** Query-сервис — чтения долгов/кредитов/статистики/транзакции по id. */
+function queryServiceStub() {
+  return {
+    getUserDebts: jest.fn(),
+    getUserCredits: jest.fn(),
+    getTransactionById: jest.fn(),
+    getUserStats: jest.fn(),
+  };
+}
+
 let service: ReturnType<typeof serviceStub>;
 let orderCostsService: ReturnType<typeof orderCostsServiceStub>;
 let reminderService: ReturnType<typeof reminderServiceStub>;
+let queryService: ReturnType<typeof queryServiceStub>;
 let controller: BudgetController;
 
 const DEBTOR = { id: 1, isAdmin: false };
@@ -77,10 +84,12 @@ beforeEach(() => {
   service = serviceStub();
   orderCostsService = orderCostsServiceStub();
   reminderService = reminderServiceStub();
+  queryService = queryServiceStub();
   controller = new BudgetController(
     service as unknown as ConstructorParameters<typeof BudgetController>[0],
     orderCostsService as unknown as ConstructorParameters<typeof BudgetController>[1],
-    reminderService as unknown as ConstructorParameters<typeof BudgetController>[2]
+    reminderService as unknown as ConstructorParameters<typeof BudgetController>[2],
+    queryService as unknown as ConstructorParameters<typeof BudgetController>[3]
   );
   pollService.getPollGroupId.mockResolvedValue(100);
   groupService.isUserGroupMember.mockResolvedValue(true);
@@ -88,7 +97,7 @@ beforeEach(() => {
 
 describe('GET /api/budget/debts', () => {
   it('отдаёт долги по id из токена, а не из запроса', async () => {
-    service.getUserDebts.mockResolvedValue([{ id: 1, amount: 500 }]);
+    queryService.getUserDebts.mockResolvedValue([{ id: 1, amount: 500 }]);
     const res = mockResponse();
 
     await controller.getDebts(
@@ -96,12 +105,12 @@ describe('GET /api/budget/debts', () => {
       res
     );
 
-    expect(service.getUserDebts).toHaveBeenCalledWith(1, undefined, false);
+    expect(queryService.getUserDebts).toHaveBeenCalledWith(1, undefined, false);
     expect(res.body).toMatchObject({ success: true, data: [{ id: 1 }] });
   });
 
   it('передаёт фильтры статуса и активности', async () => {
-    service.getUserDebts.mockResolvedValue([]);
+    queryService.getUserDebts.mockResolvedValue([]);
 
     await controller.getDebts(
       mockRequest({
@@ -111,7 +120,7 @@ describe('GET /api/budget/debts', () => {
       mockResponse()
     );
 
-    expect(service.getUserDebts).toHaveBeenCalledWith(1, 'PENDING', true);
+    expect(queryService.getUserDebts).toHaveBeenCalledWith(1, 'PENDING', true);
   });
 
   it('без аутентификации — 401', async () => {
@@ -120,11 +129,11 @@ describe('GET /api/budget/debts', () => {
     await controller.getDebts(mockRequest(), res);
 
     expect(res.statusCode).toBe(401);
-    expect(service.getUserDebts).not.toHaveBeenCalled();
+    expect(queryService.getUserDebts).not.toHaveBeenCalled();
   });
 
   it('ошибка сервиса — 500', async () => {
-    service.getUserDebts.mockRejectedValue(new Error('boom'));
+    queryService.getUserDebts.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getDebts(mockRequest({ user: DEBTOR }), res);
@@ -135,17 +144,17 @@ describe('GET /api/budget/debts', () => {
 
 describe('GET /api/budget/credits', () => {
   it('отдаёт кредиты по id из токена', async () => {
-    service.getUserCredits.mockResolvedValue([{ id: 5 }]);
+    queryService.getUserCredits.mockResolvedValue([{ id: 5 }]);
     const res = mockResponse();
 
     await controller.getCredits(mockRequest({ user: CREDITOR }), res);
 
-    expect(service.getUserCredits).toHaveBeenCalledWith(2, undefined, false);
+    expect(queryService.getUserCredits).toHaveBeenCalledWith(2, undefined, false);
     expect(res.body).toMatchObject({ success: true });
   });
 
   it('передаёт фильтры', async () => {
-    service.getUserCredits.mockResolvedValue([]);
+    queryService.getUserCredits.mockResolvedValue([]);
 
     await controller.getCredits(
       mockRequest({
@@ -155,7 +164,7 @@ describe('GET /api/budget/credits', () => {
       mockResponse()
     );
 
-    expect(service.getUserCredits).toHaveBeenCalledWith(2, 'CONFIRMED', true);
+    expect(queryService.getUserCredits).toHaveBeenCalledWith(2, 'CONFIRMED', true);
   });
 
   it('без аутентификации — 401', async () => {
@@ -167,7 +176,7 @@ describe('GET /api/budget/credits', () => {
   });
 
   it('ошибка сервиса — 500', async () => {
-    service.getUserCredits.mockRejectedValue(new Error('boom'));
+    queryService.getUserCredits.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getCredits(mockRequest({ user: CREDITOR }), res);
@@ -178,7 +187,7 @@ describe('GET /api/budget/credits', () => {
 
 describe('POST /api/budget/mark-paid', () => {
   beforeEach(() => {
-    service.getTransactionById.mockResolvedValue({
+    queryService.getTransactionById.mockResolvedValue({
       id: 7,
       fromUserId: 1,
       toUserId: 2,
@@ -233,7 +242,7 @@ describe('POST /api/budget/mark-paid', () => {
   });
 
   it('транзакции нет — 404', async () => {
-    service.getTransactionById.mockResolvedValue(null);
+    queryService.getTransactionById.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.markAsPaid(
@@ -259,7 +268,7 @@ describe('POST /api/budget/mark-paid', () => {
 
 describe('POST /api/budget/confirm-payment', () => {
   beforeEach(() => {
-    service.getTransactionById.mockResolvedValue({
+    queryService.getTransactionById.mockResolvedValue({
       id: 7,
       fromUserId: 1,
       toUserId: 2,
@@ -313,7 +322,7 @@ describe('POST /api/budget/confirm-payment', () => {
   });
 
   it('транзакции нет — 404', async () => {
-    service.getTransactionById.mockResolvedValue(null);
+    queryService.getTransactionById.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.confirmPayment(
@@ -339,7 +348,7 @@ describe('POST /api/budget/confirm-payment', () => {
 
 describe('POST /api/budget/undo-confirmation', () => {
   beforeEach(() => {
-    service.getTransactionById.mockResolvedValue({
+    queryService.getTransactionById.mockResolvedValue({
       id: 7,
       fromUserId: 1,
       toUserId: 2,
@@ -394,7 +403,7 @@ describe('POST /api/budget/undo-confirmation', () => {
   });
 
   it('транзакции нет — 404', async () => {
-    service.getTransactionById.mockResolvedValue(null);
+    queryService.getTransactionById.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.undoConfirmation(
@@ -451,7 +460,7 @@ describe('POST /api/budget/undo-confirmation', () => {
 
 describe('POST /api/budget/cancel-mark', () => {
   beforeEach(() => {
-    service.getTransactionById.mockResolvedValue({
+    queryService.getTransactionById.mockResolvedValue({
       id: 7,
       fromUserId: 1,
       toUserId: 2,
@@ -499,7 +508,7 @@ describe('POST /api/budget/cancel-mark', () => {
   });
 
   it('транзакции нет — 404', async () => {
-    service.getTransactionById.mockResolvedValue(null);
+    queryService.getTransactionById.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.cancelMark(
@@ -574,15 +583,15 @@ describe('POST /api/budget/mark-all-paid', () => {
 
 describe('GET /api/budget/stats', () => {
   it('без диапазона дат передаёт undefined', async () => {
-    service.getUserStats.mockResolvedValue({ paid: 0 });
+    queryService.getUserStats.mockResolvedValue({ paid: 0 });
 
     await controller.getStats(mockRequest({ user: DEBTOR }), mockResponse());
 
-    expect(service.getUserStats).toHaveBeenCalledWith(1, undefined, undefined);
+    expect(queryService.getUserStats).toHaveBeenCalledWith(1, undefined, undefined);
   });
 
   it('диапазон дат превращается в Date', async () => {
-    service.getUserStats.mockResolvedValue({ paid: 0 });
+    queryService.getUserStats.mockResolvedValue({ paid: 0 });
 
     await controller.getStats(
       mockRequest({
@@ -592,7 +601,7 @@ describe('GET /api/budget/stats', () => {
       mockResponse()
     );
 
-    expect(service.getUserStats).toHaveBeenCalledWith(
+    expect(queryService.getUserStats).toHaveBeenCalledWith(
       1,
       new Date('2026-01-01T00:00:00.000Z'),
       new Date('2026-02-01T00:00:00.000Z')
@@ -608,7 +617,7 @@ describe('GET /api/budget/stats', () => {
   });
 
   it('ошибка сервиса — 500', async () => {
-    service.getUserStats.mockRejectedValue(new Error('boom'));
+    queryService.getUserStats.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getStats(mockRequest({ user: DEBTOR }), res);

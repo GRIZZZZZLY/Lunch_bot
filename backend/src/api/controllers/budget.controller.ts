@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { BudgetService } from '../../services/budget.service';
 import { OrderCostsService } from '../../services/order-costs.service';
 import { ReminderService } from '../../services/reminder.service';
+import { BudgetQueryService } from '../../services/budget-query.service';
 import { PollService } from '../../services/poll.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
@@ -91,15 +92,18 @@ export class BudgetController {
   private budgetService: BudgetService;
   private orderCostsService: OrderCostsService;
   private reminderService: ReminderService;
+  private queryService: BudgetQueryService;
 
   constructor(
     budgetService: BudgetService,
     orderCostsService: OrderCostsService,
-    reminderService: ReminderService
+    reminderService: ReminderService,
+    queryService: BudgetQueryService
   ) {
     this.budgetService = budgetService;
     this.orderCostsService = orderCostsService;
     this.reminderService = reminderService;
+    this.queryService = queryService;
   }
 
   /**
@@ -122,7 +126,7 @@ export class BudgetController {
         | undefined;
       const activeOnly = req.query.activeOnly === 'true';
 
-      const debts = await this.budgetService.getUserDebts(
+      const debts = await this.queryService.getUserDebts(
         authenticatedUser.id,
         status,
         activeOnly
@@ -155,7 +159,7 @@ export class BudgetController {
         | undefined;
       const activeOnly = req.query.activeOnly === 'true';
 
-      const credits = await this.budgetService.getUserCredits(
+      const credits = await this.queryService.getUserCredits(
         authenticatedUser.id,
         status,
         activeOnly
@@ -198,7 +202,7 @@ export class BudgetController {
 
       // ✅ FIX IDOR: Проверяем что пользователь - должник (fromUserId)
       const transaction =
-        await this.budgetService.getTransactionById(transactionId);
+        await this.queryService.getTransactionById(transactionId);
 
       if (!transaction) {
         res.status(404).json({ error: 'Transaction not found' });
@@ -252,7 +256,7 @@ export class BudgetController {
 
       // ✅ FIX IDOR: Проверяем что пользователь - кредитор/ответственный (toUserId)
       const transaction =
-        await this.budgetService.getTransactionById(transactionId);
+        await this.queryService.getTransactionById(transactionId);
 
       if (!transaction) {
         res.status(404).json({ error: 'Transaction not found' });
@@ -306,7 +310,7 @@ export class BudgetController {
       }
 
       const { transactionId } = parseResult.data;
-      const transaction = await this.budgetService.getTransactionById(transactionId);
+      const transaction = await this.queryService.getTransactionById(transactionId);
       if (!transaction) {
         res.status(404).json({ error: 'Transaction not found' });
         return;
@@ -369,7 +373,7 @@ export class BudgetController {
 
       // ✅ FIX IDOR: Проверяем что пользователь - должник (fromUserId)
       const transaction =
-        await this.budgetService.getTransactionById(transactionId);
+        await this.queryService.getTransactionById(transactionId);
 
       if (!transaction) {
         res.status(404).json({ error: 'Transaction not found' });
@@ -451,7 +455,7 @@ export class BudgetController {
       const from = req.query.from as string;
       const to = req.query.to as string;
 
-      const stats = await this.budgetService.getUserStats(
+      const stats = await this.queryService.getUserStats(
         authenticatedUser.id,
         from ? new Date(from) : undefined,
         to ? new Date(to) : undefined
