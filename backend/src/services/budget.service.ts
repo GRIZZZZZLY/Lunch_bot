@@ -838,7 +838,7 @@ export class BudgetService {
     }
 
     // Отправляем итоговое сообщение ответственному
-    if (botInstance && transactions.length > 0) {
+    if (botInstance()) {
       const totalReceived = sumDecimals(transactions.map(tx => tx.amount));
       await botInstance()!.api.sendMessage(
         Number(transactions[0].toUser.telegramId),
