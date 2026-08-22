@@ -11,6 +11,7 @@ import { VoteService } from '../../../services/vote.service';
 import { MenuService } from '../../../services/menu.service';
 import { GroupService } from '../../../services/group.service';
 import { createPollFromWebApp } from '../../../services/poll.service.extensions';
+import { BotNotInitializedError } from '../../../bot/bot-instance';
 import { FEATURES } from '../../../config/features';
 import {
   adminRequest,
@@ -1161,14 +1162,30 @@ describe('POST /api/polls/create-from-webapp', () => {
     expect(res.statusCode).toBe(500);
   });
 
+  /**
+   * Ветка сверялась с подстрокой 'Bot not initialized', а сервис бросал
+   * 'Bot instance is not initialized' — 503 в проде не отдавался никогда,
+   * и этот тест этого не видел, потому что сам сочинял текст ошибки.
+   * Теперь тип ошибки настоящий, тот же, что бросает getRequiredBotInstance.
+   */
   it('неинициализированный бот — 503', async () => {
-    createFromWebApp.mockRejectedValue(new Error('Bot not initialized'));
+    createFromWebApp.mockRejectedValue(new BotNotInitializedError());
     const res = mockResponse();
 
     await PollController.createPollFromWebApp(adminRequest({ body }), res);
 
     expect(res.statusCode).toBe(503);
     expect(res.body).toMatchObject({ code: 'BOT_NOT_AVAILABLE' });
+  });
+
+  it('ошибка бота не маскирует прочие сбои — остаётся 500', async () => {
+    createFromWebApp.mockRejectedValue(new Error('telegram timeout'));
+    const res = mockResponse();
+
+    await PollController.createPollFromWebApp(adminRequest({ body }), res);
+
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 
   it('гонка на уровне сервиса — 400 с кодом сервиса', async () => {

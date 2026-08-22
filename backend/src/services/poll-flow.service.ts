@@ -7,10 +7,6 @@ import { now, toLocaleDateString } from '../utils/date';
 import { toNumber, formatCurrency, sumDecimals, multiply } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 
-function botInstance() {
-  return getBotInstance();
-}
-
 function maskCardNumber(cardNumber: string): string {
   // Sprint 1: используем EncryptionService для обработки зашифрованных данных
   const { EncryptionService } = require('../utils/encryption');
@@ -221,7 +217,9 @@ export class PollFlowService {
     transactions: any[]
   ): Promise<void> {
     try {
-      if (!botInstance) {
+      // Без бота вся рассылка бессмысленна — не тратим запросы к БД.
+      // Каждый из вызываемых ниже методов публичный и проверяет бота сам.
+      if (!getBotInstance()) {
         logger.error('Bot instance not initialized');
         return;
       }
@@ -273,6 +271,12 @@ export class PollFlowService {
     totals: ResponsibleTotals
   ): Promise<void> {
     try {
+      const bot = getBotInstance();
+      if (!bot) {
+        logger.warn('Bot instance not initialized, skipping notification');
+        return;
+      }
+
       const poll = (await PollService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) return;
 
@@ -345,14 +349,10 @@ export class PollFlowService {
         ],
       };
 
-      await botInstance()!.api.sendMessage(
-        Number(responsible.telegramId),
-        message,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard,
-        }
-      );
+      await bot.api.sendMessage(Number(responsible.telegramId), message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard,
+      });
 
       logger.info('Responsible notification sent', { userId: responsible.id });
     } catch (error) {
@@ -369,7 +369,8 @@ export class PollFlowService {
     responsiblePaymentInfo: PaymentInfo | null
   ): Promise<void> {
     try {
-      if (!botInstance) return;
+      const bot = getBotInstance();
+      if (!bot) return;
 
       let message = `🍽️ *Результаты голосования*\n\n`;
       message += `Твой заказ: ${transaction.menuItem.name}\n`;
@@ -408,7 +409,7 @@ export class PollFlowService {
         ],
       };
 
-      await botInstance()!.api.sendMessage(
+      await bot.api.sendMessage(
         Number(transaction.fromUser.telegramId),
         message,
         {
@@ -432,7 +433,8 @@ export class PollFlowService {
     totals: any
   ): Promise<void> {
     try {
-      if (!botInstance) return;
+      const bot = getBotInstance();
+      if (!bot) return;
 
       const poll = (await PollService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) return;
@@ -460,7 +462,7 @@ export class PollFlowService {
       message += `_Детали и реквизиты отправлены всем в личные сообщения._`;
 
       if (selection?.messageId && selection.chatId) {
-        await botInstance()!.api.editMessageText(
+        await bot.api.editMessageText(
           Number(selection.chatId),
           selection.messageId,
           message,

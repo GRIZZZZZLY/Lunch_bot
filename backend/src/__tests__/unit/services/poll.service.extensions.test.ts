@@ -17,7 +17,10 @@ import { VoteService } from '../../../services/vote.service';
 import { CategoryOrderService } from '../../../services/category-order.service';
 import { MultiCategoryResponsibleService } from '../../../services/multi-category-responsible.service';
 import { UserService } from '../../../services/user.service';
-import { getBotInstance } from '../../../bot/bot-instance';
+import {
+  getBotInstance,
+  BotNotInitializedError,
+} from '../../../bot/bot-instance';
 import { asMock, asServiceMock } from '../../helpers/mocks';
 
 jest.mock('../../../services/poll.service', () => ({
@@ -62,7 +65,24 @@ jest.mock('../../../services/multi-category-responsible.service', () => ({
   },
 }));
 
-jest.mock('../../../bot/bot-instance', () => ({ getBotInstance: jest.fn() }));
+/* getRequiredBotInstance выражен через getBotInstance, чтобы один mockReturnValue
+   управлял обеими дверями: createPollFromWebApp обязан упасть без бота (его
+   контракт — вернуть messageId), а автозавершение — тихо выйти. Класс ошибки
+   берём настоящий: тест сверяется с тем типом, который ловит HTTP-слой, а не
+   с текстом, придуманным здесь. */
+jest.mock('../../../bot/bot-instance', () => {
+  const actual = jest.requireActual('../../../bot/bot-instance');
+  const getBotInstance = jest.fn();
+  return {
+    BotNotInitializedError: actual.BotNotInitializedError,
+    getBotInstance,
+    getRequiredBotInstance: () => {
+      const bot = getBotInstance();
+      if (!bot) throw new actual.BotNotInitializedError();
+      return bot;
+    },
+  };
+});
 
 jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
@@ -405,5 +425,79 @@ describe('автозавершение по таймеру', () => {
 describe('устаревшая инициализация бота', () => {
   it('оставлена как no-op для обратной совместимости', () => {
     expect(() => initializePollServiceBot({})).not.toThrow();
+  });
+});
+
+/**
+ * Guard «бота нет» проверял ССЫЛКУ на локальный хелпер `botInstance`, а не
+ * результат вызова, поэтому ветка отказа была недостижима и код падал ниже
+ * на `botInstance()!.api` с TypeError. Решение здесь разное по методам:
+ * создание опроса обязано вернуть messageId, поэтому падает громко;
+ * автозавершение вызывается из таймера и обязано выйти тихо.
+ */
+describe('бота нет', () => {
+  it('createPollFromWebApp падает громко и не создаёт опрос', async () => {
+    botInstance.mockReturnValue(null);
+
+    await expect(createPollFromWebApp(PARAMS)).rejects.toThrow(
+      BotNotInitializedError
+    );
+
+    expect(pollService.createPoll).not.toHaveBeenCalled();
+  });
+
+  /* Бота могли снять между созданием опроса и срабатыванием таймера.
+     Автозавершение вызывается из таймера — исключение оттуда некому поймать,
+     поэтому здесь именно тихий выход, а не throw. */
+  it('автозавершение выходит тихо и не закрывает голосование', async () => {
+    await createPollFromWebApp(PARAMS);
+    botInstance.mockReturnValue(null);
+
+    await expect(
+      jest.advanceTimersByTimeAsync(30 * 60 * 1000)
+    ).resolves.toBeUndefined();
+
+    expect(pollService.completePoll).not.toHaveBeenCalled();
+    expect(editMessageText).not.toHaveBeenCalled();
+  });
+
+  /* Личные уведомления — best-effort ветка автозавершения: голосование уже
+     закрыто, недоставленные сообщения не должны ронять таймер. */
+  it('личные уведомления пропускаются без падения', async () => {
+    process.env.AUTO_ROULETTE_ENABLED = 'false';
+    categoryOrders.createCategoryOrders.mockRejectedValue(
+      new Error('no categories')
+    );
+    await createPollFromWebApp(PARAMS);
+    sendMessage.mockClear();
+    botInstance.mockReturnValue(null);
+
+    await expect(
+      jest.advanceTimersByTimeAsync(30 * 60 * 1000)
+    ).resolves.toBeUndefined();
+
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('пересчёт числа участников', () => {
+  /* Раньше сюда уезжала ССЫЛКА на локальный хелпер `botInstance`: у функции
+     нет `.api`, поэтому getRealMemberCount молча отдавал null, и
+     expectedParticipants никогда не обновлялся из Telegram. */
+  it('в getRealMemberCount уходит сам бот, а не функция', async () => {
+    await createPollFromWebApp(PARAMS);
+
+    const [, passedBot] = groupService.getRealMemberCount.mock.calls[0];
+    expect(typeof passedBot).toBe('object');
+    expect(passedBot).toHaveProperty('api');
+  });
+
+  it('полученное число участников попадает в настройки группы', async () => {
+    await createPollFromWebApp(PARAMS);
+
+    expect(groupService.updateGroupSettings).toHaveBeenCalledWith(
+      100,
+      expect.objectContaining({ expectedParticipants: 8 })
+    );
   });
 });

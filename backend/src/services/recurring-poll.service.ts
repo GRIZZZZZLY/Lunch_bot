@@ -44,8 +44,6 @@ import { getBotInstance } from '../bot/bot-instance';
 /** @deprecated No-op: bot is now accessed via the shared singleton */
 export function initializeRecurringPollServiceBot(_bot: unknown): void {}
 
-function botInstance() { return getBotInstance(); }
-
 export class RecurringPollService {
   private static async assertMenuItemsBelongToGroup(
     groupId: number,
@@ -463,7 +461,8 @@ export class RecurringPollService {
       });
 
       // 5. Отправить сообщение в группу (если есть bot instance)
-      if (botInstance()) {
+      const bot = getBotInstance();
+      if (bot) {
         try {
           const { createPollStartedMessage } = await import('../bot/keyboards/poll.keyboard');
           const { createVoteWebAppKeyboard } = await import('../bot/keyboards/webapp.keyboard');
@@ -473,7 +472,7 @@ export class RecurringPollService {
           const message = createPollStartedMessage(endTime);
           const keyboard = createVoteWebAppKeyboard(poll.id);
 
-          const sentMessage = await botInstance()!.api.sendMessage(
+          const sentMessage = await bot.api.sendMessage(
             Number(recurring.group.telegramId),
             message,
             {

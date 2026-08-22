@@ -6,10 +6,6 @@ import { formatCurrency, sumDecimals } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 import { UserService } from './user.service';
 
-function botInstance() {
-  return getBotInstance();
-}
-
 interface PaymentInfo {
   paymentCard?: string | null;
   paymentPhone?: string | null;
@@ -111,7 +107,9 @@ export class StoreRunBudgetService {
    */
   static async notifyStoreRunSettled(storeRunId: number): Promise<void> {
     try {
-      if (!botInstance()) {
+      // Без бота вся рассылка бессмысленна — не тратим запросы к БД.
+      // Каждый из вызываемых ниже методов проверяет бота сам.
+      if (!getBotInstance()) {
         logger.error('notifyStoreRunSettled: bot not initialized', {
           storeRunId,
         });
@@ -175,7 +173,8 @@ export class StoreRunBudgetService {
     paymentInfo: PaymentInfo | null
   ): Promise<void> {
     try {
-      if (!botInstance() || txs.length === 0) return;
+      const bot = getBotInstance();
+      if (!bot || txs.length === 0) return;
       const debtor = txs[0].fromUser;
       const total = sumDecimals(txs.map(t => t.amount));
 
@@ -220,7 +219,7 @@ export class StoreRunBudgetService {
         ],
       };
 
-      await botInstance()!.api.sendMessage(Number(debtor.telegramId), message, {
+      await bot.api.sendMessage(Number(debtor.telegramId), message, {
         parse_mode: 'Markdown',
         reply_markup: keyboard,
       });
@@ -241,7 +240,8 @@ export class StoreRunBudgetService {
     byDebtor: Map<number, any[]>
   ): Promise<void> {
     try {
-      if (!botInstance()) return;
+      const bot = getBotInstance();
+      if (!bot) return;
       const total = sumDecimals(transactions.map(t => t.amount));
 
       let message = `🛍 *Забег «${storeRun.storeName}» закрыт*\n\n`;
@@ -254,7 +254,7 @@ export class StoreRunBudgetService {
         message += `• ${debtor.firstName} — ${formatCurrency(sub)}\n`;
       }
 
-      await botInstance()!.api.sendMessage(
+      await bot.api.sendMessage(
         Number(storeRun.initiator.telegramId),
         message,
         {
@@ -294,8 +294,9 @@ export class StoreRunBudgetService {
     const total = sumDecimals(txs.map(t => t.amount));
     const initiator = txs[0].toUser;
 
-    if (botInstance()) {
-      await botInstance()!.api.sendMessage(
+    const bot = getBotInstance();
+    if (bot) {
+      await bot.api.sendMessage(
         Number(initiator.telegramId),
         `💳 *Получена оплата по магазину!*\n\n${debtor.firstName} отметил(а) оплату ${formatCurrency(total)}`,
         {
@@ -359,8 +360,9 @@ export class StoreRunBudgetService {
     const debtor = txs[0].fromUser;
     const total = sumDecimals(txs.map(t => t.amount));
 
-    if (botInstance()) {
-      await botInstance()!.api.sendMessage(
+    const bot = getBotInstance();
+    if (bot) {
+      await bot.api.sendMessage(
         Number(debtor.telegramId),
         `✅ Оплата подтверждена!\n\n${initiator.firstName} подтвердил(а) получение ${formatCurrency(total)}\n\nСпасибо! 🎉`
       );

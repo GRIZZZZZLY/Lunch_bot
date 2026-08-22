@@ -6,6 +6,7 @@ import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { CreatePollData, CreateVoteData } from '../../types/poll.types';
 import { createPollFromWebApp } from '../../services/poll.service.extensions';
+import { BotNotInitializedError } from '../../bot/bot-instance';
 import { calculatePollEndTime } from '../../utils/date';
 import { getParam } from '../../utils/request-params';
 import { serializeBigInt } from '../../utils/serialize';
@@ -910,15 +911,13 @@ export class PollController {
         return;
       }
 
-      if (error instanceof Error) {
-        if (error.message.includes('Bot not initialized')) {
-          res.status(503).json({
-            success: false,
-            error: 'Bot service is not available',
-            code: 'BOT_NOT_AVAILABLE'
-          });
-          return;
-        }
+      if (error instanceof BotNotInitializedError) {
+        res.status(503).json({
+          success: false,
+          error: 'Bot service is not available',
+          code: 'BOT_NOT_AVAILABLE'
+        });
+        return;
       }
 
       res.status(500).json({

@@ -13,10 +13,6 @@ import { getBotInstance } from '../bot/bot-instance';
 /** @deprecated No-op: bot is now accessed via the shared singleton */
 export function initializeResponsibleServiceBot(_bot: unknown): void {}
 
-function botInstance() {
-  return getBotInstance();
-}
-
 export class ResponsibleService {
   /**
    * Запуск процесса выбора ответственного
@@ -70,9 +66,14 @@ export class ResponsibleService {
     selection: any
   ): Promise<void> {
     try {
-      if (!botInstance) {
+      /* Один вызов, один const. Раннего выхода тут нет намеренно: таймаут
+         фолбэка на рулетку и сохранение messageId должны происходить и без
+         бота — иначе выбор ответственного встанет насовсем. Прежняя проверка
+         `if (!botInstance)` была недостижима (сверялась ссылка на функцию),
+         так что до этих шагов код доходил всегда. */
+      const bot = getBotInstance();
+      if (!bot) {
         logger.error('Bot instance not initialized');
-        return;
       }
 
       const poll = (await PollService.getPollById(pollId)) as any;
@@ -122,8 +123,8 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
       let messageId = poll.messageId ?? undefined;
       const chatId = poll.chatId ? Number(poll.chatId) : null;
 
-      if (chatId && messageId && botInstance) {
-        await botInstance()!.api.editMessageText(chatId, messageId, message, {
+      if (chatId && messageId && bot) {
+        await bot.api.editMessageText(chatId, messageId, message, {
           parse_mode: 'Markdown',
           reply_markup: keyboard,
         });
@@ -131,15 +132,11 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
           pollId,
           messageId,
         });
-      } else if (chatId && botInstance) {
-        const sentMessage = await botInstance()!.api.sendMessage(
-          chatId,
-          message,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: keyboard,
-          }
-        );
+      } else if (chatId && bot) {
+        const sentMessage = await bot.api.sendMessage(chatId, message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard,
+        });
         messageId = sentMessage.message_id;
         logger.info('Volunteer prompt sent', { pollId, messageId });
       }
@@ -244,10 +241,12 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
         // Не прерываем основной процесс
       }
 
-      // Обновляем сообщение в группе
-      if (selection.messageId && selection.chatId && botInstance) {
+      // Обновляем сообщение в группе (бота может не быть — редактирование
+      // сообщения необязательно, переход к фазе 4 идёт всё равно)
+      const bot = getBotInstance();
+      if (selection.messageId && selection.chatId && bot) {
         try {
-          await botInstance()!.api.editMessageText(
+          await bot.api.editMessageText(
             Number(selection.chatId),
             selection.messageId,
             `✅ *Голосование завершено!*\n\n🎯 *Ответственный:* ${user.firstName}\n\n💰 Детали заказа и реквизиты отправлены всем в личные сообщения.`,
@@ -294,9 +293,10 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
         return;
       }
 
-      if (selection.messageId && selection.chatId && botInstance) {
+      const bot = getBotInstance();
+      if (selection.messageId && selection.chatId && bot) {
         try {
-          await botInstance()!.api.editMessageText(
+          await bot.api.editMessageText(
             Number(selection.chatId),
             selection.messageId,
             `⏰ *Время истекло!*\n\n🎲 Никто не откликнулся, запускаем рулетку...`,
@@ -352,9 +352,10 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
         where: { pollId },
       });
 
-      if (selection?.messageId && selection.chatId && botInstance) {
+      const bot = getBotInstance();
+      if (selection?.messageId && selection.chatId && bot) {
         try {
-          await botInstance()!.api.editMessageText(
+          await bot.api.editMessageText(
             Number(selection.chatId),
             selection.messageId,
             `🎲 *Рулетка выбрала ответственного!*

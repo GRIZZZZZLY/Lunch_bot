@@ -9,8 +9,6 @@ import { getBotInstance } from '../bot/bot-instance';
 /** @deprecated No-op: bot is now accessed via the shared singleton */
 export function initializeOrderCalculationServiceBot(_bot: unknown): void {}
 
-function botInstance() { return getBotInstance(); }
-
 const MAX_ORDER_ITEM_PRICE = 1_000_000;
 const MAX_ADDITIONAL_COST = 1_000_000;
 
@@ -381,7 +379,10 @@ export class OrderCalculationService {
     transactions: Transaction[]
   ): Promise<void> {
     try {
-      if (!botInstance) {
+      // Один вызов, один const: рассылка идёт в цикле, повторный
+      // getBotInstance() между итерациями мог бы отдать уже снятого бота.
+      const bot = getBotInstance();
+      if (!bot) {
         logger.warn('Bot instance not initialized, skipping debt notifications');
         return;
       }
@@ -469,7 +470,7 @@ export class OrderCalculationService {
         if (waitingMsg) {
           // Edit the existing "⏳ Ожидаем расчёт" message instead of sending a new one
           try {
-            await botInstance()!.api.editMessageText(
+            await bot.api.editMessageText(
               waitingMsg.chatId,
               waitingMsg.messageId,
               message,
@@ -483,7 +484,7 @@ export class OrderCalculationService {
           } catch (editErr) {
             // Fallback: send a new message if edit fails (e.g. message too old)
             logger.warn(`Failed to edit waiting message, sending new one`, { editErr });
-            const sentMsg = await botInstance()!.api.sendMessage(
+            const sentMsg = await bot.api.sendMessage(
               user.telegramId.toString(),
               message,
               { reply_markup: payButton }
@@ -493,7 +494,7 @@ export class OrderCalculationService {
           }
         } else {
           // No waiting message stored — send new
-          const sentMsg = await botInstance()!.api.sendMessage(
+          const sentMsg = await bot.api.sendMessage(
             user.telegramId.toString(),
             message,
             { reply_markup: payButton }

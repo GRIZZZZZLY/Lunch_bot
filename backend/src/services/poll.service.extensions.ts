@@ -12,14 +12,10 @@ import {
 } from '../bot/keyboards/webapp.keyboard';
 import { createPollStartedMessage } from '../bot/keyboards/poll.keyboard';
 
-import { getBotInstance } from '../bot/bot-instance';
+import { getBotInstance, getRequiredBotInstance } from '../bot/bot-instance';
 
 /** @deprecated No-op: bot is now accessed via the shared singleton */
 export function initializePollServiceBot(_bot: unknown): void {}
-
-function botInstance() {
-  return getBotInstance();
-}
 
 /**
  * Создание голосования из WebApp с отправкой в группу
@@ -40,10 +36,9 @@ export async function createPollFromWebApp(params: {
       menuItemsCount: params.menuItems.length,
     });
 
-    if (!botInstance) {
-      logger.error('❌ Bot not initialized in PollService');
-      throw new Error('Bot not initialized in PollService');
-    }
+    // Контракт метода — вернуть messageId отправленного сообщения. Без бота
+    // возвращать нечего, поэтому бросаем громко, а не тихо выходим.
+    const bot = getRequiredBotInstance();
 
     logger.info('✅ Bot instance confirmed');
 
@@ -91,9 +86,11 @@ export async function createPollFromWebApp(params: {
 
     // 🔄 Обновляем expectedParticipants при создании голосования (Вариант 5)
     try {
+      // Передаём сам бот, а не ссылку на хелпер: раньше сюда уезжала
+      // функция, у которой нет `.api`, и метод молча отдавал null.
       const realCount = await GroupService.getRealMemberCount(
         group.telegramId.toString(),
-        botInstance
+        bot
       );
 
       if (realCount && realCount > 0) {
@@ -140,7 +137,7 @@ export async function createPollFromWebApp(params: {
       messageLength: message.length,
     });
 
-    const sentMessage = await botInstance()!.api.sendMessage(chatId, message, {
+    const sentMessage = await bot.api.sendMessage(chatId, message, {
       parse_mode: 'Markdown',
       reply_markup: keyboard,
     });
@@ -201,7 +198,10 @@ async function autoCompletePoll(
   messageId: number
 ): Promise<void> {
   try {
-    if (!botInstance) {
+    // Вызывается из планировщика — исключение уронило бы cron-тик,
+    // поэтому здесь именно тихий выход.
+    const bot = getBotInstance();
+    if (!bot) {
       logger.error('Bot not initialized for auto-complete');
       return;
     }
@@ -246,7 +246,7 @@ async function autoCompletePoll(
 
       const completedKeyboard = createCompactPollKeyboard(pollId, 'completed');
 
-      await botInstance()!.api.editMessageText(
+      await bot.api.editMessageText(
         chatId,
         messageId,
         completedMessage,
@@ -378,7 +378,8 @@ async function sendPersonalNotifications(
   responsibleUser: any | null
 ): Promise<void> {
   try {
-    if (!botInstance) {
+    const bot = getBotInstance();
+    if (!bot) {
       logger.error('Bot not initialized for notifications');
       return;
     }
@@ -462,11 +463,9 @@ async function sendPersonalNotifications(
             }
           }
 
-          await botInstance()!.api.sendMessage(
-            Number(vote.user.telegramId),
-            message,
-            { parse_mode: 'Markdown' }
-          );
+          await bot.api.sendMessage(Number(vote.user.telegramId), message, {
+            parse_mode: 'Markdown',
+          });
 
           successCount++;
         } catch (error: any) {

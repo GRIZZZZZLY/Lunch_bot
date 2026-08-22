@@ -156,6 +156,33 @@ describe('sendReminder', () => {
   });
 });
 
+/**
+ * Guard «бота нет» проверял ССЫЛКУ на локальный хелпер `botInstance`, а не
+ * результат вызова, поэтому ветка отказа была недостижима и код падал ниже
+ * на `botInstance()!.api` с TypeError. Тест закрепляет штатный отказ.
+ */
+describe('бота нет', () => {
+  beforeEach(() => {
+    botInstance.mockReturnValue(null);
+    prismaMock.transaction.findUnique.mockResolvedValue(tx() as never);
+  });
+
+  it('sendReminder отдаёт понятный отказ, а не падает', async () => {
+    await expect(service.sendReminder(10, 2)).resolves.toEqual({
+      success: false,
+      error: 'Bot not available',
+      errorCode: 'unknown',
+    });
+  });
+
+  it('без бота напоминание не записывается и счётчик не растёт', async () => {
+    await service.sendReminder(10, 2);
+
+    expect(prismaMock.paymentReminder.create).not.toHaveBeenCalled();
+    expect(prismaMock.transaction.update).not.toHaveBeenCalled();
+  });
+});
+
 describe('sendRemindersToAll', () => {
   beforeEach(() => {
     asMock(prismaMock.transaction.findMany).mockResolvedValue([

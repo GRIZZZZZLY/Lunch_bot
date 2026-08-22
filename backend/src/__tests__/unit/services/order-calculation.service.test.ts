@@ -863,9 +863,10 @@ describe('уведомления о долге', () => {
   });
 
   /**
-   * Проверка `if (!botInstance)` внутри сервиса недостижима — botInstance там
-   * функция и всегда правдива. Реальное отсутствие бота проявляется падением
-   * на `.api`, и оно не должно ломать уже записанный расчёт.
+   * Раньше проверка `if (!botInstance)` была недостижима — botInstance был
+   * функцией и всегда правдив, — поэтому отсутствие бота проявлялось падением
+   * на `.api` и попадало в логи как ошибка рассылки. Теперь это штатный
+   * пропуск: расчёт уже записан, ошибки быть не должно.
    */
   it('отсутствие бота не отменяет уже записанные долги', async () => {
     asMock(getBotInstance).mockReturnValue(null);
@@ -875,7 +876,10 @@ describe('уведомления о долге', () => {
       OrderCalculationService.finalizeCalculation(10)
     ).resolves.toMatchObject({ transactionsCreated: 1 });
 
-    expect(logger.error).toHaveBeenCalledWith(
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Bot instance not initialized, skipping debt notifications'
+    );
+    expect(logger.error).not.toHaveBeenCalledWith(
       'Error sending debt notifications:',
       expect.any(Error)
     );

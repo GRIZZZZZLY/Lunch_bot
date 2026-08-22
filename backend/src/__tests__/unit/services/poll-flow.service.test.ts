@@ -312,3 +312,43 @@ describe('sendBudgetNotifications', () => {
     expect(sendMessage.mock.calls[0][1]).toContain('Ты оформляешь заказ');
   });
 });
+
+/**
+ * Guard «бота нет» проверял ССЫЛКУ на локальный хелпер `botInstance`, а не
+ * результат вызова, поэтому ветка отказа была недостижима и код падал ниже
+ * на `botInstance()!.api` с TypeError. Долги уже созданы — рассылка
+ * best-effort и обязана тихо пропускаться.
+ */
+describe('бота нет', () => {
+  beforeEach(() => {
+    botInstance.mockReturnValue(null);
+  });
+
+  it('sendBudgetNotifications выходит тихо и не читает БД', async () => {
+    await expect(
+      PollFlowService.sendBudgetNotifications(5, 2, [txFixture()])
+    ).resolves.toBeUndefined();
+
+    expect(userService.getPaymentInfo).not.toHaveBeenCalled();
+    expect(pollService.getPollById).not.toHaveBeenCalled();
+  });
+
+  it('каждое уведомление проверяет бота само', async () => {
+    await expect(
+      PollFlowService.sendResponsibleNotification(
+        5,
+        { id: 2, telegramId: BigInt(777), firstName: 'Аня' } as never,
+        [txFixture() as never],
+        { totalOrder: 500, responsibleShare: 250, totalToReturn: 250 }
+      )
+    ).resolves.toBeUndefined();
+
+    await expect(
+      PollFlowService.updateGroupMessage(
+        5,
+        { id: 2, telegramId: BigInt(777), firstName: 'Аня' } as never,
+        { totalOrder: 500 }
+      )
+    ).resolves.toBeUndefined();
+  });
+});

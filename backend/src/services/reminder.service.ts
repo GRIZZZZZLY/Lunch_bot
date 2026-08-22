@@ -5,10 +5,6 @@ import { toNumber } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 import { Prisma } from '@prisma/client';
 
-function botInstance() {
-  return getBotInstance();
-}
-
 // Транзакция со связями, нужными для рассылки напоминаний
 type ReminderTransaction = Prisma.TransactionGetPayload<{
   include: { fromUser: true; toUser: true; poll: { include: { group: true } } };
@@ -100,7 +96,10 @@ export class ReminderService {
       };
     }
 
-    if (!botInstance) {
+    // Один вызов, один const: между проверкой и отправкой бот может быть
+    // снят (рестарт/тир-даун), поэтому повторный getBotInstance() запрещён.
+    const bot = getBotInstance();
+    if (!bot) {
       logger.error('Bot instance not initialized');
       return { ok: false, error: 'Bot not available', errorCode: 'unknown' };
     }
@@ -125,7 +124,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
 
     // Отправляем уведомление
     try {
-      await botInstance()!.api.sendMessage(
+      await bot.api.sendMessage(
         Number(transaction.fromUser.telegramId),
         message
       );

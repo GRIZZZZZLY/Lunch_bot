@@ -25,12 +25,24 @@ export function getBotInstance(): Bot<BotContext> | null {
 }
 
 /**
+ * Отсутствие бота — отдельный тип ошибки, а не текст сообщения.
+ * HTTP-слой отвечает на него 503, и раньше он ловил это подстрокой: ветка
+ * молча умерла, как только формулировка разошлась с брошенной ошибкой.
+ */
+export class BotNotInitializedError extends Error {
+  constructor() {
+    super('Bot instance is not initialized');
+    this.name = 'BotNotInitializedError';
+  }
+}
+
+/**
  * Returns the bot instance and throws if it is not initialized.
  * Use this when the bot is required for the operation to succeed.
  */
 export function getRequiredBotInstance(): Bot<BotContext> {
   if (!instance) {
-    throw new Error('Bot instance is not initialized');
+    throw new BotNotInitializedError();
   }
   return instance;
 }

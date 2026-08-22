@@ -488,3 +488,50 @@ describe('сообщение со списком категорий', () => {
     ).resolves.toBeUndefined();
   });
 });
+
+/**
+ * Guard «бота нет» проверял ССЫЛКУ на локальный хелпер `botInstance`, а не
+ * результат вызова, поэтому ветка отказа была недостижима и код падал ниже
+ * на `botInstance()!.api` с TypeError.
+ */
+describe('бота нет', () => {
+  beforeEach(() => {
+    botInstance.mockReturnValue(null);
+  });
+
+  it('распределение категорий проходит, сообщение не правится', async () => {
+    await expect(
+      MultiCategoryResponsibleService.startMultiCategorySelection(5)
+    ).resolves.toBeUndefined();
+  });
+
+  it('доброволец забирает категорию и без бота', async () => {
+    await expect(
+      MultiCategoryResponsibleService.handleVolunteerForCategory(1, BigInt(555))
+    ).resolves.toBe(true);
+
+    expect(categoryOrders.setResponsible).toHaveBeenCalledWith(
+      1,
+      1,
+      'volunteer'
+    );
+  });
+
+  /* Метод не отправляет сообщений — он ставит таймаут фолбэка на рулетку.
+     Без бота он обязан работать как обычно, иначе категория останется
+     VOLUNTEER_OPEN навсегда. */
+  it('фолбэк на рулетку ставится и без бота', async () => {
+    await expect(
+      MultiCategoryResponsibleService.sendVolunteerPromptForCategory(1)
+    ).resolves.toBeUndefined();
+
+    expect(categoryOrders.getCategoryOrder).toHaveBeenCalledWith(1);
+    const beforeTimeout = categoryOrders.getCategoryOrder.mock.calls.length;
+
+    await jest.advanceTimersByTimeAsync(3 * 60 * 1000);
+
+    expect(
+      categoryOrders.getCategoryOrder.mock.calls.length
+    ).toBeGreaterThan(beforeTimeout);
+  });
+});

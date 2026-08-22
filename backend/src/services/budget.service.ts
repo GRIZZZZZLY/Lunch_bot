@@ -16,11 +16,6 @@ import { getBotInstance } from '../bot/bot-instance';
 /** @deprecated No-op: bot is now accessed via the shared singleton in bot-instance.ts */
 export function initializeBudgetServiceBot(_bot: unknown): void {}
 
-// Helper used throughout this file — replaces the old `let botInstance: any = null`
-function botInstance() {
-  return getBotInstance();
-}
-
 interface PaymentInfo {
   paymentCard?: string | null;
   paymentPhone?: string | null;
@@ -58,9 +53,11 @@ export class BudgetService {
       logger.info('Transaction marked as paid', { txId });
       BudgetService.emitDebtUpdated(tx);
 
-      // Уведомляем ответственного
-      if (botInstance()) {
-        await botInstance()!.api.sendMessage(
+      // Уведомляем ответственного. Один вызов, один const: между проверкой и
+      // отправкой бот может быть снят (рестарт/тир-даун).
+      const bot = getBotInstance();
+      if (bot) {
+        await bot.api.sendMessage(
           Number(tx.toUser.telegramId),
           `💳 *Получена оплата!*\n\n${tx.fromUser.firstName} отметил(а) оплату ${formatCurrency(tx.amount)}`,
           {
@@ -161,7 +158,8 @@ export class BudgetService {
    * (a whole poll's worth) — same notification either way.
    */
   private static async notifyPaymentConfirmed(tx: any): Promise<void> {
-    if (!botInstance()) return;
+    const bot = getBotInstance();
+    if (!bot) return;
 
     const confirmedText =
       `✅ Оплата подтверждена!\n\n` +
@@ -171,7 +169,7 @@ export class BudgetService {
     let edited = false;
     if (tx.debtMessageId && tx.debtChatId) {
       try {
-        await botInstance()!.api.editMessageText(
+        await bot.api.editMessageText(
           tx.debtChatId,
           tx.debtMessageId,
           confirmedText,
@@ -183,7 +181,7 @@ export class BudgetService {
       }
     }
     if (!edited) {
-      await botInstance()!.api.sendMessage(Number(tx.fromUser.telegramId), confirmedText);
+      await bot.api.sendMessage(Number(tx.fromUser.telegramId), confirmedText);
     }
   }
 
@@ -200,7 +198,8 @@ export class BudgetService {
    * «оплата подтверждена», и молча вернуть долг было бы хуже самой ошибки.
    */
   private static async notifyConfirmationUndone(existing: any): Promise<void> {
-    if (!botInstance()) return;
+    const bot = getBotInstance();
+    if (!bot) return;
 
     const text =
       `↩️ Подтверждение оплаты отменено\n\n` +
@@ -209,7 +208,7 @@ export class BudgetService {
 
     if (existing.debtMessageId && existing.debtChatId) {
       try {
-        await botInstance()!.api.editMessageText(
+        await bot.api.editMessageText(
           existing.debtChatId,
           existing.debtMessageId,
           text,
@@ -221,7 +220,7 @@ export class BudgetService {
     }
 
     try {
-      await botInstance()!.api.sendMessage(Number(existing.fromUser.telegramId), text);
+      await bot.api.sendMessage(Number(existing.fromUser.telegramId), text);
     } catch (e) {
       logger.warn('Could not notify debtor about undone confirmation', { txId: existing.id });
     }
@@ -285,29 +284,27 @@ export class BudgetService {
    * the caller.
    */
   private static async notifyAllPaidByResponsible(transactions: any[]): Promise<void> {
-    if (botInstance()) {
-      for (const tx of transactions) {
-        await BudgetService.notifyPaymentConfirmed(tx);
-      }
+    const bot = getBotInstance();
+    if (!bot) return;
+
+    for (const tx of transactions) {
+      await BudgetService.notifyPaymentConfirmed(tx);
     }
 
     // Отправляем итоговое сообщение ответственному
-    if (botInstance()) {
-      const totalReceived = sumDecimals(transactions.map(tx => tx.amount));
-      await botInstance()!.api.sendMessage(
-        Number(transactions[0].toUser.telegramId),
-        `🎊 *Все оплатили!*\n\n` +
-          `Ты подтвердил оплату от всех участников\n\n` +
-          `💰 Итого получено: ${totalReceived.toFixed(2)}₽\n\n` +
-          `*Детали:*\n${transactions
-            .map(
-              tx =>
-                `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`
-            )
-            .join('\n')}\n\nСпасибо за организацию! 🙏`,
-        { parse_mode: 'Markdown' }
-      );
-    }
+    const totalReceived = sumDecimals(transactions.map(tx => tx.amount));
+    await bot.api.sendMessage(
+      Number(transactions[0].toUser.telegramId),
+      `🎊 *Все оплатили!*\n\n` +
+        `Ты подтвердил оплату от всех участников\n\n` +
+        `💰 Итого получено: ${totalReceived.toFixed(2)}₽\n\n` +
+        `*Детали:*\n${transactions
+          .map(
+            tx => `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`
+          )
+          .join('\n')}\n\nСпасибо за организацию! 🙏`,
+      { parse_mode: 'Markdown' }
+    );
   }
 
   /**
@@ -367,10 +364,11 @@ export class BudgetService {
 
       const allConfirmed = allTx.every(tx => tx.status === 'CONFIRMED');
 
-      if (allConfirmed && allTx.length > 0 && botInstance) {
+      const bot = getBotInstance();
+      if (allConfirmed && allTx.length > 0 && bot) {
         const totalReceived = sumDecimals(allTx.map(tx => tx.amount));
 
-        await botInstance()!.api.sendMessage(
+        await bot.api.sendMessage(
           Number(allTx[0].toUser.telegramId),
           `🎊 *Все оплатили!*\n\n` +
             `Все участники подтвердили оплату\n\n` +
@@ -450,8 +448,9 @@ export class BudgetService {
       BudgetService.emitDebtUpdated(tx);
 
       // Уведомляем ответственного
-      if (botInstance()) {
-        await botInstance()!.api.sendMessage(
+      const bot = getBotInstance();
+      if (bot) {
+        await bot.api.sendMessage(
           Number(tx.toUser.telegramId),
           `⚠️ *Отменена отметка оплаты*\n\n${tx.fromUser.firstName} отменил(а) отметку оплаты ${tx.amount}₽`,
           { parse_mode: 'Markdown' }

@@ -563,3 +563,44 @@ describe('checkAllPaid', () => {
     await expect(BudgetService.checkAllPaid(5, 2)).resolves.toBeUndefined();
   });
 });
+
+/**
+ * `checkAllPaid` проверял ССЫЛКУ на локальный хелпер `botInstance` (не
+ * результат вызова), поэтому ветка «бота нет» была недостижима и метод падал
+ * на `botInstance()!.api` с TypeError. Переход статуса при этом уже записан —
+ * уведомление обязано быть best-effort.
+ */
+describe('бота нет', () => {
+  beforeEach(() => {
+    botInstance.mockReturnValue(null);
+  });
+
+  it('markAsPaid переводит долг в PAID и без бота', async () => {
+    await expect(BudgetService.markAsPaid(10, 1)).resolves.toMatchObject({
+      id: 10,
+    });
+
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: 10, fromUserId: 1, status: 'PENDING' },
+      data: { status: 'PAID', paidAt: NOW },
+    });
+  });
+
+  it('checkAllPaid не бросает и ничего не отправляет', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      txFixture({ status: 'CONFIRMED' }),
+    ] as never);
+
+    await expect(BudgetService.checkAllPaid(5, 2)).resolves.toBeUndefined();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('markAllPaidByResponsible подтверждает долги и без бота', async () => {
+    await expect(
+      BudgetService.markAllPaidByResponsible(5, 2)
+    ).resolves.toBeUndefined();
+
+    expect(prismaMock.transaction.updateManyAndReturn).toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+});

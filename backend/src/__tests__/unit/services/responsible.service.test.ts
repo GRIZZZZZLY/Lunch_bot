@@ -270,6 +270,64 @@ describe('sendVolunteerPrompt', () => {
   });
 });
 
+/**
+ * Guard «бота нет» проверял ССЫЛКУ на локальный хелпер `botInstance`, а не
+ * результат вызова, поэтому ветка отказа была недостижима и код падал ниже
+ * на `botInstance()!.api` с TypeError.
+ */
+describe('бота нет', () => {
+  beforeEach(() => {
+    botInstance.mockReturnValue(null);
+  });
+
+  /* Без бота промпт не уходит, но таймаут фолбэка на рулетку ставится —
+     иначе выбор ответственного встал бы насовсем. */
+  it('sendVolunteerPrompt не отправляет промпт, но доводит до рулетки', async () => {
+    await expect(
+      ResponsibleService.sendVolunteerPrompt(5, { id: 1, timeoutMinutes: 3 })
+    ).resolves.toBeUndefined();
+
+    jest.advanceTimersByTime(3 * 60 * 1000);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(prismaMock.responsibleSelection.updateMany).toHaveBeenCalledWith({
+      where: { id: 1, status: 'WAITING' },
+      data: { status: 'TIMEOUT' },
+    });
+  });
+
+  it('handleVolunteer забирает роль и без бота', async () => {
+    await expect(ResponsibleService.handleVolunteer(5, 555)).resolves.toBe(
+      true
+    );
+
+    expect(pollFlowService.processResponsibleSelected).toHaveBeenCalledWith(
+      5,
+      USER.id
+    );
+  });
+
+  it('handleVolunteerTimeout всё равно доходит до рулетки', async () => {
+    await expect(
+      ResponsibleService.handleVolunteerTimeout(5)
+    ).resolves.toBeUndefined();
+
+    expect(currentRouletteStub().runRoulette).toHaveBeenCalledWith(5);
+  });
+
+  it('runRouletteAndProceed доводит выбор до фазы расчётов', async () => {
+    await expect(
+      ResponsibleService.runRouletteAndProceed(5)
+    ).resolves.toBeUndefined();
+
+    expect(pollFlowService.processResponsibleSelected).toHaveBeenCalledWith(
+      5,
+      7
+    );
+  });
+});
+
 describe('handleVolunteer', () => {
   it('участник группы забирает роль, получает XP и запускает расчёты', async () => {
     const claimed = await ResponsibleService.handleVolunteer(5, 555);

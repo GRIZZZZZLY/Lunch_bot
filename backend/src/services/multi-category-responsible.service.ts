@@ -20,9 +20,6 @@ export function initializeMultiCategoryResponsibleServiceBot(
   _bot: unknown
 ): void {}
 
-function botInstance() {
-  return getBotInstance();
-}
 const pendingCategorySelections = new Map<number, Set<number>>();
 
 export class MultiCategoryResponsibleService {
@@ -76,7 +73,10 @@ export class MultiCategoryResponsibleService {
     pollId: number
   ): Promise<void> {
     try {
-      if (!botInstance) {
+      // Один вызов, один const: смысл метода — отредактировать сообщение
+      // опроса, без бота делать это нечем.
+      const bot = getBotInstance();
+      if (!bot) {
         return;
       }
 
@@ -142,7 +142,7 @@ export class MultiCategoryResponsibleService {
 
       const combinedMessage = `${baseMessage}\n\n${selectionMessage}`;
 
-      await botInstance()!.api.editMessageText(
+      await bot.api.editMessageText(
         Number(poll.chatId),
         poll.messageId,
         combinedMessage,
@@ -219,11 +219,11 @@ export class MultiCategoryResponsibleService {
     categoryOrderId: number
   ): Promise<void> {
     try {
-      if (!botInstance) {
-        logger.error('Bot instance not initialized');
-        return;
-      }
-
+      /* Guard'а на бота здесь нет намеренно. Метод не отправляет сообщений —
+         он только ставит таймаут фолбэка на рулетку, а сама рулетка работает
+         с БД. Прежняя проверка `if (!botInstance)` была недостижима (сверялась
+         ссылка на функцию), и таймаут ставился всегда; ранний выход отсюда
+         оставил бы категорию в VOLUNTEER_OPEN навсегда. */
       const categoryOrder =
         await CategoryOrderService.getCategoryOrder(categoryOrderId);
 
@@ -305,8 +305,9 @@ export class MultiCategoryResponsibleService {
           categoryOrderId,
         });
 
-        if (botInstance()) {
-          await botInstance()!.api.sendMessage(
+        const bot = getBotInstance();
+        if (bot) {
+          await bot.api.sendMessage(
             telegramId.toString(),
             '❌ Ты не участвуешь в этой категории!'
           );
@@ -329,8 +330,9 @@ export class MultiCategoryResponsibleService {
           existingCategoryOrderId: existingResponsibility.id,
         });
 
-        if (botInstance()) {
-          await botInstance()!.api.sendMessage(
+        const bot = getBotInstance();
+        if (bot) {
+          await bot.api.sendMessage(
             telegramId.toString(),
             `❌ Ты уже ответственный за "${existingResponsibility.category}"! Один человек = одна категория.`
           );
@@ -516,12 +518,13 @@ export class MultiCategoryResponsibleService {
     responsible: any
   ): Promise<void> {
     try {
-      if (!botInstance) {
+      const bot = getBotInstance();
+      if (!bot) {
         return;
       }
 
       // Notify responsible
-      await botInstance()!.api.sendMessage(
+      await bot.api.sendMessage(
         responsible.telegramId.toString(),
         `✅ Ты ответственный за "${categoryOrder.category}" (${categoryOrder.participantCount} чел.)!\n\n` +
           `Открой приложение и нажми "Открыть калькулятор" на главной странице.`
@@ -550,7 +553,7 @@ export class MultiCategoryResponsibleService {
           continue;
         }
 
-        const sentMsg = await botInstance()!.api.sendMessage(
+        const sentMsg = await bot.api.sendMessage(
           user.telegramId.toString(),
           `⏳ Ожидаем расчёт от ${responsible.firstName} для категории "${categoryOrder.category}"`
         );
