@@ -1,7 +1,7 @@
 # design-sync notes — frontend-new (Rocket Lunch)
 
 - Репо — приложение (Vite), не библиотека: DS-поверхность = `src/shared/ui` (9 примитивов Phase 2C) + `src/styles/tokens.css` + self-host шрифты `public/fonts`.
-- Storybook отсутствует в frontend-new; Storybook в соседнем `frontend/` — про другие (легаси) компоненты, НЕ использовать.
+- Storybook отсутствует в frontend-new. Соседний `frontend/` со своим Storybook удалён 2026-08-22 — искать там нечего.
 - node_modules ставится через `npm ci` (package-lock). При sync 2026-07-18 install пропущен: зависимости были поставлены и проверены в тот же день (билды/тесты зелёные).
 - Компоненты на CSS Modules + семантические токены; тема через `<html data-theme="light|dark">` (+класс `dark`). Провайдера нет; для рендера нужен только `data-theme` на корне и подключённый styles.css.
 - Icon для IconButton/Status/EmptyState/ErrorState/InlineNotice живёт вне shared/ui: `src/components/rl/Icon.tsx`; ConfirmDialog строится на `src/components/rl/BottomSheet.tsx` + `src/lib/backButton.ts` (Telegram BackButton — в браузере no-op).

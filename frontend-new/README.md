@@ -1,8 +1,8 @@
 # frontend-new — основной интерфейс Rocket Lunch
 
 Рабочий Telegram Mini App на React 18, TypeScript и Vite. Сервер и выпуск
-используют этот каталог по умолчанию через `FRONTEND_DIR=frontend-new`.
-`frontend/` сохранён только для временного отката.
+используют этот каталог через `FRONTEND_DIR=frontend-new` — других значений
+не поддерживается. Каталог `frontend/` удалён 2026-08-22.
 
 ## Запуск
 

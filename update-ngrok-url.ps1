@@ -41,15 +41,15 @@ Set-Content "backend\.env" -Value $backendEnv -NoNewline
 Write-Host "  OK backend/.env updated" -ForegroundColor Green
 
 # 2. Frontend .env
-Write-Host "[2/2] Updating frontend/.env..." -ForegroundColor Yellow
-$frontendEnv = Get-Content "frontend\.env" -Raw
+Write-Host "[2/2] Updating frontend-new/.env..." -ForegroundColor Yellow
+$frontendEnv = Get-Content "frontend-new\.env" -Raw
 
 # Update VITE_API_URL
 $apiUrl = "$NgrokUrl/api"
 $frontendEnv = $frontendEnv -replace 'VITE_API_URL=https?://[^\s]+', "VITE_API_URL=$apiUrl"
 
-Set-Content "frontend\.env" -Value $frontendEnv -NoNewline
-Write-Host "  OK frontend/.env updated" -ForegroundColor Green
+Set-Content "frontend-new\.env" -Value $frontendEnv -NoNewline
+Write-Host "  OK frontend-new/.env updated" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
@@ -65,7 +65,7 @@ Write-Host "IMPORTANT: Restart services!" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Commands:" -ForegroundColor Cyan
 Write-Host "  cd backend && npm run dev" -ForegroundColor Gray
-Write-Host "  cd frontend && npm run dev" -ForegroundColor Gray
+Write-Host "  cd frontend-new && npm run dev" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Or use:" -ForegroundColor Cyan
 Write-Host '  .\start-dev.ps1 -NoNgrok' -ForegroundColor Gray

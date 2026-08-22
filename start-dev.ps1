@@ -33,7 +33,7 @@ if (-not $NoNgrok) {
 # Check project structure
 $requiredPaths = @(
     "backend\package.json",
-    "frontend\package.json",
+    "frontend-new\package.json",
     "proxy-server.js"
 )
 
@@ -63,15 +63,15 @@ if (Test-Path "backend\.env.development") {
 }
 
 # Frontend: Copy .env.development to .env (if exists)
-if (Test-Path "frontend\.env") {
-    Copy-Item "frontend\.env" "frontend\.env.backup" -Force
-    Write-Host "  Backed up frontend/.env" -ForegroundColor Gray
+if (Test-Path "frontend-new\.env") {
+    Copy-Item "frontend-new\.env" "frontend-new\.env.backup" -Force
+    Write-Host "  Backed up frontend-new/.env" -ForegroundColor Gray
 }
-if (Test-Path "frontend\.env.development") {
-    Copy-Item "frontend\.env.development" "frontend\.env" -Force
-    Write-Host "  Loaded frontend/.env.development" -ForegroundColor Green
+if (Test-Path "frontend-new\.env.development") {
+    Copy-Item "frontend-new\.env.development" "frontend-new\.env" -Force
+    Write-Host "  Loaded frontend-new/.env.development" -ForegroundColor Green
 } else {
-    Write-Host "  Using existing frontend/.env" -ForegroundColor Gray
+    Write-Host "  Using existing frontend-new/.env" -ForegroundColor Gray
 }
 
 Write-Host ""
@@ -85,9 +85,9 @@ if (-not $SkipChecks) {
         Set-Location ..
     }
 
-    if (-not (Test-Path "frontend\node_modules")) {
+    if (-not (Test-Path "frontend-new\node_modules")) {
         Write-Host "Installing frontend dependencies..." -ForegroundColor Yellow
-        Set-Location frontend
+        Set-Location frontend-new
         npm install
         Set-Location ..
     }
@@ -145,7 +145,7 @@ Write-Host "[2/4] Starting Frontend..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList @(
     "-NoExit",
     "-Command",
-    "cd '$projectRoot\frontend'; `
+    "cd '$projectRoot\frontend-new'; `
      Write-Host ''; `
      Write-Host '========================================' -ForegroundColor Green; `
      Write-Host '  FRONTEND DEV SERVER' -ForegroundColor Green; `

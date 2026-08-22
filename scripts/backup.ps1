@@ -152,7 +152,7 @@ Remove-Item -Path "C:\BOT_V2\telegram-food-bot" -Recurse -Force
 Copy-Item -Path "$BackupPath" -Destination "C:\BOT_V2\telegram-food-bot" -Recurse
 
 # 4. Установить зависимости (если не включены)
-cd C:\BOT_V2\telegram-food-bot\frontend
+cd C:\BOT_V2\telegram-food-bot\frontend-new
 npm install
 
 cd ..\backend
@@ -167,14 +167,14 @@ pm2 start all
 ### Вариант 2: Частичное восстановление (только frontend)
 
 ``````powershell
-# Бэкап текущего frontend
-Move-Item "C:\BOT_V2\telegram-food-bot\frontend" "C:\BOT_V2\telegram-food-bot\frontend.old"
+# Бэкап текущего frontend-new
+Move-Item "C:\BOT_V2\telegram-food-bot\frontend-new" "C:\BOT_V2\telegram-food-bot\frontend-new.old"
 
-# Восстановить frontend
-Copy-Item -Path "$BackupPath\frontend" -Destination "C:\BOT_V2\telegram-food-bot\frontend" -Recurse
+# Восстановить frontend-new
+Copy-Item -Path "$BackupPath\frontend-new" -Destination "C:\BOT_V2\telegram-food-bot\frontend-new" -Recurse
 
 # Установить зависимости
-cd C:\BOT_V2\telegram-food-bot\frontend
+cd C:\BOT_V2\telegram-food-bot\frontend-new
 npm install
 ``````
 

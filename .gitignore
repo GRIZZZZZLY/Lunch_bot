@@ -1,7 +1,7 @@
 # Dependencies
 node_modules/
 backend/node_modules/
-frontend/node_modules/
+frontend-new/node_modules/
 
 # Environment variables
 .env
@@ -17,7 +17,6 @@ dist/
 dev-dist/
 build/
 backend/dist/
-frontend/build/
 *.tsbuildinfo
 frontend-new/vite.config.js
 frontend-new/vite.config.d.ts

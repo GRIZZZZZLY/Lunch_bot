@@ -63,7 +63,7 @@ services:
   # Frontend Service
   frontend:
     build:
-      context: ./frontend
+      context: ./frontend-new
       dockerfile: ../docker/frontend.Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3001/api}

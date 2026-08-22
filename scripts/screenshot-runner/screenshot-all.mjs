@@ -5,7 +5,7 @@ import http from 'node:http';
 import { BASE_USER, buildMocks } from './mocks.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
-const DIST_DIR = path.resolve('../../frontend/dist');
+const DIST_DIR = path.resolve('../../frontend-new/dist');
 const OUT_DIR = path.resolve('../../docs/design-prompts/screenshots');
 const VIEWPORT = { width: 430, height: 932 };
 const STATIC_PORT = 5174;

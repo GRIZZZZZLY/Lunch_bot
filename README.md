@@ -114,8 +114,7 @@ flowchart LR
 ```
 
 - `backend/` — TypeScript, Express, Grammy, Prisma, PostgreSQL и Redis;
-- `frontend-new/` — основной интерфейс Rocket Lunch на React и Vite;
-- `frontend/` — прежний интерфейс, временно сохранённый для отката;
+- `frontend-new/` — единственный интерфейс Rocket Lunch на React и Vite;
 - `docs/` — актуальная эксплуатационная и техническая документация.
 
 Продакшен собирает `frontend-new` через `FRONTEND_DIR=frontend-new`.

@@ -7,8 +7,7 @@
 Rocket Lunch — Telegram Mini App для совместных обедов.
 
 - `backend/`: Node.js, TypeScript, Grammy, Express, Prisma, PostgreSQL.
-- `frontend-new/`: основной React-интерфейс.
-- `frontend/`: предыдущий интерфейс для временного отката.
+- `frontend-new/`: единственный React-интерфейс.
 - Основная ветка: `main`.
 
 ## Команды
@@ -46,19 +45,6 @@ npm test
 npm run build
 npm run test:e2e:smoke
 npm run test:e2e:full
-```
-
-### Предыдущий интерфейс
-
-Проверяйте `frontend/`, если изменение затрагивает общую серверную схему,
-порядок выпуска или совместимость отката:
-
-```bash
-cd frontend
-npm run type-check
-npm run lint
-npm test -- --run
-npm run build
 ```
 
 ## Форматирование
@@ -121,7 +107,8 @@ npm run build
 - Проверяйте ширину 390 px, светлую и тёмную темы, safe area Telegram.
 - Для объединения классов используйте существующий `cn()`.
 - Не применяйте `transition-all`; анимируйте `transform` и `opacity`.
-- Не переносите новую функциональность в `frontend/` без прямого требования.
+- Единственный интерфейс — `frontend-new/`. Каталога `frontend/` больше нет
+  (удалён 2026-08-22), отката к нему не существует.
 
 ## Ошибки
 

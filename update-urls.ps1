@@ -107,8 +107,8 @@ New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 $backupFiles = @(
     "backend\.env",
     "backend\.env.development",
-    "frontend\.env",
-    "frontend\.env.development"
+    "frontend-new\.env",
+    "frontend-new\.env.development"
 )
 
 foreach ($file in $backupFiles) {
@@ -148,13 +148,13 @@ Write-Host "Updating frontend .env files..." -ForegroundColor Yellow
 $updatedCount = 0
 $apiUrl = "$NgrokUrl/api"
 
-if (Update-FrontendEnv "frontend\.env" $NgrokUrl) {
-    Write-Host "  [OK] Updated frontend\.env -> VITE_API_URL=$apiUrl" -ForegroundColor Green
+if (Update-FrontendEnv "frontend-new\.env" $NgrokUrl) {
+    Write-Host "  [OK] Updated frontend-new\.env -> VITE_API_URL=$apiUrl" -ForegroundColor Green
     $updatedCount++
 }
 
-if (Update-FrontendEnv "frontend\.env.development" $NgrokUrl) {
-    Write-Host "  [OK] Updated frontend\.env.development -> VITE_API_URL=$apiUrl" -ForegroundColor Green
+if (Update-FrontendEnv "frontend-new\.env.development" $NgrokUrl) {
+    Write-Host "  [OK] Updated frontend-new\.env.development -> VITE_API_URL=$apiUrl" -ForegroundColor Green
     $updatedCount++
 }
 

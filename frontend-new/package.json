@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "build:prod-dev": "vite build --watch --mode development",
+    "build:prod-dev": "tsc --noEmit && vite build --mode prod-dev",
+    "dev:watch:bundle": "vite build --watch --mode development",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "type-check:e2e": "tsc --noEmit --project tsconfig.e2e.json",

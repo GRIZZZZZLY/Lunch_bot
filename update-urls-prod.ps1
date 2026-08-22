@@ -11,7 +11,7 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "This script will:" -ForegroundColor Cyan
 Write-Host "  1. Update backend/.env (WEBAPP_URL)" -ForegroundColor White
-Write-Host "  2. Update frontend/.env.production (VITE_API_URL)" -ForegroundColor White
+Write-Host "  2. Update frontend-new/.env.production (VITE_API_URL)" -ForegroundColor White
 Write-Host "  3. Rebuild frontend (npm run build)" -ForegroundColor White
 Write-Host "  4. Restart backend server" -ForegroundColor White
 Write-Host ""
@@ -136,10 +136,10 @@ Write-Host ""
 Write-Host "Updating backend/.env..." -ForegroundColor Yellow
 Update-EnvFile -filePath "backend\.env" -key "WEBAPP_URL" -value $ngrokUrl
 
-# Обновляем frontend/.env.production
-Write-Host "Updating frontend/.env.production..." -ForegroundColor Yellow
+# Обновляем frontend-new/.env.production
+Write-Host "Updating frontend-new/.env.production..." -ForegroundColor Yellow
 $apiUrl = "$ngrokUrl/api"
-Update-EnvFile -filePath "frontend\.env.production" -key "VITE_API_URL" -value $apiUrl
+Update-EnvFile -filePath "frontend-new\.env.production" -key "VITE_API_URL" -value $apiUrl
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -151,7 +151,7 @@ Write-Host "Building frontend with new URL..." -ForegroundColor Yellow
 Write-Host "This may take 10-20 seconds..." -ForegroundColor Gray
 Write-Host ""
 
-Set-Location frontend
+Set-Location frontend-new
 $buildOutput = npm run build 2>&1
 $buildResult = $LASTEXITCODE
 Set-Location ..
@@ -168,8 +168,8 @@ Write-Host ""
 Write-Host "OK: Frontend rebuilt successfully!" -ForegroundColor Green
 
 # Show build size
-if (Test-Path "frontend\dist") {
-    $distSize = (Get-ChildItem -Path "frontend\dist" -Recurse | Measure-Object -Property Length -Sum).Sum
+if (Test-Path "frontend-new\dist") {
+    $distSize = (Get-ChildItem -Path "frontend-new\dist" -Recurse | Measure-Object -Property Length -Sum).Sum
     $distSizeMB = [math]::Round($distSize / 1MB, 2)
     Write-Host "Build size: $distSizeMB MB" -ForegroundColor Cyan
 }

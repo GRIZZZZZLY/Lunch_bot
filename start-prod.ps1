@@ -71,7 +71,7 @@ if ($Cloudflared) {
 }
 
 # Check project structure
-foreach ($path in @("backend\package.json", "frontend\package.json")) {
+foreach ($path in @("backend\package.json", "frontend-new\package.json")) {
     if (-not (Test-Path $path)) {
         Write-Host "ERROR: $path not found!" -ForegroundColor Red
         exit 1
@@ -87,9 +87,9 @@ if (-not $SkipChecks) {
         Write-Host "Installing backend dependencies..." -ForegroundColor Yellow
         Set-Location backend; npm install; Set-Location ..
     }
-    if (-not (Test-Path "frontend\node_modules")) {
+    if (-not (Test-Path "frontend-new\node_modules")) {
         Write-Host "Installing frontend dependencies..." -ForegroundColor Yellow
-        Set-Location frontend; npm install; Set-Location ..
+        Set-Location frontend-new; npm install; Set-Location ..
     }
 }
 
@@ -117,12 +117,12 @@ if (-not $SkipBuild) {
     Write-Host "========================================" -ForegroundColor Yellow
     Write-Host "  Building Frontend..." -ForegroundColor Yellow
     Write-Host "========================================" -ForegroundColor Yellow
-    Set-Location frontend
+    Set-Location frontend-new
     npm run build
     $buildOk = $LASTEXITCODE
     Set-Location ..
     if ($buildOk -ne 0) { Write-Host "ERROR: Frontend build failed!" -ForegroundColor Red; exit 1 }
-    $distSize = [math]::Round((Get-ChildItem "frontend\dist" -Recurse | Measure-Object Length -Sum).Sum / 1MB, 2)
+    $distSize = [math]::Round((Get-ChildItem "frontend-new\dist" -Recurse | Measure-Object Length -Sum).Sum / 1MB, 2)
     Write-Host "OK: Frontend built ($distSize MB)" -ForegroundColor Green
     Write-Host ""
 } else {

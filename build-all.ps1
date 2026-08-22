@@ -54,7 +54,7 @@ if (-not $SkipFrontend) {
     Write-Host "[2/2] Building Frontend..." -ForegroundColor Yellow
     Write-Host ""
     
-    Push-Location frontend
+    Push-Location frontend-new
     
     # Clean old build
     if (Test-Path "dist") {
@@ -93,8 +93,8 @@ Write-Host "Build time: $($duration.TotalSeconds.ToString('0.0')) seconds" -Fore
 Write-Host ""
 
 # Show build info
-if (-not $SkipFrontend -and (Test-Path "frontend\dist")) {
-    $frontendSize = (Get-ChildItem -Path "frontend\dist" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+if (-not $SkipFrontend -and (Test-Path "frontend-new\dist")) {
+    $frontendSize = (Get-ChildItem -Path "frontend-new\dist" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
     Write-Host "Frontend bundle size: $($frontendSize.ToString('0.00')) MB" -ForegroundColor White
 }
 

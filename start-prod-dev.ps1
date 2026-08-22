@@ -7,14 +7,13 @@
 # - Watch mode (auto-rebuild on changes)
 
 param(
-    [switch]$SkipChecks,
-    [switch]$OldFrontend
+    [switch]$SkipChecks
 )
 
 $ErrorActionPreference = 'Stop'
 
-# Frontend selector: -OldFrontend toggles between new (default) and legacy
-$frontendDir = if ($OldFrontend) { 'frontend' } else { 'frontend-new' }
+# Единственный интерфейс. Флаг -OldFrontend убран вместе с каталогом frontend/.
+$frontendDir = 'frontend-new'
 Write-Host "Frontend directory: $frontendDir" -ForegroundColor Cyan
 
 Write-Host ""

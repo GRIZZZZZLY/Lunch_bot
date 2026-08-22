@@ -79,8 +79,8 @@ Rocket Lunch убирает необходимость в отдельных т�
 - **Светлая и тёмная темы.** Обе обязательны, тема приходит от Telegram.
 - **Только русский язык.** Слой i18n не планируется; тексты пишутся по-русски
   напрямую.
-- Основной интерфейс — `frontend-new/`. Каталог `frontend/` оставлен только для
-  отката и не развивается.
+- Единственный интерфейс — `frontend-new/`. Каталог `frontend/` удалён
+  2026-08-22; отката к нему нет.
 - Стек интерфейса задан кодом: React + TypeScript + Vite, React Router,
   TanStack Query, Zustand, CSS-модули поверх токенов в
   `frontend-new/src/styles/`.
@@ -108,7 +108,7 @@ Rocket Lunch убирает необходимость в отдельных т�
   `assets/readme/showcase.png`.
 - Живой прод: бот и Mini App развёрнуты (PostgreSQL 16, Redis, PM2, Nginx).
 - Документация: `docs/`, `docs/ARCHITECTURE.md`,
-  `docs/09-production-readiness/SYSTEM_MAP.md`, `TECHNICAL_AUDIT_2026-07-19.md`.
+  `docs/09-production-readiness/SYSTEM_MAP.md`, `tech_debt/README.md`.
 - Тесты: юнит и e2e в `frontend-new`, юнит и интеграционные в `backend`.
 - Чего **нет** и что нельзя выдумывать: отзывов, кейсов, метрик аудитории,
   публикаций и цифр роста. На проде сейчас автор и пара тестеров — реальной

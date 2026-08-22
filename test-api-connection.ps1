@@ -12,7 +12,7 @@ Write-Host ""
 $envContent = Get-Content "backend\.env" | Where-Object { $_ -match '^WEBAPP_URL=' }
 $ngrokUrl = ($envContent -split '=')[1]
 
-$frontendEnv = Get-Content "frontend\.env" | Where-Object { $_ -match '^VITE_API_URL=' }
+$frontendEnv = Get-Content "frontend-new\.env" | Where-Object { $_ -match '^VITE_API_URL=' }
 $frontendApiUrl = ($frontendEnv -split '=')[1]
 
 Write-Host "Configuration:" -ForegroundColor Yellow
