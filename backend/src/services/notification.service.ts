@@ -16,15 +16,8 @@ import { User } from '@prisma/client';
 import { toNumber } from '../utils/decimal';
 import { now } from '../utils/date';
 import { createDirectLinkMiniAppUrl } from '../bot/keyboards/webapp.keyboard';
-
-/**
- * Вспомогательная функция для множественного числа
- */
-function getPluralForm(count: number, one: string, few: string, many: string): string {
-  if (count % 10 === 1 && count % 100 !== 11) return one;
-  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) return few;
-  return many;
-}
+import { pluralForm } from '../utils/pluralize';
+import { escapeHtml, escapeMarkdown } from '../utils/telegram-html';
 
 export class NotificationService {
   private bot: any | null = null;
@@ -84,12 +77,14 @@ export class NotificationService {
             message += `🍽️ *Кто что заказывает:*\n\n`;
             data.winners.forEach((winner, index) => {
               const voterCount = winner.voters?.length || 0;
-              const votersText = getPluralForm(voterCount, 'человек', 'человека', 'человек');
-              message += `${index + 1}. *${winner.menuItemName}* — ${voterCount} ${votersText}\n`;
+              const votersText = pluralForm(voterCount, 'человек', 'человека', 'человек');
+              message += `${index + 1}. *${escapeMarkdown(winner.menuItemName)}* — ${voterCount} ${votersText}\n`;
               
               if (winner.voters && winner.voters.length > 0) {
                 const displayVoters = winner.voters.slice(0, 3);
-                const voterNames = displayVoters.map(v => v.firstName).join(', ');
+                const voterNames = displayVoters
+                  .map(v => escapeMarkdown(v.firstName))
+                  .join(', ');
                 message += `   👤 ${voterNames}`;
                 if (winner.voters.length > 3) {
                   message += ` и ещё ${winner.voters.length - 3}`;
@@ -101,10 +96,13 @@ export class NotificationService {
           }
 
           if (data.bringOwn && data.bringOwn.count > 0) {
-            const bringOwnText = getPluralForm(data.bringOwn.count, 'человек', 'человека', 'человек');
+            const bringOwnText = pluralForm(data.bringOwn.count, 'человек', 'человека', 'человек');
             message += `🥪 *Принесу своё:* ${data.bringOwn.count} ${bringOwnText}\n`;
             if (data.bringOwn.voters && data.bringOwn.voters.length > 0) {
-              const names = data.bringOwn.voters.slice(0, 3).map(v => v.firstName).join(', ');
+              const names = data.bringOwn.voters
+                .slice(0, 3)
+                .map(v => escapeMarkdown(v.firstName))
+                .join(', ');
               message += `   👤 ${names}`;
               if (data.bringOwn.voters.length > 3) {
                 message += ` и ещё ${data.bringOwn.voters.length - 3}`;
@@ -115,7 +113,7 @@ export class NotificationService {
           }
 
           if (data.skipped && data.skipped.count > 0) {
-            const skippedText = getPluralForm(data.skipped.count, 'человек', 'человека', 'человек');
+            const skippedText = pluralForm(data.skipped.count, 'человек', 'человека', 'человек');
             message += `⏭️ *Пропустили:* ${data.skipped.count} ${skippedText}\n\n`;
           }
 
@@ -124,7 +122,7 @@ export class NotificationService {
         // Single-Winner режим
         else {
           if (data.winnerItem) {
-            message += `🏆 *Победитель:* ${data.winnerItem.name}\n`;
+            message += `🏆 *Победитель:* ${escapeMarkdown(data.winnerItem.name)}\n`;
             if (data.winnerItem.price) {
               message += `💰 Цена: ${toNumber(data.winnerItem.price).toFixed(2)} руб.\n`;
             }
@@ -134,7 +132,7 @@ export class NotificationService {
             message += `\n📊 *Топ блюд:*\n`;
             data.topItems.slice(0, 3).forEach((item, index) => {
               const emoji = ['🥇', '🥈', '🥉'][index] || '•';
-              message += `${emoji} ${item.item.name} - ${item.votes} ${getPluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
+              message += `${emoji} ${escapeMarkdown(item.item.name)} - ${item.votes} ${pluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
             });
           }
 
@@ -772,7 +770,7 @@ export class NotificationService {
     });
 
     const message =
-      `🛒 <b>${this.escapeHtml(initiatorName)}</b> идёт в «${this.escapeHtml(storeName)}»\n\n` +
+      `🛒 <b>${escapeHtml(initiatorName)}</b> идёт в «${escapeHtml(storeName)}»\n\n` +
       `Напиши что тебе взять — сбор до ${collectUntilStr}.\n\n` +
       `<i>Нажми «📱 Заполнить заказ», чтобы открыть список.</i>`;
 
@@ -875,7 +873,7 @@ export class NotificationService {
     const initiatorName = storeRun.initiator.firstName;
     const storeName = storeRun.storeName;
     const message =
-      `🛍 <b>${this.escapeHtml(initiatorName)}</b> пошёл в «${this.escapeHtml(storeName)}».\n` +
+      `🛍 <b>${escapeHtml(initiatorName)}</b> пошёл в «${escapeHtml(storeName)}».\n` +
       `Сбор заказов закрыт, скоро будут цены.`;
 
     const results: NotificationResult[] = [];
@@ -915,7 +913,7 @@ export class NotificationService {
     if (!storeRun) return;
 
     const message =
-      `⏱ Забег «${this.escapeHtml(storeRun.storeName)}» авто-отменён — ` +
+      `⏱ Забег «${escapeHtml(storeRun.storeName)}» авто-отменён — ` +
       `цены не внесены вовремя. Запусти новый, если ещё актуально.`;
 
     await this.send({
@@ -961,7 +959,7 @@ export class NotificationService {
     });
 
     const message =
-      `🛒 <b>${this.escapeHtml(initiatorName)}</b> идёт в «${this.escapeHtml(storeName)}»\n\n` +
+      `🛒 <b>${escapeHtml(initiatorName)}</b> идёт в «${escapeHtml(storeName)}»\n\n` +
       `Напиши, что тебе взять — сбор заказов до ${collectUntilStr}.`;
 
     try {
@@ -1028,7 +1026,7 @@ export class NotificationService {
     const storeName = storeRun.storeName;
 
     const message =
-      `🛍 Сбор заказов по «${this.escapeHtml(storeName)}» закрыт по таймеру.\n` +
+      `🛍 Сбор заказов по «${escapeHtml(storeName)}» закрыт по таймеру.\n` +
       `Набралось позиций: ${itemsCount}. Открой список, иди в магазин и проставь цены.`;
 
     const replyMarkup = webappUrl
@@ -1188,7 +1186,7 @@ export class NotificationService {
     }
 
     const text =
-      `✅ Забег в «${this.escapeHtml(storeRun.storeName)}» завершён.\n` +
+      `✅ Забег в «${escapeHtml(storeRun.storeName)}» завершён.\n` +
       `Должникам ушли суммы и реквизиты в личку.`;
 
     try {
@@ -1253,7 +1251,7 @@ export class NotificationService {
     }
 
     const message =
-      `✅ Забег в «${this.escapeHtml(storeRun.storeName)}» завершён.\n` +
+      `✅ Забег в «${escapeHtml(storeRun.storeName)}» завершён.\n` +
       `Из твоего ничего не куплено — платить не надо.`;
 
     const results: NotificationResult[] = [];
@@ -1276,12 +1274,6 @@ export class NotificationService {
     return results;
   }
 
-  private escapeHtml(s: string): string {
-    return s
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
 }
 
 export const notificationService = new NotificationService();

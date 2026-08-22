@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger';
+import { escapeHtml } from '../utils/telegram-html';
 
 interface FeedbackData {
   message: string;
@@ -57,14 +58,6 @@ class FeedbackService {
 
     try {
       const { message, userId, username, firstName } = data;
-
-      // Экранирование HTML спецсимволов
-      const escapeHtml = (text: string): string => {
-        return text
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
-      };
 
       // Форматируем сообщение с HTML разметкой
       let feedbackMessage = '📩 <b>Новая обратная связь</b>\n\n';

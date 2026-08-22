@@ -26,6 +26,7 @@ import {
   getMillisecondsDifference,
   subtractMinutes,
 } from '../utils/date';
+import { menuItemIdsFromVoteGroups } from '../utils/vote-menu-items';
 
 // Тип Vote с включенными связями для корректной типизации
 type VoteWithRelations = Vote & {
@@ -1190,9 +1191,7 @@ export class PollService {
         take: 5,
       });
 
-      const menuItemIds = votesByItem
-        .map(v => v.menuItemId)
-        .filter((id): id is number => id !== null);
+      const menuItemIds = menuItemIdsFromVoteGroups(votesByItem);
 
       const menuItems = await prisma.menuItem.findMany({
         where: { id: { in: menuItemIds } },

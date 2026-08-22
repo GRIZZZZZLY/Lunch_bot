@@ -1,5 +1,7 @@
 import { InlineKeyboard } from 'grammy';
 import { createDirectLinkMiniAppUrl } from './webapp.keyboard';
+import { pluralForm } from '../../utils/pluralize';
+import { escapeHtml, escapeMarkdown } from '../../utils/telegram-html';
 
 /**
  * Минимальное уведомление о старте голосования (единое для ручных и
@@ -90,7 +92,7 @@ export function createCompactPollMessage(
     let message = `🗳️ **Голосование за обед**\n\n`;
 
     if (poll.title && poll.title !== 'Голосование за обед') {
-      message += `📋 ${poll.title}\n`;
+      message += `📋 ${escapeMarkdown(poll.title)}\n`;
     }
 
     message += `🍽️ Блюд в меню: ${itemCount}\n`;
@@ -114,7 +116,7 @@ export function createCompactPollMessage(
     let message = `✅ **Голосование завершено!**\n\n`;
 
     if (poll.title && poll.title !== 'Голосование за обед') {
-      message += `📋 ${poll.title}\n`;
+      message += `📋 ${escapeMarkdown(poll.title)}\n`;
     }
 
     message += `🍽️ Блюд в меню: ${itemCount}\n`;
@@ -132,7 +134,7 @@ export function createCompactPollMessage(
 
       breakdown.slice(0, 3).forEach((item: any, index: number) => {
         const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-        message += `${emoji} ${item.menuItemName} — ${item.votes} ${getPluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
+        message += `${emoji} ${escapeMarkdown(item.menuItemName)} — ${item.votes} ${pluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
       });
 
       if (!options?.suppressResponsiblePrompt) {
@@ -153,7 +155,7 @@ export function createCompactPollMessage(
     let message = `✅ **Голосование завершено!**\n\n`;
 
     if (poll.title && poll.title !== 'Голосование за обед') {
-      message += `📋 ${poll.title}\n`;
+      message += `📋 ${escapeMarkdown(poll.title)}\n`;
     }
 
     message += `🍽️ Блюд в меню: ${itemCount}\n`;
@@ -171,7 +173,7 @@ export function createCompactPollMessage(
 
       breakdown.slice(0, 3).forEach((item: any, index: number) => {
         const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-        message += `${emoji} ${item.menuItemName} — ${item.votes} ${getPluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
+        message += `${emoji} ${escapeMarkdown(item.menuItemName)} — ${item.votes} ${pluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
       });
     }
 
@@ -205,22 +207,6 @@ function createProgressBar(percentage: number, length: number = 10): string {
 }
 
 /**
- * Вспомогательная функция для множественного числа
- */
-function getPluralForm(
-  count: number,
-  one: string,
-  few: string,
-  many: string
-): string {
-  if (count % 10 === 1 && count % 100 !== 11) return one;
-  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
-    return few;
-  }
-  return many;
-}
-
-/**
  * Форматирование результатов Multi-Winner для Telegram
  * 
  * @param resultData - MultiWinnerResultData из rouletteData
@@ -233,12 +219,14 @@ export function formatMultiWinnerResults(resultData: any): string {
   if (resultData.winners.length > 0) {
     resultData.winners.forEach((winner: any, index: number) => {
       const emoji = index === 0 ? '🏆' : '🍴';
-      const plural = getPluralForm(winner.voteCount, 'человек', 'человека', 'человек');
+      const plural = pluralForm(winner.voteCount, 'человек', 'человека', 'человек');
 
-      message += `${emoji} <b>${winner.menuItemName}</b> — ${winner.voteCount} ${plural}\n`;
+      message += `${emoji} <b>${escapeHtml(winner.menuItemName)}</b> — ${winner.voteCount} ${plural}\n`;
 
       // Прогрессивное раскрытие: Если > 5 человек - показываем первых 5 + "еще N"
-      const voterNames = winner.voters.map((v: any) => v.firstName);
+      const voterNames = winner.voters.map((v: any) =>
+        escapeHtml(v.firstName)
+      );
       if (voterNames.length <= 5) {
         message += `   👤 ${voterNames.join(', ')}\n`;
       } else {
@@ -255,7 +243,7 @@ export function formatMultiWinnerResults(resultData: any): string {
 
   // Bring Own
   if (resultData.bringOwn.count > 0) {
-    const plural = getPluralForm(
+    const plural = pluralForm(
       resultData.bringOwn.count,
       'человек',
       'человека',
@@ -263,7 +251,9 @@ export function formatMultiWinnerResults(resultData: any): string {
     );
     message += `🏠 <b>Принесу своё</b> — ${resultData.bringOwn.count} ${plural}\n`;
 
-    const names = resultData.bringOwn.voters.map((v: any) => v.firstName);
+    const names = resultData.bringOwn.voters.map((v: any) =>
+      escapeHtml(v.firstName)
+    );
     if (names.length <= 5) {
       message += `   ${names.join(', ')}\n\n`;
     } else {
@@ -273,7 +263,7 @@ export function formatMultiWinnerResults(resultData: any): string {
 
   // Skipped
   if (resultData.skipped.count > 0) {
-    const plural = getPluralForm(
+    const plural = pluralForm(
       resultData.skipped.count,
       'человек',
       'человека',
@@ -313,7 +303,7 @@ export function createResultsMessage(pollData: {
   const { poll, result, breakdown, totalVotes, voteTypeStats } = pollData;
   
   let message = `📊 **Результаты голосования**\n\n`;
-  message += `🎯 **"${poll.title}"**\n`;
+  message += `🎯 **"${escapeMarkdown(poll.title)}"**\n`;
   message += `👥 Участников: ${totalVotes}\n`;
   
   if (poll.status === 'ACTIVE') {
@@ -325,7 +315,7 @@ export function createResultsMessage(pollData: {
   } else {
     message += `✅ Голосование завершено\n`;
     if (result?.winnerItem) {
-      message += `🏆 **Победитель:** ${result.winnerMenuItem.name}\n`;
+      message += `🏆 **Победитель:** ${escapeMarkdown(result.winnerMenuItem.name)}\n`;
     }
   }
   

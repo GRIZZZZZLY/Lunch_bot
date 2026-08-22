@@ -13,6 +13,7 @@ import {
 import { createPollStartedMessage } from '../bot/keyboards/poll.keyboard';
 
 import { getBotInstance, getRequiredBotInstance } from '../bot/bot-instance';
+import { pluralForm } from '../utils/pluralize';
 
 /**
  * Создание голосования из WebApp с отправкой в группу
@@ -338,32 +339,10 @@ function createPollResultsMessage(data: {
           : index === 2
             ? '🥉'
             : `${index + 1}.`;
-    message += `${medal} ${item.menuItemName} — ${item.votes} ${getVotesWord(item.votes)} (${item.percentage}%)\n`;
+    message += `${medal} ${item.menuItemName} — ${item.votes} ${pluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
   });
 
   return message;
-}
-
-/**
- * Получить правильное склонение слова "голос"
- */
-function getVotesWord(count: number): string {
-  const lastDigit = count % 10;
-  const lastTwoDigits = count % 100;
-
-  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
-    return 'голосов';
-  }
-
-  if (lastDigit === 1) {
-    return 'голос';
-  }
-
-  if (lastDigit >= 2 && lastDigit <= 4) {
-    return 'голоса';
-  }
-
-  return 'голосов';
 }
 
 /**
@@ -421,7 +400,7 @@ async function sendPersonalNotifications(
           message += `📊 **Результаты:**\n`;
 
           if (winnerItem) {
-            message += `🏆 Победитель: **${winnerItem.menuItemName}** (${winnerItem.votes} ${getVotesWord(winnerItem.votes)})\n\n`;
+            message += `🏆 Победитель: **${winnerItem.menuItemName}** (${winnerItem.votes} ${pluralForm(winnerItem.votes, 'голос', 'голоса', 'голосов')})\n\n`;
           }
 
           message += `👤 **Твой выбор:** ${userVote?.menuItemName || 'Не указан'}\n\n`;

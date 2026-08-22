@@ -4,15 +4,7 @@ import { ReminderSettingsService } from '../services/reminder-settings.service';
 import { getBotInstance } from '../bot/bot-instance';
 import { logger } from '../utils/logger';
 import { withDistributedLock } from '../utils/distributed-lock';
-
-/** Русское число: 1 день, 2 дня, 5 дней. */
-function pluralize(count: number, one: string, few: string, many: string): string {
-  if (count % 10 === 1 && count % 100 !== 11) return one;
-  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
-    return few;
-  }
-  return many;
-}
+import { pluralForm } from '../utils/pluralize';
 
 /**
  * Форматирование возраста долга.
@@ -30,15 +22,15 @@ function formatDebtAge(daysOld: number): string {
   if (daysOld === 0) return 'сегодня';
   if (daysOld === 1) return 'вчера';
   if (daysOld < 31) {
-    return `${daysOld} ${pluralize(daysOld, 'день', 'дня', 'дней')} назад`;
+    return `${daysOld} ${pluralForm(daysOld, 'день', 'дня', 'дней')} назад`;
   }
 
   const weeks = Math.floor(daysOld / 7);
   if (weeks === 1) return '1 неделю назад';
-  if (weeks < 5) return `${weeks} ${pluralize(weeks, 'неделю', 'недели', 'недель')} назад`;
+  if (weeks < 5) return `${weeks} ${pluralForm(weeks, 'неделю', 'недели', 'недель')} назад`;
 
   const months = Math.floor(daysOld / 30);
-  return `${months} ${pluralize(months, 'месяц', 'месяца', 'месяцев')} назад`;
+  return `${months} ${pluralForm(months, 'месяц', 'месяца', 'месяцев')} назад`;
 }
 
 /**

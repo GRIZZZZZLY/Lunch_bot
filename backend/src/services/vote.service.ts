@@ -19,6 +19,7 @@ import {
   XP_MULTIPLIERS,
 } from '../constants/xp-constants';
 import { eventBus } from './event-bus.service';
+import { menuItemIdsFromVoteGroups } from '../utils/vote-menu-items';
 
 export class VoteService {
   private static async assertMenuItemsAllowedForPoll(
@@ -231,9 +232,7 @@ export class VoteService {
           });
 
           const existingItemIds = new Set(
-            existingVotes
-              .map(v => v.menuItemId)
-              .filter((id): id is number => id !== null)
+            menuItemIdsFromVoteGroups(existingVotes)
           );
 
           const newMenuItemIds = uniqueMenuItemIds.filter(
@@ -961,9 +960,9 @@ export class VoteService {
 
       const pollsParticipated = distinctPollVotes.length;
 
-      const favoriteMenuItemIds = favoriteMenuItemGroups
-        .map(group => group.menuItemId)
-        .filter((menuItemId): menuItemId is number => menuItemId !== null);
+      const favoriteMenuItemIds = menuItemIdsFromVoteGroups(
+        favoriteMenuItemGroups
+      );
 
       const favoriteMenuItemsData = await prisma.menuItem.findMany({
         where: { id: { in: favoriteMenuItemIds } },
@@ -1117,9 +1116,7 @@ export class VoteService {
         }),
       ]);
 
-      const menuItemIds = voteGroups
-        .map(group => group.menuItemId)
-        .filter((menuItemId): menuItemId is number => menuItemId !== null);
+      const menuItemIds = menuItemIdsFromVoteGroups(voteGroups);
 
       const menuItems = await prisma.menuItem.findMany({
         where: {
