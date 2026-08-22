@@ -10,7 +10,6 @@ import {
   startApiServer,
   stopApiServer,
 } from './api/server';
-import { initializePollServiceBot } from './services/poll.service.extensions';
 import { feedbackService } from './services/feedback.service';
 import { runSecurityChecks } from './utils/security-checks';
 import { validateEnv } from './utils/env';
@@ -59,9 +58,6 @@ const bot = RUN_BOT ? createBot() : null;
 const app = RUN_API ? createApiServer() : null;
 
 if (bot) {
-  // Инициализация PollService с экземпляром бота
-  initializePollServiceBot(bot);
-
   // Инициализация FeedbackService с экземпляром бота
   feedbackService.initialize(bot);
 

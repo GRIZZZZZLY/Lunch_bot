@@ -56,9 +56,6 @@ export class PollAlreadyActiveError extends Error {
   }
 }
 
-/** @deprecated No-op: bot is now accessed via the shared singleton */
-export function initializePollServiceBot(_bot: unknown): void {}
-
 export class PollService {
   /**
    * Создание нового голосования

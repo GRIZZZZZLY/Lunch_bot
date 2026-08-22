@@ -6,9 +6,6 @@ import { UserService } from './user.service';
 import { toNumber, formatCurrency, sumDecimals } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 
-/** @deprecated No-op: bot is now accessed via the shared singleton */
-export function initializeOrderCalculationServiceBot(_bot: unknown): void {}
-
 const MAX_ORDER_ITEM_PRICE = 1_000_000;
 const MAX_ADDITIONAL_COST = 1_000_000;
 

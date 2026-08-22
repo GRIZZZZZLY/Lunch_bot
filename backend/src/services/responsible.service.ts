@@ -10,9 +10,6 @@ import { now, addMinutesToDate, getTimestamp } from '../utils/date';
 import { toNumber, multiply } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 
-/** @deprecated No-op: bot is now accessed via the shared singleton */
-export function initializeResponsibleServiceBot(_bot: unknown): void {}
-
 export class ResponsibleService {
   /**
    * Запуск процесса выбора ответственного

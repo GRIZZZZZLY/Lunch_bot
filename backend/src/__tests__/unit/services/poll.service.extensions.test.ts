@@ -7,10 +7,7 @@
  * должен проверять, что голосование ещё активно — иначе досрочно закрытое
  * голосование «завершилось» бы второй раз.
  */
-import {
-  createPollFromWebApp,
-  initializePollServiceBot,
-} from '../../../services/poll.service.extensions';
+import { createPollFromWebApp } from '../../../services/poll.service.extensions';
 import { PollService } from '../../../services/poll.service';
 import { GroupService } from '../../../services/group.service';
 import { VoteService } from '../../../services/vote.service';
@@ -419,12 +416,6 @@ describe('автозавершение по таймеру', () => {
     pollService.getPollById.mockResolvedValue(null);
 
     await expect(fireTimer()).resolves.toBeUndefined();
-  });
-});
-
-describe('устаревшая инициализация бота', () => {
-  it('оставлена как no-op для обратной совместимости', () => {
-    expect(() => initializePollServiceBot({})).not.toThrow();
   });
 });
 

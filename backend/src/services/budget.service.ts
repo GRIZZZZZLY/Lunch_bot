@@ -13,9 +13,6 @@ import {
 } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 
-/** @deprecated No-op: bot is now accessed via the shared singleton in bot-instance.ts */
-export function initializeBudgetServiceBot(_bot: unknown): void {}
-
 interface PaymentInfo {
   paymentCard?: string | null;
   paymentPhone?: string | null;

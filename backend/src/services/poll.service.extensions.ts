@@ -14,9 +14,6 @@ import { createPollStartedMessage } from '../bot/keyboards/poll.keyboard';
 
 import { getBotInstance, getRequiredBotInstance } from '../bot/bot-instance';
 
-/** @deprecated No-op: bot is now accessed via the shared singleton */
-export function initializePollServiceBot(_bot: unknown): void {}
-
 /**
  * Создание голосования из WebApp с отправкой в группу
  */

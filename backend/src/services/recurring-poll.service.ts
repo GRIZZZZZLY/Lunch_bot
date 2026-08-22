@@ -41,9 +41,6 @@ type RunStatus = 'SUCCESS' | 'SKIPPED_CONFLICT' | 'FAILED_NO_MENU' | 'FAILED_BOT
 
 import { getBotInstance } from '../bot/bot-instance';
 
-/** @deprecated No-op: bot is now accessed via the shared singleton */
-export function initializeRecurringPollServiceBot(_bot: unknown): void {}
-
 export class RecurringPollService {
   private static async assertMenuItemsBelongToGroup(
     groupId: number,

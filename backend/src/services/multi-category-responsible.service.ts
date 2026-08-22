@@ -15,11 +15,6 @@ import { getXPReward } from '../constants/xp-constants';
 import { now, addMinutesToDate } from '../utils/date';
 import { getBotInstance } from '../bot/bot-instance';
 
-/** @deprecated No-op: bot is now accessed via the shared singleton */
-export function initializeMultiCategoryResponsibleServiceBot(
-  _bot: unknown
-): void {}
-
 const pendingCategorySelections = new Map<number, Set<number>>();
 
 export class MultiCategoryResponsibleService {

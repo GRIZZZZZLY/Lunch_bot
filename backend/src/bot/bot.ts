@@ -9,9 +9,6 @@ import { notificationService } from '../services/notification.service';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 
-// Module-level bot instance for access from services
-let botInstance: Bot<BotContext> | null = null;
-
 // Middleware
 import { authMiddleware } from './middleware/auth';
 import {
@@ -115,8 +112,11 @@ export function createBot(): Bot<BotContext> {
     );
   }
 
-  botInstance = new Bot<BotContext>(botConfig.token, gramBotConfig);
-  const bot = botInstance;
+  /* Экземпляр доступен сервисам через bot/bot-instance.ts — ниже он кладётся
+     туда вызовом setBotInstance. Модульной переменной здесь больше нет:
+     она обслуживала второй, одноимённый экспорт getBotInstance, у которого
+     не было ни одного импортёра. */
+  const bot = new Bot<BotContext>(botConfig.token, gramBotConfig);
 
   // 🚦 Phase 0 (G0-7): Proactive outbound throttle for Telegram Bot API.
   // Telegram limits: 30 msg/sec global, 1 msg/sec per chat, 20 msg/min per group.
@@ -695,10 +695,3 @@ export async function stopBot(bot: Bot<BotContext>): Promise<void> {
   }
 }
 
-/**
- * Получение глобального экземпляра бота
- * Используется сервисами для доступа к Telegram API
- */
-export function getBotInstance(): Bot<BotContext> | null {
-  return botInstance;
-}
