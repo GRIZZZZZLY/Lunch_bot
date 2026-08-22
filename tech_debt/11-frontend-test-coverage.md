@@ -1,0 +1,171 @@
+# 11 — На фронтенде нет измерения покрытия; хуки данных без тестов
+
+- **Приоритет:** P1 (единственный слой без обратной связи по регрессиям)
+- **Оценка:** 0.5 дня на гейт + 2 дня на приоритетное покрытие
+- **Блокер шага 1:** `@vitest/coverage-v8` **отсутствует** в
+  `frontend-new/package.json` (там только `vitest: ^4.1.10`). Первая команда:
+  `npm --prefix frontend-new i -D @vitest/coverage-v8`. Без неё
+  `vitest run --coverage` падает сразу.
+- **Тип:** пробел в тестировании
+- **Область:** `frontend-new/vite.config.ts`, `frontend-new/src/hooks/*`, `frontend-new/src/components/*`
+- **Метод:** TDD для нового кода, характеризующие тесты для существующего
+
+## Асимметрия, из которой всё следует
+
+| | Backend | Frontend |
+|---|---|---|
+| Тестов | 3488 (замер в CI 2026-08-05) | vitest, число не измеряется |
+| Покрытие | 94.26% statements, 88.56% branches | **не измеряется вообще** |
+| Гейт покрытия | есть, `coverageThreshold` в `jest.config.js` | **нет** |
+| Отчёт в CI | артефакт `backend-coverage` | нет |
+
+`frontend-new/vite.config.ts` в секции `test` настраивает окружение, пул и
+кэш — но не содержит блока `coverage`. В `package.json` нет скрипта
+`test:coverage`. В `.github/workflows/ci.yml` шаг фронта — `npm test`, без
+покрытия и без артефакта.
+
+Backend-порог в комментарии конфига описан как «ПОЛ, а не цель» с историей, как
+недостижимый порог 70% приучил пролистывать красный CI. На фронте пола нет
+вовсе — то есть покрытие может уехать в любую сторону, и никто не узнает.
+
+## Что не покрыто
+
+Точное число «файлов без тестов» здесь сознательно не приводится: без
+инструментального покрытия его можно оценить только эвристикой (совпадение
+имён файла и теста), а она даёт ±20. Именно это и есть главный симптом — **число
+неизвестно, потому что его нечем измерить.** Шаг 1 задачи как раз про это.
+
+Список ниже составлен эвристикой и проверен глазами; он про приоритеты, а не
+про полноту. Приоритет — по риску, а не по размеру. Самое важное: **основные
+хуки доступа к данным без тестов** (тесты есть у `useBudget`, `useMoneyStream`,
+`useStoreRun`, `useStoreRunStream` — но не у `usePolls`, `useAdmin`,
+`useEventStream`), при том что через них проходит каждый экран.
+
+| Файл | Строк | Почему важно |
+|---|---|---|
+| `src/hooks/useAdmin.ts` | 236 | админские мутации, необратимые операции |
+| `src/hooks/usePolls.ts` | 188 | голосование — основной сценарий продукта |
+| `src/hooks/useEventStream.ts` | 134 | SSE, живое обновление |
+| `src/services/auth.service.ts` | 117 | авторизация, переавторизация по 401 |
+| `src/lib/pollMappers.ts` | 109 | нормализация формы ответа API |
+| `src/lib/adminMappers.ts` | 123 | то же для админки |
+| `src/components/rl/primitives.tsx` | 455 | базовые примитивы дизайн-системы |
+| `src/components/rl/Icon.tsx` | 323 | отмечен в сводке здоровья как «untested hotspot», impact −2.0 |
+| `src/components/rl/parts.tsx` | 171 | |
+| `src/components/admin/DataCleanupCard.tsx` | 190 | **удаление данных** |
+| `src/components/admin/DebtManagementCard.tsx` | 166 | деньги |
+| `src/components/admin/ReminderSettingsCard.tsx` | 150 | |
+| `src/components/admin/UserManagementCard.tsx` | 137 | health 4.34 |
+| `src/features/store-run/components/ShoppingItemRow.tsx` | 264 | ввод цен |
+| `src/features/store-run/views/SettledView.tsx` | 125 | health 4.34 |
+| `src/features/menu/components/DishSheet.tsx` | 158 | |
+| `src/features/home/components/NowSection.tsx` | 144 | часть bug-magnet-страницы |
+| `src/components/modals/DonationModal.tsx` | 111 | платежи |
+| `src/components/rl/RouletteRevealOverlay.tsx` | 112 | |
+| `src/components/admin/types.ts` | 123 | типы, тесты не нужны |
+
+*Размеры в этой таблице — ±1 строка (считались с учётом завершающего перевода
+строки). Для приоритезации это неважно; если нужна точность, `wc -l`.*
+
+Со стороны backend без тестов остались: `bot/bot.ts` (704, исключён из
+покрытия осознанно), `bot/keyboards/poll.keyboard.ts` (376),
+`bot/commands/start.ts` (267), `bot/middleware/auth.ts` (233),
+`bot/middleware/logger.ts` (195), `utils/logger.ts` (169),
+`utils/decimal.ts` (149 — **деньги, покрыть обязательно**),
+`services/event-bus.service.ts` (141 — **SSE, покрыть обязательно**),
+`utils/problem.ts` (131), `bot/keyboards/webapp.keyboard.ts` (130),
+`bot/commands/app.ts` (119).
+
+## Что делать
+
+### Шаг 1 — включить измерение (полдня, даёт постоянную обратную связь)
+
+0. `npm --prefix frontend-new i -D @vitest/coverage-v8` — зависимости нет.
+1. В `frontend-new/vite.config.ts` добавить блок `coverage` (провайдер `v8`),
+   исключив `tests/e2e/**`, `tests/tour/**`, `src/test/**`, `*.d.ts`.
+2. Скрипт `"test:coverage": "vitest run --coverage"`.
+3. В `ci.yml` в job «Frontend-new quality» заменить `npm test` на
+   `npm run test:coverage` + upload артефакта, по аналогии с backend-job.
+4. **Замерить фактическое значение и поставить порог равным ему** (округлив
+   вниз). Ровно тот приём, который описан в комментарии backend-конфига и
+   который там сработал. Не ставить «хорошее» число.
+
+### Шаг 2 — покрыть приоритетное, и только его
+
+**Урезано сознательно.** Первая редакция перечисляла 20 файлов, включая
+`rl/primitives.tsx` (454) и `rl/Icon.tsx` (322). Примитивы дизайн-системы —
+самая низкая отдача в списке: они меняются редко и ломаются заметно. Основная
+ценность задачи — в шаге 1.
+
+Покрыть **пять**, в этом порядке:
+
+1. `backend/src/utils/decimal.ts` (148) — деньги, тестируется чистыми функциями;
+2. `backend/src/services/event-bus.service.ts` (140) — серверная сторона SSE;
+   без него задача 05 идёт вслепую (там прямо сказано: «мутация → событие
+   опубликовано»);
+3. `frontend-new/src/hooks/usePolls.ts` (187) — основной сценарий продукта;
+4. `frontend-new/src/services/auth.service.ts` (116) — авторизация и
+   переавторизация по 401;
+5. `frontend-new/src/hooks/useSSE.ts` — **клиентская** сторона SSE. Это отдельный
+   файл, не `useEventStream.ts`; тестов у него нет. Без него **задачу 12 нельзя
+   выполнить по её же TDD-порядку**: её главный риск — «порядок инвалидации
+   относительно SSE-слушателя из `useSSE`», а зафиксировать порядок нечем.
+   Первая редакция этого списка про него забыла.
+
+Остальное из таблицы выше — по мере того, как в файл придут правки, не раньше.
+
+**Шаблон для тестов хуков уже есть, писать с нуля не нужно:**
+`frontend-new/src/hooks/__tests__/` содержит `useBudget.test.tsx`,
+`useMoneyStream.test.tsx`, `useStoreRun.test.tsx`, `useStoreRunStream.test.tsx`.
+Возьмите оттуда обёртку `QueryClientProvider` и способ мока `apiService`.
+`useStoreRunStream.test.tsx` — образец теста на SSE-подобный поток.
+
+## Подводные камни
+
+- **`pool: 'forks'` + `fileParallelism: false` — и рычага для ускорения нет.**
+  В `vite.config.ts` стоит один форк без параллелизма, и в комментарии подробно
+  объяснено почему: битый optimizer-кэш, гонка воркеров и баг tinypool с
+  worker_threads на Windows. Там же `TODO(infra): перепроверить после
+  обновления Vitest > 4.1.x` — а установленная версия ровно **4.1.10**, то есть
+  условие TODO **не выполнено** и трогать настройку сейчас нельзя.
+  Следствие, которое надо принять заранее: v8-покрытие на одном форке
+  медленное, и время прогона вырастет **более чем вдвое**. Это не повод
+  отказываться от гейта и не повод включать параллелизм — просто планируйте
+  время CI. Именно поэтому среди критериев готовности нет ограничения на время.
+- **`v8` vs `istanbul`.** С `pool: 'forks'` провайдер `v8` работает, но
+  инструментирует иначе; цифры будут отличаться от istanbul на 1–3 п.п.
+  Выберите один и не меняйте — иначе порог начнёт «прыгать» без изменений кода.
+- **Не ставьте порог по branches слишком близко к факту.** На фронте много
+  условного рендеринга; один новый `if` без теста уронит гейт на человеке,
+  который его не вносил. Разумно: statements/lines по факту, branches — факт
+  минус 2–3 п.п.
+- **Если всё же возьмётесь за примитивы `rl/` — не снапшотами.** Снапшот на
+  454 строки даст 100% покрытия и нулевую защиту. Тестируйте поведение:
+  состояния `hover`/`focus-visible`/`active` (обязательны по `CLAUDE.md`),
+  disabled, область касания 44×44. Для `Icon.tsx` полезных тестов ровно два:
+  «каждое имя из реестра рендерится непустым» и «неизвестное имя не падает».
+- **SSE в jsdom.** В `jsdom` нет `EventSource`; нужен полифилл или мок. Образец
+  уже есть — `frontend-new/src/hooks/__tests__/useStoreRunStream.test.tsx`,
+  берите оттуда. Есть история: из `useSSE` уже убирали подробное логирование, и
+  одна правка «не применилась», хотя инструмент отчитался об успехе. Проверяйте
+  диффом, что тест реально видит новый код.
+
+## Критерии готовности
+
+- [ ] `@vitest/coverage-v8` в devDependencies.
+- [ ] `npm --prefix frontend-new run test:coverage` работает локально и в CI.
+- [ ] Порог покрытия зафиксирован по факту и стоит в CI как блокирующий.
+- [ ] Артефакт покрытия фронта загружается в CI рядом с backend-овским.
+- [ ] Покрыты пять приоритетных файлов: `utils/decimal.ts`,
+      `event-bus.service.ts`, `usePolls`, `auth.service`, `useSSE`.
+- [ ] Настройки `pool`/`fileParallelism`/`cache` в `vite.config.ts` **не
+      менялись** (условие TODO не выполнено, Vitest 4.1.10).
+
+## Проверка
+
+```powershell
+npm --prefix frontend-new run type-check
+npm --prefix frontend-new run lint
+npm --prefix frontend-new run test:coverage
+npm --prefix backend test
+```
