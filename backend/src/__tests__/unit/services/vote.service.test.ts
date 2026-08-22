@@ -792,29 +792,6 @@ describe('чтение голосов', () => {
     );
   });
 
-  it('устаревший getUserVoteInPoll отдаёт первый голос', async () => {
-    asMock(prismaMock.vote.findMany).mockResolvedValue([
-      { id: 1, menuItemId: 7 },
-      { id: 2, menuItemId: 8 },
-    ]);
-
-    await expect(VoteService.getUserVoteInPoll(1, 5)).resolves.toMatchObject({
-      id: 1,
-    });
-  });
-
-  it('без голосов getUserVoteInPoll возвращает null', async () => {
-    await expect(VoteService.getUserVoteInPoll(1, 5)).resolves.toBeNull();
-  });
-
-  it('сбой в getUserVoteInPoll превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getUserVoteInPoll(1, 5)).rejects.toThrow(
-      'Failed to get user vote'
-    );
-  });
-
   it('hasUserVoted при сбое отвечает «не голосовал», а не падает', async () => {
     asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
 
@@ -1172,7 +1149,7 @@ describe('обслуживание и топы', () => {
   });
 });
 
-describe('deleteVote и updateVote', () => {
+describe('deleteVote', () => {
   it('удаление голоса за блюдо адресное', async () => {
     await VoteService.deleteVote(1, 5, 7);
 
@@ -1186,23 +1163,6 @@ describe('deleteVote и updateVote', () => {
 
     await expect(VoteService.deleteVote(1, 5, 7)).rejects.toThrow(
       'Failed to delete vote'
-    );
-  });
-
-  it('устаревший updateVote меняет блюдо и отметку времени', async () => {
-    await VoteService.updateVote(900, 8);
-
-    expect(asMock(prismaMock.vote.update)).toHaveBeenCalledWith({
-      where: { id: 900 },
-      data: { menuItemId: 8, updatedAt: NOW },
-    });
-  });
-
-  it('сбой обновления превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.update).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.updateVote(900, 8)).rejects.toThrow(
-      'Failed to update vote'
     );
   });
 });

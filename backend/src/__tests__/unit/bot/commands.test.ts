@@ -25,7 +25,7 @@ jest.mock('../../../services/poll.service', () => ({
 }));
 
 jest.mock('../../../services/vote.service', () => ({
-  VoteService: { getUserVoteInPoll: jest.fn() },
+  VoteService: { getUserVotes: jest.fn() },
 }));
 
 jest.mock('../../../utils/logger', () => ({
@@ -78,7 +78,7 @@ beforeEach(() => {
   });
   userService.getUserByTelegramId.mockResolvedValue({ id: 1, isAdmin: false });
   pollService.getPollById.mockResolvedValue({ id: 5, status: 'ACTIVE' });
-  voteService.getUserVoteInPoll.mockResolvedValue(null);
+  voteService.getUserVotes.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -247,7 +247,7 @@ describe('/start — deep links', () => {
   });
 
   it('уже проголосовавшему сообщают, что голос учтён', async () => {
-    voteService.getUserVoteInPoll.mockResolvedValue({ id: 1 });
+    voteService.getUserVotes.mockResolvedValue([{ id: 1 }]);
     const ctx = makeCtx({ match: 'vote_5' });
 
     await startCommand(ctx);

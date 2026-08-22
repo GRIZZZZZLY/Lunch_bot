@@ -490,26 +490,6 @@ export class VoteService {
   }
 
   /**
-   * Обновление существующего голоса (DEPRECATED - используйте createVote + deleteVote)
-   */
-  static async updateVote(voteId: number, menuItemId: number): Promise<Vote> {
-    try {
-      const vote = await prisma.vote.update({
-        where: { id: voteId },
-        data: {
-          menuItemId,
-          updatedAt: new Date(),
-        },
-      });
-      logger.info(`Vote updated: vote ${voteId} changed to item ${menuItemId}`);
-      return vote;
-    } catch (error) {
-      logger.error('Error updating vote:', error);
-      throw new Error('Failed to update vote');
-    }
-  }
-
-  /**
    * Получение детальной разбивки голосов по блюдам (ОПТИМИЗИРОВАНО с groupBy)
    */
   static async getVoteBreakdown(pollId: number): Promise<
@@ -761,23 +741,6 @@ export class VoteService {
     } catch (error) {
       logger.error('Error getting vote type stats:', error);
       throw new Error('Failed to get vote type stats');
-    }
-  }
-
-  /**
-   * Получение голоса пользователя в голосовании (DEPRECATED - используйте getUserVotes)
-   */
-  static async getUserVoteInPoll(
-    pollId: number,
-    userId: number
-  ): Promise<Vote | null> {
-    try {
-      // Возвращаем первый голос пользователя (для обратной совместимости)
-      const votes = await this.getUserVotes(pollId, userId);
-      return votes.length > 0 ? votes[0] : null;
-    } catch (error) {
-      logger.error('Error getting user vote in poll:', error);
-      throw new Error('Failed to get user vote');
     }
   }
 

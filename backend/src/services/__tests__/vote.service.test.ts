@@ -286,32 +286,6 @@ describe('VoteService', () => {
     });
   });
 
-  describe('updateVote', () => {
-    it('should update vote successfully', async () => {
-      const mockUpdatedVote = createMockVote({ menuItemId: 3 });
-
-      (prisma.vote.update as jest.Mock).mockResolvedValue(mockUpdatedVote);
-
-      const result = await VoteService.updateVote(1, 3);
-
-      expect(prisma.vote.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: {
-          menuItemId: 3,
-          updatedAt: expect.any(Date),
-        },
-      });
-
-      expect(result.menuItemId).toBe(3);
-    });
-
-    it('should throw error if vote not found', async () => {
-      (prisma.vote.update as jest.Mock).mockRejectedValue(new Error('Vote not found'));
-
-      await expect(VoteService.updateVote(999, 3)).rejects.toThrow('Failed to update vote');
-    });
-  });
-
   describe('upsertVote', () => {
     it('should replace previous user votes in transaction', async () => {
       const poll = {
@@ -426,39 +400,6 @@ describe('VoteService', () => {
       const result = await VoteService.getVoteBreakdown(1);
 
       expect(result).toEqual([]);
-    });
-  });
-
-  describe('getUserVoteInPoll', () => {
-    it('should return user vote if exists', async () => {
-      const mockVote = createMockVote();
-
-      // getUserVoteInPoll calls getUserVotes which uses findMany
-      (prisma.vote.findMany as jest.Mock).mockResolvedValue([mockVote]);
-
-      const result = await VoteService.getUserVoteInPoll(1, 1);
-
-      expect(prisma.vote.findMany).toHaveBeenCalledWith({
-        where: {
-          pollId: 1,
-          userId: 1,
-          menuItemId: { not: null },
-        },
-        include: {
-          menuItem: true,
-        },
-      });
-
-      expect(result).toEqual(mockVote);
-    });
-
-    it('should return null if user has not voted', async () => {
-      // getUserVoteInPoll calls getUserVotes which uses findMany
-      (prisma.vote.findMany as jest.Mock).mockResolvedValue([]);
-
-      const result = await VoteService.getUserVoteInPoll(1, 1);
-
-      expect(result).toBeNull();
     });
   });
 

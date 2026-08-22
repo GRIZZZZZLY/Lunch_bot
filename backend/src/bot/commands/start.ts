@@ -113,11 +113,13 @@ export async function startCommand(ctx: BotContext): Promise<void> {
         return;
       }
 
-      // Проверяем, не проголосовал ли пользователь уже
+      // Проверяем, не проголосовал ли пользователь уже.
+      // Здесь важен только факт наличия голоса: голосование мультивыборное,
+      // и «первый голос» отдельного смысла не имеет.
       const { VoteService } = await import('../../services/vote.service');
-      const existingVote = await VoteService.getUserVoteInPoll(pollId, dbUser.id);
+      const existingVotes = await VoteService.getUserVotes(pollId, dbUser.id);
 
-      if (existingVote) {
+      if (existingVotes.length > 0) {
         await ctx.reply(
           '✅ **Ты уже проголосовал**\n\n' +
           'Твой голос учтён. Результаты объявим после завершения голосования.',
