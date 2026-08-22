@@ -221,6 +221,12 @@ export class MenuSuggestionService {
       `Suggestion ${suggestionId} approved, created menu item ${menuItem.id}`
     );
 
+    await this.notifySuggester(
+      suggestionId,
+      suggestion.suggestedBy,
+      `✅ Твоё блюдо «${suggestion.name}» добавлено в меню!\n\nМожно голосовать за него в следующем заказе.`
+    );
+
     return { suggestion: updatedSuggestion, menuItem };
   }
 
@@ -278,7 +284,76 @@ export class MenuSuggestionService {
     });
 
     logger.info(`Suggestion ${suggestionId} rejected`);
+
+    const explanation = reason
+      ? `\n\nПричина: ${reason}`
+      : '\n\nПричину администратор не указал — уточни в группе.';
+    await this.notifySuggester(
+      suggestionId,
+      suggestion.suggestedBy,
+      `❌ Блюдо «${suggestion.name}» не добавили в меню.${explanation}`
+    );
+
     return updatedSuggestion;
+  }
+
+  /**
+   * Сообщить автору предложения о решении администратора.
+   *
+   * Best-effort: решение уже записано в базу, и недоставленное сообщение не
+   * должно превращать успешный запрос в ошибку. Раньше здесь стоял TODO, и
+   * автор предложения не узнавал о судьбе своего блюда вообще никак —
+   * endpoint работал, статус менялся, обратной связи не было.
+   *
+   * telegramId берём ОТДЕЛЬНЫМ запросом, а не через `include` в approve/reject:
+   * результат тех методов уходит в ответ API, и добавление поля в `select`
+   * означало бы, что Telegram-id автора начинает отдаваться наружу.
+   */
+  private static async notifySuggester(
+    suggestionId: number,
+    suggestedBy: number,
+    message: string
+  ): Promise<void> {
+    try {
+      const author = await prisma.user.findUnique({
+        where: { id: suggestedBy },
+        select: { telegramId: true },
+      });
+
+      if (author?.telegramId == null) {
+        logger.warn(
+          'Suggestion author has no telegramId, skipping notification',
+          { suggestionId }
+        );
+        return;
+      }
+
+      /* Отправляем ОБЫЧНЫМ ТЕКСТОМ, без parse_mode. В сообщении нет
+         форматирования, зато есть подставленные название блюда и причина
+         отказа — то есть пользовательский ввод. С Markdown блюдо вида
+         `Плов *акция*` или `Соус_1` даёт от Telegram 400 «can't parse
+         entities», send() эту ошибку глотает, и автор молча не получает
+         решение — ровно тот сбой, который эта правка и убирает. */
+      const { notificationService } = await import('./notification.service');
+      const { NotificationType } = await import('../types/notification.types');
+      const result = await notificationService.send({
+        userId: Number(author.telegramId),
+        type: NotificationType.CUSTOM,
+        message,
+      });
+
+      if (!result.success) {
+        logger.warn('Suggestion decision was not delivered to the author', {
+          suggestionId,
+          error: result.error,
+        });
+      }
+    } catch (error) {
+      logger.warn('Could not notify suggestion author', {
+        suggestionId,
+        error,
+      });
+    }
   }
 
   /**

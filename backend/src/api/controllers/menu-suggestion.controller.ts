@@ -292,9 +292,6 @@ export async function approveSuggestion(
       groupId
     );
 
-    // Отправить уведомление пользователю (опционально через бота)
-    // TODO: Integrate with notification service
-
     res.json({
       success: true,
       data: result,
@@ -344,9 +341,6 @@ export async function rejectSuggestion(
       reason,
       groupId
     );
-
-    // Отправить уведомление пользователю (опционально через бота)
-    // TODO: Integrate with notification service
 
     res.json({
       success: true,

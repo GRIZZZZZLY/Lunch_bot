@@ -1,6 +1,8 @@
 import { MenuSuggestionService } from '../menu-suggestion.service';
 import { prisma } from '../../database/client';
 import { GroupAccessError, GroupService } from '../group.service';
+import { notificationService } from '../notification.service';
+import { logger } from '../../utils/logger';
 
 jest.mock('../../database/client', () => ({
   prisma: {
@@ -15,7 +17,14 @@ jest.mock('../../database/client', () => ({
     menuItem: {
       create: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn(),
+    },
   },
+}));
+
+jest.mock('../notification.service', () => ({
+  notificationService: { send: jest.fn().mockResolvedValue({ success: true }) },
 }));
 
 jest.mock('../../utils/logger', () => ({
@@ -210,6 +219,119 @@ describe('MenuSuggestionService', () => {
     expect(count).toBe(3);
     expect(prisma.menuSuggestion.count).toHaveBeenCalledWith({
       where: { status: 'PENDING', groupId: 2 },
+    });
+  });
+  /**
+   * Раньше здесь стоял TODO: endpoint работал, статус менялся, а автор
+   * предложения не узнавал о судьбе своего блюда вообще никак.
+   */
+  describe('автор узнаёт решение по своему предложению', () => {
+    const suggester = { id: 3, firstName: 'Игорь' };
+
+    beforeEach(() => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        telegramId: BigInt(555),
+      });
+      (prisma.menuSuggestion.findUnique as jest.Mock).mockResolvedValue(
+        createSuggestion()
+      );
+      (prisma.menuItem.create as jest.Mock).mockResolvedValue({ id: 77 });
+      (prisma.menuSuggestion.update as jest.Mock).mockResolvedValue(
+        createSuggestion({ status: 'APPROVED', suggester })
+      );
+    });
+
+    it('одобрение приходит автору с названием блюда', async () => {
+      await (MenuSuggestionService.approveSuggestion as any)(10, 7, 1);
+
+      expect(notificationService.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 555,
+          message: expect.stringContaining('Твоё блюдо «Soup» добавлено в меню!'),
+        })
+      );
+    });
+
+    it('отказ приходит автору с причиной', async () => {
+      (prisma.menuSuggestion.update as jest.Mock).mockResolvedValue(
+        createSuggestion({ status: 'REJECTED', suggester })
+      );
+
+      await (MenuSuggestionService.rejectSuggestion as any)(
+        10,
+        7,
+        'Уже есть похожее',
+        1
+      );
+
+      const { message } = (notificationService.send as jest.Mock).mock
+        .calls[0][0];
+      expect(message).toContain('Блюдо «Soup» не добавили в меню.');
+      expect(message).toContain('Причина: Уже есть похожее');
+    });
+
+    it('без причины отказ всё равно объясняет, что делать', async () => {
+      (prisma.menuSuggestion.update as jest.Mock).mockResolvedValue(
+        createSuggestion({ status: 'REJECTED', suggester })
+      );
+
+      await (MenuSuggestionService.rejectSuggestion as any)(10, 7, undefined, 1);
+
+      expect(
+        (notificationService.send as jest.Mock).mock.calls[0][0].message
+      ).toContain('Причину администратор не указал');
+    });
+
+    /* Решение уже записано в базу — недоставленное сообщение не должно
+       превращать успешный запрос в ошибку. */
+    it('сбой доставки не роняет одобрение', async () => {
+      (notificationService.send as jest.Mock).mockRejectedValue(
+        new Error('bot blocked by user')
+      );
+
+      await expect(
+        (MenuSuggestionService.approveSuggestion as any)(10, 7, 1)
+      ).resolves.toMatchObject({ menuItem: { id: 77 } });
+    });
+
+    /* Название блюда и причина отказа — пользовательский ввод. С Markdown
+       блюдо вида `Плов *акция*` даёт от Telegram 400 «can't parse entities»,
+       send() эту ошибку глотает, и автор молча не узнаёт решение. */
+    it('parse_mode не запрашивается — ввод пользователя не может сломать разбор', async () => {
+      (prisma.menuSuggestion.findUnique as jest.Mock).mockResolvedValue(
+        createSuggestion({ name: 'Плов *акция* _1_' })
+      );
+      (prisma.menuSuggestion.update as jest.Mock).mockResolvedValue(
+        createSuggestion({ status: 'APPROVED', suggester })
+      );
+
+      await (MenuSuggestionService.approveSuggestion as any)(10, 7, 1);
+
+      const payload = (notificationService.send as jest.Mock).mock.calls[0][0];
+      expect(payload.parseMode).toBeUndefined();
+      expect(payload.message).toContain('Плов *акция* _1_');
+    });
+
+    it('недоставленное решение попадает в лог, а не теряется', async () => {
+      (notificationService.send as jest.Mock).mockResolvedValue({
+        success: false,
+        error: 'bot was blocked by the user',
+      });
+
+      await (MenuSuggestionService.approveSuggestion as any)(10, 7, 1);
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Suggestion decision was not delivered to the author',
+        expect.objectContaining({ error: 'bot was blocked by the user' })
+      );
+    });
+
+    it('у автора нет telegramId — молча пропускаем', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await (MenuSuggestionService.approveSuggestion as any)(10, 7, 1);
+
+      expect(notificationService.send).not.toHaveBeenCalled();
     });
   });
 });
