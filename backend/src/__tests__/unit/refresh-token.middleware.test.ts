@@ -39,7 +39,10 @@ const setIfAbsent = cacheService.setIfAbsent as jest.Mock;
 function createApp(): express.Application {
   const app = express();
   app.post('/refresh', refreshTokenMiddleware, (req, res) => {
-    res.json({ userId: (req as any).user.id });
+    /* Тест проверяет, что middleware ДОШЁЛ до обработчика и положил
+       пользователя. Без `?.` тут была бы не проверка, а падение с 500 —
+       а различить «не аутентифицировал» и «упал» и есть смысл теста. */
+    res.json({ userId: req.user?.id });
   });
   return app;
 }

@@ -12,7 +12,7 @@ class FeedbackController {
    */
   async send(req: Request, res: Response) {
     try {
-      const authUser = (req as any).user;
+      const authUser = req.user;
       if (!authUser) {
         return res.status(401).json({
           success: false,

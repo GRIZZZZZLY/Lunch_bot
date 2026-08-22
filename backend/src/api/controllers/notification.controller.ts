@@ -12,7 +12,7 @@ class NotificationController {
    */
   async remindAdmin(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.user?.id;
       const groupId = Number(req.body.groupId);
 
       if (!userId) {
@@ -179,8 +179,8 @@ class NotificationController {
    */
   async getCooldownStatus(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.id;
-      const requestingUser = (req as any).user;
+      const userId = req.user?.id;
+      const requestingUser = req.user;
       const groupId = parseInt(getParam(req.params, 'groupId'), 10);
 
       if (!userId) {

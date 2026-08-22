@@ -315,7 +315,7 @@ export class AuthController {
    */
   static async getCurrentUser(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = req.user;
 
       if (!user) {
         res.status(401).json({
@@ -356,7 +356,7 @@ export class AuthController {
    */
   static async getAuthStatus(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = req.user;
 
       res.json({
         success: true,
@@ -386,7 +386,7 @@ export class AuthController {
    */
   static async refreshAuth(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = req.user;
 
       if (!user) {
         res.status(401).json({

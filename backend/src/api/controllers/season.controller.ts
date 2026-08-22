@@ -3,6 +3,7 @@ import { GroupService } from '../../services/group.service';
 import { SeasonService } from '../../services/season.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
+import { requireAuthUser } from '../middleware/require-auth-user';
 
 /**
  * Season Controller - API endpoints для сезонной системы
@@ -111,7 +112,8 @@ export class SeasonController {
       const groupId = req.query.groupId
         ? parseInt(req.query.groupId as string, 10)
         : NaN;
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (isNaN(seasonId)) {
         res.status(400).json({
@@ -165,7 +167,8 @@ export class SeasonController {
     try {
       const seasonId = parseInt(getParam(req.params, 'id'), 10);
       const userId = parseInt(getParam(req.params, 'userId'), 10);
-      const requestingUser = (req as any).user;
+      const requestingUser = requireAuthUser(req, res);
+      if (!requestingUser) return;
 
       if (isNaN(seasonId) || isNaN(userId)) {
         res.status(400).json({
@@ -218,7 +221,7 @@ export class SeasonController {
   static async rotateSeason(req: Request, res: Response): Promise<void> {
     try {
       // Проверяем права администратора
-      const user = (req as any).user;
+      const user = req.user;
       if (!user) {
         res.status(403).json({
           success: false,
@@ -260,7 +263,7 @@ export class SeasonController {
   static async createMonthlySeason(req: Request, res: Response): Promise<void> {
     try {
       // Проверяем права администратора
-      const user = (req as any).user;
+      const user = req.user;
       if (!user) {
         res.status(403).json({
           success: false,
@@ -292,7 +295,8 @@ export class SeasonController {
   static async getCurrentSeasonUserStats(req: Request, res: Response): Promise<void> {
     try {
       const userId = parseInt(getParam(req.params, 'userId'), 10);
-      const requestingUser = (req as any).user;
+      const requestingUser = requireAuthUser(req, res);
+      if (!requestingUser) return;
 
       if (isNaN(userId)) {
         res.status(400).json({

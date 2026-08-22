@@ -5,6 +5,7 @@ import { GroupService } from '../../services/group.service';
 import { AvatarService } from '../../services/avatar.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
+import { requireAuthUser } from '../middleware/require-auth-user';
 
 /**
  * Реквизиты для переводов. Проверка была только на `typeof === 'string'`:
@@ -57,7 +58,7 @@ export class UserController {
    */
   static async getCurrentUser(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = req.user;
 
       if (!user) {
         res.status(401).json({
@@ -98,7 +99,7 @@ export class UserController {
    */
   static async getPaymentInfo(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = req.user;
 
       if (!user) {
         res.status(401).json({
@@ -132,7 +133,7 @@ export class UserController {
    */
   static async updatePaymentInfo(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = req.user;
 
       if (!user) {
         res.status(401).json({
@@ -206,7 +207,7 @@ export class UserController {
    */
   static async getUserGroups(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = req.user;
 
       if (!user) {
         res.status(401).json({
@@ -256,7 +257,8 @@ export class UserController {
   static async getUserAvatar(req: Request, res: Response): Promise<void> {
     try {
       const userId = getParam(req.params, 'userId');
-      const requestingUser = (req as any).user;
+      const requestingUser = requireAuthUser(req, res);
+      if (!requestingUser) return;
 
       if (!userId) {
         res.status(400).json({
@@ -334,7 +336,8 @@ export class UserController {
   static async getUserAvatarsBatch(req: Request, res: Response): Promise<void> {
     try {
       const { userIds } = req.body;
-      const requestingUser = (req as any).user;
+      const requestingUser = requireAuthUser(req, res);
+      if (!requestingUser) return;
 
       if (!Array.isArray(userIds) || userIds.length === 0) {
         res.status(400).json({

@@ -117,7 +117,7 @@ export class BudgetController {
   async getDebts(req: Request, res: Response): Promise<void> {
     try {
       // ✅ FIX IDOR: Используем userId из аутентифицированного пользователя
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
       if (!authenticatedUser) {
         res.status(401).json({ error: 'Authentication required' });
         return;
@@ -150,7 +150,7 @@ export class BudgetController {
   async getCredits(req: Request, res: Response): Promise<void> {
     try {
       // ✅ FIX IDOR: Используем userId из аутентифицированного пользователя
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
       if (!authenticatedUser) {
         res.status(401).json({ error: 'Authentication required' });
         return;
@@ -182,7 +182,7 @@ export class BudgetController {
    */
   async markAsPaid(req: Request, res: Response): Promise<void> {
     try {
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
         res
@@ -236,7 +236,7 @@ export class BudgetController {
    */
   async confirmPayment(req: Request, res: Response): Promise<void> {
     try {
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
         res
@@ -297,7 +297,7 @@ export class BudgetController {
    */
   async undoConfirmation(req: Request, res: Response): Promise<void> {
     try {
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
       if (!authenticatedUser) {
         res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
         return;
@@ -353,7 +353,7 @@ export class BudgetController {
    */
   async cancelMark(req: Request, res: Response): Promise<void> {
     try {
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
         res
@@ -410,7 +410,7 @@ export class BudgetController {
    */
   async markAllPaid(req: Request, res: Response): Promise<void> {
     try {
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
         res
@@ -450,7 +450,7 @@ export class BudgetController {
   async getStats(req: Request, res: Response): Promise<void> {
     try {
       // ✅ FIX IDOR: Используем userId из аутентифицированного пользователя
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
       if (!authenticatedUser) {
         res.status(401).json({ error: 'Authentication required' });
         return;
@@ -478,7 +478,7 @@ export class BudgetController {
    */
   async sendReminder(req: Request, res: Response): Promise<void> {
     try {
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
         res.status(401).json({ error: 'Authentication required' });
@@ -516,7 +516,7 @@ export class BudgetController {
   async sendRemindersAll(req: Request, res: Response): Promise<void> {
     try {
       const { pollId } = req.body;
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
         res.status(401).json({ error: 'Authentication required' });
@@ -553,7 +553,7 @@ export class BudgetController {
   async getPollTotals(req: Request, res: Response): Promise<void> {
     try {
       const pollId = getParam(req.params, 'pollId');
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
         res.status(401).json({ error: 'Authentication required' });
@@ -592,7 +592,7 @@ export class BudgetController {
     try {
       const pollId = getParam(req.params, 'pollId');
       const { deliveryCost, serviceFee, tip, notes } = req.body;
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
         res.status(401).json({ error: 'Authentication required' });
@@ -657,7 +657,7 @@ export class BudgetController {
   async getOrderCosts(req: Request, res: Response): Promise<void> {
     try {
       const pollId = getParam(req.params, 'pollId');
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
         res.status(401).json({ error: 'Authentication required' });
@@ -693,7 +693,7 @@ export class BudgetController {
   async getPollCostBreakdown(req: Request, res: Response): Promise<void> {
     try {
       const pollId = getParam(req.params, 'pollId');
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
         res.status(401).json({ error: 'Authentication required' });

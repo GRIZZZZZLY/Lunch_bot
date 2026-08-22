@@ -33,7 +33,7 @@ async function requirePollAccess(
   res: Response,
   pollId: number
 ): Promise<boolean> {
-  const user = req.user as { id?: number } | undefined;
+  const user = req.user;
 
   if (!user?.id) {
     res.status(401).json({

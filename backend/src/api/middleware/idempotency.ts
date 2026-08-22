@@ -108,7 +108,7 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
 
     // Скоупим ключ по идентификатору пользователя (или IP для гостевых endpoint'ов),
     // чтобы один Idempotency-Key от разных пользователей не схлопывался.
-    const user = (req as any).user;
+    const user = req.user;
     const userScope =
       user?.id != null
         ? `u${user.id}`

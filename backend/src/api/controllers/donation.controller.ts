@@ -9,7 +9,7 @@ class DonationController {
    */
   async createStarsInvoice(req: Request, res: Response) {
     try {
-      const user = (req as any).user;
+      const user = req.user;
       if (!user) {
         return res.status(401).json({
           success: false,

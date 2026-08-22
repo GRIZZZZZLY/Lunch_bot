@@ -5,6 +5,7 @@ import { GroupService } from '../../services/group.service';
 import { PollService } from '../../services/poll.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
+import { requireAuthUser } from '../middleware/require-auth-user';
 
 export class AdminController {
   private adminService: AdminService;
@@ -51,7 +52,7 @@ export class AdminController {
     res: Response,
     groupId: number
   ): Promise<boolean> {
-    const user = (req as any).user;
+    const user = req.user;
 
     if (!user) {
       res.status(401).json({
@@ -454,7 +455,8 @@ export class AdminController {
       const hasAccess = await this.requireGroupAdmin(req, res, groupId);
       if (!hasAccess) return;
 
-      const adminUser = (req as any).user;
+      const adminUser = requireAuthUser(req, res);
+      if (!adminUser) return;
       const transaction = await this.adminService.forgiveDebt(
         debtId,
         adminUser.id,
@@ -694,7 +696,7 @@ export class AdminController {
       const hasAccess = await this.requireGroupAdmin(req, res, groupId);
       if (!hasAccess) return;
 
-      const requestingUserId: number | undefined = (req as any).user?.id;
+      const requestingUserId: number | undefined = req.user?.id;
       const settings = await this.reminderSettingsService.getReminderSettings(groupId, requestingUserId);
       
       res.json({
@@ -732,7 +734,8 @@ export class AdminController {
       const hasAccess = await this.requireGroupAdmin(req, res, groupId);
       if (!hasAccess) return;
 
-      const adminUser = (req as any).user;
+      const adminUser = requireAuthUser(req, res);
+      if (!adminUser) return;
       const settings = await this.reminderSettingsService.updateReminderSettings(
         groupId,
         req.body,

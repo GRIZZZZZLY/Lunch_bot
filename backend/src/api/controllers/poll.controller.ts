@@ -10,32 +10,14 @@ import { BotNotInitializedError } from '../../bot/bot-instance';
 import { calculatePollEndTime } from '../../utils/date';
 import { getParam } from '../../utils/request-params';
 import { serializeBigInt } from '../../utils/serialize';
-
-interface AuthUser {
-  id: number;
-}
-
-function getAuthUser(req: Request, res: Response): AuthUser | null {
-  const user = (req as any).user as AuthUser | undefined;
-
-  if (!user) {
-    res.status(401).json({
-      success: false,
-      error: 'Unauthorized',
-      code: 'UNAUTHORIZED',
-    });
-    return null;
-  }
-
-  return user;
-}
+import { requireAuthUser } from '../middleware/require-auth-user';
 
 async function requireGroupMember(
   req: Request,
   res: Response,
   groupId: number
 ): Promise<boolean> {
-  const user = getAuthUser(req, res);
+  const user = requireAuthUser(req, res);
   if (!user) return false;
 
   const hasAccess = await GroupService.isUserGroupMember(user.id, groupId);
@@ -56,7 +38,7 @@ async function requireGroupAdmin(
   res: Response,
   groupId: number
 ): Promise<boolean> {
-  const user = getAuthUser(req, res);
+  const user = requireAuthUser(req, res);
   if (!user) return false;
 
   const hasAccess = await GroupService.isUserGroupAdmin(user.id, groupId);
@@ -95,7 +77,7 @@ async function getAccessibleGroupIds(
   req: Request,
   res: Response
 ): Promise<number[] | undefined | null> {
-  const user = getAuthUser(req, res);
+  const user = requireAuthUser(req, res);
   if (!user) return null;
 
   /* undefined означало «фильтра нет, видно всё» и выдавалось по глобальному
@@ -283,7 +265,8 @@ export class PollController {
    */
   static async repeatPoll(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
       const pollId = parseInt(getParam(req.params, 'id'), 10);
 
       logger.info(`🔄 Repeating poll ${pollId} by user ${user.id}`);
@@ -428,7 +411,8 @@ export class PollController {
    */
   static async getUserStats(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       const stats = await PollService.getUserParticipationStats(user.id);
 
@@ -685,7 +669,7 @@ export class PollController {
   static async createPoll(req: Request, res: Response): Promise<void> {
     try {
       const data: CreatePollData = req.body;
-      const user = getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const groupId = Number(data.groupId);
@@ -752,7 +736,8 @@ export class PollController {
   static async createPollFromWebApp(req: Request, res: Response): Promise<void> {
     try {
       const { groupId, duration, selectedMenuItems, title, isMultiSelect, maxSelections } = req.body;
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       logger.info('Creating poll from WebApp', {
         groupId,
@@ -984,7 +969,8 @@ export class PollController {
   static async completePoll(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(getParam(req.params, 'id'), 10);
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (isNaN(id)) {
         res.status(400).json({
@@ -1060,7 +1046,8 @@ export class PollController {
   static async cancelPoll(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(getParam(req.params, 'id'), 10);
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (isNaN(id)) {
         res.status(400).json({
@@ -1150,7 +1137,8 @@ export class PollController {
     try {
       const pollId = parseInt(getParam(req.params, 'id'), 10);
       const { menuItemId } = req.body;
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (isNaN(pollId)) {
         res.status(400).json({
@@ -1262,7 +1250,8 @@ export class PollController {
     try {
       const pollId = parseInt(getParam(req.params, 'id'), 10);
       const { menuItemIds } = req.body;
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       // Валидация pollId
       if (isNaN(pollId)) {
@@ -1416,7 +1405,8 @@ export class PollController {
   static async removeVote(req: Request, res: Response): Promise<void> {
     try {
       const pollId = parseInt(getParam(req.params, 'id'), 10);
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (isNaN(pollId)) {
         res.status(400).json({
@@ -1489,7 +1479,8 @@ export class PollController {
   static async runRoulette(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(getParam(req.params, 'id'), 10);
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (isNaN(id)) {
         res.status(400).json({
@@ -1622,7 +1613,8 @@ export class PollController {
       }
 
       const pollId = parseInt(getParam(req.params, 'id'), 10);
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (isNaN(pollId)) {
         res.status(400).json({

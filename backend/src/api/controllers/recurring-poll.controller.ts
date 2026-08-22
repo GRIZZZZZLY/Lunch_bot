@@ -56,7 +56,7 @@ export const getGroupSchedule = async (
 ): Promise<void> => {
   try {
     const groupId = parseInt(getParam(req.params, 'groupId'), 10);
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -103,7 +103,7 @@ export const createSchedule = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -187,7 +187,7 @@ export const updateSchedule = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const scheduleId = parseInt(getParam(req.params, 'id'), 10);
 
     if (!userId) {
@@ -289,7 +289,7 @@ export const deleteSchedule = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const scheduleId = parseInt(getParam(req.params, 'id'), 10);
 
     if (!userId) {
@@ -345,7 +345,7 @@ export const toggleSchedule = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const scheduleId = parseInt(getParam(req.params, 'id'), 10);
 
     if (!userId) {
@@ -413,7 +413,7 @@ export const getExecutionHistory = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const groupId = parseInt(getParam(req.params, 'groupId'), 10);
 
     if (!userId) {

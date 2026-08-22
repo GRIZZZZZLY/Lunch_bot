@@ -13,7 +13,7 @@ export class CategoryOrderController {
     req: Request,
     res: Response
   ): { id: number } | null {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json({
         success: false,
@@ -266,7 +266,7 @@ export class CategoryOrderController {
 
       const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
       const { userId, itemName, price, notes } = req.body;
-      const enteredBy = (req as any).user?.id;
+      const enteredBy = req.user?.id;
 
       if (isNaN(categoryOrderId)) {
         res.status(400).json({
@@ -852,7 +852,7 @@ export class CategoryOrderController {
   static async getEditHistory(req: Request, res: Response): Promise<void> {
     try {
       const orderItemId = parseInt(getParam(req.params, 'id'), 10);
-      const user = (req as any).user;
+      const user = req.user;
 
       if (isNaN(orderItemId)) {
         res.status(400).json({

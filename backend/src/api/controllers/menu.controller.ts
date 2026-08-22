@@ -5,6 +5,7 @@ import { getParam } from '../../utils/request-params';
 import { UpdateMenuItemData } from '../../types/menu.types';
 import { toNumber } from '../../utils/decimal';
 import { GroupService, GroupAccessError } from '../../services/group.service';
+import { requireAuthUser } from '../middleware/require-auth-user';
 
 function serializeMenuItem(item: any): any {
   if (!item) return item;
@@ -44,7 +45,8 @@ export class MenuController {
         res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
         return;
       }
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
       try {
         await GroupService.assertMember(user.id, groupId);
       } catch (error) {
@@ -72,7 +74,8 @@ export class MenuController {
    */
   static async getActiveItems(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
       logger.info('🔍 [MenuController] getActiveItems called', {
         userId: user?.id,
         userTelegramId: user?.telegramId,
@@ -125,7 +128,8 @@ export class MenuController {
         res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
         return;
       }
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
       try {
         await GroupService.assertMember(user.id, groupId);
       } catch (error) {
@@ -159,7 +163,8 @@ export class MenuController {
         res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
         return;
       }
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
       try {
         await GroupService.assertMember(user.id, groupId);
       } catch (error) {
@@ -203,7 +208,8 @@ export class MenuController {
         return;
       }
 
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
       try {
         await GroupService.assertMember(user.id, groupId);
       } catch (error) {
@@ -232,8 +238,11 @@ export class MenuController {
    */
   static async getItemById(req: Request, res: Response): Promise<void> {
     try {
+      const user = requireAuthUser(req, res);
+      if (!user) return;
+
       const id = parseInt(getParam(req.params, 'id'), 10);
-      
+
       if (isNaN(id)) {
         res.status(400).json({
           success: false,
@@ -255,7 +264,7 @@ export class MenuController {
       }
 
       try {
-        await GroupService.assertMember((req as any).user.id, item.groupId);
+        await GroupService.assertMember(user.id, item.groupId);
       } catch (error) {
         sendMenuError(res, error, 'Failed to get menu item', 'INTERNAL_ERROR');
         return;
@@ -278,7 +287,8 @@ export class MenuController {
    */
   static async createItem(req: Request, res: Response): Promise<void> {
     try {
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
       const groupIds: number[] = Array.isArray(req.body.groupIds) ? req.body.groupIds : [];
       if (groupIds.length === 0) {
         res.status(400).json({ success: false, error: 'groupIds is required', code: 'MISSING_GROUP_ID' });
@@ -317,7 +327,8 @@ export class MenuController {
     try {
       const id = parseInt(getParam(req.params, 'id'), 10);
       const data: UpdateMenuItemData = req.body;
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (isNaN(id)) {
         res.status(400).json({
@@ -364,7 +375,8 @@ export class MenuController {
   static async toggleItemStatus(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(getParam(req.params, 'id'), 10);
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (isNaN(id)) {
         res.status(400).json({
@@ -412,7 +424,8 @@ export class MenuController {
   static async deleteItem(req: Request, res: Response): Promise<void> {
     try {
       const id = parseInt(getParam(req.params, 'id'), 10);
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (isNaN(id)) {
         res.status(400).json({
@@ -457,7 +470,8 @@ export class MenuController {
   static async bulkUpdateStatus(req: Request, res: Response): Promise<void> {
     try {
       const { ids, isActive } = req.body;
-      const user = (req as any).user;
+      const user = requireAuthUser(req, res);
+      if (!user) return;
 
       if (!Array.isArray(ids) || ids.length === 0) {
         res.status(400).json({

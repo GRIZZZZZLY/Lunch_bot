@@ -11,7 +11,7 @@ function resolveGroupId(req: Request): number | null {
 
 export async function groupAdminMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     if (!user) {
       res.status(401).json({ success: false, error: 'User not authenticated', code: 'NOT_AUTHENTICATED' });
       return;

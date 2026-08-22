@@ -1,29 +1,35 @@
 import type { Request, Response } from 'express';
 import { User } from './database.types';
 
-// Simplified user type for authentication
-export interface RequestUser {
-  id: number;
-  telegramId?: number | bigint;
-  isAdmin?: boolean;
-}
+/**
+ * Раньше это были два разных интерфейса — «минимальный» с `RequestUser` и
+ * «полный» с `User`, — и выбор между ними в каждом контроллере был случайным.
+ * Теперь форму `req.user` задаёт ровно одно место: расширение
+ * `express-serve-static-core` ниже. Имена оставлены псевдонимами, потому что
+ * читаются как документация: подпись `(req: AuthenticatedRequest, ...)`
+ * сообщает, что маршрут обязан идти через `telegramAuthMiddleware`.
+ */
+export type AuthenticatedRequest = Request;
 
-// Расширение Express Request для добавления пользователя (минимальный вариант)
-export interface AuthenticatedRequest extends Request {
-  user?: RequestUser;
-  telegramInitData?: TelegramInitData;
-}
-
-// Authenticated request with full user info (когда нужны все поля)
-export interface AuthenticatedRequestFull extends Request {
-  user?: User;
-  telegramInitData?: TelegramInitData;
-}
-
-// Extend Express Request type globally
+/**
+ * Расширение Express Request.
+ *
+ * `user` — именно Prisma-модель `User`, а не сокращённый `RequestUser`:
+ * `telegramAuthMiddleware` кладёт туда результат `UserService.getUserById` /
+ * `createUser`, то есть полную запись. Пока здесь стоял `RequestUser` (id,
+ * telegramId?, isAdmin?), контроллеры читали `firstName`, `username`,
+ * `isActive`, `createdAt`, `photoUrl` через `(req as any).user` — и приведение
+ * скрывало не отсутствие типа, а его НЕСООТВЕТСТВИЕ. Компилятор нашёл 16 таких
+ * чтений сразу же, как приведения убрали.
+ *
+ * `user` остаётся необязательным сознательно: аутентификация навешивается
+ * ПОМАРШРУТНО (`telegramAuthMiddleware` в routes/*.ts), а не на весь `/api`.
+ * Тип обязан отражать, что маршрут без этого middleware существует; проверку
+ * делает `requireAuthUser` из api/middleware/require-auth-user.ts.
+ */
 declare module 'express-serve-static-core' {
   interface Request {
-    user?: RequestUser;
+    user?: User;
     telegramInitData?: TelegramInitData;
   }
 }

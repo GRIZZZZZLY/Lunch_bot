@@ -37,7 +37,7 @@ const SetPriceSchema = z.object({
 });
 
 function getAuthUser(req: Request): { id: number } | null {
-  return ((req as any).user as { id: number } | undefined) ?? null;
+  return req.user ?? null;
 }
 
 function getIdParam(req: Request, key: string): number | null {

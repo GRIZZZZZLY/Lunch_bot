@@ -61,7 +61,7 @@ export async function telegramAuthMiddleware(
               const user = await UserService.getUserById(decoded.userId);
 
               if (user && user.isActive) {
-                (req as any).user = user;
+                req.user = user;
                 logger.info('✅ SKIP mode: authenticated via JWT token', {
                   userId: user.id,
                 });
@@ -113,12 +113,12 @@ export async function telegramAuthMiddleware(
             firstName: telegramUser.first_name,
             lastName: telegramUser.last_name,
           });
-          (req as any).user = newUser;
+          req.user = newUser;
           logger.info('✅ SKIP mode: created new user with REAL Telegram ID', {
             userId: newUser.id,
           });
         } else {
-          (req as any).user = dbUser;
+          req.user = dbUser;
           logger.info('✅ SKIP mode: authenticated with REAL Telegram ID', {
             userId: dbUser.id,
           });
@@ -241,7 +241,7 @@ export async function telegramAuthMiddleware(
     }
 
     // Добавляем пользователя в request
-    (req as any).user = userData;
+    req.user = userData;
     next();
   } catch (error) {
     logger.error('Telegram auth middleware error:', error);
@@ -384,7 +384,7 @@ export async function optionalAuthMiddleware(
         const user = await UserService.getUserById(decoded.userId);
 
         if (user && user.isActive) {
-          (req as any).user = user;
+          req.user = user;
         }
       }
     } catch {
@@ -496,7 +496,7 @@ export async function refreshTokenMiddleware(
         return;
       }
 
-      (req as any).user = user;
+      req.user = user;
       next();
     } catch (error) {
       res.status(401).json({

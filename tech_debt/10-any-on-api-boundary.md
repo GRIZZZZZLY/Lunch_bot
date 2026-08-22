@@ -58,7 +58,70 @@ static async getPollHistory(...): Promise<{ polls: any[]; total: number }>
 | `services/multi-category-responsible.service.ts` | 8 |
 | `api/middleware/telegram-auth.ts` | 8 |
 
-### Пункт 10.1 (делать первым, до задачи 04): `(req as any).user`
+### Пункт 10.1 — ✅ СДЕЛАНО
+
+> Закрыт 2026-08-23. Итог отличается от плана по причине, которую стоит
+> прочитать до задачи 04: **расширение типа Express уже существовало**
+> (`types/api.types.ts`), и 86 приведений не добавляли тип, а глушили две
+> вещи, которые компилятор нашёл сразу же, как их убрали.
+>
+> **1. Объявленный тип был неверным.** Стояло `user?: RequestUser`
+> (`id`, `telegramId?`, `isAdmin?`), а `telegramAuthMiddleware` кладёт туда
+> результат `UserService.getUserById`/`createUser` — полную Prisma-модель
+> `User`. Контроллеры читали `firstName`, `username`, `isActive`, `createdAt`,
+> `updatedAt`, `photoUrl`, `lastName` — **16 чтений полей, которых в
+> объявленном типе не было.** Приведение скрывало не отсутствие типа, а его
+> несоответствие. Объявление исправлено на `user?: User`.
+>
+> **2. Необязательность `user` — настоящая, и её игнорировали в 34 местах.**
+> Аутентификация навешивается ПОМАРШРУТНО (`telegramAuthMiddleware` в
+> `routes/*.ts`), а не на весь `/api`. Значит маршрут без неё возможен, и на
+> нём `user.id` даёт 500 вместо 401 — в логах это выглядит как «сломался
+> контроллер», а не «нет доступа». Добавлен один общий
+> `api/middleware/require-auth-user.ts` с `requireAuthUser(req, res)`,
+> применён **в 34 местах**.
+>
+> Проверено, что это защита в глубину, а не смена контракта: у всех 34 сайтов
+> маршрут действительно монтирует `telegramAuthMiddleware` (`menu.routes.ts`
+> 11/11, `poll.routes.ts` 23/23, `sse.routes.ts` 2/2, `user.routes.ts` 2/2,
+> `season.routes.ts` 3/3, `admin.routes.ts` через `router.use`). То есть
+> сегодня 401 никому не прилетит — но маршрут, где middleware забудут,
+> получит 401 вместо 500.
+>
+> Локальный `getAuthUser` из `poll.controller.ts` удалён, **четыре** его
+> вызова переведены на общий хелпер.
+
+#### Чего 10.1 НЕ сделал — точная мера остатка
+
+Заявлять «аутентификация теперь в одном месте» было бы неправдой, и первая
+редакция этого раздела так и заявляла. По факту:
+
+- Объявлений `const X = req.user;` в `src/api` осталось **35**.
+- Из них **34 несут собственную рукописную проверку** с ответом об отказе —
+  то есть рядом с 34 вызовами общего хелпера живут 34 самодельных дубля.
+- Формы ответа у них **не совпадают между собой**: `401 UNAUTHORIZED` (8),
+  `401 NOT_AUTHENTICATED` (7, `user.controller.ts:64,105,139,213`),
+  `403` без кода (`gamification.controller.ts:222,277`,
+  `season.controller.ts:226,268`), `400` (`gamification.controller.ts:284`,
+  `group-admin.ts:21`), тело без поля `success`
+  (`budget.controller.ts`), и наконец сам хелпер — `401 UNAUTHORIZED` плюс
+  `timestamp`. Пять разных представлений одного события «ты не авторизован».
+- Ровно **один** сайт действительно не требует пользователя —
+  `auth.controller.ts:359`.
+
+Отсюда правильная цель, и она принадлежит **задаче
+[04](04-authorization-layer.md)**: настоящий `requireAuth` как middleware в
+`routes/*.ts`, который снимает и 34 вызова хелпера, и 34 рукописных дубля
+сразу. Единый код ответа при этом должен прийти из словаря задачи
+[03](03-single-error-contract.md) — сейчас фронт ветвится по `code`, а кодов
+на одно событие пять.
+>
+> Удалены как ставшие мёртвыми: `RequestUser`, `AuthenticatedRequestFull`.
+> `AuthenticatedRequest` оставлен псевдонимом `Request` — подпись
+> `(req: AuthenticatedRequest, ...)` читается как документация о том, что
+> маршрут обязан идти через middleware.
+
+### Пункт 10.1 (исходная формулировка): `(req as any).user`
 
 **84 сайта в 18 продакшен-файлах.** Есть в `poll.controller.ts:17`,
 `category-order.controller.ts:16` и далее. Правильное решение — расширение
@@ -129,7 +192,9 @@ static async getPollHistory(...): Promise<{ polls: any[]; total: number }>
 
 ## Критерии готовности
 
-- [ ] `grep -rn "req as any).user" backend/src` пусто (это пункт 10.1).
+- [x] `grep -rn "req as any).user" backend/src` пусто (это пункт 10.1) —
+      остались только упоминания в комментариях, объясняющих правку.
+      Проверено: `tsc --noEmit` 0 ошибок, lint чист, 3548 тестов зелёные.
 - [ ] `grep -rn "req as any" backend/src` пусто — достижимо **только вместе с
       задачей 02**: `.validatedId` и `.pagination` живут в
       `api/middleware/validation.ts:195,240`.

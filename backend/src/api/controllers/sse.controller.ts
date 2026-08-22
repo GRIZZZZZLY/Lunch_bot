@@ -3,6 +3,7 @@ import { eventBus, SSEEventName, SSEEventMap } from '../../services/event-bus.se
 import { GroupService } from '../../services/group.service';
 import { PollService } from '../../services/poll.service';
 import { logger } from '../../utils/logger';
+import { requireAuthUser } from '../middleware/require-auth-user';
 
 const HEARTBEAT_INTERVAL_MS = 25_000;
 const MAX_CONNECTIONS_PER_POLL = 50;
@@ -87,7 +88,8 @@ export class SSEController {
       return;
     }
 
-    const user = (req as any).user;
+    const user = requireAuthUser(req, res);
+    if (!user) return;
     const pollGroupId = await PollService.getPollGroupId(pollId);
     if (!pollGroupId) {
       res.status(404).json({
@@ -126,7 +128,7 @@ export class SSEController {
       return;
     }
 
-    const userId = user?.id as number;
+    const userId = user.id;
     const totalConnections = getSSEConnectionCount().total;
     const existingUserConnections = userConnections.get(userId);
 
@@ -269,17 +271,11 @@ export class SSEController {
    * сюда не попадёт.
    */
   static async streamMe(req: Request, res: Response): Promise<void> {
-    const user = (req as any).user;
-    const userId = user?.id as number;
-    if (!userId) {
-      res.status(401).json({
-        success: false,
-        error: 'Authentication required',
-        code: 'UNAUTHORIZED',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+    const user = requireAuthUser(req, res);
+    if (!user) return;
+    /* `id` — обязательное поле модели User, поэтому отдельная проверка на него
+       после requireAuthUser была недостижима. */
+    const userId = user.id;
 
     const openForUser =
       (personalConnections.get(userId)?.size ?? 0) +

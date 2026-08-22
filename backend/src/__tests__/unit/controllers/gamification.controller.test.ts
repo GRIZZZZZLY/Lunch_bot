@@ -54,7 +54,8 @@ const groupService = asServiceMock(GroupService);
 const USER = { id: 1, isAdmin: false };
 const ADMIN = { id: 9, isAdmin: true };
 
-/** Контроллеры принимают AuthenticatedRequest — форма та же, тип строже. */
+/** Контроллеры принимают AuthenticatedRequest — теперь это псевдоним Request:
+    форму `req.user` задаёт расширение express-serve-static-core. */
 const authRequest = (init: Parameters<typeof mockRequest>[0] = {}) =>
   mockRequest(init) as unknown as AuthenticatedRequest;
 

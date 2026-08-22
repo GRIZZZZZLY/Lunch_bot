@@ -35,7 +35,7 @@ const rateLimitResponse = (req: Request, res: Response) => {
   logger.warn('Rate limit exceeded', {
     ip: req.ip,
     path: req.path,
-    userId: (req as any).user?.id,
+    userId: req.user?.id,
   });
   recordRateLimit429(req, 'general');
 
@@ -54,7 +54,7 @@ const rateLimitResponse = (req: Request, res: Response) => {
  * FIX: Отключаем валидацию IPv6 так как мы используем userId как primary key
  */
 const keyGenerator = (req: Request, res: Response): string => {
-  const user = (req as any).user;
+  const user = req.user;
   if (user?.id) {
     return `user_${user.id}`;
   }
@@ -183,7 +183,7 @@ export const voteLimiter: RateLimitRequestHandler =
         handler: (req, res) => {
           logger.warn('Vote rate limit exceeded', {
             ip: req.ip,
-            userId: (req as any).user?.id,
+            userId: req.user?.id,
           });
           recordRateLimit429(req, 'vote');
 
@@ -215,7 +215,7 @@ export const pollCreationLimiter: RateLimitRequestHandler =
         handler: (req, res) => {
           logger.warn('Poll creation rate limit exceeded', {
             ip: req.ip,
-            userId: (req as any).user?.id,
+            userId: req.user?.id,
           });
           recordRateLimit429(req, 'poll-creation');
 
@@ -247,7 +247,7 @@ export const reminderLimiter: RateLimitRequestHandler =
         handler: (req, res) => {
           logger.warn('Reminder rate limit exceeded', {
             ip: req.ip,
-            userId: (req as any).user?.id,
+            userId: req.user?.id,
           });
           recordRateLimit429(req, 'reminder');
 

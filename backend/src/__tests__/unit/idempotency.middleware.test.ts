@@ -2,6 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import { cacheService } from '../../services/cache.service';
 import { createIdempotencyMiddleware } from '../../api/middleware/idempotency';
+import type { User } from '../../types/database.types';
 
 jest.mock('../../services/cache.service', () => ({
   cacheService: {
@@ -35,7 +36,11 @@ function createApp(handler: jest.Mock): express.Application {
   app.post(
     '/write',
     (req, _res, next) => {
-      (req as any).user = { id: 7 };
+      /* Заглушка аутентификации: идемпотентности нужен только id, остальные
+         поля Prisma-модели User здесь не читает никто. `as unknown as User`,
+         а не `as never`: `never` проглотил бы и будущее обязательное поле,
+         которое middleware реально начнёт читать. */
+      req.user = { id: 7 } as unknown as User;
       next();
     },
     createIdempotencyMiddleware({ scope: 'test', required: true }),
