@@ -58,7 +58,8 @@ Repowise указывает точку входа: `backend/src/services/poll.se
 ```
 01 ─────────────────────► ✅ СДЕЛАНО
 15 (15.1/15.2/15.3) ────► ✅ СДЕЛАНО
-09.4 ──► 14.1 ──────────► дёшево, обязательны перед 06/07 (конфликт по файлу)
+09 ─────────────────────► ✅ СДЕЛАНО (кроме knip-`exports`: см. задачу)
+14.1 ───────────────────► обязательна перед 06/07 (конфликт по файлу с 09.4)
 
 10.1 ──► 04 ──┐
 03 ──► 02 ────┼──► 05 ──► 06 ◄──► 07
@@ -84,7 +85,7 @@ Repowise указывает точку входа: `backend/src/services/poll.se
 | [06](06-poll-service-god-file.md) | `poll.service.ts` (1770) + `.extensions` | P1 | 2 дн | `fix_first` по Repowise, метод на 314 строк |
 | [07](07-notification-service-god-file.md) | `notification.service.ts` (1290) | P1 | 1–1.5 дн | Два несвязанных домена, 299 битых маркеров кодировки |
 | [08](08-category-order-controller.md) | `category-order.controller.ts` (958) | P1 | 1 дн | Худший health репозитория (1.9), Prisma в HTTP-слое |
-| [09](09-remove-rudiments.md) | Рудименты и мёртвый код | P2 | 6–8 ч | 7 no-op шимов, deprecated-методы, 28 строк битой кодировки, knip структурно не ищет `exports` |
+| ~~[09](09-remove-rudiments.md)~~ **✅ кроме knip-`exports`** | Рудименты и мёртвый код | P2 | 6–8 ч | 7 no-op шимов, deprecated-методы, 28 строк битой кодировки, knip структурно не ищет `exports` |
 | [10](10-any-on-api-boundary.md) | `any` на границе API (остаток) | P2 | 1 дн | `Promise<any[]>` на самом нагруженном пути продукта |
 | [12](12-homepage-god-component.md) | `HomePage.tsx` (тело 433 строки) | P2 | 2 дн | 6 багфиксов, метка `bug_magnet`, 30+ хуков |
 | [14](14-dry-violations.md) | Дублирование | P2 | 3–4 ч + 2–3 ч | Четыре реализации плюрализации, пять копий `escapeHtml` |
