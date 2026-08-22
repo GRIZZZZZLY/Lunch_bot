@@ -94,11 +94,11 @@ beforeEach(() => {
   queryService = queryServiceStub();
   pollFlowService = pollFlowServiceStub();
   controller = new BudgetController(
-    service as unknown as ConstructorParameters<typeof BudgetController>[0],
-    orderCostsService as unknown as ConstructorParameters<typeof BudgetController>[1],
+    service,
+    orderCostsService,
     reminderService as unknown as ConstructorParameters<typeof BudgetController>[2],
     queryService as unknown as ConstructorParameters<typeof BudgetController>[3],
-    pollFlowService as unknown as ConstructorParameters<typeof BudgetController>[4]
+    pollFlowService
   );
   pollService.getPollGroupId.mockResolvedValue(100);
   groupService.isUserGroupMember.mockResolvedValue(true);
