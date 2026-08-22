@@ -965,3 +965,80 @@ describe('notifyStoreRunParticipantsNoDebt', () => {
     ).resolves.toEqual([]);
   });
 });
+
+/**
+ * Текст шаблонов однажды был испорчен перекодировкой: UTF-8 байты прочитаны
+ * как windows-1251 и записаны обратно, так что от `Началось голосование!`
+ * осталась нечитаемая последовательность (пример — в
+ * scripts/check-mojibake.mjs). Дожило это до коммита именно потому, что НИ
+ * ОДИН тест не смотрел на сам текст: все проверки касались того, кому и
+ * сколько раз уходит сообщение.
+ *
+ * Здесь закреплены читаемые строки. Тест намеренно сверяет подстроки, а не
+ * шаблон целиком: цель — поймать порчу кодировки, а не запретить правки
+ * формулировок.
+ *
+ * Честная оговорка о силе этих тестов: до починки кодировки упал бы только
+ * первый из них (текст POLL_STARTED действительно был испорчен). Остальные —
+ * не доказательство, а забор: они закрепляют текст, который уже был читаемым.
+ * Испорченные заголовки закрыть тестом нельзя вовсе — `getTitle` не вызывается
+ * ни для одного шаблона, а у ORDER_REMINDER нет и публичного метода отправки.
+ * Это отдельная находка для задачи 07, а не пробел в покрытии здесь.
+ */
+describe('читаемость текста шаблонов', () => {
+  /** Маркеры mojibake из scripts/check-mojibake.mjs. */
+  const MOJIBAKE = /Р[°Ѕµё‘‚]|С[‚†Ѓњ‹]/;
+
+  it('уведомление о старте голосования читаемо', async () => {
+    await service.sendPollStartedNotification([555], {
+      groupTitle: 'Команда',
+      menuItems: [{ id: 1, name: 'Плов' }],
+      endTime: NOW,
+    } as never);
+
+    const message = sendMessage.mock.calls[0][1] as string;
+    expect(message).not.toMatch(MOJIBAKE);
+    expect(message).toContain('В группе *Команда* началось новое голосование!');
+    expect(message).toContain('Доступно блюд: 1');
+    expect(message).toContain('Проголосуй в чате группы!');
+  });
+
+  it('уведомление победителю рулетки читаемо', async () => {
+    await service.sendRouletteWinnerNotification({
+      winner: { firstName: 'Игорь', telegramId: BigInt(555) },
+      winnerItem: { name: 'Плов', price: 250 },
+      voters: [{ id: 1 }, { id: 2 }],
+    } as never);
+
+    const message = sendMessage.mock.calls[0][1] as string;
+    expect(message).not.toMatch(MOJIBAKE);
+    expect(message).toContain('Поздравляем, Игорь!');
+    expect(message).toContain('Рулетка выбрала тебя ответственным за заказ.');
+    expect(message).toContain('Заказываем: Плов');
+    expect(message).toContain('Участников: 2');
+  });
+
+  it('уведомление о завершении голосования читаемо', async () => {
+    await service.sendPollEndedNotification([555], {
+      totalVotes: 3,
+      groupTitle: 'Команда',
+      winners: [],
+    } as never);
+
+    const message = sendMessage.mock.calls[0][1] as string;
+    expect(message).not.toMatch(MOJIBAKE);
+    expect(message).toContain('Всего голосов: 3');
+  });
+
+  it('пустое голосование объясняет себя человеческим текстом', async () => {
+    await service.sendPollEndedNotification([555], {
+      totalVotes: 0,
+      groupTitle: 'Команда',
+      winners: [],
+    } as never);
+
+    expect(sendMessage.mock.calls[0][1]).toContain(
+      'Никто не проголосовал. Все на диете?'
+    );
+  });
+});

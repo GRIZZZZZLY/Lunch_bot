@@ -35,7 +35,7 @@ export class NotificationService {
   }
 
   /**
-   * РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ Р±РѕС‚Р° РґР»СЏ РѕС‚РїСЂР°РІРєРё СѓРІРµРґРѕРјР»РµРЅРёР№
+   * Инициализация бота для отправки уведомлений
    */
   initialize(bot: any): void {
     this.bot = bot;
@@ -43,32 +43,32 @@ export class NotificationService {
   }
 
   /**
-   * РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ С€Р°Р±Р»РѕРЅРѕРІ СѓРІРµРґРѕРјР»РµРЅРёР№
+   * Инициализация шаблонов уведомлений
    */
   private initializeTemplates(): Map<NotificationType, NotificationTemplate> {
     const templates = new Map<NotificationType, NotificationTemplate>();
 
-    // РЁР°Р±Р»РѕРЅ РґР»СЏ РЅР°С‡Р°Р»Р° РіРѕР»РѕСЃРѕРІР°РЅРёСЏ
+    // Шаблон для начала голосования
     templates.set(NotificationType.POLL_STARTED, {
       type: NotificationType.POLL_STARTED,
-      getTitle: (data: PollStartedNotificationData) => 'рџ—іпёЏ РќР°С‡Р°Р»РѕСЃСЊ РіРѕР»РѕСЃРѕРІР°РЅРёРµ!',
+      getTitle: (data: PollStartedNotificationData) => '🗳️ Началось голосование!',
       getMessage: (data: PollStartedNotificationData) => {
-        let message = `рџ“ў Р’ РіСЂСѓРїРїРµ *${data.groupTitle}* РЅР°С‡Р°Р»РѕСЃСЊ РЅРѕРІРѕРµ РіРѕР»РѕСЃРѕРІР°РЅРёРµ!\n\n`;
-        message += `рџЌЅпёЏ Р”РѕСЃС‚СѓРїРЅРѕ Р±Р»СЋРґ: ${data.menuItems.length}\n`;
+        let message = `📢 В группе *${data.groupTitle}* началось новое голосование!\n\n`;
+        message += `🍽️ Доступно блюд: ${data.menuItems.length}\n`;
         if (data.endTime) {
-          message += `вЏ° Р—Р°РІРµСЂС€РёС‚СЃСЏ: ${this.formatDate(data.endTime)}\n`;
+          message += `⏰ Завершится: ${this.formatDate(data.endTime)}\n`;
         }
-        message += `\nрџ‘‰ РџСЂРѕРіРѕР»РѕСЃСѓР№ РІ С‡Р°С‚Рµ РіСЂСѓРїРїС‹!`;
+        message += `\n👉 Проголосуй в чате группы!`;
         return message;
       },
       parseMode: 'Markdown',
       priority: NotificationPriority.NORMAL,
     });
 
-    // РЁР°Р±Р»РѕРЅ РґР»СЏ Р·Р°РІРµСЂС€РµРЅРёСЏ РіРѕР»РѕСЃРѕРІР°РЅРёСЏ
+    // Шаблон для завершения голосования
     templates.set(NotificationType.POLL_ENDED, {
       type: NotificationType.POLL_ENDED,
-      getTitle: (data: PollEndedNotificationData) => 'вњ… Р“РѕР»РѕСЃРѕРІР°РЅРёРµ Р·Р°РІРµСЂС€РµРЅРѕ!',
+      getTitle: (data: PollEndedNotificationData) => '✅ Голосование завершено!',
       getMessage: (data: PollEndedNotificationData) => {
         // Проверка на пустое голосование
         if (data.totalVotes === 0) {
@@ -147,10 +147,10 @@ export class NotificationService {
       priority: NotificationPriority.HIGH,
     });
 
-    // РЁР°Р±Р»РѕРЅ РґР»СЏ РїРѕР±РµРґРёС‚РµР»СЏ СЂСѓР»РµС‚РєРё
+    // Шаблон для победителя рулетки
     templates.set(NotificationType.ROULETTE_WINNER, {
       type: NotificationType.ROULETTE_WINNER,
-      getTitle: (data: RouletteWinnerNotificationData) => 'рџЋ‰ Р’С‹ РІС‹Р±СЂР°РЅС‹ РѕС‚РІРµС‚СЃС‚РІРµРЅРЅС‹Рј!',
+      getTitle: (data: RouletteWinnerNotificationData) => '🎉 Вы выбраны ответственным!',
       getMessage: (data: RouletteWinnerNotificationData) => {
         let message = `🎉 *Поздравляем, ${data.winner.firstName}!*\n\n`;
         message += `Рулетка выбрала тебя ответственным за заказ.\n\n`;
@@ -206,15 +206,15 @@ export class NotificationService {
       priority: NotificationPriority.NORMAL,
     });
 
-    // РЁР°Р±Р»РѕРЅ РґР»СЏ РЅР°РїРѕРјРёРЅР°РЅРёСЏ Рѕ Р·Р°РєР°Р·Рµ
+    // Шаблон для напоминания о заказе
     templates.set(NotificationType.ORDER_REMINDER, {
       type: NotificationType.ORDER_REMINDER,
-      getTitle: () => 'вЏ° РќР°РїРѕРјРёРЅР°РЅРёРµ Рѕ Р·Р°РєР°Р·Рµ',
+      getTitle: () => '⏰ Напоминание о заказе',
       getMessage: (data: any) => {
-        let message = `вЏ° *РќР°РїРѕРјРёРЅР°РЅРёРµ!*\n\n`;
-        message += `РќРµ Р·Р°Р±СѓРґСЊ СЃРґРµР»Р°С‚СЊ Р·Р°РєР°Р· РµРґС‹.\n`;
+        let message = `⏰ *Напоминание!*\n\n`;
+        message += `Не забудь сделать заказ еды.\n`;
         if (data.deadline) {
-          message += `вЏ±пёЏ РљСЂР°Р№РЅРёР№ СЃСЂРѕРє: ${this.formatDate(data.deadline)}\n`;
+          message += `⏱️ Крайний срок: ${this.formatDate(data.deadline)}\n`;
         }
         return message;
       },
@@ -226,7 +226,7 @@ export class NotificationService {
   }
 
   /**
-   * РћС‚РїСЂР°РІРёС‚СЊ Р±Р°Р·РѕРІРѕРµ СѓРІРµРґРѕРјР»РµРЅРёРµ
+   * Отправить базовое уведомление
    */
   async send(data: NotificationData): Promise<NotificationResult> {
     const startTime = Date.now();
@@ -236,7 +236,7 @@ export class NotificationService {
         throw new Error('Bot not initialized');
       }
 
-      // РџСЂРѕРІРµСЂСЏРµРј, РЅРµ Р·Р°РіР»СѓС€РµРЅ Р»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ
+      // Проверяем, не заглушен ли пользователь
       const isMuted = await this.isUserMuted(data.userId);
       if (isMuted) {
         logger.info(`User ${data.userId} is muted, skipping notification`);
@@ -247,7 +247,7 @@ export class NotificationService {
         };
       }
 
-      // РћС‚РїСЂР°РІР»СЏРµРј СЃРѕРѕР±С‰РµРЅРёРµ
+      // Отправляем сообщение
       const result = await this.bot.api.sendMessage(
         data.userId,
         data.message,
@@ -288,7 +288,7 @@ export class NotificationService {
   }
 
   /**
-   * РћС‚РїСЂР°РІРёС‚СЊ СѓРІРµРґРѕРјР»РµРЅРёРµ Рѕ РїРѕР±РµРґРёС‚РµР»Рµ СЂСѓР»РµС‚РєРё
+   * Отправить уведомление о победителе рулетки
    */
   async sendRouletteWinnerNotification(
     data: RouletteWinnerNotificationData
@@ -367,7 +367,7 @@ export class NotificationService {
   }
 
   /**
-   * РћС‚РїСЂР°РІРёС‚СЊ СѓРІРµРґРѕРјР»РµРЅРёРµ Рѕ Р·Р°РІРµСЂС€РµРЅРёРё РіРѕР»РѕСЃРѕРІР°РЅРёСЏ
+   * Отправить уведомление о завершении голосования
    */
   async sendPollEndedNotification(
     userIds: number[],
@@ -499,7 +499,7 @@ export class NotificationService {
   }
 
   /**
-   * РћС‚РїСЂР°РІРёС‚СЊ СѓРІРµРґРѕРјР»РµРЅРёРµ Рѕ РЅР°С‡Р°Р»Рµ РіРѕР»РѕСЃРѕРІР°РЅРёСЏ
+   * Отправить уведомление о начале голосования
    */
   async sendPollStartedNotification(
     userIds: number[],
@@ -528,7 +528,7 @@ export class NotificationService {
   }
 
   /**
-   * РћС‚РїСЂР°РІРёС‚СЊ РєР°СЃС‚РѕРјРЅРѕРµ СѓРІРµРґРѕРјР»РµРЅРёРµ
+   * Отправить кастомное уведомление
    */
   async sendCustomNotification(
     userId: number,
@@ -556,7 +556,7 @@ export class NotificationService {
   }
 
   /**
-   * РћС‚РїСЂР°РІРёС‚СЊ СѓРІРµРґРѕРјР»РµРЅРёРµ РЅРµСЃРєРѕР»СЊРєРёРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЏРј
+   * Отправить уведомление нескольким пользователям
    */
   async sendBulkNotification(
     userIds: number[],
@@ -586,7 +586,7 @@ export class NotificationService {
   }
 
   /**
-   * РџСЂРѕРІРµСЂРёС‚СЊ, Р·Р°РіР»СѓС€РµРЅ Р»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ
+   * Проверить, заглушен ли пользователь
    */
   private async isUserMuted(userId: number): Promise<boolean> {
     // userId здесь — Telegram chat ID (тот же, что уйдёт в bot.api.sendMessage),
@@ -611,7 +611,7 @@ export class NotificationService {
   }
 
   /**
-   * Р¤РѕСЂРјР°С‚РёСЂРѕРІР°РЅРёРµ РґР°С‚С‹ РґР»СЏ СЃРѕРѕР±С‰РµРЅРёР№
+   * Форматирование даты для сообщений
    */
   private formatDate(date: Date): string {
     const options: Intl.DateTimeFormatOptions = {

@@ -18,6 +18,27 @@ env:
   NODE_VERSION: '22.x'
 
 jobs:
+  # Проверки уровня репозитория: их нельзя повесить ни на backend, ни на
+  # frontend-new, потому что они смотрят на дерево целиком.
+  repo-hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Битая кодировка уже доходила до продакшена: шаблоны уведомлений
+      # отдавали пользователям вместо «Голосование завершено!» ту же строку,
+      # прочитанную как windows-1251. Ни один тест этого не видит —
+      # сравнивать не с чем. Пример порчи — в самом скрипте проверки.
+      - name: Check for mojibake
+        run: npm run check:mojibake
+
   backend:
     name: Backend quality
     runs-on: ubuntu-latest

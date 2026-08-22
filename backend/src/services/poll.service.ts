@@ -1332,7 +1332,7 @@ export class PollService {
     }
   }
   /**
-   * РЎРѕС…СЂР°РЅРµРЅРёРµ СЂРµР·СѓР»СЊС‚Р°С‚Р° СЂСѓР»РµС‚РєРё
+   * Сохранение результата рулетки
    */
   static async savePollResult(data: {
     pollId: number;

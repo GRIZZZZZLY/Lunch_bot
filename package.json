@@ -8,7 +8,9 @@
   },
   "scripts": {
     "proxy": "node proxy-server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "check:mojibake": "node scripts/check-mojibake.mjs",
+    "test": "npm run check:mojibake && npm --prefix backend run test:unit && npm --prefix frontend-new test",
+    "test:full": "npm run check:mojibake && npm --prefix backend test && npm --prefix frontend-new test"
   },
   "keywords": [],
   "author": "",
