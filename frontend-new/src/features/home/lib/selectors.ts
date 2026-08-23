@@ -1,6 +1,7 @@
 /* Главная — чистая логика (Phase 4). Без React и side-effects. */
+import { mapPollToOptions } from '@/lib/pollMappers';
 import type { UserGroup } from '@/services/user.service';
-import type { Transaction } from '@/types/models';
+import type { MenuItem, Poll, Transaction } from '@/types/models';
 
 /* ------------------------------------------------ склонения */
 
@@ -121,4 +122,52 @@ export function budgetRow(debts: Transaction[], credits: Transaction[]): BudgetR
     };
   }
   return { kind: 'hidden', amount: 0, payableTxId: null, payableAmount: 0, payableCount: 0, confirmed: 0 };
+}
+
+/**
+ * Строка победителя прошедшего голосования.
+ *
+ * Считалась мемоизацией в теле `HomePage` (задача 12); это чистое отображение
+ * «опрос + итог + меню → что показать», поэтому живёт здесь, рядом с
+ * `budgetRow`.
+ *
+ * Возвращает `null`, когда показывать нечего: нет опроса, нет итога или итог
+ * не за текущие сутки. Вчерашний победитель на главной уже неинформативен.
+ *
+ * Число голосов ищется тремя шагами не от лишней аккуратности: `winnerId` может
+ * указывать на блюдо, удалённое из меню (тогда его нет в вариантах), а у старых
+ * итогов победителя может не быть вовсе — тогда берём лидера по голосам, а в
+ * последнюю очередь общее число.
+ */
+export function winnerRowVM(
+  lastCompletedPoll: Poll | null | undefined,
+  lastPollResult: {
+    winnerId?: number;
+    winnerName?: string;
+    totalVotes: number;
+    responsible?: { name?: string };
+  } | null | undefined,
+  allMenu: MenuItem[],
+  isFresh: boolean,
+): {
+  winnerName: string;
+  winnerVotes: number;
+  totalVotes: number;
+  responsibleName?: string;
+  pollId: number;
+} | null {
+  if (!lastCompletedPoll || !lastPollResult || !isFresh) return null;
+
+  const opts = mapPollToOptions(lastCompletedPoll, allMenu);
+  const top = [...opts].sort((a, b) => b.votes - a.votes)[0];
+  const winnerVotes =
+    opts.find((o) => o.id === lastPollResult.winnerId)?.votes ?? top?.votes ?? lastPollResult.totalVotes;
+
+  return {
+    winnerName: lastPollResult.winnerName || top?.name || 'Блюдо',
+    winnerVotes,
+    totalVotes: lastPollResult.totalVotes,
+    responsibleName: lastPollResult.responsible?.name,
+    pollId: lastCompletedPoll.id,
+  };
 }
