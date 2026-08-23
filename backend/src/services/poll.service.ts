@@ -27,6 +27,7 @@ import {
   subtractMinutes,
 } from '../utils/date';
 import { menuItemIdsFromVoteGroups } from '../utils/vote-menu-items';
+import { buildMultiWinnerResult } from './poll-winners';
 import {
   NoVotersError,
   PollAlreadyActiveError,
@@ -1449,137 +1450,25 @@ export class PollService {
         throw new PollNotActiveError();
       }
 
-      // 2. Группируем голоса по типу
-      const menuItemVotes = new Map<number, VoteWithRelations[]>();
-      const bringOwnVotes: VoteWithRelations[] = [];
-      const skippedVotes: VoteWithRelations[] = [];
-
-      poll.votes.forEach(vote => {
-        if (vote.voteType === 'MENU_ITEM' && vote.menuItemId && vote.menuItem) {
-          if (!menuItemVotes.has(vote.menuItemId)) {
-            menuItemVotes.set(vote.menuItemId, []);
-          }
-          menuItemVotes.get(vote.menuItemId)!.push(vote);
-        } else if (vote.voteType === 'BRING_OWN') {
-          bringOwnVotes.push(vote);
-        } else if (vote.voteType === 'SKIP') {
-          skippedVotes.push(vote);
-        }
-      });
-
-      // 3. Формируем winners с фильтрацией minVotes
-      let winners = Array.from(menuItemVotes.entries())
-        .filter(([_, votes]) => votes.length >= minVotes)
-        .map(([itemId, votes]) => {
-          const menuItem = votes[0].menuItem!;
-
-          return {
-            menuItemId: itemId,
-            menuItemName: menuItem.name,
-            menuItemSnapshot: {
-              price: menuItem.price ? toNumber(menuItem.price) : undefined,
-              imageUrl: menuItem.imageUrl ?? undefined,
-            },
-            voterIds: votes.map(v => v.userId),
-            voters: votes.map(v => ({
-              userId: v.user.id,
-              firstName: v.user.firstName,
-              lastName: v.user.lastName ?? undefined,
-              username: v.user.username ?? undefined,
-            })),
-            voteCount: votes.length,
-            votedAt: votes.map(v => toISOString(v.createdAt)),
-          };
-        })
-        .sort((a, b) => b.voteCount - a.voteCount);
-
-      // Ограничиваем maxWinners
-      if (maxWinners && maxWinners > 0) {
-        winners = winners.slice(0, maxWinners);
-      }
-
-      // 4. Тай-брейк: Определяем primaryWinner
-      let primaryWinnerId: number | null = null;
-      let tieBreak:
-        | { method: string; appliedTo: number[]; reason: string }
-        | undefined;
-
-      if (winners.length > 0) {
-        const maxVotes = winners[0].voteCount;
-        const topWinners = winners.filter(w => w.voteCount === maxVotes);
-
-        if (topWinners.length === 1) {
-          primaryWinnerId = topWinners[0].menuItemId;
-        } else {
-          if (tieBreakMethod === 'earliest') {
-            const earliest = topWinners.reduce((prev, curr) => {
-              const prevTime = getTimestamp(new Date(prev.votedAt[0]));
-              const currTime = getTimestamp(new Date(curr.votedAt[0]));
-              return currTime < prevTime ? curr : prev;
-            });
-            primaryWinnerId = earliest.menuItemId;
-          } else if (tieBreakMethod === 'alphabetical') {
-            const sorted = [...topWinners].sort((a, b) =>
-              a.menuItemName.localeCompare(b.menuItemName, 'ru')
-            );
-            primaryWinnerId = sorted[0].menuItemId;
-          }
-
-          tieBreak = {
-            method: tieBreakMethod,
-            appliedTo: topWinners.map(w => w.menuItemId),
-            reason: `${topWinners.length} блюд с ${maxVotes} голосами`,
-          };
-
-          logger.info(`Tie-break applied for poll ${pollId}`, {
-            method: tieBreakMethod,
-            topWinners: topWinners.map(w => ({
-              id: w.menuItemId,
-              name: w.menuItemName,
-            })),
-            selected: primaryWinnerId,
-          });
-        }
-      }
-
-      // 5. Формируем bringOwn и skipped группы
-      const bringOwnGroup = {
-        voterIds: bringOwnVotes.map(v => v.userId),
-        voters: bringOwnVotes.map(v => ({
-          userId: v.user.id,
-          firstName: v.user.firstName,
-          lastName: v.user.lastName ?? undefined,
-          username: v.user.username ?? undefined,
-        })),
-        count: bringOwnVotes.length,
-      };
-
-      const skippedGroup = {
-        voterIds: skippedVotes.map(v => v.userId),
-        voters: skippedVotes.map(v => ({
-          userId: v.user.id,
-          firstName: v.user.firstName,
-          lastName: v.user.lastName ?? undefined,
-          username: v.user.username ?? undefined,
-        })),
-        count: skippedVotes.length,
-      };
-
-      // 6. Собираем MultiWinnerResultData
-      const resultData = {
-        version: 1,
-        mode: 'multi-winner' as const,
-        winners,
-        bringOwn: bringOwnGroup,
-        skipped: skippedGroup,
-        meta: {
-          primaryWinnerId,
-          tieBreak,
-          completedAt: toISOString(now()),
+      // 2. Считаем победителей — чистая арифметика, см. `poll-winners.ts`.
+      const { resultData, primaryWinnerId, tieBreak } = buildMultiWinnerResult(
+        poll.votes,
+        {
+          minVotes,
+          maxWinners,
+          tieBreakMethod,
           completedBy,
-          params: { minVotes, maxWinners },
-        },
-      };
+          completedAt: now(),
+        }
+      );
+
+      if (tieBreak) {
+        logger.info(`Tie-break applied for poll ${pollId}`, {
+          method: tieBreak.method,
+          appliedTo: tieBreak.appliedTo,
+          selected: primaryWinnerId,
+        });
+      }
 
       // 7. Транзакция: Обновляем poll + создаем result
       const result = await prisma.$transaction(async tx => {
@@ -1642,9 +1531,9 @@ export class PollService {
       void CacheInvalidator.invalidatePoll(pollId, poll.groupId);
 
       logger.info(`Poll ${pollId} completed with multi-winner mode`, {
-        winnersCount: winners.length,
-        bringOwnCount: bringOwnVotes.length,
-        skippedCount: skippedVotes.length,
+        winnersCount: resultData.winners.length,
+        bringOwnCount: resultData.bringOwn.count,
+        skippedCount: resultData.skipped.count,
         primaryWinnerId,
         totalVotes: poll.votes.length,
       });
