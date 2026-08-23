@@ -21,16 +21,23 @@ import { NotificationService } from '../../../services/notification.service';
 import { asServiceMock } from '../../helpers/mocks';
 import type { BotContext } from '../../../types/bot.types';
 import type { CallbackQueryContext } from 'grammy';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../services/poll.service', () => ({
   PollService: {
-    getPollById: jest.fn(),
     completePoll: jest.fn(),
     cancelPoll: jest.fn(),
     getPollResult: jest.fn(),
     savePollResult: jest.fn(),
   },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollById: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/vote.service', () => ({
   VoteService: {
@@ -71,6 +78,7 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const voteService = asServiceMock(VoteService);
 const userService = asServiceMock(UserService);
 const groupService = asServiceMock(GroupService);
@@ -132,7 +140,7 @@ beforeEach(() => {
     notifyResponsible: jest.fn().mockResolvedValue({ success: true }),
   };
 
-  pollService.getPollById.mockResolvedValue({
+  pollQuery.getPollById.mockResolvedValue({
     id: 5,
     groupId: 100,
     status: 'COMPLETED',
@@ -205,7 +213,7 @@ describe('handleCompletePoll', () => {
   });
 
   it('голосования нет — отказ', async () => {
-    pollService.getPollById.mockResolvedValue(null);
+    pollQuery.getPollById.mockResolvedValue(null);
     const ctx = makeCtx();
 
     await handleCompletePoll(ctx, 5);
@@ -281,7 +289,7 @@ describe('handleRunRoulette', () => {
   });
 
   it('активное голосование сначала надо завершить', async () => {
-    pollService.getPollById.mockResolvedValue({
+    pollQuery.getPollById.mockResolvedValue({
       id: 5,
       groupId: 100,
       status: 'ACTIVE',
@@ -420,7 +428,7 @@ describe('handleCancelPoll', () => {
 
 describe('handleOpenPollButton', () => {
   beforeEach(() => {
-    pollService.getPollById.mockResolvedValue({
+    pollQuery.getPollById.mockResolvedValue({
       id: 5,
       groupId: 100,
       status: 'ACTIVE',
@@ -439,7 +447,7 @@ describe('handleOpenPollButton', () => {
   });
 
   it('голосования нет — отказ', async () => {
-    pollService.getPollById.mockResolvedValue(null);
+    pollQuery.getPollById.mockResolvedValue(null);
     const ctx = makeCtx();
 
     await handleOpenPollButton(ctx, 5);
@@ -450,7 +458,7 @@ describe('handleOpenPollButton', () => {
   });
 
   it('завершённое голосование не открывается', async () => {
-    pollService.getPollById.mockResolvedValue({
+    pollQuery.getPollById.mockResolvedValue({
       id: 5,
       groupId: 100,
       status: 'COMPLETED',

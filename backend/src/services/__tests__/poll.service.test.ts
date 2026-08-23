@@ -3,6 +3,7 @@ import { prisma } from '../../database/client';
 import { Poll, PollResult, Prisma } from '@prisma/client';
 import { CacheInvalidator } from '../cache.service';
 import { GroupService } from '../group.service';
+import { PollQueryService } from '../poll-query.service';
 
 // Mock prisma client
 jest.mock('../../database/client', () => ({
@@ -215,7 +216,7 @@ describe('PollService', () => {
 
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue(mockPoll);
 
-      const result = await PollService.getPollById(1);
+      const result = await PollQueryService.getPollById(1);
 
       expect(prisma.poll.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
@@ -247,7 +248,7 @@ describe('PollService', () => {
     it('should return null if poll not found', async () => {
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue(null);
 
-      const result = await PollService.getPollById(999);
+      const result = await PollQueryService.getPollById(999);
 
       expect(result).toBeNull();
     });
@@ -255,7 +256,7 @@ describe('PollService', () => {
     it('should throw an error if query fails', async () => {
       (prisma.poll.findUnique as jest.Mock).mockRejectedValue(new Error('DB Error'));
 
-      await expect(PollService.getPollById(1)).rejects.toThrow('Failed to get poll');
+      await expect(PollQueryService.getPollById(1)).rejects.toThrow('Failed to get poll');
     });
   });
 
@@ -270,7 +271,7 @@ describe('PollService', () => {
 
       (prisma.poll.findFirst as jest.Mock).mockResolvedValue(mockPoll);
 
-      const result = await PollService.getActivePollInGroup(1);
+      const result = await PollQueryService.getActivePollInGroup(1);
 
       expect(cacheService.getOrSet).toHaveBeenCalled();
       expect(result).toEqual(mockPoll);
@@ -284,7 +285,7 @@ describe('PollService', () => {
 
       (prisma.poll.findFirst as jest.Mock).mockResolvedValue(null);
 
-      const result = await PollService.getActivePollInGroup(1);
+      const result = await PollQueryService.getActivePollInGroup(1);
 
       expect(result).toBeNull();
     });
@@ -307,7 +308,7 @@ describe('PollService', () => {
 
       (prisma.poll.findMany as jest.Mock).mockResolvedValue(mockPolls);
 
-      const result = await PollService.getActivePolls();
+      const result = await PollQueryService.getActivePolls();
 
       expect(prisma.poll.findMany).toHaveBeenCalledWith({
         where: { status: 'ACTIVE' },
@@ -614,7 +615,7 @@ describe('PollService', () => {
       (prisma.poll.findMany as jest.Mock).mockResolvedValue(mockPolls);
       (prisma.poll.count as jest.Mock).mockResolvedValue(1);
 
-      const result = await PollService.getPollHistory(1, 20, 0);
+      const result = await PollQueryService.getPollHistory(1, 20, 0);
 
       expect(result).toHaveProperty('polls');
       expect(result).toHaveProperty('total', 1);
@@ -625,7 +626,7 @@ describe('PollService', () => {
       (prisma.poll.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.poll.count as jest.Mock).mockResolvedValue(0);
 
-      const result = await PollService.getPollHistory(undefined, 20, 0);
+      const result = await PollQueryService.getPollHistory(undefined, 20, 0);
 
       expect(prisma.poll.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -646,7 +647,7 @@ describe('PollService', () => {
 
       (prisma.poll.findFirst as jest.Mock).mockResolvedValue(mockPoll);
 
-      const result = await PollService.getLastCompletedPoll(7);
+      const result = await PollQueryService.getLastCompletedPoll(7);
 
       expect(prisma.poll.findFirst).toHaveBeenCalledWith({
         where: {
@@ -662,7 +663,7 @@ describe('PollService', () => {
     });
 
     it('should not query the database when accessible group list is empty', async () => {
-      const result = await PollService.getLastCompletedPoll([]);
+      const result = await PollQueryService.getLastCompletedPoll([]);
 
       expect(result).toBeNull();
       expect(prisma.poll.findFirst).not.toHaveBeenCalled();
@@ -716,28 +717,6 @@ describe('PollService', () => {
       const result = await PollService.getPollStats();
 
       expect(result.averageParticipants).toBe(0);
-    });
-  });
-
-  describe('getExpiredPolls', () => {
-    it('should return expired active polls', async () => {
-      const pastDate = new Date(Date.now() - 35 * 60 * 1000); // 35 min ago
-      const mockPolls = [
-        createMockPoll({ id: 1, startedAt: pastDate }),
-      ];
-
-      (prisma.poll.findMany as jest.Mock).mockResolvedValue(mockPolls);
-
-      const result = await PollService.getExpiredPolls();
-
-      expect(prisma.poll.findMany).toHaveBeenCalledWith({
-        where: {
-          status: 'ACTIVE',
-          startedAt: expect.any(Object),
-        },
-      });
-
-      expect(result).toEqual(mockPolls);
     });
   });
 
@@ -847,53 +826,6 @@ describe('PollService', () => {
       });
 
       expect(result).toEqual(updatedResult);
-    });
-  });
-
-  describe('createParticipantSnapshot', () => {
-    it('marks active members with participatesInPolls=true as EXPECTED, others as EXCLUDED', async () => {
-      (prisma.groupMember.findMany as jest.Mock).mockResolvedValue([
-        { participatesInPolls: true, user: { id: 1, isActive: true } },
-        { participatesInPolls: false, user: { id: 2, isActive: true } },
-        { participatesInPolls: true, user: { id: 3, isActive: true } },
-      ]);
-      (prisma.pollParticipant.createMany as jest.Mock).mockResolvedValue({ count: 3 });
-
-      await PollService.createParticipantSnapshot(42, 7);
-
-      expect(prisma.groupMember.findMany).toHaveBeenCalledWith({
-        where: { groupId: 7, isActive: true },
-        include: { user: { select: { id: true, isActive: true } } },
-      });
-      expect(prisma.pollParticipant.createMany).toHaveBeenCalledWith({
-        data: [
-          { pollId: 42, userId: 1, status: 'EXPECTED' },
-          { pollId: 42, userId: 2, status: 'EXCLUDED' },
-          { pollId: 42, userId: 3, status: 'EXPECTED' },
-        ],
-      });
-    });
-
-    it('skips users with isActive=false', async () => {
-      (prisma.groupMember.findMany as jest.Mock).mockResolvedValue([
-        { participatesInPolls: true, user: { id: 1, isActive: true } },
-        { participatesInPolls: true, user: { id: 2, isActive: false } },
-      ]);
-      (prisma.pollParticipant.createMany as jest.Mock).mockResolvedValue({ count: 1 });
-
-      await PollService.createParticipantSnapshot(42, 7);
-
-      expect(prisma.pollParticipant.createMany).toHaveBeenCalledWith({
-        data: [{ pollId: 42, userId: 1, status: 'EXPECTED' }],
-      });
-    });
-
-    it('does not call createMany when there are no eligible members', async () => {
-      (prisma.groupMember.findMany as jest.Mock).mockResolvedValue([]);
-
-      await PollService.createParticipantSnapshot(42, 7);
-
-      expect(prisma.pollParticipant.createMany).not.toHaveBeenCalled();
     });
   });
 

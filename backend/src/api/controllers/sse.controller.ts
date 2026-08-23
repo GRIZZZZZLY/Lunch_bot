@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { eventBus, SSEEventName, SSEEventMap } from '../../services/event-bus.service';
 import { GroupService } from '../../services/group.service';
-import { PollService } from '../../services/poll.service';
 import { logger } from '../../utils/logger';
 import { requireAuthUser } from '../middleware/require-auth-user';
+import { PollQueryService } from '../../services/poll-query.service';
 
 const HEARTBEAT_INTERVAL_MS = 25_000;
 const MAX_CONNECTIONS_PER_POLL = 50;
@@ -90,7 +90,7 @@ export class SSEController {
 
     const user = requireAuthUser(req, res);
     if (!user) return;
-    const pollGroupId = await PollService.getPollGroupId(pollId);
+    const pollGroupId = await PollQueryService.getPollGroupId(pollId);
     if (!pollGroupId) {
       res.status(404).json({
         success: false,

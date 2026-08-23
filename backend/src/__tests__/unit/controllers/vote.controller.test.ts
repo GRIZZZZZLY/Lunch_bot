@@ -13,6 +13,7 @@ import { PollService } from '../../../services/poll.service';
 import { GroupService } from '../../../services/group.service';
 import { mockRequest, mockResponse } from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../services/vote.service', () => ({
   VoteService: {
@@ -24,11 +25,17 @@ jest.mock('../../../services/vote.service', () => ({
 
 jest.mock('../../../services/poll.service', () => ({
   PollService: {
-    getPollGroupId: jest.fn(),
-    getPollById: jest.fn(),
     checkQuorumAndComplete: jest.fn(),
   },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollById: jest.fn(),
+    getPollGroupId: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/group.service', () => ({
   GroupService: { isUserGroupMember: jest.fn() },
@@ -40,14 +47,15 @@ jest.mock('../../../utils/logger', () => ({
 
 const voteService = asServiceMock(VoteService);
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const groupService = asServiceMock(GroupService);
 
 const USER = { id: 1, isAdmin: false };
 
 beforeEach(() => {
   jest.clearAllMocks();
-  pollService.getPollGroupId.mockResolvedValue(100);
-  pollService.getPollById.mockResolvedValue({
+  pollQuery.getPollGroupId.mockResolvedValue(100);
+  pollQuery.getPollById.mockResolvedValue({
     id: 5,
     isMultiSelect: true,
     maxSelections: 3,
@@ -152,7 +160,7 @@ describe('POST /api/votes/multiple', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await createMultipleVotes(
@@ -164,7 +172,7 @@ describe('POST /api/votes/multiple', () => {
   });
 
   it('голосование исчезло между проверками — 404', async () => {
-    pollService.getPollById.mockResolvedValue(null);
+    pollQuery.getPollById.mockResolvedValue(null);
     const res = mockResponse();
 
     await createMultipleVotes(
@@ -192,7 +200,7 @@ describe('POST /api/votes/multiple', () => {
   });
 
   it('одиночный выбор: два блюда — 400', async () => {
-    pollService.getPollById.mockResolvedValue({
+    pollQuery.getPollById.mockResolvedValue({
       id: 5,
       isMultiSelect: false,
     });
@@ -208,7 +216,7 @@ describe('POST /api/votes/multiple', () => {
   });
 
   it('превышен лимит выбора — 400', async () => {
-    pollService.getPollById.mockResolvedValue({
+    pollQuery.getPollById.mockResolvedValue({
       id: 5,
       isMultiSelect: true,
       maxSelections: 2,
@@ -225,7 +233,7 @@ describe('POST /api/votes/multiple', () => {
   });
 
   it('лимит выше трёх всё равно ограничен тремя', async () => {
-    pollService.getPollById.mockResolvedValue({
+    pollQuery.getPollById.mockResolvedValue({
       id: 5,
       isMultiSelect: true,
       maxSelections: 10,
@@ -329,7 +337,7 @@ describe('GET /api/votes/:pollId/user', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await getUserVotes(mockRequest({ user: USER, params: { pollId: '5' } }), res);
@@ -409,7 +417,7 @@ describe('DELETE /api/votes/:pollId/item/:menuItemId', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await deleteVote(

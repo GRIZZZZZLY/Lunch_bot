@@ -1,11 +1,11 @@
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
-import { PollService } from './poll.service';
 import { UserService } from './user.service';
 import { Prisma, Transaction, User, MenuItem } from '@prisma/client';
 import { now, toLocaleDateString } from '../utils/date';
 import { toNumber, formatCurrency, sumDecimals, multiply } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
+import { PollQueryService } from './poll-query.service';
 
 function maskCardNumber(cardNumber: string): string {
   // Sprint 1: используем EncryptionService для обработки зашифрованных данных
@@ -101,7 +101,7 @@ export class PollFlowService {
     responsibleUserId: number
   ): Promise<Transaction[]> {
     try {
-      const poll = (await PollService.getPollById(pollId)) as any;
+      const poll = (await PollQueryService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) {
         throw new Error('Poll result data not found');
       }
@@ -169,7 +169,7 @@ export class PollFlowService {
 
       const totalToReturn = sumDecimals(transactions.map(tx => tx.amount));
 
-      const poll = (await PollService.getPollById(pollId)) as any;
+      const poll = (await PollQueryService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) {
         throw new Error('Poll result data not found');
       }
@@ -277,7 +277,7 @@ export class PollFlowService {
         return;
       }
 
-      const poll = (await PollService.getPollById(pollId)) as any;
+      const poll = (await PollQueryService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) return;
 
       const resultData = JSON.parse(poll.result.rouletteData);
@@ -436,7 +436,7 @@ export class PollFlowService {
       const bot = getBotInstance();
       if (!bot) return;
 
-      const poll = (await PollService.getPollById(pollId)) as any;
+      const poll = (await PollQueryService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) return;
 
       const resultData = JSON.parse(poll.result.rouletteData);

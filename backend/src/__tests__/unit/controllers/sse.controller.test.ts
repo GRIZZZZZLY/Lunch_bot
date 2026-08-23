@@ -23,6 +23,7 @@ import {
   type MockResponse,
 } from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../services/group.service', () => ({
   GroupService: { isUserGroupMember: jest.fn() },
@@ -32,12 +33,20 @@ jest.mock('../../../services/poll.service', () => ({
   PollService: { getPollGroupId: jest.fn() },
 }));
 
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollGroupId: jest.fn(),
+  },
+}));
+
+
 jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
 const groupService = asServiceMock(GroupService);
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 
 const USER = { id: 1, isAdmin: false };
 
@@ -76,7 +85,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
   opened = [];
-  pollService.getPollGroupId.mockResolvedValue(100);
+  pollQuery.getPollGroupId.mockResolvedValue(100);
   groupService.isUserGroupMember.mockResolvedValue(true);
 });
 
@@ -212,7 +221,7 @@ describe('GET /api/polls/:pollId/stream', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const req = mockRequest({ user: USER, params: { pollId: '12' } });
     const res = mockResponse();
 

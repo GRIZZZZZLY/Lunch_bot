@@ -20,6 +20,7 @@ import {
   toggleParticipatesBody,
 } from '../schemas/admin';
 import { requireAuthUser } from '../middleware/require-auth-user';
+import { PollQueryService } from '../../services/poll-query.service';
 
 export class AdminController {
   private adminService: AdminService;
@@ -269,7 +270,7 @@ export class AdminController {
     try {
       const { pollId } = adminPollIdParam.get(req);
 
-      const pollGroupId = await PollService.getPollGroupId(pollId);
+      const pollGroupId = await PollQueryService.getPollGroupId(pollId);
       if (!pollGroupId) {
         res.status(404).json({ success: false, error: 'Poll not found', code: 'POLL_NOT_FOUND' });
         return;
@@ -299,7 +300,7 @@ export class AdminController {
       const { pollId, userId } = adminPollParticipantParams.get(req);
       const { status, reason } = setPollParticipantBody.get(req);
 
-      const pollGroupId = await PollService.getPollGroupId(pollId);
+      const pollGroupId = await PollQueryService.getPollGroupId(pollId);
       if (!pollGroupId) {
         res.status(404).json({ success: false, error: 'Poll not found', code: 'POLL_NOT_FOUND' });
         return;

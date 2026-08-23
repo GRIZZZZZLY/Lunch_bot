@@ -11,12 +11,13 @@ import { NotificationService } from '../../services/notification.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { createResultsMessage } from '../keyboards/poll.keyboard';
+import { PollQueryService } from '../../services/poll-query.service';
 
 async function getAuthorizedGroupAdmin(
   ctx: CallbackQueryContext<BotContext> | Context,
   pollId: number
 ): Promise<{
-  poll: NonNullable<Awaited<ReturnType<typeof PollService.getPollById>>>;
+  poll: NonNullable<Awaited<ReturnType<typeof PollQueryService.getPollById>>>;
   user: NonNullable<
     Awaited<ReturnType<typeof UserService.getUserByTelegramId>>
   >;
@@ -27,7 +28,7 @@ async function getAuthorizedGroupAdmin(
   }
 
   const [poll, user] = await Promise.all([
-    PollService.getPollById(pollId),
+    PollQueryService.getPollById(pollId),
     UserService.getUserByTelegramId(BigInt(telegramUser.id)),
   ]);
   if (
@@ -303,7 +304,7 @@ export async function handleOpenPollButton(
     }
 
     // Проверяем, что голосование существует и активно
-    const poll = await PollService.getPollById(pollId);
+    const poll = await PollQueryService.getPollById(pollId);
     if (!poll) {
       await ctx.answerCallbackQuery('❌ Голосование не найдено');
       return;

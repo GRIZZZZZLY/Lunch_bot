@@ -19,17 +19,24 @@ import {
   BotNotInitializedError,
 } from '../../../bot/bot-instance';
 import { asMock, asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../services/poll.service', () => ({
   PollService: {
     createPoll: jest.fn(),
     updatePoll: jest.fn(),
-    getPollById: jest.fn(),
     completePoll: jest.fn(),
     getPollVoteBreakdown: jest.fn(),
     runRoulette: jest.fn(),
   },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollById: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/group.service', () => ({
   GroupService: {
@@ -86,6 +93,7 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const groupService = asServiceMock(GroupService);
 const voteService = asServiceMock(VoteService);
 const categoryOrders = asServiceMock(CategoryOrderService);
@@ -136,7 +144,7 @@ beforeEach(() => {
 
   pollService.createPoll.mockResolvedValue({ id: 5, groupId: 100 });
   pollService.updatePoll.mockResolvedValue({ id: 5 });
-  pollService.getPollById.mockResolvedValue({
+  pollQuery.getPollById.mockResolvedValue({
     id: 5,
     status: 'ACTIVE',
     duration: 30,
@@ -293,7 +301,7 @@ describe('автозавершение по таймеру', () => {
   });
 
   it('уже завершённое голосование повторно не закрывается', async () => {
-    pollService.getPollById.mockResolvedValue({
+    pollQuery.getPollById.mockResolvedValue({
       id: 5,
       status: 'COMPLETED',
       selectedMenuItemIds: '[]',
@@ -413,7 +421,7 @@ describe('автозавершение по таймеру', () => {
 
   it('исчезнувшее голосование не роняет таймер', async () => {
     await createPollFromWebApp(PARAMS);
-    pollService.getPollById.mockResolvedValue(null);
+    pollQuery.getPollById.mockResolvedValue(null);
 
     await expect(fireTimer()).resolves.toBeUndefined();
   });

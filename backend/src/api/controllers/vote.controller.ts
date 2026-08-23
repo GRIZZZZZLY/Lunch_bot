@@ -4,6 +4,7 @@ import { VoteService } from '../../services/vote.service';
 import { PollService } from '../../services/poll.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
+import { PollQueryService } from '../../services/poll-query.service';
 
 /**
  * Vote Controller
@@ -45,7 +46,7 @@ async function requirePollAccess(
     return false;
   }
 
-  const pollGroupId = await PollService.getPollGroupId(pollId);
+  const pollGroupId = await PollQueryService.getPollGroupId(pollId);
   if (!pollGroupId) {
     res.status(404).json({
       success: false,
@@ -111,7 +112,7 @@ export async function createMultipleVotes(req: Request, res: Response): Promise<
     const hasAccess = await requirePollAccess(req, res, pollId);
     if (!hasAccess) return;
 
-    const poll = await PollService.getPollById(pollId);
+    const poll = await PollQueryService.getPollById(pollId);
     if (!poll) {
       res.status(404).json({
         success: false,

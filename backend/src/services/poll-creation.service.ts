@@ -28,6 +28,7 @@ import {
   PollGroupNotFoundError,
   PollNotFoundError,
 } from './poll.errors';
+import { PollQueryService } from './poll-query.service';
 
 /** Значения по умолчанию — правила продукта, а не валидация входа. */
 const DEFAULT_DURATION_MINUTES = 30;
@@ -88,7 +89,7 @@ export async function createPollForGroup(
   const group = await GroupService.getGroupById(groupId);
   if (!group) throw new PollGroupNotFoundError();
 
-  const existingPoll = await PollService.getActivePollInGroup(groupId);
+  const existingPoll = await PollQueryService.getActivePollInGroup(groupId);
   if (existingPoll) {
     throw new PollAlreadyActiveError(groupId, existingPoll.id);
   }
@@ -149,7 +150,7 @@ export async function repeatPoll(
   pollId: number,
   requestedBy: number
 ): Promise<PollWithDetails | null> {
-  const sourcePoll = await PollService.getPollById(pollId);
+  const sourcePoll = await PollQueryService.getPollById(pollId);
   if (!sourcePoll) throw new PollNotFoundError();
 
   const selectedMenuItemIds = parseSelectedMenuItemIds(
@@ -175,7 +176,7 @@ export async function repeatPoll(
 
   /* Ответ — созданное голосование целиком, как и до переноса: фронт после
      повтора показывает его без второго запроса. */
-  return PollService.getPollById(result.pollId);
+  return PollQueryService.getPollById(result.pollId);
 }
 
 function parseSelectedMenuItemIds(

@@ -58,6 +58,7 @@ import {
   HttpError,
   withLegacyCode,
 } from '../http.errors';
+import { PollQueryService } from '../../services/poll-query.service';
 import {
   cancelPollBody,
   completeMultiWinnerBody,
@@ -137,7 +138,7 @@ export class PollController {
    */
   static async getActivePolls(req: Request, res: Response): Promise<void> {
     const groupIds = await accessibleGroupIds(req);
-    const polls = await PollService.getActivePolls(groupIds);
+    const polls = await PollQueryService.getActivePolls(groupIds);
     const pollsWithEndTime = polls.map(withEndTime);
 
     res.json({
@@ -156,7 +157,7 @@ export class PollController {
     const { groupId, limit = 20, offset = 0 } = pollHistoryQuery.get(req);
 
     const scope = await groupScope(req, groupId);
-    const result = await PollService.getPollHistory(scope, limit, offset);
+    const result = await PollQueryService.getPollHistory(scope, limit, offset);
 
     res.json({
       success: true,
@@ -179,7 +180,7 @@ export class PollController {
     const { groupId } = pollGroupQuery.get(req);
 
     const scope = await groupScope(req, groupId);
-    const poll = await PollService.getLastCompletedPoll(scope);
+    const poll = await PollQueryService.getLastCompletedPoll(scope);
 
     res.json({
       success: true,
@@ -195,7 +196,7 @@ export class PollController {
     const { groupId } = pollGroupIdParam.get(req);
 
     await assertGroupMember(req, groupId);
-    const poll = await PollService.getTodayCompletedPoll(groupId);
+    const poll = await PollQueryService.getTodayCompletedPoll(groupId);
 
     res.json({
       success: true,
@@ -280,7 +281,7 @@ export class PollController {
     const { id } = pollIdParam.get(req);
     const user = requireAuthUserOrThrow(req);
 
-    const poll = await PollService.getPollById(id);
+    const poll = await PollQueryService.getPollById(id);
     if (!poll) throw new PollNotFoundError();
 
     if (!(await GroupService.isUserGroupMember(user.id, poll.groupId))) {
@@ -414,7 +415,7 @@ export class PollController {
     const { groupId } = pollGroupIdParam.get(req);
     await assertGroupMember(req, groupId);
 
-    const poll = await PollService.getActivePollInGroup(groupId);
+    const poll = await PollQueryService.getActivePollInGroup(groupId);
     if (!poll) {
       /* `data: null` рядом с кодом — часть ответа, на которую смотрит фронт. */
       throw new HttpError('No active poll in this group', 404, 'NO_ACTIVE_POLL', {

@@ -24,6 +24,7 @@ import { MenuService } from '../../../services/menu.service';
 import { PollService } from '../../../services/poll.service';
 import { createPollFromWebApp } from '../../../services/poll.service.extensions';
 import { asMock, asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../services/group.service', () => ({
   GroupService: { getGroupById: jest.fn() },
@@ -35,10 +36,16 @@ jest.mock('../../../services/menu.service', () => ({
 
 jest.mock('../../../services/poll.service', () => ({
   PollService: {
-    getActivePollInGroup: jest.fn(),
-    getPollById: jest.fn(),
   },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollById: jest.fn(),
+    getActivePollInGroup: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/poll.service.extensions', () => ({
   createPollFromWebApp: jest.fn(),
@@ -51,6 +58,7 @@ jest.mock('../../../utils/logger', () => ({
 const groups = asServiceMock(GroupService);
 const menu = asServiceMock(MenuService);
 const polls = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const sendPoll = asMock(createPollFromWebApp);
 
 const MENU = [
@@ -62,7 +70,7 @@ const MENU = [
 beforeEach(() => {
   jest.clearAllMocks();
   groups.getGroupById.mockResolvedValue({ id: 100, title: 'Команда' });
-  polls.getActivePollInGroup.mockResolvedValue(null);
+  pollQuery.getActivePollInGroup.mockResolvedValue(null);
   menu.getActiveMenuItems.mockResolvedValue(MENU);
   sendPoll.mockResolvedValue({ pollId: 21, messageId: 99 });
 });
@@ -154,7 +162,7 @@ describe('createPollForGroup', () => {
      `PollService.createPoll` защищает от гонки, но сообщение в группу к тому
      моменту уже улетело бы. */
   it('в группе уже идёт голосование — PollAlreadyActiveError', async () => {
-    polls.getActivePollInGroup.mockResolvedValue({ id: 5 });
+    pollQuery.getActivePollInGroup.mockResolvedValue({ id: 5 });
 
     await expect(createPollForGroup(params)).rejects.toBeInstanceOf(
       PollAlreadyActiveError
@@ -184,7 +192,7 @@ describe('createPollForGroup', () => {
 
 describe('repeatPoll', () => {
   function sourcePoll(over: Record<string, unknown> = {}): void {
-    polls.getPollById.mockResolvedValue({
+    pollQuery.getPollById.mockResolvedValue({
       id: 10,
       groupId: 100,
       duration: 45,
@@ -200,7 +208,7 @@ describe('repeatPoll', () => {
 
   it('повторяет с теми же блюдами и той же длительностью', async () => {
     sourcePoll({ selectedMenuItemIds: '[3,4]' });
-    polls.getPollById
+    pollQuery.getPollById
       .mockResolvedValueOnce({
         id: 10,
         groupId: 100,
@@ -244,7 +252,7 @@ describe('repeatPoll', () => {
   });
 
   it('исходного голосования нет — PollNotFoundError', async () => {
-    polls.getPollById.mockResolvedValue(null);
+    pollQuery.getPollById.mockResolvedValue(null);
 
     await expect(repeatPoll(10, 7)).rejects.toBeInstanceOf(PollNotFoundError);
     expect(sendPoll).not.toHaveBeenCalled();

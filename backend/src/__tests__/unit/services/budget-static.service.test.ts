@@ -19,6 +19,7 @@ import { eventBus } from '../../../services/event-bus.service';
 import { getBotInstance } from '../../../bot/bot-instance';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock, asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
@@ -27,6 +28,13 @@ jest.mock('../../../database/client', () =>
 jest.mock('../../../services/poll.service', () => ({
   PollService: { getPollById: jest.fn() },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollById: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/user.service', () => ({
   UserService: { getPaymentInfo: jest.fn(), getUserById: jest.fn() },
@@ -43,6 +51,7 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const userService = asServiceMock(UserService);
 const bus = asServiceMock(eventBus);
 const botInstance = asMock(getBotInstance);
@@ -105,7 +114,7 @@ beforeEach(() => {
   editMessageText = jest.fn().mockResolvedValue(undefined);
   botInstance.mockReturnValue({ api: { sendMessage, editMessageText } });
 
-  pollService.getPollById.mockResolvedValue(pollFixture());
+  pollQuery.getPollById.mockResolvedValue(pollFixture());
   userService.getPaymentInfo.mockResolvedValue({
     paymentCard: '1234567890123456',
     paymentPhone: '+79990001122',

@@ -1,6 +1,5 @@
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
-import { PollService } from './poll.service';
 import { UserService } from './user.service';
 import { GroupService } from './group.service';
 import { RouletteService } from './roulette.service';
@@ -9,6 +8,7 @@ import { getXPReward } from '../constants/xp-constants';
 import { now, addMinutesToDate, getTimestamp } from '../utils/date';
 import { toNumber, multiply } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
+import { PollQueryService } from './poll-query.service';
 
 export class ResponsibleService {
   /**
@@ -16,7 +16,7 @@ export class ResponsibleService {
    */
   static async startResponsibleSelection(pollId: number): Promise<void> {
     try {
-      const poll = await PollService.getPollById(pollId);
+      const poll = await PollQueryService.getPollById(pollId);
       if (!poll) {
         logger.error('Poll not found for responsible selection', { pollId });
         return;
@@ -73,7 +73,7 @@ export class ResponsibleService {
         logger.error('Bot instance not initialized');
       }
 
-      const poll = (await PollService.getPollById(pollId)) as any;
+      const poll = (await PollQueryService.getPollById(pollId)) as any;
       if (!poll?.result?.rouletteData) {
         logger.error('Poll result data not found', { pollId });
         return;

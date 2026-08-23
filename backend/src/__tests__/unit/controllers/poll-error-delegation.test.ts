@@ -18,10 +18,18 @@ import { errorHandler } from '../../../api/middleware/error-handler';
 import { PollService } from '../../../services/poll.service';
 import { GroupService } from '../../../services/group.service';
 import { asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../services/poll.service', () => ({
   PollService: { getPollById: jest.fn(), getPollGroupId: jest.fn() },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollById: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/vote.service', () => ({ VoteService: {} }));
 jest.mock('../../../services/menu.service', () => ({ MenuService: {} }));
@@ -39,6 +47,7 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const polls = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const groups = asServiceMock(GroupService);
 
 /** Приложение из одного маршрута: аутентификация подставлена, ошибки — как в проде. */
@@ -65,7 +74,7 @@ beforeEach(() => {
 
 describe('ошибка из handler доходит до клиента через настоящий Express', () => {
   it('доменный отказ сохраняет свой статус и код', async () => {
-    polls.getPollById.mockResolvedValue(null);
+    pollQuery.getPollById.mockResolvedValue(null);
 
     const res = await request(appWithPollRoute()).get('/api/polls/10');
 
@@ -79,7 +88,7 @@ describe('ошибка из handler доходит до клиента чере�
   });
 
   it('отказ в доступе — 403 FORBIDDEN', async () => {
-    polls.getPollById.mockResolvedValue({
+    pollQuery.getPollById.mockResolvedValue({
       id: 10,
       groupId: 100,
       startedAt: new Date(),
@@ -96,7 +105,7 @@ describe('ошибка из handler доходит до клиента чере�
   });
 
   it('непредвиденный сбой сервиса — 500 INTERNAL_ERROR, а не повисший запрос', async () => {
-    polls.getPollById.mockRejectedValue(new Error('db down'));
+    pollQuery.getPollById.mockRejectedValue(new Error('db down'));
 
     const res = await request(appWithPollRoute()).get('/api/polls/10');
 
@@ -110,7 +119,7 @@ describe('ошибка из handler доходит до клиента чере�
 
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({ code: 'INVALID_ID' });
-    expect(polls.getPollById).not.toHaveBeenCalled();
+    expect(pollQuery.getPollById).not.toHaveBeenCalled();
   });
 
   /* `errorHandler` распознаёт известные ошибки Prisma, и после перехода на
@@ -119,7 +128,7 @@ describe('ошибка из handler доходит до клиента чере�
     const prismaError = new Error('prisma failed');
     prismaError.name = 'PrismaClientKnownRequestError';
     (prismaError as Error & { code: string }).code = 'P2025';
-    polls.getPollById.mockRejectedValue(prismaError);
+    pollQuery.getPollById.mockRejectedValue(prismaError);
 
     const res = await request(appWithPollRoute()).get('/api/polls/10');
 
@@ -128,7 +137,7 @@ describe('ошибка из handler доходит до клиента чере�
   });
 
   it('ответ несёт traceId для сопоставления с логами', async () => {
-    polls.getPollById.mockRejectedValue(new Error('db down'));
+    pollQuery.getPollById.mockRejectedValue(new Error('db down'));
 
     const app = express();
     app.use((req, _res, next) => {

@@ -1,7 +1,7 @@
 import { BotContext } from '../../types/bot.types';
 import { UserService } from '../../services/user.service';
-import { PollService } from '../../services/poll.service';
 import { logger } from '../../utils/logger';
+import { PollQueryService } from '../../services/poll-query.service';
 
 /**
  * Команда /start - регистрация пользователя + обработка deep links
@@ -93,7 +93,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       }
 
       // Проверяем, что голосование существует и активно
-      const poll = await PollService.getPollById(pollId);
+      const poll = await PollQueryService.getPollById(pollId);
 
       if (!poll) {
         await ctx.reply(

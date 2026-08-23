@@ -14,6 +14,7 @@ import { GroupService } from '../../../services/group.service';
 import { PollService } from '../../../services/poll.service';
 import { mockRequest, mockResponse } from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 /* Сервисы создаются в конструкторе контроллера, поэтому мокаются как классы.
    Фабрика jest.mock поднимается выше объявлений — обращаться к заглушкам можно
@@ -43,10 +44,16 @@ jest.mock('../../../services/group.service', () => ({
 
 jest.mock('../../../services/poll.service', () => ({
   PollService: {
-    getPollGroupId: jest.fn(),
     checkQuorumAndComplete: jest.fn(),
   },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollGroupId: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
@@ -54,6 +61,7 @@ jest.mock('../../../utils/logger', () => ({
 
 const groupService = asServiceMock(GroupService);
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 
 const GROUP_ADMIN = { id: 1, isAdmin: false };
 const GLOBAL_ADMIN = { id: 9, isAdmin: true };
@@ -91,7 +99,7 @@ beforeEach(() => {
   };
 
   groupService.isUserGroupAdmin.mockResolvedValue(true);
-  pollService.getPollGroupId.mockResolvedValue(100);
+  pollQuery.getPollGroupId.mockResolvedValue(100);
   pollService.checkQuorumAndComplete.mockResolvedValue(false);
 
   controller = new AdminController();
@@ -571,7 +579,7 @@ describe('GET /api/admin/polls/:pollId/participants', () => {
       res
     );
 
-    expect(pollService.getPollGroupId).toHaveBeenCalledWith(12);
+    expect(pollQuery.getPollGroupId).toHaveBeenCalledWith(12);
     expect(groupService.isUserGroupAdmin).toHaveBeenCalledWith(1, 100);
     expect(adminStub.getPollParticipants).toHaveBeenCalledWith(12);
     expect(res.statusCode).toBe(200);
@@ -589,7 +597,7 @@ describe('GET /api/admin/polls/:pollId/participants', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.getPollParticipants(
@@ -716,7 +724,7 @@ describe('PUT /api/admin/polls/:pollId/participants/:userId', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.setPollParticipantStatus(

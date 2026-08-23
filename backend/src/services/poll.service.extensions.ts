@@ -14,6 +14,7 @@ import { createPollStartedMessage } from '../bot/keyboards/poll.keyboard';
 
 import { getBotInstance, getRequiredBotInstance } from '../bot/bot-instance';
 import { pluralForm } from '../utils/pluralize';
+import { PollQueryService } from './poll-query.service';
 
 /**
  * Создание голосования из WebApp с отправкой в группу
@@ -156,7 +157,7 @@ export async function createPollFromWebApp(params: {
     setTimeout(
       async () => {
         try {
-          const currentPoll = await PollService.getPollById(poll.id);
+          const currentPoll = await PollQueryService.getPollById(poll.id);
           if (currentPoll?.status === 'ACTIVE') {
             await autoCompletePoll(
               poll.id,
@@ -216,7 +217,7 @@ async function autoCompletePoll(
     const votes = await VoteService.getPollVotes(pollId);
 
     // Получаем информацию о голосовании для сообщения
-    const poll = await PollService.getPollById(pollId);
+    const poll = await PollQueryService.getPollById(pollId);
     if (!poll) {
       logger.error(`Poll ${pollId} not found`);
       return;

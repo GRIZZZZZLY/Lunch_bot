@@ -4,7 +4,6 @@ import { OrderCostsService } from '../../services/order-costs.service';
 import { ReminderService } from '../../services/reminder.service';
 import { BudgetQueryService } from '../../services/budget-query.service';
 import { PollFlowService } from '../../services/poll-flow.service';
-import { PollService } from '../../services/poll.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { respondIfInvalidInput } from '../middleware/validate';
@@ -18,6 +17,7 @@ import {
 } from '../schemas/budget';
 import { toNumber } from '../../utils/decimal';
 import { serializeBigInt as serializeData } from '../../utils/serialize';
+import { PollQueryService } from '../../services/poll-query.service';
 
 /**
  * Anti-IDOR: для read-эндпоинтов по pollId — допуск только участникам группы poll'а
@@ -35,7 +35,7 @@ async function requirePollAccess(
       .json({ success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' });
     return false;
   }
-  const pollGroupId = await PollService.getPollGroupId(pollId);
+  const pollGroupId = await PollQueryService.getPollGroupId(pollId);
   if (!pollGroupId) {
     res
       .status(404)

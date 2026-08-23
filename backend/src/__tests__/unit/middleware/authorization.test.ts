@@ -17,7 +17,7 @@ import {
 import { OrderCalculationService } from '../../../services/order-calculation.service';
 import { CategoryOrderService } from '../../../services/category-order.service';
 import { GroupService } from '../../../services/group.service';
-import { PollService } from '../../../services/poll.service';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../services/category-order.service');
 jest.mock('../../../services/group.service');
@@ -27,6 +27,13 @@ jest.mock('../../../services/poll.service');
 jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollGroupId: jest.fn(),
+  },
+}));
+
 
 const mkRes = () => {
   const res: any = {};
@@ -44,7 +51,7 @@ const mkReq = (overrides: Record<string, unknown> = {}) =>
     ...overrides,
   }) as never;
 
-const pollService = PollService as jest.Mocked<typeof PollService>;
+const pollQuery = PollQueryService as jest.Mocked<typeof PollQueryService>;
 const groupService = GroupService as jest.Mocked<typeof GroupService>;
 const categoryOrders = CategoryOrderService as jest.Mocked<
   typeof CategoryOrderService
@@ -57,7 +64,7 @@ beforeEach(() => jest.clearAllMocks());
 
 describe('requirePollAccess', () => {
   it('участник группы опроса проходит', async () => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     groupService.isUserGroupMember.mockResolvedValue(true);
     const res = mkRes();
     const next = jest.fn();
@@ -72,7 +79,7 @@ describe('requirePollAccess', () => {
   /* Тоже перенесено из controller-тестов: доступ даёт членство в группе, а не
      глобальный флаг администратора. */
   it('глобальный админ без членства в группе получает 403', async () => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     groupService.isUserGroupMember.mockResolvedValue(false);
     const res = mkRes();
     const next = jest.fn();
@@ -87,7 +94,7 @@ describe('requirePollAccess', () => {
   });
 
   it('человек из другой группы получает 403', async () => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     groupService.isUserGroupMember.mockResolvedValue(false);
     const res = mkRes();
     const next = jest.fn();
@@ -101,7 +108,7 @@ describe('requirePollAccess', () => {
   /* 404 сообщал бы постороннему, какие id опросов существуют, — то есть
      позволял бы перебором изучать чужие группы. */
   it('несуществующий опрос отвечает 403, а не 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mkRes();
     const next = jest.fn();
 
@@ -118,7 +125,7 @@ describe('requirePollAccess', () => {
     await requirePollAccess(mkReq({ params: { pollId: 'abc' } }), res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(pollService.getPollGroupId).not.toHaveBeenCalled();
+    expect(pollQuery.getPollGroupId).not.toHaveBeenCalled();
   });
 
   it('без аутентификации — 401 и запись в лог', async () => {
@@ -136,7 +143,7 @@ describe('requirePollAccess', () => {
   });
 
   it('сбой сервиса — 500, а не тихий пропуск', async () => {
-    pollService.getPollGroupId.mockRejectedValue(new Error('db down'));
+    pollQuery.getPollGroupId.mockRejectedValue(new Error('db down'));
     const res = mkRes();
     const next = jest.fn();
 
@@ -305,7 +312,7 @@ describe('requireCategoryOrderPollAccess', () => {
       id: 10,
       pollId: 5,
     } as never);
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     groupService.isUserGroupMember.mockResolvedValue(true);
     const next = jest.fn();
 
@@ -323,7 +330,7 @@ describe('requireCategoryOrderPollAccess', () => {
       id: 10,
       pollId: 5,
     } as never);
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     groupService.isUserGroupMember.mockResolvedValue(false);
     const res = mkRes();
     const next = jest.fn();
@@ -345,7 +352,7 @@ describe('requireCategoryOrderPollAccess', () => {
       id: 10,
       pollId: 5,
     } as never);
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     groupService.isUserGroupMember.mockResolvedValue(false);
     const res = mkRes();
 
@@ -407,7 +414,7 @@ describe('requireOrderItemGroupAdmin', () => {
   it('администратор группы позиции проходит', async () => {
     calculations.getCategoryOrderIdForItem.mockResolvedValue(10);
     categoryOrders.getCategoryOrder.mockResolvedValue({ pollId: 5 } as never);
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     groupService.isUserGroupAdmin.mockResolvedValue(true);
     const next = jest.fn();
 
@@ -427,7 +434,7 @@ describe('requireOrderItemGroupAdmin', () => {
   it('администратор другой группы получает 403, даже указав свой groupId', async () => {
     calculations.getCategoryOrderIdForItem.mockResolvedValue(10);
     categoryOrders.getCategoryOrder.mockResolvedValue({ pollId: 5 } as never);
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     groupService.isUserGroupAdmin.mockResolvedValue(false);
     const res = mkRes();
     const next = jest.fn();

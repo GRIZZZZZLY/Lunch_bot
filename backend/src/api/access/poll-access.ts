@@ -19,10 +19,10 @@ import type { Request } from 'express';
 
 import type { User } from '../../types/database.types';
 import { GroupService } from '../../services/group.service';
-import { PollService } from '../../services/poll.service';
 import { PollNotFoundError } from '../../services/poll.errors';
 import { requireAuthUserOrThrow } from '../middleware/require-auth-user';
 import { AccessDeniedError } from '../http.errors';
+import { PollQueryService } from '../../services/poll-query.service';
 
 /** Участник группы — иначе 401 или 403. */
 export async function assertGroupMember(
@@ -92,7 +92,7 @@ export async function assertPollMember(
 ): Promise<{ user: User; groupId: number }> {
   const user = requireAuthUserOrThrow(req);
 
-  const groupId = await PollService.getPollGroupId(pollId);
+  const groupId = await PollQueryService.getPollGroupId(pollId);
   if (!groupId) throw new PollNotFoundError();
 
   if (!(await GroupService.isUserGroupMember(user.id, groupId))) {
@@ -109,7 +109,7 @@ export async function assertPollAdmin(
 ): Promise<{ user: User; groupId: number }> {
   const user = requireAuthUserOrThrow(req);
 
-  const groupId = await PollService.getPollGroupId(pollId);
+  const groupId = await PollQueryService.getPollGroupId(pollId);
   if (!groupId) throw new PollNotFoundError();
 
   if (!(await GroupService.isUserGroupAdmin(user.id, groupId))) {

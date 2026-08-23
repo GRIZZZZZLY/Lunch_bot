@@ -15,6 +15,7 @@ import { notificationService } from '../../../services/notification.service';
 import { getBotInstance } from '../../../bot/bot-instance';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock, asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
@@ -23,6 +24,13 @@ jest.mock('../../../database/client', () =>
 jest.mock('../../../services/poll.service', () => ({
   PollService: { getActivePollInGroup: jest.fn(), createPoll: jest.fn() },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getActivePollInGroup: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/menu.service', () => ({
   MenuService: { getActiveMenuItems: jest.fn() },
@@ -43,6 +51,7 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const menuService = asServiceMock(MenuService);
 const notifications = asServiceMock(notificationService);
 const botInstance = asMock(getBotInstance);
@@ -91,7 +100,7 @@ beforeEach(() => {
   asMock(prismaMock.poll.update).mockResolvedValue({ id: 5 });
   asMock(prismaMock.groupMember.findFirst).mockResolvedValue({ id: 1 });
 
-  pollService.getActivePollInGroup.mockResolvedValue(null);
+  pollQuery.getActivePollInGroup.mockResolvedValue(null);
   pollService.createPoll.mockResolvedValue({ id: 5 });
   menuService.getActiveMenuItems.mockResolvedValue([{ id: 1 }, { id: 2 }]);
   notifications.botCanPostToGroup.mockResolvedValue(true);
@@ -418,7 +427,7 @@ describe('executeScheduledPoll', () => {
   });
 
   it('активное голосование в группе останавливает запуск', async () => {
-    pollService.getActivePollInGroup.mockResolvedValue({ id: 9 });
+    pollQuery.getActivePollInGroup.mockResolvedValue({ id: 9 });
 
     const result = await RecurringPollService.executeScheduledPoll(1);
 

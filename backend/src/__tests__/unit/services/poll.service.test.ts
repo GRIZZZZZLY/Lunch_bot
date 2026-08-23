@@ -25,6 +25,7 @@
 import { PollService } from '../../../services/poll.service';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock, asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
@@ -147,7 +148,16 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('createParticipantSnapshot', () => {
+/**
+ * Снимок ожидаемых участников снимается ВНУТРИ транзакции createPoll.
+ *
+ * Публичный `createParticipantSnapshot` был второй реализацией того же правила
+ * и в проде не вызывался ни разу: `createPoll` делает снимок сам, иначе
+ * голосование могло существовать без списка ожидаемых голосующих, и
+ * автозакрытие по кворуму не срабатывало бы. Метод удалён (задача 06), а
+ * правило проверяется там, где оно живёт.
+ */
+describe('снимок участников при создании голосования', () => {
   function members(rows: Array<{ id: number; active?: boolean; participates?: boolean }>) {
     asMock(prismaMock.groupMember.findMany).mockResolvedValue(
       rows.map(row => ({
@@ -157,10 +167,22 @@ describe('createParticipantSnapshot', () => {
     );
   }
 
+  function createdPoll(id = 5) {
+    asMock(prismaMock.poll.create).mockResolvedValue({
+      id,
+      groupId: 100,
+      status: 'ACTIVE',
+    });
+  }
+
+  beforeEach(() => {
+    createdPoll();
+  });
+
   it('участники группы попадают в снимок как EXPECTED', async () => {
     members([{ id: 1 }, { id: 2 }]);
 
-    await PollService.createParticipantSnapshot(5, 100);
+    await PollService.createPoll({ groupId: 100, createdBy: 1, duration: 30 });
 
     expect(asMock(prismaMock.pollParticipant.createMany)).toHaveBeenCalledWith({
       data: [
@@ -173,7 +195,7 @@ describe('createParticipantSnapshot', () => {
   it('отказавшийся от обедов помечается EXCLUDED, а не выбрасывается', async () => {
     members([{ id: 1 }, { id: 2, participates: false }]);
 
-    await PollService.createParticipantSnapshot(5, 100);
+    await PollService.createPoll({ groupId: 100, createdBy: 1, duration: 30 });
 
     const call = asMock(prismaMock.pollParticipant.createMany).mock
       .calls[0][0] as { data: Array<{ userId: number; status: string }> };
@@ -186,15 +208,15 @@ describe('createParticipantSnapshot', () => {
   it('удалённый пользователь в снимок не попадает', async () => {
     members([{ id: 1 }, { id: 2, active: false }]);
 
-    const call = (await PollService.createParticipantSnapshot(5, 100),
-    asMock(prismaMock.pollParticipant.createMany).mock.calls[0][0]) as {
-      data: Array<{ userId: number }>;
-    };
+    await PollService.createPoll({ groupId: 100, createdBy: 1, duration: 30 });
+
+    const call = asMock(prismaMock.pollParticipant.createMany).mock
+      .calls[0][0] as { data: Array<{ userId: number }> };
     expect(call.data.map(row => row.userId)).toEqual([1]);
   });
 
   it('снимок берётся только по активным членствам', async () => {
-    await PollService.createParticipantSnapshot(5, 100);
+    await PollService.createPoll({ groupId: 100, createdBy: 1, duration: 30 });
 
     expect(asMock(prismaMock.groupMember.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({ where: { groupId: 100, isActive: true } })
@@ -202,7 +224,7 @@ describe('createParticipantSnapshot', () => {
   });
 
   it('пустая группа не создаёт пустой снимок и предупреждает', async () => {
-    await PollService.createParticipantSnapshot(5, 100);
+    await PollService.createPoll({ groupId: 100, createdBy: 1, duration: 30 });
 
     expect(asMock(prismaMock.pollParticipant.createMany)).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
@@ -397,7 +419,7 @@ describe('getTodayCompletedPoll', () => {
       endedAt: NOW,
     });
 
-    await expect(PollService.getTodayCompletedPoll(100)).resolves.toMatchObject({
+    await expect(PollQueryService.getTodayCompletedPoll(100)).resolves.toMatchObject({
       id: 5,
     });
     expect(asMock(prismaMock.poll.findFirst)).toHaveBeenCalledWith(
@@ -416,7 +438,7 @@ describe('getTodayCompletedPoll', () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValue({ id: 4, endedAt: new Date('2026-08-01T12:00:00Z') });
 
-    await expect(PollService.getTodayCompletedPoll(100)).resolves.toMatchObject({
+    await expect(PollQueryService.getTodayCompletedPoll(100)).resolves.toMatchObject({
       id: 4,
     });
     // Второй запрос — без ограничения по дате.
@@ -427,13 +449,13 @@ describe('getTodayCompletedPoll', () => {
   });
 
   it('в группе без истории возвращается null', async () => {
-    await expect(PollService.getTodayCompletedPoll(100)).resolves.toBeNull();
+    await expect(PollQueryService.getTodayCompletedPoll(100)).resolves.toBeNull();
   });
 
   it('сбой чтения превращается в понятную ошибку', async () => {
     asMock(prismaMock.poll.findFirst).mockRejectedValue(new Error('db down'));
 
-    await expect(PollService.getTodayCompletedPoll(100)).rejects.toThrow(
+    await expect(PollQueryService.getTodayCompletedPoll(100)).rejects.toThrow(
       'Failed to get today completed poll'
     );
   });
@@ -443,17 +465,17 @@ describe('getPollGroupId', () => {
   it('возвращает группу голосования', async () => {
     asMock(prismaMock.poll.findUnique).mockResolvedValue({ groupId: 100 });
 
-    await expect(PollService.getPollGroupId(5)).resolves.toBe(100);
+    await expect(PollQueryService.getPollGroupId(5)).resolves.toBe(100);
   });
 
   it('для несуществующего голосования — null', async () => {
-    await expect(PollService.getPollGroupId(5)).resolves.toBeNull();
+    await expect(PollQueryService.getPollGroupId(5)).resolves.toBeNull();
   });
 
   it('сбой чтения превращается в понятную ошибку', async () => {
     asMock(prismaMock.poll.findUnique).mockRejectedValue(new Error('db down'));
 
-    await expect(PollService.getPollGroupId(5)).rejects.toThrow(
+    await expect(PollQueryService.getPollGroupId(5)).rejects.toThrow(
       'Failed to get poll'
     );
   });
@@ -959,7 +981,7 @@ describe('чтение через кэш', () => {
   it('активное голосование группы читается через кэш с ключом группы', async () => {
     asMock(prismaMock.poll.findFirst).mockResolvedValue({ id: 5 });
 
-    await expect(PollService.getActivePollInGroup(100)).resolves.toMatchObject({
+    await expect(PollQueryService.getActivePollInGroup(100)).resolves.toMatchObject({
       id: 5,
     });
     expect(cacheServiceMock.getOrSet).toHaveBeenCalledWith(
@@ -972,19 +994,19 @@ describe('чтение через кэш', () => {
   it('сбой кэша превращается в понятную ошибку', async () => {
     cacheServiceMock.getOrSet.mockRejectedValue(new Error('redis down'));
 
-    await expect(PollService.getActivePollInGroup(100)).rejects.toThrow(
+    await expect(PollQueryService.getActivePollInGroup(100)).rejects.toThrow(
       'Failed to get active poll'
     );
   });
 
   it('пустой список групп не идёт ни в кэш, ни в БД', async () => {
-    await expect(PollService.getActivePolls([])).resolves.toEqual([]);
+    await expect(PollQueryService.getActivePolls([])).resolves.toEqual([]);
 
     expect(cacheServiceMock.getOrSet).not.toHaveBeenCalled();
   });
 
   it('одна группа использует её собственный ключ кэша', async () => {
-    await PollService.getActivePolls([100]);
+    await PollQueryService.getActivePolls([100]);
 
     expect(cacheServiceMock.getOrSet).toHaveBeenCalledWith(
       'active_polls_group_100',
@@ -994,7 +1016,7 @@ describe('чтение через кэш', () => {
   });
 
   it('несколько групп дают устойчивый ключ независимо от порядка', async () => {
-    await PollService.getActivePolls([200, 100]);
+    await PollQueryService.getActivePolls([200, 100]);
 
     expect(cacheServiceMock.getOrSet).toHaveBeenCalledWith(
       'active_polls_100_200',
@@ -1004,7 +1026,7 @@ describe('чтение через кэш', () => {
   });
 
   it('без списка групп используется общий ключ', async () => {
-    await PollService.getActivePolls();
+    await PollQueryService.getActivePolls();
 
     expect(cacheServiceMock.getOrSet).toHaveBeenCalledWith(
       'active_polls',
@@ -1016,7 +1038,7 @@ describe('чтение через кэш', () => {
   it('сбой чтения активных голосований пробрасывается как есть', async () => {
     cacheServiceMock.getOrSet.mockRejectedValue(new Error('redis down'));
 
-    await expect(PollService.getActivePolls()).rejects.toThrow('redis down');
+    await expect(PollQueryService.getActivePolls()).rejects.toThrow('redis down');
   });
 });
 
@@ -1024,7 +1046,7 @@ describe('getPollById', () => {
   it('голосование отдаётся с группой, голосами и итогами', async () => {
     asMock(prismaMock.poll.findUnique).mockResolvedValue({ id: 5 });
 
-    await PollService.getPollById(5);
+    await PollQueryService.getPollById(5);
 
     const call = asMock(prismaMock.poll.findUnique).mock.calls[0][0] as {
       include: Record<string, unknown>;
@@ -1037,7 +1059,7 @@ describe('getPollById', () => {
   it('сбой чтения превращается в понятную ошибку', async () => {
     asMock(prismaMock.poll.findUnique).mockRejectedValue(new Error('db down'));
 
-    await expect(PollService.getPollById(5)).rejects.toThrow(
+    await expect(PollQueryService.getPollById(5)).rejects.toThrow(
       'Failed to get poll'
     );
   });

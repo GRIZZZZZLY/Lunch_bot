@@ -40,6 +40,7 @@ interface RecurringPollWithRelations extends RecurringPoll {
 type RunStatus = 'SUCCESS' | 'SKIPPED_CONFLICT' | 'FAILED_NO_MENU' | 'FAILED_BOT_REMOVED' | 'FAILED_ERROR';
 
 import { getBotInstance } from '../bot/bot-instance';
+import { PollQueryService } from './poll-query.service';
 
 export class RecurringPollService {
   private static async assertMenuItemsBelongToGroup(
@@ -378,7 +379,7 @@ export class RecurringPollService {
       }
 
       // 2. Проверка: нет ли активного голосования
-      const existingPoll = await PollService.getActivePollInGroup(recurring.groupId);
+      const existingPoll = await PollQueryService.getActivePollInGroup(recurring.groupId);
       if (existingPoll) {
         await this.updateRunStatus(recurringId, 'SKIPPED_CONFLICT', 'Active poll already exists');
         

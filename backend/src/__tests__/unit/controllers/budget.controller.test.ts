@@ -6,17 +6,20 @@
  */
 import { BudgetController } from '../../../api/controllers/budget.controller';
 import { BudgetService } from '../../../services/budget.service';
-import { PollService } from '../../../services/poll.service';
 import { GroupService } from '../../../services/group.service';
 import { mockRequest, mockResponse } from '../../helpers/http';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../services/budget.service', () => ({
   BudgetService: { undoConfirmation: jest.fn() },
 }));
 
-jest.mock('../../../services/poll.service', () => ({
-  PollService: { getPollGroupId: jest.fn() },
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollGroupId: jest.fn(),
+  },
 }));
+
 
 jest.mock('../../../services/group.service', () => ({
   GroupService: { isUserGroupMember: jest.fn() },
@@ -29,7 +32,7 @@ jest.mock('../../../utils/logger', () => ({
 const budgetStatics = BudgetService as unknown as {
   undoConfirmation: jest.Mock;
 };
-const pollService = PollService as jest.Mocked<typeof PollService>;
+const pollQuery = PollQueryService as jest.Mocked<typeof PollQueryService>;
 const groupService = GroupService as jest.Mocked<typeof GroupService>;
 
 /** Экземпляр сервиса, который контроллер получает через конструктор. */
@@ -100,7 +103,7 @@ beforeEach(() => {
     queryService as unknown as ConstructorParameters<typeof BudgetController>[3],
     pollFlowService
   );
-  pollService.getPollGroupId.mockResolvedValue(100);
+  pollQuery.getPollGroupId.mockResolvedValue(100);
   groupService.isUserGroupMember.mockResolvedValue(true);
 });
 
@@ -771,7 +774,7 @@ describe('GET /api/budget/poll-totals/:pollId', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.getPollTotals(

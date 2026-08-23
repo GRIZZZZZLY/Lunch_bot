@@ -17,6 +17,7 @@ import { getBotInstance } from '../../../bot/bot-instance';
 import { awardXP } from '../../helpers/gamification-mock';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock, asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
@@ -25,6 +26,13 @@ jest.mock('../../../database/client', () =>
 jest.mock('../../../services/poll.service', () => ({
   PollService: { getPollById: jest.fn() },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollById: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/user.service', () => ({
   UserService: { getUserByTelegramId: jest.fn() },
@@ -71,6 +79,7 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const userService = asServiceMock(UserService);
 const groupService = asServiceMock(GroupService);
 const pollFlowService = asServiceMock(PollFlowService);
@@ -120,7 +129,7 @@ beforeEach(() => {
     }),
   };
 
-  pollService.getPollById.mockResolvedValue(pollFixture());
+  pollQuery.getPollById.mockResolvedValue(pollFixture());
   groupService.getGroupSettings.mockResolvedValue({
     responsibleSelectionMode: 'volunteer_with_fallback',
     volunteerTimeoutMinutes: 3,
@@ -194,7 +203,7 @@ describe('startResponsibleSelection', () => {
   });
 
   it('без голосования ничего не создаётся', async () => {
-    pollService.getPollById.mockResolvedValue(null);
+    pollQuery.getPollById.mockResolvedValue(null);
 
     await ResponsibleService.startResponsibleSelection(5);
 
@@ -228,7 +237,7 @@ describe('sendVolunteerPrompt', () => {
   });
 
   it('без сообщения голосования отправляется новое и его id сохраняется', async () => {
-    pollService.getPollById.mockResolvedValue(pollFixture({ messageId: null }));
+    pollQuery.getPollById.mockResolvedValue(pollFixture({ messageId: null }));
 
     await ResponsibleService.sendVolunteerPrompt(5, selection);
 
@@ -240,7 +249,7 @@ describe('sendVolunteerPrompt', () => {
   });
 
   it('без результатов голосования подсказка не отправляется', async () => {
-    pollService.getPollById.mockResolvedValue(pollFixture({ result: null }));
+    pollQuery.getPollById.mockResolvedValue(pollFixture({ result: null }));
 
     await ResponsibleService.sendVolunteerPrompt(5, selection);
 

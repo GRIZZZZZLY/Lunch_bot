@@ -15,6 +15,7 @@ import { PollService } from '../../../services/poll.service';
 import { VoteService } from '../../../services/vote.service';
 import { asServiceMock } from '../../helpers/mocks';
 import type { BotContext } from '../../../types/bot.types';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../services/user.service', () => ({
   UserService: { upsertUser: jest.fn(), getUserByTelegramId: jest.fn() },
@@ -23,6 +24,13 @@ jest.mock('../../../services/user.service', () => ({
 jest.mock('../../../services/poll.service', () => ({
   PollService: { getPollById: jest.fn() },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollById: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/vote.service', () => ({
   VoteService: { getUserVotes: jest.fn() },
@@ -34,6 +42,7 @@ jest.mock('../../../utils/logger', () => ({
 
 const userService = asServiceMock(UserService);
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const voteService = asServiceMock(VoteService);
 
 const NOW = new Date('2026-08-03T12:00:00.000Z');
@@ -77,7 +86,7 @@ beforeEach(() => {
     createdAt: new Date(NOW.getTime() - 60_000),
   });
   userService.getUserByTelegramId.mockResolvedValue({ id: 1, isAdmin: false });
-  pollService.getPollById.mockResolvedValue({ id: 5, status: 'ACTIVE' });
+  pollQuery.getPollById.mockResolvedValue({ id: 5, status: 'ACTIVE' });
   voteService.getUserVotes.mockResolvedValue([]);
 });
 
@@ -223,7 +232,7 @@ describe('/start — deep links', () => {
   });
 
   it('голосования нет — так и говорим', async () => {
-    pollService.getPollById.mockResolvedValue(null);
+    pollQuery.getPollById.mockResolvedValue(null);
     const ctx = makeCtx({ match: 'vote_5' });
 
     await startCommand(ctx);
@@ -235,7 +244,7 @@ describe('/start — deep links', () => {
   });
 
   it('завершённое голосование не открывается', async () => {
-    pollService.getPollById.mockResolvedValue({ id: 5, status: 'COMPLETED' });
+    pollQuery.getPollById.mockResolvedValue({ id: 5, status: 'COMPLETED' });
     const ctx = makeCtx({ match: 'vote_5' });
 
     await startCommand(ctx);

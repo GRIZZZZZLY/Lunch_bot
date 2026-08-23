@@ -2,9 +2,9 @@ import type { Request, Response, NextFunction } from 'express';
 import { CategoryOrderService } from '../../services/category-order.service';
 import { GroupService } from '../../services/group.service';
 import { OrderCalculationService } from '../../services/order-calculation.service';
-import { PollService } from '../../services/poll.service';
 import { logger } from '../../utils/logger';
 import { getParam } from '../../utils/request-params';
+import { PollQueryService } from '../../services/poll-query.service';
 
 /**
  * Авторизация ресурсов опроса и категорийного заказа.
@@ -57,7 +57,7 @@ function numericParam(req: Request, key: string): number | null {
  *
  * Заменяет `category-order.controller.canAccessPoll`, где то же правило было
  * написано двумя запросами Prisma. Теперь оно собрано из уже существующих
- * `PollService.getPollGroupId` и `GroupService.isUserGroupMember` — а значит
+ * `PollQueryService.getPollGroupId` и `GroupService.isUserGroupMember` — а значит
  * проверка на `isActive` у членства ровно одна на весь проект.
  */
 export async function requirePollAccess(
@@ -84,7 +84,7 @@ export async function requirePollAccess(
       return;
     }
 
-    const groupId = await PollService.getPollGroupId(pollId);
+    const groupId = await PollQueryService.getPollGroupId(pollId);
     if (groupId === null) {
       /* Опроса нет. Отвечаем 403, а не 404, намеренно: 404 сообщал бы
          постороннему, что такого опроса не существует, то есть позволял бы
@@ -150,7 +150,7 @@ export async function requireCategoryOrderPollAccess(
       return;
     }
 
-    const groupId = await PollService.getPollGroupId(categoryOrder.pollId);
+    const groupId = await PollQueryService.getPollGroupId(categoryOrder.pollId);
     if (groupId === null || !(await GroupService.isUserGroupMember(user.id, groupId))) {
       denyForbidden(res, 'Access denied');
       return;
@@ -289,7 +289,7 @@ export async function requireOrderItemGroupAdmin(
     const categoryOrder =
       await CategoryOrderService.getCategoryOrder(categoryOrderId);
     const groupId =
-      categoryOrder && (await PollService.getPollGroupId(categoryOrder.pollId));
+      categoryOrder && (await PollQueryService.getPollGroupId(categoryOrder.pollId));
 
     if (!groupId || !(await GroupService.isUserGroupAdmin(user.id, groupId))) {
       denyForbidden(res, 'Group admin access required');

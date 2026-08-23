@@ -16,6 +16,7 @@ import { UserService } from '../../../services/user.service';
 import { getBotInstance } from '../../../bot/bot-instance';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock, asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
@@ -24,6 +25,13 @@ jest.mock('../../../database/client', () =>
 jest.mock('../../../services/poll.service', () => ({
   PollService: { getPollById: jest.fn() },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollById: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/user.service', () => ({
   UserService: { getPaymentInfo: jest.fn(), getUserById: jest.fn() },
@@ -36,6 +44,7 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const userService = asServiceMock(UserService);
 const botInstance = asMock(getBotInstance);
 
@@ -97,7 +106,7 @@ beforeEach(() => {
   editMessageText = jest.fn().mockResolvedValue(undefined);
   botInstance.mockReturnValue({ api: { sendMessage, editMessageText } });
 
-  pollService.getPollById.mockResolvedValue(pollFixture());
+  pollQuery.getPollById.mockResolvedValue(pollFixture());
   userService.getPaymentInfo.mockResolvedValue({
     paymentCard: '1234567890123456',
     paymentPhone: '+79990001122',
@@ -154,7 +163,7 @@ describe('createTransactionsFromPoll', () => {
   });
 
   it('без должников (все — ответственный) вставки нет', async () => {
-    pollService.getPollById.mockResolvedValue(
+    pollQuery.getPollById.mockResolvedValue(
       pollFixture({
         result: {
           rouletteData: JSON.stringify({
@@ -179,7 +188,7 @@ describe('createTransactionsFromPoll', () => {
   });
 
   it('без результатов голосования — понятная ошибка', async () => {
-    pollService.getPollById.mockResolvedValue(pollFixture({ result: null }));
+    pollQuery.getPollById.mockResolvedValue(pollFixture({ result: null }));
 
     await expect(
       PollFlowService.createTransactionsFromPoll(5, 2)
@@ -210,7 +219,7 @@ describe('calculateTotals', () => {
   });
 
   it('без результатов — ошибка', async () => {
-    pollService.getPollById.mockResolvedValue(pollFixture({ result: null }));
+    pollQuery.getPollById.mockResolvedValue(pollFixture({ result: null }));
 
     await expect(PollFlowService.calculateTotals(5, 2)).rejects.toThrow(
       'Poll result data not found'
@@ -330,7 +339,7 @@ describe('бота нет', () => {
     ).resolves.toBeUndefined();
 
     expect(userService.getPaymentInfo).not.toHaveBeenCalled();
-    expect(pollService.getPollById).not.toHaveBeenCalled();
+    expect(pollQuery.getPollById).not.toHaveBeenCalled();
   });
 
   it('каждое уведомление проверяет бота само', async () => {

@@ -51,6 +51,7 @@ import {
   withErrorHandler,
 } from '../../helpers/http';
 import { asMock, asServiceMock } from '../../helpers/mocks';
+import { PollQueryService } from '../../../services/poll-query.service';
 
 /* Классы ошибок НЕ мокаются: контроллер и `errorHandler` различают их по типу,
    а самодельная подделка в фабрике мока — это тест собственной выдумки.
@@ -62,18 +63,11 @@ jest.mock('../../../services/poll.service', () => {
   return {
     PollAlreadyActiveError: errors.PollAlreadyActiveError,
     PollService: {
-      getActivePolls: jest.fn(),
-      getPollHistory: jest.fn(),
-      getLastCompletedPoll: jest.fn(),
-      getTodayCompletedPoll: jest.fn(),
-      getPollById: jest.fn(),
-      getPollGroupId: jest.fn(),
       getPollResultByPollId: jest.fn(),
       getPollVoteBreakdown: jest.fn(),
       getPollStats: jest.fn(),
       getUserParticipationStats: jest.fn(),
       createPoll: jest.fn(),
-      getActivePollInGroup: jest.fn(),
       completePoll: jest.fn(),
       completePollMultiWinner: jest.fn(),
       cancelPoll: jest.fn(),
@@ -92,6 +86,19 @@ jest.mock('../../../services/vote.service', () => ({
     removeVote: jest.fn(),
   },
 }));
+
+jest.mock('../../../services/poll-query.service', () => ({
+  PollQueryService: {
+    getPollById: jest.fn(),
+    getPollGroupId: jest.fn(),
+    getTodayCompletedPoll: jest.fn(),
+    getActivePollInGroup: jest.fn(),
+    getActivePolls: jest.fn(),
+    getPollHistory: jest.fn(),
+    getLastCompletedPoll: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/menu.service', () => ({
   MenuService: {
@@ -133,6 +140,7 @@ jest.mock('../../../config/features', () => ({
 const controller = withErrorHandler(PollController);
 
 const pollService = asServiceMock(PollService);
+const pollQuery = asServiceMock(PollQueryService);
 const voteService = asServiceMock(VoteService);
 const menuService = asServiceMock(MenuService);
 const groupService = asServiceMock(GroupService);
@@ -168,7 +176,7 @@ beforeEach(() => {
 
 describe('GET /api/polls/active', () => {
   it('отдаёт активные голосования с вычисленным endTime', async () => {
-    pollService.getActivePolls.mockResolvedValue([
+    pollQuery.getActivePolls.mockResolvedValue([
       pollFixture({ id: 1, startedAt: NOW, duration: 30, endedAt: null }),
     ]);
     const req = adminRequest();
@@ -187,13 +195,13 @@ describe('GET /api/polls/active', () => {
      глобального администратора больше нет: выборка всегда сужается до групп
      самого человека, и у того, кто ни в одной группе не состоит, она пустая. */
   it('выборка сужается до групп человека, даже с прежним флагом', async () => {
-    pollService.getActivePolls.mockResolvedValue([]);
+    pollQuery.getActivePolls.mockResolvedValue([]);
     groupService.getGroupsForUser.mockResolvedValue([] as never);
 
     await controller.getActivePolls(adminRequest(), mockResponse());
 
     expect(groupService.getGroupsForUser).toHaveBeenCalled();
-    expect(pollService.getActivePolls).toHaveBeenCalledWith([]);
+    expect(pollQuery.getActivePolls).toHaveBeenCalledWith([]);
   });
 
   it('обычному пользователю показывает только его группы, без дублей', async () => {
@@ -202,11 +210,11 @@ describe('GET /api/polls/active', () => {
       { groupId: 7 },
       { groupId: 5 },
     ] as never);
-    pollService.getActivePolls.mockResolvedValue([]);
+    pollQuery.getActivePolls.mockResolvedValue([]);
 
     await controller.getActivePolls(memberRequest(), mockResponse());
 
-    expect(pollService.getActivePolls).toHaveBeenCalledWith([5, 7]);
+    expect(pollQuery.getActivePolls).toHaveBeenCalledWith([5, 7]);
   });
 
   it('без аутентификации отвечает 401 и не трогает сервис', async () => {
@@ -215,11 +223,11 @@ describe('GET /api/polls/active', () => {
     await controller.getActivePolls(mockRequest(), res);
 
     expect(res.statusCode).toBe(401);
-    expect(pollService.getActivePolls).not.toHaveBeenCalled();
+    expect(pollQuery.getActivePolls).not.toHaveBeenCalled();
   });
 
   it('падение сервиса превращается в 500', async () => {
-    pollService.getActivePolls.mockRejectedValue(new Error('db down'));
+    pollQuery.getActivePolls.mockRejectedValue(new Error('db down'));
     const res = mockResponse();
 
     await controller.getActivePolls(adminRequest(), res);
@@ -229,7 +237,7 @@ describe('GET /api/polls/active', () => {
   });
 
   it('endedAt имеет приоритет над расчётным временем', async () => {
-    pollService.getActivePolls.mockResolvedValue([
+    pollQuery.getActivePolls.mockResolvedValue([
       pollFixture({ endedAt: new Date('2026-08-02T12:05:00.000Z') }),
     ]);
     const res = mockResponse();
@@ -244,7 +252,7 @@ describe('GET /api/polls/active', () => {
 
 describe('GET /api/polls/history', () => {
   it('отдаёт страницу истории с признаком следующей страницы', async () => {
-    pollService.getPollHistory.mockResolvedValue({
+    pollQuery.getPollHistory.mockResolvedValue({
       polls: [pollFixture()],
       total: 50,
     });
@@ -262,7 +270,7 @@ describe('GET /api/polls/history', () => {
   });
 
   it('на последней странице hasNext=false', async () => {
-    pollService.getPollHistory.mockResolvedValue({
+    pollQuery.getPollHistory.mockResolvedValue({
       polls: [],
       total: 25,
     });
@@ -277,16 +285,16 @@ describe('GET /api/polls/history', () => {
   });
 
   it('по умолчанию limit=20, offset=0', async () => {
-    pollService.getPollHistory.mockResolvedValue({ polls: [], total: 0 });
+    pollQuery.getPollHistory.mockResolvedValue({ polls: [], total: 0 });
 
     await controller.getPollHistory(adminRequest(), mockResponse());
 
     // Список групп человека, а не undefined: обход по глобальному флагу удалён.
-    expect(pollService.getPollHistory).toHaveBeenCalledWith([], 20, 0);
+    expect(pollQuery.getPollHistory).toHaveBeenCalledWith([], 20, 0);
   });
 
   it('с groupId проверяет членство и запрашивает историю одной группы', async () => {
-    pollService.getPollHistory.mockResolvedValue({ polls: [], total: 0 });
+    pollQuery.getPollHistory.mockResolvedValue({ polls: [], total: 0 });
 
     await controller.getPollHistory(
       memberRequest({ query: { groupId: '42' } }),
@@ -294,7 +302,7 @@ describe('GET /api/polls/history', () => {
     );
 
     expect(groupService.isUserGroupMember).toHaveBeenCalledWith(1, 42);
-    expect(pollService.getPollHistory).toHaveBeenCalledWith(42, 20, 0);
+    expect(pollQuery.getPollHistory).toHaveBeenCalledWith(42, 20, 0);
   });
 
   it('не участнику группы отвечает 403 и не читает историю', async () => {
@@ -307,7 +315,7 @@ describe('GET /api/polls/history', () => {
     );
 
     expect(res.statusCode).toBe(403);
-    expect(pollService.getPollHistory).not.toHaveBeenCalled();
+    expect(pollQuery.getPollHistory).not.toHaveBeenCalled();
   });
 
   it('нечисловой groupId отклоняется как 400', async () => {
@@ -323,7 +331,7 @@ describe('GET /api/polls/history', () => {
   });
 
   it('ошибка сервиса — 500', async () => {
-    pollService.getPollHistory.mockRejectedValue(new Error('boom'));
+    pollQuery.getPollHistory.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getPollHistory(adminRequest(), res);
@@ -334,7 +342,7 @@ describe('GET /api/polls/history', () => {
 
 describe('GET /api/polls/last-completed', () => {
   it('отдаёт последнее завершённое голосование', async () => {
-    pollService.getLastCompletedPoll.mockResolvedValue(pollFixture({ id: 9 }));
+    pollQuery.getLastCompletedPoll.mockResolvedValue(pollFixture({ id: 9 }));
     const res = mockResponse();
 
     await controller.getLastCompleted(adminRequest(), res);
@@ -343,7 +351,7 @@ describe('GET /api/polls/last-completed', () => {
   });
 
   it('null, когда завершённых голосований нет', async () => {
-    pollService.getLastCompletedPoll.mockResolvedValue(null);
+    pollQuery.getLastCompletedPoll.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.getLastCompleted(adminRequest(), res);
@@ -352,14 +360,14 @@ describe('GET /api/polls/last-completed', () => {
   });
 
   it('groupId имеет приоритет над списком доступных групп', async () => {
-    pollService.getLastCompletedPoll.mockResolvedValue(null);
+    pollQuery.getLastCompletedPoll.mockResolvedValue(null);
 
     await controller.getLastCompleted(
       memberRequest({ query: { groupId: '3' } }),
       mockResponse()
     );
 
-    expect(pollService.getLastCompletedPoll).toHaveBeenCalledWith(3);
+    expect(pollQuery.getLastCompletedPoll).toHaveBeenCalledWith(3);
   });
 
   it('нечисловой groupId — 400', async () => {
@@ -383,11 +391,11 @@ describe('GET /api/polls/last-completed', () => {
     );
 
     expect(res.statusCode).toBe(403);
-    expect(pollService.getLastCompletedPoll).not.toHaveBeenCalled();
+    expect(pollQuery.getLastCompletedPoll).not.toHaveBeenCalled();
   });
 
   it('ошибка сервиса — 500', async () => {
-    pollService.getLastCompletedPoll.mockRejectedValue(new Error('boom'));
+    pollQuery.getLastCompletedPoll.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getLastCompleted(adminRequest(), res);
@@ -398,7 +406,7 @@ describe('GET /api/polls/last-completed', () => {
 
 describe('GET /api/polls/today-completed/:groupId', () => {
   it('отдаёт голосование, завершённое сегодня', async () => {
-    pollService.getTodayCompletedPoll.mockResolvedValue(pollFixture({ id: 4 }));
+    pollQuery.getTodayCompletedPoll.mockResolvedValue(pollFixture({ id: 4 }));
     const res = mockResponse();
 
     await controller.getTodayCompletedPoll(
@@ -433,7 +441,7 @@ describe('GET /api/polls/today-completed/:groupId', () => {
   });
 
   it('ошибка сервиса — 500', async () => {
-    pollService.getTodayCompletedPoll.mockRejectedValue(new Error('boom'));
+    pollQuery.getTodayCompletedPoll.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getTodayCompletedPoll(
@@ -447,7 +455,7 @@ describe('GET /api/polls/today-completed/:groupId', () => {
 
 describe('POST /api/polls/repeat/:id', () => {
   beforeEach(() => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     repeat.mockResolvedValue(pollFixture({ id: 11 }));
   });
 
@@ -481,7 +489,7 @@ describe('POST /api/polls/repeat/:id', () => {
   });
 
   it('голосования нет — 404 и сценарий не запускается', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.repeatPoll(adminRequest({ params: { id: '10' } }), res);
@@ -640,7 +648,7 @@ describe('статистика участия', () => {
 
 describe('GET /api/polls/:id', () => {
   it('отдаёт голосование с endTime', async () => {
-    pollService.getPollById.mockResolvedValue(pollFixture());
+    pollQuery.getPollById.mockResolvedValue(pollFixture());
     const res = mockResponse();
 
     await controller.getPollById(
@@ -654,7 +662,7 @@ describe('GET /api/polls/:id', () => {
   });
 
   it('фильтрует голоса по выбранным блюдам', async () => {
-    pollService.getPollById.mockResolvedValue(
+    pollQuery.getPollById.mockResolvedValue(
       pollFixture({
         selectedMenuItemIds: '[1,2]',
         votes: [
@@ -677,7 +685,7 @@ describe('GET /api/polls/:id', () => {
   });
 
   it('пустой список выбранных блюд не фильтрует голоса', async () => {
-    pollService.getPollById.mockResolvedValue(
+    pollQuery.getPollById.mockResolvedValue(
       pollFixture({ selectedMenuItemIds: '[]', votes: [{ id: 1, menuItemId: 9 }] })
     );
     const res = mockResponse();
@@ -693,7 +701,7 @@ describe('GET /api/polls/:id', () => {
   });
 
   it('битый JSON выбранных блюд не роняет ответ', async () => {
-    pollService.getPollById.mockResolvedValue(
+    pollQuery.getPollById.mockResolvedValue(
       pollFixture({ selectedMenuItemIds: 'не json', votes: [{ id: 1, menuItemId: 9 }] })
     );
     const res = mockResponse();
@@ -718,7 +726,7 @@ describe('GET /api/polls/:id', () => {
   });
 
   it('не найдено — 404', async () => {
-    pollService.getPollById.mockResolvedValue(null);
+    pollQuery.getPollById.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.getPollById(memberRequest({ params: { id: '10' } }), res);
@@ -727,7 +735,7 @@ describe('GET /api/polls/:id', () => {
   });
 
   it('не участник группы голосования — 403', async () => {
-    pollService.getPollById.mockResolvedValue(pollFixture());
+    pollQuery.getPollById.mockResolvedValue(pollFixture());
     groupService.isUserGroupMember.mockResolvedValue(false);
     const res = mockResponse();
 
@@ -737,7 +745,7 @@ describe('GET /api/polls/:id', () => {
   });
 
   it('ошибка сервиса — 500', async () => {
-    pollService.getPollById.mockRejectedValue(new Error('boom'));
+    pollQuery.getPollById.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getPollById(memberRequest({ params: { id: '10' } }), res);
@@ -748,7 +756,7 @@ describe('GET /api/polls/:id', () => {
 
 describe('GET /api/polls/:id/results', () => {
   beforeEach(() => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     pollService.getPollResultByPollId.mockResolvedValue({ id: 1 });
     pollService.getPollVoteBreakdown.mockResolvedValue([{ menuItemId: 1 }] as never);
   });
@@ -778,7 +786,7 @@ describe('GET /api/polls/:id/results', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.getPollResults(
@@ -831,7 +839,7 @@ describe('GET /api/polls/:id/results', () => {
 
 describe('GET /api/polls/:id/votes', () => {
   beforeEach(() => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     voteService.getPollVotes.mockResolvedValue([{ id: 1 }, { id: 2 }] as never);
     voteService.getVoteCountByMenuItem.mockResolvedValue([
       { menuItemId: 1, count: 2 },
@@ -863,7 +871,7 @@ describe('GET /api/polls/:id/votes', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.getPollVotes(
@@ -1119,7 +1127,7 @@ describe('POST /api/polls/create-from-webapp', () => {
 
 describe('GET /api/polls/active/:groupId', () => {
   it('отдаёт активное голосование группы', async () => {
-    pollService.getActivePollInGroup.mockResolvedValue(pollFixture({ id: 3 }));
+    pollQuery.getActivePollInGroup.mockResolvedValue(pollFixture({ id: 3 }));
     const res = mockResponse();
 
     await controller.getActivePollInGroup(
@@ -1131,7 +1139,7 @@ describe('GET /api/polls/active/:groupId', () => {
   });
 
   it('активного голосования нет — 404 с data: null', async () => {
-    pollService.getActivePollInGroup.mockResolvedValue(null);
+    pollQuery.getActivePollInGroup.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.getActivePollInGroup(
@@ -1167,7 +1175,7 @@ describe('GET /api/polls/active/:groupId', () => {
   });
 
   it('ошибка сервиса — 500', async () => {
-    pollService.getActivePollInGroup.mockRejectedValue(new Error('boom'));
+    pollQuery.getActivePollInGroup.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getActivePollInGroup(
@@ -1181,7 +1189,7 @@ describe('GET /api/polls/active/:groupId', () => {
 
 describe('PATCH /api/polls/:id/complete', () => {
   beforeEach(() => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     pollService.completePoll.mockResolvedValue({
       winnerMenuItemId: 1,
       totalVotes: 4,
@@ -1212,7 +1220,7 @@ describe('PATCH /api/polls/:id/complete', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.completePoll(adminRequest({ params: { id: '10' } }), res);
@@ -1261,7 +1269,7 @@ describe('PATCH /api/polls/:id/complete', () => {
 
 describe('PATCH /api/polls/:id/cancel', () => {
   beforeEach(() => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     pollService.cancelPoll.mockResolvedValue(pollFixture({ status: 'CANCELLED' }));
   });
 
@@ -1314,7 +1322,7 @@ describe('PATCH /api/polls/:id/cancel', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.cancelPoll(adminRequest({ params: { id: '10' } }), res);
@@ -1364,7 +1372,7 @@ describe('PATCH /api/polls/:id/cancel', () => {
 
 describe('POST /api/polls/:id/vote', () => {
   beforeEach(() => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     pollService.checkAutoComplete.mockResolvedValue(false);
     voteService.upsertVote.mockResolvedValue({
       id: 1,
@@ -1445,7 +1453,7 @@ describe('POST /api/polls/:id/vote', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.vote(
@@ -1502,7 +1510,7 @@ describe('POST /api/polls/:id/vote', () => {
 
 describe('POST /api/polls/:id/vote-multiple', () => {
   beforeEach(() => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     pollService.checkAutoComplete.mockResolvedValue(false);
     voteService.castVotes.mockResolvedValue([
       { id: 1, menuItemId: 1 },
@@ -1571,7 +1579,7 @@ describe('POST /api/polls/:id/vote-multiple', () => {
   });
 
   it('голосования нет — 404 по groupId', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.voteMultiple(
@@ -1681,7 +1689,7 @@ describe('POST /api/polls/:id/vote-multiple', () => {
 
 describe('DELETE /api/polls/:id/vote', () => {
   beforeEach(() => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     voteService.removeVote.mockResolvedValue(undefined);
   });
 
@@ -1709,7 +1717,7 @@ describe('DELETE /api/polls/:id/vote', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.removeVote(memberRequest({ params: { id: '10' } }), res);
@@ -1764,7 +1772,7 @@ describe('DELETE /api/polls/:id/vote', () => {
 
 describe('POST /api/polls/:id/roulette', () => {
   beforeEach(() => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     pollService.runRoulette.mockResolvedValue({
       responsibleUserId: 7,
     });
@@ -1794,7 +1802,7 @@ describe('POST /api/polls/:id/roulette', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.runRoulette(adminRequest({ params: { id: '10' } }), res);
@@ -1917,7 +1925,7 @@ describe('GET /api/polls/popular-items', () => {
 
 describe('PATCH /api/polls/:id/complete-multi', () => {
   beforeEach(() => {
-    pollService.getPollGroupId.mockResolvedValue(100);
+    pollQuery.getPollGroupId.mockResolvedValue(100);
     pollService.completePollMultiWinner.mockResolvedValue({
       id: 1,
       rouletteData: JSON.stringify({ winners: [{ menuItemId: 1 }] }),
@@ -1996,7 +2004,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
   });
 
   it('голосования нет — 404', async () => {
-    pollService.getPollGroupId.mockResolvedValue(null);
+    pollQuery.getPollGroupId.mockResolvedValue(null);
     const res = mockResponse();
 
     await controller.completePollMultiWinner(
