@@ -61,8 +61,8 @@ Repowise указывает точку входа: `backend/src/services/poll.se
 14 ─────────────────────► ✅ СДЕЛАНО (14.1 была предпосылкой 06/07)
 
 10.1 ✅ ──► 04 ✅ ──┐
-03 ✅ ──► 02 ✅ ──┼──► 05 ✅ ──► 06 ◄──► 07
-                 └──► 08  (параллельно 06/07)
+03 ✅ ──► 02 ✅ ──┼──► 05 ✅ ──► 06 ✅ ──► 07
+                 └──► 08  (параллельно 07)
 
 11 ──► 12
 16, 10 (остаток), 13, 14.2/14.3, 15.2/15.3 ──► в любой момент
@@ -81,7 +81,7 @@ Repowise указывает точку входа: `backend/src/services/poll.se
 | [11](11-frontend-test-coverage.md) | Покрытие фронтенда | **P1** | 0.5 дн + 2 дн | Единственный слой без обратной связи; блокер шага 1 — отсутствует `@vitest/coverage-v8` |
 | ~~[03](03-single-error-contract.md)~~ **✅ словарь; `next(err)` на 1 файле из 10** | Словарь кодов + `catch → next(err)` | P1 | 0.5 дн | **Урезано:** массовая замена 430 сайтов выброшена как работа без адресата |
 | ~~[05](05-poll-controller-god-file.md)~~ **✅ 1746 → 649 строк** | `poll.controller.ts` | P1 | 1.5–2 дн | Health 1.9, churn 99.5%, handler на 185 строк. Сделано: сценарии в `poll-creation.service.ts`, правила выбора в `VoteService.castVotes`, доступ в `api/access/poll-access.ts`, `catch` — ни одного. Попутно закрыты два дефекта (см. задачу) |
-| [06](06-poll-service-god-file.md) | `poll.service.ts` (1770) + `.extensions` | P1 | 2 дн | `fix_first` по Repowise, метод на 314 строк |
+| ~~[06](06-poll-service-god-file.md)~~ **✅ 1770 → 415 строк** | `poll.service.ts` + `.extensions` | P1 | 2 дн | `fix_first` по Repowise, метод на 314 строк. Сделано: чтения, статистика, завершение и подсчёт победителей — отдельными модулями; `extensions` удалён; цикла, из-за которого стояли динамические импорты, не существовало |
 | [07](07-notification-service-god-file.md) | `notification.service.ts` (1290) | P1 | 1–1.5 дн | Два несвязанных домена, 299 битых маркеров кодировки |
 | [08](08-category-order-controller.md) | `category-order.controller.ts` (958) | P1 | 1 дн | Худший health репозитория (1.9), Prisma в HTTP-слое |
 | ~~[09](09-remove-rudiments.md)~~ **✅ кроме knip-`exports`** | Рудименты и мёртвый код | P2 | 6–8 ч | 7 no-op шимов, deprecated-методы, 28 строк битой кодировки, knip структурно не ищет `exports` |
