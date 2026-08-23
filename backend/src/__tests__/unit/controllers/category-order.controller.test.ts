@@ -20,9 +20,17 @@ import { OrderCalculationService } from '../../../services/order-calculation.ser
 import { MultiCategoryResponsibleService } from '../../../services/multi-category-responsible.service';
 import { UserService } from '../../../services/user.service';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
-import { mockNext, mockRequest, mockResponse } from '../../helpers/http';
-import type { MockNext } from '../../helpers/http';
+import {
+  mockRequest,
+  mockResponse,
+  withErrorHandler,
+} from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
+import {
+  CalculationCompletedError,
+  CalculationNotReadyError,
+  CategoryOrderNotFoundError,
+} from '../../../services/category-order.errors';
 
 jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
@@ -65,6 +73,18 @@ jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
+/**
+ * Контроллер, соединённый с НАСТОЯЩИМ `errorHandler`, — как в приложении.
+ *
+ * Handler'ы больше не отвечают об ошибке сами и не принимают `next`: Express 5
+ * передаёт отказ асинхронного обработчика в цепочку ошибок, а ответ собирает
+ * `errorHandler` (задача 05 сделала то же в `poll.controller`). Обёртка ставит
+ * его на место `next`, поэтому утверждения про `res.statusCode` и `res.body`
+ * продолжают проверять то, что увидит клиент, — и каждый такой тест заодно
+ * стал тестом делегирования: подмена 409 на 500 падает сразу.
+ */
+const controller = withErrorHandler(CategoryOrderController);
+
 const categoryOrders = asServiceMock(CategoryOrderService);
 const calculations = asServiceMock(OrderCalculationService);
 const responsibles = asServiceMock(MultiCategoryResponsibleService);
@@ -78,11 +98,8 @@ const PARTICIPANT = { id: 2, isAdmin: false };
 const OUTSIDER = { id: 3, isAdmin: false };
 const GLOBAL_ADMIN = { id: 9, isAdmin: true };
 
-let next: MockNext;
-
 beforeEach(() => {
   resetPrismaMock();
-  next = mockNext();
   jest.clearAllMocks();
 
   // По умолчанию: ответственный — пользователь 1, участники — 1 и 2.
@@ -100,10 +117,9 @@ describe('GET /api/polls/:pollId/category-orders', () => {
   it('участник группы видит все категории голосования', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrdersForPoll(
+    await controller.getCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res,
-      next
+      res
     );
 
     expect(res.body).toMatchObject({ count: 1, data: [{ id: 1 }] });
@@ -112,10 +128,9 @@ describe('GET /api/polls/:pollId/category-orders', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrdersForPoll(
+    await controller.getCategoryOrdersForPoll(
       mockRequest({ params: { pollId: '12' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(401);
@@ -124,10 +139,9 @@ describe('GET /api/polls/:pollId/category-orders', () => {
   it('нечисловой pollId — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrdersForPoll(
+    await controller.getCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: 'нет' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
@@ -137,13 +151,13 @@ describe('GET /api/polls/:pollId/category-orders', () => {
     categoryOrders.getCategoryOrdersForPoll.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrdersForPoll(
+    await controller.getCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -164,10 +178,9 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
   it('оставляет только категории, где пользователь голосовал', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getMyCategoryOrdersForPoll(
+    await controller.getMyCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res,
-      next
+      res
     );
 
     expect(res.body).toMatchObject({ count: 1, data: [{ id: 1 }] });
@@ -177,10 +190,9 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
     categoryOrders.getParticipantsByCategoriesForPoll.mockResolvedValue(new Map());
     const res = mockResponse();
 
-    await CategoryOrderController.getMyCategoryOrdersForPoll(
+    await controller.getMyCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res,
-      next
+      res
     );
 
     expect(res.body).toMatchObject({ count: 0 });
@@ -189,10 +201,9 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getMyCategoryOrdersForPoll(
+    await controller.getMyCategoryOrdersForPoll(
       mockRequest({ params: { pollId: '12' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(401);
@@ -201,10 +212,9 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
   it('нечисловой pollId — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getMyCategoryOrdersForPoll(
+    await controller.getMyCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: 'нет' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
@@ -216,13 +226,13 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
     );
     const res = mockResponse();
 
-    await CategoryOrderController.getMyCategoryOrdersForPoll(
+    await controller.getMyCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -234,10 +244,9 @@ describe('GET /api/category-orders/:id', () => {
   it('ответственный видит категорию', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrder(
+    await controller.getCategoryOrder(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.body).toMatchObject({ data: { id: 1 } });
@@ -246,10 +255,9 @@ describe('GET /api/category-orders/:id', () => {
   it('участник категории видит категорию', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrder(
+    await controller.getCategoryOrder(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(200);
@@ -258,10 +266,9 @@ describe('GET /api/category-orders/:id', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrder(
+    await controller.getCategoryOrder(
       mockRequest({ params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(401);
@@ -270,10 +277,9 @@ describe('GET /api/category-orders/:id', () => {
   it('нечисловой id — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrder(
+    await controller.getCategoryOrder(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
@@ -283,10 +289,9 @@ describe('GET /api/category-orders/:id', () => {
     categoryOrders.getCategoryOrder.mockResolvedValue(null);
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrder(
+    await controller.getCategoryOrder(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(404);
@@ -296,13 +301,13 @@ describe('GET /api/category-orders/:id', () => {
     categoryOrders.getCategoryOrder.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrder(
+    await controller.getCategoryOrder(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -316,10 +321,9 @@ describe('POST /api/category-orders/:id/order-items', () => {
   it('ответственный вписывает позицию участнику, строки обрезаются', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.saveOrderItem(
+    await controller.saveOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body }),
-      res,
-      next
+      res
     );
 
     expect(calculations.saveOrderItem).toHaveBeenCalledWith({
@@ -334,14 +338,13 @@ describe('POST /api/category-orders/:id/order-items', () => {
   });
 
   it('пустые заметки не сохраняются', async () => {
-    await CategoryOrderController.saveOrderItem(
+    await controller.saveOrderItem(
       mockRequest({
         user: RESPONSIBLE,
         params: { id: '1' },
         body: { ...body, notes: '   ' },
       }),
-      mockResponse(),
-      next
+      mockResponse()
     );
 
     expect(calculations.saveOrderItem).toHaveBeenCalledWith(
@@ -352,10 +355,9 @@ describe('POST /api/category-orders/:id/order-items', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.saveOrderItem(
+    await controller.saveOrderItem(
       mockRequest({ params: { id: '1' }, body }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(401);
@@ -364,10 +366,9 @@ describe('POST /api/category-orders/:id/order-items', () => {
   it('нечисловой id — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.saveOrderItem(
+    await controller.saveOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' }, body }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
@@ -384,14 +385,13 @@ describe('POST /api/category-orders/:id/order-items', () => {
   ])('%s — 400 VALIDATION_ERROR', async (_label, override) => {
     const res = mockResponse();
 
-    await CategoryOrderController.saveOrderItem(
+    await controller.saveOrderItem(
       mockRequest({
         user: RESPONSIBLE,
         params: { id: '1' },
         body: { ...body, ...override },
       }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
@@ -399,27 +399,28 @@ describe('POST /api/category-orders/:id/order-items', () => {
     expect(calculations.saveOrderItem).not.toHaveBeenCalled();
   });
 
-  it('категории нет — 404', async () => {
-    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
+  /* Проверки «есть ли ответственный» здесь больше нет: тот же запрос делает
+     `requireCategoryOrderResponsible` на маршруте и отдаёт тот же 404. Тест
+     сторожит именно отсутствие дубля — иначе он вернётся при следующей правке. */
+  it('handler не повторяет запрос ответственного за маршрутом', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.saveOrderItem(
+    await controller.saveOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body }),
-      res,
-      next
+      res
     );
 
-    expect(res.statusCode).toBe(404);
+    expect(categoryOrders.getResponsibleUserId).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
   });
 
   it('позицию нельзя вписать тому, кто не участник категории — 403', async () => {
     categoryOrders.getParticipants.mockResolvedValue([1]);
     const res = mockResponse();
 
-    await CategoryOrderController.saveOrderItem(
+    await controller.saveOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(403);
@@ -428,17 +429,38 @@ describe('POST /api/category-orders/:id/order-items', () => {
     });
   });
 
+  /* Пустой список участников. Правило `participantIds.includes(userId)` при
+     пустом списке отказывает ВСЕМ, включая ответственного, — и это верно, но
+     нигде не было записано, а задача 08 требует закрепить: «участников нет»
+     не должно вырождаться в «пускаем любого». */
+  it('за категорию никто не голосовал — вписать позицию нельзя никому', async () => {
+    categoryOrders.getParticipants.mockResolvedValue([]);
+    const res = mockResponse();
+
+    await controller.saveOrderItem(
+      mockRequest({
+        user: RESPONSIBLE,
+        params: { id: '1' },
+        body: { ...body, userId: RESPONSIBLE.id },
+      }),
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(calculations.saveOrderItem).not.toHaveBeenCalled();
+  });
+
   it('ошибка сервиса — 500', async () => {
     calculations.saveOrderItem.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
-    await CategoryOrderController.saveOrderItem(
+    await controller.saveOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -451,10 +473,9 @@ describe('DELETE /api/order-items/:id', () => {
   it('ответственный удаляет позицию', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.deleteOrderItem(
+    await controller.deleteOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '7' } }),
-      res,
-      next
+      res
     );
 
     expect(calculations.deleteOrderItem).toHaveBeenCalledWith(7);
@@ -464,10 +485,9 @@ describe('DELETE /api/order-items/:id', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.deleteOrderItem(
+    await controller.deleteOrderItem(
       mockRequest({ params: { id: '7' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(401);
@@ -476,10 +496,9 @@ describe('DELETE /api/order-items/:id', () => {
   it('нечисловой id — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.deleteOrderItem(
+    await controller.deleteOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
@@ -489,10 +508,9 @@ describe('DELETE /api/order-items/:id', () => {
     calculations.getCategoryOrderIdForItem.mockResolvedValue(null);
     const res = mockResponse();
 
-    await CategoryOrderController.deleteOrderItem(
+    await controller.deleteOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '7' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(404);
@@ -502,10 +520,9 @@ describe('DELETE /api/order-items/:id', () => {
     categoryOrders.getResponsibleUserId.mockResolvedValue(null);
     const res = mockResponse();
 
-    await CategoryOrderController.deleteOrderItem(
+    await controller.deleteOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '7' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(404);
@@ -514,10 +531,9 @@ describe('DELETE /api/order-items/:id', () => {
   it('не ответственный — 403', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.deleteOrderItem(
+    await controller.deleteOrderItem(
       mockRequest({ user: PARTICIPANT, params: { id: '7' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(403);
@@ -528,13 +544,13 @@ describe('DELETE /api/order-items/:id', () => {
     calculations.deleteOrderItem.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
-    await CategoryOrderController.deleteOrderItem(
+    await controller.deleteOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '7' } }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -552,10 +568,9 @@ describe('GET /api/category-orders/:id/progress', () => {
   ])('%s видит прогресс', async (_label, user) => {
     const res = mockResponse();
 
-    await CategoryOrderController.getProgress(
+    await controller.getProgress(
       mockRequest({ user, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(200);
@@ -565,10 +580,9 @@ describe('GET /api/category-orders/:id/progress', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getProgress(
+    await controller.getProgress(
       mockRequest({ params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(401);
@@ -577,39 +591,66 @@ describe('GET /api/category-orders/:id/progress', () => {
   it('нечисловой id — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getProgress(
+    await controller.getProgress(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
   });
 
-  it('категории нет — 404', async () => {
+  /**
+   * ЗАКРЕПЛЁННЫЙ ДЕФЕКТ, а не контракт.
+   *
+   * Handler спрашивает `getResponsibleUserId` и отвечает 404 «категории нет»,
+   * когда ответственного НЕТ. Но у категории с двумя и более участниками
+   * ответственного нет до тех пор, пока кто-нибудь не откликнется
+   * (`selectionStatus: VOLUNTEER_OPEN`), а маршрут прогресса открыт участникам
+   * (`requireCategoryOrderParticipant`), а не только ответственному. То есть
+   * участник категории, за которую ещё никто не взялся, получает «не найдено»
+   * вместо прогресса.
+   *
+   * Тест перевёрнут в шаге «handler'ы перестают повторять проверку маршрута».
+   */
+  it('ответственный не выбран — участник всё равно видит прогресс', async () => {
     categoryOrders.getResponsibleUserId.mockResolvedValue(null);
     const res = mockResponse();
 
-    await CategoryOrderController.getProgress(
-      mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+    await controller.getProgress(
+      mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
+      res
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ data: { filled: 2 } });
+  });
+
+  /* Отсутствие самого заказа по-прежнему 404 — но теперь его отдаёт сервис
+     типизированной ошибкой, а не собственная проверка обработчика. */
+  it('заказа нет — 404 из сервиса', async () => {
+    calculations.getProgress.mockRejectedValue(new CategoryOrderNotFoundError());
+    const res = mockResponse();
+
+    await controller.getProgress(
+      mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
+      res
     );
 
     expect(res.statusCode).toBe(404);
+    expect(res.body).toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('ошибка сервиса — 500', async () => {
     calculations.getProgress.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
-    await CategoryOrderController.getProgress(
+    await controller.getProgress(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -623,10 +664,9 @@ describe('GET /api/category-orders/:id/participants', () => {
   it('ответственный получает список участников', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getParticipants(
+    await controller.getParticipants(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(users.getUsersByIds).toHaveBeenCalledWith([1, 2]);
@@ -648,10 +688,9 @@ describe('GET /api/category-orders/:id/participants', () => {
     ] as never);
     const res = mockResponse();
 
-    await CategoryOrderController.getParticipants(
+    await controller.getParticipants(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.body).toEqual(
@@ -664,10 +703,9 @@ describe('GET /api/category-orders/:id/participants', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getParticipants(
+    await controller.getParticipants(
       mockRequest({ params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(401);
@@ -676,39 +714,40 @@ describe('GET /api/category-orders/:id/participants', () => {
   it('нечисловой id — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getParticipants(
+    await controller.getParticipants(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
   });
 
-  it('категории нет — 404', async () => {
-    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
+  it('категории нет — 404 из сервиса, а не из повторной проверки', async () => {
+    categoryOrders.getParticipants.mockRejectedValue(
+      new CategoryOrderNotFoundError()
+    );
     const res = mockResponse();
 
-    await CategoryOrderController.getParticipants(
+    await controller.getParticipants(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(404);
+    expect(categoryOrders.getResponsibleUserId).not.toHaveBeenCalled();
   });
 
   it('ошибка базы — 500', async () => {
     users.getUsersByIds.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
-    await CategoryOrderController.getParticipants(
+    await controller.getParticipants(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -720,7 +759,7 @@ describe('POST /api/category-orders/:id/finalize', () => {
   it('ответственный закрывает расчёт и создаёт долги', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.finalizeCalculation(
+    await controller.finalizeCalculation(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
       res
     );
@@ -734,7 +773,7 @@ describe('POST /api/category-orders/:id/finalize', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.finalizeCalculation(
+    await controller.finalizeCalculation(
       mockRequest({ params: { id: '1' } }),
       res
     );
@@ -745,7 +784,7 @@ describe('POST /api/category-orders/:id/finalize', () => {
   it('нечисловой id — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.finalizeCalculation(
+    await controller.finalizeCalculation(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
       res
     );
@@ -753,11 +792,13 @@ describe('POST /api/category-orders/:id/finalize', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('категории нет — 404', async () => {
-    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
+  it('категории нет — 404 из сервиса', async () => {
+    calculations.finalizeCalculation.mockRejectedValue(
+      new CategoryOrderNotFoundError()
+    );
     const res = mockResponse();
 
-    await CategoryOrderController.finalizeCalculation(
+    await controller.finalizeCalculation(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
       res
     );
@@ -765,20 +806,42 @@ describe('POST /api/category-orders/:id/finalize', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('падение расчёта — 500 с отдельным кодом', async () => {
-    calculations.finalizeCalculation.mockRejectedValue(new Error('boom'));
+  /**
+   * Самый заметный из закрытых дефектов этого файла.
+   *
+   * Прежний `catch` отвечал `500 FINALIZATION_ERROR` на ЛЮБУЮ ошибку расчёта,
+   * поэтому «не у всех заполнены позиции» приходило ответственному как «Ошибка
+   * на сервере» — и он повторял попытку, не понимая, чего ждать. Теперь причина
+   * доходит своим статусом.
+   */
+  it('расчёт не готов — 409 с причиной, а не 500', async () => {
+    calculations.finalizeCalculation.mockRejectedValue(
+      new CalculationNotReadyError(
+        'Cannot finalize: order items must exactly match category participants'
+      )
+    );
     const res = mockResponse();
 
-    await CategoryOrderController.finalizeCalculation(
+    await controller.finalizeCalculation(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
       res
     );
 
-    /* finalizeCalculation НЕ переведён на next(err) намеренно: у него свой код
-       ответа `FINALIZATION_ERROR`, а не общий `INTERNAL_ERROR`. Перевод потерял
-       бы этот код — фронт по нему даёт свой текст. */
+    expect(res.statusCode).toBe(409);
+    expect(res.body).toMatchObject({ code: 'CALCULATION_NOT_READY' });
+  });
+
+  it('настоящий сбой расчёта остаётся 500', async () => {
+    calculations.finalizeCalculation.mockRejectedValue(new Error('boom'));
+    const res = mockResponse();
+
+    await controller.finalizeCalculation(
+      mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
+      res
+    );
+
     expect(res.statusCode).toBe(500);
-    expect(res.body).toMatchObject({ code: 'FINALIZATION_ERROR' });
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -794,10 +857,9 @@ describe('POST /api/category-orders/:id/volunteer', () => {
   it('участник берёт категорию на себя', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.volunteerForCategory(
+    await controller.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(responsibles.handleVolunteerForCategory).toHaveBeenCalledWith(
@@ -810,10 +872,9 @@ describe('POST /api/category-orders/:id/volunteer', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.volunteerForCategory(
+    await controller.volunteerForCategory(
       mockRequest({ params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(401);
@@ -822,36 +883,37 @@ describe('POST /api/category-orders/:id/volunteer', () => {
   it('нечисловой id — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.volunteerForCategory(
+    await controller.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: 'нет' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
   });
 
-  it('категории нет — 404', async () => {
-    categoryOrders.getCategoryOrder.mockResolvedValue(null);
+  /* Существование категории проверяет `requireCategoryOrderPollAccess` на
+     маршруте — тем же запросом и с тем же 404. Обработчик читал категорию
+     ДВАЖДЫ: один раз ради проверки, второй — для ответа. Остался только
+     второй. */
+  it('категория читается один раз — для ответа, а не для проверки', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.volunteerForCategory(
+    await controller.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
-    expect(res.statusCode).toBe(404);
+    expect(categoryOrders.getCategoryOrder).toHaveBeenCalledTimes(1);
+    expect(res.statusCode).toBe(200);
   });
 
   it('пользователя нет в базе — 404', async () => {
     users.getUserById.mockResolvedValue(null);
     const res = mockResponse();
 
-    await CategoryOrderController.volunteerForCategory(
+    await controller.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(404);
@@ -861,10 +923,9 @@ describe('POST /api/category-orders/:id/volunteer', () => {
     responsibles.handleVolunteerForCategory.mockResolvedValue(false);
     const res = mockResponse();
 
-    await CategoryOrderController.volunteerForCategory(
+    await controller.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(409);
@@ -875,13 +936,13 @@ describe('POST /api/category-orders/:id/volunteer', () => {
     responsibles.handleVolunteerForCategory.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
-    await CategoryOrderController.volunteerForCategory(
+    await controller.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -893,14 +954,13 @@ describe('PUT /api/category-orders/:id/costs', () => {
   it('ответственный задаёт доставку, сервис и чай', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.updateCosts(
+    await controller.updateCosts(
       mockRequest({
         user: RESPONSIBLE,
         params: { id: '1' },
         body: { deliveryCost: 300, serviceFee: 50, tip: 100, notes: '  спасибо ' },
       }),
-      res,
-      next
+      res
     );
 
     expect(categoryOrders.updateCosts).toHaveBeenCalledWith(1, {
@@ -917,14 +977,13 @@ describe('PUT /api/category-orders/:id/costs', () => {
     ['null', null],
     ['пустая строка', ''],
   ])('стоимость %s означает «не менять»', async (_label, value) => {
-    await CategoryOrderController.updateCosts(
+    await controller.updateCosts(
       mockRequest({
         user: RESPONSIBLE,
         params: { id: '1' },
         body: { deliveryCost: value, serviceFee: value, tip: value },
       }),
-      mockResponse(),
-      next
+      mockResponse()
     );
 
     expect(categoryOrders.updateCosts).toHaveBeenCalledWith(1, {
@@ -936,14 +995,13 @@ describe('PUT /api/category-orders/:id/costs', () => {
   });
 
   it('строковое число принимается', async () => {
-    await CategoryOrderController.updateCosts(
+    await controller.updateCosts(
       mockRequest({
         user: RESPONSIBLE,
         params: { id: '1' },
         body: { deliveryCost: '250' },
       }),
-      mockResponse(),
-      next
+      mockResponse()
     );
 
     expect(categoryOrders.updateCosts).toHaveBeenCalledWith(
@@ -959,14 +1017,13 @@ describe('PUT /api/category-orders/:id/costs', () => {
   ])('отрицательный %s — 400 с названием поля', async (_label, field) => {
     const res = mockResponse();
 
-    await CategoryOrderController.updateCosts(
+    await controller.updateCosts(
       mockRequest({
         user: RESPONSIBLE,
         params: { id: '1' },
         body: { [field]: -1 },
       }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
@@ -983,14 +1040,13 @@ describe('PUT /api/category-orders/:id/costs', () => {
   it('нечисловая стоимость — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.updateCosts(
+    await controller.updateCosts(
       mockRequest({
         user: RESPONSIBLE,
         params: { id: '1' },
         body: { tip: 'много' },
       }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
@@ -999,10 +1055,9 @@ describe('PUT /api/category-orders/:id/costs', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.updateCosts(
+    await controller.updateCosts(
       mockRequest({ params: { id: '1' }, body: {} }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(401);
@@ -1011,39 +1066,55 @@ describe('PUT /api/category-orders/:id/costs', () => {
   it('нечисловой id — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.updateCosts(
+    await controller.updateCosts(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' }, body: {} }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
   });
 
-  it('категории нет — 404', async () => {
-    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
+  it('категории нет — 404 из сервиса', async () => {
+    categoryOrders.updateCosts.mockRejectedValue(
+      new CategoryOrderNotFoundError()
+    );
     const res = mockResponse();
 
-    await CategoryOrderController.updateCosts(
+    await controller.updateCosts(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body: {} }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(404);
+    expect(categoryOrders.getResponsibleUserId).not.toHaveBeenCalled();
+  });
+
+  /* Закрытый расчёт — 409, а не 500: до типизации отказов сервиса ответственный
+     получал «Ошибка на сервере» и правил суммы повторно. */
+  it('расчёт уже закрыт — 409 CALCULATION_COMPLETED', async () => {
+    categoryOrders.updateCosts.mockRejectedValue(new CalculationCompletedError());
+    const res = mockResponse();
+
+    await controller.updateCosts(
+      mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body: {} }),
+      res
+    );
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body).toMatchObject({ code: 'CALCULATION_COMPLETED' });
   });
 
   it('ошибка сервиса — 500', async () => {
     categoryOrders.updateCosts.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
-    await CategoryOrderController.updateCosts(
+    await controller.updateCosts(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body: {} }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -1055,10 +1126,9 @@ describe('GET /api/order-items/:id/edit-history', () => {
   it('глобальный админ видит историю правок', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getEditHistory(
+    await controller.getEditHistory(
       mockRequest({ user: GLOBAL_ADMIN, params: { id: '7' } }),
-      res,
-      next
+      res
     );
 
     expect(calculations.getEditHistory).toHaveBeenCalledWith(7);
@@ -1073,35 +1143,33 @@ describe('GET /api/order-items/:id/edit-history', () => {
   it('аутентифицированный проходит: право даёт мидлвара маршрута', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getEditHistory(
+    await controller.getEditHistory(
       mockRequest({ user: RESPONSIBLE, params: { id: '7' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(200);
     expect(calculations.getEditHistory).toHaveBeenCalledWith(7);
   });
 
-  it('без аутентификации — 403', async () => {
+  /* 401, а не прежние 403 «Admin access required». Отсутствие аутентификации —
+     это 401 по определению, и ветка недостижима: до контроллера стоят
+     `telegramAuthMiddleware` и `requireOrderItemGroupAdmin`, оба отвечают 401
+     сами. Единственная смена кода ответа в этом файле, и она осознанная. */
+  it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getEditHistory(
-      mockRequest({ params: { id: '7' } }),
-      res,
-      next
-    );
+    await controller.getEditHistory(mockRequest({ params: { id: '7' } }), res);
 
-    expect(res.statusCode).toBe(403);
+    expect(res.statusCode).toBe(401);
   });
 
   it('нечисловой id — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getEditHistory(
+    await controller.getEditHistory(
       mockRequest({ user: GLOBAL_ADMIN, params: { id: 'нет' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
@@ -1111,13 +1179,13 @@ describe('GET /api/order-items/:id/edit-history', () => {
     calculations.getEditHistory.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
-    await CategoryOrderController.getEditHistory(
+    await controller.getEditHistory(
       mockRequest({ user: GLOBAL_ADMIN, params: { id: '7' } }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 
@@ -1129,10 +1197,9 @@ describe('GET /api/category-orders/:id/order-items', () => {
   it('ответственный видит позиции', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getOrderItems(
+    await controller.getOrderItems(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.body).toMatchObject({ count: 2 });
@@ -1141,10 +1208,9 @@ describe('GET /api/category-orders/:id/order-items', () => {
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getOrderItems(
+    await controller.getOrderItems(
       mockRequest({ params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(401);
@@ -1153,38 +1219,41 @@ describe('GET /api/category-orders/:id/order-items', () => {
   it('нечисловой id — 400', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getOrderItems(
+    await controller.getOrderItems(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
-      res,
-      next
+      res
     );
 
     expect(res.statusCode).toBe(400);
   });
 
-  it('категории нет — 404', async () => {
-    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
+  /* Существование заказа проверяет `requireCategoryOrderResponsible` на
+     маршруте. ИЗМЕНЕНИЕ ПОВЕДЕНИЯ: вызванный напрямую, минуя маршрут,
+     обработчик теперь отдаст пустой список вместо 404 — `getOrderItems`
+     фильтрует по `categoryOrderId` и на отсутствующем заказе просто ничего не
+     находит. Через маршрут ответ прежний: 404 отдаёт guard. */
+  it('handler не повторяет запрос ответственного за маршрутом', async () => {
     const res = mockResponse();
 
-    await CategoryOrderController.getOrderItems(
+    await controller.getOrderItems(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
-    expect(res.statusCode).toBe(404);
+    expect(categoryOrders.getResponsibleUserId).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
   });
 
   it('ошибка сервиса — 500', async () => {
     calculations.getOrderItems.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
-    await CategoryOrderController.getOrderItems(
+    await controller.getOrderItems(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res,
-      next
+      res
     );
 
-    expect(next.error).toBeInstanceOf(Error);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });

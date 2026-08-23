@@ -16,9 +16,8 @@
  * describe ниже.
  */
 import { CategoryOrderController } from '../../../api/controllers/category-order.controller';
-import { errorHandler } from '../../../api/middleware/error-handler';
 import { CategoryOrderService } from '../../../services/category-order.service';
-import { mockRequest, mockResponse } from '../../helpers/http';
+import { mockRequest, mockResponse, withErrorHandler } from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
 
 jest.mock('../../../database/client', () =>
@@ -38,6 +37,12 @@ jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
+/* Та же обёртка, что в тесте контроллера: она подставляет НАСТОЯЩИЙ
+   `errorHandler` на место `next`. Раньше здесь это делалось руками в каждом
+   тесте — теперь handler'ы вообще не принимают `next` (Express 5 передаёт отказ
+   в цепочку ошибок сам), и ручной вариант перестал компилироваться. */
+const controller = withErrorHandler(CategoryOrderController);
+
 const categoryOrders = asServiceMock(CategoryOrderService);
 
 const USER = { id: 1, isAdmin: false };
@@ -56,9 +61,7 @@ describe('ошибка из handler доходит до клиента тем ж
 
     /* Так же, как в приложении: handler отдаёт ошибку в next, а ответ
        формирует errorHandler, смонтированный после маршрутов. */
-    await CategoryOrderController.getCategoryOrdersForPoll(req, res, err =>
-      errorHandler(err as Error, req, res, jest.fn())
-    );
+    await controller.getCategoryOrdersForPoll(req, res);
 
     expect(res.statusCode).toBe(500);
     expect(res.body).toMatchObject({
@@ -78,9 +81,7 @@ describe('ошибка из handler доходит до клиента тем ж
     });
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrder(req, res, err =>
-      errorHandler(err as Error, req, res, jest.fn())
-    );
+    await controller.getCategoryOrder(req, res);
 
     expect(res.body).toMatchObject({ traceId: 'req-42' });
   });
@@ -92,9 +93,7 @@ describe('ошибка из handler доходит до клиента тем ж
     const req = mockRequest({ user: USER, params: { id: '1' } });
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrder(req, res, err =>
-      errorHandler(err as Error, req, res, jest.fn())
-    );
+    await controller.getCategoryOrder(req, res);
 
     expect(res.statusCode).toBe(404);
     expect(res.body).toMatchObject({ code: 'NOT_FOUND' });
@@ -104,9 +103,7 @@ describe('ошибка из handler доходит до клиента тем ж
     const req = mockRequest({ user: USER, params: { pollId: 'нет' } });
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrdersForPoll(req, res, err =>
-      errorHandler(err as Error, req, res, jest.fn())
-    );
+    await controller.getCategoryOrdersForPoll(req, res);
 
     expect(res.statusCode).toBe(400);
     expect(res.body).toMatchObject({ code: 'INVALID_POLL_ID' });
@@ -137,9 +134,7 @@ describe('известные ошибки Prisma получают свой ст�
     const req = mockRequest({ user: USER, params: { pollId: '12' } });
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrdersForPoll(req, res, err =>
-      errorHandler(err as Error, req, res, jest.fn())
-    );
+    await controller.getCategoryOrdersForPoll(req, res);
 
     expect(res.statusCode).toBe(409);
     expect(res.body).toMatchObject({ code: 'DUPLICATE_ENTRY' });
@@ -152,9 +147,7 @@ describe('известные ошибки Prisma получают свой ст�
     const req = mockRequest({ user: USER, params: { pollId: '12' } });
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrdersForPoll(req, res, err =>
-      errorHandler(err as Error, req, res, jest.fn())
-    );
+    await controller.getCategoryOrdersForPoll(req, res);
 
     expect(res.statusCode).toBe(404);
     expect(res.body).toMatchObject({ code: 'NOT_FOUND' });
@@ -167,9 +160,7 @@ describe('известные ошибки Prisma получают свой ст�
     const req = mockRequest({ user: USER, params: { pollId: '12' } });
     const res = mockResponse();
 
-    await CategoryOrderController.getCategoryOrdersForPoll(req, res, err =>
-      errorHandler(err as Error, req, res, jest.fn())
-    );
+    await controller.getCategoryOrdersForPoll(req, res);
 
     expect(res.statusCode).toBe(500);
     expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
