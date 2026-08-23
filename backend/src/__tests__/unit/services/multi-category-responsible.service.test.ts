@@ -8,6 +8,7 @@
  */
 import { MultiCategoryResponsibleService } from '../../../services/multi-category-responsible.service';
 import { CategoryOrderService } from '../../../services/category-order.service';
+import { ResponsibleAlreadyAssignedError } from '../../../services/category-order.errors';
 import { GroupService } from '../../../services/group.service';
 import { VoteService } from '../../../services/vote.service';
 import { getBotInstance } from '../../../bot/bot-instance';
@@ -292,8 +293,11 @@ describe('handleVolunteerForCategory', () => {
   });
 
   it('гонка на записи (категорию заняли) даёт false, а не исключение', async () => {
+    /* Настоящий класс, а не выдуманное сообщение: мок с текстом «Failed to set
+       responsible user» проверял бы формулировку, которой в сервисе больше нет
+       (она была подменой в `catch`, снятой вместе с типизацией отказов). */
     categoryOrders.setResponsible.mockRejectedValue(
-      new Error('Failed to set responsible user')
+      new ResponsibleAlreadyAssignedError()
     );
 
     await expect(

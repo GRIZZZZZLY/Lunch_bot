@@ -11,10 +11,75 @@ type CategorySelectionStatus =
   (typeof CategorySelectionStatus)[keyof typeof CategorySelectionStatus];
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
-import { toNumber } from '../utils/decimal';
+import { sumMoney, toDecimal } from '../utils/decimal';
+import { BaseError } from '../utils/error';
 import { eventBus } from './event-bus.service';
+import {
+  CalculationCompletedError,
+  CategoryOrderNotFoundError,
+  MAX_ADDITIONAL_COST,
+  OrderInputError,
+  ResponsibleAlreadyAssignedError,
+} from './category-order.errors';
 
-const MAX_ADDITIONAL_COST = 1_000_000;
+/**
+ * Пропустить наши доменные ошибки наружу как есть.
+ *
+ * Каждый `catch` ниже пишет исходную ошибку в журнал и подменяет её на
+ * «Failed to …». Для сбоя базы это правильно — наружу не должны уходить
+ * внутренности. Но под ту же подмену попадали и осмысленные отказы, которые
+ * этот же метод бросил парой строк выше: клиент получал 500 вместо 404/409.
+ * `BaseError` несёт статус и код сам, поэтому подменять его нечем и не нужно.
+ */
+function rethrowDomainError(error: unknown): void {
+  if (error instanceof BaseError) {
+    throw error;
+  }
+}
+
+/** Допустимая денежная сумма: конечное неотрицательное число не выше предела. */
+function isAllowedAmount(value: number): boolean {
+  return Number.isFinite(value) && value >= 0 && value <= MAX_ADDITIONAL_COST;
+}
+
+/**
+ * Итоги категорийного заказа: сумма позиций, сумма надбавок, общий итог.
+ *
+ * Один расчёт на два метода. До этого он был написан ДВАЖДЫ — в `updateCosts`
+ * (надбавки пришли из запроса, сумма позиций читается из базы) и в
+ * `recalculateTotals` (наоборот: позиции агрегируются, надбавки читаются), — и
+ * обе записи складывали деньги обычным `+` над `number`. Две копии одной
+ * формулы над колонками `Decimal` — это и есть та «complex conditional», из-за
+ * которой Repowise поставил файлу −2.2: разойтись им ничто не мешало, а
+ * расхождение видно не сразу, потому что на круглых суммах его нет.
+ *
+ * Возвращает `Decimal`, а НЕ `number`: приведение к `number` внутри расчёта и
+ * есть источник погрешности. В `number` результат переводит только тот, кто
+ * собирается его показать.
+ */
+function computeTotals(input: {
+  itemsAmount: Prisma.Decimal | number | null | undefined;
+  deliveryCost: Prisma.Decimal | number | null | undefined;
+  serviceFee: Prisma.Decimal | number | null | undefined;
+  tip: Prisma.Decimal | number | null | undefined;
+}): {
+  totalItemsAmount: Prisma.Decimal;
+  totalAdditionalCosts: Prisma.Decimal;
+  totalAmount: Prisma.Decimal;
+} {
+  const totalItemsAmount = toDecimal(input.itemsAmount);
+  const totalAdditionalCosts = sumMoney([
+    input.deliveryCost,
+    input.serviceFee,
+    input.tip,
+  ]);
+
+  return {
+    totalItemsAmount,
+    totalAdditionalCosts,
+    totalAmount: totalItemsAmount.plus(totalAdditionalCosts),
+  };
+}
 
 export interface CreateCategoryOrderData {
   pollId: number;
@@ -284,7 +349,7 @@ export class CategoryOrderService {
         },
       });
       if (updated.count !== 1) {
-        throw new Error('CategoryOrder is already assigned');
+        throw new ResponsibleAlreadyAssignedError();
       }
       const categoryOrder = await prisma.categoryOrder.findUniqueOrThrow({
         where: { id: categoryOrderId },
@@ -305,6 +370,7 @@ export class CategoryOrderService {
       return categoryOrder;
     } catch (error) {
       logger.error('Error setting responsible user:', error);
+      rethrowDomainError(error);
       throw new Error('Failed to set responsible user');
     }
   }
@@ -343,7 +409,7 @@ export class CategoryOrderService {
       });
 
       if (!categoryOrder) {
-        throw new Error('CategoryOrder not found');
+        throw new CategoryOrderNotFoundError();
       }
 
       // Get all votes for this poll and category
@@ -363,6 +429,7 @@ export class CategoryOrderService {
       return votes.map(v => v.userId);
     } catch (error) {
       logger.error('Error getting participants:', error);
+      rethrowDomainError(error);
       throw new Error('Failed to get participants');
     }
   }
@@ -463,23 +530,15 @@ export class CategoryOrderService {
     const serviceFee = costs.serviceFee ?? 0;
     const tip = costs.tip ?? 0;
 
-    if (
-      !Number.isFinite(deliveryCost) ||
-      !Number.isFinite(serviceFee) ||
-      !Number.isFinite(tip) ||
-      deliveryCost < 0 ||
-      serviceFee < 0 ||
-      tip < 0 ||
-      deliveryCost > MAX_ADDITIONAL_COST ||
-      serviceFee > MAX_ADDITIONAL_COST ||
-      tip > MAX_ADDITIONAL_COST
-    ) {
-      throw new Error('Costs must be non-negative numbers');
+    /* Девять условий в одном `if` (Repowise: «complex conditional, impact
+       −2.2») сведены к одной проверке на три поля. Смысл тот же, но проверка
+       названа один раз, а не размножена по полям — из-за размножения при
+       добавлении четвёртой суммы одно из трёх сравнений однажды забудут. */
+    if (![deliveryCost, serviceFee, tip].every(isAllowedAmount)) {
+      throw new OrderInputError('Costs must be non-negative numbers');
     }
 
     try {
-      const totalAdditionalCosts = deliveryCost + serviceFee + tip;
-
       // Get current total items amount
       const categoryOrder = await prisma.categoryOrder.findUnique({
         where: { id: categoryOrderId },
@@ -488,8 +547,12 @@ export class CategoryOrderService {
         },
       });
 
-      const totalItemsAmount = toNumber(categoryOrder?.totalItemsAmount);
-      const totalAmount = totalItemsAmount + totalAdditionalCosts;
+      const { totalAdditionalCosts, totalAmount } = computeTotals({
+        itemsAmount: categoryOrder?.totalItemsAmount,
+        deliveryCost,
+        serviceFee,
+        tip,
+      });
 
       const result = await prisma.categoryOrder.updateMany({
         where: {
@@ -507,7 +570,7 @@ export class CategoryOrderService {
         },
       });
       if (result.count !== 1) {
-        throw new Error('Completed category order costs cannot be changed');
+        throw new CalculationCompletedError();
       }
       const updated = await prisma.categoryOrder.findUniqueOrThrow({
         where: { id: categoryOrderId },
@@ -527,6 +590,7 @@ export class CategoryOrderService {
       return updated;
     } catch (error) {
       logger.error('Error updating costs:', error);
+      rethrowDomainError(error);
       throw new Error('Failed to update costs');
     }
   }
@@ -544,8 +608,6 @@ export class CategoryOrderService {
         },
       });
 
-      const totalItemsAmount = toNumber(result._sum.price);
-
       // Get current additional costs
       const categoryOrder = await prisma.categoryOrder.findUnique({
         where: { id: categoryOrderId },
@@ -557,15 +619,15 @@ export class CategoryOrderService {
       });
 
       if (!categoryOrder) {
-        throw new Error('CategoryOrder not found');
+        throw new CategoryOrderNotFoundError();
       }
 
-      const totalAdditionalCosts =
-        toNumber(categoryOrder.deliveryCost) +
-        toNumber(categoryOrder.serviceFee) +
-        toNumber(categoryOrder.tip);
-
-      const totalAmount = totalItemsAmount + totalAdditionalCosts;
+      const { totalItemsAmount, totalAmount } = computeTotals({
+        itemsAmount: result._sum.price,
+        deliveryCost: categoryOrder.deliveryCost,
+        serviceFee: categoryOrder.serviceFee,
+        tip: categoryOrder.tip,
+      });
 
       await prisma.categoryOrder.update({
         where: { id: categoryOrderId },
@@ -594,6 +656,7 @@ export class CategoryOrderService {
       }
     } catch (error) {
       logger.error('Error recalculating totals:', error);
+      rethrowDomainError(error);
       throw new Error('Failed to recalculate totals');
     }
   }

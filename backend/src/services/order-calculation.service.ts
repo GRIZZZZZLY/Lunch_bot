@@ -3,11 +3,32 @@ import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { CategoryOrderService } from './category-order.service';
 import { UserService } from './user.service';
-import { toNumber, formatCurrency, sumDecimals } from '../utils/decimal';
+import { toNumber, formatCurrency } from '../utils/decimal';
+import { BaseError } from '../utils/error';
 import { getBotInstance } from '../bot/bot-instance';
+import {
+  CalculationNotReadyError,
+  CalculationStateChangedError,
+  CategoryOrderNotFoundError,
+  MAX_ADDITIONAL_COST,
+  MAX_ORDER_ITEM_PRICE,
+  OrderInputError,
+  OrderItemNotFoundError,
+} from './category-order.errors';
 
-const MAX_ORDER_ITEM_PRICE = 1_000_000;
-const MAX_ADDITIONAL_COST = 1_000_000;
+/**
+ * Пропустить наши доменные ошибки наружу как есть.
+ *
+ * То же, что в `category-order.service.ts`, и по той же причине: `catch` каждого
+ * метода подменял «позиции нет» и «расчёт закрыть нельзя» на «Failed to …», а
+ * контроллер превращал это в 500. Осмысленный отказ и сбой базы должны
+ * различаться клиентом.
+ */
+function rethrowDomainError(error: unknown): void {
+  if (error instanceof BaseError) {
+    throw error;
+  }
+}
 
 export interface SaveOrderItemData {
   categoryOrderId: number;
@@ -42,7 +63,7 @@ export class OrderCalculationService {
     const notes = data.notes?.trim() || undefined;
 
     if (!itemName) {
-      throw new Error('Item name is required');
+      throw new OrderInputError('Item name is required');
     }
 
     if (
@@ -50,7 +71,7 @@ export class OrderCalculationService {
       data.price <= 0 ||
       data.price > MAX_ORDER_ITEM_PRICE
     ) {
-      throw new Error(
+      throw new OrderInputError(
         `Price must be between 0 and ${MAX_ORDER_ITEM_PRICE}`
       );
     }
@@ -114,6 +135,7 @@ export class OrderCalculationService {
       return orderItem;
     } catch (error) {
       logger.error('Error saving order item:', error);
+      rethrowDomainError(error);
       throw new Error('Failed to save order item');
     }
   }
@@ -129,7 +151,7 @@ export class OrderCalculationService {
       });
 
       if (!orderItem) {
-        throw new Error('OrderItem not found');
+        throw new OrderItemNotFoundError();
       }
 
       await prisma.orderItem.delete({
@@ -142,6 +164,7 @@ export class OrderCalculationService {
       logger.info(`Deleted OrderItem ${orderItemId}`);
     } catch (error) {
       logger.error('Error deleting order item:', error);
+      rethrowDomainError(error);
       throw new Error('Failed to delete order item');
     }
   }
@@ -166,7 +189,7 @@ export class OrderCalculationService {
       });
 
       if (!categoryOrder) {
-        throw new Error('CategoryOrder not found');
+        throw new CategoryOrderNotFoundError();
       }
 
       const total = categoryOrder.participantCount;
@@ -182,6 +205,7 @@ export class OrderCalculationService {
       };
     } catch (error) {
       logger.error('Error getting progress:', error);
+      rethrowDomainError(error);
       throw new Error('Failed to get progress');
     }
   }
@@ -210,7 +234,7 @@ export class OrderCalculationService {
       });
 
       if (!categoryOrder) {
-        throw new Error('CategoryOrder not found');
+        throw new CategoryOrderNotFoundError();
       }
 
       const participantIds = await CategoryOrderService.getParticipants(
@@ -234,14 +258,14 @@ export class OrderCalculationService {
         actualParticipantIds.size !== expectedParticipantIds.size ||
         categoryOrder.participantCount !== expectedParticipantIds.size
       ) {
-        throw new Error(
+        throw new CalculationNotReadyError(
           'Cannot finalize: order items must exactly match category participants'
         );
       }
 
       const responsibleUserId = categoryOrder.responsibleUserId;
       if (responsibleUserId === null) {
-        throw new Error('Responsible user is not selected yet');
+        throw new CalculationNotReadyError('Responsible user is not selected yet');
       }
       const participantCount = expectedParticipantIds.size;
       const orderItemsCount = categoryOrder.orderItems.length;
@@ -259,7 +283,7 @@ export class OrderCalculationService {
             value > MAX_ADDITIONAL_COST
         )
       ) {
-        throw new Error('Additional costs are outside the allowed range');
+        throw new OrderInputError('Additional costs are outside the allowed range');
       }
       if (
         categoryOrder.orderItems.some(orderItem => {
@@ -271,7 +295,7 @@ export class OrderCalculationService {
           );
         })
       ) {
-        throw new Error('Order item price is outside the allowed range');
+        throw new OrderInputError('Order item price is outside the allowed range');
       }
 
       // Calculate per-person additional costs
@@ -332,7 +356,7 @@ export class OrderCalculationService {
             select: { calculationStatus: true },
           });
           if (current?.calculationStatus !== 'COMPLETED') {
-            throw new Error('Category order state changed during finalization');
+            throw new CalculationStateChangedError();
           }
         }
 

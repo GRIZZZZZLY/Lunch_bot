@@ -1,5 +1,6 @@
 import { CategoryOrderService } from '../category-order.service';
 import { prisma } from '../../database/client';
+import { money } from '../../__tests__/helpers/money';
 
 jest.mock('../../database/client', () => ({
   prisma: {
@@ -61,8 +62,8 @@ describe('CategoryOrderService costs', () => {
         serviceFee: 10,
         tip: 0,
         notes: undefined,
-        totalAdditionalCosts: 100,
-        totalAmount: 650,
+        totalAdditionalCosts: money(100),
+        totalAmount: money(650),
         updatedAt: expect.any(Date),
       },
     });
@@ -88,3 +89,4 @@ describe('CategoryOrderService costs', () => {
     expect(prisma.categoryOrder.updateMany).not.toHaveBeenCalled();
   });
 });
+

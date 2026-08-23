@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 type Decimal = Prisma.Decimal;
 type JsonValue = Prisma.JsonValue;
@@ -34,6 +34,44 @@ export function toNumber(value: Decimal | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
   if (typeof value === 'number') return value;
   return Number(value.toString());
+}
+
+/**
+ * Приводит значение к `Decimal`, не проходя через `number`.
+ *
+ * Всё остальное в этом файле сводит деньги к `number` (`toNumber`, `sumDecimals`,
+ * `multiply`, `divide`) — и это правильно для ОТОБРАЖЕНИЯ, но не для расчёта.
+ * Колонки денег в схеме объявлены `Decimal`, а складывались они обычным `+` над
+ * double: `0.1 + 0.2` даёт `0.30000000000000004`, и именно это значение уходило
+ * в базу. На круглых суммах не видно, на копейках и делении на трёх участников —
+ * видно, причём в долге конкретного человека.
+ *
+ * `Decimal` строится из СТРОКИ, а не из числа: `new Decimal(0.1)` унаследовал бы
+ * ту же двоичную погрешность, от которой уходим.
+ */
+export function toDecimal(
+  value: Decimal | number | string | null | undefined
+): Decimal {
+  if (value === null || value === undefined) return new Prisma.Decimal(0);
+  if (typeof value === 'number') return new Prisma.Decimal(String(value));
+  return new Prisma.Decimal(value);
+}
+
+/**
+ * Сумма денежных величин без потери точности.
+ *
+ * Отличие от `sumDecimals` — в типе результата, и оно принципиальное: там
+ * `number`, то есть складывание идёт в double и результат уже испорчен. Здесь
+ * весь расчёт остаётся в `Decimal`, и в `number` его переводит только тот, кто
+ * собирается это ПОКАЗАТЬ.
+ */
+export function sumMoney(
+  values: (Decimal | number | string | null | undefined)[]
+): Decimal {
+  return values.reduce<Decimal>(
+    (total, value) => total.plus(toDecimal(value)),
+    new Prisma.Decimal(0)
+  );
 }
 
 /**

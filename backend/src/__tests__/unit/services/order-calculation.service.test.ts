@@ -350,9 +350,15 @@ describe('deleteOrderItem', () => {
   it('удаление несуществующей позиции не пересчитывает итоги', async () => {
     asMock(prismaMock.orderItem.findUnique).mockResolvedValue(null);
 
+    /* 404 со своим кодом вместо «Failed to delete order item»: до типизации
+       удаление уже удалённой позиции выглядело как сбой сервера. */
     await expect(
       OrderCalculationService.deleteOrderItem(100)
-    ).rejects.toThrow('Failed to delete order item');
+    ).rejects.toMatchObject({
+      message: 'OrderItem not found',
+      statusCode: 404,
+      code: 'ITEM_NOT_FOUND',
+    });
 
     expect(categoryOrders.recalculateTotals).not.toHaveBeenCalled();
   });
@@ -399,12 +405,14 @@ describe('getProgress', () => {
     expect((await OrderCalculationService.getProgress(10)).percentage).toBe(33);
   });
 
-  it('несуществующий заказ — ошибка', async () => {
+  it('несуществующий заказ — 404 NOT_FOUND', async () => {
     asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue(null);
 
-    await expect(OrderCalculationService.getProgress(10)).rejects.toThrow(
-      'Failed to get progress'
-    );
+    await expect(OrderCalculationService.getProgress(10)).rejects.toMatchObject({
+      message: 'CategoryOrder not found',
+      statusCode: 404,
+      code: 'NOT_FOUND',
+    });
   });
 });
 

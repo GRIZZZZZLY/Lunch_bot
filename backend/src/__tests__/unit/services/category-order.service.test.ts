@@ -11,6 +11,7 @@ import { CategoryOrderService } from '../../../services/category-order.service';
 import { eventBus } from '../../../services/event-bus.service';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock, asServiceMock } from '../../helpers/mocks';
+import { money } from '../../helpers/money';
 
 jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
@@ -252,9 +253,16 @@ describe('setResponsible', () => {
       count: 0,
     });
 
+    /* Причина отказа теперь доезжает до клиента: до типизации собственный
+       `catch` метода подменял её на «Failed to set responsible user», и второй
+       доброволец получал 500 вместо «категорию уже взяли». */
     await expect(
       CategoryOrderService.setResponsible(1, 7, 'volunteer')
-    ).rejects.toThrow('Failed to set responsible user');
+    ).rejects.toMatchObject({
+      message: 'CategoryOrder is already assigned',
+      statusCode: 409,
+      code: 'VOLUNTEER_NOT_AVAILABLE',
+    });
     expect(bus.emit).not.toHaveBeenCalled();
   });
 });
@@ -281,8 +289,26 @@ describe('getParticipants', () => {
     expect(participants).toEqual([1, 2]);
   });
 
-  it('категории нет — понятное исключение', async () => {
+  /* Название теста обещало «понятное исключение», а проверялось «Failed to get
+     participants» — то есть ровно НЕпонятное. Теперь обещание выполнено: 404 со
+     своим кодом. */
+  it('категории нет — 404 NOT_FOUND', async () => {
     asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue(null);
+
+    await expect(CategoryOrderService.getParticipants(1)).rejects.toMatchObject({
+      message: 'CategoryOrder not found',
+      statusCode: 404,
+      code: 'NOT_FOUND',
+    });
+  });
+
+  /* Сбой базы по-прежнему безымянный: наружу не должны уходить внутренности.
+     Проверяется здесь же, потому что «пропускаем свои ошибки» легко превратить
+     в «пропускаем любые». */
+  it('сбой базы остаётся безымянным', async () => {
+    asMock(prismaMock.categoryOrder.findUnique).mockRejectedValue(
+      new Error('connection terminated')
+    );
 
     await expect(CategoryOrderService.getParticipants(1)).rejects.toThrow(
       'Failed to get participants'
@@ -419,8 +445,8 @@ describe('updateCosts', () => {
         deliveryCost: 300,
         serviceFee: 50,
         tip: 100,
-        totalAdditionalCosts: 450,
-        totalAmount: 1450,
+        totalAdditionalCosts: money(450),
+        totalAmount: money(1450),
         notes: 'нал',
       }),
     });
@@ -440,14 +466,21 @@ describe('updateCosts', () => {
     );
   });
 
-  it('завершённый расчёт править нельзя', async () => {
+  it('завершённый расчёт править нельзя — 409, а не 500', async () => {
     asMock(prismaMock.categoryOrder.updateMany).mockResolvedValue({
       count: 0,
     });
 
+    /* Самый заметный из закрытых дефектов: ответственный, вернувшийся к уже
+       закрытому расчёту, получал «Ошибка на сервере» и повторял попытку, вместо
+       того чтобы узнать, что менять уже нечего. */
     await expect(
       CategoryOrderService.updateCosts(1, { tip: 100 })
-    ).rejects.toThrow('Failed to update costs');
+    ).rejects.toMatchObject({
+      message: 'Completed category order costs cannot be changed',
+      statusCode: 409,
+      code: 'CALCULATION_COMPLETED',
+    });
   });
 
   it.each([
@@ -462,6 +495,78 @@ describe('updateCosts', () => {
       'Costs must be non-negative numbers'
     );
     expect(prismaMock.categoryOrder.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('нулевые суммы записываются, а не считаются «не заданными»', async () => {
+    asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue({
+      totalItemsAmount: 500,
+    });
+
+    await CategoryOrderService.updateCosts(1, {
+      deliveryCost: 0,
+      serviceFee: 0,
+      tip: 0,
+    });
+
+    expect(prismaMock.categoryOrder.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          totalAdditionalCosts: money(0),
+          totalAmount: money(500),
+        }),
+      })
+    );
+  });
+
+  /**
+   * Копейки. Это тот дефект, из-за которого задача 08 отдельно предупреждает
+   * «не приводите к `number` внутри расчёта».
+   *
+   * Колонки денег объявлены `Decimal`, но складывались обычным `+` над double:
+   * `0.1 + 0.2` даёт `0.30000000000000004`, и это уходило в базу как есть.
+   * Дальше сумма делится на участников в `finalizeCalculation` — то есть
+   * погрешность попадала в долг конкретного человека, и заметна она только на
+   * суммах вида 333.33, а не на круглых.
+   */
+  it('копейки складываются без потери точности', async () => {
+    asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue({
+      totalItemsAmount: 0,
+    });
+
+    await CategoryOrderService.updateCosts(1, {
+      deliveryCost: 0.1,
+      serviceFee: 0.2,
+      tip: 0,
+    });
+
+    const written = (
+      prismaMock.categoryOrder.updateMany.mock.calls[0][0] as {
+        data: Record<string, unknown>;
+      }
+    ).data;
+
+    /* Именно `String`, а не сравнение с числом: `0.3 === 0.30000000000000004`
+       ложно, но `expect(x).toBe(0.3)` прошло бы и на испорченном значении,
+       если бы оно случайно совпало по представлению. Строка показывает, что
+       уходит в колонку. */
+    expect(String(written.totalAdditionalCosts)).toBe('0.3');
+    expect(String(written.totalAmount)).toBe('0.3');
+  });
+
+  it('копейки не теряются и при пересчёте с суммой позиций', async () => {
+    asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue({
+      totalItemsAmount: 333.33,
+    });
+
+    await CategoryOrderService.updateCosts(1, { deliveryCost: 0.07 });
+
+    const written = (
+      prismaMock.categoryOrder.updateMany.mock.calls[0][0] as {
+        data: Record<string, unknown>;
+      }
+    ).data;
+
+    expect(String(written.totalAmount)).toBe('333.4');
   });
 });
 
@@ -485,8 +590,8 @@ describe('recalculateTotals', () => {
     expect(prismaMock.categoryOrder.update).toHaveBeenCalledWith({
       where: { id: 1 },
       data: expect.objectContaining({
-        totalItemsAmount: 800,
-        totalAmount: 1250,
+        totalItemsAmount: money(800),
+        totalAmount: money(1250),
       }),
     });
   });
@@ -500,17 +605,21 @@ describe('recalculateTotals', () => {
 
     expect(prismaMock.categoryOrder.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ totalItemsAmount: 0 }),
+        data: expect.objectContaining({ totalItemsAmount: money(0) }),
       })
     );
   });
 
-  it('категории нет — понятное исключение', async () => {
+  it('категории нет — 404 NOT_FOUND', async () => {
     asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue(null);
 
-    await expect(CategoryOrderService.recalculateTotals(1)).rejects.toThrow(
-      'Failed to recalculate totals'
-    );
+    await expect(
+      CategoryOrderService.recalculateTotals(1)
+    ).rejects.toMatchObject({
+      message: 'CategoryOrder not found',
+      statusCode: 404,
+      code: 'NOT_FOUND',
+    });
   });
 
   it('о пересчёте сообщается событием', async () => {
