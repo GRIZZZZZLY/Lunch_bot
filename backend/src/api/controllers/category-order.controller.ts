@@ -2,45 +2,24 @@ import { Request, Response } from 'express';
 import { CategoryOrderService } from '../../services/category-order.service';
 import { OrderCalculationService } from '../../services/order-calculation.service';
 import { MultiCategoryResponsibleService } from '../../services/multi-category-responsible.service';
+import { UserService } from '../../services/user.service';
 import { logger } from '../../utils/logger';
-import { prisma } from '../../database/client';
+import { requireAuthUser } from '../middleware/require-auth-user';
 import { getParam } from '../../utils/request-params';
 import { toNumber } from '../../utils/decimal';
 import { serializeBigInt } from '../../utils/serialize';
 
 export class CategoryOrderController {
-  private static getAuthUser(
-    req: Request,
-    res: Response
-  ): { id: number } | null {
-    const user = req.user;
-    if (!user) {
-      res.status(401).json({
-        success: false,
-        error: 'Unauthorized',
-        code: 'UNAUTHORIZED',
-      });
-      return null;
-    }
-
-    /* Флаг администратора здесь больше не возвращается: ни одна проверка ниже
-       его не читает, а решение принимает роль в группе. */
-    return {
-      id: Number(user.id),
-    };
-  }
-
-  private static async getCategoryOrderResponsibleUserId(
-    categoryOrderId: number
-  ): Promise<number | null> {
-    const categoryOrder = await prisma.categoryOrder.findUnique({
-      where: { id: categoryOrderId },
-      select: { responsibleUserId: true },
-    });
-
-    return categoryOrder?.responsibleUserId ?? null;
-  }
-
+  /**
+   * Участник категории? Единственная проверка доступа, оставшаяся в
+   * контроллере, и остаётся она осознанно: в `saveOrderItem` она задаётся
+   * не про ВЫЗЫВАЮЩЕГО, а про пользователя из ТЕЛА запроса — «позицию можно
+   * создать только участнику категории». В middleware разобранного тела ещё
+   * нет, и перенос превратил бы проверку в её отсутствие.
+   *
+   * Авторизация вызывающего живёт на маршруте: см.
+   * `api/middleware/authorization.ts` и матрицу `tech_debt/04-auth-matrix.md`.
+   */
   private static async isUserParticipant(
     categoryOrderId: number,
     userId: number
@@ -49,32 +28,6 @@ export class CategoryOrderController {
       await CategoryOrderService.getParticipants(categoryOrderId);
 
     return participantUserIds.includes(userId);
-  }
-
-  private static async canAccessPoll(
-    pollId: number,
-    user: { id: number }
-  ): Promise<boolean> {
-    const poll = await prisma.poll.findUnique({
-      where: { id: pollId },
-      select: { groupId: true },
-    });
-
-    if (!poll) {
-      return false;
-    }
-
-    const membership = await prisma.groupMember.findUnique({
-      where: {
-        groupId_userId: {
-          groupId: poll.groupId,
-          userId: user.id,
-        },
-      },
-      select: { isActive: true },
-    });
-
-    return Boolean(membership?.isActive);
   }
 
   /**
@@ -86,7 +39,7 @@ export class CategoryOrderController {
     res: Response
   ): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const pollId = parseInt(getParam(req.params, 'pollId'), 10);
@@ -96,16 +49,6 @@ export class CategoryOrderController {
           success: false,
           error: 'Invalid pollId',
           code: 'INVALID_POLL_ID',
-        });
-        return;
-      }
-
-      const hasAccess = await CategoryOrderController.canAccessPoll(pollId, user);
-      if (!hasAccess) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied',
-          code: 'FORBIDDEN',
         });
         return;
       }
@@ -138,7 +81,7 @@ export class CategoryOrderController {
     res: Response
   ): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const pollId = parseInt(getParam(req.params, 'pollId'), 10);
@@ -148,16 +91,6 @@ export class CategoryOrderController {
           success: false,
           error: 'Invalid pollId',
           code: 'INVALID_POLL_ID',
-        });
-        return;
-      }
-
-      const hasAccess = await CategoryOrderController.canAccessPoll(pollId, user);
-      if (!hasAccess) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied',
-          code: 'FORBIDDEN',
         });
         return;
       }
@@ -199,7 +132,7 @@ export class CategoryOrderController {
    */
   static async getCategoryOrder(req: Request, res: Response): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const id = parseInt(getParam(req.params, 'id'), 10);
@@ -220,22 +153,6 @@ export class CategoryOrderController {
           success: false,
           error: 'Category order not found',
           code: 'NOT_FOUND',
-        });
-        return;
-      }
-
-      const responsibleUserId =
-        await CategoryOrderController.getCategoryOrderResponsibleUserId(id);
-      const isParticipant = await CategoryOrderController.isUserParticipant(
-        id,
-        user.id
-      );
-
-      if (responsibleUserId !== user.id && !isParticipant) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied',
-          code: 'FORBIDDEN',
         });
         return;
       }
@@ -261,7 +178,7 @@ export class CategoryOrderController {
    */
   static async saveOrderItem(req: Request, res: Response): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
@@ -309,7 +226,7 @@ export class CategoryOrderController {
       }
 
       const responsibleUserId =
-        await CategoryOrderController.getCategoryOrderResponsibleUserId(
+        await CategoryOrderService.getResponsibleUserId(
           categoryOrderId
         );
 
@@ -318,15 +235,6 @@ export class CategoryOrderController {
           success: false,
           error: 'Category order not found',
           code: 'NOT_FOUND',
-        });
-        return;
-      }
-
-      if (responsibleUserId !== user.id) {
-        res.status(403).json({
-          success: false,
-          error: 'Only responsible user can edit order items',
-          code: 'FORBIDDEN',
         });
         return;
       }
@@ -374,7 +282,7 @@ export class CategoryOrderController {
    */
   static async deleteOrderItem(req: Request, res: Response): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const id = parseInt(getParam(req.params, 'id'), 10);
@@ -388,12 +296,13 @@ export class CategoryOrderController {
         return;
       }
 
-      const orderItem = await prisma.orderItem.findUnique({
-        where: { id },
-        select: { categoryOrderId: true },
-      });
+      /* Здесь `:id` — ПОЗИЦИЯ, а право на удаление принадлежит ответственному
+         за ЗАКАЗ. Поэтому проверка доступа осталась в контроллере, а не уехала
+         на маршрут: middleware по `:id` проверял бы не ту сущность. */
+      const categoryOrderIdForItem =
+        await OrderCalculationService.getCategoryOrderIdForItem(id);
 
-      if (!orderItem) {
+      if (categoryOrderIdForItem === null) {
         res.status(404).json({
           success: false,
           error: 'Order item not found',
@@ -402,10 +311,9 @@ export class CategoryOrderController {
         return;
       }
 
-      const responsibleUserId =
-        await CategoryOrderController.getCategoryOrderResponsibleUserId(
-          orderItem.categoryOrderId
-        );
+      const responsibleUserId = await CategoryOrderService.getResponsibleUserId(
+        categoryOrderIdForItem
+      );
 
       if (!responsibleUserId) {
         res.status(404).json({
@@ -448,7 +356,7 @@ export class CategoryOrderController {
    */
   static async getProgress(req: Request, res: Response): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
@@ -463,7 +371,7 @@ export class CategoryOrderController {
       }
 
       const responsibleUserId =
-        await CategoryOrderController.getCategoryOrderResponsibleUserId(
+        await CategoryOrderService.getResponsibleUserId(
           categoryOrderId
         );
 
@@ -472,21 +380,6 @@ export class CategoryOrderController {
           success: false,
           error: 'Category order not found',
           code: 'NOT_FOUND',
-        });
-        return;
-      }
-
-      const isResponsible = responsibleUserId === user.id;
-      const isParticipant = await CategoryOrderController.isUserParticipant(
-        categoryOrderId,
-        user.id
-      );
-
-      if (!isResponsible && !isParticipant) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied',
-          code: 'FORBIDDEN',
         });
         return;
       }
@@ -515,7 +408,7 @@ export class CategoryOrderController {
    */
   static async getParticipants(req: Request, res: Response): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
@@ -530,7 +423,7 @@ export class CategoryOrderController {
       }
 
       const responsibleUserId =
-        await CategoryOrderController.getCategoryOrderResponsibleUserId(
+        await CategoryOrderService.getResponsibleUserId(
           categoryOrderId
         );
 
@@ -543,30 +436,20 @@ export class CategoryOrderController {
         return;
       }
 
-      if (responsibleUserId !== user.id) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied',
-          code: 'FORBIDDEN',
-        });
-        return;
-      }
-
       const participantUserIds =
         await CategoryOrderService.getParticipants(categoryOrderId);
 
-      // Fetch user details
-      const users = await prisma.user.findMany({
-        where: {
-          id: { in: participantUserIds },
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          username: true,
-        },
-      });
+      /* Поля перечислены здесь, а не отданы целиком из сервиса, намеренно:
+         `getUsersByIds` возвращает полную запись, включая telegramId, и
+         `data: users` отдал бы её наружу. Форма ответа при этом ровно та же,
+         что была у прежнего `select` в Prisma. */
+      const participants = await UserService.getUsersByIds(participantUserIds);
+      const users = participants.map(participant => ({
+        id: participant.id,
+        firstName: participant.firstName,
+        lastName: participant.lastName,
+        username: participant.username,
+      }));
 
       res.json({
         success: true,
@@ -589,7 +472,7 @@ export class CategoryOrderController {
    */
   static async finalizeCalculation(req: Request, res: Response): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
@@ -604,7 +487,7 @@ export class CategoryOrderController {
       }
 
       const responsibleUserId =
-        await CategoryOrderController.getCategoryOrderResponsibleUserId(
+        await CategoryOrderService.getResponsibleUserId(
           categoryOrderId
         );
 
@@ -613,15 +496,6 @@ export class CategoryOrderController {
           success: false,
           error: 'Category order not found',
           code: 'NOT_FOUND',
-        });
-        return;
-      }
-
-      if (responsibleUserId !== user.id) {
-        res.status(403).json({
-          success: false,
-          error: 'Only responsible user can finalize calculation',
-          code: 'FORBIDDEN',
         });
         return;
       }
@@ -654,7 +528,7 @@ export class CategoryOrderController {
     res: Response
   ): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
@@ -678,23 +552,11 @@ export class CategoryOrderController {
         return;
       }
 
-      const hasAccess = await CategoryOrderController.canAccessPoll(
-        categoryOrder.pollId,
-        user
-      );
-      if (!hasAccess) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied',
-          code: 'FORBIDDEN',
-        });
-        return;
-      }
-
-      const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { telegramId: true },
-      });
+      /* `req.user` уже несёт telegramId, но перечитываем из базы: запись могли
+         деактивировать между выдачей токена и этим запросом, а отклик на
+         категорию — действие от имени человека. Прежний код делал то же самое,
+         только напрямую через Prisma. */
+      const dbUser = await UserService.getUserById(user.id);
 
       if (!dbUser?.telegramId) {
         res.status(404).json({
@@ -745,7 +607,7 @@ export class CategoryOrderController {
    */
   static async updateCosts(req: Request, res: Response): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
@@ -761,7 +623,7 @@ export class CategoryOrderController {
       }
 
       const responsibleUserId =
-        await CategoryOrderController.getCategoryOrderResponsibleUserId(
+        await CategoryOrderService.getResponsibleUserId(
           categoryOrderId
         );
 
@@ -770,15 +632,6 @@ export class CategoryOrderController {
           success: false,
           error: 'Category order not found',
           code: 'NOT_FOUND',
-        });
-        return;
-      }
-
-      if (responsibleUserId !== user.id) {
-        res.status(403).json({
-          success: false,
-          error: 'Only responsible user can update costs',
-          code: 'FORBIDDEN',
         });
         return;
       }
@@ -863,7 +716,7 @@ export class CategoryOrderController {
         return;
       }
 
-      /* Право на историю правок проверяет groupAdminMiddleware на маршруте:
+      /* Право на историю правок проверяет requireGroupAdmin на маршруте:
          это данные группы, и решает роль в ней. Здесь остаётся только проверка
          аутентификации — дублировать авторизацию в контроллере значит рано или
          поздно развести две проверки. */
@@ -900,7 +753,7 @@ export class CategoryOrderController {
    */
   static async getOrderItems(req: Request, res: Response): Promise<void> {
     try {
-      const user = CategoryOrderController.getAuthUser(req, res);
+      const user = requireAuthUser(req, res);
       if (!user) return;
 
       const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
@@ -915,7 +768,7 @@ export class CategoryOrderController {
       }
 
       const responsibleUserId =
-        await CategoryOrderController.getCategoryOrderResponsibleUserId(
+        await CategoryOrderService.getResponsibleUserId(
           categoryOrderId
         );
 
@@ -924,15 +777,6 @@ export class CategoryOrderController {
           success: false,
           error: 'Category order not found',
           code: 'NOT_FOUND',
-        });
-        return;
-      }
-
-      if (responsibleUserId !== user.id) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied',
-          code: 'FORBIDDEN',
         });
         return;
       }

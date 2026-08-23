@@ -411,7 +411,7 @@ describe('approveSuggestion / rejectSuggestion', () => {
     expect(suggestions.approveSuggestion).toHaveBeenCalledWith(7, 9, 100);
   });
 
-  /* Отказ прав приходит из сервиса: маршрут закрыт groupAdminMiddleware, а
+  /* Отказ прав приходит из сервиса: маршрут закрыт requireGroupAdmin, а
      сервис проверяет ещё и состояние предложения. 403 не должен превратиться
      в 500 — иначе человек увидит «что-то сломалось» вместо причины. */
   it('отказ прав из сервиса отдаётся как 403', async () => {

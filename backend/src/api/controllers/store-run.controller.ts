@@ -36,10 +36,6 @@ const SetPriceSchema = z.object({
   status: z.enum(['BOUGHT', 'NOT_FOUND']),
 });
 
-function getAuthUser(req: Request): { id: number } | null {
-  return req.user ?? null;
-}
-
 function getIdParam(req: Request, key: string): number | null {
   const raw = req.params[key];
   const n = Number(raw);
@@ -70,7 +66,7 @@ export class StoreRunController {
    * POST /api/store-runs
    */
   async createStoreRun(req: Request, res: Response): Promise<void> {
-    const user = getAuthUser(req);
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -132,7 +128,7 @@ export class StoreRunController {
    * GET /api/store-runs/active
    */
   async getActiveForUser(req: Request, res: Response): Promise<void> {
-    const user = getAuthUser(req);
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -149,7 +145,7 @@ export class StoreRunController {
    * GET /api/store-runs/:id
    */
   async getStoreRun(req: Request, res: Response): Promise<void> {
-    const user = getAuthUser(req);
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -175,7 +171,7 @@ export class StoreRunController {
    * POST /api/store-runs/:id/items
    */
   async addItems(req: Request, res: Response): Promise<void> {
-    const user = getAuthUser(req);
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -202,7 +198,7 @@ export class StoreRunController {
    * PATCH /api/store-runs/:id/items/:itemId
    */
   async updateItem(req: Request, res: Response): Promise<void> {
-    const user = getAuthUser(req);
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -229,7 +225,7 @@ export class StoreRunController {
    * DELETE /api/store-runs/:id/items/:itemId
    */
   async deleteItem(req: Request, res: Response): Promise<void> {
-    const user = getAuthUser(req);
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -252,7 +248,7 @@ export class StoreRunController {
    * Initiator-only: set price and BOUGHT/NOT_FOUND status.
    */
   async setItemPrice(req: Request, res: Response): Promise<void> {
-    const user = getAuthUser(req);
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -284,7 +280,7 @@ export class StoreRunController {
    * POST /api/store-runs/:id/start-shopping
    */
   async startShopping(req: Request, res: Response): Promise<void> {
-    const user = getAuthUser(req);
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -313,7 +309,7 @@ export class StoreRunController {
    * POST /api/store-runs/:id/settle
    */
   async settle(req: Request, res: Response): Promise<void> {
-    const user = getAuthUser(req);
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -353,7 +349,7 @@ export class StoreRunController {
    * POST /api/store-runs/:id/cancel
    */
   async cancel(req: Request, res: Response): Promise<void> {
-    const user = getAuthUser(req);
+    const user = req.user;
     if (!user) {
       res.status(401).json({ error: 'Authentication required' });
       return;

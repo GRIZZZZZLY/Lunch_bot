@@ -406,7 +406,7 @@ describe('telegramAuthMiddleware — режим обхода подписи', ()
 
 /* Тесты adminMiddleware удалены вместе с самим middleware: понятия глобального
    администратора больше нет. Права на ресурс группы проверяет
-   groupAdminMiddleware (см. middleware/guards.test.ts), служебные операции —
+   requireGroupAdmin (см. middleware/guards.test.ts), служебные операции —
    operationsApiMiddleware там же. */
 
 describe('validateInitDataMiddleware', () => {

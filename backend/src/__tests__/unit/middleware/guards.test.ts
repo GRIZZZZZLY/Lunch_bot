@@ -10,7 +10,7 @@
  *  - avatarAccess: открыть аватар без подписи, с просроченной или чужой.
  */
 import crypto from 'crypto';
-import { groupAdminMiddleware } from '../../../api/middleware/group-admin';
+import { requireGroupAdmin } from '../../../api/middleware/group-admin';
 import { operationsApiMiddleware } from '../../../api/middleware/operations-api';
 import { avatarAccessMiddleware } from '../../../api/middleware/avatar-signature';
 import { metricsMiddleware } from '../../../api/middleware/metrics';
@@ -67,10 +67,10 @@ afterEach(() => {
   process.env = envBackup;
 });
 
-describe('groupAdminMiddleware', () => {
+describe('requireGroupAdmin', () => {
   async function call(req: MockRequest) {
     const { res, next } = ctx();
-    await groupAdminMiddleware(req, res, next);
+    await requireGroupAdmin(req, res, next);
     return { res, next, body: res.body as ErrorBody };
   }
 
@@ -162,7 +162,7 @@ describe('groupAdminMiddleware', () => {
     expect(res.statusCode).toBe(500);
     expect(body.code).toBe('INTERNAL_ERROR');
     expect(logger.error).toHaveBeenCalledWith(
-      'groupAdminMiddleware error:',
+      'requireGroupAdmin error:',
       expect.any(Error)
     );
   });

@@ -670,6 +670,25 @@ export class OrderCalculationService {
   /**
    * Get all OrderItems for a CategoryOrder
    */
+  /**
+   * Какому категорийному заказу принадлежит позиция; `null` — позиции нет.
+   *
+   * Нужно ровно для одного: `DELETE /api/order-items/:id` получает id ПОЗИЦИИ,
+   * а право на удаление принадлежит ответственному за ЗАКАЗ. Поэтому проверка
+   * доступа там не может стоять на маршруте — сначала надо выяснить заказ.
+   * Вынесено из контроллера, где стояло прямым обращением к Prisma.
+   */
+  static async getCategoryOrderIdForItem(
+    orderItemId: number
+  ): Promise<number | null> {
+    const orderItem = await prisma.orderItem.findUnique({
+      where: { id: orderItemId },
+      select: { categoryOrderId: true },
+    });
+
+    return orderItem?.categoryOrderId ?? null;
+  }
+
   static async getOrderItems(categoryOrderId: number): Promise<OrderItem[]> {
     try {
       const items = await prisma.orderItem.findMany({

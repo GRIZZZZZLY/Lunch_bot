@@ -254,7 +254,7 @@ export async function telegramAuthMiddleware(
 }
 
 /* adminMiddleware удалён вместе с понятием глобального администратора.
-   Права на ресурс группы даёт роль в group_members — groupAdminMiddleware;
+   Права на ресурс группы даёт роль в group_members — requireGroupAdmin;
    служебные операции уровня инстанса (метрики, сезоны, квесты) закрыты
    отдельным секретом — operationsApiMiddleware. Флаг users.is_admin больше не
    участвует ни в одной проверке доступа. */

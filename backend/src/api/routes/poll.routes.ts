@@ -1,7 +1,7 @@
 import express from 'express';
 import { pollController } from '../controllers/poll.controller';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
-import { groupAdminMiddleware } from '../middleware/group-admin';
+import { requireGroupAdminOverUser } from '../middleware/authorization';
 import {
   voteLimiter,
   pollCreationLimiter,
@@ -63,12 +63,14 @@ router.get(
  * Получение статистики конкретного пользователя (только админы)
  */
 /* Статистика чужого человека — данные его группы, поэтому право на неё даёт
-   роль в группе, а не бывший глобальный флаг. groupAdminMiddleware ждёт groupId
-   в params, query или теле запроса. */
+   роль в группе. Проверяются ДВА условия: вызывающий администрирует группу И
+   целевой пользователь в ней состоит. Прежний `requireGroupAdmin` проверял
+   только первое, поэтому администратор любой группы получал статистику любого
+   пользователя, прислав свой `groupId`. */
 router.get(
   '/user-stats/:userId',
   telegramAuthMiddleware,
-  groupAdminMiddleware,
+  requireGroupAdminOverUser,
   pollController.getUserStatsByUserId
 );
 

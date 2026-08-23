@@ -1,7 +1,7 @@
 import express from 'express';
 import { menuController } from '../controllers/menu.controller';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
-import { groupAdminMiddleware } from '../middleware/group-admin';
+import { requireGroupAdmin } from '../middleware/group-admin';
 import { validateMenuItemData } from '../middleware/validation';
 
 const router = express.Router();
@@ -60,7 +60,7 @@ router.post(
 router.put(
   '/:id',
   telegramAuthMiddleware,
-  groupAdminMiddleware,
+  requireGroupAdmin,
   validateMenuItemData,
   menuController.updateItem
 );
@@ -72,7 +72,7 @@ router.put(
 router.patch(
   '/:id/toggle',
   telegramAuthMiddleware,
-  groupAdminMiddleware,
+  requireGroupAdmin,
   menuController.toggleItemStatus
 );
 
@@ -83,7 +83,7 @@ router.patch(
 router.delete(
   '/:id',
   telegramAuthMiddleware,
-  groupAdminMiddleware,
+  requireGroupAdmin,
   menuController.deleteItem
 );
 
@@ -94,7 +94,7 @@ router.delete(
 router.patch(
   '/bulk-status',
   telegramAuthMiddleware,
-  groupAdminMiddleware,
+  requireGroupAdmin,
   menuController.bulkUpdateStatus
 );
 

@@ -310,6 +310,26 @@ export class CategoryOrderService {
   }
 
   /**
+   * Кто отвечает за категорию, или `null` если категории нет либо
+   * ответственный ещё не выбран.
+   *
+   * Вынесено из `category-order.controller.ts`, где стояло прямым обращением
+   * к Prisma: правило доступа «править может только ответственный» описывалось
+   * в HTTP-слое и не переиспользовалось. Различать «категории нет» и
+   * «ответственного нет» вызывающему не нужно — оба означают отказ.
+   */
+  static async getResponsibleUserId(
+    categoryOrderId: number
+  ): Promise<number | null> {
+    const categoryOrder = await prisma.categoryOrder.findUnique({
+      where: { id: categoryOrderId },
+      select: { responsibleUserId: true },
+    });
+
+    return categoryOrder?.responsibleUserId ?? null;
+  }
+
+  /**
    * Get participants (users who voted for this category)
    */
   static async getParticipants(categoryOrderId: number): Promise<number[]> {

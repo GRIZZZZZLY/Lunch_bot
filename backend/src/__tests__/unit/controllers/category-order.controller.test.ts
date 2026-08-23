@@ -1,14 +1,24 @@
 /**
  * Заказы по категориям: ответственный за категорию вбивает, кто что взял и по
- * какой цене, а из этого потом создаются долги. Права здесь тройные —
- * ответственный, участник категории и глобальный админ, и у каждого эндпоинта
- * своя комбинация. Тесты фиксируют именно её: право «смотреть» и право
- * «вписывать людям суммы» — не одно и то же.
+ * какой цене, а из этого потом создаются долги.
+ *
+ * Авторизация здесь больше НЕ проверяется — она уехала на маршруты
+ * (`api/middleware/authorization.ts`). Её тесты живут в двух местах:
+ * `__tests__/unit/middleware/authorization.test.ts` — сами правила, и
+ * `__tests__/unit/routes/category-order-authorization.test.ts` — то, что нужный
+ * guard действительно стоит в цепочке нужного маршрута. Второе не менее важно
+ * первого: handler, вызванный напрямую (как в этом файле), никакой авторизации
+ * не делает, и без теста на проводку новый эндпоинт без guard'а прошёл бы всё.
+ *
+ * Единственное исключение — `DELETE /api/order-items/:id`: там `:id` это
+ * ПОЗИЦИЯ, а право принадлежит ответственному за ЗАКАЗ, который выясняется
+ * только после запроса. Эта проверка осталась в контроллере, и её тест — тоже.
  */
 import { CategoryOrderController } from '../../../api/controllers/category-order.controller';
 import { CategoryOrderService } from '../../../services/category-order.service';
 import { OrderCalculationService } from '../../../services/order-calculation.service';
 import { MultiCategoryResponsibleService } from '../../../services/multi-category-responsible.service';
+import { UserService } from '../../../services/user.service';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { mockRequest, mockResponse } from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
@@ -23,6 +33,7 @@ jest.mock('../../../services/category-order.service', () => ({
     getParticipantsByCategoriesForPoll: jest.fn(),
     getCategoryOrder: jest.fn(),
     getParticipants: jest.fn(),
+    getResponsibleUserId: jest.fn(),
     updateCosts: jest.fn(),
   },
 }));
@@ -35,6 +46,7 @@ jest.mock('../../../services/order-calculation.service', () => ({
     finalizeCalculation: jest.fn(),
     getEditHistory: jest.fn(),
     getOrderItems: jest.fn(),
+    getCategoryOrderIdForItem: jest.fn(),
   },
 }));
 
@@ -44,6 +56,10 @@ jest.mock('../../../services/multi-category-responsible.service', () => ({
   },
 }));
 
+jest.mock('../../../services/user.service', () => ({
+  UserService: { getUsersByIds: jest.fn(), getUserById: jest.fn() },
+}));
+
 jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
@@ -51,6 +67,7 @@ jest.mock('../../../utils/logger', () => ({
 const categoryOrders = asServiceMock(CategoryOrderService);
 const calculations = asServiceMock(OrderCalculationService);
 const responsibles = asServiceMock(MultiCategoryResponsibleService);
+const users = asServiceMock(UserService);
 
 /** Ответственный за категорию. */
 const RESPONSIBLE = { id: 1, isAdmin: false };
@@ -65,12 +82,8 @@ beforeEach(() => {
   jest.clearAllMocks();
 
   // По умолчанию: ответственный — пользователь 1, участники — 1 и 2.
-  prismaMock.categoryOrder.findUnique.mockResolvedValue({
-    responsibleUserId: 1,
-  } as never);
+  categoryOrders.getResponsibleUserId.mockResolvedValue(1);
   categoryOrders.getParticipants.mockResolvedValue([1, 2]);
-  prismaMock.poll.findUnique.mockResolvedValue({ groupId: 100 } as never);
-  prismaMock.groupMember.findUnique.mockResolvedValue({ isActive: true } as never);
 });
 
 describe('GET /api/polls/:pollId/category-orders', () => {
@@ -111,44 +124,6 @@ describe('GET /api/polls/:pollId/category-orders', () => {
     );
 
     expect(res.statusCode).toBe(400);
-  });
-
-  it('голосования нет — 403 (существование чужого опроса не раскрываем)', async () => {
-    prismaMock.poll.findUnique.mockResolvedValue(null);
-    const res = mockResponse();
-
-    await CategoryOrderController.getCategoryOrdersForPoll(
-      mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
-  it('неактивное членство доступа не даёт', async () => {
-    prismaMock.groupMember.findUnique.mockResolvedValue({
-      isActive: false,
-    } as never);
-    const res = mockResponse();
-
-    await CategoryOrderController.getCategoryOrdersForPoll(
-      mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
-  it('без членства в группе — 403, кем бы человек ни был', async () => {
-    prismaMock.groupMember.findUnique.mockResolvedValue(null);
-    const res = mockResponse();
-
-    await CategoryOrderController.getCategoryOrdersForPoll(
-      mockRequest({ user: GLOBAL_ADMIN, params: { pollId: '12' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
   });
 
   it('ошибка сервиса — 500', async () => {
@@ -223,18 +198,6 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('нет доступа к голосованию — 403', async () => {
-    prismaMock.groupMember.findUnique.mockResolvedValue(null);
-    const res = mockResponse();
-
-    await CategoryOrderController.getMyCategoryOrdersForPoll(
-      mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
   it('ошибка сервиса — 500', async () => {
     categoryOrders.getParticipantsByCategoriesForPoll.mockRejectedValue(
       new Error('boom')
@@ -275,28 +238,6 @@ describe('GET /api/category-orders/:id', () => {
     );
 
     expect(res.statusCode).toBe(200);
-  });
-
-  it('посторонний — 403', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.getCategoryOrder(
-      mockRequest({ user: OUTSIDER, params: { id: '1' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
-  it('посторонний категорию не видит, прежний флаг не помогает', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.getCategoryOrder(
-      mockRequest({ user: GLOBAL_ADMIN, params: { id: '1' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
   });
 
   it('без аутентификации — 401', async () => {
@@ -435,7 +376,7 @@ describe('POST /api/category-orders/:id/order-items', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
+    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.saveOrderItem(
@@ -444,31 +385,6 @@ describe('POST /api/category-orders/:id/order-items', () => {
     );
 
     expect(res.statusCode).toBe(404);
-  });
-
-  it('не ответственный — 403, даже если он участник', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.saveOrderItem(
-      mockRequest({ user: PARTICIPANT, params: { id: '1' }, body }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-    expect(res.body).toMatchObject({
-      error: 'Only responsible user can edit order items',
-    });
-  });
-
-  it('глобальный админ тоже не может вписывать суммы — 403', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.saveOrderItem(
-      mockRequest({ user: GLOBAL_ADMIN, params: { id: '1' }, body }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
   });
 
   it('позицию нельзя вписать тому, кто не участник категории — 403', async () => {
@@ -501,9 +417,7 @@ describe('POST /api/category-orders/:id/order-items', () => {
 
 describe('DELETE /api/order-items/:id', () => {
   beforeEach(() => {
-    prismaMock.orderItem.findUnique.mockResolvedValue({
-      categoryOrderId: 1,
-    } as never);
+    calculations.getCategoryOrderIdForItem.mockResolvedValue(1);
     calculations.deleteOrderItem.mockResolvedValue(undefined);
   });
 
@@ -542,7 +456,7 @@ describe('DELETE /api/order-items/:id', () => {
   });
 
   it('позиции нет — 404', async () => {
-    prismaMock.orderItem.findUnique.mockResolvedValue(null);
+    calculations.getCategoryOrderIdForItem.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.deleteOrderItem(
@@ -554,7 +468,7 @@ describe('DELETE /api/order-items/:id', () => {
   });
 
   it('категория позиции исчезла — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
+    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.deleteOrderItem(
@@ -613,17 +527,6 @@ describe('GET /api/category-orders/:id/progress', () => {
     expect(res.body).toMatchObject({ data: { filled: 2 } });
   });
 
-  it('посторонний — 403', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.getProgress(
-      mockRequest({ user: OUTSIDER, params: { id: '1' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
@@ -647,7 +550,7 @@ describe('GET /api/category-orders/:id/progress', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
+    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.getProgress(
@@ -673,7 +576,7 @@ describe('GET /api/category-orders/:id/progress', () => {
 
 describe('GET /api/category-orders/:id/participants', () => {
   beforeEach(() => {
-    prismaMock.user.findMany.mockResolvedValue([
+    users.getUsersByIds.mockResolvedValue([
       { id: 1, firstName: 'Игорь', lastName: null, username: 'igor' },
     ] as never);
   });
@@ -686,33 +589,35 @@ describe('GET /api/category-orders/:id/participants', () => {
       res
     );
 
-    expect(prismaMock.user.findMany).toHaveBeenCalledWith({
-      where: { id: { in: [1, 2] } },
-      select: { id: true, firstName: true, lastName: true, username: true },
-    });
+    expect(users.getUsersByIds).toHaveBeenCalledWith([1, 2]);
     expect(res.body).toMatchObject({ data: [{ id: 1 }] });
   });
 
-  it('посторонний состав участников не получает', async () => {
+  /* Сервис отдаёт полную запись пользователя, включая telegramId. Контроллер
+     обязан выбрать поля сам — иначе Telegram-id участников уходит наружу. */
+  it('в ответ попадают только имена, без telegramId', async () => {
+    users.getUsersByIds.mockResolvedValue([
+      {
+        id: 1,
+        firstName: 'Игорь',
+        lastName: null,
+        username: 'igor',
+        telegramId: BigInt(555),
+        isAdmin: true,
+      },
+    ] as never);
     const res = mockResponse();
 
     await CategoryOrderController.getParticipants(
-      mockRequest({ user: GLOBAL_ADMIN, params: { id: '1' } }),
+      mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
       res
     );
 
-    expect(res.statusCode).toBe(403);
-  });
-
-  it('участник (не ответственный) — 403', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.getParticipants(
-      mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res
+    expect(res.body).toEqual(
+      expect.objectContaining({
+        data: [{ id: 1, firstName: 'Игорь', lastName: null, username: 'igor' }],
+      })
     );
-
-    expect(res.statusCode).toBe(403);
   });
 
   it('без аутентификации — 401', async () => {
@@ -738,7 +643,7 @@ describe('GET /api/category-orders/:id/participants', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
+    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.getParticipants(
@@ -750,7 +655,7 @@ describe('GET /api/category-orders/:id/participants', () => {
   });
 
   it('ошибка базы — 500', async () => {
-    prismaMock.user.findMany.mockRejectedValue(new Error('boom'));
+    users.getUsersByIds.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await CategoryOrderController.getParticipants(
@@ -781,29 +686,6 @@ describe('POST /api/category-orders/:id/finalize', () => {
     });
   });
 
-  it('участник — 403', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.finalizeCalculation(
-      mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-    expect(calculations.finalizeCalculation).not.toHaveBeenCalled();
-  });
-
-  it('глобальный админ — 403 (создание долгов не его право)', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.finalizeCalculation(
-      mockRequest({ user: GLOBAL_ADMIN, params: { id: '1' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
@@ -827,7 +709,7 @@ describe('POST /api/category-orders/:id/finalize', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
+    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.finalizeCalculation(
@@ -855,9 +737,9 @@ describe('POST /api/category-orders/:id/finalize', () => {
 describe('POST /api/category-orders/:id/volunteer', () => {
   beforeEach(() => {
     categoryOrders.getCategoryOrder.mockResolvedValue({ id: 1, pollId: 12 });
-    prismaMock.user.findUnique.mockResolvedValue({
+    users.getUserById.mockResolvedValue({
       telegramId: BigInt(555),
-    } as never);
+    });
     responsibles.handleVolunteerForCategory.mockResolvedValue(true);
   });
 
@@ -910,20 +792,8 @@ describe('POST /api/category-orders/:id/volunteer', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('нет доступа к голосованию — 403; глобальный админ здесь не исключение', async () => {
-    prismaMock.groupMember.findUnique.mockResolvedValue(null);
-    const res = mockResponse();
-
-    await CategoryOrderController.volunteerForCategory(
-      mockRequest({ user: GLOBAL_ADMIN, params: { id: '1' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
   it('пользователя нет в базе — 404', async () => {
-    prismaMock.user.findUnique.mockResolvedValue(null);
+    users.getUserById.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.volunteerForCategory(
@@ -1085,7 +955,7 @@ describe('PUT /api/category-orders/:id/costs', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
+    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.updateCosts(
@@ -1094,18 +964,6 @@ describe('PUT /api/category-orders/:id/costs', () => {
     );
 
     expect(res.statusCode).toBe(404);
-  });
-
-  it('не ответственный — 403', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.updateCosts(
-      mockRequest({ user: PARTICIPANT, params: { id: '1' }, body: {} }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-    expect(categoryOrders.updateCosts).not.toHaveBeenCalled();
   });
 
   it('ошибка сервиса — 500', async () => {
@@ -1138,7 +996,7 @@ describe('GET /api/order-items/:id/edit-history', () => {
     expect(res.body).toMatchObject({ count: 1 });
   });
 
-  /* Право на историю правок проверяет groupAdminMiddleware на маршруте — это
+  /* Право на историю правок проверяет requireGroupAdmin на маршруте — это
      данные группы, и решает роль в ней. В контроллере осталась только проверка
      аутентификации: дублировать авторизацию в двух местах значит рано или
      поздно развести две проверки, что уже случилось с прежним глобальным
@@ -1206,28 +1064,6 @@ describe('GET /api/category-orders/:id/order-items', () => {
     expect(res.body).toMatchObject({ count: 2 });
   });
 
-  it('посторонний позиции не видит', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.getOrderItems(
-      mockRequest({ user: GLOBAL_ADMIN, params: { id: '1' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
-  it('участник — 403', async () => {
-    const res = mockResponse();
-
-    await CategoryOrderController.getOrderItems(
-      mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
   it('без аутентификации — 401', async () => {
     const res = mockResponse();
 
@@ -1251,7 +1087,7 @@ describe('GET /api/category-orders/:id/order-items', () => {
   });
 
   it('категории нет — 404', async () => {
-    prismaMock.categoryOrder.findUnique.mockResolvedValue(null);
+    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
     const res = mockResponse();
 
     await CategoryOrderController.getOrderItems(

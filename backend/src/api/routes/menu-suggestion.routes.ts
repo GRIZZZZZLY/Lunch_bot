@@ -10,7 +10,7 @@ import {
   deleteSuggestion,
 } from '../controllers/menu-suggestion.controller';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
-import { groupAdminMiddleware } from '../middleware/group-admin';
+import { requireGroupAdmin } from '../middleware/group-admin';
 
 const router = Router();
 
@@ -39,13 +39,13 @@ router.get('/', getSuggestions);
  * GET /api/suggestions/stats
  * Получить статистику предложений (только админ)
  */
-router.get('/stats', groupAdminMiddleware, getStats);
+router.get('/stats', requireGroupAdmin, getStats);
 
 /**
  * GET /api/suggestions/pending-count
  * Получить количество ожидающих предложений (только админ)
  */
-router.get('/pending-count', groupAdminMiddleware, getPendingCount);
+router.get('/pending-count', requireGroupAdmin, getPendingCount);
 
 /**
  * GET /api/suggestions/:id
@@ -57,7 +57,7 @@ router.get('/:id', getSuggestionById);
  * POST /api/suggestions/:id/approve
  * Одобрить предложение (только админ)
  */
-router.post('/:id/approve', groupAdminMiddleware, approveSuggestion);
+router.post('/:id/approve', requireGroupAdmin, approveSuggestion);
 
 /**
  * POST /api/suggestions/:id/reject
@@ -65,7 +65,7 @@ router.post('/:id/approve', groupAdminMiddleware, approveSuggestion);
  * Body:
  *  - reason?: string
  */
-router.post('/:id/reject', groupAdminMiddleware, rejectSuggestion);
+router.post('/:id/reject', requireGroupAdmin, rejectSuggestion);
 
 /**
  * DELETE /api/suggestions/:id

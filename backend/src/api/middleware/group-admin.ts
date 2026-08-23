@@ -9,7 +9,7 @@ function resolveGroupId(req: Request): number | null {
   return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null;
 }
 
-export async function groupAdminMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function requireGroupAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const user = req.user;
     if (!user) {
@@ -28,7 +28,7 @@ export async function groupAdminMiddleware(req: Request, res: Response, next: Ne
     }
     next();
   } catch (error) {
-    logger.error('groupAdminMiddleware error:', error);
+    logger.error('requireGroupAdmin error:', error);
     res.status(500).json({ success: false, error: 'Internal server error', code: 'INTERNAL_ERROR' });
   }
 }
