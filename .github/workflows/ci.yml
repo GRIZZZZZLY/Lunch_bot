@@ -98,6 +98,11 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      # Правило no-explicit-any стоит на warn (сотни мест разом не чинятся),
+      # поэтому гейт держит одно: число явных any в продакшене не растёт.
+      - name: Check explicit any does not grow
+        run: npm run any:check
+
       - name: Check production TypeScript build
         run: npm run build:prod
 

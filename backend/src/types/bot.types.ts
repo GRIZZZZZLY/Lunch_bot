@@ -17,6 +17,27 @@ export interface BotContextExtension {
 
 export type BotContext = Context & SessionFlavor<SessionData> & BotContextExtension;
 
+/**
+ * То, что сервисам нужно от бота: отправить сообщение в чат.
+ *
+ * Сервисы хранят переданный экземпляр (`initialize(bot)`), и раньше поле было
+ * `any` — тип бота не проверялся вообще. Полный `Bot<BotContext>` в подписи
+ * тоже неверен: сервис пользуется только `api.sendMessage`, а требование целого
+ * бота заставляет тесты собирать заглушку размером с grammy.
+ *
+ * Методом, а не полем-стрелкой: у метода параметры сверяются в обе стороны, и
+ * настоящий `bot` с его типизированным `other` подходит так же, как заглушка.
+ */
+export interface TelegramSender {
+  api: {
+    sendMessage(
+      chatId: number | string,
+      text: string,
+      other?: Record<string, unknown>
+    ): Promise<unknown>;
+  };
+}
+
 // Данные пользователя Telegram
 export interface TelegramUser {
   id: number;

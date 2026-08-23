@@ -31,7 +31,11 @@ module.exports = tseslint.config(
       // explicit `any` and inferred public return types.
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
+      // `warn`, а не `error`, и это не полумера: на момент включения в дереве
+      // ~300 явных `any`, и `error` остановил бы CI на первом же запуске —
+      // правило вернули бы в `off`. Рост числа `any` ловит отдельный счётчик
+      // (`npm run any:check`), а `warn` показывает места по одному.
+      '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/await-thenable': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': [
@@ -66,7 +70,10 @@ module.exports = tseslint.config(
       'no-console': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
+      // Тот же `warn` и в тестах: иначе половина дерева осталась бы без
+      // проверки и выглядело бы это как «правило не работает». Чинить `any` в
+      // тестах при этом никто не обязан — счётчик считает только продакшен.
+      '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-require-imports': 'off',
     },
   },

@@ -1,7 +1,16 @@
+/**
+ * Прежний слой валидации. Живым из него остался один `validateMenuItemData`
+ * (подключён в `menu.routes.ts`); разбор входа по маршрутам делает
+ * `validate.ts` — там же написано, почему этот файл нельзя было наследовать.
+ *
+ * `validateIdParam` и `validatePaginationParams` удалены (задача 10): они
+ * складывали результат в `(req as any).validatedId` / `(req as any).pagination`,
+ * читателей у этих полей не было ни одного, и ни на одном маршруте middleware
+ * не подключались. Приведение к `any` в них было последним в продакшене.
+ */
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { logger } from '../../utils/logger';
-import { getParam } from '../../utils/request-params';
 
 // Схемы валидации для меню
 const menuItemBaseSchema = z.object({
@@ -166,87 +175,6 @@ export function validateVoteData(
 
   } catch (error) {
     logger.error('Vote validation middleware error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR'
-    });
-  }
-}
-
-/**
- * Middleware для валидации ID параметров
- */
-export function validateIdParam(paramName: string = 'id') {
-  return function(req: Request, res: Response, next: NextFunction): void {
-    try {
-      const id = parseInt(getParam(req.params, paramName), 10);
-
-      if (isNaN(id) || id <= 0) {
-        res.status(400).json({
-          success: false,
-          error: `Invalid ${paramName} parameter`,
-          code: 'INVALID_ID'
-        });
-        return;
-      }
-
-      // Добавляем валидированный ID в request
-      (req as any).validatedId = id;
-      next();
-
-    } catch (error) {
-      logger.error('ID validation middleware error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Internal server error',
-        code: 'INTERNAL_ERROR'
-      });
-    }
-  };
-}
-
-/**
- * Middleware для валидации query параметров пагинации
- */
-export function validatePaginationParams(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-
-    if (page < 1) {
-      res.status(400).json({
-        success: false,
-        error: 'Page must be greater than 0',
-        code: 'INVALID_PAGE'
-      });
-      return;
-    }
-
-    if (limit < 1 || limit > 100) {
-      res.status(400).json({
-        success: false,
-        error: 'Limit must be between 1 and 100',
-        code: 'INVALID_LIMIT'
-      });
-      return;
-    }
-
-    // Добавляем валидированные параметры в request
-    (req as any).pagination = {
-      page,
-      limit,
-      offset: (page - 1) * limit,
-    };
-
-    next();
-
-  } catch (error) {
-    logger.error('Pagination validation middleware error:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error',

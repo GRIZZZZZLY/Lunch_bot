@@ -300,7 +300,7 @@ export async function validateInitDataMiddleware(
           const telegramUser = parseInitDataUnsafe(initData);
 
           if (telegramUser && telegramUser.id) {
-            (req as any).telegramUser = telegramUser;
+            req.telegramUser = telegramUser;
             logger.info('SKIP mode accepted a Telegram user');
             next();
             return;
@@ -350,7 +350,7 @@ export async function validateInitDataMiddleware(
     }
 
     // Добавляем данные пользователя в request
-    (req as any).telegramUser = userData;
+    req.telegramUser = userData;
     next();
   } catch (error) {
     logger.error('InitData validation middleware error:', error);

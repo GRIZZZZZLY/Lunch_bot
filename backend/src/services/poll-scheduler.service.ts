@@ -5,6 +5,7 @@ import { RecurringPollService } from './recurring-poll.service';
 import { PollService } from './poll.service';
 import { UserService } from './user.service';
 import { PollCompletionService } from './poll-completion.service';
+import type { TelegramSender } from '../types/bot.types';
 
 /**
  * Ключ Postgres advisory-lock для single-instance гарантии scheduler'а.
@@ -21,14 +22,16 @@ export const SCHEDULER_ADVISORY_LOCK_KEY = 918273645;
 export class PollSchedulerService {
   private static cronJob: ScheduledTask | null = null;
   private static isRunning = false;
-  private static botInstance: any = null;
+  private static botInstance: TelegramSender | null = null;
   // Выделенное соединение, удерживающее advisory-lock на время жизни процесса.
   private static lockClient: Client | null = null;
 
   /**
    * Инициализация scheduler с bot instance
    */
-  static initialize(bot: any): void {
+  /* `null` принимается намеренно: планировщик обязан работать без бота (объявления
+     в группу тогда просто не уходят), и это проверяется тестом. */
+  static initialize(bot: TelegramSender | null): void {
     this.botInstance = bot;
     logger.info('PollSchedulerService bot instance initialized');
   }

@@ -69,8 +69,12 @@ export async function handleCompletePoll(
     const breakdown = await VoteService.getVoteBreakdown(pollId);
     const voteTypeStats = await VoteService.getVoteTypeStats(pollId);
 
+    /* `completePoll` отдаёт ИТОГ (`PollResult`) со связями, а не опрос. Раньше
+       здесь в поле `poll` уезжал сам итог: название читалось как `undefined`,
+       `escapeMarkdown` на нём падал, и группа получала «Ошибка при завершении»
+       на уже завершённом голосовании. Опрос берётся из связи. */
     const resultsMessage = createResultsMessage({
-      poll: result,
+      poll: result.poll,
       result,
       breakdown,
       totalVotes: votes.length,

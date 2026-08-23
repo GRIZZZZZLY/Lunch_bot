@@ -195,21 +195,130 @@ static async getPollHistory(...): Promise<{ polls: any[]; total: number }>
 - [x] `grep -rn "req as any).user" backend/src` пусто (это пункт 10.1) —
       остались только упоминания в комментариях, объясняющих правку.
       Проверено: `tsc --noEmit` 0 ошибок, lint чист, 3548 тестов зелёные.
-- [ ] `grep -rn "req as any" backend/src` пусто — достижимо **только вместе с
-      задачей 02**: `.validatedId` и `.pagination` живут в
-      `api/middleware/validation.ts:195,240`.
-- [ ] В `poll.service.ts` нет `Promise<any>` / `Promise<any[]>`.
-- [ ] `no-explicit-any` = `warn` в **обоих** блоках `backend/eslint.config.cjs`
-      (строки 34 и 69).
-- [ ] Число `any` в `backend/src` (без тестов и `scripts/`) зафиксировано в
-      CI как не растущее — простой счётчик в скрипте, порог = текущее значение.
-- [ ] `npm --prefix backend run build:prod` зелёный.
+- [x] `grep -rn "req as any" backend/src` пусто — в коде остались только
+      упоминания в комментариях. `.validatedId` и `.pagination` не типизированы,
+      а удалены вместе с мёртвыми middleware; `.telegramUser` объявлен на
+      `Request`.
+- [x] В `poll.service.ts` нет `Promise<any>` / `Promise<any[]>`.
+- [x] `no-explicit-any` = `warn` в **обоих** блоках `backend/eslint.config.cjs`.
+- [x] Число `any` в `backend/src` (без тестов и `scripts/`) зафиксировано в
+      CI как не растущее: `npm --prefix backend run any:check`, порог 159
+      (замер скриптом, не из плана).
+- [x] `npm --prefix backend run build:prod` зелёный.
 
 ## Проверка
 
 ```powershell
 npm --prefix backend run lint
+npm --prefix backend run any:check
 npm --prefix backend run build:prod
 npm --prefix backend test
 npm --prefix frontend-new run type-check
 ```
+
+## Что выяснилось при исполнении остатка (2026-08-24)
+
+Остаток закрыт. Главное: типизация нашла **четыре пользовательских дефекта в
+одном сообщении бота**, и все четыре были зелёными в тестах.
+
+### `req as any` — не типизировать, а удалить
+
+`.validatedId` и `.pagination` (`validation.ts:195,240`) писались, но НЕ читались
+ни в одном продакшен-файле: единственные читатели — их собственные тесты.
+Middleware `validateIdParam` и `validatePaginationParams` при этом не подключены
+ни на одном маршруте (после задачи 02 разбор входа делают контракты из
+`validate.ts`, и в его заголовке это уже было написано). Объявлять такие поля на
+`Request` значило бы закрепить типом сломанный контракт — один слот на запрос,
+второй `:id` молча перетирает первый. Обе функции и их тесты удалены.
+
+`.telegramUser` (2 сайта в `telegram-auth.ts`) объявлен на `Request` и приведения
+убраны. Читателей у поля тоже нет, а оба пишущих middleware
+(`validateInitDataMiddleware`, `optionalAuthMiddleware`) не подключены — но это
+код аутентификации, и удалять его «попутно с типизацией» нельзя; помечено
+комментарием как рудимент.
+
+Попутно нашлись **два разных типа `TelegramUser`**: локальный в
+`utils/telegram-auth.ts` (правильный) и `types/bot.types.ts`, где `is_bot`
+объявлен обязательным, чего Telegram не обещает. Компилятор отказал сразу же на
+попытке использовать второй. Он не используется больше нигде; слот на `Request`
+получил `TelegramWebAppUser` из `api.types.ts`.
+
+### Возвращаемые типы: `Promise<any>` был не единственной формой лжи
+
+`getActivePolls`, `fetchActivePollsRaw` и `getPollHistory` из плана уже
+типизированы — это сделала задача 06 (выведенные типы плюс
+`ReturnType<...>`-псевдонимы). Остался `savePollResult`: обе его ветки
+(обновление и создание) выписывали `include` по отдельности, а в подписи стоял
+`Promise<any>` — расхождение форм между «первым расчётом» и «повторным» ничего бы
+не сломало при компиляции. Теперь один `include` (`satisfies
+Prisma.PollResultInclude`) и тип `PollResultWithDetails`.
+
+Хуже оказалось рядом: `PollService.getPollResult` объявлял `Promise<PollResult>`,
+а возвращал запись со связями (`poll` + `group` + `votes`, `winnerMenuItem`,
+`responsibleUser`). Это не `any`, но эффект тот же — связи стирались в подписи.
+Через `completePoll` (тоже `Promise<PollResult>`) значение уезжало в бота.
+
+### Четыре дефекта в сообщении «Результаты голосования»
+
+`bot/keyboards/poll.keyboard.ts` принимал `poll: any`, `result?: any`,
+`breakdown: any[]`. За этим скрывалось:
+
+1. `poll.handlers.ts` передавал в поле `poll` **сам итог** (`PollResult`), а не
+   опрос. `poll.title` читался как `undefined`, `escapeMarkdown(undefined)`
+   падал, и группа получала «❌ Ошибка при завершении голосования» на уже
+   завершённом голосовании. Опрос теперь берётся из связи `result.poll`.
+2. Победитель печатался под условием `result?.winnerItem` — поля с таким именем
+   нет ни в одном ответе, то есть строка не выводилась НИКОГДА. А если бы
+   вывелась, сорвалась бы на `result.winnerMenuItem.name`. Условие переведено на
+   саму связь.
+3. То же с ответственным: гейт `result?.responsible`, чтение
+   `result.responsibleUser.firstName`.
+4. Остаток времени для активного голосования считался от `poll.endTime` —
+   такого поля в схеме нет и не было. Теперь от `startedAt` + `duration`.
+
+Почему тесты молчали: фикстуры были написаны под ошибку. В
+`poll.handlers.test.ts` мок `completePoll` возвращал плоский
+`{ id, status, title }` (сервис так не отвечает), а в `keyboards.test.ts` стояли
+`endTime`, `winnerItem: 1`, `responsible: 1`. Три новых теста в
+`poll.handlers.test.ts` (название, победитель, ответственный) сначала падали на
+реальной фикстуре — это и есть доказательство. Фикстуры и старые утверждения
+исправлены, причина расхождения записана рядом.
+
+### Правило и гейт
+
+`no-explicit-any` переведён с `off` на `warn` в **обоих** блоках
+`backend/eslint.config.cjs`. Не `error`: сейчас 233 предупреждения, и `error`
+остановил бы CI на первом же запуске — такое правило возвращают в `off`.
+
+Рост числа `any` держит `scripts/check-any-count.mjs` (`npm run any:check`,
+добавлен в CI перед `build:prod`). Считает не регуляркой, а срабатываниями
+самого ESLint — иначе в счёт попадали бы слова `any` из комментариев. Тесты и
+`src/scripts/**` исключены по решению плана. **Порог 159 — измеренный, не из
+плана:** число 336 в заголовке задачи считало `any`/`as any`/`@ts-ignore` во всём
+дереве вместе с тестами и одноразовыми скриптами.
+
+Типы получили ещё хранимые экземпляры бота: `PollSchedulerService.botInstance` и
+`feedbackService.bot` были `any`. Подпись — не `Bot<BotContext>`, а узкий
+`TelegramSender` (`api.sendMessage`) из `bot.types.ts`: сервисы пользуются только
+отправкой сообщения, а требование целого бота заставило бы каждый тест собирать
+заглушку размером с grammy.
+
+### Чего не сделано
+
+- **159 явных `any` в продакшене остались.** Крупнейший — `poll-flow.service.ts`
+  (16), там `any` стоит на `resultData` из `rouletteData`, то есть на разборе
+  JSON-поля; это отдельная работа с типом хранимого документа, а не переименование
+  аннотации.
+- **`Promise<any>` вне поллов не тронуты**: `group.service` (6),
+  `gamification.service` (5), `quest.service` (2), `budget.service` (3),
+  `insights.service` (1). План требовал только `poll.service`, и объём остальных
+  сравним со всей этой задачей.
+- **Мёртвые middleware аутентификации не удалены** (`validateInitDataMiddleware`,
+  `optionalAuthMiddleware`) — только помечены. Удаление кода, отвечающего за
+  доступ, стоит делать отдельно и с проверкой, а не внутри задачи про типы.
+- **`types/bot.types.ts::TelegramUser` оставлен**, хотя не используется нигде и
+  содержит неверное `is_bot: boolean`. Удаление — в разбор рудиментов.
+- **`any` во фронтенде не считается** этим гейтом; правило там и так `warn`.
+- **Полный прогон не выполнен**: `npm --prefix backend test` требует PostgreSQL.
+  Прогнаны `lint` (0 ошибок, 233 предупреждения — это новое правило),
+  `any:check`, `build:prod`, `knip`, `test:unit` (130 наборов, 3761 тест).

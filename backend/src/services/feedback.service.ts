@@ -1,3 +1,4 @@
+import type { TelegramSender } from '../types/bot.types';
 import { logger } from '../utils/logger';
 import { escapeHtml } from '../utils/telegram-html';
 
@@ -14,7 +15,7 @@ interface FeedbackData {
  * Отправляет сообщения пользователей создателю бота в Telegram
  */
 class FeedbackService {
-  private bot: any | null = null;
+  private bot: TelegramSender | null = null;
   private adminUserId: string;
 
   constructor() {
@@ -29,7 +30,7 @@ class FeedbackService {
   /**
    * Инициализация с ботом
    */
-  initialize(bot: any): void {
+  initialize(bot: TelegramSender): void {
     this.bot = bot;
     logger.info('✅ Feedback service initialized', {
       adminUserId: this.adminUserId

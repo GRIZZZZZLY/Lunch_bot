@@ -27,7 +27,7 @@ import { votePublicUserSelect } from '../types/poll.types';
 import { now } from '../utils/date';
 import { CacheInvalidator } from './cache.service';
 import { GroupService } from './group.service';
-import { PollService } from './poll.service';
+import { PollService, type PollResultDetailed } from './poll.service';
 import { buildMultiWinnerResult } from './poll-winners';
 import {
   PollAlreadyCompletedError,
@@ -65,8 +65,13 @@ export class PollCompletionService {
    * то, которое встретилось первым. Голосования с несколькими победителями
    * считает `completePollMultiWinner`, и это разные продуктовые режимы, а не
    * две реализации одного.
+   *
+   * Возвращается ПОЛНЫЙ итог (`PollResultDetailed`): со опросом, группой,
+   * голосами, победившим блюдом и ответственным. В подписи стоял голый
+   * `PollResult`, хотя связи возвращались всегда — и бот, читавший `poll.title`
+   * у этого значения, компилятором не проверялся.
    */
-  static async completePoll(pollId: number): Promise<PollResult> {
+  static async completePoll(pollId: number): Promise<PollResultDetailed> {
     try {
       const { pollResult, poll } = await prisma.$transaction(tx =>
         this.completeSingleWinnerInTransaction(tx, pollId)

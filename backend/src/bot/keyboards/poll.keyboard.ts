@@ -1,7 +1,59 @@
 import { InlineKeyboard } from 'grammy';
+import type { InlineKeyboardButton } from 'grammy/types';
 import { createDirectLinkMiniAppUrl } from './webapp.keyboard';
 import { pluralForm } from '../../utils/pluralize';
 import { escapeHtml, escapeMarkdown } from '../../utils/telegram-html';
+/**
+ * Типы этого файла описывают ровно те поля, которые читают сами сообщения, а не
+ * целиком записи Prisma. Причина: функции вызываются и из бота, и из сервисов, с
+ * разными наборами связей, и требовать полную модель значило бы дозагружать
+ * данные ради формата строки. Ошибку, из-за которой пункт задачи и появился,
+ * такой тип всё равно ловит — обращение к полю, которого в ответе нет.
+ *
+ * Раньше здесь стояло `poll: any`, и это не было мелочью: handler бота
+ * передавал в `poll` сам итог голосования, название читалось как `undefined`,
+ * `escapeMarkdown` на нём падал, и группа получала «❌ Ошибка при завершении
+ * голосования» на уже завершённом голосовании.
+ */
+interface PollForMessage {
+  title?: string | null;
+  status?: string;
+  duration?: number | null;
+  startedAt?: Date | string | null;
+}
+
+/** Итог голосования в том виде, в каком его отдаёт `PollService.getPollResult`. */
+interface ResultForMessage {
+  winnerMenuItem?: { name: string } | null;
+  responsibleUser?: { firstName: string; username?: string | null } | null;
+}
+
+/** Строка разбивки: то, что печатает топ-3. */
+interface BreakdownRow {
+  menuItemName: string;
+  votes: number;
+  percentage: number;
+}
+
+/** То же плюс голосовавшие — их перечисляет полное сообщение результатов. */
+interface BreakdownRowWithVoters extends BreakdownRow {
+  voters: Array<{ firstName: string }>;
+}
+
+/** Итог режима «несколько победителей» — только читаемые поля. */
+interface MultiWinnerForMessage {
+  winners: Array<{
+    menuItemName: string;
+    voteCount: number;
+    voters: Array<{ firstName: string }>;
+  }>;
+  bringOwn: { count: number; voters: Array<{ firstName: string }> };
+  skipped: { count: number };
+  meta: {
+    completedAt: string;
+    tieBreak?: { method: string; reason: string } | null;
+  };
+}
 
 /**
  * Минимальное уведомление о старте голосования (единое для ручных и
@@ -27,7 +79,7 @@ export function createPollStartedMessage(endTime: Date, title?: string | null): 
 export function createCompactPollKeyboard(
   pollId: number,
   status: 'active' | 'completed' | 'with_responsible' = 'active'
-): { inline_keyboard: any[][] } {
+): { inline_keyboard: InlineKeyboardButton[][] } {
   if (status === 'active') {
     // editMessageText затирает клавиатуру — кнопка должна передаваться заново,
     // иначе «Проголосовать» исчезает из группового сообщения
@@ -59,14 +111,14 @@ export function createCompactPollKeyboard(
  * UX UPGRADE (Фаза 2.0): Поддержка всех состояний - active/completed/with_responsible
  */
 export function createCompactPollMessage(
-  poll: any,
+  poll: PollForMessage,
   itemCount: number,
   currentVotes: number = 0,
   totalMembers: number = 0,
   options?: {
     status?: 'active' | 'completed' | 'with_responsible';
-    breakdown?: any[];
-    responsibleUser?: any;
+    breakdown?: BreakdownRow[];
+    responsibleUser?: { firstName: string; username?: string | null } | null;
     suppressResponsiblePrompt?: boolean;
   }
 ): string {
@@ -132,7 +184,7 @@ export function createCompactPollMessage(
     if (breakdown.length > 0) {
       message += `\n📊 **Результаты:**\n`;
 
-      breakdown.slice(0, 3).forEach((item: any, index: number) => {
+      breakdown.slice(0, 3).forEach((item, index) => {
         const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
         message += `${emoji} ${escapeMarkdown(item.menuItemName)} — ${item.votes} ${pluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
       });
@@ -171,7 +223,7 @@ export function createCompactPollMessage(
     if (breakdown.length > 0) {
       message += `\n📊 **Результаты:**\n`;
 
-      breakdown.slice(0, 3).forEach((item: any, index: number) => {
+      breakdown.slice(0, 3).forEach((item, index) => {
         const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
         message += `${emoji} ${escapeMarkdown(item.menuItemName)} — ${item.votes} ${pluralForm(item.votes, 'голос', 'голоса', 'голосов')} (${item.percentage}%)\n`;
       });
@@ -212,19 +264,19 @@ function createProgressBar(percentage: number, length: number = 10): string {
  * @param resultData - MultiWinnerResultData из rouletteData
  * @returns HTML-форматированное сообщение для Telegram
  */
-export function formatMultiWinnerResults(resultData: any): string {
+export function formatMultiWinnerResults(resultData: MultiWinnerForMessage): string {
   let message = '🍽 <b>Результаты голосования:</b>\n\n';
 
   // Winners
   if (resultData.winners.length > 0) {
-    resultData.winners.forEach((winner: any, index: number) => {
+    resultData.winners.forEach((winner, index) => {
       const emoji = index === 0 ? '🏆' : '🍴';
       const plural = pluralForm(winner.voteCount, 'человек', 'человека', 'человек');
 
       message += `${emoji} <b>${escapeHtml(winner.menuItemName)}</b> — ${winner.voteCount} ${plural}\n`;
 
       // Прогрессивное раскрытие: Если > 5 человек - показываем первых 5 + "еще N"
-      const voterNames = winner.voters.map((v: any) =>
+      const voterNames = winner.voters.map(v =>
         escapeHtml(v.firstName)
       );
       if (voterNames.length <= 5) {
@@ -251,7 +303,7 @@ export function formatMultiWinnerResults(resultData: any): string {
     );
     message += `🏠 <b>Принесу своё</b> — ${resultData.bringOwn.count} ${plural}\n`;
 
-    const names = resultData.bringOwn.voters.map((v: any) =>
+    const names = resultData.bringOwn.voters.map(v =>
       escapeHtml(v.firstName)
     );
     if (names.length <= 5) {
@@ -294,27 +346,36 @@ export function formatMultiWinnerResults(resultData: any): string {
  * Создание сообщения с результатами голосования
  */
 export function createResultsMessage(pollData: {
-  poll: any;
-  result?: any;
-  breakdown: any[];
+  poll: PollForMessage;
+  result?: ResultForMessage | null;
+  breakdown: BreakdownRowWithVoters[];
   totalVotes: number;
   voteTypeStats?: { menuItemVotes: number; bringOwnVotes: number; skipVotes: number; total: number };
 }): string {
   const { poll, result, breakdown, totalVotes, voteTypeStats } = pollData;
-  
+
   let message = `📊 **Результаты голосования**\n\n`;
-  message += `🎯 **"${escapeMarkdown(poll.title)}"**\n`;
+  /* Название может отсутствовать: у автоголосований его нет. Пустая строка
+     лучше, чем `undefined` в сообщении для всей группы. */
+  message += `🎯 **"${escapeMarkdown(poll.title ?? '')}"**\n`;
   message += `👥 Участников: ${totalVotes}\n`;
-  
+
   if (poll.status === 'ACTIVE') {
     message += `🔴 Голосование активно\n`;
-    if (poll.endTime) {
-      const timeLeft = Math.max(0, Math.floor((new Date(poll.endTime).getTime() - Date.now()) / 1000 / 60));
+    /* Остаток считается от `startedAt` + `duration`. Раньше читалось
+       `poll.endTime` — такого поля в схеме нет и не было, то есть строка не
+       появлялась никогда. */
+    if (poll.startedAt && poll.duration) {
+      const endsAt = new Date(poll.startedAt).getTime() + poll.duration * 60_000;
+      const timeLeft = Math.max(0, Math.floor((endsAt - Date.now()) / 60_000));
       message += `⏰ Осталось: ${timeLeft} мин\n`;
     }
   } else {
     message += `✅ Голосование завершено\n`;
-    if (result?.winnerItem) {
+    /* Условие было `result?.winnerItem` — поля с таким именем нет ни в одном
+       ответе, поэтому победитель не печатался НИКОГДА, а если бы напечатался,
+       то сорвался бы на `result.winnerMenuItem.name`. */
+    if (result?.winnerMenuItem) {
       message += `🏆 **Победитель:** ${escapeMarkdown(result.winnerMenuItem.name)}\n`;
     }
   }
@@ -346,19 +407,22 @@ export function createResultsMessage(pollData: {
     message += `   ${bar} ${item.votes} голосов (${item.percentage}%)\n`;
     
     if (item.voters.length <= 5) {
-      const voterNames = item.voters.map((v: { firstName: string }) => v.firstName).join(', ');
+      const voterNames = item.voters.map(v => v.firstName).join(', ');
       message += `   👤 ${voterNames}\n`;
     } else {
-      const firstVoters = item.voters.slice(0, 3).map((v: { firstName: string }) => v.firstName).join(', ');
+      const firstVoters = item.voters.slice(0, 3).map(v => v.firstName).join(', ');
       message += `   👤 ${firstVoters} и ещё ${item.voters.length - 3}\n`;
     }
     message += `\n`;
   });
-  
-  if (result?.responsible) {
+
+  /* То же, что с победителем: гейт стоял на `result.responsible`, поля с таким
+     именем нет, и строка про ответственного не выводилась ни разу. */
+  if (result?.responsibleUser) {
     message += `🎲 **Ответственный за заказ:** ${result.responsibleUser.firstName}\n`;
   }
-  
+
+
   return message;
 }
 

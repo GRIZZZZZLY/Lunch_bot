@@ -50,6 +50,53 @@ export interface UpdatePollData {
   duration?: number;
 }
 
+/**
+ * Связи итога голосования — ОДИН объект на обе ветки `savePollResult`
+ * (обновление и создание). Раньше `include` был выписан в каждой ветке, а
+ * возвращаемый тип стоял `Promise<any>`: расхождение форм между «первым
+ * расчётом» и «повторным» ничего бы не сломало при компиляции, а бот и API
+ * получали бы разные объекты от одного метода.
+ */
+const pollResultInclude = {
+  poll: true,
+  winnerMenuItem: true,
+  responsibleUser: true,
+} satisfies Prisma.PollResultInclude;
+
+/** Итог голосования вместе с опросом, победившим блюдом и ответственным. */
+export type PollResultWithDetails = Prisma.PollResultGetPayload<{
+  include: typeof pollResultInclude;
+}>;
+
+/**
+ * Полный итог: то же плюс группа и голоса опроса.
+ *
+ * Тип нужен именно объявленный, а не выведенный по месту: `getPollResult`
+ * возвращал ЭТО, а в подписи стояло `Promise<PollResult>` — связи стирались
+ * ещё в сервисе. Дальше `completePoll` отдавал результат наружу, и бот читал у
+ * него `poll.title`; компилятор молчал, потому что читал через `any` в
+ * клавиатуре, а в группе выходило «undefined» и падение на разметке.
+ */
+const pollResultDetailedInclude = {
+  poll: {
+    include: {
+      group: true,
+      votes: {
+        include: {
+          user: { select: votePublicUserSelect },
+          menuItem: true,
+        },
+      },
+    },
+  },
+  winnerMenuItem: true,
+  responsibleUser: true,
+} satisfies Prisma.PollResultInclude;
+
+export type PollResultDetailed = Prisma.PollResultGetPayload<{
+  include: typeof pollResultDetailedInclude;
+}>;
+
 /* Класс переехал в `poll.errors.ts` вместе с остальными доменными ошибками
    голосования: там он несёт свой статус и код, а не получает их от
    контроллера. Реэкспорт оставлен, потому что импорт из `poll.service`
@@ -232,25 +279,11 @@ export class PollService {
   /**
    * Получение результата голосования
    */
-  static async getPollResult(resultId: number): Promise<PollResult> {
+  static async getPollResult(resultId: number): Promise<PollResultDetailed> {
     try {
       const result = await prisma.pollResult.findUnique({
         where: { id: resultId },
-        include: {
-          poll: {
-            include: {
-              group: true,
-              votes: {
-                include: {
-                  user: { select: votePublicUserSelect },
-                  menuItem: true,
-                },
-              },
-            },
-          },
-          winnerMenuItem: true,
-          responsibleUser: true,
-        },
+        include: pollResultDetailedInclude,
       });
 
       if (!result) {
@@ -365,7 +398,7 @@ export class PollService {
     responsibleUserId: number;
     totalVotes: number;
     rouletteData?: string;
-  }): Promise<any> {
+  }): Promise<PollResultWithDetails> {
     try {
       const existing = await prisma.pollResult.findUnique({
         where: { pollId: data.pollId },
@@ -378,11 +411,7 @@ export class PollService {
             responsibleUserId: data.responsibleUserId,
             rouletteData: data.rouletteData,
           },
-          include: {
-            poll: true,
-            winnerMenuItem: true,
-            responsibleUser: true,
-          },
+          include: pollResultInclude,
         });
         logger.info(`Poll result updated for poll ${data.pollId}`);
         return result;
@@ -394,11 +423,7 @@ export class PollService {
             responsibleUserId: data.responsibleUserId,
             totalVotes: data.totalVotes,
           },
-          include: {
-            poll: true,
-            winnerMenuItem: true,
-            responsibleUser: true,
-          },
+          include: pollResultInclude,
         });
         logger.info(`Poll result created for poll ${data.pollId}`);
         return result;

@@ -78,8 +78,10 @@ describe('createCompactPollKeyboard', () => {
   it('кнопка — ссылка, а не web_app (в группах web_app не работает)', () => {
     const keyboard = createCompactPollKeyboard(7);
 
-    expect(keyboard.inline_keyboard[0][0]).not.toHaveProperty('web_app');
-    expect(keyboard.inline_keyboard[0][0].url).toMatch(/^https:\/\/t\.me\//);
+    const [button] = keyboard.inline_keyboard[0];
+
+    expect(button).not.toHaveProperty('web_app');
+    expect(button).toHaveProperty('url', expect.stringMatching(/^https:\/\/t\.me\//));
   });
 
   it.each(['completed', 'with_responsible'] as const)(
@@ -418,12 +420,16 @@ describe('createResultsMessage', () => {
     },
   ];
 
+  /* Остаток считается от `startedAt` + `duration`. Раньше и код, и этот тест
+     смотрели на `poll.endTime` — поля с таким именем в схеме нет, то есть тест
+     закреплял не поведение, а ошибку: в проде строка не появлялась никогда. */
   it('для активного голосования показывает остаток времени', () => {
     const message = createResultsMessage({
       poll: {
         title: 'Обед',
         status: 'ACTIVE',
-        endTime: new Date('2026-08-03T09:20:00.000Z'),
+        startedAt: new Date('2026-08-03T08:30:00.000Z'),
+        duration: 50,
       },
       breakdown,
       totalVotes: 5,
@@ -433,7 +439,7 @@ describe('createResultsMessage', () => {
     expect(message).toContain('Осталось: 20 мин');
   });
 
-  it('активное голосование без endTime не падает', () => {
+  it('активное голосование без срока не падает', () => {
     const message = createResultsMessage({
       poll: { title: 'Обед', status: 'ACTIVE' },
       breakdown,
@@ -444,10 +450,13 @@ describe('createResultsMessage', () => {
     expect(message).not.toContain('Осталось');
   });
 
+  /* Гейт стоял на `result.winnerItem`, чего ни один ответ не содержит. Теперь
+     условие — на самой связи `winnerMenuItem`, и тест подаёт то, что реально
+     приходит из `getPollResult`. */
   it('для завершённого называет победителя', () => {
     const message = createResultsMessage({
       poll: { title: 'Обед', status: 'COMPLETED' },
-      result: { winnerItem: 1, winnerMenuItem: { name: 'Плов' } },
+      result: { winnerMenuItem: { name: 'Плов' } },
       breakdown,
       totalVotes: 5,
     });
@@ -531,7 +540,7 @@ describe('createResultsMessage', () => {
   it('ответственный дописывается в конце', () => {
     const message = createResultsMessage({
       poll: { title: 'Обед', status: 'COMPLETED' },
-      result: { responsible: 1, responsibleUser: { firstName: 'Игорь' } },
+      result: { responsibleUser: { firstName: 'Игорь' } },
       breakdown,
       totalVotes: 3,
     });

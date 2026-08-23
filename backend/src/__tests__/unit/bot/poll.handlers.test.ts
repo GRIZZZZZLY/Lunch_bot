@@ -96,6 +96,33 @@ const groupService = asServiceMock(GroupService);
 
 const NOW = new Date('2026-08-03T12:00:00.000Z');
 
+/**
+ * То, что РЕАЛЬНО возвращает `completePoll`: запись `PollResult` со связями
+ * (`poll`, `winnerMenuItem`, `responsibleUser`) — она приходит из
+ * `PollService.getPollResult`.
+ *
+ * Раньше здесь стоял плоский `{ id, status, title }`, то есть фикстура
+ * соответствовала не сервису, а ошибке в handler'е: тот передавал итог туда,
+ * где ожидался опрос. С плоским объектом тесты были зелёными, а в группе
+ * сообщение печатало «undefined» вместо названия и теряло победителя с
+ * ответственным.
+ */
+const COMPLETED_RESULT = {
+  id: 9,
+  pollId: 5,
+  totalVotes: 3,
+  poll: {
+    id: 5,
+    groupId: 100,
+    status: 'COMPLETED',
+    title: 'Обед',
+    duration: 30,
+    startedAt: new Date('2026-08-03T11:00:00.000Z'),
+  },
+  winnerMenuItem: { id: 1, name: 'Плов' },
+  responsibleUser: { id: 7, firstName: 'Игорь', username: 'igor' },
+};
+
 function makeCtx(withCallbackMessage = true) {
   const answerCallbackQuery = jest.fn().mockResolvedValue(undefined);
   const editMessageText = jest.fn().mockResolvedValue(undefined);
@@ -155,11 +182,7 @@ beforeEach(() => {
     status: 'COMPLETED',
     title: 'Обед',
   });
-  pollCompletion.completePoll.mockResolvedValue({
-    id: 5,
-    status: 'COMPLETED',
-    title: 'Обед',
-  });
+  pollCompletion.completePoll.mockResolvedValue(COMPLETED_RESULT);
   pollService.cancelPoll.mockResolvedValue({ id: 5 });
   pollService.getPollResult.mockResolvedValue(null);
   pollService.savePollResult.mockResolvedValue({ id: 1 });
@@ -198,6 +221,35 @@ describe('handleCompletePoll', () => {
       expect.stringContaining('Результаты голосования'),
       { parse_mode: 'Markdown' }
     );
+  });
+
+  /* Три утверждения об одном сообщении — том, которое видит вся группа. Все
+     три раньше нарушались, и ни одно не падало: параметры `createResultsMessage`
+     были `any`. */
+  it('в сообщении стоит название опроса, а не «undefined»', async () => {
+    const ctx = makeCtx();
+
+    await handleCompletePoll(ctx, 5);
+
+    const [message] = ctx.editMessageText.mock.calls[0];
+    expect(message).toContain('Обед');
+    expect(message).not.toContain('undefined');
+  });
+
+  it('победившее блюдо попадает в сообщение', async () => {
+    const ctx = makeCtx();
+
+    await handleCompletePoll(ctx, 5);
+
+    expect(ctx.editMessageText.mock.calls[0][0]).toContain('Плов');
+  });
+
+  it('ответственный попадает в сообщение', async () => {
+    const ctx = makeCtx();
+
+    await handleCompletePoll(ctx, 5);
+
+    expect(ctx.editMessageText.mock.calls[0][0]).toContain('Игорь');
   });
 
   it('не админ группы завершить не может', async () => {

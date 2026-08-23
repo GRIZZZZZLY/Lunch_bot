@@ -31,6 +31,24 @@ declare module 'express-serve-static-core' {
   interface Request {
     user?: User;
     telegramInitData?: TelegramInitData;
+    /**
+     * Разобранный Telegram-пользователь из `initData` — то, что кладёт
+     * `validateInitDataMiddleware`. Слот объявлен здесь, потому что раньше туда
+     * писали через `(req as any)`, а приведение в middleware аутентификации —
+     * последнее место, где стоит терять тип.
+     *
+     * Читателей у поля сегодня нет: оба middleware, которые его пишут
+     * (`validateInitDataMiddleware`, ветка SKIP там же), ни на одном маршруте
+     * не подключены — `/api/auth/validate` идёт через контроллер. Это
+     * рудимент, а не контракт; удаление кода аутентификации — отдельная работа
+     * с отдельной проверкой, а не побочный эффект типизации.
+     *
+     * Тип — `TelegramWebAppUser` из этого же файла, а НЕ `TelegramUser` из
+     * `bot.types.ts`: там `is_bot` объявлен обязательным, чего Telegram не
+     * обещает, и на попытке взять его компилятор сразу отказал. Тот тип не
+     * используется больше нигде.
+     */
+    telegramUser?: TelegramWebAppUser;
   }
 }
 
