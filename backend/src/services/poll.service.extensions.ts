@@ -15,6 +15,8 @@ import { createPollStartedMessage } from '../bot/keyboards/poll.keyboard';
 import { getBotInstance, getRequiredBotInstance } from '../bot/bot-instance';
 import { pluralForm } from '../utils/pluralize';
 import { PollQueryService } from './poll-query.service';
+import { PollStatsService } from './poll-stats.service';
+import { PollCompletionService } from './poll-completion.service';
 
 /**
  * Создание голосования из WebApp с отправкой в группу
@@ -210,10 +212,10 @@ async function autoCompletePoll(
     );
 
     // Завершаем голосование
-    const result = await PollService.completePoll(pollId);
+    const result = await PollCompletionService.completePoll(pollId);
 
     // Получаем детальную разбивку голосов
-    const breakdown = await PollService.getPollVoteBreakdown(pollId);
+    const breakdown = await PollStatsService.getPollVoteBreakdown(pollId);
     const votes = await VoteService.getPollVotes(pollId);
 
     // Получаем информацию о голосовании для сообщения

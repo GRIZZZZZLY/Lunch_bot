@@ -31,6 +31,7 @@ import {
 } from '../../../services/vote.errors';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock } from '../../helpers/mocks';
+import { PollCompletionService } from '../../../services/poll-completion.service';
 
 jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
@@ -92,11 +93,11 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-describe('PollService.completePoll', () => {
+describe('PollCompletionService.completePoll', () => {
   it('голосования нет — 404 POLL_NOT_FOUND', async () => {
     asMock(prismaMock.poll.findUnique).mockResolvedValue(null);
 
-    await rejectsWith(PollService.completePoll(5), {
+    await rejectsWith(PollCompletionService.completePoll(5), {
       type: PollNotFoundError,
       status: 404,
       code: 'POLL_NOT_FOUND',
@@ -112,7 +113,7 @@ describe('PollService.completePoll', () => {
       votes: [],
     });
 
-    await rejectsWith(PollService.completePoll(5), {
+    await rejectsWith(PollCompletionService.completePoll(5), {
       type: PollAlreadyCompletedError,
       status: 400,
       code: 'POLL_ALREADY_COMPLETED',
@@ -132,7 +133,7 @@ describe('PollService.completePoll', () => {
       votes: [],
     });
 
-    await rejectsWith(PollService.completePoll(5), {
+    await rejectsWith(PollCompletionService.completePoll(5), {
       type: PollStateError,
       status: 409,
       code: 'INVALID_POLL_STATE',
@@ -212,11 +213,11 @@ describe('PollService.runRoulette', () => {
   });
 });
 
-describe('PollService.completePollMultiWinner', () => {
+describe('PollCompletionService.completePollMultiWinner', () => {
   it('голосования нет — 404 POLL_NOT_FOUND', async () => {
     asMock(prismaMock.poll.findUnique).mockResolvedValue(null);
 
-    await rejectsWith(PollService.completePollMultiWinner(5, 1), {
+    await rejectsWith(PollCompletionService.completePollMultiWinner(5, 1), {
       type: PollNotFoundError,
       status: 404,
       code: 'POLL_NOT_FOUND',

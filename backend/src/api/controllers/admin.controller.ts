@@ -21,6 +21,7 @@ import {
 } from '../schemas/admin';
 import { requireAuthUser } from '../middleware/require-auth-user';
 import { PollQueryService } from '../../services/poll-query.service';
+import { PollCompletionService } from '../../services/poll-completion.service';
 
 export class AdminController {
   private adminService: AdminService;
@@ -316,7 +317,7 @@ export class AdminController {
       );
 
       // Проверяем кворум — если исключили последнего невыпаленного, голосование закроется
-      const autoClosed = await PollService.checkQuorumAndComplete(pollId);
+      const autoClosed = await PollCompletionService.checkQuorumAndComplete(pollId);
 
       res.json({
         success: true,

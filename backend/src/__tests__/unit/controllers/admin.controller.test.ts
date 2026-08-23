@@ -15,6 +15,7 @@ import { PollService } from '../../../services/poll.service';
 import { mockRequest, mockResponse } from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
 import { PollQueryService } from '../../../services/poll-query.service';
+import { PollCompletionService } from '../../../services/poll-completion.service';
 
 /* Сервисы создаются в конструкторе контроллера, поэтому мокаются как классы.
    Фабрика jest.mock поднимается выше объявлений — обращаться к заглушкам можно
@@ -44,9 +45,15 @@ jest.mock('../../../services/group.service', () => ({
 
 jest.mock('../../../services/poll.service', () => ({
   PollService: {
+  },
+}));
+
+jest.mock('../../../services/poll-completion.service', () => ({
+  PollCompletionService: {
     checkQuorumAndComplete: jest.fn(),
   },
 }));
+
 
 jest.mock('../../../services/poll-query.service', () => ({
   PollQueryService: {
@@ -61,6 +68,7 @@ jest.mock('../../../utils/logger', () => ({
 
 const groupService = asServiceMock(GroupService);
 const pollService = asServiceMock(PollService);
+const pollCompletion = asServiceMock(PollCompletionService);
 const pollQuery = asServiceMock(PollQueryService);
 
 const GROUP_ADMIN = { id: 1, isAdmin: false };
@@ -100,7 +108,7 @@ beforeEach(() => {
 
   groupService.isUserGroupAdmin.mockResolvedValue(true);
   pollQuery.getPollGroupId.mockResolvedValue(100);
-  pollService.checkQuorumAndComplete.mockResolvedValue(false);
+  pollCompletion.checkQuorumAndComplete.mockResolvedValue(false);
 
   controller = new AdminController();
 });
@@ -637,7 +645,7 @@ describe('PUT /api/admin/polls/:pollId/participants/:userId', () => {
   const params = { pollId: '12', userId: '2' };
 
   it('исключает участника и проверяет кворум', async () => {
-    pollService.checkQuorumAndComplete.mockResolvedValue(true);
+    pollCompletion.checkQuorumAndComplete.mockResolvedValue(true);
     const res = mockResponse();
 
     await controller.setPollParticipantStatus(

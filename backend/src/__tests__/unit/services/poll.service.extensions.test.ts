@@ -20,16 +20,30 @@ import {
 } from '../../../bot/bot-instance';
 import { asMock, asServiceMock } from '../../helpers/mocks';
 import { PollQueryService } from '../../../services/poll-query.service';
+import { PollStatsService } from '../../../services/poll-stats.service';
+import { PollCompletionService } from '../../../services/poll-completion.service';
 
 jest.mock('../../../services/poll.service', () => ({
   PollService: {
     createPoll: jest.fn(),
     updatePoll: jest.fn(),
-    completePoll: jest.fn(),
-    getPollVoteBreakdown: jest.fn(),
     runRoulette: jest.fn(),
   },
 }));
+
+jest.mock('../../../services/poll-completion.service', () => ({
+  PollCompletionService: {
+    completePoll: jest.fn(),
+  },
+}));
+
+
+jest.mock('../../../services/poll-stats.service', () => ({
+  PollStatsService: {
+    getPollVoteBreakdown: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/poll-query.service', () => ({
   PollQueryService: {
@@ -93,6 +107,8 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const pollService = asServiceMock(PollService);
+const pollCompletion = asServiceMock(PollCompletionService);
+const pollStats = asServiceMock(PollStatsService);
 const pollQuery = asServiceMock(PollQueryService);
 const groupService = asServiceMock(GroupService);
 const voteService = asServiceMock(VoteService);
@@ -151,8 +167,8 @@ beforeEach(() => {
     selectedMenuItemIds: '[1,2]',
     title: null,
   });
-  pollService.completePoll.mockResolvedValue({ totalVotes: 3 });
-  pollService.getPollVoteBreakdown.mockResolvedValue([
+  pollCompletion.completePoll.mockResolvedValue({ totalVotes: 3 });
+  pollStats.getPollVoteBreakdown.mockResolvedValue([
     { menuItemId: 1, menuItemName: 'Плов', votes: 2, percentage: 67, voters: [] },
   ]);
   voteService.getPollVotes.mockResolvedValue([
@@ -291,7 +307,7 @@ describe('автозавершение по таймеру', () => {
 
     await fireTimer();
 
-    expect(pollService.completePoll).toHaveBeenCalledWith(5);
+    expect(pollCompletion.completePoll).toHaveBeenCalledWith(5);
     expect(editMessageText).toHaveBeenCalledWith(
       -1001,
       77,
@@ -310,7 +326,7 @@ describe('автозавершение по таймеру', () => {
 
     await fireTimer();
 
-    expect(pollService.completePoll).not.toHaveBeenCalled();
+    expect(pollCompletion.completePoll).not.toHaveBeenCalled();
   });
 
   it('при наличии голосов запускается разбор по категориям', async () => {
@@ -323,7 +339,7 @@ describe('автозавершение по таймеру', () => {
   });
 
   it('без голосов категорий не создаётся', async () => {
-    pollService.completePoll.mockResolvedValue({ totalVotes: 0 });
+    pollCompletion.completePoll.mockResolvedValue({ totalVotes: 0 });
     await createPollFromWebApp(PARAMS);
 
     await fireTimer();
@@ -413,7 +429,7 @@ describe('автозавершение по таймеру', () => {
   });
 
   it('падение завершения не выбрасывается из таймера', async () => {
-    pollService.completePoll.mockRejectedValue(new Error('db down'));
+    pollCompletion.completePoll.mockRejectedValue(new Error('db down'));
     await createPollFromWebApp(PARAMS);
 
     await expect(fireTimer()).resolves.toBeUndefined();
@@ -456,7 +472,7 @@ describe('бота нет', () => {
       jest.advanceTimersByTimeAsync(30 * 60 * 1000)
     ).resolves.toBeUndefined();
 
-    expect(pollService.completePoll).not.toHaveBeenCalled();
+    expect(pollCompletion.completePoll).not.toHaveBeenCalled();
     expect(editMessageText).not.toHaveBeenCalled();
   });
 

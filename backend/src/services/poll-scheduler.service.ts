@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { RecurringPollService } from './recurring-poll.service';
 import { PollService } from './poll.service';
 import { UserService } from './user.service';
+import { PollCompletionService } from './poll-completion.service';
 
 /**
  * Ключ Postgres advisory-lock для single-instance гарантии scheduler'а.
@@ -147,7 +148,7 @@ export class PollSchedulerService {
    */
   private static async closeExpiredPolls(): Promise<void> {
     try {
-      const n = await PollService.cancelExpiredPolls();
+      const n = await PollCompletionService.cancelExpiredPolls();
       if (n > 0)
         logger.info(`Poll scheduler: auto-cancelled ${n} expired poll(s)`);
     } catch (error) {

@@ -73,31 +73,8 @@ import {
   voteBody,
   voteMultipleBody,
 } from '../schemas/poll';
-
-/**
- * Автозавершение после голоса.
- *
- * Сбой здесь НЕ отменяет уже поданный голос: голос записан, а закрытие
- * голосования — отдельное следствие. Поэтому исключение логируется и гасится,
- * а не уходит клиенту.
- */
-async function autoCompleteIfQuorumReached(
-  pollId: number,
-  userId: number
-): Promise<void> {
-  try {
-    if (!(await PollService.checkAutoComplete(pollId))) return;
-
-    logger.info(`Triggering auto-complete for poll ${pollId} (from API)`);
-    await PollService.completePollMultiWinner(pollId, userId, {
-      minVotes: 1,
-      tieBreakMethod: 'earliest',
-    });
-    logger.info(`Poll ${pollId} auto-completed successfully via API`);
-  } catch (error) {
-    logger.error('Auto-complete check/execution failed:', error);
-  }
-}
+import { PollStatsService } from '../../services/poll-stats.service';
+import { PollCompletionService } from '../../services/poll-completion.service';
 
 /**
  * Исторические коды `PATCH /polls/:id/complete-multi`.
@@ -232,7 +209,7 @@ export class PollController {
     const { groupId } = pollGroupQuery.get(req);
 
     const scope = await groupScope(req, groupId);
-    const stats = await PollService.getPollStats(scope);
+    const stats = await PollStatsService.getPollStats(scope);
 
     res.json({
       success: true,
@@ -248,7 +225,7 @@ export class PollController {
   static async getUserStats(req: Request, res: Response): Promise<void> {
     const user = requireAuthUserOrThrow(req);
 
-    const stats = await PollService.getUserParticipationStats(user.id);
+    const stats = await PollStatsService.getUserParticipationStats(user.id);
 
     res.json({
       success: true,
@@ -264,7 +241,7 @@ export class PollController {
   static async getUserStatsByUserId(req: Request, res: Response): Promise<void> {
     const { userId } = pollUserIdParam.get(req);
 
-    const stats = await PollService.getUserParticipationStats(userId);
+    const stats = await PollStatsService.getUserParticipationStats(userId);
 
     res.json({
       success: true,
@@ -308,7 +285,7 @@ export class PollController {
       throw new HttpError('Poll results not found', 404, 'RESULTS_NOT_FOUND');
     }
 
-    const breakdown = await PollService.getPollVoteBreakdown(id);
+    const breakdown = await PollStatsService.getPollVoteBreakdown(id);
 
     res.json({
       success: true,
@@ -438,7 +415,7 @@ export class PollController {
     const { id } = pollIdParam.get(req);
     const { user } = await assertPollAdmin(req, id);
 
-    const result = await PollService.completePoll(id);
+    const result = await PollCompletionService.completePoll(id);
 
     logger.info('Poll completed via API', {
       pollId: id,
@@ -501,7 +478,7 @@ export class PollController {
       isUpdate: vote.updatedAt > vote.createdAt,
     });
 
-    await autoCompleteIfQuorumReached(pollId, user.id);
+    await PollCompletionService.completeIfQuorumReached(pollId, user.id);
 
     res.json({
       success: true,
@@ -532,7 +509,7 @@ export class PollController {
       menuItemIds: votes.map(vote => vote.menuItemId),
     });
 
-    await autoCompleteIfQuorumReached(pollId, user.id);
+    await PollCompletionService.completeIfQuorumReached(pollId, user.id);
 
     res.json({
       success: true,
@@ -620,7 +597,7 @@ export class PollController {
     const { user } = await assertPollAdmin(req, pollId);
     const params = multiWinnerParams(req);
 
-    const result = await PollService.completePollMultiWinner(
+    const result = await PollCompletionService.completePollMultiWinner(
       pollId,
       user.id,
       params

@@ -14,6 +14,7 @@ import { GroupService } from '../../../services/group.service';
 import { mockRequest, mockResponse } from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
 import { PollQueryService } from '../../../services/poll-query.service';
+import { PollCompletionService } from '../../../services/poll-completion.service';
 
 jest.mock('../../../services/vote.service', () => ({
   VoteService: {
@@ -25,9 +26,15 @@ jest.mock('../../../services/vote.service', () => ({
 
 jest.mock('../../../services/poll.service', () => ({
   PollService: {
+  },
+}));
+
+jest.mock('../../../services/poll-completion.service', () => ({
+  PollCompletionService: {
     checkQuorumAndComplete: jest.fn(),
   },
 }));
+
 
 jest.mock('../../../services/poll-query.service', () => ({
   PollQueryService: {
@@ -47,6 +54,7 @@ jest.mock('../../../utils/logger', () => ({
 
 const voteService = asServiceMock(VoteService);
 const pollService = asServiceMock(PollService);
+const pollCompletion = asServiceMock(PollCompletionService);
 const pollQuery = asServiceMock(PollQueryService);
 const groupService = asServiceMock(GroupService);
 
@@ -60,7 +68,7 @@ beforeEach(() => {
     isMultiSelect: true,
     maxSelections: 3,
   });
-  pollService.checkQuorumAndComplete.mockResolvedValue(undefined);
+  pollCompletion.checkQuorumAndComplete.mockResolvedValue(undefined);
   groupService.isUserGroupMember.mockResolvedValue(true);
   voteService.replaceUserVotes.mockResolvedValue({
     votes: [{ id: 1, menuItemId: 2 }],
@@ -102,11 +110,11 @@ describe('POST /api/votes/multiple', () => {
       mockResponse()
     );
 
-    expect(pollService.checkQuorumAndComplete).toHaveBeenCalledWith(5);
+    expect(pollCompletion.checkQuorumAndComplete).toHaveBeenCalledWith(5);
   });
 
   it('падение проверки кворума не отменяет записанные голоса', async () => {
-    pollService.checkQuorumAndComplete.mockRejectedValue(new Error('boom'));
+    pollCompletion.checkQuorumAndComplete.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await createMultipleVotes(

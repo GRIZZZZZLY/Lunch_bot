@@ -39,6 +39,66 @@ const pollWithDetailsInclude = {
   },
 } satisfies Prisma.PollInclude;
 
+/**
+ * Что показывает экран истории.
+ *
+ * Голоса с участниками и блюдами включены намеренно: из них экран статистики
+ * считает лидерборд и «профиль обеда». Без них фронт делал бы запрос на каждое
+ * голосование.
+ */
+const pollHistorySelect = {
+
+  id: true,
+  groupId: true,
+  status: true,
+  duration: true,
+  startedAt: true,
+  endedAt: true,
+  createdBy: true,
+  messageId: true,
+  chatId: true,
+  createdAt: true,
+  updatedAt: true,
+  group: {
+    select: { id: true, title: true, telegramId: true },
+  },
+  result: {
+    select: {
+      id: true,
+      totalVotes: true,
+      createdAt: true,
+      winnerMenuItem: {
+        select: { id: true, name: true, price: true, imageUrl: true },
+      },
+      responsibleUser: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+          telegramId: true,
+        },
+      },
+    },
+  },
+  votes: {
+    select: {
+      id: true,
+      userId: true,
+      menuItemId: true,
+      createdAt: true,
+      user: {
+        select: { id: true, firstName: true, username: true },
+      },
+      menuItem: {
+        select: { id: true, name: true },
+      },
+    },
+  },
+  _count: { select: { votes: true } },
+
+} satisfies Prisma.PollSelect;
+
 /** Фильтр по группе: одна, список или все. */
 function groupFilter(groupId?: number | number[]): Prisma.PollWhereInput {
   if (Array.isArray(groupId)) return { groupId: { in: groupId } };
@@ -263,56 +323,7 @@ export class PollQueryService {
       const [polls, total] = await Promise.all([
         prisma.poll.findMany({
           where,
-          select: {
-            id: true,
-            groupId: true,
-            status: true,
-            duration: true,
-            startedAt: true,
-            endedAt: true,
-            createdBy: true,
-            messageId: true,
-            chatId: true,
-            createdAt: true,
-            updatedAt: true,
-            group: {
-              select: { id: true, title: true, telegramId: true },
-            },
-            result: {
-              select: {
-                id: true,
-                totalVotes: true,
-                createdAt: true,
-                winnerMenuItem: {
-                  select: { id: true, name: true, price: true, imageUrl: true },
-                },
-                responsibleUser: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    username: true,
-                    telegramId: true,
-                  },
-                },
-              },
-            },
-            votes: {
-              select: {
-                id: true,
-                userId: true,
-                menuItemId: true,
-                createdAt: true,
-                user: {
-                  select: { id: true, firstName: true, username: true },
-                },
-                menuItem: {
-                  select: { id: true, name: true },
-                },
-              },
-            },
-            _count: { select: { votes: true } },
-          },
+          select: pollHistorySelect,
           orderBy: { createdAt: 'desc' },
           take: limit,
           skip: offset,

@@ -22,15 +22,22 @@ import { asServiceMock } from '../../helpers/mocks';
 import type { BotContext } from '../../../types/bot.types';
 import type { CallbackQueryContext } from 'grammy';
 import { PollQueryService } from '../../../services/poll-query.service';
+import { PollCompletionService } from '../../../services/poll-completion.service';
 
 jest.mock('../../../services/poll.service', () => ({
   PollService: {
-    completePoll: jest.fn(),
     cancelPoll: jest.fn(),
     getPollResult: jest.fn(),
     savePollResult: jest.fn(),
   },
 }));
+
+jest.mock('../../../services/poll-completion.service', () => ({
+  PollCompletionService: {
+    completePoll: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/poll-query.service', () => ({
   PollQueryService: {
@@ -78,6 +85,7 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const pollService = asServiceMock(PollService);
+const pollCompletion = asServiceMock(PollCompletionService);
 const pollQuery = asServiceMock(PollQueryService);
 const voteService = asServiceMock(VoteService);
 const userService = asServiceMock(UserService);
@@ -146,7 +154,7 @@ beforeEach(() => {
     status: 'COMPLETED',
     title: 'Обед',
   });
-  pollService.completePoll.mockResolvedValue({
+  pollCompletion.completePoll.mockResolvedValue({
     id: 5,
     status: 'COMPLETED',
     title: 'Обед',
@@ -181,7 +189,7 @@ describe('handleCompletePoll', () => {
 
     await handleCompletePoll(ctx, 5);
 
-    expect(pollService.completePoll).toHaveBeenCalledWith(5);
+    expect(pollCompletion.completePoll).toHaveBeenCalledWith(5);
     expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
       '✅ Голосование завершено'
     );
@@ -200,7 +208,7 @@ describe('handleCompletePoll', () => {
     expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
       expect.stringContaining('Только администратор этой группы')
     );
-    expect(pollService.completePoll).not.toHaveBeenCalled();
+    expect(pollCompletion.completePoll).not.toHaveBeenCalled();
   });
 
   it('незнакомый пользователь завершить не может', async () => {
@@ -209,7 +217,7 @@ describe('handleCompletePoll', () => {
 
     await handleCompletePoll(ctx, 5);
 
-    expect(pollService.completePoll).not.toHaveBeenCalled();
+    expect(pollCompletion.completePoll).not.toHaveBeenCalled();
   });
 
   it('голосования нет — отказ', async () => {
@@ -218,7 +226,7 @@ describe('handleCompletePoll', () => {
 
     await handleCompletePoll(ctx, 5);
 
-    expect(pollService.completePoll).not.toHaveBeenCalled();
+    expect(pollCompletion.completePoll).not.toHaveBeenCalled();
   });
 
   it('с включённой авторулеткой она запускается после завершения', async () => {
@@ -243,7 +251,7 @@ describe('handleCompletePoll', () => {
   });
 
   it('ошибка завершения отвечает на нажатие', async () => {
-    pollService.completePoll.mockRejectedValue(new Error('db down'));
+    pollCompletion.completePoll.mockRejectedValue(new Error('db down'));
     const ctx = makeCtx();
 
     await handleCompletePoll(ctx, 5);

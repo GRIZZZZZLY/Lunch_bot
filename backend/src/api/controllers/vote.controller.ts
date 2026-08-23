@@ -5,6 +5,7 @@ import { PollService } from '../../services/poll.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { PollQueryService } from '../../services/poll-query.service';
+import { PollCompletionService } from '../../services/poll-completion.service';
 
 /**
  * Vote Controller
@@ -160,7 +161,7 @@ export async function createMultipleVotes(req: Request, res: Response): Promise<
     // Проверяем кворум — все ли ожидаемые проголосовали (авто-закрытие).
     // Не блокируем ответ клиенту, если кворум-чек упал.
     try {
-      await PollService.checkQuorumAndComplete(pollId);
+      await PollCompletionService.checkQuorumAndComplete(pollId);
     } catch (error) {
       logger.error(`[VoteController] checkQuorumAndComplete failed for poll ${pollId}:`, error);
     }

@@ -23,6 +23,7 @@ import {
 import { PollService } from '../../../services/poll.service';
 import { RecurringPollService } from '../../../services/recurring-poll.service';
 import { asMock, asServiceMock } from '../../helpers/mocks';
+import { PollCompletionService } from '../../../services/poll-completion.service';
 
 jest.mock('node-cron', () => ({
   __esModule: true,
@@ -35,6 +36,13 @@ jest.mock('pg', () => ({ Client: jest.fn() }));
 jest.mock('../../../services/poll.service', () => ({
   PollService: { cancelExpiredPolls: jest.fn() },
 }));
+
+jest.mock('../../../services/poll-completion.service', () => ({
+  PollCompletionService: {
+    cancelExpiredPolls: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/recurring-poll.service', () => ({
   RecurringPollService: {
@@ -57,6 +65,7 @@ jest.mock('../../../utils/logger', () => ({
 
 const { logger } = jest.requireMock('../../../utils/logger');
 const polls = asServiceMock(PollService);
+const pollCompletion = asServiceMock(PollCompletionService);
 const recurring = asServiceMock(RecurringPollService);
 
 /** Приватная часть планировщика: статика и внутренние методы. */
@@ -126,7 +135,7 @@ beforeEach(() => {
   asMock(Client).mockImplementation(() => client as never);
   asMock(cron.schedule).mockReturnValue({ stop: jest.fn() });
 
-  polls.cancelExpiredPolls.mockResolvedValue(0);
+  pollCompletion.cancelExpiredPolls.mockResolvedValue(0);
   recurring.getActiveSchedules.mockResolvedValue([]);
   api.sendMessage.mockResolvedValue({ message_id: 1 });
 });
@@ -268,12 +277,12 @@ describe('тик планировщика', () => {
   }
 
   it('на каждом тике истёкшие голосования тихо отменяются', async () => {
-    polls.cancelExpiredPolls.mockResolvedValue(2);
+    pollCompletion.cancelExpiredPolls.mockResolvedValue(2);
     await PollSchedulerService.start();
 
     await tick();
 
-    expect(polls.cancelExpiredPolls).toHaveBeenCalled();
+    expect(pollCompletion.cancelExpiredPolls).toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledWith(
       'Poll scheduler: auto-cancelled 2 expired poll(s)'
     );
@@ -290,7 +299,7 @@ describe('тик планировщика', () => {
   });
 
   it('сбой отмены не рвёт тик', async () => {
-    polls.cancelExpiredPolls.mockRejectedValue(new Error('db down'));
+    pollCompletion.cancelExpiredPolls.mockRejectedValue(new Error('db down'));
     await PollSchedulerService.start();
 
     await expect(tick()).resolves.toBeUndefined();

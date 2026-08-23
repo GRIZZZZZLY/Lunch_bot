@@ -52,6 +52,8 @@ import {
 } from '../../helpers/http';
 import { asMock, asServiceMock } from '../../helpers/mocks';
 import { PollQueryService } from '../../../services/poll-query.service';
+import { PollStatsService } from '../../../services/poll-stats.service';
+import { PollCompletionService } from '../../../services/poll-completion.service';
 
 /* Классы ошибок НЕ мокаются: контроллер и `errorHandler` различают их по типу,
    а самодельная подделка в фабрике мока — это тест собственной выдумки.
@@ -64,14 +66,8 @@ jest.mock('../../../services/poll.service', () => {
     PollAlreadyActiveError: errors.PollAlreadyActiveError,
     PollService: {
       getPollResultByPollId: jest.fn(),
-      getPollVoteBreakdown: jest.fn(),
-      getPollStats: jest.fn(),
-      getUserParticipationStats: jest.fn(),
       createPoll: jest.fn(),
-      completePoll: jest.fn(),
-      completePollMultiWinner: jest.fn(),
       cancelPoll: jest.fn(),
-      checkAutoComplete: jest.fn(),
       runRoulette: jest.fn(),
     },
   };
@@ -86,6 +82,25 @@ jest.mock('../../../services/vote.service', () => ({
     removeVote: jest.fn(),
   },
 }));
+
+jest.mock('../../../services/poll-completion.service', () => ({
+  PollCompletionService: {
+    completeIfQuorumReached: jest.fn(),
+    completePollMultiWinner: jest.fn(),
+    completePoll: jest.fn(),
+    checkAutoComplete: jest.fn(),
+  },
+}));
+
+
+jest.mock('../../../services/poll-stats.service', () => ({
+  PollStatsService: {
+    getPollStats: jest.fn(),
+    getUserParticipationStats: jest.fn(),
+    getPollVoteBreakdown: jest.fn(),
+  },
+}));
+
 
 jest.mock('../../../services/poll-query.service', () => ({
   PollQueryService: {
@@ -140,6 +155,8 @@ jest.mock('../../../config/features', () => ({
 const controller = withErrorHandler(PollController);
 
 const pollService = asServiceMock(PollService);
+const pollCompletion = asServiceMock(PollCompletionService);
+const pollStats = asServiceMock(PollStatsService);
 const pollQuery = asServiceMock(PollQueryService);
 const voteService = asServiceMock(VoteService);
 const menuService = asServiceMock(MenuService);
@@ -532,18 +549,18 @@ describe('POST /api/polls/repeat/:id', () => {
 
 describe('GET /api/polls/stats', () => {
   it('отдаёт статистику по доступным группам', async () => {
-    pollService.getPollStats.mockResolvedValue({ total: 3 });
+    pollStats.getPollStats.mockResolvedValue({ total: 3 });
     const res = mockResponse();
 
     await controller.getPollStats(adminRequest(), res);
 
     expect(res.body).toMatchObject({ success: true, data: { total: 3 } });
     // Группы человека, а не «все»: глобального администратора больше нет.
-    expect(pollService.getPollStats).toHaveBeenCalledWith([]);
+    expect(pollStats.getPollStats).toHaveBeenCalledWith([]);
   });
 
   it('с groupId сужает выборку после проверки членства', async () => {
-    pollService.getPollStats.mockResolvedValue({ total: 1 });
+    pollStats.getPollStats.mockResolvedValue({ total: 1 });
 
     await controller.getPollStats(
       memberRequest({ query: { groupId: '9' } }),
@@ -551,7 +568,7 @@ describe('GET /api/polls/stats', () => {
     );
 
     expect(groupService.isUserGroupMember).toHaveBeenCalledWith(1, 9);
-    expect(pollService.getPollStats).toHaveBeenCalledWith(9);
+    expect(pollStats.getPollStats).toHaveBeenCalledWith(9);
   });
 
   it('не участник — 403', async () => {
@@ -578,7 +595,7 @@ describe('GET /api/polls/stats', () => {
   });
 
   it('ошибка сервиса — 500', async () => {
-    pollService.getPollStats.mockRejectedValue(new Error('boom'));
+    pollStats.getPollStats.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getPollStats(adminRequest(), res);
@@ -589,18 +606,18 @@ describe('GET /api/polls/stats', () => {
 
 describe('статистика участия', () => {
   it('свою статистику берёт по id из токена, а не из запроса', async () => {
-    pollService.getUserParticipationStats.mockResolvedValue({ votes: 5 });
+    pollStats.getUserParticipationStats.mockResolvedValue({ votes: 5 });
 
     await controller.getUserStats(
       mockRequest({ user: { id: 77 }, query: { userId: '1' } }),
       mockResponse()
     );
 
-    expect(pollService.getUserParticipationStats).toHaveBeenCalledWith(77);
+    expect(pollStats.getUserParticipationStats).toHaveBeenCalledWith(77);
   });
 
   it('своя статистика: ошибка сервиса — 500', async () => {
-    pollService.getUserParticipationStats.mockRejectedValue(new Error('boom'));
+    pollStats.getUserParticipationStats.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getUserStats(mockRequest({ user: { id: 77 } }), res);
@@ -609,7 +626,7 @@ describe('статистика участия', () => {
   });
 
   it('статистика по userId отдаётся админу', async () => {
-    pollService.getUserParticipationStats.mockResolvedValue({ votes: 2 });
+    pollStats.getUserParticipationStats.mockResolvedValue({ votes: 2 });
     const res = mockResponse();
 
     await controller.getUserStatsByUserId(
@@ -617,7 +634,7 @@ describe('статистика участия', () => {
       res
     );
 
-    expect(pollService.getUserParticipationStats).toHaveBeenCalledWith(55);
+    expect(pollStats.getUserParticipationStats).toHaveBeenCalledWith(55);
     expect(res.body).toMatchObject({ data: { votes: 2 } });
   });
 
@@ -634,7 +651,7 @@ describe('статистика участия', () => {
   });
 
   it('статистика по userId: ошибка сервиса — 500', async () => {
-    pollService.getUserParticipationStats.mockRejectedValue(new Error('boom'));
+    pollStats.getUserParticipationStats.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getUserStatsByUserId(
@@ -758,7 +775,7 @@ describe('GET /api/polls/:id/results', () => {
   beforeEach(() => {
     pollQuery.getPollGroupId.mockResolvedValue(100);
     pollService.getPollResultByPollId.mockResolvedValue({ id: 1 });
-    pollService.getPollVoteBreakdown.mockResolvedValue([{ menuItemId: 1 }] as never);
+    pollStats.getPollVoteBreakdown.mockResolvedValue([{ menuItemId: 1 }] as never);
   });
 
   it('отдаёт результат вместе с разбивкой голосов', async () => {
@@ -825,7 +842,7 @@ describe('GET /api/polls/:id/results', () => {
   });
 
   it('ошибка сервиса — 500', async () => {
-    pollService.getPollVoteBreakdown.mockRejectedValue(new Error('boom'));
+    pollStats.getPollVoteBreakdown.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.getPollResults(
@@ -1190,7 +1207,7 @@ describe('GET /api/polls/active/:groupId', () => {
 describe('PATCH /api/polls/:id/complete', () => {
   beforeEach(() => {
     pollQuery.getPollGroupId.mockResolvedValue(100);
-    pollService.completePoll.mockResolvedValue({
+    pollCompletion.completePoll.mockResolvedValue({
       winnerMenuItemId: 1,
       totalVotes: 4,
     });
@@ -1204,7 +1221,7 @@ describe('PATCH /api/polls/:id/complete', () => {
       res
     );
 
-    expect(pollService.completePoll).toHaveBeenCalledWith(10);
+    expect(pollCompletion.completePoll).toHaveBeenCalledWith(10);
     expect(res.body).toMatchObject({ message: 'Poll completed successfully' });
   });
 
@@ -1235,11 +1252,11 @@ describe('PATCH /api/polls/:id/complete', () => {
     await controller.completePoll(adminRequest({ params: { id: '10' } }), res);
 
     expect(res.statusCode).toBe(403);
-    expect(pollService.completePoll).not.toHaveBeenCalled();
+    expect(pollCompletion.completePoll).not.toHaveBeenCalled();
   });
 
   it('сервис не нашёл голосование — 404', async () => {
-    pollService.completePoll.mockRejectedValue(new PollNotFoundError());
+    pollCompletion.completePoll.mockRejectedValue(new PollNotFoundError());
     const res = mockResponse();
 
     await controller.completePoll(adminRequest({ params: { id: '10' } }), res);
@@ -1248,7 +1265,7 @@ describe('PATCH /api/polls/:id/complete', () => {
   });
 
   it('голосование уже завершено — 400', async () => {
-    pollService.completePoll.mockRejectedValue(new PollAlreadyCompletedError());
+    pollCompletion.completePoll.mockRejectedValue(new PollAlreadyCompletedError());
     const res = mockResponse();
 
     await controller.completePoll(adminRequest({ params: { id: '10' } }), res);
@@ -1258,7 +1275,7 @@ describe('PATCH /api/polls/:id/complete', () => {
   });
 
   it('прочая ошибка — 500', async () => {
-    pollService.completePoll.mockRejectedValue(new Error('boom'));
+    pollCompletion.completePoll.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.completePoll(adminRequest({ params: { id: '10' } }), res);
@@ -1373,7 +1390,7 @@ describe('PATCH /api/polls/:id/cancel', () => {
 describe('POST /api/polls/:id/vote', () => {
   beforeEach(() => {
     pollQuery.getPollGroupId.mockResolvedValue(100);
-    pollService.checkAutoComplete.mockResolvedValue(false);
+    pollCompletion.completeIfQuorumReached.mockResolvedValue(false);
     voteService.upsertVote.mockResolvedValue({
       id: 1,
       menuItemId: 2,
@@ -1398,23 +1415,26 @@ describe('POST /api/polls/:id/vote', () => {
     expect(res.body).toMatchObject({ message: 'Vote cast successfully' });
   });
 
-  it('автозавершение запускается, когда сервис его разрешил', async () => {
-    pollService.checkAutoComplete.mockResolvedValue(true);
-    pollService.completePollMultiWinner.mockResolvedValue({});
+  /* Само правило кворума живёт в `PollCompletionService.completeIfQuorumReached`
+     (задача 06) и проверяется там же. Контроллер отвечает за одно: после
+     записанного голоса правило вызывается — и с тем, кто голосовал. */
+  it('после голоса запускается проверка кворума', async () => {
+    pollCompletion.completeIfQuorumReached.mockResolvedValue(true);
 
     await controller.vote(
       memberRequest({ params: { id: '10' }, body: { menuItemId: 2 } }),
       mockResponse()
     );
 
-    expect(pollService.completePollMultiWinner).toHaveBeenCalledWith(10, 1, {
-      minVotes: 1,
-      tieBreakMethod: 'earliest',
-    });
+    expect(pollCompletion.completeIfQuorumReached).toHaveBeenCalledWith(10, 1);
   });
 
-  it('падение автозавершения не отменяет уже записанный голос', async () => {
-    pollService.checkAutoComplete.mockRejectedValue(new Error('boom'));
+  /* Гарантия «сбой автозавершения не отменяет голос» переехала в
+     `PollCompletionService.completeIfQuorumReached` — там она и проверяется, на
+     настоящем `catch`. Здесь остаётся то, за что отвечает контроллер: голос
+     записан и ответ отдан, а решение про закрытие принимает сервис. */
+  it('голос отвечен 200 независимо от исхода проверки кворума', async () => {
+    pollCompletion.completeIfQuorumReached.mockResolvedValue(false);
     const res = mockResponse();
 
     await controller.vote(
@@ -1511,7 +1531,7 @@ describe('POST /api/polls/:id/vote', () => {
 describe('POST /api/polls/:id/vote-multiple', () => {
   beforeEach(() => {
     pollQuery.getPollGroupId.mockResolvedValue(100);
-    pollService.checkAutoComplete.mockResolvedValue(false);
+    pollCompletion.completeIfQuorumReached.mockResolvedValue(false);
     voteService.castVotes.mockResolvedValue([
       { id: 1, menuItemId: 1 },
       { id: 2, menuItemId: 2 },
@@ -1634,19 +1654,18 @@ describe('POST /api/polls/:id/vote-multiple', () => {
   });
 
   it('автозавершение запускается после множественного голоса', async () => {
-    pollService.checkAutoComplete.mockResolvedValue(true);
-    pollService.completePollMultiWinner.mockResolvedValue({});
+    pollCompletion.completeIfQuorumReached.mockResolvedValue(true);
 
     await controller.voteMultiple(
       memberRequest({ params: { id: '10' }, body: { menuItemIds: [1] } }),
       mockResponse()
     );
 
-    expect(pollService.completePollMultiWinner).toHaveBeenCalled();
+    expect(pollCompletion.completeIfQuorumReached).toHaveBeenCalled();
   });
 
-  it('падение автозавершения не отменяет записанные голоса', async () => {
-    pollService.checkAutoComplete.mockRejectedValue(new Error('boom'));
+  it('множественный голос отвечен независимо от исхода проверки кворума', async () => {
+    pollCompletion.completeIfQuorumReached.mockResolvedValue(false);
     const res = mockResponse();
 
     await controller.voteMultiple(
@@ -1926,7 +1945,7 @@ describe('GET /api/polls/popular-items', () => {
 describe('PATCH /api/polls/:id/complete-multi', () => {
   beforeEach(() => {
     pollQuery.getPollGroupId.mockResolvedValue(100);
-    pollService.completePollMultiWinner.mockResolvedValue({
+    pollCompletion.completePollMultiWinner.mockResolvedValue({
       id: 1,
       rouletteData: JSON.stringify({ winners: [{ menuItemId: 1 }] }),
     });
@@ -1940,7 +1959,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
       res
     );
 
-    expect(pollService.completePollMultiWinner).toHaveBeenCalledWith(10, 1, {
+    expect(pollCompletion.completePollMultiWinner).toHaveBeenCalledWith(10, 1, {
       minVotes: 2,
       maxWinners: null,
       tieBreakMethod: 'earliest',
@@ -1951,7 +1970,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
   });
 
   it('rouletteData объектом не требует разбора JSON', async () => {
-    pollService.completePollMultiWinner.mockResolvedValue({
+    pollCompletion.completePollMultiWinner.mockResolvedValue({
       rouletteData: { winners: [] },
     });
     const res = mockResponse();
@@ -1965,7 +1984,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
   });
 
   it('пустой rouletteData даёт пустой объект', async () => {
-    pollService.completePollMultiWinner.mockResolvedValue({
+    pollCompletion.completePollMultiWinner.mockResolvedValue({
       rouletteData: null,
     });
     const res = mockResponse();
@@ -1989,7 +2008,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
 
     expect(res.statusCode).toBe(503);
     expect(res.body).toMatchObject({ code: 'FEATURE_DISABLED' });
-    expect(pollService.completePollMultiWinner).not.toHaveBeenCalled();
+    expect(pollCompletion.completePollMultiWinner).not.toHaveBeenCalled();
   });
 
   it('нечисловой id — 400', async () => {
@@ -2059,7 +2078,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
     );
 
     expect(res.statusCode).toBe(200);
-    expect(pollService.completePollMultiWinner).toHaveBeenCalledWith(10, 1, {
+    expect(pollCompletion.completePollMultiWinner).toHaveBeenCalledWith(10, 1, {
       minVotes: 1,
       maxWinners: 5,
       tieBreakMethod: 'alphabetical',
@@ -2067,7 +2086,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
   });
 
   it('сервис не нашёл голосование — 404', async () => {
-    pollService.completePollMultiWinner.mockRejectedValue(
+    pollCompletion.completePollMultiWinner.mockRejectedValue(
       new PollNotFoundError()
     );
     const res = mockResponse();
@@ -2081,7 +2100,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
   });
 
   it('уже завершено — 400 ALREADY_COMPLETED', async () => {
-    pollService.completePollMultiWinner.mockRejectedValue(
+    pollCompletion.completePollMultiWinner.mockRejectedValue(
       new PollAlreadyCompletedError()
     );
     const res = mockResponse();
@@ -2096,7 +2115,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
   });
 
   it('не активно — 400 NOT_ACTIVE', async () => {
-    pollService.completePollMultiWinner.mockRejectedValue(
+    pollCompletion.completePollMultiWinner.mockRejectedValue(
       new PollNotActiveError()
     );
     const res = mockResponse();
@@ -2111,7 +2130,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
   });
 
   it('прочая ошибка — 500', async () => {
-    pollService.completePollMultiWinner.mockRejectedValue(new Error('boom'));
+    pollCompletion.completePollMultiWinner.mockRejectedValue(new Error('boom'));
     const res = mockResponse();
 
     await controller.completePollMultiWinner(

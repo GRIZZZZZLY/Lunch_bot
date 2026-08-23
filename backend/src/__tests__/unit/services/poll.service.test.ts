@@ -26,6 +26,8 @@ import { PollService } from '../../../services/poll.service';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock, asServiceMock } from '../../helpers/mocks';
 import { PollQueryService } from '../../../services/poll-query.service';
+import { PollStatsService } from '../../../services/poll-stats.service';
+import { PollCompletionService } from '../../../services/poll-completion.service';
 
 jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
@@ -240,7 +242,7 @@ describe('checkQuorumAndComplete', () => {
 
   beforeEach(() => {
     completePoll = jest
-      .spyOn(PollService, 'completePoll')
+      .spyOn(PollCompletionService, 'completePoll')
       .mockResolvedValue({ id: 700 } as never);
   });
 
@@ -269,7 +271,7 @@ describe('checkQuorumAndComplete', () => {
     expected([1, 2]);
     voted([1, 2]);
 
-    await expect(PollService.checkQuorumAndComplete(5)).resolves.toBe(true);
+    await expect(PollCompletionService.checkQuorumAndComplete(5)).resolves.toBe(true);
     expect(completePoll).toHaveBeenCalledWith(5);
   });
 
@@ -278,7 +280,7 @@ describe('checkQuorumAndComplete', () => {
     expected([1, 2]);
     voted([1]);
 
-    await expect(PollService.checkQuorumAndComplete(5)).resolves.toBe(false);
+    await expect(PollCompletionService.checkQuorumAndComplete(5)).resolves.toBe(false);
     expect(completePoll).not.toHaveBeenCalled();
   });
 
@@ -288,7 +290,7 @@ describe('checkQuorumAndComplete', () => {
     voted([1]);
     completePoll.mockRejectedValue(new Error('Poll is already completed'));
 
-    await expect(PollService.checkQuorumAndComplete(5)).resolves.toBe(false);
+    await expect(PollCompletionService.checkQuorumAndComplete(5)).resolves.toBe(false);
     expect(logger.error).not.toHaveBeenCalled();
   });
 
@@ -298,7 +300,7 @@ describe('checkQuorumAndComplete', () => {
     voted([1]);
     completePoll.mockRejectedValue(new Error('db down'));
 
-    await expect(PollService.checkQuorumAndComplete(5)).resolves.toBe(false);
+    await expect(PollCompletionService.checkQuorumAndComplete(5)).resolves.toBe(false);
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining('failed to auto-complete poll 5'),
       expect.any(Error)
@@ -310,7 +312,7 @@ describe('checkQuorumAndComplete', () => {
     expected([]);
     voted([1]);
 
-    await expect(PollService.checkQuorumAndComplete(5)).resolves.toBe(false);
+    await expect(PollCompletionService.checkQuorumAndComplete(5)).resolves.toBe(false);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('no EXPECTED participants')
     );
@@ -321,20 +323,20 @@ describe('checkQuorumAndComplete', () => {
     expected([1, 2]);
     voted([1, 99]);
 
-    await expect(PollService.checkQuorumAndComplete(5)).resolves.toBe(false);
+    await expect(PollCompletionService.checkQuorumAndComplete(5)).resolves.toBe(false);
   });
 
   it('неактивное голосование не проверяется', async () => {
     poll('COMPLETED');
 
-    await expect(PollService.checkQuorumAndComplete(5)).resolves.toBe(false);
+    await expect(PollCompletionService.checkQuorumAndComplete(5)).resolves.toBe(false);
     expect(asMock(prismaMock.pollParticipant.findMany)).not.toHaveBeenCalled();
   });
 
   it('удалённое голосование не проверяется', async () => {
     asMock(prismaMock.poll.findUnique).mockResolvedValue(null);
 
-    await expect(PollService.checkQuorumAndComplete(5)).resolves.toBe(false);
+    await expect(PollCompletionService.checkQuorumAndComplete(5)).resolves.toBe(false);
   });
 });
 
@@ -354,7 +356,7 @@ describe('cancelExpiredPolls', () => {
       },
     ]);
 
-    await expect(PollService.cancelExpiredPolls(NOW)).resolves.toBe(1);
+    await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(1);
     expect(asMock(prismaMock.poll.updateMany)).toHaveBeenCalledWith({
       where: { id: 5, status: 'ACTIVE' },
       data: { status: 'CANCELLED', endedAt: NOW },
@@ -364,7 +366,7 @@ describe('cancelExpiredPolls', () => {
   it('голосование в пределах таймера не трогается', async () => {
     active([{ id: 5, startedAt: NOW, duration: 30 }]);
 
-    await expect(PollService.cancelExpiredPolls(NOW)).resolves.toBe(0);
+    await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(0);
     expect(asMock(prismaMock.poll.updateMany)).not.toHaveBeenCalled();
   });
 
@@ -377,7 +379,7 @@ describe('cancelExpiredPolls', () => {
       },
     ]);
 
-    await expect(PollService.cancelExpiredPolls(NOW)).resolves.toBe(1);
+    await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(1);
   });
 
   it('уже отменённое другим процессом не считается дважды', async () => {
@@ -390,7 +392,7 @@ describe('cancelExpiredPolls', () => {
     ]);
     asMock(prismaMock.poll.updateMany).mockResolvedValue({ count: 0 });
 
-    await expect(PollService.cancelExpiredPolls(NOW)).resolves.toBe(0);
+    await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(0);
   });
 
   it('кэш группы сбрасывается после отмены', async () => {
@@ -402,13 +404,13 @@ describe('cancelExpiredPolls', () => {
       },
     ]);
 
-    await PollService.cancelExpiredPolls(NOW);
+    await PollCompletionService.cancelExpiredPolls(NOW);
 
     expect(cacheInvalidatorMock.invalidatePoll).toHaveBeenCalledWith(5, 100);
   });
 
   it('без активных голосований ничего не делает', async () => {
-    await expect(PollService.cancelExpiredPolls(NOW)).resolves.toBe(0);
+    await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(0);
   });
 });
 
@@ -510,7 +512,7 @@ describe('getUserParticipationStats', () => {
   it('процент участия считается от числа завершённых голосований', async () => {
     stats({ totalVotes: 4, totalPolls: 8 });
 
-    const result = await PollService.getUserParticipationStats(1);
+    const result = await PollStatsService.getUserParticipationStats(1);
 
     expect(result).toMatchObject({
       totalVotes: 4,
@@ -523,14 +525,14 @@ describe('getUserParticipationStats', () => {
     stats({ totalPolls: 0 });
 
     expect(
-      (await PollService.getUserParticipationStats(1)).participationRate
+      (await PollStatsService.getUserParticipationStats(1)).participationRate
     ).toBe(0);
   });
 
   it('любимые блюда получают долю от всех голосов пользователя', async () => {
     stats({ totalVotes: 4, byItem: [{ menuItemId: 1, _count: { id: 3 } }] });
 
-    const result = await PollService.getUserParticipationStats(1);
+    const result = await PollStatsService.getUserParticipationStats(1);
 
     expect(result.favoriteItems).toEqual([
       { itemId: 1, itemName: 'Плов', voteCount: 3, percentage: 75 },
@@ -540,7 +542,7 @@ describe('getUserParticipationStats', () => {
   it('удалённое блюдо подписывается Unknown, а голоса остаются', async () => {
     stats({ items: [] });
 
-    const result = await PollService.getUserParticipationStats(1);
+    const result = await PollStatsService.getUserParticipationStats(1);
 
     expect(result.favoriteItems[0]).toMatchObject({
       itemName: 'Unknown',
@@ -552,7 +554,7 @@ describe('getUserParticipationStats', () => {
     stats({ totalVotes: 0 });
 
     expect(
-      (await PollService.getUserParticipationStats(1)).favoriteItems[0]
+      (await PollStatsService.getUserParticipationStats(1)).favoriteItems[0]
         .percentage
     ).toBe(0);
   });
@@ -560,7 +562,7 @@ describe('getUserParticipationStats', () => {
   it('последняя активность отдаётся с датой в ISO', async () => {
     stats();
 
-    const result = await PollService.getUserParticipationStats(1);
+    const result = await PollStatsService.getUserParticipationStats(1);
 
     expect(result.recentActivity).toEqual([
       {
@@ -578,14 +580,14 @@ describe('getUserParticipationStats', () => {
     });
 
     expect(
-      (await PollService.getUserParticipationStats(1)).recentActivity[0].itemName
+      (await PollStatsService.getUserParticipationStats(1)).recentActivity[0].itemName
     ).toBe('Unknown');
   });
 
   it('сбой чтения превращается в понятную ошибку', async () => {
     asMock(prismaMock.vote.count).mockRejectedValue(new Error('db down'));
 
-    await expect(PollService.getUserParticipationStats(1)).rejects.toThrow(
+    await expect(PollStatsService.getUserParticipationStats(1)).rejects.toThrow(
       'Failed to get user participation stats'
     );
   });
@@ -684,7 +686,7 @@ describe('completePollMultiWinner', () => {
       { userId: 2, menuItemId: 2, name: 'Суп' },
     ]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     const result = savedResult();
     expect(result.winners.map(w => w.menuItemName)).toEqual(['Плов', 'Суп']);
@@ -699,7 +701,7 @@ describe('completePollMultiWinner', () => {
       { userId: 3, menuItemId: 2, name: 'Суп' },
     ]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     expect(savedResult().winners.map(w => w.menuItemId)).toEqual([2, 1]);
   });
@@ -707,7 +709,7 @@ describe('completePollMultiWinner', () => {
   it('в снимок победителя попадают цена и картинка на момент завершения', async () => {
     pollWithVotes([{ userId: 1, menuItemId: 1, name: 'Плов', price: 320 }]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     expect(savedResult().winners[0].menuItemSnapshot).toEqual({ price: 320 });
   });
@@ -719,7 +721,7 @@ describe('completePollMultiWinner', () => {
       { userId: 3, menuItemId: 2, name: 'Суп' },
     ]);
 
-    await PollService.completePollMultiWinner(5, 1, { minVotes: 2 });
+    await PollCompletionService.completePollMultiWinner(5, 1, { minVotes: 2 });
 
     expect(savedResult().winners.map(w => w.menuItemId)).toEqual([1]);
   });
@@ -731,7 +733,7 @@ describe('completePollMultiWinner', () => {
       { userId: 3, menuItemId: 3 },
     ]);
 
-    await PollService.completePollMultiWinner(5, 1, { maxWinners: 2 });
+    await PollCompletionService.completePollMultiWinner(5, 1, { maxWinners: 2 });
 
     expect(savedResult().winners).toHaveLength(2);
   });
@@ -743,7 +745,7 @@ describe('completePollMultiWinner', () => {
       { userId: 3, menuItemId: 2 },
     ]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     const result = savedResult();
     expect(result.meta.primaryWinnerId).toBe(1);
@@ -756,7 +758,7 @@ describe('completePollMultiWinner', () => {
       { userId: 2, menuItemId: 2, at: '2026-08-03T11:00:00.000Z' },
     ]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     const result = savedResult();
     expect(result.meta.primaryWinnerId).toBe(2);
@@ -773,7 +775,7 @@ describe('completePollMultiWinner', () => {
       { userId: 2, menuItemId: 2, name: 'Борщ' },
     ]);
 
-    await PollService.completePollMultiWinner(5, 1, {
+    await PollCompletionService.completePollMultiWinner(5, 1, {
       tieBreakMethod: 'alphabetical',
     });
 
@@ -790,7 +792,7 @@ describe('completePollMultiWinner', () => {
       { userId: 4, type: 'SKIP' },
     ]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     const result = savedResult();
     expect(result.winners).toHaveLength(1);
@@ -801,7 +803,7 @@ describe('completePollMultiWinner', () => {
   it('голосование без голосов завершается без победителя', async () => {
     pollWithVotes([]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     const result = savedResult();
     expect(result.winners).toEqual([]);
@@ -811,7 +813,7 @@ describe('completePollMultiWinner', () => {
   it('в итогах сохранены кто и с какими параметрами завершил', async () => {
     pollWithVotes([{ userId: 1, menuItemId: 1 }]);
 
-    await PollService.completePollMultiWinner(5, 9, {
+    await PollCompletionService.completePollMultiWinner(5, 9, {
       minVotes: 2,
       maxWinners: 3,
     });
@@ -825,7 +827,7 @@ describe('completePollMultiWinner', () => {
   it('статус переводится атомарно, с условием на ACTIVE', async () => {
     pollWithVotes([{ userId: 1, menuItemId: 1 }]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     expect(asMock(prismaMock.poll.updateMany)).toHaveBeenCalledWith({
       where: { id: 5, status: 'ACTIVE' },
@@ -841,7 +843,7 @@ describe('completePollMultiWinner', () => {
     });
 
     await expect(
-      PollService.completePollMultiWinner(5, 1)
+      PollCompletionService.completePollMultiWinner(5, 1)
     ).resolves.toMatchObject({ id: 700 });
     expect(asMock(prismaMock.pollResult.create)).not.toHaveBeenCalled();
   });
@@ -850,7 +852,7 @@ describe('completePollMultiWinner', () => {
     // Снаружи голосование ещё ACTIVE, внутри транзакции — уже COMPLETED.
     pollWithVotes([{ userId: 1, menuItemId: 1 }], {}, 'COMPLETED');
 
-    await expect(PollService.completePollMultiWinner(5, 1)).rejects.toThrow(
+    await expect(PollCompletionService.completePollMultiWinner(5, 1)).rejects.toThrow(
       'Poll is already completed'
     );
     expect(asMock(prismaMock.pollResult.create)).not.toHaveBeenCalled();
@@ -859,7 +861,7 @@ describe('completePollMultiWinner', () => {
   it('гонка: отменили параллельно — завершение прерывается', async () => {
     pollWithVotes([{ userId: 1, menuItemId: 1 }], {}, 'CANCELLED');
 
-    await expect(PollService.completePollMultiWinner(5, 1)).rejects.toThrow(
+    await expect(PollCompletionService.completePollMultiWinner(5, 1)).rejects.toThrow(
       'Poll is not active'
     );
   });
@@ -879,7 +881,7 @@ describe('completePollMultiWinner', () => {
             group: { id: 100 },
           }) as never);
 
-    await expect(PollService.completePollMultiWinner(5, 1)).rejects.toThrow(
+    await expect(PollCompletionService.completePollMultiWinner(5, 1)).rejects.toThrow(
       'Poll not found'
     );
   });
@@ -887,7 +889,7 @@ describe('completePollMultiWinner', () => {
   it('отменённое голосование завершить нельзя', async () => {
     pollWithVotes([{ userId: 1, menuItemId: 1 }], { status: 'CANCELLED' });
 
-    await expect(PollService.completePollMultiWinner(5, 1)).rejects.toThrow(
+    await expect(PollCompletionService.completePollMultiWinner(5, 1)).rejects.toThrow(
       'Poll is not active'
     );
   });
@@ -895,7 +897,7 @@ describe('completePollMultiWinner', () => {
   it('несуществующее голосование завершить нельзя', async () => {
     asMock(prismaMock.poll.findUnique).mockResolvedValue(null);
 
-    await expect(PollService.completePollMultiWinner(5, 1)).rejects.toThrow(
+    await expect(PollCompletionService.completePollMultiWinner(5, 1)).rejects.toThrow(
       'Poll not found'
     );
   });
@@ -904,7 +906,7 @@ describe('completePollMultiWinner', () => {
     pollWithVotes([{ userId: 1, menuItemId: 1 }]);
     asMock(prismaMock.poll.updateMany).mockResolvedValue({ count: 0 });
 
-    await expect(PollService.completePollMultiWinner(5, 1)).rejects.toThrow(
+    await expect(PollCompletionService.completePollMultiWinner(5, 1)).rejects.toThrow(
       'Poll state changed during completion'
     );
     expect(asMock(prismaMock.pollResult.create)).not.toHaveBeenCalled();
@@ -913,7 +915,7 @@ describe('completePollMultiWinner', () => {
   it('после завершения кэш голосования сбрасывается', async () => {
     pollWithVotes([{ userId: 1, menuItemId: 1 }]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     expect(cacheInvalidatorMock.invalidatePoll).toHaveBeenCalledWith(5, 100);
   });
@@ -921,7 +923,7 @@ describe('completePollMultiWinner', () => {
   it('участники получают уведомления, и создаются заказы по категориям', async () => {
     pollWithVotes([{ userId: 1, menuItemId: 1 }]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     expect(notifications.sendPollCompletionNotifications).toHaveBeenCalledWith(5);
     expect(categoryOrders.createCategoryOrders).toHaveBeenCalledWith(5);
@@ -935,7 +937,7 @@ describe('completePollMultiWinner', () => {
     );
 
     await expect(
-      PollService.completePollMultiWinner(5, 1)
+      PollCompletionService.completePollMultiWinner(5, 1)
     ).resolves.toBeDefined();
     expect(logger.error).toHaveBeenCalledWith(
       'Error sending completion notifications:',
@@ -952,7 +954,7 @@ describe('completePollMultiWinner', () => {
     );
 
     await expect(
-      PollService.completePollMultiWinner(5, 1)
+      PollCompletionService.completePollMultiWinner(5, 1)
     ).resolves.toBeDefined();
     expect(logger.error).toHaveBeenCalledWith(
       'Error in category order creation/selection:',
@@ -967,7 +969,7 @@ describe('completePollMultiWinner', () => {
       { userId: 3, type: 'SKIP' },
     ]);
 
-    await PollService.completePollMultiWinner(5, 1);
+    await PollCompletionService.completePollMultiWinner(5, 1);
 
     const call = asMock(prismaMock.pollResult.create).mock.calls[0][0] as {
       data: { totalVotes: number; winnerMenuItemId: number | null };

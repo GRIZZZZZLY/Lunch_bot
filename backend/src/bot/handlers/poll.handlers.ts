@@ -12,6 +12,7 @@ import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { createResultsMessage } from '../keyboards/poll.keyboard';
 import { PollQueryService } from '../../services/poll-query.service';
+import { PollCompletionService } from '../../services/poll-completion.service';
 
 async function getAuthorizedGroupAdmin(
   ctx: CallbackQueryContext<BotContext> | Context,
@@ -59,7 +60,7 @@ export async function handleCompletePoll(
     }
 
     // Завершаем голосование
-    const result = await PollService.completePoll(pollId);
+    const result = await PollCompletionService.completePoll(pollId);
 
     await ctx.answerCallbackQuery('✅ Голосование завершено');
 

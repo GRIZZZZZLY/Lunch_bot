@@ -4,6 +4,8 @@ import { Poll, PollResult, Prisma } from '@prisma/client';
 import { CacheInvalidator } from '../cache.service';
 import { GroupService } from '../group.service';
 import { PollQueryService } from '../poll-query.service';
+import { PollStatsService } from '../poll-stats.service';
+import { PollCompletionService } from '../poll-completion.service';
 
 // Mock prisma client
 jest.mock('../../database/client', () => ({
@@ -386,7 +388,7 @@ describe('PollService', () => {
       (prisma.pollResult.create as jest.Mock).mockResolvedValue(mockResult);
       (prisma.pollResult.findUnique as jest.Mock).mockResolvedValue(mockResult);
 
-      const result = await PollService.completePoll(1);
+      const result = await PollCompletionService.completePoll(1);
 
       expect(prisma.poll.findUnique).toHaveBeenCalled();
       expect(CacheInvalidator.invalidatePoll).toHaveBeenCalled();
@@ -397,7 +399,7 @@ describe('PollService', () => {
     it('should throw error if poll not found', async () => {
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(PollService.completePoll(999)).rejects.toThrow('Poll not found');
+      await expect(PollCompletionService.completePoll(999)).rejects.toThrow('Poll not found');
     });
 
     it('should throw error if poll already completed', async () => {
@@ -405,7 +407,7 @@ describe('PollService', () => {
 
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue(mockPoll);
 
-      await expect(PollService.completePoll(1)).rejects.toThrow('Poll is already completed');
+      await expect(PollCompletionService.completePoll(1)).rejects.toThrow('Poll is already completed');
     });
   });
 
@@ -689,7 +691,7 @@ describe('PollService', () => {
         { _count: { votes: 3 } },
       ]);
 
-      const result = await PollService.getPollStats(1);
+      const result = await PollStatsService.getPollStats(1);
 
       expect(result).toEqual({
         totalPolls: 10,
@@ -714,7 +716,7 @@ describe('PollService', () => {
 
       (prisma.poll.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await PollService.getPollStats();
+      const result = await PollStatsService.getPollStats();
 
       expect(result.averageParticipants).toBe(0);
     });
@@ -733,7 +735,7 @@ describe('PollService', () => {
 
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue(mockPoll);
 
-      const result = await PollService.getPollVoteBreakdown(1);
+      const result = await PollStatsService.getPollVoteBreakdown(1);
 
       expect(result).toHaveLength(2);
       expect(result[0]).toMatchObject({
@@ -748,7 +750,7 @@ describe('PollService', () => {
     it('should throw error if poll not found', async () => {
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(PollService.getPollVoteBreakdown(999)).rejects.toThrow('Poll not found');
+      await expect(PollStatsService.getPollVoteBreakdown(999)).rejects.toThrow('Poll not found');
     });
   });
 
@@ -833,7 +835,7 @@ describe('PollService', () => {
     it('does nothing if poll is not ACTIVE', async () => {
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'COMPLETED' });
 
-      const result = await PollService.checkQuorumAndComplete(42);
+      const result = await PollCompletionService.checkQuorumAndComplete(42);
 
       expect(result).toBe(false);
       expect(prisma.pollParticipant.findMany).not.toHaveBeenCalled();
@@ -850,9 +852,9 @@ describe('PollService', () => {
         { userId: 1 },
         { userId: 2 },
       ]);
-      const completeSpy = jest.spyOn(PollService, 'completePoll').mockResolvedValue({} as any);
+      const completeSpy = jest.spyOn(PollCompletionService, 'completePoll').mockResolvedValue({} as any);
 
-      const result = await PollService.checkQuorumAndComplete(42);
+      const result = await PollCompletionService.checkQuorumAndComplete(42);
 
       expect(result).toBe(false);
       expect(completeSpy).not.toHaveBeenCalled();
@@ -869,9 +871,9 @@ describe('PollService', () => {
         { userId: 1 },
         { userId: 2 },
       ]);
-      const completeSpy = jest.spyOn(PollService, 'completePoll').mockResolvedValue({} as any);
+      const completeSpy = jest.spyOn(PollCompletionService, 'completePoll').mockResolvedValue({} as any);
 
-      const result = await PollService.checkQuorumAndComplete(42);
+      const result = await PollCompletionService.checkQuorumAndComplete(42);
 
       expect(result).toBe(true);
       expect(completeSpy).toHaveBeenCalledWith(42);
@@ -881,9 +883,9 @@ describe('PollService', () => {
     it('does not auto-close when expected list is empty (everyone excluded)', async () => {
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'ACTIVE' });
       (prisma.pollParticipant.findMany as jest.Mock).mockResolvedValue([]);
-      const completeSpy = jest.spyOn(PollService, 'completePoll').mockResolvedValue({} as any);
+      const completeSpy = jest.spyOn(PollCompletionService, 'completePoll').mockResolvedValue({} as any);
 
-      const result = await PollService.checkQuorumAndComplete(42);
+      const result = await PollCompletionService.checkQuorumAndComplete(42);
 
       expect(result).toBe(false);
       expect(completeSpy).not.toHaveBeenCalled();
@@ -907,7 +909,7 @@ describe('PollService', () => {
     it('returns false if poll is not ACTIVE', async () => {
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'COMPLETED', groupId: 7 });
 
-      const result = await PollService.checkAutoComplete(42);
+      const result = await PollCompletionService.checkAutoComplete(42);
 
       expect(result).toBe(false);
       expect(prisma.pollParticipant.findMany).not.toHaveBeenCalled();
@@ -917,7 +919,7 @@ describe('PollService', () => {
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'ACTIVE', groupId: 7 });
       settingsSpy.mockResolvedValue({ autoCompleteEnabled: false } as any);
 
-      const result = await PollService.checkAutoComplete(42);
+      const result = await PollCompletionService.checkAutoComplete(42);
 
       expect(result).toBe(false);
       expect(prisma.pollParticipant.findMany).not.toHaveBeenCalled();
@@ -935,7 +937,7 @@ describe('PollService', () => {
       ]);
       (prisma.vote.findMany as jest.Mock).mockResolvedValue([{ userId: 1 }]);
 
-      const result = await PollService.checkAutoComplete(42);
+      const result = await PollCompletionService.checkAutoComplete(42);
 
       expect(result).toBe(false);
     });
@@ -948,7 +950,7 @@ describe('PollService', () => {
       ]);
       (prisma.vote.findMany as jest.Mock).mockResolvedValue([{ userId: 1 }, { userId: 2 }]);
 
-      const result = await PollService.checkAutoComplete(42);
+      const result = await PollCompletionService.checkAutoComplete(42);
 
       expect(result).toBe(true);
     });
@@ -957,14 +959,14 @@ describe('PollService', () => {
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ status: 'ACTIVE', groupId: 7 });
       (prisma.pollParticipant.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await PollService.checkAutoComplete(42);
+      const result = await PollCompletionService.checkAutoComplete(42);
 
       expect(result).toBe(false);
     });
   });
 });
 
-describe('PollService.cancelExpiredPolls', () => {
+describe('PollCompletionService.cancelExpiredPolls', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -977,7 +979,7 @@ describe('PollService.cancelExpiredPolls', () => {
     ]);
     (prisma.poll.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
-    const n = await PollService.cancelExpiredPolls(now);
+    const n = await PollCompletionService.cancelExpiredPolls(now);
 
     expect(n).toBe(1);
     expect(prisma.poll.updateMany).toHaveBeenCalledTimes(1);
@@ -993,7 +995,7 @@ describe('PollService.cancelExpiredPolls', () => {
       { id: 3, groupId: 1, startedAt: new Date('2026-07-20T11:55:00Z'), duration: 30 },
     ]);
 
-    const n = await PollService.cancelExpiredPolls(now);
+    const n = await PollCompletionService.cancelExpiredPolls(now);
 
     expect(n).toBe(0);
     expect(prisma.poll.updateMany).not.toHaveBeenCalled();
@@ -1006,7 +1008,7 @@ describe('PollService.cancelExpiredPolls', () => {
     ]);
     (prisma.poll.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
 
-    const n = await PollService.cancelExpiredPolls(now);
+    const n = await PollCompletionService.cancelExpiredPolls(now);
 
     expect(n).toBe(0);
   });
