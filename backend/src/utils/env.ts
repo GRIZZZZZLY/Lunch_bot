@@ -287,6 +287,48 @@ export function validateEnv(): Env {
 }
 
 /**
+ * Что делать с `SKIP_TELEGRAM_VALIDATION` прямо сейчас.
+ *
+ * `off` — проверка подписи работает; `allowed` — пропуск разрешён (dev/test);
+ * `blocked` — флаг выставлен там, где его быть не может.
+ */
+export type TelegramSkipDecision = 'off' | 'allowed' | 'blocked';
+
+/**
+ * Единственное место, где решается, можно ли пропустить проверку подписи
+ * Telegram.
+ *
+ * До задачи 16 это правило было написано ПЯТЬ раз независимо: в схеме env, в
+ * двух ветках `telegram-auth` middleware, в `auth.controller` и в
+ * `utils/telegram-auth`. Прямой дыры это не давало — гейт в `validateEnv()`
+ * валит старт в production, — но при следующей правке правила («разрешить в
+ * staging») его пришлось бы найти в пяти местах, и шанс пропустить одно высок.
+ * Флаг отключает проверку подписи initData, то есть позволяет выдать себя за
+ * любого пользователя; ошибиться здесь дороже, чем где-либо ещё в продукте.
+ *
+ * Читается `process.env`, а не валидированный конфиг, и это осознанно:
+ * `validateEnv()` вызывается только в `index.ts`, а тесты, e2e-сиды и служебные
+ * скрипты выставляют флаг сами и через валидацию не проходят. Решение, которое
+ * меняло бы форму в зависимости от того, поднимался ли процесс через `index.ts`,
+ * было бы опаснее дублирования, которое эта задача убирает.
+ *
+ * Признаётся ровно строка `'true'` — как и во всех пяти прежних проверках;
+ * `'TRUE'`, `'1'`, `'yes'` пропуск НЕ включают. Расширять это тихо нельзя:
+ * человек, написавший `SKIP_TELEGRAM_VALIDATION=1`, получит работающую проверку
+ * подписи, а не выключенную.
+ *
+ * Ответ на `blocked` каждый вызывающий формирует сам — middleware бросает,
+ * контроллер отвечает 500 `SECURITY_VIOLATION`, `validateTelegramInitData`
+ * возвращает `null`. Формы ответов и коды намеренно оставлены прежними: на них
+ * завязаны тесты и алерты.
+ */
+export function telegramValidationSkip(): TelegramSkipDecision {
+  if (process.env.SKIP_TELEGRAM_VALIDATION !== 'true') return 'off';
+
+  return process.env.NODE_ENV === 'production' ? 'blocked' : 'allowed';
+}
+
+/**
  * Get the validated env object. Throws if validateEnv() hasn't been called yet.
  * Direct module-load validation is intentionally avoided so dotenv.config()
  * can run first in index.ts.

@@ -4,6 +4,38 @@ import { validateTelegramInitData } from '../../utils/telegram-auth';
 import { logger } from '../../utils/logger';
 import { JwtService } from '../../services/jwt.service';
 import { cacheService } from '../../services/cache.service';
+import { telegramValidationSkip } from '../../utils/env';
+
+/**
+ * Пропускать ли проверку подписи в этом middleware.
+ *
+ * Оба пути аутентификации — Bearer и legacy initData — задавали этот вопрос
+ * ОДИНАКОВЫМ кодом, дважды в одном файле (задача 16). Две копии правила
+ * безопасности в одном файле расходятся при первой же правке одной из них.
+ * Само решение живёт в `utils/env.ts`; здесь остаётся только реакция: в
+ * production запрос обязан сломаться, а не пройти с выключенной проверкой.
+ *
+ * Текст исключения не менять — на него смотрит `telegram-auth.middleware.test.ts`.
+ */
+function shouldSkipSignatureCheck(): boolean {
+  const decision = telegramValidationSkip();
+
+  if (decision === 'blocked') {
+    logger.error('🚨 SKIP_TELEGRAM_VALIDATION blocked in production');
+    throw new Error(
+      'SECURITY: SKIP_TELEGRAM_VALIDATION cannot be used in production'
+    );
+  }
+
+  if (decision === 'allowed') {
+    logger.warn(
+      '⚠️ SECURITY: SKIP_TELEGRAM_VALIDATION enabled - DEVELOPMENT ONLY!'
+    );
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Middleware для аутентификации через Telegram WebApp
@@ -14,21 +46,8 @@ export async function telegramAuthMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    // ⚠️ SKIP_TELEGRAM_VALIDATION - отключает проверку подписи Telegram
-    // Используем РЕАЛЬНЫЙ ID пользователя из initData
-    if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
-      if (
-        process.env.NODE_ENV === 'production' &&
-        process.env.SKIP_TELEGRAM_VALIDATION === 'true'
-      ) {
-        logger.error('🚨 SKIP_TELEGRAM_VALIDATION blocked in production');
-        throw new Error(
-          'SECURITY: SKIP_TELEGRAM_VALIDATION cannot be used in production'
-        );
-      }
-      logger.warn(
-        '⚠️ SECURITY: SKIP_TELEGRAM_VALIDATION enabled - DEVELOPMENT ONLY!'
-      );
+    // Пропуск проверки подписи: работаем с РЕАЛЬНЫМ id из initData.
+    if (shouldSkipSignatureCheck()) {
       logger.info(
         '🔓 SKIP_TELEGRAM_VALIDATION mode - extracting REAL user from initData'
       );
@@ -268,22 +287,8 @@ export async function validateInitDataMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    // 🔐 SECURITY: КРИТИЧЕСКАЯ ПРОВЕРКА
-    // ⚠️ SKIP_TELEGRAM_VALIDATION - отключает проверку подписи Telegram
-    // Используем РЕАЛЬНЫЕ данные пользователя из initData
-    if (process.env.SKIP_TELEGRAM_VALIDATION === 'true') {
-      if (
-        process.env.NODE_ENV === 'production' &&
-        process.env.SKIP_TELEGRAM_VALIDATION === 'true'
-      ) {
-        logger.error('🚨 SKIP_TELEGRAM_VALIDATION blocked in production');
-        throw new Error(
-          'SECURITY: SKIP_TELEGRAM_VALIDATION cannot be used in production'
-        );
-      }
-      logger.warn(
-        '⚠️ SECURITY: SKIP_TELEGRAM_VALIDATION enabled - DEVELOPMENT ONLY!'
-      );
+    // Тот же вопрос, что и в telegramAuthMiddleware, — и та же функция.
+    if (shouldSkipSignatureCheck()) {
       const { initData } = req.body;
 
       // Пробуем извлечь реальные данные пользователя из initData

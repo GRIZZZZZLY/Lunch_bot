@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { logger } from './logger';
+import { telegramValidationSkip } from './env';
 
 interface TelegramUser {
   id: number;
@@ -102,10 +103,13 @@ export function validateTelegramInitData(initData: string): TelegramUser | null 
       return null;
     }
 
-    const skipValidation = process.env.SKIP_TELEGRAM_VALIDATION === 'true';
+    /* Решение про пропуск проверки — одно на весь продукт (`utils/env.ts`,
+       задача 16). Здесь только реакция: в production подпись не проверить и
+       данным доверять нельзя, поэтому null, а не разобранный пользователь. */
+    const skipDecision = telegramValidationSkip();
 
-    if (skipValidation) {
-      if (process.env.NODE_ENV === 'production') {
+    if (skipDecision !== 'off') {
+      if (skipDecision === 'blocked') {
         logger.error('SKIP_TELEGRAM_VALIDATION is forbidden in production');
         return null;
       }
@@ -305,7 +309,7 @@ export function parseInitDataUnsafe(initData: string): TelegramUser | null {
   // Извлекает данные пользователя из initData без проверки подписи
   logger.info('parseInitDataUnsafe called', {
     environment: process.env.NODE_ENV,
-    skipValidation: process.env.SKIP_TELEGRAM_VALIDATION,
+    skipValidation: telegramValidationSkip(),
   });
 
   try {

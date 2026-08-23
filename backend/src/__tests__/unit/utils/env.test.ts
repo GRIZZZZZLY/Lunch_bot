@@ -295,3 +295,103 @@ describe('getEnv', () => {
     });
   });
 });
+
+/**
+ * Одно решение про самый опасный флаг проекта.
+ *
+ * `SKIP_TELEGRAM_VALIDATION=true` отключает проверку подписи Telegram, то есть
+ * позволяет выдать себя за любого пользователя. Правило «в production нельзя»
+ * было реализовано пять раз независимо (задача 16), и расхождение между копиями
+ * — это ровно та ошибка, которую здесь нечем поймать глазами.
+ *
+ * Решение читает `process.env` НА МОМЕНТ ВЫЗОВА, а не валидированный конфиг:
+ * `validateEnv()` вызывается только в `index.ts`, а тесты, скрипты и сиды
+ * выставляют флаг сами и через валидацию не проходят. Решение, которое меняет
+ * форму в зависимости от того, поднимался ли процесс через `index.ts`, было бы
+ * опаснее дублирования.
+ */
+describe('telegramValidationSkip', () => {
+  it('без флага проверка подписи работает', () => {
+    withEnv(bare(VALID_BASE), ({ telegramValidationSkip }) => {
+      expect(telegramValidationSkip()).toBe('off');
+    });
+  });
+
+  it('явный false — тоже off', () => {
+    withEnv(
+      bare({ ...VALID_BASE, SKIP_TELEGRAM_VALIDATION: 'false' }),
+      ({ telegramValidationSkip }) => {
+        expect(telegramValidationSkip()).toBe('off');
+      }
+    );
+  });
+
+  it('в разработке флаг разрешает пропуск', () => {
+    withEnv(
+      bare({ ...VALID_BASE, SKIP_TELEGRAM_VALIDATION: 'true' }),
+      ({ telegramValidationSkip }) => {
+        expect(telegramValidationSkip()).toBe('allowed');
+      }
+    );
+  });
+
+  /* Тесты и e2e-сиды включают флаг сами и работают под NODE_ENV=test —
+     запрет обязан касаться production, а не любого не-development. */
+  it('в тестовом окружении флаг разрешён', () => {
+    withEnv(
+      bare({ ...VALID_BASE, NODE_ENV: 'test', SKIP_TELEGRAM_VALIDATION: 'true' }),
+      ({ telegramValidationSkip }) => {
+        expect(telegramValidationSkip()).toBe('allowed');
+      }
+    );
+  });
+
+  it('в production флаг заблокирован', () => {
+    withEnv(
+      bare({ ...PROD_BASE, SKIP_TELEGRAM_VALIDATION: 'true' }),
+      ({ telegramValidationSkip }) => {
+        expect(telegramValidationSkip()).toBe('blocked');
+      }
+    );
+  });
+
+  /* Гейт в `validateEnv()` валит старт в production — но решение не имеет права
+     полагаться на то, что его кто-то вызвал: в процессе без `index.ts` (скрипт,
+     тестовый харнесс, отдельный воркер) валидации не было вовсе. */
+  it('в production блокирует и без вызова validateEnv', () => {
+    withEnv(
+      bare({ ...PROD_BASE, SKIP_TELEGRAM_VALIDATION: 'true' }),
+      ({ telegramValidationSkip, getEnv }) => {
+        expect(() => getEnv()).toThrow(/called before validateEnv/);
+        expect(telegramValidationSkip()).toBe('blocked');
+      }
+    );
+  });
+
+  it.each(['TRUE', 'True', '1', 'yes', ''])(
+    'значение %p не включает пропуск',
+    value => {
+      withEnv(
+        bare({ ...VALID_BASE, SKIP_TELEGRAM_VALIDATION: value }),
+        ({ telegramValidationSkip }) => {
+          expect(telegramValidationSkip()).toBe('off');
+        }
+      );
+    }
+  );
+
+  /* Значение читается на каждый вызов: наборы тестов переключают флаг в
+     `beforeEach`, и закешированное решение сделало бы половину из них
+     бессмысленными. */
+  it('решение перечитывается на каждый вызов', () => {
+    withEnv(bare(VALID_BASE), ({ telegramValidationSkip }) => {
+      expect(telegramValidationSkip()).toBe('off');
+
+      process.env.SKIP_TELEGRAM_VALIDATION = 'true';
+      expect(telegramValidationSkip()).toBe('allowed');
+
+      process.env.NODE_ENV = 'production';
+      expect(telegramValidationSkip()).toBe('blocked');
+    });
+  });
+});

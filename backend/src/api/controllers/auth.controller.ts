@@ -6,6 +6,7 @@ import { validateTelegramInitData } from '../../utils/telegram-auth';
 import { logger } from '../../utils/logger';
 import { JwtService } from '../../services/jwt.service';
 import { prisma } from '../../database/client';
+import { telegramValidationSkip } from '../../utils/env';
 
 async function resolveGroupIdFromPollVote(rawPollId: string): Promise<number | null> {
   const pollId = parseInt(rawPollId, 10);
@@ -247,12 +248,14 @@ export class AuthController {
         return;
       }
 
-      const isProduction = process.env.NODE_ENV === 'production';
-      const skipTelegramValidation = process.env.SKIP_TELEGRAM_VALIDATION === 'true';
+      /* Решение про пропуск проверки подписи — одно на весь продукт
+         (`utils/env.ts`, задача 16). Здесь только ответ клиенту: неправильно
+         сконфигурированный production обязан получить отказ, а не тихо
+         пройти без проверки подписи. Код `SECURITY_VIOLATION` и статус 500
+         прежние — на них смотрят тесты и словарь текстов на фронте. */
+      const skipDecision = telegramValidationSkip();
 
-      // 🚨 SECURITY: hard-fail SKIP_TELEGRAM_VALIDATION in production unless explicitly allowed.
-      // Without this, a misconfigured prod .env silently bypasses signature validation.
-      if (isProduction && skipTelegramValidation) {
+      if (skipDecision === 'blocked') {
         logger.error('🚨 SKIP_TELEGRAM_VALIDATION blocked in production');
         res.status(500).json({
           success: false,
@@ -262,8 +265,7 @@ export class AuthController {
         return;
       }
 
-      // ⚠️ SKIP_TELEGRAM_VALIDATION - пропускаем проверку подписи (только не в production)
-      if (!isProduction && skipTelegramValidation) {
+      if (skipDecision === 'allowed') {
         await handleSkipTelegramValidation(initData, res);
         return;
       }
