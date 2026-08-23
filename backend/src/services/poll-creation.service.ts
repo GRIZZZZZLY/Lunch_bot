@@ -7,11 +7,12 @@
  * сообщение в Telegram. Контроллер знал порядок пяти вызовов сервисов; это и
  * есть признак, что сценарий лежит не там (задача 05).
  *
- * Почему отдельный файл, а не `poll.service.ts`: тот уже 1700 строк и его режет
- * задача 06. Дописывать в него — двигаться против следующей задачи.
+ * Почему отдельный файл, а не `poll.service.ts`: тот резала задача 06, и
+ * дописывать в него значило бы идти против неё.
  *
- * Отправка в Telegram остаётся в `poll.service.extensions.ts`
- * (`createPollFromWebApp`): здесь только сценарий, а не работа с ботом.
+ * Доставка (создать запись, отправить сообщение, поставить таймер) — в
+ * `poll-send.service.ts`. Файл `poll.service.extensions.ts`, где всё это лежало
+ * вперемешку, удалён задачей 06.
  */
 import { MenuItem } from '@prisma/client';
 
@@ -20,7 +21,7 @@ import type { PollWithDetails } from '../types/poll.types';
 import { GroupService } from './group.service';
 import { MenuService } from './menu.service';
 import { PollService } from './poll.service';
-import { createPollFromWebApp } from './poll.service.extensions';
+import { createAndSendPoll } from './poll-send.service';
 import {
   NoMenuItemsError,
   NotEnoughMenuItemsError,
@@ -104,7 +105,7 @@ export async function createPollForGroup(
     throw new NotEnoughMenuItemsError();
   }
 
-  const result = await createPollFromWebApp({
+  const result = await createAndSendPoll({
     groupId,
     duration,
     createdBy,
@@ -165,7 +166,7 @@ export async function repeatPoll(
 
   if (menuItems.length === 0) throw new NoMenuItemsError();
 
-  const result = await createPollFromWebApp({
+  const result = await createAndSendPoll({
     groupId: sourcePoll.groupId,
     duration: sourcePoll.duration,
     createdBy: requestedBy,

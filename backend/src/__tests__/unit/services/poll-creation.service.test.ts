@@ -22,7 +22,7 @@ import {
 import { GroupService } from '../../../services/group.service';
 import { MenuService } from '../../../services/menu.service';
 import { PollService } from '../../../services/poll.service';
-import { createPollFromWebApp } from '../../../services/poll.service.extensions';
+import { createAndSendPoll } from '../../../services/poll-send.service';
 import { asMock, asServiceMock } from '../../helpers/mocks';
 import { PollQueryService } from '../../../services/poll-query.service';
 
@@ -47,8 +47,8 @@ jest.mock('../../../services/poll-query.service', () => ({
 }));
 
 
-jest.mock('../../../services/poll.service.extensions', () => ({
-  createPollFromWebApp: jest.fn(),
+jest.mock('../../../services/poll-send.service', () => ({
+  createAndSendPoll: jest.fn(),
 }));
 
 jest.mock('../../../utils/logger', () => ({
@@ -59,7 +59,7 @@ const groups = asServiceMock(GroupService);
 const menu = asServiceMock(MenuService);
 const polls = asServiceMock(PollService);
 const pollQuery = asServiceMock(PollQueryService);
-const sendPoll = asMock(createPollFromWebApp);
+const sendPoll = asMock(createAndSendPoll);
 
 const MENU = [
   { id: 1, name: 'Плов' },

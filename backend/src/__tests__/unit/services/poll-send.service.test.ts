@@ -1,13 +1,20 @@
 /**
- * Создание голосования из Mini App и его автозавершение. Это самый заметный
- * путь в продукте: сообщение в группе, таймер, итоги в том же сообщении.
+ * Доставка голосования в группу и его автозавершение по таймеру. Это самый
+ * заметный путь в продукте: сообщение в группе, таймер, итоги в том же
+ * сообщении.
+ *
+ * Файл переименован вслед за кодом: функция жила в `poll.service.extensions.ts`
+ * под именем `createPollFromWebApp`, теперь это `createAndSendPoll` из
+ * `poll-send.service.ts` (задача 06). Модули по пути — `poll-announce` (текст и
+ * правка сообщений) и `poll-timer` (таймер) — здесь НЕ замоканы: проверяется
+ * вся цепочка до вызова бота, как и раньше.
  *
  * Ключевые свойства: chatId и messageId обязаны попасть в базу (без них
  * последующие правки сообщения некуда адресовать), а таймер автозавершения
  * должен проверять, что голосование ещё активно — иначе досрочно закрытое
  * голосование «завершилось» бы второй раз.
  */
-import { createPollFromWebApp } from '../../../services/poll.service.extensions';
+import { createAndSendPoll } from '../../../services/poll-send.service';
 import { PollService } from '../../../services/poll.service';
 import { GroupService } from '../../../services/group.service';
 import { VoteService } from '../../../services/vote.service';
@@ -184,9 +191,9 @@ afterEach(() => {
   process.env = envBackup;
 });
 
-describe('createPollFromWebApp', () => {
+describe('createAndSendPoll', () => {
   it('создаёт голосование и отправляет сообщение в группу', async () => {
-    const result = await createPollFromWebApp(PARAMS);
+    const result = await createAndSendPoll(PARAMS);
 
     expect(pollService.createPoll).toHaveBeenCalledWith({
       groupId: 100,
@@ -204,7 +211,7 @@ describe('createPollFromWebApp', () => {
   });
 
   it('chatId и messageId сохраняются — без них сообщение потом не поправить', async () => {
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     expect(pollService.updatePoll).toHaveBeenCalledWith(5, {
       chatId: BigInt(-1001),
@@ -213,7 +220,7 @@ describe('createPollFromWebApp', () => {
   });
 
   it('выбранные блюда сохраняются строкой JSON', async () => {
-    await createPollFromWebApp({ ...PARAMS, selectedMenuItemIds: [1, 2] });
+    await createAndSendPoll({ ...PARAMS, selectedMenuItemIds: [1, 2] });
 
     expect(pollService.updatePoll).toHaveBeenCalledWith(5, {
       selectedMenuItemIds: '[1,2]',
@@ -221,7 +228,7 @@ describe('createPollFromWebApp', () => {
   });
 
   it('пустой список выбранных блюд не пишется', async () => {
-    await createPollFromWebApp({ ...PARAMS, selectedMenuItemIds: [] });
+    await createAndSendPoll({ ...PARAMS, selectedMenuItemIds: [] });
 
     expect(pollService.updatePoll).not.toHaveBeenCalledWith(
       5,
@@ -230,13 +237,13 @@ describe('createPollFromWebApp', () => {
   });
 
   it('своё название попадает в сообщение', async () => {
-    await createPollFromWebApp({ ...PARAMS, title: 'Пятничный обед' });
+    await createAndSendPoll({ ...PARAMS, title: 'Пятничный обед' });
 
     expect(sendMessage.mock.calls[0][1]).toContain('Пятничный обед');
   });
 
   it('одиночный выбор передаётся в сервис как есть', async () => {
-    await createPollFromWebApp({
+    await createAndSendPoll({
       ...PARAMS,
       isMultiSelect: false,
       maxSelections: 1,
@@ -248,7 +255,7 @@ describe('createPollFromWebApp', () => {
   });
 
   it('число участников обновляется по реальному составу группы', async () => {
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     expect(groupService.updateGroupSettings).toHaveBeenCalledWith(100, {
       expectedParticipants: 8,
@@ -258,7 +265,7 @@ describe('createPollFromWebApp', () => {
   it('неизвестное число участников не затирает настройки', async () => {
     groupService.getRealMemberCount.mockResolvedValue(0);
 
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     expect(groupService.updateGroupSettings).not.toHaveBeenCalled();
   });
@@ -266,7 +273,7 @@ describe('createPollFromWebApp', () => {
   it('падение подсчёта участников не мешает создать голосование', async () => {
     groupService.getRealMemberCount.mockRejectedValue(new Error('api down'));
 
-    await expect(createPollFromWebApp(PARAMS)).resolves.toMatchObject({
+    await expect(createAndSendPoll(PARAMS)).resolves.toMatchObject({
       pollId: 5,
     });
   });
@@ -274,18 +281,18 @@ describe('createPollFromWebApp', () => {
   it('группа не найдена — понятная ошибка', async () => {
     groupService.getGroupById.mockResolvedValue(null);
 
-    await expect(createPollFromWebApp(PARAMS)).rejects.toThrow('Group not found');
+    await expect(createAndSendPoll(PARAMS)).rejects.toThrow('Group not found');
     expect(pollService.createPoll).not.toHaveBeenCalled();
   });
 
   it('падение отправки в Telegram выбрасывается наружу', async () => {
     sendMessage.mockRejectedValue(new Error('chat not found'));
 
-    await expect(createPollFromWebApp(PARAMS)).rejects.toThrow('chat not found');
+    await expect(createAndSendPoll(PARAMS)).rejects.toThrow('chat not found');
   });
 
   it('дедлайн в сообщении считается от текущего момента', async () => {
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     // 12:00 UTC + 30 мин = 12:30 UTC = 15:30 по Москве.
     expect(sendMessage.mock.calls[0][1]).toContain('До 15:30');
@@ -303,7 +310,7 @@ describe('автозавершение по таймеру', () => {
   }
 
   it('активное голосование завершается и итоги уходят в то же сообщение', async () => {
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     await fireTimer();
 
@@ -322,7 +329,7 @@ describe('автозавершение по таймеру', () => {
       status: 'COMPLETED',
       selectedMenuItemIds: '[]',
     });
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     await fireTimer();
 
@@ -330,7 +337,7 @@ describe('автозавершение по таймеру', () => {
   });
 
   it('при наличии голосов запускается разбор по категориям', async () => {
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     await fireTimer();
 
@@ -340,7 +347,7 @@ describe('автозавершение по таймеру', () => {
 
   it('без голосов категорий не создаётся', async () => {
     pollCompletion.completePoll.mockResolvedValue({ totalVotes: 0 });
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     await fireTimer();
 
@@ -351,7 +358,7 @@ describe('автозавершение по таймеру', () => {
     categoryOrders.createCategoryOrders.mockRejectedValue(
       new Error('categories down')
     );
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     await fireTimer();
 
@@ -371,7 +378,7 @@ describe('автозавершение по таймеру', () => {
     pollService.runRoulette.mockResolvedValue({
       responsibleUser: { id: 2, firstName: 'Аня', username: 'anya' },
     });
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     await fireTimer();
     // Ветка с рулеткой ждёт 2 секунды перед запуском — этот таймер создаётся
@@ -395,7 +402,7 @@ describe('автозавершение по таймеру', () => {
       responsibleUser: { id: 2, firstName: 'Аня' },
     });
     userService.getPaymentInfo.mockResolvedValue({});
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     await fireTimer();
     await jest.advanceTimersByTimeAsync(3000);
@@ -414,14 +421,14 @@ describe('автозавершение по таймеру', () => {
     sendMessage
       .mockResolvedValueOnce({ message_id: 77 })
       .mockRejectedValue(new Error('bot blocked'));
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     await expect(fireTimer()).resolves.toBeUndefined();
   });
 
   it('падение правки сообщения не отменяет завершение', async () => {
     editMessageText.mockRejectedValue(new Error('message not found'));
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     await fireTimer();
 
@@ -430,13 +437,13 @@ describe('автозавершение по таймеру', () => {
 
   it('падение завершения не выбрасывается из таймера', async () => {
     pollCompletion.completePoll.mockRejectedValue(new Error('db down'));
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     await expect(fireTimer()).resolves.toBeUndefined();
   });
 
   it('исчезнувшее голосование не роняет таймер', async () => {
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
     pollQuery.getPollById.mockResolvedValue(null);
 
     await expect(fireTimer()).resolves.toBeUndefined();
@@ -451,28 +458,37 @@ describe('автозавершение по таймеру', () => {
  * автозавершение вызывается из таймера и обязано выйти тихо.
  */
 describe('бота нет', () => {
-  it('createPollFromWebApp падает громко и не создаёт опрос', async () => {
+  it('создание падает громко и не создаёт опрос', async () => {
     botInstance.mockReturnValue(null);
 
-    await expect(createPollFromWebApp(PARAMS)).rejects.toThrow(
+    await expect(createAndSendPoll(PARAMS)).rejects.toThrow(
       BotNotInitializedError
     );
 
     expect(pollService.createPoll).not.toHaveBeenCalled();
   });
 
-  /* Бота могли снять между созданием опроса и срабатыванием таймера.
-     Автозавершение вызывается из таймера — исключение оттуда некому поймать,
-     поэтому здесь именно тихий выход, а не throw. */
-  it('автозавершение выходит тихо и не закрывает голосование', async () => {
-    await createPollFromWebApp(PARAMS);
+  /**
+   * Бота могли снять между созданием опроса и срабатыванием таймера.
+   *
+   * ПОВЕДЕНИЕ ИЗМЕНЕНО ОСОЗНАННО (задача 06). Раньше отсутствие бота
+   * прекращало автозавершение целиком: голосование оставалось `ACTIVE`, и
+   * позже планировщик его ОТМЕНЯЛ — то есть недоступность чата стоила группе
+   * готового результата обеда. Теперь голосование закрывается, итоги
+   * считаются, а не отправляется только сообщение в чат: без бота недоступна
+   * доставка, а не подсчёт.
+   *
+   * Из таймера исключение по-прежнему не летит: ловить его некому.
+   */
+  it('без бота голосование всё равно закрывается, а сообщение не правится', async () => {
+    await createAndSendPoll(PARAMS);
     botInstance.mockReturnValue(null);
 
     await expect(
       jest.advanceTimersByTimeAsync(30 * 60 * 1000)
     ).resolves.toBeUndefined();
 
-    expect(pollCompletion.completePoll).not.toHaveBeenCalled();
+    expect(pollCompletion.completePoll).toHaveBeenCalledWith(5);
     expect(editMessageText).not.toHaveBeenCalled();
   });
 
@@ -483,7 +499,7 @@ describe('бота нет', () => {
     categoryOrders.createCategoryOrders.mockRejectedValue(
       new Error('no categories')
     );
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
     sendMessage.mockClear();
     botInstance.mockReturnValue(null);
 
@@ -500,7 +516,7 @@ describe('пересчёт числа участников', () => {
      нет `.api`, поэтому getRealMemberCount молча отдавал null, и
      expectedParticipants никогда не обновлялся из Telegram. */
   it('в getRealMemberCount уходит сам бот, а не функция', async () => {
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     const [, passedBot] = groupService.getRealMemberCount.mock.calls[0];
     expect(typeof passedBot).toBe('object');
@@ -508,7 +524,7 @@ describe('пересчёт числа участников', () => {
   });
 
   it('полученное число участников попадает в настройки группы', async () => {
-    await createPollFromWebApp(PARAMS);
+    await createAndSendPoll(PARAMS);
 
     expect(groupService.updateGroupSettings).toHaveBeenCalledWith(
       100,

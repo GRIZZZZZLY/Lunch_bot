@@ -38,6 +38,7 @@ import {
   repeatPoll,
 } from '../../services/poll-creation.service';
 import { serializeBigInt } from '../../utils/serialize';
+import { FEATURES } from '../../config/features';
 import {
   filterVotesToSelection,
   parseRouletteData,
@@ -588,7 +589,9 @@ export class PollController {
     req: Request,
     res: Response
   ): Promise<void> {
-    const { FEATURES } = await import('../../config/features');
+    /* Статический импорт: тесты меняют поле в этом же объекте, а динамический
+       импорт «чтобы флаг читался позже» ничего не давал — модуль всё равно
+       кэшируется после первого обращения. */
     if (!FEATURES.MULTI_WINNER_VOTING) {
       throw new FeatureDisabledError('Multi-Winner Voting is currently disabled');
     }
