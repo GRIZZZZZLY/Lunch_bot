@@ -5,7 +5,7 @@
  */
 import { notificationController } from '../../../api/controllers/notification.controller';
 import { GroupService } from '../../../services/group.service';
-import { notificationService } from '../../../services/notification.service';
+import { getBotInstance } from '../../../bot/bot-instance';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { mockRequest, mockResponse } from '../../helpers/http';
 
@@ -17,8 +17,15 @@ jest.mock('../../../services/group.service', () => ({
   GroupService: { isUserGroupMember: jest.fn() },
 }));
 
-jest.mock('../../../services/notification.service', () => ({
-  notificationService: { bot: undefined },
+/**
+ * Раньше здесь подменялся весь `notification.service` объектом
+ * `{ notificationService: { bot: undefined } }`, потому что контроллер читал
+ * приватное поле сервиса: `(notificationService as any).bot`. Мок делал тест
+ * зелёным независимо от того, есть ли у сервиса такое поле вообще, — то есть
+ * продакшен-путь получения бота не проверялся ничем.
+ */
+jest.mock('../../../bot/bot-instance', () => ({
+  getBotInstance: jest.fn(),
 }));
 
 jest.mock('../../../utils/logger', () => ({
@@ -26,9 +33,9 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const groupService = GroupService as jest.Mocked<typeof GroupService>;
-const notificationsWithBot = notificationService as unknown as {
-  bot?: { api: { sendMessage: jest.Mock } };
-};
+const mockedGetBotInstance = getBotInstance as jest.MockedFunction<
+  typeof getBotInstance
+>;
 
 const USER = { id: 1, isAdmin: false };
 const NOW = new Date('2026-08-02T12:00:00.000Z');
@@ -41,7 +48,7 @@ beforeEach(() => {
   jest.useFakeTimers().setSystemTime(NOW);
 
   sendMessage = jest.fn().mockResolvedValue(undefined);
-  notificationsWithBot.bot = { api: { sendMessage } };
+  mockedGetBotInstance.mockReturnValue({ api: { sendMessage } } as never);
 
   groupService.isUserGroupMember.mockResolvedValue(true);
   prismaMock.user.findUnique.mockResolvedValue({
@@ -76,12 +83,39 @@ describe('POST /api/notifications/remind-admin', () => {
       res
     );
 
+    // Именно number: BigInt из базы не сериализуется в JSON, и рассылка
+    // молча заканчивалась нулём доставленных при ответе 200.
     expect(sendMessage).toHaveBeenCalledWith(
-      BigInt(2222),
+      2222,
       expect.stringContaining('Игорь'),
       { parse_mode: 'Markdown' }
     );
+    expect(typeof sendMessage.mock.calls[0][0]).toBe('number');
     expect(res.body).toMatchObject({ success: true, data: { sentCount: 1 } });
+  });
+
+  it('имя и название группы экранируются для Markdown', async () => {
+    // Группа `Обед_дня` в legacy-Markdown даёт `can't parse entities`, и
+    // напоминание не доходит НИ ОДНОМУ админу — молча, с ответом 200.
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 1,
+      firstName: 'Игорь_К',
+      username: 'igor',
+      isActive: true,
+    } as never);
+    prismaMock.group.findUnique.mockResolvedValue({
+      id: 100,
+      title: 'Обед_дня *акция*',
+    } as never);
+
+    await notificationController.remindAdmin(
+      mockRequest({ user: USER, body: { groupId: 100 } }),
+      mockResponse()
+    );
+
+    const message = sendMessage.mock.calls[0][1] as string;
+    expect(message).toContain('Игорь\\_К');
+    expect(message).toContain('Обед\\_дня \\*акция\\*');
   });
 
   it('запись о напоминании сохраняется — на ней держится cooldown', async () => {
@@ -208,7 +242,7 @@ describe('POST /api/notifications/remind-admin', () => {
   });
 
   it('бот не поднят — 500, и напоминание не записывается', async () => {
-    notificationsWithBot.bot = undefined;
+    mockedGetBotInstance.mockReturnValue(null);
     const res = mockResponse();
 
     await notificationController.remindAdmin(

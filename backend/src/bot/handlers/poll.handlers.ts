@@ -7,7 +7,7 @@ import {
   RouletteService,
   RouletteResult,
 } from '../../services/roulette.service';
-import { NotificationService } from '../../services/notification.service';
+import { pollNotificationService } from '../../services/poll-notification.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { createResultsMessage } from '../keyboards/poll.keyboard';
@@ -159,8 +159,11 @@ export async function handleRunRoulette(
 
     // Отправляем уведомление ответственному
     if (process.env.NOTIFICATION_ENABLED === 'true') {
-      const notificationService = new NotificationService();
-      await notificationService.notifyResponsible(
+      // Общий синглтон, а не `new NotificationService()`: у прежнего
+      // экземпляра никто не вызывал `initialize(bot)`, поэтому уведомление
+      // ответственному не уходило НИКОГДА — каждый вызов возвращал
+      // `success: false, error: 'Bot not initialized'`.
+      await pollNotificationService.notifyResponsible(
         pollId,
         result.responsibleUserId
       );

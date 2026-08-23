@@ -17,7 +17,6 @@ import { VoteService } from '../../../services/vote.service';
 import { UserService } from '../../../services/user.service';
 import { GroupService } from '../../../services/group.service';
 import { RouletteService } from '../../../services/roulette.service';
-import { NotificationService } from '../../../services/notification.service';
 import { asServiceMock } from '../../helpers/mocks';
 import type { BotContext } from '../../../types/bot.types';
 import type { CallbackQueryContext } from 'grammy';
@@ -62,23 +61,27 @@ jest.mock('../../../services/group.service', () => ({
   GroupService: { isUserGroupAdmin: jest.fn() },
 }));
 
-/* RouletteService и NotificationService создаются через new. */
+/* RouletteService создаётся через new. */
 let rouletteStub: Record<string, jest.Mock>;
-let notificationStub: Record<string, jest.Mock>;
 function currentRouletteStub(): Record<string, jest.Mock> {
   return rouletteStub;
-}
-function currentNotificationStub(): Record<string, jest.Mock> {
-  return notificationStub;
 }
 
 jest.mock('../../../services/roulette.service', () => ({
   RouletteService: jest.fn(() => currentRouletteStub()),
 }));
 
-jest.mock('../../../services/notification.service', () => ({
-  NotificationService: jest.fn(() => currentNotificationStub()),
+/* Уведомления берутся из общего синглтона, а не создаются через new: у
+   собственного экземпляра не было поднятого бота, и notifyResponsible не
+   отправлял ничего. */
+jest.mock('../../../services/poll-notification.service', () => ({
+  pollNotificationService: { notifyResponsible: jest.fn() },
 }));
+
+const { pollNotificationService } = jest.requireMock(
+  '../../../services/poll-notification.service'
+);
+const notificationStub = pollNotificationService as Record<string, jest.Mock>;
 
 jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
@@ -144,9 +147,7 @@ beforeEach(() => {
       },
     }),
   };
-  notificationStub = {
-    notifyResponsible: jest.fn().mockResolvedValue({ success: true }),
-  };
+  notificationStub.notifyResponsible.mockResolvedValue({ success: true });
 
   pollQuery.getPollById.mockResolvedValue({
     id: 5,

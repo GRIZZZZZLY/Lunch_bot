@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import { logger } from '../../utils/logger';
 import { prisma } from '../../database/client';
 import { GroupService } from '../../services/group.service';
-import { notificationService } from '../../services/notification.service';
+import { getBotInstance } from '../../bot/bot-instance';
+import { escapeMarkdown } from '../../utils/telegram-html';
 import { getParam } from '../../utils/request-params';
 
 class NotificationController {
@@ -115,16 +116,26 @@ class NotificationController {
       }
 
       // Отправляем уведомления всем админам через Telegram bot API
-      const userName = user.firstName || user.username || 'Пользователь';
+      // Имя человека и название группы — пользовательский ввод в сообщении с
+      // `parse_mode: 'Markdown'`. Без экранирования группа вида `Обед_дня`
+      // или `Плов *акция*` даёт от Telegram `can't parse entities`, и
+      // напоминание не доходит НИ ОДНОМУ админу.
+      const userName = escapeMarkdown(
+        user.firstName || user.username || 'Пользователь'
+      );
       const message = `🔔 *Напоминание о голосовании*\n\n` +
         `Пользователь *${userName}* хочет кушать! 🍽️\n\n` +
-        `Группа: *${group.title}*\n` +
+        `Группа: *${escapeMarkdown(group.title)}*\n` +
         `Время: ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}\n\n` +
         `Может пора создать голосование? 😊`;
 
       let sentCount = 0;
-      const bot = (notificationService as any).bot;
-      
+      // Бот берётся из общего синглтона. Раньше здесь читалось приватное поле
+      // сервиса — `(notificationService as any).bot`, — и такой доступ молча
+      // ломался бы при любой правке внутренностей сервиса: тест подменял
+      // модуль целиком и продакшен-путь не проверял.
+      const bot = getBotInstance();
+
       if (!bot) {
         logger.warn('[NotificationController] Bot not initialized');
         return res.status(500).json({ 
@@ -135,8 +146,12 @@ class NotificationController {
 
       for (const admin of admins) {
         try {
+          // `telegramId` в базе — BigInt, а тело запроса к Telegram уходит
+          // через JSON.stringify, который на BigInt бросает TypeError. Ловил
+          // его тот же catch, что и «бот заблокирован», поэтому рассылка
+          // молча заканчивалась `sentCount: 0` при ответе 200.
           await bot.api.sendMessage(
-            admin.telegramId,
+            Number(admin.telegramId),
             message,
             { parse_mode: 'Markdown' }
           );
