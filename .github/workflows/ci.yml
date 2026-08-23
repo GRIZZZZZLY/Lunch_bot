@@ -186,8 +186,21 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-      - name: Run unit tests
-        run: npm test
+      # Покрытие фронта измеряется здесь же и БЛОКИРУЕТ: пороги в
+      # vite.config.ts равны измеренному факту, как в backend/jest.config.js.
+      # Прогон дольше обычного (~1 мин против ~25 с) — цена одного форка без
+      # параллелизма, менять его нельзя (см. TODO в vite.config.ts).
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload frontend-new coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-new-coverage
+          path: frontend-new/coverage/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Build production bundle
         run: npm run build
