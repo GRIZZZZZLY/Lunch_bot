@@ -408,11 +408,6 @@ export class OrderCalculationService {
         return;
       }
 
-      const responsiblePaymentCache = new Map<number, {
-        paymentCard?: string | null;
-        paymentPhone?: string | null;
-      } | null>();
-
       // Load stored participant waiting-message IDs for this category order
       const coRecord = await prisma.categoryOrder.findUnique({
         where: { id: categoryOrder.id },
@@ -433,12 +428,21 @@ export class OrderCalculationService {
           select: { id: true, telegramId: true, firstName: true },
         })).map(u => [u.id, u])
       );
+      // Платёжные поля здесь не выбираются намеренно: в базе они зашифрованы,
+      // а в сообщение идёт расшифрованный вариант из paymentInfoMap. Держать
+      // рядом два одноимённых поля, из которых одно — шифротекст, значит
+      // однажды подставить в сообщение шифротекст.
       const responsibleMap = new Map(
         (await prisma.user.findMany({
           where: { id: { in: responsibleIds } },
-          select: { id: true, firstName: true, username: true, paymentCard: true, paymentPhone: true },
+          select: { id: true, firstName: true, username: true },
         })).map(u => [u.id, u])
       );
+
+      // Раньше платёжные данные тянулись внутри цикла — запрос на каждого
+      // ответственного (кэш в Map спасал только от повторов внутри одной
+      // рассылки). Ответственных единицы, но запрос всё равно был лишним.
+      const paymentInfoMap = await UserService.getPaymentInfoMany(responsibleIds);
 
       // Накопленные обновления message_id — выполним пачкой после рассылки
       const messageIdUpdates: Array<{ id: number; debtMessageId: number; debtChatId: string }> = [];
@@ -456,11 +460,7 @@ export class OrderCalculationService {
           continue;
         }
 
-        let paymentInfo = responsiblePaymentCache.get(transaction.toUserId);
-        if (paymentInfo === undefined) {
-          paymentInfo = await UserService.getPaymentInfo(transaction.toUserId);
-          responsiblePaymentCache.set(transaction.toUserId, paymentInfo);
-        }
+        const paymentInfo = paymentInfoMap.get(transaction.toUserId) ?? null;
 
         if (!paymentInfo?.paymentCard && !paymentInfo?.paymentPhone) {
           logger.warn('Responsible has no payment details', {

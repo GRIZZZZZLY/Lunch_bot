@@ -32,7 +32,7 @@ jest.mock('../../../services/category-order.service', () => ({
 }));
 
 jest.mock('../../../services/user.service', () => ({
-  UserService: { getPaymentInfo: jest.fn() },
+  UserService: { getPaymentInfoMany: jest.fn() },
 }));
 
 jest.mock('../../../bot/bot-instance', () => ({
@@ -106,10 +106,9 @@ beforeEach(() => {
 
   categoryOrders.recalculateTotals.mockResolvedValue(undefined);
   categoryOrders.getParticipants.mockResolvedValue([1, 2]);
-  users.getPaymentInfo.mockResolvedValue({
-    paymentCard: '2200 1234',
-    paymentPhone: null,
-  });
+  users.getPaymentInfoMany.mockResolvedValue(
+    new Map([[1, { paymentCard: '2200 1234', paymentPhone: null }]])
+  );
 
   asMock(prismaMock.orderItem.findUnique).mockResolvedValue(null);
   asMock(prismaMock.orderItem.create).mockImplementation((async (args: {
@@ -735,10 +734,9 @@ describe('уведомления о долге', () => {
   });
 
   it('телефон показывается вместо карты, если карты нет', async () => {
-    users.getPaymentInfo.mockResolvedValue({
-      paymentCard: null,
-      paymentPhone: '+7 999 000',
-    });
+    users.getPaymentInfoMany.mockResolvedValue(
+      new Map([[1, { paymentCard: null, paymentPhone: '+7 999 000' }]])
+    );
     setup();
 
     await OrderCalculationService.finalizeCalculation(10);
@@ -746,8 +744,10 @@ describe('уведомления о долге', () => {
     expect(sentText()).toContain('+7 999 000');
   });
 
+  /* Ответственного нет в карте — это и есть «реквизитов нет»: одиночный
+     вариант отдавал бы здесь null. */
   it('без реквизитов ответственного остаётся предупреждение в логе', async () => {
-    users.getPaymentInfo.mockResolvedValue(null);
+    users.getPaymentInfoMany.mockResolvedValue(new Map());
     setup();
 
     await OrderCalculationService.finalizeCalculation(10);
@@ -764,16 +764,17 @@ describe('уведомления о долге', () => {
     asMock(prismaMock.user.findMany)
       .mockReset()
       .mockResolvedValueOnce([{ id: 2, telegramId: 222n, firstName: 'Пётр' }])
-      .mockResolvedValueOnce([
-        { id: 1, firstName: 'Иван', username: null, paymentCard: '2200' },
-      ]);
+      .mockResolvedValueOnce([{ id: 1, firstName: 'Иван', username: null }]);
 
     await OrderCalculationService.finalizeCalculation(10);
 
     expect(sentText()).toContain('тег не указан');
   });
 
-  it('реквизиты одного ответственного запрашиваются один раз на рассылку', async () => {
+  /* Реквизиты берутся ДО цикла, одним запросом на всех ответственных. Раньше
+     запрос был внутри цикла по должникам, и от повторов спасал только Map —
+     то есть цена рассылки росла от числа разных ответственных. */
+  it('реквизиты запрашиваются одним вызовом, не по должнику', async () => {
     asMock(prismaMock.transaction.findMany).mockResolvedValue([
       TX,
       { ...TX, id: 501, fromUserId: 3 },
@@ -786,13 +787,12 @@ describe('уведомления о долге', () => {
         { id: 2, telegramId: 222n, firstName: 'Пётр' },
         { id: 3, telegramId: 333n, firstName: 'Анна' },
       ])
-      .mockResolvedValueOnce([
-        { id: 1, firstName: 'Иван', username: 'ivan', paymentCard: '2200' },
-      ]);
+      .mockResolvedValueOnce([{ id: 1, firstName: 'Иван', username: 'ivan' }]);
 
     await OrderCalculationService.finalizeCalculation(10);
 
-    expect(users.getPaymentInfo).toHaveBeenCalledTimes(1);
+    expect(users.getPaymentInfoMany).toHaveBeenCalledTimes(1);
+    expect(users.getPaymentInfoMany).toHaveBeenCalledWith([1]);
     expect(api.sendMessage).toHaveBeenCalledTimes(2);
   });
 

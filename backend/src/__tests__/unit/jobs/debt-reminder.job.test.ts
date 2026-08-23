@@ -185,7 +185,13 @@ describe('рассылка напоминаний', () => {
     await runDebtReminderJobManually();
 
     expect(sendMessage).toHaveBeenCalledTimes(2);
+    /* Счётчик поднят только у доставленного напоминания: у неудачной отправки
+       попытка из maxReminders не должна сгорать. */
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: [2] } },
+      data: { reminderCount: { increment: 1 }, lastReminderAt: NOW },
+    });
   });
 
   it('выборка ограничена настройками группы', async () => {
@@ -277,6 +283,19 @@ describe('рассылка напоминаний', () => {
     await runDebtReminderJobManually();
 
     expect(sendMessage).toHaveBeenCalledTimes(9);
+    /* Запись счётчиков — по одному запросу на пачку, а не на должника: раньше
+       было девять `updateMany` на девять писем. Пачка, а не весь список,
+       намеренно — окно между отправкой и записью ограничено четырьмя
+       должниками, и падение внутри пачки повторит напоминание только им. */
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledTimes(3);
+    expect(prismaMock.transaction.updateMany).toHaveBeenNthCalledWith(1, {
+      where: { id: { in: [1, 2, 3, 4] } },
+      data: { reminderCount: { increment: 1 }, lastReminderAt: NOW },
+    });
+    expect(prismaMock.transaction.updateMany).toHaveBeenNthCalledWith(3, {
+      where: { id: { in: [9] } },
+      data: { reminderCount: { increment: 1 }, lastReminderAt: NOW },
+    });
   });
 });
 

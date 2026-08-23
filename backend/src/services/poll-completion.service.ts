@@ -465,17 +465,38 @@ export class PollCompletionService {
    * владельца). Иначе такие голосования висят `ACTIVE` вечно: из активного
    * списка они спрятаны фильтром по времени, а создание нового блокируют.
    * Идемпотентно: `updateMany` с гейтом по статусу.
+   *
+   * Срок жизни хранится как `startedAt` плюс `duration` минут, то есть отбор
+   * просроченных — сравнение колонки с колонкой, и `where` у Prisma его не
+   * выражает. Раньше отбор шёл в JS, а из базы забирались ВСЕ активные
+   * голосования: планировщик каждую минуту вытаскивал по строке на каждую
+   * живую группу, чтобы почти всегда ничего не сделать. Теперь фильтр в SQL —
+   * приходят только просроченные.
+   *
+   * Момент сравнения передаётся числом (epoch ms), а не `Date`: колонка
+   * `started_at` — это `timestamp(3)` БЕЗ зоны, куда Prisma пишет UTC. Параметр
+   * типа `Date` приезжает в запрос как `timestamptz`, и сравнение с ним
+   * приводит колонку к зоне сессии — на сервере с местной зоной граница
+   * поехала бы на несколько часов. `to_timestamp(...) at time zone 'UTC'`
+   * даёт ровно ту же ненумерованную шкалу, в которой лежат данные.
+   *
+   * Диалект PostgreSQL: рабочая, тестовая и локальная БД — одна и та же.
    */
   static async cancelExpiredPolls(at: Date = new Date()): Promise<number> {
-    const active = await prisma.poll.findMany({
-      where: { status: 'ACTIVE' },
-      select: { id: true, groupId: true, startedAt: true, duration: true },
-    });
+    const expired = await prisma.$queryRaw<Array<{ id: number; groupId: number }>>`
+      SELECT id, group_id AS "groupId"
+      FROM polls
+      WHERE status = 'ACTIVE'
+        AND started_at + (duration * INTERVAL '1 minute')
+            <= to_timestamp(${at.getTime()}::bigint / 1000.0) at time zone 'UTC'
+    `;
 
-    const expired = active.filter(
-      poll => poll.startedAt.getTime() + poll.duration * 60_000 <= at.getTime()
-    );
-
+    /* Обновление построчное намеренно, и это не N+1 по недосмотру:
+       `where: { id, status: 'ACTIVE' }` — оптимистичная блокировка, а `count`
+       говорит, не закрыл ли голосование кто-то другой между выборкой и
+       записью. Батч по всем id вернул бы одно общее число и не сказал бы, у
+       каких голосований чистить кэш и что писать в лог. Строк здесь единицы —
+       ровно просроченные. */
     let cancelled = 0;
     for (const poll of expired) {
       const result = await prisma.poll.updateMany({

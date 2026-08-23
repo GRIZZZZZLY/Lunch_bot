@@ -339,20 +339,24 @@ describe('checkQuorumAndComplete', () => {
 });
 
 describe('cancelExpiredPolls', () => {
-  function active(rows: Array<{ id: number; startedAt: Date; duration: number }>) {
-    asMock(prismaMock.poll.findMany).mockResolvedValue(
-      rows.map(row => ({ ...row, groupId: 100 }))
-    );
+  /* Просроченные отбирает БД. Мок отдаёт то, что вернул бы запрос: сравнение
+     `startedAt + duration` с моментом проверки в JS больше не выполняется,
+     поэтому фикстура — уже отобранные строки. */
+  function expired(rows: Array<{ id: number; groupId: number }>) {
+    asMock(prismaMock.$queryRaw).mockResolvedValue(rows);
+  }
+
+  /** Текст запроса из тегированного шаблона: `$queryRaw(strings, ...values)`. */
+  function lastQuery(): { sql: string; values: unknown[] } {
+    const call = asMock(prismaMock.$queryRaw).mock.calls[0] as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    return { sql: call[0].join('?'), values: call.slice(1) };
   }
 
   it('истёкшее голосование отменяется, а не завершается', async () => {
-    active([
-      {
-        id: 5,
-        startedAt: new Date('2026-08-03T10:00:00.000Z'),
-        duration: 30,
-      },
-    ]);
+    expired([{ id: 5, groupId: 100 }]);
 
     await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(1);
     expect(asMock(prismaMock.poll.updateMany)).toHaveBeenCalledWith({
@@ -361,54 +365,55 @@ describe('cancelExpiredPolls', () => {
     });
   });
 
-  it('голосование в пределах таймера не трогается', async () => {
-    active([{ id: 5, startedAt: NOW, duration: 30 }]);
+  /* Главное утверждение файла про этот метод, и не «сколько запросов», а
+     СКОЛЬКО СТРОК: запрос был один и раньше, но забирал все активные
+     голосования, чтобы почти все выбросить в JS. Обычный `findMany` без
+     условия на срок — возврат к той же цене. */
+  it('отбор просроченных делает БД, а не JS', async () => {
+    expired([]);
 
-    await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(0);
-    expect(asMock(prismaMock.poll.updateMany)).not.toHaveBeenCalled();
+    await PollCompletionService.cancelExpiredPolls(NOW);
+
+    const { sql, values } = lastQuery();
+    expect(asMock(prismaMock.poll.findMany)).not.toHaveBeenCalled();
+    expect(sql).toContain("status = 'ACTIVE'");
+    expect(sql).toMatch(/started_at \+ \(duration \* INTERVAL '1 minute'\)/);
+    /* Момент проверки уходит числом: параметр-`Date` стал бы `timestamptz` и
+       увёл бы границу на смещение зоны сессии (колонка — без зоны). */
+    expect(values).toEqual([NOW.getTime()]);
   });
 
-  it('ровно в момент истечения голосование отменяется', async () => {
-    active([
-      {
-        id: 5,
-        startedAt: new Date('2026-08-03T11:30:00.000Z'),
-        duration: 30,
-      },
-    ]);
+  /* Граница «ровно в момент истечения» теперь на стороне SQL, и мок её не
+     воспроизводит. Проверяем то, что осталось проверяемым здесь: сравнение
+     нестрогое, иначе голосование живёт лишнюю минуту до следующего тика. */
+  it('граница нестрогая: истёкшее ровно сейчас попадает в выборку', async () => {
+    expired([]);
 
-    await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(1);
+    await PollCompletionService.cancelExpiredPolls(NOW);
+
+    expect(lastQuery().sql).toContain('<=');
   });
 
   it('уже отменённое другим процессом не считается дважды', async () => {
-    active([
-      {
-        id: 5,
-        startedAt: new Date('2026-08-03T10:00:00.000Z'),
-        duration: 30,
-      },
-    ]);
+    expired([{ id: 5, groupId: 100 }]);
     asMock(prismaMock.poll.updateMany).mockResolvedValue({ count: 0 });
 
     await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(0);
   });
 
   it('кэш группы сбрасывается после отмены', async () => {
-    active([
-      {
-        id: 5,
-        startedAt: new Date('2026-08-03T10:00:00.000Z'),
-        duration: 30,
-      },
-    ]);
+    expired([{ id: 5, groupId: 100 }]);
 
     await PollCompletionService.cancelExpiredPolls(NOW);
 
     expect(cacheInvalidatorMock.invalidatePoll).toHaveBeenCalledWith(5, 100);
   });
 
-  it('без активных голосований ничего не делает', async () => {
+  it('без просроченных голосований ничего не делает', async () => {
+    expired([]);
+
     await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(0);
+    expect(asMock(prismaMock.poll.updateMany)).not.toHaveBeenCalled();
   });
 });
 

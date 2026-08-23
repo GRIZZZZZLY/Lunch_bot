@@ -6,6 +6,13 @@ import { now } from '../utils/date';
 import { EncryptionService } from '../utils/encryption';
 import { getBotInstance } from '../bot/bot-instance';
 
+/** Расшифрованные платёжные данные: то, что можно показать человеку. */
+export interface PaymentInfo {
+  paymentCard?: string | null;
+  paymentPhone?: string | null;
+  paymentDetails?: string | null;
+}
+
 export class UserService {
   /**
    * Создание нового пользователя
@@ -451,22 +458,67 @@ export class UserService {
         return null;
       }
 
-      // Расшифровываем данные (EncryptionService.decrypt обрабатывает legacy данные)
-      return {
-        paymentCard: user.paymentCard 
-          ? EncryptionService.decrypt(user.paymentCard) 
-          : user.paymentCard,
-        paymentPhone: user.paymentPhone 
-          ? EncryptionService.decrypt(user.paymentPhone) 
-          : user.paymentPhone,
-        paymentDetails: user.paymentDetails 
-          ? EncryptionService.decrypt(user.paymentDetails) 
-          : user.paymentDetails,
-      };
+      return UserService.decryptPaymentInfo(user);
     } catch (error) {
       logger.error('Error getting payment info:', error);
       throw new Error('Failed to get payment info');
     }
+  }
+
+  /**
+   * Те же платёжные данные, но сразу для списка пользователей.
+   *
+   * Нужно рассылкам: они шли по должникам и на каждого ответственного делали
+   * свой `getPaymentInfo`, то есть запрос на итерацию. Расшифровка — работа
+   * процессора, а не базы, поэтому одного `findMany` достаточно.
+   *
+   * Отсутствующий пользователь в карту не попадает — это то же самое, что
+   * `null` у одиночного варианта.
+   */
+  static async getPaymentInfoMany(
+    userIds: number[]
+  ): Promise<Map<number, PaymentInfo>> {
+    if (userIds.length === 0) {
+      return new Map();
+    }
+
+    try {
+      const users = await prisma.user.findMany({
+        where: { id: { in: [...new Set(userIds)] } },
+        select: {
+          id: true,
+          paymentCard: true,
+          paymentPhone: true,
+          paymentDetails: true,
+        },
+      });
+
+      return new Map(
+        users.map(user => [user.id, UserService.decryptPaymentInfo(user)])
+      );
+    } catch (error) {
+      logger.error('Error getting payment info batch:', error);
+      throw new Error('Failed to get payment info');
+    }
+  }
+
+  /** Расшифровка платёжных полей. `decrypt` сам разбирается с legacy-данными. */
+  private static decryptPaymentInfo(user: {
+    paymentCard: string | null;
+    paymentPhone: string | null;
+    paymentDetails: string | null;
+  }): PaymentInfo {
+    return {
+      paymentCard: user.paymentCard
+        ? EncryptionService.decrypt(user.paymentCard)
+        : user.paymentCard,
+      paymentPhone: user.paymentPhone
+        ? EncryptionService.decrypt(user.paymentPhone)
+        : user.paymentPhone,
+      paymentDetails: user.paymentDetails
+        ? EncryptionService.decrypt(user.paymentDetails)
+        : user.paymentDetails,
+    };
   }
 
   /**

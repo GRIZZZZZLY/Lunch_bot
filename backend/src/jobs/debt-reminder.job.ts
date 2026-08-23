@@ -176,9 +176,12 @@ async function sendRemindersForGroup(
   // должников и остаётся в пределах лимитов Telegram (глобально ~30 msg/s).
   const CONCURRENCY = 4;
 
+  /** Успешно отправленное напоминание и долги, счётчики которых пора поднять. */
+  type SendResult = { ok: boolean; transactionIds: number[] };
+
   const sendOne = async (
     debtorData: (typeof debtors)[number]
-  ): Promise<boolean> => {
+  ): Promise<SendResult> => {
     try {
       const message = formatReminderMessage(
         settings.messageTemplate,
@@ -192,37 +195,51 @@ async function sendRemindersForGroup(
         parse_mode: 'Markdown',
       });
 
-      // Обновление счетчиков напоминаний для всех транзакций (долгов) должника
-      const transactionIds = debtorData.debts.map((d: any) => d.id);
-      await prisma.transaction.updateMany({
-        where: {
-          id: { in: transactionIds },
-        },
-        data: {
-          reminderCount: { increment: 1 },
-          lastReminderAt: new Date(),
-        },
-      });
-
       logger.info(
         `[DebtReminderJob] Sent reminder to user ${debtorData.debtor.id} (${debtorData.debtor.firstName}) for ${debtorData.totalAmount.toFixed(2)} руб.`
       );
-      return true;
+      return {
+        ok: true,
+        transactionIds: debtorData.debts.map((d: any) => d.id),
+      };
     } catch (error) {
       logger.error(
         `[DebtReminderJob] Failed to send reminder to user ${debtorData.debtor.id}:`,
         error
       );
-      return false;
+      return { ok: false, transactionIds: [] };
     }
   };
 
   for (let i = 0; i < debtors.length; i += CONCURRENCY) {
     const chunk = debtors.slice(i, i + CONCURRENCY);
     const results = await Promise.all(chunk.map(sendOne));
-    for (const ok of results) {
-      if (ok) sent++;
-      else failed++;
+
+    const remindedIds: number[] = [];
+    for (const result of results) {
+      if (result.ok) {
+        sent++;
+        remindedIds.push(...result.transactionIds);
+      } else {
+        failed++;
+      }
+    }
+
+    /* Счётчики поднимаются одним запросом на пачку, а не на должника: раньше
+       каждое отправленное напоминание тянуло свой `updateMany`.
+       Пачка, а не весь список, — намеренно: между отправкой и записью счётчика
+       есть окно, и падение в нём приводит к повторному напоминанию тем, кому
+       уже написали. С пачкой это окно ограничено CONCURRENCY должниками.
+       Счётчик поднимается ТОЛЬКО у тех, чьё сообщение ушло: иначе неудачная
+       отправка съедала бы попытку из maxReminders. */
+    if (remindedIds.length > 0) {
+      await prisma.transaction.updateMany({
+        where: { id: { in: remindedIds } },
+        data: {
+          reminderCount: { increment: 1 },
+          lastReminderAt: new Date(),
+        },
+      });
     }
   }
 

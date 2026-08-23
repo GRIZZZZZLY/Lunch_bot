@@ -731,4 +731,72 @@ describe('UserService', () => {
       await expect(UserService.getPaymentInfo(userId)).rejects.toThrow('Failed to get payment info');
     });
   });
+
+  /**
+   * Пакетный вариант нужен рассылкам: раньше они спрашивали реквизиты внутри
+   * цикла по должникам — запрос на итерацию. Проверяется ровно то, ради чего
+   * метод появился: один запрос на любое число id, и результат не отличается
+   * от одиночного вызова.
+   */
+  describe('getPaymentInfoMany', () => {
+    it('один запрос на всех, ключ карты — id пользователя', async () => {
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([
+        { id: 1, paymentCard: '1111', paymentPhone: null, paymentDetails: null },
+        { id: 2, paymentCard: null, paymentPhone: '+7 999', paymentDetails: null },
+      ]);
+
+      const result = await UserService.getPaymentInfoMany([1, 2]);
+
+      expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+      expect(result.get(1)?.paymentCard).toBe('1111');
+      expect(result.get(2)?.paymentPhone).toBe('+7 999');
+    });
+
+    it('повторяющиеся id спрашиваются один раз', async () => {
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([
+        { id: 1, paymentCard: '1111', paymentPhone: null, paymentDetails: null },
+      ]);
+
+      await UserService.getPaymentInfoMany([1, 1, 1]);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [1] } },
+        select: {
+          id: true,
+          paymentCard: true,
+          paymentPhone: true,
+          paymentDetails: true,
+        },
+      });
+    });
+
+    /* Пустой список — не повод ходить в базу: `id: { in: [] }` вернул бы
+       пустоту, но платой за это был бы запрос на каждую рассылку без
+       должников. */
+    it('пустой список не идёт в базу', async () => {
+      const result = await UserService.getPaymentInfoMany([]);
+
+      expect(result.size).toBe(0);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    /* Пропавший пользователь просто отсутствует в карте — вызывающий код
+       обязан отличать «нет реквизитов» от «нет пользователя» сам, как и с
+       одиночным null. */
+    it('ненайденные id в карту не попадают', async () => {
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await UserService.getPaymentInfoMany([7]);
+
+      expect(result.has(7)).toBe(false);
+    });
+
+    it('падение базы отдаётся тем же сообщением, что у одиночного вызова', async () => {
+      (prisma.user.findMany as jest.Mock).mockRejectedValue(new Error('Database error'));
+
+      await expect(UserService.getPaymentInfoMany([1])).rejects.toThrow(
+        'Failed to get payment info'
+      );
+    });
+  });
 });

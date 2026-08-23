@@ -152,54 +152,47 @@ export class CategoryOrderService {
         categoryMap.get(category)!.add(vote.userId);
       }
 
-      // Filter categories with at least 1 participant
-      const categoryOrders: CategoryOrder[] = [];
+      /* Строки собираются в JS и вставляются одним запросом.
+         Раньше на каждую категорию шёл свой `create`: завершение голосования
+         на пять блюд — пять вставок подряд, и каждая со своим круговым
+         походом в базу. Разница между категориями только в двух полях, так
+         что делить это на два разных запроса нет причины.
+         `createManyAndReturn` (PostgreSQL) отдаёт вставленные строки в порядке
+         входных данных — вызывающий код и события ниже опираются на него. */
+      const rows = [...categoryMap.entries()]
+        .filter(([, userIds]) => userIds.size > 0)
+        .map(([category, userIds]) => {
+          const participantCount = userIds.size;
+          // Один участник — он же и ответственный, выбирать не из кого.
+          const soleParticipant =
+            participantCount === 1 ? Array.from(userIds)[0] : null;
 
-      for (const [category, userIds] of categoryMap.entries()) {
-        if (userIds.size === 0) {
-          continue;
-        }
+          return {
+            pollId,
+            category,
+            responsibleUserId: soleParticipant,
+            selectionStatus:
+              soleParticipant !== null
+                ? CategorySelectionStatus.SELECTED_AUTO
+                : CategorySelectionStatus.VOLUNTEER_OPEN,
+            // Multi-participant: no responsible until volunteer/roulette actually selects one
+            selectionMode: soleParticipant !== null ? 'auto' : null,
+            participantCount,
+            calculationStatus: 'PENDING',
+          };
+        });
 
-        const participantCount = userIds.size;
+      const categoryOrders: CategoryOrder[] =
+        rows.length === 0
+          ? []
+          : await prisma.categoryOrder.createManyAndReturn({ data: rows });
 
-        // For single participant, auto-assign as responsible
-        if (participantCount === 1) {
-          const userId = Array.from(userIds)[0];
-          const categoryOrder = await prisma.categoryOrder.create({
-            data: {
-              pollId,
-              category,
-              responsibleUserId: userId,
-              selectionStatus: CategorySelectionStatus.SELECTED_AUTO,
-              selectionMode: 'auto',
-              participantCount,
-              calculationStatus: 'PENDING',
-            },
-          });
-
-          categoryOrders.push(categoryOrder);
-          logger.info(
-            `Created CategoryOrder ${categoryOrder.id} for category "${category}" with auto-responsible user ${userId}`
-          );
-        } else {
-          // Multi-participant: no responsible until volunteer/roulette actually selects one
-          const categoryOrder = await prisma.categoryOrder.create({
-            data: {
-              pollId,
-              category,
-              responsibleUserId: null,
-              selectionStatus: CategorySelectionStatus.VOLUNTEER_OPEN,
-              selectionMode: null,
-              participantCount,
-              calculationStatus: 'PENDING',
-            },
-          });
-
-          categoryOrders.push(categoryOrder);
-          logger.info(
-            `Created CategoryOrder ${categoryOrder.id} for category "${category}" with ${participantCount} participants (responsible pending)`
-          );
-        }
+      for (const co of categoryOrders) {
+        logger.info(
+          co.responsibleUserId !== null
+            ? `Created CategoryOrder ${co.id} for category "${co.category}" with auto-responsible user ${co.responsibleUserId}`
+            : `Created CategoryOrder ${co.id} for category "${co.category}" with ${co.participantCount} participants (responsible pending)`
+        );
       }
 
       logger.info(

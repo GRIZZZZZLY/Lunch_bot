@@ -34,9 +34,11 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers().setSystemTime(NOW);
 
-  asMock(prismaMock.categoryOrder.create).mockImplementation((async (args: {
-    data: Record<string, unknown>;
-  }) => ({ id: 1, ...args.data })) as never);
+  /* Вставка одна на все категории: мок возвращает те же строки с id — так же,
+     как `createManyAndReturn` в PostgreSQL, в порядке входных данных. */
+  asMock(prismaMock.categoryOrder.createManyAndReturn).mockImplementation((async (args: {
+    data: Array<Record<string, unknown>>;
+  }) => args.data.map((row, index) => ({ id: index + 1, ...row }))) as never);
   asMock(prismaMock.categoryOrder.updateMany).mockResolvedValue({
     count: 1,
   });
@@ -70,14 +72,16 @@ describe('createCategoryOrders', () => {
 
     const orders = await CategoryOrderService.createCategoryOrders(5);
 
-    expect(prismaMock.categoryOrder.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        category: 'Плов',
-        responsibleUserId: 1,
-        selectionStatus: 'SELECTED_AUTO',
-        selectionMode: 'auto',
-        participantCount: 1,
-      }),
+    expect(prismaMock.categoryOrder.createManyAndReturn).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          category: 'Плов',
+          responsibleUserId: 1,
+          selectionStatus: 'SELECTED_AUTO',
+          selectionMode: 'auto',
+          participantCount: 1,
+        }),
+      ],
     });
     expect(orders).toHaveLength(1);
   });
@@ -90,13 +94,15 @@ describe('createCategoryOrders', () => {
 
     await CategoryOrderService.createCategoryOrders(5);
 
-    expect(prismaMock.categoryOrder.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        responsibleUserId: null,
-        selectionStatus: 'VOLUNTEER_OPEN',
-        selectionMode: null,
-        participantCount: 2,
-      }),
+    expect(prismaMock.categoryOrder.createManyAndReturn).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          responsibleUserId: null,
+          selectionStatus: 'VOLUNTEER_OPEN',
+          selectionMode: null,
+          participantCount: 2,
+        }),
+      ],
     });
   });
 
@@ -108,8 +114,8 @@ describe('createCategoryOrders', () => {
 
     await CategoryOrderService.createCategoryOrders(5);
 
-    expect(prismaMock.categoryOrder.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ participantCount: 1 }),
+    expect(prismaMock.categoryOrder.createManyAndReturn).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ participantCount: 1 })],
     });
   });
 
@@ -122,7 +128,9 @@ describe('createCategoryOrders', () => {
     const orders = await CategoryOrderService.createCategoryOrders(5);
 
     expect(orders).toEqual([]);
-    expect(prismaMock.categoryOrder.create).not.toHaveBeenCalled();
+    /* Нечего вставлять — в базу не идём вовсе: `data: []` был бы запросом
+       ради пустоты. */
+    expect(prismaMock.categoryOrder.createManyAndReturn).not.toHaveBeenCalled();
   });
 
   it('название категории обрезается по краям', async () => {
@@ -132,9 +140,26 @@ describe('createCategoryOrders', () => {
 
     await CategoryOrderService.createCategoryOrders(5);
 
-    expect(prismaMock.categoryOrder.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ category: 'Плов' }),
+    expect(prismaMock.categoryOrder.createManyAndReturn).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ category: 'Плов' })],
     });
+  });
+
+  /* Цена завершения голосования не должна расти от числа блюд: раньше на
+     каждую категорию шла своя вставка. */
+  it('все категории вставляются одним запросом', async () => {
+    asMock(prismaMock.vote.findMany).mockResolvedValue([
+      { id: 1, userId: 1, menuItem: { name: 'Плов' }, user: { id: 1 } },
+      { id: 2, userId: 2, menuItem: { name: 'Шурпа' }, user: { id: 2 } },
+      { id: 3, userId: 3, menuItem: { name: 'Лагман' }, user: { id: 3 } },
+    ] as never);
+
+    const orders = await CategoryOrderService.createCategoryOrders(5);
+
+    expect(prismaMock.categoryOrder.createManyAndReturn).toHaveBeenCalledTimes(1);
+    expect(orders).toHaveLength(3);
+    // Порядок строк сохранён: id раздаются в порядке вставки.
+    expect(orders.map(order => order.category)).toEqual(['Плов', 'Шурпа', 'Лагман']);
   });
 
   it('на каждую созданную категорию уходит событие', async () => {
