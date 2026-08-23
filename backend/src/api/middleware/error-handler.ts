@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../../utils/logger';
 import { BaseError, formatErrorForLogging, ValidationError, RateLimitError } from '../../utils/error';
+import type { ApiErrorCode } from '../error-codes';
 import { sendProblem, makeProblem } from '../../utils/problem';
 
 /**
@@ -102,8 +103,15 @@ export function errorHandler(
     sendProblem(
       res,
       makeProblem({
+        /* Единственное место, где `code` НЕ проверяется типом, и это осознанно.
+           `BaseError` открыт для наследования: подкласс объявляет свой код, и
+           тест `error-handler.test.ts` («наследник BaseError с чужим кодом
+           сохраняет его») закрепляет это как свойство. Попытка сузить здесь
+           через `isApiErrorCode` его сломала — код подменялся на
+           INTERNAL_ERROR. Гарантию даёт не тип, а тест словаря: он собирает
+           коды из классов ошибок и требует для каждого текст на фронте. */
         status: err.statusCode,
-        code: err.code,
+        code: err.code as ApiErrorCode,
         title: err.name,
         detail: err.message,
         instance,

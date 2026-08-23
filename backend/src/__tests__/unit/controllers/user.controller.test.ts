@@ -520,7 +520,7 @@ describe('POST /api/user/avatars/batch', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'INVALID_PARAMS' });
+    expect(res.body).toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
   it('больше 100 id — 400 TOO_MANY_IDS', async () => {

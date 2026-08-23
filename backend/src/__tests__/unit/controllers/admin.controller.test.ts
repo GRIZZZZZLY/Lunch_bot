@@ -319,7 +319,7 @@ describe('PUT /api/admin/users/:userId/admin', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'INVALID_BODY' });
+    expect(res.body).toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
   it('глобальный админ БЕЗ прав в группе получает 403 — это мутация', async () => {
@@ -685,7 +685,7 @@ describe('PUT /api/admin/polls/:pollId/participants/:userId', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'INVALID_PARAMS' });
+    expect(res.body).toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
   it.each([
@@ -700,7 +700,7 @@ describe('PUT /api/admin/polls/:pollId/participants/:userId', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'INVALID_BODY' });
+    expect(res.body).toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
   it('голосования нет — 404', async () => {

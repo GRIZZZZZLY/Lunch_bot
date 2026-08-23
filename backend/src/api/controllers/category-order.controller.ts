@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { CategoryOrderService } from '../../services/category-order.service';
 import { OrderCalculationService } from '../../services/order-calculation.service';
 import { MultiCategoryResponsibleService } from '../../services/multi-category-responsible.service';
@@ -36,7 +36,8 @@ export class CategoryOrderController {
    */
   static async getCategoryOrdersForPoll(
     req: Request,
-    res: Response
+    res: Response,
+    next: NextFunction
   ): Promise<void> {
     try {
       const user = requireAuthUser(req, res);
@@ -64,11 +65,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error getting category orders for poll:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get category orders',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 
@@ -78,7 +75,8 @@ export class CategoryOrderController {
    */
   static async getMyCategoryOrdersForPoll(
     req: Request,
-    res: Response
+    res: Response,
+    next: NextFunction
   ): Promise<void> {
     try {
       const user = requireAuthUser(req, res);
@@ -118,11 +116,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error getting user category orders for poll:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get user category orders',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 
@@ -130,7 +124,11 @@ export class CategoryOrderController {
    * GET /api/category-orders/:id
    * Get a single CategoryOrder by ID
    */
-  static async getCategoryOrder(req: Request, res: Response): Promise<void> {
+  static async getCategoryOrder(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const user = requireAuthUser(req, res);
       if (!user) return;
@@ -164,11 +162,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error getting category order:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get category order',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 
@@ -176,7 +170,11 @@ export class CategoryOrderController {
    * POST /api/category-orders/:id/order-items
    * Save or update an OrderItem (autosave)
    */
-  static async saveOrderItem(req: Request, res: Response): Promise<void> {
+  static async saveOrderItem(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const user = requireAuthUser(req, res);
       if (!user) return;
@@ -268,11 +266,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error saving order item:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to save order item',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 
@@ -280,7 +274,11 @@ export class CategoryOrderController {
    * DELETE /api/order-items/:id
    * Delete an OrderItem
    */
-  static async deleteOrderItem(req: Request, res: Response): Promise<void> {
+  static async deleteOrderItem(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const user = requireAuthUser(req, res);
       if (!user) return;
@@ -342,11 +340,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error deleting order item:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to delete order item',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 
@@ -354,7 +348,11 @@ export class CategoryOrderController {
    * GET /api/category-orders/:id/progress
    * Get calculation progress
    */
-  static async getProgress(req: Request, res: Response): Promise<void> {
+  static async getProgress(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const user = requireAuthUser(req, res);
       if (!user) return;
@@ -394,11 +392,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error getting progress:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get progress',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 
@@ -406,7 +400,11 @@ export class CategoryOrderController {
    * GET /api/category-orders/:id/participants
    * Get participants (users who voted for this category)
    */
-  static async getParticipants(req: Request, res: Response): Promise<void> {
+  static async getParticipants(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const user = requireAuthUser(req, res);
       if (!user) return;
@@ -458,11 +456,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error getting participants:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get participants',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 
@@ -525,7 +519,8 @@ export class CategoryOrderController {
    */
   static async volunteerForCategory(
     req: Request,
-    res: Response
+    res: Response,
+    next: NextFunction
   ): Promise<void> {
     try {
       const user = requireAuthUser(req, res);
@@ -593,11 +588,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error volunteering for category:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to volunteer for category',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 
@@ -605,7 +596,11 @@ export class CategoryOrderController {
    * PUT /api/category-orders/:id/costs
    * Update additional costs (delivery, service, tip)
    */
-  static async updateCosts(req: Request, res: Response): Promise<void> {
+  static async updateCosts(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const user = requireAuthUser(req, res);
       if (!user) return;
@@ -690,11 +685,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error updating costs:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to update costs',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 
@@ -702,7 +693,11 @@ export class CategoryOrderController {
    * GET /api/order-items/:id/edit-history
    * Get edit history for an OrderItem (admin only)
    */
-  static async getEditHistory(req: Request, res: Response): Promise<void> {
+  static async getEditHistory(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const orderItemId = parseInt(getParam(req.params, 'id'), 10);
       const user = req.user;
@@ -739,11 +734,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error getting edit history:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get edit history',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 
@@ -751,7 +742,11 @@ export class CategoryOrderController {
    * GET /api/category-orders/:id/order-items
    * Get all OrderItems for a CategoryOrder
    */
-  static async getOrderItems(req: Request, res: Response): Promise<void> {
+  static async getOrderItems(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const user = requireAuthUser(req, res);
       if (!user) return;
@@ -792,11 +787,7 @@ export class CategoryOrderController {
       });
     } catch (error) {
       logger.error('Error getting order items:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get order items',
-        code: 'INTERNAL_ERROR',
-      });
+      next(error);
     }
   }
 }

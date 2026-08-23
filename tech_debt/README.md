@@ -62,7 +62,7 @@ Repowise указывает точку входа: `backend/src/services/poll.se
 14 ─────────────────────► ✅ СДЕЛАНО (14.1 была предпосылкой 06/07)
 
 10.1 ✅ ──► 04 ✅ ──┐
-03 ──► 02 ────┼──► 05 ──► 06 ◄──► 07
+03 ✅ ──► 02 ──┼──► 05 ──► 06 ◄──► 07
               └──► 08  (параллельно 05/06/07)
 
 11 ──► 12
@@ -80,7 +80,7 @@ Repowise указывает точку входа: `backend/src/services/poll.se
 | ~~[04](04-authorization-layer.md)~~ **✅ сделано** | Авторизация в middleware | P1 | 2 дн | Правило доступа в трёх вариантах; Prisma в контроллере; коллизия имён `groupAdminMiddleware` (API vs бот). **Найдены и закрыты две утечки между группами** — см. [матрицу](04-auth-matrix.md) |
 | [16](16-env-and-security-flag-duplication.md) | `SKIP_TELEGRAM_VALIDATION` в 5 местах | P1 | 1 дн | Самый опасный флаг проекта защищён пятью независимыми проверками |
 | [11](11-frontend-test-coverage.md) | Покрытие фронтенда | **P1** | 0.5 дн + 2 дн | Единственный слой без обратной связи; блокер шага 1 — отсутствует `@vitest/coverage-v8` |
-| [03](03-single-error-contract.md) | Словарь кодов + `catch → next(err)` | P1 | 0.5 дн | **Урезано:** массовая замена 430 сайтов выброшена как работа без адресата |
+| ~~[03](03-single-error-contract.md)~~ **✅ словарь; `next(err)` на 1 файле из 10** | Словарь кодов + `catch → next(err)` | P1 | 0.5 дн | **Урезано:** массовая замена 430 сайтов выброшена как работа без адресата |
 | [05](05-poll-controller-god-file.md) | `poll.controller.ts` (1746) | P1 | 1.5–2 дн | Health 1.9, churn 99.5%, handler на 185 строк |
 | [06](06-poll-service-god-file.md) | `poll.service.ts` (1770) + `.extensions` | P1 | 2 дн | `fix_first` по Repowise, метод на 314 строк |
 | [07](07-notification-service-god-file.md) | `notification.service.ts` (1290) | P1 | 1–1.5 дн | Два несвязанных домена, 299 битых маркеров кодировки |

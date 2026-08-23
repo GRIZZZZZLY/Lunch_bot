@@ -111,7 +111,7 @@ describe('POST /api/auth/validate — формат initData', () => {
     await AuthController.validateInitData(mockRequest({ body }), res);
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'INVALID_REQUEST' });
+    expect(res.body).toMatchObject({ code: 'VALIDATION_ERROR' });
     expect(userService.upsertUser).not.toHaveBeenCalled();
   });
 

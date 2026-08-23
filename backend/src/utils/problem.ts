@@ -16,6 +16,8 @@
 
 import type { Response } from 'express';
 
+import type { ApiErrorCode } from '../api/error-codes';
+
 export interface Problem {
   /** URI describing the problem type (links to docs). */
   type: string;
@@ -27,8 +29,13 @@ export interface Problem {
   detail?: string;
   /** URI identifying the specific occurrence (request path). */
   instance?: string;
-  /** Machine-readable code (USER_NOT_FOUND, VALIDATION_ERROR, ...). */
-  code: string;
+  /**
+   * Machine-readable code. Тип, а не `string`, намеренно: фронт выбирает по
+   * нему текст для пользователя (`frontend-new/src/lib/apiError.ts`), то есть
+   * код — часть контракта. Опечатка в литерале теперь не компилируется, а не
+   * тихо доезжает до клиента и теряет текст.
+   */
+  code: ApiErrorCode;
   /** Correlation id from request-context middleware. */
   traceId?: string;
   /** Extension members (errors[], field, retryAfter, ...). */
@@ -43,7 +50,7 @@ const DEFAULT_TYPE_BASE = 'https://rocketlunch.dpdns.org/docs/errors/';
 
 export function makeProblem(input: {
   status: number;
-  code: string;
+  code: ApiErrorCode;
   title: string;
   detail?: string;
   instance?: string;
@@ -113,7 +120,7 @@ export function respondProblem(
   req: { path?: string; url?: string; requestId?: string },
   partial: {
     status: number;
-    code: string;
+    code: ApiErrorCode;
     title: string;
     detail?: string;
     extensions?: Record<string, unknown>;

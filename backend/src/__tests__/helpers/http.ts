@@ -135,6 +135,28 @@ export function mockResponse(): MockResponse {
   return res as MockResponse;
 }
 
+export type MockNext = jest.Mock & {
+  /** Ошибка, переданная в next(err); undefined, если next вызван без аргумента. */
+  readonly error: unknown;
+};
+
+/**
+ * Заглушка `next` для обработчиков, отдающих 500 через `next(err)`.
+ *
+ * Такой обработчик не формирует ответ сам — тело и статус собирает
+ * `errorHandler`, и проверять их надо там, а не здесь. Тест контроллера
+ * доказывает ДРУГОЕ: что ошибка не съедена и дошла до обработчика. Поэтому
+ * `error` вынесен отдельным полем — `expect(next.error).toBeInstanceOf(Error)`
+ * читается прямее, чем разбор `mock.calls`.
+ */
+export function mockNext(): MockNext {
+  const next = jest.fn() as MockNext;
+  Object.defineProperty(next, 'error', {
+    get: () => next.mock.calls[0]?.[0],
+  });
+  return next;
+}
+
 /** Вызывает обработчики, зарегистрированные через res.on(event). */
 export function emit(res: MockResponse, event: string): void {
   for (const handler of res.listeners[event] ?? []) {

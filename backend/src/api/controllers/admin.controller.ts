@@ -164,7 +164,7 @@ export class AdminController {
         res.status(400).json({
           success: false,
           error: 'isAdmin must be boolean',
-          code: 'INVALID_BODY',
+          code: 'VALIDATION_ERROR',
         });
         return;
       }
@@ -214,7 +214,7 @@ export class AdminController {
         res.status(400).json({
           success: false,
           error: 'isActive must be boolean',
-          code: 'INVALID_BODY',
+          code: 'VALIDATION_ERROR',
         });
         return;
       }
@@ -257,7 +257,7 @@ export class AdminController {
         return;
       }
       if (typeof participates !== 'boolean') {
-        res.status(400).json({ success: false, error: 'participates must be boolean', code: 'INVALID_BODY' });
+        res.status(400).json({ success: false, error: 'participates must be boolean', code: 'VALIDATION_ERROR' });
         return;
       }
 
@@ -331,14 +331,14 @@ export class AdminController {
       const { status, reason } = req.body;
 
       if (isNaN(pollId) || isNaN(userId)) {
-        res.status(400).json({ success: false, error: 'Invalid IDs', code: 'INVALID_PARAMS' });
+        res.status(400).json({ success: false, error: 'Invalid IDs', code: 'VALIDATION_ERROR' });
         return;
       }
       if (status !== 'EXPECTED' && status !== 'EXCLUDED') {
         res.status(400).json({
           success: false,
           error: 'status must be EXPECTED or EXCLUDED',
-          code: 'INVALID_BODY',
+          code: 'VALIDATION_ERROR',
         });
         return;
       }

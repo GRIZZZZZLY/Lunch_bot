@@ -20,7 +20,8 @@ import { OrderCalculationService } from '../../../services/order-calculation.ser
 import { MultiCategoryResponsibleService } from '../../../services/multi-category-responsible.service';
 import { UserService } from '../../../services/user.service';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
-import { mockRequest, mockResponse } from '../../helpers/http';
+import { mockNext, mockRequest, mockResponse } from '../../helpers/http';
+import type { MockNext } from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
 
 jest.mock('../../../database/client', () =>
@@ -77,8 +78,11 @@ const PARTICIPANT = { id: 2, isAdmin: false };
 const OUTSIDER = { id: 3, isAdmin: false };
 const GLOBAL_ADMIN = { id: 9, isAdmin: true };
 
+let next: MockNext;
+
 beforeEach(() => {
   resetPrismaMock();
+  next = mockNext();
   jest.clearAllMocks();
 
   // По умолчанию: ответственный — пользователь 1, участники — 1 и 2.
@@ -98,7 +102,8 @@ describe('GET /api/polls/:pollId/category-orders', () => {
 
     await CategoryOrderController.getCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res
+      res,
+      next
     );
 
     expect(res.body).toMatchObject({ count: 1, data: [{ id: 1 }] });
@@ -109,7 +114,8 @@ describe('GET /api/polls/:pollId/category-orders', () => {
 
     await CategoryOrderController.getCategoryOrdersForPoll(
       mockRequest({ params: { pollId: '12' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(401);
@@ -120,7 +126,8 @@ describe('GET /api/polls/:pollId/category-orders', () => {
 
     await CategoryOrderController.getCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: 'нет' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -132,10 +139,11 @@ describe('GET /api/polls/:pollId/category-orders', () => {
 
     await CategoryOrderController.getCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });
 
@@ -158,7 +166,8 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
 
     await CategoryOrderController.getMyCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res
+      res,
+      next
     );
 
     expect(res.body).toMatchObject({ count: 1, data: [{ id: 1 }] });
@@ -170,7 +179,8 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
 
     await CategoryOrderController.getMyCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res
+      res,
+      next
     );
 
     expect(res.body).toMatchObject({ count: 0 });
@@ -181,7 +191,8 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
 
     await CategoryOrderController.getMyCategoryOrdersForPoll(
       mockRequest({ params: { pollId: '12' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(401);
@@ -192,7 +203,8 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
 
     await CategoryOrderController.getMyCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: 'нет' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -206,10 +218,11 @@ describe('GET /api/polls/:pollId/category-orders/my', () => {
 
     await CategoryOrderController.getMyCategoryOrdersForPoll(
       mockRequest({ user: PARTICIPANT, params: { pollId: '12' } }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });
 
@@ -223,7 +236,8 @@ describe('GET /api/category-orders/:id', () => {
 
     await CategoryOrderController.getCategoryOrder(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.body).toMatchObject({ data: { id: 1 } });
@@ -234,7 +248,8 @@ describe('GET /api/category-orders/:id', () => {
 
     await CategoryOrderController.getCategoryOrder(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(200);
@@ -245,7 +260,8 @@ describe('GET /api/category-orders/:id', () => {
 
     await CategoryOrderController.getCategoryOrder(
       mockRequest({ params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(401);
@@ -256,7 +272,8 @@ describe('GET /api/category-orders/:id', () => {
 
     await CategoryOrderController.getCategoryOrder(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -268,7 +285,8 @@ describe('GET /api/category-orders/:id', () => {
 
     await CategoryOrderController.getCategoryOrder(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(404);
@@ -280,10 +298,11 @@ describe('GET /api/category-orders/:id', () => {
 
     await CategoryOrderController.getCategoryOrder(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });
 
@@ -299,7 +318,8 @@ describe('POST /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.saveOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body }),
-      res
+      res,
+      next
     );
 
     expect(calculations.saveOrderItem).toHaveBeenCalledWith({
@@ -320,7 +340,8 @@ describe('POST /api/category-orders/:id/order-items', () => {
         params: { id: '1' },
         body: { ...body, notes: '   ' },
       }),
-      mockResponse()
+      mockResponse(),
+      next
     );
 
     expect(calculations.saveOrderItem).toHaveBeenCalledWith(
@@ -333,7 +354,8 @@ describe('POST /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.saveOrderItem(
       mockRequest({ params: { id: '1' }, body }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(401);
@@ -344,7 +366,8 @@ describe('POST /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.saveOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' }, body }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -367,7 +390,8 @@ describe('POST /api/category-orders/:id/order-items', () => {
         params: { id: '1' },
         body: { ...body, ...override },
       }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -381,7 +405,8 @@ describe('POST /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.saveOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(404);
@@ -393,7 +418,8 @@ describe('POST /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.saveOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(403);
@@ -408,10 +434,11 @@ describe('POST /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.saveOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });
 
@@ -426,7 +453,8 @@ describe('DELETE /api/order-items/:id', () => {
 
     await CategoryOrderController.deleteOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '7' } }),
-      res
+      res,
+      next
     );
 
     expect(calculations.deleteOrderItem).toHaveBeenCalledWith(7);
@@ -438,7 +466,8 @@ describe('DELETE /api/order-items/:id', () => {
 
     await CategoryOrderController.deleteOrderItem(
       mockRequest({ params: { id: '7' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(401);
@@ -449,7 +478,8 @@ describe('DELETE /api/order-items/:id', () => {
 
     await CategoryOrderController.deleteOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -461,7 +491,8 @@ describe('DELETE /api/order-items/:id', () => {
 
     await CategoryOrderController.deleteOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '7' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(404);
@@ -473,7 +504,8 @@ describe('DELETE /api/order-items/:id', () => {
 
     await CategoryOrderController.deleteOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '7' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(404);
@@ -484,7 +516,8 @@ describe('DELETE /api/order-items/:id', () => {
 
     await CategoryOrderController.deleteOrderItem(
       mockRequest({ user: PARTICIPANT, params: { id: '7' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(403);
@@ -497,10 +530,11 @@ describe('DELETE /api/order-items/:id', () => {
 
     await CategoryOrderController.deleteOrderItem(
       mockRequest({ user: RESPONSIBLE, params: { id: '7' } }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });
 
@@ -520,7 +554,8 @@ describe('GET /api/category-orders/:id/progress', () => {
 
     await CategoryOrderController.getProgress(
       mockRequest({ user, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(200);
@@ -532,7 +567,8 @@ describe('GET /api/category-orders/:id/progress', () => {
 
     await CategoryOrderController.getProgress(
       mockRequest({ params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(401);
@@ -543,7 +579,8 @@ describe('GET /api/category-orders/:id/progress', () => {
 
     await CategoryOrderController.getProgress(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -555,7 +592,8 @@ describe('GET /api/category-orders/:id/progress', () => {
 
     await CategoryOrderController.getProgress(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(404);
@@ -567,10 +605,11 @@ describe('GET /api/category-orders/:id/progress', () => {
 
     await CategoryOrderController.getProgress(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });
 
@@ -586,7 +625,8 @@ describe('GET /api/category-orders/:id/participants', () => {
 
     await CategoryOrderController.getParticipants(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(users.getUsersByIds).toHaveBeenCalledWith([1, 2]);
@@ -610,7 +650,8 @@ describe('GET /api/category-orders/:id/participants', () => {
 
     await CategoryOrderController.getParticipants(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.body).toEqual(
@@ -625,7 +666,8 @@ describe('GET /api/category-orders/:id/participants', () => {
 
     await CategoryOrderController.getParticipants(
       mockRequest({ params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(401);
@@ -636,7 +678,8 @@ describe('GET /api/category-orders/:id/participants', () => {
 
     await CategoryOrderController.getParticipants(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -648,7 +691,8 @@ describe('GET /api/category-orders/:id/participants', () => {
 
     await CategoryOrderController.getParticipants(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(404);
@@ -660,10 +704,11 @@ describe('GET /api/category-orders/:id/participants', () => {
 
     await CategoryOrderController.getParticipants(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });
 
@@ -729,6 +774,9 @@ describe('POST /api/category-orders/:id/finalize', () => {
       res
     );
 
+    /* finalizeCalculation НЕ переведён на next(err) намеренно: у него свой код
+       ответа `FINALIZATION_ERROR`, а не общий `INTERNAL_ERROR`. Перевод потерял
+       бы этот код — фронт по нему даёт свой текст. */
     expect(res.statusCode).toBe(500);
     expect(res.body).toMatchObject({ code: 'FINALIZATION_ERROR' });
   });
@@ -748,7 +796,8 @@ describe('POST /api/category-orders/:id/volunteer', () => {
 
     await CategoryOrderController.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(responsibles.handleVolunteerForCategory).toHaveBeenCalledWith(
@@ -763,7 +812,8 @@ describe('POST /api/category-orders/:id/volunteer', () => {
 
     await CategoryOrderController.volunteerForCategory(
       mockRequest({ params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(401);
@@ -774,7 +824,8 @@ describe('POST /api/category-orders/:id/volunteer', () => {
 
     await CategoryOrderController.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: 'нет' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -786,7 +837,8 @@ describe('POST /api/category-orders/:id/volunteer', () => {
 
     await CategoryOrderController.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(404);
@@ -798,7 +850,8 @@ describe('POST /api/category-orders/:id/volunteer', () => {
 
     await CategoryOrderController.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(404);
@@ -810,7 +863,8 @@ describe('POST /api/category-orders/:id/volunteer', () => {
 
     await CategoryOrderController.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(409);
@@ -823,10 +877,11 @@ describe('POST /api/category-orders/:id/volunteer', () => {
 
     await CategoryOrderController.volunteerForCategory(
       mockRequest({ user: PARTICIPANT, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });
 
@@ -844,7 +899,8 @@ describe('PUT /api/category-orders/:id/costs', () => {
         params: { id: '1' },
         body: { deliveryCost: 300, serviceFee: 50, tip: 100, notes: '  спасибо ' },
       }),
-      res
+      res,
+      next
     );
 
     expect(categoryOrders.updateCosts).toHaveBeenCalledWith(1, {
@@ -867,7 +923,8 @@ describe('PUT /api/category-orders/:id/costs', () => {
         params: { id: '1' },
         body: { deliveryCost: value, serviceFee: value, tip: value },
       }),
-      mockResponse()
+      mockResponse(),
+      next
     );
 
     expect(categoryOrders.updateCosts).toHaveBeenCalledWith(1, {
@@ -885,7 +942,8 @@ describe('PUT /api/category-orders/:id/costs', () => {
         params: { id: '1' },
         body: { deliveryCost: '250' },
       }),
-      mockResponse()
+      mockResponse(),
+      next
     );
 
     expect(categoryOrders.updateCosts).toHaveBeenCalledWith(
@@ -907,7 +965,8 @@ describe('PUT /api/category-orders/:id/costs', () => {
         params: { id: '1' },
         body: { [field]: -1 },
       }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -926,7 +985,8 @@ describe('PUT /api/category-orders/:id/costs', () => {
         params: { id: '1' },
         body: { tip: 'много' },
       }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -937,7 +997,8 @@ describe('PUT /api/category-orders/:id/costs', () => {
 
     await CategoryOrderController.updateCosts(
       mockRequest({ params: { id: '1' }, body: {} }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(401);
@@ -948,7 +1009,8 @@ describe('PUT /api/category-orders/:id/costs', () => {
 
     await CategoryOrderController.updateCosts(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' }, body: {} }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -960,7 +1022,8 @@ describe('PUT /api/category-orders/:id/costs', () => {
 
     await CategoryOrderController.updateCosts(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body: {} }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(404);
@@ -972,10 +1035,11 @@ describe('PUT /api/category-orders/:id/costs', () => {
 
     await CategoryOrderController.updateCosts(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' }, body: {} }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });
 
@@ -989,7 +1053,8 @@ describe('GET /api/order-items/:id/edit-history', () => {
 
     await CategoryOrderController.getEditHistory(
       mockRequest({ user: GLOBAL_ADMIN, params: { id: '7' } }),
-      res
+      res,
+      next
     );
 
     expect(calculations.getEditHistory).toHaveBeenCalledWith(7);
@@ -1006,7 +1071,8 @@ describe('GET /api/order-items/:id/edit-history', () => {
 
     await CategoryOrderController.getEditHistory(
       mockRequest({ user: RESPONSIBLE, params: { id: '7' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(200);
@@ -1018,7 +1084,8 @@ describe('GET /api/order-items/:id/edit-history', () => {
 
     await CategoryOrderController.getEditHistory(
       mockRequest({ params: { id: '7' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(403);
@@ -1029,7 +1096,8 @@ describe('GET /api/order-items/:id/edit-history', () => {
 
     await CategoryOrderController.getEditHistory(
       mockRequest({ user: GLOBAL_ADMIN, params: { id: 'нет' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -1041,10 +1109,11 @@ describe('GET /api/order-items/:id/edit-history', () => {
 
     await CategoryOrderController.getEditHistory(
       mockRequest({ user: GLOBAL_ADMIN, params: { id: '7' } }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });
 
@@ -1058,7 +1127,8 @@ describe('GET /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.getOrderItems(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.body).toMatchObject({ count: 2 });
@@ -1069,7 +1139,8 @@ describe('GET /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.getOrderItems(
       mockRequest({ params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(401);
@@ -1080,7 +1151,8 @@ describe('GET /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.getOrderItems(
       mockRequest({ user: RESPONSIBLE, params: { id: 'нет' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(400);
@@ -1092,7 +1164,8 @@ describe('GET /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.getOrderItems(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
     expect(res.statusCode).toBe(404);
@@ -1104,9 +1177,10 @@ describe('GET /api/category-orders/:id/order-items', () => {
 
     await CategoryOrderController.getOrderItems(
       mockRequest({ user: RESPONSIBLE, params: { id: '1' } }),
-      res
+      res,
+      next
     );
 
-    expect(res.statusCode).toBe(500);
+    expect(next.error).toBeInstanceOf(Error);
   });
 });

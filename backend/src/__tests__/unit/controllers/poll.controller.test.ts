@@ -1386,7 +1386,7 @@ describe('PATCH /api/polls/:id/cancel', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'INVALID_BODY' });
+    expect(res.body).toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
   it('нечисловой id — 400', async () => {
@@ -2127,7 +2127,7 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'INVALID_PARAMS' });
+    expect(res.body).toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
   it('альтернативный tieBreakMethod принимается', async () => {

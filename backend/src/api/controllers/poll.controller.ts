@@ -1080,7 +1080,7 @@ export class PollController {
         res.status(400).json({
           success: false,
           error: 'Invalid cancellation reason',
-          code: 'INVALID_BODY',
+          code: 'VALIDATION_ERROR',
         });
         return;
       }
@@ -1649,7 +1649,7 @@ export class PollController {
         res.status(400).json({
           success: false,
           error: 'minVotes must be a number between 0 and 100',
-          code: 'INVALID_PARAMS',
+          code: 'VALIDATION_ERROR',
         });
         return;
       }
@@ -1660,7 +1660,7 @@ export class PollController {
           res.status(400).json({
             success: false,
             error: 'maxWinners must be null or a number between 1 and 50',
-            code: 'INVALID_PARAMS',
+            code: 'VALIDATION_ERROR',
           });
           return;
         }
@@ -1671,7 +1671,7 @@ export class PollController {
         res.status(400).json({
           success: false,
           error: 'tieBreakMethod must be "earliest" or "alphabetical"',
-          code: 'INVALID_PARAMS',
+          code: 'VALIDATION_ERROR',
         });
         return;
       }

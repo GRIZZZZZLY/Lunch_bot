@@ -58,3 +58,60 @@ describe('apiErrorMessage', () => {
     expect(apiErrorMessage({ status: 418 }, FALLBACK)).toBe(FALLBACK);
   });
 });
+
+/**
+ * Записи, добавленные при заведении словаря кодов (задача 03). Проверяется не
+ * каждая из 93 — только те, где легко ошибиться: приоритет серверного текста и
+ * коды, приходящие не литералом, а через классы ошибок бэкенда.
+ */
+describe('словарь кодов после задачи 03', () => {
+  const FALLBACK = 'Не удалось';
+
+  /* Ограничители частоты присылают в message конкретное время ожидания.
+     Словарная фраза «подождите немного» его бы скрыла, поэтому для этих
+     кодов серверный текст имеет приоритет. */
+  it.each([
+    'AUTH_RATE_LIMIT',
+    'POLL_CREATION_LIMIT',
+    'REMINDER_RATE_LIMIT',
+    'RATE_LIMIT_EXCEEDED',
+  ])('%s: серверный текст со временем ожидания важнее словарного', code => {
+    expect(
+      apiErrorMessage(
+        { code, message: 'Достигнут лимит. Подождите час.' },
+        FALLBACK
+      )
+    ).toBe('Достигнут лимит. Подождите час.');
+  });
+
+  it('без серверного текста лимитер всё равно объясняется словарём', () => {
+    expect(apiErrorMessage({ code: 'POLL_CREATION_LIMIT' }, FALLBACK)).toContain(
+      'голосован'
+    );
+  });
+
+  /* Приходит из union-типа StoreRunError, а не литералом — однажды остался без
+     текста именно потому, что его не нашли поиском. */
+  it('INVALID_INPUT из StoreRunError имеет текст', () => {
+    expect(apiErrorMessage({ code: 'INVALID_INPUT' }, FALLBACK)).not.toBe(
+      FALLBACK
+    );
+  });
+
+  /* Приходит из класса AuthorizationError через error-handler — тоже не литерал. */
+  it('AUTHORIZATION_ERROR из cors имеет текст', () => {
+    expect(apiErrorMessage({ code: 'AUTHORIZATION_ERROR' }, FALLBACK)).toBe(
+      'Недостаточно прав для этого действия.'
+    );
+  });
+
+  it('поиск от двух символов объясняется по делу, а не «ошибка приложения»', () => {
+    expect(apiErrorMessage({ code: 'INVALID_QUERY' }, FALLBACK)).toContain(
+      '2 символа'
+    );
+  });
+
+  it('неизвестный код по-прежнему отдаёт запасной текст', () => {
+    expect(apiErrorMessage({ code: 'НЕ_СУЩЕСТВУЕТ' }, FALLBACK)).toBe(FALLBACK);
+  });
+});

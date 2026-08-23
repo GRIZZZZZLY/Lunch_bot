@@ -97,19 +97,19 @@ type InitDataFormatError = {
 function checkInitDataFormat(initData: unknown): InitDataFormatError | null {
   if (!initData) {
     logger.warn('❌ No initData provided');
-    return { status: 400, body: { success: false, error: 'Missing initData', code: 'INVALID_REQUEST' } };
+    return { status: 400, body: { success: false, error: 'Missing initData', code: 'VALIDATION_ERROR' } };
   }
   if (typeof initData !== 'string') {
     logger.warn('❌ initData is not a string');
-    return { status: 400, body: { success: false, error: 'initData must be a string', code: 'INVALID_REQUEST' } };
+    return { status: 400, body: { success: false, error: 'initData must be a string', code: 'VALIDATION_ERROR' } };
   }
   if (initData.trim().length === 0) {
     logger.warn('❌ initData is empty');
-    return { status: 400, body: { success: false, error: 'initData cannot be empty', code: 'INVALID_REQUEST' } };
+    return { status: 400, body: { success: false, error: 'initData cannot be empty', code: 'VALIDATION_ERROR' } };
   }
   if (initData.length > 5000) {
     logger.warn('❌ initData is too long');
-    return { status: 400, body: { success: false, error: 'initData is too long', code: 'INVALID_REQUEST' } };
+    return { status: 400, body: { success: false, error: 'initData is too long', code: 'VALIDATION_ERROR' } };
   }
   return null;
 }
@@ -185,7 +185,7 @@ function validateInitDataSignature(
     res.status(400).json({
       success: false,
       error: 'Invalid initData format',
-      code: 'INVALID_REQUEST'
+      code: 'VALIDATION_ERROR'
     });
     return null;
   }

@@ -264,7 +264,7 @@ export class UserController {
         res.status(400).json({
           success: false,
           error: 'User ID is required',
-          code: 'INVALID_PARAMS',
+          code: 'VALIDATION_ERROR',
         });
         return;
       }
@@ -274,7 +274,7 @@ export class UserController {
         res.status(400).json({
           success: false,
           error: 'Invalid user ID',
-          code: 'INVALID_PARAMS',
+          code: 'VALIDATION_ERROR',
         });
         return;
       }
@@ -343,7 +343,7 @@ export class UserController {
         res.status(400).json({
           success: false,
           error: 'User IDs array is required',
-          code: 'INVALID_PARAMS',
+          code: 'VALIDATION_ERROR',
         });
         return;
       }
