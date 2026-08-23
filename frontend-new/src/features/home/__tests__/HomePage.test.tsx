@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -21,6 +21,11 @@ const h = vi.hoisted(() => {
     q,
     m,
     state: {
+      deepLinkId: null as number | null,
+      deepLinkPoll: null as unknown,
+      /* Один незаехавший запрос: барьер первого экрана обязан держать весь
+         экран, а не только ту секцию, которая ждёт. */
+      runsPending: false,
       activePoll: null as unknown,
       activeError: null as unknown,
       debts: [] as unknown[],
@@ -44,9 +49,16 @@ const h = vi.hoisted(() => {
   };
 });
 
+/* Deep link читается из Telegram/URL; в тестах подменяем только его, остальные
+   экспорты модуля нужны компонентам как есть. */
+vi.mock('@/lib/telegram', async () => ({
+  ...(await vi.importActual<typeof import('@/lib/telegram')>('@/lib/telegram')),
+  getDeepLinkPollId: () => h.state.deepLinkId,
+}));
+
 vi.mock('@/hooks/usePolls', () => ({
   useActivePoll: () => h.q(h.state.activePoll, { error: h.state.activeError, isError: !!h.state.activeError }),
-  usePollById: () => h.q(null),
+  usePollById: (id: number | null) => h.q(id ? h.state.deepLinkPoll : null),
   useMyVotes: () => h.q(null),
   useLastCompletedPoll: () => h.q(h.state.lastCompleted),
   // Отключённый запрос (id === null) данных не отдаёт — как в react-query.
@@ -97,7 +109,8 @@ vi.mock('@/hooks/useBudget', () => ({
 }));
 vi.mock('@/hooks/useSSE', () => ({ useSSE: () => undefined }));
 vi.mock('@/hooks/useStoreRun', () => ({
-  useActiveStoreRuns: () => h.q(h.state.runs),
+  useActiveStoreRuns: () =>
+    h.q(h.state.runs, h.state.runsPending ? { isSuccess: false, isLoading: true } : {}),
   useCreateStoreRun: h.m,
 }));
 
@@ -115,6 +128,9 @@ function renderHome() {
 }
 
 beforeEach(() => {
+  h.state.deepLinkId = null;
+  h.state.deepLinkPoll = null;
+  h.state.runsPending = false;
   h.state.activePoll = null;
   h.state.activeError = null;
   h.state.debts = [];
@@ -346,5 +362,114 @@ describe('HomePage — расписание автоголосования', () 
     };
     renderHome();
     expect(screen.queryByText(/Автозапуск/)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Барьер первого экрана и приоритет deep link — два правила, которые задача 12
+ * велит закрепить ДО извлечения хуков: барьер невидим в обычном тесте (он
+ * проверяется отсутствием контента), а приоритет deep link — неочевидная
+ * строка, которую легко потерять при переносе.
+ */
+describe('HomePage — барьер первого экрана', () => {
+  /* Один незаехавший запрос держит ВЕСЬ экран: человек видит не запросы, а как
+     экран собирается толчками, и частичная сборка — это и есть та жалоба, из-за
+     которой барьер появился. */
+  it('пока хотя бы один запрос не ответил, контента нет', () => {
+    h.state.runsPending = true;
+    h.state.debts = [{ id: 7, amount: 260, status: 'PENDING' }];
+
+    renderHome();
+
+    expect(screen.queryByText('Группы пока нет')).not.toBeInTheDocument();
+    expect(screen.queryByText('Бюджет команды')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Отметить/ })).not.toBeInTheDocument();
+  });
+
+  it('когда все запросы ответили, экран открывается целиком', () => {
+    h.state.debts = [{ id: 7, amount: 260, status: 'PENDING' }];
+
+    renderHome();
+
+    expect(screen.getByText('Группы пока нет')).toBeInTheDocument();
+    expect(screen.getByText('Бюджет команды')).toBeInTheDocument();
+  });
+
+  /* Предохранитель: без потолка достаточно одного запроса, выключенного по
+     неизвестной здесь причине, чтобы экран не открылся никогда. */
+  it('через 1.5 секунды экран открывается даже с незаехавшим запросом', () => {
+    vi.useFakeTimers();
+    h.state.runsPending = true;
+
+    try {
+      renderHome();
+      expect(screen.queryByText('Группы пока нет')).not.toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+
+      expect(screen.getByText('Группы пока нет')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  /* Ошибка — это ответ. Экран, ждущий упавший запрос, не открылся бы никогда. */
+  it('упавший запрос считается ответившим', () => {
+    h.state.activeError = { code: 'NETWORK_ERROR' };
+
+    renderHome();
+
+    expect(screen.getByText('Не удалось загрузить')).toBeInTheDocument();
+  });
+});
+
+describe('HomePage — приоритет deep link', () => {
+  const activePoll = {
+    id: 10,
+    status: 'ACTIVE',
+    duration: 30,
+    createdAt: new Date().toISOString(),
+    menuItems: [{ menuItemId: 1, menuItem: { id: 1, name: 'Плов' }, _count: { votes: 1 } }],
+  };
+
+  /* Правило `deepLinkPollId ? deepLinkPoll ?? null : fallbackActivePoll`:
+     пришедший по ссылке опрос ВЫТЕСНЯЕТ активный, иначе человек, открывший
+     ссылку на конкретное голосование, попадал бы в другое. */
+  it('опрос из ссылки вытесняет активный', () => {
+    h.state.activePoll = activePoll;
+    h.state.deepLinkId = 77;
+    h.state.deepLinkPoll = {
+      ...activePoll,
+      id: 77,
+      menuItems: [{ menuItemId: 2, menuItem: { id: 2, name: 'Борщ' }, _count: { votes: 3 } }],
+    };
+
+    renderHome();
+
+    expect(screen.getByRole('radio', { name: /Борщ/ })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /Плов/ })).not.toBeInTheDocument();
+  });
+
+  /* `?? null`, а не `?? fallbackActivePoll`: ссылка на удалённый или чужой опрос
+     не должна молча подменяться активным — иначе голос уйдёт не туда. */
+  it('пустой ответ по ссылке не подменяется активным опросом', () => {
+    h.state.activePoll = activePoll;
+    h.state.deepLinkId = 77;
+    h.state.deepLinkPoll = null;
+
+    renderHome();
+
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    expect(screen.getByText('Группы пока нет')).toBeInTheDocument();
+  });
+
+  it('без ссылки показывается активный опрос', () => {
+    h.state.activePoll = activePoll;
+
+    renderHome();
+
+    expect(screen.getByRole('radio', { name: /Плов/ })).toBeInTheDocument();
   });
 });
