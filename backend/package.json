@@ -60,7 +60,7 @@
   "dependencies": {
     "@grammyjs/auto-retry": "^2.0.2",
     "@grammyjs/transformer-throttler": "^1.2.1",
-    "@prisma/client": "6.19.3",
+    "@prisma/client": "7.9.1",
     "@sentry/node": "^10.37.0",
     "@sentry/profiling-node": "^10.37.0",
     "@types/pg": "^8.20.0",
