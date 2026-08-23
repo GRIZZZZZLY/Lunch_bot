@@ -27,6 +27,13 @@ import {
   subtractMinutes,
 } from '../utils/date';
 import { menuItemIdsFromVoteGroups } from '../utils/vote-menu-items';
+import {
+  NoVotersError,
+  PollAlreadyCompletedError,
+  PollNotActiveError,
+  PollNotFoundError,
+  PollStateError,
+} from './poll.errors';
 
 // Тип Vote с включенными связями для корректной типизации
 type VoteWithRelations = Vote & {
@@ -594,12 +601,19 @@ export class PollService {
         });
 
         if (!poll) {
-          throw new Error('Poll not found');
+          throw new PollNotFoundError();
         }
 
         // Проверка статуса ВНУТРИ транзакции - ключевое исправление
         if (poll.status !== 'ACTIVE') {
-          throw new Error(`Poll is already ${poll.status.toLowerCase()}`);
+          const message = `Poll is already ${poll.status.toLowerCase()}`;
+          /* «Уже завершено» — свой код: фронт показывает по нему отдельный
+             текст. Остальные состояния (отменено) раньше не совпадали со
+             строкой в контроллере и уходили клиенту как 500; это конфликт
+             состояния, то есть 409. */
+          throw poll.status === 'COMPLETED'
+            ? new PollAlreadyCompletedError(message)
+            : new PollStateError(message);
         }
 
         // 2. Подсчитываем голоса
@@ -731,13 +745,13 @@ export class PollService {
 
       const poll = await prisma.poll.findUnique({ where: { id: pollId } });
       if (!poll) {
-        throw new Error('Poll not found');
+        throw new PollNotFoundError();
       }
       if (transition.count === 0) {
         if (poll.status === 'CANCELLED') {
           return poll;
         }
-        throw new Error('Only an active poll can be cancelled');
+        throw new PollStateError('Only an active poll can be cancelled');
       }
 
       // Инвалидируем кэш активных голосований
@@ -775,7 +789,7 @@ export class PollService {
       }
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
-          throw new Error('Poll not found');
+          throw new PollNotFoundError();
         }
       }
       logger.error('Error cancelling poll:', error);
@@ -886,7 +900,7 @@ export class PollService {
       });
 
       if (!poll) {
-        throw new Error('Poll not found');
+        throw new PollNotFoundError();
       }
 
       // Получаем уникальных пользователей, которые голосовали
@@ -895,7 +909,7 @@ export class PollService {
       );
 
       if (voters.length === 0) {
-        throw new Error('No voters found');
+        throw new NoVotersError();
       }
 
       // Случайно выбираем ответственного
@@ -1419,7 +1433,7 @@ export class PollService {
       });
 
       if (!poll) {
-        throw new Error('Poll not found');
+        throw new PollNotFoundError();
       }
 
       // Идемпотентность: Если уже завершено - вернуть существующий результат
@@ -1441,7 +1455,7 @@ export class PollService {
       }
 
       if (poll.status !== 'ACTIVE') {
-        throw new Error('Poll is not active');
+        throw new PollNotActiveError();
       }
 
       // 2. Группируем голоса по типу
@@ -1584,7 +1598,7 @@ export class PollService {
         });
 
         if (!currentPoll) {
-          throw new Error('Poll not found');
+          throw new PollNotFoundError();
         }
 
         if (currentPoll.status === 'COMPLETED') {
@@ -1600,11 +1614,11 @@ export class PollService {
             return existingResult;
           }
 
-          throw new Error('Poll is already completed');
+          throw new PollAlreadyCompletedError();
         }
 
         if (currentPoll.status !== 'ACTIVE') {
-          throw new Error('Poll is not active');
+          throw new PollNotActiveError();
         }
 
         const transition = await tx.poll.updateMany({

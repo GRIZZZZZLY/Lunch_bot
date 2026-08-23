@@ -90,6 +90,42 @@ function errorClassCodes(): Set<string> {
 }
 
 /**
+ * Коды доменных ошибок сервисов — файлы `*.errors.ts`.
+ *
+ * Четвёртый способ доставки кода, и до задачи 05 его не было: сервисы бросали
+ * обычный `Error`, а статус выбирал контроллер по тексту сообщения. Теперь
+ * `poll.errors.ts` и `vote.errors.ts` наследуют `BaseError` и несут `code`
+ * сами — то есть код уходит клиенту, не попадая ни в один из трёх сборщиков
+ * выше (`code: 'X'` там нет, файл не `utils/error.ts`, поле не `public code:`).
+ * Ровно так `AuthorizationError` однажды и доехал до клиента без текста.
+ */
+function domainErrorClassCodes(): Map<string, Set<string>> {
+  const found = new Map<string, Set<string>>();
+
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== '__tests__' && entry.name !== 'node_modules') {
+          walk(full);
+        }
+        continue;
+      }
+      if (!entry.name.endsWith('.errors.ts')) continue;
+
+      const text = readFileSync(full, 'utf8');
+      for (const m of text.matchAll(/super\([^)]*?'([A-Z0-9_]+)'/gs)) {
+        if (!found.has(m[1])) found.set(m[1], new Set());
+        found.get(m[1])!.add(entry.name);
+      }
+    }
+  };
+
+  walk(BACKEND_SRC);
+  return found;
+}
+
+/**
  * Коды из union-типов сервисных классов ошибок — `StoreRunError`,
  * `GroupAccessError` и им подобных.
  *
@@ -136,7 +172,16 @@ describe('словарь кодов ошибок', () => {
     expect(backendCodeLiterals().size).toBeGreaterThan(60);
     expect(errorClassCodes().size).toBeGreaterThan(10);
     expect(serviceErrorUnionCodes().size).toBeGreaterThan(5);
+    expect(domainErrorClassCodes().size).toBeGreaterThan(4);
     expect(frontendCodes().size).toBeGreaterThan(60);
+  });
+
+  it('каждый код из доменных ошибок сервисов внесён в ApiErrorCode', () => {
+    const unknown = [...domainErrorClassCodes().entries()]
+      .filter(([code]) => !isApiErrorCode(code))
+      .map(([code, files]) => `${code} (${[...files].join(', ')})`);
+
+    expect(unknown).toEqual([]);
   });
 
   it('каждый код из классов ошибок внесён в ApiErrorCode', () => {

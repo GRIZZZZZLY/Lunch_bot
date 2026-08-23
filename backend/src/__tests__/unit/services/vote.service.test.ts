@@ -653,14 +653,18 @@ describe('removeVote', () => {
     expect(emitted('vote_removed')).toBe(true);
   });
 
-  it('из завершённого голосования голос убрать нельзя', async () => {
+  /* Причина отказа теперь доезжает до вызывающего. Раньше собственный `catch`
+     подменял её на «Failed to remove vote», из-за чего ветка 400 в контроллере
+     была недостижима и клиент получал 500 за закрытое голосование. Тест это
+     закреплял — вместе с подменой; закреплено обратное. */
+  it('из завершённого голосования голос убрать нельзя, и причина не теряется', async () => {
     asMock(prismaMock.poll.findUnique).mockResolvedValue({
       id: 1,
       status: 'COMPLETED',
     });
 
     await expect(VoteService.removeVote(1, 5)).rejects.toThrow(
-      'Failed to remove vote'
+      'Poll is not active'
     );
     expect(asMock(prismaMock.vote.deleteMany)).not.toHaveBeenCalled();
   });

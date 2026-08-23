@@ -20,6 +20,7 @@ import {
 } from '../constants/xp-constants';
 import { eventBus } from './event-bus.service';
 import { menuItemIdsFromVoteGroups } from '../utils/vote-menu-items';
+import { VoteNotFoundError, VotingError } from './vote.errors';
 
 export class VoteService {
   private static async assertMenuItemsAllowedForPoll(
@@ -40,13 +41,13 @@ export class VoteService {
     });
 
     if (!poll) {
-      throw new Error('Poll not found');
+      throw new VotingError('Poll not found');
     }
     if (poll.status !== 'ACTIVE') {
-      throw new Error('Poll is not active');
+      throw new VotingError('Poll is not active');
     }
     if (poll.endedAt && poll.endedAt < new Date()) {
-      throw new Error('Poll has expired');
+      throw new VotingError('Poll has expired');
     }
 
     const [membership, participant] = await Promise.all([
@@ -71,7 +72,7 @@ export class VoteService {
     ]);
 
     if (!membership?.isActive || participant?.status !== 'EXPECTED') {
-      throw new Error('User is not eligible to vote in this poll');
+      throw new VotingError('User is not eligible to vote in this poll');
     }
 
     let selectedIds: number[] | null = null;
@@ -79,13 +80,13 @@ export class VoteService {
       try {
         const parsed = JSON.parse(poll.selectedMenuItemIds);
         if (!Array.isArray(parsed)) {
-          throw new Error('Poll menu configuration is invalid');
+          throw new VotingError('Poll menu configuration is invalid');
         }
         selectedIds = parsed.filter(
           (id): id is number => Number.isInteger(id) && id > 0
         );
       } catch {
-        throw new Error('Poll menu configuration is invalid');
+        throw new VotingError('Poll menu configuration is invalid');
       }
     }
 
@@ -93,7 +94,7 @@ export class VoteService {
       selectedIds &&
       uniqueIds.some(menuItemId => !selectedIds.includes(menuItemId))
     ) {
-      throw new Error('Menu item is not available for this poll');
+      throw new VotingError('Menu item is not available for this poll');
     }
 
     const matchingItems = await tx.menuItem.count({
@@ -105,7 +106,7 @@ export class VoteService {
     });
 
     if (matchingItems !== uniqueIds.length) {
-      throw new Error('Menu item is not available for this poll');
+      throw new VotingError('Menu item is not available for this poll');
     }
   }
 
@@ -201,7 +202,7 @@ export class VoteService {
   ): Promise<Vote[]> {
     try {
       if (!pollId || !userId || !menuItemIds || menuItemIds.length === 0) {
-        throw new Error('Invalid parameters for multiple votes');
+        throw new VotingError('Invalid parameters for multiple votes');
       }
 
       const uniqueMenuItemIds = [...new Set(menuItemIds)];
@@ -755,10 +756,10 @@ export class VoteService {
       });
 
       if (!poll) {
-        throw new Error('Poll not found');
+        throw new VotingError('Poll not found');
       }
       if (poll.status !== 'ACTIVE') {
-        throw new Error('Poll is not active');
+        throw new VotingError('Poll is not active');
       }
 
       // Удаляем ВСЕ голоса пользователя в этом poll
@@ -780,8 +781,15 @@ export class VoteService {
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
-          throw new Error('Vote not found');
+          throw new VoteNotFoundError();
         }
+      }
+      /* Доменный отказ пробрасывается как есть. Раньше он попадал в общий
+         `throw new Error('Failed to remove vote')` ниже, то есть ветка 400 в
+         контроллере была недостижима: «голосование уже закрыто» доезжало до
+         клиента как 500. */
+      if (error instanceof VotingError || error instanceof VoteNotFoundError) {
+        throw error;
       }
       logger.error('Error removing vote:', error);
       throw new Error('Failed to remove vote');
