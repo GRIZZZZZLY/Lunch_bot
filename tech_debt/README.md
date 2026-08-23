@@ -61,8 +61,8 @@ Repowise указывает точку входа: `backend/src/services/poll.se
 14 ─────────────────────► ✅ СДЕЛАНО (14.1 была предпосылкой 06/07)
 
 10.1 ✅ ──► 04 ✅ ──┐
-03 ✅ ──► 02 ✅ ──┼──► 05 ✅ ──► 06 ✅ ──► 07
-                 └──► 08  (параллельно 07)
+03 ✅ ──► 02 ✅ ──┼──► 05 ✅ ──► 06 ✅ ──► 07 ✅
+                 └──► 08 ✅
 
 11 ──► 12
 16, 10 (остаток), 13, 14.2/14.3, 15.2/15.3 ──► в любой момент
@@ -82,8 +82,8 @@ Repowise указывает точку входа: `backend/src/services/poll.se
 | ~~[03](03-single-error-contract.md)~~ **✅ словарь; `next(err)` на 1 файле из 10** | Словарь кодов + `catch → next(err)` | P1 | 0.5 дн | **Урезано:** массовая замена 430 сайтов выброшена как работа без адресата |
 | ~~[05](05-poll-controller-god-file.md)~~ **✅ 1746 → 649 строк** | `poll.controller.ts` | P1 | 1.5–2 дн | Health 1.9, churn 99.5%, handler на 185 строк. Сделано: сценарии в `poll-creation.service.ts`, правила выбора в `VoteService.castVotes`, доступ в `api/access/poll-access.ts`, `catch` — ни одного. Попутно закрыты два дефекта (см. задачу) |
 | ~~[06](06-poll-service-god-file.md)~~ **✅ 1770 → 415 строк** | `poll.service.ts` + `.extensions` | P1 | 2 дн | `fix_first` по Repowise, метод на 314 строк. Сделано: чтения, статистика, завершение и подсчёт победителей — отдельными модулями; `extensions` удалён; цикла, из-за которого стояли динамические импорты, не существовало |
-| [07](07-notification-service-god-file.md) | `notification.service.ts` (1290) | P1 | 1–1.5 дн | Два несвязанных домена, 299 битых маркеров кодировки |
-| [08](08-category-order-controller.md) | `category-order.controller.ts` (958) | P1 | 1 дн | Худший health репозитория (1.9), Prisma в HTTP-слое |
+| ~~[07](07-notification-service-god-file.md)~~ **✅ 1282 → 256 строк** | `notification.service.ts` | P1 | 1–1.5 дн | Два несвязанных домена. Сделано: транспорт / шаблоны как данные / `poll-notification` / `store-run-notification`; бот только из `bot-instance`. Заявленных 299 битых маркеров уже не было (закрыты 09.4). Попутно найдены **три мёртвых в проде пути**, зелёных в тестах |
+| ~~[08](08-category-order-controller.md)~~ **✅ 651 → 422 строки** | `category-order.controller.ts` | P1 | 1 дн | Худший health репозитория (1.9). Сделано: `catch` 12 → 0, ручных ответов 17 → 0, доменные отказы типизированы, суммы денег переведены в `Decimal`. Prisma в контроллере к началу работ уже не было |
 | ~~[09](09-remove-rudiments.md)~~ **✅ кроме knip-`exports`** | Рудименты и мёртвый код | P2 | 6–8 ч | 7 no-op шимов, deprecated-методы, 28 строк битой кодировки, knip структурно не ищет `exports` |
 | [10](10-any-on-api-boundary.md) | `any` на границе API (остаток) | P2 | 1 дн | `Promise<any[]>` на самом нагруженном пути продукта |
 | [12](12-homepage-god-component.md) | `HomePage.tsx` (тело 433 строки) | P2 | 2 дн | 6 багфиксов, метка `bug_magnet`, 30+ хуков |
