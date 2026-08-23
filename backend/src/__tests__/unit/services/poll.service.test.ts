@@ -55,19 +55,17 @@ jest.mock('../../../services/group.service', () => ({
   GroupService: { getGroupSettings: jest.fn() },
 }));
 
-jest.mock('../../../services/notification.service', () => ({
-  NotificationService: jest.fn(),
-  notificationService: { sendPollCompletionNotifications: jest.fn() },
+jest.mock('../../../services/poll-notification.service', () => ({
+  pollNotificationService: {
+    sendPollCompletionNotifications: jest.fn(),
+    sendPollCancelledNotifications: jest.fn(),
+  },
 }));
 
-/* Сервис доподгружает уведомления и заказы по категориям через
-   `await import('./x.service.js')`. Для jest это ДРУГОЙ модуль, чем
-   './x.service', поэтому оба специфаера мокаются, а `.js` — виртуально. */
-jest.mock(
-  '../../../services/notification.service.js',
-  () => jest.requireMock('../../../services/notification.service'),
-  { virtual: true }
-);
+/* Заказы по категориям сервис доподгружает через `await import('./x.js')`.
+   Для jest это ДРУГОЙ модуль, чем './x', поэтому оба специфаера мокаются, а
+   `.js` — виртуально. Для уведомлений такой пары больше нет: динамический
+   импорт снят вместе с разрезом сервиса. */
 
 jest.mock('../../../services/category-order.service', () => ({
   CategoryOrderService: { createCategoryOrders: jest.fn() },
@@ -98,8 +96,8 @@ const {
   cacheService: cacheServiceMock,
   CacheInvalidator: cacheInvalidatorMock,
 } = jest.requireMock('../../../services/cache.service');
-const { notificationService } = jest.requireMock(
-  '../../../services/notification.service'
+const { pollNotificationService } = jest.requireMock(
+  '../../../services/poll-notification.service'
 );
 const { CategoryOrderService } = jest.requireMock(
   '../../../services/category-order.service'
@@ -108,7 +106,7 @@ const { MultiCategoryResponsibleService } = jest.requireMock(
   '../../../services/multi-category-responsible.service'
 );
 
-const notifications = asServiceMock(notificationService);
+const notifications = asServiceMock(pollNotificationService);
 const categoryOrders = asServiceMock(CategoryOrderService);
 const multiCategory = asServiceMock(MultiCategoryResponsibleService);
 

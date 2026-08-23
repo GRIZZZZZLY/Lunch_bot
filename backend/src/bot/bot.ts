@@ -5,7 +5,6 @@ import { BotContext, SessionData } from '../types/bot.types';
 import { botConfig } from '../config/bot.config';
 import { logger } from '../utils/logger';
 import { setupErrorHandlers } from '../utils/error';
-import { notificationService } from '../services/notification.service';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 
@@ -159,9 +158,6 @@ export function createBot(): Bot<BotContext> {
 
   // Настройка обработки ошибок
   setupErrorHandlers();
-
-  // Инициализация notification service
-  notificationService.initialize(bot);
 
   // ⚡ Инициализация Scheduler (использует синглтон через getBotInstance)
   const {

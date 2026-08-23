@@ -48,19 +48,12 @@ jest.mock('../../../services/group.service', () => ({
   GroupService: { getGroupSettings: jest.fn() },
 }));
 
-jest.mock('../../../services/notification.service', () => ({
-  NotificationService: jest.fn(),
-  notificationService: {
+jest.mock('../../../services/poll-notification.service', () => ({
+  pollNotificationService: {
     sendPollCompletionNotifications: jest.fn(),
     sendPollCancelledNotifications: jest.fn(),
   },
 }));
-
-jest.mock(
-  '../../../services/notification.service.js',
-  () => jest.requireMock('../../../services/notification.service'),
-  { virtual: true }
-);
 
 jest.mock('../../../services/event-bus.service', () => ({
   eventBus: { emit: jest.fn(), on: jest.fn(), off: jest.fn() },

@@ -31,9 +31,8 @@ jest.mock('../../../services/group.service', () => ({
   GroupService: { getGroupSettings: jest.fn() },
 }));
 
-jest.mock('../../../services/notification.service', () => ({
-  NotificationService: jest.fn(),
-  notificationService: { sendPollCompletionNotifications: jest.fn() },
+jest.mock('../../../services/poll-notification.service', () => ({
+  pollNotificationService: { sendPollCompletionNotifications: jest.fn() },
 }));
 
 jest.mock('../../../services/gamification.service', () => ({

@@ -71,8 +71,8 @@ jest.mock('../cache.service', () => ({
 }));
 
 // Mock notification service
-jest.mock('../notification.service', () => ({
-  notificationService: {
+jest.mock('../poll-notification.service', () => ({
+  pollNotificationService: {
     sendPollCancelledNotifications: jest.fn(),
   },
 }));

@@ -7,6 +7,7 @@
 import { StoreRunController } from '../../../api/controllers/store-run.controller';
 import { StoreRunService } from '../../../services/store-run.service';
 import { notificationService } from '../../../services/notification.service';
+import { storeRunNotificationService } from '../../../services/store-run-notification.service';
 import { StoreRunBudgetService } from '../../../services/store-run-budget.service';
 import { mockRequest, mockResponse } from '../../helpers/http';
 import { asServiceMock } from '../../helpers/mocks';
@@ -42,6 +43,11 @@ jest.mock('../../../services/store-run.service', () => {
 jest.mock('../../../services/notification.service', () => ({
   notificationService: {
     botCanPostToGroup: jest.fn(),
+  },
+}));
+
+jest.mock('../../../services/store-run-notification.service', () => ({
+  storeRunNotificationService: {
     notifyGroupMembersAboutStoreRun: jest.fn(),
     postStoreRunToGroup: jest.fn(),
     notifyShoppingStarted: jest.fn(),
@@ -65,7 +71,12 @@ const {
   jest.requireMock('../../../services/store-run.service');
 
 const storeRunService = asServiceMock(StoreRunService);
-const notifications = notificationService as unknown as Record<string, jest.Mock>;
+// Проверка «бот вообще может писать в эту группу» осталась в транспорте:
+// её спрашивают оба домена. Остальное — домен забегов.
+const notifications = {
+  ...(notificationService as unknown as Record<string, jest.Mock>),
+  ...(storeRunNotificationService as unknown as Record<string, jest.Mock>),
+};
 const budgetStatics = StoreRunBudgetService as unknown as Record<string, jest.Mock>;
 
 const USER = { id: 1 };

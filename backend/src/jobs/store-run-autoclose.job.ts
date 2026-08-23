@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { StoreRunService } from '../services/store-run.service';
-import { notificationService } from '../services/notification.service';
+import { storeRunNotificationService } from '../services/store-run-notification.service';
 import { logger } from '../utils/logger';
 import { withDistributedLock } from '../utils/distributed-lock';
 
@@ -29,7 +29,7 @@ export function initStoreRunAutoCloseJob(): void {
           // who didn't press the button manually here — is told to go shop and set prices.
           await Promise.allSettled(
             closedIds.flatMap(id => [
-              notificationService
+              storeRunNotificationService
                 .notifyShoppingStarted(id)
                 .catch((err: unknown) => {
                   logger.error(
@@ -40,7 +40,7 @@ export function initStoreRunAutoCloseJob(): void {
                     }
                   );
                 }),
-              notificationService
+              storeRunNotificationService
                 .notifyInitiatorCollectionClosed(id)
                 .catch((err: unknown) => {
                   logger.error(
@@ -61,7 +61,7 @@ export function initStoreRunAutoCloseJob(): void {
         if (expiredIds.length > 0) {
           await Promise.allSettled(
             expiredIds.flatMap(id => [
-              notificationService
+              storeRunNotificationService
                 .deleteStoreRunMessages(id)
                 .catch((err: unknown) => {
                   logger.error(
@@ -69,7 +69,7 @@ export function initStoreRunAutoCloseJob(): void {
                     { storeRunId: id, err }
                   );
                 }),
-              notificationService
+              storeRunNotificationService
                 .notifyStoreRunExpired(id)
                 .catch((err: unknown) => {
                   logger.error('notifyStoreRunExpired failed for expired run', {

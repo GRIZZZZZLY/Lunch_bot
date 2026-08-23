@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { initStoreRunAutoCloseJob } from '../../../jobs/store-run-autoclose.job';
-import { notificationService } from '../../../services/notification.service';
+import { storeRunNotificationService } from '../../../services/store-run-notification.service';
 import { StoreRunService } from '../../../services/store-run.service';
 import { NotificationResult } from '../../../types/notification.types';
 
@@ -23,8 +23,8 @@ jest.mock('../../../services/store-run.service', () => ({
   },
 }));
 
-jest.mock('../../../services/notification.service', () => ({
-  notificationService: {
+jest.mock('../../../services/store-run-notification.service', () => ({
+  storeRunNotificationService: {
     deleteStoreRunMessages: jest.fn(),
     notifyInitiatorCollectionClosed: jest.fn(),
     notifyShoppingStarted: jest.fn(),
@@ -44,8 +44,8 @@ const mockedCron = cron as jest.Mocked<typeof cron>;
 const mockedStoreRunService = StoreRunService as jest.Mocked<
   typeof StoreRunService
 >;
-const mockedNotificationService = notificationService as jest.Mocked<
-  typeof notificationService
+const mockedNotificationService = storeRunNotificationService as jest.Mocked<
+  typeof storeRunNotificationService
 >;
 const notificationResult: NotificationResult = {
   sentAt: new Date('2026-07-01T12:00:00.000Z'),

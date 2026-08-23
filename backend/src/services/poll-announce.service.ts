@@ -106,7 +106,7 @@ export async function announceCompletion(params: {
 /**
  * Личные уведомления участникам — запасной путь.
  *
- * Основной путь — `notificationService.sendPollCompletionNotifications` и
+ * Основной путь — `pollNotificationService.sendPollCompletionNotifications` и
  * заказы по категориям. Эта функция вызывается только когда тот путь упал:
  * человек, проголосовавший за обед, должен узнать итог и реквизиты для оплаты
  * даже если сломался сценарий с категориями.

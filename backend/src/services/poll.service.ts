@@ -9,7 +9,7 @@ import {
   VotePublicUser,
 } from '../types/poll.types';
 import { GroupService } from './group.service';
-import { notificationService } from './notification.service';
+import { pollNotificationService } from './poll-notification.service';
 import {
   cacheService,
   CACHE_KEYS,
@@ -178,7 +178,7 @@ export class PollService {
       });
 
       if (user) {
-        await notificationService.sendPollCancelledNotifications(
+        await pollNotificationService.sendPollCancelledNotifications(
           pollId,
           user,
           reason

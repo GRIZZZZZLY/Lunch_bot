@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { StoreRunService, StoreRunError } from '../../services/store-run.service';
 import { notificationService } from '../../services/notification.service';
+import { storeRunNotificationService } from '../../services/store-run-notification.service';
 import { StoreRunBudgetService } from '../../services/store-run-budget.service';
 import { logger } from '../../utils/logger';
 import { serializeBigInt as serializeData } from '../../utils/serialize';
@@ -75,7 +76,7 @@ export class StoreRunController {
       // Fire-and-forget DM broadcast to group members.
       // Logged with aggregate results so silent failures (e.g. user has not
       // started the bot privately yet) are visible in server logs.
-      notificationService
+      storeRunNotificationService
         .notifyGroupMembersAboutStoreRun(run.id)
         .then((results) => {
           const successful = results.filter((r) => r.success).length;
@@ -92,7 +93,7 @@ export class StoreRunController {
 
       // Fire-and-forget group announcement. Reaches members who never opened the
       // bot privately (the DM broadcast above can't deliver to them).
-      notificationService
+      storeRunNotificationService
         .postStoreRunToGroup(run.id)
         .catch((err: unknown) =>
           logger.error('Failed to post store run to group', { storeRunId: run.id, err }),
@@ -232,7 +233,7 @@ export class StoreRunController {
       const { id } = storeRunIdParam.get(req);
       const run = await StoreRunService.startShopping(id, user.id);
 
-      notificationService
+      storeRunNotificationService
         .notifyShoppingStarted(id)
         .catch((err: unknown) =>
           logger.error('Failed to notify shopping started', { storeRunId: id, err }),
@@ -263,12 +264,12 @@ export class StoreRunController {
       );
 
       // Fire-and-forget: участникам без долга — «завершён», группе — правка поста.
-      notificationService
+      storeRunNotificationService
         .notifyStoreRunParticipantsNoDebt(id)
         .catch((err: unknown) =>
           logger.error('Failed to notify no-debt participants', { storeRunId: id, err }),
         );
-      notificationService
+      storeRunNotificationService
         .markStoreRunGroupCompleted(id)
         .catch((err: unknown) =>
           logger.error('Failed to mark store run group completed', { storeRunId: id, err }),
@@ -294,7 +295,7 @@ export class StoreRunController {
       const run = await StoreRunService.cancelStoreRun(id, user.id);
 
       // Fire-and-forget: убрать групповой пост и личные приглашения отменённого забега.
-      notificationService
+      storeRunNotificationService
         .deleteStoreRunMessages(id)
         .catch((err: unknown) =>
           logger.error('Failed to delete store run messages on cancel', { storeRunId: id, err }),

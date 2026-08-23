@@ -14,8 +14,8 @@
  * уведомления — это не причина откатывать результат.
  *
  * Импорты статические. Раньше здесь стояли семь `await import('./x.service.js')`
- * «против циклического импорта», но цикла нет: ни `notification.service`, ни
- * `category-order.service`, ни `gamification.service` не импортируют сервисы
+ * «против циклического импорта», но цикла нет: ни `poll-notification.service`,
+ * ни `category-order.service`, ни `gamification.service` не импортируют сервисы
  * голосования — ни напрямую, ни через свои зависимости. Проверяется это не на
  * глаз: `npm run knip` включает поиск циклов.
  */
@@ -35,7 +35,7 @@ import {
   PollNotFoundError,
   PollStateError,
 } from './poll.errors';
-import { notificationService } from './notification.service';
+import { pollNotificationService } from './poll-notification.service';
 import { GamificationService } from './gamification.service';
 import { getXPReward } from '../constants/xp-constants';
 import { CategoryOrderService } from './category-order.service';
@@ -522,7 +522,7 @@ export class PollCompletionService {
   /** Уведомления участникам. Сбой не отменяет завершение. */
   private static async notifyCompletion(pollId: number): Promise<void> {
     try {
-      await notificationService.sendPollCompletionNotifications(pollId);
+      await pollNotificationService.sendPollCompletionNotifications(pollId);
       logger.info(`Completion notifications sent for poll ${pollId}`);
     } catch (error) {
       logger.error('Error sending completion notifications:', error);
