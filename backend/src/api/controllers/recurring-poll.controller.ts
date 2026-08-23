@@ -1,51 +1,21 @@
 import { Request, Response } from 'express';
-import { z } from 'zod';
 import { RecurringPollService } from '../../services/recurring-poll.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
-import { getParam } from '../../utils/request-params';
+import { respondIfInvalidInput } from '../middleware/validate';
+import {
+  createScheduleBody,
+  recurringGroupIdParam,
+  recurringHistoryQuery,
+  recurringScheduleIdParam,
+  toggleScheduleBody,
+  updateScheduleBody,
+} from '../schemas/recurring-poll';
 
-// ── Zod schemas ──────────────────────────────────────────────────────────────
-
-const DaysOfWeekSchema = z
-  .array(z.number().int().min(0).max(6))
-  .min(1, 'At least one day must be selected')
-  .max(7);
-
-const TimeOfDaySchema = z
-  .string()
-  .regex(/^\d{2}:\d{2}$/, 'timeOfDay must be in HH:MM format')
-  .refine(val => {
-    const [h, m] = val.split(':').map(Number);
-    return h >= 0 && h <= 23 && m >= 0 && m <= 59;
-  }, 'timeOfDay must be a valid time (00:00–23:59)');
-
-const CreateScheduleSchema = z.object({
-  groupId: z.number().int().positive('groupId must be a positive integer'),
-  daysOfWeek: DaysOfWeekSchema,
-  timeOfDay: TimeOfDaySchema,
-  duration: z
-    .number()
-    .int()
-    .min(1, 'duration must be at least 1 minute')
-    .max(1440),
-  selectedMenuItemIds: z
-    .array(z.number().int().positive())
-    .nullable()
-    .optional(),
-});
-
-const UpdateScheduleSchema = z.object({
-  groupId: z.number().int().positive('groupId must be a positive integer'),
-  daysOfWeek: DaysOfWeekSchema.optional(),
-  timeOfDay: TimeOfDaySchema.optional(),
-  duration: z.number().int().min(1).max(1440).optional(),
-  selectedMenuItemIds: z
-    .array(z.number().int().positive())
-    .nullable()
-    .optional(),
-  isEnabled: z.boolean().optional(),
-});
+/* Схемы уехали в `api/schemas/recurring-poll.ts` и подключены на маршрутах.
+   Форма их не изменилась — здесь они и так работали; изменилось место
+   проверки и то, что теперь провалидированы ещё `:groupId`, `:id` и
+   `?limit`. */
 
 /**
  * Получение расписания группы
@@ -55,16 +25,11 @@ export const getGroupSchedule = async (
   res: Response
 ): Promise<void> => {
   try {
-    const groupId = parseInt(getParam(req.params, 'groupId'), 10);
+    const { groupId } = recurringGroupIdParam.get(req);
     const userId = req.user?.id;
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
-    if (isNaN(groupId)) {
-      res.status(400).json({ success: false, error: 'Invalid group ID' });
       return;
     }
 
@@ -87,6 +52,7 @@ export const getGroupSchedule = async (
       data: schedule,
     });
   } catch (error) {
+    if (respondIfInvalidInput(req, res, error)) return;
     logger.error('Error getting group schedule:', error);
     res.status(500).json({
       success: false,
@@ -110,20 +76,8 @@ export const createSchedule = async (
       return;
     }
 
-    const parsed = CreateScheduleSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({
-        success: false,
-        error: parsed.error.errors
-          .map(e => `${e.path.join('.')}: ${e.message}`)
-          .join('; '),
-        code: 'VALIDATION_ERROR',
-      });
-      return;
-    }
-
     const { groupId, daysOfWeek, timeOfDay, duration, selectedMenuItemIds } =
-      parsed.data;
+      createScheduleBody.get(req);
 
     // Проверка прав доступа
     const hasAccess = await RecurringPollService.checkAdminAccess(
@@ -154,6 +108,7 @@ export const createSchedule = async (
       data: schedule,
     });
   } catch (error) {
+    if (respondIfInvalidInput(req, res, error)) return;
     logger.error('Error creating schedule:', error);
 
     let statusCode = 500;
@@ -188,27 +143,10 @@ export const updateSchedule = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const scheduleId = parseInt(getParam(req.params, 'id'), 10);
+    const { id: scheduleId } = recurringScheduleIdParam.get(req);
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
-    if (isNaN(scheduleId)) {
-      res.status(400).json({ success: false, error: 'Invalid schedule ID' });
-      return;
-    }
-
-    const parsed = UpdateScheduleSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({
-        success: false,
-        error: parsed.error.errors
-          .map(e => `${e.path.join('.')}: ${e.message}`)
-          .join('; '),
-        code: 'VALIDATION_ERROR',
-      });
       return;
     }
 
@@ -219,7 +157,7 @@ export const updateSchedule = async (
       duration,
       selectedMenuItemIds,
       isEnabled,
-    } = parsed.data;
+    } = updateScheduleBody.get(req);
 
     // Получаем текущее расписание для проверки прав
     const existing = await RecurringPollService.getByGroupId(bodyGroupId);
@@ -256,6 +194,7 @@ export const updateSchedule = async (
       data: updated,
     });
   } catch (error) {
+    if (respondIfInvalidInput(req, res, error)) return;
     logger.error('Error updating schedule:', error);
 
     let statusCode = 500;
@@ -290,15 +229,10 @@ export const deleteSchedule = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const scheduleId = parseInt(getParam(req.params, 'id'), 10);
+    const { id: scheduleId } = recurringScheduleIdParam.get(req);
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
-    if (isNaN(scheduleId)) {
-      res.status(400).json({ success: false, error: 'Invalid schedule ID' });
       return;
     }
 
@@ -329,6 +263,7 @@ export const deleteSchedule = async (
       data: { deleted: true },
     });
   } catch (error) {
+    if (respondIfInvalidInput(req, res, error)) return;
     logger.error('Error deleting schedule:', error);
     res.status(500).json({
       success: false,
@@ -346,26 +281,14 @@ export const toggleSchedule = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const scheduleId = parseInt(getParam(req.params, 'id'), 10);
+    const { id: scheduleId } = recurringScheduleIdParam.get(req);
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
       return;
     }
 
-    if (isNaN(scheduleId)) {
-      res.status(400).json({ success: false, error: 'Invalid schedule ID' });
-      return;
-    }
-
-    const { isEnabled } = req.body;
-
-    if (typeof isEnabled !== 'boolean') {
-      res
-        .status(400)
-        .json({ success: false, error: 'isEnabled must be boolean' });
-      return;
-    }
+    const { isEnabled } = toggleScheduleBody.get(req);
 
     const existing = await RecurringPollService.getById(scheduleId);
     if (!existing) {
@@ -397,6 +320,7 @@ export const toggleSchedule = async (
       data: updated,
     });
   } catch (error) {
+    if (respondIfInvalidInput(req, res, error)) return;
     logger.error('Error toggling schedule:', error);
     res.status(500).json({
       success: false,
@@ -414,15 +338,10 @@ export const getExecutionHistory = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const groupId = parseInt(getParam(req.params, 'groupId'), 10);
+    const { groupId } = recurringGroupIdParam.get(req);
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
-    if (isNaN(groupId)) {
-      res.status(400).json({ success: false, error: 'Invalid group ID' });
       return;
     }
 
@@ -441,7 +360,7 @@ export const getExecutionHistory = async (
       return;
     }
 
-    const limit = parseInt(req.query.limit as string) || 7;
+    const { limit = 7 } = recurringHistoryQuery.get(req);
     const history = await RecurringPollService.getExecutionHistory(
       groupId,
       limit
@@ -452,6 +371,7 @@ export const getExecutionHistory = async (
       data: history,
     });
   } catch (error) {
+    if (respondIfInvalidInput(req, res, error)) return;
     logger.error('Error getting execution history:', error);
     res.status(500).json({
       success: false,

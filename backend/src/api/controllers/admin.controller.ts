@@ -4,7 +4,21 @@ import { ReminderSettingsService } from '../../services/reminder-settings.servic
 import { GroupService } from '../../services/group.service';
 import { PollService } from '../../services/poll.service';
 import { logger } from '../../utils/logger';
-import { getParam } from '../../utils/request-params';
+import { collapseRepeatedValue, respondIfInvalidInput } from '../middleware/validate';
+import {
+  adminCleanupQuery,
+  adminDebtIdParam,
+  adminGroupIdParam,
+  adminNotificationSettingsBody,
+  adminPollIdParam,
+  adminPollParticipantParams,
+  adminUserIdParam,
+  reminderSettingsBody,
+  setPollParticipantBody,
+  toggleActiveBody,
+  toggleAdminBody,
+  toggleParticipatesBody,
+} from '../schemas/admin';
 import { requireAuthUser } from '../middleware/require-auth-user';
 
 export class AdminController {
@@ -16,13 +30,21 @@ export class AdminController {
     this.reminderSettingsService = new ReminderSettingsService();
   }
 
+  /**
+   * Порядок источников `groupId`: query → params → body. Форму значения в
+   * каждом из них проверяют контракты на маршруте; здесь остаётся только
+   * выбор источника — правило домена, схемой не выражаемое.
+   */
   private getGroupId(req: Request, res: Response): number | null {
-    const groupIdRaw =
-      (req.query.groupId as string | undefined) ||
-      (req.params.groupId as string | undefined) ||
-      (req.body?.groupId as string | undefined);
+    /* Тип `unknown`, а не `string`: приведение `as string` здесь стало БЫ
+       ложью — контракт тела уже привёл `groupId` к числу, а `query` и `params`
+       остаются строками. `Number` принимает и то, и другое; молчаливый каст
+       скрыл бы, что три источника несут три разных типа. */
+    const raw: unknown = collapseRepeatedValue(
+      req.query.groupId ?? req.params.groupId ?? (req.body as { groupId?: unknown })?.groupId
+    );
 
-    if (!groupIdRaw) {
+    if (raw === undefined || raw === null || raw === '') {
       res.status(400).json({
         success: false,
         error: 'Missing groupId',
@@ -31,8 +53,8 @@ export class AdminController {
       return null;
     }
 
-    const groupId = parseInt(groupIdRaw, 10);
-    if (isNaN(groupId)) {
+    const groupId = Number(raw);
+    if (!Number.isInteger(groupId) || groupId <= 0) {
       res.status(400).json({
         success: false,
         error: 'Invalid group ID',
@@ -95,6 +117,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error getting all users:', error);
       res.status(500).json({
         success: false,
@@ -109,16 +132,7 @@ export class AdminController {
    */
   async getUserStats(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(getParam(req.params, 'userId'), 10);
-      
-      if (isNaN(userId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid user ID',
-          code: 'INVALID_USER_ID',
-        });
-        return;
-      }
+      const { userId } = adminUserIdParam.get(req);
 
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
@@ -134,6 +148,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error getting user stats:', error);
       res.status(500).json({
         success: false,
@@ -148,26 +163,8 @@ export class AdminController {
    */
   async toggleAdmin(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(getParam(req.params, 'userId'), 10);
-      const { isAdmin } = req.body;
-
-      if (isNaN(userId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid user ID',
-          code: 'INVALID_USER_ID',
-        });
-        return;
-      }
-
-      if (typeof isAdmin !== 'boolean') {
-        res.status(400).json({
-          success: false,
-          error: 'isAdmin must be boolean',
-          code: 'VALIDATION_ERROR',
-        });
-        return;
-      }
+      const { userId } = adminUserIdParam.get(req);
+      const { isAdmin } = toggleAdminBody.get(req);
 
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
@@ -184,6 +181,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error toggling admin:', error);
       res.status(500).json({
         success: false,
@@ -198,26 +196,8 @@ export class AdminController {
    */
   async toggleActive(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(getParam(req.params, 'userId'), 10);
-      const { isActive } = req.body;
-
-      if (isNaN(userId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid user ID',
-          code: 'INVALID_USER_ID',
-        });
-        return;
-      }
-
-      if (typeof isActive !== 'boolean') {
-        res.status(400).json({
-          success: false,
-          error: 'isActive must be boolean',
-          code: 'VALIDATION_ERROR',
-        });
-        return;
-      }
+      const { userId } = adminUserIdParam.get(req);
+      const { isActive } = toggleActiveBody.get(req);
 
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
@@ -234,6 +214,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error toggling active:', error);
       res.status(500).json({
         success: false,
@@ -249,17 +230,8 @@ export class AdminController {
    */
   async toggleParticipatesInPolls(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(getParam(req.params, 'userId'), 10);
-      const { participates } = req.body;
-
-      if (isNaN(userId)) {
-        res.status(400).json({ success: false, error: 'Invalid user ID', code: 'INVALID_USER_ID' });
-        return;
-      }
-      if (typeof participates !== 'boolean') {
-        res.status(400).json({ success: false, error: 'participates must be boolean', code: 'VALIDATION_ERROR' });
-        return;
-      }
+      const { userId } = adminUserIdParam.get(req);
+      const { participates } = toggleParticipatesBody.get(req);
 
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
@@ -280,6 +252,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error toggling participatesInPolls:', error);
       res.status(500).json({
         success: false,
@@ -294,11 +267,7 @@ export class AdminController {
    */
   async getPollParticipants(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = parseInt(getParam(req.params, 'pollId'), 10);
-      if (isNaN(pollId)) {
-        res.status(400).json({ success: false, error: 'Invalid poll ID', code: 'INVALID_POLL_ID' });
-        return;
-      }
+      const { pollId } = adminPollIdParam.get(req);
 
       const pollGroupId = await PollService.getPollGroupId(pollId);
       if (!pollGroupId) {
@@ -311,6 +280,7 @@ export class AdminController {
       const participants = await this.adminService.getPollParticipants(pollId);
       res.json({ success: true, data: participants, timestamp: new Date().toISOString() });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error getting poll participants:', error);
       res.status(500).json({
         success: false,
@@ -326,22 +296,8 @@ export class AdminController {
    */
   async setPollParticipantStatus(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = parseInt(getParam(req.params, 'pollId'), 10);
-      const userId = parseInt(getParam(req.params, 'userId'), 10);
-      const { status, reason } = req.body;
-
-      if (isNaN(pollId) || isNaN(userId)) {
-        res.status(400).json({ success: false, error: 'Invalid IDs', code: 'VALIDATION_ERROR' });
-        return;
-      }
-      if (status !== 'EXPECTED' && status !== 'EXCLUDED') {
-        res.status(400).json({
-          success: false,
-          error: 'status must be EXPECTED or EXCLUDED',
-          code: 'VALIDATION_ERROR',
-        });
-        return;
-      }
+      const { pollId, userId } = adminPollParticipantParams.get(req);
+      const { status, reason } = setPollParticipantBody.get(req);
 
       const pollGroupId = await PollService.getPollGroupId(pollId);
       if (!pollGroupId) {
@@ -368,6 +324,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error setting poll participant status:', error);
       res.status(500).json({
         success: false,
@@ -396,6 +353,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error getting debtors:', error);
       res.status(500).json({
         success: false,
@@ -424,6 +382,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error getting debt stats:', error);
       res.status(500).json({
         success: false,
@@ -438,16 +397,7 @@ export class AdminController {
    */
   async forgiveDebt(req: Request, res: Response): Promise<void> {
     try {
-      const debtId = parseInt(getParam(req.params, 'debtId'), 10);
-
-      if (isNaN(debtId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid debt ID',
-          code: 'INVALID_DEBT_ID',
-        });
-        return;
-      }
+      const { debtId } = adminDebtIdParam.get(req);
 
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
@@ -470,6 +420,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error forgiving debt:', error);
       res.status(500).json({
         success: false,
@@ -499,6 +450,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error reminding all debtors:', error);
       res.status(500).json({
         success: false,
@@ -513,16 +465,7 @@ export class AdminController {
    */
   async remindDebtor(req: Request, res: Response): Promise<void> {
     try {
-      const debtId = parseInt(getParam(req.params, 'debtId'), 10);
-
-      if (isNaN(debtId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid debt ID',
-          code: 'INVALID_DEBT_ID',
-        });
-        return;
-      }
+      const { debtId } = adminDebtIdParam.get(req);
 
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
@@ -538,6 +481,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error reminding debtor:', error);
       res.status(500).json({
         success: false,
@@ -552,7 +496,7 @@ export class AdminController {
    */
   async cleanupOldPolls(req: Request, res: Response): Promise<void> {
     try {
-      const daysOld = parseInt(req.query.daysOld as string) || 30;
+      const { daysOld = 30 } = adminCleanupQuery.get(req);
 
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
@@ -575,6 +519,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error cleaning old polls:', error);
       res.status(500).json({
         success: false,
@@ -589,7 +534,7 @@ export class AdminController {
    */
   async cleanupOldTransactions(req: Request, res: Response): Promise<void> {
     try {
-      const daysOld = parseInt(req.query.daysOld as string) || 90;
+      const { daysOld = 90 } = adminCleanupQuery.get(req);
 
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
@@ -606,6 +551,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error cleaning old transactions:', error);
       res.status(500).json({
         success: false,
@@ -634,6 +580,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error getting cleanup stats:', error);
       res.status(500).json({
         success: false,
@@ -651,8 +598,7 @@ export class AdminController {
    */
   async previewCleanup(req: Request, res: Response): Promise<void> {
     try {
-      const daysOld = parseInt(req.query.daysOld as string) || 30;
-      const kind = req.query.kind === 'transactions' ? 'transactions' : 'polls';
+      const { daysOld = 30, kind = 'polls' } = adminCleanupQuery.get(req);
 
       const groupId = this.getGroupId(req, res);
       if (!groupId) return;
@@ -667,6 +613,7 @@ export class AdminController {
 
       res.json({ success: true, data, timestamp: new Date().toISOString() });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error previewing cleanup:', error);
       res.status(500).json({
         success: false,
@@ -682,16 +629,7 @@ export class AdminController {
    */
   async getReminderSettings(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseInt(getParam(req.params, 'groupId'), 10);
-
-      if (isNaN(groupId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid group ID',
-          code: 'INVALID_GROUP_ID',
-        });
-        return;
-      }
+      const { groupId } = adminGroupIdParam.get(req);
 
       const hasAccess = await this.requireGroupAdmin(req, res, groupId);
       if (!hasAccess) return;
@@ -705,6 +643,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error getting reminder settings:', error);
       res.status(500).json({
         success: false,
@@ -720,25 +659,18 @@ export class AdminController {
    */
   async updateReminderSettings(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseInt(getParam(req.params, 'groupId'), 10);
-
-      if (isNaN(groupId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid group ID',
-          code: 'INVALID_GROUP_ID',
-        });
-        return;
-      }
+      const { groupId } = adminGroupIdParam.get(req);
 
       const hasAccess = await this.requireGroupAdmin(req, res, groupId);
       if (!hasAccess) return;
 
       const adminUser = requireAuthUser(req, res);
       if (!adminUser) return;
+      /* Тело уходит в Prisma целиком, поэтому и схема строгая: см.
+         `reminderSettingsBody` в `api/schemas/admin.ts`. */
       const settings = await this.reminderSettingsService.updateReminderSettings(
         groupId,
-        req.body,
+        reminderSettingsBody.get(req),
         adminUser.id
       );
       
@@ -749,6 +681,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error updating reminder settings:', error);
       res.status(500).json({
         success: false,
@@ -764,16 +697,7 @@ export class AdminController {
    */
   async getAdminNotificationSettings(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseInt(getParam(req.params, 'groupId'), 10);
-
-      if (isNaN(groupId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid group ID',
-          code: 'INVALID_GROUP_ID',
-        });
-        return;
-      }
+      const { groupId } = adminGroupIdParam.get(req);
 
       const hasAccess = await this.requireGroupAdmin(req, res, groupId);
       if (!hasAccess) return;
@@ -786,6 +710,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error getting admin notification settings:', error);
       res.status(500).json({
         success: false,
@@ -801,23 +726,14 @@ export class AdminController {
    */
   async updateAdminNotificationSettings(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseInt(getParam(req.params, 'groupId'), 10);
-
-      if (isNaN(groupId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid group ID',
-          code: 'INVALID_GROUP_ID',
-        });
-        return;
-      }
+      const { groupId } = adminGroupIdParam.get(req);
 
       const hasAccess = await this.requireGroupAdmin(req, res, groupId);
       if (!hasAccess) return;
 
       const settings = await this.reminderSettingsService.updateAdminNotificationSettings(
         groupId,
-        req.body
+        adminNotificationSettingsBody.get(req)
       );
       
       res.json({
@@ -827,6 +743,7 @@ export class AdminController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[AdminController] Error updating admin notification settings:', error);
       res.status(500).json({
         success: false,

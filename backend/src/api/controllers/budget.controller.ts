@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { z } from 'zod';
 import { BudgetService } from '../../services/budget.service';
 import { OrderCostsService } from '../../services/order-costs.service';
 import { ReminderService } from '../../services/reminder.service';
@@ -8,7 +7,15 @@ import { PollFlowService } from '../../services/poll-flow.service';
 import { PollService } from '../../services/poll.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
-import { getParam } from '../../utils/request-params';
+import { respondIfInvalidInput } from '../middleware/validate';
+import {
+  budgetDebtsQuery,
+  budgetPollIdParam,
+  budgetStatsQuery,
+  pollIdBody,
+  setOrderCostsBody,
+  transactionIdBody,
+} from '../schemas/budget';
 import { toNumber } from '../../utils/decimal';
 import { serializeBigInt as serializeData } from '../../utils/serialize';
 
@@ -52,42 +59,9 @@ async function requirePollAccess(
   return true;
 }
 
-// Zod схемы валидации (Sprint 1)
-const TransactionIdSchema = z.object({
-  transactionId: z
-    .number()
-    .int()
-    .positive('transactionId must be a positive integer'),
-});
-
-const PollIdParamSchema = z.object({
-  pollId: z.string().regex(/^\d+$/, 'pollId must be numeric').transform(Number),
-});
-
-const SendRemindersAllSchema = z.object({
-  pollId: z.number().int().positive('pollId must be a positive integer'),
-});
-
-const StatusQuerySchema = z.object({
-  status: z.enum(['PENDING', 'PAID', 'CONFIRMED']).optional(),
-});
-
-const DateRangeQuerySchema = z
-  .object({
-    from: z.string().datetime().optional(),
-    to: z.string().datetime().optional(),
-  })
-  .refine(
-    data => !(data.from && data.to && new Date(data.from) > new Date(data.to)),
-    { message: 'from date must be before to date' }
-  );
-
-const SetOrderCostsSchema = z.object({
-  deliveryCost: z.number().min(0).max(100000, 'deliveryCost max 100000'),
-  serviceFee: z.number().min(0).max(100000, 'serviceFee max 100000'),
-  tip: z.number().min(0).max(100000, 'tip max 100000'),
-  notes: z.string().max(500).optional(),
-});
+/* Шесть zod-схем жили здесь. Две работали, четыре были объявлены и не
+   вызывались ни разу. Все шесть переехали в `api/schemas/budget.ts` и
+   подключены на маршрутах — включая те четыре. */
 
 export class BudgetController {
   private budgetService: BudgetService;
@@ -123,21 +97,17 @@ export class BudgetController {
         return;
       }
 
-      const status = req.query.status as
-        | 'PENDING'
-        | 'PAID'
-        | 'CONFIRMED'
-        | undefined;
-      const activeOnly = req.query.activeOnly === 'true';
+      const { status, activeOnly } = budgetDebtsQuery.get(req);
 
       const debts = await this.queryService.getUserDebts(
         authenticatedUser.id,
         status,
-        activeOnly
+        activeOnly === 'true' || activeOnly === '1'
       );
 
       res.json({ success: true, data: serializeData(debts) });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error getting debts:', error);
       res.status(500).json({ error: 'Failed to get debts' });
     }
@@ -156,21 +126,17 @@ export class BudgetController {
         return;
       }
 
-      const status = req.query.status as
-        | 'PENDING'
-        | 'PAID'
-        | 'CONFIRMED'
-        | undefined;
-      const activeOnly = req.query.activeOnly === 'true';
+      const { status, activeOnly } = budgetDebtsQuery.get(req);
 
       const credits = await this.queryService.getUserCredits(
         authenticatedUser.id,
         status,
-        activeOnly
+        activeOnly === 'true' || activeOnly === '1'
       );
 
       res.json({ success: true, data: serializeData(credits) });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error getting credits:', error);
       res.status(500).json({ error: 'Failed to get credits' });
     }
@@ -191,18 +157,7 @@ export class BudgetController {
         return;
       }
 
-      // Zod валидация
-      const parseResult = TransactionIdSchema.safeParse(req.body);
-      if (!parseResult.success) {
-        res.status(400).json({
-          error: 'Validation error',
-          code: 'VALIDATION_ERROR',
-          details: parseResult.error.errors,
-        });
-        return;
-      }
-
-      const { transactionId } = parseResult.data;
+      const { transactionId } = transactionIdBody.get(req);
 
       // ✅ FIX IDOR: Проверяем что пользователь - должник (fromUserId)
       const transaction =
@@ -225,6 +180,7 @@ export class BudgetController {
 
       res.json({ success: true });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error marking as paid:', error);
       res.status(500).json({ error: 'Failed to mark as paid' });
     }
@@ -245,18 +201,7 @@ export class BudgetController {
         return;
       }
 
-      // Zod валидация
-      const parseResult = TransactionIdSchema.safeParse(req.body);
-      if (!parseResult.success) {
-        res.status(400).json({
-          error: 'Validation error',
-          code: 'VALIDATION_ERROR',
-          details: parseResult.error.errors,
-        });
-        return;
-      }
-
-      const { transactionId } = parseResult.data;
+      const { transactionId } = transactionIdBody.get(req);
 
       // ✅ FIX IDOR: Проверяем что пользователь - кредитор/ответственный (toUserId)
       const transaction =
@@ -282,6 +227,7 @@ export class BudgetController {
 
       res.json({ success: true });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error confirming payment:', error);
       res.status(500).json({ error: 'Failed to confirm payment' });
     }
@@ -303,17 +249,7 @@ export class BudgetController {
         return;
       }
 
-      const parseResult = TransactionIdSchema.safeParse(req.body);
-      if (!parseResult.success) {
-        res.status(400).json({
-          error: 'Validation error',
-          code: 'VALIDATION_ERROR',
-          details: parseResult.error.errors,
-        });
-        return;
-      }
-
-      const { transactionId } = parseResult.data;
+      const { transactionId } = transactionIdBody.get(req);
       const transaction = await this.queryService.getTransactionById(transactionId);
       if (!transaction) {
         res.status(404).json({ error: 'Transaction not found' });
@@ -330,6 +266,7 @@ export class BudgetController {
       await BudgetService.undoConfirmation(transactionId, authenticatedUser.id);
       res.json({ success: true });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       const message = error instanceof Error ? error.message : '';
       if (message === 'Undo window has expired') {
         res.status(409).json({
@@ -362,18 +299,7 @@ export class BudgetController {
         return;
       }
 
-      // Zod валидация
-      const parseResult = TransactionIdSchema.safeParse(req.body);
-      if (!parseResult.success) {
-        res.status(400).json({
-          error: 'Validation error',
-          code: 'VALIDATION_ERROR',
-          details: parseResult.error.errors,
-        });
-        return;
-      }
-
-      const { transactionId } = parseResult.data;
+      const { transactionId } = transactionIdBody.get(req);
 
       // ✅ FIX IDOR: Проверяем что пользователь - должник (fromUserId)
       const transaction =
@@ -399,6 +325,7 @@ export class BudgetController {
 
       res.json({ success: true });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error canceling mark:', error);
       res.status(500).json({ error: 'Failed to cancel mark' });
     }
@@ -419,25 +346,16 @@ export class BudgetController {
         return;
       }
 
-      const parsed = SendRemindersAllSchema.safeParse(req.body);
-      if (!parsed.success) {
-        res.status(400).json({
-          success: false,
-          error: parsed.error.errors
-            .map(e => `${e.path.join('.')}: ${e.message}`)
-            .join('; '),
-          code: 'VALIDATION_ERROR',
-        });
-        return;
-      }
+      const { pollId } = pollIdBody.get(req);
 
       await this.budgetService.markAllPaidByResponsible(
-        parsed.data.pollId,
+        pollId,
         authenticatedUser.id
       );
 
       res.json({ success: true });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error marking all as paid:', error);
       res.status(500).json({ error: 'Failed to mark all as paid' });
     }
@@ -456,8 +374,7 @@ export class BudgetController {
         return;
       }
 
-      const from = req.query.from as string;
-      const to = req.query.to as string;
+      const { from, to } = budgetStatsQuery.get(req);
 
       const stats = await this.queryService.getUserStats(
         authenticatedUser.id,
@@ -467,6 +384,7 @@ export class BudgetController {
 
       res.json({ success: true, data: serializeData(stats) });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error getting stats:', error);
       res.status(500).json({ error: 'Failed to get stats' });
     }
@@ -485,25 +403,16 @@ export class BudgetController {
         return;
       }
 
-      const parsed = TransactionIdSchema.safeParse(req.body);
-      if (!parsed.success) {
-        res.status(400).json({
-          success: false,
-          error: parsed.error.errors
-            .map(e => `${e.path.join('.')}: ${e.message}`)
-            .join('; '),
-          code: 'VALIDATION_ERROR',
-        });
-        return;
-      }
+      const { transactionId } = transactionIdBody.get(req);
 
       await this.reminderService.sendReminder(
-        parsed.data.transactionId,
+        transactionId,
         authenticatedUser.id
       );
 
       res.json({ success: true, message: 'Reminder sent' });
     } catch (error: unknown) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error sending reminder:', error);
       res.status(500).json({ error: 'Failed to send reminder' });
     }
@@ -515,7 +424,6 @@ export class BudgetController {
    */
   async sendRemindersAll(req: Request, res: Response): Promise<void> {
     try {
-      const { pollId } = req.body;
       const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
@@ -523,10 +431,9 @@ export class BudgetController {
         return;
       }
 
-      if (!pollId) {
-        res.status(400).json({ error: 'pollId is required' });
-        return;
-      }
+      /* Раньше проверка была `if (!pollId)` — то есть `pollId: "нет"` уходил в
+         сервис как строка. Схема требует целое положительное. */
+      const { pollId } = pollIdBody.get(req);
 
       const result = await this.reminderService.sendRemindersToAll(
         pollId,
@@ -541,6 +448,7 @@ export class BudgetController {
         failedUsers: result.failedUsers,
       });
     } catch (error: unknown) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error sending reminders to all:', error);
       res.status(500).json({ error: 'Failed to send reminders' });
     }
@@ -552,7 +460,6 @@ export class BudgetController {
    */
   async getPollTotals(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = getParam(req.params, 'pollId');
       const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
@@ -560,12 +467,7 @@ export class BudgetController {
         return;
       }
 
-      if (!pollId) {
-        res.status(400).json({ error: 'pollId is required' });
-        return;
-      }
-
-      const pollIdNum = parseInt(pollId);
+      const { pollId: pollIdNum } = budgetPollIdParam.get(req);
       if (!(await requirePollAccess(res, authenticatedUser, pollIdNum))) return;
 
       const totals = await this.pollFlowService.calculateTotals(
@@ -575,6 +477,7 @@ export class BudgetController {
 
       res.json({ success: true, data: serializeData(totals) });
     } catch (error: unknown) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error getting poll totals:', error);
       res.status(500).json({ error: 'Failed to get poll totals' });
     }
@@ -590,8 +493,6 @@ export class BudgetController {
    */
   async setOrderCosts(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = getParam(req.params, 'pollId');
-      const { deliveryCost, serviceFee, tip, notes } = req.body;
       const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
@@ -599,39 +500,21 @@ export class BudgetController {
         return;
       }
 
-      if (!pollId) {
-        res.status(400).json({ error: 'pollId is required' });
-        return;
-      }
-
-      // Validate input
-      if (typeof deliveryCost !== 'number' || deliveryCost < 0) {
-        res
-          .status(400)
-          .json({ error: 'deliveryCost must be a non-negative number' });
-        return;
-      }
-
-      if (typeof serviceFee !== 'number' || serviceFee < 0) {
-        res
-          .status(400)
-          .json({ error: 'serviceFee must be a non-negative number' });
-        return;
-      }
-
-      if (typeof tip !== 'number' || tip < 0) {
-        res.status(400).json({ error: 'tip must be a non-negative number' });
-        return;
-      }
+      const { pollId } = budgetPollIdParam.get(req);
+      /* Три рукописные проверки «число и не меньше нуля» заменены схемой —
+         той самой `SetOrderCostsSchema`, которая лежала рядом неподключённой.
+         Верхняя граница 100000 из неё теперь тоже работает. */
+      const { deliveryCost, serviceFee, tip, notes } = setOrderCostsBody.get(req);
 
       const orderCosts = await this.orderCostsService.setOrderCosts(
-        parseInt(pollId),
+        pollId,
         authenticatedUser.id,
         { deliveryCost, serviceFee, tip, notes }
       );
 
       res.json({ success: true, data: serializeData(orderCosts) });
     } catch (error: any) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error setting order costs:', error);
 
       if (error.message === 'Poll not found') {
@@ -656,7 +539,6 @@ export class BudgetController {
    */
   async getOrderCosts(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = getParam(req.params, 'pollId');
       const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
@@ -664,12 +546,7 @@ export class BudgetController {
         return;
       }
 
-      if (!pollId) {
-        res.status(400).json({ error: 'pollId is required' });
-        return;
-      }
-
-      const pollIdNum = parseInt(pollId);
+      const { pollId: pollIdNum } = budgetPollIdParam.get(req);
       if (!(await requirePollAccess(res, authenticatedUser, pollIdNum))) return;
 
       const orderCosts = await this.orderCostsService.getOrderCosts(pollIdNum);
@@ -681,6 +558,7 @@ export class BudgetController {
 
       res.json({ success: true, data: serializeData(orderCosts) });
     } catch (error: any) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error getting order costs:', error);
       res.status(500).json({ error: 'Failed to get order costs' });
     }
@@ -692,7 +570,6 @@ export class BudgetController {
    */
   async getPollCostBreakdown(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = getParam(req.params, 'pollId');
       const authenticatedUser = req.user;
 
       if (!authenticatedUser) {
@@ -700,12 +577,7 @@ export class BudgetController {
         return;
       }
 
-      if (!pollId) {
-        res.status(400).json({ error: 'pollId is required' });
-        return;
-      }
-
-      const pollIdNum = parseInt(pollId);
+      const { pollId: pollIdNum } = budgetPollIdParam.get(req);
       if (!(await requirePollAccess(res, authenticatedUser, pollIdNum))) return;
 
       const breakdown =
@@ -713,6 +585,7 @@ export class BudgetController {
 
       res.json({ success: true, data: serializeData(breakdown) });
     } catch (error: any) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('[BudgetController] Error getting poll breakdown:', error);
       res.status(500).json({ error: 'Failed to get poll breakdown' });
     }

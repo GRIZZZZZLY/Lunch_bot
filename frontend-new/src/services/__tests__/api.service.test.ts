@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const fetchMock = vi.fn();
 
 import { apiService } from '../api.service';
+import { useAppStore } from '@/store/useAppStore';
 
 function ok(body: unknown = { success: true }) {
   return { ok: true, status: 200, text: async () => JSON.stringify(body) };
@@ -232,5 +233,61 @@ describe('apiService — форма ошибки и таймаут', () => {
     await expect(apiService.get('/polls/active')).rejects.toMatchObject({
       code: 'NETWORK_ERROR',
     });
+  });
+});
+
+/**
+ * Инъекция `groupId` в query.
+ *
+ * `buildUrl` подмешивает группу из стора, чтобы вызывающим не таскать её
+ * повсюду. Половина методов `admin.service.ts` и `suggestions.service.ts` при
+ * этом уже встраивает `?groupId=` прямо в путь — и получалось
+ * `?groupId=5&groupId=5`. На бэкенде это приходит массивом; работало только
+ * потому, что `parseInt(['5','5'])` приводит массив к строке `'5,5'` и
+ * возвращает 5. Первая же схема с `z.coerce.number()` получила бы NaN и
+ * ответила 400 на восьми работавших админских эндпоинтах.
+ */
+describe('подмешивание groupId в query', () => {
+  function requestedUrl(call = 0): string {
+    return fetchMock.mock.calls[call]?.[0] as string;
+  }
+
+  beforeEach(() => {
+    useAppStore.setState({ currentGroupId: '5' });
+  });
+
+  afterEach(() => {
+    useAppStore.setState({ currentGroupId: null });
+  });
+
+  it('группа из стора добавляется, если её нет в пути', async () => {
+    await apiService.get('/admin/debtors');
+
+    expect(requestedUrl()).toContain('groupId=5');
+    expect(requestedUrl().match(/groupId=/g)).toHaveLength(1);
+  });
+
+  it('groupId, уже вписанный в путь, не дублируется', async () => {
+    await apiService.get('/admin/users?groupId=5');
+
+    expect(requestedUrl().match(/groupId=/g)).toHaveLength(1);
+  });
+
+  /* Явно переданный в пути параметр побеждает стор — так было и раньше при
+     слиянии params, и на это опирается переключение группы в админке. */
+  it('groupId из пути побеждает значение из стора', async () => {
+    await apiService.get('/admin/users?groupId=7');
+
+    expect(requestedUrl()).toContain('groupId=7');
+    expect(requestedUrl()).not.toContain('groupId=5');
+  });
+
+  it('прочие параметры пути сохраняются и не мешают инъекции', async () => {
+    await apiService.get('/admin/cleanup/preview?daysOld=45&kind=polls');
+
+    const url = requestedUrl();
+    expect(url).toContain('daysOld=45');
+    expect(url).toContain('kind=polls');
+    expect(url.match(/groupId=/g)).toHaveLength(1);
   });
 });

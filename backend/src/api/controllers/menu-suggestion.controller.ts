@@ -3,23 +3,47 @@ import { AuthenticatedRequest } from '../../types/api.types';
 import { MenuSuggestionService } from '../../services/menu-suggestion.service';
 import { GroupAccessError, GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
-import { getParam } from '../../utils/request-params';
+import { collapseRepeatedValue, respondIfInvalidInput } from '../middleware/validate';
+import {
+  createSuggestionBody,
+  rejectSuggestionBody,
+  suggestionIdParam,
+  suggestionsQuery,
+} from '../schemas/menu-suggestion';
 
+/**
+ * Единственный разбор параметра, оставшийся в этом контроллере.
+ *
+ * Он не про форму значения — форму в каждом источнике проверяют контракты, — а
+ * про ПОРЯДОК источников: `params`, потом `query`, потом `body`. Это правило
+ * домена (фронт присылает `groupId` по-разному на разных экранах), и схема по
+ * одному источнику его выразить не может.
+ */
 function resolveGroupId(req: AuthenticatedRequest): number | null {
-  const raw = (req.params?.groupId ??
-    req.query?.groupId ??
-    req.body?.groupId) as string | number | undefined;
-  const groupId = typeof raw === 'string' ? parseInt(raw, 10) : raw;
-  return typeof groupId === 'number' && Number.isFinite(groupId) && groupId > 0
-    ? groupId
-    : null;
+  /* `collapseRepeatedValue` — не украшение: `?groupId=5&groupId=5` приходит
+     массивом, а `parseInt(['5','5'])` возвращал 5 только по случайности
+     (массив приводится к строке `'5,5'`). Тип здесь `unknown`, потому что три
+     источника несут три разных типа: контракт тела уже привёл значение к числу,
+     а query и params остаются строками. */
+  const raw: unknown = collapseRepeatedValue(
+    req.params?.groupId ?? req.query?.groupId ?? (req.body as { groupId?: unknown })?.groupId
+  );
+  if (raw === undefined || raw === null || raw === '') return null;
+
+  const groupId = Number(raw);
+  return Number.isInteger(groupId) && groupId > 0 ? groupId : null;
 }
 
 function sendSuggestionError(
+  req: AuthenticatedRequest,
   res: Response,
   error: unknown,
   fallbackMessage: string
 ): void {
+  /* Иначе невалидное тело уехало бы клиенту как 500: этот helper — общий
+     выход по ошибке для четырёх handler'ов. */
+  if (respondIfInvalidInput(req, res, error)) return;
+
   if (error instanceof GroupAccessError) {
     res.status(403).json({
       success: false,
@@ -47,13 +71,6 @@ export async function createSuggestion(
   res: Response
 ): Promise<void> {
   try {
-    const {
-      name,
-      description,
-      price,
-      imageUrl,
-      groupId: rawGroupId,
-    } = req.body;
     const userId = req.user?.id;
 
     if (!userId) {
@@ -66,32 +83,16 @@ export async function createSuggestion(
       return;
     }
 
-    if (!name || name.trim().length === 0) {
-      res.status(400).json({
-        success: false,
-        error: 'Название блюда обязательно',
-        code: 'VALIDATION_ERROR',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
-
-    const groupId = rawGroupId ? parseInt(String(rawGroupId), 10) : NaN;
-    if (!rawGroupId || isNaN(groupId)) {
-      res.status(400).json({
-        success: false,
-        error: 'groupId обязателен',
-        code: 'MISSING_GROUP_ID',
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
+    /* Обязательность name и groupId, обрезка пробелов и разбор price — в
+       схеме. Здесь остаётся только вызов сервиса. */
+    const { name, description, price, imageUrl, groupId } =
+      createSuggestionBody.get(req);
 
     const suggestion = await MenuSuggestionService.createSuggestion({
-      name: name.trim(),
-      description: description?.trim(),
-      price: price ? parseFloat(price) : undefined,
-      imageUrl: imageUrl?.trim(),
+      name,
+      description,
+      price,
+      imageUrl,
       suggestedBy: userId,
       groupId,
     });
@@ -104,7 +105,8 @@ export async function createSuggestion(
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    sendSuggestionError(res, error, 'Failed to create suggestion');
+    if (respondIfInvalidInput(req, res, error)) return;
+    sendSuggestionError(req, res, error, 'Failed to create suggestion');
   }
 }
 
@@ -116,7 +118,7 @@ export async function getSuggestions(
   res: Response
 ): Promise<void> {
   try {
-    const { status, limit, offset, groupId: rawGroupId } = req.query;
+    const { status, limit, offset, groupId } = suggestionsQuery.get(req);
     const userId = req.user?.id;
 
     if (!userId) {
@@ -132,11 +134,8 @@ export async function getSuggestions(
     const filters: any = {};
 
     if (status) {
-      filters.status = status as string;
+      filters.status = status;
     }
-
-    const parsedGroupId = rawGroupId ? parseInt(rawGroupId as string, 10) : NaN;
-    const groupId = Number.isFinite(parsedGroupId) && parsedGroupId > 0 ? parsedGroupId : null;
 
     /* Чужие предложения видит админ ГРУППЫ — тем же правилом, что approve и
        reject, и тем же, по которому интерфейс рисует кнопки модерации.
@@ -154,12 +153,12 @@ export async function getSuggestions(
       filters.suggestedBy = userId;
     }
 
-    if (limit) {
-      filters.limit = parseInt(limit as string);
+    if (limit !== undefined) {
+      filters.limit = limit;
     }
 
-    if (offset) {
-      filters.offset = parseInt(offset as string);
+    if (offset !== undefined) {
+      filters.offset = offset;
     }
 
     const suggestions = await MenuSuggestionService.getSuggestions(filters);
@@ -170,6 +169,7 @@ export async function getSuggestions(
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    if (respondIfInvalidInput(req, res, error)) return;
     logger.error('Error getting suggestions:', error);
     res.status(500).json({
       success: false,
@@ -188,7 +188,7 @@ export async function getSuggestionById(
   res: Response
 ): Promise<void> {
   try {
-    const id = getParam(req.params, 'id');
+    const { id } = suggestionIdParam.get(req);
     const userId = req.user?.id;
 
     if (!userId) {
@@ -201,9 +201,7 @@ export async function getSuggestionById(
       return;
     }
 
-    const suggestion = await MenuSuggestionService.getSuggestionById(
-      parseInt(id, 10)
-    );
+    const suggestion = await MenuSuggestionService.getSuggestionById(id);
 
     if (!suggestion) {
       res.status(404).json({
@@ -244,6 +242,7 @@ export async function getSuggestionById(
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    if (respondIfInvalidInput(req, res, error)) return;
     logger.error('Error getting suggestion:', error);
     res.status(500).json({
       success: false,
@@ -262,7 +261,7 @@ export async function approveSuggestion(
   res: Response
 ): Promise<void> {
   try {
-    const id = getParam(req.params, 'id');
+    const { id } = suggestionIdParam.get(req);
     const userId = req.user?.id;
     const groupId = resolveGroupId(req);
 
@@ -287,7 +286,7 @@ export async function approveSuggestion(
     }
 
     const result = await MenuSuggestionService.approveSuggestion(
-      parseInt(id, 10),
+      id,
       userId,
       groupId
     );
@@ -298,7 +297,7 @@ export async function approveSuggestion(
       timestamp: new Date().toISOString(),
     });
   } catch (error: unknown) {
-    sendSuggestionError(res, error, 'Failed to approve suggestion');
+    sendSuggestionError(req, res, error, 'Failed to approve suggestion');
   }
 }
 
@@ -310,8 +309,8 @@ export async function rejectSuggestion(
   res: Response
 ): Promise<void> {
   try {
-    const id = getParam(req.params, 'id');
-    const { reason } = req.body;
+    const { id } = suggestionIdParam.get(req);
+    const { reason } = rejectSuggestionBody.get(req);
     const userId = req.user?.id;
     const groupId = resolveGroupId(req);
 
@@ -336,7 +335,7 @@ export async function rejectSuggestion(
     }
 
     const suggestion = await MenuSuggestionService.rejectSuggestion(
-      parseInt(id, 10),
+      id,
       userId,
       reason,
       groupId
@@ -348,7 +347,7 @@ export async function rejectSuggestion(
       timestamp: new Date().toISOString(),
     });
   } catch (error: unknown) {
-    sendSuggestionError(res, error, 'Failed to reject suggestion');
+    sendSuggestionError(req, res, error, 'Failed to reject suggestion');
   }
 }
 
@@ -380,6 +379,7 @@ export async function getStats(
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    if (respondIfInvalidInput(req, res, error)) return;
     logger.error('Error getting stats:', error);
     res.status(500).json({
       success: false,
@@ -418,6 +418,7 @@ export async function getPendingCount(
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    if (respondIfInvalidInput(req, res, error)) return;
     logger.error('Error getting pending count:', error);
     res.status(500).json({
       success: false,
@@ -436,7 +437,7 @@ export async function deleteSuggestion(
   res: Response
 ): Promise<void> {
   try {
-    const id = getParam(req.params, 'id');
+    const { id } = suggestionIdParam.get(req);
     const userId = req.user?.id;
     const groupId = resolveGroupId(req);
 
@@ -460,7 +461,7 @@ export async function deleteSuggestion(
       return;
     }
 
-    await MenuSuggestionService.deleteSuggestion(parseInt(id, 10), userId, groupId);
+    await MenuSuggestionService.deleteSuggestion(id, userId, groupId);
 
     res.status(200).json({
       success: true,
@@ -468,6 +469,6 @@ export async function deleteSuggestion(
       timestamp: new Date().toISOString(),
     });
   } catch (error: unknown) {
-    sendSuggestionError(res, error, 'Failed to delete suggestion');
+    sendSuggestionError(req, res, error, 'Failed to delete suggestion');
   }
 }

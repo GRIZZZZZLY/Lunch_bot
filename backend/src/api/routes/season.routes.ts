@@ -4,6 +4,13 @@ import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
 import { operationsApiMiddleware } from '../middleware/operations-api';
 import { writeLimiter } from '../middleware/rate-limiter';
+import {
+  seasonIdParam,
+  seasonLeaderboardQuery,
+  seasonListQuery,
+  seasonUserIdParam,
+  seasonUserStatsParams,
+} from '../schemas/season';
 
 const router = Router();
 const seasonMutationIdempotency = createIdempotencyMiddleware({
@@ -19,7 +26,12 @@ const seasonMutationIdempotency = createIdempotencyMiddleware({
  */
 
 // GET /api/seasons - Получить все сезоны
-router.get('/', telegramAuthMiddleware, SeasonController.getAllSeasons);
+router.get(
+  '/',
+  telegramAuthMiddleware,
+  seasonListQuery.middleware,
+  SeasonController.getAllSeasons
+);
 
 // GET /api/seasons/current - Получить текущий сезон
 router.get(
@@ -32,16 +44,24 @@ router.get(
 router.get(
   '/current/stats/:userId',
   telegramAuthMiddleware,
+  seasonUserIdParam.middleware,
   SeasonController.getCurrentSeasonUserStats
 );
 
 // GET /api/seasons/:id - Получить сезон по ID
-router.get('/:id', telegramAuthMiddleware, SeasonController.getSeasonById);
+router.get(
+  '/:id',
+  telegramAuthMiddleware,
+  seasonIdParam.middleware,
+  SeasonController.getSeasonById
+);
 
 // GET /api/seasons/:id/leaderboard - Лидерборд сезона
 router.get(
   '/:id/leaderboard',
   telegramAuthMiddleware,
+  seasonIdParam.middleware,
+  seasonLeaderboardQuery.middleware,
   SeasonController.getSeasonLeaderboard
 );
 
@@ -49,6 +69,7 @@ router.get(
 router.get(
   '/:id/stats/:userId',
   telegramAuthMiddleware,
+  seasonUserStatsParams.middleware,
   SeasonController.getUserSeasonStats
 );
 

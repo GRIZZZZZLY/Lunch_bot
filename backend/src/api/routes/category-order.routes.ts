@@ -10,6 +10,12 @@ import {
 } from '../middleware/authorization';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
 import { writeLimiter } from '../middleware/rate-limiter';
+import {
+  categoryOrderIdParam,
+  categoryOrderPollIdParam,
+  saveOrderItemBody,
+  updateCostsBody,
+} from '../schemas/category-order';
 
 /**
  * Порядок middleware здесь не косметический: все проверки авторизации читают
@@ -24,6 +30,10 @@ import { writeLimiter } from '../middleware/rate-limiter';
  * - проверка «позицию можно создать только участнику категории» в
  *   `saveOrderItem` — она про пользователя из ТЕЛА запроса, а не про
  *   вызывающего, и в middleware разобранного тела ещё нет.
+ *
+ * Валидация встроена по тому же правилу, что и в `poll.routes.ts`: контракт
+ * `params` — сразу после аутентификации (проверки авторизации ниже сами читают
+ * `:id`), контракт `body` — после идемпотентности.
  */
 const router = express.Router();
 const categoryOrderMutationIdempotency = createIdempotencyMiddleware({
@@ -38,6 +48,7 @@ const categoryOrderMutationIdempotency = createIdempotencyMiddleware({
 router.get(
   '/polls/:pollId/category-orders',
   telegramAuthMiddleware,
+  categoryOrderPollIdParam.middleware,
   requirePollAccess,
   CategoryOrderController.getCategoryOrdersForPoll
 );
@@ -45,6 +56,7 @@ router.get(
 router.get(
   '/polls/:pollId/category-orders/my',
   telegramAuthMiddleware,
+  categoryOrderPollIdParam.middleware,
   requirePollAccess,
   CategoryOrderController.getMyCategoryOrdersForPoll
 );
@@ -56,6 +68,7 @@ router.get(
 router.get(
   '/category-orders/:id',
   telegramAuthMiddleware,
+  categoryOrderIdParam.middleware,
   requireCategoryOrderParticipant,
   CategoryOrderController.getCategoryOrder
 );
@@ -67,11 +80,13 @@ router.get(
 router.post(
   '/category-orders/:id/order-items',
   telegramAuthMiddleware,
+  categoryOrderIdParam.middleware,
   writeLimiter,
   requireCategoryOrderResponsible(
     'Only responsible user can edit order items'
   ),
   categoryOrderMutationIdempotency,
+  saveOrderItemBody.middleware,
   CategoryOrderController.saveOrderItem
 );
 
@@ -82,6 +97,7 @@ router.post(
 router.delete(
   '/order-items/:id',
   telegramAuthMiddleware,
+  categoryOrderIdParam.middleware,
   writeLimiter,
   categoryOrderMutationIdempotency,
   CategoryOrderController.deleteOrderItem
@@ -94,6 +110,7 @@ router.delete(
 router.get(
   '/category-orders/:id/progress',
   telegramAuthMiddleware,
+  categoryOrderIdParam.middleware,
   requireCategoryOrderParticipant,
   CategoryOrderController.getProgress
 );
@@ -105,6 +122,7 @@ router.get(
 router.get(
   '/category-orders/:id/participants',
   telegramAuthMiddleware,
+  categoryOrderIdParam.middleware,
   requireCategoryOrderResponsible(),
   CategoryOrderController.getParticipants
 );
@@ -116,6 +134,7 @@ router.get(
 router.post(
   '/category-orders/:id/finalize',
   telegramAuthMiddleware,
+  categoryOrderIdParam.middleware,
   writeLimiter,
   requireCategoryOrderResponsible(
     'Only responsible user can finalize calculation'
@@ -127,6 +146,7 @@ router.post(
 router.post(
   '/category-orders/:id/volunteer',
   telegramAuthMiddleware,
+  categoryOrderIdParam.middleware,
   writeLimiter,
   requireCategoryOrderPollAccess,
   categoryOrderMutationIdempotency,
@@ -140,11 +160,13 @@ router.post(
 router.put(
   '/category-orders/:id/costs',
   telegramAuthMiddleware,
+  categoryOrderIdParam.middleware,
   writeLimiter,
   requireCategoryOrderResponsible(
     'Only responsible user can update costs'
   ),
   categoryOrderMutationIdempotency,
+  updateCostsBody.middleware,
   CategoryOrderController.updateCosts
 );
 
@@ -160,6 +182,7 @@ router.put(
 router.get(
   '/order-items/:id/edit-history',
   telegramAuthMiddleware,
+  categoryOrderIdParam.middleware,
   requireOrderItemGroupAdmin,
   CategoryOrderController.getEditHistory
 );
@@ -171,6 +194,7 @@ router.get(
 router.get(
   '/category-orders/:id/order-items',
   telegramAuthMiddleware,
+  categoryOrderIdParam.middleware,
   requireCategoryOrderResponsible(),
   CategoryOrderController.getOrderItems
 );

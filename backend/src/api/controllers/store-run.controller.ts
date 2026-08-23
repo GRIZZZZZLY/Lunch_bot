@@ -1,48 +1,31 @@
 import { Request, Response } from 'express';
-import { z } from 'zod';
 import { StoreRunService, StoreRunError } from '../../services/store-run.service';
 import { notificationService } from '../../services/notification.service';
 import { StoreRunBudgetService } from '../../services/store-run-budget.service';
 import { logger } from '../../utils/logger';
 import { serializeBigInt as serializeData } from '../../utils/serialize';
+import { respondIfInvalidInput } from '../middleware/validate';
+import {
+  addStoreRunItemsBody,
+  createStoreRunBody,
+  setStoreRunItemPriceBody,
+  storeRunIdParam,
+  storeRunItemParams,
+  updateStoreRunItemBody,
+} from '../schemas/store-run';
 
-const CreateStoreRunSchema = z.object({
-  groupId: z.number().int().positive(),
-  storeName: z.string().min(1).max(100),
-  collectMinutes: z.number().int().min(3).max(30),
-});
+/**
+ * Единственная точка, откуда handler'ы этого контроллера отвечают об ошибке.
+ *
+ * Принимает `req` не ради логов: без него нельзя отличить провал разбора входа
+ * от сбоя сервиса, и невалидное тело уходило бы клиенту как
+ * `500 Internal server error`. Разбор вызывается ВНУТРИ `try` намеренно —
+ * вынести его наружу нельзя, Express 4 не подхватывает отказ промиса из
+ * async-handler'а и запрос остался бы без ответа вообще.
+ */
+function sendStoreRunError(req: Request, res: Response, err: unknown): void {
+  if (respondIfInvalidInput(req, res, err)) return;
 
-const AddItemsSchema = z.object({
-  items: z
-    .array(
-      z.object({
-        name: z.string().min(1).max(200),
-        quantity: z.number().int().min(1).max(99).optional(),
-        notes: z.string().max(500).nullish(),
-      }),
-    )
-    .min(1)
-    .max(20),
-});
-
-const UpdateItemSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  quantity: z.number().int().min(1).max(99).optional(),
-  notes: z.string().max(500).nullish(),
-});
-
-const SetPriceSchema = z.object({
-  price: z.number().min(0).max(100000).nullable(),
-  status: z.enum(['BOUGHT', 'NOT_FOUND']),
-});
-
-function getIdParam(req: Request, key: string): number | null {
-  const raw = req.params[key];
-  const n = Number(raw);
-  return Number.isInteger(n) && n > 0 ? n : null;
-}
-
-function sendStoreRunError(res: Response, err: unknown): void {
   if (err instanceof StoreRunError) {
     const status =
       err.code === 'NOT_FOUND'
@@ -71,13 +54,10 @@ export class StoreRunController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const parsed = CreateStoreRunSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid input', issues: parsed.error.issues });
-      return;
-    }
     try {
-      const canPost = await notificationService.botCanPostToGroup(parsed.data.groupId);
+      const body = createStoreRunBody.get(req);
+
+      const canPost = await notificationService.botCanPostToGroup(body.groupId);
       if (!canPost) {
         throw new StoreRunError(
           'BOT_NOT_IN_GROUP',
@@ -87,9 +67,9 @@ export class StoreRunController {
 
       const run = await StoreRunService.createStoreRun({
         initiatorId: user.id,
-        groupId: parsed.data.groupId,
-        storeName: parsed.data.storeName,
-        collectMinutes: parsed.data.collectMinutes,
+        groupId: body.groupId,
+        storeName: body.storeName,
+        collectMinutes: body.collectMinutes,
       });
 
       // Fire-and-forget DM broadcast to group members.
@@ -120,7 +100,7 @@ export class StoreRunController {
 
       res.status(201).json({ success: true, data: serializeData(run) });
     } catch (err) {
-      sendStoreRunError(res, err);
+      sendStoreRunError(req, res, err);
     }
   }
 
@@ -137,7 +117,7 @@ export class StoreRunController {
       const runs = await StoreRunService.getActiveStoreRunsForUser(user.id);
       res.json({ success: true, data: serializeData(runs) });
     } catch (err) {
-      sendStoreRunError(res, err);
+      sendStoreRunError(req, res, err);
     }
   }
 
@@ -150,12 +130,8 @@ export class StoreRunController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const id = getIdParam(req, 'id');
-    if (!id) {
-      res.status(400).json({ error: 'Invalid id' });
-      return;
-    }
     try {
+      const { id } = storeRunIdParam.get(req);
       const run = await StoreRunService.getStoreRunById(id, user.id);
       if (!run) {
         res.status(404).json({ error: 'Store run not found' });
@@ -163,7 +139,7 @@ export class StoreRunController {
       }
       res.json({ success: true, data: serializeData(run) });
     } catch (err) {
-      sendStoreRunError(res, err);
+      sendStoreRunError(req, res, err);
     }
   }
 
@@ -176,21 +152,13 @@ export class StoreRunController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const id = getIdParam(req, 'id');
-    if (!id) {
-      res.status(400).json({ error: 'Invalid id' });
-      return;
-    }
-    const parsed = AddItemsSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid input', issues: parsed.error.issues });
-      return;
-    }
     try {
-      const items = await StoreRunService.addItemsBulk(id, user.id, parsed.data.items);
-      res.status(201).json({ success: true, data: serializeData(items) });
+      const { id } = storeRunIdParam.get(req);
+      const { items } = addStoreRunItemsBody.get(req);
+      const saved = await StoreRunService.addItemsBulk(id, user.id, items);
+      res.status(201).json({ success: true, data: serializeData(saved) });
     } catch (err) {
-      sendStoreRunError(res, err);
+      sendStoreRunError(req, res, err);
     }
   }
 
@@ -203,21 +171,13 @@ export class StoreRunController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const itemId = getIdParam(req, 'itemId');
-    if (!itemId) {
-      res.status(400).json({ error: 'Invalid itemId' });
-      return;
-    }
-    const parsed = UpdateItemSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid input', issues: parsed.error.issues });
-      return;
-    }
     try {
-      const item = await StoreRunService.updateItem(itemId, user.id, parsed.data);
+      const { itemId } = storeRunItemParams.get(req);
+      const patch = updateStoreRunItemBody.get(req);
+      const item = await StoreRunService.updateItem(itemId, user.id, patch);
       res.json({ success: true, data: serializeData(item) });
     } catch (err) {
-      sendStoreRunError(res, err);
+      sendStoreRunError(req, res, err);
     }
   }
 
@@ -230,16 +190,12 @@ export class StoreRunController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const itemId = getIdParam(req, 'itemId');
-    if (!itemId) {
-      res.status(400).json({ error: 'Invalid itemId' });
-      return;
-    }
     try {
+      const { itemId } = storeRunItemParams.get(req);
       await StoreRunService.deleteItem(itemId, user.id);
       res.status(204).end();
     } catch (err) {
-      sendStoreRunError(res, err);
+      sendStoreRunError(req, res, err);
     }
   }
 
@@ -253,26 +209,13 @@ export class StoreRunController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const itemId = getIdParam(req, 'itemId');
-    if (!itemId) {
-      res.status(400).json({ error: 'Invalid itemId' });
-      return;
-    }
-    const parsed = SetPriceSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid input', issues: parsed.error.issues });
-      return;
-    }
     try {
-      const item = await StoreRunService.setItemPrice(
-        itemId,
-        user.id,
-        parsed.data.price,
-        parsed.data.status,
-      );
+      const { itemId } = storeRunItemParams.get(req);
+      const { price, status } = setStoreRunItemPriceBody.get(req);
+      const item = await StoreRunService.setItemPrice(itemId, user.id, price, status);
       res.json({ success: true, data: serializeData(item) });
     } catch (err) {
-      sendStoreRunError(res, err);
+      sendStoreRunError(req, res, err);
     }
   }
 
@@ -285,12 +228,8 @@ export class StoreRunController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const id = getIdParam(req, 'id');
-    if (!id) {
-      res.status(400).json({ error: 'Invalid id' });
-      return;
-    }
     try {
+      const { id } = storeRunIdParam.get(req);
       const run = await StoreRunService.startShopping(id, user.id);
 
       notificationService
@@ -301,7 +240,7 @@ export class StoreRunController {
 
       res.json({ success: true, data: serializeData(run) });
     } catch (err) {
-      sendStoreRunError(res, err);
+      sendStoreRunError(req, res, err);
     }
   }
 
@@ -314,12 +253,8 @@ export class StoreRunController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const id = getIdParam(req, 'id');
-    if (!id) {
-      res.status(400).json({ error: 'Invalid id' });
-      return;
-    }
     try {
+      const { id } = storeRunIdParam.get(req);
       const run = await StoreRunService.settle(id, user.id);
 
       // Fire-and-forget: разослать должникам суммы/реквизиты, инициатору — сводку.
@@ -341,7 +276,7 @@ export class StoreRunController {
 
       res.json({ success: true, data: serializeData(run) });
     } catch (err) {
-      sendStoreRunError(res, err);
+      sendStoreRunError(req, res, err);
     }
   }
 
@@ -354,12 +289,8 @@ export class StoreRunController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const id = getIdParam(req, 'id');
-    if (!id) {
-      res.status(400).json({ error: 'Invalid id' });
-      return;
-    }
     try {
+      const { id } = storeRunIdParam.get(req);
       const run = await StoreRunService.cancelStoreRun(id, user.id);
 
       // Fire-and-forget: убрать групповой пост и личные приглашения отменённого забега.
@@ -371,7 +302,7 @@ export class StoreRunController {
 
       res.json({ success: true, data: serializeData(run) });
     } catch (err) {
-      sendStoreRunError(res, err);
+      sendStoreRunError(req, res, err);
     }
   }
 }

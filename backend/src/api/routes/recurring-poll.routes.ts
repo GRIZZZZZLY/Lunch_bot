@@ -3,6 +3,14 @@ import * as recurringPollController from '../controllers/recurring-poll.controll
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
 import { writeLimiter } from '../middleware/rate-limiter';
+import {
+  createScheduleBody,
+  recurringGroupIdParam,
+  recurringHistoryQuery,
+  recurringScheduleIdParam,
+  toggleScheduleBody,
+  updateScheduleBody,
+} from '../schemas/recurring-poll';
 
 const router = Router();
 const recurringMutationIdempotency = createIdempotencyMiddleware({
@@ -17,7 +25,11 @@ router.use(telegramAuthMiddleware);
  * GET /api/recurring/:groupId
  * Получение расписания группы
  */
-router.get('/:groupId', recurringPollController.getGroupSchedule);
+router.get(
+  '/:groupId',
+  recurringGroupIdParam.middleware,
+  recurringPollController.getGroupSchedule
+);
 
 /**
  * POST /api/recurring
@@ -27,6 +39,7 @@ router.post(
   '/',
   writeLimiter,
   recurringMutationIdempotency,
+  createScheduleBody.middleware,
   recurringPollController.createSchedule
 );
 
@@ -36,8 +49,10 @@ router.post(
  */
 router.patch(
   '/:id',
+  recurringScheduleIdParam.middleware,
   writeLimiter,
   recurringMutationIdempotency,
+  updateScheduleBody.middleware,
   recurringPollController.updateSchedule
 );
 
@@ -47,6 +62,7 @@ router.patch(
  */
 router.delete(
   '/:id',
+  recurringScheduleIdParam.middleware,
   writeLimiter,
   recurringMutationIdempotency,
   recurringPollController.deleteSchedule
@@ -58,8 +74,10 @@ router.delete(
  */
 router.patch(
   '/:id/toggle',
+  recurringScheduleIdParam.middleware,
   writeLimiter,
   recurringMutationIdempotency,
+  toggleScheduleBody.middleware,
   recurringPollController.toggleSchedule
 );
 
@@ -67,6 +85,11 @@ router.patch(
  * GET /api/recurring/:groupId/history
  * Получение истории запусков
  */
-router.get('/:groupId/history', recurringPollController.getExecutionHistory);
+router.get(
+  '/:groupId/history',
+  recurringGroupIdParam.middleware,
+  recurringHistoryQuery.middleware,
+  recurringPollController.getExecutionHistory
+);
 
 export default router;

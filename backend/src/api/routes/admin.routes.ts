@@ -3,6 +3,22 @@ import { AdminController } from '../controllers/admin.controller';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { writeLimiter } from '../middleware/rate-limiter';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
+import {
+  adminCleanupQuery,
+  adminDebtIdParam,
+  adminGroupBody,
+  adminGroupIdParam,
+  adminGroupQuery,
+  adminNotificationSettingsBody,
+  adminPollIdParam,
+  adminPollParticipantParams,
+  adminUserIdParam,
+  reminderSettingsBody,
+  setPollParticipantBody,
+  toggleActiveBody,
+  toggleAdminBody,
+  toggleParticipatesBody,
+} from '../schemas/admin';
 
 const router = Router();
 const adminMutationIdempotency = createIdempotencyMiddleware({
@@ -24,14 +40,19 @@ router.use(telegramAuthMiddleware);
  * GET /api/admin/users
  * Получение списка всех пользователей с их активностью
  */
-router.get('/users', (req, res) => adminController.getAllUsers(req, res));
+router.get('/users', adminGroupQuery.middleware, (req, res) =>
+  adminController.getAllUsers(req, res)
+);
 
 /**
  * GET /api/admin/users/:userId/stats
  * Получение статистики пользователя
  */
-router.get('/users/:userId/stats', (req, res) =>
-  adminController.getUserStats(req, res)
+router.get(
+  '/users/:userId/stats',
+  adminUserIdParam.middleware,
+  adminGroupQuery.middleware,
+  (req, res) => adminController.getUserStats(req, res)
 );
 
 /**
@@ -40,8 +61,10 @@ router.get('/users/:userId/stats', (req, res) =>
  */
 router.put(
   '/users/:userId/admin',
+  adminUserIdParam.middleware,
   writeLimiter,
   adminMutationIdempotency,
+  toggleAdminBody.middleware,
   (req, res) => adminController.toggleAdmin(req, res)
 );
 
@@ -51,8 +74,10 @@ router.put(
  */
 router.put(
   '/users/:userId/active',
+  adminUserIdParam.middleware,
   writeLimiter,
   adminMutationIdempotency,
+  toggleActiveBody.middleware,
   (req, res) => adminController.toggleActive(req, res)
 );
 
@@ -62,8 +87,10 @@ router.put(
  */
 router.put(
   '/users/:userId/participates-in-polls',
+  adminUserIdParam.middleware,
   writeLimiter,
   adminMutationIdempotency,
+  toggleParticipatesBody.middleware,
   (req, res) => adminController.toggleParticipatesInPolls(req, res)
 );
 
@@ -71,8 +98,11 @@ router.put(
  * GET /api/admin/polls/:pollId/participants
  * Список участников конкретного голосования (снимок + статус голосования)
  */
-router.get('/polls/:pollId/participants', (req, res) =>
-  adminController.getPollParticipants(req, res)
+router.get(
+  '/polls/:pollId/participants',
+  adminPollIdParam.middleware,
+  adminGroupQuery.middleware,
+  (req, res) => adminController.getPollParticipants(req, res)
 );
 
 /**
@@ -81,8 +111,10 @@ router.get('/polls/:pollId/participants', (req, res) =>
  */
 router.put(
   '/polls/:pollId/participants/:userId',
+  adminPollParticipantParams.middleware,
   writeLimiter,
   adminMutationIdempotency,
+  setPollParticipantBody.middleware,
   (req, res) => adminController.setPollParticipantStatus(req, res)
 );
 
@@ -92,13 +124,17 @@ router.put(
  * GET /api/admin/debtors
  * Получение списка всех должников с детальной информацией
  */
-router.get('/debtors', (req, res) => adminController.getAllDebtors(req, res));
+router.get('/debtors', adminGroupQuery.middleware, (req, res) =>
+  adminController.getAllDebtors(req, res)
+);
 
 /**
  * GET /api/admin/debt-stats
  * Статистика по задолженностям
  */
-router.get('/debt-stats', (req, res) => adminController.getDebtStats(req, res));
+router.get('/debt-stats', adminGroupQuery.middleware, (req, res) =>
+  adminController.getDebtStats(req, res)
+);
 
 /**
  * POST /api/admin/debts/:debtId/forgive
@@ -106,8 +142,10 @@ router.get('/debt-stats', (req, res) => adminController.getDebtStats(req, res));
  */
 router.post(
   '/debts/:debtId/forgive',
+  adminDebtIdParam.middleware,
   writeLimiter,
   adminMutationIdempotency,
+  adminGroupBody.middleware,
   (req, res) => adminController.forgiveDebt(req, res)
 );
 
@@ -119,6 +157,7 @@ router.post(
   '/debts/remind-all',
   writeLimiter,
   adminMutationIdempotency,
+  adminGroupBody.middleware,
   (req, res) => adminController.remindAllDebtors(req, res)
 );
 
@@ -128,8 +167,10 @@ router.post(
  */
 router.post(
   '/debts/:debtId/remind',
+  adminDebtIdParam.middleware,
   writeLimiter,
   adminMutationIdempotency,
+  adminGroupBody.middleware,
   (req, res) => adminController.remindDebtor(req, res)
 );
 
@@ -141,6 +182,7 @@ router.post(
  */
 router.delete(
   '/cleanup/old-polls',
+  adminCleanupQuery.middleware,
   writeLimiter,
   adminMutationIdempotency,
   (req, res) => adminController.cleanupOldPolls(req, res)
@@ -152,6 +194,7 @@ router.delete(
  */
 router.delete(
   '/cleanup/old-transactions',
+  adminCleanupQuery.middleware,
   writeLimiter,
   adminMutationIdempotency,
   (req, res) => adminController.cleanupOldTransactions(req, res)
@@ -161,7 +204,7 @@ router.delete(
  * GET /api/admin/cleanup/stats
  * Статистика для очистки (сколько старых данных)
  */
-router.get('/cleanup/stats', (req, res) =>
+router.get('/cleanup/stats', adminGroupQuery.middleware, (req, res) =>
   adminController.getCleanupStats(req, res)
 );
 
@@ -170,7 +213,7 @@ router.get('/cleanup/stats', (req, res) =>
  * Что именно удалит очистка за этот срок: сколько уйдёт и сколько
  * пропустится из-за непогашенных долгов.
  */
-router.get('/cleanup/preview', (req, res) =>
+router.get('/cleanup/preview', adminCleanupQuery.middleware, (req, res) =>
   adminController.previewCleanup(req, res)
 );
 
@@ -180,7 +223,7 @@ router.get('/cleanup/preview', (req, res) =>
  * GET /api/admin/reminder-settings/:groupId
  * Получение настроек авто-напоминаний для группы
  */
-router.get('/reminder-settings/:groupId', (req, res) =>
+router.get('/reminder-settings/:groupId', adminGroupIdParam.middleware, (req, res) =>
   adminController.getReminderSettings(req, res)
 );
 
@@ -190,8 +233,10 @@ router.get('/reminder-settings/:groupId', (req, res) =>
  */
 router.put(
   '/reminder-settings/:groupId',
+  adminGroupIdParam.middleware,
   writeLimiter,
   adminMutationIdempotency,
+  reminderSettingsBody.middleware,
   (req, res) => adminController.updateReminderSettings(req, res)
 );
 
@@ -199,8 +244,10 @@ router.put(
  * GET /api/admin/notification-settings/:groupId
  * Получение настроек уведомлений админа
  */
-router.get('/notification-settings/:groupId', (req, res) =>
-  adminController.getAdminNotificationSettings(req, res)
+router.get(
+  '/notification-settings/:groupId',
+  adminGroupIdParam.middleware,
+  (req, res) => adminController.getAdminNotificationSettings(req, res)
 );
 
 /**
@@ -209,8 +256,10 @@ router.get('/notification-settings/:groupId', (req, res) =>
  */
 router.put(
   '/notification-settings/:groupId',
+  adminGroupIdParam.middleware,
   writeLimiter,
   adminMutationIdempotency,
+  adminNotificationSettingsBody.middleware,
   (req, res) => adminController.updateAdminNotificationSettings(req, res)
 );
 

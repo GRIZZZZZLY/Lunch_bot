@@ -8,6 +8,14 @@ import { PollFlowService } from '../../services/poll-flow.service';
 import { telegramAuthMiddleware } from '../middleware/telegram-auth';
 import { reminderLimiter, writeLimiter } from '../middleware/rate-limiter';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
+import {
+  budgetDebtsQuery,
+  budgetPollIdParam,
+  budgetStatsQuery,
+  pollIdBody,
+  setOrderCostsBody,
+  transactionIdBody,
+} from '../schemas/budget';
 
 const router = Router();
 
@@ -35,26 +43,30 @@ const budgetController = new BudgetController(
 // Apply auth middleware to all routes
 router.use(telegramAuthMiddleware);
 
+/* Валидация по тому же правилу, что в остальных роутерах: `params`/`query` —
+   сразу после аутентификации (она здесь навешена через `router.use` выше),
+   `body` — после идемпотентности, чтобы ключ считался по исходному телу. */
+
 // GET routes
-router.get('/debts', (req, res) => budgetController.getDebts(req, res));
-router.get('/credits', (req, res) => budgetController.getCredits(req, res));
-router.get('/stats', (req, res) => budgetController.getStats(req, res));
-router.get('/poll-totals/:pollId', (req, res) => budgetController.getPollTotals(req, res));
+router.get('/debts', budgetDebtsQuery.middleware, (req, res) => budgetController.getDebts(req, res));
+router.get('/credits', budgetDebtsQuery.middleware, (req, res) => budgetController.getCredits(req, res));
+router.get('/stats', budgetStatsQuery.middleware, (req, res) => budgetController.getStats(req, res));
+router.get('/poll-totals/:pollId', budgetPollIdParam.middleware, (req, res) => budgetController.getPollTotals(req, res));
 
 // Cost splitting routes
-router.get('/order-costs/:pollId', (req, res) => budgetController.getOrderCosts(req, res));
-router.get('/poll-breakdown/:pollId', (req, res) => budgetController.getPollCostBreakdown(req, res));
+router.get('/order-costs/:pollId', budgetPollIdParam.middleware, (req, res) => budgetController.getOrderCosts(req, res));
+router.get('/poll-breakdown/:pollId', budgetPollIdParam.middleware, (req, res) => budgetController.getPollCostBreakdown(req, res));
 
 // POST routes
-router.post('/mark-paid', writeLimiter, budgetIdempotency, (req, res) => budgetController.markAsPaid(req, res));
-router.post('/confirm-payment', writeLimiter, budgetIdempotency, (req, res) => budgetController.confirmPayment(req, res));
-router.post('/undo-confirmation', writeLimiter, budgetIdempotency, (req, res) => budgetController.undoConfirmation(req, res));
-router.post('/cancel-mark', writeLimiter, budgetIdempotency, (req, res) => budgetController.cancelMark(req, res));
-router.post('/mark-all-paid', writeLimiter, budgetIdempotency, (req, res) => budgetController.markAllPaid(req, res));
-router.post('/send-reminder', reminderLimiter, budgetIdempotency, (req, res) => budgetController.sendReminder(req, res));
-router.post('/send-reminders-all', reminderLimiter, budgetIdempotency, (req, res) => budgetController.sendRemindersAll(req, res));
+router.post('/mark-paid', writeLimiter, budgetIdempotency, transactionIdBody.middleware, (req, res) => budgetController.markAsPaid(req, res));
+router.post('/confirm-payment', writeLimiter, budgetIdempotency, transactionIdBody.middleware, (req, res) => budgetController.confirmPayment(req, res));
+router.post('/undo-confirmation', writeLimiter, budgetIdempotency, transactionIdBody.middleware, (req, res) => budgetController.undoConfirmation(req, res));
+router.post('/cancel-mark', writeLimiter, budgetIdempotency, transactionIdBody.middleware, (req, res) => budgetController.cancelMark(req, res));
+router.post('/mark-all-paid', writeLimiter, budgetIdempotency, pollIdBody.middleware, (req, res) => budgetController.markAllPaid(req, res));
+router.post('/send-reminder', reminderLimiter, budgetIdempotency, transactionIdBody.middleware, (req, res) => budgetController.sendReminder(req, res));
+router.post('/send-reminders-all', reminderLimiter, budgetIdempotency, pollIdBody.middleware, (req, res) => budgetController.sendRemindersAll(req, res));
 
 // Cost splitting POST routes
-router.post('/order-costs/:pollId', (req, res) => budgetController.setOrderCosts(req, res));
+router.post('/order-costs/:pollId', budgetPollIdParam.middleware, setOrderCostsBody.middleware, (req, res) => budgetController.setOrderCosts(req, res));
 
 export default router;

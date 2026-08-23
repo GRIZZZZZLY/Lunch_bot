@@ -488,7 +488,13 @@ describe('POST /api/polls/repeat/:id', () => {
     await PollController.repeatPoll(adminRequest({ params: { id: 'нет' } }), res);
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'INVALID_POLL_ID' });
+    /* Был `INVALID_POLL_ID`, стал `INVALID_ID`. Это не потеря, а то самое
+       расхождение, ради которого задача заведена: за один и тот же `:id`
+       девять handler'ов отдавали `INVALID_ID`, а этот один — `INVALID_POLL_ID`.
+       Код теперь определяется ИМЕНЕМ параметра (`schemas/common.ts`), и
+       `INVALID_POLL_ID` остался за `:pollId` — там, где он действительно
+       называет другой параметр. Текст на фронте есть у обоих кодов. */
+    expect(res.body).toMatchObject({ code: 'INVALID_ID' });
   });
 
   it('исходное голосование не найдено — 404', async () => {

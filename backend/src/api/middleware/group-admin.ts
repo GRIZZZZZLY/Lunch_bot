@@ -1,12 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
+import { collapseRepeatedValue } from './validate';
 
 function resolveGroupId(req: Request): number | null {
-  const raw = (req.params?.groupId ?? req.query?.groupId ?? (req.body && req.body.groupId)) as
-    | string | number | undefined;
-  const n = typeof raw === 'string' ? parseInt(raw, 10) : raw;
-  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null;
+  /* `collapseRepeatedValue` здесь важнее, чем в контроллерах: от этого значения
+     зависит РЕШЕНИЕ О ДОСТУПЕ. `?groupId=5&groupId=5` приходит массивом, и
+     `parseInt(['5','5'])` возвращал 5 только по случайности — массив приводится
+     к строке `'5,5'`. `?groupId=5&groupId=7` тем же путём дал бы 5, то есть
+     проверку прав по ОДНОЙ группе при намерении обратиться к другой; теперь
+     такой запрос не проходит вовсе. */
+  const raw: unknown = collapseRepeatedValue(
+    req.params?.groupId ?? req.query?.groupId ?? (req.body as { groupId?: unknown })?.groupId
+  );
+  if (raw === undefined || raw === null || raw === '') return null;
+
+  const groupId = Number(raw);
+  return Number.isInteger(groupId) && groupId > 0 ? groupId : null;
 }
 
 export async function requireGroupAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {

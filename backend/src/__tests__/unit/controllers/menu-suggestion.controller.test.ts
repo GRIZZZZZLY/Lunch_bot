@@ -236,14 +236,23 @@ describe('getSuggestions: кто что видит', () => {
     expect(groups.isUserGroupAdmin).not.toHaveBeenCalled();
   });
 
+  /* Раньше испорченный `groupId` трактовался как отсутствующий: запрос молча
+     отдавал только свои предложения вместо ошибки. Это ровно тот класс
+     дефекта, из-за которого задача 02 и заведена — фильтр, тихо
+     превратившийся в другой фильтр. Теперь такой запрос — 400. */
   it.each([['нечисловой', 'нет'], ['нулевой', '0'], ['отрицательный', '-3']])(
-    '%s groupId трактуется как отсутствующий — только свои',
+    '%s groupId — 400, а не молчаливая подмена фильтра',
     async (_name, raw) => {
       groups.isUserGroupAdmin.mockResolvedValue(true);
 
-      await call(getSuggestions, { user: OTHER, query: { groupId: raw } });
+      const { res, body } = await call(getSuggestions, {
+        user: OTHER,
+        query: { groupId: raw },
+      });
 
-      expect(usedFilters()).toEqual({ suggestedBy: 9 });
+      expect(res.statusCode).toBe(400);
+      expect(body).toMatchObject({ code: 'INVALID_GROUP_ID' });
+      expect(suggestions.getSuggestions).not.toHaveBeenCalled();
     }
   );
 

@@ -143,7 +143,13 @@ describe('POST /api/store-runs', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ error: 'Invalid input' });
+    /* Раньше ответ был `{ error: 'Invalid input', issues }` — без `code`, то
+       есть фронт не мог выбрать по нему текст. Теперь форма та же, что у
+       остальных маршрутов, и проверяется код плюс поле, а не английская фраза. */
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      errors: [expect.objectContaining({ field: Object.keys(override)[0] })],
+    });
   });
 
   it('уже есть активный забег — 409', async () => {
@@ -325,7 +331,10 @@ describe('POST /api/store-runs/:id/items', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ error: 'Invalid id' });
+    expect(res.body).toMatchObject({
+      code: 'INVALID_ID',
+      errors: [expect.objectContaining({ field: 'id' })],
+    });
   });
 
   it.each([
@@ -418,7 +427,10 @@ describe('PATCH /api/store-runs/:id/items/:itemId', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ error: 'Invalid itemId' });
+    expect(res.body).toMatchObject({
+      code: 'INVALID_ID',
+      errors: [expect.objectContaining({ field: 'itemId' })],
+    });
   });
 
   it('слишком длинное имя — 400', async () => {

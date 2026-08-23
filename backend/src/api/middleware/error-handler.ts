@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { logger } from '../../utils/logger';
 import { BaseError, formatErrorForLogging, ValidationError, RateLimitError } from '../../utils/error';
 import type { ApiErrorCode } from '../error-codes';
+import { RequestValidationError } from './validate';
 import { sendProblem, makeProblem } from '../../utils/problem';
 
 /**
@@ -98,6 +99,13 @@ export function errorHandler(
     if (err instanceof RateLimitError) {
       extensions.retryAfter = err.retryAfter;
       res.setHeader('Retry-After', String(err.retryAfter));
+    }
+    /* Разбор входа может сработать и в контроллере — если middleware контракта
+       на маршруте не отработал. Ответ обязан быть тем же самым, включая
+       `errors[]`: иначе один и тот же невалидный запрос давал бы клиенту два
+       разных тела в зависимости от того, кто его поймал. */
+    if (err instanceof RequestValidationError) {
+      extensions.errors = err.issues;
     }
 
     sendProblem(

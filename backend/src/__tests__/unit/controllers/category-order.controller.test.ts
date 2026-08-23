@@ -970,10 +970,14 @@ describe('PUT /api/category-orders/:id/costs', () => {
     );
 
     expect(res.statusCode).toBe(400);
+    /* Название поля осталось в ответе, но пришло из схемы, а не из
+       рукописной строки: теперь оно и в `errors[]`, а не только внутри текста.
+       Проверяется именно поле — на него смотрит форма на клиенте. */
     expect(res.body).toMatchObject({
       code: 'VALIDATION_ERROR',
-      error: `${field} must be a non-negative number`,
+      errors: [expect.objectContaining({ field })],
     });
+    expect(res.body).toHaveProperty('error', expect.stringContaining(field));
   });
 
   it('нечисловая стоимость — 400', async () => {

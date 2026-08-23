@@ -8,7 +8,34 @@ import {
   heavyOperationLimiter,
 } from '../middleware/rate-limiter';
 import { createIdempotencyMiddleware } from '../middleware/idempotency';
+import {
+  cancelPollBody,
+  completeMultiWinnerBody,
+  createPollBody,
+  createPollFromWebAppBody,
+  pollGroupIdParam,
+  pollGroupQuery,
+  pollHistoryQuery,
+  pollIdParam,
+  pollUserIdParam,
+  popularItemsQuery,
+  voteBody,
+  voteMultipleBody,
+} from '../schemas/poll';
 
+/**
+ * Порядок валидации в цепочке — не вопрос вкуса:
+ *
+ * - контракты `params`/`query` идут СРАЗУ после аутентификации, потому что
+ *   middleware авторизации ниже сами читают `req.params` и с `NaN` пошли бы в
+ *   базу за несуществующим ресурсом;
+ * - контракт `body` идёт ПОСЛЕ идемпотентности: ключ считается по исходному
+ *   телу, и если валидация переписала бы тело раньше, повтор с другим телом
+ *   попал бы в тот же слот.
+ *
+ * Валидируется то, что контроллер действительно читает. `query` без контракта
+ * на маршруте означает «контроллер не читает query», а не «забыли».
+ */
 const router = express.Router();
 const pollMutationIdempotency = createIdempotencyMiddleware({
   scope: 'poll',
@@ -23,7 +50,12 @@ const pollVoteIdempotency = createIdempotencyMiddleware({
  * GET /api/polls
  * Получение всех голосований с фильтрацией
  */
-router.get('/', telegramAuthMiddleware, pollController.getPollHistory);
+router.get(
+  '/',
+  telegramAuthMiddleware,
+  pollHistoryQuery.middleware,
+  pollController.getPollHistory
+);
 
 /**
  * GET /api/polls/active
@@ -35,7 +67,12 @@ router.get('/active', telegramAuthMiddleware, pollController.getActivePolls);
  * GET /api/polls/history
  * Получение истории голосований
  */
-router.get('/history', telegramAuthMiddleware, pollController.getPollHistory);
+router.get(
+  '/history',
+  telegramAuthMiddleware,
+  pollHistoryQuery.middleware,
+  pollController.getPollHistory
+);
 
 /**
  * GET /api/polls/stats
@@ -44,6 +81,7 @@ router.get('/history', telegramAuthMiddleware, pollController.getPollHistory);
 router.get(
   '/stats',
   telegramAuthMiddleware,
+  pollGroupQuery.middleware,
   heavyOperationLimiter,
   pollController.getPollStats
 );
@@ -70,6 +108,7 @@ router.get(
 router.get(
   '/user-stats/:userId',
   telegramAuthMiddleware,
+  pollUserIdParam.middleware,
   requireGroupAdminOverUser,
   pollController.getUserStatsByUserId
 );
@@ -81,6 +120,7 @@ router.get(
 router.get(
   '/popular-items',
   telegramAuthMiddleware,
+  popularItemsQuery.middleware,
   pollController.getPopularItems
 );
 
@@ -92,6 +132,7 @@ router.get(
 router.get(
   '/last-completed',
   telegramAuthMiddleware,
+  pollGroupQuery.middleware,
   pollController.getLastCompleted
 );
 
@@ -102,6 +143,7 @@ router.get(
 router.get(
   '/today-completed/:groupId',
   telegramAuthMiddleware,
+  pollGroupIdParam.middleware,
   pollController.getTodayCompletedPoll
 );
 
@@ -113,6 +155,7 @@ router.get(
 router.post(
   '/repeat/:id',
   telegramAuthMiddleware,
+  pollIdParam.middleware,
   pollMutationIdempotency,
   pollController.repeatPoll
 );
@@ -121,7 +164,12 @@ router.post(
  * GET /api/polls/:id
  * Получение информации о голосовании
  */
-router.get('/:id', telegramAuthMiddleware, pollController.getPollById);
+router.get(
+  '/:id',
+  telegramAuthMiddleware,
+  pollIdParam.middleware,
+  pollController.getPollById
+);
 
 /**
  * GET /api/polls/:id/results
@@ -130,6 +178,7 @@ router.get('/:id', telegramAuthMiddleware, pollController.getPollById);
 router.get(
   '/:id/results',
   telegramAuthMiddleware,
+  pollIdParam.middleware,
   pollController.getPollResults
 );
 
@@ -137,7 +186,12 @@ router.get(
  * GET /api/polls/:id/votes
  * Получение голосов по голосованию
  */
-router.get('/:id/votes', telegramAuthMiddleware, pollController.getPollVotes);
+router.get(
+  '/:id/votes',
+  telegramAuthMiddleware,
+  pollIdParam.middleware,
+  pollController.getPollVotes
+);
 
 /**
  * POST /api/polls
@@ -148,6 +202,7 @@ router.post(
   telegramAuthMiddleware,
   pollCreationLimiter,
   pollMutationIdempotency,
+  createPollBody.middleware,
   pollController.createPoll
 );
 
@@ -160,6 +215,7 @@ router.post(
   telegramAuthMiddleware,
   pollCreationLimiter,
   pollMutationIdempotency,
+  createPollFromWebAppBody.middleware,
   pollController.createPollFromWebApp
 );
 
@@ -170,6 +226,7 @@ router.post(
 router.get(
   '/active/:groupId',
   telegramAuthMiddleware,
+  pollGroupIdParam.middleware,
   pollController.getActivePollInGroup
 );
 
@@ -180,6 +237,7 @@ router.get(
 router.patch(
   '/:id/complete',
   telegramAuthMiddleware,
+  pollIdParam.middleware,
   pollMutationIdempotency,
   pollController.completePoll
 );
@@ -191,7 +249,9 @@ router.patch(
 router.patch(
   '/:id/complete-multi',
   telegramAuthMiddleware,
+  pollIdParam.middleware,
   pollMutationIdempotency,
+  completeMultiWinnerBody.middleware,
   pollController.completePollMultiWinner
 );
 
@@ -202,7 +262,9 @@ router.patch(
 router.patch(
   '/:id/cancel',
   telegramAuthMiddleware,
+  pollIdParam.middleware,
   pollMutationIdempotency,
+  cancelPollBody.middleware,
   pollController.cancelPoll
 );
 
@@ -213,8 +275,10 @@ router.patch(
 router.post(
   '/:id/vote',
   telegramAuthMiddleware,
+  pollIdParam.middleware,
   voteLimiter,
   pollVoteIdempotency,
+  voteBody.middleware,
   pollController.vote
 );
 
@@ -225,8 +289,10 @@ router.post(
 router.post(
   '/:id/vote-multiple',
   telegramAuthMiddleware,
+  pollIdParam.middleware,
   voteLimiter,
   pollVoteIdempotency,
+  voteMultipleBody.middleware,
   pollController.voteMultiple
 );
 
@@ -237,6 +303,7 @@ router.post(
 router.delete(
   '/:id/vote',
   telegramAuthMiddleware,
+  pollIdParam.middleware,
   pollVoteIdempotency,
   pollController.removeVote
 );
@@ -248,6 +315,7 @@ router.delete(
 router.post(
   '/:id/roulette',
   telegramAuthMiddleware,
+  pollIdParam.middleware,
   pollMutationIdempotency,
   pollController.runRoulette
 );

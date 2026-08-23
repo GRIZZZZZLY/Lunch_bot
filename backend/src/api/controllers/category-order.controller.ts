@@ -5,7 +5,13 @@ import { MultiCategoryResponsibleService } from '../../services/multi-category-r
 import { UserService } from '../../services/user.service';
 import { logger } from '../../utils/logger';
 import { requireAuthUser } from '../middleware/require-auth-user';
-import { getParam } from '../../utils/request-params';
+import { respondIfInvalidInput } from '../middleware/validate';
+import {
+  categoryOrderIdParam,
+  categoryOrderPollIdParam,
+  saveOrderItemBody,
+  updateCostsBody,
+} from '../schemas/category-order';
 import { toNumber } from '../../utils/decimal';
 import { serializeBigInt } from '../../utils/serialize';
 
@@ -43,16 +49,7 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const pollId = parseInt(getParam(req.params, 'pollId'), 10);
-
-      if (isNaN(pollId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid pollId',
-          code: 'INVALID_POLL_ID',
-        });
-        return;
-      }
+      const { pollId } = categoryOrderPollIdParam.get(req);
 
       const categoryOrders =
         await CategoryOrderService.getCategoryOrdersForPoll(pollId);
@@ -64,6 +61,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting category orders for poll:', error);
       next(error);
     }
@@ -82,16 +80,7 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const pollId = parseInt(getParam(req.params, 'pollId'), 10);
-
-      if (isNaN(pollId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid pollId',
-          code: 'INVALID_POLL_ID',
-        });
-        return;
-      }
+      const { pollId } = categoryOrderPollIdParam.get(req);
 
       const categoryOrders =
         await CategoryOrderService.getCategoryOrdersForPoll(pollId);
@@ -115,6 +104,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting user category orders for poll:', error);
       next(error);
     }
@@ -133,16 +123,7 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const id = parseInt(getParam(req.params, 'id'), 10);
-
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid category order ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
+      const { id } = categoryOrderIdParam.get(req);
 
       const categoryOrder = await CategoryOrderService.getCategoryOrder(id);
 
@@ -161,6 +142,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting category order:', error);
       next(error);
     }
@@ -179,40 +161,17 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
-      const { userId, itemName, price, notes } = req.body;
+      const { id: categoryOrderId } = categoryOrderIdParam.get(req);
+      /* Приведение и обрезка пробелов теперь в схеме: `userId` — целое
+         положительное, `itemName` — непустая строка после trim, `price` —
+         конечное положительное число. */
+      const {
+        userId: parsedUserId,
+        itemName: normalizedItemName,
+        price: parsedPrice,
+        notes: normalizedNotes,
+      } = saveOrderItemBody.get(req);
       const enteredBy = req.user?.id;
-
-      if (isNaN(categoryOrderId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid category order ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
-
-      const parsedUserId = Number(userId);
-      const parsedPrice = Number(price);
-      const normalizedItemName =
-        typeof itemName === 'string' ? itemName.trim() : '';
-      const normalizedNotes = typeof notes === 'string' ? notes.trim() : notes;
-
-      if (
-        !Number.isInteger(parsedUserId) ||
-        parsedUserId <= 0 ||
-        !normalizedItemName ||
-        !Number.isFinite(parsedPrice) ||
-        parsedPrice <= 0
-      ) {
-        res.status(400).json({
-          success: false,
-          error:
-            'userId must be positive, itemName is required, price must be positive',
-          code: 'VALIDATION_ERROR',
-        });
-        return;
-      }
 
       if (!enteredBy) {
         res.status(401).json({
@@ -265,6 +224,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error saving order item:', error);
       next(error);
     }
@@ -283,16 +243,7 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const id = parseInt(getParam(req.params, 'id'), 10);
-
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid order item ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
+      const { id } = categoryOrderIdParam.get(req);
 
       /* Здесь `:id` — ПОЗИЦИЯ, а право на удаление принадлежит ответственному
          за ЗАКАЗ. Поэтому проверка доступа осталась в контроллере, а не уехала
@@ -339,6 +290,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error deleting order item:', error);
       next(error);
     }
@@ -357,16 +309,7 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
-
-      if (isNaN(categoryOrderId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid category order ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
+      const { id: categoryOrderId } = categoryOrderIdParam.get(req);
 
       const responsibleUserId =
         await CategoryOrderService.getResponsibleUserId(
@@ -391,6 +334,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting progress:', error);
       next(error);
     }
@@ -409,16 +353,7 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
-
-      if (isNaN(categoryOrderId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid category order ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
+      const { id: categoryOrderId } = categoryOrderIdParam.get(req);
 
       const responsibleUserId =
         await CategoryOrderService.getResponsibleUserId(
@@ -455,6 +390,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting participants:', error);
       next(error);
     }
@@ -469,16 +405,7 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
-
-      if (isNaN(categoryOrderId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid category order ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
+      const { id: categoryOrderId } = categoryOrderIdParam.get(req);
 
       const responsibleUserId =
         await CategoryOrderService.getResponsibleUserId(
@@ -504,6 +431,10 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
+      /* Единственный handler здесь, который отвечает сам, а не через `next`:
+         его `catch` превратил бы ошибку разбора входа в 500. */
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error finalizing calculation:', error);
       res.status(500).json({
         success: false,
@@ -526,15 +457,7 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
-      if (isNaN(categoryOrderId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid category order ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
+      const { id: categoryOrderId } = categoryOrderIdParam.get(req);
 
       const categoryOrder =
         await CategoryOrderService.getCategoryOrder(categoryOrderId);
@@ -587,6 +510,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error volunteering for category:', error);
       next(error);
     }
@@ -605,17 +529,8 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
-      const { deliveryCost, serviceFee, tip, notes } = req.body;
-
-      if (isNaN(categoryOrderId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid category order ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
+      const { id: categoryOrderId } = categoryOrderIdParam.get(req);
+      const parsedCosts = updateCostsBody.get(req);
 
       const responsibleUserId =
         await CategoryOrderService.getResponsibleUserId(
@@ -631,48 +546,6 @@ export class CategoryOrderController {
         return;
       }
 
-      const parseOptionalCost = (
-        value: unknown,
-        fieldName: string
-      ): number | undefined => {
-        if (value === undefined || value === null || value === '') {
-          return undefined;
-        }
-
-        const parsed = Number(value);
-        if (!Number.isFinite(parsed) || parsed < 0) {
-          throw new Error(`${fieldName} must be a non-negative number`);
-        }
-
-        return parsed;
-      };
-
-      let parsedCosts: {
-        deliveryCost?: number;
-        serviceFee?: number;
-        tip?: number;
-        notes?: string;
-      };
-
-      try {
-        parsedCosts = {
-          deliveryCost: parseOptionalCost(deliveryCost, 'deliveryCost'),
-          serviceFee: parseOptionalCost(serviceFee, 'serviceFee'),
-          tip: parseOptionalCost(tip, 'tip'),
-          notes: typeof notes === 'string' ? notes.trim() : notes,
-        };
-      } catch (validationError) {
-        res.status(400).json({
-          success: false,
-          error:
-            validationError instanceof Error
-              ? validationError.message
-              : 'Invalid costs',
-          code: 'VALIDATION_ERROR',
-        });
-        return;
-      }
-
       const categoryOrder = await CategoryOrderService.updateCosts(
         categoryOrderId,
         parsedCosts
@@ -684,6 +557,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error updating costs:', error);
       next(error);
     }
@@ -699,17 +573,8 @@ export class CategoryOrderController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const orderItemId = parseInt(getParam(req.params, 'id'), 10);
+      const { id: orderItemId } = categoryOrderIdParam.get(req);
       const user = req.user;
-
-      if (isNaN(orderItemId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid order item ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
 
       /* Право на историю правок проверяет requireGroupAdmin на маршруте:
          это данные группы, и решает роль в ней. Здесь остаётся только проверка
@@ -733,6 +598,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting edit history:', error);
       next(error);
     }
@@ -751,16 +617,7 @@ export class CategoryOrderController {
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      const categoryOrderId = parseInt(getParam(req.params, 'id'), 10);
-
-      if (isNaN(categoryOrderId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid category order ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
+      const { id: categoryOrderId } = categoryOrderIdParam.get(req);
 
       const responsibleUserId =
         await CategoryOrderService.getResponsibleUserId(
@@ -786,6 +643,7 @@ export class CategoryOrderController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting order items:', error);
       next(error);
     }

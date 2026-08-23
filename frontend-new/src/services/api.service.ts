@@ -83,9 +83,20 @@ class ApiService {
   private buildUrl(url: string, params?: QueryParams): string {
     const groupId = useAppStore.getState().currentGroupId;
     const merged: QueryParams = groupId ? { groupId, ...(params ?? {}) } : { ...(params ?? {}) };
+
+    /* Параметр, который вызывающий уже вписал в путь, второй раз не дописывается.
+       Половина методов `admin.service.ts` и `suggestions.service.ts` встраивает
+       `?groupId=` прямо в url, и инъекция из стора давала `?groupId=5&groupId=5`.
+       На бэкенде это приходило массивом `['5','5']`; работало только потому, что
+       `parseInt` приводит массив к строке `'5,5'` и возвращает 5. Первая же
+       схема с `z.coerce.number()` получила бы на этом NaN. */
+    const existing = new URLSearchParams(url.includes('?') ? url.slice(url.indexOf('?') + 1) : '');
+
     const search = new URLSearchParams();
     for (const [key, value] of Object.entries(merged)) {
-      if (value !== undefined) search.append(key, String(value));
+      if (value === undefined) continue;
+      if (existing.has(key)) continue;
+      search.append(key, String(value));
     }
     const query = search.toString();
     return `${this.baseURL}${url}${query ? `${url.includes('?') ? '&' : '?'}${query}` : ''}`;

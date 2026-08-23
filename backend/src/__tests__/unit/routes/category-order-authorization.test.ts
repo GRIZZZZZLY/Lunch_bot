@@ -123,30 +123,51 @@ describe('маршруты категорийных заказов', () => {
 
     expect(actual).toEqual({
       'GET /polls/:pollId/category-orders':
-        'telegramAuthMiddleware | requirePollAccess | getCategoryOrdersForPoll',
+        'telegramAuthMiddleware | validateParams | requirePollAccess | getCategoryOrdersForPoll',
       'GET /polls/:pollId/category-orders/my':
-        'telegramAuthMiddleware | requirePollAccess | getMyCategoryOrdersForPoll',
+        'telegramAuthMiddleware | validateParams | requirePollAccess | getMyCategoryOrdersForPoll',
       'GET /category-orders/:id':
-        'telegramAuthMiddleware | requireCategoryOrderParticipant | getCategoryOrder',
+        'telegramAuthMiddleware | validateParams | requireCategoryOrderParticipant | getCategoryOrder',
       'GET /category-orders/:id/progress':
-        'telegramAuthMiddleware | requireCategoryOrderParticipant | getProgress',
+        'telegramAuthMiddleware | validateParams | requireCategoryOrderParticipant | getProgress',
       'GET /category-orders/:id/participants':
-        'telegramAuthMiddleware | requireCategoryOrderResponsible | getParticipants',
+        'telegramAuthMiddleware | validateParams | requireCategoryOrderResponsible | getParticipants',
       'GET /category-orders/:id/order-items':
-        'telegramAuthMiddleware | requireCategoryOrderResponsible | getOrderItems',
+        'telegramAuthMiddleware | validateParams | requireCategoryOrderResponsible | getOrderItems',
       'GET /order-items/:id/edit-history':
-        'telegramAuthMiddleware | requireOrderItemGroupAdmin | getEditHistory',
+        'telegramAuthMiddleware | validateParams | requireOrderItemGroupAdmin | getEditHistory',
       'POST /category-orders/:id/order-items':
-        'telegramAuthMiddleware | <anonymous> | requireCategoryOrderResponsible | idempotencyMiddleware | saveOrderItem',
+        'telegramAuthMiddleware | validateParams | <anonymous> | requireCategoryOrderResponsible | idempotencyMiddleware | validateBody | saveOrderItem',
       'POST /category-orders/:id/finalize':
-        'telegramAuthMiddleware | <anonymous> | requireCategoryOrderResponsible | idempotencyMiddleware | finalizeCalculation',
+        'telegramAuthMiddleware | validateParams | <anonymous> | requireCategoryOrderResponsible | idempotencyMiddleware | finalizeCalculation',
       'POST /category-orders/:id/volunteer':
-        'telegramAuthMiddleware | <anonymous> | requireCategoryOrderPollAccess | idempotencyMiddleware | volunteerForCategory',
+        'telegramAuthMiddleware | validateParams | <anonymous> | requireCategoryOrderPollAccess | idempotencyMiddleware | volunteerForCategory',
       'PUT /category-orders/:id/costs':
-        'telegramAuthMiddleware | <anonymous> | requireCategoryOrderResponsible | idempotencyMiddleware | updateCosts',
+        'telegramAuthMiddleware | validateParams | <anonymous> | requireCategoryOrderResponsible | idempotencyMiddleware | validateBody | updateCosts',
       'DELETE /order-items/:id':
-        'telegramAuthMiddleware | <anonymous> | idempotencyMiddleware | deleteOrderItem',
+        'telegramAuthMiddleware | validateParams | <anonymous> | idempotencyMiddleware | deleteOrderItem',
     });
+  });
+
+  /* Разбор `:id` обязан стоять до авторизации: guard'ы сами читают параметр и
+     с `NaN` пошли бы в базу за несуществующим ресурсом. А разбор тела —
+     наоборот, после идемпотентности: ключ считается по исходному телу. */
+  it('params валидируются до авторизации, body — после идемпотентности', () => {
+    for (const r of routes) {
+      const paramsAt = r.chain.indexOf('validateParams');
+      const guardAt = r.chain.findIndex(n => n.startsWith('require'));
+      if (paramsAt >= 0 && guardAt >= 0) {
+        expect(paramsAt).toBeLessThan(guardAt);
+      }
+
+      const bodyAt = r.chain.indexOf('validateBody');
+      const idemAt = r.chain.findIndex(n =>
+        n.toLowerCase().includes('idempotency')
+      );
+      if (bodyAt >= 0 && idemAt >= 0) {
+        expect(bodyAt).toBeGreaterThan(idemAt);
+      }
+    }
   });
 
   /* Идемпотентность — ПОСЛЕ авторизации: иначе отказ успел бы записаться как

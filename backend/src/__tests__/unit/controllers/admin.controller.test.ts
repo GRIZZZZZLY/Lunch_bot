@@ -651,28 +651,37 @@ describe('PUT /api/admin/polls/:pollId/participants/:userId', () => {
     expect(res.body).toMatchObject({ autoClosed: true });
   });
 
-  it('нестроковая причина отбрасывается', async () => {
+  /* Раньше нестроковая причина молча отбрасывалась и в сервис уходил
+     `undefined`: администратор был уверен, что причину записали. Схема
+     требует строку, поэтому теперь это 400 — вызывающий узнаёт, что его
+     ввод не принят. */
+  it('нестроковая причина — 400, а не молчаливое отбрасывание', async () => {
+    const res = mockResponse();
+
     await controller.setPollParticipantStatus(
       mockRequest({
         user: GROUP_ADMIN,
         params,
         body: { status: 'EXPECTED', reason: 42 },
       }),
-      mockResponse()
+      res
     );
 
-    expect(adminStub.setPollParticipantStatus).toHaveBeenCalledWith(
-      12,
-      2,
-      'EXPECTED',
-      undefined
-    );
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      errors: [expect.objectContaining({ field: 'reason' })],
+    });
+    expect(adminStub.setPollParticipantStatus).not.toHaveBeenCalled();
   });
 
+  /* Код был общий (`VALIDATION_ERROR` с текстом «Invalid IDs») и не давал
+     понять, какой из двух параметров неверен. Теперь код называет параметр,
+     а поле приходит в `errors[]`. */
   it.each([
-    ['нечисловой pollId', { pollId: 'нет', userId: '2' }],
-    ['нечисловой userId', { pollId: '12', userId: 'нет' }],
-  ])('%s — 400', async (_label, badParams) => {
+    ['нечисловой pollId', { pollId: 'нет', userId: '2' }, 'INVALID_POLL_ID', 'pollId'],
+    ['нечисловой userId', { pollId: '12', userId: 'нет' }, 'INVALID_USER_ID', 'userId'],
+  ])('%s — 400', async (_label, badParams, code, field) => {
     const res = mockResponse();
 
     await controller.setPollParticipantStatus(
@@ -685,7 +694,10 @@ describe('PUT /api/admin/polls/:pollId/participants/:userId', () => {
     );
 
     expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(res.body).toMatchObject({
+      code,
+      errors: [expect.objectContaining({ field })],
+    });
   });
 
   it.each([
@@ -1048,13 +1060,19 @@ describe('очистка старых данных', () => {
     expect(adminStub.previewPollCleanup).not.toHaveBeenCalled();
   });
 
-  it('неизвестный kind трактуется как голосования', async () => {
+  /* `kind` раньше сваливался в 'polls' на любом непонятном значении, то есть
+     `?kind=transaction` (без s) показывал предпросмотр не того, что админ
+     собирался удалять. Теперь — 400. */
+  it('неизвестный kind — 400, а не тихая подстановка polls', async () => {
+    const res = mockResponse();
+
     await controller.previewCleanup(
       mockRequest({ user: GROUP_ADMIN, query: { ...query, kind: 'что-то' } }),
-      mockResponse()
+      res
     );
 
-    expect(adminStub.previewPollCleanup).toHaveBeenCalled();
+    expect(res.statusCode).toBe(400);
+    expect(adminStub.previewPollCleanup).not.toHaveBeenCalled();
   });
 
   it('предпросмотр: не админ — 403', async () => {
@@ -1126,20 +1144,68 @@ describe('настройки напоминаний', () => {
     expect(res.statusCode).toBe(500);
   });
 
+  const REMINDER_SETTINGS = {
+    isEnabled: false,
+    intervalDays: 3,
+    messageTemplate: 'Напоминаю про долг',
+    minDebtAge: 1,
+    maxReminders: 5,
+  };
+
   it('запись передаёт тело и id админа', async () => {
     const res = mockResponse();
 
     await controller.updateReminderSettings(
-      mockRequest({ user: GROUP_ADMIN, params, body: { enabled: false } }),
+      mockRequest({ user: GROUP_ADMIN, params, body: { ...REMINDER_SETTINGS } }),
       res
     );
 
     expect(reminderStub.updateReminderSettings).toHaveBeenCalledWith(
       100,
-      { enabled: false },
+      REMINDER_SETTINGS,
       1
     );
     expect(res.body).toMatchObject({ message: 'Настройки напоминаний обновлены' });
+  });
+
+  /* Ключевая проверка этой пары эндпоинтов: тело уходит в Prisma целиком
+     (`update: data`). Незаявленное поле раньше означало исключение Prisma и
+     500, а поле, совпавшее с колонкой (`groupId` есть в типе на клиенте —
+     `Partial<ReminderSettings>`), переписало бы настройки ЧУЖОЙ группы.
+     Поэтому здесь единственная в проекте строгая схема тела. */
+  it('лишнее поле в теле — 400, а не запись в Prisma', async () => {
+    const res = mockResponse();
+
+    await controller.updateReminderSettings(
+      mockRequest({
+        user: GROUP_ADMIN,
+        params,
+        body: { ...REMINDER_SETTINGS, groupId: 999 },
+      }),
+      res
+    );
+
+    expect(res.statusCode).toBe(400);
+    expect(reminderStub.updateReminderSettings).not.toHaveBeenCalled();
+  });
+
+  /* Частичное тело — законный ввод: `strict` запрещает ЛИШНИЕ поля, но не
+     делает объявленные обязательными. Смешать эти два свойства значит сломать
+     рабочий экран. */
+  it('частичное тело сохраняется', async () => {
+    const res = mockResponse();
+
+    await controller.updateReminderSettings(
+      mockRequest({ user: GROUP_ADMIN, params, body: { intervalDays: 7 } }),
+      res
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(reminderStub.updateReminderSettings).toHaveBeenCalledWith(
+      100,
+      { intervalDays: 7 },
+      1
+    );
   });
 
   it('запись: нечисловой groupId — 400', async () => {
@@ -1158,7 +1224,7 @@ describe('настройки напоминаний', () => {
     const res = mockResponse();
 
     await controller.updateReminderSettings(
-      mockRequest({ user: GLOBAL_ADMIN, params, body: {} }),
+      mockRequest({ user: GLOBAL_ADMIN, params, body: { ...REMINDER_SETTINGS } }),
       res
     );
 
@@ -1171,7 +1237,7 @@ describe('настройки напоминаний', () => {
     const res = mockResponse();
 
     await controller.updateReminderSettings(
-      mockRequest({ user: GROUP_ADMIN, params, body: {} }),
+      mockRequest({ user: GROUP_ADMIN, params, body: { ...REMINDER_SETTINGS } }),
       res
     );
 
@@ -1229,7 +1295,57 @@ describe('настройки уведомлений админов', () => {
     expect(res.statusCode).toBe(500);
   });
 
+  const NOTIFICATION_SETTINGS = {
+    notifyOnNewUser: true,
+    notifyOnNewPoll: false,
+    notifyOnPollEnd: false,
+    notifyOnDebtPaid: false,
+  };
+
   it('запись передаёт тело', async () => {
+    const res = mockResponse();
+
+    await controller.updateAdminNotificationSettings(
+      mockRequest({ user: GROUP_ADMIN, params, body: { ...NOTIFICATION_SETTINGS } }),
+      res
+    );
+
+    expect(reminderStub.updateAdminNotificationSettings).toHaveBeenCalledWith(
+      100,
+      NOTIFICATION_SETTINGS
+    );
+    expect(res.body).toMatchObject({ message: 'Настройки уведомлений обновлены' });
+  });
+
+  /**
+   * Тумблеры уведомлений отправляют ПО ОДНОМУ полю — так написан
+   * `ReminderSettingsCard.tsx`. Первая версия схемы требовала все четыре и
+   * выключила все четыре переключателя; поймало это ревью, а не тест. Теперь
+   * закреплено: частичное тело проходит.
+   */
+  it.each([
+    'notifyOnNewUser',
+    'notifyOnNewPoll',
+    'notifyOnPollEnd',
+    'notifyOnDebtPaid',
+  ])('одно поле %s сохраняется без остальных', async field => {
+    const res = mockResponse();
+
+    await controller.updateAdminNotificationSettings(
+      mockRequest({ user: GROUP_ADMIN, params, body: { [field]: true } }),
+      res
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(reminderStub.updateAdminNotificationSettings).toHaveBeenCalledWith(100, {
+      [field]: true,
+    });
+  });
+
+  /* Тело так же уходит в Prisma целиком — см. парную проверку у настроек
+     напоминаний. Поле `polls` из прежнего теста колонкой не является: до схемы
+     такой запрос давал 500. */
+  it('поле не из схемы — 400, а не 500 из Prisma', async () => {
     const res = mockResponse();
 
     await controller.updateAdminNotificationSettings(
@@ -1237,10 +1353,8 @@ describe('настройки уведомлений админов', () => {
       res
     );
 
-    expect(reminderStub.updateAdminNotificationSettings).toHaveBeenCalledWith(100, {
-      polls: false,
-    });
-    expect(res.body).toMatchObject({ message: 'Настройки уведомлений обновлены' });
+    expect(res.statusCode).toBe(400);
+    expect(reminderStub.updateAdminNotificationSettings).not.toHaveBeenCalled();
   });
 
   it('запись: нечисловой groupId — 400', async () => {
@@ -1273,7 +1387,7 @@ describe('настройки уведомлений админов', () => {
     const res = mockResponse();
 
     await controller.updateAdminNotificationSettings(
-      mockRequest({ user: GROUP_ADMIN, params, body: {} }),
+      mockRequest({ user: GROUP_ADMIN, params, body: { ...NOTIFICATION_SETTINGS } }),
       res
     );
 

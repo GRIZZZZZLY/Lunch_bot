@@ -8,9 +8,23 @@ import { CreatePollData, CreateVoteData } from '../../types/poll.types';
 import { createPollFromWebApp } from '../../services/poll.service.extensions';
 import { BotNotInitializedError } from '../../bot/bot-instance';
 import { calculatePollEndTime } from '../../utils/date';
-import { getParam } from '../../utils/request-params';
 import { serializeBigInt } from '../../utils/serialize';
 import { requireAuthUser } from '../middleware/require-auth-user';
+import { respondIfInvalidInput } from '../middleware/validate';
+import {
+  cancelPollBody,
+  completeMultiWinnerBody,
+  createPollBody,
+  createPollFromWebAppBody,
+  pollGroupIdParam,
+  pollGroupQuery,
+  pollHistoryQuery,
+  pollIdParam,
+  pollUserIdParam,
+  popularItemsQuery,
+  voteBody,
+  voteMultipleBody,
+} from '../schemas/poll';
 
 async function requireGroupMember(
   req: Request,
@@ -54,24 +68,10 @@ async function requireGroupAdmin(
   return true;
 }
 
-/**
- * Разбирает необязательный ?groupId=.
- *
- * Раньше проверка выглядела как `groupId && isNaN(groupId)` и не срабатывала
- * никогда: NaN — ложное значение, поэтому ветка с 400 была недостижима, а
- * `?groupId=abc` молча отдавал данные по ВСЕМ доступным группам вместо ошибки.
- *
- * @returns число, `undefined` (параметра нет) или `null` (параметр испорчен)
- */
-function parseOptionalGroupId(req: Request): number | undefined | null {
-  const raw = req.query.groupId as string | undefined;
-  if (!raw) return undefined;
-
-  const groupId = parseInt(raw, 10);
-  if (!Number.isFinite(groupId) || groupId <= 0) return null;
-
-  return groupId;
-}
+/* `parseOptionalGroupId` жил здесь и разбирал `?groupId=` руками. Его убрала
+   валидация на уровне роутера: испорченный параметр теперь не доходит до
+   контроллера, а `groupScopedQuery` отдаёт либо число, либо `undefined` —
+   третьего состояния «параметр есть, но мусор» больше нет. */
 
 async function getAccessibleGroupIds(
   req: Request,
@@ -132,18 +132,7 @@ export class PollController {
    */
   static async getPollHistory(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseOptionalGroupId(req);
-      const limit = parseInt(req.query.limit as string) || 20;
-      const offset = parseInt(req.query.offset as string) || 0;
-
-      if (groupId === null) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid groupId parameter',
-          code: 'INVALID_GROUP_ID'
-        });
-        return;
-      }
+      const { groupId, limit = 20, offset = 0 } = pollHistoryQuery.get(req);
 
       const groupIds = await getAccessibleGroupIds(req, res);
       if (groupIds === null) return;
@@ -170,6 +159,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting poll history:', error);
       res.status(500).json({
         success: false,
@@ -186,16 +176,7 @@ export class PollController {
    */
   static async getLastCompleted(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseOptionalGroupId(req);
-
-      if (groupId === null) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid groupId parameter',
-          code: 'INVALID_GROUP_ID',
-        });
-        return;
-      }
+      const { groupId } = pollGroupQuery.get(req);
 
       const groupIds = await getAccessibleGroupIds(req, res);
       if (groupIds === null) return;
@@ -212,6 +193,7 @@ export class PollController {
         data: poll ? serializeBigInt(poll) : null,
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting last completed poll:', error);
       res.status(500).json({
         success: false,
@@ -227,16 +209,7 @@ export class PollController {
    */
   static async getTodayCompletedPoll(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseInt(getParam(req.params, 'groupId'), 10);
-      
-      if (isNaN(groupId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid group ID',
-          code: 'INVALID_GROUP_ID',
-        });
-        return;
-      }
+      const { groupId } = pollGroupIdParam.get(req);
 
       const hasAccess = await requireGroupMember(req, res, groupId);
       if (!hasAccess) return;
@@ -249,6 +222,7 @@ export class PollController {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error in getTodayCompletedPoll:', error);
       res.status(500).json({
         success: false,
@@ -267,18 +241,9 @@ export class PollController {
     try {
       const user = requireAuthUser(req, res);
       if (!user) return;
-      const pollId = parseInt(getParam(req.params, 'id'), 10);
+      const { id: pollId } = pollIdParam.get(req);
 
       logger.info(`🔄 Repeating poll ${pollId} by user ${user.id}`);
-
-      if (!pollId || isNaN(pollId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_POLL_ID',
-        });
-        return;
-      }
 
       // Получаем исходное голосование
       const sourcePoll = await PollService.getPollById(pollId);
@@ -351,6 +316,7 @@ export class PollController {
         message: 'Poll repeated and sent to Telegram group',
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('❌ Error repeating poll:', error);
       res.status(500).json({
         success: false,
@@ -366,16 +332,7 @@ export class PollController {
    */
   static async getPollStats(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseOptionalGroupId(req);
-
-      if (groupId === null) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid groupId parameter',
-          code: 'INVALID_GROUP_ID'
-        });
-        return;
-      }
+      const { groupId } = pollGroupQuery.get(req);
 
       const groupIds = await getAccessibleGroupIds(req, res);
       if (groupIds === null) return;
@@ -396,6 +353,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting poll stats:', error);
       res.status(500).json({
         success: false,
@@ -438,16 +396,7 @@ export class PollController {
    */
   static async getUserStatsByUserId(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(getParam(req.params, 'userId'), 10);
-
-      if (isNaN(userId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid user ID',
-          code: 'INVALID_USER_ID'
-        });
-        return;
-      }
+      const { userId } = pollUserIdParam.get(req);
 
       const stats = await PollService.getUserParticipationStats(userId);
 
@@ -458,6 +407,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting user stats by ID:', error);
       res.status(500).json({
         success: false,
@@ -473,16 +423,7 @@ export class PollController {
    */
   static async getPollById(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(getParam(req.params, 'id'), 10);
-
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_ID'
-        });
-        return;
-      }
+      const { id } = pollIdParam.get(req);
 
       const poll = await PollService.getPollById(id);
 
@@ -537,6 +478,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting poll by ID:', error);
       res.status(500).json({
         success: false,
@@ -552,16 +494,7 @@ export class PollController {
    */
   static async getPollResults(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(getParam(req.params, 'id'), 10);
-
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_ID'
-        });
-        return;
-      }
+      const { id } = pollIdParam.get(req);
 
       const pollGroupId = await PollService.getPollGroupId(id);
       if (!pollGroupId) {
@@ -600,6 +533,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting poll results:', error);
       res.status(500).json({
         success: false,
@@ -615,16 +549,7 @@ export class PollController {
    */
   static async getPollVotes(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(getParam(req.params, 'id'), 10);
-
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_ID'
-        });
-        return;
-      }
+      const { id } = pollIdParam.get(req);
 
       const pollGroupId = await PollService.getPollGroupId(id);
       if (!pollGroupId) {
@@ -653,6 +578,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting poll votes:', error);
       res.status(500).json({
         success: false,
@@ -668,26 +594,18 @@ export class PollController {
    */
   static async createPoll(req: Request, res: Response): Promise<void> {
     try {
-      const data: CreatePollData = req.body;
+      const { groupId } = createPollBody.get(req);
       const user = requireAuthUser(req, res);
       if (!user) return;
-
-      const groupId = Number(data.groupId);
-      if (!Number.isFinite(groupId) || groupId <= 0) {
-        res.status(400).json({
-          success: false,
-          error: 'groupId is required',
-          code: 'MISSING_GROUP_ID',
-        });
-        return;
-      }
 
       const hasAccess = await requireGroupAdmin(req, res, groupId);
       if (!hasAccess) return;
 
-      // ✅ FIX: Используем userId из аутентифицированного пользователя, игнорируем createdBy из body
+      /* Тело уже разобрано контрактом, поэтому `req.body` здесь — его
+         результат: объявленные поля приведены к типам, незаявленные
+         (`selectedMenuItemIds` и прочее) сохранены как есть. */
       const pollData = {
-        ...data,
+        ...(req.body as CreatePollData),
         groupId,
         createdBy: user.id, // Всегда используем ID аутентифицированного пользователя
       };
@@ -708,6 +626,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       if (error instanceof PollAlreadyActiveError) {
         logger.warn('createPoll race resolved by service-level guard', {
           groupId: error.groupId,
@@ -735,7 +654,14 @@ export class PollController {
    */
   static async createPollFromWebApp(req: Request, res: Response): Promise<void> {
     try {
-      const { groupId, duration, selectedMenuItems, title, isMultiSelect, maxSelections } = req.body;
+      const {
+        groupId,
+        duration,
+        selectedMenuItems,
+        title,
+        isMultiSelect,
+        maxSelections,
+      } = createPollFromWebAppBody.get(req);
       const user = requireAuthUser(req, res);
       if (!user) return;
 
@@ -750,28 +676,11 @@ export class PollController {
           : 0,
       });
 
-      // Валидация
-      if (!groupId || isNaN(parseInt(groupId))) {
-        logger.warn('Invalid groupId', { groupId, type: typeof groupId });
-        res.status(400).json({
-          success: false,
-          error: 'Invalid or missing groupId',
-          code: 'INVALID_GROUP_ID'
-        });
-        return;
-      }
-
-      const parsedGroupId = parseInt(groupId);
-      const parsedDuration = duration ? parseInt(duration) : 30;
-
-      if (parsedDuration < 1 || parsedDuration > 1440) {
-        res.status(400).json({
-          success: false,
-          error: 'Duration must be between 1 and 1440 minutes',
-          code: 'INVALID_DURATION'
-        });
-        return;
-      }
+      /* Диапазон `duration` (1..1440) и обязательность `groupId` проверяет
+         схема на роутере — сюда доходит уже разобранное. Значение по умолчанию
+         остаётся здесь: это бизнес-правило, а не валидация. */
+      const parsedGroupId = groupId;
+      const parsedDuration = duration ?? 30;
 
       // Проверяем существование группы
       const group = await GroupService.getGroupById(parsedGroupId);
@@ -784,9 +693,11 @@ export class PollController {
         return;
       }
 
-      const parsedIsMultiSelect = typeof isMultiSelect === 'boolean' ? isMultiSelect : true;
+      const parsedIsMultiSelect = isMultiSelect ?? true;
+      /* `|| 3`, а не `?? 3`: ноль здесь исторически означал «не задано», и
+         менять это заодно с переносом валидации было бы тихой сменой поведения. */
       const parsedMaxSelections = parsedIsMultiSelect
-        ? Math.max(1, Math.min(parseInt(maxSelections) || 3, 3))
+        ? Math.max(1, Math.min(maxSelections || 3, 3))
         : 1;
 
       const hasAccess = await requireGroupAdmin(req, res, parsedGroupId);
@@ -818,8 +729,8 @@ export class PollController {
       }
       
       // Фильтруем по выбранным ID если указаны
-      if (selectedMenuItems && Array.isArray(selectedMenuItems) && selectedMenuItems.length > 0) {
-        const selectedIds = selectedMenuItems.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id));
+      if (selectedMenuItems && selectedMenuItems.length > 0) {
+        const selectedIds = selectedMenuItems;
         const selectedIdSet = new Set(selectedIds);
         logger.info('🔍 Filtering menu items', {
           selectedIds,
@@ -882,6 +793,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error creating poll from WebApp:', error);
       
       if (error instanceof PollAlreadyActiveError) {
@@ -920,16 +832,7 @@ export class PollController {
    */
   static async getActivePollInGroup(req: Request, res: Response): Promise<void> {
     try {
-      const groupId = parseInt(getParam(req.params, 'groupId'), 10);
-
-      if (isNaN(groupId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid group ID',
-          code: 'INVALID_GROUP_ID'
-        });
-        return;
-      }
+      const { groupId } = pollGroupIdParam.get(req);
 
       const hasAccess = await requireGroupMember(req, res, groupId);
       if (!hasAccess) return;
@@ -953,6 +856,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting active poll in group:', error);
       res.status(500).json({
         success: false,
@@ -968,18 +872,9 @@ export class PollController {
    */
   static async completePoll(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(getParam(req.params, 'id'), 10);
+      const { id } = pollIdParam.get(req);
       const user = requireAuthUser(req, res);
       if (!user) return;
-
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_ID'
-        });
-        return;
-      }
 
       const pollGroupId = await PollService.getPollGroupId(id);
       if (!pollGroupId) {
@@ -1011,6 +906,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       if (error instanceof Error) {
         if (error.message === 'Poll not found') {
           res.status(404).json({
@@ -1045,18 +941,9 @@ export class PollController {
    */
   static async cancelPoll(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(getParam(req.params, 'id'), 10);
+      const { id } = pollIdParam.get(req);
       const user = requireAuthUser(req, res);
       if (!user) return;
-
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_ID'
-        });
-        return;
-      }
 
       const pollGroupId = await PollService.getPollGroupId(id);
       if (!pollGroupId) {
@@ -1071,19 +958,8 @@ export class PollController {
       const hasAccess = await requireGroupAdmin(req, res, pollGroupId);
       if (!hasAccess) return;
 
-      // Получаем причину отмены из тела запроса (опционально)
-      const { reason } = req.body || {};
-      if (
-        reason !== undefined &&
-        (typeof reason !== 'string' || reason.length > 500)
-      ) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid cancellation reason',
-          code: 'VALIDATION_ERROR',
-        });
-        return;
-      }
+      // Причина отмены опциональна; её тип и длину проверяет схема тела.
+      const { reason } = cancelPollBody.get(req);
 
       const poll = await PollService.cancelPoll(id, user.id, reason || 'Отменено через API');
 
@@ -1100,6 +976,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       if (error instanceof Error && error.message === 'Poll not found') {
         res.status(404).json({
           success: false,
@@ -1135,28 +1012,10 @@ export class PollController {
    */
   static async vote(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = parseInt(getParam(req.params, 'id'), 10);
-      const { menuItemId } = req.body;
+      const { id: pollId } = pollIdParam.get(req);
+      const { menuItemId } = voteBody.get(req);
       const user = requireAuthUser(req, res);
       if (!user) return;
-
-      if (isNaN(pollId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_ID'
-        });
-        return;
-      }
-
-      if (!menuItemId || isNaN(parseInt(menuItemId))) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid menu item ID',
-          code: 'INVALID_MENU_ITEM_ID'
-        });
-        return;
-      }
 
       const pollGroupId = await PollService.getPollGroupId(pollId);
       if (!pollGroupId) {
@@ -1174,7 +1033,7 @@ export class PollController {
       const voteData: CreateVoteData = {
         pollId,
         userId: user.id,
-        menuItemId: parseInt(menuItemId),
+        menuItemId,
       };
 
       const vote = await VoteService.upsertVote(voteData);
@@ -1214,6 +1073,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       if (error instanceof Error) {
         if ([
           'Poll not found',
@@ -1248,44 +1108,13 @@ export class PollController {
    */
   static async voteMultiple(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = parseInt(getParam(req.params, 'id'), 10);
-      const { menuItemIds } = req.body;
+      const { id: pollId } = pollIdParam.get(req);
+      const { menuItemIds } = voteMultipleBody.get(req);
       const user = requireAuthUser(req, res);
       if (!user) return;
 
-      // Валидация pollId
-      if (isNaN(pollId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_ID'
-        });
-        return;
-      }
-
-      // Валидация menuItemIds
-      if (!menuItemIds || !Array.isArray(menuItemIds) || menuItemIds.length === 0) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid menu item IDs. Must be a non-empty array.',
-          code: 'INVALID_MENU_ITEM_IDS'
-        });
-        return;
-      }
-
-      // Проверка, что все элементы массива - числа
-      const invalidIds = menuItemIds.filter(id => isNaN(parseInt(id)));
-      if (invalidIds.length > 0) {
-        res.status(400).json({
-          success: false,
-          error: 'All menu item IDs must be valid numbers',
-          code: 'INVALID_MENU_ITEM_IDS'
-        });
-        return;
-      }
-
-      // Преобразуем все ID в числа и убираем дубли
-      const numericMenuItemIds = [...new Set(menuItemIds.map(id => parseInt(id)))];
+      // Дубли убираются здесь: это не валидация, а нормализация выбора.
+      const numericMenuItemIds = [...new Set(menuItemIds)];
 
       const pollGroupId = await PollService.getPollGroupId(pollId);
       if (!pollGroupId) {
@@ -1371,6 +1200,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       if (error instanceof Error) {
         if ([
           'Poll not found',
@@ -1404,18 +1234,9 @@ export class PollController {
    */
   static async removeVote(req: Request, res: Response): Promise<void> {
     try {
-      const pollId = parseInt(getParam(req.params, 'id'), 10);
+      const { id: pollId } = pollIdParam.get(req);
       const user = requireAuthUser(req, res);
       if (!user) return;
-
-      if (isNaN(pollId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_ID'
-        });
-        return;
-      }
 
       const pollGroupId = await PollService.getPollGroupId(pollId);
       if (!pollGroupId) {
@@ -1444,6 +1265,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       if (error instanceof Error) {
         if (error.message === 'Vote not found') {
           res.status(404).json({
@@ -1478,18 +1300,9 @@ export class PollController {
    */
   static async runRoulette(req: Request, res: Response): Promise<void> {
     try {
-      const id = parseInt(getParam(req.params, 'id'), 10);
+      const { id } = pollIdParam.get(req);
       const user = requireAuthUser(req, res);
       if (!user) return;
-
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_ID'
-        });
-        return;
-      }
 
       const pollGroupId = await PollService.getPollGroupId(id);
       if (!pollGroupId) {
@@ -1520,6 +1333,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       if (error instanceof Error) {
         if (error.message === 'Poll not found') {
           res.status(404).json({
@@ -1554,23 +1368,8 @@ export class PollController {
    */
   static async getPopularItems(req: Request, res: Response): Promise<void> {
     try {
-      const limit = parseInt(req.query.limit as string) || 10;
+      const { groupId, limit = 10 } = popularItemsQuery.get(req);
 
-      if (isNaN(limit) || limit <= 0) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid limit parameter',
-          code: 'INVALID_LIMIT'
-        });
-        return;
-      }
-
-      const rawGroupId = req.query.groupId as string | undefined;
-      const groupId = rawGroupId ? parseInt(rawGroupId, 10) : NaN;
-      if (!Number.isFinite(groupId) || groupId <= 0) {
-        res.status(400).json({ success: false, error: 'groupId is required', code: 'MISSING_GROUP_ID' });
-        return;
-      }
       const hasAccess = await requireGroupMember(req, res, groupId);
       if (!hasAccess) return;
 
@@ -1584,6 +1383,7 @@ export class PollController {
       });
 
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting popular items:', error);
       res.status(500).json({
         success: false,
@@ -1612,18 +1412,9 @@ export class PollController {
         return;
       }
 
-      const pollId = parseInt(getParam(req.params, 'id'), 10);
+      const { id: pollId } = pollIdParam.get(req);
       const user = requireAuthUser(req, res);
       if (!user) return;
-
-      if (isNaN(pollId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid poll ID',
-          code: 'INVALID_ID',
-        });
-        return;
-      }
 
       const pollGroupId = await PollService.getPollGroupId(pollId);
       if (!pollGroupId) {
@@ -1638,43 +1429,12 @@ export class PollController {
       const hasAccess = await requireGroupAdmin(req, res, pollGroupId);
       if (!hasAccess) return;
 
-      const {
-        minVotes = 1,
-        maxWinners = null,
-        tieBreakMethod = 'earliest'
-      } = req.body;
-
-      // Валидация minVotes
-      if (typeof minVotes !== 'number' || minVotes < 0 || minVotes > 100) {
-        res.status(400).json({
-          success: false,
-          error: 'minVotes must be a number between 0 and 100',
-          code: 'VALIDATION_ERROR',
-        });
-        return;
-      }
-
-      // Валидация maxWinners
-      if (maxWinners !== null) {
-        if (typeof maxWinners !== 'number' || maxWinners < 1 || maxWinners > 50) {
-          res.status(400).json({
-            success: false,
-            error: 'maxWinners must be null or a number between 1 and 50',
-            code: 'VALIDATION_ERROR',
-          });
-          return;
-        }
-      }
-
-      // Валидация tieBreakMethod
-      if (!['earliest', 'alphabetical'].includes(tieBreakMethod)) {
-        res.status(400).json({
-          success: false,
-          error: 'tieBreakMethod must be "earliest" or "alphabetical"',
-          code: 'VALIDATION_ERROR',
-        });
-        return;
-      }
+      /* Диапазоны и допустимые значения проверяет схема тела; здесь остаются
+         только значения по умолчанию — это поведение, а не валидация. */
+      const body = completeMultiWinnerBody.get(req);
+      const minVotes = body.minVotes ?? 1;
+      const maxWinners = body.maxWinners ?? null;
+      const tieBreakMethod = body.tieBreakMethod ?? 'earliest';
 
       const result = await PollService.completePollMultiWinner(
         pollId,
@@ -1704,6 +1464,7 @@ export class PollController {
       });
 
     } catch (error: any) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error completing poll multi-winner:', error);
 
       if (error.message === 'Poll not found') {

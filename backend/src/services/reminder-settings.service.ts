@@ -56,9 +56,13 @@ export class ReminderSettingsService {
   /**
    * Обновление настроек напоминаний
    */
+  /**
+   * `Partial`, а не полный объект: PUT приходит частичным (интерфейс сохраняет
+   * то, что менял пользователь), и Prisma в `update` частичный объект принимает.
+   */
   async updateReminderSettings(
     groupId: number,
-    data: ReminderSettingsData,
+    data: Partial<ReminderSettingsData>,
     adminId: number
   ) {
     try {
@@ -68,6 +72,12 @@ export class ReminderSettingsService {
         create: {
           groupId,
           ...data,
+          /* `messageTemplate` — единственное поле этой таблицы без значения по
+             умолчанию. При частичном PUT по группе, где записи ещё нет,
+             создание падало ошибкой Prisma, и клиент получал 500 вместо
+             сохранённых настроек. Подставляется тот же шаблон, что и при первом
+             чтении настроек. */
+          messageTemplate: data.messageTemplate ?? this.getDefaultMessageTemplate(),
           createdBy: adminId,
         },
       });
@@ -112,9 +122,10 @@ export class ReminderSettingsService {
   /**
    * Обновление настроек уведомлений админа
    */
+  /** `Partial` по той же причине: каждый тумблер отправляет одно поле. */
   async updateAdminNotificationSettings(
     groupId: number,
-    data: AdminNotificationSettingsData
+    data: Partial<AdminNotificationSettingsData>
   ) {
     try {
       const settings = await prisma.adminNotificationSettings.upsert({

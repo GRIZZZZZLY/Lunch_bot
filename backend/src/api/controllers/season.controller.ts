@@ -2,7 +2,14 @@ import { Request, Response } from 'express';
 import { GroupService } from '../../services/group.service';
 import { SeasonService } from '../../services/season.service';
 import { logger } from '../../utils/logger';
-import { getParam } from '../../utils/request-params';
+import { respondIfInvalidInput } from '../middleware/validate';
+import {
+  seasonIdParam,
+  seasonLeaderboardQuery,
+  seasonListQuery,
+  seasonUserIdParam,
+  seasonUserStatsParams,
+} from '../schemas/season';
 import { requireAuthUser } from '../middleware/require-auth-user';
 
 /**
@@ -17,7 +24,7 @@ export class SeasonController {
    */
   static async getAllSeasons(req: Request, res: Response): Promise<void> {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const { limit } = seasonListQuery.get(req);
       const seasons = await SeasonService.getAllSeasons(limit);
 
       res.json({
@@ -25,6 +32,7 @@ export class SeasonController {
         data: seasons,
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting all seasons:', error);
       res.status(500).json({
         success: false,
@@ -54,6 +62,7 @@ export class SeasonController {
         data: season,
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting current season:', error);
       res.status(500).json({
         success: false,
@@ -68,15 +77,7 @@ export class SeasonController {
    */
   static async getSeasonById(req: Request, res: Response): Promise<void> {
     try {
-      const seasonId = parseInt(getParam(req.params, 'id'), 10);
-
-      if (isNaN(seasonId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid season ID',
-        });
-        return;
-      }
+      const { id: seasonId } = seasonIdParam.get(req);
 
       const season = await SeasonService.getSeasonById(seasonId);
 
@@ -93,6 +94,7 @@ export class SeasonController {
         data: season,
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting season by ID:', error);
       res.status(500).json({
         success: false,
@@ -107,29 +109,10 @@ export class SeasonController {
    */
   static async getSeasonLeaderboard(req: Request, res: Response): Promise<void> {
     try {
-      const seasonId = parseInt(getParam(req.params, 'id'), 10);
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const groupId = req.query.groupId
-        ? parseInt(req.query.groupId as string, 10)
-        : NaN;
+      const { id: seasonId } = seasonIdParam.get(req);
+      const { groupId, limit = 10 } = seasonLeaderboardQuery.get(req);
       const user = requireAuthUser(req, res);
       if (!user) return;
-
-      if (isNaN(seasonId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid season ID',
-        });
-        return;
-      }
-
-      if (!Number.isInteger(groupId) || groupId <= 0) {
-        res.status(400).json({
-          success: false,
-          error: 'groupId is required',
-        });
-        return;
-      }
 
       // Рейтинг сезона по группе виден её участникам.
       if (!(await GroupService.isUserGroupMember(user.id, groupId))) {
@@ -151,6 +134,7 @@ export class SeasonController {
         data: leaderboard,
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting season leaderboard:', error);
       res.status(500).json({
         success: false,
@@ -165,18 +149,9 @@ export class SeasonController {
    */
   static async getUserSeasonStats(req: Request, res: Response): Promise<void> {
     try {
-      const seasonId = parseInt(getParam(req.params, 'id'), 10);
-      const userId = parseInt(getParam(req.params, 'userId'), 10);
+      const { id: seasonId, userId } = seasonUserStatsParams.get(req);
       const requestingUser = requireAuthUser(req, res);
       if (!requestingUser) return;
-
-      if (isNaN(seasonId) || isNaN(userId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid season ID or user ID',
-        });
-        return;
-      }
 
       const shared = await GroupService.getUsersSharingActiveGroup(
         requestingUser.id,
@@ -205,6 +180,7 @@ export class SeasonController {
         data: stats,
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting user season stats:', error);
       res.status(500).json({
         success: false,
@@ -238,6 +214,7 @@ export class SeasonController {
         data: newSeason,
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error rotating season:', error);
       
       if (error instanceof Error && error.message === 'Season has not ended yet') {
@@ -280,6 +257,7 @@ export class SeasonController {
         data: newSeason,
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error creating season:', error);
       res.status(500).json({
         success: false,
@@ -294,17 +272,9 @@ export class SeasonController {
    */
   static async getCurrentSeasonUserStats(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(getParam(req.params, 'userId'), 10);
+      const { userId } = seasonUserIdParam.get(req);
       const requestingUser = requireAuthUser(req, res);
       if (!requestingUser) return;
-
-      if (isNaN(userId)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid user ID',
-        });
-        return;
-      }
 
       const shared = await GroupService.getUsersSharingActiveGroup(
         requestingUser.id,
@@ -333,6 +303,7 @@ export class SeasonController {
         data: stats,
       });
     } catch (error) {
+      if (respondIfInvalidInput(req, res, error)) return;
       logger.error('Error getting current season user stats:', error);
       res.status(500).json({
         success: false,
