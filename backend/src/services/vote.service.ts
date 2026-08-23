@@ -20,7 +20,13 @@ import {
 } from '../constants/xp-constants';
 import { eventBus } from './event-bus.service';
 import { menuItemIdsFromVoteGroups } from '../utils/vote-menu-items';
-import { VoteNotFoundError, VotingError } from './vote.errors';
+import {
+  MaxSelectionsExceededError,
+  SingleSelectionOnlyError,
+  VoteNotFoundError,
+  VotingError,
+} from './vote.errors';
+import { PollNotFoundError } from './poll.errors';
 
 export class VoteService {
   private static async assertMenuItemsAllowedForPoll(
@@ -189,6 +195,49 @@ export class VoteService {
       logger.error('Error creating vote with type:', error);
       throw new Error('Failed to create vote with type');
     }
+  }
+
+  /**
+   * Подать голоса с проверкой правил самого голосования.
+   *
+   * Правила («одиночный выбор» и «не больше N блюд») жили в контроллере: он
+   * читал голосование целиком, считал предел и отвечал 400. Считать предел —
+   * не работа HTTP-слоя, и доказательство тому простое: тот же предел обязан
+   * действовать для любого другого вызывающего, а не только для этого
+   * эндпоинта.
+   *
+   * Голосование читается узким select'ом: нужны два поля, а не голоса с
+   * блюдами и пользователями.
+   */
+  static async castVotes(
+    pollId: number,
+    userId: number,
+    menuItemIds: number[]
+  ): Promise<Vote[]> {
+    const poll = await prisma.poll.findUnique({
+      where: { id: pollId },
+      select: { isMultiSelect: true, maxSelections: true },
+    });
+
+    if (!poll) {
+      throw new PollNotFoundError();
+    }
+
+    /* `!== false`: у старых голосований поле пустое, и они считались
+       множественными. Смена этого умолчания — отдельное решение. */
+    const isMultiSelect = poll.isMultiSelect !== false;
+    const maxSelections = isMultiSelect
+      ? Math.max(1, Math.min(poll.maxSelections || 3, 3))
+      : 1;
+
+    if (!isMultiSelect && menuItemIds.length > 1) {
+      throw new SingleSelectionOnlyError();
+    }
+    if (menuItemIds.length > maxSelections) {
+      throw new MaxSelectionsExceededError(maxSelections);
+    }
+
+    return this.createMultipleVotes(pollId, userId, menuItemIds);
   }
 
   /**

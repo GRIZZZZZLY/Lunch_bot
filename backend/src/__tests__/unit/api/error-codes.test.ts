@@ -90,16 +90,22 @@ function errorClassCodes(): Set<string> {
 }
 
 /**
- * Коды доменных ошибок сервисов — файлы `*.errors.ts`.
+ * Коды, объявленные конструктором подкласса `BaseError` — где угодно в backend.
  *
- * Четвёртый способ доставки кода, и до задачи 05 его не было: сервисы бросали
- * обычный `Error`, а статус выбирал контроллер по тексту сообщения. Теперь
- * `poll.errors.ts` и `vote.errors.ts` наследуют `BaseError` и несут `code`
- * сами — то есть код уходит клиенту, не попадая ни в один из трёх сборщиков
- * выше (`code: 'X'` там нет, файл не `utils/error.ts`, поле не `public code:`).
- * Ровно так `AuthorizationError` однажды и доехал до клиента без текста.
+ * Четвёртый способ доставки кода, и до задачи 05 его не было за пределами
+ * `utils/error.ts`: сервисы бросали обычный `Error`, а статус выбирал
+ * контроллер по тексту сообщения. Теперь `poll.errors.ts`, `vote.errors.ts`,
+ * `api/http.errors.ts` и `bot/bot-instance.ts` несут `code` сами, и ни один из
+ * трёх сборщиков выше их не видит: литерала `code: 'X'` там нет, файл не
+ * `utils/error.ts`, поле не `public code:`. Ровно так `AuthorizationError`
+ * однажды и доехал до клиента без текста на фронте.
+ *
+ * Ищется трёхаргументная форма `super(сообщение, 404, 'КОД')`: именно она
+ * означает «этот класс сам задаёт статус и код». Формы с переменными
+ * (`super(message, statusCode, code)` в базовом `HttpError`) кода не объявляют,
+ * их объявляют подклассы.
  */
-function domainErrorClassCodes(): Map<string, Set<string>> {
+function baseErrorConstructorCodes(): Map<string, Set<string>> {
   const found = new Map<string, Set<string>>();
 
   const walk = (dir: string): void => {
@@ -111,10 +117,12 @@ function domainErrorClassCodes(): Map<string, Set<string>> {
         }
         continue;
       }
-      if (!entry.name.endsWith('.errors.ts')) continue;
+      if (extname(entry.name) !== '.ts' || entry.name.endsWith('.test.ts')) {
+        continue;
+      }
 
       const text = readFileSync(full, 'utf8');
-      for (const m of text.matchAll(/super\([^)]*?'([A-Z0-9_]+)'/gs)) {
+      for (const m of text.matchAll(/super\([^)]*?,\s*\d{3},\s*'([A-Z0-9_]+)'/gs)) {
         if (!found.has(m[1])) found.set(m[1], new Set());
         found.get(m[1])!.add(entry.name);
       }
@@ -169,15 +177,20 @@ describe('словарь кодов ошибок', () => {
   /* Без этой проверки поломка обхода или регулярки делает тесты ниже
      вакуумными: пустое множество проходит любой filter. */
   it('сборщики кодов вообще что-то находят', () => {
-    expect(backendCodeLiterals().size).toBeGreaterThan(60);
+    /* Порог опущен с 60 до 50 осознанно: задача 05 убрала из контроллера
+       голосований литералы `code: 'X'` — те же коды теперь объявлены
+       конструкторами классов ошибок и проверяются сборщиком ниже. Число
+       литералов будет падать и дальше, по мере перевода остальных
+       контроллеров; смысл проверки — «обход не сломан», а не «литералов много». */
+    expect(backendCodeLiterals().size).toBeGreaterThan(50);
     expect(errorClassCodes().size).toBeGreaterThan(10);
     expect(serviceErrorUnionCodes().size).toBeGreaterThan(5);
-    expect(domainErrorClassCodes().size).toBeGreaterThan(4);
+    expect(baseErrorConstructorCodes().size).toBeGreaterThan(8);
     expect(frontendCodes().size).toBeGreaterThan(60);
   });
 
-  it('каждый код из доменных ошибок сервисов внесён в ApiErrorCode', () => {
-    const unknown = [...domainErrorClassCodes().entries()]
+  it('каждый код из конструкторов подклассов BaseError внесён в ApiErrorCode', () => {
+    const unknown = [...baseErrorConstructorCodes().entries()]
       .filter(([code]) => !isApiErrorCode(code))
       .map(([code, files]) => `${code} (${[...files].join(', ')})`);
 

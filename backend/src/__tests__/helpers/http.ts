@@ -157,6 +157,71 @@ export function mockNext(): MockNext {
   return next;
 }
 
+type AnyHandler = (
+  req: Request,
+  res: Response,
+  next: (error?: unknown) => void
+) => unknown;
+
+/**
+ * Контроллер, соединённый с настоящим `errorHandler`, — как в приложении.
+ *
+ * Handler, переведённый на `next(err)`, сам ответ не формирует: статус, код и
+ * legacy-поля собирает обработчик ошибок, смонтированный после маршрутов.
+ * Тест, который вызывает handler с двумя аргументами, после такого перевода
+ * либо падает на `next is not a function`, либо (если `next` передать пустым)
+ * проверяет пустоту вместо ответа.
+ *
+ * Обёртка ставит на место `next` тот же `errorHandler`, поэтому существующие
+ * утверждения про `res.statusCode` и `res.body` продолжают проверять то, что
+ * увидит клиент, — и заодно становятся тестом делегирования: подмена 409 на 500
+ * видна сразу, а не «когда-нибудь на проде».
+ *
+ * `errorHandler` импортируется здесь, а не принимается параметром: иначе каждый
+ * набор тестов делал бы это сам, и один из них однажды передал бы не тот
+ * обработчик.
+ */
+type Wrapped<T> = {
+  [K in keyof T]: T[K] extends (req: Request, res: Response, ...rest: never[]) => unknown
+    ? (req: Request, res: Response) => Promise<void>
+    : T[K];
+};
+
+export function withErrorHandler<T extends object>(controller: T): Wrapped<T> {
+  const { errorHandler } = require('../../api/middleware/error-handler') as {
+    errorHandler: (
+      err: Error,
+      req: Request,
+      res: Response,
+      next: () => void
+    ) => void;
+  };
+
+  const wrapped: Record<string, unknown> = {};
+
+  for (const key of Object.getOwnPropertyNames(controller)) {
+    const handler = (controller as Record<string, unknown>)[key];
+    if (typeof handler !== 'function') continue;
+
+    wrapped[key] = async (req: Request, res: Response): Promise<void> => {
+      const toErrorHandler = (error: unknown): void => {
+        errorHandler(error as Error, req, res, jest.fn());
+      };
+
+      /* Handler может и бросить (Express 5 сам передаёт отказ в обработчик
+         ошибок), и вызвать `next(err)` — в приложении оба пути ведут в одно
+         место, поэтому и здесь тоже. */
+      try {
+        await (handler as AnyHandler)(req, res, toErrorHandler);
+      } catch (error) {
+        toErrorHandler(error);
+      }
+    };
+  }
+
+  return wrapped as Wrapped<T>;
+}
+
 /** Вызывает обработчики, зарегистрированные через res.on(event). */
 export function emit(res: MockResponse, event: string): void {
   for (const handler of res.listeners[event] ?? []) {

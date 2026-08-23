@@ -29,6 +29,7 @@ import {
 import { menuItemIdsFromVoteGroups } from '../utils/vote-menu-items';
 import {
   NoVotersError,
+  PollAlreadyActiveError,
   PollAlreadyCompletedError,
   PollNotActiveError,
   PollNotFoundError,
@@ -48,21 +49,11 @@ export interface UpdatePollData {
   duration?: number;
 }
 
-/**
- * Thrown when createPoll is called for a group that already has an ACTIVE poll.
- * Caller (controller) should map this to HTTP 400 + code POLL_ALREADY_ACTIVE.
- */
-export class PollAlreadyActiveError extends Error {
-  readonly code = 'POLL_ALREADY_ACTIVE';
-
-  constructor(
-    public readonly groupId: number,
-    public readonly existingPollId: number
-  ) {
-    super(`Group ${groupId} already has an active poll (#${existingPollId})`);
-    this.name = 'PollAlreadyActiveError';
-  }
-}
+/* Класс переехал в `poll.errors.ts` вместе с остальными доменными ошибками
+   голосования: там он несёт свой статус и код, а не получает их от
+   контроллера. Реэкспорт оставлен, потому что импорт из `poll.service`
+   встречается в коде и в тестах. */
+export { PollAlreadyActiveError } from './poll.errors';
 
 export class PollService {
   /**

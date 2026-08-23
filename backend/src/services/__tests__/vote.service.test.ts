@@ -500,11 +500,14 @@ describe('VoteService', () => {
       });
     });
 
+    /* Раньше здесь ожидалось «Failed to remove vote»: собственный catch
+       подменял причину, и ветка 400 в контроллере была недостижима — клиент
+       получал 500 за закрытое голосование. Причина больше не теряется
+       (задача 05). */
     it('should throw error if poll not found', async () => {
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue(null);
 
-      // Note: catch block replaces all errors with "Failed to remove vote"
-      await expect(VoteService.removeVote(1, 1)).rejects.toThrow('Failed to remove vote');
+      await expect(VoteService.removeVote(1, 1)).rejects.toThrow('Poll not found');
     });
 
     it('should throw error if poll is not active', async () => {
@@ -512,8 +515,7 @@ describe('VoteService', () => {
 
       (prisma.poll.findUnique as jest.Mock).mockResolvedValue(mockPoll);
 
-      // Note: catch block replaces all errors with "Failed to remove vote"
-      await expect(VoteService.removeVote(1, 1)).rejects.toThrow('Failed to remove vote');
+      await expect(VoteService.removeVote(1, 1)).rejects.toThrow('Poll is not active');
     });
   });
 });

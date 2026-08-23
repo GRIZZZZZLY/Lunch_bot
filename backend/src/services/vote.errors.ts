@@ -18,6 +18,20 @@ export class VotingError extends BaseError {
   }
 }
 
+/** Голосование с одиночным выбором, а пришло несколько блюд. */
+export class SingleSelectionOnlyError extends BaseError {
+  constructor(message = 'This poll allows only single selection') {
+    super(message, 400, 'SINGLE_SELECTION_ONLY');
+  }
+}
+
+/** Блюд выбрано больше, чем разрешает голосование. */
+export class MaxSelectionsExceededError extends BaseError {
+  constructor(maxSelections: number) {
+    super(`Maximum ${maxSelections} selections allowed`, 400, 'MAX_SELECTIONS_EXCEEDED');
+  }
+}
+
 /** Снимать нечего — голоса этого человека в голосовании нет. */
 export class VoteNotFoundError extends BaseError {
   constructor(message = 'Vote not found') {

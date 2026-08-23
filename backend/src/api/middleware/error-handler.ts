@@ -45,16 +45,23 @@ export function errorHandler(
 
   const instance = req.path;
 
-  // 1) Ошибки разбора тела запроса от body-parser/Express.
+  /* 1) Ошибки разбора тела запроса от body-parser/Express.
+     Только ЧУЖИЕ ошибки: наши несут свой `statusCode`, и проверка ниже
+     принимала любую нашу ошибку с 400 за испорченное тело — код подменялся на
+     `INVALID_REQUEST_BODY`. Пока 400 отдавали сами контроллеры, до сюда такие
+     ошибки не доходили; после перехода на `next(err)`/throw (задача 05) дошли,
+     и это увидели тесты контроллера голосований. */
   const parserError = err as Error & {
     status?: number;
     statusCode?: number;
     type?: string;
   };
+  const isOwnError = err instanceof BaseError;
   if (
-    parserError.status === 413 ||
-    parserError.statusCode === 413 ||
-    parserError.type === 'entity.too.large'
+    !isOwnError &&
+    (parserError.status === 413 ||
+      parserError.statusCode === 413 ||
+      parserError.type === 'entity.too.large')
   ) {
     sendProblem(
       res,
@@ -70,10 +77,11 @@ export function errorHandler(
     return;
   }
   if (
-    parserError.status === 400 ||
-    parserError.statusCode === 400 ||
-    parserError.type === 'entity.parse.failed' ||
-    parserError.type === 'request.aborted'
+    !isOwnError &&
+    (parserError.status === 400 ||
+      parserError.statusCode === 400 ||
+      parserError.type === 'entity.parse.failed' ||
+      parserError.type === 'request.aborted')
   ) {
     sendProblem(
       res,
@@ -106,6 +114,13 @@ export function errorHandler(
        разных тела в зависимости от того, кто его поймал. */
     if (err instanceof RequestValidationError) {
       extensions.errors = err.issues;
+    }
+    /* Дополнительные поля ответа, объявленные самой ошибкой (`HttpError`).
+       Нужны там, где тело несёт не только причину: `NO_ACTIVE_POLL` отдаёт
+       рядом `data: null`, и фронт это читает. */
+    const declared = (err as { extensions?: Record<string, unknown> }).extensions;
+    if (declared) {
+      Object.assign(extensions, declared);
     }
 
     sendProblem(

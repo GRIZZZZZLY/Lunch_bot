@@ -638,6 +638,92 @@ describe('upsertVote', () => {
   });
 });
 
+/**
+ * Правила выбора приехали из контроллера (задача 05): «одиночный выбор» и «не
+ * больше N блюд» решались в HTTP-слое, то есть действовали ровно для одного
+ * эндпоинта. Теперь они здесь — перед созданием голосов, для любого
+ * вызывающего.
+ */
+describe('castVotes', () => {
+  function poll(over: Record<string, unknown> = {}): void {
+    asMock(prismaMock.poll.findUnique).mockImplementation((async (args: {
+      select?: Record<string, unknown>;
+    }) =>
+      args.select && 'isMultiSelect' in args.select
+        ? { isMultiSelect: true, maxSelections: 3, ...over }
+        : {
+            id: 1,
+            status: 'ACTIVE',
+            endedAt: null,
+            groupId: 100,
+            selectedMenuItemIds: null,
+          }) as never);
+  }
+
+  beforeEach(() => {
+    poll();
+  });
+
+  it('голоса подаются, когда выбор в пределах лимита', async () => {
+    await VoteService.castVotes(1, 5, [7, 8]);
+
+    expect(asMock(prismaMock.vote.createMany)).toHaveBeenCalled();
+  });
+
+  it('несуществующее голосование — PollNotFoundError, голоса не создаются', async () => {
+    asMock(prismaMock.poll.findUnique).mockResolvedValue(null);
+
+    await expect(VoteService.castVotes(1, 5, [7])).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'POLL_NOT_FOUND',
+    });
+    expect(asMock(prismaMock.vote.createMany)).not.toHaveBeenCalled();
+  });
+
+  it('одиночный выбор: несколько блюд — 400 SINGLE_SELECTION_ONLY', async () => {
+    poll({ isMultiSelect: false });
+
+    await expect(VoteService.castVotes(1, 5, [7, 8])).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'SINGLE_SELECTION_ONLY',
+    });
+    expect(asMock(prismaMock.vote.createMany)).not.toHaveBeenCalled();
+  });
+
+  it('одиночный выбор: одно блюдо проходит', async () => {
+    poll({ isMultiSelect: false });
+
+    await expect(VoteService.castVotes(1, 5, [7])).resolves.toBeDefined();
+  });
+
+  it('превышен лимит выбора — 400 MAX_SELECTIONS_EXCEEDED с числом в тексте', async () => {
+    poll({ maxSelections: 2 });
+
+    await expect(VoteService.castVotes(1, 5, [7, 8, 9])).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'MAX_SELECTIONS_EXCEEDED',
+      message: 'Maximum 2 selections allowed',
+    });
+  });
+
+  /* У старых голосований поле пустое, и они считались множественными.
+     Сохранено намеренно: смена умолчания — отдельное решение. */
+  it('пустой isMultiSelect понимается как множественный выбор', async () => {
+    poll({ isMultiSelect: null });
+
+    await expect(VoteService.castVotes(1, 5, [7, 8])).resolves.toBeDefined();
+  });
+
+  it('maxSelections больше трёх не поднимает предел выше трёх', async () => {
+    poll({ maxSelections: 10 });
+
+    await expect(VoteService.castVotes(1, 5, [7, 8, 9, 10])).rejects.toMatchObject({
+      code: 'MAX_SELECTIONS_EXCEEDED',
+      message: 'Maximum 3 selections allowed',
+    });
+  });
+});
+
 describe('removeVote', () => {
   it('снимаются все голоса пользователя в голосовании', async () => {
     asMock(prismaMock.poll.findUnique).mockResolvedValue({

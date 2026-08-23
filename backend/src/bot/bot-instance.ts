@@ -5,6 +5,7 @@
 import { Bot } from 'grammy';
 import type { BotContext } from '../types/bot.types';
 import { logger } from '../utils/logger';
+import { BaseError } from '../utils/error';
 
 let instance: Bot<BotContext> | null = null;
 
@@ -28,11 +29,14 @@ export function getBotInstance(): Bot<BotContext> | null {
  * Отсутствие бота — отдельный тип ошибки, а не текст сообщения.
  * HTTP-слой отвечает на него 503, и раньше он ловил это подстрокой: ветка
  * молча умерла, как только формулировка разошлась с брошенной ошибкой.
+ *
+ * Статус и код класс несёт сам (`BaseError`): контроллеру больше не нужно
+ * переводить тип в ответ — это делает `error-handler`. Смысл прежний: сервис
+ * недоступен сейчас, повтор осмыслен, поэтому 503, а не 500.
  */
-export class BotNotInitializedError extends Error {
+export class BotNotInitializedError extends BaseError {
   constructor() {
-    super('Bot instance is not initialized');
-    this.name = 'BotNotInitializedError';
+    super('Bot instance is not initialized', 503, 'BOT_NOT_AVAILABLE');
   }
 }
 
