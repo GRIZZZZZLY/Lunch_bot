@@ -1,0 +1,60 @@
+# Контекст сборки прод-смоука.
+#
+# Корневой .dockerignore вырезает `**/tests`, `**/*.spec.ts` и `**/__tests__` —
+# для образов приложения это правильно, но именно они и составляют этот образ:
+# сборка из чистого чекаута падала на `"/frontend-new/tests": not found`.
+# Работал только рукописный слепок каталога, в котором .dockerignore не было.
+#
+# BuildKit берёт `<dockerfile>.dockerignore` вместо корневого, поэтому правила
+# ниже — копия корневых БЕЗ исключения тестов.
+
+**/node_modules
+**/npm-debug.log
+**/yarn-error.log
+
+**/dist
+**/build
+**/.next
+
+**/coverage
+**/.nyc_output
+
+**/.env
+**/.env.local
+**/.env.*.local
+
+**/.idea
+**/.vscode
+**/*.swp
+**/*.swo
+*~
+
+.DS_Store
+Thumbs.db
+
+.git
+.gitignore
+.gitattributes
+
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+README.md
+docs/
+*.md
+
+**/logs
+**/*.log
+
+**/tmp
+**/temp
+
+**/*.db
+**/*.sqlite
+
+**/prisma/migrations
+
+.github/
+.gitlab-ci.yml
+.travis.yml
