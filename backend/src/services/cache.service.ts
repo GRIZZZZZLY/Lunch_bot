@@ -400,7 +400,18 @@ export const cacheService = new CacheService();
 export const CACHE_KEYS = {
   // Polls
   ACTIVE_POLLS: 'active_polls',
+  /** СПИСОК активных голосований группы (массив). */
   ACTIVE_POLLS_GROUP: (groupId: number) => `active_polls_group_${groupId}`,
+  /**
+   * ОДНО активное голосование группы (объект или null).
+   *
+   * Отдельный ключ, а не тот же `ACTIVE_POLLS_GROUP`: под ним лежит другая
+   * форма данных. Пока ключ был общим, список писал туда `[]`, а
+   * `getActivePollInGroup` читал этот массив как «голосование есть» — пустой
+   * массив истинный, — и создание нового отвечало «в этой группе уже идёт
+   * голосование (#undefined)». Инцидент 2026-08-24.
+   */
+  ACTIVE_POLL_GROUP: (groupId: number) => `active_poll_group_${groupId}`,
   POLL_DETAILS: (pollId: number) => `poll_${pollId}`,
   POLL_VOTES: (pollId: number) => `poll_votes_${pollId}`,
   POLL_VOTE_BREAKDOWN: (pollId: number) => `poll_vote_breakdown_${pollId}`,
@@ -455,7 +466,10 @@ export class CacheInvalidator {
     ];
 
     if (groupId) {
-      keysToDelete.push(CACHE_KEYS.ACTIVE_POLLS_GROUP(groupId));
+      keysToDelete.push(
+        CACHE_KEYS.ACTIVE_POLLS_GROUP(groupId),
+        CACHE_KEYS.ACTIVE_POLL_GROUP(groupId)
+      );
     }
 
     await cacheService.del(keysToDelete);

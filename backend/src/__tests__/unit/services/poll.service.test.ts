@@ -48,6 +48,7 @@ jest.mock('../../../services/cache.service', () => ({
   CACHE_KEYS: {
     ACTIVE_POLLS: 'active_polls',
     ACTIVE_POLLS_GROUP: (groupId: number) => `active_polls_group_${groupId}`,
+    ACTIVE_POLL_GROUP: (groupId: number) => `active_poll_group_${groupId}`,
   },
   CACHE_TTL: { ACTIVE_POLLS: 30 },
 }));
@@ -540,6 +541,44 @@ describe('getActivePollInGroup', () => {
      голосование уже закрыто, иначе оно живёт лишнюю минуту до тика. */
   it('момент окончания ровно сейчас — уже не активно', async () => {
     activeRow({ startedAt: new Date(NOW.getTime() - 30 * 60_000) });
+
+    await expect(PollQueryService.getActivePollInGroup(100)).resolves.toBeNull();
+  });
+
+  /* Инцидент 2026-08-24: одно голосование и СПИСОК активных писались в общий
+     ключ `active_polls_group_<id>`. Список клал туда `[]`, отсюда пустой массив
+     читался как «голосование есть» (он истинный), и создание отвечало «в этой
+     группе уже идёт голосование (#undefined)» при пустой таблице polls. */
+  it('читает СВОЙ ключ, не общий со списком', async () => {
+    activeRow();
+
+    await PollQueryService.getActivePollInGroup(100);
+
+    expect(cacheServiceMock.getOrSet).toHaveBeenCalledWith(
+      'active_poll_group_100',
+      expect.any(Function),
+      expect.any(Number)
+    );
+  });
+
+  it('список активных пишется в другой ключ', async () => {
+    await PollQueryService.getActivePolls([100]);
+
+    expect(cacheServiceMock.getOrSet).toHaveBeenCalledWith(
+      'active_polls_group_100',
+      expect.any(Function),
+      expect.any(Number)
+    );
+  });
+
+  it('чужая форма в кэше (пустой массив) — это промах, а не голосование', async () => {
+    cacheServiceMock.getOrSet.mockResolvedValueOnce([]);
+
+    await expect(PollQueryService.getActivePollInGroup(100)).resolves.toBeNull();
+  });
+
+  it('чужая форма в кэше (непустой массив) тоже не голосование', async () => {
+    cacheServiceMock.getOrSet.mockResolvedValueOnce([{ id: 5 }]);
 
     await expect(PollQueryService.getActivePollInGroup(100)).resolves.toBeNull();
   });
@@ -1111,14 +1150,22 @@ describe('completePollMultiWinner', () => {
 });
 
 describe('чтение через кэш', () => {
+  /* Ключ здесь `active_poll_group_…`, БЕЗ «s»: общий со списком ключ
+     `active_polls_group_…` стоил инцидента 2026-08-24 — подробности в
+     describe('getActivePollInGroup'). */
   it('активное голосование группы читается через кэш с ключом группы', async () => {
-    asMock(prismaMock.poll.findFirst).mockResolvedValue({ id: 5 });
+    asMock(prismaMock.poll.findFirst).mockResolvedValue({
+      id: 5,
+      startedAt: new Date(NOW.getTime() - 60_000),
+      duration: 30,
+      endedAt: null,
+    });
 
     await expect(PollQueryService.getActivePollInGroup(100)).resolves.toMatchObject({
       id: 5,
     });
     expect(cacheServiceMock.getOrSet).toHaveBeenCalledWith(
-      'active_polls_group_100',
+      'active_poll_group_100',
       expect.any(Function),
       30
     );

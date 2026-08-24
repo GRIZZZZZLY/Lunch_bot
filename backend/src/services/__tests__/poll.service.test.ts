@@ -63,7 +63,8 @@ jest.mock('../cache.service', () => ({
     invalidatePoll: jest.fn(),
   },
   CACHE_KEYS: {
-    ACTIVE_POLLS_GROUP: (groupId: number) => `active_poll_group_${groupId}`,
+    ACTIVE_POLLS_GROUP: (groupId: number) => `active_polls_group_${groupId}`,
+    ACTIVE_POLL_GROUP: (groupId: number) => `active_poll_group_${groupId}`,
   },
   CACHE_TTL: {
     ACTIVE_POLLS: 60,

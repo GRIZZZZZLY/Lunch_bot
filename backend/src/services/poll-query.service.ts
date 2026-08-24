@@ -99,6 +99,22 @@ const pollHistorySelect = {
 
 } satisfies Prisma.PollSelect;
 
+/**
+ * Похоже ли значение из кэша на одно голосование.
+ *
+ * Кэш отдаёт то, что в него положили, а положить в чужой ключ может кто угодно:
+ * так `[]` из списка активных однажды прошёл как «голосование есть». Массив и
+ * объект без числового `id` здесь считаются промахом, а не данными.
+ */
+function isPollShape(value: unknown): value is Poll {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as { id?: unknown }).id === 'number'
+  );
+}
+
 /** Фильтр по группе: одна, список или все. */
 function groupFilter(groupId?: number | number[]): Prisma.PollWhereInput {
   if (Array.isArray(groupId)) return { groupId: { in: groupId } };
@@ -186,11 +202,18 @@ export class PollQueryService {
    * прячет) и при этом запрещала и создание нового голосования, и запуск
    * голосования по расписанию. Одно правило для чтения и для запрета — в
    * `isPollOver`.
+   *
+   * Ключ кэша — `ACTIVE_POLL_GROUP`, отдельный от `ACTIVE_POLLS_GROUP`, под
+   * которым лежит СПИСОК. Общий ключ стоил инцидента 2026-08-24: список писал
+   * туда `[]`, отсюда это читалось как «голосование есть» (пустой массив
+   * истинный), и создание отвечало «в этой группе уже идёт голосование
+   * (#undefined)» при пустой таблице. Проверка формы ниже — второй рубеж на
+   * случай, если ключи снова разъедутся.
    */
   static async getActivePollInGroup(groupId: number): Promise<Poll | null> {
     try {
       const poll = await cacheService.getOrSet(
-        CACHE_KEYS.ACTIVE_POLLS_GROUP(groupId),
+        CACHE_KEYS.ACTIVE_POLL_GROUP(groupId),
         async () =>
           prisma.poll.findFirst({
             where: { groupId, status: 'ACTIVE' },
@@ -199,7 +222,9 @@ export class PollQueryService {
         CACHE_TTL.ACTIVE_POLLS
       );
 
-      return poll && !isPollOver(poll) ? poll : null;
+      if (!isPollShape(poll)) return null;
+
+      return isPollOver(poll) ? null : poll;
     } catch (error) {
       logger.error('Error getting active poll in group:', error);
       throw new Error('Failed to get active poll');

@@ -594,6 +594,7 @@ describe('CACHE_KEYS', () => {
     const { CACHE_KEYS } = loadCache();
 
     expect(CACHE_KEYS.ACTIVE_POLLS_GROUP(7)).toBe('active_polls_group_7');
+    expect(CACHE_KEYS.ACTIVE_POLL_GROUP(7)).toBe('active_poll_group_7');
     expect(CACHE_KEYS.POLL_DETAILS(3)).toBe('poll_3');
     expect(CACHE_KEYS.POLL_VOTES(3)).toBe('poll_votes_3');
     expect(CACHE_KEYS.POLL_VOTE_BREAKDOWN(3)).toBe('poll_vote_breakdown_3');
@@ -645,7 +646,18 @@ describe('CacheInvalidator', () => {
     await CacheInvalidator.invalidatePoll(3, 7);
 
     expect(del).toHaveBeenCalledWith(
-      expect.arrayContaining(['active_polls_group_7'])
+      expect.arrayContaining(['active_polls_group_7', 'active_poll_group_7'])
+    );
+  });
+
+  /* Список и одно голосование — разные формы данных, и один ключ на двоих
+     стоил инцидента 2026-08-24: список клал в него `[]`, а проверка «есть ли
+     активное голосование» читала пустой массив как «есть». */
+  it('список и одиночное голосование группы лежат в РАЗНЫХ ключах', () => {
+    const { CACHE_KEYS } = loadCache();
+
+    expect(CACHE_KEYS.ACTIVE_POLL_GROUP(7)).not.toBe(
+      CACHE_KEYS.ACTIVE_POLLS_GROUP(7)
     );
   });
 
