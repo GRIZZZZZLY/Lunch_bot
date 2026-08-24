@@ -1,9 +1,20 @@
 /**
- * Скрипт для завершения истекших голосований
+ * Ручное закрытие просроченных голосований.
  * Использование: npm run close-expired-polls
+ *
+ * Нужен, когда планировщик простаивал: рестарт, недоступная БД, отключённый
+ * процесс. В обычной жизни то же самое делает `poll-scheduler` раз в минуту.
+ *
+ * Скрипт НЕ содержит собственного правила «голосование просрочено» и не пишет
+ * статус сам: и то и другое — в `PollCompletionService.cancelExpiredPolls`.
+ * Пока копия жила здесь, она расходилась с планировщиком в двух местах: ставила
+ * `COMPLETED` вместо `CANCELLED` (одно и то же событие выглядело в истории
+ * по-разному) и не сбрасывала кэш группы после закрытия.
  */
 
 import { prisma } from '../database/client';
+import { PollCompletionService } from '../services/poll-completion.service';
+import { isPollOver, pollEndsAt } from '../utils/date';
 
 async function closeExpiredPolls() {
   console.log('');
@@ -14,34 +25,25 @@ async function closeExpiredPolls() {
 
   try {
     const now = new Date();
-    
-    // Найдем все активные голосования
-    const activePolls = await prisma.poll.findMany({
-      where: {
-        status: 'ACTIVE',
-      },
-      include: {
-        group: true,
-      },
-    });
 
-    // Фильтруем истекшие голосования
-    const expiredPolls = activePolls.filter((poll) => {
-      const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
-      return endsAt < now;
+    // Отчёт до закрытия: что именно будет тронуто и как давно оно висит.
+    const active = await prisma.poll.findMany({
+      where: { status: 'ACTIVE' },
+      include: { group: true },
     });
+    const expired = active.filter(poll => isPollOver(poll, now));
 
-    if (expiredPolls.length === 0) {
+    if (expired.length === 0) {
       console.log('✅ No expired polls found!');
       console.log('');
       return;
     }
 
-    console.log(`⚠️  Found ${expiredPolls.length} expired poll(s):`);
+    console.log(`⚠️  Found ${expired.length} expired poll(s):`);
     console.log('');
 
-    for (const poll of expiredPolls) {
-      const endsAt = poll.endedAt || new Date(poll.startedAt.getTime() + poll.duration * 60 * 1000);
+    for (const poll of expired) {
+      const endsAt = pollEndsAt(poll);
       const hoursSinceEnd = Math.floor((now.getTime() - endsAt.getTime()) / (1000 * 60 * 60));
 
       console.log(`  Poll ID: ${poll.id}`);
@@ -49,18 +51,16 @@ async function closeExpiredPolls() {
       console.log(`  Ended at: ${endsAt.toISOString()}`);
       console.log(`  Hours ago: ${hoursSinceEnd}h`);
       console.log('');
-      
-      // Обновляем каждое голосование отдельно
-      await prisma.poll.update({
-        where: { id: poll.id },
-        data: {
-          status: 'COMPLETED',
-          endedAt: endsAt,
-        },
-      });
     }
 
-    console.log(`✅ Closed ${expiredPolls.length} expired poll(s)`);
+    const closed = await PollCompletionService.cancelExpiredPolls(now);
+
+    console.log(`✅ Closed ${closed} expired poll(s)`);
+    if (closed !== expired.length) {
+      // Разница — не ошибка: голосование мог закрыть планировщик или человек
+      // между отчётом и записью. Оптимистичная блокировка это и ловит.
+      console.log(`ℹ️  ${expired.length - closed} закрыл кто-то другой параллельно`);
+    }
     console.log('');
     console.log('========================================');
     console.log('');

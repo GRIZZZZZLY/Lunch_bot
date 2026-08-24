@@ -15,8 +15,34 @@ describe('greetingFor / dateCaption', () => {
 });
 
 describe('pollEndsAt', () => {
-  it('createdAt + duration минут', () => {
-    expect(pollEndsAt('2026-07-18T12:00:00.000Z', 30)).toBe('2026-07-18T12:30:00.000Z');
+  it('startedAt + duration минут', () => {
+    expect(
+      pollEndsAt({
+        createdAt: '2026-07-18T11:59:00.000Z',
+        startedAt: '2026-07-18T12:00:00.000Z',
+        duration: 30,
+      }),
+    ).toBe('2026-07-18T12:30:00.000Z');
+  });
+
+  /* Тот же порядок, что на сервере (backend/src/utils/date.ts): фактическое
+     завершение важнее расчёта, иначе закрытое голосование рисуется с живым
+     таймером. */
+  it('фактический endedAt важнее расчёта', () => {
+    expect(
+      pollEndsAt({
+        createdAt: '2026-07-18T12:00:00.000Z',
+        startedAt: '2026-07-18T12:00:00.000Z',
+        duration: 30,
+        endedAt: '2026-07-18T12:07:00.000Z',
+      }),
+    ).toBe('2026-07-18T12:07:00.000Z');
+  });
+
+  it('без startedAt считает от createdAt', () => {
+    expect(pollEndsAt({ createdAt: '2026-07-18T12:00:00.000Z', duration: 30 })).toBe(
+      '2026-07-18T12:30:00.000Z',
+    );
   });
 });
 

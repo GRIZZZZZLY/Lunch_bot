@@ -118,6 +118,61 @@ describe('required idempotency middleware', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  /* Кешируется только успех. Отказ побочного эффекта не оставил — запрос отбит
+     проверкой до записи, — а закешированный отказ сутки отдавался бы повторам
+     вместо новой попытки. Так и случилось 2026-08-24: «в этой группе уже идёт
+     голосование» продолжало приходить после того, как голосование закрылось. */
+  it('успешный ответ кешируется', async () => {
+    mockedCache.setIfAbsent.mockResolvedValue('stored');
+    const handler = jest.fn((_req, res) => res.status(201).json({ ok: true }));
+
+    await request(createApp(handler))
+      .post('/write')
+      .set('Idempotency-Key', 'request-123')
+      .send({});
+
+    expect(mockedCache.set).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        state: 'done',
+        response: expect.objectContaining({ status: 201 }),
+      }),
+      expect.any(Number)
+    );
+  });
+
+  it.each([400, 403, 404, 409])(
+    'отказ %i не кешируется, ключ освобождается для повтора',
+    async status => {
+      mockedCache.setIfAbsent.mockResolvedValue('stored');
+      const handler = jest.fn((_req, res) =>
+        res.status(status).json({ code: 'NOPE' })
+      );
+
+      const response = await request(createApp(handler))
+        .post('/write')
+        .set('Idempotency-Key', 'request-123')
+        .send({});
+
+      expect(response.status).toBe(status);
+      expect(mockedCache.set).not.toHaveBeenCalled();
+      expect(mockedCache.del).toHaveBeenCalled();
+    }
+  );
+
+  it('5xx по-прежнему не кешируется', async () => {
+    mockedCache.setIfAbsent.mockResolvedValue('stored');
+    const handler = jest.fn((_req, res) => res.status(500).json({ error: 'boom' }));
+
+    await request(createApp(handler))
+      .post('/write')
+      .set('Idempotency-Key', 'request-123')
+      .send({});
+
+    expect(mockedCache.set).not.toHaveBeenCalled();
+    expect(mockedCache.del).toHaveBeenCalled();
+  });
+
   it('rejects the loser of a concurrent acquisition', async () => {
     mockedCache.get
       .mockResolvedValueOnce(undefined)

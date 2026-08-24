@@ -213,8 +213,12 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
     // 3) Перехватываем res.json чтобы закешировать успешный ответ.
     const originalJson = res.json.bind(res) as (body: unknown) => Response;
     res.json = function patchedJson(body: unknown): Response {
-      // Не кешируем 5xx — это позволяет клиенту ретраить без 409.
-      if (res.statusCode >= 200 && res.statusCode < 500) {
+      /* Кешируется только УСПЕХ. Идемпотентность защищает от повторного
+         побочного эффекта, а отказ его не оставил: запрос отбит проверкой до
+         записи. Раньше сюда попадали и 4xx, и повтор с тем же ключом сутки
+         отдавал вчерашнюю ошибку вместо новой попытки — например, «в этой
+         группе уже идёт голосование» после того, как голосование закрылось. */
+      if (res.statusCode >= 200 && res.statusCode < 400) {
         const done: Marker = {
           state: 'done',
           at: Date.now(),
@@ -231,7 +235,7 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions) {
           logger.warn('idempotency: response cache write failed', { scope });
         });
       } else {
-        // 5xx — снимаем in-flight, чтобы клиент мог ретраить.
+        // Отказ (4xx/5xx) — снимаем in-flight, чтобы клиент мог ретраить.
         cacheService.del(cacheKey).catch(() => undefined);
       }
       return originalJson(body);

@@ -419,8 +419,12 @@ describe('cancelExpiredPolls', () => {
   /* Просроченные отбирает БД. Мок отдаёт то, что вернул бы запрос: сравнение
      `startedAt + duration` с моментом проверки в JS больше не выполняется,
      поэтому фикстура — уже отобранные строки. */
-  function expired(rows: Array<{ id: number; groupId: number }>) {
-    asMock(prismaMock.$queryRaw).mockResolvedValue(rows);
+  function expired(
+    rows: Array<{ id: number; groupId: number; endsAt?: Date }>
+  ) {
+    asMock(prismaMock.$queryRaw).mockResolvedValue(
+      rows.map(row => ({ endsAt: NOW, ...row }))
+    );
   }
 
   /** Текст запроса из тегированного шаблона: `$queryRaw(strings, ...values)`. */
@@ -439,6 +443,28 @@ describe('cancelExpiredPolls', () => {
     expect(asMock(prismaMock.poll.updateMany)).toHaveBeenCalledWith({
       where: { id: 5, status: 'ACTIVE' },
       data: { status: 'CANCELLED', endedAt: NOW },
+    });
+  });
+
+  /* Пропущенный тик — простой, рестарт, ручной запуск скрипта через сутки —
+     не должен растягивать длительность в истории до момента запуска. */
+  it('в историю пишется фактический конец, а не время тика', async () => {
+    const endedLongAgo = new Date(NOW.getTime() - 26 * 60 * 60_000);
+    expired([{ id: 5, groupId: 100, endsAt: endedLongAgo }]);
+
+    await PollCompletionService.cancelExpiredPolls(NOW);
+
+    expect(asMock(prismaMock.poll.updateMany)).toHaveBeenCalledWith({
+      where: { id: 5, status: 'ACTIVE' },
+      data: { status: 'CANCELLED', endedAt: endedLongAgo },
+    });
+  });
+
+  it('запрос возвращает момент окончания вместе со строкой', () => {
+    expired([{ id: 5, groupId: 100 }]);
+
+    return PollCompletionService.cancelExpiredPolls(NOW).then(() => {
+      expect(lastQuery().sql).toContain('AS "endsAt"');
     });
   });
 

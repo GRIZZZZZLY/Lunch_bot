@@ -73,7 +73,7 @@ export function TicketSlot({
       })),
     [activePoll, allMenu],
   );
-  const endsAt = activePoll ? pollEndsAt(activePoll.createdAt, activePoll.duration) : null;
+  const endsAt = activePoll ? pollEndsAt(activePoll) : null;
 
   /* Достижимо только через предохранитель барьера: обычная загрузка до
      раскрытия экрана не доходит. */

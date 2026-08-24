@@ -32,9 +32,26 @@ export function dateCaption(date: Date): string {
 
 /* ------------------------------------------------ таймер опроса */
 
-/** Абсолютный момент окончания голосования (сервер: createdAt + duration минут). */
-export function pollEndsAt(createdAt: string, durationMinutes: number): string {
-  return new Date(new Date(createdAt).getTime() + durationMinutes * 60_000).toISOString();
+/**
+ * Абсолютный момент окончания голосования.
+ *
+ * Правило то же, что на сервере (`pollEndsAt` в backend/src/utils/date.ts):
+ * фактический `endedAt`, иначе `startedAt` плюс длительность. Раньше здесь
+ * считалось от `createdAt`: обычно это тот же момент, но отсчёт таймера у
+ * экрана и у планировщика опирался на разные поля, а закрытое голосование
+ * рисовалось с живым таймером.
+ *
+ * `createdAt` остаётся запасным вариантом: старые записи и часть ответов API
+ * приходят без `startedAt`.
+ */
+export function pollEndsAt(
+  poll: Pick<Poll, 'createdAt' | 'duration'> &
+    Partial<Pick<Poll, 'startedAt' | 'endedAt'>>,
+): string {
+  if (poll.endedAt) return new Date(poll.endedAt).toISOString();
+
+  const start = new Date(poll.startedAt ?? poll.createdAt).getTime();
+  return new Date(start + poll.duration * 60_000).toISOString();
 }
 
 /* ------------------------------------------------ выбор группы для создания */

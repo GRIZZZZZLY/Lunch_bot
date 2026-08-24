@@ -494,8 +494,12 @@ export class PollCompletionService {
    * Диалект PostgreSQL: рабочая, тестовая и локальная БД — одна и та же.
    */
   static async cancelExpiredPolls(at: Date = new Date()): Promise<number> {
-    const expired = await prisma.$queryRaw<Array<{ id: number; groupId: number }>>`
-      SELECT id, group_id AS "groupId"
+    const expired = await prisma.$queryRaw<
+      Array<{ id: number; groupId: number; endsAt: Date }>
+    >`
+      SELECT id,
+             group_id AS "groupId",
+             COALESCE(ended_at, started_at + (duration * INTERVAL '1 minute')) AS "endsAt"
       FROM polls
       WHERE status = 'ACTIVE'
         AND COALESCE(ended_at, started_at + (duration * INTERVAL '1 minute'))
@@ -510,9 +514,12 @@ export class PollCompletionService {
        ровно просроченные. */
     let cancelled = 0;
     for (const poll of expired) {
+      /* `endedAt` — момент, когда голосование ФАКТИЧЕСКИ кончилось, а не время
+         тика: пропущенный тик (простой, рестарт, ручной запуск через сутки)
+         иначе запишет в историю длительность в сутки вместо тридцати минут. */
       const result = await prisma.poll.updateMany({
         where: { id: poll.id, status: 'ACTIVE' },
-        data: { status: 'CANCELLED', endedAt: at },
+        data: { status: 'CANCELLED', endedAt: poll.endsAt },
       });
 
       if (result.count > 0) {

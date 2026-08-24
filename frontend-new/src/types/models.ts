@@ -39,6 +39,12 @@ export interface Poll {
   status: PollStatus;
   duration: number;
   createdAt: string;
+  /**
+   * Момент старта таймера. От него сервер считает окончание; у старых записей
+   * и части ответов API поля нет, тогда в ход идёт `createdAt` (обычно тот же
+   * момент) — см. `pollEndsAt` в features/home/lib/selectors.
+   */
+  startedAt?: string;
   /** Момент завершения (API отдаёт `endedAt`; `closedAt` — легаси-псевдоним). */
   endedAt?: string | null;
   closedAt?: string;
