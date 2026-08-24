@@ -177,9 +177,44 @@ fi
 log "Переключение на ${SHA:0:8}"
 switch_release "$RELEASE"
 
+# Уборка старых релизов. Правила те же, что у шага 'Prune old releases' в
+# workflow: держим current, previous и KEEP_RELEASES свежих, трогаем только
+# каталоги с именем ровно из 40 hex-символов. Каждый релиз несёт свои
+# node_modules (~800 МБ), поэтому без уборки ручные выкаты съедают диск.
+prune_releases() {
+  local keep="${KEEP_RELEASES:-3}" kept=0 removed=0 name
+  local current previous
+  current="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
+  previous="$(readlink -f "$(cat "$PREVIOUS_FILE" 2>/dev/null || true)" 2>/dev/null || true)"
+
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    name="$(basename "$dir")"
+    if [ ${#name} -ne 40 ] || [ -n "$(printf '%s' "$name" | tr -d '0-9a-f')" ]; then
+      continue
+    fi
+    if [ "$dir" = "$current" ] || [ "$dir" = "$previous" ] || [ "$kept" -lt "$keep" ]; then
+      kept=$((kept + 1))
+      continue
+    fi
+    removed=$((removed + 1))
+    echo "удаляю релиз $(basename "$dir" | cut -c1-8)"
+    git -C "$SOURCE_CHECKOUT" worktree remove --force "$dir" 2>/dev/null ||
+      rm -rf -- "$dir" ||
+      echo "не удалось удалить $dir" >&2
+  done <<< "$(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%T@\t%p\n' |
+    sort -rn | cut -f2-)"
+
+  git -C "$SOURCE_CHECKOUT" worktree prune 2>/dev/null || true
+  echo "релизов оставлено: $kept, удалено: $removed"
+}
+
 if health_ok && pm2 jlist | grep -qF "$RELEASE/backend/dist/index.js"; then
   log "Готово: https://$DOMAIN (релиз ${SHA:0:8})"
-  echo "Старые релизы не удаляются: их чистит шаг 'Prune old releases' в workflow."
+  # Только после подтверждённого health-check: пока новый релиз не проверен,
+  # старые — единственный путь отката, и падение уборки не должно валить выкат.
+  log "Уборка старых релизов"
+  prune_releases || echo "уборка не удалась, выкат при этом успешен" >&2
   exit 0
 fi
 
