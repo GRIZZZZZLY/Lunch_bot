@@ -1,27 +1,52 @@
 #!/usr/bin/env bash
 
-# Ручное развёртывание Rocket Lunch на VPS.
-# Переменные: BRANCH, DOMAIN, FRONTEND_DIR и ENV_SUFFIX.
+# Ручной выпуск Rocket Lunch на VPS — запасной путь, когда GitHub Actions
+# недоступен. Канонический путь: `.github/workflows/deploy.yml`.
 #
-# ENV_SUFFIX выбирает и набор .env, И режим сборки Vite: production (по
-# умолчанию) или prod-dev — отладочная production-сборка. Отдельный
-# deploy-prod-dev-vps.sh для этого больше не нужен: он собирал каталог
-# frontend/, в котором нет package.json, то есть падал на `npm ci` при любом
-# запуске.
+# Скрипт намеренно повторяет шаги workflow, а не изобретает свои: иначе ручной
+# выкат оставляет сервер в состоянии, которого автоматический не ожидает.
 #
-# Почему режим передаётся явно, а не только через копирование .env: Vite решает
-# по mode И какие .env грузить, И значение `sourcemap: mode !== 'production'`
-# (frontend-new/vite.config.ts:34). Без `--mode prod-dev` сборка вышла бы
-# production-бандлом без sourcemap, то есть отладочного в ней не было бы
-# вообще, а `.env.production` перебил бы скопированный `.env` по приоритету.
+# Схема на сервере — релиз-каталоги по коммиту:
+#
+#   projects/telegram-food-bot                   исходный чекаут, ветка main,
+#                                                источник `backend/.env`
+#   projects/telegram-food-bot-releases/<sha>/   git worktree на этот коммит
+#   projects/telegram-food-bot-releases/current  симлинк на действующий релиз
+#   .../.previous-release                        путь предыдущего, для отката
+#
+# Прежняя версия скрипта делала `git pull` и `git switch main` в одном каталоге
+# и на этом сервере не отрабатывала НИ РАЗУ: релизы — worktree одного
+# репозитория, ветка `main` занята исходным чекаутом, и git отвечает
+# «'main' is already checked out at …». Плюс требовала `backend/.env.production`
+# и `frontend-new/.env.production`, которых на сервере нет. Все выкаты шли мимо
+# неё, руками.
+#
+# Три грабли, ради которых скрипт и существует:
+#
+# 1. `pm2 startOrReload` НЕ меняет script path у уже запущенного процесса: он
+#    перезапустит бинарник ПРОШЛОГО релиза и отрапортует успех. Смена релиза —
+#    это `pm2 delete` + `pm2 start` (см. switch_release).
+# 2. `.env` в репозитории нет. Источник истины — `backend/.env` исходного
+#    чекаута, оттуда же его берёт workflow.
+# 3. В свежем worktree нет `backend/logs` и `backend/uploads`: они в .gitignore.
+#    Без симлинков на общие каталоги логи и загрузки теряются при каждом выкате.
+#
+# Переменные: BRANCH, REF, DOMAIN, ENV_SUFFIX, PM2_APP, HEALTH_URL,
+# SOURCE_CHECKOUT, RELEASES_DIR, BACKEND_ENV.
+#
+# ENV_SUFFIX выбирает режим сборки Vite: production (по умолчанию) или prod-dev
+# — отладочная production-сборка. Vite решает по mode И какие `.env` грузить, И
+# значение `sourcemap: mode !== 'production'` (frontend-new/vite.config.ts).
 
 set -euo pipefail
 
 BRANCH="${BRANCH:-main}"
+REF="${REF:-origin/$BRANCH}"
 DOMAIN="${DOMAIN:-rocketlunch.dpdns.org}"
-FRONTEND_DIR="${FRONTEND_DIR:-frontend-new}"
 ENV_SUFFIX="${ENV_SUFFIX:-production}"
-APP_ROOT="$(pwd)"
+PM2_APP="${PM2_APP:-rocket-lunch-bot}"
+HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3001/health}"
+FRONTEND_DIR="${FRONTEND_DIR:-frontend-new}"
 
 # Белый список: опечатка в ENV_SUFFIX не должна тихо собрать чужой env.
 case "$ENV_SUFFIX" in
@@ -32,52 +57,140 @@ case "$ENV_SUFFIX" in
     ;;
 esac
 
-echo "Развёртывание ветки $BRANCH; клиент: $FRONTEND_DIR; env: $ENV_SUFFIX"
-
-git fetch origin "$BRANCH"
-if [ "$(git branch --show-current)" != "$BRANCH" ]; then
-  git switch "$BRANCH"
+# Старый интерфейс удалён, поддерживается единственный каталог (как в workflow).
+if [ "$FRONTEND_DIR" != 'frontend-new' ]; then
+  echo "Unsupported FRONTEND_DIR: $FRONTEND_DIR" >&2
+  exit 1
 fi
-git pull --ff-only origin "$BRANCH"
 
-# Оба файла обязательны, симметрично: раньше отсутствие фронтового .env
-# молча пропускалось, и сборка уезжала на env предыдущего выката.
-test -f "backend/.env.$ENV_SUFFIX"
-test -f "$FRONTEND_DIR/.env.$ENV_SUFFIX"
-install -m 600 "backend/.env.$ENV_SUFFIX" backend/.env
-install -m 600 "$FRONTEND_DIR/.env.$ENV_SUFFIX" "$FRONTEND_DIR/.env"
+# Корень вычисляется, а не берётся из pwd: скрипт запускают и из worktree
+# предыдущего релиза, а `--git-common-dir` из любого worktree указывает на .git
+# исходного чекаута.
+SOURCE_CHECKOUT="${SOURCE_CHECKOUT:-$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")}"
+RELEASES_DIR="${RELEASES_DIR:-${SOURCE_CHECKOUT%/}-releases}"
+CURRENT_LINK="$RELEASES_DIR/current"
+PREVIOUS_FILE="$RELEASES_DIR/.previous-release"
+BACKEND_ENV="${BACKEND_ENV:-$SOURCE_CHECKOUT/backend/.env}"
 
+log() { printf '\n== %s\n' "$*"; }
+
+test -d "$SOURCE_CHECKOUT/backend"
+test -f "$BACKEND_ENV"
+
+log "Источник: $SOURCE_CHECKOUT (ветка $BRANCH); релизы: $RELEASES_DIR"
+
+git -C "$SOURCE_CHECKOUT" fetch --prune origin "$BRANCH"
+SHA="$(git -C "$SOURCE_CHECKOUT" rev-parse "$REF^{commit}")"
+RELEASE="$RELEASES_DIR/$SHA"
+log "Релиз: ${SHA:0:8} → $RELEASE"
+
+PREVIOUS=""
+if [ -L "$CURRENT_LINK" ]; then
+  PREVIOUS="$(readlink -f "$CURRENT_LINK")"
+fi
+
+# --- Подготовка релиза ---------------------------------------------------
+
+mkdir -p "$RELEASES_DIR"
+if [ -d "$RELEASE" ]; then
+  log "Worktree уже есть, переиспользуем"
+  git -C "$RELEASE" checkout --detach "$SHA"
+else
+  git -C "$SOURCE_CHECKOUT" worktree add --detach "$RELEASE" "$SHA"
+fi
+
+# При повторном выкате того же коммита источник и цель могут оказаться одним
+# файлом, и `install` на этом падает. Сравниваем разыменованные пути.
+if [ "$(readlink -f "$BACKEND_ENV")" != "$(readlink -f "$RELEASE/backend/.env" 2>/dev/null || true)" ]; then
+  install -m 600 "$BACKEND_ENV" "$RELEASE/backend/.env"
+fi
+
+# Фронтовый .env опционален: на проде его нет, режим сборки задаёт `--mode`.
+for name in ".env" ".env.$ENV_SUFFIX"; do
+  if [ -f "$SOURCE_CHECKOUT/$FRONTEND_DIR/$name" ]; then
+    install -m 600 "$SOURCE_CHECKOUT/$FRONTEND_DIR/$name" "$RELEASE/$FRONTEND_DIR/$name"
+  fi
+done
+
+# Логи и загрузки — общие на все релизы, иначе история рвётся при каждом выкате.
+for runtime_dir in uploads logs; do
+  mkdir -p "$SOURCE_CHECKOUT/backend/$runtime_dir"
+  if [ ! -e "$RELEASE/backend/$runtime_dir" ]; then
+    ln -s "$SOURCE_CHECKOUT/backend/$runtime_dir" "$RELEASE/backend/$runtime_dir"
+  fi
+done
+
+# --- Сборка (действующий релиз ещё работает) -----------------------------
+
+log "Сборка бекенда"
 (
-  cd backend
+  cd "$RELEASE/backend"
   npm ci
   npm run db:generate
   npm run build:prod
 )
 
+log "Сборка клиента ($FRONTEND_DIR, mode=$ENV_SUFFIX)"
 (
-  cd "$FRONTEND_DIR"
+  cd "$RELEASE/$FRONTEND_DIR"
   npm ci
   npm run build -- --mode "$ENV_SUFFIX"
 )
 
+log "Миграции"
 (
-  cd backend
+  cd "$RELEASE/backend"
   npm run db:migrate:prod
   if [ -f scripts/backfill-poll-participants.ts ]; then
     npx tsx scripts/backfill-poll-participants.ts
   fi
-  # На отладочном стенде dev-зависимости нужны: без них нет ни tsx для
-  # ручных скриптов обслуживания, ни prisma studio.
+  # На отладочном стенде dev-зависимости нужны: без них нет ни tsx для ручных
+  # скриптов обслуживания, ни prisma studio.
   if [ "$ENV_SUFFIX" = 'production' ]; then
     npm prune --omit=dev
   fi
 )
 
-APP_ROOT="$APP_ROOT" BACKEND_ENV_FILE="$APP_ROOT/backend/.env" \
-  pm2 startOrReload ecosystem.config.js --only rocket-lunch-bot --update-env
-pm2 save
+# --- Переключение --------------------------------------------------------
 
-curl --fail --silent --show-error --retry 6 --retry-delay 5 \
-  http://127.0.0.1:3001/health >/dev/null
+# `pm2 delete` + `pm2 start`, а не `startOrReload`: см. грабли №1 в шапке.
+switch_release() {
+  local root="$1"
+  ln -sfn "$root" "$RELEASES_DIR/current.next"
+  mv -Tf "$RELEASES_DIR/current.next" "$CURRENT_LINK"
+  pm2 delete "$PM2_APP" >/dev/null 2>&1 || true
+  APP_ROOT="$root" BACKEND_ENV_FILE="$root/backend/.env" \
+    pm2 start "$root/ecosystem.config.js" --only "$PM2_APP" --update-env
+  pm2 save >/dev/null
+}
 
-echo "Развёртывание завершено: https://$DOMAIN"
+health_ok() {
+  curl --fail --silent --show-error --retry 8 --retry-delay 5 "$HEALTH_URL" >/dev/null
+}
+
+if [ -n "$PREVIOUS" ]; then
+  printf '%s\n' "$PREVIOUS" > "$PREVIOUS_FILE"
+else
+  : > "$PREVIOUS_FILE"
+fi
+
+log "Переключение на ${SHA:0:8}"
+switch_release "$RELEASE"
+
+if health_ok && pm2 jlist | grep -qF "$RELEASE/backend/dist/index.js"; then
+  log "Готово: https://$DOMAIN (релиз ${SHA:0:8})"
+  echo "Старые релизы не удаляются: их чистит шаг 'Prune old releases' в workflow."
+  exit 0
+fi
+
+echo "Новый релиз не поднялся (health-check или script path)" >&2
+if [ -n "$PREVIOUS" ] && [ -d "$PREVIOUS" ] && [ "$PREVIOUS" != "$RELEASE" ]; then
+  echo "Откат на $(basename "$PREVIOUS")" >&2
+  switch_release "$PREVIOUS"
+  if health_ok; then
+    echo "Откат выполнен, прод на прежнем релизе" >&2
+  else
+    echo "ОТКАТ НЕ ПОМОГ — прод лежит, нужен ручной разбор" >&2
+  fi
+fi
+exit 1

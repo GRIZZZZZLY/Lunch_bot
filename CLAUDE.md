@@ -14,11 +14,20 @@
   дублировали уже имеющиеся.
 - Сервер: `backend/`.
 - Продакшен: PostgreSQL 16, Redis, PM2, Nginx и `FRONTEND_DIR=frontend-new`.
-- Деплой на VPS — один скрипт `deploy-vps.sh`. Отладочная production-сборка
-  выбирается переменной: `ENV_SUFFIX=prod-dev ./deploy-vps.sh`. Отдельный
+- Канонический деплой — GitHub Actions, `.github/workflows/deploy.yml`. Ручной
+  запасной путь — `bash deploy-vps.sh`, он повторяет шаги workflow. Отладочная
+  production-сборка: `ENV_SUFFIX=prod-dev bash deploy-vps.sh`. Отдельный
   `deploy-prod-dev-vps.sh` удалён — он собирал каталог `frontend/`, где не было
   ни `package.json`, ни `vite.config.prod-dev.ts`, то есть падал на `npm ci`
   при каждом запуске.
+- Релиз на сервере — не `git pull` в рабочем каталоге, а отдельный git worktree
+  на коммит: `<repo>-releases/<sha>/`, симлинк `current` на действующий,
+  `.previous-release` для отката. `main` занята исходным чекаутом, поэтому
+  `git switch main` внутри релиза падает. Общие между релизами `backend/.env`,
+  `backend/logs` и `backend/uploads` берутся из исходного чекаута симлинками.
+- Смена релиза в PM2 — `pm2 delete` + `pm2 start`. `pm2 startOrReload` **не**
+  меняет script path у запущенного процесса: перезапустит прошлый релиз и
+  отрапортует успех (инцидент 2026-08-24).
 
 ## Перед изменением интерфейса
 
