@@ -88,4 +88,65 @@ describe('GroupService.reconcileActiveGroups', () => {
     expect(ids).toEqual([]);
     expect(prisma.group.findMany).not.toHaveBeenCalled();
   });
+
+  /* Фикстура мониторинга живёт в выдуманном чате: Telegram отвечает «chat not
+     found», сверка справедливо считает бота выгнанным и гасит группу, а следом
+     краснеет прод-смоук. Список исключений задаётся на сервере — в коде
+     тестовых имён нет. */
+  describe('GROUP_RECONCILE_SKIP_IDS', () => {
+    const originalValue = process.env.GROUP_RECONCILE_SKIP_IDS;
+
+    afterEach(() => {
+      if (originalValue === undefined) delete process.env.GROUP_RECONCILE_SKIP_IDS;
+      else process.env.GROUP_RECONCILE_SKIP_IDS = originalValue;
+    });
+
+    it('перечисленную группу не спрашивают у Telegram и не гасят', async () => {
+      process.env.GROUP_RECONCILE_SKIP_IDS = '2';
+      prisma.group.findMany.mockResolvedValue([
+        { id: 1, telegramId: 111n },
+        { id: 2, telegramId: 222n },
+      ]);
+      getChatMember.mockResolvedValue({ status: 'administrator' });
+
+      const ids = await GroupService.reconcileActiveGroups();
+
+      expect(ids).toEqual([]);
+      expect(getChatMember).toHaveBeenCalledTimes(1);
+      expect(getChatMember).toHaveBeenCalledWith(111, 999);
+      expect(prisma.group.update).not.toHaveBeenCalled();
+    });
+
+    it('остальные группы проверяются как обычно', async () => {
+      process.env.GROUP_RECONCILE_SKIP_IDS = '2';
+      prisma.group.findMany.mockResolvedValue([
+        { id: 1, telegramId: 111n },
+        { id: 2, telegramId: 222n },
+      ]);
+      getChatMember.mockResolvedValue({ status: 'left' });
+
+      await expect(GroupService.reconcileActiveGroups()).resolves.toEqual([1]);
+    });
+
+    /* Кривая конфигурация не должна ронять регулярную работу: сверка важнее
+       аккуратности списка. */
+    it('мусор и пробелы в списке игнорируются', async () => {
+      process.env.GROUP_RECONCILE_SKIP_IDS = ' 2 , abc, , -5';
+      prisma.group.findMany.mockResolvedValue([
+        { id: 1, telegramId: 111n },
+        { id: 2, telegramId: 222n },
+      ]);
+      getChatMember.mockResolvedValue({ status: 'left' });
+
+      await expect(GroupService.reconcileActiveGroups()).resolves.toEqual([1]);
+    });
+
+    it('без переменной поведение прежнее — сверяются все', async () => {
+      delete process.env.GROUP_RECONCILE_SKIP_IDS;
+      prisma.group.findMany.mockResolvedValue([{ id: 2, telegramId: 222n }]);
+      getChatMember.mockResolvedValue({ status: 'left' });
+
+      await expect(GroupService.reconcileActiveGroups()).resolves.toEqual([2]);
+    });
+  });
 });

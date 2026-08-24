@@ -22,6 +22,23 @@ export class GroupAccessError extends Error {
   }
 }
 
+/**
+ * Группы, которые сверка с Telegram не трогает.
+ *
+ * Мусор в списке игнорируется молча: конфигурация не должна ронять регулярную
+ * работу, а пустой список — это ровно текущее поведение, «сверять всё».
+ */
+function parseReconcileSkipIds(raw?: string): Set<number> {
+  if (!raw) return new Set();
+
+  return new Set(
+    raw
+      .split(',')
+      .map(part => Number.parseInt(part.trim(), 10))
+      .filter(id => Number.isInteger(id) && id > 0)
+  );
+}
+
 export class GroupService {
   /**
    * Создание или обновление группы
@@ -500,6 +517,12 @@ export class GroupService {
    * not found). Транзиентные ошибки (сеть, 5xx) — оставляем группу активной.
    * Не реактивирует группы (намеренно: не воскрешать вручную отключённые).
    * Возвращает id деактивированных групп.
+   *
+   * `GROUP_RECONCILE_SKIP_IDS` (список id через запятую) выводит группу из-под
+   * сверки. Это для фикстур мониторинга: у группы прод-смоука чат выдуманный,
+   * Telegram отвечает «chat not found», сверка справедливо считает бота
+   * выгнанным и гасит группу — после чего смоук светит красным по своей же
+   * вине. Список задаётся на сервере, в коде тестовых имён нет.
    */
   static async reconcileActiveGroups(): Promise<number[]> {
     const bot = getBotInstance();
@@ -509,9 +532,17 @@ export class GroupService {
     }
     const botId = (await bot.api.getMe()).id;
     const groups = await this.getAllActiveGroups();
+    const skipIds = parseReconcileSkipIds(process.env.GROUP_RECONCILE_SKIP_IDS);
     const deactivated: number[] = [];
 
     for (const group of groups) {
+      if (skipIds.has(group.id)) {
+        logger.debug('reconcileActiveGroups: group excluded by config', {
+          groupId: group.id,
+        });
+        continue;
+      }
+
       let botGone = false;
       try {
         const member = await bot.api.getChatMember(Number(group.telegramId), botId);
