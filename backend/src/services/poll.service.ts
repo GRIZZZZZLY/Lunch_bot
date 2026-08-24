@@ -22,6 +22,8 @@ import {
   getStartOfToday,
   toISOString,
   calculatePollEndTime,
+  isPollOver,
+  pollEndsAt,
   getTimestamp,
   getMillisecondsDifference,
   subtractMinutes,
@@ -114,14 +116,31 @@ export class PollService {
       // controller-level guard and end up creating duplicate active polls.
       // Snapshot creation also moves inside the tx so an existing poll always
       // has its expected-voters set ready for auto-close-on-quorum.
+      let stalePollId: number | null = null;
+
       const poll = await prisma.$transaction(async tx => {
         const existing = await tx.poll.findFirst({
           where: { groupId: data.groupId, status: 'ACTIVE' },
-          select: { id: true },
+          select: { id: true, startedAt: true, duration: true, endedAt: true },
         });
 
-        if (existing) {
+        if (existing && !isPollOver(existing)) {
           throw new PollAlreadyActiveError(data.groupId, existing.id);
+        }
+
+        /* Строка `ACTIVE` с истёкшим сроком — не голосование, а мусор от
+           пропущенного тика планировщика: в списке активных её уже нет, но
+           частичный уникальный индекс polls_one_active_per_group не пустит
+           вставку, пока она в этом статусе. Закрываем ЗДЕСЬ, в той же
+           транзакции: иначе между отменой и вставкой пролезет конкурент.
+           `endedAt` — момент, когда голосование фактически кончилось, а не
+           «сейчас»: иначе в истории останется неверная длительность. */
+        if (existing) {
+          await tx.poll.updateMany({
+            where: { id: existing.id, status: 'ACTIVE' },
+            data: { status: 'CANCELLED', endedAt: pollEndsAt(existing) },
+          });
+          stalePollId = existing.id;
         }
 
         const newPoll = await tx.poll.create({
@@ -163,6 +182,12 @@ export class PollService {
       });
 
       // Инвалидируем кэш активных голосований
+      if (stalePollId !== null) {
+        logger.warn(
+          `createPoll: closed stale ACTIVE poll ${stalePollId} in group ${data.groupId} — its timer had elapsed`
+        );
+        void CacheInvalidator.invalidatePoll(stalePollId, data.groupId);
+      }
       void CacheInvalidator.invalidatePoll(poll.id, poll.groupId);
 
       logger.info(`Poll created: ${poll.id} in group ${poll.groupId}`);

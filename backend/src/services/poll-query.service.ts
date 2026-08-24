@@ -17,7 +17,7 @@ import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { PollWithDetails, votePublicUserSelect } from '../types/poll.types';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from './cache.service';
-import { calculatePollEndTime, getStartOfToday, now } from '../utils/date';
+import { getStartOfToday, isPollOver, now } from '../utils/date';
 
 /** Голосование с группой, голосами и итогами — форма для экранов приложения. */
 const pollWithDetailsInclude = {
@@ -179,10 +179,17 @@ export class PollQueryService {
 
   /**
    * Активное голосование группы (через кэш).
+   *
+   * «Активное» здесь означает то же, что и в списке активных: статус `ACTIVE` И
+   * срок не вышел. Статуса мало — строку, у которой таймер истёк, планировщик
+   * закрывает не мгновенно, а до тех пор она невидима на экране (список её
+   * прячет) и при этом запрещала и создание нового голосования, и запуск
+   * голосования по расписанию. Одно правило для чтения и для запрета — в
+   * `isPollOver`.
    */
   static async getActivePollInGroup(groupId: number): Promise<Poll | null> {
     try {
-      return await cacheService.getOrSet(
+      const poll = await cacheService.getOrSet(
         CACHE_KEYS.ACTIVE_POLLS_GROUP(groupId),
         async () =>
           prisma.poll.findFirst({
@@ -191,6 +198,8 @@ export class PollQueryService {
           }),
         CACHE_TTL.ACTIVE_POLLS
       );
+
+      return poll && !isPollOver(poll) ? poll : null;
     } catch (error) {
       logger.error('Error getting active poll in group:', error);
       throw new Error('Failed to get active poll');
@@ -280,11 +289,7 @@ export class PollQueryService {
     });
 
     const nowDate = now();
-    const active = polls.filter(poll => {
-      const endsAt =
-        poll.endedAt || calculatePollEndTime(poll.startedAt, poll.duration);
-      return endsAt > nowDate;
-    });
+    const active = polls.filter(poll => !isPollOver(poll, nowDate));
 
     if (active.length !== polls.length) {
       logger.debug(

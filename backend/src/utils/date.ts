@@ -216,6 +216,35 @@ export const isPollExpired = (endTime: Date): boolean => {
   return isBefore(endTime, now());
 };
 
+/** Поля голосования, задающие срок его жизни. */
+export interface PollTiming {
+  startedAt: Date;
+  duration: number;
+  endedAt?: Date | null;
+}
+
+/**
+ * Когда голосование заканчивается.
+ *
+ * Одно правило на всё приложение: `endedAt`, если он проставлен, иначе
+ * `startedAt` плюс длительность. Раньше это правило было выписано отдельно в
+ * списке активных, в отображении и в скрипте починки, а планировщик отмены знал
+ * только про `startedAt + duration`. Расхождение стоило дорого: голосование,
+ * закончившееся по одному правилу и живое по другому, пропадало с экрана и при
+ * этом блокировало создание нового.
+ */
+export const pollEndsAt = (poll: PollTiming): Date =>
+  poll.endedAt ?? calculatePollEndTime(poll.startedAt, poll.duration);
+
+/**
+ * Голосование уже закончилось к моменту `at`.
+ *
+ * Граница нестрогая: ровно в момент окончания голосование считается закрытым —
+ * иначе оно живёт до следующего тика планировщика.
+ */
+export const isPollOver = (poll: PollTiming, at: Date = now()): boolean =>
+  pollEndsAt(poll).getTime() <= at.getTime();
+
 /**
  * Получить прогресс времени (0-1)
  */

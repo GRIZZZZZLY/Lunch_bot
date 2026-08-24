@@ -9,7 +9,7 @@
  * которой они вынесены из контроллера, а не оставлены на месте.
  */
 import { logger } from '../../utils/logger';
-import { calculatePollEndTime } from '../../utils/date';
+import { pollEndsAt } from '../../utils/date';
 
 type PollLike = {
   startedAt: Date;
@@ -34,10 +34,7 @@ export function parseRouletteData(raw: unknown): { winners?: unknown[] } {
 
 /** Время окончания: фактическое, а при активном голосовании — расчётное. */
 export function withEndTime<T extends PollLike>(poll: T): T & { endTime: string } {
-  const endTime =
-    poll.endedAt || calculatePollEndTime(poll.startedAt, poll.duration);
-
-  return { ...poll, endTime: endTime.toISOString() };
+  return { ...poll, endTime: pollEndsAt(poll).toISOString() };
 }
 
 /**

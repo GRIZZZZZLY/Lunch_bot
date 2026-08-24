@@ -23,6 +23,7 @@
  *    голосование.
  */
 import { PollService } from '../../../services/poll.service';
+import { PollAlreadyActiveError } from '../../../services/poll.errors';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock, asServiceMock } from '../../helpers/mocks';
 import { PollQueryService } from '../../../services/poll-query.service';
@@ -233,6 +234,81 @@ describe('снимок участников при создании голосо
   });
 });
 
+/**
+ * Мёртвая строка `ACTIVE` не должна навсегда запирать группу.
+ *
+ * Список активных прячет голосование, у которого вышел срок, а гвардия создания
+ * смотрела только на статус: пока планировщик не отработал (упал тик, перезапуск
+ * съел таймер), человек видел пустой экран и «в этой группе уже идёт
+ * голосование» на кнопке. Закрываем такую строку в той же транзакции, где
+ * вставляем новую: частичный уникальный индекс polls_one_active_per_group не
+ * пустит вставку, пока она в статусе `ACTIVE`.
+ */
+describe('createPoll и просроченное голосование в группе', () => {
+  function existing(over: Record<string, unknown>) {
+    asMock(prismaMock.poll.findFirst).mockResolvedValue({
+      id: 5,
+      startedAt: new Date(NOW.getTime() - 60 * 60_000),
+      duration: 30,
+      endedAt: null,
+      ...over,
+    });
+  }
+
+  beforeEach(() => {
+    asMock(prismaMock.poll.create).mockResolvedValue({
+      id: 6,
+      groupId: 100,
+      status: 'ACTIVE',
+    });
+  });
+
+  it('живое голосование по-прежнему запрещает второе', async () => {
+    existing({ startedAt: new Date(NOW.getTime() - 5 * 60_000) });
+
+    await expect(
+      PollService.createPoll({ groupId: 100, createdBy: 1, duration: 30 })
+    ).rejects.toBeInstanceOf(PollAlreadyActiveError);
+    expect(asMock(prismaMock.poll.create)).not.toHaveBeenCalled();
+  });
+
+  it('просроченное закрывается и новое создаётся', async () => {
+    existing({});
+
+    await expect(
+      PollService.createPoll({ groupId: 100, createdBy: 1, duration: 30 })
+    ).resolves.toMatchObject({ id: 6 });
+
+    /* Отмена под гейтом по статусу — тот же оптимистичный лок, что и у
+       планировщика: конкурент, успевший закрыть строку, не будет перезаписан. */
+    expect(asMock(prismaMock.poll.updateMany)).toHaveBeenCalledWith({
+      where: { id: 5, status: 'ACTIVE' },
+      data: {
+        status: 'CANCELLED',
+        endedAt: new Date(NOW.getTime() - 30 * 60_000),
+      },
+    });
+    expect(asMock(prismaMock.poll.create)).toHaveBeenCalled();
+  });
+
+  it('срок считается по endedAt, если он проставлен', async () => {
+    existing({ duration: 600, endedAt: new Date(NOW.getTime() - 60_000) });
+
+    await expect(
+      PollService.createPoll({ groupId: 100, createdBy: 1, duration: 30 })
+    ).resolves.toMatchObject({ id: 6 });
+  });
+
+  it('кэш группы сбрасывается и для закрытой строки', async () => {
+    existing({});
+
+    await PollService.createPoll({ groupId: 100, createdBy: 1, duration: 30 });
+
+    expect(cacheInvalidatorMock.invalidatePoll).toHaveBeenCalledWith(5, 100);
+    expect(cacheInvalidatorMock.invalidatePoll).toHaveBeenCalledWith(6, 100);
+  });
+});
+
 describe('checkQuorumAndComplete', () => {
   /* Завершение проверяется отдельно (completePoll / completePollMultiWinner).
      Здесь важна только логика кворума, поэтому само завершение подменяется. */
@@ -377,7 +453,9 @@ describe('cancelExpiredPolls', () => {
     const { sql, values } = lastQuery();
     expect(asMock(prismaMock.poll.findMany)).not.toHaveBeenCalled();
     expect(sql).toContain("status = 'ACTIVE'");
-    expect(sql).toMatch(/started_at \+ \(duration \* INTERVAL '1 minute'\)/);
+    expect(sql).toMatch(
+      /COALESCE\(ended_at, started_at \+ \(duration \* INTERVAL '1 minute'\)\)/
+    );
     /* Момент проверки уходит числом: параметр-`Date` стал бы `timestamptz` и
        увёл бы границу на смещение зоны сессии (колонка — без зоны). */
     expect(values).toEqual([NOW.getTime()]);
@@ -414,6 +492,56 @@ describe('cancelExpiredPolls', () => {
 
     await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(0);
     expect(asMock(prismaMock.poll.updateMany)).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * «Активное» одинаково для экрана и для запрета создать новое.
+ *
+ * Список активных прячет голосование, у которого вышел срок, а этот запрос
+ * смотрел только на статус — и строка, невидимая на экране, отвечала «в этой
+ * группе уже идёт голосование» и на создание вручную, и на запуск по
+ * расписанию. Правило одно: `isPollOver`.
+ */
+describe('getActivePollInGroup', () => {
+  function activeRow(over: Record<string, unknown> = {}) {
+    asMock(prismaMock.poll.findFirst).mockResolvedValue({
+      id: 5,
+      groupId: 100,
+      status: 'ACTIVE',
+      startedAt: new Date(NOW.getTime() - 5 * 60_000),
+      duration: 30,
+      endedAt: null,
+      ...over,
+    });
+  }
+
+  it('живое голосование возвращается', async () => {
+    activeRow();
+
+    await expect(
+      PollQueryService.getActivePollInGroup(100)
+    ).resolves.toMatchObject({ id: 5 });
+  });
+
+  it('истёкшее по таймеру не считается активным', async () => {
+    activeRow({ startedAt: new Date(NOW.getTime() - 60 * 60_000) });
+
+    await expect(PollQueryService.getActivePollInGroup(100)).resolves.toBeNull();
+  });
+
+  it('проставленный endedAt в прошлом тоже закрывает голосование', async () => {
+    activeRow({ duration: 600, endedAt: new Date(NOW.getTime() - 60_000) });
+
+    await expect(PollQueryService.getActivePollInGroup(100)).resolves.toBeNull();
+  });
+
+  /* Граница нестрогая — та же, что у планировщика: ровно в момент окончания
+     голосование уже закрыто, иначе оно живёт лишнюю минуту до тика. */
+  it('момент окончания ровно сейчас — уже не активно', async () => {
+    activeRow({ startedAt: new Date(NOW.getTime() - 30 * 60_000) });
+
+    await expect(PollQueryService.getActivePollInGroup(100)).resolves.toBeNull();
   });
 });
 

@@ -162,13 +162,22 @@ describe('createPollForGroup', () => {
      `PollService.createPoll` защищает от гонки, но сообщение в группу к тому
      моменту уже улетело бы. */
   it('в группе уже идёт голосование — PollAlreadyActiveError', async () => {
-    pollQuery.getActivePollInGroup.mockResolvedValue({ id: 5 });
+    pollQuery.getActivePollInGroup.mockResolvedValue({
+      id: 5,
+      startedAt: new Date(Date.now() - 5 * 60_000),
+      duration: 30,
+      endedAt: null,
+    });
 
     await expect(createPollForGroup(params)).rejects.toBeInstanceOf(
       PollAlreadyActiveError
     );
     expect(sendPoll).not.toHaveBeenCalled();
   });
+
+  /* Истёкшее по таймеру голосование сюда не доходит: его отсекает
+     `getActivePollInGroup` (правило одно на чтение и на запрет — `isPollOver`),
+     и проверяется это там же, в тестах poll-query. */
 
   it('меньше двух блюд после отбора — NotEnoughMenuItemsError', async () => {
     await expect(
