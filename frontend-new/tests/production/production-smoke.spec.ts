@@ -44,11 +44,14 @@ test.describe('Безопасная проверка продакшена тол
   test(
     '@prod-smoke открывает пользовательские экраны только для чтения',
     async ({ appPage }) => {
+      /* У `/suggestions/mine` собственный заголовок: страница одна, но
+         `onlyMine` меняет его на «Мои предложения»
+         (features/suggestions/SuggestionsPage.tsx). */
       const routes = [
         { path: '/budget', heading: 'Бюджет команды' },
         { path: '/poll/history', heading: 'История голосований' },
         { path: '/suggestions', heading: 'Предложения блюд' },
-        { path: '/suggestions/mine', heading: 'Предложения блюд' },
+        { path: '/suggestions/mine', heading: 'Мои предложения' },
       ] as const;
 
       for (const route of routes) {
@@ -70,6 +73,20 @@ test.describe('Безопасная проверка продакшена тол
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
     );
     expect(overflow).toBe(false);
+
+    /* Экран входит анимацией: на её середине axe читает промежуточные цвета
+       (#e6e2da на #f4f0e8 — контраст 1.13) и отчитывается о сотнях нарушений
+       палитры, которых в конечном кадре нет. Ждём конечные анимации,
+       бесконечные (шиммер, спиннер) пропускаем — иначе ожидание не кончится.
+       Тот же приём в локальных a11y-тестах: tests/e2e/specs/*-a11y.spec.ts. */
+    await appPage.evaluate(() =>
+      Promise.all(
+        document
+          .getAnimations()
+          .filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity)
+          .map(animation => animation.finished.catch(() => undefined)),
+      ),
+    );
 
     const result = await new AxeBuilder({ page: appPage })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
