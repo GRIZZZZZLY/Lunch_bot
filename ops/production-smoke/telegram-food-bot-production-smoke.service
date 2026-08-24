@@ -7,5 +7,8 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/telegram-food-bot/ops/production-smoke
-ExecStart=/usr/bin/docker compose run --rm production-smoke
+# Через обёртку, а не `docker compose run` напрямую: она подтягивает актуальный
+# BOT_TOKEN из боевого backend/.env. Замороженный при установке токен пережил
+# ротацию и месяц красил стенд (см. run-smoke.sh).
+ExecStart=/usr/bin/env bash run-smoke.sh
 TimeoutStartSec=10min
