@@ -3,6 +3,8 @@ Description=Безопасная проверка Telegram Food Bot в прод�
 Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target
+# Без этого проверка молчит в журнал: так стенд простоял красным 1019 прогонов.
+OnFailure=telegram-food-bot-alert@%n.service
 
 [Service]
 Type=oneshot

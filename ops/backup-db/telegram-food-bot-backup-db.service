@@ -2,6 +2,8 @@
 Description=Резервная копия базы Rocket Lunch
 After=postgresql.service network-online.target
 Wants=network-online.target
+# Копия, о провале которой никто не узнал, — это отсутствие копий.
+OnFailure=telegram-food-bot-alert@%n.service
 
 [Service]
 Type=oneshot

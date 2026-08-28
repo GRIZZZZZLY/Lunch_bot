@@ -1,0 +1,12 @@
+[Unit]
+Description=Оповещение в Telegram о падении %i
+# Никакого OnFailure у самого оповещателя: если падает он, сообщать об этом
+# нечем и некому — след останется только в журнале.
+
+[Service]
+Type=oneshot
+# User и WorkingDirectory подставляет ops/alerting/install-vps.sh.
+User=root
+WorkingDirectory=/opt/telegram-food-bot
+ExecStart=/usr/bin/env bash ops/alerting/send-telegram-alert.sh %i
+TimeoutStartSec=2min
