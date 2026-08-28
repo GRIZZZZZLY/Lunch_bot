@@ -12,6 +12,11 @@
 #   3. `/health` отвечает;
 #   4. в error.log не появилось разом много новых строк.
 #
+# В сообщения попадает ТОЛЬКО описание проблемы. Строки лога не пересылаем: в
+# них имена, chat_id и суммы долгов пользователей (бот логирует payload'ы
+# sendMessage), а мессенджер — не то место, куда такое выгружают. За деталями
+# идут на сервер, команда для этого есть в тексте сообщения.
+#
 # Оповещение шлётся на ПЕРЕХОДЕ состояния, а не каждую проверку: иначе сломанный
 # прод будет слать сообщение каждые пять минут, и на них перестанут смотреть.
 # Восстановление тоже сообщается — молчание неотличимо от «сторож умер».
@@ -54,31 +59,29 @@ add() { problems="${problems}$1"$'\n'; }
 
 app_json=$(pm2 jlist 2>/dev/null | jq -c --arg n "$PM2_APP" '.[] | select(.name == $n)' 2>/dev/null)
 if [ -z "$app_json" ]; then
-  add "процесса $PM2_APP нет в pm2"
+  add "процесса $PM2_APP нет в списке pm2"
   restarts="$prev_restarts"
   status="отсутствует"
 else
   status=$(printf '%s' "$app_json" | jq -r '.pm2_env.status')
   restarts=$(printf '%s' "$app_json" | jq -r '.pm2_env.restart_time // 0')
-  [ "$status" = 'online' ] || add "статус процесса: $status"
+  [ "$status" = 'online' ] || add "статус процесса — $status"
   if [ "$prev_restarts" -ge 0 ] && [ "$restarts" -gt "$prev_restarts" ]; then
     # Перезапуск — событие, а не состояние: сообщаем всегда, даже если сейчас
     # процесс online. Именно так молча теряются падения по памяти и по краху.
     since=$(printf '%s' "$app_json" | jq -r '.pm2_env.pm_uptime // 0')
     uptime_s=$(( (NOW * 1000 - since) / 1000 ))
-    send "перезапуск процесса" "🟠 ${HOST}: $PM2_APP перезапускался $((restarts - prev_restarts)) раз с прошлой проверки
-статус сейчас: $status, аптайм ${uptime_s}s
-Последние ошибки:
-$(tail -n 5 "$ERROR_LOG" 2>/dev/null | cut -c1-300)
+    send "перезапуск процесса" "🟠 ${HOST}: бот перезапускался $((restarts - prev_restarts)) раз с прошлой проверки
+сейчас $status, работает ${uptime_s} с
 
-Разбор: pm2 logs $PM2_APP --lines 100"
+Подробности: pm2 logs $PM2_APP --lines 100"
   fi
 fi
 
 # --- 3. Здоровье ---------------------------------------------------------
 
 if ! curl -fsS -m 10 "$HEALTH_URL" >/dev/null 2>&1; then
-  add "$HEALTH_URL не отвечает"
+  add "не отвечает $HEALTH_URL"
 fi
 
 # --- Переход состояния ---------------------------------------------------
@@ -89,12 +92,9 @@ bad=0
 if [ "$bad" = 1 ] && [ "$prev_bad" = 0 ]; then
   send "приложение нездорово" "🔴 ${HOST}: приложение нездорово
 ${problems}
-Последние ошибки:
-$(tail -n 5 "$ERROR_LOG" 2>/dev/null | cut -c1-300)
-
-Разбор: pm2 describe $PM2_APP; journalctl -n 50"
+Подробности: pm2 describe $PM2_APP, pm2 logs $PM2_APP --lines 100"
 elif [ "$bad" = 0 ] && [ "$prev_bad" = 1 ]; then
-  send "восстановление" "🟢 ${HOST}: приложение снова в порядке ($PM2_APP online, health отвечает)"
+  send "восстановление" "🟢 ${HOST}: приложение снова в порядке — процесс online, health отвечает"
 fi
 
 # --- 4. Всплеск ошибок в логе -------------------------------------------
@@ -108,12 +108,10 @@ if [ -f "$ERROR_LOG" ]; then
     new_lines=$(tail -c "+$((prev_error_size + 1))" "$ERROR_LOG" 2>/dev/null | wc -l | tr -d ' ')
     cooldown_over=$(( NOW - prev_error_alert > ERROR_COOLDOWN_MIN * 60 ))
     if [ "$new_lines" -ge "$ERROR_BURST" ] && [ "$cooldown_over" = 1 ]; then
-      send "всплеск ошибок" "🟡 ${HOST}: всплеск ошибок — $new_lines новых строк в error.log с прошлой проверки
-Пример:
-$(tail -c "+$((prev_error_size + 1))" "$ERROR_LOG" | tail -n 3 | cut -c1-300)
+      send "всплеск ошибок" "🟡 ${HOST}: всплеск ошибок — $new_lines новых строк в логе ошибок за последние минуты
+Следующее сообщение об этом не раньше чем через час.
 
-Дальше молчу час, чтобы не залить чат.
-Разбор: tail -n 100 $ERROR_LOG"
+Подробности: tail -n 100 $ERROR_LOG"
       prev_error_alert="$NOW"
     fi
   fi
