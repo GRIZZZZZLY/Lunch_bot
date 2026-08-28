@@ -65,35 +65,46 @@ test.describe('Безопасная проверка продакшена тол
     },
   );
 
-  test('@prod-smoke мобильная компоновка и доступность не нарушены', async ({ appPage }) => {
-    await appPage.goto('/');
-    await expect(appPage.getByRole('navigation', { name: 'Основная навигация' })).toBeVisible();
+  /* Анимации выключены на уровне браузера, а не переждаты.
+     Ожидание `getAnimations()` закрывает только те анимации, что уже идут: те,
+     что стартуют позже (данные приезжают асинхронно), axe успевает застать на
+     полпути. Так 29.08 упал прогон — заголовок «Сейчас» был прочитан как
+     #7a756b на #fcfaf4 (4.38 при норме 4.5), хотя это `--text-tertiary`
+     #6b655b под неполной прозрачностью, а в конечном кадре контраст 5.58.
+     Интерфейс полностью гасит анимации при prefers-reduced-motion
+     (styles/motion.css), поэтому проверка палитры становится детерминированной.
+     Остальные сценарии смоука работают с обычной анимацией. */
+  test.describe('без анимаций', () => {
+    test.use({ reducedMotion: 'reduce' });
 
-    const overflow = await appPage.evaluate(
-      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    );
-    expect(overflow).toBe(false);
+    test('@prod-smoke мобильная компоновка и доступность не нарушены', async ({ appPage }) => {
+      await appPage.goto('/');
+      await expect(appPage.getByRole('navigation', { name: 'Основная навигация' })).toBeVisible();
 
-    /* Экран входит анимацией: на её середине axe читает промежуточные цвета
-       (#e6e2da на #f4f0e8 — контраст 1.13) и отчитывается о сотнях нарушений
-       палитры, которых в конечном кадре нет. Ждём конечные анимации,
-       бесконечные (шиммер, спиннер) пропускаем — иначе ожидание не кончится.
-       Тот же приём в локальных a11y-тестах: tests/e2e/specs/*-a11y.spec.ts. */
-    await appPage.evaluate(() =>
-      Promise.all(
-        document
-          .getAnimations()
-          .filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity)
-          .map(animation => animation.finished.catch(() => undefined)),
-      ),
-    );
+      const overflow = await appPage.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      );
+      expect(overflow).toBe(false);
 
-    const result = await new AxeBuilder({ page: appPage })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-      .analyze();
-    const blocking = result.violations.filter(
-      violation => violation.impact === 'serious' || violation.impact === 'critical',
-    );
-    expect(blocking).toEqual([]);
+      /* Второй рубеж: если какая-то анимация переживёт reduced-motion, ждём её
+         завершения. Бесконечные (шиммер, спиннер) пропускаем — иначе ожидание
+         не кончится. Тот же приём в tests/e2e/specs/*-a11y.spec.ts. */
+      await appPage.evaluate(() =>
+        Promise.all(
+          document
+            .getAnimations()
+            .filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity)
+            .map(animation => animation.finished.catch(() => undefined)),
+        ),
+      );
+
+      const result = await new AxeBuilder({ page: appPage })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+      const blocking = result.violations.filter(
+        violation => violation.impact === 'serious' || violation.impact === 'critical',
+      );
+      expect(blocking).toEqual([]);
+    });
   });
 });
