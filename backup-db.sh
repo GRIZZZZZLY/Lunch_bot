@@ -1,86 +1,89 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# ===============================================
-# 💾 Database Backup Script
-# ===============================================
-# Automatically backs up the SQLite database
-# Can be run manually or via cron
+# Резервная копия боевой базы Rocket Lunch.
+#
+# Запускается по таймеру systemd (ops/backup-db/) и руками. Прежняя версия
+# копировала файл SQLite из `/root/telegram-food-bot/backend/prisma/prod.db` —
+# ни этого пути, ни SQLite на сервере нет с тех пор, как прод переехал на
+# PostgreSQL, поэтому скрипт падал при каждом запуске. Автоматических копий не
+# было вовсе: единственный дамп на 2026-08-25 был месячной давности и сделан
+# руками.
+#
+# Переменные: BACKUP_DIR, BACKEND_ENV, DATABASE_URL, KEEP.
+#
+# Ротация трогает ТОЛЬКО файлы с префиксом `foodbot_auto_` — то, что создал сам
+# скрипт. Ручные дампы (`foodbot_pre_<sha>_…` перед миграцией) остаются: их
+# кладут осознанно и удаляют тоже осознанно.
 
-set -e
+set -euo pipefail
 
-# Configuration
-BACKUP_DIR="/root/telegram-food-bot/backups"
-DB_PATH="/root/telegram-food-bot/backend/prisma/prod.db"
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="prod.db.backup.$DATE"
-MAX_BACKUPS=30  # Keep last 30 backups
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+BACKUP_DIR="${BACKUP_DIR:-$HOME/backups/rocket-lunch}"
+BACKEND_ENV="${BACKEND_ENV:-$SCRIPT_DIR/backend/.env}"
+KEEP="${KEEP:-14}"
+PREFIX=foodbot_auto_
 
-echo "💾 Starting database backup..."
+case "$KEEP" in
+  ''|*[!0-9]*) echo "KEEP должен быть числом, получено: $KEEP" >&2; exit 2 ;;
+esac
+if [ "$KEEP" -lt 1 ]; then
+  echo "KEEP должен быть не меньше 1 — иначе ротация снесёт свежую копию" >&2
+  exit 2
+fi
 
-# ===============================================
-# 1. Create backup directory if not exists
-# ===============================================
+DATABASE_URL="${DATABASE_URL:-}"
+if [ -z "$DATABASE_URL" ]; then
+  if [ ! -f "$BACKEND_ENV" ]; then
+    echo "Не найден $BACKEND_ENV; укажите BACKEND_ENV или DATABASE_URL" >&2
+    exit 1
+  fi
+  DATABASE_URL=$(sed -n 's/^DATABASE_URL=//p' "$BACKEND_ENV" | tail -1 | tr -d '\r"')
+fi
+if [ -z "$DATABASE_URL" ]; then
+  echo "DATABASE_URL пуст" >&2
+  exit 1
+fi
+
+umask 077
 mkdir -p "$BACKUP_DIR"
 
-# ===============================================
-# 2. Check if database exists
-# ===============================================
-if [ ! -f "$DB_PATH" ]; then
-    echo "❌ Database not found at: $DB_PATH"
-    exit 1
+TS=$(date -u +%Y%m%dT%H%M%SZ)
+TARGET="$BACKUP_DIR/${PREFIX}${TS}.dump"
+TMP="$BACKUP_DIR/.${PREFIX}${TS}.dump.partial"
+cleanup() { rm -f "$TMP"; }
+trap cleanup EXIT
+
+echo "Дамп → $TARGET"
+# Сначала во временный файл: оборванный дамп не должен остаться в каталоге под
+# именем нормальной копии и попасть в ротацию как «свежая».
+pg_dump --format=custom --no-owner --no-privileges --file="$TMP" "$DATABASE_URL"
+
+# Проверка целостности архива, а не только его наличия: усечённый файл
+# существует, весит правдоподобно и восстановлению не поддаётся.
+tables=$(pg_restore --list "$TMP" | grep -c 'TABLE DATA' || true)
+if [ "$tables" -lt 1 ]; then
+  echo "В дампе нет ни одной таблицы с данными — копия не сохранена" >&2
+  exit 1
 fi
 
-# ===============================================
-# 3. Create backup
-# ===============================================
-echo "📦 Creating backup: $BACKUP_FILE"
-cp "$DB_PATH" "$BACKUP_DIR/$BACKUP_FILE"
+mv -f "$TMP" "$TARGET"
+chmod 600 "$TARGET"
+sha256sum "$TARGET" > "$TARGET.sha256"
+chmod 600 "$TARGET.sha256"
 
-# Verify backup
-if [ -f "$BACKUP_DIR/$BACKUP_FILE" ]; then
-    BACKUP_SIZE=$(du -h "$BACKUP_DIR/$BACKUP_FILE" | cut -f1)
-    echo "✅ Backup created successfully: $BACKUP_SIZE"
-else
-    echo "❌ Backup failed"
-    exit 1
-fi
+echo "Готово: $(du -h "$TARGET" | cut -f1), таблиц с данными: $tables"
 
-# ===============================================
-# 4. Clean old backups
-# ===============================================
-echo "🧹 Cleaning old backups (keeping last $MAX_BACKUPS)..."
+# --- Ротация -------------------------------------------------------------
 
-# Count backups
-BACKUP_COUNT=$(ls -1 "$BACKUP_DIR"/prod.db.backup.* 2>/dev/null | wc -l)
+removed=0
+while IFS= read -r old; do
+  [ -n "$old" ] || continue
+  rm -f -- "$old" "$old.sha256"
+  removed=$((removed + 1))
+  echo "удалена старая копия: $(basename "$old")"
+done <<< "$(find "$BACKUP_DIR" -maxdepth 1 -type f -name "${PREFIX}*.dump" -printf '%T@\t%p\n' |
+  sort -rn | cut -f2- | tail -n +$((KEEP + 1)))"
 
-if [ "$BACKUP_COUNT" -gt "$MAX_BACKUPS" ]; then
-    # Delete oldest backups
-    ls -t "$BACKUP_DIR"/prod.db.backup.* | tail -n +$((MAX_BACKUPS + 1)) | xargs rm -f
-    echo "✅ Old backups cleaned"
-else
-    echo "📊 Current backups: $BACKUP_COUNT (max: $MAX_BACKUPS)"
-fi
-
-# ===============================================
-# 5. List backups
-# ===============================================
-echo ""
-echo "📋 Recent backups:"
-ls -lh "$BACKUP_DIR"/prod.db.backup.* | tail -5
-
-# ===============================================
-# 6. Backup statistics
-# ===============================================
-echo ""
-echo "📊 Backup statistics:"
-echo "  Location: $BACKUP_DIR"
-echo "  Total backups: $(ls -1 "$BACKUP_DIR"/prod.db.backup.* 2>/dev/null | wc -l)"
-echo "  Total size: $(du -sh "$BACKUP_DIR" | cut -f1)"
-
-echo ""
-echo "✅ Backup completed successfully!"
-echo ""
-echo "📝 To restore from backup:"
-echo "  cp $BACKUP_DIR/$BACKUP_FILE $DB_PATH"
-echo "  pm2 restart rocket-lunch-bot"
-echo ""
+kept=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name "${PREFIX}*.dump" | wc -l)
+echo "автоматических копий: $kept (лимит $KEEP), удалено: $removed"
+echo "каталог: $(du -sh "$BACKUP_DIR" | cut -f1); свободно: $(df -h "$BACKUP_DIR" | awk 'NR==2 {print $4}')"

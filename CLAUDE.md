@@ -13,7 +13,11 @@
   (`.env.production`, `.env.prod-dev`) перенесены в `frontend-new/`, остальные
   дублировали уже имеющиеся.
 - Сервер: `backend/`.
-- Продакшен: PostgreSQL 16, Redis, PM2, Nginx и `FRONTEND_DIR=frontend-new`.
+- Продакшен: PostgreSQL, Redis, PM2, Nginx и `FRONTEND_DIR=frontend-new`.
+  Внимание: на сервере **PostgreSQL 14.24**, тогда как CI и
+  `docker-compose.production.yml` поднимают `postgres:16`. Тесты идут против 16,
+  прод живёт на 14 — расхождение не устранено (обнаружено 2026-08-25), учитывайте
+  его при использовании возможностей, появившихся после 14.
 - Канонический деплой — GitHub Actions, `.github/workflows/deploy.yml`. Ручной
   запасной путь — `bash deploy-vps.sh`, он повторяет шаги workflow. Отладочная
   production-сборка: `ENV_SUFFIX=prod-dev bash deploy-vps.sh`. Отдельный

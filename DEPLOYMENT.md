@@ -6,7 +6,9 @@
 
 ## Требования к серверу
 
-- Ubuntu с Node.js 22, npm 10, PostgreSQL 16, Redis, Nginx и PM2;
+- Ubuntu с Node.js 22, npm 10, PostgreSQL, Redis, Nginx и PM2 (на действующем
+  сервере PostgreSQL 14.24, хотя CI и `docker-compose.production.yml`
+  рассчитаны на 16 — расхождение известно и не устранено);
 - репозиторий с основной веткой `main`;
 - заполненный `backend/.env` с `NODE_ENV=production`,
   `FRONTEND_DIR=frontend-new`, `REDIS_ENABLED=true` и безопасными секретами;
@@ -85,5 +87,25 @@ pm2 logs rocket-lunch-bot --lines 100
 
 ## Резервные копии
 
-До миграций создайте дамп и проверьте его размер. Инструкция:
-[BACKUP_RESTORE_GUIDE.md](docs/BACKUP_RESTORE_GUIDE.md).
+Ежедневные копии снимает таймер systemd: `backup-db.sh` делает `pg_dump` в
+формате custom, проверяет архив через `pg_restore --list`, пишет `.sha256` и
+удаляет всё, кроме `KEEP` последних (по умолчанию 14). Ротация трогает только
+файлы `foodbot_auto_*`; ручные дампы вроде `foodbot_pre_<sha>_*` остаются.
+
+Установка на сервере:
+
+```bash
+bash ops/backup-db/install-vps.sh /путь/к/исходному/чекауту
+```
+
+Установщик подставляет рабочий каталог в юнит, делает пробный запуск и включает
+расписание только после успешного. Проверка и ручной запуск:
+
+```bash
+systemctl list-timers telegram-food-bot-backup-db.timer
+sudo systemctl start telegram-food-bot-backup-db.service
+journalctl -u telegram-food-bot-backup-db.service -n 50 --no-pager
+```
+
+До миграций дополнительно создайте отдельный дамп и проверьте его размер.
+Инструкция: [BACKUP_RESTORE_GUIDE.md](docs/BACKUP_RESTORE_GUIDE.md).

@@ -1,0 +1,14 @@
+[Unit]
+Description=Ежедневная резервная копия базы Rocket Lunch
+
+[Timer]
+# 03:30 по времени сервера — после ночных заданий и до утреннего трафика.
+OnCalendar=*-*-* 03:30:00
+# Сервер выключали или перезагружали в это время — копия снимется при старте,
+# а не пропустится до следующих суток.
+Persistent=true
+RandomizedDelaySec=15min
+Unit=telegram-food-bot-backup-db.service
+
+[Install]
+WantedBy=timers.target

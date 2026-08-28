@@ -1,0 +1,15 @@
+[Unit]
+Description=Резервная копия базы Rocket Lunch
+After=postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# WorkingDirectory подставляет install-vps.sh: на сервере это исходный чекаут,
+# из его backend/.env скрипт читает DATABASE_URL.
+WorkingDirectory=/opt/telegram-food-bot
+ExecStart=/usr/bin/env bash backup-db.sh
+# Копий за две недели хватает, чтобы заметить порчу данных и откатиться;
+# каждая — около 160 КБ, так что предел здесь про порядок, а не про место.
+Environment=KEEP=14
+TimeoutStartSec=30min
