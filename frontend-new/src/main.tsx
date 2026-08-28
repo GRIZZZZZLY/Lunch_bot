@@ -9,6 +9,7 @@ import App from './App';
 import { initTelegramWebApp } from './lib/telegram';
 import { applyThemeNow, initThemeSync } from './lib/theme';
 import { initViewportSync } from './lib/viewport';
+import { enableTouchActiveStates } from './lib/pressFeedback';
 import { queryClient } from './lib/queryClient';
 import { bootstrapAuth } from './lib/bootstrap';
 import { prefetchFirstScreen } from './lib/prefetch';
@@ -22,6 +23,7 @@ initTelegramWebApp();
 applyThemeNow();
 initThemeSync();
 initViewportSync();
+enableTouchActiveStates();
 
 bootstrapAuth()
   /* Запросы первого экрана — сразу после авторизации и до того, как React

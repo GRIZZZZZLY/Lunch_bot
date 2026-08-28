@@ -4,6 +4,7 @@ import { Icon } from '@/components/rl/Icon';
 import { useActivePolls } from '@/hooks/usePolls';
 import { ROOT_TABS, type RootTab } from '@/app/navigation';
 import { useBootReveal } from '@/lib/motion';
+import { hapticSelection } from '@/lib/haptics';
 
 /* Активная плитка — один элемент, который переезжает, а не четыре, которые по
    очереди зажигаются. Разница не косметическая: переезд связывает нажатие с
@@ -61,7 +62,17 @@ export function BottomNavigation({ items = ROOT_TABS }: { items?: RootTab[] }) {
             и цвет её подписи. */}
         <span className={`nav-pill${index < 0 ? ' is-hidden' : ''}`} aria-hidden />
         {items.map((it) => (
-          <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => 'navbtn' + (isActive ? ' on' : '')}>
+          <NavLink
+            key={it.to}
+            to={it.to}
+            end={it.end}
+            className={({ isActive }) => 'navbtn' + (isActive ? ' on' : '')}
+            /* Отдача только на смену вкладки: тап по той, где уже стоишь,
+               навигации не делает, и подтверждать ему нечего. */
+            onClick={() => {
+              if (it.to !== pathname) hapticSelection();
+            }}
+          >
             <span className="nav-dot" />
             <span style={{ position: 'relative' }}>
               <Icon name={it.icon} size={22} />

@@ -19,7 +19,7 @@ export function ToastContainer() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`toast toast-${t.type}`}
+          className={`toast toast-${t.type}${t.leaving ? ' is-leaving' : ''}`}
           role={t.type === 'error' ? 'alert' : 'status'}
         >
           <span className="toast-icon" aria-hidden>

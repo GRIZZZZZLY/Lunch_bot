@@ -7,6 +7,7 @@ import {
 } from './types';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, Chip, Field, Switch } from '@/components/rl/primitives';
+import { hapticSelection } from '@/lib/haptics';
 import { Icon } from '@/components/rl/Icon';
 import { DAY_LABELS } from '@/lib/schedule';
 import { formatPriceOrDash } from '@/shared/lib/money';
@@ -252,7 +253,11 @@ export function CreatePollSheet({
         </div>
 
         {state.customDuration && (
-          <div style={{ marginTop: 10 }}>
+          /* anim-in — «появление того, что действительно изменилось»
+             (styles/motion.css). Блок раскрылся по нажатию переключателя, и
+             без прихода он возникает в кадре готовым: человек видит результат,
+             но не видит, что его вызвало. */
+          <div className="anim-in" style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Field
                 type="number"
@@ -271,7 +276,10 @@ export function CreatePollSheet({
               <span style={{ fontSize: 'var(--text-13)', color: 'var(--text-secondary)' }}>мин</span>
             </div>
             {customInvalid && (
-              <div style={{ marginTop: 6, fontSize: 'var(--text-11)', color: 'var(--danger)' }}>
+              <div
+                className="anim-in"
+                style={{ marginTop: 6, fontSize: 'var(--text-11)', color: 'var(--danger)' }}
+              >
                 От {DURATION_MIN_MINUTES} до {DURATION_MAX_MINUTES} минут
               </div>
             )}
@@ -307,7 +315,10 @@ export function CreatePollSheet({
       </div>
 
       {state.recurring && (
-        <>
+        /* Раздел раскрывается одним приходом, а не по элементу: включение
+           переключателя — одно событие, и четыре независимых появления
+           прочитались бы как четыре. */
+        <div className="anim-in">
           <Label>Дни</Label>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {WEEKDAYS.map((d) => (
@@ -317,7 +328,10 @@ export function CreatePollSheet({
             ))}
           </div>
           {daysMissing && (
-            <div style={{ marginTop: 6, fontSize: 'var(--text-11)', color: 'var(--danger)' }}>
+            <div
+              className="anim-in"
+              style={{ marginTop: 6, fontSize: 'var(--text-11)', color: 'var(--danger)' }}
+            >
               Выберите хотя бы один день
             </div>
           )}
@@ -340,7 +354,7 @@ export function CreatePollSheet({
               Удалить расписание
             </Button>
           )}
-        </>
+        </div>
       )}
 
       <Label>
@@ -393,7 +407,11 @@ function MenuRow({ item, on, disabled, onToggle }: { item: MenuItemOption; on: b
       aria-checked={on}
       disabled={disabled}
       className={'dish-row' + (on ? ' is-voted' : '')}
-      onClick={() => !disabled && onToggle()}
+      onClick={() => {
+        if (disabled) return;
+        hapticSelection();
+        onToggle();
+      }}
     >
       <span className={'checkbox' + (on ? ' on' : '')} aria-hidden="true">
         {on && <Icon name="check" size={15} stroke={2.4} />}

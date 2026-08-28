@@ -12,7 +12,25 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 import { useRovingFocus } from '@/shared/lib/useRovingFocus';
+import { hapticImpact, hapticSelection } from '@/lib/haptics';
 import { Icon, type IconName } from './Icon';
+
+/* Отдача навешивается здесь, а не в местах вызова: контролов сотни, а жестов
+   три, и разъехавшийся словарь заметен только на устройстве. Удар — у кнопок,
+   смена выбора — у тумблеров и чипов.
+
+   Обёртка зовёт вибрацию ДО обработчика: обработчик может размонтировать
+   элемент (лист закрывается по успеху мутации), и порядок «сначала действие»
+   терял бы отдачу ровно у самых важных нажатий. */
+function withHaptic<E>(
+  feedback: () => void,
+  handler: ((event: E) => void) | undefined,
+): (event: E) => void {
+  return (event: E) => {
+    feedback();
+    handler?.(event);
+  };
+}
 
 export function Spinner({ size = 18, className = '' }: { size?: number; className?: string }) {
   return (
@@ -57,6 +75,7 @@ export function Button({
   className = '',
   // Без явного type кнопка внутри <form> считается submit и отправляет форму.
   type = 'button',
+  onClick,
   ...rest
 }: ButtonProps) {
   const cls = ['btn', `btn--${variant}`];
@@ -71,6 +90,7 @@ export function Button({
       className={cls.join(' ')}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
+      onClick={withHaptic(hapticImpact, onClick)}
       {...rest}
     >
       {loading && <Spinner className="btn__spin" />}
@@ -97,6 +117,7 @@ export function IconButton({
   disabled,
   className = '',
   type = 'button',
+  onClick,
   ...rest
 }: IconButtonProps) {
   const cls = ['btn', 'btn--icon', `btn--${variant}`];
@@ -110,6 +131,7 @@ export function IconButton({
       className={cls.join(' ')}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
+      onClick={withHaptic(hapticImpact, onClick)}
       {...rest}
     >
       {loading ? <Spinner className="btn__spin" /> : <Icon name={name} size={size === 'sm' ? 18 : 20} />}
@@ -165,7 +187,11 @@ export function Switch({ on, onChange, disabled, ...rest }: SwitchProps) {
       aria-checked={!!on}
       disabled={disabled}
       className={'switch' + (on ? ' on' : '')}
-      onClick={() => !disabled && onChange?.(!on)}
+      onClick={() => {
+        if (disabled) return;
+        hapticSelection();
+        onChange?.(!on);
+      }}
       {...rest}
     />
   );
@@ -186,7 +212,11 @@ export function Checkbox({ on, onChange, disabled, ...rest }: CheckboxProps) {
       aria-checked={!!on}
       disabled={disabled}
       className={'checkbox' + (on ? ' on' : '')}
-      onClick={() => !disabled && onChange?.(!on)}
+      onClick={() => {
+        if (disabled) return;
+        hapticSelection();
+        onChange?.(!on);
+      }}
       {...rest}
     >
       {on && <Icon name="check" size={15} stroke={2.4} />}
@@ -220,7 +250,7 @@ export interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: IconName;
 }
 
-export function Chip({ on, icon, children, ...rest }: ChipProps) {
+export function Chip({ on, icon, children, onClick, ...rest }: ChipProps) {
   return (
     // aria-pressed: выбранное состояние чипа несёт только цвет и рамка, на слух
     // выбранный день недели ничем не отличался от невыбранного.
@@ -228,6 +258,7 @@ export function Chip({ on, icon, children, ...rest }: ChipProps) {
       type="button"
       aria-pressed={!!on}
       className={'chip press' + (on ? ' on' : '')}
+      onClick={withHaptic(hapticSelection, onClick)}
       {...rest}
     >
       {icon && <Icon name={icon} size={15} />}

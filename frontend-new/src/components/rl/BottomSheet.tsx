@@ -1,7 +1,8 @@
 /* ROCKET LUNCH — bottom sheet (redesign v2). Scrim + slide-up floating surface.
    Доступность: focus trap, восстановление фокуса, scroll lock, Escape,
    Telegram BackButton (через lib/backButton), aria-labelledby, safe-area.
-   Motion: симметричный вход/выход (подъём/уход вниз, 200ms), fade скрима,
+   Motion: вход снизу 220ms и уход туда же 200ms — путь один и тот же
+   (translateY(100%)), fade скрима,
    drag-to-dismiss 1:1 c velocity-порогом (~0.11 px/ms) и snap-back-пружиной.
    Программные закрытия (успех мутации — родитель убирает open) остаются
    мгновенными намеренно: успех должен ощущаться быстрым. */
@@ -190,7 +191,7 @@ export function BottomSheet({
         <div
           ref={sheetRef}
           tabIndex={-1}
-          className={'surf-floating sheet-panel' + (closing ? ' is-closing' : ' anim-rise')}
+          className={'surf-floating sheet-panel' + (closing ? ' is-closing' : ' anim-sheet-in')}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerEnd}

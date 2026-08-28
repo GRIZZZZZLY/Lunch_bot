@@ -8,6 +8,7 @@ import { useCountdown } from '@/shared/lib/useCountdown';
 import { spokenDuration } from '@/shared/lib/spokenTime';
 import { ConfirmDialog, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
+import { hapticImpact } from '@/lib/haptics';
 import { Icon } from '@/components/rl/Icon';
 import { pluralVotes } from '../lib/selectors';
 import type { PollOptionVM } from '../lib/types';
@@ -184,7 +185,12 @@ export function LunchTicket({
               onKeyDown={(e) => onKeyDown(e, idx)}
               onFocus={() => setFocusIdx(idx)}
               onClick={() => {
-                if (!isMine) onVote(o.id);
+                /* Отдача только на голос, который действительно уходит: тап по
+                   уже выбранной строке ничего не меняет, и вибрация обещала бы
+                   отправку, которой не будет. */
+                if (isMine) return;
+                hapticImpact();
+                onVote(o.id);
               }}
             >
               <span

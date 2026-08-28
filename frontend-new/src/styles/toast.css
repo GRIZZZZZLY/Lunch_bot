@@ -95,3 +95,21 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* Уход. Длительность обязана совпадать с TOAST_EXIT_MS в store/useToastStore.ts:
+   там стоит таймер снятия, и разошедшиеся числа дадут либо обрыв на середине,
+   либо застывший кадр после конца анимации.
+
+   Короче входа (180 против 220): тост уже прочитан, и растянутый уход читается
+   как залипание. Уходит тем же путём, которым пришёл, — вверх, откуда выехал. */
+.toast.is-leaving {
+  animation: toast-out 180ms var(--ease-out) both;
+  pointer-events: none;
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
