@@ -31,7 +31,16 @@ ERROR_COOLDOWN_MIN="${ERROR_COOLDOWN_MIN:-60}"
 HOST="$(hostname)"
 NOW=$(date +%s)
 
-send() { bash "$SCRIPT_DIR/send-telegram-message.sh" "$1" >/dev/null; }
+# Факт отправки пишем в журнал: иначе по логам сторожа не отличить «всё тихо,
+# потому что всё хорошо» от «оповещение ушло, а вы его не получили».
+send() {
+  local reason="$1" text="$2"
+  if bash "$SCRIPT_DIR/send-telegram-message.sh" "$text" >/dev/null; then
+    echo "оповещение отправлено: $reason"
+  else
+    echo "ОПОВЕЩЕНИЕ НЕ ДОСТАВЛЕНО: $reason" >&2
+  fi
+}
 
 mkdir -p "$(dirname "$STATE_FILE")"
 # shellcheck disable=SC1090
@@ -57,7 +66,7 @@ else
     # процесс online. Именно так молча теряются падения по памяти и по краху.
     since=$(printf '%s' "$app_json" | jq -r '.pm2_env.pm_uptime // 0')
     uptime_s=$(( (NOW * 1000 - since) / 1000 ))
-    send "🟠 ${HOST}: $PM2_APP перезапускался $((restarts - prev_restarts)) раз с прошлой проверки
+    send "перезапуск процесса" "🟠 ${HOST}: $PM2_APP перезапускался $((restarts - prev_restarts)) раз с прошлой проверки
 статус сейчас: $status, аптайм ${uptime_s}s
 Последние ошибки:
 $(tail -n 5 "$ERROR_LOG" 2>/dev/null | cut -c1-300)
@@ -78,14 +87,14 @@ bad=0
 [ -n "$problems" ] && bad=1
 
 if [ "$bad" = 1 ] && [ "$prev_bad" = 0 ]; then
-  send "🔴 ${HOST}: приложение нездорово
+  send "приложение нездорово" "🔴 ${HOST}: приложение нездорово
 ${problems}
 Последние ошибки:
 $(tail -n 5 "$ERROR_LOG" 2>/dev/null | cut -c1-300)
 
 Разбор: pm2 describe $PM2_APP; journalctl -n 50"
 elif [ "$bad" = 0 ] && [ "$prev_bad" = 1 ]; then
-  send "🟢 ${HOST}: приложение снова в порядке ($PM2_APP online, health отвечает)"
+  send "восстановление" "🟢 ${HOST}: приложение снова в порядке ($PM2_APP online, health отвечает)"
 fi
 
 # --- 4. Всплеск ошибок в логе -------------------------------------------
@@ -99,7 +108,7 @@ if [ -f "$ERROR_LOG" ]; then
     new_lines=$(tail -c "+$((prev_error_size + 1))" "$ERROR_LOG" 2>/dev/null | wc -l | tr -d ' ')
     cooldown_over=$(( NOW - prev_error_alert > ERROR_COOLDOWN_MIN * 60 ))
     if [ "$new_lines" -ge "$ERROR_BURST" ] && [ "$cooldown_over" = 1 ]; then
-      send "🟡 ${HOST}: всплеск ошибок — $new_lines новых строк в error.log с прошлой проверки
+      send "всплеск ошибок" "🟡 ${HOST}: всплеск ошибок — $new_lines новых строк в error.log с прошлой проверки
 Пример:
 $(tail -c "+$((prev_error_size + 1))" "$ERROR_LOG" | tail -n 3 | cut -c1-300)
 
