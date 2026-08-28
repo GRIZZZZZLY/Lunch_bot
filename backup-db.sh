@@ -18,7 +18,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-BACKUP_DIR="${BACKUP_DIR:-$HOME/backups/rocket-lunch}"
+
+# `$HOME` под systemd не задан — при `set -u` подстановка по умолчанию уронила
+# бы запуск, а «удобный» запасной путь развёл бы копии по двум каталогам, из
+# которых ротация чистит только один. Поэтому либо BACKUP_DIR задан явно (так
+# делает юнит), либо берём домашний каталог, либо честно останавливаемся.
+if [ -z "${BACKUP_DIR:-}" ]; then
+  if [ -z "${HOME:-}" ]; then
+    echo "Не задан BACKUP_DIR, а HOME пуст (обычное дело под systemd)" >&2
+    exit 2
+  fi
+  BACKUP_DIR="$HOME/backups/rocket-lunch"
+fi
 BACKEND_ENV="${BACKEND_ENV:-$SCRIPT_DIR/backend/.env}"
 KEEP="${KEEP:-14}"
 PREFIX=foodbot_auto_

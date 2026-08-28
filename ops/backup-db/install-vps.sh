@@ -19,9 +19,18 @@ name=telegram-food-bot-backup-db
 test -f "$project_root/backup-db.sh"
 test -f "$project_root/backend/.env"
 
+run_user=${RUN_USER:-$(id -un)}
+backup_dir=${BACKUP_DIR:-$HOME/backups/rocket-lunch}
+mkdir -p "$backup_dir"
+
+echo "пользователь службы: $run_user"
+echo "каталог копий:       $backup_dir"
+
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
-sed "s|^WorkingDirectory=.*$|WorkingDirectory=$project_root|" \
+sed -e "s|^WorkingDirectory=.*$|WorkingDirectory=$project_root|" \
+  -e "s|^User=.*$|User=$run_user|" \
+  -e "s|^Environment=BACKUP_DIR=.*$|Environment=BACKUP_DIR=$backup_dir|" \
   "$unit_dir/$name.service" > "$tmp"
 
 sudo install -m 644 "$tmp" "/etc/systemd/system/$name.service"
