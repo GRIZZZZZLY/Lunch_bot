@@ -38,21 +38,6 @@ import type {
 } from '@/components/admin/types';
 import { resolveTargetGroup } from '../lib/selectors';
 
-const DURATION_TO_MINUTES: Record<CreatePollFormState['duration'], number> = {
-  '15m': 15,
-  '30m': 30,
-  '1h': 60,
-  custom: 30,
-};
-
-/** Минуты расписания → чип длительности; нестандартные значения остаются «кастомными». */
-function durationKeyOf(minutes: number): CreatePollFormState['duration'] {
-  if (minutes === 15) return '15m';
-  if (minutes === 30) return '30m';
-  if (minutes === 60) return '1h';
-  return 'custom';
-}
-
 export function useHomeCreatePoll() {
   const toast = useToast();
   const currentGroupId = useAppStore((s) => s.currentGroupId);
@@ -95,7 +80,7 @@ export function useHomeCreatePoll() {
       isEnabled: recurringSchedule.isEnabled,
       days: daysToLabels(parseDaysOfWeek(recurringSchedule.daysOfWeek)),
       time: recurringSchedule.timeOfDay,
-      durationKey: durationKeyOf(recurringSchedule.duration),
+      durationMinutes: recurringSchedule.duration,
       itemIds: parseNumberArray(recurringSchedule.selectedMenuItemIds).map(String),
     };
   }, [recurringSchedule]);
@@ -131,24 +116,17 @@ export function useHomeCreatePoll() {
       const selectedMenuItems = form.selectedItems
         .map((id) => Number(id))
         .filter((n) => Number.isFinite(n));
-      const duration = DURATION_TO_MINUTES[form.duration];
+      const duration = form.durationMinutes;
 
       try {
         if (form.recurring) {
           const daysOfWeek = labelsToDays(form.recurringDays);
           if (daysOfWeek.length === 0) throw new Error('Выберите хотя бы один день недели');
-          /* «Кастомную» длительность чипы не хранят — при правке сохраняем
-             исходную, иначе расписание на 90 минут молча стало бы
-             30-минутным. */
-          const scheduleDuration =
-            form.duration === 'custom' && recurringSchedule?.duration
-              ? recurringSchedule.duration
-              : duration;
           const payload = {
             groupId: Number(groupId),
             daysOfWeek,
             timeOfDay: form.recurringTime,
-            duration: scheduleDuration,
+            duration,
             selectedMenuItemIds: selectedMenuItems.length ? selectedMenuItems : null,
           };
 

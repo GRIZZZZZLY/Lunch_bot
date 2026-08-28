@@ -19,7 +19,7 @@ const schedule: SheetSchedule = {
   isEnabled: true,
   days: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'],
   time: '11:00',
-  durationKey: '30m',
+  durationMinutes: 30,
   itemIds: ['3', '4'],
 };
 
@@ -40,6 +40,94 @@ function renderSheet(props: Partial<Parameters<typeof CreatePollSheet>[0]> = {})
 }
 
 const recurringSwitch = () => screen.getByRole('switch', { name: 'Повторяющийся опрос' });
+const customSwitch = () => screen.getByRole('switch', { name: 'Другая длительность' });
+const minutesField = () => screen.getByRole('spinbutton', { name: 'Длительность в минутах' });
+
+async function pickTwoDishes() {
+  await userEvent.click(screen.getByText('Борщ'));
+  await userEvent.click(screen.getByText('Плов'));
+}
+
+describe('CreatePollSheet — длительность', () => {
+  it('пресеты стоят отдельным рядом, кастомного чипа среди них нет', () => {
+    renderSheet();
+    for (const label of ['15 мин', '30 мин', '1 час']) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole('button', { name: 'Кастомное' })).not.toBeInTheDocument();
+    // ручной ввод скрыт, пока переключатель выключен
+    expect(screen.queryByRole('spinbutton', { name: 'Длительность в минутах' })).not.toBeInTheDocument();
+  });
+
+  it('пресет доходит до родителя в минутах', async () => {
+    const { onSubmit } = renderSheet();
+    await pickTwoDishes();
+    await userEvent.click(screen.getByRole('button', { name: '1 час' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Запустить опрос' }));
+
+    expect(onSubmit.mock.calls[0][0].durationMinutes).toBe(60);
+  });
+
+  it('ручной ввод отдаёт своё значение и снимает выбор с пресетов', async () => {
+    const { onSubmit } = renderSheet();
+    await pickTwoDishes();
+    await userEvent.click(customSwitch());
+
+    const field = minutesField();
+    await userEvent.clear(field);
+    await userEvent.type(field, '90');
+
+    expect(screen.getByRole('button', { name: '30 мин' })).toHaveAttribute('aria-pressed', 'false');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Запустить опрос' }));
+    const state = onSubmit.mock.calls[0][0];
+    expect(state.durationMinutes).toBe(90);
+    expect(state.customDuration).toBe(true);
+  });
+
+  it('значение вне 1–1440 блокирует отправку', async () => {
+    renderSheet();
+    await pickTwoDishes();
+    await userEvent.click(customSwitch());
+
+    const field = minutesField();
+    await userEvent.clear(field);
+    await userEvent.type(field, '5000');
+
+    expect(screen.getByText('От 1 до 1440 минут')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Запустить опрос' })).toBeDisabled();
+  });
+
+  it('выключение ручного ввода возвращает к пресету', async () => {
+    const { onSubmit } = renderSheet();
+    await pickTwoDishes();
+    await userEvent.click(customSwitch());
+    const field = minutesField();
+    await userEvent.clear(field);
+    await userEvent.type(field, '90');
+    await userEvent.click(customSwitch());
+
+    expect(screen.getByRole('button', { name: '30 мин' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'Запустить опрос' }));
+    expect(onSubmit.mock.calls[0][0].durationMinutes).toBe(30);
+  });
+
+  it('нестандартная длительность расписания показывается числом, а не безымянным чипом', async () => {
+    renderSheet({ schedule: { ...schedule, durationMinutes: 90 } });
+    await userEvent.click(recurringSwitch());
+
+    expect(customSwitch()).toHaveAttribute('aria-checked', 'true');
+    expect(minutesField()).toHaveValue(90);
+  });
+
+  it('стандартная длительность расписания остаётся пресетом', async () => {
+    renderSheet({ schedule: { ...schedule, durationMinutes: 15 } });
+    await userEvent.click(recurringSwitch());
+
+    expect(customSwitch()).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('button', { name: '15 мин' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
 
 describe('CreatePollSheet — расписание уже настроено', () => {
   it('подсказывает текущее время и подставляет настройки при включении', async () => {

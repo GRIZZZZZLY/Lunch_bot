@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
-import type { CreatePollContext, CreatePollFormState, DurationOption, MenuItemOption } from './types';
+import type { CreatePollContext, CreatePollFormState, MenuItemOption } from './types';
+import {
+  DURATION_MAX_MINUTES,
+  DURATION_MIN_MINUTES,
+  DURATION_PRESETS,
+} from './types';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, Chip, Field, Switch } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
 import { DAY_LABELS } from '@/lib/schedule';
 import { formatPriceOrDash } from '@/shared/lib/money';
 
-const DURATION_CHIPS: { key: DurationOption; label: string }[] = [
-  { key: '15m', label: '15 мин' },
-  { key: '30m', label: '30 мин' },
-  { key: '1h', label: '1 час' },
-  { key: 'custom', label: 'Кастомное' },
-];
+const DEFAULT_DURATION_MINUTES = 30;
+
+const isPreset = (minutes: number) => DURATION_PRESETS.some((p) => p.minutes === minutes);
 
 const WEEKDAYS = [...DAY_LABELS];
 
@@ -21,7 +23,7 @@ export interface SheetSchedule {
   isEnabled: boolean;
   days: string[];
   time: string;
-  durationKey: DurationOption;
+  durationMinutes: number;
   itemIds: string[];
 }
 
@@ -43,7 +45,8 @@ interface Props {
 function makeInitial(ctx: CreatePollContext, override?: Partial<CreatePollFormState>): CreatePollFormState {
   return {
     title: '',
-    duration: '30m',
+    durationMinutes: DEFAULT_DURATION_MINUTES,
+    customDuration: false,
     recurring: false,
     recurringDays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'],
     recurringTime: '12:00',
@@ -74,12 +77,19 @@ export function CreatePollSheet({
   onGroupChange,
 }: Props) {
   const [state, setState] = useState<CreatePollFormState>(() => makeInitial(ctx, initial));
+  /* Сырой текст поля минут. Отдельно от `durationMinutes`, потому что «9» на пути
+     к «90» и пустая строка при стирании — валидные состояния ввода, но не
+     длительности; в состояние формы попадает только разобранное число. */
+  const [customRaw, setCustomRaw] = useState<string | null>(null);
 
   // Компонент не размонтируется между открытиями — на каждое открытие
   // пересобираем форму, иначе остаётся выбор прошлой сессии (группа, блюда).
   const wasOpen = useRef(open);
   useEffect(() => {
-    if (open && !wasOpen.current) setState(makeInitial(ctx, initial));
+    if (open && !wasOpen.current) {
+      setState(makeInitial(ctx, initial));
+      setCustomRaw(null);
+    }
     wasOpen.current = open;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -98,7 +108,17 @@ export function CreatePollSheet({
   // Правка существующего расписания: блюда у него свои, заново выбирать их не нужно.
   const editingSchedule = state.recurring && !!schedule;
   const daysMissing = state.recurring && state.recurringDays.length === 0;
-  const canSubmit = (editingSchedule || !itemsError) && !daysMissing && !submitting;
+  const customValue = customRaw ?? String(state.durationMinutes);
+  const parsedCustom = Number(customValue);
+  const customInvalid =
+    state.customDuration &&
+    !(
+      customValue.trim() !== '' &&
+      Number.isInteger(parsedCustom) &&
+      parsedCustom >= DURATION_MIN_MINUTES &&
+      parsedCustom <= DURATION_MAX_MINUTES
+    );
+  const canSubmit = (editingSchedule || !itemsError) && !daysMissing && !customInvalid && !submitting;
   const submitLabel = state.recurring
     ? schedule
       ? 'Сохранить расписание'
@@ -106,7 +126,8 @@ export function CreatePollSheet({
     : 'Запустить опрос';
 
   /** Включение переключателя при живом расписании подставляет его настройки. */
-  const setRecurring = (on: boolean) =>
+  const setRecurring = (on: boolean) => {
+    if (on && schedule) setCustomRaw(null);
     setState((prev) =>
       on && schedule
         ? {
@@ -114,11 +135,37 @@ export function CreatePollSheet({
             recurring: true,
             recurringDays: schedule.days,
             recurringTime: schedule.time,
-            duration: schedule.durationKey,
+            durationMinutes: schedule.durationMinutes,
+            // 90-минутное расписание раньше показывалось безымянным чипом «Кастомное»
+            customDuration: !isPreset(schedule.durationMinutes),
             selectedItems: schedule.itemIds.length ? schedule.itemIds : prev.selectedItems,
           }
         : { ...prev, recurring: on },
     );
+  };
+
+  const selectPreset = (minutes: number) => {
+    setCustomRaw(null);
+    setState((prev) => ({ ...prev, durationMinutes: minutes, customDuration: false }));
+  };
+
+  /** Выключение ручного ввода возвращает к пресету — иначе осталось бы «90 мин» без чипа. */
+  const setCustomDuration = (on: boolean) => {
+    setCustomRaw(null);
+    setState((prev) => ({
+      ...prev,
+      customDuration: on,
+      durationMinutes: on || isPreset(prev.durationMinutes) ? prev.durationMinutes : DEFAULT_DURATION_MINUTES,
+    }));
+  };
+
+  const changeCustom = (raw: string) => {
+    setCustomRaw(raw);
+    const n = Number(raw);
+    if (raw.trim() !== '' && Number.isInteger(n) && n >= DURATION_MIN_MINUTES && n <= DURATION_MAX_MINUTES) {
+      setState((prev) => ({ ...prev, durationMinutes: n }));
+    }
+  };
 
   const toggleItem = (id: string) =>
     setState((prev) => {
@@ -168,11 +215,68 @@ export function CreatePollSheet({
 
       <Label>Длительность</Label>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {DURATION_CHIPS.map((c) => (
-          <Chip key={c.key} on={state.duration === c.key} onClick={() => !submitting && setState({ ...state, duration: c.key })}>
-            {c.label}
+        {DURATION_PRESETS.map((p) => (
+          <Chip
+            key={p.minutes}
+            on={!state.customDuration && state.durationMinutes === p.minutes}
+            onClick={() => !submitting && selectPreset(p.minutes)}
+          >
+            {p.label}
           </Chip>
         ))}
+      </div>
+
+      <div
+        style={{
+          marginTop: 12,
+          padding: '12px 14px',
+          borderRadius: 'var(--radius-block)',
+          background: 'var(--canvas)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <div className="font-head" style={{ fontSize: 'var(--text-15)', fontWeight: 600 }}>
+              Другая длительность
+            </div>
+            <div style={{ fontSize: 'var(--text-13)', color: 'var(--text-tertiary)' }}>
+              {state.customDuration ? 'значение в минутах' : 'если пресетов не хватает'}
+            </div>
+          </div>
+          <Switch
+            on={state.customDuration}
+            disabled={submitting}
+            onChange={setCustomDuration}
+            aria-label="Другая длительность"
+          />
+        </div>
+
+        {state.customDuration && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Field
+                type="number"
+                inputMode="numeric"
+                min={DURATION_MIN_MINUTES}
+                max={DURATION_MAX_MINUTES}
+                step={1}
+                value={customValue}
+                className="tnum"
+                error={customInvalid}
+                disabled={submitting}
+                aria-label="Длительность в минутах"
+                style={{ width: 110 }}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => changeCustom(e.target.value)}
+              />
+              <span style={{ fontSize: 'var(--text-13)', color: 'var(--text-secondary)' }}>мин</span>
+            </div>
+            {customInvalid && (
+              <div style={{ marginTop: 6, fontSize: 'var(--text-11)', color: 'var(--danger)' }}>
+                От {DURATION_MIN_MINUTES} до {DURATION_MAX_MINUTES} минут
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div

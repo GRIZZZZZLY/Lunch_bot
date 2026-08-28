@@ -77,7 +77,16 @@ export interface AdminDashboardData {
   };
 }
 
-export type DurationOption = '15m' | '30m' | '1h' | 'custom';
+/** Границы `duration` в схемах API: 1–1440 минут. */
+export const DURATION_MIN_MINUTES = 1;
+export const DURATION_MAX_MINUTES = 1440;
+
+/** Пресеты ряда чипов. Всё остальное вводится вручную. */
+export const DURATION_PRESETS: { minutes: number; label: string }[] = [
+  { minutes: 15, label: '15 мин' },
+  { minutes: 30, label: '30 мин' },
+  { minutes: 60, label: '1 час' },
+];
 
 export type MenuItemIconTone = 'default' | 'lav' | 'sage' | 'butter' | 'rose' | 'sky';
 
@@ -101,7 +110,10 @@ export interface AudienceOption {
 
 export interface CreatePollFormState {
   title: string;
-  duration: DurationOption;
+  /** Длительность в минутах — единственный источник истины, чипы лишь её пресеты. */
+  durationMinutes: number;
+  /** Открыт ли ручной ввод. Влияет только на вид формы, не на отправляемое значение. */
+  customDuration: boolean;
   recurring: boolean;
   recurringDays: string[];
   recurringTime: string;

@@ -112,7 +112,7 @@ export function AdminPage() {
     }
     setSubmitting(true);
     try {
-      const duration = form.duration === '15m' ? 15 : form.duration === '1h' ? 60 : 30;
+      const duration = form.durationMinutes;
       await pollsService.createFromWebapp({
         groupId: targetGroupId,
         duration,
