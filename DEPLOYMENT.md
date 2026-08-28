@@ -6,9 +6,7 @@
 
 ## Требования к серверу
 
-- Ubuntu с Node.js 22, npm 10, PostgreSQL, Redis, Nginx и PM2 (на действующем
-  сервере PostgreSQL 14.24, хотя CI и `docker-compose.production.yml`
-  рассчитаны на 16 — расхождение известно и не устранено);
+- Ubuntu с Node.js 22, npm 10, PostgreSQL 16, Redis, Nginx и PM2;
 - репозиторий с основной веткой `main`;
 - заполненный `backend/.env` с `NODE_ENV=production`,
   `FRONTEND_DIR=frontend-new`, `REDIS_ENABLED=true` и безопасными секретами;
