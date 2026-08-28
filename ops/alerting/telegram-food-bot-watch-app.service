@@ -1,0 +1,14 @@
+[Unit]
+Description=Сторож приложения Rocket Lunch (процесс, health, ошибки)
+After=network-online.target
+Wants=network-online.target
+# Сторож, который сам молча упал, хуже отсутствующего.
+OnFailure=telegram-food-bot-alert@%n.service
+
+[Service]
+Type=oneshot
+# User и WorkingDirectory подставляет ops/alerting/install-vps.sh.
+User=root
+WorkingDirectory=/opt/telegram-food-bot
+ExecStart=/usr/bin/env bash ops/alerting/watch-app.sh
+TimeoutStartSec=5min

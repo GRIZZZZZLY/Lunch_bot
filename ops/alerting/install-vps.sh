@@ -32,11 +32,22 @@ fi
 
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
-sed -e "s|^WorkingDirectory=.*$|WorkingDirectory=$project_root|" \
-  -e "s|^User=.*$|User=$run_user|" \
-  "$unit_dir/$name.service" > "$tmp"
 
-sudo install -m 644 "$tmp" "/etc/systemd/system/$name.service"
+substitute_unit() {
+  sed -e "s|^WorkingDirectory=.*$|WorkingDirectory=$project_root|" \
+    -e "s|^User=.*$|User=$run_user|" \
+    "$unit_dir/$1" > "$tmp"
+  sudo install -m 644 "$tmp" "/etc/systemd/system/$1"
+}
+
+substitute_unit "$name.service"
+
+# Сторож приложения: pm2 перезапускает упавший процесс молча, и без этого
+# таймера падение видно только тому, кто зашёл на сервер.
+watch=telegram-food-bot-watch-app
+substitute_unit "$watch.service"
+sudo install -m 644 "$unit_dir/$watch.timer" "/etc/systemd/system/$watch.timer"
+
 sudo systemctl daemon-reload
 
 echo "пользователь службы: $run_user"
@@ -54,3 +65,15 @@ else
   exit 1
 fi
 sudo systemctl reset-failed "$probe.service" "${name}${probe}.service" 2>/dev/null || true
+
+# Сторож включаем после проверки доставки: до неё он молчал бы в пустоту.
+echo "Пробный прогон сторожа..."
+sudo systemctl start "$watch.service"
+if sudo systemctl show "$watch.service" -p Result --value | grep -qx success; then
+  sudo systemctl enable --now "$watch.timer"
+  systemctl list-timers "$watch.timer" --no-pager | head -2
+else
+  echo "Сторож не отработал, таймер НЕ включён:" >&2
+  sudo journalctl -u "$watch.service" -n 20 --no-pager >&2
+  exit 1
+fi

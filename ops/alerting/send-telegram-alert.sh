@@ -19,23 +19,10 @@ set -uo pipefail
 
 UNIT="${1:-неизвестный юнит}"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-BACKEND_ENV="${BACKEND_ENV:-$SCRIPT_DIR/../../backend/.env}"
 JOURNAL_LINES="${JOURNAL_LINES:-15}"
 
-if [ ! -f "$BACKEND_ENV" ]; then
-  echo "Не найден $BACKEND_ENV — оповестить не о чем и некому" >&2
-  exit 1
-fi
-
-read_env() { sed -n "s/^$1=//p" "$BACKEND_ENV" | tail -1 | tr -d '\r"'; }
-
-TOKEN=$(read_env BOT_TOKEN)
-CHATS="${ALERT_TELEGRAM_CHAT_ID:-$(read_env ADMIN_USER_IDS)}"
-
-if [ -z "$TOKEN" ] || [ -z "$CHATS" ]; then
-  echo "Нет BOT_TOKEN или получателя (ALERT_TELEGRAM_CHAT_ID / ADMIN_USER_IDS)" >&2
-  exit 1
-fi
+# Токен, получателя и саму отправку держит send-telegram-message.sh — здесь
+# только сборка текста, чтобы обе точки оповещения не расходились в мелочах.
 
 result=$(systemctl show "$UNIT" -p Result --value 2>/dev/null)
 status=$(systemctl show "$UNIT" -p ExecMainStatus --value 2>/dev/null)
@@ -78,28 +65,4 @@ ${tail_lines}
 
 Разбор: journalctl -u $UNIT -n 50 --no-pager"
 
-# Ограничение Telegram — 4096 символов на сообщение; режем с запасом.
-if [ "${#TEXT}" -gt 3800 ]; then
-  TEXT="${TEXT:0:3800}
-…обрезано, полный текст в journalctl"
-fi
-
-# Без parse_mode: разметка требует экранирования, а в сообщении — сырой лог,
-# где угловые скобки и подчёркивания встречаются постоянно. Сообщение об аварии
-# должно доходить, а не падать на разборе Markdown.
-rc=0
-for chat in $(printf '%s' "$CHATS" | tr ',' ' '); do
-  [ -n "$chat" ] || continue
-  if ! curl -fsS -m 20 -X POST \
-    "https://api.telegram.org/bot${TOKEN}/sendMessage" \
-    --data-urlencode "chat_id=${chat}" \
-    --data-urlencode "text=${TEXT}" \
-    --data-urlencode "disable_notification=false" >/dev/null; then
-    echo "не удалось отправить оповещение в чат $chat" >&2
-    rc=1
-  else
-    echo "оповещение отправлено в чат $chat про $UNIT"
-  fi
-done
-
-exit $rc
+exec bash "$SCRIPT_DIR/send-telegram-message.sh" "$TEXT"

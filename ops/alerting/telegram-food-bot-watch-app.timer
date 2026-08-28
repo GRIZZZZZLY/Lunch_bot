@@ -1,0 +1,11 @@
+[Unit]
+Description=Проверка живости Rocket Lunch каждые 5 минут
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+Unit=telegram-food-bot-watch-app.service
+
+[Install]
+WantedBy=timers.target
