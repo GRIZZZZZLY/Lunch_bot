@@ -75,9 +75,11 @@ test.describe('Безопасная проверка продакшена тол
      (styles/motion.css), поэтому проверка палитры становится детерминированной.
      Остальные сценарии смоука работают с обычной анимацией. */
   test.describe('без анимаций', () => {
-    test.use({ reducedMotion: 'reduce' });
-
     test('@prod-smoke мобильная компоновка и доступность не нарушены', async ({ appPage }) => {
+      /* `test.use({ reducedMotion })` здесь не проходит по типам: `test`
+         расширен своими фикстурами, и опции контекста в него не попадают.
+         `emulateMedia` делает то же самое для этой страницы. */
+      await appPage.emulateMedia({ reducedMotion: 'reduce' });
       await appPage.goto('/');
       await expect(appPage.getByRole('navigation', { name: 'Основная навигация' })).toBeVisible();
 
