@@ -121,7 +121,9 @@ export function ShoppingView({
 
   return (
     <div className={styles.screen}>
-      <ShoppingProgress progress={progress} live={liveRun} />
+      <div className={`${styles.card} ${styles.plainCard}`}>
+        <ShoppingProgress progress={progress} live={liveRun} />
+      </div>
 
       {items.length === 0 ? (
         <InlineNotice tone="info">В закупке нет позиций.</InlineNotice>
@@ -194,14 +196,17 @@ function ParticipantShopping({
 
   return (
     <div className={styles.screen}>
-      <div className={styles.summaryTop}>
-        <Avatar name={run.initiator.firstName} size={40} />
-        <div className={styles.summaryMeta}>
-          <span className={styles.initiator}>{run.initiator.firstName} в магазине</span>
+      {/* Кто в магазине и сколько обработано — одна карточка: два соседних
+          блока об одном и том же состоянии закупки. */}
+      <div className={`${styles.card} ${styles.plainCard} ${styles.summary}`}>
+        <div className={styles.summaryTop}>
+          <Avatar name={run.initiator.firstName} size={40} />
+          <div className={styles.summaryMeta}>
+            <span className={styles.initiator}>{run.initiator.firstName} в магазине</span>
+          </div>
         </div>
+        <ShoppingProgress progress={progress} live={liveRun} />
       </div>
-
-      <ShoppingProgress progress={progress} live={liveRun} />
 
       {mine.length > 0 ? (
         <Section title="Ваши позиции" count={mine.length}>
@@ -216,8 +221,10 @@ function ParticipantShopping({
       {/* Сумма растёт по мере того, как инициатор проставляет цены, — участник
           смотрит именно на неё, и молча она меняться не должна. */}
       {mine.length > 0 && (
-        <div className={styles.personalSum} role="status">
-          Ваша текущая сумма: <strong className="tnum">{formatPrice(personal)}</strong>
+        <div className={`${styles.card} ${styles.plainCard}`}>
+          <div className={styles.personalSum} role="status">
+            Ваша текущая сумма: <strong className="tnum">{formatPrice(personal)}</strong>
+          </div>
         </div>
       )}
 

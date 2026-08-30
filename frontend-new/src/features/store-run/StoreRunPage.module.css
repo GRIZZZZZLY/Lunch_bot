@@ -1,16 +1,93 @@
 .screen {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  padding: var(--space-4) var(--space-4) 0;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3) 0;
   /* мягкий вход экрана после skeleton — единый, без stagger */
 }
 
-/* сводка */
+/* Поверхности. До этого экран закупки жил прямо на --canvas: заливка была
+   только у primary-кнопки и у липкой CTA-зоны, и на тёмной теме кнопки читались
+   как единственные объекты экрана. Уровни те же, что на Главной. */
+.card {
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+
+/* Карточка без внутренней структуры: блок цифр, заметка, прогресс. */
+.plainCard {
+  padding: var(--space-4);
+}
+
+/* Несколько блоков об одном состоянии внутри одной карточки. */
 .summary {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+/* сводка-тикет: шапка со счётчиками и таймером, перфорация, корешок с
+   действиями над самой закупкой. Перфорация повторяет талон Главной
+   (features/home/HomePage.module.css); общего компонента у них пока нет. */
+.ticket {
+  display: flex;
+  flex-direction: column;
+}
+
+.ticketBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+
+.perf {
+  position: relative;
+  height: 22px;
+}
+
+.perf::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 50%;
+  border-top: 2px dashed var(--divider);
+}
+
+.perf::after,
+.perf .notch {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  top: 2px;
+  background: var(--canvas);
+}
+
+.perf::after { left: -9px; }
+.perf .notch { right: -9px; }
+
+.ticketStub {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+/* Корешок без действий (участник, пустой сбор) всё равно занят: пустой отрезок
+   под перфорацией читался бы как обрыв вёрстки. */
+.stubNote {
+  min-height: var(--control-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
 }
 
 .summaryTop {
@@ -99,10 +176,14 @@
   transition: transform var(--motion-base) var(--ease-out);
 }
 
-/* секции участников */
+/* секции участников — карточки того же уровня, что группы Главной */
 .section {
   display: flex;
   flex-direction: column;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
 }
 
 /* h2 по разметке: сбрасываем браузерные margin/размер, вид остаётся тем же. */
@@ -164,14 +245,9 @@
   flex-shrink: 0;
 }
 
-/* слот «добавить» у инициатора */
-.mineAdd {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  align-items: flex-start;
-}
-
+/* Заметка инициатору без позиций. Кнопки здесь больше нет: «Добавить позицию»
+   и так стоит primary в липкой зоне под большим пальцем, а вторая такая же
+   кнопка на экране только делила внимание. */
 .mineEmpty {
   margin: 0;
   font-size: var(--text-13);
@@ -192,8 +268,8 @@
   background: var(--canvas);
   border-top: 1px solid var(--divider);
   /* компенсируем горизонтальный padding .screen */
-  margin-left: calc(-1 * var(--space-4));
-  margin-right: calc(-1 * var(--space-4));
+  margin-left: calc(-1 * var(--space-3));
+  margin-right: calc(-1 * var(--space-3));
 }
 
 .ctaMinor {
@@ -427,12 +503,18 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
+/* Группа участника — такая же карточка, как секция позиций: разбивка по людям
+   и список позиций живут на одном уровне поверхности. */
 .breakdownGroup {
   display: flex;
   flex-direction: column;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
 }
 
 .breakdownHead {

@@ -46,7 +46,9 @@ export function CancelledView({
       </InlineNotice>
 
       {items.length === 0 ? (
-        <EmptyState icon="cart" title="В закупке не было позиций" />
+        <div className={styles.card}>
+          <EmptyState icon="cart" title="В закупке не было позиций" />
+        </div>
       ) : (
         groups.map((group) => (
           <section key={group.userId} className={styles.section}>

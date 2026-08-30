@@ -49,7 +49,7 @@ export function SettledView({
 
   return (
     <div className={styles.screen}>
-      <div className={styles.summaryFigures}>
+      <div className={`${styles.card} ${styles.plainCard} ${styles.summaryFigures}`}>
         {isInitiator ? (
           <>
             <div className={styles.figureMain}>

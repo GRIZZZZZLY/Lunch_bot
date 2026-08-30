@@ -62,9 +62,11 @@ export function useCreateStoreRun() {
   const push = useToastStore((s) => s.push);
   return useMutation({
     mutationFn: (payload: CreateStoreRunPayload) => storeRunService.createRun(payload),
+    /* Тоста об успехе нет: создание сразу открывает экран закупки, и
+       «Закупка создана» подтверждало видимое, перекрывая при этом шапку.
+       Тост остаётся там, где результат не виден — например, на ошибке. */
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.storeRuns.active() });
-      push({ type: 'success', message: 'Закупка создана' });
     },
     onError: (err) => push({ type: 'error', message: apiErrorMessage(err, 'Не удалось создать закупку') }),
   });

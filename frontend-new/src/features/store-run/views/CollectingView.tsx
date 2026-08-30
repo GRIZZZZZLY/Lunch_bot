@@ -20,10 +20,9 @@ import { groupItemsByParticipant, isInitiator as isInitiatorOf } from '../lib/se
 import { StoreRunSummary } from '../components/StoreRunSummary';
 import { CollectionCountdown } from '../components/CollectionCountdown';
 import { ParticipantSection } from '../components/ParticipantSection';
-import { StoreRunActions } from '../components/StoreRunActions';
+import { StoreRunActions, StoreRunStub } from '../components/StoreRunActions';
 import { AddStoreItemSheet } from '../components/AddStoreItemSheet';
 import { EditStoreItemSheet } from '../components/EditStoreItemSheet';
-import { Button } from '@/components/rl/primitives';
 import styles from '../StoreRunPage.module.css';
 
 export function CollectingView({
@@ -75,19 +74,27 @@ export function CollectingView({
       isInitiator={isInitiator}
       participantsCount={participantsCount}
       itemsCount={items.length}
+      stub={
+        <StoreRunStub
+          isInitiator={isInitiator}
+          itemCount={items.length}
+          onClose={() => setConfirmClose(true)}
+          onCancel={() => setConfirmCancel(true)}
+        />
+      }
     >
       <CollectionCountdown collectUntil={run.collectUntil} startAt={run.createdAt} onExpire={onExpire} />
     </StoreRunSummary>
   );
 
-  const initiatorAddSlot = isInitiator ? (
-    <div className={styles.mineAdd}>
-      {!mine && <p className={styles.mineEmpty}>У вас пока нет позиций</p>}
-      <Button variant="secondary" onClick={() => setAddOpen(true)}>
-        Добавить позицию
-      </Button>
-    </div>
-  ) : null;
+  /* Инициатор без своих позиций: заметка есть, кнопки нет — «Добавить позицию»
+     стоит primary в липкой зоне, вторая такая же только делила бы внимание. */
+  const initiatorAddSlot =
+    isInitiator && !mine ? (
+      <div className={`${styles.card} ${styles.plainCard}`}>
+        <p className={styles.mineEmpty}>У вас пока нет позиций</p>
+      </div>
+    ) : null;
 
   return (
     <div className={styles.screen}>
@@ -97,11 +104,13 @@ export function CollectingView({
           в прилипшей CTA-зоне — под большим пальцем. Две одинаковые кнопки на
           одном экране только делят внимание. */}
       {items.length === 0 ? (
-        <EmptyState
-          icon="cart"
-          title="Пока пусто"
-          description="Добавьте первую позицию — остальные подтянутся."
-        />
+        <div className={styles.card}>
+          <EmptyState
+            icon="cart"
+            title="Пока пусто"
+            description="Добавьте первую позицию — остальные подтянутся."
+          />
+        </div>
       ) : (
         <>
           {mine && (
@@ -125,13 +134,7 @@ export function CollectingView({
         </>
       )}
 
-      <StoreRunActions
-        isInitiator={isInitiator}
-        itemCount={items.length}
-        onAdd={() => setAddOpen(true)}
-        onClose={() => setConfirmClose(true)}
-        onCancel={() => setConfirmCancel(true)}
-      />
+      <StoreRunActions onAdd={() => setAddOpen(true)} />
 
       {addOpen && (
         <AddStoreItemSheet
