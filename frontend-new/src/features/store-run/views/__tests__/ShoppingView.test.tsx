@@ -279,6 +279,20 @@ describe('ShoppingView — settle', () => {
     expect(h.settle.mutate).toHaveBeenCalledTimes(1);
   });
 
+  /* Нотис обязан что-то делать: прежде он лишь скроллил, и при одной позиции на
+     экране нажатие не давало ничего. */
+  it('нотис о непроставленной цене открывает редактор у этой позиции', async () => {
+    renderView(mkRun([mkItem(2, 'Молоко', 'BOUGHT', { id: 10, price: null })]), 1);
+    expect(screen.queryByLabelText(/Цена за всё/)).not.toBeInTheDocument();
+
+    /* Точное имя: у кнопки строки aria-label «Указать цену: Молоко», и она под
+       это условие не подходит. */
+    await userEvent.click(screen.getByRole('button', { name: 'Указать цену' }));
+
+    expect(screen.getByLabelText(/Цена за всё/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Сохранить' })).toBeInTheDocument();
+  });
+
   /* Открытый редактор цены — незакрытый ввод. Расчёт по нему прошёл бы мимо
      набранного числа, а сама кнопка стёрла бы его без следа. */
   it('открытый редактор цены блокирует settle, отмена разблокирует', async () => {

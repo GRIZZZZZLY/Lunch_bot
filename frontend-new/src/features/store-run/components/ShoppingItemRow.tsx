@@ -36,6 +36,7 @@ export function ShoppingItemRow({
   pending,
   onMark,
   onPricingChange,
+  pricingRequested = false,
 }: {
   item: StoreItem;
   /** Экран занят другой операцией (settle). */
@@ -45,8 +46,10 @@ export function ShoppingItemRow({
   onMark: MarkItem;
   /** Открыт ли редактор цены: пока он открыт, экран не даёт рассчитать. */
   onPricingChange?: (open: boolean) => void;
+  /** Редактор открыт снаружи — из нотиса о непроставленных ценах. */
+  pricingRequested?: boolean;
 }) {
-  const [pricing, setPricing] = useState(false);
+  const [pricingLocal, setPricingLocal] = useState(false);
   const [confirmingNotFound, setConfirmingNotFound] = useState(false);
   const [action, setAction] = useState<PendingAction | null>(null);
   const [raw, setRaw] = useState('');
@@ -56,6 +59,13 @@ export function ShoppingItemRow({
 
   const rowDisabled = disabled || pending;
   const busy = (which: PendingAction) => pending && action === which;
+
+  /* Редактор открывается двумя путями: своей кнопкой строки и нотисом
+     «осталось проставить цену». Внешний путь — обычный проп, а не эффект,
+     синхронизирующий локальное состояние: эффект пришлось бы дёргать setState в
+     теле, что правила репозитория запрещают. Поле стартует пустым, и это верно:
+     снаружи открывают ровно те позиции, у которых цены нет. */
+  const pricing = pricingLocal || pricingRequested;
 
   useLayoutEffect(() => {
     if (pricing) {
@@ -72,12 +82,12 @@ export function ShoppingItemRow({
   const openPricing = () => {
     setRaw(pn != null ? String(pn) : '');
     setError(undefined);
-    setPricing(true);
+    setPricingLocal(true);
     onPricingChange?.(true);
   };
 
   const cancelPricing = () => {
-    setPricing(false);
+    setPricingLocal(false);
     setError(undefined);
     onPricingChange?.(false);
   };
@@ -91,7 +101,7 @@ export function ShoppingItemRow({
     setAction(which);
     onMark(item.id, price, status, {
       onSuccess: () => {
-        setPricing(false);
+        setPricingLocal(false);
         onPricingChange?.(false);
         setConfirmingNotFound(false);
         handlers?.onSuccess?.();

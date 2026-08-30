@@ -101,9 +101,13 @@ export function ShoppingView({
   const settleDisabled =
     pendingId !== null || settlePending || noPrice.length > 0 || editingId !== null;
 
-  const scrollToFirstNoPrice = () => {
+  /* Нотис не просто показывает позицию, а открывает у неё редактор цены. Прежде
+     он лишь скроллил к строке, и при паре позиций, когда строка и так на экране,
+     нажатие не давало ровно ничего — кнопка выглядела сломанной. Прокрутку
+     делает сама строка, когда открывается (useLayoutEffect в ShoppingItemRow). */
+  const openFirstNoPrice = () => {
     const first = noPrice[0];
-    if (first) document.getElementById(`sr-item-${first.id}`)?.scrollIntoView({ block: 'center' });
+    if (first) setEditingId(first.id);
   };
 
   const doSettle = () => settle.mutate(undefined, { onSuccess: () => setConfirmSettle(false) });
@@ -122,6 +126,7 @@ export function ShoppingView({
       pending={pendingId === item.id}
       onMark={markItem}
       onPricingChange={(open) => setEditingId(open ? item.id : null)}
+      pricingRequested={editingId === item.id}
     />
   );
 
@@ -150,8 +155,10 @@ export function ShoppingView({
         >
           Без цены позиция не попадёт в расчёт.
           <br />
-          <button type="button" className={styles.noticeLink} onClick={scrollToFirstNoPrice}>
-            Показать первую
+          {/* Подпись называет действие, а не навигацию: «Показать первую» не
+              говорило ни что показать, ни зачем. */}
+          <button type="button" className={styles.noticeLink} onClick={openFirstNoPrice}>
+            Указать цену
           </button>
         </InlineNotice>
       )}
