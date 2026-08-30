@@ -38,10 +38,10 @@
   background: var(--surface);
   box-shadow: var(--shadow-2);
   /* Вторичные кнопки внутри карточки («Завершить сейчас», «Отметить · сумма»)
-     красятся холстом: на --surface они брали заливку своей же подложки.
-     Подробности — в styles/redesign-v2.css. */
-  --btn-secondary-bg: var(--canvas);
-  --btn-secondary-bg-alt: var(--surface);
+     смещаются от подложки к краске текста: на --surface они брали заливку своей
+     же подложки. Подробности — в styles/redesign-v2.css. */
+  --btn-secondary-bg: color-mix(in srgb, var(--text-primary) 12%, var(--surface));
+  --btn-secondary-bg-alt: color-mix(in srgb, var(--text-primary) 20%, var(--surface));
 }
 
 .groupHead {

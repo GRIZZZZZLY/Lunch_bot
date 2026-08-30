@@ -279,6 +279,19 @@ describe('ShoppingView — settle', () => {
     expect(h.settle.mutate).toHaveBeenCalledTimes(1);
   });
 
+  /* Открытый редактор цены — незакрытый ввод. Расчёт по нему прошёл бы мимо
+     набранного числа, а сама кнопка стёрла бы его без следа. */
+  it('открытый редактор цены блокирует settle, отмена разблокирует', async () => {
+    renderView(mkRun([mkItem(3, 'Хлеб', 'BOUGHT', { id: 11, price: 90 })]), 1);
+    expect(screen.getByRole('button', { name: 'Рассчитать' })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('button', rowBtn('Изменить цену', 'Хлеб')));
+    expect(screen.getByRole('button', { name: 'Рассчитать' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+    expect(screen.getByRole('button', { name: 'Рассчитать' })).toBeEnabled();
+  });
+
   it('settle pending блокирует кнопку', () => {
     h.settle.isPending = true;
     renderView(mkRun([mkItem(3, 'Хлеб', 'BOUGHT', { id: 11, price: 90 })]), 1);

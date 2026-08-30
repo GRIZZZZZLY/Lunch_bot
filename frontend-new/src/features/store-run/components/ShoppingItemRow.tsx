@@ -35,6 +35,7 @@ export function ShoppingItemRow({
   disabled,
   pending,
   onMark,
+  onPricingChange,
 }: {
   item: StoreItem;
   /** Экран занят другой операцией (settle). */
@@ -42,6 +43,8 @@ export function ShoppingItemRow({
   /** В полёте отметка именно этой позиции. */
   pending: boolean;
   onMark: MarkItem;
+  /** Открыт ли редактор цены: пока он открыт, экран не даёт рассчитать. */
+  onPricingChange?: (open: boolean) => void;
 }) {
   const [pricing, setPricing] = useState(false);
   const [confirmingNotFound, setConfirmingNotFound] = useState(false);
@@ -63,15 +66,20 @@ export function ShoppingItemRow({
 
   const pn = priceNum(item.price);
 
+  /* О состоянии редактора сообщаем в самих обработчиках, а не эффектом на
+     `pricing`: правила репозитория запрещают setState в теле эффекта, а именно
+     им обернулось бы уведомление родителя. */
   const openPricing = () => {
     setRaw(pn != null ? String(pn) : '');
     setError(undefined);
     setPricing(true);
+    onPricingChange?.(true);
   };
 
   const cancelPricing = () => {
     setPricing(false);
     setError(undefined);
+    onPricingChange?.(false);
   };
 
   const mark = (
@@ -84,6 +92,7 @@ export function ShoppingItemRow({
     onMark(item.id, price, status, {
       onSuccess: () => {
         setPricing(false);
+        onPricingChange?.(false);
         setConfirmingNotFound(false);
         handlers?.onSuccess?.();
       },
@@ -218,9 +227,15 @@ export function ShoppingItemRow({
             <>
               {/* Не primary, даже когда цена блокирует расчёт: графитовая CTA
                   на экране одна («Рассчитать»), а при пяти позициях без цены
-                  вышло бы пять чёрных плит. Куда идти — говорит нотис. */}
+                  вышло бы пять чёрных плит.
+
+                  Но и не одна кнопка на два случая. «Указать цену» — незакрытый
+                  шаг, который держит расчёт, и он носит шафран нотиса, который
+                  об этом шаге и говорит. «Изменить цену» ничего не держит:
+                  необязательная правка уже введённого числа, ей хватает
+                  вторичного веса. */}
               <Button
-                variant="secondary"
+                variant={noPrice ? 'warning-soft' : 'secondary'}
                 disabled={rowDisabled}
                 aria-label={`${noPrice ? 'Указать цену' : 'Изменить цену'}: ${item.name}`}
                 onClick={openPricing}

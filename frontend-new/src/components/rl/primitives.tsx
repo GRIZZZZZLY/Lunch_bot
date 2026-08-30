@@ -52,6 +52,7 @@ export type ButtonVariant =
      противоположных действий внутри карточки — см. redesign-v2.css. */
   | 'success-soft'
   | 'warning'
+  | 'warning-soft'
   | 'danger'
   | 'danger-soft'
   | 'info';

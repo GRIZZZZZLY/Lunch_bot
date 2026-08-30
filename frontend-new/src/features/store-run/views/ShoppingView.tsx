@@ -68,6 +68,10 @@ export function ShoppingView({
      колбэки отката. Владелец мутации должен пережить свою строку. */
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [confirmSettle, setConfirmSettle] = useState(false);
+  /* Открытый редактор цены блокирует расчёт. Иначе на экране одновременно живут
+     две графитовые кнопки — «Сохранить» в строке и «Рассчитать» внизу, — и та,
+     что ниже, стирает несохранённый ввод той, что выше. */
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const markItem = useCallback<MarkItem>(
     (itemId, price, status, handlers) => {
@@ -94,7 +98,8 @@ export function ShoppingView({
 
   const noPrice = boughtWithoutPrice(items);
   const settlePending = settle.isPending;
-  const settleDisabled = pendingId !== null || settlePending || noPrice.length > 0;
+  const settleDisabled =
+    pendingId !== null || settlePending || noPrice.length > 0 || editingId !== null;
 
   const scrollToFirstNoPrice = () => {
     const first = noPrice[0];
@@ -116,6 +121,7 @@ export function ShoppingView({
       disabled={settlePending}
       pending={pendingId === item.id}
       onMark={markItem}
+      onPricingChange={(open) => setEditingId(open ? item.id : null)}
     />
   );
 

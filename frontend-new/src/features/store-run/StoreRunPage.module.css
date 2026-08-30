@@ -15,13 +15,14 @@
   box-shadow: var(--shadow-2);
 }
 
-/* Вторичные кнопки внутри карточки красятся холстом: на --surface они брали ту
-   же заливку, что и подложка под ними. Подробности — в redesign-v2.css. */
+/* Вторичные кнопки внутри карточки смещаются от подложки к краске текста: на
+   голом --surface они брали заливку той же карточки, а на --canvas в тёмной теме
+   читались провалом. Подробности — в redesign-v2.css. */
 .card,
 .section,
 .breakdownGroup {
-  --btn-secondary-bg: var(--canvas);
-  --btn-secondary-bg-alt: var(--surface);
+  --btn-secondary-bg: color-mix(in srgb, var(--text-primary) 12%, var(--surface));
+  --btn-secondary-bg-alt: color-mix(in srgb, var(--text-primary) 20%, var(--surface));
 }
 
 /* Карточка без внутренней структуры: блок цифр, заметка, прогресс. */
