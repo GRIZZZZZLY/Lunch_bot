@@ -185,10 +185,17 @@ export function ShoppingItemRow({
         </div>
       ) : (
         <div className={styles.itemActions}>
+          {/* Тональная пара: исход покупки называет цвет — щавель у «Куплено»,
+              терракота у «Не нашли», тем же цветом, что и Status этой позиции
+              после отметки. Раньше здесь стояли secondary и ghost: на карточке
+              первая брала заливку подложки, вторая была просто текстом.
+              Близнецами они не стали — цвет и смысл разные, а вес одинаковый:
+              оба исхода равновероятны, и делать отказ тише значит подталкивать
+              к «Куплено» там, где решает полка магазина. */}
           {item.status === 'REQUESTED' && (
             <>
               <Button
-                variant="secondary"
+                variant="success-soft"
                 disabled={rowDisabled}
                 loading={busy('bought')}
                 aria-label={`Куплено: ${item.name}`}
@@ -196,10 +203,8 @@ export function ShoppingItemRow({
               >
                 Куплено
               </Button>
-              {/* Не близнец «Куплено»: соседние противоположные действия в одно
-                  касание — риск промаха, поэтому вес разный. */}
               <Button
-                variant="ghost"
+                variant="danger-soft"
                 disabled={rowDisabled}
                 loading={busy('notFound')}
                 aria-label={`Не нашли: ${item.name}`}
@@ -222,8 +227,11 @@ export function ShoppingItemRow({
               >
                 {noPrice ? 'Указать цену' : 'Изменить цену'}
               </Button>
+              {/* Здесь «Не нашли» — откат уже отмеченной покупки, а не половина
+                  равной пары: цвет тот же, вес ниже. */}
               <Button
                 variant="ghost"
+                className={styles.ghostDanger}
                 disabled={rowDisabled}
                 loading={busy('notFound')}
                 aria-label={`Не нашли: ${item.name}`}
@@ -235,7 +243,7 @@ export function ShoppingItemRow({
           )}
           {item.status === 'NOT_FOUND' && (
             <Button
-              variant="secondary"
+              variant="success-soft"
               disabled={rowDisabled}
               loading={busy('bought')}
               aria-label={`Всё-таки куплено: ${item.name}`}

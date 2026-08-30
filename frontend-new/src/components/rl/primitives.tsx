@@ -48,8 +48,12 @@ export type ButtonVariant =
   | 'ghost'
   | 'link'
   | 'success'
+  /* Тональные: заливка тинтом домена вместо сплошного цвета. Для пар
+     противоположных действий внутри карточки — см. redesign-v2.css. */
+  | 'success-soft'
   | 'warning'
   | 'danger'
+  | 'danger-soft'
   | 'info';
 export type ButtonSize = 'sm' | 'default' | 'lg';
 

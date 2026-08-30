@@ -15,6 +15,15 @@
   box-shadow: var(--shadow-2);
 }
 
+/* Вторичные кнопки внутри карточки красятся холстом: на --surface они брали ту
+   же заливку, что и подложка под ними. Подробности — в redesign-v2.css. */
+.card,
+.section,
+.breakdownGroup {
+  --btn-secondary-bg: var(--canvas);
+  --btn-secondary-bg-alt: var(--surface);
+}
+
 /* Карточка без внутренней структуры: блок цифр, заметка, прогресс. */
 .plainCard {
   padding: var(--space-4);
@@ -394,6 +403,15 @@
 .itemActions > * {
   flex: 1 1 auto;
   min-width: 120px;
+}
+
+/* Прозрачная кнопка отката говорит цветом исхода, но не набирает вес заливки.
+   Класс продублирован в селекторе, чтобы перебить `.rl .btn--ghost`: при равной
+   специфичности исход решал бы порядок файлов. */
+.itemActions .ghostDanger.ghostDanger {
+  --_fg: var(--danger-on-tint);
+  --_bgh: var(--danger-tint);
+  --_bga: var(--danger-tint);
 }
 
 .priceEditor {

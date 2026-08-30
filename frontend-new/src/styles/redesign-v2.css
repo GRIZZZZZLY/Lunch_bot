@@ -187,10 +187,38 @@
 .rl .btn--icon.btn--sm { width: 36px; }
 .rl .btn--icon.btn--lg { width: 48px; }
 .rl .btn--primary { box-shadow: var(--shadow-1); font-weight: 700; }
+/* Вторичная кнопка красится подложкой, противоположной той, на которой стоит:
+   на холсте — surface, на карточке — canvas. Пока экраны были плоскими, хватало
+   жёсткого --surface; на карточке (тот же --surface) кнопка сливалась с фоном, и
+   от неё оставались рамка да тень. Карточка переопределяет обе переменные у
+   себя — см. .group на Главной и .card/.section в закупке. */
+.rl {
+  --btn-secondary-bg: var(--surface);
+  --btn-secondary-bg-alt: var(--canvas);
+}
+
 .rl .btn--secondary {
-  --_bg: var(--surface); --_fg: var(--text-primary);
-  --_bd: var(--divider); --_bgh: var(--canvas); --_bga: var(--canvas);
+  --_bg: var(--btn-secondary-bg); --_fg: var(--text-primary);
+  --_bd: var(--divider);
+  --_bgh: var(--btn-secondary-bg-alt); --_bga: var(--btn-secondary-bg-alt);
   box-shadow: var(--shadow-1);
+}
+
+/* Тональные кнопки: заливка тинтом домена, текст — его же *-on-tint (значения
+   подняты по светлоте именно ради контраста на тинте). Нужны там, где в строке
+   стоят два противоположных действия и оба обязаны читаться, но ни одно не
+   должно спорить с единственной primary на экране. Наведение и нажатие
+   сгущают тот же цвет, а не вводят новый. */
+.rl .btn--success-soft {
+  --_bg: var(--success-tint); --_fg: var(--success-on-tint); --_bd: transparent;
+  --_bgh: color-mix(in srgb, var(--success) 22%, transparent);
+  --_bga: color-mix(in srgb, var(--success) 30%, transparent);
+}
+
+.rl .btn--danger-soft {
+  --_bg: var(--danger-tint); --_fg: var(--danger-on-tint); --_bd: transparent;
+  --_bgh: color-mix(in srgb, var(--danger) 22%, transparent);
+  --_bga: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 @media (hover: hover) {
   .rl .btn--secondary:hover:not(:disabled) { border-color: var(--text-tertiary); }
