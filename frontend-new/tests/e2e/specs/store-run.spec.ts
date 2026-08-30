@@ -4,7 +4,7 @@ import { USERS } from '../scenarios/data';
 test.describe('Создание закупки', () => {
   test('@smoke создаёт закупку с главной и открывает её', async ({ appPage, api }) => {
     await appPage.goto('/');
-    await appPage.getByRole('button', { name: /Новая закупка в магазине/ }).click();
+    await appPage.getByRole('button', { name: /Закупка в магазине/ }).click();
     const dialog = appPage.getByRole('dialog', { name: 'Новая закупка' });
     await expect(dialog.getByRole('button', { name: 'Открыть сбор' })).toBeDisabled();
     await dialog.getByRole('textbox', { name: 'Откуда заказываем' }).fill('Лента у метро');

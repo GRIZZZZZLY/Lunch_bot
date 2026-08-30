@@ -276,6 +276,46 @@
 .perf::after { left: -9px; }
 .perf .notch { right: -9px; }
 
+/* Отрыв талона: голосование закрылось, обед выбран — талон гасится по
+   перфорации. Играет ровно один раз за жизнь голосования и только когда есть
+   победитель: на отмене отрывать нечего, там ничего не решили.
+   Верх и корешок — два соседних узла вокруг .perf, поэтому линия отрыва
+   совпадает с уже нарисованной перфорацией. Карточка на это время режет
+   вылезающий корешок (overflow) и не принимает касания. */
+.tearing {
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.tearing .tearTop {
+  animation: tearTop 460ms var(--ease-out) both;
+}
+
+.tearing .tearStub {
+  transform-origin: 0 0;
+  animation: tearStub 460ms var(--ease-out) both;
+}
+
+@keyframes tearTop {
+  0% { transform: translateY(0); opacity: 1; }
+  22% { transform: translateY(-3px); opacity: 1; }
+  100% { transform: translateY(-10px) scale(0.985); opacity: 0; }
+}
+
+@keyframes tearStub {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  18% { transform: translateY(-2px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(46px) rotate(-3deg); opacity: 0; }
+}
+
+/* Дубль к проверке в JS: класс может пережить смену системной настройки. */
+@media (prefers-reduced-motion: reduce) {
+  .tearing .tearTop,
+  .tearing .tearStub {
+    animation: none;
+  }
+}
+
 .ctaWrap {
   display: flex;
   gap: var(--space-3);
@@ -501,8 +541,15 @@
   white-space: nowrap;
 }
 
-.newRunBtn {
-  padding: var(--space-1) var(--space-4) var(--space-3);
+/* Корешок секции «Сейчас». Подложка та же светлая, что у CTA талона (--accent
+   в обеих темах), но вес и кегль ниже, и тени нет: два одинаковых по силе
+   акцента на экране спорили бы за первый тап.
+   Три класса в селекторе — чтобы перебить `.rl .btn--primary` из
+   redesign-v2.css: при равной специфичности исход решал бы порядок файлов. */
+.group .ctaWrap .stubCta {
+  font-weight: 600;
+  font-size: var(--text-13);
+  box-shadow: none;
 }
 
 /* скелетон талона: геометрия по шкале, без инлайновых распорок */
@@ -521,11 +568,13 @@
   min-height: 208px;
 }
 
-/* Место под «Сейчас» на время барьера: 140px — замеренная высота этой карточки
-   в состоянии «ни закупок, ни долгов». Раскрытие первого экрана меняет
-   содержимое уже занятого места, а не добавляет блок. */
+/* Место под «Сейчас» на время барьера: замеренная высота этой карточки в
+   состоянии «ни закупок, ни долгов». Раскрытие первого экрана меняет
+   содержимое уже занятого места, а не добавляет блок.
+   156px вместо прежних 140: карточка получила перфорацию и корешок с кнопкой
+   вместо плоской ghost-строки. */
 .nowSlot {
-  min-height: 140px;
+  min-height: 156px;
 }
 
 .ticketPad {

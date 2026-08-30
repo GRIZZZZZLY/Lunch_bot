@@ -61,6 +61,7 @@ export function LunchTicket({
   onCloseEarly,
   onCancel,
   mutating,
+  tearing = false,
 }: {
   title: string;
   options: PollOptionVM[];
@@ -75,6 +76,8 @@ export function LunchTicket({
   onCloseEarly: () => void;
   onCancel: () => void;
   mutating: boolean;
+  /** Голосование закрылось: талон отрывается по перфорации и уходит. */
+  tearing?: boolean;
 }) {
   const cd = useCountdown(endsAt);
   const expireFired = useRef(false);
@@ -137,7 +140,14 @@ export function LunchTicket({
   };
 
   return (
-    <section className={styles.group} aria-labelledby="ticket-heading">
+    /* aria-hidden на отрыве: голосования уже нет, и озвучивать уходящий талон
+       нечего — итог придёт строкой победителя в «Сейчас». */
+    <section
+      className={`${styles.group}${tearing ? ` ${styles.tearing}` : ''}`}
+      aria-labelledby="ticket-heading"
+      aria-hidden={tearing || undefined}
+    >
+      <div className={styles.tearTop}>
       <div className={styles.groupHead}>
         <h2 id="ticket-heading" className={styles.kicker}>
           Обеденный талон
@@ -227,7 +237,9 @@ export function LunchTicket({
           ? `Лидирует ${leadName}, ${shares.get(leadId as number) ?? 0} %. Всего ${pluralVotes(totalVotes)}.`
           : 'Голосов пока нет'}
       </p>
+      </div>
 
+      <div className={styles.tearStub}>
       <div className={styles.perf}>
         <span className={styles.notch} />
       </div>
@@ -257,6 +269,7 @@ export function LunchTicket({
           </button>
         </div>
       )}
+      </div>
 
       {confirm === 'close' && (
         <ConfirmDialog

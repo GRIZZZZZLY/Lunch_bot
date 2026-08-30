@@ -140,7 +140,7 @@ test.describe('02 Главная', () => {
 
   test('диалог новой закупки', async ({ app }) => {
     await app.goto('/');
-    await app.getByRole('button', { name: /Новая закупка в магазине/ }).click();
+    await app.getByRole('button', { name: /Закупка в магазине/ }).click();
     const dialog = app.getByRole('dialog', { name: 'Новая закупка' });
     await expect(dialog).toBeVisible();
     await shot(app, '02-home/20-store-run-create-empty');
