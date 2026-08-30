@@ -98,22 +98,30 @@ export function ShoppingView({
 
   const noPrice = boughtWithoutPrice(items);
   const settlePending = settle.isPending;
-  const settleDisabled =
-    pendingId !== null || settlePending || noPrice.length > 0 || editingId !== null;
 
-  /* Нотис не просто показывает позицию, а открывает у неё редактор цены. Прежде
-     он лишь скроллил к строке, и при паре позиций, когда строка и так на экране,
-     нажатие не давало ровно ничего — кнопка выглядела сломанной. Прокрутку
-     делает сама строка, когда открывается (useLayoutEffect в ShoppingItemRow). */
-  const openFirstNoPrice = () => {
-    const first = noPrice[0];
-    if (first) setEditingId(first.id);
-  };
+  /* Непроставленные цены больше не гасят кнопку. Заблокированная primary
+     оставалась плитой во всю ширину — выцветшей, но на вид нажимаемой, — и не
+     говорила, чем именно занята: причина жила в нотисе через блок от неё, а
+     `disabled` вдобавок выкидывает кнопку из табуляции, так что со скринридера
+     до причины было не дойти.
+
+     Блокировка осталась там, где она честна: операция физически невозможна,
+     потому что другая уже идёт. Правило «цены не проставлены» — не про
+     невозможность, а про незаконченный шаг, и главная кнопка экрана теперь к
+     нему ведёт, а не упирается в него. */
+  const settleDisabled = pendingId !== null || settlePending || editingId !== null;
 
   const doSettle = () => settle.mutate(undefined, { onSuccess: () => setConfirmSettle(false) });
 
   const onSettleClick = () => {
     if (settleDisabled) return;
+    /* Первый шаг вместо расчёта: открываем цену там, где её нет. Прокрутку к
+       строке делает она сама (useLayoutEffect в ShoppingItemRow). */
+    const firstNoPrice = noPrice[0];
+    if (firstNoPrice) {
+      setEditingId(firstNoPrice.id);
+      return;
+    }
     if (progress.requested > 0) setConfirmSettle(true);
     else doSettle();
   };
@@ -153,13 +161,12 @@ export function ShoppingView({
           tone="warning"
           title={`Осталось проставить ${pluralize(noPrice.length, 'цену', 'цены', 'цен')}`}
         >
-          Без цены позиция не попадёт в расчёт.
-          <br />
-          {/* Подпись называет действие, а не навигацию: «Показать первую» не
-              говорило ни что показать, ни зачем. */}
-          <button type="button" className={styles.noticeLink} onClick={openFirstNoPrice}>
-            Указать цену
-          </button>
+          {/* Своей кнопки у нотиса больше нет: к первой позиции без цены ведёт
+              «Рассчитать», и две одинаковые подписи на экране только делили бы
+              одно действие надвое. Нотис остался тем, чем и был, — объяснением,
+              почему расчёт пока не идёт. */}
+          Без цены позиция не попадёт в расчёт — «Рассчитать» откроет первую
+          такую.
         </InlineNotice>
       )}
 

@@ -149,11 +149,17 @@ test.describe('Закупка: покупки инициатора', () => {
     expect(api.requests('POST', '/store-runs/601/settle')).toHaveLength(1);
   });
 
-  test('не разрешает расчёт купленной позиции без цены', async ({ appPage, api }) => {
+  /* Кнопка не гаснет, а ведёт к незакрытому шагу: заблокированная primary была
+     тупиком, из которого не видно, чем она занята. */
+  test('вместо расчёта открывает цену у купленной позиции без цены', async ({ appPage, api }) => {
     api.state.storeRuns[0].items[1].price = null;
     await appPage.goto('/store-run/601');
     await expect(appPage.getByText('Осталось проставить 1 цену')).toBeVisible();
-    await expect(appPage.getByRole('button', { name: 'Рассчитать' })).toBeDisabled();
+
+    await appPage.getByRole('button', { name: 'Рассчитать' }).click();
+
+    await expect(appPage.getByRole('textbox', { name: /Цена за всё/ })).toBeVisible();
+    await expect(appPage.getByText('Осталось проставить 1 цену')).toBeVisible();
   });
 
   test('не принимает отрицательную или пустую цену', async ({ appPage }) => {

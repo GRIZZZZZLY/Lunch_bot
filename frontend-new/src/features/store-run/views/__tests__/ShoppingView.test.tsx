@@ -240,10 +240,19 @@ describe('ShoppingView — прогресс и секции', () => {
 });
 
 describe('ShoppingView — settle', () => {
-  it('BOUGHT без цены блокирует settle и показывает количество', () => {
+  /* Непроставленная цена не гасит кнопку, а перенаправляет её: заблокированная
+     primary была тупиком, из которого не видно, чем она занята. */
+  it('BOUGHT без цены: settle не вызывается, открывается редактор этой позиции', async () => {
     renderView(mkRun([mkItem(2, 'Молоко', 'BOUGHT', { id: 10, price: null })]), 1);
-    expect(screen.getByRole('button', { name: 'Рассчитать' })).toBeDisabled();
     expect(screen.getByText('Осталось проставить 1 цену')).toBeInTheDocument();
+    const settleBtn = screen.getByRole('button', { name: 'Рассчитать' });
+    expect(settleBtn).toBeEnabled();
+
+    await userEvent.click(settleBtn);
+
+    expect(h.settle.mutate).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Цена за всё/)).toBeInTheDocument();
   });
 
   /* Отметка в полёте блокирует расчёт: settle по недосчитанному списку создал
@@ -279,18 +288,26 @@ describe('ShoppingView — settle', () => {
     expect(h.settle.mutate).toHaveBeenCalledTimes(1);
   });
 
-  /* Нотис обязан что-то делать: прежде он лишь скроллил, и при одной позиции на
-     экране нажатие не давало ничего. */
-  it('нотис о непроставленной цене открывает редактор у этой позиции', async () => {
+  /* Своей кнопки у нотиса нет: одно действие живёт в одном месте. */
+  it('нотис о ценах не заводит собственную кнопку', () => {
     renderView(mkRun([mkItem(2, 'Молоко', 'BOUGHT', { id: 10, price: null })]), 1);
-    expect(screen.queryByLabelText(/Цена за всё/)).not.toBeInTheDocument();
+    /* Точное имя: у кнопки строки aria-label «Указать цену: Молоко», и под это
+       условие она не подходит. */
+    expect(screen.queryByRole('button', { name: 'Указать цену' })).not.toBeInTheDocument();
+  });
 
-    /* Точное имя: у кнопки строки aria-label «Указать цену: Молоко», и она под
-       это условие не подходит. */
-    await userEvent.click(screen.getByRole('button', { name: 'Указать цену' }));
-
+  it('после проставления цены кнопка ведёт к расчёту', async () => {
+    renderView(
+      mkRun([
+        mkItem(2, 'Молоко', 'BOUGHT', { id: 10, price: null }),
+        mkItem(3, 'Хлеб', 'BOUGHT', { id: 11, price: 90 }),
+      ]),
+      1,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Рассчитать' }));
     expect(screen.getByLabelText(/Цена за всё/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Сохранить' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+    expect(h.settle.mutate).not.toHaveBeenCalled();
   });
 
   /* Открытый редактор цены — незакрытый ввод. Расчёт по нему прошёл бы мимо

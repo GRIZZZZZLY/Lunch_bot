@@ -441,41 +441,8 @@
   font-size: var(--text-18);
 }
 
-/* Единственный интерактив внутри нотиса. Был сырым --danger на тинте (3.80 в
-   тёмной теме) высотой ~20 px и вовсе без состояний. */
-.noticeLink {
-  display: inline-flex;
-  align-items: center;
-  margin-top: var(--space-1);
-  margin-left: calc(-1 * var(--space-2));
-  padding: var(--space-1) var(--space-2);
-  min-height: var(--control-md);
-  border: none;
-  border-radius: var(--radius-control-sm);
-  background: none;
-  font: inherit;
-  font-weight: 600;
-  color: var(--warning-on-tint);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-  transition: background-color var(--motion-fast) var(--ease-out);
-}
-
-@media (hover: hover) {
-  .noticeLink:hover {
-    background: var(--warning-tint);
-  }
-}
-
-.noticeLink:active {
-  opacity: 0.8;
-}
-
-.noticeLink:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
-}
+/* Интерактива внутри нотиса больше нет: к первой позиции без цены ведёт
+   «Рассчитать». Стили ссылки удалены вместе с ней. */
 
 /* Купленное без цены: состояние ожидаемое, поэтому подпись, а не тревога. */
 .rowPriceMissing {
