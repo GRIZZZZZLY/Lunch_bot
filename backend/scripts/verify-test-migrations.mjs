@@ -30,5 +30,7 @@ const runPrisma = args => {
   }
 };
 
-runPrisma(['migrate', 'reset', '--force', '--skip-seed']);
+// Prisma 7 убрал `--skip-seed`: сид запускается только если он объявлен в
+// prisma.config.ts (`migrations.seed`), а там его нет.
+runPrisma(['migrate', 'reset', '--force']);
 runPrisma(['migrate', 'status']);

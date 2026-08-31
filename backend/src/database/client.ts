@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { logger } from '../utils/logger';
 
 dotenv.config();
@@ -9,9 +10,10 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Prisma 6 используется со штатным PostgreSQL-движком. Prisma 7 требует
-// перевода всего CommonJS-сервера на ESM; смешивание Prisma 7 с текущей
-// CommonJS-сборкой ломает передачу параметров запросов.
+// Prisma 7 больше не принимает ни `datasource.url` в схеме, ни `datasourceUrl`
+// в конструкторе: подключение идёт только через driver adapter. Строка
+// подключения для CLI (migrate/generate) задаётся в prisma.config.ts, для
+// рантайма — здесь, через PrismaPg.
 const createPrismaClient = (): PrismaClient => {
   const databaseUrl = process.env.DATABASE_URL;
 
@@ -25,7 +27,7 @@ const createPrismaClient = (): PrismaClient => {
     );
   }
 
-  return new PrismaClient({ datasourceUrl: databaseUrl });
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 };
 
 // Singleton: используем один экземпляр Prisma Client

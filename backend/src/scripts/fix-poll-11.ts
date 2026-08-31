@@ -2,9 +2,7 @@
  * Скрипт для завершения Poll #11
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../database/client';
 
 async function fixPoll11() {
   console.log('');

@@ -20,7 +20,9 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 const ALLOWED_ADVISORY = 'GHSA-ggr8-5vv4-36mx';
-const ALLOWED_PRISMA_VERSION = '6.19.3';
+// 7.9.1 всё ещё тянет deepmerge-ts 7.1.5; GHSA-ggr8-5vv4-36mx закрыт только
+// в 8.0.0, поэтому исключение остаётся в силе и после перехода на Prisma 7.
+const ALLOWED_PRISMA_VERSION = '7.9.1';
 const npmCli = process.env.npm_execpath;
 
 if (!npmCli) {

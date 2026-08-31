@@ -5,9 +5,7 @@
  *   npm run list-users
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../database/client';
 
 async function listUsers() {
   try {

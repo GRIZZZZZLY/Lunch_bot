@@ -61,7 +61,8 @@
   "dependencies": {
     "@grammyjs/auto-retry": "^2.0.2",
     "@grammyjs/transformer-throttler": "^1.2.1",
-    "@prisma/client": "6.19.3",
+    "@prisma/adapter-pg": "7.9.1",
+    "@prisma/client": "7.9.1",
     "@sentry/node": "^10.37.0",
     "@sentry/profiling-node": "^10.72.0",
     "@types/pg": "^8.23.1",
@@ -101,7 +102,7 @@
     "knip": "6.27.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.9.6",
-    "prisma": "6.19.3",
+    "prisma": "7.9.1",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.12",
     "tsx": "^4.23.13",
