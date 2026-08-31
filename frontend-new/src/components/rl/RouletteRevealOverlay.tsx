@@ -43,7 +43,7 @@ function RouletteRun({
     reduceMotion ? 'done' : 'spin',
   );
   const [idx, setIdx] = useState(() => (reduceMotion ? winnerIndex : 0));
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     if (reduceMotion) return;

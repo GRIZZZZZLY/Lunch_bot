@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { StoreItem, StoreRunWithRelations } from '@/services/store-run.service';
@@ -244,7 +244,12 @@ describe('CollectingView — countdown', () => {
     const { invalidateSpy } = renderView(run, 3);
 
     invalidateSpy.mockClear();
-    await vi.advanceTimersByTimeAsync(3000);
+    /* React 19 в act-окружении не сбрасывает обновления, пришедшие из таймера,
+       сам по себе: их надо прогнать через act, иначе перерисовки не будет и
+       эффект с onExpire не выполнится. */
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
 
     const detailInvalidations = invalidateSpy.mock.calls.filter(
       (c) => JSON.stringify(c[0]?.queryKey) === JSON.stringify(['storeRuns', 'detail', 5]),
@@ -253,7 +258,9 @@ describe('CollectingView — countdown', () => {
     expect(screen.getByText('Сбор закрывается…')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Добавить позицию' })).toBeInTheDocument();
 
-    await vi.advanceTimersByTimeAsync(3000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
     const after = invalidateSpy.mock.calls.filter(
       (c) => JSON.stringify(c[0]?.queryKey) === JSON.stringify(['storeRuns', 'detail', 5]),
     );

@@ -87,7 +87,7 @@ export function useBootReveal(): boolean {
  * анимация начинается сразу с нужным направлением, без промежуточного кадра
  * базового кроссфейда.
  */
-export function usePageTransition(ref: RefObject<HTMLElement>, pathname: string): void {
+export function usePageTransition(ref: RefObject<HTMLElement | null>, pathname: string): void {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -137,7 +137,7 @@ export function usePageTransition(ref: RefObject<HTMLElement>, pathname: string)
  * `preventScroll` обязателен: без него браузер догоняет фокус скроллом и
  * гасит только что начатую анимацию входа.
  */
-export function useRouteFocus(ref: RefObject<HTMLElement>, key: string): void {
+export function useRouteFocus(ref: RefObject<HTMLElement | null>, key: string): void {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
