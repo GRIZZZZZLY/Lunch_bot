@@ -383,9 +383,12 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      # Не голый `npm audit`: он валил CI на каждом пуше из-за одной
+      # неприменимой к нам находки в CLI Prisma. Скрипт держит именно её
+      # исключение и снова краснеет, как только prisma обновится.
       - name: Audit backend dependencies
         working-directory: backend
-        run: npm audit --omit=dev --audit-level=high
+        run: npm run audit:prod
 
       - name: Audit frontend-new dependencies
         working-directory: frontend-new

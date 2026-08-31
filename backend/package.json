@@ -44,7 +44,8 @@
     "db:migrate:test": "node scripts/verify-test-migrations.mjs",
     "e2e:seed": "tsx src/scripts/e2e-seed.ts seed",
     "e2e:cleanup": "tsx src/scripts/e2e-seed.ts cleanup",
-    "any:check": "node scripts/check-any-count.mjs"
+    "any:check": "node scripts/check-any-count.mjs",
+    "audit:prod": "node scripts/audit-production.mjs"
   },
   "keywords": [
     "telegram",
