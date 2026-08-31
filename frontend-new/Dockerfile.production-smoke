@@ -1,4 +1,7 @@
-FROM mcr.microsoft.com/playwright:v1.61.1-noble
+# Версия обязана совпадать с @playwright/test из frontend-new/package.json:
+# браузеры лежат в образе, и библиотека другой версии их не найдёт. При
+# обновлении пакета поднимать и этот тег.
+FROM mcr.microsoft.com/playwright:v1.62.1-noble
 
 WORKDIR /app/frontend-new
 
