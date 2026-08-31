@@ -29,7 +29,12 @@ export default defineConfig({
     process.env.E2E_PRODUCTION_RESULTS_DIR || './production-test-results',
   fullyParallel: false,
   forbidOnly: true,
-  retries: 0,
+  /* Стенд ходит по сети раз в десять минут, и одиночный затык браузера не
+     является поломкой продакшена: 31.08.2026 прогон упал на ожидании заголовка
+     при том, что nginx и API ответили 200 за миллисекунды, а следующий прогон
+     прошёл за 8.6 с. Ретрай отделяет такой шум от настоящей поломки — она
+     переживёт вторую попытку и разбудит OnFailure. */
+  retries: 1,
   workers: 1,
   timeout: 45_000,
   expect: { timeout: 12_000 },
@@ -66,7 +71,10 @@ export default defineConfig({
     timezoneId: 'Europe/Moscow',
     serviceWorkers: 'block',
     ignoreHTTPSErrors: false,
-    trace: 'off',
+    /* Трасса пишет сетевые запросы и снимки DOM по шагам — именно её не хватило
+       при разборе 31.08.2026, когда по логам сервера всё было зелёным. Только
+       на упавших прогонах: на зелёных это лишний вес в artifacts/. */
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },

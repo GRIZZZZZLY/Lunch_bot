@@ -1,4 +1,5 @@
 .env
 artifacts/
+failures/
 reports/
 results/

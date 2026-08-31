@@ -59,4 +59,24 @@ if command -v curl >/dev/null 2>&1; then
 fi
 
 cd "$smoke_dir"
-exec docker compose run --rm production-smoke
+docker compose run --rm production-smoke
+status=$?
+
+# Артефакты падения должны пережить следующий прогон. Playwright чистит
+# results/ на старте, таймер ходит раз в десять минут — 31.08.2026 разбор
+# упёрся ровно в это: скриншот, видео и ARIA-снимок страницы были затёрты
+# до того, как кто-то открыл журнал.
+#
+# Копируем, а не переносим: artifacts/ принадлежит пользователю контейнера,
+# записи в него у zubr нет, а чтение есть.
+if [ "$status" -ne 0 ]; then
+  keep_dir="$smoke_dir/failures/$(date -u +%Y%m%dT%H%M%SZ)"
+  mkdir -p "$keep_dir"
+  cp -a "$smoke_dir/artifacts/results/." "$keep_dir/" 2>/dev/null || true
+  cp -a "$smoke_dir/artifacts/report/index.html" "$keep_dir/report.html" 2>/dev/null || true
+  echo "Артефакты падения сохранены: $keep_dir"
+  # Двадцати разборов хватает, дальше каталог только растёт.
+  ls -1dt "$smoke_dir"/failures/*/ 2>/dev/null | tail -n +21 | xargs -r rm -rf
+fi
+
+exit "$status"
