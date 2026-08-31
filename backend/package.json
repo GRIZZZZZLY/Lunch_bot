@@ -95,10 +95,10 @@
     "@types/supertest": "^7.2.1",
     "better-sqlite3": "^12.11.1",
     "eslint": "9.39.5",
-    "globals": "17.7.0",
+    "globals": "17.11.0",
     "jest": "^30.5.0",
     "jest-mock-extended": "^4.0.1",
-    "knip": "6.27.0",
+    "knip": "6.32.3",
     "nodemon": "^3.1.14",
     "prettier": "^3.9.6",
     "prisma": "6.19.3",
@@ -106,7 +106,7 @@
     "ts-jest": "^29.4.12",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",
-    "typescript-eslint": "8.64.0"
+    "typescript-eslint": "8.68.0"
   },
   "engines": {
     "node": ">=22.13.0 <23",
