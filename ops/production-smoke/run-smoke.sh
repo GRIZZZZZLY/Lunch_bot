@@ -59,8 +59,11 @@ if command -v curl >/dev/null 2>&1; then
 fi
 
 cd "$smoke_dir"
-docker compose run --rm production-smoke
-status=$?
+# `|| status=$?`, а не отдельная строка с `$?`: в начале файла стоит `set -e`,
+# и при падении контейнера скрипт умер бы прямо здесь, не дойдя до сохранения
+# артефактов ниже.
+status=0
+docker compose run --rm production-smoke || status=$?
 
 # Артефакты падения должны пережить следующий прогон. Playwright чистит
 # results/ на старте, таймер ходит раз в десять минут — 31.08.2026 разбор
