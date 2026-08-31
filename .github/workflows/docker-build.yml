@@ -16,6 +16,11 @@ jobs:
   build-backend:
     name: Build Backend Docker Image
     runs-on: ubuntu-latest
+    # Сборка обоих образов укладывается в пять минут. Лимит нужен не для
+    # запаса, а чтобы затык buildx падал быстро: 31.08.2026 задание фронта
+    # провисело почти три часа на шаге push и по умолчанию жгло бы раннер
+    # шесть часов.
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -62,6 +67,7 @@ jobs:
   build-frontend:
     name: Build Frontend Docker Image
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
