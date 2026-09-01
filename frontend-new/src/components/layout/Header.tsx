@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { Icon } from '@/components/rl/Icon';
 import { SchemeThemeToggle } from '@/components/rl/SchemeThemeToggle';
 import { useBootReveal } from '@/lib/motion';
 
@@ -50,9 +49,26 @@ export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
               justifyContent: 'center',
             }}
           >
-            {/* 22/1.5, а не 18/2: у ракеты стабилизаторы и окно тонут, если
-                обводка толще, а тайл всего 32px. */}
-            <Icon name="rocket" size={22} stroke={1.5} />
+            {/* Логотип — маска, а не <img>: PNG одноцветный, и через
+                background: currentColor знак берёт --vote-foreground, то есть
+                остаётся читаемым и на кирпичной плитке светлой темы, и на
+                оранжевой тёмной. У <img> цвет был бы вшит в файл. */}
+            <div
+              aria-hidden
+              style={{
+                width: 22,
+                height: 22,
+                background: 'currentColor',
+                WebkitMaskImage: 'url(/logo-rocket.png)',
+                maskImage: 'url(/logo-rocket.png)',
+                WebkitMaskSize: 'contain',
+                maskSize: 'contain',
+                WebkitMaskRepeat: 'no-repeat',
+                maskRepeat: 'no-repeat',
+                WebkitMaskPosition: 'center',
+                maskPosition: 'center',
+              }}
+            />
           </div>
           <div
             className="tight"

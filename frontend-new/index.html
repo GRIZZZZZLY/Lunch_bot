@@ -19,6 +19,11 @@
     <link rel="preload" href="/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/unbounded-brand.woff2" as="font" type="font/woff2" crossorigin />
 
+    <!-- Логотип шапки: 3 КБ, задаётся инлайновым mask-image, то есть браузер
+         узнаёт о нём только после первого рендера React. Preload убирает эту
+         задержку — плитка не показывается пустой. -->
+    <link rel="preload" href="/logo-rocket.png" as="image" type="image/png" />
+
     <!-- defer, а не блокирующий: разбор HTML не должен ждать рейса на
          telegram.org. Порядок сохраняется — defer-скрипты и модули выполняются
          в порядке документа, поэтому SDK по-прежнему готов до main.tsx. -->
