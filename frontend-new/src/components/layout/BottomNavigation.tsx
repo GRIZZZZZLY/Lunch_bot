@@ -1,7 +1,6 @@
 import type { CSSProperties } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Icon } from '@/components/rl/Icon';
-import { useActivePolls } from '@/hooks/usePolls';
 import { ROOT_TABS, type RootTab } from '@/app/navigation';
 import { useBootReveal } from '@/lib/motion';
 import { hapticSelection } from '@/lib/haptics';
@@ -21,10 +20,8 @@ export function activeIndex(items: RootTab[], pathname: string): number {
 }
 
 export function BottomNavigation({ items = ROOT_TABS }: { items?: RootTab[] }) {
-  const { data: activePolls = [] } = useActivePolls();
   const { pathname } = useLocation();
   const boot = useBootReveal();
-  const badge = activePolls.length;
   const index = activeIndex(items, pathname);
 
   return (
@@ -74,10 +71,10 @@ export function BottomNavigation({ items = ROOT_TABS }: { items?: RootTab[] }) {
             }}
           >
             <span className="nav-dot" />
-            <span style={{ position: 'relative' }}>
-              <Icon name={it.icon} size={22} />
-              {it.to === '/' && badge > 0 && <span className="nav-badge tnum">{badge}</span>}
-            </span>
+            {/* Счётчик активных голосований с иконки убран: на «Главной» талон
+                и так занимает первый экран, а красная точка обещала непрочитанное
+                там, где читать нечего. */}
+            <Icon name={it.icon} size={22} />
             {it.label}
           </NavLink>
         ))}

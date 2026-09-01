@@ -194,6 +194,17 @@ router.get(
 );
 
 /**
+ * GET /api/polls/:id/my-votes
+ * Свои голоса в голосовании (Mini App отмечает ими выбранную строку)
+ */
+router.get(
+  '/:id/my-votes',
+  telegramAuthMiddleware,
+  pollIdParam.middleware,
+  pollController.getMyVotes
+);
+
+/**
  * POST /api/polls
  * Создание нового голосования (только админы)
  */

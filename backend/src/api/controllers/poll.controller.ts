@@ -38,6 +38,7 @@ import {
   repeatPoll,
 } from '../../services/poll-creation.service';
 import { serializeBigInt } from '../../utils/serialize';
+import { menuItemIdsFromVoteGroups } from '../../utils/vote-menu-items';
 import { FEATURES } from '../../config/features';
 import {
   filterVotesToSelection,
@@ -309,6 +310,28 @@ export class PollController {
     res.json({
       success: true,
       data: serializeBigInt({ votes, summary, totalVotes: votes.length }),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * GET /api/polls/:id/my-votes
+   * Свои голоса в голосовании — только блюда, за которые голосовал вызывающий.
+   *
+   * Отдельно от `/:id/votes`: тому нужна вся картина группы, а Mini App
+   * спрашивает ровно «что выбрал я», чтобы отметить строку талона. Отсутствие
+   * голоса — не ошибка, а пустой массив: «я не голосовал» такой же законный
+   * ответ, как и сам голос.
+   */
+  static async getMyVotes(req: Request, res: Response): Promise<void> {
+    const { id } = pollIdParam.get(req);
+    const { user } = await assertPollMember(req, id);
+
+    const votes = await VoteService.getUserVotes(id, user.id);
+
+    res.json({
+      success: true,
+      data: { menuItemIds: menuItemIdsFromVoteGroups(votes) },
       timestamp: new Date().toISOString(),
     });
   }

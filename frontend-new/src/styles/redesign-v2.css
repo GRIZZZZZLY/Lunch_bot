@@ -487,13 +487,6 @@
 /* Маршрут вне вкладок (404): подсвечивать нечего, плитка уходит на месте. */
 .rl .nav-pill.is-hidden { opacity: 0; }
 .rl .navbtn .nav-dot { display: none; }
-.rl .navbtn .nav-badge {
-  position: absolute; top: 4px; right: 50%; margin-right: -22px;
-  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
-  background: var(--danger); color: #fff; font-size: 9px; font-weight: 700;
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 1.5px solid var(--elevated);
-}
 .rl .toast {
   display: flex; align-items: flex-start; gap: var(--space-3);
   padding: var(--space-3) var(--space-4); border-radius: var(--radius-block);

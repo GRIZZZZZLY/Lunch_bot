@@ -77,6 +77,7 @@ jest.mock('../../../services/vote.service', () => ({
   VoteService: {
     getPollVotes: jest.fn(),
     getVoteCountByMenuItem: jest.fn(),
+    getUserVotes: jest.fn(),
     upsertVote: jest.fn(),
     castVotes: jest.fn(),
     removeVote: jest.fn(),
@@ -920,6 +921,84 @@ describe('GET /api/polls/:id/votes', () => {
       memberRequest({ params: { id: '10' } }),
       res
     );
+
+    expect(res.statusCode).toBe(500);
+  });
+});
+
+/* Свои голоса читает Mini App, чтобы отметить выбранную строку талона. Без
+   этого эндпоинта голос уходил в базу, но интерфейс о нём не узнавал. */
+describe('GET /api/polls/:id/my-votes', () => {
+  beforeEach(() => {
+    pollQuery.getPollGroupId.mockResolvedValue(100);
+    voteService.getUserVotes.mockResolvedValue([
+      { id: 1, menuItemId: 7 },
+    ] as never);
+  });
+
+  it('отдаёт блюда своих голосов и спрашивает их за себя', async () => {
+    const res = mockResponse();
+
+    await controller.getMyVotes(memberRequest({ params: { id: '10' } }), res);
+
+    expect(res.body).toMatchObject({ data: { menuItemIds: [7] } });
+    expect(voteService.getUserVotes).toHaveBeenCalledWith(10, 1);
+  });
+
+  it('голоса не за блюдо в выборку не попадают', async () => {
+    voteService.getUserVotes.mockResolvedValue([
+      { id: 1, menuItemId: null },
+      { id: 2, menuItemId: 7 },
+    ] as never);
+    const res = mockResponse();
+
+    await controller.getMyVotes(memberRequest({ params: { id: '10' } }), res);
+
+    expect(res.body).toMatchObject({ data: { menuItemIds: [7] } });
+  });
+
+  it('человек не голосовал — пустой массив, а не 404', async () => {
+    voteService.getUserVotes.mockResolvedValue([] as never);
+    const res = mockResponse();
+
+    await controller.getMyVotes(memberRequest({ params: { id: '10' } }), res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ data: { menuItemIds: [] } });
+  });
+
+  it('нечисловой id — 400', async () => {
+    const res = mockResponse();
+
+    await controller.getMyVotes(memberRequest({ params: { id: 'нет' } }), res);
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('голосования нет — 404', async () => {
+    pollQuery.getPollGroupId.mockResolvedValue(null);
+    const res = mockResponse();
+
+    await controller.getMyVotes(memberRequest({ params: { id: '10' } }), res);
+
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('не участник — 403', async () => {
+    groupService.isUserGroupMember.mockResolvedValue(false);
+    const res = mockResponse();
+
+    await controller.getMyVotes(memberRequest({ params: { id: '10' } }), res);
+
+    expect(res.statusCode).toBe(403);
+    expect(voteService.getUserVotes).not.toHaveBeenCalled();
+  });
+
+  it('ошибка сервиса — 500', async () => {
+    voteService.getUserVotes.mockRejectedValue(new Error('boom'));
+    const res = mockResponse();
+
+    await controller.getMyVotes(memberRequest({ params: { id: '10' } }), res);
 
     expect(res.statusCode).toBe(500);
   });

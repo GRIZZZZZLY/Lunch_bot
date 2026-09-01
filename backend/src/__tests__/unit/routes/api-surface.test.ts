@@ -87,6 +87,7 @@ describe('маршруты голосований', () => {
       'GET /:id',
       'GET /:id/results',
       'GET /:id/votes',
+      'GET /:id/my-votes',
       'POST /',
       'POST /create-from-webapp',
       'GET /active/:groupId',
