@@ -6,12 +6,7 @@ import { now, toLocaleDateString } from '../utils/date';
 import { toNumber, formatCurrency, sumDecimals, multiply } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 import { PollQueryService } from './poll-query.service';
-
-function maskCardNumber(cardNumber: string): string {
-  // Sprint 1: используем EncryptionService для обработки зашифрованных данных
-  const { EncryptionService } = require('../utils/encryption');
-  return EncryptionService.maskCardNumber(cardNumber);
-}
+import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
 
 // Локальные типы для замены any
 interface TransactionWithUsers extends Transaction {
@@ -322,8 +317,9 @@ export class PollFlowService {
       // Ваши реквизиты
       message += `📌 *Твои реквизиты* (участники их уже видят):\n`;
       const paymentInfo = await UserService.getPaymentInfo(responsible.id);
-      if (paymentInfo?.paymentCard) {
-        message += `Карта: ${maskCardNumber(paymentInfo.paymentCard)}\n`;
+      const paymentCard = paymentInfo?.paymentCard ?? null;
+      if (paymentCard) {
+        message += `${paymentCardLine(paymentCard)}\n`;
       }
       if (paymentInfo?.paymentPhone) {
         message += `Телефон: ${paymentInfo.paymentPhone}\n`;
@@ -334,6 +330,9 @@ export class PollFlowService {
 
       const keyboard = {
         inline_keyboard: [
+          ...(paymentCard && isPaymentLink(paymentCard)
+            ? [[paymentLinkButton(paymentCard)]]
+            : []),
           [
             {
               text: 'Все оплатили ✅',
@@ -382,9 +381,9 @@ export class PollFlowService {
       // Реквизиты из профиля
       message += `💳 *РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ:*\n\n`;
 
-      if (responsiblePaymentInfo?.paymentCard) {
-        const masked = maskCardNumber(responsiblePaymentInfo.paymentCard);
-        message += `💳 Карта: ${masked}\n`;
+      const paymentCard = responsiblePaymentInfo?.paymentCard ?? null;
+      if (paymentCard) {
+        message += `${paymentCardLine(paymentCard)}\n`;
       }
 
       if (responsiblePaymentInfo?.paymentPhone) {
@@ -400,6 +399,9 @@ export class PollFlowService {
 
       const keyboard = {
         inline_keyboard: [
+          ...(paymentCard && isPaymentLink(paymentCard)
+            ? [[paymentLinkButton(paymentCard)]]
+            : []),
           [
             {
               text: 'Оплатил(а) ✅',

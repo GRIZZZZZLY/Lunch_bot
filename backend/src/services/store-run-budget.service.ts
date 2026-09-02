@@ -5,17 +5,12 @@ import { now } from '../utils/date';
 import { formatCurrency, sumDecimals } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 import { UserService } from './user.service';
+import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
 
 interface PaymentInfo {
   paymentCard?: string | null;
   paymentPhone?: string | null;
   paymentDetails?: string | null;
-}
-
-function maskCardNumber(cardNumber: string): string {
-  // Sprint 1: используем EncryptionService для обработки зашифрованных данных
-  const { EncryptionService } = require('../utils/encryption');
-  return EncryptionService.maskCardNumber(cardNumber);
 }
 
 /**
@@ -189,19 +184,16 @@ export class StoreRunBudgetService {
       if (initiator.lastName) message += ` ${initiator.lastName}`;
       message += `\n\n`;
 
-      if (
-        paymentInfo?.paymentCard ||
-        paymentInfo?.paymentPhone ||
-        paymentInfo?.paymentDetails
-      ) {
+      const paymentCard = paymentInfo?.paymentCard ?? null;
+      if (paymentCard || paymentInfo?.paymentPhone || paymentInfo?.paymentDetails) {
         message += `💳 *Реквизиты:*\n`;
-        if (paymentInfo.paymentCard) {
-          message += `💳 Карта: ${maskCardNumber(paymentInfo.paymentCard)}\n`;
+        if (paymentCard) {
+          message += `${paymentCardLine(paymentCard)}\n`;
         }
-        if (paymentInfo.paymentPhone) {
+        if (paymentInfo?.paymentPhone) {
           message += `📱 Телефон: ${paymentInfo.paymentPhone} (СБП)\n`;
         }
-        if (paymentInfo.paymentDetails) {
+        if (paymentInfo?.paymentDetails) {
           message += `ℹ️ ${paymentInfo.paymentDetails}\n`;
         }
       } else {
@@ -210,6 +202,9 @@ export class StoreRunBudgetService {
 
       const keyboard = {
         inline_keyboard: [
+          ...(paymentCard && isPaymentLink(paymentCard)
+            ? [[paymentLinkButton(paymentCard)]]
+            : []),
           [
             {
               text: 'Оплатил(а) ✅',

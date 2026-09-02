@@ -284,6 +284,31 @@ describe('sendBudgetNotifications', () => {
     expect(debtMessage).toContain('СБП');
   });
 
+  it('должник получает кнопку со ссылкой СБП, а не маску карты, когда реквизит — ссылка', async () => {
+    userService.getPaymentInfo.mockResolvedValue({
+      paymentCard: 'https://qr.nspk.ru/AS1A00',
+      paymentPhone: null,
+      paymentDetails: null,
+    });
+
+    await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);
+
+    const debtCall = sendMessage.mock.calls[1];
+    const debtMessage = debtCall[1] as string;
+    const debtOptions = debtCall[2] as {
+      reply_markup: { inline_keyboard: { text: string; url?: string; callback_data?: string }[][] };
+    };
+    expect(debtMessage).not.toContain('****');
+    expect(debtOptions.reply_markup.inline_keyboard[0][0]).toEqual({
+      text: '💳 Перевести по ссылке',
+      url: 'https://qr.nspk.ru/AS1A00',
+    });
+    expect(debtOptions.reply_markup.inline_keyboard[1][0]).toEqual({
+      text: 'Оплатил(а) ✅',
+      callback_data: `budget:mark_paid:${txFixture().id}`,
+    });
+  });
+
   it('групповое сообщение обновляется итогами', async () => {
     await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);
 
