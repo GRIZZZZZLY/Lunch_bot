@@ -69,6 +69,11 @@ export class PollSchedulerService {
       logger.error('Poll scheduler: restoreActiveTimers failed', error);
     }
 
+    /* Просроченные восстановление не берёт (таймерный путь всегда завершает, а
+       пустое голосование положено отменять), поэтому закрываем их здесь же —
+       иначе после рестарта они ждали бы первого тика cron. */
+    await this.closeExpiredPolls();
+
     // Проверяем каждую минуту (timezone: Europe/Moscow, UTC+3)
     this.cronJob = cron.schedule(
       '* * * * *', // Каждую минуту
@@ -180,9 +185,12 @@ export class PollSchedulerService {
     for (const poll of expired) {
       try {
         const outcome = await closeExpiredPoll(poll);
-        logger.info(
-          `Poll scheduler: expired poll ${poll.id} (group ${poll.groupId}) → ${outcome}`
-        );
+        const line = `Poll scheduler: expired poll ${poll.id} (group ${poll.groupId}) → ${outcome}`;
+        /* `failed` значит «голосование осталось ACTIVE»: путь завершения
+           проглотил ошибку, и на следующем тике мы придём сюда снова. Такое
+           обязано быть видно как ошибка, а не как обычный исход. */
+        if (outcome === 'failed') logger.error(line);
+        else logger.info(line);
       } catch (error) {
         logger.error(
           `Poll scheduler: failed to close expired poll ${poll.id}`,

@@ -34,9 +34,7 @@ jest.mock('../../../services/poll-completion.service', () => ({
   },
 }));
 jest.mock('../../../services/poll-query.service', () => ({
-  PollQueryService: {
-    getPollById: jest.fn().mockResolvedValue({ status: 'ACTIVE' }),
-  },
+  PollQueryService: { getPollById: jest.fn() },
 }));
 jest.mock('../../../services/poll-announce.service', () => ({
   announceCompletion: jest.fn(),
@@ -58,6 +56,12 @@ describe('closeExpiredPoll', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    /* Проверка «голосование действительно ушло из ACTIVE» — по умолчанию
+       успешная; тест на проглоченный сбой переопределяет её. */
+    const { PollQueryService } = jest.requireMock(
+      '../../../services/poll-query.service'
+    );
+    PollQueryService.getPollById.mockResolvedValue({ status: 'COMPLETED' });
   });
 
   it('с голосами и chat/message — завершает через таймерный путь', async () => {
@@ -136,9 +140,30 @@ describe('closeExpiredPoll', () => {
 
     expect(outcome).toBe('skipped');
   });
+
+  /* `completeByTimer` по контракту глотает исключения, поэтому «завершено»
+     нельзя утверждать по факту вызова: иначе скрипт печатал бы «Завершено: N»
+     и отдавал код 0 при потерянном обеде. */
+  it('если голосование осталось ACTIVE — исход failed, а не completed', async () => {
+    const { PollQueryService } = jest.requireMock(
+      '../../../services/poll-query.service'
+    );
+    PollQueryService.getPollById.mockResolvedValue({ status: 'ACTIVE' });
+
+    const outcome = await closeExpiredPoll({
+      ...base,
+      chatId: BigInt(-100),
+      messageId: 42,
+      votesCount: 3,
+    });
+
+    expect(outcome).toBe('failed');
+  });
 });
 
 describe('restoreActiveTimers', () => {
+  const NOW = new Date('2026-09-02T12:00:00Z');
+
   beforeEach(() => {
     jest.clearAllMocks();
     resetPrismaMock();
@@ -149,8 +174,11 @@ describe('restoreActiveTimers', () => {
     jest.useRealTimers();
   });
 
-  it('ставит таймер на остаток времени и сразу на просроченные', async () => {
-    const now = new Date('2026-09-02T12:00:00Z');
+  /** Задержки всех поставленных таймеров, по возрастанию. */
+  const delaysOf = (spy: jest.SpyInstance): number[] =>
+    spy.mock.calls.map(call => Number(call[1])).sort((a, b) => a - b);
+
+  it('ставит таймер на остаток времени голосования', async () => {
     prismaMock.poll.findMany.mockResolvedValue([
       {
         id: 1,
@@ -158,6 +186,30 @@ describe('restoreActiveTimers', () => {
         messageId: 5,
         startedAt: new Date('2026-09-02T11:50:00Z'),
         duration: 30,
+        endedAt: null,
+      },
+    ] as never);
+    const spy = jest.spyOn(global, 'setTimeout');
+
+    const restored = await restoreActiveTimers(NOW);
+
+    expect(restored).toBe(1);
+    expect(delaysOf(spy)).toEqual([20 * 60 * 1000]);
+  });
+
+  /* Таймерный путь ВСЕГДА завершает, а пустое просроченное голосование положено
+     отменять. Поставь ему таймер — и исход снова зависел бы от того, был ли
+     рестарт: ровно та болезнь, от которой лечили. Просроченные закрывает
+     планировщик через `closeExpiredPoll`. */
+  it('просроченному голосованию таймер не ставится', async () => {
+    prismaMock.poll.findMany.mockResolvedValue([
+      {
+        id: 1,
+        chatId: BigInt(-1),
+        messageId: 5,
+        startedAt: new Date('2026-09-02T11:50:00Z'),
+        duration: 30,
+        endedAt: null,
       },
       {
         id: 2,
@@ -165,17 +217,67 @@ describe('restoreActiveTimers', () => {
         messageId: 6,
         startedAt: new Date('2026-09-02T10:00:00Z'),
         duration: 30,
+        endedAt: null,
       },
     ] as never);
     const spy = jest.spyOn(global, 'setTimeout');
 
-    const restored = await restoreActiveTimers(now);
+    const restored = await restoreActiveTimers(NOW);
 
-    expect(restored).toBe(2);
-    const delays = spy.mock.calls
-      .map(([, ms]) => ms)
-      .sort((a, b) => Number(a) - Number(b));
-    expect(delays).toEqual([0, 20 * 60 * 1000]);
+    expect(restored).toBe(1);
+    expect(delaysOf(spy)).toEqual([20 * 60 * 1000]);
+  });
+
+  /* Канон конца голосования — `pollEndsAt`: проставленный `ended_at` главнее
+     `startedAt + duration`. Своя копия правила увела бы срабатывание таймера
+     от того, что считают чтение и SQL планировщика. */
+  it('конец берётся с учётом endedAt, а не только startedAt + duration', async () => {
+    prismaMock.poll.findMany.mockResolvedValue([
+      {
+        id: 1,
+        chatId: BigInt(-1),
+        messageId: 5,
+        startedAt: new Date('2026-09-02T11:50:00Z'),
+        duration: 30,
+        endedAt: new Date('2026-09-02T12:10:00Z'),
+      },
+    ] as never);
+    const spy = jest.spyOn(global, 'setTimeout');
+
+    const restored = await restoreActiveTimers(NOW);
+
+    expect(restored).toBe(1);
+    expect(delaysOf(spy)).toEqual([10 * 60 * 1000]);
+  });
+
+  it('endedAt раньше расчётного конца тоже уважается', async () => {
+    prismaMock.poll.findMany.mockResolvedValue([
+      {
+        id: 1,
+        chatId: BigInt(-1),
+        messageId: 5,
+        startedAt: new Date('2026-09-02T11:50:00Z'),
+        duration: 30,
+        endedAt: new Date('2026-09-02T11:55:00Z'),
+      },
+    ] as never);
+    const spy = jest.spyOn(global, 'setTimeout');
+
+    /* Конец уже позади — таймер не нужен, голосование закроет планировщик. */
+    expect(await restoreActiveTimers(NOW)).toBe(0);
+    expect(delaysOf(spy)).toEqual([]);
+  });
+
+  it('endedAt попадает в выборку — без него правило не посчитать', async () => {
+    prismaMock.poll.findMany.mockResolvedValue([] as never);
+
+    await restoreActiveTimers(NOW);
+
+    expect(prismaMock.poll.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ endedAt: true }),
+      })
+    );
   });
 
   it('голосования без chatId/messageId пропускает — их закроет планировщик', async () => {

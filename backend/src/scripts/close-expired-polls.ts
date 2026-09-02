@@ -71,7 +71,15 @@ async function closeExpiredPolls(): Promise<number> {
       try {
         const outcome = await closeExpiredPoll(poll);
         if (outcome === 'completed') completed += 1;
-        if (outcome === 'cancelled') cancelled += 1;
+        else if (outcome === 'cancelled') cancelled += 1;
+        else if (outcome === 'failed') {
+          /* Голосование осталось ACTIVE: путь завершения проглотил ошибку.
+             Считаем это неудачей, иначе «Завершено: N» и код 0 соврали бы. */
+          failed += 1;
+          console.error(
+            `❌ Голосование ${poll.id} (группа ${poll.groupId}) осталось ACTIVE — причина в логе сервиса`
+          );
+        }
       } catch (error) {
         failed += 1;
         console.error(

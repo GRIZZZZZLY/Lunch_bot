@@ -214,6 +214,26 @@ describe('start', () => {
     await PollSchedulerService.start();
 
     expect(restoreActiveTimers).not.toHaveBeenCalled();
+    expect(pollCompletion.findExpiredActivePolls).not.toHaveBeenCalled();
+  });
+
+  /* Восстановление просроченные не берёт (таймерный путь всегда завершает, а
+     пустое голосование положено отменять), поэтому их закрывает старт — иначе
+     после рестарта они ждали бы первого тика cron. */
+  it('просроченные закрываются сразу при старте, не ожидая тика', async () => {
+    const row = {
+      id: 7,
+      groupId: 9,
+      endsAt: new Date('2026-09-02T12:00:00.000Z'),
+      chatId: BigInt(-100900),
+      messageId: 42,
+      votesCount: 3,
+    };
+    pollCompletion.findExpiredActivePolls.mockResolvedValue([row]);
+
+    await PollSchedulerService.start();
+
+    expect(closeExpiredPoll).toHaveBeenCalledWith(row);
   });
 
   it('сбой восстановления таймеров не мешает старту cron', async () => {
@@ -356,6 +376,24 @@ describe('тик планировщика', () => {
     expect(logger.error).toHaveBeenCalledWith(
       'Poll scheduler: findExpiredActivePolls failed',
       expect.any(Error)
+    );
+  });
+
+  /* `failed` — «голосование осталось ACTIVE»: путь завершения проглотил
+     ошибку. Такое обязано быть видно как ошибка, иначе тихий сбой уедет в
+     обычный info-лог и никто его не заметит. */
+  it('исход failed логируется как ошибка, а не как обычный исход', async () => {
+    pollCompletion.findExpiredActivePolls.mockResolvedValue([EXPIRED_ROW]);
+    closeExpiredPoll.mockResolvedValue('failed');
+    await PollSchedulerService.start();
+
+    await tick();
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Poll scheduler: expired poll 7 (group 9) → failed'
+    );
+    expect(logger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('→ failed')
     );
   });
 

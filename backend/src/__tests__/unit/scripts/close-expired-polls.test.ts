@@ -146,6 +146,25 @@ describe('close-expired-polls', () => {
     expect(output()).not.toContain('Не закрылось');
   });
 
+  /* Исход `failed` — «голосование осталось ACTIVE»: путь завершения проглотил
+     ошибку. Считать его успехом значило бы напечатать «Завершено» и отдать
+     код 0 при потерянном обеде. */
+  it('исход failed идёт в неудачи, а не в завершённые', async () => {
+    twoExpired();
+    closeExpiredPoll
+      .mockResolvedValueOnce('failed')
+      .mockResolvedValueOnce('completed');
+
+    const code = await main();
+
+    expect(code).toBe(1);
+    expect(output()).toContain('Завершено: 1, отменено (без голосов): 0');
+    expect(output()).toContain('Не закрылось: 1');
+    expect(errorLog).toHaveBeenCalledWith(
+      '❌ Голосование 1 (группа 10) осталось ACTIVE — причина в логе сервиса'
+    );
+  });
+
   /* `skipped` — это не сбой: голосование закрыл планировщик или человек между
      отчётом и записью, и оптимистичная блокировка это поймала. */
   it('чужое параллельное закрытие остаётся не ошибкой', async () => {

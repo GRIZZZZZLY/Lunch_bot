@@ -14,6 +14,7 @@
  */
 import { logger } from '../utils/logger';
 import { prisma } from '../database/client';
+import { pollEndsAt } from '../utils/date';
 import {
   PollCompletionService,
   type ExpiredPollRow,
@@ -47,10 +48,20 @@ function scheduleAfter(
 /**
  * Восстановить таймеры после рестарта процесса. Вызывается из планировщика
  * ПОСЛЕ захвата advisory-lock — так таймеры живут ровно в одном процессе.
- * Просроченные ставятся на 0 мс: завершатся сразу, а не через минуту cron'а.
  *
- * Голосования без `chatId`/`messageId` не берём: дописывать итоги некуда, и их
- * закроет планировщик через `closeExpiredPoll`.
+ * Берутся только голосования, у которых срок ЕЩЁ НЕ вышел. Просроченные
+ * восстановление не трогает намеренно: таймерный путь всегда завершает, а
+ * пустое просроченное голосование положено отменять — поставь ему таймер, и
+ * исход снова начнёт зависеть от того, был ли рестарт (ровно та болезнь, от
+ * которой лечили). Их закрывает `closeExpiredPoll`, единственный владелец
+ * правила «завершить или отменить», и планировщик зовёт его сразу после
+ * восстановления, не дожидаясь тика.
+ *
+ * Голосования без `chatId`/`messageId` не берём: дописывать итоги некуда.
+ *
+ * Конец считается через `pollEndsAt`, а не `startedAt + duration`: у активного
+ * голосования может быть проставлен `ended_at`, и он главнее. Своя копия
+ * правила разошлась бы и с чтением, и с SQL в `findExpiredActivePolls`.
  */
 export async function restoreActiveTimers(
   now: Date = new Date()
@@ -67,31 +78,39 @@ export async function restoreActiveTimers(
       messageId: true,
       startedAt: true,
       duration: true,
+      endedAt: true,
     },
   });
 
+  let restored = 0;
   for (const poll of active) {
-    const endsAt = poll.startedAt.getTime() + poll.duration * 60 * 1000;
+    const { chatId, messageId } = poll;
+    /* `where` это уже гарантирует, но сужение честнее приведения типа: если
+       условие однажды изменят, здесь не появится `null` под видом числа. */
+    if (chatId === null || messageId === null) continue;
+
+    const delayMs = pollEndsAt(poll).getTime() - now.getTime();
+    if (delayMs <= 0) continue;
+
     scheduleAfter(
-      {
-        pollId: poll.id,
-        chatId: Number(poll.chatId),
-        messageId: poll.messageId as number,
-      },
-      endsAt - now.getTime()
+      { pollId: poll.id, chatId: Number(chatId), messageId },
+      delayMs
     );
+    restored += 1;
   }
 
-  if (active.length > 0) {
-    logger.info(
-      `Restored ${active.length} poll completion timer(s) after restart`
-    );
+  if (restored > 0) {
+    logger.info(`Restored ${restored} poll completion timer(s) after restart`);
   }
 
-  return active.length;
+  return restored;
 }
 
-export type ExpiredPollOutcome = 'completed' | 'cancelled' | 'skipped';
+export type ExpiredPollOutcome =
+  | 'completed'
+  | 'cancelled'
+  | 'skipped'
+  | 'failed';
 
 /**
  * Что делать с просроченным голосованием. ОДНА точка решения для планировщика
@@ -116,13 +135,19 @@ export async function closeExpiredPoll(
       chatId: Number(poll.chatId),
       messageId: poll.messageId,
     });
-    return 'completed';
+  } else {
+    /* Голосование, созданное не через бота: завершаем без объявления в группу —
+       дописывать итоги некуда. */
+    await PollCompletionService.completePoll(poll.id);
   }
 
-  /* Голосование, созданное не через бота: завершаем без объявления в группу —
-     дописывать итоги некуда. */
-  await PollCompletionService.completePoll(poll.id);
-  return 'completed';
+  /* `completeByTimer` по контракту НЕ пробрасывает исключения (его штатный
+     вызывающий — таймер, где throw уронил бы процесс), поэтому «завершено»
+     подтверждается чтением статуса. Без этой проверки проглоченный сбой уезжал
+     в отчёт как успех: скрипт печатал «Завершено: N» и отдавал код 0, то есть
+     тихая потеря обеда возвращалась с другой стороны. */
+  const after = await PollQueryService.getPollById(poll.id);
+  return after?.status === 'ACTIVE' ? 'failed' : 'completed';
 }
 
 async function completeIfStillActive(params: {
