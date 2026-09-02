@@ -110,14 +110,17 @@ git commit -m "fix(notifications): итоги голосования уходи�
 
 ### Task 2: Просроченное голосование завершается, а не отменяется; таймеры переживают рестарт
 
-Таймер завершения — `setTimeout` в памяти процесса (`poll-timer.service.ts`), единственный вызывающий — создание голосования. После рестарта cron `cancelExpiredPolls` ставит просроченному голосованию `CANCELLED`: победителя нет, долгов нет. Решение из двух частей: (а) планировщик завершает просроченное голосование с голосами тем же путём, что таймер, и отменяет только пустое; (б) при старте под advisory-lock планировщика таймеры активных голосований восстанавливаются.
+Таймер завершения — `setTimeout` в памяти процесса (`poll-timer.service.ts`), единственный вызывающий — создание голосования. После рестарта cron `cancelExpiredPolls` ставит просроченному голосованию `CANCELLED`: победителя нет, долгов нет. Решение из трёх частей: (а) решение «завершить или отменить» живёт в ОДНОЙ функции `closeExpiredPoll`, которую вызывают и планировщик, и ручной скрипт восстановления; (б) голосование с голосами завершается тем же путём, что таймер, пустое — отменяется; (в) при старте под advisory-lock планировщика таймеры активных голосований восстанавливаются.
+
+**Ruling P2 (обязателен, отличается от первой редакции плана):** совместимой обёртки `cancelExpiredPolls` НЕ оставляем. У метода есть второй вызывающий — `backend/src/scripts/close-expired-polls.ts:56`, ручной путь восстановления «когда планировщик простаивал». Обёртка, суженная до «отменять только пустые», означала бы: оператор после простоя видит «закрыто 0», а просроченные голосования с голосами навсегда остаются `ACTIVE`. Поэтому `cancelExpiredPolls` удаляется, а скрипт переводится на ту же функцию, что планировщик, в этой же задаче.
 
 **Files:**
 - Modify: `backend/src/services/poll-completion.service.ts:496-535` (`cancelExpiredPolls` → `findExpiredActivePolls` + `cancelIfStillActive`)
-- Modify: `backend/src/services/poll-timer.service.ts` (добавить `restoreActiveTimers`, вынести `scheduleAfter`)
+- Modify: `backend/src/services/poll-timer.service.ts` (добавить `closeExpiredPoll`, `restoreActiveTimers`, вынести `scheduleAfter`)
 - Modify: `backend/src/services/poll-scheduler.service.ts:152-160` (`closeExpiredPolls`) и `start()` после захвата лока
+- Modify: `backend/src/scripts/close-expired-polls.ts:56` (перевести на `closeExpiredPoll`, отчёт двумя числами)
 - Test: `backend/src/__tests__/unit/services/poll-scheduler.service.test.ts`
-- Test: `backend/src/__tests__/unit/services/poll-completion.service.test.ts`
+- Test: `backend/src/__tests__/unit/services/poll-completion.service.test.ts` (и `poll.service.test.ts`, если в нём остались кейсы `cancelExpiredPolls`)
 - Test: create `backend/src/__tests__/unit/services/poll-timer.service.test.ts`
 
 **Interfaces:**
@@ -133,11 +136,15 @@ git commit -m "fix(notifications): итоги голосования уходи�
   }
   static async findExpiredActivePolls(at?: Date): Promise<ExpiredPollRow[]>
   static async cancelIfStillActive(poll: Pick<ExpiredPollRow, 'id' | 'groupId' | 'endsAt'>): Promise<boolean>
+  // static cancelExpiredPolls — УДАЛЯЕТСЯ (см. Ruling P2)
   ```
 - Produces в `poll-timer.service.ts`:
   ```ts
+  export type ExpiredPollOutcome = 'completed' | 'cancelled' | 'skipped';
+  export async function closeExpiredPoll(poll: ExpiredPollRow): Promise<ExpiredPollOutcome>
   export async function restoreActiveTimers(now?: Date): Promise<number> // сколько таймеров поставлено
   ```
+- Consumes: `completeByTimer({ pollId, chatId, messageId })` и `PollCompletionService.completePoll(pollId)` — оба уже есть.
 - Consumes: `completeByTimer({ pollId, chatId, messageId })` — уже есть.
 
 - [ ] **Step 1: Тест на разделение «завершить vs отменить» в планировщике**
@@ -146,40 +153,42 @@ git commit -m "fix(notifications): итоги голосования уходи�
 
 ```ts
 jest.mock('../../../services/poll-timer.service', () => ({
-  completeByTimer: jest.fn().mockResolvedValue(undefined),
+  closeExpiredPoll: jest.fn().mockResolvedValue('completed'),
   restoreActiveTimers: jest.fn().mockResolvedValue(0),
 }));
 
 describe('closeExpiredPolls', () => {
-  it('голосование с голосами завершается через completeByTimer, пустое — отменяется', async () => {
+  const rows = [
+    { id: 1, groupId: 10, endsAt: new Date(), chatId: BigInt(-100), messageId: 42, votesCount: 3 },
+    { id: 2, groupId: 10, endsAt: new Date(), chatId: BigInt(-100), messageId: 43, votesCount: 0 },
+  ];
+
+  it('каждое просроченное голосование уходит в closeExpiredPoll', async () => {
     const { PollCompletionService } = jest.requireMock('../../../services/poll-completion.service');
-    const { completeByTimer } = jest.requireMock('../../../services/poll-timer.service');
-    PollCompletionService.findExpiredActivePolls.mockResolvedValue([
-      { id: 1, groupId: 10, endsAt: new Date(), chatId: BigInt(-100), messageId: 42, votesCount: 3 },
-      { id: 2, groupId: 10, endsAt: new Date(), chatId: BigInt(-100), messageId: 43, votesCount: 0 },
-    ]);
-    PollCompletionService.cancelIfStillActive.mockResolvedValue(true);
+    const { closeExpiredPoll } = jest.requireMock('../../../services/poll-timer.service');
+    PollCompletionService.findExpiredActivePolls.mockResolvedValue(rows);
 
     await (PollSchedulerService as unknown as { closeExpiredPolls: () => Promise<void> }).closeExpiredPolls();
 
-    expect(completeByTimer).toHaveBeenCalledTimes(1);
-    expect(completeByTimer).toHaveBeenCalledWith({ pollId: 1, chatId: -100, messageId: 42 });
-    expect(PollCompletionService.cancelIfStillActive).toHaveBeenCalledTimes(1);
-    expect(PollCompletionService.cancelIfStillActive).toHaveBeenCalledWith(expect.objectContaining({ id: 2 }));
+    expect(closeExpiredPoll).toHaveBeenCalledTimes(2);
+    expect(closeExpiredPoll).toHaveBeenNthCalledWith(1, rows[0]);
+    expect(closeExpiredPoll).toHaveBeenNthCalledWith(2, rows[1]);
   });
 
-  it('голосование с голосами, но без chatId/messageId завершается completePoll без объявления в группу', async () => {
+  it('падение на одном голосовании не останавливает обработку остальных', async () => {
     const { PollCompletionService } = jest.requireMock('../../../services/poll-completion.service');
-    PollCompletionService.findExpiredActivePolls.mockResolvedValue([
-      { id: 3, groupId: 10, endsAt: new Date(), chatId: null, messageId: null, votesCount: 1 },
-    ]);
+    const { closeExpiredPoll } = jest.requireMock('../../../services/poll-timer.service');
+    PollCompletionService.findExpiredActivePolls.mockResolvedValue(rows);
+    closeExpiredPoll.mockRejectedValueOnce(new Error('boom'));
+
     await (PollSchedulerService as unknown as { closeExpiredPolls: () => Promise<void> }).closeExpiredPolls();
-    expect(PollCompletionService.completePoll).toHaveBeenCalledWith(3);
+
+    expect(closeExpiredPoll).toHaveBeenCalledTimes(2);
   });
 });
 ```
 
-Убедиться, что мок `poll-completion.service` в этом файле содержит `findExpiredActivePolls`, `cancelIfStillActive`, `completePoll` (добавить в существующий `jest.mock`).
+Убедиться, что мок `poll-completion.service` в этом файле содержит `findExpiredActivePolls` (добавить в существующий `jest.mock`).
 
 - [ ] **Step 2: Убедиться, что тест падает**
 
@@ -241,20 +250,9 @@ static async cancelIfStillActive(
   );
   return true;
 }
-
-/** Совместимость с прежним вызовом: отменяет все просроченные без голосов. */
-static async cancelExpiredPolls(at: Date = new Date()): Promise<number> {
-  const expired = await this.findExpiredActivePolls(at);
-  let cancelled = 0;
-  for (const poll of expired) {
-    if (poll.votesCount > 0) continue;
-    if (await this.cancelIfStillActive(poll)) cancelled += 1;
-  }
-  return cancelled;
-}
 ```
 
-Проверить существующий тест `cancelExpiredPolls` в `poll-completion.service.test.ts`/`poll.service.test.ts`: там `$queryRaw` мокается массивом строк — добавить в фикстуры поля `chatId`, `messageId`, `votesCount: 0n`.
+`cancelExpiredPolls` удалить целиком (Ruling P2) — его заменяет `closeExpiredPoll` из Step 6a. Существующие тесты `cancelExpiredPolls` в `poll-completion.service.test.ts` / `poll.service.test.ts` переписать под `findExpiredActivePolls` + `cancelIfStillActive`: `$queryRaw` там мокается массивом строк, в фикстуры добавить `chatId`, `messageId`, `votesCount: 0n` (метод приводит их к `Number`).
 
 - [ ] **Step 4: Планировщик решает, что делать с просроченным**
 
@@ -269,9 +267,10 @@ import { PollCompletionService, type ExpiredPollRow } from './poll-completion.se
 
 ```ts
 /**
- * Просроченные голосования. С голосами — завершаем тем же путём, что таймер
- * (итоги в группу, заказы по категориям); без голосов — отменяем. До этого
- * планировщик отменял всё подряд, и после рестарта процесса обед «отменялся».
+ * Просроченные голосования. Решение «завершить или отменить» — в
+ * `closeExpiredPoll`: она одна на планировщик и на ручной скрипт, иначе два
+ * пути закрытия снова разойдутся (до этого планировщик отменял всё подряд, и
+ * после рестарта процесса обед «отменялся»).
  */
 private static async closeExpiredPolls(): Promise<void> {
   let expired: ExpiredPollRow[];
@@ -284,20 +283,10 @@ private static async closeExpiredPolls(): Promise<void> {
 
   for (const poll of expired) {
     try {
-      if (poll.votesCount === 0) {
-        await PollCompletionService.cancelIfStillActive(poll);
-        continue;
-      }
-      if (poll.chatId !== null && poll.messageId !== null) {
-        await completeByTimer({
-          pollId: poll.id,
-          chatId: Number(poll.chatId),
-          messageId: poll.messageId,
-        });
-      } else {
-        await PollCompletionService.completePoll(poll.id);
-      }
-      logger.info(`Poll scheduler: completed expired poll ${poll.id} (group ${poll.groupId})`);
+      const outcome = await closeExpiredPoll(poll);
+      logger.info(
+        `Poll scheduler: expired poll ${poll.id} (group ${poll.groupId}) → ${outcome}`
+      );
     } catch (error) {
       logger.error(`Poll scheduler: failed to close expired poll ${poll.id}`, error);
     }
@@ -305,7 +294,112 @@ private static async closeExpiredPolls(): Promise<void> {
 }
 ```
 
-`completeByTimer` уже глотает `PollAlreadyCompletedError`, поэтому гонка с восстановленным таймером безопасна: проигравший просто залогирует.
+Импорт из Step 4 — `closeExpiredPoll, restoreActiveTimers` (не `completeByTimer`: его теперь вызывает `closeExpiredPoll`).
+
+- [ ] **Step 4a: Тест решения «завершить или отменить»**
+
+В новый `poll-timer.service.test.ts` (моки — как в Step 6, плюс `PollCompletionService.cancelIfStillActive`):
+
+```ts
+describe('closeExpiredPoll', () => {
+  const base = { id: 1, groupId: 10, endsAt: new Date('2026-09-02T12:00:00Z') };
+
+  it('с голосами и chat/message — завершает через таймерный путь', async () => {
+    const { announceCompletion } = jest.requireMock('../../../services/poll-announce.service');
+    const outcome = await closeExpiredPoll({ ...base, chatId: BigInt(-100), messageId: 42, votesCount: 3 });
+    expect(outcome).toBe('completed');
+    expect(announceCompletion).toHaveBeenCalledWith({ pollId: 1, chatId: -100, messageId: 42 });
+  });
+
+  it('с голосами, но без chat/message — завершает без объявления в группу', async () => {
+    const { PollCompletionService } = jest.requireMock('../../../services/poll-completion.service');
+    const { announceCompletion } = jest.requireMock('../../../services/poll-announce.service');
+    const outcome = await closeExpiredPoll({ ...base, chatId: null, messageId: null, votesCount: 2 });
+    expect(outcome).toBe('completed');
+    expect(PollCompletionService.completePoll).toHaveBeenCalledWith(1);
+    expect(announceCompletion).not.toHaveBeenCalled();
+  });
+
+  it('без голосов — отменяет и не завершает', async () => {
+    const { PollCompletionService } = jest.requireMock('../../../services/poll-completion.service');
+    PollCompletionService.cancelIfStillActive.mockResolvedValue(true);
+    const outcome = await closeExpiredPoll({ ...base, chatId: BigInt(-100), messageId: 42, votesCount: 0 });
+    expect(outcome).toBe('cancelled');
+    expect(PollCompletionService.completePoll).not.toHaveBeenCalled();
+  });
+
+  it('если голосование успел закрыть кто-то другой — skipped', async () => {
+    const { PollCompletionService } = jest.requireMock('../../../services/poll-completion.service');
+    PollCompletionService.cancelIfStillActive.mockResolvedValue(false);
+    const outcome = await closeExpiredPoll({ ...base, chatId: null, messageId: null, votesCount: 0 });
+    expect(outcome).toBe('skipped');
+  });
+});
+```
+
+Run: `npm --prefix backend run test:unit -- poll-timer.service.test.ts -t closeExpiredPoll`
+Expected: FAIL — `closeExpiredPoll` не экспортирован.
+
+- [ ] **Step 4b: Реализовать `closeExpiredPoll` в `poll-timer.service.ts`**
+
+```ts
+export type ExpiredPollOutcome = 'completed' | 'cancelled' | 'skipped';
+
+/**
+ * Что делать с просроченным голосованием. ОДНА точка решения для планировщика
+ * и для ручного `npm run close-expired-polls`: пока правило было размножено,
+ * два пути закрытия давали разный результат — с голосами голосование
+ * отменялось вместо завершения, и обед пропадал вместе с долгами.
+ *
+ * `completeByTimer` глотает `PollAlreadyCompletedError`, поэтому гонка с
+ * восстановленным таймером безопасна: проигравший просто ничего не меняет.
+ */
+export async function closeExpiredPoll(
+  poll: ExpiredPollRow
+): Promise<ExpiredPollOutcome> {
+  if (poll.votesCount === 0) {
+    const cancelled = await PollCompletionService.cancelIfStillActive(poll);
+    return cancelled ? 'cancelled' : 'skipped';
+  }
+
+  if (poll.chatId !== null && poll.messageId !== null) {
+    await completeByTimer({
+      pollId: poll.id,
+      chatId: Number(poll.chatId),
+      messageId: poll.messageId,
+    });
+    return 'completed';
+  }
+
+  /* Голосование, созданное не через бота: завершаем без объявления в группу —
+     дописывать итоги некуда. */
+  await PollCompletionService.completePoll(poll.id);
+  return 'completed';
+}
+```
+
+Импортировать тип: `import { PollCompletionService, type ExpiredPollRow } from './poll-completion.service';`
+
+Run: `npm --prefix backend run test:unit -- poll-timer.service.test.ts poll-scheduler.service.test.ts`
+Expected: PASS.
+
+- [ ] **Step 4c: Перевести ручной скрипт на ту же функцию**
+
+В `backend/src/scripts/close-expired-polls.ts` заменить вызов `PollCompletionService.cancelExpiredPolls(now)` (строка ~56) на обход тем же решением и отчёт двумя числами:
+
+```ts
+const expired = await PollCompletionService.findExpiredActivePolls(now);
+let completed = 0;
+let cancelled = 0;
+for (const poll of expired) {
+  const outcome = await closeExpiredPoll(poll);
+  if (outcome === 'completed') completed += 1;
+  if (outcome === 'cancelled') cancelled += 1;
+}
+console.log(`✅ Завершено: ${completed}, отменено (без голосов): ${cancelled}`);
+```
+
+Импорт `import { closeExpiredPoll } from '../services/poll-timer.service';`. В шапке файла абзац про `cancelExpiredPolls` переписать: правило живёт в `closeExpiredPoll`, скрипт и планировщик закрывают голосования одинаково. Отчёт «до закрытия» (`isPollOver`, `pollEndsAt`) оставить как есть.
 
 - [ ] **Step 5: Прогнать тесты планировщика**
 
@@ -327,7 +421,10 @@ jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 jest.mock('../../../services/poll-completion.service', () => ({
-  PollCompletionService: { completePoll: jest.fn().mockResolvedValue({ totalVotes: 0 }) },
+  PollCompletionService: {
+    completePoll: jest.fn().mockResolvedValue({ totalVotes: 0 }),
+    cancelIfStillActive: jest.fn().mockResolvedValue(true),
+  },
 }));
 jest.mock('../../../services/poll-query.service', () => ({
   PollQueryService: { getPollById: jest.fn().mockResolvedValue({ status: 'ACTIVE' }) },
@@ -453,7 +550,7 @@ Expected: все зелёные (кроме известных 6 падений 
 - [ ] **Step 11: Commit**
 
 ```bash
-git add backend/src/services/poll-completion.service.ts backend/src/services/poll-timer.service.ts backend/src/services/poll-scheduler.service.ts backend/src/__tests__/unit/services/
+git add backend/src/services/poll-completion.service.ts backend/src/services/poll-timer.service.ts backend/src/services/poll-scheduler.service.ts backend/src/scripts/close-expired-polls.ts backend/src/__tests__/unit/services/
 git commit -m "fix(polls): просроченное голосование отменялось после рестарта — теперь завершается, таймеры восстанавливаются под lock планировщика"
 ```
 
@@ -858,6 +955,8 @@ git commit -m "fix(budget): ссылка СБП уходила должника�
 ### Task 6: Лимит выбора блюд считается по итогу, а не по одному запросу
 
 `castVotes` сверяет `maxSelections` только с длиной текущего запроса, а `createMultipleVotes` лишь добавляет отсутствующие голоса. Повторные `POST /polls/:id/vote-multiple` накапливают голоса сверх лимита; в режиме одиночного выбора — по одному блюду за запрос.
+
+**Ruling P1 — область задачи (не расширять):** мультивыбор живёт на двух эндпоинтах с РАЗНОЙ семантикой. `POST /api/votes/multiple` (`vote.controller.createMultipleVotes` → `VoteService.replaceUserVotes`) ЗАМЕНЯЕТ набор голосов — там проверка по размеру запроса верна, накопления нет, и его трогать НЕЛЬЗЯ. Уязвим только добавляющий путь `POST /polls/:id/vote-multiple` → `castVotes`. Семантику двух эндпоинтов не объединять и дубль не удалять: `docs/09-production-readiness/RESIDUAL_RISKS.md:16` фиксирует решение держать совместимые дубли `/polls/*` и `/votes/*` до следующей мажорной версии. Фронтенд не вызывает ни один из мультиэндпоинтов (`useVote()` идёт в одиночный `POST /polls/:id/vote`, у `pollsService.voteMultiple` вызывающих нет), поэтому правок во `frontend-new` эта задача не требует — не делай их.
 
 **Files:**
 - Modify: `backend/src/services/vote.service.ts:212-240` (`castVotes`)
