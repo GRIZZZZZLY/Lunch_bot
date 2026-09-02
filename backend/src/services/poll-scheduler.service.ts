@@ -71,8 +71,19 @@ export class PollSchedulerService {
 
     /* Просроченные восстановление не берёт (таймерный путь всегда завершает, а
        пустое голосование положено отменять), поэтому закрываем их здесь же —
-       иначе после рестарта они ждали бы первого тика cron. */
-    await this.closeExpiredPolls();
+       иначе после рестарта они ждали бы первого тика cron.
+
+       БЕЗ `await`, и это не небрежность: в webhook-режиме (прод) `start()`
+       стоит в `index.ts` ДО `process.send('ready')`, а PM2 держит
+       `wait_ready: true` с `listen_timeout: 10000`. Закрытие просроченных —
+       это транзакция завершения, объявление в группу через Telegram, а при
+       непустом голосовании ещё заказы по категориям и выбор ответственных; на
+       нескольких группах в обеденное окно это выходит за десять секунд, и PM2
+       перезапустит воркер посреди заказа обеда. Готовность процесса и подъём
+       cron от этой работы не зависят. */
+    void this.closeExpiredPolls().catch((error: unknown) => {
+      logger.error('Poll scheduler: startup closeExpiredPolls failed', error);
+    });
 
     // Проверяем каждую минуту (timezone: Europe/Moscow, UTC+3)
     this.cronJob = cron.schedule(

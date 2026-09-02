@@ -95,6 +95,10 @@ const internals = PollSchedulerService as unknown as Internals;
 
 const api = { sendMessage: jest.fn() };
 
+/** Дать фоновой цепочке (`void ...` в `start()`) дойти до конца. */
+const flushBackground = (): Promise<void> =>
+  new Promise(resolve => setImmediate(resolve));
+
 interface FakeClient {
   connect: jest.Mock;
   query: jest.Mock;
@@ -233,7 +237,43 @@ describe('start', () => {
 
     await PollSchedulerService.start();
 
+    /* Утверждение — «закрытие ЗАПУЩЕНО», а не «дождалось до cron.schedule»:
+       ждать его старт не имеет права (см. тест ниже). */
+    expect(pollCompletion.findExpiredActivePolls).toHaveBeenCalled();
+    await flushBackground();
     expect(closeExpiredPoll).toHaveBeenCalledWith(row);
+  });
+
+  /* Прод — webhook-режим: `index.ts` делает `await PollSchedulerService.start()`
+     ДО `process.send('ready')`, а PM2 держит `wait_ready: true` с
+     `listen_timeout: 10000`. Закрытие просроченных — это транзакции, Telegram
+     и заказы по категориям; дождись его в `start()`, и деплой в обеденное окно
+     превысит десять секунд, после чего PM2 перезапустит воркер. */
+  it('закрытие просроченных не задерживает готовность процесса', async () => {
+    pollCompletion.findExpiredActivePolls.mockReturnValue(
+      new Promise(() => undefined)
+    );
+
+    await PollSchedulerService.start();
+
+    expect(asMock(cron.schedule)).toHaveBeenCalled();
+  });
+
+  /* Фоновая цепочка без обработчика стала бы необработанным отклонением и
+     повалила бы процесс на строгих настройках Node. */
+  it('сбой фонового закрытия логируется, а не всплывает наружу', async () => {
+    pollCompletion.findExpiredActivePolls.mockImplementation(() => {
+      throw new Error('db down');
+    });
+
+    await expect(PollSchedulerService.start()).resolves.toBeUndefined();
+    await flushBackground();
+
+    expect(asMock(cron.schedule)).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      'Poll scheduler: findExpiredActivePolls failed',
+      expect.any(Error)
+    );
   });
 
   it('сбой восстановления таймеров не мешает старту cron', async () => {
