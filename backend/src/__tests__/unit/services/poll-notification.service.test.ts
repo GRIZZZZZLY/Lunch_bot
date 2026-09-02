@@ -8,6 +8,7 @@
  * читаем ли текст.
  */
 import { PollNotificationService } from '../../../services/poll-notification.service';
+import { notificationService } from '../../../services/notification.service';
 import { getBotInstance } from '../../../bot/bot-instance';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock } from '../../helpers/mocks';
@@ -138,8 +139,8 @@ describe('sendPollCompletionNotifications', () => {
       winnerMenuItem: { id: 1, name: 'Плов', description: null, price: 250 },
     },
     votes: [
-      { userId: 1, menuItemId: 1, user: { id: 1 }, menuItem: { id: 1, name: 'Плов', price: 250 } },
-      { userId: 2, menuItemId: 1, user: { id: 2 }, menuItem: { id: 1, name: 'Плов', price: 250 } },
+      { userId: 1, menuItemId: 1, user: { id: 1, telegramId: BigInt(1) }, menuItem: { id: 1, name: 'Плов', price: 250 } },
+      { userId: 2, menuItemId: 1, user: { id: 2, telegramId: BigInt(2) }, menuItem: { id: 1, name: 'Плов', price: 250 } },
     ],
     ...overrides,
   });
@@ -196,6 +197,38 @@ describe('sendPollCompletionNotifications', () => {
     await expect(service.sendPollCompletionNotifications(5)).rejects.toThrow(
       'Poll or result not found'
     );
+  });
+
+  /**
+   * В этом файле `notification.service` не замокан целиком (см. комментарий в
+   * шапке файла) — остальные тесты проверяют текст сообщения через мок бота.
+   * Здесь же важен не текст, а то, ЧТО именно передаётся в `send` как chat id,
+   * поэтому транспорт подменяется точечно через spyOn и восстанавливается
+   * сразу после проверки, чтобы не задеть остальные тесты файла.
+   */
+  it('уведомление о завершении уходит на Telegram id голосовавших, а не на внутренний User.id', async () => {
+    const sendSpy = jest
+      .spyOn(notificationService, 'send')
+      .mockResolvedValue({ success: true } as never);
+
+    try {
+      prismaMock.poll.findUnique.mockResolvedValue({
+        id: 7,
+        group: { title: 'Обед' },
+        result: { totalVotes: 2, rouletteData: null, winnerMenuItem: { id: 1, name: 'Плов', description: null, price: 300 } },
+        votes: [
+          { userId: 1, menuItemId: 1, user: { id: 1, telegramId: BigInt(555000001) }, menuItem: { id: 1, name: 'Плов', description: null, price: 300 } },
+          { userId: 2, menuItemId: 1, user: { id: 2, telegramId: BigInt(555000002) }, menuItem: { id: 1, name: 'Плов', description: null, price: 300 } },
+        ],
+      } as never);
+
+      await service.sendPollCompletionNotifications(7);
+
+      const sentTo = sendSpy.mock.calls.map(([arg]) => arg.userId).sort();
+      expect(sentTo).toEqual([555000001, 555000002]);
+    } finally {
+      sendSpy.mockRestore();
+    }
   });
 });
 

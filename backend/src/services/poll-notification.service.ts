@@ -112,6 +112,7 @@ export class PollNotificationService {
 
   /**
    * Отправить уведомление о завершении голосования
+   * @param userIds Telegram chat id получателей (не User.id)
    */
   async sendPollEndedNotification(
     userIds: number[],
@@ -227,8 +228,13 @@ export class PollNotificationService {
         };
       }
 
-      const voterIds = Array.from(new Set(poll.votes.map(v => v.userId)));
-      
+      /* notificationService.send ждёт Telegram chat id, а не User.id — см. комментарий
+         в isUserMuted. Отмена голосования ниже уже передаёт telegramId; здесь было
+         то же самое, только со внутренним id, и уведомление не доходило никому. */
+      const voterIds = Array.from(
+        new Set(poll.votes.map(v => Number(v.user.telegramId)))
+      );
+
       // Отправляем уведомления голосовавшим
       const results = await this.sendPollEndedNotification(voterIds, data);
 
