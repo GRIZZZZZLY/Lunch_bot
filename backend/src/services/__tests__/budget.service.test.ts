@@ -8,13 +8,9 @@ const mockEditMessageText = jest.fn();
 
 jest.mock('../../database/client', () => ({
   prisma: {
-    $transaction: jest.fn(),
     paymentReminder: {
       create: jest.fn(),
       createMany: jest.fn(),
-    },
-    poll: {
-      findUnique: jest.fn(),
     },
     pollOrderCosts: {
       findUnique: jest.fn(),
@@ -47,16 +43,6 @@ jest.mock('../../utils/logger', () => ({
   },
 }));
 
-const txMock = {
-  pollOrderCosts: {
-    upsert: jest.fn(),
-  },
-  transaction: {
-    findMany: jest.fn(),
-    update: jest.fn(),
-  },
-};
-
 describe('BudgetService Mini App behaviours', () => {
   const service = new BudgetService();
   const orderCostsService = new OrderCostsService();
@@ -64,66 +50,6 @@ describe('BudgetService Mini App behaviours', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (prisma.$transaction as jest.Mock).mockImplementation(async cb => cb(txMock));
-  });
-
-  it('splits order costs across debtors and the responsible user', async () => {
-    (prisma.poll.findUnique as jest.Mock).mockResolvedValue({
-      id: 7,
-      result: { responsibleUserId: 9 },
-      responsibleSelection: null,
-    });
-    txMock.pollOrderCosts.upsert.mockResolvedValue({
-      pollId: 7,
-      deliveryCost: 90,
-      serviceFee: 0,
-      tip: 0,
-    });
-    txMock.transaction.findMany.mockResolvedValue([
-      {
-        id: 11,
-        fromUserId: 5,
-        toUserId: 9,
-        status: 'PENDING',
-        menuItem: { price: 300 },
-      },
-      {
-        id: 12,
-        fromUserId: 6,
-        toUserId: 9,
-        status: 'PENDING',
-        menuItem: { price: 200 },
-      },
-    ]);
-    txMock.transaction.update.mockResolvedValue({});
-
-    await orderCostsService.setOrderCosts(7, 9, {
-      deliveryCost: 90,
-      serviceFee: 0,
-      tip: 0,
-    });
-
-    expect(txMock.transaction.update).toHaveBeenCalledTimes(2);
-    expect(txMock.transaction.update).toHaveBeenNthCalledWith(1, {
-      where: { id: 11 },
-      data: {
-        itemPrice: 300,
-        deliveryShare: 30,
-        serviceShare: 0,
-        tipShare: 0,
-        amount: 330,
-      },
-    });
-    expect(txMock.transaction.update).toHaveBeenNthCalledWith(2, {
-      where: { id: 12 },
-      data: {
-        itemPrice: 200,
-        deliveryShare: 30,
-        serviceShare: 0,
-        tipShare: 0,
-        amount: 230,
-      },
-    });
   });
 
   it('uses menu item price in poll breakdown when itemPrice is missing', async () => {

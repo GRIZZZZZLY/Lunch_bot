@@ -13,7 +13,6 @@ import {
   budgetPollIdParam,
   budgetStatsQuery,
   pollIdBody,
-  setOrderCostsBody,
   transactionIdBody,
 } from '../schemas/budget';
 
@@ -65,8 +64,5 @@ router.post('/cancel-mark', writeLimiter, budgetIdempotency, transactionIdBody.m
 router.post('/mark-all-paid', writeLimiter, budgetIdempotency, pollIdBody.middleware, (req, res) => budgetController.markAllPaid(req, res));
 router.post('/send-reminder', reminderLimiter, budgetIdempotency, transactionIdBody.middleware, (req, res) => budgetController.sendReminder(req, res));
 router.post('/send-reminders-all', reminderLimiter, budgetIdempotency, pollIdBody.middleware, (req, res) => budgetController.sendRemindersAll(req, res));
-
-// Cost splitting POST routes
-router.post('/order-costs/:pollId', budgetPollIdParam.middleware, setOrderCostsBody.middleware, (req, res) => budgetController.setOrderCosts(req, res));
 
 export default router;

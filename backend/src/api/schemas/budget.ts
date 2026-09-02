@@ -71,12 +71,3 @@ export const pollIdBody = bodyContract(
     pollId: z.number().int().positive('pollId must be a positive integer'),
   }),
 );
-
-export const setOrderCostsBody = bodyContract(
-  bodyShape({
-    deliveryCost: z.number().min(0).max(100000, 'deliveryCost max 100000'),
-    serviceFee: z.number().min(0).max(100000, 'serviceFee max 100000'),
-    tip: z.number().min(0).max(100000, 'tip max 100000'),
-    notes: z.string().max(500).optional(),
-  }),
-);

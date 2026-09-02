@@ -12,7 +12,6 @@ import {
   budgetPollIdParam,
   budgetStatsQuery,
   pollIdBody,
-  setOrderCostsBody,
   transactionIdBody,
 } from '../schemas/budget';
 import { toNumber } from '../../utils/decimal';
@@ -486,52 +485,6 @@ export class BudgetController {
   // ============================================
   // COST SPLITTING ENDPOINTS
   // ============================================
-
-  /**
-   * POST /api/budget/order-costs/:pollId
-   * Set order costs (delivery, service, tips) - only responsible person
-   */
-  async setOrderCosts(req: Request, res: Response): Promise<void> {
-    try {
-      const authenticatedUser = req.user;
-
-      if (!authenticatedUser) {
-        res.status(401).json({ error: 'Authentication required' });
-        return;
-      }
-
-      const { pollId } = budgetPollIdParam.get(req);
-      /* Три рукописные проверки «число и не меньше нуля» заменены схемой —
-         той самой `SetOrderCostsSchema`, которая лежала рядом неподключённой.
-         Верхняя граница 100000 из неё теперь тоже работает. */
-      const { deliveryCost, serviceFee, tip, notes } = setOrderCostsBody.get(req);
-
-      const orderCosts = await this.orderCostsService.setOrderCosts(
-        pollId,
-        authenticatedUser.id,
-        { deliveryCost, serviceFee, tip, notes }
-      );
-
-      res.json({ success: true, data: serializeData(orderCosts) });
-    } catch (error: any) {
-      if (respondIfInvalidInput(req, res, error)) return;
-      logger.error('[BudgetController] Error setting order costs:', error);
-
-      if (error.message === 'Poll not found') {
-        res.status(404).json({ error: 'Poll not found' });
-        return;
-      }
-
-      if (error.message === 'Only responsible person can set order costs') {
-        res
-          .status(403)
-          .json({ error: 'Access denied', message: error.message });
-        return;
-      }
-
-      res.status(500).json({ error: 'Failed to set order costs' });
-    }
-  }
 
   /**
    * GET /api/budget/order-costs/:pollId

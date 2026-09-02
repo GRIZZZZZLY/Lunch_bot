@@ -176,7 +176,6 @@ describe('поверхность остальных групп маршруто�
       'POST /mark-all-paid',
       'POST /send-reminder',
       'POST /send-reminders-all',
-      'POST /order-costs/:pollId',
     ],
     'user.routes': [
       'GET /me',

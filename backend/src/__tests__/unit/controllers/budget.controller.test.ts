@@ -48,7 +48,6 @@ function serviceStub() {
 /** Order-costs — отдельный сервис, отдельный аргумент конструктора. */
 function orderCostsServiceStub() {
   return {
-    setOrderCosts: jest.fn(),
     getOrderCosts: jest.fn(),
     getPollCostBreakdown: jest.fn(),
   };
@@ -822,103 +821,6 @@ describe('GET /api/budget/poll-totals/:pollId', () => {
 
     await controller.getPollTotals(
       mockRequest({ user: DEBTOR, params: { pollId: '12' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(500);
-  });
-});
-
-describe('POST /api/budget/order-costs/:pollId', () => {
-  const body = { deliveryCost: 300, serviceFee: 50, tip: 100, notes: 'самовывоз' };
-
-  it('ответственный задаёт стоимости заказа', async () => {
-    orderCostsService.setOrderCosts.mockResolvedValue({ id: 1, ...body });
-    const res = mockResponse();
-
-    await controller.setOrderCosts(
-      mockRequest({ user: CREDITOR, params: { pollId: '12' }, body }),
-      res
-    );
-
-    expect(orderCostsService.setOrderCosts).toHaveBeenCalledWith(12, 2, body);
-    expect(res.body).toMatchObject({ success: true });
-  });
-
-  it('без аутентификации — 401', async () => {
-    const res = mockResponse();
-
-    await controller.setOrderCosts(
-      mockRequest({ params: { pollId: '12' }, body }),
-      res
-    );
-
-    expect(res.statusCode).toBe(401);
-  });
-
-  it('без pollId — 400', async () => {
-    const res = mockResponse();
-
-    await controller.setOrderCosts(mockRequest({ user: CREDITOR, body }), res);
-
-    expect(res.statusCode).toBe(400);
-  });
-
-  it.each([
-    ['deliveryCost строкой', { deliveryCost: '300' }],
-    ['deliveryCost отрицательный', { deliveryCost: -1 }],
-    ['serviceFee строкой', { serviceFee: '50' }],
-    ['serviceFee отрицательный', { serviceFee: -1 }],
-    ['tip строкой', { tip: '100' }],
-    ['tip отрицательный', { tip: -1 }],
-  ])('%s — 400', async (_label, override) => {
-    const res = mockResponse();
-
-    await controller.setOrderCosts(
-      mockRequest({
-        user: CREDITOR,
-        params: { pollId: '12' },
-        body: { ...body, ...override },
-      }),
-      res
-    );
-
-    expect(res.statusCode).toBe(400);
-    expect(orderCostsService.setOrderCosts).not.toHaveBeenCalled();
-  });
-
-  it('голосования нет — 404', async () => {
-    orderCostsService.setOrderCosts.mockRejectedValue(new Error('Poll not found'));
-    const res = mockResponse();
-
-    await controller.setOrderCosts(
-      mockRequest({ user: CREDITOR, params: { pollId: '12' }, body }),
-      res
-    );
-
-    expect(res.statusCode).toBe(404);
-  });
-
-  it('не ответственный — 403', async () => {
-    orderCostsService.setOrderCosts.mockRejectedValue(
-      new Error('Only responsible person can set order costs')
-    );
-    const res = mockResponse();
-
-    await controller.setOrderCosts(
-      mockRequest({ user: CREDITOR, params: { pollId: '12' }, body }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
-  it('прочая ошибка — 500', async () => {
-    orderCostsService.setOrderCosts.mockRejectedValue(new Error('boom'));
-    const res = mockResponse();
-
-    await controller.setOrderCosts(
-      mockRequest({ user: CREDITOR, params: { pollId: '12' }, body }),
       res
     );
 
