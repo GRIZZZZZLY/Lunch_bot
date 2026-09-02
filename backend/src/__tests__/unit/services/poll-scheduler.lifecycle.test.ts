@@ -20,7 +20,6 @@ import {
   PollSchedulerService,
   SCHEDULER_ADVISORY_LOCK_KEY,
 } from '../../../services/poll-scheduler.service';
-import { PollService } from '../../../services/poll.service';
 import { RecurringPollService } from '../../../services/recurring-poll.service';
 import { asMock, asServiceMock } from '../../helpers/mocks';
 import { PollCompletionService } from '../../../services/poll-completion.service';
@@ -34,13 +33,18 @@ jest.mock('node-cron', () => ({
 jest.mock('pg', () => ({ Client: jest.fn() }));
 
 jest.mock('../../../services/poll.service', () => ({
-  PollService: { cancelExpiredPolls: jest.fn() },
+  PollService: {},
 }));
 
 jest.mock('../../../services/poll-completion.service', () => ({
   PollCompletionService: {
-    cancelExpiredPolls: jest.fn(),
+    findExpiredActivePolls: jest.fn(),
   },
+}));
+
+jest.mock('../../../services/poll-timer.service', () => ({
+  closeExpiredPoll: jest.fn(),
+  restoreActiveTimers: jest.fn(),
 }));
 
 
@@ -64,9 +68,11 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const { logger } = jest.requireMock('../../../utils/logger');
-const polls = asServiceMock(PollService);
 const pollCompletion = asServiceMock(PollCompletionService);
 const recurring = asServiceMock(RecurringPollService);
+const { closeExpiredPoll, restoreActiveTimers } = jest.requireMock(
+  '../../../services/poll-timer.service'
+);
 
 /** Приватная часть планировщика: статика и внутренние методы. */
 type Internals = {
@@ -135,7 +141,9 @@ beforeEach(() => {
   asMock(Client).mockImplementation(() => client as never);
   asMock(cron.schedule).mockReturnValue({ stop: jest.fn() });
 
-  pollCompletion.cancelExpiredPolls.mockResolvedValue(0);
+  pollCompletion.findExpiredActivePolls.mockResolvedValue([]);
+  closeExpiredPoll.mockResolvedValue('completed');
+  restoreActiveTimers.mockResolvedValue(0);
   recurring.getActiveSchedules.mockResolvedValue([]);
   api.sendMessage.mockResolvedValue({ message_id: 1 });
 });
@@ -188,6 +196,35 @@ describe('start', () => {
     expect(client.end).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
       'Poll scheduler not started: another instance holds the advisory lock'
+    );
+  });
+
+  /* Таймеры завершения живут в памяти, и рестарт их теряет. Восстановление
+     обязано идти ровно в том процессе, что держит лок: иначе каждый процесс
+     поставит свой комплект таймеров на одни и те же голосования. */
+  it('таймеры активных голосований восстанавливаются один раз', async () => {
+    await PollSchedulerService.start();
+
+    expect(restoreActiveTimers).toHaveBeenCalledTimes(1);
+  });
+
+  it('процесс без лока таймеры не восстанавливает', async () => {
+    client.query.mockResolvedValue({ rows: [{ locked: false }] });
+
+    await PollSchedulerService.start();
+
+    expect(restoreActiveTimers).not.toHaveBeenCalled();
+  });
+
+  it('сбой восстановления таймеров не мешает старту cron', async () => {
+    restoreActiveTimers.mockRejectedValue(new Error('db down'));
+
+    await PollSchedulerService.start();
+
+    expect(asMock(cron.schedule)).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      'Poll scheduler: restoreActiveTimers failed',
+      expect.any(Error)
     );
   });
 
@@ -276,36 +313,61 @@ describe('тик планировщика', () => {
     await job();
   }
 
-  it('на каждом тике истёкшие голосования тихо отменяются', async () => {
-    pollCompletion.cancelExpiredPolls.mockResolvedValue(2);
+  const EXPIRED_ROW = {
+    id: 7,
+    groupId: 9,
+    endsAt: new Date('2026-09-02T12:00:00.000Z'),
+    chatId: BigInt(-100900),
+    messageId: 42,
+    votesCount: 3,
+  };
+
+  it('на каждом тике истёкшие голосования закрываются', async () => {
+    pollCompletion.findExpiredActivePolls.mockResolvedValue([EXPIRED_ROW]);
     await PollSchedulerService.start();
 
     await tick();
 
-    expect(pollCompletion.cancelExpiredPolls).toHaveBeenCalled();
+    expect(closeExpiredPoll).toHaveBeenCalledWith(EXPIRED_ROW);
     expect(logger.info).toHaveBeenCalledWith(
-      'Poll scheduler: auto-cancelled 2 expired poll(s)'
+      'Poll scheduler: expired poll 7 (group 9) → completed'
     );
   });
 
-  it('когда отменять нечего, лог не засоряется', async () => {
+  it('когда закрывать нечего, лог не засоряется', async () => {
     await PollSchedulerService.start();
 
     await tick();
 
+    expect(closeExpiredPoll).not.toHaveBeenCalled();
     expect(logger.info).not.toHaveBeenCalledWith(
-      expect.stringContaining('auto-cancelled')
+      expect.stringContaining('expired poll')
     );
   });
 
-  it('сбой отмены не рвёт тик', async () => {
-    pollCompletion.cancelExpiredPolls.mockRejectedValue(new Error('db down'));
+  it('сбой выборки просроченных не рвёт тик', async () => {
+    pollCompletion.findExpiredActivePolls.mockRejectedValue(
+      new Error('db down')
+    );
     await PollSchedulerService.start();
 
     await expect(tick()).resolves.toBeUndefined();
 
     expect(logger.error).toHaveBeenCalledWith(
-      'Poll scheduler: cancelExpiredPolls failed',
+      'Poll scheduler: findExpiredActivePolls failed',
+      expect.any(Error)
+    );
+  });
+
+  it('сбой закрытия одного голосования не рвёт тик', async () => {
+    pollCompletion.findExpiredActivePolls.mockResolvedValue([EXPIRED_ROW]);
+    closeExpiredPoll.mockRejectedValue(new Error('telegram down'));
+    await PollSchedulerService.start();
+
+    await expect(tick()).resolves.toBeUndefined();
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Poll scheduler: failed to close expired poll 7',
       expect.any(Error)
     );
   });

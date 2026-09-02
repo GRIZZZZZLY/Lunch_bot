@@ -5,16 +5,19 @@
  * прошло время голосования → закрыть → дописать итоги в то же сообщение группы →
  * запустить заказы по категориям и выбор ответственных.
  *
- * ВАЖНО, и это не косметика: таймер живёт В ПАМЯТИ ПРОЦЕССА (`setTimeout`).
- * Перезапуск процесса его теряет, и голосование остаётся `ACTIVE` до
- * планировщика (`poll-scheduler.service` → `cancelExpiredPolls`), который
- * ОТМЕНЯЕТ такое голосование, а не завершает. То есть два механизма закрытия
- * дают разный результат в зависимости от того, был ли перезапуск. Это записано
- * в `tech_debt/06` как продуктовое решение, а не устранено здесь: выбор между
- * «дожать в планировщике» и «оставить отмену» меняет то, что видит группа.
+ * Таймер живёт В ПАМЯТИ ПРОЦЕССА (`setTimeout`), поэтому при старте
+ * `restoreActiveTimers` ставит его заново, а планировщик ЗАВЕРШАЕТ (не
+ * отменяет) просроченные голосования с голосами — решение об этом принимает
+ * `closeExpiredPoll`, единственная на планировщик и на ручной скрипт. Пока
+ * этого не было, любой рестарт во время голосования превращал завершение в
+ * отмену: победителя нет, заказов и долгов нет, обед у группы пропал.
  */
 import { logger } from '../utils/logger';
-import { PollCompletionService } from './poll-completion.service';
+import { prisma } from '../database/client';
+import {
+  PollCompletionService,
+  type ExpiredPollRow,
+} from './poll-completion.service';
 import { PollQueryService } from './poll-query.service';
 import { PollStatsService } from './poll-stats.service';
 import { PollService } from './poll.service';
@@ -29,12 +32,97 @@ export function scheduleTimerCompletion(params: {
   messageId: number;
   durationMinutes: number;
 }): void {
-  setTimeout(
-    () => {
-      void completeIfStillActive(params);
+  scheduleAfter(params, params.durationMinutes * 60 * 1000);
+}
+
+function scheduleAfter(
+  params: { pollId: number; chatId: number; messageId: number },
+  delayMs: number
+): void {
+  setTimeout(() => {
+    void completeIfStillActive(params);
+  }, Math.max(0, delayMs));
+}
+
+/**
+ * Восстановить таймеры после рестарта процесса. Вызывается из планировщика
+ * ПОСЛЕ захвата advisory-lock — так таймеры живут ровно в одном процессе.
+ * Просроченные ставятся на 0 мс: завершатся сразу, а не через минуту cron'а.
+ *
+ * Голосования без `chatId`/`messageId` не берём: дописывать итоги некуда, и их
+ * закроет планировщик через `closeExpiredPoll`.
+ */
+export async function restoreActiveTimers(
+  now: Date = new Date()
+): Promise<number> {
+  const active = await prisma.poll.findMany({
+    where: {
+      status: 'ACTIVE',
+      chatId: { not: null },
+      messageId: { not: null },
     },
-    params.durationMinutes * 60 * 1000
-  );
+    select: {
+      id: true,
+      chatId: true,
+      messageId: true,
+      startedAt: true,
+      duration: true,
+    },
+  });
+
+  for (const poll of active) {
+    const endsAt = poll.startedAt.getTime() + poll.duration * 60 * 1000;
+    scheduleAfter(
+      {
+        pollId: poll.id,
+        chatId: Number(poll.chatId),
+        messageId: poll.messageId as number,
+      },
+      endsAt - now.getTime()
+    );
+  }
+
+  if (active.length > 0) {
+    logger.info(
+      `Restored ${active.length} poll completion timer(s) after restart`
+    );
+  }
+
+  return active.length;
+}
+
+export type ExpiredPollOutcome = 'completed' | 'cancelled' | 'skipped';
+
+/**
+ * Что делать с просроченным голосованием. ОДНА точка решения для планировщика
+ * и для ручного `npm run close-expired-polls`: пока правило было размножено,
+ * два пути закрытия давали разный результат — с голосами голосование
+ * отменялось вместо завершения, и обед пропадал вместе с долгами.
+ *
+ * `completeByTimer` глотает `PollAlreadyCompletedError`, поэтому гонка с
+ * восстановленным таймером безопасна: проигравший просто ничего не меняет.
+ */
+export async function closeExpiredPoll(
+  poll: ExpiredPollRow
+): Promise<ExpiredPollOutcome> {
+  if (poll.votesCount === 0) {
+    const cancelled = await PollCompletionService.cancelIfStillActive(poll);
+    return cancelled ? 'cancelled' : 'skipped';
+  }
+
+  if (poll.chatId !== null && poll.messageId !== null) {
+    await completeByTimer({
+      pollId: poll.id,
+      chatId: Number(poll.chatId),
+      messageId: poll.messageId,
+    });
+    return 'completed';
+  }
+
+  /* Голосование, созданное не через бота: завершаем без объявления в группу —
+     дописывать итоги некуда. */
+  await PollCompletionService.completePoll(poll.id);
+  return 'completed';
 }
 
 async function completeIfStillActive(params: {

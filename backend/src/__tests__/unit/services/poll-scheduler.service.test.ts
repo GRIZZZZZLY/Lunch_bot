@@ -20,6 +20,18 @@ jest.mock('../../../services/user.service', () => ({
   },
 }));
 
+jest.mock('../../../services/poll-completion.service', () => ({
+  PollCompletionService: {
+    findExpiredActivePolls: jest.fn().mockResolvedValue([]),
+    cancelIfStillActive: jest.fn().mockResolvedValue(true),
+  },
+}));
+
+jest.mock('../../../services/poll-timer.service', () => ({
+  closeExpiredPoll: jest.fn().mockResolvedValue('completed'),
+  restoreActiveTimers: jest.fn().mockResolvedValue(0),
+}));
+
 jest.mock('../../../utils/logger', () => ({
   logger: {
     debug: jest.fn(),
@@ -31,12 +43,16 @@ jest.mock('../../../utils/logger', () => ({
 
 type SchedulerInternals = {
   checkAndExecuteSchedules: () => Promise<void>;
+  closeExpiredPolls: () => Promise<void>;
 };
 
 const runSchedulerTick = (): Promise<void> =>
   (
     PollSchedulerService as unknown as SchedulerInternals
   ).checkAndExecuteSchedules();
+
+const runCloseExpired = (): Promise<void> =>
+  (PollSchedulerService as unknown as SchedulerInternals).closeExpiredPolls();
 const mockedRecurringPollService = RecurringPollService as jest.Mocked<
   typeof RecurringPollService
 >;
@@ -170,5 +186,82 @@ describe('PollSchedulerService', () => {
 
     expect(result).toBe(false);
     expect(mockedRecurringPollService.toggleEnabled).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Планировщик больше не решает сам, отменять просроченное голосование или
+ * завершать: он только перебирает строки и отдаёт каждую в `closeExpiredPoll`.
+ * Пока решение было здесь, рестарт процесса превращал завершение в отмену.
+ */
+describe('closeExpiredPolls', () => {
+  const rows = [
+    {
+      id: 1,
+      groupId: 10,
+      endsAt: new Date('2026-09-02T12:00:00.000Z'),
+      chatId: BigInt(-100),
+      messageId: 42,
+      votesCount: 3,
+    },
+    {
+      id: 2,
+      groupId: 10,
+      endsAt: new Date('2026-09-02T12:00:00.000Z'),
+      chatId: BigInt(-100),
+      messageId: 43,
+      votesCount: 0,
+    },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('каждое просроченное голосование уходит в closeExpiredPoll', async () => {
+    const { PollCompletionService } = jest.requireMock(
+      '../../../services/poll-completion.service'
+    );
+    const { closeExpiredPoll } = jest.requireMock(
+      '../../../services/poll-timer.service'
+    );
+    PollCompletionService.findExpiredActivePolls.mockResolvedValue(rows);
+
+    await runCloseExpired();
+
+    expect(closeExpiredPoll).toHaveBeenCalledTimes(2);
+    expect(closeExpiredPoll).toHaveBeenNthCalledWith(1, rows[0]);
+    expect(closeExpiredPoll).toHaveBeenNthCalledWith(2, rows[1]);
+  });
+
+  it('падение на одном голосовании не останавливает обработку остальных', async () => {
+    const { PollCompletionService } = jest.requireMock(
+      '../../../services/poll-completion.service'
+    );
+    const { closeExpiredPoll } = jest.requireMock(
+      '../../../services/poll-timer.service'
+    );
+    PollCompletionService.findExpiredActivePolls.mockResolvedValue(rows);
+    closeExpiredPoll.mockRejectedValueOnce(new Error('boom'));
+
+    await runCloseExpired();
+
+    expect(closeExpiredPoll).toHaveBeenCalledTimes(2);
+  });
+
+  it('сбой выборки не доходит до закрытия', async () => {
+    const { PollCompletionService } = jest.requireMock(
+      '../../../services/poll-completion.service'
+    );
+    const { closeExpiredPoll } = jest.requireMock(
+      '../../../services/poll-timer.service'
+    );
+    PollCompletionService.findExpiredActivePolls.mockRejectedValue(
+      new Error('db down')
+    );
+
+    await expect(runCloseExpired()).resolves.toBeUndefined();
+
+    expect(closeExpiredPoll).not.toHaveBeenCalled();
   });
 });

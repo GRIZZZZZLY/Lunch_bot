@@ -415,15 +415,30 @@ describe('checkQuorumAndComplete', () => {
   });
 });
 
-describe('cancelExpiredPolls', () => {
+describe('findExpiredActivePolls', () => {
   /* Просроченные отбирает БД. Мок отдаёт то, что вернул бы запрос: сравнение
      `startedAt + duration` с моментом проверки в JS больше не выполняется,
-     поэтому фикстура — уже отобранные строки. */
+     поэтому фикстура — уже отобранные строки. `votesCount` приходит из
+     Postgres как `bigint` — фикстура повторяет это, иначе тест проверял бы не
+     тот тип, что приезжает в бою. */
   function expired(
-    rows: Array<{ id: number; groupId: number; endsAt?: Date }>
+    rows: Array<{
+      id: number;
+      groupId: number;
+      endsAt?: Date;
+      chatId?: bigint | null;
+      messageId?: number | null;
+      votesCount?: bigint;
+    }>
   ) {
     asMock(prismaMock.$queryRaw).mockResolvedValue(
-      rows.map(row => ({ endsAt: NOW, ...row }))
+      rows.map(row => ({
+        endsAt: NOW,
+        chatId: null,
+        messageId: null,
+        votesCount: 0n,
+        ...row,
+      }))
     );
   }
 
@@ -436,36 +451,38 @@ describe('cancelExpiredPolls', () => {
     return { sql: call[0].join('?'), values: call.slice(1) };
   }
 
-  it('истёкшее голосование отменяется, а не завершается', async () => {
-    expired([{ id: 5, groupId: 100 }]);
-
-    await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(1);
-    expect(asMock(prismaMock.poll.updateMany)).toHaveBeenCalledWith({
-      where: { id: 5, status: 'ACTIVE' },
-      data: { status: 'CANCELLED', endedAt: NOW },
-    });
-  });
-
-  /* Пропущенный тик — простой, рестарт, ручной запуск скрипта через сутки —
-     не должен растягивать длительность в истории до момента запуска. */
-  it('в историю пишется фактический конец, а не время тика', async () => {
-    const endedLongAgo = new Date(NOW.getTime() - 26 * 60 * 60_000);
-    expired([{ id: 5, groupId: 100, endsAt: endedLongAgo }]);
-
-    await PollCompletionService.cancelExpiredPolls(NOW);
-
-    expect(asMock(prismaMock.poll.updateMany)).toHaveBeenCalledWith({
-      where: { id: 5, status: 'ACTIVE' },
-      data: { status: 'CANCELLED', endedAt: endedLongAgo },
-    });
-  });
-
   it('запрос возвращает момент окончания вместе со строкой', () => {
     expired([{ id: 5, groupId: 100 }]);
 
-    return PollCompletionService.cancelExpiredPolls(NOW).then(() => {
+    return PollCompletionService.findExpiredActivePolls(NOW).then(() => {
       expect(lastQuery().sql).toContain('AS "endsAt"');
     });
+  });
+
+  /* Планировщик решает «завершить или отменить» по этим трём полям, и они
+     обязаны приезжать одним запросом: добор по каждой строке вернул бы N+1 на
+     ровном месте. */
+  it('вместе со строкой приезжают chat/message и число голосов', async () => {
+    expired([{ id: 5, groupId: 100 }]);
+
+    await PollCompletionService.findExpiredActivePolls(NOW);
+
+    const { sql } = lastQuery();
+    expect(sql).toContain('AS "chatId"');
+    expect(sql).toContain('AS "messageId"');
+    expect(sql).toContain('AS "votesCount"');
+    expect(sql).toContain('FROM votes v WHERE v.poll_id = p.id');
+  });
+
+  /* `COUNT(*)` из Postgres — `bigint`. Без приведения `votesCount === 0`
+     никогда не сработает, и пустое голосование пошло бы на завершение. */
+  it('число голосов приводится к number', async () => {
+    expired([{ id: 5, groupId: 100, votesCount: 3n }]);
+
+    const [poll] = await PollCompletionService.findExpiredActivePolls(NOW);
+
+    expect(poll.votesCount).toBe(3);
+    expect(typeof poll.votesCount).toBe('number');
   });
 
   /* Главное утверждение файла про этот метод, и не «сколько запросов», а
@@ -475,13 +492,13 @@ describe('cancelExpiredPolls', () => {
   it('отбор просроченных делает БД, а не JS', async () => {
     expired([]);
 
-    await PollCompletionService.cancelExpiredPolls(NOW);
+    await PollCompletionService.findExpiredActivePolls(NOW);
 
     const { sql, values } = lastQuery();
     expect(asMock(prismaMock.poll.findMany)).not.toHaveBeenCalled();
-    expect(sql).toContain("status = 'ACTIVE'");
+    expect(sql).toContain("p.status = 'ACTIVE'");
     expect(sql).toMatch(
-      /COALESCE\(ended_at, started_at \+ \(duration \* INTERVAL '1 minute'\)\)/
+      /COALESCE\(p\.ended_at, p\.started_at \+ \(p\.duration \* INTERVAL '1 minute'\)\)/
     );
     /* Момент проверки уходит числом: параметр-`Date` стал бы `timestamptz` и
        увёл бы границу на смещение зоны сессии (колонка — без зоны). */
@@ -494,31 +511,76 @@ describe('cancelExpiredPolls', () => {
   it('граница нестрогая: истёкшее ровно сейчас попадает в выборку', async () => {
     expired([]);
 
-    await PollCompletionService.cancelExpiredPolls(NOW);
+    await PollCompletionService.findExpiredActivePolls(NOW);
 
     expect(lastQuery().sql).toContain('<=');
   });
 
-  it('уже отменённое другим процессом не считается дважды', async () => {
-    expired([{ id: 5, groupId: 100 }]);
+  it('без просроченных голосований возвращается пустой список', async () => {
+    expired([]);
+
+    await expect(
+      PollCompletionService.findExpiredActivePolls(NOW)
+    ).resolves.toEqual([]);
+    expect(asMock(prismaMock.poll.updateMany)).not.toHaveBeenCalled();
+  });
+});
+
+describe('cancelIfStillActive', () => {
+  it('истёкшее голосование отменяется, а не завершается', async () => {
+    await expect(
+      PollCompletionService.cancelIfStillActive({
+        id: 5,
+        groupId: 100,
+        endsAt: NOW,
+      })
+    ).resolves.toBe(true);
+    expect(asMock(prismaMock.poll.updateMany)).toHaveBeenCalledWith({
+      where: { id: 5, status: 'ACTIVE' },
+      data: { status: 'CANCELLED', endedAt: NOW },
+    });
+  });
+
+  /* Пропущенный тик — простой, рестарт, ручной запуск скрипта через сутки —
+     не должен растягивать длительность в истории до момента запуска. */
+  it('в историю пишется фактический конец, а не время тика', async () => {
+    const endedLongAgo = new Date(NOW.getTime() - 26 * 60 * 60_000);
+
+    await PollCompletionService.cancelIfStillActive({
+      id: 5,
+      groupId: 100,
+      endsAt: endedLongAgo,
+    });
+
+    expect(asMock(prismaMock.poll.updateMany)).toHaveBeenCalledWith({
+      where: { id: 5, status: 'ACTIVE' },
+      data: { status: 'CANCELLED', endedAt: endedLongAgo },
+    });
+  });
+
+  /* Оптимистичная блокировка: `where` по статусу + `count === 0` — это и есть
+     ответ «закрыл кто-то другой», и вызывающий не должен считать это отменой. */
+  it('уже закрытое другим процессом не считается отменённым', async () => {
     asMock(prismaMock.poll.updateMany).mockResolvedValue({ count: 0 });
 
-    await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(0);
+    await expect(
+      PollCompletionService.cancelIfStillActive({
+        id: 5,
+        groupId: 100,
+        endsAt: NOW,
+      })
+    ).resolves.toBe(false);
+    expect(cacheInvalidatorMock.invalidatePoll).not.toHaveBeenCalled();
   });
 
   it('кэш группы сбрасывается после отмены', async () => {
-    expired([{ id: 5, groupId: 100 }]);
-
-    await PollCompletionService.cancelExpiredPolls(NOW);
+    await PollCompletionService.cancelIfStillActive({
+      id: 5,
+      groupId: 100,
+      endsAt: NOW,
+    });
 
     expect(cacheInvalidatorMock.invalidatePoll).toHaveBeenCalledWith(5, 100);
-  });
-
-  it('без просроченных голосований ничего не делает', async () => {
-    expired([]);
-
-    await expect(PollCompletionService.cancelExpiredPolls(NOW)).resolves.toBe(0);
-    expect(asMock(prismaMock.poll.updateMany)).not.toHaveBeenCalled();
   });
 });
 

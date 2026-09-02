@@ -276,7 +276,7 @@ export class PollQueryService {
    * Активные голосования из БД, без истёкших по таймеру.
    *
    * Истёкшие отфильтрованы БЕЗ побочных эффектов: закрывает их планировщик
-   * (`cancelExpiredPolls`), а не чтение — иначе один GET менял бы состояние.
+   * (`closeExpiredPoll`), а не чтение — иначе один GET менял бы состояние.
    */
   private static async fetchActivePollsRaw(groupIds?: number[]) {
     const polls = await prisma.poll.findMany({

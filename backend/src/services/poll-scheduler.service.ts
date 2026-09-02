@@ -4,7 +4,11 @@ import { logger } from '../utils/logger';
 import { RecurringPollService } from './recurring-poll.service';
 import { PollService } from './poll.service';
 import { UserService } from './user.service';
-import { PollCompletionService } from './poll-completion.service';
+import {
+  PollCompletionService,
+  type ExpiredPollRow,
+} from './poll-completion.service';
+import { closeExpiredPoll, restoreActiveTimers } from './poll-timer.service';
 import type { TelegramSender } from '../types/bot.types';
 
 /**
@@ -53,6 +57,16 @@ export class PollSchedulerService {
         'Poll scheduler not started: another instance holds the advisory lock'
       );
       return;
+    }
+
+    /* Таймеры автозавершения живут в памяти процесса, а рестарт их теряет.
+       Восстановление стоит здесь, ПОСЛЕ захвата лока: cron поднимает один
+       процесс, и таймеры обязаны жить ровно в нём — иначе каждый процесс
+       поставил бы свой комплект. */
+    try {
+      await restoreActiveTimers();
+    } catch (error) {
+      logger.error('Poll scheduler: restoreActiveTimers failed', error);
     }
 
     // Проверяем каждую минуту (timezone: Europe/Moscow, UTC+3)
@@ -146,16 +160,35 @@ export class PollSchedulerService {
   }
 
   /**
-   * Тихо отменяет голосования с истёкшим таймером (вариант B — без постинга
-   * результатов в группу). Обёртка с try/catch, чтобы сбой не рвал cron-тик.
+   * Просроченные голосования. Решение «завершить или отменить» — в
+   * `closeExpiredPoll`: она одна на планировщик и на ручной скрипт, иначе два
+   * пути закрытия снова разойдутся (до этого планировщик отменял всё подряд, и
+   * после рестарта процесса обед «отменялся»).
+   *
+   * Каждая строка в своём try/catch: сбой на одном голосовании не имеет права
+   * оставить остальные просроченными до следующего тика.
    */
   private static async closeExpiredPolls(): Promise<void> {
+    let expired: ExpiredPollRow[];
     try {
-      const n = await PollCompletionService.cancelExpiredPolls();
-      if (n > 0)
-        logger.info(`Poll scheduler: auto-cancelled ${n} expired poll(s)`);
+      expired = await PollCompletionService.findExpiredActivePolls();
     } catch (error) {
-      logger.error('Poll scheduler: cancelExpiredPolls failed', error);
+      logger.error('Poll scheduler: findExpiredActivePolls failed', error);
+      return;
+    }
+
+    for (const poll of expired) {
+      try {
+        const outcome = await closeExpiredPoll(poll);
+        logger.info(
+          `Poll scheduler: expired poll ${poll.id} (group ${poll.groupId}) → ${outcome}`
+        );
+      } catch (error) {
+        logger.error(
+          `Poll scheduler: failed to close expired poll ${poll.id}`,
+          error
+        );
+      }
     }
   }
 

@@ -47,6 +47,22 @@ export interface MultiWinnerOptions {
   tieBreakMethod?: 'earliest' | 'alphabetical';
 }
 
+/**
+ * Просроченное активное голосование в том виде, в каком его отдаёт БД.
+ *
+ * `chatId`/`messageId` нужны, чтобы дописать итоги в то же сообщение группы, а
+ * `votesCount` — чтобы решить «завершить или отменить»: решение принимает
+ * `closeExpiredPoll` в `poll-timer.service`, здесь только данные для него.
+ */
+export interface ExpiredPollRow {
+  id: number;
+  groupId: number;
+  endsAt: Date;
+  chatId: bigint | null;
+  messageId: number | null;
+  votesCount: number;
+}
+
 /** Голоса с участниками и блюдами — то, из чего считаются победители. */
 const votesWithDetails = {
   votes: {
@@ -464,12 +480,9 @@ export class PollCompletionService {
   }
 
   /**
-   * Тихо отменить голосования, у которых истёк таймер, но кворум не собрался.
-   *
-   * Без `completePoll` — значит без постинга итогов и рулетки в группу (решение
-   * владельца). Иначе такие голосования висят `ACTIVE` вечно: из активного
-   * списка они спрятаны фильтром по времени, а создание нового блокируют.
-   * Идемпотентно: `updateMany` с гейтом по статусу.
+   * Активные голосования, у которых вышло время. Решение «завершить или
+   * отменить» принимает планировщик: ему нужны chat/message для объявления
+   * итогов и число голосов, чтобы не завершать пустое голосование.
    *
    * Срок жизни — `ended_at`, если он проставлен, иначе `started_at` плюс
    * `duration` минут (то же правило, что у `pollEndsAt` в чтении), то есть
@@ -493,45 +506,62 @@ export class PollCompletionService {
    *
    * Диалект PostgreSQL: рабочая, тестовая и локальная БД — одна и та же.
    */
-  static async cancelExpiredPolls(at: Date = new Date()): Promise<number> {
-    const expired = await prisma.$queryRaw<
-      Array<{ id: number; groupId: number; endsAt: Date }>
+  static async findExpiredActivePolls(
+    at: Date = new Date()
+  ): Promise<ExpiredPollRow[]> {
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: number;
+        groupId: number;
+        endsAt: Date;
+        chatId: bigint | null;
+        messageId: number | null;
+        votesCount: bigint;
+      }>
     >`
-      SELECT id,
-             group_id AS "groupId",
-             COALESCE(ended_at, started_at + (duration * INTERVAL '1 minute')) AS "endsAt"
-      FROM polls
-      WHERE status = 'ACTIVE'
-        AND COALESCE(ended_at, started_at + (duration * INTERVAL '1 minute'))
+      SELECT p.id,
+             p.group_id   AS "groupId",
+             COALESCE(p.ended_at, p.started_at + (p.duration * INTERVAL '1 minute')) AS "endsAt",
+             p.chat_id    AS "chatId",
+             p.message_id AS "messageId",
+             (SELECT COUNT(*) FROM votes v WHERE v.poll_id = p.id) AS "votesCount"
+      FROM polls p
+      WHERE p.status = 'ACTIVE'
+        AND COALESCE(p.ended_at, p.started_at + (p.duration * INTERVAL '1 minute'))
             <= to_timestamp(${at.getTime()}::bigint / 1000.0) at time zone 'UTC'
     `;
 
-    /* Обновление построчное намеренно, и это не N+1 по недосмотру:
-       `where: { id, status: 'ACTIVE' }` — оптимистичная блокировка, а `count`
-       говорит, не закрыл ли голосование кто-то другой между выборкой и
-       записью. Батч по всем id вернул бы одно общее число и не сказал бы, у
-       каких голосований чистить кэш и что писать в лог. Строк здесь единицы —
-       ровно просроченные. */
-    let cancelled = 0;
-    for (const poll of expired) {
-      /* `endedAt` — момент, когда голосование ФАКТИЧЕСКИ кончилось, а не время
-         тика: пропущенный тик (простой, рестарт, ручной запуск через сутки)
-         иначе запишет в историю длительность в сутки вместо тридцати минут. */
-      const result = await prisma.poll.updateMany({
-        where: { id: poll.id, status: 'ACTIVE' },
-        data: { status: 'CANCELLED', endedAt: poll.endsAt },
-      });
+    /* `COUNT(*)` приезжает из Postgres как `bigint`: без приведения любое
+       сравнение с числом в JS даёт TypeError. */
+    return rows.map(row => ({ ...row, votesCount: Number(row.votesCount) }));
+  }
 
-      if (result.count > 0) {
-        cancelled += 1;
-        void CacheInvalidator.invalidatePoll(poll.id, poll.groupId);
-        logger.info(
-          `Auto-cancelled expired poll ${poll.id} (group ${poll.groupId}) — timer elapsed, no quorum`
-        );
-      }
-    }
+  /**
+   * Отмена одного просроченного голосования. `where: { status: 'ACTIVE' }` —
+   * оптимистичная блокировка: если таймер успел завершить его первым, count = 0.
+   *
+   * Отмена без `completePoll` — значит без постинга итогов и рулетки в группу
+   * (решение владельца). Применяется только к голосованию БЕЗ голосов: иначе
+   * группа теряла бы обед вместе с долгами.
+   */
+  static async cancelIfStillActive(
+    poll: Pick<ExpiredPollRow, 'id' | 'groupId' | 'endsAt'>
+  ): Promise<boolean> {
+    /* `endedAt` — момент, когда голосование ФАКТИЧЕСКИ кончилось, а не время
+       тика: пропущенный тик (простой, рестарт, ручной запуск через сутки) иначе
+       запишет в историю длительность в сутки вместо тридцати минут. */
+    const result = await prisma.poll.updateMany({
+      where: { id: poll.id, status: 'ACTIVE' },
+      data: { status: 'CANCELLED', endedAt: poll.endsAt },
+    });
 
-    return cancelled;
+    if (result.count === 0) return false;
+
+    void CacheInvalidator.invalidatePoll(poll.id, poll.groupId);
+    logger.info(
+      `Auto-cancelled expired poll ${poll.id} (group ${poll.groupId}) — timer elapsed, no votes`
+    );
+    return true;
   }
 
   /** Опыт автору голосования. Сбой не отменяет завершение. */
