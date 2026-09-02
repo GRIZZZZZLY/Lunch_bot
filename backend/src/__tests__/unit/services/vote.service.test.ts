@@ -692,6 +692,9 @@ describe('castVotes', () => {
 
   it('одиночный выбор: одно блюдо проходит', async () => {
     poll({ isMultiSelect: false });
+    // Общий дефолт файла (vote.count=1) для других describe тут не подходит:
+    // проверяем первый голос, без уже поданных за другие блюда.
+    asMock(prismaMock.vote.count).mockResolvedValue(0);
 
     await expect(VoteService.castVotes(1, 5, [7])).resolves.toBeDefined();
   });

@@ -2,6 +2,7 @@ import { VoteService } from '../vote.service';
 import { prisma } from '../../database/client';
 import { Vote, Prisma } from '@prisma/client';
 import { VoteType } from '../../types/vote.types';
+import { MaxSelectionsExceededError, SingleSelectionOnlyError } from '../vote.errors';
 
 // Mock prisma client
 jest.mock('../../database/client', () => ({
@@ -194,6 +195,33 @@ describe('VoteService', () => {
       const result = await VoteService.createVoteWithType(mockData);
 
       expect(result.voteType).toBe(VoteType.SKIP);
+    });
+  });
+
+  describe('castVotes — лимит по итогу, а не по запросу', () => {
+    beforeEach(() => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ isMultiSelect: true, maxSelections: 3 });
+    });
+
+    it('отвергает добор сверх maxSelections с учётом уже поданных голосов', async () => {
+      (prisma.vote.count as jest.Mock).mockResolvedValue(2); // уже 2 других блюда
+      await expect(VoteService.castVotes(1, 5, [10, 11])).rejects.toBeInstanceOf(MaxSelectionsExceededError);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('повтор тех же блюд не считается добором', async () => {
+      (prisma.vote.count as jest.Mock).mockResolvedValue(0); // notIn исключил их
+      (prisma.$transaction as jest.Mock).mockResolvedValue({ allVotes: [], newlyCreatedItemIds: [] });
+      await expect(VoteService.castVotes(1, 5, [10, 11, 12])).resolves.toEqual([]);
+      expect(prisma.vote.count).toHaveBeenCalledWith({
+        where: { pollId: 1, userId: 5, menuItemId: { notIn: [10, 11, 12] } },
+      });
+    });
+
+    it('в одиночном режиме второе блюдо другим запросом отвергается', async () => {
+      (prisma.poll.findUnique as jest.Mock).mockResolvedValue({ isMultiSelect: false, maxSelections: 1 });
+      (prisma.vote.count as jest.Mock).mockResolvedValue(1);
+      await expect(VoteService.castVotes(1, 5, [11])).rejects.toBeInstanceOf(SingleSelectionOnlyError);
     });
   });
 

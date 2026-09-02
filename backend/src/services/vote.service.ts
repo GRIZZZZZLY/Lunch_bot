@@ -230,10 +230,19 @@ export class VoteService {
       ? Math.max(1, Math.min(poll.maxSelections || 3, 3))
       : 1;
 
-    if (!isMultiSelect && menuItemIds.length > 1) {
+    /* Лимит действует на ИТОГ, а не на один запрос: повторный вызов с другими
+       блюдами раньше добирал голоса сверх maxSelections, а одиночный режим
+       обходился по одному блюду за запрос. Уже поданные голоса за те же блюда
+       добором не считаются — createMultipleVotes их и так пропустит. */
+    const alreadyVotedOthers = await prisma.vote.count({
+      where: { pollId, userId, menuItemId: { notIn: menuItemIds } },
+    });
+    const resulting = alreadyVotedOthers + menuItemIds.length;
+
+    if (!isMultiSelect && resulting > 1) {
       throw new SingleSelectionOnlyError();
     }
-    if (menuItemIds.length > maxSelections) {
+    if (resulting > maxSelections) {
       throw new MaxSelectionsExceededError(maxSelections);
     }
 
