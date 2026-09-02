@@ -208,6 +208,43 @@ describe('apiService — стабильный ключ действия', () => 
   });
 });
 
+/**
+ * Refresh-токен и явный Authorization.
+ *
+ * Задача 3: клиент никогда не сохранял refreshToken и слал access-токен на
+ * /auth/refresh, где сервер требует type === 'refresh' — сессия умирала
+ * через час без возможности восстановиться. Здесь фиксируется контракт
+ * транспорта: refresh-токен живёт в sessionStorage под своим ключом,
+ * clearToken сносит оба, а config.headers.Authorization не теряется под
+ * access-токеном — иначе refresh-токен до сервера не доедет.
+ */
+describe('apiService — refresh-токен и явный Authorization', () => {
+  afterEach(() => {
+    apiService.clearToken();
+  });
+
+  it('setRefreshToken/getRefreshToken читают и пишут независимо от access-токена', () => {
+    expect(apiService.getRefreshToken()).toBeNull();
+    apiService.setRefreshToken('r-1');
+    expect(apiService.getRefreshToken()).toBe('r-1');
+  });
+
+  it('clearToken очищает и access-, и refresh-токен', () => {
+    apiService.setToken('a-1');
+    apiService.setRefreshToken('r-1');
+    apiService.clearToken();
+    expect(apiService.getToken()).toBeNull();
+    expect(apiService.getRefreshToken()).toBeNull();
+  });
+
+  it('явный Authorization из config не перетирается access-токеном', async () => {
+    apiService.setToken('access');
+    await apiService.post('/auth/refresh', undefined, { headers: { Authorization: 'Bearer refresh' } });
+    const [, reqInit] = fetchMock.mock.calls[0];
+    expect((reqInit as RequestInit).headers).toMatchObject({ Authorization: 'Bearer refresh' });
+  });
+});
+
 describe('apiService — форма ошибки и таймаут', () => {
   it('HTTP-ошибка приходит с error, code и status', async () => {
     fetchMock.mockResolvedValueOnce(fail(403, { error: 'Нет доступа', code: 'FORBIDDEN' }));

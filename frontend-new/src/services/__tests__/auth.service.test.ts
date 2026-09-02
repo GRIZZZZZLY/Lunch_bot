@@ -12,9 +12,10 @@
  *    Потеря одной ветки означает «вход есть, а токена нет».
  * 2. **Отказ не бросает, а возвращает `success: false`.** На этом построен
  *    вызывающий код: экран показывает сообщение, а не падает в границу ошибок.
- * 3. **Порядок переавторизации: сначала refresh, потом initData.** initData
- *    живёт всю сессию Mini App, поэтому он — запасной путь; если порядок
- *    перевернуть, каждый истёкший токен будет стоить полной повторной
+ * 3. **Порядок переавторизации: сначала refresh, потом initData.** initData —
+ *    запасной путь и живёт недолго (протухает через
+ *    TELEGRAM_INIT_DATA_MAX_AGE_SECONDS на сервере, 300 с по умолчанию); если
+ *    порядок перевернуть, каждый истёкший токен будет стоить полной повторной
  *    валидации подписи.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -25,6 +26,8 @@ const h = vi.hoisted(() => ({
   setToken: vi.fn(),
   getToken: vi.fn(),
   clearToken: vi.fn(),
+  getRefreshToken: vi.fn(),
+  setRefreshToken: vi.fn(),
   getInitData: vi.fn(),
   reauth: null as null | (() => Promise<boolean>),
   setUser: vi.fn(),
@@ -39,6 +42,8 @@ vi.mock('../api.service', () => ({
     setToken: h.setToken,
     getToken: h.getToken,
     clearToken: h.clearToken,
+    getRefreshToken: h.getRefreshToken,
+    setRefreshToken: h.setRefreshToken,
     /* Функция переавторизации регистрируется ОДИН раз, при импорте модуля.
        Держим её в отдельном поле, а не в `mock.calls`: `beforeEach` сбрасывает
        моки, и запись о вызове при импорте до первого теста бы не дожила. */
@@ -147,20 +152,45 @@ describe('validateInitData', () => {
       error: 'Authentication failed',
     });
   });
+
+  it('сохраняет refresh-токен из ответа', async () => {
+    h.post.mockResolvedValue({
+      success: true,
+      data: { user: USER, accessToken: 'a', refreshToken: 'r' },
+    });
+    await authService.validateInitData('init');
+    expect(h.setRefreshToken).toHaveBeenCalledWith('r');
+  });
 });
 
 describe('refreshAuth', () => {
-  it('обновляет сессию без тела запроса', async () => {
-    h.post.mockResolvedValue({ success: true, data: { user: USER, accessToken: 'fresh' } });
+  it('шлёт именно refresh-токен в Authorization и сохраняет новую пару', async () => {
+    h.getRefreshToken.mockReturnValue('refresh-1');
+    h.post.mockResolvedValue({
+      success: true,
+      data: { user: USER, accessToken: 'access-2', refreshToken: 'refresh-2' },
+    });
 
     await expect(authService.refreshAuth()).resolves.toMatchObject({
       success: true,
-      token: 'fresh',
+      token: 'access-2',
+      refreshToken: 'refresh-2',
     });
-    expect(h.post).toHaveBeenCalledWith('/auth/refresh');
+    expect(h.post).toHaveBeenCalledWith('/auth/refresh', undefined, {
+      headers: { Authorization: 'Bearer refresh-1' },
+    });
+    expect(h.setRefreshToken).toHaveBeenCalledWith('refresh-2');
+  });
+
+  it('без сохранённого refresh-токена не ходит на сервер и возвращает отказ', async () => {
+    h.getRefreshToken.mockReturnValue(null);
+
+    await expect(authService.refreshAuth()).resolves.toMatchObject({ success: false });
+    expect(h.post).not.toHaveBeenCalled();
   });
 
   it('отказ обновления не бросает', async () => {
+    h.getRefreshToken.mockReturnValue('refresh-1');
     h.post.mockRejectedValue({ error: 'Refresh token revoked' });
 
     await expect(authService.refreshAuth()).resolves.toMatchObject({
@@ -203,6 +233,7 @@ describe('переавторизация по 401', () => {
      запрашивается — иначе на каждом истёкшем токене шла бы полная валидация
      подписи. */
   it('успешный refresh не трогает initData', async () => {
+    h.getRefreshToken.mockReturnValue('refresh-1');
     h.post.mockResolvedValue({ success: true, data: { user: USER, accessToken: 'fresh' } });
 
     await expect(reauthenticate()).resolves.toBe(true);
@@ -213,6 +244,7 @@ describe('переавторизация по 401', () => {
   });
 
   it('при отказе refresh переходит к повторной валидации initData', async () => {
+    h.getRefreshToken.mockReturnValue('refresh-1');
     h.post
       .mockRejectedValueOnce({ error: 'expired' })
       .mockResolvedValueOnce({ success: true, data: { user: USER, accessToken: 'from-init' } });
@@ -220,7 +252,9 @@ describe('переавторизация по 401', () => {
 
     await expect(reauthenticate()).resolves.toBe(true);
 
-    expect(h.post).toHaveBeenNthCalledWith(1, '/auth/refresh');
+    expect(h.post).toHaveBeenNthCalledWith(1, '/auth/refresh', undefined, {
+      headers: { Authorization: 'Bearer refresh-1' },
+    });
     expect(h.post).toHaveBeenNthCalledWith(2, '/auth/validate', { initData: 'init-data' });
     expect(h.setToken).toHaveBeenCalledWith('from-init');
   });
@@ -228,6 +262,7 @@ describe('переавторизация по 401', () => {
   /* Вне Telegram initData нет вовсе — тогда второй путь пропускается, и сессия
      честно объявляется истёкшей вместо запроса с пустой подписью. */
   it('без initData сессия объявляется истёкшей', async () => {
+    h.getRefreshToken.mockReturnValue('refresh-1');
     h.post.mockRejectedValue({ error: 'expired' });
     h.getInitData.mockReturnValue(null);
 
@@ -242,6 +277,7 @@ describe('переавторизация по 401', () => {
   /* Оба пути отказали — токен обязан быть снят: иначе интерфейс остаётся
      «залогиненным» и повторяет 401 на каждом запросе. */
   it('отказ обоих путей снимает токен и сообщает пользователю', async () => {
+    h.getRefreshToken.mockReturnValue('refresh-1');
     h.post.mockRejectedValue({ error: 'expired' });
     h.getInitData.mockReturnValue('init-data');
 

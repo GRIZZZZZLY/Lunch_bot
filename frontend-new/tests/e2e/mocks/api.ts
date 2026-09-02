@@ -173,7 +173,9 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
         });
         return;
       }
-      await route.fulfill({ json: ok({ user: state.user, accessToken: 'e2e-access-token' }) });
+      await route.fulfill({
+        json: ok({ user: state.user, accessToken: 'e2e-access-token', refreshToken: 'e2e-refresh-token' }),
+      });
       return;
     }
     if (method === 'POST' && path === '/auth/refresh') {
@@ -181,7 +183,21 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
         await route.fulfill({ status: 401, json: { success: false, error: 'Сессия истекла', code: 'TOKEN_EXPIRED' } });
         return;
       }
-      await route.fulfill({ json: ok({ user: state.user, accessToken: 'e2e-refreshed-token' }) });
+      /* Честная проверка типа токена — как настоящий refreshTokenMiddleware на
+         сервере: access-токен на этом эндпоинте должен получать отказ. Раньше
+         мок отвечал успехом на любой Bearer, и это маскировало Задачу 3 —
+         клиент слал access вместо refresh, а smoke всё равно был зелёным. */
+      const authorization = request.headers().authorization;
+      if (authorization !== 'Bearer e2e-refresh-token') {
+        await route.fulfill({
+          status: 401,
+          json: { success: false, error: 'Неверный тип токена', code: 'INVALID_TOKEN_TYPE' },
+        });
+        return;
+      }
+      await route.fulfill({
+        json: ok({ user: state.user, accessToken: 'e2e-refreshed-token', refreshToken: 'e2e-refreshed-refresh-token' }),
+      });
       return;
     }
     if (method === 'GET' && (path === '/auth/me' || path === '/user/me')) {

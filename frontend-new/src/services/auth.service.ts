@@ -8,6 +8,7 @@ export interface AuthResponse {
   success: boolean;
   user: User;
   token: string;
+  refreshToken?: string;
   error?: string;
 }
 
@@ -18,14 +19,15 @@ interface AuthValidatePayload {
   expiresIn?: number;
 }
 
-function extractPayload<T extends { user: User; accessToken: string }>(
+function extractPayload<T extends { user: User; accessToken: string; refreshToken?: string }>(
   response: ApiResponse<T>,
-): { user?: User; accessToken?: string } {
+): { user?: User; accessToken?: string; refreshToken?: string } {
   if (response.data && typeof response.data === 'object') {
-    return { user: response.data.user, accessToken: response.data.accessToken };
+    const { user, accessToken, refreshToken } = response.data;
+    return { user, accessToken, refreshToken };
   }
-  const top = response as unknown as { user?: User; accessToken?: string };
-  return { user: top.user, accessToken: top.accessToken };
+  const top = response as unknown as { user?: User; accessToken?: string; refreshToken?: string };
+  return { user: top.user, accessToken: top.accessToken, refreshToken: top.refreshToken };
 }
 
 class AuthService {
@@ -34,9 +36,10 @@ class AuthService {
       const response = await apiService.post<AuthValidatePayload>('/auth/validate', {
         initData: initData || '',
       });
-      const { user, accessToken } = extractPayload(response);
+      const { user, accessToken, refreshToken } = extractPayload(response);
       if (response.success && user && accessToken) {
-        return { success: true, user, token: accessToken };
+        if (refreshToken) apiService.setRefreshToken(refreshToken);
+        return { success: true, user, token: accessToken, refreshToken };
       }
       throw new Error(response.error || 'Validation failed');
     } catch (error) {
@@ -51,11 +54,20 @@ class AuthService {
   }
 
   async refreshAuth(): Promise<AuthResponse> {
+    const refreshToken = apiService.getRefreshToken();
+    if (!refreshToken) {
+      return { success: false, user: {} as User, token: '', error: 'No refresh token' };
+    }
     try {
-      const response = await apiService.post<AuthValidatePayload>('/auth/refresh');
-      const { user, accessToken } = extractPayload(response);
+      /* Сервер принимает только токен type=refresh; access здесь даёт 401
+         INVALID_TOKEN_TYPE — так и жил баг «сессия умирает через час». */
+      const response = await apiService.post<AuthValidatePayload>('/auth/refresh', undefined, {
+        headers: { Authorization: `Bearer ${refreshToken}` },
+      });
+      const { user, accessToken, refreshToken: next } = extractPayload(response);
       if (response.success && user && accessToken) {
-        return { success: true, user, token: accessToken };
+        if (next) apiService.setRefreshToken(next);
+        return { success: true, user, token: accessToken, refreshToken: next };
       }
       throw new Error(response.error || 'Refresh failed');
     } catch (error) {
@@ -90,8 +102,11 @@ class AuthService {
 export const authService = new AuthService();
 
 /* Переавторизация для 401-повторов (координация — в lib/authRetry.ts):
-   сначала refresh, при неудаче — повторная валидация initData (она живёт всю
-   сессию Mini App). Оба запроса идут на /auth/* и сами повтор не запускают. */
+   сначала refresh, при неудаче — повторная валидация initData. Это именно
+   запасной путь, а не равноценная альтернатива: initData протухает через
+   TELEGRAM_INIT_DATA_MAX_AGE_SECONDS (300 с по умолчанию на сервере), то
+   есть работает только в первые минуты после открытия Mini App, а не всю
+   сессию. Оба запроса идут на /auth/* и сами повтор не запускают. */
 apiService.setReauthenticator(async () => {
   const store = useAppStore.getState();
   const refreshed = await authService.refreshAuth();

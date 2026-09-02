@@ -10,6 +10,7 @@ import { createAuthRetryHandler } from '@/lib/authRetry';
 import { newIdempotencyKey } from '@/lib/idempotency';
 
 const TOKEN_KEY = 'auth_token';
+const REFRESH_KEY = 'auth_refresh_token';
 const IDEMPOTENCY_HEADER = 'Idempotency-Key';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const TIMEOUT_MS = 10_000;
@@ -65,9 +66,22 @@ class ApiService {
     return this.token ?? sessionStorage.getItem(TOKEN_KEY);
   }
 
+  setRefreshToken(token: string) {
+    sessionStorage.setItem(REFRESH_KEY, token);
+  }
+
+  getRefreshToken(): string | null {
+    return sessionStorage.getItem(REFRESH_KEY);
+  }
+
+  /* Refresh-токен чистим здесь же: провалившийся refresh всё равно негоден
+     (сервер защищает его от повторного использования по jti), а раздельная
+     жизнь access- и refresh-ключей давала «протухший access снят, а мёртвый
+     refresh остался» — следующая переавторизация била в тот же 401. */
   clearToken() {
     this.token = null;
     sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(REFRESH_KEY);
   }
 
   /** Регистрируется в auth.service — так разрывается циклический импорт api↔auth. */
@@ -186,8 +200,12 @@ class ApiService {
         headers[IDEMPOTENCY_HEADER] = idempotencyKey ?? newIdempotencyKey();
       }
     }
+    /* Явно переданный в config.headers.Authorization побеждает: refreshAuth()
+       передаёт сюда Bearer с refresh-токеном для /auth/refresh, и подстановка
+       access-токена поверх него отправляла на сервер не тот тип токена —
+       именно так умирало обновление сессии через час (Задача 3). */
     const token = this.token;
-    if (token) headers.Authorization = `Bearer ${token}`;
+    if (token && !headers.Authorization) headers.Authorization = `Bearer ${token}`;
     return headers;
   }
 
