@@ -43,6 +43,18 @@ jest.mock('../../utils/logger', () => ({
   },
 }));
 
+/* Реквизиты в базе зашифрованы, поэтому напоминание берёт их расшифрованными
+   через UserService, а не из `include: { toUser: true }`. */
+jest.mock('../user.service', () => ({
+  UserService: {
+    getPaymentInfo: jest.fn().mockResolvedValue({
+      paymentCard: null,
+      paymentPhone: '+79991234567',
+      paymentDetails: null,
+    }),
+  },
+}));
+
 describe('BudgetService Mini App behaviours', () => {
   const service = new BudgetService();
   const orderCostsService = new OrderCostsService();
@@ -171,9 +183,12 @@ describe('BudgetService Mini App behaviours', () => {
         toUserId: 9,
         status: 'PENDING',
       },
+      /* У получателя платежа берётся только имя: платёжные поля в базе
+         зашифрованы, и держать их рядом с расшифрованными значит однажды
+         подставить в напоминание шифротекст. */
       include: {
         fromUser: true,
-        toUser: true,
+        toUser: { select: { id: true, firstName: true } },
         poll: {
           include: {
             group: true,
