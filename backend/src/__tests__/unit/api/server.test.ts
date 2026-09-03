@@ -37,6 +37,8 @@ const ROUTE_MODULES = [
   'vote.routes',
   'notification.routes',
   'store-run.routes',
+  'group-store.routes',
+  'item-preset.routes',
   'avatar.routes',
 ];
 
@@ -47,14 +49,15 @@ for (const name of ROUTE_MODULES) {
   }));
 }
 
-/* `writeLimiter` нужен здесь потому, что роутеры, которые его навешивают,
-   импортируются на верхнем уровне server.ts: неполный мок отдаёт undefined, а
-   Express на регистрации маршрута падает «argument handler must be a function»,
-   и валится весь набор, а не один тест. */
+/* Здесь только те middleware, которые навешивает САМ server.ts. Всё, что
+   навешивают роутеры, сюда не относится: каждый роутер подменён выше пустым
+   Router, и его настоящий модуль не загружается вовсе. Новый роутер нужно
+   вписывать в ROUTE_MODULES, а не дополнять этот мок — иначе он потянет за
+   собой telegram-auth и jwt.service, а тот в проверках с NODE_ENV=production
+   требует секрет от 64 символов и роняет набор. */
 jest.mock('../../../api/middleware/rate-limiter', () => ({
   generalLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
   authLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
-  writeLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
 jest.mock('../../../api/middleware/metrics', () => ({
