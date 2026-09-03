@@ -5,6 +5,7 @@ import { CreateUserData, UpdateUserData } from '../types/user.types';
 import { now } from '../utils/date';
 import { EncryptionService } from '../utils/encryption';
 import { getBotInstance } from '../bot/bot-instance';
+import { escapeMarkdown } from '../utils/telegram-html';
 
 /** Расшифрованные платёжные данные: то, что можно показать человеку. */
 export interface PaymentInfo {
@@ -130,8 +131,8 @@ export class UserService {
       }
 
       const message = `🆕 *Новый пользователь*\n\n` +
-        `👤 ${user.firstName}${user.lastName ? ` ${  user.lastName}` : ''}` +
-        `${user.username ? ` (@${user.username})` : ''}`;
+        `👤 ${escapeMarkdown(user.firstName ?? '')}${user.lastName ? ` ${escapeMarkdown(user.lastName)}` : ''}` +
+        `${user.username ? ` (@${escapeMarkdown(user.username)})` : ''}`;
 
       // Отправляем уведомления всем админам
       let sent = 0;

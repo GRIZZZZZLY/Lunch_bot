@@ -107,6 +107,19 @@ describe('/menu', () => {
     expect(text).toContain('1. Плов (7 голосов)');
   });
 
+  it('название популярного блюда экранируется', async () => {
+    menuService.getPopularMenuItems.mockResolvedValue([
+      { id: 1, name: 'Соус_острый *акция*', voteCount: 7 },
+    ]);
+    const ctx = makeCtx();
+
+    await menuCommand(ctx);
+
+    expect(ctx.reply.mock.calls[0][0]).toContain(
+      '1. Соус\\_острый \\*акция\\* (7 голосов)'
+    );
+  });
+
   it('нулевая средняя цена не показывается', async () => {
     menuService.getMenuStats.mockResolvedValue({
       total: 2,
@@ -284,6 +297,24 @@ describe('показ списка блюд', () => {
     expect(text).toContain('1. Плов - 250₽');
     expect(text).toContain('_вкусно_');
     expect(ctx.answerCallbackQuery).toHaveBeenCalled();
+  });
+
+  /**
+   * Названия и описания блюд пишут сами участники. Описание особенно опасно:
+   * оно подставляется ВНУТРЬ `_..._`, и `_` в тексте закрывает курсив раньше
+   * времени — Telegram отвечает `can't parse entities`, и список не выводится.
+   */
+  it('название и описание блюда экранируются', async () => {
+    menuService.getActiveMenuItems.mockResolvedValue([
+      { id: 1, name: 'Соус_острый', price: 250, description: 'с *перцем*' },
+    ]);
+    const ctx = makeCtx();
+
+    await handleShowMenuList(ctx);
+
+    const text = ctx.reply.mock.calls[0][0] as string;
+    expect(text).toContain('1. Соус\\_острый - 250₽');
+    expect(text).toContain('_с \\*перцем\\*_');
   });
 
   it('в группе web_app-кнопки в списке нет', async () => {

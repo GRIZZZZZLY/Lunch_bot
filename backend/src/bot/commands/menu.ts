@@ -3,6 +3,7 @@ import { MenuService } from '../../services/menu.service';
 import { UserService } from '../../services/user.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
+import { escapeMarkdown } from '../../utils/telegram-html';
 
 /**
  * Команда /menu - открытие Mini App для управления меню
@@ -63,7 +64,7 @@ export async function menuCommand(ctx: BotContext): Promise<void> {
     if (popularItems.length > 0) {
       text += '🔥 **Популярные блюда:**\n';
       popularItems.forEach((item, index) => {
-        text += `${index + 1}. ${item.name} (${item.voteCount} голосов)\n`;
+        text += `${index + 1}. ${escapeMarkdown(item.name ?? '')} (${item.voteCount} голосов)\n`;
       });
       text += '\n';
     }
@@ -238,9 +239,13 @@ export async function handleShowMenuList(ctx: any): Promise<void> {
     let text = '🍽️ **Список блюд** (активные)\n\n';
 
     activeItems.forEach((item, index) => {
-      text += `${index + 1}. ${item.name}`;
+      text += `${index + 1}. ${escapeMarkdown(item.name ?? '')}`;
       if (item.price) text += ` - ${item.price}₽`;
-      if (item.description) text += `\n   _${item.description}_`;
+      /* Описание идёт ВНУТРЬ `_..._`: без экранирования `_` в тексте закрывает
+         курсив раньше времени, и список не выводится вообще. */
+      if (item.description) {
+        text += `\n   _${escapeMarkdown(item.description)}_`;
+      }
       text += '\n';
     });
 

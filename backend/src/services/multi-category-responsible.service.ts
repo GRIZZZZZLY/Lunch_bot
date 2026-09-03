@@ -14,6 +14,7 @@ import { GamificationService } from './gamification.service';
 import { getXPReward } from '../constants/xp-constants';
 import { now, addMinutesToDate } from '../utils/date';
 import { getBotInstance } from '../bot/bot-instance';
+import { escapeMarkdown } from '../utils/telegram-html';
 
 const pendingCategorySelections = new Map<number, Set<number>>();
 
@@ -24,20 +25,26 @@ export class MultiCategoryResponsibleService {
   ): { message: string; keyboard: { inline_keyboard: any[][] } } {
     let message = '🍽 *Категории заказа*\n\n';
 
+    /* Название категории задаёт пользователь, поэтому в ТЕКСТЕ оно
+       экранируется. В `text` кнопки ниже — наоборот нельзя: подпись кнопки
+       Telegram как Markdown не разбирает, и человек увидел бы `\_`. */
     categoryOrders.forEach((order: any) => {
+      const category = escapeMarkdown(order.category ?? '');
+      const responsibleName = order.responsibleUser?.firstName
+        ? escapeMarkdown(order.responsibleUser.firstName)
+        : '—';
+
       if (order.participantCount <= 1) {
-        const responsibleName = order.responsibleUser?.firstName || '—';
-        message += `✅ ${order.category} — ${responsibleName} (авто)\n`;
+        message += `✅ ${category} — ${responsibleName} (авто)\n`;
         return;
       }
 
       if (pendingSelections.has(order.id)) {
-        message += `⏳ ${order.category} — ${order.participantCount} участников\n`;
+        message += `⏳ ${category} — ${order.participantCount} участников\n`;
         return;
       }
 
-      const responsibleName = order.responsibleUser?.firstName || '—';
-      message += `✅ ${order.category} — ${responsibleName}\n`;
+      message += `✅ ${category} — ${responsibleName}\n`;
     });
 
     const keyboardRows: any[][] = [];

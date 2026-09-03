@@ -139,6 +139,28 @@ describe('PollSchedulerService', () => {
     );
   });
 
+  /* Название группы приходит из Telegram, а текст ошибки — из исключения:
+     ни то, ни другое не является разметкой шаблона, а `_` в названии группы
+     оставлял админа без уведомления о сбое автоголосования. */
+  it('название группы и текст ошибки в уведомлении админу экранируются', async () => {
+    const sendMessage = jest.fn().mockResolvedValue(undefined);
+    PollSchedulerService.initialize({ api: { sendMessage } });
+    mockedRecurringPollService.getActiveSchedules.mockResolvedValue([
+      { ...schedule, group: { ...schedule.group, title: 'Обед_в *Пловной*' } },
+    ]);
+    mockedRecurringPollService.executeScheduledPoll.mockResolvedValue({
+      message: 'menu_items missing *2*',
+      status: 'FAILED_ERROR',
+      success: false,
+    });
+
+    await runSchedulerTick();
+
+    const text = sendMessage.mock.calls[0][1] as string;
+    expect(text).toContain('Обед\\_в \\*Пловной\\*');
+    expect(text).toContain('menu\\_items missing \\*2\\*');
+  });
+
   it('skips a due schedule that already ran today', async () => {
     PollSchedulerService.initialize(null);
     mockedRecurringPollService.getActiveSchedules.mockResolvedValue([

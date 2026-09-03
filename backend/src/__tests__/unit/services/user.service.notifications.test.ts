@@ -109,6 +109,26 @@ describe('уведомление админов о новом участнике
     expect(api.sendMessage.mock.calls[0][1]).not.toContain('@');
   });
 
+  /* Уведомление уходит на Markdown, а имя и логин приходят из Telegram: без
+     экранирования админ не узнаёт о новом участнике вообще. */
+  it('спецсимволы в имени и логине экранируются', async () => {
+    admins([{ id: 1, telegramId: 111n }]);
+    asMock(prismaMock.user.upsert).mockResolvedValue({
+      id: 7,
+      telegramId: 555n,
+      firstName: 'Соус_острый',
+      lastName: 'С*ов',
+      username: 'ivan_p',
+    });
+
+    await UserService.upsertUser(NEW_USER, 100);
+    await flush();
+
+    const text = api.sendMessage.mock.calls[0][1] as string;
+    expect(text).toContain('Соус\\_острый С\\*ов');
+    expect(text).toContain('@ivan\\_p');
+  });
+
   it('уведомления ищут только активных админов именно этой группы', async () => {
     admins([{ id: 1, telegramId: 111n }]);
 

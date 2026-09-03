@@ -125,6 +125,41 @@ describe('startMultiCategorySelection', () => {
     });
   });
 
+  /**
+   * Название категории задаёт пользователь. В ТЕКСТЕ сообщения его нужно
+   * экранировать, а в `text` кнопки — нельзя: текст кнопки Telegram как
+   * Markdown не разбирает, и человек увидел бы `\_` буквально.
+   */
+  it('категория экранируется в тексте, но не в подписи кнопки', async () => {
+    categoryOrders.getCategoryOrdersForPoll.mockResolvedValue([
+      orderFixture({ category: 'Соус_острый' }),
+    ]);
+
+    await MultiCategoryResponsibleService.startMultiCategorySelection(5);
+
+    const [, , message, options] = editMessageText.mock.calls[0];
+    expect(message).toContain('⏳ Соус\\_острый — 3 участников');
+    expect(options.reply_markup.inline_keyboard[0][0].text).toBe(
+      '🙋‍♂️ Соус_острый'
+    );
+  });
+
+  it('имя автоответственного в сообщении о категориях экранируется', async () => {
+    categoryOrders.getCategoryOrdersForPoll.mockResolvedValue([
+      orderFixture({
+        participantCount: 1,
+        category: 'Плов_с бараниной',
+        responsibleUser: { id: 1, firstName: 'Аня_К' },
+      }),
+    ]);
+
+    await MultiCategoryResponsibleService.startMultiCategorySelection(5);
+
+    expect(editMessageText.mock.calls[0][2]).toContain(
+      '✅ Плов\\_с бараниной — Аня\\_К (авто)'
+    );
+  });
+
   it('уже распределённая категория сразу рассылает уведомления', async () => {
     categoryOrders.getCategoryOrdersForPoll.mockResolvedValue([
       orderFixture({

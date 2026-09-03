@@ -10,6 +10,7 @@ import {
 } from './poll-completion.service';
 import { closeExpiredPoll, restoreActiveTimers } from './poll-timer.service';
 import type { TelegramSender } from '../types/bot.types';
+import { escapeMarkdown } from '../utils/telegram-html';
 
 /**
  * Ключ Postgres advisory-lock для single-instance гарантии scheduler'а.
@@ -339,7 +340,9 @@ export class PollSchedulerService {
 
     try {
       const adminTelegramId = Number(schedule.creator.telegramId);
-      const groupTitle = schedule.group.title;
+      /* Название группы приходит из Telegram и разметкой шаблона не является:
+         `_` в нём оставлял админа без уведомления об автоголосовании. */
+      const groupTitle = escapeMarkdown(schedule.group.title ?? '');
 
       if (result.success && result.pollId) {
         // Успешное создание
@@ -402,7 +405,7 @@ export class PollSchedulerService {
           adminTelegramId,
           `❌ *Ошибка автоголосования*\n\n` +
             `📍 Группа: ${groupTitle}\n` +
-            `❗ Ошибка: ${result.message}\n\n` +
+            `❗ Ошибка: ${escapeMarkdown(result.message ?? '')}\n\n` +
             `Следующая попытка: ${RecurringPollService.getNextRunInfo(schedule)}`,
           { parse_mode: 'Markdown' }
         );
