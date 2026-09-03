@@ -88,7 +88,8 @@
   background: none;
   outline: none;
   font: inherit;
-  font-size: var(--text-15);
+  /* 16px — порог автоприближения iOS при фокусе на поле. */
+  font-size: var(--text-16);
   color: var(--text-primary);
 }
 

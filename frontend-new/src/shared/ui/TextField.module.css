@@ -53,7 +53,8 @@
   outline: none;
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: var(--text-15);
+  /* 16px — порог, ниже которого iOS приближает страницу при фокусе на поле. */
+  font-size: var(--text-16);
   padding: 0;
 }
 
