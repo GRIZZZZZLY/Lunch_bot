@@ -7,6 +7,7 @@
 import { BudgetQueryService } from '../../../services/budget-query.service';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
 import { asMock } from '../../helpers/mocks';
+import { EncryptionService } from '../../../utils/encryption';
 
 jest.mock('../../../database/client', () =>
   require('../../helpers/prisma-mock').databaseClientMock()
@@ -122,6 +123,55 @@ describe('getUserDebts', () => {
     expect(prismaMock.transaction.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { fromUserId: 1, status: 'CONFIRMED' } })
     );
+  });
+
+  it('реквизиты получателя уходят клиенту расшифрованными, а не шифротекстом', async () => {
+    const phoneCipher = EncryptionService.encrypt('+79990001122');
+    const cardCipher = EncryptionService.encrypt('https://pay/anya');
+    const detailsCipher = EncryptionService.encrypt('Аня, СБП Тинькофф');
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      tx({
+        toUser: {
+          id: 2,
+          firstName: 'Аня',
+          telegramId: BigInt(777),
+          paymentPhone: phoneCipher,
+          paymentCard: cardCipher,
+          paymentDetails: detailsCipher,
+        },
+      }),
+    ] as never);
+
+    const [debt] = await service.getUserDebts(1);
+
+    expect(debt.toUser.paymentPhone).toBe('+79990001122');
+    expect(debt.toUser.paymentCard).toBe('https://pay/anya');
+    expect(debt.toUser.paymentDetails).toBe('Аня, СБП Тинькофф');
+    // Шифротекст (формат IV:AuthTag:CipherText) не должен уйти клиенту ни в одном поле
+    expect(debt.toUser.paymentPhone).not.toBe(phoneCipher);
+    expect(debt.toUser.paymentCard).not.toBe(cardCipher);
+    expect(debt.toUser.paymentDetails).not.toBe(detailsCipher);
+  });
+
+  it('legacy-реквизиты без шифрования (запись до внедрения EncryptionService) проходят как есть', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      tx({
+        toUser: {
+          id: 2,
+          firstName: 'Аня',
+          telegramId: BigInt(777),
+          paymentPhone: '89990001122',
+          paymentCard: null,
+          paymentDetails: null,
+        },
+      }),
+    ] as never);
+
+    const [debt] = await service.getUserDebts(1);
+
+    expect(debt.toUser.paymentPhone).toBe('89990001122');
+    expect(debt.toUser.paymentCard).toBeNull();
+    expect(debt.toUser.paymentDetails).toBeNull();
   });
 
   it('activeOnly без статуса берёт незакрытые долги', async () => {

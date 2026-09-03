@@ -1,7 +1,36 @@
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { toNumber, sumDecimals } from '../utils/decimal';
-import { Transaction } from '@prisma/client';
+import { Transaction, Prisma } from '@prisma/client';
+import { EncryptionService } from '../utils/encryption';
+
+interface RawPaymentFields {
+  paymentPhone: string | null;
+  paymentCard: string | null;
+  paymentDetails: string | null;
+}
+
+type DecryptedPaymentInfo = RawPaymentFields;
+
+/**
+ * Расшифровать платёжные реквизиты получателя. `EncryptionService.decrypt`
+ * сам разбирается с legacy-записями (текст без `:` — открытый, возвращается
+ * как есть), поэтому здесь никакой отдельной ветки для старых данных не
+ * нужно — только защита от пустых полей, decrypt('') бросать не должен.
+ */
+function decryptPaymentFields(user: RawPaymentFields): DecryptedPaymentInfo {
+  return {
+    paymentPhone: user.paymentPhone
+      ? EncryptionService.decrypt(user.paymentPhone)
+      : user.paymentPhone,
+    paymentCard: user.paymentCard
+      ? EncryptionService.decrypt(user.paymentCard)
+      : user.paymentCard,
+    paymentDetails: user.paymentDetails
+      ? EncryptionService.decrypt(user.paymentDetails)
+      : user.paymentDetails,
+  };
+}
 
 /**
  * Read-only lookups over Transaction rows: a user's debts/credits, a single
@@ -18,12 +47,13 @@ export class BudgetQueryService {
    * Магазинные забеги (storeRun, без poll) не фильтруются — своей группы
    * не имеют, а долг по ним не привязан к членству.
    */
-  private async filterTransactionsByActiveMembers(
-    transactions: Array<
-      Transaction & { poll?: { groupId?: number | null } | null }
-    >,
-    relatedUser: 'from' | 'to'
-  ) {
+  /* Дженерик, а не фиксированный `Transaction & {...}`: getUserDebts отдаёт
+     сюда транзакции с уже расшифрованным toUser, и без дженерика TS терял
+     это в объединении типов двух return-веток (с фильтром и без) — вызовы
+     `.toUser` на результате переставали типизироваться. */
+  private async filterTransactionsByActiveMembers<
+    T extends Transaction & { poll?: { groupId?: number | null } | null },
+  >(transactions: T[], relatedUser: 'from' | 'to'): Promise<T[]> {
     const groupIds = Array.from(
       new Set(transactions.map(tx => tx.poll?.groupId).filter(Boolean))
     ) as number[];
@@ -97,7 +127,7 @@ export class BudgetQueryService {
     activeOnly: boolean = false
   ) {
     try {
-      const where: any = { fromUserId: userId };
+      const where: Prisma.TransactionWhereInput = { fromUserId: userId };
       if (status) {
         where.status = status;
       } else if (activeOnly) {
@@ -138,11 +168,31 @@ export class BudgetQueryService {
         orderBy: { createdAt: 'desc' },
       });
 
+      /* Запись шифрует paymentCard/paymentPhone/paymentDetails
+         (UserService.updatePaymentInfo), а этот запрос брал их сырыми прямо из
+         базы — должник на экране бюджета видел шифротекст вместо ссылки СБП и
+         номера телефона получателя, платёж по ним сделать было невозможно.
+         Декрипт — работа процессора, не базы: расшифровываем уже полученные
+         поля здесь, без похода в БД, и один раз на получателя (getUserId), а
+         не в цикле по долгам, где один и тот же получатель часто повторяется. */
+      const decryptedByToUserId = new Map<number, DecryptedPaymentInfo>();
+      const decryptedDebts = debts.map(debt => {
+        if (!debt.toUser) {
+          return debt;
+        }
+        let decrypted = decryptedByToUserId.get(debt.toUser.id);
+        if (!decrypted) {
+          decrypted = decryptPaymentFields(debt.toUser);
+          decryptedByToUserId.set(debt.toUser.id, decrypted);
+        }
+        return { ...debt, toUser: { ...debt.toUser, ...decrypted } };
+      });
+
       if (!activeOnly) {
-        return debts;
+        return decryptedDebts;
       }
 
-      return await this.filterTransactionsByActiveMembers(debts, 'to');
+      return await this.filterTransactionsByActiveMembers(decryptedDebts, 'to');
     } catch (error) {
       logger.error('Error getting user debts:', error);
       throw error;
