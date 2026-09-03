@@ -7,6 +7,7 @@ import { toNumber, formatCurrency, sumDecimals, multiply } from '../utils/decima
 import { getBotInstance } from '../bot/bot-instance';
 import { PollQueryService } from './poll-query.service';
 import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
+import { escapeMarkdown } from '../utils/telegram-html';
 
 // Локальные типы для замены any
 interface TransactionWithUsers extends Transaction {
@@ -283,15 +284,17 @@ export class PollFlowService {
       // Кто что заказывает
       message += `🍽️ *Заказ:*\n`;
       resultData.winners.forEach((w: any, i: number) => {
-        const voterNames = w.voters.map((v: any) => v.firstName).join(', ');
+        const voterNames = w.voters
+          .map((v: any) => escapeMarkdown(v.firstName ?? ''))
+          .join(', ');
         const total = multiply(w.menuItemSnapshot.price, w.voteCount);
-        message += `${i + 1}. ${w.menuItemName} — ${w.voteCount} чел. (${total.toFixed(2)}₽)\n`;
+        message += `${i + 1}. ${escapeMarkdown(w.menuItemName ?? '')} — ${w.voteCount} чел. (${total.toFixed(2)}₽)\n`;
         message += `   • ${voterNames}\n\n`;
       });
 
       if (resultData.bringOwn.count > 0) {
         const names = resultData.bringOwn.voters
-          .map((v: any) => v.firstName)
+          .map((v: any) => escapeMarkdown(v.firstName ?? ''))
           .join(', ');
         message += `🥪 Своё: ${names}\n\n`;
       }
@@ -306,11 +309,12 @@ export class PollFlowService {
       if (pending.length > 0) {
         message += `💳 *Ждём перевод:* ⏰ ожидается\n\n`;
         pending.forEach((tx: any, i: number) => {
-          message += `${i + 1}. ${tx.fromUser.firstName} → ${formatCurrency(tx.amount)}\n`;
+          const debtorName = escapeMarkdown(tx.fromUser.firstName ?? '');
+          message += `${i + 1}. ${debtorName} → ${formatCurrency(tx.amount)}\n`;
           if (tx.fromUser.username) {
-            message += `   📱 @${tx.fromUser.username}\n`;
+            message += `   📱 @${escapeMarkdown(tx.fromUser.username)}\n`;
           }
-          message += `   ${tx.fromUser.firstName} — ⏰ ожидается\n\n`;
+          message += `   ${debtorName} — ⏰ ожидается\n\n`;
         });
       }
 
@@ -322,10 +326,10 @@ export class PollFlowService {
         message += `${paymentCardLine(paymentCard)}\n`;
       }
       if (paymentInfo?.paymentPhone) {
-        message += `Телефон: ${paymentInfo.paymentPhone}\n`;
+        message += `Телефон: ${escapeMarkdown(paymentInfo.paymentPhone)}\n`;
       }
       if (paymentInfo?.paymentDetails) {
-        message += `ℹ️ ${paymentInfo.paymentDetails}\n`;
+        message += `ℹ️ ${escapeMarkdown(paymentInfo.paymentDetails)}\n`;
       }
 
       const keyboard = {
@@ -372,10 +376,12 @@ export class PollFlowService {
       if (!bot) return;
 
       let message = `🍽️ *Результаты голосования*\n\n`;
-      message += `Твой заказ: ${transaction.menuItem.name}\n`;
+      message += `Твой заказ: ${escapeMarkdown(transaction.menuItem?.name ?? '')}\n`;
       message += `💰 *Твоя сумма: ${formatCurrency(transaction.amount)}*\n\n`;
-      message += `👤 *Ответственный:* ${responsible.firstName}`;
-      if (responsible.lastName) message += ` ${responsible.lastName}`;
+      message += `👤 *Ответственный:* ${escapeMarkdown(responsible.firstName ?? '')}`;
+      if (responsible.lastName) {
+        message += ` ${escapeMarkdown(responsible.lastName)}`;
+      }
       message += `\n\n`;
 
       // Реквизиты из профиля
@@ -386,12 +392,16 @@ export class PollFlowService {
         message += `${paymentCardLine(paymentCard)}\n`;
       }
 
+      /* Реквизиты одного участника уходят в ЛС другим, поэтому здесь дело не
+         только в недоставке: `[текст](ссылка)` из чужого профиля стал бы
+         кликабельной ссылкой в личном сообщении должника. Ссылку СБП это не
+         задевает — она живёт в `url` кнопки, а не в тексте. */
       if (responsiblePaymentInfo?.paymentPhone) {
-        message += `📱 Телефон: ${responsiblePaymentInfo.paymentPhone} (СБП)\n`;
+        message += `📱 Телефон: ${escapeMarkdown(responsiblePaymentInfo.paymentPhone)} (СБП)\n`;
       }
 
       if (responsiblePaymentInfo?.paymentDetails) {
-        message += `ℹ️ ${responsiblePaymentInfo.paymentDetails}\n`;
+        message += `ℹ️ ${escapeMarkdown(responsiblePaymentInfo.paymentDetails)}\n`;
       }
 
       message += `\n💬 Комментарий: Обед ${toLocaleDateString(now())}\n`;
@@ -447,12 +457,12 @@ export class PollFlowService {
       });
 
       let message = `✅ *Голосование завершено!*\n\n`;
-      message += `🎯 *Ответственный:* ${responsible.firstName}\n\n`;
+      message += `🎯 *Ответственный:* ${escapeMarkdown(responsible.firstName ?? '')}\n\n`;
 
       message += `📊 *ЗАКАЗЫ:*\n`;
       resultData.winners.forEach((w: any) => {
         const total = multiply(w.menuItemSnapshot.price, w.voteCount);
-        message += `• ${w.menuItemName} — ${w.voteCount} чел. (${total.toFixed(2)}₽)\n`;
+        message += `• ${escapeMarkdown(w.menuItemName ?? '')} — ${w.voteCount} чел. (${total.toFixed(2)}₽)\n`;
       });
 
       if (resultData.bringOwn.count > 0) {

@@ -121,6 +121,40 @@ describe('реестр шаблонов уведомлений', () => {
     expect(message).toContain('Аня\\_К');
   });
 
+  /**
+   * Остаток шаблонов этого файла: экранированы были только POLL_ENDED, а имя
+   * победителя рулетки, название группы, автор отмены, причина и список
+   * участников уходили как есть.
+   */
+  it('остальные шаблоны на Markdown тоже экранируют подставляемые значения', () => {
+    const winner = notificationTemplates
+      .get(NotificationType.ROULETTE_WINNER)!
+      .getMessage({
+        winner: { firstName: 'Аня_К' },
+        winnerItem: { name: 'Соус_острый *акция*' },
+        voters: [],
+      });
+    expect(winner).toContain('Аня\\_К');
+    expect(winner).toContain('Соус\\_острый \\*акция\\*');
+
+    const started = notificationTemplates
+      .get(NotificationType.POLL_STARTED)!
+      .getMessage({ groupTitle: 'Обед_в *Пловной*', menuItems: [] });
+    expect(started).toContain('Обед\\_в \\*Пловной\\*');
+
+    const cancelled = notificationTemplates
+      .get(NotificationType.POLL_CANCELLED)!
+      .getMessage({
+        cancelledBy: { firstName: 'Аня_К' },
+        reason: 'перенос *на завтра*',
+        totalVotes: 1,
+        voters: [{ firstName: 'Игорь_П', lastName: 'С_ов' }],
+      });
+    expect(cancelled).toContain('Аня\\_К');
+    expect(cancelled).toContain('перенос \\*на завтра\\*');
+    expect(cancelled).toContain('Игорь\\_П С\\_ов');
+  });
+
   it('время завершения показывается по Москве, а не по UTC сервера', () => {
     // Сервер живёт в UTC; без явного `timeZone` в уведомлении стояло бы время
     // на три часа раньше того, что человек видит в интерфейсе.

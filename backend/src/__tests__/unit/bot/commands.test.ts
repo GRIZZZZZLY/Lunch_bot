@@ -149,6 +149,34 @@ describe('/start — регистрация', () => {
     expect(lastOptions(ctx).reply_markup).toBeUndefined();
   });
 
+  /* Имя приходит из Telegram, где `_` в нике — обычное дело. Без
+     экранирования приветствие не доходит совсем: `can't parse entities`. */
+  it('спецсимволы в имени экранируются в оба приветствия', async () => {
+    userService.upsertUser.mockResolvedValue({
+      id: 1,
+      isAdmin: false,
+      createdAt: NOW,
+    });
+    const newcomer = makeCtx({ from: { id: 555, first_name: 'Соус_острый' } });
+
+    await startCommand(newcomer);
+
+    expect(newcomer.reply.mock.calls[0][0]).toContain('Привет, Соус\\_острый!');
+
+    userService.upsertUser.mockResolvedValue({
+      id: 1,
+      isAdmin: false,
+      createdAt: new Date(NOW.getTime() - 60_000),
+    });
+    const returning = makeCtx({ from: { id: 555, first_name: 'Аня *К*' } });
+
+    await startCommand(returning);
+
+    expect(returning.reply.mock.calls[0][0]).toContain(
+      'С возвращением, Аня \\*К\\*!'
+    );
+  });
+
   it('без пользователя просит перезапустить', async () => {
     const ctx = makeCtx({ from: undefined });
 

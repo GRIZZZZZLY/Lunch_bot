@@ -2,6 +2,7 @@ import { BotContext } from '../../types/bot.types';
 import { UserService } from '../../services/user.service';
 import { logger } from '../../utils/logger';
 import { PollQueryService } from '../../services/poll-query.service';
+import { escapeMarkdown } from '../../utils/telegram-html';
 
 /**
  * Команда /start - регистрация пользователя + обработка deep links
@@ -212,8 +213,12 @@ export async function startCommand(ctx: BotContext): Promise<void> {
       return;
     }
 
+    /* Имя приходит из Telegram, где `_` и `*` в нике — обычное дело. Без
+       экранирования Telegram отвечает `can't parse entities`, и приветствие
+       не доходит вообще — то есть человек не видит ответа на /start. */
+    const welcomeName = escapeMarkdown(user.first_name ?? '');
     const welcomeText = isNewUser
-      ? `🎉 Привет, ${user.first_name}!\n\n` +
+      ? `🎉 Привет, ${welcomeName}!\n\n` +
         'Я Rocket Lunch — помогаю команде выбирать, что заказать на обед.\n\n' +
         '*Что умею:*\n' +
         '• голосования за блюда\n' +
@@ -223,7 +228,7 @@ export async function startCommand(ctx: BotContext): Promise<void> {
         '1. Добавь меня в группу\n' +
         '2. Дай права администратора\n' +
         '3. Открой приложение кнопкой Menu'
-      : `👋 С возвращением, ${user.first_name}!`;
+      : `👋 С возвращением, ${welcomeName}!`;
 
     const isGroup = ctx.chat?.type !== 'private';
     

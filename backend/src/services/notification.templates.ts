@@ -57,7 +57,7 @@ templates.set(NotificationType.POLL_STARTED, {
   type: NotificationType.POLL_STARTED,
   getTitle: () => '🗳️ Началось голосование!',
   getMessage: (data: PollStartedNotificationData) => {
-    let message = `📢 В группе *${data.groupTitle}* началось новое голосование!\n\n`;
+    let message = `📢 В группе *${escapeMarkdown(data.groupTitle ?? '')}* началось новое голосование!\n\n`;
     message += `🍽️ Доступно блюд: ${data.menuItems.length}\n`;
     if (data.endTime) {
       message += `⏰ Завершится: ${formatMoscowDateTime(data.endTime)}\n`;
@@ -161,11 +161,11 @@ templates.set(NotificationType.ROULETTE_WINNER, {
   type: NotificationType.ROULETTE_WINNER,
   getTitle: () => '🎉 Вы выбраны ответственным!',
   getMessage: (data: RouletteWinnerNotificationData) => {
-    let message = `🎉 *Поздравляем, ${data.winner.firstName}!*\n\n`;
+    let message = `🎉 *Поздравляем, ${escapeMarkdown(data.winner.firstName ?? '')}!*\n\n`;
     message += `Рулетка выбрала тебя ответственным за заказ.\n\n`;
 
     if (data.winnerItem) {
-      message += `🍽️ Заказываем: ${data.winnerItem.name}\n`;
+      message += `🍽️ Заказываем: ${escapeMarkdown(data.winnerItem.name ?? '')}\n`;
       if (data.winnerItem.price) {
         message += `💰 Цена: ${toNumber(data.winnerItem.price).toFixed(2)} руб.\n`;
       }
@@ -190,10 +190,10 @@ templates.set(NotificationType.POLL_CANCELLED, {
   type: NotificationType.POLL_CANCELLED,
   getTitle: () => '❌ Голосование отменено',
   getMessage: (data: PollCancelledNotificationData) => {
-    let message = `❌ Голосование отменено администратором ${data.cancelledBy.firstName}\n\n`;
+    let message = `❌ Голосование отменено администратором ${escapeMarkdown(data.cancelledBy.firstName ?? '')}\n\n`;
 
     if (data.reason) {
-      message += `📝 Причина: ${data.reason}\n\n`;
+      message += `📝 Причина: ${escapeMarkdown(data.reason)}\n\n`;
     }
 
     message += `👥 Проголосовало: ${data.totalVotes} чел.\n`;
@@ -201,7 +201,7 @@ templates.set(NotificationType.POLL_CANCELLED, {
     if (data.voters.length > 0) {
       message += `\n✅ Участники:\n`;
       data.voters.slice(0, 10).forEach(v => {
-        message += `• ${v.firstName}${v.lastName ? ` ${  v.lastName}` : ''}\n`;
+        message += `• ${escapeMarkdown(v.firstName ?? '')}${v.lastName ? ` ${escapeMarkdown(v.lastName)}` : ''}\n`;
       });
 
       if (data.voters.length > 10) {

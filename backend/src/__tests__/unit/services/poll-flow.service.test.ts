@@ -309,6 +309,35 @@ describe('sendBudgetNotifications', () => {
     });
   });
 
+  /**
+   * Реквизиты одного участника уходят в ЛС другим, поэтому здесь дело не
+   * только в недоставке: `[текст](ссылка)` из чужого профиля превратился бы в
+   * кликабельную ссылку в личном сообщении должника.
+   */
+  it('реквизиты и имена в ЛС должнику экранируются', async () => {
+    userService.getPaymentInfo.mockResolvedValue({
+      paymentCard: null,
+      paymentPhone: '+7_999',
+      paymentDetails: 'СБП [тут](https://evil.example)',
+    });
+    userService.getUserById.mockResolvedValue({
+      id: 2,
+      firstName: 'Аня_К',
+      lastName: 'С*ова',
+      telegramId: BigInt(777),
+    });
+
+    await PollFlowService.sendBudgetNotifications(5, 2, [
+      txFixture({ menuItem: { id: 1, name: 'Соус_острый', price: 250 } }),
+    ]);
+
+    const debtMessage = sendMessage.mock.calls[1][1] as string;
+    expect(debtMessage).toContain('Соус\\_острый');
+    expect(debtMessage).toContain('Аня\\_К С\\*ова');
+    expect(debtMessage).toContain('+7\\_999');
+    expect(debtMessage).toContain('СБП \\[тут](https://evil.example)');
+  });
+
   it('групповое сообщение обновляется итогами', async () => {
     await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);
 

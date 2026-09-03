@@ -67,7 +67,7 @@ export function createPollStartedMessage(endTime: Date, title?: string | null): 
   });
   const header =
     title && title !== 'Голосование за обед'
-      ? `🗳️ **${title}** — голосование запущено!`
+      ? `🗳️ **${escapeMarkdown(title)}** — голосование запущено!`
       : `🗳️ **Голосование за обед запущено!**`;
   return `${header}\n\n⏰ До ${hhmm}`;
 }

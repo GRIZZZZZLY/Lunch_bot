@@ -63,6 +63,15 @@ describe('createPollStartedMessage', () => {
       'Голосование за обед запущено!'
     );
   });
+
+  /* Здесь цена спецсимвола выше, чем в остальных сообщениях: анонс уходит
+     сразу после создания голосования, и `400 can't parse entities` от
+     Telegram роняет весь сценарий запуска, а не только текст в чате. */
+  it('спецсимволы в названии экранируются', () => {
+    const message = createPollStartedMessage(NOW, 'Обед_в *Пловной*');
+
+    expect(message).toContain('**Обед\\_в \\*Пловной\\***');
+  });
 });
 
 describe('createCompactPollKeyboard', () => {
