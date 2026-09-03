@@ -234,10 +234,16 @@ export class VoteService {
        блюдами раньше добирал голоса сверх maxSelections, а одиночный режим
        обходился по одному блюду за запрос. Уже поданные голоса за те же блюда
        добором не считаются — createMultipleVotes их и так пропустит. */
+    /* Считается размер МНОЖЕСТВА, а не длина массива: `[11, 11]` в одиночном
+       режиме давал ложный отказ «только один выбор», хотя ниже
+       `createMultipleVotes` набор всё равно дедуплицирует. Через HTTP сюда
+       приходит уже множество, но правило по контракту метода обязано работать
+       для любого вызывающего — иначе оно снова живёт в HTTP-слое. */
+    const requestedItemIds = [...new Set(menuItemIds)];
     const alreadyVotedOthers = await prisma.vote.count({
-      where: { pollId, userId, menuItemId: { notIn: menuItemIds } },
+      where: { pollId, userId, menuItemId: { notIn: requestedItemIds } },
     });
-    const resulting = alreadyVotedOthers + menuItemIds.length;
+    const resulting = alreadyVotedOthers + requestedItemIds.length;
 
     if (!isMultiSelect && resulting > 1) {
       throw new SingleSelectionOnlyError();

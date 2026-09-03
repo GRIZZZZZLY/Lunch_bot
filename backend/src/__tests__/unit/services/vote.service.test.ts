@@ -717,6 +717,26 @@ describe('castVotes', () => {
     await expect(VoteService.castVotes(1, 5, [7, 8])).resolves.toBeDefined();
   });
 
+  /* Лимит считается по МНОЖЕСТВУ, а не по длине массива: дубликаты давали
+     ложный отказ, хотя ниже createMultipleVotes набор всё равно дедуплицирует.
+     Через HTTP сюда приходит уже множество, но метод по своему докблоку
+     действует для любого вызывающего. */
+  it('дубликаты в запросе не считаются за отдельные голоса', async () => {
+    poll({ isMultiSelect: false });
+    asMock(prismaMock.vote.count).mockResolvedValue(0);
+
+    await expect(VoteService.castVotes(1, 5, [11, 11])).resolves.toBeDefined();
+  });
+
+  it('дубликаты не добирают предел множественного выбора', async () => {
+    poll({ maxSelections: 2 });
+    asMock(prismaMock.vote.count).mockResolvedValue(0);
+
+    await expect(
+      VoteService.castVotes(1, 5, [7, 7, 8, 8])
+    ).resolves.toBeDefined();
+  });
+
   it('maxSelections больше трёх не поднимает предел выше трёх', async () => {
     poll({ maxSelections: 10 });
 
