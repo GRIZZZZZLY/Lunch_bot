@@ -4,11 +4,31 @@ import { now } from '../utils/date';
 import { toNumber } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 import { Prisma } from '@prisma/client';
+import { UserService, type PaymentInfo } from './user.service';
+import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
 
-// Транзакция со связями, нужными для рассылки напоминаний
+/**
+ * Транзакция со связями, нужными для рассылки напоминаний.
+ *
+ * У получателя платежа берётся только имя. Платёжные поля в базе зашифрованы,
+ * и пока `toUser: true` тянул их сюда целиком, напоминание подставляло в текст
+ * шифротекст — должник видел байты вместо реквизитов. Узкий `select` делает
+ * эту ошибку невозможной структурно: расшифрованные значения приходят из
+ * `UserService.getPaymentInfo`, и одноимённых полей-двойников рядом нет.
+ */
 type ReminderTransaction = Prisma.TransactionGetPayload<{
-  include: { fromUser: true; toUser: true; poll: { include: { group: true } } };
+  include: {
+    fromUser: true;
+    toUser: { select: { id: true; firstName: true } };
+    poll: { include: { group: true } };
+  };
 }>;
+
+const reminderInclude = {
+  fromUser: true,
+  toUser: { select: { id: true, firstName: true } },
+  poll: { include: { group: true } },
+} satisfies Prisma.TransactionInclude;
 
 interface SendReminderResult {
   success: boolean;
@@ -82,7 +102,8 @@ export class ReminderService {
    */
   private async deliverReminder(
     transaction: ReminderTransaction,
-    requestingUserId: number
+    requestingUserId: number,
+    paymentInfo: PaymentInfo | null
   ): Promise<
     | { ok: true; message: string }
     | { ok: false; error: string; errorCode: SendReminderResult['errorCode'] }
@@ -109,6 +130,11 @@ export class ReminderService {
     const creditorName = transaction.toUser.firstName;
     const groupName = transaction.poll?.group?.title || 'группа';
 
+    const paymentCard = paymentInfo?.paymentCard ?? null;
+
+    /* Реквизиты выводятся через paymentCardLine: поле paymentCard давно
+       содержит ссылку СБП, а подпись «Карта» под ней и врёт, и не помогает —
+       перевести можно только кнопкой. Legacy-номер там же маскируется. */
     const message = `
 💰 Напоминание об оплате
 
@@ -116,17 +142,25 @@ export class ReminderService {
 💸 Сумма: ${amount}₽
 📍 Заказ в ${groupName}
 
-${transaction.toUser.paymentPhone ? `📱 СБП: ${transaction.toUser.paymentPhone}` : ''}
-${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymentCard}` : ''}
+${paymentInfo?.paymentPhone ? `📱 СБП: ${paymentInfo.paymentPhone}` : ''}
+${paymentCard ? paymentCardLine(paymentCard) : ''}
 
 Отметь оплату в Mini App после перевода 👍
       `.trim();
+
+    /* Кнопка появляется только у ссылки: пустой inline_keyboard Telegram не
+       принимает, а других кнопок в напоминании нет. */
+    const replyMarkup =
+      paymentCard && isPaymentLink(paymentCard)
+        ? { inline_keyboard: [[paymentLinkButton(paymentCard)]] }
+        : null;
 
     // Отправляем уведомление
     try {
       await bot.api.sendMessage(
         Number(transaction.fromUser.telegramId),
-        message
+        message,
+        ...(replyMarkup ? ([{ reply_markup: replyMarkup }] as const) : [])
       );
       return { ok: true, message };
     } catch (sendError: any) {
@@ -153,15 +187,7 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
     try {
       const transaction = await prisma.transaction.findUnique({
         where: { id: transactionId },
-        include: {
-          fromUser: true,
-          toUser: true,
-          poll: {
-            include: {
-              group: true,
-            },
-          },
-        },
+        include: reminderInclude,
       });
 
       if (!transaction) {
@@ -172,7 +198,16 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
         };
       }
 
-      const result = await this.deliverReminder(transaction, requestingUserId);
+      /* Реквизиты запрашиваются по вызывающему, а не по transaction.toUserId:
+         совпадение этих двух id проверяет deliverReminder, и брать id из
+         запроса значит не иметь возможности отдать чужие реквизиты вообще. */
+      const paymentInfo = await UserService.getPaymentInfo(requestingUserId);
+
+      const result = await this.deliverReminder(
+        transaction,
+        requestingUserId,
+        paymentInfo
+      );
 
       if (!result.ok) {
         return {
@@ -231,16 +266,12 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
           toUserId: requestingUserId,
           status: 'PENDING',
         },
-        include: {
-          fromUser: true,
-          toUser: true,
-          poll: {
-            include: {
-              group: true,
-            },
-          },
-        },
+        include: reminderInclude,
       });
+
+      /* Один запрос на всю рассылку: по `where` выше получатель платежа у всех
+         транзакций один и тот же. Внутри цикла это был бы запрос на должника. */
+      const paymentInfo = await UserService.getPaymentInfo(requestingUserId);
 
       const totalCount = transactions.length;
       let sentCount = 0;
@@ -250,7 +281,8 @@ ${transaction.toUser.paymentCard ? `💳 Карта: ${transaction.toUser.paymen
       for (const transaction of transactions) {
         const result = await this.deliverReminder(
           transaction,
-          requestingUserId
+          requestingUserId,
+          paymentInfo
         );
 
         if (result.ok) {

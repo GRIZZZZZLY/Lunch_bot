@@ -19,7 +19,12 @@ jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
+jest.mock('../../../services/user.service', () => ({
+  UserService: { getPaymentInfo: jest.fn() },
+}));
+
 const botInstance = asMock(getBotInstance);
+const users = jest.requireMock('../../../services/user.service').UserService;
 
 const NOW = new Date('2026-08-03T12:00:00.000Z');
 
@@ -36,12 +41,16 @@ function tx(overrides: Record<string, unknown> = {}) {
     status: 'PENDING',
     createdAt: NOW,
     fromUser: { id: 1, firstName: 'Игорь', telegramId: BigInt(555) },
+    /* В базе платёжные поля лежат ЗАШИФРОВАННЫМИ, и раньше напоминание брало
+       их отсюда напрямую — должник получал шифротекст. Здесь они оставлены
+       нарочно: тесты проверяют, что в сообщение уходит расшифрованное
+       значение из UserService.getPaymentInfo, а не эти байты. */
     toUser: {
       id: 2,
       firstName: 'Аня',
       telegramId: BigInt(777),
-      paymentPhone: '+79990001122',
-      paymentCard: 'https://pay/anya',
+      paymentPhone: 'aabb:ccdd:eeff',
+      paymentCard: 'ffee:ddcc:bbaa',
     },
     menuItem: { id: 1, name: 'Плов', price: 200 },
     poll: { id: 5, groupId: 100, group: { id: 100, title: 'Команда' } },
@@ -56,6 +65,11 @@ beforeEach(() => {
 
   sendMessage = jest.fn().mockResolvedValue(undefined);
   botInstance.mockReturnValue({ api: { sendMessage } });
+  users.getPaymentInfo.mockResolvedValue({
+    paymentCard: 'https://pay/anya',
+    paymentPhone: '+79990001122',
+    paymentDetails: null,
+  });
 
   service = new ReminderService();
 });
@@ -83,6 +97,70 @@ describe('sendReminder', () => {
     expect(message).toContain('250.00₽');
     expect(message).toContain('Заказ в Команда');
     expect(message).toContain('СБП: +79990001122');
+  });
+
+  /* Реквизиты в базе зашифрованы. Пока напоминание читало их из
+     `include: { toUser: true }`, должник получал шифротекст — заплатить по
+     нему нельзя, и это был живой дефект, а не косметика. */
+  it('реквизиты уходят расшифрованными, а не шифротекстом из базы', async () => {
+    await service.sendReminder(10, 2);
+
+    expect(users.getPaymentInfo).toHaveBeenCalledWith(2);
+    const message = sendMessage.mock.calls[0][1] as string;
+    expect(message).not.toContain('ffee:ddcc:bbaa');
+    expect(message).not.toContain('aabb:ccdd:eeff');
+    expect(message).toContain('+79990001122');
+  });
+
+  /* Ссылка СБП под подписью «Карта» — тот же дефект, что правила задача 5:
+     подпись врёт, а перевести по ней всё равно нельзя. Ссылка уходит кнопкой,
+     в тексте остаётся фиксированная строка из paymentCardLine(). */
+  it('ссылка СБП уходит кнопкой, а не подписью «Карта»', async () => {
+    await service.sendReminder(10, 2);
+
+    const [, message, options] = sendMessage.mock.calls[0];
+    expect(message).not.toContain('Карта');
+    expect(message).not.toContain('https://pay/anya');
+    expect(message).toContain('кнопкой ниже');
+    expect(options).toEqual({
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '💳 Перевести по ссылке', url: 'https://pay/anya' }],
+        ],
+      },
+    });
+  });
+
+  /* Legacy-номер карты по-прежнему маскируется — и остаётся в тексте, кнопке
+     там взяться неоткуда. */
+  it('legacy-номер карты маскируется и кнопки не даёт', async () => {
+    users.getPaymentInfo.mockResolvedValue({
+      paymentCard: '2200123456789012',
+      paymentPhone: null,
+      paymentDetails: null,
+    });
+
+    await service.sendReminder(10, 2);
+
+    const [, message, options] = sendMessage.mock.calls[0];
+    expect(message).toContain('💳 Карта: **** **** **** 9012');
+    expect(options).toBeUndefined();
+  });
+
+  /* Ответственных на весь заказ один (по `where` выборки), поэтому реквизиты
+     запрашиваются один раз, а не по должнику. */
+  it('реквизиты для рассылки всем запрашиваются одним вызовом', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      tx(),
+      tx({ id: 11, fromUser: { id: 3, firstName: 'Оля', telegramId: BigInt(888) } }),
+    ] as never);
+    asMock(prismaMock.paymentReminder.createMany).mockResolvedValue({ count: 2 });
+    asMock(prismaMock.transaction.updateMany).mockResolvedValue({ count: 2 });
+
+    await service.sendRemindersToAll(5, 2);
+
+    expect(users.getPaymentInfo).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledTimes(2);
   });
 
   it('напоминание фиксируется и увеличивает счётчик', async () => {
