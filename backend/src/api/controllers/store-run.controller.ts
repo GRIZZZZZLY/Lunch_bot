@@ -69,6 +69,7 @@ export class StoreRunController {
       const run = await StoreRunService.createStoreRun({
         initiatorId: user.id,
         groupId: body.groupId,
+        storeId: body.storeId,
         storeName: body.storeName,
         collectMinutes: body.collectMinutes,
       });

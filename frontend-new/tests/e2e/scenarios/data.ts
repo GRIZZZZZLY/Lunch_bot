@@ -1,5 +1,7 @@
 import type { MenuItem, MenuSuggestion, Poll, PollResult, Transaction, User } from '../../../src/types/models';
 import type { UserGroup } from '../../../src/services/user.service';
+import type { GroupStore } from '../../../src/services/group-store.service';
+import type { ItemPreset } from '../../../src/services/item-preset.service';
 import type {
   StoreItem,
   StoreRunListItem,
@@ -67,6 +69,8 @@ export interface E2EState {
   myVotes: Record<number, number[]>;
   pollResults: Record<number, PollResult>;
   storeRuns: StoreRunWithRelations[];
+  groupStores: GroupStore[];
+  itemPresets: ItemPreset[];
   debts: Transaction[];
   credits: Transaction[];
   suggestions: MenuSuggestion[];
@@ -248,6 +252,52 @@ function makeStoreItems(currentIsInitiator: boolean): StoreItem[] {
   ];
 }
 
+/** Справочник магазинов группы: подсказки под полем «Откуда заказываем». */
+export function makeGroupStores(): GroupStore[] {
+  return [
+    {
+      id: 901,
+      groupId: 1,
+      name: 'Пятёрочка у офиса',
+      lastUsedAt: RUN_CREATED_AT,
+      usageCount: 4,
+      archivedAt: null,
+    },
+    {
+      id: 902,
+      groupId: 1,
+      name: 'Магнит на Ленина',
+      lastUsedAt: '2026-07-10T09:00:00.000Z',
+      usageCount: 2,
+      archivedAt: null,
+    },
+  ];
+}
+
+/** Личный список товаров: то, что пользователь уже заказывал. */
+export function makeItemPresets(): ItemPreset[] {
+  return [
+    {
+      id: 801,
+      name: 'Молоко 3,2%',
+      quantity: 2,
+      notes: 'в стеклянной бутылке',
+      pinned: true,
+      usageCount: 7,
+      lastUsedAt: RUN_CREATED_AT,
+    },
+    {
+      id: 802,
+      name: 'Кофе в зёрнах',
+      quantity: 1,
+      notes: null,
+      pinned: false,
+      usageCount: 3,
+      lastUsedAt: '2026-07-12T09:00:00.000Z',
+    },
+  ];
+}
+
 export function makeStoreRun(
   status: StoreRunWithRelations['status'],
   currentIsInitiator: boolean,
@@ -266,6 +316,7 @@ export function makeStoreRun(
     id: 601,
     groupId: 1,
     initiatorId: initiator.id,
+    storeId: 901,
     storeName: 'Пятёрочка у офиса',
     status,
     collectUntil: '2026-07-20T10:00:00.000Z',
@@ -417,6 +468,10 @@ export function createScenario(name: ScenarioName, role: E2ERole): E2EState {
       },
     },
     storeRuns: [],
+    /* Справочник магазинов есть всегда: подсказки под «Откуда заказываем»
+       тянутся на главной, ещё до всякой закупки. */
+    groupStores: makeGroupStores(),
+    itemPresets: [],
     debts: [],
     credits: [],
     suggestions: [],
@@ -489,6 +544,9 @@ export function createScenario(name: ScenarioName, role: E2ERole): E2EState {
   if (name === 'expired-session') state.expireProtectedRequestOnce = true;
   if (name.startsWith('store-')) {
     const currentIsInitiator = role === 'storeInitiator' || role === 'creator' || role === 'admin';
+    /* Личный список наполняем только в сценариях закупки: он виден лишь в
+       шторке добавления позиции. */
+    state.itemPresets = makeItemPresets();
     if (name === 'store-collecting') state.storeRuns = [makeStoreRun('COLLECTING', currentIsInitiator)];
     if (name === 'store-shopping') state.storeRuns = [makeStoreRun('SHOPPING', currentIsInitiator)];
     if (name === 'store-settled') state.storeRuns = [makeStoreRun('SETTLED', currentIsInitiator)];

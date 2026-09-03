@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/useToast';
 import { CreatePollSheet } from '@/components/admin/CreatePollSheet';
 import type { CreatePollFormState } from '@/components/admin/types';
 import { CreateStoreRunSheet } from '@/features/store-run/components/CreateStoreRunSheet';
+import { ManageStoreSheet } from '@/features/store-run/components/ManageStoreSheet';
 import { useAppStore } from '@/store/useAppStore';
 import { Greeting } from './components/Greeting';
 import { TicketSlot } from './components/TicketSlot';
@@ -64,6 +65,12 @@ export function HomePage() {
     activeRuns,
     createStoreRun,
     createRun,
+    stores,
+    managedStore,
+    setManagedStore,
+    renameManagedStore,
+    archiveManagedStore,
+    storeBusy,
     queries: runQueries,
   } = useHomeStoreRun();
 
@@ -169,9 +176,20 @@ export function HomePage() {
       <CreateStoreRunSheet
         open={sheets.storeRunOpen}
         busy={createStoreRun.isPending}
+        stores={stores}
         onClose={sheets.closeStoreRun}
         onSubmit={(input) => sheets.afterStoreRunAction(() => createRun(input))}
+        onManageStore={setManagedStore}
       />
+      {managedStore && (
+        <ManageStoreSheet
+          store={managedStore}
+          busy={storeBusy}
+          onClose={() => setManagedStore(null)}
+          onRename={renameManagedStore}
+          onArchive={archiveManagedStore}
+        />
+      )}
     </div>
   );
 }

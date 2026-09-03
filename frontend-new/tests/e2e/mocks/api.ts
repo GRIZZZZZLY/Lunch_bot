@@ -35,6 +35,15 @@ function pathKey(method: string, path: string): string {
   return `${method} ${path}`;
 }
 
+/**
+ * Повторяет `backend/src/utils/normalize-name.ts`: без этого мок разрешал бы
+ * переименование «Магнит» → «магнит на ленина» рядом с «Магнит на Ленина», а
+ * сервер отвечает на это 409, и тест проверял бы несуществующее поведение.
+ */
+function normalizeStoreName(value: string): string {
+  return value.trim().toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ');
+}
+
 function takeFailure(state: E2EState, method: string, path: string) {
   const exact = pathKey(method, path);
   const rule = state.failures[exact];
@@ -407,7 +416,11 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
       const run = makeStoreRun('COLLECTING', true);
       run.id = 602;
       run.groupId = Number(input.groupId ?? 1);
-      run.storeName = String(input.storeName ?? 'Магазин');
+      /* Повторяет сервер: при выборе из справочника имя берётся из записи, а не
+         из тела запроса — клиент его и не присылает. */
+      const picked = state.groupStores.find((store) => store.id === Number(input.storeId));
+      run.storeId = picked?.id ?? 903;
+      run.storeName = picked?.name ?? String(input.storeName ?? 'Магазин');
       run.items = [];
       state.storeRuns.push(run);
       await route.fulfill({ status: 201, json: ok(run) });
@@ -480,6 +493,75 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
     const storeRun = path.match(/^\/store-runs\/(\d+)$/);
     if (method === 'GET' && storeRun) {
       await route.fulfill({ json: ok(state.storeRuns.find((run) => run.id === Number(storeRun[1])) ?? null) });
+      return;
+    }
+
+    const groupStores = path.match(/^\/groups\/(\d+)\/stores$/);
+    if (method === 'GET' && groupStores) {
+      const groupId = Number(groupStores[1]);
+      await route.fulfill({
+        json: ok(
+          state.groupStores.filter((store) => store.groupId === groupId && !store.archivedAt),
+        ),
+      });
+      return;
+    }
+    const groupStore = path.match(/^\/groups\/(\d+)\/stores\/(\d+)$/);
+    if (groupStore && (method === 'PATCH' || method === 'DELETE')) {
+      const target = state.groupStores.find((store) => store.id === Number(groupStore[2]));
+      if (!target) {
+        await route.fulfill({ status: 404, json: fail('Магазин не найден', 'NOT_FOUND') });
+        return;
+      }
+      if (method === 'DELETE') {
+        target.archivedAt = new Date().toISOString();
+        await route.fulfill({ json: ok(null) });
+        return;
+      }
+      const name = String(bodyRecord(body).name ?? '').trim();
+      const taken = state.groupStores.some(
+        (store) =>
+          store.id !== target.id &&
+          store.groupId === target.groupId &&
+          normalizeStoreName(store.name) === normalizeStoreName(name),
+      );
+      if (taken) {
+        await route.fulfill({
+          status: 409,
+          json: fail('Магазин с таким названием в этой группе уже есть', 'STORE_EXISTS'),
+        });
+        return;
+      }
+      target.name = name;
+      for (const run of state.storeRuns) {
+        if (run.storeId === target.id && (run.status === 'COLLECTING' || run.status === 'SHOPPING')) {
+          run.storeName = name;
+        }
+      }
+      await route.fulfill({ json: ok(target) });
+      return;
+    }
+
+    if (method === 'GET' && path === '/user/item-presets') {
+      await route.fulfill({ json: ok(state.itemPresets) });
+      return;
+    }
+    const itemPreset = path.match(/^\/user\/item-presets\/(\d+)$/);
+    if (itemPreset && (method === 'PATCH' || method === 'DELETE')) {
+      const id = Number(itemPreset[1]);
+      const target = state.itemPresets.find((preset) => preset.id === id);
+      if (!target) {
+        await route.fulfill({ status: 404, json: fail('Товар не найден', 'NOT_FOUND') });
+        return;
+      }
+      if (method === 'DELETE') {
+        state.itemPresets = state.itemPresets.filter((preset) => preset.id !== id);
+        await route.fulfill({ json: ok(null) });
+        return;
+      }
+      const patch = bodyRecord(body);
+      if (typeof patch.pinned === 'boolean') target.pinned = patch.pinned;
+      await route.fulfill({ json: ok(target) });
       return;
     }
 

@@ -32,6 +32,9 @@ export interface StoreRun {
   id: number;
   groupId: number;
   initiatorId: number;
+  /** Связь со справочником. `null` у закупок, созданных до его появления. */
+  storeId?: number | null;
+  /** Снимок имени на момент закупки: переименование магазина его не меняет. */
   storeName: string;
   status: StoreRunStatus;
   collectUntil: string;
@@ -53,9 +56,15 @@ export interface StoreRunListItem extends StoreRun {
   items: Array<Pick<StoreItem, 'id' | 'name' | 'quantity'>>;
 }
 
+/**
+ * Магазин задаётся ЛИБО выбором из справочника (`storeId`), ЛИБО именем.
+ * Сервер требует хотя бы одно из двух; имя при выборе чипа не дублируется,
+ * чтобы источником истины оставалась запись справочника.
+ */
 export interface CreateStoreRunPayload {
   groupId: number;
-  storeName: string;
+  storeId?: number | null;
+  storeName?: string;
   collectMinutes: number;
 }
 

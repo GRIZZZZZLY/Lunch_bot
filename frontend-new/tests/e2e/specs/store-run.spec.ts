@@ -18,6 +18,27 @@ test.describe('Создание закупки', () => {
     await expect(appPage).toHaveURL('/store-run/602');
     await expect(appPage.getByText('Лента у метро')).toBeVisible();
   });
+
+  test('выбор магазина из подсказок уходит идентификатором', async ({ appPage, api }) => {
+    await appPage.goto('/');
+    await appPage.getByRole('button', { name: /Закупка в магазине/ }).click();
+    const dialog = appPage.getByRole('dialog', { name: 'Новая закупка' });
+
+    await dialog.getByRole('button', { name: 'Магнит на Ленина' }).click();
+    await expect(dialog.getByRole('textbox', { name: 'Откуда заказываем' })).toHaveValue(
+      'Магнит на Ленина',
+    );
+    await dialog.getByRole('button', { name: 'Открыть сбор' }).click();
+
+    /* Имя не дублируется в теле: источник истины — запись справочника, и
+       сервер подставляет её название сам. */
+    expect(api.lastRequest('POST', '/store-runs')?.body).toEqual({
+      groupId: 1,
+      storeId: 902,
+      collectMinutes: 30,
+    });
+    await expect(appPage.getByText('Магнит на Ленина')).toBeVisible();
+  });
 });
 
 test.describe('Закупка: сбор позиций', () => {
@@ -42,6 +63,9 @@ test.describe('Закупка: сбор позиций', () => {
 
     await appPage.getByRole('button', { name: 'Добавить позицию' }).click();
     const add = appPage.getByRole('dialog');
+    /* Шторка открывается на личном списке товаров: ручной ввод переехал на
+       вторую вкладку. */
+    await add.getByRole('tab', { name: 'Новая' }).click();
     await add.getByRole('button', { name: 'Добавить' }).click();
     await expect(add.getByText('Укажите название')).toBeVisible();
     await add.getByRole('textbox', { name: 'Что купить' }).fill('Яблоки');
@@ -55,6 +79,37 @@ test.describe('Закупка: сбор позиций', () => {
     await appPage.getByLabel('Удалить «Кефир 2,5%»').click();
     await appPage.getByRole('alertdialog').getByRole('button', { name: 'Удалить' }).click();
     await expect(appPage.getByText('Кефир 2,5%')).toHaveCount(0);
+  });
+
+  test('добавляет сохранённые товары одним запросом', async ({ appPage, api }) => {
+    await appPage.goto('/store-run/601');
+    await appPage.getByRole('button', { name: 'Добавить позицию' }).click();
+    const add = appPage.getByRole('dialog');
+
+    /* Уже заказанное молоко помечено и выбору не подлежит: повторный выбор дал
+       бы молчаливый дубль в списке. */
+    await expect(add.getByText('уже в списке')).toBeVisible();
+    await expect(add.getByRole('checkbox', { name: 'Выбрать Молоко 3,2%' })).toHaveCount(0);
+
+    await add.getByRole('checkbox', { name: 'Выбрать Кофе в зёрнах' }).click();
+    await add.getByRole('button', { name: 'Добавить 1' }).click();
+
+    expect(api.lastRequest('POST', '/store-runs/601/items')?.body).toEqual({
+      items: [{ name: 'Кофе в зёрнах', quantity: 1 }],
+    });
+    await expect(appPage.getByText('Кофе в зёрнах')).toBeVisible();
+  });
+
+  test('удаление товара из личного списка не трогает закупку', async ({ appPage, api }) => {
+    await appPage.goto('/store-run/601');
+    await appPage.getByRole('button', { name: 'Добавить позицию' }).click();
+    const add = appPage.getByRole('dialog');
+
+    await add.getByRole('button', { name: 'Удалить Кофе в зёрнах из моих товаров' }).click();
+
+    await expect(add.getByText('Кофе в зёрнах')).toHaveCount(0);
+    expect(api.requests('DELETE', '/user/item-presets/802')).toHaveLength(1);
+    expect(api.requests('POST', '/store-runs/601/items')).toHaveLength(0);
   });
 });
 

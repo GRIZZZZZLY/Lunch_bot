@@ -52,6 +52,16 @@ export const queryKeys = {
     active: () => ['storeRuns', 'active'] as const,
     detail: (id: number) => ['storeRuns', 'detail', id] as const,
   },
+  groupStores: {
+    all: ['groupStores'] as const,
+    list: (groupId: number) => ['groupStores', 'list', groupId] as const,
+  },
+  /* `storeId` входит в ключ: порядок списка зависит от магазина, и один кэш на
+     все магазины показывал бы чужую сортировку. */
+  itemPresets: {
+    all: ['itemPresets'] as const,
+    list: (storeId: number | null) => ['itemPresets', 'list', storeId] as const,
+  },
   admin: {
     all: ['admin'] as const,
     users: (groupId: number) => ['admin', 'users', groupId] as const,

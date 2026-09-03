@@ -34,6 +34,8 @@ import adminRoutes from './routes/admin.routes';
 import categoryOrderRoutes from './routes/category-order.routes';
 import sseRoutes from './routes/sse.routes';
 import donationRoutes from './routes/donation.routes';
+import groupStoreRoutes from './routes/group-store.routes';
+import itemPresetRoutes from './routes/item-preset.routes';
 
 // Импорт middleware
 import { metricsMiddleware } from './middleware/metrics';
@@ -191,6 +193,9 @@ export function createApiServer(): express.Application {
   app.use('/api/suggestions', menuSuggestionRoutes);
   app.use('/api/polls', pollRoutes);
   app.use('/api/votes', require('./routes/vote.routes').default);
+  /* Раньше общего роутера пользователя: более длинный префикс должен получить
+     запрос первым, иначе порядок регистрации решает, кто ответит. */
+  app.use('/api/user/item-presets', itemPresetRoutes);
   app.use('/api/user', userRoutes);
   app.use('/api/budget', budgetRoutes);
   app.use('/api/metrics', metricsRoutes);
@@ -199,6 +204,7 @@ export function createApiServer(): express.Application {
     '/api/notifications',
     require('./routes/notification.routes').default
   );
+  app.use('/api/groups', groupStoreRoutes);
   app.use('/api/store-runs', require('./routes/store-run.routes').default);
   app.use('/api/gamification', gamificationRoutes);
   app.use('/api/seasons', seasonRoutes);
