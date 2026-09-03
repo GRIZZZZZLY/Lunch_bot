@@ -12,6 +12,50 @@ interface RawPaymentFields {
 
 type DecryptedPaymentInfo = RawPaymentFields;
 
+/* Явный include вместо инлайна в вызове — нужен как `typeof`, чтобы вывести
+   точный тип результата `findMany` через `Prisma.TransactionGetPayload`.
+   Без этого у `getUserDebts` не было явного возвращаемого типа (нарушение
+   AGENTS.md про публичные методы сервисов), а компилятор при отсутствии
+   аннотации схлопывал тип в объединение по обеим return-веткам функции и
+   терял `toUser` там, где он объединению не соответствовал. */
+const debtsInclude = {
+  /* Явные select вместо `true`. `include: { user: true }` возвращает ВСЕ
+     колонки User, включая paymentCard / paymentPhone / paymentDetails —
+     реквизиты уезжали клиенту в обе стороны, в том числе там, где они не
+     нужны. Здесь список СВОИХ долгов, поэтому реквизиты получателя
+     отдаём осознанно: именно по ним человек и переводит деньги, а право
+     их видеть даёт сам факт непогашенного долга (where: fromUserId = я).
+     Свои собственные реквизиты в этом ответе не нужны. */
+  fromUser: { select: { id: true, firstName: true, username: true } },
+  toUser: {
+    select: {
+      id: true,
+      firstName: true,
+      username: true,
+      paymentPhone: true,
+      paymentCard: true,
+      paymentDetails: true,
+    },
+  },
+  menuItem: true,
+  // За что долг: обеденная транзакция несёт блюдо, магазинная — забег.
+  // Без этого строка бюджета показывала только имя и сумму.
+  storeRun: { select: { id: true, storeName: true } },
+  poll: {
+    include: {
+      group: true,
+    },
+  },
+} satisfies Prisma.TransactionInclude;
+
+/* Тип результата `getUserDebts`. Расшифровка не меняет форму полей
+   (paymentPhone/paymentCard/paymentDetails остаются `string | null`) —
+   меняются только значения, поэтому отдельный тип "с расшифрованным toUser"
+   не нужен, этого типа достаточно для обеих return-веток метода. */
+type DebtWithPayee = Prisma.TransactionGetPayload<{
+  include: typeof debtsInclude;
+}>;
+
 /**
  * Расшифровать платёжные реквизиты получателя. `EncryptionService.decrypt`
  * сам разбирается с legacy-записями (текст без `:` — открытый, возвращается
@@ -47,10 +91,14 @@ export class BudgetQueryService {
    * Магазинные забеги (storeRun, без poll) не фильтруются — своей группы
    * не имеют, а долг по ним не привязан к членству.
    */
-  /* Дженерик, а не фиксированный `Transaction & {...}`: getUserDebts отдаёт
-     сюда транзакции с уже расшифрованным toUser, и без дженерика TS терял
-     это в объединении типов двух return-веток (с фильтром и без) — вызовы
-     `.toUser` на результате переставали типизироваться. */
+  /* Дженерик, а не фиксированный `Transaction & {...}`: и `getUserDebts`, и
+     `getUserCredits` объявляют собственный явный возвращаемый тип (с разным
+     набором связей), и этот приватный метод должен возвращать РОВНО тот тип,
+     что получил, а не сужать его до общего знаменателя `Transaction`. Проверено:
+     после того как `getUserDebts` получил явную аннотацию `Promise<DebtWithPayee[]>`,
+     фиксированная сигнатура здесь ломала компиляцию (TS2322 — результат метода
+     переставал соответствовать `DebtWithPayee[]`), то есть дженерик не костыль
+     вокруг отсутствующей аннотации, а необходимое условие при уже присутствующей. */
   private async filterTransactionsByActiveMembers<
     T extends Transaction & { poll?: { groupId?: number | null } | null },
   >(transactions: T[], relatedUser: 'from' | 'to'): Promise<T[]> {
@@ -125,7 +173,7 @@ export class BudgetQueryService {
     userId: number,
     status?: 'PENDING' | 'PAID' | 'CONFIRMED',
     activeOnly: boolean = false
-  ) {
+  ): Promise<DebtWithPayee[]> {
     try {
       const where: Prisma.TransactionWhereInput = { fromUserId: userId };
       if (status) {
@@ -136,35 +184,7 @@ export class BudgetQueryService {
 
       const debts = await prisma.transaction.findMany({
         where,
-        include: {
-          /* Явные select вместо `true`. `include: { user: true }` возвращает ВСЕ
-             колонки User, включая paymentCard / paymentPhone / paymentDetails —
-             реквизиты уезжали клиенту в обе стороны, в том числе там, где они не
-             нужны. Здесь список СВОИХ долгов, поэтому реквизиты получателя
-             отдаём осознанно: именно по ним человек и переводит деньги, а право
-             их видеть даёт сам факт непогашенного долга (where: fromUserId = я).
-             Свои собственные реквизиты в этом ответе не нужны. */
-          fromUser: { select: { id: true, firstName: true, username: true } },
-          toUser: {
-            select: {
-              id: true,
-              firstName: true,
-              username: true,
-              paymentPhone: true,
-              paymentCard: true,
-              paymentDetails: true,
-            },
-          },
-          menuItem: true,
-          // За что долг: обеденная транзакция несёт блюдо, магазинная — забег.
-          // Без этого строка бюджета показывала только имя и сумму.
-          storeRun: { select: { id: true, storeName: true } },
-          poll: {
-            include: {
-              group: true,
-            },
-          },
-        },
+        include: debtsInclude,
         orderBy: { createdAt: 'desc' },
       });
 
@@ -173,10 +193,10 @@ export class BudgetQueryService {
          базы — должник на экране бюджета видел шифротекст вместо ссылки СБП и
          номера телефона получателя, платёж по ним сделать было невозможно.
          Декрипт — работа процессора, не базы: расшифровываем уже полученные
-         поля здесь, без похода в БД, и один раз на получателя (getUserId), а
-         не в цикле по долгам, где один и тот же получатель часто повторяется. */
+         поля здесь, без похода в БД, и один раз на получателя (debt.toUser.id),
+         а не в цикле по долгам, где один и тот же получатель часто повторяется. */
       const decryptedByToUserId = new Map<number, DecryptedPaymentInfo>();
-      const decryptedDebts = debts.map(debt => {
+      const decryptedDebts: DebtWithPayee[] = debts.map(debt => {
         if (!debt.toUser) {
           return debt;
         }
