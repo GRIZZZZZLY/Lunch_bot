@@ -114,6 +114,10 @@ export const STATE_CODES = [
   'WRONG_STATUS',
   'ACTIVE_RUN_EXISTS',
   'BOT_NOT_IN_GROUP',
+  /* Переименование магазина в имя, уже занятое в этой группе. Отдельный код, а
+     не DUPLICATE_ENTRY: пользователю показывают, какое именно действие
+     отклонено, и предлагают другое название. */
+  'STORE_EXISTS',
   'DUPLICATE_ENTRY',
   'FINALIZATION_ERROR',
   /* Два кода расчёта по категории. `FINALIZATION_ERROR` рядом с ними остаётся

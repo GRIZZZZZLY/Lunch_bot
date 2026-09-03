@@ -47,9 +47,14 @@ for (const name of ROUTE_MODULES) {
   }));
 }
 
+/* `writeLimiter` нужен здесь потому, что роутеры, которые его навешивают,
+   импортируются на верхнем уровне server.ts: неполный мок отдаёт undefined, а
+   Express на регистрации маршрута падает «argument handler must be a function»,
+   и валится весь набор, а не один тест. */
 jest.mock('../../../api/middleware/rate-limiter', () => ({
   generalLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
   authLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+  writeLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
 jest.mock('../../../api/middleware/metrics', () => ({

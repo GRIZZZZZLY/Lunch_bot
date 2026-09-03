@@ -10,6 +10,13 @@ jest.mock('../../database/client', () => ({
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
+    /* Создание забега заводит запись справочника магазинов в той же
+       транзакции. Разбор самого справочника — в group-store.service.test. */
+    groupStore: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
     storeItem: {
       count: jest.fn(),
       createManyAndReturn: jest.fn(),
@@ -100,6 +107,11 @@ describe('StoreRunService user behaviours', () => {
   it('creates a store run for an active group member', async () => {
     (prisma.groupMember.findUnique as jest.Mock).mockResolvedValue({ id: 1, isActive: true });
     (prisma.storeRun.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.groupStore.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.groupStore.create as jest.Mock).mockResolvedValue({
+      id: 11,
+      name: 'Market',
+    });
     (prisma.storeRun.create as jest.Mock).mockResolvedValue(baseRun);
 
     const result = await StoreRunService.createStoreRun({
@@ -114,6 +126,7 @@ describe('StoreRunService user behaviours', () => {
       data: {
         groupId: 2,
         initiatorId: 5,
+        storeId: 11,
         storeName: 'Market',
         collectUntil: expect.any(Date),
       },

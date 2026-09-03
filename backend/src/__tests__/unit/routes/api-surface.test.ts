@@ -249,6 +249,12 @@ describe('поверхность остальных групп маршруто�
       'POST /:id/settle',
       'POST /:id/cancel',
     ],
+    'group-store.routes': [
+      'GET /:groupId/stores',
+      'PATCH /:groupId/stores/:id',
+      'DELETE /:groupId/stores/:id',
+    ],
+    'item-preset.routes': ['GET /', 'PATCH /:id', 'DELETE /:id'],
     'category-order.routes': [
       'GET /polls/:pollId/category-orders',
       'GET /polls/:pollId/category-orders/my',
@@ -304,6 +310,8 @@ describe('поверхность остальных групп маршруто�
     ['gamification.routes', 1],
     ['insights.routes', 1],
     ['store-run.routes', 1],
+    ['group-store.routes', 1],
+    ['item-preset.routes', 1],
     ['recurring-poll.routes', 1],
     ['menu-suggestion.routes', 1],
   ])(

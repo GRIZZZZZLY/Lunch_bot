@@ -5,15 +5,26 @@
  * забега сразу после ответа сервера — иначе человек остаётся на главной и не
  * понимает, создалось ли что-нибудь.
  */
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import {
+  useArchiveGroupStore,
+  useGroupStores,
+  useRenameGroupStore,
+} from '@/hooks/useGroupStores';
 import { useActiveStoreRuns, useCreateStoreRun } from '@/hooks/useStoreRun';
 import { useToast } from '@/hooks/useToast';
 import { useAppStore } from '@/store/useAppStore';
+import type { GroupStore } from '@/services/group-store.service';
 
+/**
+ * Магазин задаётся ЛИБО выбором из справочника, ЛИБО именем — оба поля
+ * необязательные, и ровно одно из них приходит из шторки.
+ */
 export interface CreateStoreRunInput {
-  storeName: string;
+  storeId?: number | null;
+  storeName?: string;
   collectMinutes: number;
 }
 
@@ -50,10 +61,42 @@ export function useHomeStoreRun() {
     [currentGroupId, createStoreRun, navigate, toast],
   );
 
+  /* ---- справочник магазинов ----
+     Живёт здесь, а не в HomePage: страница уже несёт четыре сценария, и
+     пятый набор состояний в ней — прямой путь к очередной правке вслепую. */
+  const storesQuery = useGroupStores(currentGroupId ? Number(currentGroupId) : null);
+  const renameStore = useRenameGroupStore(currentGroupId ? Number(currentGroupId) : null);
+  const archiveStore = useArchiveGroupStore(currentGroupId ? Number(currentGroupId) : null);
+  const [managedStore, setManagedStore] = useState<GroupStore | null>(null);
+
+  const renameManagedStore = useCallback(
+    (name: string) => {
+      if (!managedStore) return;
+      renameStore.mutate(
+        { storeId: managedStore.id, name },
+        { onSuccess: () => setManagedStore(null) },
+      );
+    },
+    [managedStore, renameStore],
+  );
+
+  const archiveManagedStore = useCallback(() => {
+    if (!managedStore) return;
+    archiveStore.mutate(managedStore.id, { onSuccess: () => setManagedStore(null) });
+  }, [managedStore, archiveStore]);
+
   return {
     activeRuns,
     createStoreRun,
     createRun,
+    stores: storesQuery.data ?? [],
+    managedStore,
+    setManagedStore,
+    renameManagedStore,
+    archiveManagedStore,
+    storeBusy: renameStore.isPending || archiveStore.isPending,
+    /* `storesQuery` намеренно НЕ в `queries`: барьер первого экрана ждёт то,
+       без чего экран показывать нельзя, а подсказки нужны только в шторке. */
     queries: { runsQuery },
   };
 }

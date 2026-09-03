@@ -60,6 +60,8 @@
 | Бюджет `/budget` | `GET /debts`, `/credits`, `/stats`, `/poll-totals/:pollId`, `/order-costs/:pollId`, `/poll-breakdown/:pollId`; `POST /mark-paid`, `/confirm-payment`, `/cancel-mark`, `/mark-all-paid`, `/send-reminder`, `/send-reminders-all` |
 | Заказы по категориям | `GET /polls/:pollId/category-orders`, `/polls/:pollId/category-orders/my`, `/category-orders/:id`, `/:id/progress`, `/:id/participants`, `/:id/order-items`, `/order-items/:id/edit-history`; `POST /category-orders/:id/order-items`, `/:id/finalize`, `/:id/volunteer`; `PUT /category-orders/:id/costs`; `DELETE /order-items/:id` |
 | Походы в магазин `/store-runs` | `GET /active`, `/:id`; `POST /`, `/:id/items`, `/:id/items/:itemId/price`, `/:id/start-shopping`, `/:id/settle`, `/:id/cancel`; `PATCH /:id/items/:itemId`; `DELETE /:id/items/:itemId` |
+| Магазины группы `/groups` | `GET /:groupId/stores`; `PATCH /:groupId/stores/:id`; `DELETE /:groupId/stores/:id` |
+| Товары пользователя `/user/item-presets` | `GET /`; `PATCH /:id`; `DELETE /:id` |
 | Уведомления `/notifications` | `POST /remind-admin`; `GET /cooldown/:groupId` |
 | Пожертвования `/donations` | `POST /stars` |
 | Обратная связь `/feedback` | `POST /` |

@@ -51,6 +51,8 @@ model User {
   editLogs                  OrderItemEditLog[]      @relation("OrderItemEditor")
   initiatedStoreRuns        StoreRun[]              @relation("StoreRunInitiator")
   storeItems                StoreItem[]             @relation("StoreItemOwner")
+  createdGroupStores        GroupStore[]            @relation("GroupStoreCreator")
+  itemPresets               UserItemPreset[]        @relation("UserItemPresets")
   pollParticipations        PollParticipant[]
   donations                 Donation[]
 
@@ -73,6 +75,7 @@ model Group {
   reminderSettings          DebtReminderSettings?
   adminNotificationSettings AdminNotificationSettings?
   storeRuns                 StoreRun[]
+  stores                    GroupStore[]
   menuItems                 MenuItem[]
   menuSuggestions           MenuSuggestion[]
 
@@ -758,6 +761,10 @@ model StoreRun {
   id             Int       @id @default(autoincrement())
   groupId        Int       @map("group_id")
   initiatorId    Int       @map("initiator_id")
+  storeId        Int?      @map("store_id")
+  /// Снимок имени магазина на момент забега: держит историю, когда запись
+  /// справочника переименована, скрыта или её вовсе не было (забеги до
+  /// появления GroupStore). Читающий код смотрит сюда, а не в связь.
   storeName      String    @map("store_name")
   status         String    @default("COLLECTING") // COLLECTING | SHOPPING | SETTLED | CANCELLED
   collectUntil   DateTime  @map("collect_until")
@@ -771,13 +778,68 @@ model StoreRun {
 
   group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
   initiator    User          @relation("StoreRunInitiator", fields: [initiatorId], references: [id])
+  store        GroupStore?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
   items        StoreItem[]
   transactions Transaction[]
 
   @@index([groupId, status])
   @@index([status, collectUntil])
   @@index([initiatorId, status])
+  @@index([storeId])
   @@map("store_runs")
+}
+
+/// Справочник магазинов группы: «откуда заказываем».
+///
+/// Записи не заводятся руками — они рождаются при создании забега и копятся
+/// сами. Дедупликация живёт в `@@unique([groupId, normalizedName])`, а не
+/// только в сервисе: два одновременных запроса с «Пятёрочка» и «пятерочка»
+/// иначе создали бы две строки.
+model GroupStore {
+  id             Int       @id @default(autoincrement())
+  groupId        Int       @map("group_id")
+  name           String
+  normalizedName String    @map("normalized_name")
+  createdById    Int       @map("created_by_id")
+  lastUsedAt     DateTime  @default(now()) @map("last_used_at")
+  usageCount     Int       @default(1) @map("usage_count")
+  /// Soft delete: скрытый магазин исчезает из подсказок, но забеги, которые на
+  /// него ссылаются, остаются целыми.
+  archivedAt     DateTime? @map("archived_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  group     Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User       @relation("GroupStoreCreator", fields: [createdById], references: [id])
+  storeRuns StoreRun[]
+
+  @@unique([groupId, normalizedName])
+  @@index([groupId, archivedAt, lastUsedAt])
+  @@map("group_stores")
+}
+
+/// Личный список товаров пользователя, переносимый между группами.
+///
+/// Пополняется автоматически на каждом добавлении и правке позиции забега;
+/// `quantity` и `notes` хранят ПОСЛЕДНЕЕ состояние, а не первое.
+model UserItemPreset {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  name           String
+  normalizedName String   @map("normalized_name")
+  quantity       Int      @default(1)
+  notes          String?
+  pinned         Boolean  @default(false)
+  usageCount     Int      @default(1) @map("usage_count")
+  lastUsedAt     DateTime @default(now()) @map("last_used_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation("UserItemPresets", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, normalizedName])
+  @@index([userId, pinned, lastUsedAt])
+  @@map("user_item_presets")
 }
 
 // ============================================

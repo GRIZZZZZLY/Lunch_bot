@@ -37,6 +37,12 @@ jest.mock('../../../services/group.service', () => ({
   GroupService: { isUserGroupMember: jest.fn() },
 }));
 
+/* Пополнение личного списка товаров разобрано в user-item-preset.service.test;
+   здесь важно лишь то, что забег его дёргает и не зависит от его исхода. */
+jest.mock('../../../services/user-item-preset.service', () => ({
+  UserItemPresetService: { recordUsage: jest.fn().mockResolvedValue(undefined) },
+}));
+
 jest.mock('../../../services/event-bus.service', () => ({
   eventBus: { emit: jest.fn(), on: jest.fn(), off: jest.fn() },
 }));
@@ -46,6 +52,9 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const { logger } = jest.requireMock('../../../utils/logger');
+const { UserItemPresetService } = jest.requireMock(
+  '../../../services/user-item-preset.service'
+);
 const budget = asServiceMock(StoreRunBudgetService);
 const groups = asServiceMock(GroupService);
 const bus = asServiceMock(eventBus);
@@ -103,6 +112,15 @@ beforeEach(() => {
     isActive: true,
   });
   asMock(prismaMock.groupMember.findMany).mockResolvedValue([]);
+  /* По умолчанию магазина с таким именем в справочнике ещё нет: забег заводит
+     запись сам. Тесты, где магазин уже есть, переопределяют findUnique. */
+  asMock(prismaMock.groupStore.findUnique).mockResolvedValue(null);
+  asMock(prismaMock.groupStore.create).mockImplementation((async (args: {
+    data: Record<string, unknown>;
+  }) => ({ id: 77, archivedAt: null, ...args.data })) as never);
+  asMock(prismaMock.groupStore.update).mockImplementation((async (args: {
+    where: { id: number };
+  }) => ({ id: args.where.id, name: 'Пятёрочка' })) as never);
   asMock(prismaMock.storeRun.findFirst).mockResolvedValue(null);
   asMock(prismaMock.storeRun.findUnique).mockResolvedValue(run());
   asMock(prismaMock.storeRun.findUniqueOrThrow).mockResolvedValue(run());
@@ -142,10 +160,87 @@ describe('createStoreRun', () => {
       data: {
         groupId: 100,
         initiatorId: 1,
+        storeId: 77,
         storeName: 'Пятёрочка',
         collectUntil: new Date('2026-08-03T12:20:00.000Z'),
       },
     });
+  });
+
+  it('новое имя заводит запись в справочнике группы', async () => {
+    await StoreRunService.createStoreRun(input);
+
+    expect(asMock(prismaMock.groupStore.create)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          groupId: 100,
+          createdById: 1,
+          name: 'Пятёрочка',
+          normalizedName: 'пятерочка',
+        }),
+      })
+    );
+  });
+
+  it('выбор из справочника даёт имя магазина, а не введённый текст', async () => {
+    asMock(prismaMock.groupStore.findUnique).mockResolvedValue({
+      id: 5,
+      groupId: 100,
+      name: 'Лента на углу',
+      archivedAt: null,
+    });
+    asMock(prismaMock.groupStore.update).mockResolvedValue({
+      id: 5,
+      name: 'Лента на углу',
+    });
+
+    await StoreRunService.createStoreRun({
+      initiatorId: 1,
+      groupId: 100,
+      storeId: 5,
+      collectMinutes: 20,
+    });
+
+    expect(
+      (
+        asMock(prismaMock.storeRun.create).mock.calls[0][0] as {
+          data: { storeId: number; storeName: string };
+        }
+      ).data
+    ).toMatchObject({ storeId: 5, storeName: 'Лента на углу' });
+  });
+
+  it('магазин из чужой группы отклоняется', async () => {
+    asMock(prismaMock.groupStore.findUnique).mockResolvedValue({
+      id: 5,
+      groupId: 999,
+      name: 'Чужой',
+      archivedAt: null,
+    });
+
+    await expect(
+      errorCode(
+        StoreRunService.createStoreRun({
+          initiatorId: 1,
+          groupId: 100,
+          storeId: 5,
+          collectMinutes: 20,
+        })
+      )
+    ).resolves.toBe('NOT_FOUND');
+    expect(asMock(prismaMock.storeRun.create)).not.toHaveBeenCalled();
+  });
+
+  it('без имени и без выбора забег не создаётся', async () => {
+    await expect(
+      errorCode(
+        StoreRunService.createStoreRun({
+          initiatorId: 1,
+          groupId: 100,
+          collectMinutes: 20,
+        })
+      )
+    ).resolves.toBe('INVALID_INPUT');
   });
 
   it('пробелы в названии магазина срезаются', async () => {
@@ -375,6 +470,29 @@ describe('addItemsBulk', () => {
       expect.objectContaining({ storeRunId: 30, audience: [1, 2, 3] })
     );
   });
+
+  it('каждая добавленная позиция пополняет личный список автора', async () => {
+    await StoreRunService.addItemsBulk(30, 2, [
+      { name: 'Хлеб' },
+      { name: 'Молоко', quantity: 2, notes: 'нежирное' },
+    ]);
+
+    expect(UserItemPresetService.recordUsage).toHaveBeenCalledTimes(2);
+    expect(UserItemPresetService.recordUsage).toHaveBeenCalledWith(2, {
+      name: 'Молоко',
+      quantity: 2,
+      notes: 'нежирное',
+    });
+  });
+
+  it('сбой пополнения личного списка не отменяет добавленные позиции', async () => {
+    UserItemPresetService.recordUsage.mockRejectedValueOnce(new Error('boom'));
+
+    await expect(
+      StoreRunService.addItemsBulk(30, 2, [{ name: 'Хлеб' }])
+    ).resolves.toHaveLength(1);
+    expect(logger.error).toHaveBeenCalled();
+  });
 });
 
 describe('updateItem', () => {
@@ -384,6 +502,23 @@ describe('updateItem', () => {
     expect(asMock(prismaMock.storeItem.update)).toHaveBeenCalledWith({
       where: { id: 10 },
       data: { name: 'Батон', quantity: 3 },
+    });
+  });
+
+  it('правка обновляет пресет целиком, а не только изменённым полем', async () => {
+    asMock(prismaMock.storeItem.update).mockResolvedValue({
+      id: 10,
+      name: 'Батон',
+      quantity: 3,
+      notes: 'нарезной',
+    });
+
+    await StoreRunService.updateItem(10, 2, { quantity: 3 });
+
+    expect(UserItemPresetService.recordUsage).toHaveBeenCalledWith(2, {
+      name: 'Батон',
+      quantity: 3,
+      notes: 'нарезной',
     });
   });
 

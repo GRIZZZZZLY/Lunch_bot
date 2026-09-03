@@ -3,6 +3,8 @@ import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
 import { StoreRunBudgetService } from './store-run-budget.service';
 import { GroupService } from './group.service';
+import { GroupStoreService, GroupStoreError } from './group-store.service';
+import { UserItemPresetService } from './user-item-preset.service';
 import { eventBus } from './event-bus.service';
 
 export type StoreRunStatus = 'COLLECTING' | 'SHOPPING' | 'SETTLED' | 'CANCELLED';
@@ -21,7 +23,10 @@ const ITEM_PRICE_MAX = 100_000;
 export interface CreateStoreRunInput {
   initiatorId: number;
   groupId: number;
-  storeName: string;
+  /** Выбор из справочника группы. Приоритетнее `storeName`. */
+  storeId?: number | null;
+  /** Свободный ввод. Заводит или воскрешает запись справочника. */
+  storeName?: string | null;
   collectMinutes: number;
 }
 
@@ -59,10 +64,13 @@ export class StoreRunService {
    * Инициатор не может запустить второй забег, пока его предыдущий активен.
    */
   static async createStoreRun(input: CreateStoreRunInput): Promise<StoreRun> {
-    const { initiatorId, groupId, storeName, collectMinutes } = input;
+    const { initiatorId, groupId, storeId, storeName, collectMinutes } = input;
 
-    const trimmedName = storeName.trim();
-    if (!trimmedName) {
+    const trimmedName = (storeName ?? '').trim();
+    /* Одно из двух: выбор из справочника ИЛИ введённое имя. Проверка стоит
+       здесь, а не только в zod, потому что «ровно одно из двух полей» — это
+       условие, которое схема тела выразить может, а вызов из бота минует. */
+    if (storeId == null && !trimmedName) {
       throw new StoreRunError('INVALID_INPUT', 'Store name is required');
     }
     if (trimmedName.length > 100) {
@@ -108,15 +116,34 @@ export class StoreRunService {
 
     let storeRun: StoreRun;
     try {
-      storeRun = await prisma.storeRun.create({
-        data: {
+      /* Магазин и забег создаются одной транзакцией: иначе отменённое создание
+         забега оставило бы в справочнике магазин, которого никто не выбирал. */
+      storeRun = await prisma.$transaction(async tx => {
+        const store = await GroupStoreService.resolveForRun(tx, {
           groupId,
-          initiatorId,
+          userId: initiatorId,
+          storeId,
           storeName: trimmedName,
-          collectUntil,
-        },
+        });
+
+        return tx.storeRun.create({
+          data: {
+            groupId,
+            initiatorId,
+            storeId: store.id,
+            // Снимок имени: переименование магазина не должно менять историю.
+            storeName: store.name,
+            collectUntil,
+          },
+        });
       });
     } catch (error) {
+      if (error instanceof GroupStoreError) {
+        throw new StoreRunError(
+          error.code === 'NOT_FOUND' ? 'NOT_FOUND' : 'INVALID_INPUT',
+          error.message,
+        );
+      }
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
@@ -133,7 +160,8 @@ export class StoreRunService {
       storeRunId: storeRun.id,
       initiatorId,
       groupId,
-      storeName: trimmedName,
+      storeId: storeRun.storeId,
+      storeName: storeRun.storeName,
       collectMinutes,
     });
 
@@ -257,6 +285,22 @@ export class StoreRunService {
       count: created.length,
     });
 
+    /* Пополнение личного списка — вне транзакции позиций и последовательно:
+       позиции в одном запросе могут повторяться, а upsert по одному ключу
+       параллельно с самим собой упёрся бы в уникальный индекс.
+
+       Второй try/catch поверх собственного глушения `recordUsage` — не
+       перестраховка: позиции к этому моменту УЖЕ записаны, и любой отказ здесь
+       превратил бы успешное добавление в 500 с товарами в базе. Цена — три
+       строки, цена ошибки — расхождение экрана с базой. */
+    try {
+      for (const item of sanitized) {
+        await UserItemPresetService.recordUsage(userId, item);
+      }
+    } catch (error) {
+      logger.error('[StoreRunService] Failed to update item presets', { userId, error });
+    }
+
     await this.emitStoreRunUpdated(storeRunId);
     return created;
   }
@@ -315,6 +359,20 @@ export class StoreRunService {
       }
       return tx.storeItem.update({ where: { id: itemId }, data: patch });
     });
+
+    /* Пресет хранит ПОСЛЕДНЕЕ состояние позиции, поэтому правка обновляет его
+       так же, как добавление. Берём значения из сохранённой записи, а не из
+       patch: тот несёт только изменённые поля. Про try/catch — см. addItemsBulk:
+       позиция уже сохранена, отказ вспомогательной записи её не отменяет. */
+    try {
+      await UserItemPresetService.recordUsage(userId, {
+        name: updatedItem.name,
+        quantity: updatedItem.quantity,
+        notes: updatedItem.notes,
+      });
+    } catch (error) {
+      logger.error('[StoreRunService] Failed to update item preset', { userId, error });
+    }
 
     await this.emitStoreRunUpdated(item.storeRun.id);
     return updatedItem;

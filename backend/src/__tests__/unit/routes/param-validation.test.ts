@@ -84,6 +84,8 @@ const WIRED = [
   'menu-suggestion',
   'season',
   'admin',
+  'group-store',
+  'item-preset',
 ] as const;
 
 /**
@@ -114,6 +116,8 @@ const MUTATIONS_WITHOUT_BODY: Record<string, string> = {
   'category-order: POST /category-orders/:id/finalize': 'финализация не параметризуется',
   'category-order: POST /category-orders/:id/volunteer': 'отклик не параметризуется',
   'store-run: DELETE /:id/items/:itemId': 'удаление определяется путём',
+  'group-store: DELETE /:groupId/stores/:id': 'скрытие магазина определяется путём',
+  'item-preset: DELETE /:id': 'удаление своего пресета определяется путём',
   'store-run: POST /:id/start-shopping': 'переход состояния не параметризуется',
   'store-run: POST /:id/settle': 'переход состояния не параметризуется',
   'store-run: POST /:id/cancel': 'переход состояния не параметризуется',

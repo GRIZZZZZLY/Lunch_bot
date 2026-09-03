@@ -12,6 +12,11 @@ import {
   useStartShopping,
   useUpdateStoreItem,
 } from '@/hooks/useStoreRun';
+import {
+  useItemPresets,
+  useRemoveItemPreset,
+  useUpdateItemPreset,
+} from '@/hooks/useItemPresets';
 import { queryKeys } from '@/lib/queryClient';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { ConfirmDialog, EmptyState, Status } from '@/shared/ui';
@@ -40,6 +45,12 @@ export function CollectingView({
   const cancel = useCancelStoreRun(run.id);
 
   const [addOpen, setAddOpen] = useState(false);
+  /* Список тянем только при открытой шторке: на экране закупки он не виден, а
+     запрос на каждый рендер экрана был бы платой ни за что. */
+  const presetsQuery = useItemPresets(run.storeId ?? null, addOpen);
+  const togglePin = useUpdateItemPreset(run.storeId ?? null);
+  const removePreset = useRemoveItemPreset(run.storeId ?? null);
+
   const [editTarget, setEditTarget] = useState<StoreItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StoreItem | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -62,6 +73,9 @@ export function CollectingView({
   const groups = useMemo(() => groupItemsByParticipant(items, currentUserId), [items, currentUserId]);
   const mine = groups.find((g) => g.isMine);
   const others = groups.filter((g) => !g.isMine);
+  /* Имена своих позиций нужны шторке, чтобы пометить пресеты, которые уже
+     заказаны: повторный выбор дал бы молчаливый дубль в списке. */
+  const myItemNames = useMemo(() => (mine?.items ?? []).map((i) => i.name), [mine]);
   const participantsCount = groups.length;
 
   const onExpire = useCallback(() => {
@@ -139,10 +153,20 @@ export function CollectingView({
       {addOpen && (
         <AddStoreItemSheet
           busy={addItems.isPending}
+          presets={presetsQuery.data ?? []}
+          presetsLoading={presetsQuery.isLoading}
+          myItemNames={myItemNames}
           onClose={() => setAddOpen(false)}
           onSubmit={(values) =>
             addItems.mutate([values], { onSuccess: () => setAddOpen(false) })
           }
+          onSubmitMany={(values) =>
+            addItems.mutate(values, { onSuccess: () => setAddOpen(false) })
+          }
+          onTogglePin={(preset) =>
+            togglePin.mutate({ id: preset.id, pinned: !preset.pinned })
+          }
+          onRemovePreset={(id) => removePreset.mutate(id)}
         />
       )}
 

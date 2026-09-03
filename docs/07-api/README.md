@@ -28,6 +28,8 @@ Content-Type: application/json
 | `/api/suggestions` | предложения блюд |
 | `/api/polls` и `/api/votes` | голосования и голоса |
 | `/api/store-runs` | групповые закупки |
+| `/api/groups/:groupId/stores` | справочник магазинов группы |
+| `/api/user/item-presets` | личный список товаров пользователя |
 | `/api/budget` | долги, оплаты и стоимость заказа |
 | `/api/recurring` | расписания повторяющихся голосований |
 | `/api/admin` | административные операции |

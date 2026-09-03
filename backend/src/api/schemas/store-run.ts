@@ -29,11 +29,30 @@ export const storeRunItemParams = idParams('id', 'itemId');
 
 // ------------------------------------------------------------------ body
 
+/**
+ * `storeName` перестал быть обязательным: магазин можно выбрать из справочника
+ * группы, и тогда имя приходит оттуда. Требование «хоть что-то из двух» выражено
+ * `superRefine`, а не двумя обязательными полями, — иначе выбор чипа заставлял бы
+ * клиент дублировать имя, которое сервер всё равно возьмёт из своей записи.
+ */
 export const createStoreRunBody = bodyContract(
   bodyShape({
     groupId: z.number().int().positive(),
-    storeName: z.string().min(1).max(100),
+    storeId: z.number().int().positive().nullish(),
+    storeName: z.string().min(1).max(100).nullish(),
     collectMinutes: z.number().int().min(3).max(30),
+  }).superRefine((value, ctx) => {
+    const body = value as { storeId?: number | null; storeName?: string | null };
+    /* Именно `== null`, а не проверка на пустоту: пустая строка уже отклонена
+       правилом `min(1)`, и вторая жалоба на то же поле сделала бы ответ парой
+       ошибок про одно и то же. Здесь ловится другой случай — не пришло НИЧЕГО. */
+    if (body.storeId == null && body.storeName == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['storeName'],
+        message: 'storeName or storeId is required',
+      });
+    }
   }),
 );
 
