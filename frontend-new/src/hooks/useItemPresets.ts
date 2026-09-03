@@ -12,11 +12,17 @@ import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
 import { apiErrorMessage } from '@/lib/apiError';
 
+/**
+ * `groupId` в запрос не подставляется: `api.service` подмешивает его в query
+ * каждого запроса сам. В ключ кэша он нужен явно — порядок списка от группы
+ * зависит, и общий ключ отдал бы сортировку, посчитанную для другой.
+ */
 export function useItemPresets(storeId: number | null | undefined, enabled = true) {
   const authStatus = useAppStore((s) => s.authStatus);
+  const groupId = useAppStore((s) => s.currentGroupId);
   const key = storeId ?? null;
   return useQuery({
-    queryKey: queryKeys.itemPresets.list(key),
+    queryKey: queryKeys.itemPresets.list(key, groupId ? Number(groupId) : null),
     queryFn: async (): Promise<ItemPreset[]> => {
       const res = await itemPresetService.list(key);
       return res.data ?? [];
@@ -29,7 +35,8 @@ export function useItemPresets(storeId: number | null | undefined, enabled = tru
 export function useUpdateItemPreset(storeId: number | null | undefined) {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
-  const key = queryKeys.itemPresets.list(storeId ?? null);
+  const groupId = useAppStore((s) => s.currentGroupId);
+  const key = queryKeys.itemPresets.list(storeId ?? null, groupId ? Number(groupId) : null);
 
   return useMutation({
     mutationFn: ({ id, pinned }: { id: number; pinned: boolean }) =>
@@ -53,7 +60,8 @@ export function useUpdateItemPreset(storeId: number | null | undefined) {
 export function useRemoveItemPreset(storeId: number | null | undefined) {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
-  const key = queryKeys.itemPresets.list(storeId ?? null);
+  const groupId = useAppStore((s) => s.currentGroupId);
+  const key = queryKeys.itemPresets.list(storeId ?? null, groupId ? Number(groupId) : null);
 
   return useMutation({
     mutationFn: (id: number) => itemPresetService.remove(id),

@@ -47,21 +47,25 @@ beforeEach(() => {
 });
 
 describe('UserItemPresetService.listForUser', () => {
-  it('без магазина отдаёт закреплённые первыми, дальше по свежести', async () => {
+  /** Историю по магазину и по группе сервис берёт двумя отдельными запросами. */
+  function historyByScope(byStore: string[], byGroup: string[]) {
+    prisma.storeItem.findMany.mockImplementation(
+      async (args: { where: { storeRun?: { storeId?: number; groupId?: number } } }) =>
+        args.where.storeRun?.storeId != null
+          ? byStore.map(name => ({ name }))
+          : byGroup.map(name => ({ name })),
+    );
+  }
+
+  it('без области отдаёт закреплённые первыми, дальше по свежести', async () => {
     prisma.userItemPreset.findMany.mockResolvedValue([
-      preset({ id: 1, name: 'Хлеб' }),
-      preset({ id: 2, name: 'Молоко' }),
+      preset({ id: 1, name: 'Хлеб', lastUsedAt: new Date('2026-09-02') }),
+      preset({ id: 2, name: 'Молоко', lastUsedAt: new Date('2026-09-01') }),
     ]);
 
-    const result = await UserItemPresetService.listForUser(7);
+    const result = await UserItemPresetService.listForUser(7, {});
 
     expect(result.map(p => p.id)).toEqual([1, 2]);
-    expect(prisma.userItemPreset.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { userId: 7 },
-        orderBy: [{ pinned: 'desc' }, { lastUsedAt: 'desc' }],
-      }),
-    );
     expect(prisma.storeItem.findMany).not.toHaveBeenCalled();
   });
 
@@ -70,16 +74,43 @@ describe('UserItemPresetService.listForUser', () => {
       preset({ id: 1, name: 'Хлеб', normalizedName: 'хлеб' }),
       preset({ id: 2, name: 'Молоко', normalizedName: 'молоко' }),
     ]);
-    prisma.storeItem.findMany.mockResolvedValue([{ name: 'МОЛОКО' }]);
+    historyByScope(['МОЛОКО'], []);
 
-    const result = await UserItemPresetService.listForUser(7, 5);
+    const result = await UserItemPresetService.listForUser(7, { storeId: 5 });
 
     expect(result.map(p => p.id)).toEqual([2, 1]);
     expect(prisma.storeItem.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { userId: 7, storeRun: { storeId: 5 } },
-      }),
+      expect.objectContaining({ where: { userId: 7, storeRun: { storeId: 5 } } }),
     );
+  });
+
+  it('товар из этой группы идёт ниже товара из этого магазина, но выше прочих', async () => {
+    prisma.userItemPreset.findMany.mockResolvedValue([
+      preset({ id: 1, name: 'Прочее', normalizedName: 'прочее' }),
+      preset({ id: 2, name: 'Группа', normalizedName: 'группа' }),
+      preset({ id: 3, name: 'Магазин', normalizedName: 'магазин' }),
+    ]);
+    historyByScope(['Магазин'], ['Магазин', 'Группа']);
+
+    const result = await UserItemPresetService.listForUser(7, { storeId: 5, groupId: 9 });
+
+    expect(result.map(p => p.id)).toEqual([3, 2, 1]);
+    expect(prisma.storeItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 7, storeRun: { groupId: 9 } } }),
+    );
+  });
+
+  it('без магазина ранжирует по одной только группе', async () => {
+    prisma.userItemPreset.findMany.mockResolvedValue([
+      preset({ id: 1, name: 'Прочее', normalizedName: 'прочее' }),
+      preset({ id: 2, name: 'Группа', normalizedName: 'группа' }),
+    ]);
+    historyByScope([], ['Группа']);
+
+    const result = await UserItemPresetService.listForUser(7, { groupId: 9 });
+
+    expect(result.map(p => p.id)).toEqual([2, 1]);
+    expect(prisma.storeItem.findMany).toHaveBeenCalledTimes(1);
   });
 
   it('закреплённое держится выше товара из этого магазина', async () => {
@@ -87,18 +118,80 @@ describe('UserItemPresetService.listForUser', () => {
       preset({ id: 1, name: 'Хлеб', normalizedName: 'хлеб', pinned: true }),
       preset({ id: 2, name: 'Молоко', normalizedName: 'молоко' }),
     ]);
-    prisma.storeItem.findMany.mockResolvedValue([{ name: 'Молоко' }]);
+    historyByScope(['Молоко'], []);
 
-    const result = await UserItemPresetService.listForUser(7, 5);
+    const result = await UserItemPresetService.listForUser(7, { storeId: 5 });
 
     expect(result.map(p => p.id)).toEqual([1, 2]);
   });
 
-  it('сбой подсчёта по магазину не роняет список', async () => {
+  it('сбой подсчёта истории не роняет список', async () => {
     prisma.userItemPreset.findMany.mockResolvedValue([preset({ id: 1 })]);
     prisma.storeItem.findMany.mockRejectedValue(new Error('db down'));
 
-    await expect(UserItemPresetService.listForUser(7, 5)).resolves.toHaveLength(1);
+    await expect(
+      UserItemPresetService.listForUser(7, { storeId: 5, groupId: 9 }),
+    ).resolves.toHaveLength(1);
+  });
+
+  /* Регрессия: отсечка в 50 стояла ДО ранжирования, и закреплённый или взятый
+     в этом магазине товар, не попавший в полсотни самых свежих, не всплывал
+     наверх — он не попадал в выборку вовсе. */
+  it('берёт закреплённые и подходящие по истории отдельным запросом, помимо свежих', async () => {
+    prisma.userItemPreset.findMany
+      // Первый вызов — гарантированные: закреплённые и знакомые по истории.
+      .mockResolvedValueOnce([
+        preset({ id: 90, name: 'Старое закреплённое', pinned: true, lastUsedAt: new Date('2020-01-01') }),
+        preset({ id: 91, name: 'Молоко', normalizedName: 'молоко', lastUsedAt: new Date('2020-01-02') }),
+      ])
+      /* Второй — свежие. Своё normalizedName обязательно: фабрика по умолчанию
+         подставляет «молоко», и запись молча попала бы в ярус магазина. */
+      .mockResolvedValueOnce([
+        preset({
+          id: 1,
+          name: 'Новое',
+          normalizedName: 'новое',
+          lastUsedAt: new Date('2026-09-02'),
+        }),
+      ]);
+    historyByScope(['Молоко'], []);
+
+    const result = await UserItemPresetService.listForUser(7, { storeId: 5 });
+
+    expect(result.map(p => p.id)).toEqual([90, 91, 1]);
+    expect(prisma.userItemPreset.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: 7,
+          OR: [{ pinned: true }, { normalizedName: { in: ['молоко'] } }],
+        },
+      }),
+    );
+  });
+
+  it('запись, попавшая в обе выборки, не дублируется', async () => {
+    const shared = preset({ id: 5, name: 'Молоко', normalizedName: 'молоко', pinned: true });
+    prisma.userItemPreset.findMany
+      .mockResolvedValueOnce([shared])
+      .mockResolvedValueOnce([shared, preset({ id: 6, name: 'Хлеб' })]);
+    historyByScope(['Молоко'], []);
+
+    const result = await UserItemPresetService.listForUser(7, { storeId: 5 });
+
+    expect(result.map(p => p.id)).toEqual([5, 6]);
+  });
+
+  it('без истории и без закреплённых лишнего запроса не делает', async () => {
+    prisma.userItemPreset.findMany.mockResolvedValue([preset({ id: 1 })]);
+    historyByScope([], []);
+
+    await UserItemPresetService.listForUser(7, { storeId: 5 });
+
+    /* Гарантированная выборка нужна и при пустой истории: закреплённые
+       обязаны попасть в список в любом случае. */
+    expect(prisma.userItemPreset.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 7, OR: [{ pinned: true }] } }),
+    );
   });
 });
 

@@ -56,11 +56,12 @@ export const queryKeys = {
     all: ['groupStores'] as const,
     list: (groupId: number) => ['groupStores', 'list', groupId] as const,
   },
-  /* `storeId` входит в ключ: порядок списка зависит от магазина, и один кэш на
-     все магазины показывал бы чужую сортировку. */
+  /* Магазин и группа входят в ключ: порядок списка зависит от обоих, и общий
+     кэш показывал бы сортировку, посчитанную для другого места. */
   itemPresets: {
     all: ['itemPresets'] as const,
-    list: (storeId: number | null) => ['itemPresets', 'list', storeId] as const,
+    list: (storeId: number | null, groupId: number | null) =>
+      ['itemPresets', 'list', storeId, groupId] as const,
   },
   admin: {
     all: ['admin'] as const,

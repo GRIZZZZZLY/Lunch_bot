@@ -40,13 +40,17 @@ export class ItemPresetController {
       return;
     }
     try {
-      const { storeId } = itemPresetListQuery.get(req);
+      const { storeId, groupId } = itemPresetListQuery.get(req);
       /* Проверка типа, а не приведение: схема query собрана через passthrough,
-         и её вывод для отдельного поля шире, чем `number | undefined`. */
-      const presets = await UserItemPresetService.listForUser(
-        user.id,
-        typeof storeId === 'number' ? storeId : null,
-      );
+         и её вывод для отдельного поля шире, чем `number | undefined`.
+
+         `groupId` не проверяется на членство: он влияет только на порядок
+         собственного списка пользователя, а читается при этом лишь его же
+         история. Подставленный чужой идентификатор ничего не открывает. */
+      const presets = await UserItemPresetService.listForUser(user.id, {
+        storeId: typeof storeId === 'number' ? storeId : null,
+        groupId: typeof groupId === 'number' ? groupId : null,
+      });
       res.json({ success: true, data: serializeData(presets) });
     } catch (err) {
       sendPresetError(req, res, err);

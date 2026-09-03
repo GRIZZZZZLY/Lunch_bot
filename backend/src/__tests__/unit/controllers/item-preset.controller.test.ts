@@ -50,17 +50,20 @@ describe('GET /api/user/item-presets', () => {
 
     await controller.list(mockRequest({ user: USER, query: {} }), res);
 
-    expect(service.listForUser).toHaveBeenCalledWith(7, null);
+    expect(service.listForUser).toHaveBeenCalledWith(7, { storeId: null, groupId: null });
     expect(res.body).toMatchObject({ success: true, data: [{ id: 1, name: 'Молоко' }] });
   });
 
-  it('storeId из query доходит до сервиса числом', async () => {
+  it('storeId и groupId из query доходят до сервиса числами', async () => {
     service.listForUser.mockResolvedValue([]);
     const res = mockResponse();
 
-    await controller.list(mockRequest({ user: USER, query: { storeId: '5' } }), res);
+    await controller.list(
+      mockRequest({ user: USER, query: { storeId: '5', groupId: '9' } }),
+      res,
+    );
 
-    expect(service.listForUser).toHaveBeenCalledWith(7, 5);
+    expect(service.listForUser).toHaveBeenCalledWith(7, { storeId: 5, groupId: 9 });
   });
 
   it('пустой storeId не превращается в ноль', async () => {
@@ -69,7 +72,7 @@ describe('GET /api/user/item-presets', () => {
 
     await controller.list(mockRequest({ user: USER, query: { storeId: '' } }), res);
 
-    expect(service.listForUser).toHaveBeenCalledWith(7, null);
+    expect(service.listForUser).toHaveBeenCalledWith(7, { storeId: null, groupId: null });
     expect(res.statusCode).not.toBe(400);
   });
 

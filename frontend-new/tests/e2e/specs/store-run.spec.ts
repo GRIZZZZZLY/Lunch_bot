@@ -39,6 +39,56 @@ test.describe('Создание закупки', () => {
     });
     await expect(appPage.getByText('Магнит на Ленина')).toBeVisible();
   });
+
+  test('карандаш у выбранного магазина переименовывает его', async ({ appPage, api }) => {
+    await appPage.goto('/');
+    await appPage.getByRole('button', { name: /Закупка в магазине/ }).click();
+    const dialog = appPage.getByRole('dialog', { name: 'Новая закупка' });
+
+    /* До выбора карандаша нет: подсказки не должны выглядеть панелью
+       управления. */
+    await expect(dialog.getByRole('button', { name: /Изменить магазин/ })).toHaveCount(0);
+
+    await dialog.getByRole('button', { name: 'Магнит на Ленина' }).click();
+    await dialog.getByRole('button', { name: 'Изменить магазин «Магнит на Ленина»' }).click();
+
+    const manage = appPage.getByRole('dialog', { name: 'Магнит на Ленина' });
+    await manage.getByRole('textbox').fill('Магнит у дома');
+    await manage.getByRole('button', { name: 'Переименовать' }).click();
+
+    expect(api.lastRequest('PATCH', '/groups/1/stores/902')?.body).toEqual({
+      name: 'Магнит у дома',
+    });
+    /* exact: имя карандаша содержит имя магазина, и без этого локатор ловит
+       обе кнопки. */
+    await expect(
+      appPage.getByRole('dialog', { name: 'Новая закупка' }).getByRole('button', {
+        name: 'Магнит у дома',
+        exact: true,
+      }),
+    ).toBeVisible();
+  });
+
+  test('занятое название переименование отклоняет', async ({ appPage, api }) => {
+    await appPage.goto('/');
+    await appPage.getByRole('button', { name: /Закупка в магазине/ }).click();
+    const dialog = appPage.getByRole('dialog', { name: 'Новая закупка' });
+
+    await dialog.getByRole('button', { name: 'Магнит на Ленина' }).click();
+    await dialog.getByRole('button', { name: 'Изменить магазин «Магнит на Ленина»' }).click();
+
+    const manage = appPage.getByRole('dialog', { name: 'Магнит на Ленина' });
+    /* Другой регистр и другое написание ё — для сервера это то же имя. */
+    await manage.getByRole('textbox').fill('пятерочка у офиса');
+    await manage.getByRole('button', { name: 'Переименовать' }).click();
+
+    expect(api.lastRequest('PATCH', '/groups/1/stores/902')?.body).toEqual({
+      name: 'пятерочка у офиса',
+    });
+    await expect(
+      appPage.getByText('Магазин с таким названием уже есть в этой группе.'),
+    ).toBeVisible();
+  });
 });
 
 test.describe('Закупка: сбор позиций', () => {

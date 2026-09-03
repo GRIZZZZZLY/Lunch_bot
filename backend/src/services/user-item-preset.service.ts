@@ -54,40 +54,70 @@ export class UserItemPresetService {
   /**
    * Список для экрана добавления позиции.
    *
-   * Порядок: закреплённые, затем то, что пользователь уже брал в ЭТОМ магазине,
-   * затем по свежести. Отсечка в `LIST_LIMIT` стоит ДО ранжирования по магазину:
-   * товар, не попавший в полсотни самых свежих, наверх не всплывёт. Это
-   * сознательный размен — иначе пришлось бы тянуть всю историю пользователя
-   * ради переупорядочивания того, что и так видно.
+   * Порядок ярусов: закреплённые → взятое в ЭТОМ магазине → взятое в ЭТОЙ
+   * группе → по свежести. Ярус группы отвечает на то, что список общий для всех
+   * групп: у человека, который заказывает и в офис, и на дачу, дачные товары
+   * просто уезжают вниз, а не теряются — привязка пресета к группе стоила бы
+   * пустого списка при каждом переходе.
+   *
+   * Выборка идёт ДВУМЯ запросами и объединяется здесь. Первый берёт то, что
+   * обязано быть в списке всегда (закреплённое и знакомое по истории), второй —
+   * `LIST_LIMIT` самых свежих. Раньше запрос был один, с отсечкой ДО
+   * ранжирования, и закреплённый товар, не попавший в полсотни свежих, не
+   * всплывал наверх — он вообще не доезжал до сортировки. Размер объединения
+   * ограничен сверху самим хранилищем: незакреплённых у пользователя не больше
+   * `RETENTION_LIMIT`.
+   *
+   * `groupId` приходит из query и на авторизацию не влияет: читается только
+   * собственная история пользователя, и подставленный чужой идентификатор
+   * меняет лишь порядок его же списка.
    */
-  static async listForUser(userId: number, storeId?: number | null): Promise<UserItemPreset[]> {
-    const presets = await prisma.userItemPreset.findMany({
-      where: { userId },
-      orderBy: [{ pinned: 'desc' }, { lastUsedAt: 'desc' }],
-      take: LIST_LIMIT,
+  static async listForUser(
+    userId: number,
+    scope: { storeId?: number | null; groupId?: number | null } = {},
+  ): Promise<UserItemPreset[]> {
+    const { seenInStore, seenInGroup } = await this.historyNames(userId, scope);
+    const relevant = [...new Set([...seenInStore, ...seenInGroup])];
+
+    const [guaranteed, recent] = await Promise.all([
+      prisma.userItemPreset.findMany({
+        where: {
+          userId,
+          OR: [
+            { pinned: true },
+            ...(relevant.length > 0 ? [{ normalizedName: { in: relevant } }] : []),
+          ],
+        },
+      }),
+      prisma.userItemPreset.findMany({
+        where: { userId },
+        orderBy: [{ lastUsedAt: 'desc' }],
+        take: LIST_LIMIT,
+      }),
+    ]);
+
+    const byId = new Map<number, UserItemPreset>();
+    for (const item of [...guaranteed, ...recent]) byId.set(item.id, item);
+
+    return [...byId.values()].sort((a, b) => {
+      const byPinned = Number(b.pinned) - Number(a.pinned);
+      if (byPinned !== 0) return byPinned;
+
+      const byStore =
+        Number(seenInStore.has(b.normalizedName)) - Number(seenInStore.has(a.normalizedName));
+      if (byStore !== 0) return byStore;
+
+      const byGroup =
+        Number(seenInGroup.has(b.normalizedName)) - Number(seenInGroup.has(a.normalizedName));
+      if (byGroup !== 0) return byGroup;
+
+      const byRecency = b.lastUsedAt.getTime() - a.lastUsedAt.getTime();
+      if (byRecency !== 0) return byRecency;
+
+      /* Последний разрыв по id: без него порядок записей с одинаковой меткой
+         зависел бы от того, в какой выборке они пришли первыми. */
+      return a.id - b.id;
     });
-
-    if (!storeId || presets.length === 0) return presets;
-
-    const seenInStore = await this.namesTakenInStore(userId, storeId);
-    if (seenInStore.size === 0) return presets;
-
-    /* Стабильная сортировка: внутри одной группы порядок остаётся тем, что
-       пришёл из БД, то есть по свежести. */
-    return presets
-      .map((item, index) => ({ item, index }))
-      .sort((a, b) => {
-        const byPinned = Number(b.item.pinned) - Number(a.item.pinned);
-        if (byPinned !== 0) return byPinned;
-
-        const byStore =
-          Number(seenInStore.has(b.item.normalizedName)) -
-          Number(seenInStore.has(a.item.normalizedName));
-        if (byStore !== 0) return byStore;
-
-        return a.index - b.index;
-      })
-      .map(entry => entry.item);
   }
 
   /**
@@ -204,25 +234,45 @@ export class UserItemPresetService {
   }
 
   /**
-   * Нормализованные имена позиций, которые пользователь уже брал в этом магазине.
-   * Сбой не критичен — без него список просто теряет ранжирование по магазину.
+   * Нормализованные имена позиций, которые пользователь уже брал — отдельно по
+   * магазину и по группе.
+   *
+   * Два запроса, а не один с `OR`: `distinct: ['name']` оставляет по одной
+   * строке на имя, и объединённая выборка потеряла бы признак «взято именно в
+   * этом магазине» — уцелевшая строка могла бы оказаться из другого магазина
+   * той же группы.
    */
-  private static async namesTakenInStore(
+  private static async historyNames(
     userId: number,
-    storeId: number,
+    scope: { storeId?: number | null; groupId?: number | null },
+  ): Promise<{ seenInStore: Set<string>; seenInGroup: Set<string> }> {
+    const [seenInStore, seenInGroup] = await Promise.all([
+      scope.storeId ? this.namesTakenIn(userId, { storeId: scope.storeId }) : new Set<string>(),
+      scope.groupId ? this.namesTakenIn(userId, { groupId: scope.groupId }) : new Set<string>(),
+    ]);
+    return { seenInStore, seenInGroup };
+  }
+
+  /**
+   * Сбой не критичен — без истории список просто теряет ярусы ранжирования и
+   * остаётся отсортированным по свежести.
+   */
+  private static async namesTakenIn(
+    userId: number,
+    runFilter: { storeId: number } | { groupId: number },
   ): Promise<Set<string>> {
     try {
       const rows = await prisma.storeItem.findMany({
-        where: { userId, storeRun: { storeId } },
+        where: { userId, storeRun: runFilter },
         select: { name: true },
         distinct: ['name'],
         take: STORE_HISTORY_LIMIT,
       });
       return new Set(rows.map(row => normalizeName(row.name)));
     } catch (error) {
-      logger.error('[UserItemPresetService] Failed to load store history', {
+      logger.error('[UserItemPresetService] Failed to load item history', {
         userId,
-        storeId,
+        runFilter,
         error,
       });
       return new Set();

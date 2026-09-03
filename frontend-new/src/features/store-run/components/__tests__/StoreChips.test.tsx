@@ -53,6 +53,46 @@ describe('StoreChips', () => {
     );
   });
 
+  it('без выбора карандаша нет', () => {
+    render(
+      <StoreChips stores={STORES} selectedId={null} onSelect={vi.fn()} onManage={vi.fn()} />,
+    );
+
+    expect(screen.queryByRole('button', { name: /Изменить магазин/ })).not.toBeInTheDocument();
+  });
+
+  it('карандаш появляется у выбранного магазина и открывает правку', async () => {
+    const onManage = vi.fn();
+    render(
+      <StoreChips stores={STORES} selectedId={2} onSelect={vi.fn()} onManage={onManage} />,
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Изменить магазин «Магнит»' }),
+    );
+
+    expect(onManage).toHaveBeenCalledWith(expect.objectContaining({ id: 2 }));
+  });
+
+  it('карандаш один на весь ряд, а не у каждого чипа', () => {
+    render(
+      <StoreChips stores={STORES} selectedId={1} onSelect={vi.fn()} onManage={vi.fn()} />,
+    );
+
+    expect(screen.getAllByRole('button', { name: /Изменить магазин/ })).toHaveLength(1);
+  });
+
+  /* Выбранный магазин может оказаться за пределами видимых восьми — тогда
+     карандаш показывать не на чем. */
+  it('невидимый выбранный магазин карандаша не даёт', () => {
+    const many = Array.from({ length: 12 }, (_, i) => mkStore(i + 1, `Магазин ${i + 1}`));
+    render(
+      <StoreChips stores={many} selectedId={12} onSelect={vi.fn()} onManage={vi.fn()} />,
+    );
+
+    expect(screen.queryByRole('button', { name: /Изменить магазин/ })).not.toBeInTheDocument();
+  });
+
   it('показывает не больше восьми магазинов', () => {
     const many = Array.from({ length: 12 }, (_, i) => mkStore(i + 1, `Магазин ${i + 1}`));
     render(

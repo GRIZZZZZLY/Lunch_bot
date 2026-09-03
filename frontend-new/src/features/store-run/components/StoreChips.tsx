@@ -5,13 +5,15 @@
  * не текст поля. Ручная правка поля выбор сбрасывает: два источника имени
  * одновременно означали бы, что показанное и отправленное расходятся.
  *
- * Долгое нажатие открывает правку. Это единственный вход в переименование и
- * скрытие: отдельного экрана управления справочником нет, потому что справочник
- * копится сам и заводить под него раздел не за чем.
+ * Вход в переименование и скрытие — карандаш РЯДОМ С ВЫБРАННЫМ чипом. Он один
+ * на весь ряд и появляется только после выбора: кнопка у каждого чипа
+ * превратила бы подсказки в панель управления, а невидимый жест знали бы
+ * только те, кто на него наткнулся. Долгое нажатие оставлено вторым путём для
+ * тех, кто уже привык, но открываемость держится на карандаше.
  */
 import { useEffect, useRef, useState } from 'react';
 
-import { Chip } from '@/components/rl/primitives';
+import { Chip, IconButton } from '@/components/rl/primitives';
 import type { GroupStore } from '@/services/group-store.service';
 
 /** Сколько чипов показываем. Больше на 390 px не помещается даже в две строки. */
@@ -61,13 +63,16 @@ export function StoreChips({
 
   if (stores.length === 0) return null;
 
+  const visible = stores.slice(0, VISIBLE_LIMIT);
+  const selected = visible.find((store) => store.id === selectedId) ?? null;
+
   return (
     <div
-      style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}
+      style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}
       role="group"
       aria-label="Магазины, которыми уже пользовались"
     >
-      {stores.slice(0, VISIBLE_LIMIT).map((store) => (
+      {visible.map((store) => (
         <Chip
           key={store.id}
           on={selectedId === store.id}
@@ -92,6 +97,16 @@ export function StoreChips({
           {store.name}
         </Chip>
       ))}
+
+      {selected && (
+        <IconButton
+          name="edit"
+          size="sm"
+          variant="ghost"
+          aria-label={`Изменить магазин «${selected.name}»`}
+          onClick={() => onManage(selected)}
+        />
+      )}
     </div>
   );
 }
