@@ -299,6 +299,83 @@ describe('рассылка напоминаний', () => {
   });
 });
 
+/**
+ * Подстановка в шаблон напоминания. Шаблон настраивает группа, поэтому его
+ * `*жирный*` обязан остаться разметкой, а вот подставляемые имена — нет:
+ * письмо уходит на `parse_mode: 'Markdown'`.
+ */
+describe('подстановка в шаблон напоминания', () => {
+  it('имя должника и имена кредиторов экранируются', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      debt({
+        fromUser: { id: 1, firstName: 'Соус_острый', telegramId: BigInt(555) },
+        toUser: { id: 2, firstName: 'Аня_К', lastName: 'С*ова' },
+      }),
+    ] as never);
+
+    await runDebtReminderJobManually();
+
+    const message = sendMessage.mock.calls[0][1] as string;
+    expect(message).toContain('Привет, Соус\\_острый!');
+    expect(message).toContain('Аня\\_К С\\*ова');
+  });
+
+  /**
+   * Ловушка `String.prototype.replace`: со СТРОКОВЫМ вторым аргументом `$&`,
+   * `$'`, `` $` `` и `$1` в нём имеют специальное значение. Имя вида `$&`
+   * подставляло само себя (`{userName}`), а не имя человека.
+   */
+  it('спецпоследовательности $& и $\' в имени подставляются буквально', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      debt({
+        fromUser: { id: 1, firstName: "$&$'$1", telegramId: BigInt(555) },
+      }),
+    ] as never);
+
+    await runDebtReminderJobManually();
+
+    const message = sendMessage.mock.calls[0][1] as string;
+    expect(message).toContain("Привет, $&$'$1!");
+    expect(message).not.toContain('{userName}');
+  });
+
+  /* `replace` со строкой меняет только ПЕРВОЕ вхождение: во шаблоне с двумя
+     `{userName}` второй оставался неподставленным плейсхолдером. */
+  it('токен подставляется во все вхождения, а не только в первое', async () => {
+    reminderStub.getGroupsWithEnabledReminders.mockResolvedValue([
+      {
+        ...SETTINGS,
+        messageTemplate: '{userName}, долг {totalAmount}. Пока, {userName}!',
+      },
+    ]);
+
+    await runDebtReminderJobManually();
+
+    const message = sendMessage.mock.calls[0][1] as string;
+    expect(message).toBe('Игорь, долг 250.50. Пока, Игорь!');
+  });
+
+  /* Подстановка идёт одним проходом: имя, содержащее чужой токен, не должно
+     стать точкой второй подстановки. */
+  it('токен внутри подставленного имени второй раз не подставляется', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      debt({
+        fromUser: {
+          id: 1,
+          firstName: '{totalAmount}',
+          telegramId: BigInt(555),
+        },
+      }),
+    ] as never);
+
+    await runDebtReminderJobManually();
+
+    expect(sendMessage.mock.calls[0][1] as string).toContain(
+      'Привет, {totalAmount}!'
+    );
+  });
+});
+
 describe('формулировка возраста долга', () => {
   /** Возраст в тексте письма для долга, созданного `days` дней назад. */
   async function ageText(days: number): Promise<string> {

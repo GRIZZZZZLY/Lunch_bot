@@ -4,6 +4,7 @@ import { now } from '../utils/date';
 import { getBotInstance } from '../bot/bot-instance';
 import { GroupService } from './group.service';
 import { toNumber, sumDecimals } from '../utils/decimal';
+import { escapeMarkdown } from '../utils/telegram-html';
 import type { Prisma } from '@prisma/client';
 
 type Decimal = Prisma.Decimal;
@@ -599,12 +600,12 @@ export class AdminService {
    */
   private formatDebtReminderMessage(debtor: DebtorInfo): string {
     let message = `💰 *Напоминание об оплате*\n\n`;
-    message += `Привет, ${debtor.userName}!\n\n`;
+    message += `Привет, ${escapeMarkdown(debtor.userName ?? '')}!\n\n`;
     message += `За тобой обед на *${debtor.totalDebt.toFixed(2)}₽*:\n`;
 
     if (debtor.debts.length > 0) {
       debtor.debts.forEach((debt, index) => {
-        message += `${index + 1}. ${toNumber(debt.amount).toFixed(2)}₽ → ${debt.toUser.firstName}\n`;
+        message += `${index + 1}. ${toNumber(debt.amount).toFixed(2)}₽ → ${escapeMarkdown(debt.toUser.firstName ?? '')}\n`;
       });
     }
 
@@ -686,10 +687,12 @@ export class AdminService {
     let message = `💰 *Напоминание об оплате*\n\n`;
     message += `Привет! У тебя есть неоплаченный долг:\n\n`;
     message += `💵 Сумма: *${toNumber(debt.amount).toFixed(2)}₽*\n`;
-    message += `👤 Кредитор: ${debt.toUser.firstName} ${debt.toUser.lastName || ''}\n`;
-    
+    message += `👤 Кредитор: ${escapeMarkdown(debt.toUser.firstName ?? '')} ${
+      debt.toUser.lastName ? escapeMarkdown(debt.toUser.lastName) : ''
+    }\n`;
+
     if (debt.menuItem) {
-      message += `🍽️ За: ${debt.menuItem.name}\n`;
+      message += `🍽️ За: ${escapeMarkdown(debt.menuItem.name ?? '')}\n`;
     }
     
     const daysOld = Math.floor((Date.now() - new Date(debt.createdAt).getTime()) / (1000 * 60 * 60 * 24));

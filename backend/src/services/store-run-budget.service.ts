@@ -6,6 +6,7 @@ import { formatCurrency, sumDecimals } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 import { UserService } from './user.service';
 import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
+import { escapeMarkdown } from '../utils/telegram-html';
 
 interface PaymentInfo {
   paymentCard?: string | null;
@@ -173,15 +174,17 @@ export class StoreRunBudgetService {
       const debtor = txs[0].fromUser;
       const total = sumDecimals(txs.map(t => t.amount));
 
-      let message = `🛒 *Заказ из «${storeRun.storeName}» собран*\n\n`;
+      let message = `🛒 *Заказ из «${escapeMarkdown(storeRun.storeName ?? '')}» собран*\n\n`;
       message += `*Твои позиции:*\n`;
       for (const t of txs) {
-        const name = t.storeItem?.name ?? 'позиция';
+        const name = escapeMarkdown(t.storeItem?.name ?? 'позиция');
         message += `• ${name} — ${formatCurrency(t.amount)}\n`;
       }
       message += `\n💰 *К оплате: ${formatCurrency(total)}*\n`;
-      message += `👤 *Кому:* ${initiator.firstName}`;
-      if (initiator.lastName) message += ` ${initiator.lastName}`;
+      message += `👤 *Кому:* ${escapeMarkdown(initiator.firstName ?? '')}`;
+      if (initiator.lastName) {
+        message += ` ${escapeMarkdown(initiator.lastName)}`;
+      }
       message += `\n\n`;
 
       const paymentCard = paymentInfo?.paymentCard ?? null;
@@ -190,14 +193,17 @@ export class StoreRunBudgetService {
         if (paymentCard) {
           message += `${paymentCardLine(paymentCard)}\n`;
         }
+        /* Реквизиты инициатора уходят в ЛС другим участникам, поэтому здесь
+           дело не только в недоставке. Ссылку СБП это не задевает: она живёт
+           в `url` кнопки ниже, а не в тексте. */
         if (paymentInfo?.paymentPhone) {
-          message += `📱 Телефон: ${paymentInfo.paymentPhone} (СБП)\n`;
+          message += `📱 Телефон: ${escapeMarkdown(paymentInfo.paymentPhone)} (СБП)\n`;
         }
         if (paymentInfo?.paymentDetails) {
-          message += `ℹ️ ${paymentInfo.paymentDetails}\n`;
+          message += `ℹ️ ${escapeMarkdown(paymentInfo.paymentDetails)}\n`;
         }
       } else {
-        message += `_${initiator.firstName} не заполнил реквизиты — уточни перевод лично._\n`;
+        message += `_${escapeMarkdown(initiator.firstName ?? '')} не заполнил реквизиты — уточни перевод лично._\n`;
       }
 
       const keyboard = {
@@ -239,14 +245,14 @@ export class StoreRunBudgetService {
       if (!bot) return;
       const total = sumDecimals(transactions.map(t => t.amount));
 
-      let message = `🛍 *Забег «${storeRun.storeName}» закрыт*\n\n`;
+      let message = `🛍 *Забег «${escapeMarkdown(storeRun.storeName ?? '')}» закрыт*\n\n`;
       message += `Разослал участникам суммы и твои реквизиты.\n\n`;
       message += `💰 *Тебе вернут: ${formatCurrency(total)}*\n\n`;
       message += `*Ждём перевод:*\n`;
       for (const [, txs] of byDebtor) {
         const debtor = txs[0].fromUser;
         const sub = sumDecimals(txs.map(t => t.amount));
-        message += `• ${debtor.firstName} — ${formatCurrency(sub)}\n`;
+        message += `• ${escapeMarkdown(debtor.firstName ?? '')} — ${formatCurrency(sub)}\n`;
       }
 
       await bot.api.sendMessage(
@@ -293,7 +299,7 @@ export class StoreRunBudgetService {
     if (bot) {
       await bot.api.sendMessage(
         Number(initiator.telegramId),
-        `💳 *Получена оплата по магазину!*\n\n${debtor.firstName} отметил(а) оплату ${formatCurrency(total)}`,
+        `💳 *Получена оплата по магазину!*\n\n${escapeMarkdown(debtor.firstName ?? '')} отметил(а) оплату ${formatCurrency(total)}`,
         {
           parse_mode: 'Markdown',
           reply_markup: {

@@ -12,6 +12,7 @@ import {
   multiply,
 } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
+import { escapeMarkdown } from '../utils/telegram-html';
 
 interface PaymentInfo {
   paymentCard?: string | null;
@@ -56,7 +57,7 @@ export class BudgetService {
       if (bot) {
         await bot.api.sendMessage(
           Number(tx.toUser.telegramId),
-          `💳 *Получена оплата!*\n\n${tx.fromUser.firstName} отметил(а) оплату ${formatCurrency(tx.amount)}`,
+          `💳 *Получена оплата!*\n\n${escapeMarkdown(tx.fromUser.firstName ?? '')} отметил(а) оплату ${formatCurrency(tx.amount)}`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
@@ -297,7 +298,8 @@ export class BudgetService {
         `💰 Итого получено: ${totalReceived.toFixed(2)}₽\n\n` +
         `*Детали:*\n${transactions
           .map(
-            tx => `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`
+            tx =>
+              `✅ ${escapeMarkdown(tx.fromUser.firstName ?? '')} — ${formatCurrency(tx.amount)}`
           )
           .join('\n')}\n\nСпасибо за организацию! 🙏`,
       { parse_mode: 'Markdown' }
@@ -373,7 +375,7 @@ export class BudgetService {
             `*Подробности:*\n${allTx
               .map(
                 tx =>
-                  `✅ ${tx.fromUser.firstName} — ${formatCurrency(tx.amount)}`
+                  `✅ ${escapeMarkdown(tx.fromUser.firstName ?? '')} — ${formatCurrency(tx.amount)}`
               )
               .join('\n')}\n\nСпасибо за организацию! 🙏`,
           { parse_mode: 'Markdown' }
@@ -449,7 +451,7 @@ export class BudgetService {
       if (bot) {
         await bot.api.sendMessage(
           Number(tx.toUser.telegramId),
-          `⚠️ *Отменена отметка оплаты*\n\n${tx.fromUser.firstName} отменил(а) отметку оплаты ${tx.amount}₽`,
+          `⚠️ *Отменена отметка оплаты*\n\n${escapeMarkdown(tx.fromUser.firstName ?? '')} отменил(а) отметку оплаты ${tx.amount}₽`,
           { parse_mode: 'Markdown' }
         );
       }

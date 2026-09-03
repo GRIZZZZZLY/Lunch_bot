@@ -24,6 +24,7 @@ import { UserService } from './user.service';
 import { VoteService } from './vote.service';
 import { PollQueryService } from './poll-query.service';
 import { PollStatsService } from './poll-stats.service';
+import { escapeMarkdown } from '../utils/telegram-html';
 
 /** Кнопка Mini App + текст «голосование началось, до такого-то времени». */
 export async function announceNewPoll(params: {
@@ -189,22 +190,37 @@ function personalResultMessage(params: {
 
   if (winner) {
     const votesWord = pluralForm(winner.votes, 'голос', 'голоса', 'голосов');
-    message += `🏆 Победитель: **${winner.menuItemName}** (${winner.votes} ${votesWord})\n\n`;
+    message += `🏆 Победитель: **${escapeMarkdown(winner.menuItemName ?? '')}** (${winner.votes} ${votesWord})\n\n`;
   }
 
-  message += `👤 **Твой выбор:** ${chosenName || 'Не указан'}\n\n`;
+  message += `👤 **Твой выбор:** ${chosenName ? escapeMarkdown(chosenName) : 'Не указан'}\n\n`;
 
   if (!responsibleUser) return message;
 
-  message += '💰 **Информация для оплаты:**\n';
-  message += `👤 Ответственный: ${responsibleUser.firstName}`;
-  if (responsibleUser.username) message += ` (@${responsibleUser.username})`;
-  message += '\n';
-  message += `📱 Тег в Telegram: ${responsibleUser.username ? `@${responsibleUser.username}` : 'тег не указан'}\n`;
+  const username = responsibleUser.username
+    ? escapeMarkdown(responsibleUser.username)
+    : null;
 
-  if (payment?.paymentCard) message += `💳 Карта: \`${payment.paymentCard}\`\n`;
-  if (payment?.paymentPhone) message += `📱 Телефон: ${payment.paymentPhone}\n`;
-  if (payment?.paymentDetails) message += `📝 Детали: ${payment.paymentDetails}\n`;
+  message += '💰 **Информация для оплаты:**\n';
+  message += `👤 Ответственный: ${escapeMarkdown(responsibleUser.firstName ?? '')}`;
+  if (username) message += ` (@${username})`;
+  message += '\n';
+  message += `📱 Тег в Telegram: ${username ? `@${username}` : 'тег не указан'}\n`;
+
+  /* Реквизиты уходят в ЛС ДРУГИМ участникам, поэтому экранируются наравне с
+     именами. Code-span вокруг карты снят намеренно: обратная кавычка в
+     реквизите закрывала его раньше времени и роняла доставку, а
+     экранировать внутри code-span нечем — legacy-Markdown отдаёт `\` в текст
+     как есть. */
+  if (payment?.paymentCard) {
+    message += `💳 Карта: ${escapeMarkdown(payment.paymentCard)}\n`;
+  }
+  if (payment?.paymentPhone) {
+    message += `📱 Телефон: ${escapeMarkdown(payment.paymentPhone)}\n`;
+  }
+  if (payment?.paymentDetails) {
+    message += `📝 Детали: ${escapeMarkdown(payment.paymentDetails)}\n`;
+  }
 
   if (!payment?.paymentCard && !payment?.paymentPhone) {
     message +=

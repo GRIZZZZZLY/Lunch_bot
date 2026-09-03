@@ -5,6 +5,7 @@ import { getBotInstance } from '../bot/bot-instance';
 import { logger } from '../utils/logger';
 import { withDistributedLock } from '../utils/distributed-lock';
 import { pluralForm } from '../utils/pluralize';
+import { escapeMarkdown } from '../utils/telegram-html';
 
 /**
  * Форматирование возраста долга.
@@ -45,13 +46,30 @@ function formatDebtsList(debts: any[]): string {
         (Date.now() - new Date(debt.createdAt).getTime()) /
           (1000 * 60 * 60 * 24)
       );
-      return `• ${creditor.firstName} ${creditor.lastName || ''}: ${amount} руб. (${formatDebtAge(daysOld)})`;
+      const name = `${escapeMarkdown(creditor.firstName ?? '')} ${
+        creditor.lastName ? escapeMarkdown(creditor.lastName) : ''
+      }`;
+      return `• ${name}: ${amount} руб. (${formatDebtAge(daysOld)})`;
     })
     .join('\n');
 }
 
 /**
- * Форматирование сообщения с использованием шаблона
+ * Подстановка значений в шаблон напоминания.
+ *
+ * Одним проходом с функцией-заменителем, а не цепочкой `.replace('{token}',
+ * value)`, и на это три причины — каждая была отдельным дефектом:
+ *
+ * 1. У `replace` со СТРОКОВЫМ вторым аргументом `$&`, `$'`, `` $` `` и `$1`
+ *    имеют специальное значение. Пользователь с именем `$&` подставлял в
+ *    письмо сам токен `{userName}`, а не своё имя.
+ * 2. `replace` без флага `g` меняет только ПЕРВОЕ вхождение: шаблон группы с
+ *    двумя `{userName}` оставлял второй неподставленным плейсхолдером.
+ * 3. Цепочка проходов давала подставленному значению стать точкой следующей
+ *    подстановки: имя вида `{oldestDebtAge}` заменялось на возраст долга.
+ *
+ * Сам шаблон настраивает группа, поэтому его разметка остаётся разметкой —
+ * экранируются только подставляемые данные.
  */
 function formatReminderMessage(
   template: string,
@@ -60,13 +78,17 @@ function formatReminderMessage(
   debts: any[],
   oldestDebtAge: number
 ): string {
-  const debtsList = formatDebtsList(debts);
+  const values: Record<string, string> = {
+    userName: escapeMarkdown(debtor.firstName ?? ''),
+    totalAmount: totalAmount.toFixed(2),
+    debtsList: formatDebtsList(debts),
+    oldestDebtAge: formatDebtAge(oldestDebtAge),
+  };
 
-  return template
-    .replace('{userName}', debtor.firstName)
-    .replace('{totalAmount}', totalAmount.toFixed(2))
-    .replace('{debtsList}', debtsList)
-    .replace('{oldestDebtAge}', formatDebtAge(oldestDebtAge));
+  return template.replace(
+    /\{(userName|totalAmount|debtsList|oldestDebtAge)\}/g,
+    (_match, token: string) => values[token]
+  );
 }
 
 /**

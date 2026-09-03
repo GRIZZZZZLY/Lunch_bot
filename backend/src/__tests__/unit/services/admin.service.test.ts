@@ -542,6 +542,41 @@ describe('напоминания должникам', () => {
     expect(message).toContain('→ Аня');
   });
 
+  /* Оба напоминания уходят на Markdown, и оба подставляют имена. */
+  it('имена в напоминаниях экранируются', async () => {
+    asMock(prismaMock.user.findMany).mockResolvedValue([
+      {
+        ...debtor,
+        firstName: 'Соус_острый',
+        debts: [{ ...debtor.debts[0], toUser: { id: 2, firstName: 'Аня_К' } }],
+      },
+    ] as never);
+
+    await service.remindAllDebtors(100);
+
+    const bulk = sendMessage.mock.calls[0][1] as string;
+    expect(bulk).toContain('Привет, Соус\\_острый!');
+    expect(bulk).toContain('→ Аня\\_К');
+
+    sendMessage.mockClear();
+    prismaMock.transaction.findUnique.mockResolvedValue({
+      id: 10,
+      amount: 250,
+      createdAt: NOW,
+      fromUser: { telegramId: BigInt(555) },
+      toUser: { firstName: 'Аня_К', lastName: 'С*ова' },
+      menuItem: { name: 'Соус_острый' },
+      poll: { groupId: 100 },
+    } as never);
+    asMock(prismaMock.transaction.update).mockResolvedValue({ id: 10 });
+
+    await service.remindDebtor(10, 100);
+
+    const single = sendMessage.mock.calls[0][1] as string;
+    expect(single).toContain('Аня\\_К С\\*ова');
+    expect(single).toContain('За: Соус\\_острый');
+  });
+
   it('счётчик напоминаний растёт только у своей группы', async () => {
     await service.remindAllDebtors(100);
 

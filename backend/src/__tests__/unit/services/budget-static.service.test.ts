@@ -172,6 +172,42 @@ describe('markAsPaid', () => {
     );
   });
 
+  /* Все четыре уведомления этого сервиса подставляют имя должника в
+     Markdown. `_` в имени — обычное дело для Telegram, и без экранирования
+     ответственный не узнаёт об оплате вообще. */
+  it('имя должника экранируется во всех уведомлениях об оплате', async () => {
+    const withOddName = txFixture({
+      fromUser: {
+        id: 1,
+        firstName: 'Соус_острый',
+        username: 'igor',
+        telegramId: BigInt(555),
+      },
+    });
+    prismaMock.transaction.findUnique.mockResolvedValue(withOddName as never);
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      withOddName,
+    ] as never);
+
+    await BudgetService.markAsPaid(10, 1);
+    expect(sendMessage.mock.calls[0][1]).toContain('Соус\\_острый');
+
+    sendMessage.mockClear();
+    await BudgetService.markAllPaidByResponsible(5, 2);
+    const allPaid = sendMessage.mock.calls
+      .map(call => call[1] as string)
+      .join('\n');
+    expect(allPaid).toContain('Соус\\_острый');
+
+    sendMessage.mockClear();
+    prismaMock.transaction.findUnique.mockResolvedValue({
+      ...withOddName,
+      status: 'PAID',
+    } as never);
+    await new BudgetService().cancelMarkAsPaid(10, 1);
+    expect(sendMessage.mock.calls[0][1]).toContain('Соус\\_острый');
+  });
+
   it('событие об изменении долга адресовано обеим сторонам', async () => {
     await BudgetService.markAsPaid(10, 1);
 

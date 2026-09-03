@@ -349,6 +349,37 @@ describe('notifyStoreRunSettled', () => {
     expect(sentTo(1002)).toContain('U1 Петров');
   });
 
+  /**
+   * Название магазина и названия позиций пишет сам пользователь, реквизиты —
+   * тоже. Всё это уходит на Markdown, причём реквизиты инициатора попадают в
+   * ЛС ДРУГИМ участникам: `[текст](ссылка)` из чужого профиля стал бы там
+   * кликабельной ссылкой.
+   */
+  it('магазин, позиции, имена и реквизиты экранируются', async () => {
+    users.getPaymentInfo.mockResolvedValue({
+      paymentCard: null,
+      paymentPhone: '+7_999',
+      paymentDetails: 'СБП [тут](https://evil.example)',
+    });
+    settled([{ fromUserId: 2, itemName: 'Соус_острый' }], {
+      storeName: 'Пятёрочка_на *углу*',
+      initiator: user(1, { firstName: 'Аня_К', lastName: 'С*ова' }),
+    });
+
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
+
+    const toDebtor = sentTo(1002) as string;
+    expect(toDebtor).toContain('Пятёрочка\\_на \\*углу\\*');
+    expect(toDebtor).toContain('Соус\\_острый');
+    expect(toDebtor).toContain('Аня\\_К С\\*ова');
+    expect(toDebtor).toContain('+7\\_999');
+    expect(toDebtor).toContain('СБП \\[тут](https://evil.example)');
+
+    // Сводка инициатору: магазин и имя должника.
+    const toInitiator = sentTo(1001) as string;
+    expect(toInitiator).toContain('Пятёрочка\\_на \\*углу\\*');
+  });
+
   it('инициатор получает сводку: сколько всего и кто сколько должен', async () => {
     settled([
       { id: 1, fromUserId: 2, amount: 150 },
@@ -462,6 +493,19 @@ describe('markStoreRunPaidByDebtor', () => {
     expect(sentTo(1001)).toContain('Получена оплата по магазину');
     const call = api.sendMessage.mock.calls.find(c => c[0] === 1001);
     expect(JSON.stringify(call?.[2])).toContain('budget:srun_confirm:30:2');
+  });
+
+  it('имя должника в уведомлении инициатору экранируется', async () => {
+    asMock(prismaMock.user.findFirst).mockResolvedValue(
+      user(2, { firstName: 'Соус_острый' })
+    );
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      transaction({ fromUserId: 2, amount: 150 }),
+    ]);
+
+    await StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002);
+
+    expect(sentTo(1001)).toContain('Соус\\_острый');
   });
 
   it('незнакомый пользователь ничего не отмечает', async () => {
