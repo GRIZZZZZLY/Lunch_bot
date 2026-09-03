@@ -187,8 +187,15 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
          сервере: access-токен на этом эндпоинте должен получать отказ. Раньше
          мок отвечал успехом на любой Bearer, и это маскировало Задачу 3 —
          клиент слал access вместо refresh, а smoke всё равно был зелёным. */
+      /* Ротированный refresh-токен принимается тоже: ответ ниже выдаёт
+         `e2e-refreshed-refresh-token`, и без него второе обновление в одном
+         сценарии получало бы 401 от собственного же мока. */
       const authorization = request.headers().authorization;
-      if (authorization !== 'Bearer e2e-refresh-token') {
+      const acceptedRefreshTokens = [
+        'Bearer e2e-refresh-token',
+        'Bearer e2e-refreshed-refresh-token',
+      ];
+      if (!acceptedRefreshTokens.includes(authorization ?? '')) {
         await route.fulfill({
           status: 401,
           json: { success: false, error: 'Неверный тип токена', code: 'INVALID_TOKEN_TYPE' },
