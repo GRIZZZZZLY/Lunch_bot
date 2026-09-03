@@ -376,7 +376,7 @@ export class PollFlowService {
       if (!bot) return;
 
       let message = `🍽️ *Результаты голосования*\n\n`;
-      message += `Твой заказ: ${escapeMarkdown(transaction.menuItem?.name ?? '')}\n`;
+      message += `Твой заказ: ${escapeMarkdown(transaction.menuItem.name)}\n`;
       message += `💰 *Твоя сумма: ${formatCurrency(transaction.amount)}*\n\n`;
       message += `👤 *Ответственный:* ${escapeMarkdown(responsible.firstName ?? '')}`;
       if (responsible.lastName) {

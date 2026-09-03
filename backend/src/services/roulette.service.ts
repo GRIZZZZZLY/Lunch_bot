@@ -116,6 +116,14 @@ export class RouletteService {
 
   /**
    * Сгенерировать анимацию рулетки
+   *
+   * ВАЖНО для правок ниже: текст шага НЕ должен содержать разметки Telegram.
+   * Шаги уходят в БД целиком (`PollResult.rouletteData`), поэтому
+   * экранировать имена здесь нельзя — в хранилище легли бы данные,
+   * испорченные под один транспорт. Вместо этого отправитель
+   * (`bot/handlers/poll.handlers.ts`, `showRouletteAnimation`) экранирует
+   * строку шага ЦЕЛИКОМ. Если добавить сюда `*жирный*` или `_курсив_`, они
+   * приедут человеку с обратными слэшами.
    */
   private generateRouletteAnimation(participants: string[]): {
     participants: string[];

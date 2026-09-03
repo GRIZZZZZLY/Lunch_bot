@@ -25,6 +25,7 @@ import { VoteService } from './vote.service';
 import { PollQueryService } from './poll-query.service';
 import { PollStatsService } from './poll-stats.service';
 import { escapeMarkdown } from '../utils/telegram-html';
+import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
 
 /** Кнопка Mini App + текст «голосование началось, до такого-то времени». */
 export async function announceNewPoll(params: {
@@ -142,6 +143,17 @@ export async function notifyParticipantsLegacy(
     });
   }
 
+  /* Ссылка СБП живёт в поле `url` кнопки, а не в тексте: в тексте её нельзя
+     ни экранировать (обратный слэш ломает адрес), ни оставить сырой. Это тот
+     же путь, что у трёх остальных мест вывода реквизитов; здесь кнопки не
+     было вовсе, из-за чего должник по этому — запасному — сценарию не мог
+     перевести деньги в один тап. */
+  const paymentCard = payment?.paymentCard ?? null;
+  const replyMarkup =
+    paymentCard && isPaymentLink(paymentCard)
+      ? { inline_keyboard: [[paymentLinkButton(paymentCard)]] }
+      : undefined;
+
   const results = await Promise.all(
     votes.map(async (vote: { menuItemId: number | null; user: { id: number; telegramId: bigint } }) => {
       const chosen = breakdown.find(item => item.menuItemId === vote.menuItemId);
@@ -155,6 +167,7 @@ export async function notifyParticipantsLegacy(
       try {
         await bot.api.sendMessage(Number(vote.user.telegramId), message, {
           parse_mode: 'Markdown',
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
         });
         return true;
       } catch (error) {
@@ -207,13 +220,17 @@ function personalResultMessage(params: {
   message += '\n';
   message += `📱 Тег в Telegram: ${username ? `@${username}` : 'тег не указан'}\n`;
 
-  /* Реквизиты уходят в ЛС ДРУГИМ участникам, поэтому экранируются наравне с
-     именами. Code-span вокруг карты снят намеренно: обратная кавычка в
-     реквизите закрывала его раньше времени и роняла доставку, а
-     экранировать внутри code-span нечем — legacy-Markdown отдаёт `\` в текст
-     как есть. */
+  /* Реквизиты уходят в ЛС ДРУГИМ участникам, поэтому телефон и свободное
+     описание экранируются наравне с именами.
+     `paymentCard` — исключение, и его нельзя ни экранировать, ни выводить
+     сырым: поле хранит ссылку СБП (сервер принимает только http/https, см.
+     user.controller), а обратный слэш от `escapeMarkdown` делает адрес
+     непригодным для перевода. Поэтому здесь то же, что в трёх остальных
+     местах вывода реквизитов: фиксированная строка из `paymentCardLine()` в
+     тексте, сам адрес — в поле `url` кнопки. Legacy-значение из цифр
+     `paymentCardLine()` маскирует. */
   if (payment?.paymentCard) {
-    message += `💳 Карта: ${escapeMarkdown(payment.paymentCard)}\n`;
+    message += `${paymentCardLine(payment.paymentCard)}\n`;
   }
   if (payment?.paymentPhone) {
     message += `📱 Телефон: ${escapeMarkdown(payment.paymentPhone)}\n`;

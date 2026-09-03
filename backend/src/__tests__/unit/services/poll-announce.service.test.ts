@@ -50,9 +50,9 @@ beforeEach(() => {
 });
 
 describe('notifyParticipantsLegacy', () => {
-  it('блюда, имя, логин и реквизиты ответственного экранируются', async () => {
+  it('блюда, имя, логин, телефон и описание реквизитов экранируются', async () => {
     userService.getPaymentInfo.mockResolvedValue({
-      paymentCard: '2200_1234',
+      paymentCard: null,
       paymentPhone: '+7_999',
       paymentDetails: 'СБП [тут](https://evil.example)',
     });
@@ -66,17 +66,23 @@ describe('notifyParticipantsLegacy', () => {
     const message = sendMessage.mock.calls[0][1] as string;
     expect(message).toContain('**Соус\\_острый \\*акция\\***');
     expect(message).toContain('Ответственный: Аня\\_К (@anya\\_k)');
-    expect(message).toContain('2200\\_1234');
     expect(message).toContain('+7\\_999');
     expect(message).toContain('СБП \\[тут](https://evil.example)');
   });
 
-  /* Реквизит с обратной кавычкой раньше ломал сообщение: значение стояло в
-     code-span, а внутри code-span экранировать нечем — legacy-Markdown отдаёт
-     `\` в текст как есть. */
-  it('обратная кавычка в реквизите больше не ломает разметку', async () => {
+  /**
+   * `paymentCard` по серверной схеме (`user.controller`) содержит только
+   * адрес http/https. Экранировать его нельзя: обратный слэш от
+   * `escapeMarkdown` делает адрес непригодным для перевода. Поэтому адрес
+   * уходит в поле `url` кнопки, а в тексте стоит фиксированная строка.
+   *
+   * Фикстура здесь намеренно в РЕАЛЬНОЙ форме значения: пока в тесте стоял
+   * несуществующий в системе `'2200_1234'`, дефект с экранированием ссылки
+   * был не виден.
+   */
+  it('ссылка СБП уходит кнопкой и не экранируется в тексте', async () => {
     userService.getPaymentInfo.mockResolvedValue({
-      paymentCard: 'карта`с кавычкой',
+      paymentCard: 'https://qr.nspk.ru/AS1A00?ab_12=x',
       paymentPhone: null,
       paymentDetails: null,
     });
@@ -87,8 +93,52 @@ describe('notifyParticipantsLegacy', () => {
       username: null,
     });
 
-    const message = sendMessage.mock.calls[0][1] as string;
-    expect(message).toContain('карта\\`с кавычкой');
+    const [, message, options] = sendMessage.mock.calls[0] as [
+      number,
+      string,
+      {
+        parse_mode: string;
+        reply_markup?: {
+          inline_keyboard: Array<Array<{ text: string; url?: string }>>;
+        };
+      },
+    ];
+
+    // Адрес не попадает в текст ни сырым, ни экранированным.
+    expect(message).not.toContain('qr.nspk.ru');
+    expect(message).not.toContain('ab\\_12');
+    expect(message).toContain('🔗 Ссылка для перевода — кнопкой ниже');
+    expect(options.reply_markup?.inline_keyboard[0][0]).toEqual({
+      text: '💳 Перевести по ссылке',
+      url: 'https://qr.nspk.ru/AS1A00?ab_12=x',
+    });
+  });
+
+  /* Legacy-значение из цифр ссылкой не является: маскируется как раньше и
+     кнопки перевода не получает — переводить по ней некуда. */
+  it('legacy-номер из цифр маскируется и кнопки не получает', async () => {
+    userService.getPaymentInfo.mockResolvedValue({
+      paymentCard: '2200123456789012',
+      paymentPhone: null,
+      paymentDetails: null,
+    });
+
+    await notifyParticipantsLegacy(5, [], {
+      id: 2,
+      firstName: 'Аня',
+      username: null,
+    });
+
+    const [, message, options] = sendMessage.mock.calls[0] as [
+      number,
+      string,
+      { reply_markup?: unknown },
+    ];
+
+    expect(message).not.toContain('2200123456789012');
+    expect(message).toContain('💳 Карта: ');
+    expect(message).toContain('****');
+    expect(options.reply_markup).toBeUndefined();
   });
 
   it('без ответственного письмо ограничивается итогами', async () => {
