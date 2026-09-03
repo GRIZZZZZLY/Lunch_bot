@@ -45,10 +45,14 @@ jest.mock('../../../services/poll-stats.service', () => ({
 }));
 jest.mock('../../../services/poll.service', () => ({ PollService: {} }));
 jest.mock('../../../services/category-order.service', () => ({
-  CategoryOrderService: {},
+  CategoryOrderService: {
+    createCategoryOrders: jest.fn().mockResolvedValue([]),
+  },
 }));
 jest.mock('../../../services/multi-category-responsible.service', () => ({
-  MultiCategoryResponsibleService: {},
+  MultiCategoryResponsibleService: {
+    startMultiCategorySelection: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 
 describe('closeExpiredPoll', () => {
@@ -62,6 +66,13 @@ describe('closeExpiredPoll', () => {
       '../../../services/poll-query.service'
     );
     PollQueryService.getPollById.mockResolvedValue({ status: 'COMPLETED' });
+    /* `clearAllMocks` стирает вызовы, но не реализации, поэтому итог
+       `completePoll` задаётся здесь заново: иначе тест, поднявший totalVotes,
+       менял бы поведение всех следующих. */
+    const { PollCompletionService } = jest.requireMock(
+      '../../../services/poll-completion.service'
+    );
+    PollCompletionService.completePoll.mockResolvedValue({ totalVotes: 0 });
   });
 
   it('с голосами и chat/message — завершает через таймерный путь', async () => {
@@ -84,15 +95,24 @@ describe('closeExpiredPoll', () => {
     });
   });
 
-  /* Голосование, созданное не через бота: дописывать итоги некуда, но результат
-     и долги всё равно должны появиться. */
-  it('с голосами, но без chat/message — завершает без объявления в группу', async () => {
+  /* Голосование, созданное не через бота: дописывать итоги некуда — и только.
+     Заказы по категориям, выбор ответственных и долги от наличия чата не
+     зависят, иначе у группы без чата обед заканчивается голосами и ничем
+     больше. Ветка обязана быть симметрична ветке с чатом. */
+  it('с голосами, но без chat/message — завершает и запускает следующий шаг', async () => {
     const { PollCompletionService } = jest.requireMock(
       '../../../services/poll-completion.service'
     );
     const { announceCompletion } = jest.requireMock(
       '../../../services/poll-announce.service'
     );
+    const { CategoryOrderService } = jest.requireMock(
+      '../../../services/category-order.service'
+    );
+    const { MultiCategoryResponsibleService } = jest.requireMock(
+      '../../../services/multi-category-responsible.service'
+    );
+    PollCompletionService.completePoll.mockResolvedValue({ totalVotes: 2 });
 
     const outcome = await closeExpiredPoll({
       ...base,
@@ -104,6 +124,31 @@ describe('closeExpiredPoll', () => {
     expect(outcome).toBe('completed');
     expect(PollCompletionService.completePoll).toHaveBeenCalledWith(1);
     expect(announceCompletion).not.toHaveBeenCalled();
+    expect(CategoryOrderService.createCategoryOrders).toHaveBeenCalledWith(1);
+    expect(
+      MultiCategoryResponsibleService.startMultiCategorySelection
+    ).toHaveBeenCalledWith(1);
+  });
+
+  /* Пустого голосования следующий шаг не касается: отменённому обеду не нужны
+     ни заказы, ни ответственные. */
+  it('без голосов и без chat/message — следующий шаг не запускается', async () => {
+    const { PollCompletionService } = jest.requireMock(
+      '../../../services/poll-completion.service'
+    );
+    const { CategoryOrderService } = jest.requireMock(
+      '../../../services/category-order.service'
+    );
+    PollCompletionService.cancelIfStillActive.mockResolvedValue(true);
+
+    await closeExpiredPoll({
+      ...base,
+      chatId: null,
+      messageId: null,
+      votesCount: 0,
+    });
+
+    expect(CategoryOrderService.createCategoryOrders).not.toHaveBeenCalled();
   });
 
   it('без голосов — отменяет и не завершает', async () => {

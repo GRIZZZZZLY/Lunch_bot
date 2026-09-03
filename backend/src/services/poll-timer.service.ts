@@ -136,12 +136,15 @@ export async function closeExpiredPoll(
       messageId: poll.messageId,
     });
   } else {
-    /* Голосование, созданное не через бота: завершаем без объявления в группу —
-       дописывать итоги некуда. */
-    await PollCompletionService.completePoll(poll.id);
+    /* Голосование, созданное не через бота: без объявления в группу —
+       дописывать итоги некуда. Но следующий шаг обязателен, как и в ветке с
+       чатом: заказы по категориям, ответственные и долги от наличия чата не
+       зависят. Пока здесь звали `completePoll` напрямую, у такой группы обед
+       заканчивался закрытым голосованием и ничем больше. */
+    await completeAndAdvance(poll.id);
   }
 
-  /* `completeByTimer` по контракту НЕ пробрасывает исключения (его штатный
+  /* Оба пути завершения по контракту НЕ пробрасывают исключения (их штатный
      вызывающий — таймер, где throw уронил бы процесс), поэтому «завершено»
      подтверждается чтением статуса. Без этой проверки проглоченный сбой уезжал
      в отчёт как успех: скрипт печатал «Завершено: N» и отдавал код 0, то есть
@@ -176,13 +179,33 @@ export async function completeByTimer(params: {
   chatId: number;
   messageId: number;
 }): Promise<void> {
-  const { pollId } = params;
+  await completeAndAdvance(params.pollId, () => announceCompletion(params));
+}
 
+/**
+ * Ядро завершения: закрыть голосование, при непустом итоге запустить следующий
+ * шаг обеда. Объявление в группу — необязательный шаг, а не условие: у
+ * голосования может не быть `chatId`/`messageId` (`schema.prisma`: колонка
+ * допускает NULL), и тогда дописывать итоги просто некуда.
+ *
+ * Одна функция на оба пути намеренно: пока их было два, ветка без чата теряла
+ * `startNextStep` — заказы по категориям не создавались, ответственные не
+ * выбирались, долги не появлялись.
+ *
+ * Исключения не пробрасываются: штатный вызывающий — таймер, там throw никто
+ * не поймает.
+ */
+async function completeAndAdvance(
+  pollId: number,
+  announce?: () => Promise<unknown>
+): Promise<void> {
   try {
     logger.info(`Auto-completing poll ${pollId} by timer`);
 
     const result = await PollCompletionService.completePoll(pollId);
-    await announceCompletion(params);
+    if (announce) {
+      await announce();
+    }
 
     if (result.totalVotes > 0) {
       await startNextStep(pollId);
