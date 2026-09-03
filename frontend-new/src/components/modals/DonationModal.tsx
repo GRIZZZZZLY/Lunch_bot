@@ -87,6 +87,9 @@ export function DonationModal({ open, onClose, sbpPhone }: Props) {
             background: 'var(--surface)',
           }}
         >
+          {/* fontSize 16px — порог, ниже которого iOS приближает страницу при
+              фокусе на поле. Единственное поле проекта со стилем в разметке,
+              поэтому правило продублировано здесь. */}
           <input
             aria-label="Своя сумма"
             value={custom}
@@ -94,7 +97,7 @@ export function DonationModal({ open, onClose, sbpPhone }: Props) {
             inputMode="numeric"
             placeholder="0"
             className="tnum"
-            style={{ flex: 1, border: 'none', outline: 'none', fontSize: 'var(--text-15)', background: 'transparent', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}
+            style={{ flex: 1, border: 'none', outline: 'none', fontSize: 'var(--text-16)', background: 'transparent', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}
           />
           <span style={{ color: 'var(--text-tertiary)' }}>₽</span>
         </div>
