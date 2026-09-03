@@ -707,8 +707,47 @@ describe('уведомления о долге', () => {
     expect(text).toContain('Доставка: 100.00₽');
     expect(text).toContain('Сервис: 50.00₽');
     expect(text).toContain('Чаевые: 25.00₽');
-    expect(text).toContain('2200 1234');
+    expect(text).toContain('**** **** **** 1234');
     expect(text).toContain('@ivan');
+  });
+
+  /* Основное уведомление о долге по категорийному заказу — последнее место,
+     которое печатало ссылку СБП под подписью «Карта». Ссылка уходит кнопкой:
+     путь отправки inline-клавиатуру и так несёт (кнопка «Оплатил»). */
+  it('ссылка СБП уходит кнопкой, а не подписью «Карта»', async () => {
+    users.getPaymentInfoMany.mockResolvedValue(
+      new Map([[1, { paymentCard: 'https://qr.nspk.ru/AS1A00', paymentPhone: null }]])
+    );
+    setup();
+
+    await OrderCalculationService.finalizeCalculation(10);
+
+    const text = sentText();
+    expect(text).not.toContain('Карта');
+    expect(text).not.toContain('https://qr.nspk.ru/AS1A00');
+    expect(text).toContain('кнопкой ниже');
+
+    const markup = api.sendMessage.mock.calls[0][2] as {
+      reply_markup: { inline_keyboard: { text: string; url?: string }[][] };
+    };
+    expect(markup.reply_markup.inline_keyboard[0]).toEqual([
+      { text: '💳 Перевести по ссылке', url: 'https://qr.nspk.ru/AS1A00' },
+    ]);
+    /* Кнопка «Оплатил» никуда не уходит — ссылка добавляется рядом, а не
+       вместо неё. */
+    expect(JSON.stringify(markup)).toContain('budget:mark_paid:500');
+  });
+
+  it('legacy-номер карты остаётся в тексте маскированным и кнопки не даёт', async () => {
+    setup();
+
+    await OrderCalculationService.finalizeCalculation(10);
+
+    const markup = api.sendMessage.mock.calls[0][2] as {
+      reply_markup: { inline_keyboard: unknown[][] };
+    };
+    expect(markup.reply_markup.inline_keyboard).toHaveLength(1);
+    expect(JSON.stringify(markup)).not.toContain('Перевести по ссылке');
   });
 
   it('кнопка «Оплатил» несёт id транзакции', async () => {

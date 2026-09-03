@@ -6,6 +6,7 @@ import { UserService } from './user.service';
 import { toNumber, formatCurrency } from '../utils/decimal';
 import { BaseError } from '../utils/error';
 import { getBotInstance } from '../bot/bot-instance';
+import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
 import {
   CalculationNotReadyError,
   CalculationStateChangedError,
@@ -476,11 +477,20 @@ export class OrderCalculationService {
           paymentInfo
         );
 
+        /* Ссылка СБП уходит кнопкой и добавляется РЯДОМ с «Оплатил», а не
+           вместо неё: в тексте от paymentCardLine остаётся фиксированная
+           строка, и без кнопки должнику было бы нечем перевести. */
+        const paymentCard = paymentInfo?.paymentCard ?? null;
         const payButton = {
-          inline_keyboard: [[{
-            text: '✅ Оплатил(а)',
-            callback_data: `budget:mark_paid:${transaction.id}`,
-          }]],
+          inline_keyboard: [
+            ...(paymentCard && isPaymentLink(paymentCard)
+              ? [[paymentLinkButton(paymentCard)]]
+              : []),
+            [{
+              text: '✅ Оплатил(а)',
+              callback_data: `budget:mark_paid:${transaction.id}`,
+            }],
+          ],
         };
 
         const waitingMsg = participantMsgs[transaction.fromUserId.toString()];
@@ -582,8 +592,12 @@ export class OrderCalculationService {
     message += `Детали:\n${breakdown.join('\n')}\n\n`;
     message += `Оплатить ${responsible.firstName}:\n`;
 
+    /* Единое правило вывода реквизитов на все места (`utils/payment-link`):
+       поле paymentCard давно содержит ссылку СБП, и подпись «Карта» под ней
+       врала должнику — перевести по такой строке всё равно нельзя, ссылка
+       уходит кнопкой. Legacy-номер здесь же маскируется. */
     if (paymentInfo?.paymentCard) {
-      message += `💳 Карта: ${paymentInfo.paymentCard}\n`;
+      message += `${paymentCardLine(paymentInfo.paymentCard)}\n`;
     }
     if (paymentInfo?.paymentPhone) {
       message += `📱 Телефон: ${paymentInfo.paymentPhone}\n`;
