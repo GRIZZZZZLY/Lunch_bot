@@ -2,10 +2,14 @@
  * Контракты входа для `/api/budget` — денежные операции.
  *
  * В `budget.controller.ts` уже лежали шесть zod-схем. Две из них работали
- * (`TransactionIdSchema`, `SendRemindersAllSchema`), а четыре —
- * `PollIdParamSchema`, `StatusQuerySchema`, `DateRangeQuerySchema`,
- * `SetOrderCostsSchema` — были объявлены и не вызывались ни разу. Здесь они
- * подключены, но не скопированы дословно: см. `budgetStatsQuery`.
+ * (`TransactionIdSchema`, `SendRemindersAllSchema`), а четыре были объявлены и
+ * не вызывались ни разу. Три из этих четырёх подключены здесь —
+ * `PollIdParamSchema`, `StatusQuerySchema`, `DateRangeQuerySchema`, — причём не
+ * скопированы дословно: см. `budgetStatsQuery`. Четвёртая,
+ * `SetOrderCostsSchema`, подключать было нечему: маршрут
+ * `POST /budget/order-costs` удалён вместе с ней (переписывал долги от имени
+ * последнего проголосовавшего), запись расходов идёт через
+ * `CategoryOrderService.updateCosts`.
  */
 import { z } from 'zod';
 

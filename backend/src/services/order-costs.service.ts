@@ -14,6 +14,16 @@ import { toNumber } from '../utils/decimal';
  * `CategoryOrderService.updateCosts`, где ответственный проверяется по самой
  * категории.
  *
+ * ВНИМАНИЕ, LEGACY-ЧТЕНИЕ: в таблицу `PollOrderCosts` после удаления
+ * `setOrderCosts` больше никто не пишет, а оба метода ниже продолжают её
+ * читать. Для голосований, созданных начиная с этой ветки, она всегда пуста:
+ * `getOrderCosts` вернёт `null`, а `getPollCostBreakdown` покажет нулевые
+ * доставку, сервис и чай при непустых долях в самих транзакциях. Актуальные
+ * суммы живут в `CategoryOrderService.updateCosts` и в полях
+ * `deliveryShare`/`serviceShare`/`tipShare` транзакций. Здесь оставлено как
+ * есть намеренно: два GET-эндпоинта на этой таблице ещё нужны старым
+ * голосованиям, а перевод их на категорийный путь — отдельная работа.
+ *
  * Split out of BudgetService (a god class covering payment state, poll
  * creation, reminders, and this) — pure Prisma queries with no shared state
  * or notification concerns.
