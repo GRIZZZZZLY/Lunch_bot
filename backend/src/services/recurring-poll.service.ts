@@ -23,7 +23,8 @@ interface UpdateRecurringPollData {
   isEnabled?: boolean;
 }
 
-interface RecurringPollWithRelations extends RecurringPoll {
+/** Расписание с группой и автором — то, что отдаёт `getActiveSchedules`. */
+export interface RecurringPollWithRelations extends RecurringPoll {
   group: {
     id: number;
     telegramId: bigint;

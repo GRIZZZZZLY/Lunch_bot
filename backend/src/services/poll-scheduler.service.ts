@@ -1,7 +1,10 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { Client } from 'pg';
 import { logger } from '../utils/logger';
-import { RecurringPollService } from './recurring-poll.service';
+import {
+  RecurringPollService,
+  type RecurringPollWithRelations,
+} from './recurring-poll.service';
 import { PollService } from './poll.service';
 import { UserService } from './user.service';
 import {
@@ -327,8 +330,12 @@ export class PollSchedulerService {
   /**
    * Отправка уведомления админу о результате выполнения
    */
+  /* Тип расписания назван честно: это ровно то, что отдаёт
+     `RecurringPollService.getActiveSchedules` — со `group` и `creator`. Под
+     `any` здесь молча проходило и обращение к несуществующему полю, и
+     `getNextRunInfo` с чем угодно на входе. */
   private static async notifyAdmin(
-    schedule: any,
+    schedule: RecurringPollWithRelations,
     result: {
       success: boolean;
       pollId?: number;
