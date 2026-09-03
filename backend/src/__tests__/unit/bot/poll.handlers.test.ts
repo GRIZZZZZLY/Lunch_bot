@@ -349,6 +349,34 @@ describe('handleRunRoulette', () => {
     );
   });
 
+  /**
+   * Имена участников попадают и в шаги анимации (их собирает
+   * `roulette.service`), и в финальное сообщение. Шаблон шага разметки не
+   * содержит — только эмодзи и текст, — поэтому строка шага экранируется
+   * целиком уже на отправке: сама `animationData` уезжает в БД, и
+   * экранированный текст в хранилище был бы порчей данных под один транспорт.
+   */
+  it('спецсимволы в именах и блюде экранируются в анимации и в финале', async () => {
+    rouletteStub.runRoulette.mockResolvedValue({
+      winnerMenuItemId: 1,
+      responsibleUserId: 7,
+      responsibleUserName: 'Аня_К',
+      winnerMenuItemName: 'Соус_острый *акция*',
+      totalVotes: 3,
+      animationData: { steps: [{ delay: 100, message: '🎯 Игорь_П...' }] },
+    });
+    const ctx = makeCtx();
+
+    const promise = handleRunRoulette(ctx, 5);
+    await jest.advanceTimersByTimeAsync(3000);
+    await promise;
+
+    const texts = ctx.api.editMessageText.mock.calls.map(call => call[2]);
+    expect(texts).toContain('🎯 Игорь\\_П...');
+    expect(texts[texts.length - 1]).toContain('Аня\\_К оформляет заказ');
+    expect(texts[texts.length - 1]).toContain('Соус\\_острый \\*акция\\*');
+  });
+
   it('активное голосование сначала надо завершить', async () => {
     pollQuery.getPollById.mockResolvedValue({
       id: 5,

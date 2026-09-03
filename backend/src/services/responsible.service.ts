@@ -9,6 +9,7 @@ import { now, addMinutesToDate, getTimestamp } from '../utils/date';
 import { toNumber, multiply } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 import { PollQueryService } from './poll-query.service';
+import { escapeMarkdown } from '../utils/telegram-html';
 
 export class ResponsibleService {
   /**
@@ -96,7 +97,7 @@ export class ResponsibleService {
 ${resultData.winners
   .map(
     (w: any, i: number) =>
-      `${i + 1}. ${w.menuItemName} — ${w.voteCount} чел. (${multiply(w.menuItemSnapshot.price, w.voteCount).toFixed(2)}₽)`
+      `${i + 1}. ${escapeMarkdown(w.menuItemName ?? '')} — ${w.voteCount} чел. (${multiply(w.menuItemSnapshot.price, w.voteCount).toFixed(2)}₽)`
   )
   .join('\n')}
 
@@ -246,7 +247,7 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
           await bot.api.editMessageText(
             Number(selection.chatId),
             selection.messageId,
-            `✅ *Голосование завершено!*\n\n🎯 *Ответственный:* ${user.firstName}\n\n💰 Детали заказа и реквизиты отправлены всем в личные сообщения.`,
+            `✅ *Голосование завершено!*\n\n🎯 *Ответственный:* ${escapeMarkdown(user.firstName ?? '')}\n\n💰 Детали заказа и реквизиты отправлены всем в личные сообщения.`,
             { parse_mode: 'Markdown' }
           );
         } catch (editError) {
@@ -357,7 +358,7 @@ ${resultData.bringOwn.count > 0 ? `\n🥪 Принесут своё — ${result
             selection.messageId,
             `🎲 *Рулетка выбрала ответственного!*
 
-🎯 *Ответственный:* ${result.responsibleUserName}
+🎯 *Ответственный:* ${escapeMarkdown(result.responsibleUserName ?? '')}
 
 💰 Детали заказа и реквизиты отправлены всем в личные сообщения.`,
             { parse_mode: 'Markdown' }

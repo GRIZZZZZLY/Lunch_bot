@@ -11,6 +11,7 @@ import { pollNotificationService } from '../../services/poll-notification.servic
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
 import { createResultsMessage } from '../keyboards/poll.keyboard';
+import { escapeMarkdown } from '../../utils/telegram-html';
 import { PollQueryService } from '../../services/poll-query.service';
 import { PollCompletionService } from '../../services/poll-completion.service';
 
@@ -225,10 +226,16 @@ async function showRouletteAnimation(
       await new Promise(resolve => setTimeout(resolve, step.delay));
 
       try {
+        /* Шаг анимации собран в `roulette.service` и содержит имена
+           участников, но НЕ содержит разметки — только эмодзи и текст.
+           Поэтому экранируется строка целиком и именно здесь: сама
+           `animationData` уезжает в БД (`PollResult.rouletteData`), и
+           экранированный текст в хранилище был бы порчей данных под один
+           транспорт. */
         await ctx.api.editMessageText(
           rouletteMessage.chat.id,
           rouletteMessage.message_id,
-          step.message,
+          escapeMarkdown(step.message ?? ''),
           { parse_mode: 'Markdown' }
         );
       } catch (err) {
@@ -240,10 +247,10 @@ async function showRouletteAnimation(
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     let finalMessage = `🎉 *Рулетка выбрала ответственного*\n\n`;
-    finalMessage += `🎯 ${responsibleUserName} оформляет заказ\n`;
+    finalMessage += `🎯 ${escapeMarkdown(responsibleUserName ?? '')} оформляет заказ\n`;
 
     if (winnerMenuItemName) {
-      finalMessage += `🍽️ Заказываем: ${winnerMenuItemName}`;
+      finalMessage += `🍽️ Заказываем: ${escapeMarkdown(winnerMenuItemName)}`;
     }
 
     await ctx.api.editMessageText(

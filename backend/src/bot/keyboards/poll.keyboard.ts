@@ -231,9 +231,9 @@ export function createCompactPollMessage(
 
     // Добавляем информацию об ответственном
     if (responsibleUser) {
-      message += `\n🎯 **Ответственный:** ${responsibleUser.firstName}`;
+      message += `\n🎯 **Ответственный:** ${escapeMarkdown(responsibleUser.firstName ?? '')}`;
       if (responsibleUser.username) {
-        message += ` (@${responsibleUser.username})`;
+        message += ` (@${escapeMarkdown(responsibleUser.username)})`;
       }
       message += `\n💳 Детали отправлены в личные сообщения`;
     }
@@ -403,14 +403,19 @@ export function createResultsMessage(pollData: {
     const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
     const bar = createProgressBar(item.percentage);
     
-    message += `${medal} **${item.menuItemName}**\n`;
+    message += `${medal} **${escapeMarkdown(item.menuItemName ?? '')}**\n`;
     message += `   ${bar} ${item.votes} голосов (${item.percentage}%)\n`;
-    
+
     if (item.voters.length <= 5) {
-      const voterNames = item.voters.map(v => v.firstName).join(', ');
+      const voterNames = item.voters
+        .map(v => escapeMarkdown(v.firstName ?? ''))
+        .join(', ');
       message += `   👤 ${voterNames}\n`;
     } else {
-      const firstVoters = item.voters.slice(0, 3).map(v => v.firstName).join(', ');
+      const firstVoters = item.voters
+        .slice(0, 3)
+        .map(v => escapeMarkdown(v.firstName ?? ''))
+        .join(', ');
       message += `   👤 ${firstVoters} и ещё ${item.voters.length - 3}\n`;
     }
     message += `\n`;
@@ -419,7 +424,7 @@ export function createResultsMessage(pollData: {
   /* То же, что с победителем: гейт стоял на `result.responsible`, поля с таким
      именем нет, и строка про ответственного не выводилась ни разу. */
   if (result?.responsibleUser) {
-    message += `🎲 **Ответственный за заказ:** ${result.responsibleUser.firstName}\n`;
+    message += `🎲 **Ответственный за заказ:** ${escapeMarkdown(result.responsibleUser.firstName ?? '')}\n`;
   }
 
 

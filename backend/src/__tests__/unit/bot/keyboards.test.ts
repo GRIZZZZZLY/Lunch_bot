@@ -285,6 +285,18 @@ describe('createCompactPollMessage — ответственный назначе
     expect(message).not.toContain('Ответственный');
   });
 
+  /* Название блюда экранировалось, а имя и логин ответственного в том же
+     сообщении — нет. */
+  it('имя и логин ответственного экранируются', () => {
+    const message = createCompactPollMessage(poll, 4, 8, 10, {
+      status: 'with_responsible',
+      breakdown: [],
+      responsibleUser: { firstName: 'Аня_К', username: 'anya_k' },
+    });
+
+    expect(message).toContain('**Ответственный:** Аня\\_К (@anya\\_k)');
+  });
+
   it('название по умолчанию не дублируется', () => {
     const message = createCompactPollMessage(
       { ...poll, title: 'Голосование за обед' },
@@ -555,6 +567,47 @@ describe('createResultsMessage', () => {
     });
 
     expect(message).toContain('**Ответственный за заказ:** Игорь');
+  });
+
+  /* Название голосования и победитель экранировались, а блюда разбивки,
+     голосовавшие и ответственный в том же сообщении — нет. */
+  it('блюда разбивки, имена голосовавших и ответственный экранируются', () => {
+    const message = createResultsMessage({
+      poll: { title: 'Обед', status: 'COMPLETED' },
+      result: { responsibleUser: { firstName: 'Аня_К' } },
+      breakdown: [
+        {
+          menuItemName: 'Соус_острый *акция*',
+          votes: 1,
+          percentage: 100,
+          voters: [{ firstName: 'Игорь_П' }],
+        },
+      ],
+      totalVotes: 1,
+    });
+
+    expect(message).toContain('**Соус\\_острый \\*акция\\***');
+    expect(message).toContain('Игорь\\_П');
+    expect(message).toContain('**Ответственный за заказ:** Аня\\_К');
+  });
+
+  it('свёрнутый список голосовавших тоже экранируется', () => {
+    const message = createResultsMessage({
+      poll: { title: 'Обед', status: 'COMPLETED' },
+      breakdown: [
+        {
+          menuItemName: 'Плов',
+          votes: 6,
+          percentage: 100,
+          voters: Array.from({ length: 6 }, (_, i) => ({
+            firstName: `Гость_${i + 1}`,
+          })),
+        },
+      ],
+      totalVotes: 6,
+    });
+
+    expect(message).toContain('Гость\\_3 и ещё 3');
   });
 });
 

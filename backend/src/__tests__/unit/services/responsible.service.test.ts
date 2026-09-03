@@ -236,6 +236,53 @@ describe('sendVolunteerPrompt', () => {
     });
   });
 
+  /**
+   * Три сообщения этого сервиса видит вся группа сразу, и все три уходят на
+   * Markdown: подсказка добровольцу с названиями блюд, «ответственный —
+   * такой-то» после отклика и результат рулетки.
+   */
+  it('блюда и имена во всех трёх сообщениях группы экранируются', async () => {
+    pollQuery.getPollById.mockResolvedValue(
+      pollFixture({
+        result: {
+          rouletteData: JSON.stringify({
+            winners: [
+              {
+                menuItemName: 'Соус_острый *акция*',
+                voteCount: 1,
+                menuItemSnapshot: { price: 100 },
+              },
+            ],
+            bringOwn: { count: 0 },
+          }),
+        },
+      })
+    );
+
+    await ResponsibleService.sendVolunteerPrompt(5, selection);
+    expect(editMessageText.mock.calls[0][2]).toContain(
+      'Соус\\_острый \\*акция\\*'
+    );
+
+    userService.getUserByTelegramId.mockResolvedValue({
+      ...USER,
+      firstName: 'Аня_К',
+    });
+    await ResponsibleService.handleVolunteer(5, 555);
+    expect(editMessageText.mock.calls[1][2]).toContain(
+      '*Ответственный:* Аня\\_К'
+    );
+
+    rouletteStub.runRoulette.mockResolvedValue({
+      responsibleUserId: 7,
+      responsibleUserName: 'Игорь_П',
+    });
+    await ResponsibleService.runRouletteAndProceed(5);
+    expect(editMessageText.mock.calls[2][2]).toContain(
+      '*Ответственный:* Игорь\\_П'
+    );
+  });
+
   it('без сообщения голосования отправляется новое и его id сохраняется', async () => {
     pollQuery.getPollById.mockResolvedValue(pollFixture({ messageId: null }));
 
