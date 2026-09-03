@@ -247,6 +247,18 @@ describe('createApiServer', () => {
     );
   });
 
+  it('разрешает встраивание в Telegram Web и не отдаёт X-Frame-Options', async () => {
+    const { createApiServer } = loadServer();
+    const app = createApiServer();
+
+    const response = await request(app).get('/api/stats');
+
+    expect(response.headers['content-security-policy']).toContain(
+      "frame-ancestors 'self' https://web.telegram.org"
+    );
+    expect(response.headers['x-frame-options']).toBeUndefined();
+  });
+
   it('добавляет заголовок обхода предупреждения ngrok', async () => {
     const { createApiServer } = loadServer();
     const app = createApiServer();

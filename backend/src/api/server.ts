@@ -108,6 +108,9 @@ export function createApiServer(): express.Application {
     imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
     connectSrc,
     frameSrc: ["'self'", 'https://telegram.org'],
+    // Telegram Web (web.telegram.org) грузит Mini App в iframe со своего
+    // origin — без этой директивы браузер такой фрейм блокирует.
+    frameAncestors: ["'self'", 'https://web.telegram.org'],
   };
 
   if (cspReportUri) {
@@ -120,6 +123,12 @@ export function createApiServer(): express.Application {
         directives: cspDirectives,
       } as any,
       crossOriginEmbedderPolicy: false, // Для iframe интеграции
+      // X-Frame-Options не поддерживает несколько источников и конфликтует
+      // с frame-ancestors в CSP: два конкурирующих механизма запрета
+      // фреймов однажды заблокировали встраивание Mini App в Telegram Web,
+      // хотя frame-ancestors уже разрешал web.telegram.org. Источник
+      // истины должен быть один — frame-ancestors в CSP.
+      frameguard: false,
     })
   );
 
