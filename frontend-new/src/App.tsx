@@ -73,8 +73,13 @@ function usePrefetchTabs() {
          Статистика и профиль читают одну историю с общим лимитом. */
       if (authStatus !== 'authenticated') return;
       queryClient.prefetchQuery(menuItemsQueryOptions({ groupId: currentGroupId })).catch(swallow);
+      /* История команды: тот же аргумент группы, что и в usePollHistory, —
+         иначе греется соседняя ячейка кэша. Без команды греть нечего. */
+      if (currentGroupId === null) return;
       queryClient
-        .prefetchQuery(pollHistoryQueryOptions({ limit: PROFILE_HISTORY_LIMIT }))
+        .prefetchQuery(
+          pollHistoryQueryOptions(currentGroupId, { limit: PROFILE_HISTORY_LIMIT })
+        )
         .catch(swallow);
     };
     if (typeof window.requestIdleCallback === 'function') {

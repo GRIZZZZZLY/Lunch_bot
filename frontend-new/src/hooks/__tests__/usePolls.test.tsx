@@ -32,6 +32,9 @@ const h = vi.hoisted(() => ({
   createFromWebapp: vi.fn(),
   push: vi.fn(),
   authStatus: 'authenticated' as string,
+  /* Команда обязательна: командные запросы без неё не выполняются вовсе —
+     иначе они уходили бы без groupId и получали данные всех команд. */
+  currentGroupId: '100' as string | null,
 }));
 
 vi.mock('@/services/polls.service', () => ({
@@ -50,8 +53,9 @@ vi.mock('@/services/polls.service', () => ({
 }));
 
 vi.mock('@/store/useAppStore', () => ({
-  useAppStore: (selector: (state: { authStatus: string }) => unknown) =>
-    selector({ authStatus: h.authStatus }),
+  useAppStore: (
+    selector: (state: { authStatus: string; currentGroupId: string | null }) => unknown,
+  ) => selector({ authStatus: h.authStatus, currentGroupId: h.currentGroupId }),
 }));
 
 vi.mock('@/store/useToastStore', () => ({
@@ -90,6 +94,7 @@ beforeEach(() => {
     if (typeof value === 'function' && 'mockReset' in value) value.mockReset();
   }
   h.authStatus = 'authenticated';
+  h.currentGroupId = '100';
   h.getActive.mockResolvedValue({ data: [{ id: 42 }, { id: 41 }] });
   h.getById.mockResolvedValue({ data: { id: 42 } });
   h.getLastCompleted.mockResolvedValue({ data: { id: 40 } });
@@ -187,9 +192,9 @@ describe('форма ответа', () => {
 
   /* Общие опции для предзагрузки: ключ обязан быть тем же, что у хука. */
   it('опции предзагрузки используют ключ активных опросов', async () => {
-    const options = activePollsQueryOptions();
+    const options = activePollsQueryOptions('100');
 
-    expect(options.queryKey).toEqual(queryKeys.polls.active);
+    expect(options.queryKey).toEqual(queryKeys.polls.activeForGroup('100'));
     await expect(options.queryFn()).resolves.toEqual([{ id: 42 }, { id: 41 }]);
   });
 });
@@ -338,5 +343,80 @@ describe('администраторские действия', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidatedKeys(invalidate)).toHaveLength(2);
     expect(h.push).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Изоляция команд.
+ *
+ * Ключ кэша активных голосований был `['polls','active']` — без команды. После
+ * переключения react-query отдавал из кэша голосование ПРЕЖНЕЙ команды как
+ * актуальное, потому что для него это был тот же самый запрос. Сам запрос при
+ * этом уходил без `groupId` и получал активные голосования всех команд
+ * человека, а `useActivePoll` брал из списка первый элемент — то есть
+ * произвольную команду.
+ */
+describe('изоляция команд', () => {
+  it('без команды запрос не уходит', async () => {
+    h.currentGroupId = null;
+
+    renderHook(() => useActivePolls(), { wrapper });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(h.getActive).not.toHaveBeenCalled();
+  });
+
+  it('команда уходит в запрос явно', async () => {
+    const { result } = renderHook(() => useActivePolls(), { wrapper });
+
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    expect(h.getActive).toHaveBeenCalledWith('100');
+  });
+
+  it('команда входит в ключ кэша', () => {
+    expect(activePollsQueryOptions('100').queryKey).toEqual(
+      queryKeys.polls.activeForGroup('100'),
+    );
+    expect(activePollsQueryOptions('200').queryKey).not.toEqual(
+      activePollsQueryOptions('100').queryKey,
+    );
+  });
+
+  /* Данные, уже лежащие в кэше одной команды, не должны отдаваться другой.
+     Именно это и происходило: ключ был общим. */
+  it('данные одной команды не отдаются другой', async () => {
+    qc.setQueryData(queryKeys.polls.activeForGroup('100'), [{ id: 42 }]);
+    h.currentGroupId = '200';
+    h.getActive.mockResolvedValue({ data: [{ id: 77 }] });
+
+    const { result } = renderHook(() => useActivePoll(), { wrapper });
+
+    await waitFor(() => expect(result.current.data).toEqual({ id: 77 }));
+    expect(h.getActive).toHaveBeenCalledWith('200');
+  });
+
+  it('последнее завершённое тоже изолировано по команде', async () => {
+    qc.setQueryData(queryKeys.polls.lastCompletedForGroup('100'), { id: 40 });
+    h.currentGroupId = '200';
+    h.getLastCompleted.mockResolvedValue({ data: { id: 55 } });
+
+    const { result } = renderHook(() => useLastCompletedPoll(), { wrapper });
+
+    await waitFor(() => expect(result.current.data).toEqual({ id: 55 }));
+    expect(h.getLastCompleted).toHaveBeenCalledWith('200');
+  });
+
+  /* Инвалидация по префиксу должна продолжать работать: группа стоит в конце
+     ключа именно для этого. */
+  it('префикс сбрасывает активные голосования всех команд', () => {
+    qc.setQueryData(queryKeys.polls.activeForGroup('100'), [{ id: 42 }]);
+    qc.setQueryData(queryKeys.polls.activeForGroup('200'), [{ id: 77 }]);
+
+    qc.invalidateQueries({ queryKey: queryKeys.polls.active });
+
+    for (const group of ['100', '200']) {
+      const state = qc.getQueryState(queryKeys.polls.activeForGroup(group));
+      expect(state?.isInvalidated).toBe(true);
+    }
   });
 });

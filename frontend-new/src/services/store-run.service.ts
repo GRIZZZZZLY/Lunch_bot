@@ -89,8 +89,11 @@ export const storeRunService = {
   createRun(payload: CreateStoreRunPayload): Promise<ApiResponse<StoreRun>> {
     return apiService.post<StoreRun>('/store-runs', payload);
   },
-  getActive(): Promise<ApiResponse<StoreRunListItem[]>> {
-    return apiService.get<StoreRunListItem[]>('/store-runs/active');
+  /** `groupId` явно: см. polls.service.getActive про фиксацию области. */
+  getActive(groupId?: string): Promise<ApiResponse<StoreRunListItem[]>> {
+    return apiService.get<StoreRunListItem[]>('/store-runs/active', {
+      params: groupId ? { groupId } : undefined,
+    });
   },
   getRun(id: number): Promise<ApiResponse<StoreRunWithRelations>> {
     return apiService.get<StoreRunWithRelations>(`/store-runs/${id}`);

@@ -140,6 +140,12 @@ beforeEach(() => {
   asMock(prismaMock.transaction.updateManyAndReturn).mockResolvedValue([
     { id: 10 },
   ] as never);
+  /* Задание на уведомление ставится в той же транзакции, что и переход
+     (см. outbox.service). Текст сообщения и кнопка проверяются в
+     outbox.templates.test.ts, отправка — в outbox-worker.service.test.ts. */
+  asMock(prismaMock.outboxEvent.createManyAndReturn).mockResolvedValue([
+    { id: 501 },
+  ] as never);
   prismaMock.transaction.findUnique.mockResolvedValue(txFixture() as never);
   asMock(prismaMock.responsibleSelection.findUnique).mockResolvedValue({
     messageId: 42,
@@ -157,25 +163,56 @@ describe('markAsPaid', () => {
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, fromUserId: 1, status: 'PENDING' },
-      data: { status: 'PAID', paidAt: NOW },
+      data: {
+        status: 'PAID',
+        paidAt: NOW,
+        /* Версия перехода — идентичность события уведомления: пара
+           «id долга + статус» не различает два законных подтверждения
+           в цепочке CONFIRMED → PAID → CONFIRMED. */
+        transitionVersion: { increment: 1 },
+      },
     });
-    expect(sendMessage).toHaveBeenCalledWith(
-      777,
-      expect.stringContaining('Получена оплата'),
+  });
+
+  /* Уведомление больше не уходит из этого метода напрямую: в транзакции
+     перехода ставится ЗАДАНИЕ, а отправляет его обработчик очереди. Здесь
+     проверяется адресат и данные события; текст и кнопка — в
+     outbox.templates.test.ts, сама отправка — в outbox-worker.service.test.ts. */
+  it('получателю ставится задание на уведомление в той же транзакции', async () => {
+    await BudgetService.markAsPaid(10, 1);
+
+    expect(prismaMock.outboxEvent.createManyAndReturn).toHaveBeenCalledWith(
       expect.objectContaining({
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: 'Подтвердить ✅', callback_data: 'budget:confirm:10' }],
-          ],
-        },
+        data: [
+          expect.objectContaining({
+            entityType: 'TRANSACTION',
+            entityId: 10,
+            messageType: 'DEBT_MARKED_PAID',
+            recipientChatId: '777',
+            payload: expect.objectContaining({
+              transactionId: 10,
+              debtorFirstName: 'Игорь',
+            }),
+          }),
+        ],
+        skipDuplicates: true,
       })
     );
   });
 
-  /* Все четыре уведомления этого сервиса подставляют имя должника в
-     Markdown. `_` в имени — обычное дело для Telegram, и без экранирования
-     ответственный не узнаёт об оплате вообще. */
-  it('имя должника экранируется во всех уведомлениях об оплате', async () => {
+  it('задание ставится тем же клиентом, что и переход статуса', async () => {
+    await BudgetService.markAsPaid(10, 1);
+
+    /* Иначе задание оказалось бы вне транзакции перехода, и весь смысл
+       очереди пропал бы: переход мог откатиться, а уведомление уйти. */
+    expect(prismaMock.$transaction).toHaveBeenCalled();
+  });
+
+  /* Уведомления этого сервиса подставляют имя должника в Markdown. `_` в
+     имени — обычное дело для Telegram, и без экранирования ответственный не
+     узнаёт об оплате вообще. Для markAsPaid экранирование переехало в шаблон
+     очереди (outbox.templates.test.ts): в задании лежит СЫРОЕ имя. */
+  it('имя должника экранируется в остальных уведомлениях об оплате', async () => {
     const withOddName = txFixture({
       fromUser: {
         id: 1,
@@ -189,10 +226,6 @@ describe('markAsPaid', () => {
       withOddName,
     ] as never);
 
-    await BudgetService.markAsPaid(10, 1);
-    expect(sendMessage.mock.calls[0][1]).toContain('Соус\\_острый');
-
-    sendMessage.mockClear();
     await BudgetService.markAllPaidByResponsible(5, 2);
     const allPaid = sendMessage.mock.calls
       .map(call => call[1] as string)
@@ -627,7 +660,14 @@ describe('бота нет', () => {
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, fromUserId: 1, status: 'PENDING' },
-      data: { status: 'PAID', paidAt: NOW },
+      data: {
+        status: 'PAID',
+        paidAt: NOW,
+        /* Версия перехода — идентичность события уведомления: пара
+           «id долга + статус» не различает два законных подтверждения
+           в цепочке CONFIRMED → PAID → CONFIRMED. */
+        transitionVersion: { increment: 1 },
+      },
     });
   });
 
@@ -647,5 +687,171 @@ describe('бота нет', () => {
 
     expect(prismaMock.transaction.updateManyAndReturn).toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Telegram недоступен, а статус долга уже записан в PostgreSQL.
+ *
+ * Раньше сбой отправки пробрасывался наружу, и клиент получал ошибку на
+ * операции, которая на самом деле сохранена: интерфейс откатывал
+ * оптимистическое изменение и показывал «Не удалось отметить оплату», а после
+ * перезагрузки — новый статус. Повтор запроса видел сохранённый статус и
+ * завершался успехом, уже не отправив уведомление.
+ *
+ * Здесь закреплена граница: недоступность Telegram ПОСЛЕ фиксации не делает
+ * операцию неуспешной, но ошибка самой записи в БД по-прежнему идёт наружу.
+ */
+describe('Telegram недоступен после фиксации статуса', () => {
+  /** Так выглядит недоступность Telegram, а не отказ адресата. */
+  function telegramDown(): Error {
+    return Object.assign(new Error('Bad Gateway'), { error_code: 502 });
+  }
+
+  it('markAsPaid возвращает сохранённый PAID, а не ошибку', async () => {
+    sendMessage.mockRejectedValue(telegramDown());
+
+    await expect(BudgetService.markAsPaid(10, 1)).resolves.toMatchObject({
+      id: 10,
+      status: 'PENDING', // статус в прочитанной записи; переход подтверждён ниже
+    });
+
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: 10, fromUserId: 1, status: 'PENDING' },
+      data: {
+        status: 'PAID',
+        paidAt: NOW,
+        /* Версия перехода — идентичность события уведомления: пара
+           «id долга + статус» не различает два законных подтверждения
+           в цепочке CONFIRMED → PAID → CONFIRMED. */
+        transitionVersion: { increment: 1 },
+      },
+    });
+  });
+
+  it('confirmPayment возвращает результат, а не ошибку', async () => {
+    prismaMock.transaction.findUnique.mockResolvedValue(
+      txFixture({ status: 'PAID' }) as never
+    );
+    sendMessage.mockRejectedValue(telegramDown());
+
+    await expect(BudgetService.confirmPayment(10, 2)).resolves.toMatchObject({
+      id: 10,
+    });
+
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: 10, toUserId: 2, status: 'PAID' },
+      data: { status: 'CONFIRMED', confirmedAt: NOW },
+    });
+  });
+
+  /* Проверка «все оплатили» стояла ПОСЛЕ личного уведомления и при его сбое
+     не выполнялась: последний закрытый долг не давал сборщику итог. */
+  it('«все оплатили» проверяется, даже если личное уведомление не ушло', async () => {
+    prismaMock.transaction.findUnique.mockResolvedValue(
+      txFixture({ status: 'PAID' }) as never
+    );
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      txFixture({ status: 'CONFIRMED' }),
+    ] as never);
+    // Личное уведомление должнику падает, сводка сборщику проходит.
+    sendMessage
+      .mockRejectedValueOnce(telegramDown())
+      .mockResolvedValue({ message_id: 43 });
+
+    await BudgetService.confirmPayment(10, 2);
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      777,
+      expect.stringContaining('Все оплатили'),
+      expect.objectContaining({ parse_mode: 'Markdown' })
+    );
+  });
+
+  it('undoConfirmation отменяет подтверждение и без доставки', async () => {
+    prismaMock.transaction.findUnique.mockResolvedValue(
+      txFixture({ status: 'CONFIRMED', confirmedAt: NOW }) as never
+    );
+    sendMessage.mockRejectedValue(telegramDown());
+
+    await expect(
+      BudgetService.undoConfirmation(10, 2)
+    ).resolves.toMatchObject({ id: 10 });
+
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: 10, toUserId: 2, status: 'CONFIRMED' },
+      data: { status: 'PAID', confirmedAt: null },
+    });
+  });
+
+  /* Частичная неудача: один должник заблокировал бота, остальные должны
+     узнать, а сборщик — получить сводку. */
+  it('недоставка одному должнику не отменяет остальных и сводку', async () => {
+    asMock(prismaMock.transaction.updateManyAndReturn).mockResolvedValue([
+      { id: 10 },
+      { id: 11 },
+    ] as never);
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      txFixture({ id: 10 }),
+      txFixture({
+        id: 11,
+        fromUser: {
+          id: 3,
+          firstName: 'Оля',
+          username: 'olya',
+          telegramId: BigInt(888),
+        },
+      }),
+    ] as never);
+    sendMessage
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Forbidden'), { error_code: 403 })
+      )
+      .mockResolvedValue({ message_id: 44 });
+
+    await expect(
+      BudgetService.markAllPaidByResponsible(5, 2)
+    ).resolves.toBeUndefined();
+
+    // Второй должник и сводка сборщику — после сбоя на первом.
+    expect(sendMessage).toHaveBeenCalledWith(
+      888,
+      expect.stringContaining('Оплата подтверждена')
+    );
+    expect(sendMessage).toHaveBeenCalledWith(
+      777,
+      expect.stringContaining('Все оплатили'),
+      expect.objectContaining({ parse_mode: 'Markdown' })
+    );
+  });
+
+  it('checkAllPaid не бросает, когда сводка не ушла', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      txFixture({ status: 'CONFIRMED' }),
+    ] as never);
+    sendMessage.mockRejectedValue(telegramDown());
+
+    await expect(BudgetService.checkAllPaid(5, 2)).resolves.toBeUndefined();
+  });
+
+  /* Обратная граница: изоляция уведомлений не должна проглатывать отказ
+     самой записи. Иначе клиент получил бы успех на несохранённом переходе. */
+  it('ошибка записи в БД по-прежнему идёт наружу', async () => {
+    asMock(prismaMock.transaction.updateMany).mockRejectedValue(
+      new Error('db down')
+    );
+
+    await expect(BudgetService.markAsPaid(10, 1)).rejects.toThrow('db down');
+  });
+
+  it('отказ в доступе по-прежнему идёт наружу', async () => {
+    sendMessage.mockRejectedValue(telegramDown());
+    prismaMock.transaction.findUnique.mockResolvedValue(
+      txFixture({ fromUserId: 999 }) as never
+    );
+
+    await expect(BudgetService.markAsPaid(10, 1)).rejects.toThrow(
+      'Access denied'
+    );
   });
 });

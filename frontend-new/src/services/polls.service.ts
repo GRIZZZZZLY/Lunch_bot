@@ -23,8 +23,16 @@ export interface CreatePollFromWebappResult {
 }
 
 class PollsService {
-  getActive() {
-    return apiService.get<Poll[]>('/polls/active');
+  /**
+   * Активные голосования. `groupId` передаётся ЯВНО, а не подмешивается из
+   * стора в `api.service.buildUrl`: область запроса должна быть зафиксирована
+   * в момент его создания, иначе повтор после сбоя ушёл бы в другую команду,
+   * если человек за это время переключился.
+   */
+  getActive(groupId?: string) {
+    return apiService.get<Poll[]>('/polls/active', {
+      params: groupId ? { groupId } : undefined,
+    });
   }
 
   getActiveForGroup(groupId: string) {

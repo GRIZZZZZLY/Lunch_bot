@@ -5,6 +5,7 @@ import { BotContext, SessionData } from '../types/bot.types';
 import { botConfig } from '../config/bot.config';
 import { logger } from '../utils/logger';
 import { setupErrorHandlers } from '../utils/error';
+import { runAfterCommit } from '../utils/post-commit';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 
@@ -560,7 +561,17 @@ export function createBot(): Bot<BotContext> {
       }
     } catch (error) {
       logger.error('Ошибка обработки callback query:', error);
-      await ctx.answerCallbackQuery('❌ Что-то пошло не так. Попробуй ещё раз');
+      /* Сам ответ на нажатие тоже уходит в Telegram и тоже может упасть —
+         например, когда Telegram недоступен или запрос устарел. Раньше эта
+         вторая ошибка покидала обработчик: `bot.catch` в проекте нет, а
+         `setupErrorHandlers` гасит процесс на unhandledRejection. Долг к
+         этому моменту уже сохранён, поэтому ронять из-за ответа нельзя. */
+      await runAfterCommit(
+        'bot.callbackQuery.answerAfterFailure',
+        {},
+        () =>
+          ctx.answerCallbackQuery('❌ Что-то пошло не так. Попробуй ещё раз')
+      );
     }
   });
 

@@ -597,3 +597,83 @@ describe('confirmStoreRunByDebtor', () => {
     expect(api.sendMessage).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Кнопки бота для магазинных долгов: статусы уже переведены в PostgreSQL, а
+ * отправка в Telegram падает.
+ *
+ * Раньше ошибка пробрасывалась в обработчик callback, тот отвечал
+ * «❌ Что-то пошло не так» — при уже сохранённой отметке. Хуже того, ответ на
+ * нажатие тоже уходит в Telegram и тоже падал, а `bot.catch` в проекте нет.
+ */
+describe('Telegram недоступен после перевода магазинных долгов', () => {
+  function telegramDown(): Error {
+    return Object.assign(new Error('Bad Gateway'), { error_code: 502 });
+  }
+
+  it('markStoreRunPaidByDebtor возвращает итог, а не ошибку', async () => {
+    asMock(prismaMock.user.findFirst).mockResolvedValue(user(2));
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      transaction({ fromUserId: 2, amount: 150 }),
+    ]);
+    api.sendMessage.mockRejectedValue(telegramDown());
+
+    await expect(
+      StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002)
+    ).resolves.toMatchObject({ count: 1 });
+
+    expect(asMock(prismaMock.transaction.updateMany)).toHaveBeenCalledWith({
+      where: { storeRunId: 30, fromUserId: 2, status: 'PENDING' },
+      data: { status: 'PAID', paidAt: NOW },
+    });
+  });
+
+  it('confirmStoreRunByDebtor возвращает итог, а не ошибку', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      transaction({ fromUserId: 2, amount: 150 }),
+    ]);
+    api.sendMessage.mockRejectedValue(telegramDown());
+
+    await expect(
+      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001)
+    ).resolves.toEqual({ count: 1 });
+
+    expect(asMock(prismaMock.transaction.updateMany)).toHaveBeenCalledWith({
+      where: {
+        storeRunId: 30,
+        fromUserId: 2,
+        status: { in: ['PENDING', 'PAID'] },
+      },
+      data: { status: 'CONFIRMED', confirmedAt: NOW },
+    });
+  });
+
+  /* Обратная граница: отказ самой записи должен остаться видимым. */
+  it('ошибка записи в БД по-прежнему идёт наружу', async () => {
+    asMock(prismaMock.user.findFirst).mockResolvedValue(user(2));
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      transaction({ fromUserId: 2, amount: 150 }),
+    ]);
+    asMock(prismaMock.transaction.updateMany).mockRejectedValue(
+      new Error('db down')
+    );
+
+    await expect(
+      StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002)
+    ).rejects.toThrow('db down');
+  });
+
+  /* Подтверждать может только инициатор — изоляция уведомлений не должна
+     ослабить эту проверку. */
+  it('чужое подтверждение по-прежнему отклоняется', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      transaction({ fromUserId: 2, amount: 150 }),
+    ]);
+    api.sendMessage.mockRejectedValue(telegramDown());
+
+    await expect(
+      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 9999)
+    ).resolves.toEqual({ error: 'forbidden' });
+    expect(asMock(prismaMock.transaction.updateMany)).not.toHaveBeenCalled();
+  });
+});

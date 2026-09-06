@@ -91,6 +91,11 @@ async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
   forceTimer.unref();
 
   try {
+    /* Обработчик очереди — первым: новый проход не должен начаться, пока
+       закрываются бот и БД. Захваченные им задания освободятся сами по
+       истечении срока захвата, поэтому дожидаться прохода не нужно. */
+    const { OutboxWorkerService } = require('./services/outbox-worker.service');
+    OutboxWorkerService.stop();
     if (bot) await stopBot(bot);
     if (apiServer) await stopApiServer(apiServer);
     await cacheService.close();
@@ -161,6 +166,17 @@ async function startApplication(): Promise<void> {
       logger.info('🔄 Запуск в polling режиме');
       if (app) apiServer = await startApiServer(app);
       if (bot) void startPolling(bot);
+    }
+
+    /* Обработчик очереди уведомлений — только там, где есть бот
+       (PROCESS_ROLE=full или bot). В роли `api` getBotInstance() возвращает
+       null, и обработчик молча захватывал бы задания, ничего не отправляя.
+       Сам он это проверяет ещё раз, но запускать его здесь без бота незачем. */
+    if (RUN_BOT) {
+      const {
+        OutboxWorkerService,
+      } = require('./services/outbox-worker.service');
+      OutboxWorkerService.start();
     }
 
     logger.info('✅ Приложение успешно запущено');

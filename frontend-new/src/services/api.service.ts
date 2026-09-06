@@ -280,6 +280,34 @@ class ApiService {
     });
   }
 
+  /**
+   * Команда, с которой запрос фактически уйдёт.
+   *
+   * Тот же порядок приоритетов, что в `buildUrl`: параметр, уже вписанный в
+   * путь, побеждает явный `params`, а он — значение из стора. Дублировать
+   * логику приходится потому, что ключ операции нужен ДО сборки URL.
+   */
+  private effectiveGroupId(url: string, config?: RequestConfig): string | null {
+    const inUrl = url.includes('?')
+      ? new URLSearchParams(url.slice(url.indexOf('?') + 1)).get('groupId')
+      : null;
+    if (inUrl !== null) return inUrl;
+
+    const explicit = config?.params?.groupId;
+    if (explicit !== undefined && explicit !== null) return String(explicit);
+
+    return useAppStore.getState().currentGroupId;
+  }
+
+  /**
+   * Идентичность изменяющей операции.
+   *
+   * Команда входит в ключ обязательно. Она подмешивается в запрос неявно
+   * (`buildUrl`), а ключ считался только по url, явным params и телу —
+   * поэтому два действия с одинаковым телом в РАЗНЫХ командах выглядели одной
+   * операцией: второе схлопывалось в первое как дубль и получало его ключ
+   * идемпотентности, то есть закешированный ответ чужой команды.
+   */
   private mutationKey(method: string, url: string, data: unknown, config?: RequestConfig): string {
     const serialize = (value: unknown): string => {
       try {
@@ -289,7 +317,8 @@ class ApiService {
         return `unserializable:${this.inflight.size}:${Math.random()}`;
       }
     };
-    return `${method} ${url} ${serialize(config?.params)} ${serialize(data)}`;
+    const group = this.effectiveGroupId(url, config) ?? 'no-group';
+    return `${method} ${url} group:${group} ${serialize(config?.params)} ${serialize(data)}`;
   }
 
   async get<T = unknown>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {

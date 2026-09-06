@@ -10,6 +10,7 @@ import {
   addStoreRunItemsBody,
   createStoreRunBody,
   setStoreRunItemPriceBody,
+  storeRunGroupQuery,
   storeRunIdParam,
   storeRunItemParams,
   updateStoreRunItemBody,
@@ -116,7 +117,11 @@ export class StoreRunController {
       return;
     }
     try {
-      const runs = await StoreRunService.getActiveStoreRunsForUser(user.id);
+      const { groupId } = storeRunGroupQuery.get(req);
+      const runs = await StoreRunService.getActiveStoreRunsForUser(
+        user.id,
+        groupId
+      );
       res.json({ success: true, data: serializeData(runs) });
     } catch (err) {
       sendStoreRunError(req, res, err);

@@ -4,6 +4,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { queryClient } from './queryClient';
 import { getInitData } from './telegram';
 import { captureError, identifyUser } from './monitoring';
+import { readPreferredGroupId, resolveInitialGroupId } from './groupPreference';
 
 export async function bootstrapAuth(): Promise<void> {
   const store = useAppStore.getState();
@@ -15,12 +16,23 @@ export async function bootstrapAuth(): Promise<void> {
 
     if (result.success) {
       authService.setToken(result.token);
+      /* Пользователь в сторе ДО выбора команды: `setCurrentGroupId`
+         запоминает выбор по id пользователя, и без него запоминать нечего.
+         Экраны смотрят на authStatus, он переключается ниже. */
+      store.setUser(result.user);
       // Resolve the active group BEFORE flipping auth status, so group-scoped
       // queries (menu, polls, budget) carry `groupId` on their first request.
       try {
         const groups = (await userService.getMyGroups()).data ?? [];
-        const active = groups.find((g) => g.isActive) ?? groups[0];
-        if (active) store.setCurrentGroupId(String(active.id));
+        /* Сначала последняя выбранная команда этого человека, если он всё ещё
+           в ней состоит; иначе прежнее правило (isActive, затем первая).
+           Проверка по актуальному списку обязательна: за время, пока
+           приложение было закрыто, из команды могли исключить. */
+        const initial = resolveInitialGroupId(
+          groups,
+          readPreferredGroupId(result.user.id)
+        );
+        if (initial) store.setCurrentGroupId(initial);
         /* Тот же список тут же просит useMyGroups — это был второй запрос за
            одними данными на каждом открытии. Кладём ответ в кэш под его ключом:
            хук получает группы готовыми, а барьер первого экрана не ждёт сеть. */
@@ -28,7 +40,6 @@ export async function bootstrapAuth(): Promise<void> {
       } catch (groupErr) {
         captureError(groupErr, { source: 'bootstrapAuth:groups' });
       }
-      store.setUser(result.user);
       store.setAuthStatus('authenticated');
       store.setAuthError(null);
       identifyUser({ id: result.user.id, username: result.user.username });

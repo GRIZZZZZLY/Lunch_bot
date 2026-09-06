@@ -47,7 +47,6 @@ import {
 } from './poll.view';
 import { requireAuthUserOrThrow } from '../middleware/require-auth-user';
 import {
-  accessibleGroupIds,
   assertGroupAdmin,
   assertGroupMember,
   assertPollAdmin,
@@ -113,11 +112,22 @@ function multiWinnerParams(req: Request): {
 export class PollController {
   /**
    * GET /api/polls/active
-   * Активные голосования во всех группах человека
+   * Активные голосования: одной группы при `?groupId=`, иначе всех групп.
+   *
+   * `groupId` учитывается так же, как в `history`, `last-completed` и `stats`
+   * этого контроллера. Раньше параметр игнорировался: и Главная, и панель
+   * администратора получали активные голосования ВСЕХ доступных групп, а
+   * Главная брала из списка первый элемент — то есть могла показать
+   * голосование не той команды, которая выбрана. `groupScope` проверяет
+   * членство, поэтому запрос к чужой группе получает 403, а не пустой список.
    */
   static async getActivePolls(req: Request, res: Response): Promise<void> {
-    const groupIds = await accessibleGroupIds(req);
-    const polls = await PollQueryService.getActivePolls(groupIds);
+    const { groupId } = pollGroupQuery.get(req);
+
+    const scope = await groupScope(req, groupId);
+    const polls = await PollQueryService.getActivePolls(
+      Array.isArray(scope) ? scope : [scope]
+    );
     const pollsWithEndTime = polls.map(withEndTime);
 
     res.json({

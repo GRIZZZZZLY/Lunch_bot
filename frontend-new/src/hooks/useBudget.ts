@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { budgetService } from '@/services/budget.service';
 import type { Transaction, TransactionStatus } from '@/types/models';
-import { queryKeys } from '@/lib/queryClient';
+import { queryKeys, type GroupKey } from '@/lib/queryClient';
+import { useAppStore } from '@/store/useAppStore';
 import { useAuth } from './useAuth';
 import { useToastStore } from '@/store/useToastStore';
 import { apiErrorMessage } from '@/lib/apiError';
@@ -13,11 +14,23 @@ import { apiErrorMessage } from '@/lib/apiError';
 /* Опции отдельно от хука: их берёт предзагрузка первого экрана
    (lib/prefetch.ts). Ключ и queryFn общие — иначе предзагрузка греет соседнюю
    ячейку кэша, и барьер Главной всё равно ждёт сеть. */
-export function debtsQueryOptions(params?: { status?: string }) {
+/* `groupId` — аргумент фабрики, как в usePolls: её вызывают и хук, и
+   предзагрузка, и обе должны попасть в одну ячейку кэша.
+
+   Сервер без `groupId` отдаёт личный итог по ВСЕМ командам человека — этот
+   контракт сохранён для профиля. Экраны бюджета и Главной команды его не
+   используют: там нужен ровно один экран одной команды. */
+export function debtsQueryOptions(
+  groupId: GroupKey,
+  params?: { status?: string }
+) {
   return {
-    queryKey: queryKeys.budget.debts(params),
+    queryKey: queryKeys.budget.debts(groupId, params),
     queryFn: async () => {
-      const res = await budgetService.getDebts(params);
+      const res = await budgetService.getDebts({
+        ...params,
+        ...(groupId ? { groupId } : {}),
+      });
       return res.data ?? [];
     },
     staleTime: 10_000,
@@ -26,18 +39,25 @@ export function debtsQueryOptions(params?: { status?: string }) {
 
 export function useDebts(params?: { status?: string }, live = false) {
   const { isAuthenticated } = useAuth();
+  const groupId = useAppStore((s) => s.currentGroupId);
   return useQuery({
-    ...debtsQueryOptions(params),
-    enabled: isAuthenticated,
+    ...debtsQueryOptions(groupId, params),
+    enabled: isAuthenticated && !!groupId,
     refetchInterval: live ? false : 15_000,
   });
 }
 
-export function creditsQueryOptions(params?: { status?: string }) {
+export function creditsQueryOptions(
+  groupId: GroupKey,
+  params?: { status?: string }
+) {
   return {
-    queryKey: queryKeys.budget.credits(params),
+    queryKey: queryKeys.budget.credits(groupId, params),
     queryFn: async () => {
-      const res = await budgetService.getCredits(params);
+      const res = await budgetService.getCredits({
+        ...params,
+        ...(groupId ? { groupId } : {}),
+      });
       return res.data ?? [];
     },
     staleTime: 10_000,
@@ -46,9 +66,10 @@ export function creditsQueryOptions(params?: { status?: string }) {
 
 export function useCredits(params?: { status?: string }, live = false) {
   const { isAuthenticated } = useAuth();
+  const groupId = useAppStore((s) => s.currentGroupId);
   return useQuery({
-    ...creditsQueryOptions(params),
-    enabled: isAuthenticated,
+    ...creditsQueryOptions(groupId, params),
+    enabled: isAuthenticated && !!groupId,
     refetchInterval: live ? false : 15_000,
   });
 }
@@ -122,13 +143,18 @@ export function useConfirmPayment() {
  * Отмена подтверждения. Оптимистики нет намеренно: окно (сутки) проверяет
  * сервер, и показать долг вернувшимся, чтобы через миг отобрать, — плохой обмен
  * на денежном экране. Ждём ответа и говорим результат.
+ *
+ * Говорим ровно про сохранённое состояние. Про доставку сообщения должнику не
+ * утверждаем: сервер намеренно не проваливает отмену из-за недоступности
+ * Telegram (backend/src/utils/post-commit.ts), поэтому успешный ответ значит
+ * «отмена сохранена», а не «участник узнал».
  */
 export function useUndoConfirmation() {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
   return useMutation({
     mutationFn: (transactionId: number) => budgetService.undoConfirmation(transactionId),
-    onSuccess: () => push({ type: 'info', message: 'Подтверждение отменено, участник уведомлён' }),
+    onSuccess: () => push({ type: 'info', message: 'Подтверждение отменено' }),
     onError: (err) =>
       push({ type: 'error', message: apiErrorMessage(err, 'Не удалось отменить подтверждение') }),
     onSettled: () => invalidateBudget(qc),

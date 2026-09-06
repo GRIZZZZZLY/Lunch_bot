@@ -7,6 +7,7 @@ import { getBotInstance } from '../bot/bot-instance';
 import { UserService } from './user.service';
 import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
 import { escapeMarkdown } from '../utils/telegram-html';
+import { runAfterCommit } from '../utils/post-commit';
 
 interface PaymentInfo {
   paymentCard?: string | null;
@@ -295,24 +296,32 @@ export class StoreRunBudgetService {
     const total = sumDecimals(txs.map(t => t.amount));
     const initiator = txs[0].toUser;
 
+    /* Статусы уже переведены в PAID. Сбой отправки не должен возвращаться в
+       обработчик кнопки: он бы оставил нажатие без ответа при сохранённой
+       отметке. См. utils/post-commit.ts. */
     const bot = getBotInstance();
     if (bot) {
-      await bot.api.sendMessage(
-        Number(initiator.telegramId),
-        `💳 *Получена оплата по магазину!*\n\n${escapeMarkdown(debtor.firstName ?? '')} отметил(а) оплату ${formatCurrency(total)}`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: 'Подтвердить ✅',
-                  callback_data: `budget:srun_confirm:${storeRunId}:${debtor.id}`,
-                },
-              ],
-            ],
-          },
-        }
+      await runAfterCommit(
+        'storeRunBudget.markPaidByDebtor.notifyInitiator',
+        { storeRunId, debtorId: debtor.id },
+        () =>
+          bot.api.sendMessage(
+            Number(initiator.telegramId),
+            `💳 *Получена оплата по магазину!*\n\n${escapeMarkdown(debtor.firstName ?? '')} отметил(а) оплату ${formatCurrency(total)}`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: 'Подтвердить ✅',
+                      callback_data: `budget:srun_confirm:${storeRunId}:${debtor.id}`,
+                    },
+                  ],
+                ],
+              },
+            }
+          )
       );
     }
 
@@ -361,11 +370,17 @@ export class StoreRunBudgetService {
     const debtor = txs[0].fromUser;
     const total = sumDecimals(txs.map(t => t.amount));
 
+    // Долги уже CONFIRMED; доставка отделена от результата (post-commit.ts)
     const bot = getBotInstance();
     if (bot) {
-      await bot.api.sendMessage(
-        Number(debtor.telegramId),
-        `✅ Оплата подтверждена!\n\n${initiator.firstName} подтвердил(а) получение ${formatCurrency(total)}\n\nСпасибо! 🎉`
+      await runAfterCommit(
+        'storeRunBudget.confirmByInitiator.notifyDebtor',
+        { storeRunId, debtorId: debtorUserId },
+        () =>
+          bot.api.sendMessage(
+            Number(debtor.telegramId),
+            `✅ Оплата подтверждена!\n\n${initiator.firstName} подтвердил(а) получение ${formatCurrency(total)}\n\nСпасибо! 🎉`
+          )
       );
     }
 

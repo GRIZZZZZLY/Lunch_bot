@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { userService, type PaymentInfo } from '@/services/user.service';
 import { pollsService } from '@/services/polls.service';
-import { queryKeys } from '@/lib/queryClient';
+import { queryKeys, type GroupKey } from '@/lib/queryClient';
 import { useAppStore } from '@/store/useAppStore';
 
 export function useMe() {
@@ -50,12 +50,23 @@ export function useUpdatePaymentInfo() {
    склеивает их в один запрос. */
 export const PROFILE_HISTORY_LIMIT = 90;
 
-/* См. menuItemsQueryOptions: те же опции нужны предзагрузке на простое. */
-export function pollHistoryQueryOptions(params?: { limit?: number; offset?: number }) {
+/* См. menuItemsQueryOptions: те же опции нужны предзагрузке на простое.
+
+   Группа в запрос уходила и раньше — её подмешивал `buildUrl` из стора, — но
+   в ключе кэша её не было. После переключения команды экран отдавал историю
+   ПРЕЖНЕЙ команды как актуальную: для react-query это был тот же запрос.
+   Теперь группа и в ключе, и в параметрах явно. */
+export function pollHistoryQueryOptions(
+  groupId: GroupKey,
+  params?: { limit?: number; offset?: number }
+) {
   return {
-    queryKey: queryKeys.polls.history(params),
+    queryKey: queryKeys.polls.history(groupId, params),
     queryFn: async () => {
-      const res = await pollsService.getHistory(params);
+      const res = await pollsService.getHistory({
+        ...params,
+        ...(groupId ? { groupId } : {}),
+      });
       return res.data ?? [];
     },
     staleTime: 30_000,
@@ -64,8 +75,9 @@ export function pollHistoryQueryOptions(params?: { limit?: number; offset?: numb
 
 export function usePollHistory(params?: { limit?: number; offset?: number }) {
   const authStatus = useAppStore((s) => s.authStatus);
+  const groupId = useAppStore((s) => s.currentGroupId);
   return useQuery({
-    ...pollHistoryQueryOptions(params),
-    enabled: authStatus === 'authenticated',
+    ...pollHistoryQueryOptions(groupId, params),
+    enabled: authStatus === 'authenticated' && !!groupId,
   });
 }

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pollsService, type CreatePollFromWebappInput } from '@/services/polls.service';
-import { queryKeys } from '@/lib/queryClient';
+import { queryKeys, type GroupKey } from '@/lib/queryClient';
 import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
 import type { Poll } from '@/types/models';
@@ -8,12 +8,16 @@ import { apiErrorMessage } from '@/lib/apiError';
 
 /* Опции отдельно от хуков: их же берёт предзагрузка первого экрана
    (lib/prefetch.ts). Ключ и queryFn должны быть общими, иначе предзагрузка
-   греет соседнюю ячейку кэша и барьер всё равно ждёт сеть. */
-export function activePollsQueryOptions() {
+   греет соседнюю ячейку кэша и барьер всё равно ждёт сеть.
+
+   `groupId` — аргумент, а не чтение стора внутри: фабрику вызывают и хук
+   (подписанный на currentGroupId), и предзагрузка (до React). Общий аргумент
+   гарантирует, что оба попадут в одну ячейку кэша. */
+export function activePollsQueryOptions(groupId: GroupKey) {
   return {
-    queryKey: queryKeys.polls.active,
+    queryKey: queryKeys.polls.activeForGroup(groupId),
     queryFn: async () => {
-      const res = await pollsService.getActive();
+      const res = await pollsService.getActive(groupId ?? undefined);
       return (res.data ?? []) as Poll[];
     },
     staleTime: 0,
@@ -22,13 +26,24 @@ export function activePollsQueryOptions() {
 
 export function useActivePolls() {
   const authStatus = useAppStore((s) => s.authStatus);
+  const groupId = useAppStore((s) => s.currentGroupId);
   return useQuery({
-    ...activePollsQueryOptions(),
-    enabled: authStatus === 'authenticated',
+    ...activePollsQueryOptions(groupId),
+    /* Без команды запрос не идёт: раньше он уходил без `groupId` и получал
+       активные голосования всех команд человека, а Главная брала первое из
+       списка — то есть могла показать голосование не той команды. */
+    enabled: authStatus === 'authenticated' && !!groupId,
     refetchInterval: 30_000,
   });
 }
 
+/**
+ * Активное голосование выбранной команды.
+ *
+ * `[0]` осмысленно именно из-за области: в одной команде активное голосование
+ * не больше одного (`getActivePollInGroup` на сервере). До сужения по команде
+ * это был «первый из всех команд», то есть произвольная команда.
+ */
 export function useActivePoll() {
   const q = useActivePolls();
   return { ...q, data: q.data?.[0] ?? null };
@@ -47,11 +62,14 @@ export function usePollById(pollId: number | null) {
   });
 }
 
-export function lastCompletedPollQueryOptions() {
+/* Группа сюда уходила НЕЯВНО — её подмешивал `buildUrl` из стора, — а ключ её
+   не содержал. После переключения команды экран показывал вчерашний итог
+   прежней команды как свой. */
+export function lastCompletedPollQueryOptions(groupId: GroupKey) {
   return {
-    queryKey: ['polls', 'last-completed'],
+    queryKey: queryKeys.polls.lastCompletedForGroup(groupId),
     queryFn: async () => {
-      const res = await pollsService.getLastCompleted();
+      const res = await pollsService.getLastCompleted(groupId ?? undefined);
       return (res.data ?? null) as Poll | null;
     },
     staleTime: 10_000,
@@ -60,9 +78,10 @@ export function lastCompletedPollQueryOptions() {
 
 export function useLastCompletedPoll() {
   const authStatus = useAppStore((s) => s.authStatus);
+  const groupId = useAppStore((s) => s.currentGroupId);
   return useQuery({
-    ...lastCompletedPollQueryOptions(),
-    enabled: authStatus === 'authenticated',
+    ...lastCompletedPollQueryOptions(groupId),
+    enabled: authStatus === 'authenticated' && !!groupId,
     refetchInterval: 15_000,
   });
 }
@@ -126,7 +145,7 @@ export function useCreatePoll() {
     mutationFn: (input: CreatePollFromWebappInput) => pollsService.createFromWebapp(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.polls.active });
-      qc.invalidateQueries({ queryKey: ['polls', 'last-completed'] });
+      qc.invalidateQueries({ queryKey: queryKeys.polls.lastCompleted });
     },
   });
 }
@@ -150,7 +169,7 @@ export function useWithdrawVote() {
 function invalidatePollLifecycle(qc: ReturnType<typeof useQueryClient>, pollId: number) {
   qc.invalidateQueries({ queryKey: queryKeys.polls.active });
   qc.invalidateQueries({ queryKey: queryKeys.polls.byId(pollId) });
-  qc.invalidateQueries({ queryKey: ['polls', 'last-completed'] });
+  qc.invalidateQueries({ queryKey: queryKeys.polls.lastCompleted });
 }
 
 /** Admin: close the poll now (runs roulette / picks winner). */
