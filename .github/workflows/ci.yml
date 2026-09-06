@@ -56,6 +56,18 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
+      # Изменяющие маршруты бюджета объявлены `required: true` в middleware
+      # идемпотентности: без хранилища оно отвечает 503, то есть денежные
+      # сценарии на настоящем API без Redis не проверяются вовсе.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://foodbot:foodbot_password@localhost:5432/foodbot_test_db
@@ -111,6 +123,19 @@ jobs:
 
       - name: Run tests with coverage
         run: npm run test:coverage -- --runInBand
+
+      # Отдельным шагом, а не общим окружением задания: обе переменные меняют
+      # поведение приложения, и тесты самого лимитера и readiness проверяют
+      # РАЗНЫЕ их значения — глобально выставленные, они ломали бы эти тесты.
+      # Без Redis изменяющие маршруты бюджета отвечают 503 (middleware
+      # идемпотентности объявлен `required: true`), и сценарии сами себя
+      # пропускают, о чём пишут в отчёт.
+      - name: Денежные сценарии на настоящем API
+        run: npm test -- --runInBand src/__tests__/integration/api
+        env:
+          REDIS_ENABLED: 'true'
+          REDIS_URL: redis://127.0.0.1:6379/0
+          ENABLE_RATE_LIMIT: 'false'
 
       - name: Upload backend coverage
         if: always()
@@ -280,10 +305,27 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
+      # Redis обязателен в production и несёт идемпотентность изменяющих
+      # запросов, одноразовость refresh-токенов и распределённые блокировки.
+      # Без него `cacheService` уходит в no-cache, а middleware
+      # идемпотентности ПРОПУСКАЕТ запрос с предупреждением — то есть
+      # сценарии повтора запроса и одновременных подтверждений не проверяли
+      # ничего. Поднимаем ту же роль, что в продакшене.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://foodbot:foodbot_password@localhost:5432/foodbot_e2e_test
       TEST_DATABASE_URL: postgresql://foodbot:foodbot_password@localhost:5432/foodbot_e2e_test
+      REDIS_ENABLED: 'true'
+      REDIS_URL: redis://127.0.0.1:6379/0
       BOT_TOKEN: 777000:test_e2e_bot_token
       E2E_BOT_TOKEN: 777000:test_e2e_bot_token
       TELEGRAM_SECRET_KEY: e2e-only-telegram-secret

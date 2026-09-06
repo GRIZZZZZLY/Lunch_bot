@@ -9,6 +9,9 @@ export async function cleanDatabase() {
   // 1. Удаляем данные с внешними ключами (самые зависимые)
   await prisma.paymentReminder.deleteMany();
   await prisma.transaction.deleteMany();
+  /* Задания на уведомление ссылаются на транзакцию по значению, без внешнего
+     ключа: FK бы их не унёс, и очередь протекала бы между тестами. */
+  await prisma.outboxEvent.deleteMany();
   await prisma.xPHistory.deleteMany();
   await prisma.userStats.deleteMany();
   await prisma.adminReminder.deleteMany();
@@ -31,6 +34,15 @@ export async function cleanDatabase() {
   await prisma.poll.deleteMany();
   await prisma.recurringPoll.deleteMany();
   
+  /* 4.1. Магазинные забеги: их не было, когда писался этот помощник, и
+     `store_runs.initiator_id` держал пользователя — удаление пользователей
+     падало на внешнем ключе, как только тест заводил забег. Позиции первыми:
+     они ссылаются на забег. */
+  await prisma.storeItem.deleteMany();
+  await prisma.storeRun.deleteMany();
+  await prisma.userItemPreset.deleteMany();
+  await prisma.groupStore.deleteMany();
+
   // 5. Удаляем блюда (зависят от user через createdBy)
   await prisma.menuItem.deleteMany();
   
