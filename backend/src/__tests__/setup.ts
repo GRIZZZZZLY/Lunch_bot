@@ -38,15 +38,23 @@ jest.setTimeout(30000);
    соединение может любой набор, поднимающий приложение, а не только те, что
    работают с кэшем осознанно.
 
-   `require` внутри хука, а не импорт сверху: наборы, подменяющие
-   `cache.service` моком, не должны из-за этого тянуть настоящий модуль. */
+   Модуль подключается СВЕРХУ, а не через `require` внутри хука. Первая
+   редакция делала именно так — и ломала прогон: к моменту `afterAll`
+   окружение файла уже снесено, а `require` в нём даёт
+   «You are trying to require a file after the Jest environment has been torn
+   down». Ошибка не попадала в отчёт (все наборы зелёные), но процесс
+   завершался кодом 1 — красный CI без единого сообщения о причине.
+
+   Наборы, подменяющие `cache.service` моком, получат здесь свой мок:
+   `jest.mock` действует на общий реестр модулей файла. */
+import { cacheService } from '../services/cache.service';
+
 afterAll(async () => {
   try {
-    const { cacheService } = require('../services/cache.service');
     if (cacheService && typeof cacheService.close === 'function') {
       await cacheService.close();
     }
   } catch {
-    /* Модуля нет или он подменён — закрывать нечего. */
+    /* Мок без `close` или уже закрытое соединение — закрывать нечего. */
   }
 });

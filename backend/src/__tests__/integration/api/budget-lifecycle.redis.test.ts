@@ -163,30 +163,15 @@ let world: World;
 let annaToken: string;
 let borisToken: string;
 
-/**
- * Без Redis набор пропускается, а не падает.
- *
- * Иначе обычный `npm test` на машине без Redis показывал бы 503 и 429 как
- * дефекты кода. В CI Redis поднят (`ci.yml`, задание Backend quality),
- * поэтому там набор выполняется. Пропуск объявлен явно и виден в отчёте —
- * молчаливого «зелёного» здесь не возникает.
- */
-const redisAvailable = process.env.REDIS_ENABLED === 'true';
-const describeWithRedis = redisAvailable ? describe : describe.skip;
-
+/* Файл собирается только при `REDIS_ENABLED=true` — за это отвечает
+   `testPathIgnorePatterns` в jest.config.js. Отдельной проверки внутри файла
+   нет намеренно: два механизма пропуска для одного условия расходятся. */
 beforeAll(() => {
-  if (!redisAvailable) {
-    console.warn(
-      'budget-lifecycle: пропущено, нужен REDIS_ENABLED=true и ENABLE_RATE_LIMIT=false'
-    );
-    return;
-  }
   process.env.SKIP_TELEGRAM_VALIDATION = 'true';
   app = createTestApp();
 });
 
 beforeEach(async () => {
-  if (!redisAvailable) return;
   await cleanDatabase();
   world = await buildWorld();
   annaToken = await tokenFor(ANNA_TELEGRAM_ID);
@@ -194,16 +179,13 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  /* Ничего не поднимали — нечего и убирать. Безусловная очистка общей
-     тестовой базы из пропущенного набора и была причиной падения. */
-  if (!redisAvailable) return;
   await cleanDatabase();
   await prisma.$disconnect();
   /* Redis закрывает общий хук в `__tests__/setup.ts`: соединение может
      открыть любой набор, поднимающий приложение. */
 });
 
-describeWithRedis('жизненный цикл долга', () => {
+describe('жизненный цикл долга', () => {
   it('отметка → подтверждение → отмена → повторное подтверждение', async () => {
     await request(app)
       .post('/api/budget/mark-paid')
@@ -279,7 +261,7 @@ describeWithRedis('жизненный цикл долга', () => {
   });
 });
 
-describeWithRedis('ограничения ролей', () => {
+describe('ограничения ролей', () => {
   it('подтвердить может только получатель', async () => {
     await request(app)
       .post('/api/budget/mark-paid')
@@ -326,7 +308,7 @@ describeWithRedis('ограничения ролей', () => {
  * `PRODUCT.md`: любой экран показывает данные ровно одной группы. Здесь это
  * проверяется на настоящей выборке, а не на моке Prisma.
  */
-describeWithRedis('изоляция команд в бюджете', () => {
+describe('изоляция команд в бюджете', () => {
   async function debts(token: string, groupId?: number) {
     const response = await request(app)
       .get('/api/budget/debts')
@@ -385,7 +367,7 @@ describeWithRedis('изоляция команд в бюджете', () => {
  * до этой правки ни один изменяющий запрос бюджета в интеграционном
  * окружении не выполнялся вообще.
  */
-describeWithRedis('повтор запроса с тем же ключом', () => {
+describe('повтор запроса с тем же ключом', () => {
   it('второй запрос получает ответ первого и помечен как replay', async () => {
     const key = uniqueKey('replay');
 
@@ -470,7 +452,7 @@ describeWithRedis('повтор запроса с тем же ключом', () 
  * статуса защищён условием в `updateMany`, поэтому второй запрос не должен
  * ни сменить статус повторно, ни создать второе уведомление.
  */
-describeWithRedis('одновременные запросы', () => {
+describe('одновременные запросы', () => {
   it('две одновременные отметки дают один переход и одно задание', async () => {
     const [first, second] = await Promise.all([
       request(app)
@@ -515,7 +497,7 @@ describeWithRedis('одновременные запросы', () => {
  * Бот подменяется настоящим `setBotInstance`, а не моком модуля: так путь от
  * контроллера до отправки остаётся тем же, каким он идёт в бою.
  */
-describeWithRedis('Telegram недоступен, затем восстановлен', () => {
+describe('Telegram недоступен, затем восстановлен', () => {
   /** Бот, у которого отправка падает недоступностью Telegram. */
   function brokenBot(): { calls: number } {
     const state = { calls: 0 };
