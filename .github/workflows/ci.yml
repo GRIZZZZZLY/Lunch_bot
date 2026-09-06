@@ -121,18 +121,8 @@ jobs:
       - name: Find unused code and dependencies
         run: npm run knip
 
-      # ВРЕМЕННО: шаг падает кодом 1 при всех зелёных тестах и без единого
-      # сообщения от jest, и только в CI — локально тот же прогон с тем же
-      # окружением даёт 0. `--detectOpenHandles` должен назвать держателя
-      # событийного цикла; вывод кода возврата отделяет провал jest от
-      # провала оболочки. Убрать, как только причина названа.
       - name: Run tests with coverage
-        run: |
-          set +e
-          npm run test:coverage -- --runInBand --detectOpenHandles
-          code=$?
-          echo "::notice::jest exit code = $code"
-          exit $code
+        run: npm run test:coverage -- --runInBand
 
       # Отдельным шагом, а не общим окружением задания: обе переменные меняют
       # поведение приложения, и тесты самого лимитера и readiness проверяют

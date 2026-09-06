@@ -36,7 +36,12 @@ import { generateTelegramInitData } from '../helpers/authHelper';
 import { setBotInstance } from '../../../bot/bot-instance';
 import { OutboxWorkerService } from '../../../services/outbox-worker.service';
 
-const app = createTestApp();
+/* Приложение поднимается ЛЕНИВО: без Redis набор пропускается целиком, и
+   создавать express, временный каталог фронтенда и клиент Prisma незачем.
+   Раньше это делалось в модульной области — файл выполнял работу даже когда
+   все его тесты пропущены, и прогон в CI завершался кодом 1 без единого
+   сообщения (проверено пробными ветками: без этого файла CI зелёный). */
+let app: ReturnType<typeof createTestApp>;
 
 const ANNA_TELEGRAM_ID = 700000201;
 const BORIS_TELEGRAM_ID = 700000202;
@@ -170,13 +175,14 @@ const redisAvailable = process.env.REDIS_ENABLED === 'true';
 const describeWithRedis = redisAvailable ? describe : describe.skip;
 
 beforeAll(() => {
-  process.env.SKIP_TELEGRAM_VALIDATION = 'true';
   if (!redisAvailable) {
-     
     console.warn(
       'budget-lifecycle: пропущено, нужен REDIS_ENABLED=true и ENABLE_RATE_LIMIT=false'
     );
+    return;
   }
+  process.env.SKIP_TELEGRAM_VALIDATION = 'true';
+  app = createTestApp();
 });
 
 beforeEach(async () => {
@@ -188,6 +194,9 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  /* Ничего не поднимали — нечего и убирать. Безусловная очистка общей
+     тестовой базы из пропущенного набора и была причиной падения. */
+  if (!redisAvailable) return;
   await cleanDatabase();
   await prisma.$disconnect();
   /* Redis закрывает общий хук в `__tests__/setup.ts`: соединение может
