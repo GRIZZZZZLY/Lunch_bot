@@ -33,6 +33,8 @@ import { prisma } from '../../../database/client';
 import { createTestApp } from '../helpers/testApp';
 import { cleanDatabase } from '../helpers/fixtures';
 import { generateTelegramInitData } from '../helpers/authHelper';
+import { setBotInstance } from '../../../bot/bot-instance';
+import { OutboxWorkerService } from '../../../services/outbox-worker.service';
 
 const app = createTestApp();
 
@@ -489,5 +491,143 @@ describeWithRedis('одновременные запросы', () => {
     });
     /* Версия выросла ровно один раз: второй запрос не нашёл PENDING. */
     expect(row!.transitionVersion).toBe(1);
+  });
+});
+
+/**
+ * Telegram недоступен, затем восстановлен.
+ *
+ * Сценарий из плана целиком, на настоящем API: операция должна пройти при
+ * лежащем Telegram, задание — сохраниться, а после восстановления связи
+ * обработчик обязан доставить сообщение сам, без повторного нажатия
+ * человеком. Здесь встречаются оба исправления: изоляция сбоя доставки
+ * (`utils/post-commit.ts`) и очередь (`services/outbox.service.ts`).
+ *
+ * Бот подменяется настоящим `setBotInstance`, а не моком модуля: так путь от
+ * контроллера до отправки остаётся тем же, каким он идёт в бою.
+ */
+describeWithRedis('Telegram недоступен, затем восстановлен', () => {
+  /** Бот, у которого отправка падает недоступностью Telegram. */
+  function brokenBot(): { calls: number } {
+    const state = { calls: 0 };
+    setBotInstance({
+      api: {
+        sendMessage: async () => {
+          state.calls += 1;
+          throw Object.assign(new Error('Bad Gateway'), { error_code: 502 });
+        },
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+    return state;
+  }
+
+  /** Восстановившийся бот: запоминает, что и кому ушло. */
+  function workingBot(): { sent: Array<{ chatId: number; text: string }> } {
+    const sent: Array<{ chatId: number; text: string }> = [];
+    setBotInstance({
+      api: {
+        sendMessage: async (chatId: number, text: string) => {
+          sent.push({ chatId, text });
+          return { message_id: 4242 };
+        },
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+    return { sent };
+  }
+
+  /* Сбрасывать экземпляр между тестами не нужно: реестр модулей у каждого
+     файла тестов свой, а внутри файла каждый тест ставит своего бота первым
+     же действием. */
+
+  it('операция проходит, задание сохраняется, доставка догоняет позже', async () => {
+    const broken = brokenBot();
+
+    /* 1. Telegram лежит. Операция обязана вернуть успех: статус уже сохранён,
+          и ошибка отправки не делает его неуспешным. */
+    await request(app)
+      .post('/api/budget/mark-paid')
+      .set('Authorization', `Bearer ${annaToken}`)
+      .set('Idempotency-Key', uniqueKey('telegram-down'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+
+    expect(await statusOf(world.debtInA)).toBe('PAID');
+    expect(broken.calls).toBeGreaterThan(0);
+
+    /* 2. Задание пережило сбой и ждёт повтора, а не потеряно. */
+    const pending = await prisma.outboxEvent.findMany({
+      where: { entityType: 'TRANSACTION', entityId: world.debtInA },
+    });
+    expect(pending).toHaveLength(1);
+    expect(pending[0].status).toBe('PENDING');
+    expect(pending[0].lastErrorCategory).toBe('telegram_unavailable');
+
+    /* 3. Связь восстановилась. Отсрочку после неудачной попытки убираем:
+          обработчик по делу ждал бы паузу backoff. */
+    const working = workingBot();
+    await prisma.outboxEvent.updateMany({
+      where: { id: pending[0].id },
+      data: { nextAttemptAt: new Date(Date.now() - 1_000) },
+    });
+
+    await OutboxWorkerService.tick();
+
+    /* 4. Сообщение ушло само, без участия человека. */
+    expect(working.sent).toHaveLength(1);
+    expect(working.sent[0].chatId).toBe(BORIS_TELEGRAM_ID);
+    expect(working.sent[0].text).toContain('Получена оплата');
+
+    const delivered = await prisma.outboxEvent.findUnique({
+      where: { id: pending[0].id },
+    });
+    expect(delivered!.status).toBe('SENT');
+    expect(delivered!.sentMessageId).toBe(4242);
+  });
+
+  /* Повторный проход обработчика не должен отправить то же сообщение снова:
+     задание уже SENT. */
+  it('повторный проход обработчика не шлёт сообщение второй раз', async () => {
+    const working = workingBot();
+
+    await request(app)
+      .post('/api/budget/mark-paid')
+      .set('Authorization', `Bearer ${annaToken}`)
+      .set('Idempotency-Key', uniqueKey('deliver-once'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+
+    expect(working.sent).toHaveLength(1);
+
+    await OutboxWorkerService.tick();
+    await OutboxWorkerService.tick();
+
+    expect(working.sent).toHaveLength(1);
+  });
+
+  /* Отказ адресата — конечное состояние: человек заблокировал бота, и
+     повторять бессмысленно. Операция при этом всё равно успешна. */
+  it('заблокировавший бота адресат уводит задание в конечное состояние', async () => {
+    setBotInstance({
+      api: {
+        sendMessage: async () => {
+          throw Object.assign(new Error('Forbidden'), { error_code: 403 });
+        },
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+
+    await request(app)
+      .post('/api/budget/mark-paid')
+      .set('Authorization', `Bearer ${annaToken}`)
+      .set('Idempotency-Key', uniqueKey('blocked'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+
+    expect(await statusOf(world.debtInA)).toBe('PAID');
+
+    const [event] = await prisma.outboxEvent.findMany({
+      where: { entityType: 'TRANSACTION', entityId: world.debtInA },
+    });
+    expect(event.status).toBe('FAILED');
+    expect(event.lastErrorCategory).toBe('blocked_by_recipient');
   });
 });
