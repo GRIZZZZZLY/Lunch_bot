@@ -2220,3 +2220,51 @@ describe('PATCH /api/polls/:id/complete-multi', () => {
     expect(res.statusCode).toBe(500);
   });
 });
+
+/**
+ * `?groupId=` в списке активных голосований.
+ *
+ * Раньше параметр игнорировался: и Главная, и панель администратора получали
+ * активные голосования ВСЕХ доступных команд, а Главная брала из списка
+ * первый элемент — то есть могла показать голосование не той команды, которая
+ * выбрана. Остальные чтения этого контроллера (`history`, `last-completed`,
+ * `stats`) учитывали `groupId` давно; здесь закрепляется то же правило.
+ */
+describe('GET /api/polls/active с областью команды', () => {
+  it('запрошенная команда сужает выборку до неё одной', async () => {
+    pollQuery.getActivePolls.mockResolvedValue([]);
+
+    await controller.getActivePolls(
+      memberRequest({ query: { groupId: '42' } }),
+      mockResponse()
+    );
+
+    expect(groupService.isUserGroupMember).toHaveBeenCalledWith(1, 42);
+    expect(pollQuery.getActivePolls).toHaveBeenCalledWith([42]);
+  });
+
+  it('не участнику команды отвечает 403 и не читает голосования', async () => {
+    groupService.isUserGroupMember.mockResolvedValue(false);
+    const res = mockResponse();
+
+    await controller.getActivePolls(
+      memberRequest({ query: { groupId: '42' } }),
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(pollQuery.getActivePolls).not.toHaveBeenCalled();
+  });
+
+  it('без groupId остаётся выборка по всем командам человека', async () => {
+    groupService.getGroupsForUser.mockResolvedValue([
+      { groupId: 5 },
+      { groupId: 7 },
+    ] as never);
+    pollQuery.getActivePolls.mockResolvedValue([]);
+
+    await controller.getActivePolls(memberRequest(), mockResponse());
+
+    expect(pollQuery.getActivePolls).toHaveBeenCalledWith([5, 7]);
+  });
+});

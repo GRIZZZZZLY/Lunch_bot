@@ -116,7 +116,7 @@ describe('GET /api/budget/debts', () => {
       res
     );
 
-    expect(queryService.getUserDebts).toHaveBeenCalledWith(1, undefined, false);
+    expect(queryService.getUserDebts).toHaveBeenCalledWith(1, undefined, false, undefined);
     expect(res.body).toMatchObject({ success: true, data: [{ id: 1 }] });
   });
 
@@ -131,7 +131,7 @@ describe('GET /api/budget/debts', () => {
       mockResponse()
     );
 
-    expect(queryService.getUserDebts).toHaveBeenCalledWith(1, 'PENDING', true);
+    expect(queryService.getUserDebts).toHaveBeenCalledWith(1, 'PENDING', true, undefined);
   });
 
   it('без аутентификации — 401', async () => {
@@ -160,7 +160,7 @@ describe('GET /api/budget/credits', () => {
 
     await controller.getCredits(mockRequest({ user: CREDITOR }), res);
 
-    expect(queryService.getUserCredits).toHaveBeenCalledWith(2, undefined, false);
+    expect(queryService.getUserCredits).toHaveBeenCalledWith(2, undefined, false, undefined);
     expect(res.body).toMatchObject({ success: true });
   });
 
@@ -175,7 +175,7 @@ describe('GET /api/budget/credits', () => {
       mockResponse()
     );
 
-    expect(queryService.getUserCredits).toHaveBeenCalledWith(2, 'CONFIRMED', true);
+    expect(queryService.getUserCredits).toHaveBeenCalledWith(2, 'CONFIRMED', true, undefined);
   });
 
   it('без аутентификации — 401', async () => {
@@ -598,7 +598,7 @@ describe('GET /api/budget/stats', () => {
 
     await controller.getStats(mockRequest({ user: DEBTOR }), mockResponse());
 
-    expect(queryService.getUserStats).toHaveBeenCalledWith(1, undefined, undefined);
+    expect(queryService.getUserStats).toHaveBeenCalledWith(1, undefined, undefined, undefined);
   });
 
   it('диапазон дат превращается в Date', async () => {
@@ -615,7 +615,8 @@ describe('GET /api/budget/stats', () => {
     expect(queryService.getUserStats).toHaveBeenCalledWith(
       1,
       new Date('2026-01-01T00:00:00.000Z'),
-      new Date('2026-02-01T00:00:00.000Z')
+      new Date('2026-02-01T00:00:00.000Z'),
+      undefined
     );
   });
 
@@ -952,5 +953,119 @@ describe('GET /api/budget/poll-breakdown/:pollId', () => {
     );
 
     expect(res.statusCode).toBe(500);
+  });
+});
+
+/**
+ * Область команды для чтений бюджета.
+ *
+ * Раньше контроллер читал из query только `status` и `activeOnly`, а
+ * `groupId` игнорировал: командный экран бюджета показывал долги человека по
+ * ВСЕМ его командам. `groupId` из запроса при этом доказательством доступа не
+ * является — членство проверяется здесь, иначе чужая команда отвечала бы
+ * пустым списком вместо отказа.
+ */
+describe('область команды в чтениях бюджета', () => {
+  it('долги запрашиваются по выбранной команде', async () => {
+    queryService.getUserDebts.mockResolvedValue([]);
+
+    await controller.getDebts(
+      mockRequest({ user: DEBTOR, query: { groupId: '100' } }),
+      mockResponse()
+    );
+
+    expect(queryService.getUserDebts).toHaveBeenCalledWith(
+      1,
+      undefined,
+      false,
+      100
+    );
+  });
+
+  it('кредиты запрашиваются по выбранной команде', async () => {
+    queryService.getUserCredits.mockResolvedValue([]);
+
+    await controller.getCredits(
+      mockRequest({ user: CREDITOR, query: { groupId: '100' } }),
+      mockResponse()
+    );
+
+    expect(queryService.getUserCredits).toHaveBeenCalledWith(
+      2,
+      undefined,
+      false,
+      100
+    );
+  });
+
+  it('статистика запрашивается по выбранной команде', async () => {
+    queryService.getUserStats.mockResolvedValue({});
+
+    await controller.getStats(
+      mockRequest({ user: DEBTOR, query: { groupId: '100' } }),
+      mockResponse()
+    );
+
+    expect(queryService.getUserStats).toHaveBeenCalledWith(
+      1,
+      undefined,
+      undefined,
+      100
+    );
+  });
+
+  it('чужая команда — 403, а не пустой список', async () => {
+    groupService.isUserGroupMember.mockResolvedValue(false);
+    const res = mockResponse();
+
+    await controller.getDebts(
+      mockRequest({ user: DEBTOR, query: { groupId: '777' } }),
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(queryService.getUserDebts).not.toHaveBeenCalled();
+  });
+
+  it('чужая команда в кредитах — 403', async () => {
+    groupService.isUserGroupMember.mockResolvedValue(false);
+    const res = mockResponse();
+
+    await controller.getCredits(
+      mockRequest({ user: CREDITOR, query: { groupId: '777' } }),
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(queryService.getUserCredits).not.toHaveBeenCalled();
+  });
+
+  it('чужая команда в статистике — 403', async () => {
+    groupService.isUserGroupMember.mockResolvedValue(false);
+    const res = mockResponse();
+
+    await controller.getStats(
+      mockRequest({ user: DEBTOR, query: { groupId: '777' } }),
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(queryService.getUserStats).not.toHaveBeenCalled();
+  });
+
+  /* Личный итог по всем командам — сохранённый намеренно контракт: профиль
+     показывает свои деньги целиком, а не по одной команде. */
+  it('без groupId членство не проверяется и выборка не сужается', async () => {
+    queryService.getUserDebts.mockResolvedValue([]);
+
+    await controller.getDebts(mockRequest({ user: DEBTOR }), mockResponse());
+
+    expect(groupService.isUserGroupMember).not.toHaveBeenCalled();
+    expect(queryService.getUserDebts).toHaveBeenCalledWith(
+      1,
+      undefined,
+      false,
+      undefined
+    );
   });
 });

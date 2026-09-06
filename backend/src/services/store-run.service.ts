@@ -196,13 +196,23 @@ export class StoreRunService {
   /**
    * Активные забеги в группах пользователя (включая те, где он инициатор).
    * Используется на главной: чтобы показать в карточке активные магазинные забеги.
+   *
+   * `groupId` сужает выборку до одной команды. Без него возвращаются забеги
+   * ВСЕХ команд человека, и Главная показывала рядом с выбранной командой
+   * чужой забег. Членство проверяется здесь же, по списку `groupMember`:
+   * `groupId` из запроса доказательством доступа не является.
    */
-  static async getActiveStoreRunsForUser(userId: number) {
+  static async getActiveStoreRunsForUser(userId: number, groupId?: number) {
     const memberships = await prisma.groupMember.findMany({
-      where: { userId, isActive: true },
+      where: { userId, isActive: true, ...(groupId ? { groupId } : {}) },
       select: { groupId: true },
     });
     const groupIds = memberships.map((m) => m.groupId);
+    /* Запрошена конкретная команда, а членства в ней нет — это отказ, а не
+       пустой список: пустой ответ не отличить от «забегов сейчас нет». */
+    if (groupId !== undefined && groupIds.length === 0) {
+      throw new StoreRunError('FORBIDDEN', 'Not a member of this group');
+    }
     if (groupIds.length === 0) return [];
 
     return prisma.storeRun.findMany({

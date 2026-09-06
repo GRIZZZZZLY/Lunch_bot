@@ -40,13 +40,40 @@ const debtsInclude = {
   menuItem: true,
   // За что долг: обеденная транзакция несёт блюдо, магазинная — забег.
   // Без этого строка бюджета показывала только имя и сумму.
-  storeRun: { select: { id: true, storeName: true } },
+  // `groupId` — вторая связь долга с командой, наравне с poll.groupId:
+  // без неё магазинные долги нельзя ни отфильтровать по команде, ни
+  // проверить по членству.
+  storeRun: { select: { id: true, storeName: true, groupId: true } },
   poll: {
     include: {
       group: true,
     },
   },
 } satisfies Prisma.TransactionInclude;
+
+/**
+ * Фильтр «долг относится к этой команде».
+ *
+ * У долга две возможные связи с группой: обеденное голосование
+ * (`poll.groupId`) и магазинный забег (`storeRun.groupId`). Учитываются обе —
+ * иначе магазинные долги пропадали бы с командного экрана целиком.
+ *
+ * Записи без обеих связей ни к одной команде не относятся. Под фильтром они
+ * не показываются, а в личном итоге по всем командам (вызов без `groupId`)
+ * остаются: группу им не назначаем предположительно и не удаляем.
+ *
+ * Возвращает `undefined` без `groupId`, чтобы вызывающий не добавлял в
+ * запрос пустое условие.
+ */
+function transactionGroupFilter(
+  groupId?: number
+): Prisma.TransactionWhereInput | undefined {
+  if (groupId === undefined) return undefined;
+
+  return {
+    OR: [{ poll: { groupId } }, { storeRun: { groupId } }],
+  };
+}
 
 /* Тип результата `getUserDebts`. Расшифровка не меняет форму полей
    (paymentPhone/paymentCard/paymentDetails остаются `string | null`) —
@@ -88,8 +115,11 @@ export class BudgetQueryService {
   /**
    * Скрыть долг/кредит участника, вышедшего из группы заказа.
    *
-   * Магазинные забеги (storeRun, без poll) не фильтруются — своей группы
-   * не имеют, а долг по ним не привязан к членству.
+   * Группа долга берётся из любой из двух связей: голосование (`poll`) или
+   * магазинный забег (`storeRun`). Раньше учитывалась только первая, и
+   * магазинные долги не проверялись по членству вообще — вышедший из команды
+   * оставался в списке. Записи без обеих связей пропускаются как есть:
+   * членство по ним не определено.
    */
   /* Дженерик, а не фиксированный `Transaction & {...}`: и `getUserDebts`, и
      `getUserCredits` объявляют собственный явный возвращаемый тип (с разным
@@ -100,10 +130,16 @@ export class BudgetQueryService {
      переставал соответствовать `DebtWithPayee[]`), то есть дженерик не костыль
      вокруг отсутствующей аннотации, а необходимое условие при уже присутствующей. */
   private async filterTransactionsByActiveMembers<
-    T extends Transaction & { poll?: { groupId?: number | null } | null },
+    T extends Transaction & {
+      poll?: { groupId?: number | null } | null;
+      storeRun?: { groupId?: number | null } | null;
+    },
   >(transactions: T[], relatedUser: 'from' | 'to'): Promise<T[]> {
+    const groupOf = (tx: T): number | null =>
+      tx.poll?.groupId ?? tx.storeRun?.groupId ?? null;
+
     const groupIds = Array.from(
-      new Set(transactions.map(tx => tx.poll?.groupId).filter(Boolean))
+      new Set(transactions.map(groupOf).filter(Boolean))
     ) as number[];
 
     if (groupIds.length === 0) {
@@ -131,7 +167,7 @@ export class BudgetQueryService {
     });
 
     return transactions.filter(transaction => {
-      const groupId = transaction.poll?.groupId;
+      const groupId = groupOf(transaction);
       if (!groupId) return true;
 
       const groupMembers = membershipByGroup.get(groupId);
@@ -167,12 +203,17 @@ export class BudgetQueryService {
   }
 
   /**
-   * Получить все долги пользователя
+   * Получить все долги пользователя.
+   *
+   * `groupId` сужает выборку до одной команды. Без него возвращается личный
+   * итог по всем командам — этот контракт сохранён намеренно, им пользуется
+   * профиль. Командные экраны обязаны передавать `groupId`.
    */
   async getUserDebts(
     userId: number,
     status?: 'PENDING' | 'PAID' | 'CONFIRMED',
-    activeOnly: boolean = false
+    activeOnly: boolean = false,
+    groupId?: number
   ): Promise<DebtWithPayee[]> {
     try {
       const where: Prisma.TransactionWhereInput = { fromUserId: userId };
@@ -180,6 +221,12 @@ export class BudgetQueryService {
         where.status = status;
       } else if (activeOnly) {
         where.status = { in: ['PENDING', 'PAID'] };
+      }
+      /* Через AND, а не разворотом в `where`: у фильтра команды свой `OR`
+         по двум связям, и он затёр бы любой другой `OR` запроса. */
+      const groupFilter = transactionGroupFilter(groupId);
+      if (groupFilter) {
+        where.AND = [groupFilter];
       }
 
       const debts = await prisma.transaction.findMany({
@@ -220,19 +267,27 @@ export class BudgetQueryService {
   }
 
   /**
-   * Получить все кредиты пользователя (кто ему должен)
+   * Получить все кредиты пользователя (кто ему должен).
+   *
+   * `groupId` — как в `getUserDebts`: сужает до одной команды, без него это
+   * личный итог по всем.
    */
   async getUserCredits(
     userId: number,
     status?: 'PENDING' | 'PAID' | 'CONFIRMED',
-    activeOnly: boolean = false
+    activeOnly: boolean = false,
+    groupId?: number
   ) {
     try {
-      const where: any = { toUserId: userId };
+      const where: Prisma.TransactionWhereInput = { toUserId: userId };
       if (status) {
         where.status = status;
       } else if (activeOnly) {
         where.status = { in: ['PENDING', 'PAID'] };
+      }
+      const groupFilter = transactionGroupFilter(groupId);
+      if (groupFilter) {
+        where.AND = [groupFilter];
       }
 
       const credits = await prisma.transaction.findMany({
@@ -243,8 +298,9 @@ export class BudgetQueryService {
              обратную сторону. См. getUserDebts про обратный случай. */
           fromUser: { select: { id: true, firstName: true, username: true } },
           menuItem: true,
-          // См. getUserDebts: за что долг — блюдо или магазин.
-          storeRun: { select: { id: true, storeName: true } },
+          // См. getUserDebts: за что долг — блюдо или магазин, и groupId
+          // забега как вторая связь долга с командой.
+          storeRun: { select: { id: true, storeName: true, groupId: true } },
           poll: {
             include: {
               group: true,
@@ -266,9 +322,16 @@ export class BudgetQueryService {
   }
 
   /**
-   * Получить статистику пользователя
+   * Получить статистику пользователя.
+   *
+   * `groupId` сужает до одной команды; без него — личный итог по всем.
    */
-  async getUserStats(userId: number, from?: Date, to?: Date) {
+  async getUserStats(
+    userId: number,
+    from?: Date,
+    to?: Date,
+    groupId?: number
+  ) {
     try {
       const where: any = {
         OR: [{ fromUserId: userId }, { toUserId: userId }],
@@ -278,6 +341,13 @@ export class BudgetQueryService {
         where.createdAt = {};
         if (from) where.createdAt.gte = from;
         if (to) where.createdAt.lte = to;
+      }
+      /* Обязательно AND: в `where` уже есть свой `OR` по участию человека,
+         и разворот фильтра команды затёр бы его — статистика поехала бы по
+         всем людям сразу. */
+      const groupFilter = transactionGroupFilter(groupId);
+      if (groupFilter) {
+        where.AND = [groupFilter];
       }
 
       const transactions = await prisma.transaction.findMany({
@@ -297,9 +367,14 @@ export class BudgetQueryService {
       const averagePerOrder =
         confirmedDebts.length > 0 ? totalSpent / confirmedDebts.length : 0;
 
-      // Количество раз был ответственным
+      /* Количество раз был ответственным — тоже по выбранной команде, иначе
+         в командной статистике стояло бы число из всех команд сразу.
+         Связь одна: выбор ответственного всегда принадлежит голосованию. */
       const timesResponsible = await prisma.responsibleSelection.count({
-        where: { selectedUserId: userId },
+        where: {
+          selectedUserId: userId,
+          ...(groupId === undefined ? {} : { poll: { groupId } }),
+        },
       });
 
       // Топ блюд

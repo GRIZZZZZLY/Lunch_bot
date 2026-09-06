@@ -223,8 +223,27 @@ describe('GET /api/store-runs/active', () => {
 
     await controller.getActiveForUser(mockRequest({ user: USER }), res);
 
-    expect(storeRunService.getActiveStoreRunsForUser).toHaveBeenCalledWith(1);
+    expect(storeRunService.getActiveStoreRunsForUser).toHaveBeenCalledWith(
+      1,
+      undefined
+    );
     expect(res.body).toMatchObject({ success: true, data: [{ id: 5 }] });
+  });
+
+  /* Раньше `groupId` не читался вовсе: Главная показывала рядом с выбранной
+     командой активный забег любой другой команды человека. */
+  it('забеги запрашиваются по выбранной команде', async () => {
+    storeRunService.getActiveStoreRunsForUser.mockResolvedValue([] as never);
+
+    await controller.getActiveForUser(
+      mockRequest({ user: USER, query: { groupId: '100' } }),
+      mockResponse()
+    );
+
+    expect(storeRunService.getActiveStoreRunsForUser).toHaveBeenCalledWith(
+      1,
+      100
+    );
   });
 
   it('без аутентификации — 401', async () => {

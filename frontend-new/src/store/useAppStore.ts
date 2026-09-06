@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { User } from '@/types/models';
+import { writePreferredGroupId } from '@/lib/groupPreference';
 
 export type AuthStatus = 'idle' | 'authenticating' | 'authenticated' | 'error';
 
@@ -16,7 +17,7 @@ export interface AppState {
   reset: () => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   user: null,
   authStatus: 'idle',
   authError: null,
@@ -25,7 +26,18 @@ export const useAppStore = create<AppState>((set) => ({
   setUser: (user) => set({ user }),
   setAuthStatus: (authStatus) => set({ authStatus }),
   setAuthError: (authError) => set({ authError }),
-  setCurrentGroupId: (currentGroupId) => set({ currentGroupId }),
+  /* Выбор запоминается здесь, а не у переключателя: тогда он сохраняется при
+     любом способе смены команды, а не только из того экрана, где сейчас есть
+     список. Привязка к пользователю — в groupPreference. */
+  setCurrentGroupId: (currentGroupId) => {
+    set({ currentGroupId });
+    const userId = get().user?.id;
+    if (userId !== undefined && currentGroupId !== null) {
+      writePreferredGroupId(userId, currentGroupId);
+    }
+  },
+  /* Сохранённый выбор при сбросе НЕ стирается: это выход из сессии, а не
+     отказ от команды. Следующий вход того же человека откроется там же. */
   reset: () =>
     set({
       user: null,

@@ -21,7 +21,15 @@ import { creditsQueryOptions, debtsQueryOptions } from '@/hooks/useBudget';
 import { activeStoreRunsQueryOptions } from '@/hooks/useStoreRun';
 
 export function prefetchFirstScreen(): void {
-  if (useAppStore.getState().authStatus !== 'authenticated') return;
+  const state = useAppStore.getState();
+  if (state.authStatus !== 'authenticated') return;
+
+  /* Команда уже разрешена в bootstrapAuth ДО перевода статуса в
+     authenticated, поэтому здесь она известна. Тот же аргумент уходит в
+     фабрики, что и в хуках, — иначе предзагрелась бы соседняя ячейка кэша.
+     Без команды греть нечего: командные запросы с null не выполняются. */
+  const groupId = state.currentGroupId;
+  if (groupId === null) return;
 
   /* Предзагрузка спекулятивна: отказ гасим молча, настоящий запрос повторит
      хук и покажет ошибку сам. */
@@ -32,17 +40,17 @@ export function prefetchFirstScreen(): void {
   /* Меню Главная просит без группы — тем же вызовом, что и здесь. Передать сюда
      currentGroupId значило бы греть другой ключ. */
   warm(menuItemsQueryOptions());
-  warm(activePollsQueryOptions());
-  warm(debtsQueryOptions());
-  warm(creditsQueryOptions());
-  warm(activeStoreRunsQueryOptions());
+  warm(activePollsQueryOptions(groupId));
+  warm(debtsQueryOptions(groupId));
+  warm(creditsQueryOptions(groupId));
+  warm(activeStoreRunsQueryOptions(groupId));
 
   /* Единственная цепочка: итог прошлого голосования известен только после
      самого голосования. Она и давала последний, четвёртый толчок — строку
      «Победил» внутри уже показанной карточки. Свежесть проверяем так же, как
      Главная: за результатом вчерашнего опроса идти незачем. */
   queryClient
-    .fetchQuery(lastCompletedPollQueryOptions())
+    .fetchQuery(lastCompletedPollQueryOptions(groupId))
     .then((poll) => {
       const fresh = isSameLocalDay(poll?.endedAt ?? poll?.closedAt ?? poll?.createdAt);
       if (poll?.id && fresh) warm(pollResultsQueryOptions(poll.id));

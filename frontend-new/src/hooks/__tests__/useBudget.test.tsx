@@ -20,8 +20,11 @@ vi.mock('../useAuth', () => ({ useAuth: () => ({ isAuthenticated: true }) }));
 
 import { useConfirmPayment, useMarkPaid } from '../useBudget';
 
-const DEBTS_KEY = queryKeys.budget.debts();
-const CREDITS_KEY = queryKeys.budget.credits();
+/* Команда фиксирована в ключе: хук берёт её из стора, тесты — из этой же
+   константы, иначе патч оптимистичного статуса ушёл бы в соседнюю ячейку. */
+const GROUP = '100';
+const DEBTS_KEY = queryKeys.budget.debts(GROUP);
+const CREDITS_KEY = queryKeys.budget.credits(GROUP);
 
 const tx = (over: Partial<Transaction>): Transaction =>
   ({

@@ -200,9 +200,12 @@ describe('getUserDebts', () => {
     expect(debts.map(d => d.id)).toEqual([10]);
   });
 
-  it('долг без группы (магазинный забег) не отфильтровывается', async () => {
+  /* Ни голосования, ни забега — группу такого долга определить нечем, и
+     членство по нему не проверяется. Забег группу имеет, см. отдельный
+     describe про область команды. */
+  it('долг без обеих связей с группой не отфильтровывается', async () => {
     asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      tx({ id: 12, poll: null, toUserId: 99 }),
+      tx({ id: 12, poll: null, storeRun: null, toUserId: 99 }),
       tx(),
     ] as never);
     asMock(prismaMock.groupMember.findMany).mockResolvedValue([
@@ -399,5 +402,114 @@ describe('getUserStats', () => {
     );
 
     await expect(service.getUserStats(1)).rejects.toThrow('db down');
+  });
+});
+
+/**
+ * Область команды в чтениях бюджета.
+ *
+ * Раньше выборка велась только по человеку: командный экран показывал его
+ * долги по ВСЕМ командам сразу, а `PRODUCT.md` требует обратного — «любой
+ * экран показывает данные ровно одной группы».
+ *
+ * У долга две связи с командой, и учитываются обе: обеденное голосование
+ * (`poll.groupId`) и магазинный забег (`storeRun.groupId`). Долги без обеих
+ * связей ни к одной команде не относятся — под фильтром их не видно, в
+ * личном итоге по всем командам видно.
+ */
+describe('область команды', () => {
+  /** Условие команды, как оно уходит в Prisma. */
+  const groupCondition = (groupId: number) => ({
+    OR: [{ poll: { groupId } }, { storeRun: { groupId } }],
+  });
+
+  function whereOf(): Record<string, unknown> {
+    const call = prismaMock.transaction.findMany.mock.calls[0][0] as {
+      where: Record<string, unknown>;
+    };
+    return call.where;
+  }
+
+  beforeEach(() => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([tx()] as never);
+  });
+
+  it('долги сужаются по обеим связям с командой', async () => {
+    await service.getUserDebts(1, undefined, false, 100);
+
+    expect(whereOf()).toEqual({
+      fromUserId: 1,
+      AND: [groupCondition(100)],
+    });
+  });
+
+  it('кредиты сужаются по обеим связям с командой', async () => {
+    await service.getUserCredits(2, undefined, false, 100);
+
+    expect(whereOf()).toEqual({
+      toUserId: 2,
+      AND: [groupCondition(100)],
+    });
+  });
+
+  /* Через AND, а не разворотом в where: у статистики уже есть свой OR по
+     участию человека. Разворот затёр бы его, и статистика поехала бы по всем
+     людям сразу — это была бы утечка чужих сумм, а не просто неверное число. */
+  it('в статистике фильтр команды не затирает OR по участию', async () => {
+    await service.getUserStats(1, undefined, undefined, 100);
+
+    expect(whereOf()).toEqual({
+      OR: [{ fromUserId: 1 }, { toUserId: 1 }],
+      AND: [groupCondition(100)],
+    });
+  });
+
+  it('счётчик «был ответственным» тоже по выбранной команде', async () => {
+    await service.getUserStats(1, undefined, undefined, 100);
+
+    expect(prismaMock.responsibleSelection.count).toHaveBeenCalledWith({
+      where: { selectedUserId: 1, poll: { groupId: 100 } },
+    });
+  });
+
+  it('без groupId условия команды в запросе нет', async () => {
+    await service.getUserDebts(1);
+
+    expect(whereOf()).toEqual({ fromUserId: 1 });
+  });
+
+  it('без groupId счётчик ответственного считает все команды', async () => {
+    await service.getUserStats(1);
+
+    expect(prismaMock.responsibleSelection.count).toHaveBeenCalledWith({
+      where: { selectedUserId: 1 },
+    });
+  });
+
+  it('фильтр команды сочетается с фильтром статуса', async () => {
+    await service.getUserDebts(1, 'PENDING', false, 100);
+
+    expect(whereOf()).toEqual({
+      fromUserId: 1,
+      status: 'PENDING',
+      AND: [groupCondition(100)],
+    });
+  });
+
+  /* Долг по забегу — полноправный долг команды: его владелец, вышедший из
+     группы, должен исчезать из списка так же, как обеденный. Раньше
+     `storeRun.groupId` не запрашивался вовсе, и такой долг не проверялся. */
+  it('магазинный долг фильтруется по членству в группе забега', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([
+      tx({ id: 13, poll: null, storeRun: { id: 3, storeName: 'Лента', groupId: 200 }, toUserId: 99 }),
+      tx({ id: 14, poll: null, storeRun: { id: 3, storeName: 'Лента', groupId: 200 }, toUserId: 2 }),
+    ] as never);
+    asMock(prismaMock.groupMember.findMany).mockResolvedValue([
+      { groupId: 200, userId: 2 },
+    ] as never);
+
+    const debts = await service.getUserDebts(1, undefined, true);
+
+    expect(debts.map(d => d.id)).toEqual([14]);
   });
 });

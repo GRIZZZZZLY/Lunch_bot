@@ -7,18 +7,20 @@ import {
   type StoreRunWithRelations,
   type UpdateItemInput,
 } from '@/services/store-run.service';
-import { queryKeys } from '@/lib/queryClient';
+import { queryKeys, type GroupKey } from '@/lib/queryClient';
 import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
 import { apiErrorMessage } from '@/lib/apiError';
 
 /* Опции отдельно от хука: их берёт предзагрузка первого экрана
-   (lib/prefetch.ts). */
-export function activeStoreRunsQueryOptions() {
+   (lib/prefetch.ts). `groupId` — аргумент, чтобы хук и предзагрузка попадали
+   в одну ячейку кэша; раньше эндпоинт отдавал забеги ВСЕХ команд человека, и
+   Главная показывала рядом с выбранной командой чужой забег. */
+export function activeStoreRunsQueryOptions(groupId: GroupKey) {
   return {
-    queryKey: queryKeys.storeRuns.active(),
+    queryKey: queryKeys.storeRuns.activeForGroup(groupId),
     queryFn: async () => {
-      const res = await storeRunService.getActive();
+      const res = await storeRunService.getActive(groupId ?? undefined);
       return res.data ?? [];
     },
     staleTime: 15_000,
@@ -27,9 +29,10 @@ export function activeStoreRunsQueryOptions() {
 
 export function useActiveStoreRuns() {
   const authStatus = useAppStore((s) => s.authStatus);
+  const groupId = useAppStore((s) => s.currentGroupId);
   return useQuery({
-    ...activeStoreRunsQueryOptions(),
-    enabled: authStatus === 'authenticated',
+    ...activeStoreRunsQueryOptions(groupId),
+    enabled: authStatus === 'authenticated' && !!groupId,
     refetchInterval: 30_000,
   });
 }

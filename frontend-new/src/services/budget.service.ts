@@ -9,15 +9,22 @@ export interface BudgetStats {
 }
 
 class BudgetService {
-  getDebts(params?: { status?: string }) {
+  /**
+   * Долги. `groupId` передаётся явно и попадает в query здесь же: сервер без
+   * него отдаёт личный итог по ВСЕМ командам человека, и командный экран
+   * бюджета показывал долги чужих команд рядом с выбранной.
+   */
+  getDebts(params?: { status?: string; groupId?: string }) {
     const q = new URLSearchParams();
     if (params?.status) q.set('status', params.status);
+    if (params?.groupId) q.set('groupId', params.groupId);
     return apiService.get<Transaction[]>(`/budget/debts${q.toString() ? `?${q}` : ''}`);
   }
 
-  getCredits(params?: { status?: string }) {
+  getCredits(params?: { status?: string; groupId?: string }) {
     const q = new URLSearchParams();
     if (params?.status) q.set('status', params.status);
+    if (params?.groupId) q.set('groupId', params.groupId);
     return apiService.get<Transaction[]>(`/budget/credits${q.toString() ? `?${q}` : ''}`);
   }
 
@@ -38,10 +45,11 @@ class BudgetService {
     return apiService.post<void>('/budget/cancel-mark', { transactionId });
   }
 
-  getStats(params?: { from?: string; to?: string }) {
+  getStats(params?: { from?: string; to?: string; groupId?: string }) {
     const q = new URLSearchParams();
     if (params?.from) q.set('from', params.from);
     if (params?.to) q.set('to', params.to);
+    if (params?.groupId) q.set('groupId', params.groupId);
     return apiService.get<BudgetStats>(`/budget/stats${q.toString() ? `?${q}` : ''}`);
   }
 

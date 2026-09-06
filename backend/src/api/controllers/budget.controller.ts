@@ -19,6 +19,32 @@ import { serializeBigInt as serializeData } from '../../utils/serialize';
 import { PollQueryService } from '../../services/poll-query.service';
 
 /**
+ * Членство в запрошенной команде для read-эндпоинтов бюджета.
+ *
+ * `groupId` приходит из query и доказательством доступа не является: без этой
+ * проверки чужой `groupId` вернул бы пустой список вместо отказа, и разница
+ * между «в этой команде долгов нет» и «этой команды я не вижу» пропадала бы.
+ * Возвращает true, если можно продолжать; иначе уже ответил 403.
+ */
+async function requireGroupAccess(
+  res: Response,
+  userId: number,
+  groupId: number | undefined
+): Promise<boolean> {
+  if (groupId === undefined) return true;
+
+  if (!(await GroupService.isUserGroupMember(userId, groupId))) {
+    res.status(403).json({
+      success: false,
+      error: 'Access denied',
+      code: 'ACCESS_DENIED',
+    });
+    return false;
+  }
+  return true;
+}
+
+/**
  * Anti-IDOR: для read-эндпоинтов по pollId — допуск только участникам группы poll'а
  * или админу. Возвращает true если доступ разрешён, иначе пишет ответ (404/403) и
  * возвращает false. Зеркалит pattern из vote.controller.requirePollAccess.
@@ -96,12 +122,17 @@ export class BudgetController {
         return;
       }
 
-      const { status, activeOnly } = budgetDebtsQuery.get(req);
+      const { status, activeOnly, groupId } = budgetDebtsQuery.get(req);
+
+      if (!(await requireGroupAccess(res, authenticatedUser.id, groupId))) {
+        return;
+      }
 
       const debts = await this.queryService.getUserDebts(
         authenticatedUser.id,
         status,
-        activeOnly === 'true' || activeOnly === '1'
+        activeOnly === 'true' || activeOnly === '1',
+        groupId
       );
 
       res.json({ success: true, data: serializeData(debts) });
@@ -125,12 +156,17 @@ export class BudgetController {
         return;
       }
 
-      const { status, activeOnly } = budgetDebtsQuery.get(req);
+      const { status, activeOnly, groupId } = budgetDebtsQuery.get(req);
+
+      if (!(await requireGroupAccess(res, authenticatedUser.id, groupId))) {
+        return;
+      }
 
       const credits = await this.queryService.getUserCredits(
         authenticatedUser.id,
         status,
-        activeOnly === 'true' || activeOnly === '1'
+        activeOnly === 'true' || activeOnly === '1',
+        groupId
       );
 
       res.json({ success: true, data: serializeData(credits) });
@@ -373,12 +409,17 @@ export class BudgetController {
         return;
       }
 
-      const { from, to } = budgetStatsQuery.get(req);
+      const { from, to, groupId } = budgetStatsQuery.get(req);
+
+      if (!(await requireGroupAccess(res, authenticatedUser.id, groupId))) {
+        return;
+      }
 
       const stats = await this.queryService.getUserStats(
         authenticatedUser.id,
         from ? new Date(from) : undefined,
-        to ? new Date(to) : undefined
+        to ? new Date(to) : undefined,
+        groupId
       );
 
       res.json({ success: true, data: serializeData(stats) });

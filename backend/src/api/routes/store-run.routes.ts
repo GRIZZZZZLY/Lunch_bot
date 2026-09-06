@@ -7,6 +7,7 @@ import {
   addStoreRunItemsBody,
   createStoreRunBody,
   setStoreRunItemPriceBody,
+  storeRunGroupQuery,
   storeRunIdParam,
   storeRunItemParams,
   updateStoreRunItemBody,
@@ -23,7 +24,9 @@ const storeRunIdempotency = createIdempotencyMiddleware({
 });
 
 // Reads
-router.get('/active', (req, res) => storeRunController.getActiveForUser(req, res));
+router.get('/active', storeRunGroupQuery.middleware, (req, res) =>
+  storeRunController.getActiveForUser(req, res),
+);
 router.get('/:id', storeRunIdParam.middleware, (req, res) =>
   storeRunController.getStoreRun(req, res),
 );

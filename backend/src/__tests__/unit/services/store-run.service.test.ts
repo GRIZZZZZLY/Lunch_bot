@@ -366,6 +366,40 @@ describe('чтение забегов', () => {
     expect(call.where.groupId.in).toEqual([100, 200]);
     expect(call.include.items.where).toEqual({ userId: 2 });
   });
+
+  /* Раньше `groupId` не принимался вовсе, и Главная показывала рядом с
+     выбранной командой активный забег любой другой команды человека. */
+  it('запрошенная команда сужает выборку до неё одной', async () => {
+    asMock(prismaMock.groupMember.findMany).mockResolvedValue([
+      { groupId: 100 },
+    ]);
+    asMock(prismaMock.storeRun.findMany).mockResolvedValue([run()]);
+
+    await StoreRunService.getActiveStoreRunsForUser(2, 100);
+
+    const membershipCall = asMock(prismaMock.groupMember.findMany).mock
+      .calls[0][0] as { where: Record<string, unknown> };
+    expect(membershipCall.where).toMatchObject({
+      userId: 2,
+      isActive: true,
+      groupId: 100,
+    });
+    const call = asMock(prismaMock.storeRun.findMany).mock.calls[0][0] as {
+      where: { groupId: { in: number[] } };
+    };
+    expect(call.where.groupId.in).toEqual([100]);
+  });
+
+  /* Отказ, а не пустой список: пустой ответ не отличить от «забегов сейчас
+     нет», и клиент не узнал бы, что команда ему недоступна. */
+  it('чужая команда — отказ, а не пустой список', async () => {
+    asMock(prismaMock.groupMember.findMany).mockResolvedValue([]);
+
+    await expect(
+      StoreRunService.getActiveStoreRunsForUser(2, 777)
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(asMock(prismaMock.storeRun.findMany)).not.toHaveBeenCalled();
+  });
 });
 
 describe('addItemsBulk', () => {

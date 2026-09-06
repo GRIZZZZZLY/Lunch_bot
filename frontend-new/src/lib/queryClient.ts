@@ -19,16 +19,37 @@ export const queryClient = new QueryClient({
   },
 });
 
+/**
+ * Команда в ключе кэша командных данных.
+ *
+ * Ответ этих запросов зависит от выбранной команды, а ключ её не содержал:
+ * после переключения react-query отдавал из кэша данные ПРЕЖНЕЙ команды как
+ * актуальные, потому что для него это был тот же самый запрос. Группа
+ * добавлена в конец ключа — так префиксы (`['polls','active']`, `['budget']`)
+ * продолжают работать для инвалидации сразу всех команд.
+ *
+ * `null` — команда ещё не определена (загрузка, человек без команд). Это
+ * отдельная ячейка кэша, а не «все команды»: запросы с таким ключом не
+ * выполняются вовсе, см. `enabled` в хуках.
+ */
+export type GroupKey = string | null;
+
 export const queryKeys = {
   auth: ['auth'] as const,
   me: ['user', 'me'] as const,
   polls: {
     all: ['polls'] as const,
+    /** Префикс для инвалидации активных голосований всех команд. */
     active: ['polls', 'active'] as const,
-    activeForGroup: (groupId: string) => ['polls', 'active', groupId] as const,
+    activeForGroup: (groupId: GroupKey) => ['polls', 'active', groupId] as const,
     byId: (id: number) => ['polls', id] as const,
     results: (id: number) => ['polls', id, 'results'] as const,
-    history: (params?: object) => ['polls', 'history', params] as const,
+    /** Префикс для инвалидации последнего завершённого во всех командах. */
+    lastCompleted: ['polls', 'last-completed'] as const,
+    lastCompletedForGroup: (groupId: GroupKey) =>
+      ['polls', 'last-completed', groupId] as const,
+    history: (groupId: GroupKey, params?: object) =>
+      ['polls', 'history', groupId, params] as const,
     myVotes: (id: number) => ['polls', id, 'my-votes'] as const,
   },
   menu: {
@@ -43,13 +64,20 @@ export const queryKeys = {
     stats: ['suggestions', 'stats'] as const,
   },
   budget: {
-    debts: (params?: object) => ['budget', 'debts', params] as const,
-    credits: (params?: object) => ['budget', 'credits', params] as const,
-    stats: (params?: object) => ['budget', 'stats', params] as const,
+    all: ['budget'] as const,
+    debts: (groupId: GroupKey, params?: object) =>
+      ['budget', 'debts', groupId, params] as const,
+    credits: (groupId: GroupKey, params?: object) =>
+      ['budget', 'credits', groupId, params] as const,
+    stats: (groupId: GroupKey, params?: object) =>
+      ['budget', 'stats', groupId, params] as const,
   },
   storeRuns: {
     all: ['storeRuns'] as const,
+    /** Префикс для инвалидации активных забегов всех команд. */
     active: () => ['storeRuns', 'active'] as const,
+    activeForGroup: (groupId: GroupKey) =>
+      ['storeRuns', 'active', groupId] as const,
     detail: (id: number) => ['storeRuns', 'detail', id] as const,
   },
   groupStores: {

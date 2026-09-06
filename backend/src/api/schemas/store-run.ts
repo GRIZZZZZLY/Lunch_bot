@@ -11,7 +11,12 @@
 import { z } from 'zod';
 
 import { bodyContract } from '../middleware/validate';
-import { bodyShape, idParams } from './common';
+import { bodyShape, groupScopedQuery, idParams } from './common';
+
+// ---------------------------------------------------------------- query
+
+/** `GET /api/store-runs/active?groupId=` — активные забеги одной команды. */
+export const storeRunGroupQuery = groupScopedQuery();
 
 // ---------------------------------------------------------------- params
 

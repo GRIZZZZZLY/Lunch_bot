@@ -59,9 +59,14 @@ router.get(
 
 /**
  * GET /api/polls/active
- * Получение активных голосований
+ * Получение активных голосований (одной группы при `?groupId=`)
  */
-router.get('/active', telegramAuthMiddleware, pollController.getActivePolls);
+router.get(
+  '/active',
+  telegramAuthMiddleware,
+  pollGroupQuery.middleware,
+  pollController.getActivePolls
+);
 
 /**
  * GET /api/polls/history

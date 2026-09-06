@@ -328,3 +328,94 @@ describe('подмешивание groupId в query', () => {
     expect(url.match(/groupId=/g)).toHaveLength(1);
   });
 });
+
+/**
+ * Команда входит в идентичность изменяющей операции.
+ *
+ * Группа подмешивается в запрос неявно (`buildUrl`), а ключ операции считался
+ * только по методу, url, явным params и телу. Поэтому два действия с
+ * одинаковым телом в РАЗНЫХ командах выглядели одной операцией: второе
+ * схлопывалось в первое как двойной тап и получало его ключ идемпотентности,
+ * то есть закешированный ответ чужой команды.
+ */
+describe('команда в идентичности операции', () => {
+  afterEach(() => {
+    useAppStore.setState({ currentGroupId: null });
+  });
+
+  it('одинаковые тела в разных командах — разные действия', async () => {
+    const first = deferred<ReturnType<typeof ok>>();
+    fetchMock.mockReturnValueOnce(first.promise);
+    fetchMock.mockResolvedValueOnce(ok());
+
+    useAppStore.setState({ currentGroupId: '5' });
+    const a = apiService.post('/polls', { menuItemId: 1 });
+
+    /* Человек переключил команду, пока первый запрос в полёте. */
+    useAppStore.setState({ currentGroupId: '7' });
+    const b = apiService.post('/polls', { menuItemId: 1 });
+
+    first.resolve(ok());
+    await Promise.all([a, b]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sentKey(0)).not.toBe(sentKey(1));
+  });
+
+  it('в одной команде двойной тап по-прежнему схлопывается', async () => {
+    const first = deferred<ReturnType<typeof ok>>();
+    fetchMock.mockReturnValueOnce(first.promise);
+
+    useAppStore.setState({ currentGroupId: '5' });
+    const a = apiService.post('/polls', { menuItemId: 1 });
+    const b = apiService.post('/polls', { menuItemId: 1 });
+
+    first.resolve(ok());
+    await Promise.all([a, b]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  /* Повтор после неизвестного исхода обязан сохранить ключ той команды, в
+     которой действие началось, — иначе сервер не узнает в нём повтор. */
+  it('повтор в той же команде после 5xx идёт с тем же ключом', async () => {
+    fetchMock.mockResolvedValueOnce(fail(500));
+    useAppStore.setState({ currentGroupId: '5' });
+
+    await expect(apiService.post('/polls', { menuItemId: 1 })).rejects.toBeDefined();
+    await apiService.post('/polls', { menuItemId: 1 });
+
+    expect(sentKey(0)).toBe(sentKey(1));
+  });
+
+  it('после 5xx в одной команде другая команда получает свой ключ', async () => {
+    fetchMock.mockResolvedValueOnce(fail(500));
+    useAppStore.setState({ currentGroupId: '5' });
+
+    await expect(apiService.post('/polls', { menuItemId: 1 })).rejects.toBeDefined();
+
+    useAppStore.setState({ currentGroupId: '7' });
+    await apiService.post('/polls', { menuItemId: 1 });
+
+    expect(sentKey(0)).not.toBe(sentKey(1));
+  });
+
+  /* Явный groupId в пути побеждает стор и в идентичности тоже — иначе
+     действие, адресованное конкретной команде, схлопнулось бы с действием
+     текущей. */
+  it('groupId из пути определяет действие, а не значение из стора', async () => {
+    const first = deferred<ReturnType<typeof ok>>();
+    fetchMock.mockReturnValueOnce(first.promise);
+    fetchMock.mockResolvedValueOnce(ok());
+
+    useAppStore.setState({ currentGroupId: '5' });
+    const a = apiService.post('/polls?groupId=5', { menuItemId: 1 });
+    const b = apiService.post('/polls?groupId=7', { menuItemId: 1 });
+
+    first.resolve(ok());
+    await Promise.all([a, b]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sentKey(0)).not.toBe(sentKey(1));
+  });
+});
