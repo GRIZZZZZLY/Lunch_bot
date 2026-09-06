@@ -14,6 +14,11 @@ import {
 import { getBotInstance } from '../bot/bot-instance';
 import { escapeMarkdown } from '../utils/telegram-html';
 import { runAfterCommit } from '../utils/post-commit';
+import {
+  OUTBOX_ENTITY_TRANSACTION,
+  OutboxService,
+} from './outbox.service';
+import { OutboxWorkerService } from './outbox-worker.service';
 
 interface PaymentInfo {
   paymentCard?: string | null;
@@ -27,56 +32,73 @@ export class BudgetService {
    */
   static async markAsPaid(txId: number, actorUserId: number): Promise<any> {
     try {
-      const transition = await prisma.transaction.updateMany({
-        where: {
-          id: txId,
-          fromUserId: actorUserId,
-          status: 'PENDING',
-        },
-        data: { status: 'PAID', paidAt: now() },
-      });
-      const tx = await prisma.transaction.findUnique({
-        where: { id: txId },
-        include: { fromUser: true, toUser: true, menuItem: true },
-      });
-      if (!tx) throw new Error('Transaction not found');
-      if (tx.fromUserId !== actorUserId) throw new Error('Access denied');
-      if (transition.count === 0) {
-        if (tx.status === 'PAID') return tx;
-        if (tx.status === 'CONFIRMED') {
-          throw new Error('Cannot modify confirmed payment');
+      /* Переход состояния и ЗАДАНИЕ на уведомление — в одной транзакции.
+         Раньше уведомление жило только в памяти между записью и вызовом
+         Telegram: падение процесса в этом окне теряло его без следа.
+         Вызовов Telegram внутри транзакции нет — она держала бы соединение
+         всё время сетевого запроса. */
+      const { tx, outboxIds, transitioned } = await prisma.$transaction(
+        async db => {
+          const transition = await db.transaction.updateMany({
+            where: {
+              id: txId,
+              fromUserId: actorUserId,
+              status: 'PENDING',
+            },
+            data: {
+              status: 'PAID',
+              paidAt: now(),
+              transitionVersion: { increment: 1 },
+            },
+          });
+          const row = await db.transaction.findUnique({
+            where: { id: txId },
+            include: { fromUser: true, toUser: true, menuItem: true },
+          });
+          if (!row) throw new Error('Transaction not found');
+          if (row.fromUserId !== actorUserId) throw new Error('Access denied');
+          if (transition.count === 0) {
+            if (row.status === 'PAID') {
+              return { tx: row, outboxIds: [], transitioned: false };
+            }
+            if (row.status === 'CONFIRMED') {
+              throw new Error('Cannot modify confirmed payment');
+            }
+            throw new Error('Transaction state changed');
+          }
+
+          const ids = await OutboxService.enqueue(db, {
+            entityType: OUTBOX_ENTITY_TRANSACTION,
+            entityId: txId,
+            transitionVersion: row.transitionVersion,
+            messageType: 'DEBT_MARKED_PAID',
+            recipients: [
+              {
+                chatId: String(row.toUser.telegramId),
+                payload: {
+                  transactionId: txId,
+                  debtorFirstName: row.fromUser.firstName ?? '',
+                  amount: formatCurrency(row.amount),
+                },
+              },
+            ],
+          });
+
+          return { tx: row, outboxIds: ids, transitioned: true };
         }
-        throw new Error('Transaction state changed');
-      }
+      );
+
+      /* Повтор запроса: статус уже PAID, ничего не менялось — и второго
+         уведомления быть не должно. */
+      if (!transitioned) return tx;
 
       logger.info('Transaction marked as paid', { txId });
       BudgetService.emitDebtUpdated(tx);
 
-      /* Статус уже в PostgreSQL. Недоступность Telegram отсюда и дальше не
-         должна возвращаться клиенту как неудача операции: он бы откатил
-         оптимистическое изменение и показал ошибку на сохранённом переходе. */
-      const bot = getBotInstance();
-      if (bot) {
-        await runAfterCommit('budget.markAsPaid.notifyRecipient', { txId }, () =>
-          bot.api.sendMessage(
-            Number(tx.toUser.telegramId),
-            `💳 *Получена оплата!*\n\n${escapeMarkdown(tx.fromUser.firstName ?? '')} отметил(а) оплату ${formatCurrency(tx.amount)}`,
-            {
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: 'Подтвердить ✅',
-                      callback_data: `budget:confirm:${txId}`,
-                    },
-                  ],
-                ],
-              },
-            }
-          )
-        );
-      }
+      /* Немедленная попытка: ждать тика обработчика значило бы задерживать
+         уведомление без причины. Задание захватывается по id, поэтому
+         обработчик его не продублирует, а при сбое — повторит сам. */
+      await OutboxWorkerService.deliverNow(outboxIds);
 
       return tx;
     } catch (error) {

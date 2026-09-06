@@ -140,6 +140,12 @@ beforeEach(() => {
   asMock(prismaMock.transaction.updateManyAndReturn).mockResolvedValue([
     { id: 10 },
   ] as never);
+  /* Задание на уведомление ставится в той же транзакции, что и переход
+     (см. outbox.service). Текст сообщения и кнопка проверяются в
+     outbox.templates.test.ts, отправка — в outbox-worker.service.test.ts. */
+  asMock(prismaMock.outboxEvent.createManyAndReturn).mockResolvedValue([
+    { id: 501 },
+  ] as never);
   prismaMock.transaction.findUnique.mockResolvedValue(txFixture() as never);
   asMock(prismaMock.responsibleSelection.findUnique).mockResolvedValue({
     messageId: 42,
@@ -157,25 +163,56 @@ describe('markAsPaid', () => {
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, fromUserId: 1, status: 'PENDING' },
-      data: { status: 'PAID', paidAt: NOW },
+      data: {
+        status: 'PAID',
+        paidAt: NOW,
+        /* Версия перехода — идентичность события уведомления: пара
+           «id долга + статус» не различает два законных подтверждения
+           в цепочке CONFIRMED → PAID → CONFIRMED. */
+        transitionVersion: { increment: 1 },
+      },
     });
-    expect(sendMessage).toHaveBeenCalledWith(
-      777,
-      expect.stringContaining('Получена оплата'),
+  });
+
+  /* Уведомление больше не уходит из этого метода напрямую: в транзакции
+     перехода ставится ЗАДАНИЕ, а отправляет его обработчик очереди. Здесь
+     проверяется адресат и данные события; текст и кнопка — в
+     outbox.templates.test.ts, сама отправка — в outbox-worker.service.test.ts. */
+  it('получателю ставится задание на уведомление в той же транзакции', async () => {
+    await BudgetService.markAsPaid(10, 1);
+
+    expect(prismaMock.outboxEvent.createManyAndReturn).toHaveBeenCalledWith(
       expect.objectContaining({
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: 'Подтвердить ✅', callback_data: 'budget:confirm:10' }],
-          ],
-        },
+        data: [
+          expect.objectContaining({
+            entityType: 'TRANSACTION',
+            entityId: 10,
+            messageType: 'DEBT_MARKED_PAID',
+            recipientChatId: '777',
+            payload: expect.objectContaining({
+              transactionId: 10,
+              debtorFirstName: 'Игорь',
+            }),
+          }),
+        ],
+        skipDuplicates: true,
       })
     );
   });
 
-  /* Все четыре уведомления этого сервиса подставляют имя должника в
-     Markdown. `_` в имени — обычное дело для Telegram, и без экранирования
-     ответственный не узнаёт об оплате вообще. */
-  it('имя должника экранируется во всех уведомлениях об оплате', async () => {
+  it('задание ставится тем же клиентом, что и переход статуса', async () => {
+    await BudgetService.markAsPaid(10, 1);
+
+    /* Иначе задание оказалось бы вне транзакции перехода, и весь смысл
+       очереди пропал бы: переход мог откатиться, а уведомление уйти. */
+    expect(prismaMock.$transaction).toHaveBeenCalled();
+  });
+
+  /* Уведомления этого сервиса подставляют имя должника в Markdown. `_` в
+     имени — обычное дело для Telegram, и без экранирования ответственный не
+     узнаёт об оплате вообще. Для markAsPaid экранирование переехало в шаблон
+     очереди (outbox.templates.test.ts): в задании лежит СЫРОЕ имя. */
+  it('имя должника экранируется в остальных уведомлениях об оплате', async () => {
     const withOddName = txFixture({
       fromUser: {
         id: 1,
@@ -189,10 +226,6 @@ describe('markAsPaid', () => {
       withOddName,
     ] as never);
 
-    await BudgetService.markAsPaid(10, 1);
-    expect(sendMessage.mock.calls[0][1]).toContain('Соус\\_острый');
-
-    sendMessage.mockClear();
     await BudgetService.markAllPaidByResponsible(5, 2);
     const allPaid = sendMessage.mock.calls
       .map(call => call[1] as string)
@@ -627,7 +660,14 @@ describe('бота нет', () => {
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, fromUserId: 1, status: 'PENDING' },
-      data: { status: 'PAID', paidAt: NOW },
+      data: {
+        status: 'PAID',
+        paidAt: NOW,
+        /* Версия перехода — идентичность события уведомления: пара
+           «id долга + статус» не различает два законных подтверждения
+           в цепочке CONFIRMED → PAID → CONFIRMED. */
+        transitionVersion: { increment: 1 },
+      },
     });
   });
 
@@ -678,7 +718,14 @@ describe('Telegram недоступен после фиксации статус
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, fromUserId: 1, status: 'PENDING' },
-      data: { status: 'PAID', paidAt: NOW },
+      data: {
+        status: 'PAID',
+        paidAt: NOW,
+        /* Версия перехода — идентичность события уведомления: пара
+           «id долга + статус» не различает два законных подтверждения
+           в цепочке CONFIRMED → PAID → CONFIRMED. */
+        transitionVersion: { increment: 1 },
+      },
     });
   });
 

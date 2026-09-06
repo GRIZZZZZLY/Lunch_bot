@@ -228,11 +228,17 @@ model Transaction {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  poll          Poll?             @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  storeRun      StoreRun?         @relation(fields: [storeRunId], references: [id], onDelete: Cascade)
-  storeItem     StoreItem?        @relation(fields: [storeItemId], references: [id])
-  fromUser      User              @relation("UserDebts", fields: [fromUserId], references: [id])
-  toUser        User              @relation("UserCredits", fields: [toUserId], references: [id])
+  poll              Poll?      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  storeRun          StoreRun?  @relation(fields: [storeRunId], references: [id], onDelete: Cascade)
+  storeItem         StoreItem? @relation(fields: [storeItemId], references: [id])
+  fromUser          User       @relation("UserDebts", fields: [fromUserId], references: [id])
+  toUser            User       @relation("UserCredits", fields: [toUserId], references: [id])
+  /// Номер перехода статуса, растёт на каждую смену. Нужен для уникальности
+  /// события уведомления: пара «id долга + статус» не различает два законных
+  /// подтверждения в цепочке CONFIRMED → PAID → CONFIRMED, и второе
+  /// уведомление считалось бы дублем первого. См. OutboxEvent.
+  transitionVersion Int        @default(0) @map("transition_version")
+
   menuItem      MenuItem?         @relation(fields: [menuItemId], references: [id])
   categoryOrder CategoryOrder?    @relation(fields: [categoryOrderId], references: [id])
   reminders     PaymentReminder[]
@@ -895,4 +901,65 @@ model StoreItem {
   @@index([userId])
   @@index([storeRunId, userId])
   @@map("store_items")
+}
+
+/// Задание на исходящее уведомление.
+///
+/// Смысл таблицы: сохранить ЗАДАНИЕ в той же транзакции, что и сам переход
+/// состояния. До неё уведомление жило только в памяти между записью в
+/// PostgreSQL и вызовом Telegram — падение процесса или недоступность
+/// Telegram в этом окне теряли его безвозвратно, и человек не узнавал, что
+/// его оплату подтвердили.
+///
+/// Одна строка на АДРЕСАТА, а не на событие: частичная неудача не должна
+/// заставлять отправлять повторно тем, кому уже дошло.
+model OutboxEvent {
+  id Int @id @default(autoincrement())
+
+  /// Что сменило состояние. Пока только 'TRANSACTION', но поле есть с самого
+  /// начала: добавлять его позже пришлось бы миграцией с backfill.
+  entityType        String @map("entity_type")
+  entityId          Int    @map("entity_id")
+  /// Transaction.transitionVersion на момент события.
+  transitionVersion Int    @map("transition_version")
+
+  messageType     String @map("message_type")
+  /// Telegram chat id. Строкой: он не влезает в Int, а BigInt в JSON-ответах
+  /// требует отдельной сериализации.
+  recipientChatId String @map("recipient_chat_id")
+  /// Данные для сборки текста. Собирать его при отправке, а не при постановке:
+  /// иначе задание, полежавшее в очереди, покажет устаревшие имя и сумму.
+  payload         Json
+
+  /// PENDING → SENT либо FAILED. FAILED — диагностируемое конечное состояние
+  /// (адресат заблокировал бота), а не «попробуем ещё когда-нибудь».
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at")
+  /// Срок захвата обработчиком. Истёк — задание снова свободно, поэтому
+  /// перезапуск посреди обработки не оставляет его захваченным навсегда.
+  claimedUntil  DateTime? @map("claimed_until")
+
+  /// message_id доставленного сообщения — по нему сообщение можно потом
+  /// отредактировать вместо отправки второго.
+  sentMessageId Int?      @map("sent_message_id")
+  sentAt        DateTime? @map("sent_at")
+
+  /// Безопасная диагностика: категория и код, без текста ошибки. В тексте
+  /// сетевой ошибки лежит URL запроса, а в нём токен бота.
+  lastErrorCategory String? @map("last_error_category")
+  lastErrorCode     Int?    @map("last_error_code")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// Идентичность события. Повтор API-запроса не создаёт второе задание того
+  /// же перехода; новая законная смена состояния получает новый
+  /// transitionVersion и потому новое задание.
+  @@unique([entityType, entityId, transitionVersion, messageType, recipientChatId], map: "outbox_events_identity_key")
+  /// Горячий путь обработчика: свободные задания, которым пора.
+  @@index([status, nextAttemptAt])
+  /// Для показателей и разбора: сколько заданий ждёт и самое старое из них.
+  @@index([status, createdAt])
+  @@map("outbox_events")
 }

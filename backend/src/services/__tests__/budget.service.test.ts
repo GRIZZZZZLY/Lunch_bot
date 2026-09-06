@@ -6,8 +6,8 @@ import { prisma } from '../../database/client';
 const mockSendMessage = jest.fn();
 const mockEditMessageText = jest.fn();
 
-jest.mock('../../database/client', () => ({
-  prisma: {
+jest.mock('../../database/client', () => {
+  const client: Record<string, unknown> = {
     paymentReminder: {
       create: jest.fn(),
       createMany: jest.fn(),
@@ -22,7 +22,26 @@ jest.mock('../../database/client', () => ({
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-  },
+    /* Переход статуса и задание на уведомление пишутся одной транзакцией
+       (см. outbox.service). Колбэк исполняем на том же моке — иначе
+       markAsPaid падал бы на `$transaction is not a function`. */
+    outboxEvent: {
+      createManyAndReturn: jest.fn().mockResolvedValue([{ id: 501 }]),
+    },
+    $transaction: jest.fn(async (arg: unknown) =>
+      typeof arg === 'function'
+        ? (arg as (tx: unknown) => unknown)(client)
+        : Promise.all(arg as unknown[])
+    ),
+  };
+
+  return { prisma: client };
+});
+
+/* Отправка из очереди — забота обработчика, у него свои тесты. Здесь он
+   заглушён, чтобы проверять решения самого BudgetService. */
+jest.mock('../outbox-worker.service', () => ({
+  OutboxWorkerService: { deliverNow: jest.fn() },
 }));
 
 jest.mock('../../bot/bot-instance', () => ({
