@@ -122,13 +122,18 @@ export function useConfirmPayment() {
  * Отмена подтверждения. Оптимистики нет намеренно: окно (сутки) проверяет
  * сервер, и показать долг вернувшимся, чтобы через миг отобрать, — плохой обмен
  * на денежном экране. Ждём ответа и говорим результат.
+ *
+ * Говорим ровно про сохранённое состояние. Про доставку сообщения должнику не
+ * утверждаем: сервер намеренно не проваливает отмену из-за недоступности
+ * Telegram (backend/src/utils/post-commit.ts), поэтому успешный ответ значит
+ * «отмена сохранена», а не «участник узнал».
  */
 export function useUndoConfirmation() {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
   return useMutation({
     mutationFn: (transactionId: number) => budgetService.undoConfirmation(transactionId),
-    onSuccess: () => push({ type: 'info', message: 'Подтверждение отменено, участник уведомлён' }),
+    onSuccess: () => push({ type: 'info', message: 'Подтверждение отменено' }),
     onError: (err) =>
       push({ type: 'error', message: apiErrorMessage(err, 'Не удалось отменить подтверждение') }),
     onSettled: () => invalidateBudget(qc),

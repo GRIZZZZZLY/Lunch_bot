@@ -13,6 +13,7 @@ import {
 } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 import { escapeMarkdown } from '../utils/telegram-html';
+import { runAfterCommit } from '../utils/post-commit';
 
 interface PaymentInfo {
   paymentCard?: string | null;
@@ -51,26 +52,29 @@ export class BudgetService {
       logger.info('Transaction marked as paid', { txId });
       BudgetService.emitDebtUpdated(tx);
 
-      // Уведомляем ответственного. Один вызов, один const: между проверкой и
-      // отправкой бот может быть снят (рестарт/тир-даун).
+      /* Статус уже в PostgreSQL. Недоступность Telegram отсюда и дальше не
+         должна возвращаться клиенту как неудача операции: он бы откатил
+         оптимистическое изменение и показал ошибку на сохранённом переходе. */
       const bot = getBotInstance();
       if (bot) {
-        await bot.api.sendMessage(
-          Number(tx.toUser.telegramId),
-          `💳 *Получена оплата!*\n\n${escapeMarkdown(tx.fromUser.firstName ?? '')} отметил(а) оплату ${formatCurrency(tx.amount)}`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: 'Подтвердить ✅',
-                    callback_data: `budget:confirm:${txId}`,
-                  },
+        await runAfterCommit('budget.markAsPaid.notifyRecipient', { txId }, () =>
+          bot.api.sendMessage(
+            Number(tx.toUser.telegramId),
+            `💳 *Получена оплата!*\n\n${escapeMarkdown(tx.fromUser.firstName ?? '')} отметил(а) оплату ${formatCurrency(tx.amount)}`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: 'Подтвердить ✅',
+                      callback_data: `budget:confirm:${txId}`,
+                    },
+                  ],
                 ],
-              ],
-            },
-          }
+              },
+            }
+          )
         );
       }
 
@@ -112,7 +116,11 @@ export class BudgetService {
       BudgetService.emitDebtUpdated(tx);
       await BudgetService.notifyPaymentConfirmed(tx);
 
-      // Проверяем, все ли оплатили (только для poll-транзакций; у store-run своя финализация)
+      /* «Все оплатили» — независимая проверка сохранённого состояния, а не
+         продолжение уведомления должнику. Раньше сбой личного уведомления
+         пробрасывался и до этой проверки дело не доходило: последний
+         закрытый долг не давал сборщику итоговое сообщение.
+         Проверяем только poll-транзакции; у store-run своя финализация. */
       if (tx.pollId != null) {
         await this.checkAllPaid(tx.pollId, tx.toUserId);
       }
@@ -154,10 +162,13 @@ export class BudgetService {
    * back to a fresh DM if the original message is gone or unreachable.
    * Shared by confirmPayment (one transaction) and markAllPaidByResponsible
    * (a whole poll's worth) — same notification either way.
+   *
+   * Никогда не бросает: статус долга к этому моменту уже сохранён. Возвращает
+   * признак доставки — только по нему можно утверждать, что должник узнал.
    */
-  private static async notifyPaymentConfirmed(tx: any): Promise<void> {
+  private static async notifyPaymentConfirmed(tx: any): Promise<boolean> {
     const bot = getBotInstance();
-    if (!bot) return;
+    if (!bot) return false;
 
     const confirmedText =
       `✅ Оплата подтверждена!\n\n` +
@@ -166,21 +177,25 @@ export class BudgetService {
 
     let edited = false;
     if (tx.debtMessageId && tx.debtChatId) {
-      try {
-        await bot.api.editMessageText(
-          tx.debtChatId,
-          tx.debtMessageId,
-          confirmedText,
-          { reply_markup: { inline_keyboard: [] } }
-        );
-        edited = true;
-      } catch (e) {
-        logger.warn('Could not edit debt message, sending new one', { txId: tx.id });
-      }
+      edited = await runAfterCommit(
+        'budget.notifyPaymentConfirmed.editDebtMessage',
+        { txId: tx.id },
+        () =>
+          bot.api.editMessageText(
+            tx.debtChatId,
+            tx.debtMessageId,
+            confirmedText,
+            { reply_markup: { inline_keyboard: [] } }
+          )
+      );
     }
-    if (!edited) {
-      await bot.api.sendMessage(Number(tx.fromUser.telegramId), confirmedText);
-    }
+    if (edited) return true;
+
+    return runAfterCommit(
+      'budget.notifyPaymentConfirmed.sendToDebtor',
+      { txId: tx.id },
+      () => bot.api.sendMessage(Number(tx.fromUser.telegramId), confirmedText)
+    );
   }
 
   /**
@@ -205,23 +220,24 @@ export class BudgetService {
       `Долг снова ждёт подтверждения — свяжитесь, если это ошибка.`;
 
     if (existing.debtMessageId && existing.debtChatId) {
-      try {
-        await bot.api.editMessageText(
-          existing.debtChatId,
-          existing.debtMessageId,
-          text,
-          { reply_markup: { inline_keyboard: [] } },
-        );
-      } catch (e) {
-        logger.warn('Could not edit stale confirmation message on undo', { txId: existing.id });
-      }
+      await runAfterCommit(
+        'budget.notifyConfirmationUndone.editStaleMessage',
+        { txId: existing.id },
+        () =>
+          bot.api.editMessageText(
+            existing.debtChatId,
+            existing.debtMessageId,
+            text,
+            { reply_markup: { inline_keyboard: [] } },
+          )
+      );
     }
 
-    try {
-      await bot.api.sendMessage(Number(existing.fromUser.telegramId), text);
-    } catch (e) {
-      logger.warn('Could not notify debtor about undone confirmation', { txId: existing.id });
-    }
+    await runAfterCommit(
+      'budget.notifyConfirmationUndone.sendToDebtor',
+      { txId: existing.id },
+      () => bot.api.sendMessage(Number(existing.fromUser.telegramId), text)
+    );
   }
 
   /**
@@ -280,29 +296,45 @@ export class BudgetService {
    * Notify every debtor whose transaction was force-confirmed, then send the
    * responsible person a summary. `transactions` is guaranteed non-empty by
    * the caller.
+   *
+   * Никогда не бросает: долги уже подтверждены в БД. Недоставленное
+   * уведомление одному должнику не отменяет уведомления остальным и не
+   * отменяет сводку сборщику.
    */
   private static async notifyAllPaidByResponsible(transactions: any[]): Promise<void> {
     const bot = getBotInstance();
     if (!bot) return;
 
+    let delivered = 0;
     for (const tx of transactions) {
-      await BudgetService.notifyPaymentConfirmed(tx);
+      if (await BudgetService.notifyPaymentConfirmed(tx)) delivered += 1;
+    }
+    if (delivered < transactions.length) {
+      logger.warn('Some debtors were not notified about forced confirmation', {
+        delivered,
+        total: transactions.length,
+      });
     }
 
     // Отправляем итоговое сообщение ответственному
     const totalReceived = sumDecimals(transactions.map(tx => tx.amount));
-    await bot.api.sendMessage(
-      Number(transactions[0].toUser.telegramId),
-      `🎊 *Все оплатили!*\n\n` +
-        `Ты подтвердил оплату от всех участников\n\n` +
-        `💰 Итого получено: ${totalReceived.toFixed(2)}₽\n\n` +
-        `*Детали:*\n${transactions
-          .map(
-            tx =>
-              `✅ ${escapeMarkdown(tx.fromUser.firstName ?? '')} — ${formatCurrency(tx.amount)}`
-          )
-          .join('\n')}\n\nСпасибо за организацию! 🙏`,
-      { parse_mode: 'Markdown' }
+    await runAfterCommit(
+      'budget.notifyAllPaidByResponsible.summary',
+      { count: transactions.length },
+      () =>
+        bot.api.sendMessage(
+          Number(transactions[0].toUser.telegramId),
+          `🎊 *Все оплатили!*\n\n` +
+            `Ты подтвердил оплату от всех участников\n\n` +
+            `💰 Итого получено: ${totalReceived.toFixed(2)}₽\n\n` +
+            `*Детали:*\n${transactions
+              .map(
+                tx =>
+                  `✅ ${escapeMarkdown(tx.fromUser.firstName ?? '')} — ${formatCurrency(tx.amount)}`
+              )
+              .join('\n')}\n\nСпасибо за организацию! 🙏`,
+          { parse_mode: 'Markdown' }
+        )
     );
   }
 
@@ -367,21 +399,26 @@ export class BudgetService {
       if (allConfirmed && allTx.length > 0 && bot) {
         const totalReceived = sumDecimals(allTx.map(tx => tx.amount));
 
-        await bot.api.sendMessage(
-          Number(allTx[0].toUser.telegramId),
-          `🎊 *Все оплатили!*\n\n` +
-            `Все участники подтвердили оплату\n\n` +
-            `💰 Получено: ${totalReceived.toFixed(2)}₽\n\n` +
-            `*Подробности:*\n${allTx
-              .map(
-                tx =>
-                  `✅ ${escapeMarkdown(tx.fromUser.firstName ?? '')} — ${formatCurrency(tx.amount)}`
-              )
-              .join('\n')}\n\nСпасибо за организацию! 🙏`,
-          { parse_mode: 'Markdown' }
+        const sent = await runAfterCommit(
+          'budget.checkAllPaid.notifyResponsible',
+          { pollId },
+          () =>
+            bot.api.sendMessage(
+              Number(allTx[0].toUser.telegramId),
+              `🎊 *Все оплатили!*\n\n` +
+                `Все участники подтвердили оплату\n\n` +
+                `💰 Получено: ${totalReceived.toFixed(2)}₽\n\n` +
+                `*Подробности:*\n${allTx
+                  .map(
+                    tx =>
+                      `✅ ${escapeMarkdown(tx.fromUser.firstName ?? '')} — ${formatCurrency(tx.amount)}`
+                  )
+                  .join('\n')}\n\nСпасибо за организацию! 🙏`,
+              { parse_mode: 'Markdown' }
+            )
         );
 
-        logger.info('All paid notification sent', { pollId });
+        if (sent) logger.info('All paid notification sent', { pollId });
       }
     } catch (error) {
       logger.error('Error checking all paid:', error);
@@ -446,13 +483,18 @@ export class BudgetService {
       logger.info('Transaction mark cancelled', { transactionId });
       BudgetService.emitDebtUpdated(tx);
 
-      // Уведомляем ответственного
+      // Уведомляем ответственного; отметка уже снята в БД (см. post-commit.ts)
       const bot = getBotInstance();
       if (bot) {
-        await bot.api.sendMessage(
-          Number(tx.toUser.telegramId),
-          `⚠️ *Отменена отметка оплаты*\n\n${escapeMarkdown(tx.fromUser.firstName ?? '')} отменил(а) отметку оплаты ${tx.amount}₽`,
-          { parse_mode: 'Markdown' }
+        await runAfterCommit(
+          'budget.cancelMarkAsPaid.notifyRecipient',
+          { txId: transactionId },
+          () =>
+            bot.api.sendMessage(
+              Number(tx.toUser.telegramId),
+              `⚠️ *Отменена отметка оплаты*\n\n${escapeMarkdown(tx.fromUser.firstName ?? '')} отменил(а) отметку оплаты ${tx.amount}₽`,
+              { parse_mode: 'Markdown' }
+            )
         );
       }
 

@@ -206,3 +206,40 @@ describe('делегирующие обёртки', () => {
     markAll.mockRestore();
   });
 });
+
+/**
+ * Отметка уже снята в PostgreSQL, а Telegram недоступен. Раньше ошибка
+ * отправки пробрасывалась наружу: клиент откатывал строку и показывал
+ * «Не удалось отменить отметку» на сохранённом переходе.
+ */
+describe('cancelMarkAsPaid при недоступном Telegram', () => {
+  beforeEach(() => {
+    asMock(prismaMock.transaction.updateMany).mockResolvedValue({ count: 1 });
+    prismaMock.transaction.findUnique.mockResolvedValue(
+      tx({ status: 'PENDING' }) as never
+    );
+  });
+
+  it('возвращает снятую отметку, а не ошибку', async () => {
+    sendMessage.mockRejectedValue(
+      Object.assign(new Error('Bad Gateway'), { error_code: 502 })
+    );
+
+    await expect(service.cancelMarkAsPaid(10, 1)).resolves.toMatchObject({
+      id: 10,
+    });
+
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: 10, fromUserId: 1, status: 'PAID' },
+      data: { status: 'PENDING', paidAt: null, confirmedAt: null },
+    });
+  });
+
+  it('ошибка записи в БД по-прежнему идёт наружу', async () => {
+    asMock(prismaMock.transaction.updateMany).mockRejectedValue(
+      new Error('db down')
+    );
+
+    await expect(service.cancelMarkAsPaid(10, 1)).rejects.toThrow('db down');
+  });
+});
