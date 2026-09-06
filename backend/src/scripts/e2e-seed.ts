@@ -167,11 +167,22 @@ async function seed(): Promise<void> {
     },
   });
 
+  /* Какая команда откроется первой — не случайность, а часть договора.
+     `GroupService.getGroupsForUser` сортирует по `joinedAt` УБЫВАЮЩЕ, а
+     клиент при первом запуске берёт первую доступную команду. Раньше у
+     Анны была одна команда и вопроса не возникало; с тремя одинаковые
+     метки времени от `createMany` давали произвольный порядок, и браузерная
+     проверка меню то видела «Команда E2E», то нет.
+
+     Поэтому метки проставлены явно: у Анны команда А — самая свежая. */
+  const now = Date.now();
+  const joinedAt = (minutesAgo: number) => new Date(now - minutesAgo * 60_000);
+
   await prisma.groupMember.createMany({
     data: [
       // Анна: администратор А, обычный участник Б, в В её нет.
-      { groupId: teamA.id, userId: anna.id, role: 'CREATOR', isActive: true },
-      { groupId: teamB.id, userId: anna.id, role: 'MEMBER', isActive: true },
+      { groupId: teamA.id, userId: anna.id, role: 'CREATOR', isActive: true, joinedAt: joinedAt(1) },
+      { groupId: teamB.id, userId: anna.id, role: 'MEMBER', isActive: true, joinedAt: joinedAt(10) },
       // Борис есть везде: он получатель долгов и «местный» для команды В.
       { groupId: teamA.id, userId: boris.id, role: 'MEMBER', isActive: true },
       { groupId: teamB.id, userId: boris.id, role: 'CREATOR', isActive: true },
