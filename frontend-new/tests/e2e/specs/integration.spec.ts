@@ -47,14 +47,43 @@ test.describe('Настоящий сервер и тестовая PostgreSQL', 
     });
   });
 
+  /**
+   * Тестовый пользователь состоит в двух командах (см. `backend/src/scripts/
+   * e2e-seed.ts`), поэтому на экране появляется переключатель, и название
+   * команды встречается дважды — в подзаголовке и на вкладке.
+   *
+   * Проверяем ВЫБРАННУЮ вкладку, а не просто наличие текста: так утверждение
+   * говорит не «название где-то есть», а «открыта именно эта команда».
+   */
   test('@integration входит через подписанный initData и читает seeded menu', async ({ page }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
     await page.goto('/menu');
-    await expect(page.getByText('Команда E2E')).toBeVisible();
+    await expect(
+      page.getByRole('tab', { name: 'Команда E2E', selected: true })
+    ).toBeVisible();
     await expect(page.getByText('Борщ E2E')).toBeVisible();
     await expect(page.getByText('Паста E2E')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Добавить блюдо' })).toBeVisible();
     expect(pageErrors).toEqual([]);
+  });
+
+  /**
+   * Групповая изоляция на живом экране: меню соседней команды не должно
+   * просачиваться в открытую. `PRODUCT.md` называет такое смешение
+   * критической ошибкой, а не косметикой.
+   */
+  test('@integration меню чужой команды не видно в открытой', async ({ page }) => {
+    await page.goto('/menu');
+    await expect(
+      page.getByRole('tab', { name: 'Команда E2E', selected: true })
+    ).toBeVisible();
+
+    // Вкладка соседней команды есть, но её блюдо на экране не показано.
+    await expect(page.getByRole('tab', { name: 'Команда Б E2E' })).toBeVisible();
+    await expect(page.getByText('Плов Б E2E')).toHaveCount(0);
+
+    // Команда, в которой пользователя нет, не предлагается вовсе.
+    await expect(page.getByRole('tab', { name: 'Команда В E2E' })).toHaveCount(0);
   });
 });
