@@ -144,6 +144,7 @@ describe('BudgetService Mini App behaviours', () => {
         status: 'PENDING',
         paidAt: null,
         confirmedAt: null,
+        transitionVersion: { increment: 1 },
       },
     });
   });
@@ -263,7 +264,11 @@ describe('BudgetService.undoConfirmation', () => {
 
     expect(prisma.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 42, toUserId: 7, status: 'CONFIRMED' },
-      data: { status: 'PAID', confirmedAt: null },
+      data: {
+        status: 'PAID',
+        confirmedAt: null,
+        transitionVersion: { increment: 1 },
+      },
     });
   });
 

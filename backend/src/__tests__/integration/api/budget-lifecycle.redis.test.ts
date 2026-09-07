@@ -154,6 +154,20 @@ function uniqueKey(label: string): string {
   return `test-${label}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Дать доставке завершиться.
+ *
+ * Немедленная попытка после операции идёт В СТОРОНЕ от ответа (иначе
+ * медленный Telegram задерживал бы клиента), поэтому к моменту утверждения
+ * она может быть ещё в полёте — и уже держать задание захваченным, из-за чего
+ * проход обработчика ничего не найдёт. Сначала ждём её, потом добираем
+ * обработчиком то, что она не забрала.
+ */
+async function settleDelivery(): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, 150));
+  await OutboxWorkerService.tick();
+}
+
 async function statusOf(id: number): Promise<string> {
   const row = await prisma.transaction.findUnique({ where: { id } });
   return row!.status;
@@ -543,9 +557,15 @@ describe('Telegram недоступен, затем восстановлен', (
       .expect(200);
 
     expect(await statusOf(world.debtInA)).toBe('PAID');
+
+    /* 2. Задание пережило сбой и ждёт повтора, а не потеряно.
+
+       Проход обработчика запускается ЯВНО: немедленная попытка после
+       операции больше не ожидается (иначе медленный Telegram задерживал бы
+       ответ клиенту), поэтому к этому моменту она могла ещё не случиться. */
+    await settleDelivery();
     expect(broken.calls).toBeGreaterThan(0);
 
-    /* 2. Задание пережило сбой и ждёт повтора, а не потеряно. */
     const pending = await prisma.outboxEvent.findMany({
       where: { entityType: 'TRANSACTION', entityId: world.debtInA },
     });
@@ -587,6 +607,10 @@ describe('Telegram недоступен, затем восстановлен', (
       .send({ transactionId: world.debtInA })
       .expect(200);
 
+    /* Немедленная попытка идёт в стороне от ответа, поэтому даём ей
+       завершиться, а затем проверяем, что ПОВТОРНЫЕ проходы ничего не
+       добавляют: задание уже SENT, кто бы его ни доставил. */
+    await settleDelivery();
     expect(working.sent).toHaveLength(1);
 
     await OutboxWorkerService.tick();
@@ -615,10 +639,182 @@ describe('Telegram недоступен, затем восстановлен', (
 
     expect(await statusOf(world.debtInA)).toBe('PAID');
 
+    await settleDelivery();
+
     const [event] = await prisma.outboxEvent.findMany({
       where: { entityType: 'TRANSACTION', entityId: world.debtInA },
     });
     expect(event.status).toBe('FAILED');
     expect(event.lastErrorCategory).toBe('blocked_by_recipient');
+  });
+});
+
+/**
+ * Устаревшее уведомление после отмены — через НАСТОЯЩИЕ методы приложения.
+ *
+ * Ровно тот сценарий, который прошлый тест устаревания не поймал: он поднимал
+ * `transitionVersion` руками в БД и потому не замечал, что сама отмена этого
+ * не делает. Версию поднимает каждый переход состояния — проверяем это
+ * последовательностью операций, а не подменой поля.
+ *
+ * Последовательность: отметить оплату при лежащем Telegram → отменить отметку
+ * → Telegram восстановился → обработчик очереди. Сообщение «получена оплата»
+ * отправиться НЕ должно: долг снова PENDING.
+ */
+describe('отмена отметки отменяет и уведомление о ней', () => {
+  function silentBot(): { sent: string[] } {
+    const sent: string[] = [];
+    setBotInstance({
+      api: {
+        sendMessage: async (_chatId: number, text: string) => {
+          sent.push(text);
+          return { message_id: 1 };
+        },
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+    return { sent };
+  }
+
+  it('каждый переход состояния поднимает версию', async () => {
+    const versions: number[] = [];
+    const readVersion = async () =>
+      (await prisma.transaction.findUnique({ where: { id: world.debtInA } }))!
+        .transitionVersion;
+
+    versions.push(await readVersion());
+
+    await request(app)
+      .post('/api/budget/mark-paid')
+      .set('Authorization', `Bearer ${annaToken}`)
+      .set('Idempotency-Key', uniqueKey('v-mark'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+    versions.push(await readVersion());
+
+    await request(app)
+      .post('/api/budget/cancel-mark')
+      .set('Authorization', `Bearer ${annaToken}`)
+      .set('Idempotency-Key', uniqueKey('v-cancel'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+    versions.push(await readVersion());
+
+    await request(app)
+      .post('/api/budget/mark-paid')
+      .set('Authorization', `Bearer ${annaToken}`)
+      .set('Idempotency-Key', uniqueKey('v-mark-2'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+    versions.push(await readVersion());
+
+    await request(app)
+      .post('/api/budget/confirm-payment')
+      .set('Authorization', `Bearer ${borisToken}`)
+      .set('Idempotency-Key', uniqueKey('v-confirm'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+    versions.push(await readVersion());
+
+    await request(app)
+      .post('/api/budget/undo-confirmation')
+      .set('Authorization', `Bearer ${borisToken}`)
+      .set('Idempotency-Key', uniqueKey('v-undo'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+    versions.push(await readVersion());
+
+    /* Строго возрастает на каждом шаге: отметка, отмена отметки, повторная
+       отметка, подтверждение, отмена подтверждения. */
+    expect(versions).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
+  it('после отмены отметки старое «получена оплата» не уходит', async () => {
+    /* 1. Telegram лежит: задание остаётся в очереди. */
+    setBotInstance({
+      api: {
+        sendMessage: async () => {
+          throw Object.assign(new Error('Bad Gateway'), { error_code: 502 });
+        },
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+
+    await request(app)
+      .post('/api/budget/mark-paid')
+      .set('Authorization', `Bearer ${annaToken}`)
+      .set('Idempotency-Key', uniqueKey('stale-mark'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+
+    const [job] = await prisma.outboxEvent.findMany({
+      where: { entityType: 'TRANSACTION', entityId: world.debtInA },
+    });
+    expect(job.status).toBe('PENDING');
+
+    /* 2. Человек передумал и снял отметку. */
+    await request(app)
+      .post('/api/budget/cancel-mark')
+      .set('Authorization', `Bearer ${annaToken}`)
+      .set('Idempotency-Key', uniqueKey('stale-cancel'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+    expect(await statusOf(world.debtInA)).toBe('PENDING');
+
+    /* 3. Telegram восстановился, очередь дошла до задания. */
+    const bot = silentBot();
+    await prisma.outboxEvent.updateMany({
+      where: { id: job.id },
+      data: { nextAttemptAt: new Date(Date.now() - 1_000) },
+    });
+
+    await settleDelivery();
+
+    /* Сообщение об оплате не ушло: долг больше не оплачен. */
+    expect(bot.sent).toHaveLength(0);
+    const settled = await prisma.outboxEvent.findUnique({
+      where: { id: job.id },
+    });
+    expect(settled!.status).toBe('SUPERSEDED');
+  });
+});
+
+/**
+ * Медленный Telegram не должен задерживать ответ.
+ *
+ * Клиент обрывает запрос через 10 секунд (`frontend-new/src/services/
+ * api.service.ts`). Пока отправка ожидалась внутри операции, медленный ответ
+ * Telegram давал человеку «Request timeout» на уже сохранённой отметке —
+ * тот же ложный отказ, что и при быстром сбое, только по другой причине.
+ */
+describe('медленный Telegram не задерживает ответ', () => {
+  it('ответ приходит, не дожидаясь отправки', async () => {
+    let release: (() => void) | undefined;
+    const hanging = new Promise<void>(resolve => {
+      release = resolve;
+    });
+
+    setBotInstance({
+      api: {
+        sendMessage: async () => {
+          await hanging;
+          return { message_id: 1 };
+        },
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+
+    const started = Date.now();
+    await request(app)
+      .post('/api/budget/mark-paid')
+      .set('Authorization', `Bearer ${annaToken}`)
+      .set('Idempotency-Key', uniqueKey('slow'))
+      .send({ transactionId: world.debtInA })
+      .expect(200);
+    const elapsed = Date.now() - started;
+
+    /* Отправка всё ещё висит, а ответ уже получен. Порог с большим запасом:
+       важно, что ожидания отправки НЕТ, а не точная величина. */
+    expect(elapsed).toBeLessThan(5_000);
+    expect(await statusOf(world.debtInA)).toBe('PAID');
+
+    release?.();
   });
 });

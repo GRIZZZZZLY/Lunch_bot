@@ -100,7 +100,15 @@ describe('cancelMarkAsPaid', () => {
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, fromUserId: 1, status: 'PAID' },
-      data: { status: 'PENDING', paidAt: null, confirmedAt: null },
+      data: {
+        status: 'PENDING',
+        paidAt: null,
+        confirmedAt: null,
+        /* Версия растёт на КАЖДОМ переходе, включая снятие отметки: иначе
+           задержавшееся уведомление «получена оплата» считалось бы
+           актуальным и уходило после отмены. */
+        transitionVersion: { increment: 1 },
+      },
     });
   });
 
@@ -231,7 +239,15 @@ describe('cancelMarkAsPaid при недоступном Telegram', () => {
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, fromUserId: 1, status: 'PAID' },
-      data: { status: 'PENDING', paidAt: null, confirmedAt: null },
+      data: {
+        status: 'PENDING',
+        paidAt: null,
+        confirmedAt: null,
+        /* Версия растёт на КАЖДОМ переходе, включая снятие отметки: иначе
+           задержавшееся уведомление «получена оплата» считалось бы
+           актуальным и уходило после отмены. */
+        transitionVersion: { increment: 1 },
+      },
     });
   });
 

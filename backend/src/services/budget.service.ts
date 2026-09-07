@@ -95,10 +95,20 @@ export class BudgetService {
       logger.info('Transaction marked as paid', { txId });
       BudgetService.emitDebtUpdated(tx);
 
-      /* Немедленная попытка: ждать тика обработчика значило бы задерживать
-         уведомление без причины. Задание захватывается по id, поэтому
-         обработчик его не продублирует, а при сбое — повторит сам. */
-      await OutboxWorkerService.deliverNow(outboxIds);
+      /* Немедленная попытка — БЕЗ ожидания. Задание уже сохранено, ответ
+         клиенту не должен зависеть от времени ответа Telegram.
+
+         Раньше здесь стоял `await`, и медленный Telegram давал ровно тот же
+         ложный отказ, который закрывала изоляция сбоев: клиент обрывает
+         запрос через 10 секунд (`api.service.ts`), человек видит «Request
+         timeout», а отметка в базе уже стоит. Быстрый отказ был исправлен,
+         медленный ответ — нет.
+
+         Задание захватывается по id, поэтому обработчик его не продублирует,
+         а при сбое или обрыве процесса — повторит сам. `deliverNow` не
+         бросает, поэтому `void` здесь не прячет ошибку: она попадёт в журнал
+         с категорией. */
+      void OutboxWorkerService.deliverNow(outboxIds);
 
       return tx;
     } catch (error) {
@@ -118,7 +128,11 @@ export class BudgetService {
           toUserId: actorUserId,
           status: 'PAID',
         },
-        data: { status: 'CONFIRMED', confirmedAt: now() },
+        data: {
+          status: 'CONFIRMED',
+          confirmedAt: now(),
+          transitionVersion: { increment: 1 },
+        },
       });
       const tx = await prisma.transaction.findUnique({
         where: { id: txId },
@@ -296,7 +310,11 @@ export class BudgetService {
          статус мог измениться (например, параллельная отмена). */
       const transition = await prisma.transaction.updateMany({
         where: { id: txId, toUserId: actorUserId, status: 'CONFIRMED' },
-        data: { status: 'PAID', confirmedAt: null },
+        data: {
+          status: 'PAID',
+          confirmedAt: null,
+          transitionVersion: { increment: 1 },
+        },
       });
       if (transition.count === 0) throw new Error('Transaction state changed');
 
@@ -374,7 +392,11 @@ export class BudgetService {
           toUserId: responsibleUserId,
           status: { in: ['PENDING', 'PAID'] },
         },
-        data: { status: 'CONFIRMED', confirmedAt: now() },
+        data: {
+          status: 'CONFIRMED',
+          confirmedAt: now(),
+          transitionVersion: { increment: 1 },
+        },
         select: { id: true },
       });
 
@@ -486,6 +508,7 @@ export class BudgetService {
           status: 'PENDING',
           paidAt: null,
           confirmedAt: null,
+          transitionVersion: { increment: 1 },
         },
       });
       const tx = await prisma.transaction.findUnique({
