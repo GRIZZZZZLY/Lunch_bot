@@ -1,5 +1,6 @@
 import { prisma } from '../database/client';
 import { logger } from '../utils/logger';
+import { OutboxService } from './outbox.service';
 import { Registry, Counter, Gauge, Histogram, collectDefaultMetrics } from 'prom-client';
 
 /**
@@ -14,6 +15,14 @@ export interface Metrics {
   totalTransactions: number;
   avgResponseTime: number;
   errors24h: number;
+  /* Очередь исходящих уведомлений. Само число ожидающих заданий мало о чём
+     говорит — под нагрузкой оно всегда больше нуля. Тревожен ВОЗРАСТ самого
+     старого: он растёт только когда обработчик встал или Telegram недоступен
+     дольше, чем длится backoff. */
+  outboxPending: number;
+  outboxRetrying: number;
+  outboxFailed: number;
+  outboxOldestPendingAgeSeconds: number;
   timestamp: string;
 }
 
@@ -35,6 +44,10 @@ class MetricsService {
   // Prometheus gauges
   private activePollsGauge: Gauge;
   private totalUsersGauge: Gauge;
+  private outboxPendingGauge: Gauge;
+  private outboxRetryingGauge: Gauge;
+  private outboxFailedGauge: Gauge;
+  private outboxOldestPendingAgeGauge: Gauge;
 
   // Prometheus histograms
   private httpRequestDuration: Histogram;
@@ -49,6 +62,10 @@ class MetricsService {
     totalTransactions: 0,
     avgResponseTime: 0,
     errors24h: 0,
+    outboxPending: 0,
+    outboxRetrying: 0,
+    outboxFailed: 0,
+    outboxOldestPendingAgeSeconds: 0,
     timestamp: new Date().toISOString(),
   };
 
@@ -120,6 +137,32 @@ class MetricsService {
       registers: [this.registry],
     });
 
+    this.outboxPendingGauge = new Gauge({
+      name: 'food_bot_outbox_pending',
+      help: 'Outbox notification jobs waiting to be delivered',
+      registers: [this.registry],
+    });
+
+    this.outboxRetryingGauge = new Gauge({
+      name: 'food_bot_outbox_retrying',
+      help: 'Outbox jobs waiting after at least one failed attempt',
+      registers: [this.registry],
+    });
+
+    this.outboxFailedGauge = new Gauge({
+      name: 'food_bot_outbox_failed',
+      help: 'Outbox jobs given up on: permanent recipient failure or attempts exhausted',
+      registers: [this.registry],
+    });
+
+    /* Главный показатель здоровья очереди: растёт только когда доставка
+       действительно встала. По нему и стоит настраивать оповещение. */
+    this.outboxOldestPendingAgeGauge = new Gauge({
+      name: 'food_bot_outbox_oldest_pending_age_seconds',
+      help: 'Age of the oldest undelivered outbox job, in seconds',
+      registers: [this.registry],
+    });
+
     this.httpRequestDuration = new Histogram({
       name: 'food_bot_http_request_duration_ms',
       help: 'Duration of HTTP requests in ms',
@@ -157,6 +200,7 @@ class MetricsService {
         totalVotes,
         totalUsers,
         totalTransactions,
+        outbox,
       ] = await Promise.all([
         prisma.poll.count(),
         prisma.poll.count({ where: { status: 'ACTIVE' } }),
@@ -164,11 +208,16 @@ class MetricsService {
         prisma.vote.count(),
         prisma.user.count(),
         prisma.transaction.count(),
+        OutboxService.stats(),
       ]);
 
       // Update Prometheus gauges
       this.activePollsGauge.set(activePolls);
       this.totalUsersGauge.set(totalUsers);
+      this.outboxPendingGauge.set(outbox.pending);
+      this.outboxRetryingGauge.set(outbox.retrying);
+      this.outboxFailedGauge.set(outbox.failed);
+      this.outboxOldestPendingAgeGauge.set(outbox.oldestPendingAgeSeconds);
 
       this.metrics = {
         totalPolls,
@@ -179,6 +228,10 @@ class MetricsService {
         totalTransactions,
         avgResponseTime: this.calculateAvgResponseTime(),
         errors24h: this.metrics.errors24h,
+        outboxPending: outbox.pending,
+        outboxRetrying: outbox.retrying,
+        outboxFailed: outbox.failed,
+        outboxOldestPendingAgeSeconds: outbox.oldestPendingAgeSeconds,
         timestamp: new Date().toISOString(),
       };
 

@@ -30,6 +30,36 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/metrics/prometheus
+ * Показатели в формате Prometheus — для сборщика, а не для человека.
+ *
+ * Реестр `prom-client` в сервисе жил с самого начала, счётчики и датчики в
+ * него писались, но НИ ОДИН маршрут его не отдавал: наружу не выходило
+ * ничего. Считать метрику и никому её не показывать — то же самое, что не
+ * считать.
+ *
+ * `collectMetrics()` вызывается перед выдачей: датчики, которые читаются из
+ * БД (активные голосования, очередь уведомлений), иначе отдавали бы значения
+ * с прошлого обращения к `/api/metrics`, то есть, возможно, никогда не
+ * заполненные.
+ *
+ * Доступ тот же, что у остальных служебных маршрутов: `ENABLE_OPERATIONS_API`
+ * плюс `X-Operations-Secret` (см. `router.use` выше). Сборщик ходит с сервера
+ * с этим заголовком.
+ */
+router.get('/prometheus', async (req, res) => {
+  try {
+    await metricsService.collectMetrics();
+    const registry = metricsService.getRegistry();
+    res.set('Content-Type', registry.contentType);
+    res.send(await registry.metrics());
+  } catch (error) {
+    logger.error('Failed to render Prometheus metrics', { error });
+    res.status(500).json({ error: 'Failed to render Prometheus metrics' });
+  }
+});
+
+/**
  * GET /api/metrics/detailed
  * Получить детальную статистику
  */
