@@ -321,7 +321,11 @@ describe('confirmPayment', () => {
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, toUserId: 2, status: 'PAID' },
-      data: { status: 'CONFIRMED', confirmedAt: NOW },
+      data: {
+        status: 'CONFIRMED',
+        confirmedAt: NOW,
+        transitionVersion: { increment: 1 },
+      },
     });
   });
 
@@ -439,7 +443,11 @@ describe('undoConfirmation', () => {
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, toUserId: 2, status: 'CONFIRMED' },
-      data: { status: 'PAID', confirmedAt: null },
+      data: {
+        status: 'PAID',
+        confirmedAt: null,
+        transitionVersion: { increment: 1 },
+      },
     });
   });
 
@@ -546,7 +554,11 @@ describe('markAllPaidByResponsible', () => {
 
     expect(prismaMock.transaction.updateManyAndReturn).toHaveBeenCalledWith({
       where: { pollId: 5, toUserId: 2, status: { in: ['PENDING', 'PAID'] } },
-      data: { status: 'CONFIRMED', confirmedAt: NOW },
+      data: {
+        status: 'CONFIRMED',
+        confirmedAt: NOW,
+        transitionVersion: { increment: 1 },
+      },
       select: { id: true },
     });
   });
@@ -741,7 +753,11 @@ describe('Telegram недоступен после фиксации статус
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, toUserId: 2, status: 'PAID' },
-      data: { status: 'CONFIRMED', confirmedAt: NOW },
+      data: {
+        status: 'CONFIRMED',
+        confirmedAt: NOW,
+        transitionVersion: { increment: 1 },
+      },
     });
   });
 
@@ -780,7 +796,11 @@ describe('Telegram недоступен после фиксации статус
 
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: 10, toUserId: 2, status: 'CONFIRMED' },
-      data: { status: 'PAID', confirmedAt: null },
+      data: {
+        status: 'PAID',
+        confirmedAt: null,
+        transitionVersion: { increment: 1 },
+      },
     });
   });
 

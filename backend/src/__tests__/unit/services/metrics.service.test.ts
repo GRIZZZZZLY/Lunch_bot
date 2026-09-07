@@ -49,6 +49,10 @@ beforeEach(() => {
   asMock(prismaMock.vote.count).mockResolvedValue(0);
   asMock(prismaMock.user.count).mockResolvedValue(0);
   asMock(prismaMock.transaction.count).mockResolvedValue(0);
+  /* Очередь уведомлений тоже читается из БД при каждом сборе показателей
+     (OutboxService.stats): без этих ответов сбор падал бы на undefined. */
+  asMock(prismaMock.outboxEvent.count).mockResolvedValue(0);
+  asMock(prismaMock.outboxEvent.findFirst).mockResolvedValue(null);
 });
 
 describe('collectMetrics', () => {
@@ -277,5 +281,68 @@ describe('getDetailedStats', () => {
     expect(logger.error).toHaveBeenCalledWith('Failed to get detailed stats', {
       error: expect.any(Error),
     });
+  });
+});
+
+/**
+ * Очередь исходящих уведомлений наружу.
+ *
+ * До этого реестр Prometheus заполнялся, но ни один маршрут его не отдавал —
+ * считать показатель и никому его не показывать всё равно что не считать.
+ * Здесь закреплено, что значения очереди попадают и в JSON, и в текстовый
+ * экспорт для сборщика.
+ */
+describe('показатели очереди уведомлений', () => {
+  beforeEach(() => {
+    /* stats() делает три count и один findFirst: PENDING, FAILED,
+       PENDING с попытками, затем самое старое ожидающее. */
+    asMock(prismaMock.outboxEvent.count)
+      .mockResolvedValueOnce(7)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(3);
+    asMock(prismaMock.outboxEvent.findFirst).mockResolvedValue({
+      createdAt: new Date(Date.now() - 90_000),
+    });
+  });
+
+  it('попадают в снимок метрик', async () => {
+    const snapshot = await metricsService.collectMetrics();
+
+    expect(snapshot.outboxPending).toBe(7);
+    expect(snapshot.outboxFailed).toBe(2);
+    expect(snapshot.outboxRetrying).toBe(3);
+    /* Возраст самого старого — тот показатель, по которому видно, что
+       доставка встала. 90 секунд назад, допуск на время прогона. */
+    expect(snapshot.outboxOldestPendingAgeSeconds).toBeGreaterThanOrEqual(89);
+    expect(snapshot.outboxOldestPendingAgeSeconds).toBeLessThan(120);
+  });
+
+  it('попадают в экспорт для Prometheus', async () => {
+    await metricsService.collectMetrics();
+
+    await expect(metricValue('food_bot_outbox_pending')).resolves.toBe(7);
+    await expect(metricValue('food_bot_outbox_failed')).resolves.toBe(2);
+    await expect(metricValue('food_bot_outbox_retrying')).resolves.toBe(3);
+    await expect(
+      metricValue('food_bot_outbox_oldest_pending_age_seconds')
+    ).resolves.toBeGreaterThanOrEqual(89);
+  });
+
+  it('пустая очередь даёт нули, а не отсутствие метрики', async () => {
+    /* `mockReset`, а не `clearAllMocks`: очередь `mockResolvedValueOnce` из
+       beforeEach иначе остаётся и продолжает отдавать прежние числа. */
+    asMock(prismaMock.outboxEvent.count).mockReset().mockResolvedValue(0);
+    asMock(prismaMock.outboxEvent.findFirst)
+      .mockReset()
+      .mockResolvedValue(null);
+
+    await metricsService.collectMetrics();
+
+    /* Пропавшая метрика и метрика со значением 0 — разные вещи для
+       оповещения: по первой правило молча не срабатывает никогда. */
+    await expect(metricValue('food_bot_outbox_pending')).resolves.toBe(0);
+    await expect(
+      metricValue('food_bot_outbox_oldest_pending_age_seconds')
+    ).resolves.toBe(0);
   });
 });

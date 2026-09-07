@@ -37,9 +37,12 @@ export function prefetchFirstScreen(): void {
   const warm = (options: Parameters<typeof queryClient.prefetchQuery>[0]) =>
     queryClient.prefetchQuery(options).catch(swallow);
 
-  /* Меню Главная просит без группы — тем же вызовом, что и здесь. Передать сюда
-     currentGroupId значило бы греть другой ключ. */
-  warm(menuItemsQueryOptions());
+  /* Группа во всех вызовах, включая меню. Прежний комментарий здесь
+     утверждал обратное — «Главная просит меню без группы», — и это было
+     правдой ровно потому, что Главная делала это по ошибке: общий ключ
+     `['menu']` отдавал ей меню прежней команды после переключения. Теперь
+     Главная передаёт группу, и греть надо ту же ячейку. */
+  warm(menuItemsQueryOptions({ groupId }));
   warm(activePollsQueryOptions(groupId));
   warm(debtsQueryOptions(groupId));
   warm(creditsQueryOptions(groupId));

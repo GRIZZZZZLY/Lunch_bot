@@ -69,6 +69,39 @@ test.describe('Настоящий сервер и тестовая PostgreSQL', 
   });
 
   /**
+   * Переключение команды: меню обязано смениться вместе с ней.
+   *
+   * Запрос меню долго шёл под общим ключом `['menu']` со сроком свежести
+   * 30 секунд. После переключения команды экран показывал прежнее меню, а на
+   * Главной это стоило дороже всего: у нового опроса пропадали варианты
+   * ответа, потому что их блюда не находились в чужом меню.
+   */
+  test('@integration главная A → переключение на B → меню команды B', async ({ page }) => {
+    await page.goto('/menu');
+    await expect(
+      page.getByRole('tab', { name: 'Команда E2E', selected: true })
+    ).toBeVisible();
+    await expect(page.getByText('Борщ E2E')).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Команда Б E2E' }).click();
+
+    await expect(
+      page.getByRole('tab', { name: 'Команда Б E2E', selected: true })
+    ).toBeVisible();
+    // Блюдо команды Б появилось, блюда команды А ушли.
+    await expect(page.getByText('Плов Б E2E')).toBeVisible();
+    await expect(page.getByText('Борщ E2E')).toHaveCount(0);
+    await expect(page.getByText('Паста E2E')).toHaveCount(0);
+
+    /* Обратно — тоже без остатков: кэш обеих команд должен быть свой.
+       Возврат отдельным шагом, потому что именно на нём проявлялся общий
+       ключ: данные уже лежали в кэше и отдавались как актуальные. */
+    await page.getByRole('tab', { name: 'Команда E2E' }).click();
+    await expect(page.getByText('Борщ E2E')).toBeVisible();
+    await expect(page.getByText('Плов Б E2E')).toHaveCount(0);
+  });
+
+  /**
    * Групповая изоляция на живом экране: меню соседней команды не должно
    * просачиваться в открытую. `PRODUCT.md` называет такое смешение
    * критической ошибкой, а не косметикой.

@@ -186,7 +186,7 @@ describe('поверхность остальных групп маршруто�
       'POST /avatars/batch',
     ],
     'health.routes': ['GET /', 'GET /ready', 'GET /live'],
-    'metrics.routes': ['GET /', 'GET /detailed', 'GET /sse'],
+    'metrics.routes': ['GET /', 'GET /prometheus', 'GET /detailed', 'GET /sse'],
     'sse.routes': ['GET /polls/:pollId/stream', 'GET /sse/me/stream'],
     'avatar.routes': ['GET /:fileId'],
     'donation.routes': ['POST /stars'],
