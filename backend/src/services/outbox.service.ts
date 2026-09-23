@@ -137,6 +137,12 @@ export class OutboxService {
    * `attempts` растёт при ЗАХВАТЕ, а не при ошибке: обработчик, умерший
    * посреди отправки, иначе не увеличивал бы счётчик, и «отравленное»
    * задание крутилось бы вечно.
+   *
+   * Время — `NOW() AT TIME ZONE 'UTC'`, а не голый `NOW()`. Колонки здесь без
+   * пояса, и Prisma пишет в них UTC. Голый `NOW()` приводится к поясу
+   * СЕРВЕРА: на сервере в Europe/Moscow он на три часа впереди, и тогда срок
+   * захвата истекает сразу (два обработчика берут одно задание), а пауза
+   * перед повтором не соблюдается (запросы в Telegram во время лимита).
    */
   static async claim(
     limit: number,
@@ -154,13 +160,13 @@ export class OutboxService {
       UPDATE outbox_events
          SET claimed_until = ${leaseUntil},
              attempts = attempts + 1,
-             updated_at = NOW()
+             updated_at = (NOW() AT TIME ZONE 'UTC')
        WHERE id IN (
              SELECT id
                FROM outbox_events
               WHERE status = 'PENDING'
-                AND next_attempt_at <= NOW()
-                AND (claimed_until IS NULL OR claimed_until < NOW())
+                AND next_attempt_at <= (NOW() AT TIME ZONE 'UTC')
+                AND (claimed_until IS NULL OR claimed_until < (NOW() AT TIME ZONE 'UTC'))
               ORDER BY id
               LIMIT ${limit}
                 FOR UPDATE SKIP LOCKED
@@ -200,14 +206,14 @@ export class OutboxService {
       UPDATE outbox_events
          SET claimed_until = ${leaseUntil},
              attempts = attempts + 1,
-             updated_at = NOW()
+             updated_at = (NOW() AT TIME ZONE 'UTC')
        WHERE id IN (
              SELECT id
                FROM outbox_events
               WHERE id = ANY(${ids})
                 AND status = 'PENDING'
-                AND next_attempt_at <= NOW()
-                AND (claimed_until IS NULL OR claimed_until < NOW())
+                AND next_attempt_at <= (NOW() AT TIME ZONE 'UTC')
+                AND (claimed_until IS NULL OR claimed_until < (NOW() AT TIME ZONE 'UTC'))
               ORDER BY id
                 FOR UPDATE SKIP LOCKED
              )

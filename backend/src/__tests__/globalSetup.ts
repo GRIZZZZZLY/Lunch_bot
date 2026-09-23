@@ -88,11 +88,18 @@ async function ensureTestDatabaseExists(testDatabaseUrl: string): Promise<void> 
     const existing = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [
       testDbName,
     ]);
+    // Имя БД нельзя параметризовать в CREATE DATABASE; экранируем кавычки вручную.
+    const safeName = testDbName.replace(/"/g, '""');
     if (existing.rowCount === 0) {
-      // Имя БД нельзя параметризовать в CREATE DATABASE; экранируем кавычки вручную.
-      const safeName = testDbName.replace(/"/g, '""');
       await client.query(`CREATE DATABASE "${safeName}"`);
     }
+    /* Пояс сервера — НЕ UTC, намеренно. Prisma пишет время в колонки без
+       пояса в UTC, а `NOW()` в сыром SQL отдаёт время в поясе сервера. На
+       сервере в UTC (контейнеры CI) эти два времени совпадают и расхождение
+       не видно; на сервере в Europe/Moscow срок захвата задания очереди
+       истекал сразу же. Тестовая БД в поясе, отличном от UTC, делает такую
+       ошибку видимой везде, а не только на машине с «неудачным» поясом. */
+    await client.query(`ALTER DATABASE "${safeName}" SET timezone TO 'Europe/Moscow'`);
   } finally {
     await client.end();
   }
