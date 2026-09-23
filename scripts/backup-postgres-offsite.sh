@@ -12,14 +12,20 @@
 #
 # Требования:
 #   - restic >= 0.16   (apt install restic / scoop install restic)
-#   - pg_dump >= 18   (тот же мажор, что и сервер)
+#   - pg_dump того же мажора, что и сервер (сейчас PostgreSQL 16)
 #   - export RESTIC_REPOSITORY=... и RESTIC_PASSWORD=... до запуска (или
 #     ~/.config/restic.env). НИКОГДА не коммитить.
 #
-# Восстановление (drill):
+# Восстановление (drill) — ТОЛЬКО в отдельную проверочную базу. Дамп снят с
+# --clean --if-exists: развёрнутый в рабочую базу, он сначала удалит её таблицы.
 #   restic snapshots
 #   restic restore <id> --target /tmp/restore
-#   gunzip -c /tmp/restore/*.sql.gz | psql -h localhost -U foodbot foodbot
+#   createdb -h localhost -U foodbot foodbot_restore_check
+#   gunzip -c /tmp/restore/tmp/foodbot-backup/*.sql.gz \
+#     | psql -h localhost -U foodbot -v ON_ERROR_STOP=1 foodbot_restore_check
+#   Дальше: сверить число строк ключевых таблиц с рабочей базой,
+#   `DATABASE_URL=… npx prisma migrate status` из backend/, запуск API на
+#   проверочной базе и /health/ready. Проверочную базу затем удалить.
 #
 # Setup cron (root):
 #   0 */6 * * * /home/igor/Lunch_bot/telegram-food-bot/scripts/backup-postgres-offsite.sh \
