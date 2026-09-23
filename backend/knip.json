@@ -8,7 +8,8 @@
   ],
   "project": [
     "src/**/*.ts",
-    "scripts/**/*.{ts,mjs}"
+    "scripts/**/*.{ts,mjs}",
+    "prisma/**/*.prisma"
   ],
   "includeEntryExports": true,
   "jest": true,

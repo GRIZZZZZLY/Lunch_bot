@@ -61,9 +61,10 @@ function lockedVersion(packageName) {
   return packageLock.packages?.[`node_modules/${packageName}`]?.version;
 }
 
-// 7.9.1 всё ещё тянет deepmerge-ts 7.1.5; GHSA-ggr8-5vv4-36mx закрыт только
-// в 8.0.0, поэтому исключение остаётся в силе и после перехода на Prisma 7.
-const ALLOWED_PRISMA_VERSION = '7.9.1';
+// 7.10.0 (проверено 2026-09-24, как и 7.9.1 до неё) всё ещё тянет deepmerge-ts
+// 7.1.5; GHSA-ggr8-5vv4-36mx закрыт только в 8.0.0, поэтому исключение
+// остаётся в силе.
+const ALLOWED_PRISMA_VERSION = '7.10.0';
 // Обе уязвимости mysql2 закрыты выше этой версии (3.22.0 и 3.23.0
 // соответственно); 3.15.3 попадает в оба диапазона.
 const ALLOWED_MYSQL2_VERSION = '3.15.3';
