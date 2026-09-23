@@ -366,17 +366,25 @@ class MetricsService {
 
 export const metricsService = new MetricsService();
 
-// Сброс счётчика ошибок каждые 24 часа
-const errorResetInterval = setInterval(() => {
-  metricsService.resetErrorCount();
-}, 24 * 60 * 60 * 1000);
+/* В тестах фоновые интервалы не запускаются. Модуль подключает любой набор,
+   поднимающий приложение, а интервал переживает окружение этого набора: через
+   минуту он обращается к БД, pg подгружает модуль уже после сноса окружения,
+   и jest завершается кодом 1 при всех зелёных тестах («You are trying to
+   require a file after the Jest environment has been torn down»). Тесты
+   вызывают `collectMetrics` напрямую. */
+if (process.env.NODE_ENV !== 'test') {
+  // Сброс счётчика ошибок каждые 24 часа
+  const errorResetInterval = setInterval(() => {
+    metricsService.resetErrorCount();
+  }, 24 * 60 * 60 * 1000);
 
-// Сбор метрик каждые 60 секунд
-const metricsCollectionInterval = setInterval(async () => {
-  await metricsService.collectMetrics();
-}, 60 * 1000);
+  // Сбор метрик каждые 60 секунд
+  const metricsCollectionInterval = setInterval(async () => {
+    await metricsService.collectMetrics();
+  }, 60 * 1000);
 
-// Фоновые метрики не должны удерживать Node.js процесс после завершения тестов
-// или graceful shutdown. Пока сервер работает, интервалы продолжают выполняться.
-errorResetInterval.unref();
-metricsCollectionInterval.unref();
+  // Фоновые метрики не должны удерживать Node.js процесс после graceful
+  // shutdown. Пока сервер работает, интервалы продолжают выполняться.
+  errorResetInterval.unref();
+  metricsCollectionInterval.unref();
+}
