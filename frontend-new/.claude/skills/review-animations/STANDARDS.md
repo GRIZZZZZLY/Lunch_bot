@@ -34,6 +34,8 @@ Built-in CSS easings are too weak. Use strong custom curves:
 --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);     /* iOS-like drawer curve (Ionic) */
 ```
 
+In this project the tokens in `frontend-new/src/styles/tokens.css` take precedence: its `--ease-out` is `cubic-bezier(0.16, 1, 0.3, 1)`, alongside `--ease-spring` and `--ease-arrive`. Cite those in findings; use the curves above only as references for a new, differently named token.
+
 Find curves at [easing.dev](https://easing.dev/) or [easings.co](https://easings.co/) — don't hand-roll from scratch.
 
 ## Duration

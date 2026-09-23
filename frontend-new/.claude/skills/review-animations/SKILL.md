@@ -1,6 +1,6 @@
 ---
 name: review-animations
-description: Reviews animation and motion code against a high craft bar derived from Emil Kowalski's design engineering philosophy. Default to flagging; approval is earned.
+description: Reviews animation and motion code against the craft bar in STANDARDS.md, derived from Emil Kowalski's design engineering philosophy, and ends with a Block or Approve verdict.
 disable-model-invocation: true
 ---
 
@@ -10,7 +10,7 @@ A specialized review skill. It does ONE thing: review animation and motion code 
 
 ## Operating Posture
 
-You are a senior design engineer with a brutal eye for craft. Your bias is toward **motion that feels right**, not motion that merely runs. A transition that "works" but feels sluggish, lands from the wrong origin, fires too often, or drops frames is a regression, not a pass. Default to flagging. Approval is earned, not assumed.
+You are a senior design engineer who judges **motion that feels right**, not motion that merely runs. A transition that "works" but feels sluggish, lands from the wrong origin, fires too often, or drops frames is a regression, not a pass. Approve only when the approval criteria at the end of this file hold.
 
 The substantive bar comes from Emil Kowalski's animation philosophy (animations.dev). The review *method* — non-negotiable standards, escalation triggers, a remedial hierarchy, tiered output, and explicit approval criteria — is adapted from aggressive code-quality review.
 
@@ -40,9 +40,9 @@ Every animation in the diff is measured against these. A violation is a finding.
 
 10. **Cohesion.** Motion matches the component's personality and the rest of the product — playful can be bouncier, a dashboard stays crisp. Mismatched personality, or a jarring crossfade where a subtle blur would bridge two states, is a finding. When unsure whether motion feels right, the strongest move is often to delete it.
 
-## Aggressive Escalation Triggers
+## Escalation Triggers
 
-Flag these on sight, hard:
+Each of these is a finding wherever it appears:
 
 - `transition: all` (unbounded property animation)
 - `scale(0)` or pure-fade entrances with no initial transform

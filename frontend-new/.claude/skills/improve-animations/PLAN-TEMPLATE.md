@@ -39,7 +39,7 @@ configs, media queries. Never "use a nicer easing":
 How this codebase already does it, with one exemplar the executor should
 imitate (token names, file placement, prop patterns):
 
-- Easing tokens live in `src/styles/tokens.css`; add new curves there, e.g. `--ease-out: cubic-bezier(0.23, 1, 0.32, 1);`
+- Easing tokens live in `src/styles/tokens.css` (`--ease-out`, `--ease-spring`, `--ease-arrive`); reuse them, and add a new curve there only under a new name.
 - <exemplar file:line that already does this correctly>
 
 ## Steps

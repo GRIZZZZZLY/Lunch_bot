@@ -7,23 +7,17 @@
 ## Контекст проекта
 
 - Основная ветка: `main`.
-- Единственный интерфейс: `frontend-new/`. Прежний каталог `frontend/` удалён
-  2026-08-22. Откат к нему через git невозможен: последним, что там оставалось,
-  были пять неотслеживаемых `.env`-файлов, а исходники ушли раньше. Два из них
-  (`.env.production`, `.env.prod-dev`) перенесены в `frontend-new/`, остальные
-  дублировали уже имеющиеся.
+- Единственный интерфейс: `frontend-new/`. Каталога `frontend/` нет, и из git
+  его не восстановить; `.env.production` и `.env.prod-dev` лежат в
+  `frontend-new/`.
 - Сервер: `backend/`.
-- Продакшен: PostgreSQL 16, Redis, PM2, Nginx и `FRONTEND_DIR=frontend-new`.
-  Сервер поднят с 14.24 до 16.15 (PGDG) 2026-08-28 через `pg_upgradecluster`;
-  версия совпадает с CI и `docker-compose.production.yml`. Старый кластер
-  `14/main` остался выключенным на порту 5433 как путь отката — удалять
-  `pg_dropcluster 14 main` только по решению владельца.
+- Продакшен: PostgreSQL 16 (та же версия, что в CI и
+  `docker-compose.production.yml`), Redis, PM2, Nginx и
+  `FRONTEND_DIR=frontend-new`. Выключенный кластер `14/main` на порту 5433 —
+  путь отката; `pg_dropcluster 14 main` только по решению владельца.
 - Канонический деплой — GitHub Actions, `.github/workflows/deploy.yml`. Ручной
   запасной путь — `bash deploy-vps.sh`, он повторяет шаги workflow. Отладочная
-  production-сборка: `ENV_SUFFIX=prod-dev bash deploy-vps.sh`. Отдельный
-  `deploy-prod-dev-vps.sh` удалён — он собирал каталог `frontend/`, где не было
-  ни `package.json`, ни `vite.config.prod-dev.ts`, то есть падал на `npm ci`
-  при каждом запуске.
+  production-сборка: `ENV_SUFFIX=prod-dev bash deploy-vps.sh`.
 - Релиз на сервере — не `git pull` в рабочем каталоге, а отдельный git worktree
   на коммит: `<repo>-releases/<sha>/`, симлинк `current` на действующий,
   `.previous-release` для отката. `main` занята исходным чекаутом, поэтому
@@ -31,7 +25,7 @@
   `backend/logs` и `backend/uploads` берутся из исходного чекаута симлинками.
 - Смена релиза в PM2 — `pm2 delete` + `pm2 start`. `pm2 startOrReload` **не**
   меняет script path у запущенного процесса: перезапустит прошлый релиз и
-  отрапортует успех (инцидент 2026-08-24).
+  отрапортует успех.
 
 ## Перед изменением интерфейса
 
@@ -39,8 +33,8 @@
    `frontend-new/docs/`.
 2. Если дана картинка-образец, сопоставьте с ней компоновку, интервалы,
    типографику и цвета.
-3. После реализации сделайте снимок экрана, сравните результат и выполните не
-   менее двух проходов исправлений.
+3. После реализации сделайте снимок экрана, сравните его с образцом и
+   правилами визуального слоя и исправляйте расхождения, пока они не исчезнут.
 4. Не заменяйте рабочую архитектуру одностраничным демонстрационным HTML, если
    пользователь явно не просит отдельный прототип.
 
@@ -94,12 +88,12 @@ layer exists to save.
 
 At the start of a task:
 
-1. Call `recall` вЂ” durable lessons scoped to this repo, most specific first. Call it
+1. Call `recall` — durable lessons scoped to this repo, most specific first. Call it
    with no query to see everything in scope; that is usually what you want first.
 2. Read `projects/<this-repo>/README.md` through `search` or the `vault://` resource.
    It is the single source of this project's current status and next step.
-3. If `recall` and `search` return the notes but not the answer вЂ” several notes bear
-   on the question and they disagree, or the judgement spans them вЂ” use `reason`.
+3. If `recall` and `search` return the notes but not the answer — several notes bear
+   on the question and they disagree, or the judgement spans them — use `reason`.
 
 At a meaningful stopping point, before the context is lost:
 
@@ -108,13 +102,13 @@ At a meaningful stopping point, before the context is lost:
    record is near-worthless six weeks later, which is when it gets read.
 5. If something you learned would still be true in a **different** repository, call
    `remember`. That is the test. A log of what you did today is `record_work`, not a
-   memory вЂ” a memory store filling with status updates is worse than an empty one.
+   memory — a memory store filling with status updates is worse than an empty one.
 6. Say so if the status note is now out of date. It is the file that answers "where
    did we stop", and it is only worth reading if it is current.
 
 If something you expect to be in the vault cannot be found, call `health` before
-concluding it is not there. Every failure in this layer вЂ” a missing index, a
-misconfigured root, an unresolved caller identity вЂ” presents identically as "no
+concluding it is not there. Every failure in this layer — a missing index, a
+misconfigured root, an unresolved caller identity — presents identically as "no
 results", and `health` is what distinguishes them.
 
 Never write vault paths, vault contents, or session URLs into commits, PR
