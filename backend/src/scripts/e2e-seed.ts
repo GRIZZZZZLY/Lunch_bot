@@ -220,6 +220,46 @@ async function seed(): Promise<void> {
     },
   });
 
+  /* Идущее голосование в А: браузерная проверка голосует за него двумя
+     людьми и завершает. Создать опрос из приложения в интеграционном задании
+     нельзя — сервер там работает в роли api без бота, а объявление опроса в
+     группе требует бота. Длительность — сутки, чтобы опрос не истёк посреди
+     прогона. */
+  const menuA = await prisma.menuItem.findMany({
+    where: { groupId: teamA.id },
+    orderBy: { id: 'asc' },
+    select: { id: true },
+  });
+  await prisma.poll.create({
+    data: {
+      groupId: teamA.id,
+      status: 'ACTIVE',
+      createdBy: anna.id,
+      duration: 24 * 60,
+      isMultiSelect: false,
+      maxSelections: 1,
+      selectedMenuItemIds: JSON.stringify(menuA.map(item => item.id)),
+      /* Состав голосующих фиксируется при создании опроса; без него сервер
+         отвечает «User is not eligible to vote in this poll». */
+      participants: {
+        create: [{ userId: anna.id }, { userId: boris.id }],
+      },
+    },
+  });
+
+  /* Открытый сбор в Б: браузерная проверка проводит его до расчёта двумя
+     людьми. Открыть сбор из приложения там нельзя по той же причине, что и
+     опрос: объявление в группе требует бота. */
+  await prisma.storeRun.create({
+    data: {
+      groupId: teamB.id,
+      initiatorId: boris.id,
+      storeName: 'Лента сбор E2E',
+      status: 'COLLECTING',
+      collectUntil: new Date(Date.now() + 2 * 60 * 60_000),
+    },
+  });
+
   const storeRunB = await prisma.storeRun.create({
     data: {
       groupId: teamB.id,
