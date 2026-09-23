@@ -341,7 +341,12 @@ export class PollService {
             },
           },
           winnerMenuItem: true,
-          responsibleUser: true,
+          /* Итоги видит любой участник группы: только то, что и так видно
+             в группе. Целиком запись отдавала telegramId и платёжные поля
+             (в базе они зашифрованы — наружу уходил шифротекст). */
+          responsibleUser: {
+            select: { id: true, firstName: true, lastName: true, username: true },
+          },
         },
       });
     } catch (error) {
