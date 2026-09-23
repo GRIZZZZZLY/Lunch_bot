@@ -872,8 +872,15 @@ describe('остальные переходы долга идут через о�
     } as unknown as Parameters<typeof setBotInstance>[0]);
   }
 
-  /** Все ожидающие задания — к отправке сейчас, без паузы backoff. */
+  /**
+   * Все ожидающие задания — к отправке сейчас, без паузы backoff.
+   *
+   * Сначала ждём немедленную попытку после операции: она идёт в стороне от
+   * ответа и, пока в полёте, держит задание захваченным — проход обработчика
+   * его пропустил бы, и тест падал бы через раз.
+   */
   async function makeQueueDue(): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 150));
     await prisma.outboxEvent.updateMany({
       where: { status: 'PENDING' },
       data: { nextAttemptAt: new Date(Date.now() - 1_000) },
