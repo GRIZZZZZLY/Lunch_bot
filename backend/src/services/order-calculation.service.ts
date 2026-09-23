@@ -55,6 +55,18 @@ export interface CalculationProgress {
   percentage: number;
 }
 
+/**
+ * Разделить сумму на `parts` долей в целых копейках так, чтобы они в сумме
+ * давали её же: 100 ₽ на троих — 3334, 3333, 3333. Лишние копейки получают
+ * первые доли.
+ */
+export function splitIntoKopecks(total: number, parts: number): number[] {
+  const totalKopecks = Math.round(total * 100);
+  const base = Math.floor(totalKopecks / parts);
+  const extra = totalKopecks - base * parts;
+  return Array.from({ length: parts }, (_, index) => base + (index < extra ? 1 : 0));
+}
+
 export class OrderCalculationService {
   /**
    * Save or update an OrderItem (autosave with edit logging)
@@ -299,31 +311,39 @@ export class OrderCalculationService {
         throw new OrderInputError('Order item price is outside the allowed range');
       }
 
-      // Calculate per-person additional costs
-      const deliveryShare =
-        toNumber(categoryOrder.deliveryCost) / participantCount;
-      const serviceShare = toNumber(categoryOrder.serviceFee) / participantCount;
-      const tipShare = toNumber(categoryOrder.tip) / participantCount;
+      /* Доли доставки, сервиса и чаевых — в целых копейках, и в сумме они
+         дают ровно исходную сумму (splitIntoKopecks). Порядок раскладки:
+         должники по id, сборщик последним, — остаток копеек достаётся
+         должникам: сборщик уже оплатил весь счёт, и округление не должно
+         ложиться на него. Доля сборщика в транзакции не попадает. */
+      const debtorItems = categoryOrder.orderItems
+        .filter(orderItem => orderItem.userId !== responsibleUserId)
+        .sort((a, b) => a.userId - b.userId);
+      const [deliveryShares, serviceShares, tipShares] = [
+        categoryOrder.deliveryCost,
+        categoryOrder.serviceFee,
+        categoryOrder.tip,
+      ].map(total => splitIntoKopecks(toNumber(total), participantCount));
 
       // Build transaction payloads for batch insert (N+1 → single createMany)
-      const txData = categoryOrder.orderItems
-        .filter((orderItem: any) => orderItem.userId !== responsibleUserId)
-        .map((orderItem: any) => {
-          const itemPrice = toNumber(orderItem.price);
-          const totalAmount = itemPrice + deliveryShare + serviceShare + tipShare;
-          return {
-            pollId: categoryOrder.pollId,
-            fromUserId: orderItem.userId,
-            toUserId: responsibleUserId,
-            amount: totalAmount,
-            categoryOrderId: categoryOrder.id,
-            itemPrice,
-            deliveryShare,
-            serviceShare,
-            tipShare,
-            status: 'PENDING' as const,
-          };
-        });
+      const txData = debtorItems.map((orderItem, index) => {
+        const item = Math.round(toNumber(orderItem.price) * 100);
+        const delivery = deliveryShares[index];
+        const service = serviceShares[index];
+        const tip = tipShares[index];
+        return {
+          pollId: categoryOrder.pollId,
+          fromUserId: orderItem.userId,
+          toUserId: responsibleUserId,
+          amount: (item + delivery + service + tip) / 100,
+          categoryOrderId: categoryOrder.id,
+          itemPrice: item / 100,
+          deliveryShare: delivery / 100,
+          serviceShare: service / 100,
+          tipShare: tip / 100,
+          status: 'PENDING' as const,
+        };
+      });
 
       // Atomic: insert all transactions + flip CategoryOrder status in one tx.
       // Idempotency: if any transactions for this categoryOrder exist, skip insert.

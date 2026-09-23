@@ -485,6 +485,69 @@ describe('finalizeCalculation: кто с кем рассчитывается', (
   });
 });
 
+/**
+ * Деньги — в целых копейках, и доли в сумме дают ровно исходную сумму.
+ *
+ * Раньше доля считалась делением в плавающей точке: 100 ₽ доставки на троих
+ * записывались как 33.333333333333336, люди видели и платили по 33,33, и
+ * сборщик недополучал копейку на каждом таком заказе. Остаток копеек
+ * достаётся должникам: сборщик уже оплатил весь счёт, и округление не должно
+ * ложиться на него.
+ */
+describe('finalizeCalculation: копейки', () => {
+  const kopecks = (value: unknown) => Math.round(Number(value) * 100);
+  const isWholeKopecks = (value: unknown) =>
+    Math.abs(Number(value) * 100 - kopecks(value)) < 1e-9;
+
+  function threePeople(over: Record<string, unknown>) {
+    categoryOrders.getParticipants.mockResolvedValue([1, 2, 3]);
+    asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue(
+      categoryOrder({
+        items: [
+          { userId: 1, price: 300 },
+          { userId: 2, price: 400 },
+          { userId: 3, price: 500 },
+        ],
+        ...over,
+      })
+    );
+  }
+
+  it('100 ₽ доставки на троих: 33,34 + 33,33 + 33,33', async () => {
+    threePeople({ deliveryCost: 100 });
+
+    await OrderCalculationService.finalizeCalculation(10);
+
+    const byUser = new Map(insertedRows().map(row => [row.fromUserId, row]));
+    expect(byUser.get(2)).toMatchObject({ deliveryShare: 33.34, amount: 433.34 });
+    expect(byUser.get(3)).toMatchObject({ deliveryShare: 33.33, amount: 533.33 });
+  });
+
+  it('каждая сумма — целые копейки, и доли сходятся с исходными суммами', async () => {
+    threePeople({ deliveryCost: 100, serviceFee: 10, tip: 7.01 });
+
+    await OrderCalculationService.finalizeCalculation(10);
+
+    const rows = insertedRows();
+    for (const row of rows) {
+      for (const field of ['amount', 'itemPrice', 'deliveryShare', 'serviceShare', 'tipShare']) {
+        expect(isWholeKopecks(row[field])).toBe(true);
+      }
+      expect(kopecks(row.amount)).toBe(
+        kopecks(row.itemPrice) + kopecks(row.deliveryShare) + kopecks(row.serviceShare) + kopecks(row.tipShare)
+      );
+    }
+    /* Доля сборщика в транзакции не попадает — она то, что осталось от
+       исходной суммы, и не может быть больше доли любого должника. */
+    for (const [field, total] of [['deliveryShare', 100], ['serviceShare', 10], ['tipShare', 7.01]] as const) {
+      const debtors = rows.map(row => kopecks(row[field]));
+      const collector = kopecks(total) - debtors.reduce((a, b) => a + b, 0);
+      expect(Math.min(...debtors)).toBeGreaterThanOrEqual(collector);
+      expect(Math.max(...debtors) - collector).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
 describe('finalizeCalculation: отказы', () => {
   function setup(over: Record<string, unknown> = {}) {
     asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue(
