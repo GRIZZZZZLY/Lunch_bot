@@ -91,7 +91,13 @@ class CacheService {
     }
 
     try {
-      const serialized = JSON.stringify(value);
+      /* BigInt (chatId опроса, telegramId пользователя) — строкой. Голый
+         JSON.stringify на них падал, и кэш активных опросов не записывался
+         никогда. Читатели кэша и так получают JSON: даты там тоже строки, а
+         ответы API проходят через serializeBigInt. */
+      const serialized = JSON.stringify(value, (_key, item: unknown) =>
+        typeof item === 'bigint' ? item.toString() : item
+      );
       const ttlSeconds = ttl || DEFAULT_TTL;
 
       await this.client!.setex(key, ttlSeconds, serialized);

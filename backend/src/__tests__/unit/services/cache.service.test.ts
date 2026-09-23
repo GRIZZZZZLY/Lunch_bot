@@ -172,6 +172,16 @@ describe('get / set', () => {
     expect(client.setex).toHaveBeenCalledWith('k', 15, '1');
   });
 
+  /* Опросы и пользователи несут BigInt (chatId, telegramId). JSON.stringify на
+     них падал: кэш активных опросов не записывался никогда, каждый запрос шёл
+     в базу и писал в журнал «Cache write failed». */
+  it('BigInt записывается строкой, а не роняет запись', async () => {
+    const { cacheService } = loadCache();
+
+    await expect(cacheService.set('k', { chatId: BigInt('-1001234') })).resolves.toBe(true);
+    expect(client.setex).toHaveBeenCalledWith('k', 60, '{"chatId":"-1001234"}');
+  });
+
   it('ошибка записи возвращает false', async () => {
     const { cacheService } = loadCache();
     client.setex.mockRejectedValue(new Error('redis down'));
