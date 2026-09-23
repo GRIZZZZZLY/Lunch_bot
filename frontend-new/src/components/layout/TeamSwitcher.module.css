@@ -1,0 +1,101 @@
+/* Текущая команда под логотипом в шапке. Вид компактный, область касания —
+   44 px невидимым псевдоэлементом («правило разведённых размеров»). */
+.trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: calc(100% + 2 * var(--space-2));
+  min-width: 0;
+  /* Отступ даёт кольцу фокуса воздух, отрицательное поле возвращает текст
+     на линию бренда. */
+  margin: -2px calc(-1 * var(--space-2));
+  padding: 2px var(--space-2);
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--text-13);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-control-sm);
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.trigger::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--control-md);
+  transform: translateY(-50%);
+}
+
+.title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (hover: hover) {
+  .trigger:hover {
+    color: var(--text-primary);
+  }
+}
+
+.trigger:active {
+  opacity: 0.8;
+}
+
+.trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--control-lg);
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--surface-secondary);
+  font: inherit;
+  font-size: var(--text-15);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .option:not([aria-checked='true']):hover {
+    background: var(--accent-tint);
+  }
+}
+
+.option:active {
+  opacity: 0.8;
+}
+
+.option:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
+}
+
+/* Выбранная команда — как выбранная вкладка группы в меню (.cat.on). */
+.option[aria-checked='true'] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}

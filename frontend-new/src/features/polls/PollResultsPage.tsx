@@ -13,6 +13,7 @@ import { ErrorState, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
+import { useAdoptGroup } from '@/hooks/useAdoptGroup';
 import styles from './PollResultsPage.module.css';
 
 export function PollResultsPage() {
@@ -24,6 +25,9 @@ export function PollResultsPage() {
   const resultsQuery = usePollResults(valid ? pollId : null);
   const { data: poll, isLoading: pollLoading } = pollQuery;
   const { data: results, isLoading: resultsLoading } = resultsQuery;
+  /* Итоги по ссылке из чата другой команды показываются в её контексте: меню
+     ниже берёт текущую команду, и без этого названия блюд искались бы не там. */
+  useAdoptGroup(poll?.groupId);
   const { data: allMenu = [] } = useMenuItems();
   const showLoadingNote = useDelayedLoading(pollLoading || resultsLoading);
   useSSE({ pollId: valid ? pollId : null, enabled: !!poll && poll.status === 'ACTIVE' });

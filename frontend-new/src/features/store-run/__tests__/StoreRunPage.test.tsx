@@ -170,3 +170,16 @@ describe('StoreRunPage — состояния', () => {
     expect(screen.getByText('Не найдено')).toBeInTheDocument();
   });
 });
+
+/* Закупка команды Б из ссылки в чате Б открывается в контексте Б. */
+describe('StoreRunPage — команда закупки', () => {
+  it('делает текущей команду закупки', async () => {
+    const { useAppStore } = await import('@/store/useAppStore');
+    useAppStore.setState({ currentGroupId: '1' });
+    h.useStoreRun.mockReturnValue(ok({ ...run('COLLECTING'), groupId: 9 }));
+
+    renderPage();
+
+    expect(useAppStore.getState().currentGroupId).toBe('9');
+  });
+});

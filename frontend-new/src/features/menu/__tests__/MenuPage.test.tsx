@@ -4,6 +4,8 @@ import { useAppStore } from '@/store/useAppStore';
 
 const h = vi.hoisted(() => ({
   navigate: vi.fn(),
+  location: { pathname: '/menu', state: null as unknown },
+  toast: { error: vi.fn() },
   q: (data: unknown, extra: Record<string, unknown> = {}) => ({
     data,
     isLoading: false,
@@ -22,7 +24,11 @@ const h = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('react-router-dom', () => ({ useNavigate: () => h.navigate }));
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => h.navigate,
+  useLocation: () => h.location,
+}));
+vi.mock('@/hooks/useToast', () => ({ useToast: () => h.toast }));
 vi.mock('@/hooks/useMenu', () => ({
   useMenuItems: () => h.q(h.state.items, { error: h.state.error, isError: !!h.state.error }),
   useCreateMenuItem: h.m,
@@ -57,6 +63,8 @@ const group = (id: number, title: string, role = 'MEMBER') => ({
 
 beforeEach(() => {
   h.navigate.mockReset();
+  h.location = { pathname: '/menu', state: null };
+  h.toast = { error: vi.fn() };
   h.state.items = [dish(), dish({ id: 2, name: 'Пицца «Маргарита»', category: 'Пицца', price: 380 })];
   h.state.groups = [group(10, 'Офис', 'MEMBER')];
   h.state.user = { id: 1, firstName: 'Игорь', isAdmin: false };
@@ -216,5 +224,28 @@ describe('MenuPage — состояние фильтра, деньги и пои
   it('кнопки очистки нет, пока поиск пуст', () => {
     render(<MenuPage />);
     expect(screen.queryByRole('button', { name: 'Очистить поиск' })).not.toBeInTheDocument();
+  });
+});
+
+/* Кнопка «Добавить блюдо» в чате группы открывает меню сразу с формой. */
+describe('MenuPage — действие из ссылки', () => {
+  beforeEach(() => {
+    h.location = { pathname: '/menu', state: { launchAction: 'addDish' } };
+  });
+
+  it('администратору открывает форму нового блюда и гасит действие', () => {
+    h.state.groups = [group(10, 'Офис', 'ADMIN')];
+
+    render(<MenuPage />);
+
+    expect(screen.getByRole('heading', { name: 'Добавить блюдо' })).toBeInTheDocument();
+    expect(h.navigate).toHaveBeenCalledWith('/menu', { replace: true, state: null });
+  });
+
+  it('участнику объясняет, почему формы нет', () => {
+    render(<MenuPage />);
+
+    expect(screen.queryByRole('heading', { name: 'Добавить блюдо' })).not.toBeInTheDocument();
+    expect(h.toast.error).toHaveBeenCalledWith('Добавлять блюда может только администратор группы');
   });
 });

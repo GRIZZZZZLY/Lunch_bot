@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Outlet } from 'react-router-dom';
 
+/* Разбор ссылки запуска проверяется в useLaunchLinkRoute.test.tsx; здесь —
+   только раскладка маршрутов, без клиента запросов. */
+vi.mock('@/app/useLaunchLinkRoute', () => ({ useLaunchLinkRoute: () => undefined }));
 vi.mock('@/app/layouts/RootLayout', () => ({
   RootLayout: () => (
     <div data-testid="root-layout">

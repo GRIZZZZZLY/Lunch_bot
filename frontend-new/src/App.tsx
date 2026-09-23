@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthGate } from '@/components/common/AuthGate';
 import { RootLayout } from '@/app/layouts/RootLayout';
 import { DetailLayout } from '@/app/layouts/DetailLayout';
+import { useLaunchLinkRoute } from '@/app/useLaunchLinkRoute';
 import { RouteFallback } from '@/components/common/RouteFallback';
 import { HomePage } from '@/features/home/HomePage';
 import { menuItemsQueryOptions } from '@/hooks/useMenu';
@@ -103,6 +104,7 @@ export default function App() {
 
 export function AppRoutes() {
   usePrefetchTabs();
+  useLaunchLinkRoute();
   return (
     /* Внешняя граница — подстраховка для маршрутов вне layout'ов: рабочую
        заглушку показывают сами layout'ы, сохраняя шапку и навигацию. */

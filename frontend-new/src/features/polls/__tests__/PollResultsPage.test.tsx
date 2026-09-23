@@ -101,3 +101,17 @@ describe('PollResultsPage — завершённый опрос', () => {
     expect(screen.getByText('Лидирует')).toBeInTheDocument();
   });
 });
+
+/* Итоги опроса команды Б, открытые по ссылке, показываются в контексте Б:
+   меню для названий блюд и соседние экраны должны быть той же команды. */
+describe('PollResultsPage — команда опроса', () => {
+  it('делает текущей команду опроса', async () => {
+    const { useAppStore } = await import('@/store/useAppStore');
+    useAppStore.setState({ currentGroupId: '1' });
+    h.state.poll = { ...completedPoll(), groupId: '5' };
+
+    render(<PollResultsPage />);
+
+    expect(useAppStore.getState().currentGroupId).toBe('5');
+  });
+});

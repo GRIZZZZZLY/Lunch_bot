@@ -150,21 +150,6 @@ export function getStartParam(): string | null {
   return wa?.initDataUnsafe.start_param ?? null;
 }
 
-export function getDeepLinkPollId(): number | null {
-  if (typeof window !== 'undefined') {
-    const fromUrl = new URLSearchParams(window.location.search).get('pollId');
-    if (fromUrl) {
-      const n = Number(fromUrl);
-      if (Number.isFinite(n) && n > 0) return n;
-    }
-  }
-  const param = getStartParam();
-  if (!param) return null;
-  const cleaned = param.startsWith('vote_') ? param.slice(5) : param;
-  const n = Number(cleaned);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
 /**
  * Открыть внешнюю ссылку. Внутри Telegram — через WebApp.openLink: обычный
  * `window.open` в Mini App блокируется или открывает вкладку, из которой не

@@ -15,7 +15,8 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { getDeepLinkPollId } from '@/lib/telegram';
+import { getLaunchPollId, markLaunchLinkHandled } from '@/lib/launchLink';
+import { useAdoptGroup } from '@/hooks/useAdoptGroup';
 import { queryKeys } from '@/lib/queryClient';
 import { isSameLocalDay } from '@/lib/date';
 import {
@@ -35,11 +36,21 @@ export function useHomePoll() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  /* Deep link читается один раз за жизнь экрана: он приходит из параметров
-     запуска Mini App и по ходу работы не меняется. */
-  const deepLinkPollId = useMemo(() => getDeepLinkPollId(), []);
+  /* Ссылка запуска читается один раз за жизнь экрана и гасится, когда
+     человек уходит с главной: параметр запуска Mini App не меняется до её
+     закрытия, и без этого каждый возврат на главную снова подставлял бы опрос
+     из ссылки вместо текущего. */
+  const deepLinkPollId = useMemo(() => getLaunchPollId(), []);
   const deepLinkQuery = usePollById(deepLinkPollId);
-  const { data: deepLinkPoll, isLoading: deepLinkLoading } = deepLinkQuery;
+  const { data: deepLinkPoll, isLoading: deepLinkLoading, isError: deepLinkFailed } = deepLinkQuery;
+
+  useEffect(() => {
+    if (!deepLinkPollId) return;
+    return () => markLaunchLinkHandled();
+  }, [deepLinkPollId]);
+
+  /* Опрос из ссылки открывается в контексте СВОЕЙ команды. */
+  useAdoptGroup(deepLinkPoll?.groupId);
   const activeQuery = useActivePoll();
   const { data: fallbackActivePoll, isLoading: activeLoading, error } = activeQuery;
 
@@ -49,11 +60,16 @@ export function useHomePoll() {
   const activePoll = deepLinkPollId ? deepLinkPoll ?? null : fallbackActivePoll;
   const pollLoading = deepLinkPollId ? deepLinkLoading : activeLoading;
 
+  /* Завершённый опрос — на итоги. Туда же недоступный или несуществующий:
+     итоги умеют объяснить «нет доступа» и «не найден», а главная показала бы
+     «Сегодня ещё не решали», как будто ссылки не было. */
   useEffect(() => {
-    if (deepLinkPollId && deepLinkPoll && deepLinkPoll.status !== 'ACTIVE') {
+    if (!deepLinkPollId) return;
+    if (deepLinkFailed || (deepLinkPoll && deepLinkPoll.status !== 'ACTIVE')) {
+      markLaunchLinkHandled();
       navigate(`/poll/${deepLinkPollId}/results`, { replace: true });
     }
-  }, [deepLinkPollId, deepLinkPoll, navigate]);
+  }, [deepLinkPollId, deepLinkPoll, deepLinkFailed, navigate]);
 
   const { data: myVotesData } = useMyVotes(activePoll?.id ?? null);
   const voteMutation = useVote();

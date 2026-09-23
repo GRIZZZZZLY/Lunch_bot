@@ -3,6 +3,7 @@
 import { Suspense, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
+import { TeamSwitcher } from '@/components/layout/TeamSwitcher';
 import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { RouteFallback } from '@/components/common/RouteFallback';
@@ -23,7 +24,9 @@ export function RootLayout() {
 
   return (
     <div className="flex flex-col min-h-[100dvh] mx-auto w-full max-w-[430px]">
-      <Header />
+      {/* В меню свой переключатель группы (спецификация экрана), второй в шапке
+          дублировал бы его. */}
+      <Header subtitle={pathname === '/menu' ? undefined : <TeamSwitcher />} />
 
       <main
         ref={mainRef}

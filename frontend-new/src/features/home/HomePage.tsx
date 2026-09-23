@@ -4,8 +4,9 @@
    разовые и recurring опросы (одиночный выбор — Q1), создание закупки.
    FAB удалён: «Запустить голосование» — CTA талона, «Новая закупка» —
    кнопка секции «Сейчас», «Предложить блюдо» — в Меню и Профиле. */
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import type { LaunchAction } from '@/app/useLaunchLinkRoute';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { CreatePollSheet } from '@/components/admin/CreatePollSheet';
@@ -29,6 +30,7 @@ import styles from './HomePage.module.css';
 
 export function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isLoading: authLoading } = useAuth();
   const toast = useToast();
   const currentGroupId = useAppStore((s) => s.currentGroupId);
@@ -101,6 +103,17 @@ export function HomePage() {
     }
     sheets.openPoll();
   };
+
+  /* «Создать голосование» из чата группы: шторка открывается сама, когда
+     экран открылся и права известны. Состояние навигации гасится сразу, иначе
+     возврат на главную открывал бы шторку снова. Без массива зависимостей:
+     обработчик пересоздаётся на каждом рендере, а после гашения эффект пуст. */
+  const launchAction = (location.state as { launchAction?: LaunchAction } | null)?.launchAction;
+  useEffect(() => {
+    if (!revealed || launchAction !== 'createPoll') return;
+    navigate(location.pathname, { replace: true, state: null });
+    onCreatePollAction();
+  });
 
   const winner = winnerVM ? (
     <WinnerRow

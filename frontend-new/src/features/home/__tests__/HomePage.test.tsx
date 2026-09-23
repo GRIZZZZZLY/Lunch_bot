@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const h = vi.hoisted(() => {
@@ -23,6 +23,8 @@ const h = vi.hoisted(() => {
     state: {
       deepLinkId: null as number | null,
       deepLinkPoll: null as unknown,
+      deepLinkError: null as unknown,
+      markLinkHandled: vi.fn(),
       /* Один незаехавший запрос: барьер первого экрана обязан держать весь
          экран, а не только ту секцию, которая ждёт. */
       runsPending: false,
@@ -49,16 +51,20 @@ const h = vi.hoisted(() => {
   };
 });
 
-/* Deep link читается из Telegram/URL; в тестах подменяем только его, остальные
-   экспорты модуля нужны компонентам как есть. */
-vi.mock('@/lib/telegram', async () => ({
-  ...(await vi.importActual<typeof import('@/lib/telegram')>('@/lib/telegram')),
-  getDeepLinkPollId: () => h.state.deepLinkId,
+/* Ссылка запуска читается из Telegram/URL; в тестах подменяем её целиком. */
+vi.mock('@/lib/launchLink', () => ({
+  getLaunchPollId: () => h.state.deepLinkId,
+  markLaunchLinkHandled: () => h.state.markLinkHandled(),
 }));
 
 vi.mock('@/hooks/usePolls', () => ({
   useActivePoll: () => h.q(h.state.activePoll, { error: h.state.activeError, isError: !!h.state.activeError }),
-  usePollById: (id: number | null) => h.q(id ? h.state.deepLinkPoll : null),
+  usePollById: (id: number | null) =>
+    h.q(id ? h.state.deepLinkPoll : null, {
+      error: id ? h.state.deepLinkError : null,
+      isError: !!(id && h.state.deepLinkError),
+      isSuccess: !(id && h.state.deepLinkError),
+    }),
   useMyVotes: () => h.q(null),
   useLastCompletedPoll: () => h.q(h.state.lastCompleted),
   // Отключённый запрос (id === null) данных не отдаёт — как в react-query.
@@ -73,8 +79,9 @@ vi.mock('@/hooks/useToast', () => ({ useToast: () => h.state.toast }));
 /* Шторка создания в этих тестах не при чём — стаб дёргает onSubmit готовой
    формой, чтобы проверить обработчик, а не UI формы. */
 vi.mock('@/components/admin/CreatePollSheet', () => ({
-  CreatePollSheet: ({ onSubmit }: { onSubmit: (f: unknown) => void }) => (
+  CreatePollSheet: ({ open, onSubmit }: { open: boolean; onSubmit: (f: unknown) => void }) => (
     <button
+      data-open={String(open)}
       onClick={() =>
         onSubmit({
           title: '',
@@ -115,12 +122,13 @@ vi.mock('@/hooks/useStoreRun', () => ({
 }));
 
 import { HomePage } from '../HomePage';
+import { useAppStore } from '@/store/useAppStore';
 
-function renderHome() {
+function renderHome(entry: string | { pathname: string; state: unknown } = '/') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}>
         <HomePage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -130,6 +138,9 @@ function renderHome() {
 beforeEach(() => {
   h.state.deepLinkId = null;
   h.state.deepLinkPoll = null;
+  h.state.deepLinkError = null;
+  h.state.markLinkHandled = vi.fn();
+  useAppStore.setState({ currentGroupId: null });
   h.state.runsPending = false;
   h.state.activePoll = null;
   h.state.activeError = null;
@@ -471,5 +482,113 @@ describe('HomePage — приоритет deep link', () => {
     renderHome();
 
     expect(screen.getByRole('radio', { name: /Плов/ })).toBeInTheDocument();
+  });
+});
+
+/**
+ * Ссылка на конкретный опрос открывает его В КОНТЕКСТЕ ЕГО КОМАНДЫ и действует
+ * один раз за запуск.
+ */
+describe('HomePage — ссылка на опрос', () => {
+  const linkedPoll = {
+    id: 77,
+    groupId: '5',
+    status: 'ACTIVE',
+    duration: 30,
+    createdAt: new Date().toISOString(),
+    menuItems: [{ menuItemId: 2, menuItem: { id: 2, name: 'Борщ' }, _count: { votes: 3 } }],
+  };
+
+  beforeEach(() => {
+    useAppStore.setState({ currentGroupId: '1' });
+  });
+
+  function renderWithResults() {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/poll/:id/results" element={<p>results-page</p>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it('опрос чужой команды переключает текущую команду на неё', () => {
+    h.state.deepLinkId = 77;
+    h.state.deepLinkPoll = linkedPoll;
+
+    renderHome();
+
+    expect(useAppStore.getState().currentGroupId).toBe('5');
+  });
+
+  /* Раньше ошибка этого запроса терялась: экран показывал «Сегодня ещё не
+     решали», как будто ссылки не было. Итоги умеют объяснить «нет доступа» и
+     «не найден» — туда и уводим. */
+  it('недоступный опрос уводит на итоги, где видна причина', () => {
+    h.state.deepLinkId = 77;
+    h.state.deepLinkError = { status: 403, code: 'FORBIDDEN' };
+
+    renderWithResults();
+
+    expect(screen.getByText('results-page')).toBeInTheDocument();
+    expect(h.state.markLinkHandled).toHaveBeenCalled();
+  });
+
+  it('после ухода с главной ссылка больше не применяется', () => {
+    h.state.deepLinkId = 77;
+    h.state.deepLinkPoll = linkedPoll;
+
+    const { unmount } = renderHome();
+    expect(h.state.markLinkHandled).not.toHaveBeenCalled();
+
+    unmount();
+    expect(h.state.markLinkHandled).toHaveBeenCalled();
+  });
+
+  it('завершённый опрос уводит на итоги один раз и гасит ссылку', () => {
+    h.state.deepLinkId = 77;
+    h.state.deepLinkPoll = { ...linkedPoll, status: 'COMPLETED' };
+
+    renderWithResults();
+
+    expect(screen.getByText('results-page')).toBeInTheDocument();
+    expect(h.state.markLinkHandled).toHaveBeenCalled();
+  });
+});
+
+/* Кнопка «Создать голосование» в чате группы открывает приложение сразу со
+   шторкой создания (`useLaunchLinkRoute` кладёт действие в состояние
+   навигации). */
+describe('HomePage — действие из ссылки', () => {
+  const createFromLink = { pathname: '/', state: { launchAction: 'createPoll' } };
+
+  it('администратору открывает шторку создания', () => {
+    h.state.groups = [{ id: 1, title: 'Офис', isActive: true, role: 'ADMIN' }];
+
+    renderHome(createFromLink);
+
+    expect(screen.getByRole('button', { name: 'submit-poll-form' })).toHaveAttribute(
+      'data-open',
+      'true',
+    );
+  });
+
+  it('участнику объясняет, почему шторки нет', () => {
+    h.state.groups = [{ id: 1, title: 'Офис', isActive: true, role: 'MEMBER' }];
+
+    renderHome(createFromLink);
+
+    expect(screen.getByRole('button', { name: 'submit-poll-form' })).toHaveAttribute(
+      'data-open',
+      'false',
+    );
+    expect(h.state.toast.error).toHaveBeenCalledWith(
+      'Создавать голосование может только администратор группы',
+    );
   });
 });

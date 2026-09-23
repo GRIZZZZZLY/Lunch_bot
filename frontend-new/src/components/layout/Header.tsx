@@ -5,9 +5,11 @@ import { useBootReveal } from '@/lib/motion';
 interface HeaderProps {
   title?: string;
   right?: ReactNode;
+  /** Строка под логотипом — текущая команда на корневых вкладках. */
+  subtitle?: ReactNode;
 }
 
-export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
+export function Header({ title = 'Rocket Lunch', right, subtitle }: HeaderProps) {
   // Верхняя грань кадра: при первом открытии оседает сверху (styles/motion.css).
   const boot = useBootReveal();
 
@@ -70,19 +72,22 @@ export function Header({ title = 'Rocket Lunch', right }: HeaderProps) {
               }}
             />
           </div>
-          <div
-            className="tight"
-            style={{
-              // Unbounded — только бренд (система C)
-              fontFamily: 'var(--font-brand)',
-              fontWeight: 700,
-              fontSize: 'var(--text-16)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {title}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+            <div
+              className="tight"
+              style={{
+                // Unbounded — только бренд (система C)
+                fontFamily: 'var(--font-brand)',
+                fontWeight: 700,
+                fontSize: 'var(--text-16)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {title}
+            </div>
+            {subtitle}
           </div>
         </div>
         {right ?? <SchemeThemeToggle />}

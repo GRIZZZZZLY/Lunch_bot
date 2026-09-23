@@ -13,6 +13,7 @@ import { CollectingView } from './views/CollectingView';
 import { ShoppingView } from './views/ShoppingView';
 import { SettledView } from './views/SettledView';
 import { CancelledView } from './views/CancelledView';
+import { useAdoptGroup } from '@/hooks/useAdoptGroup';
 import styles from './StoreRunPage.module.css';
 
 interface NormalizedError {
@@ -100,6 +101,8 @@ export function StoreRunPage() {
     valid ? runId : null,
     streamStatus === 'connected',
   );
+  /* Закупка по ссылке из чата другой команды открывается в её контексте. */
+  useAdoptGroup(run?.groupId);
   const showSkeleton = useDelayedLoading(isLoading);
 
   if (!valid) return <StoreRunErrorView kind="notFound" />;

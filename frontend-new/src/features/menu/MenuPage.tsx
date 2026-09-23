@@ -2,8 +2,10 @@
    здесь меняет useAppStore.currentGroupId и весь продукт (голосование,
    закупки, бюджет) следует за ним. Toggle блюда — с явным groupId (B4).
    FAB удалён: «Добавить блюдо» — кнопка под списком и в пустом состоянии. */
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import type { LaunchAction } from '@/app/useLaunchLinkRoute';
+import { useToast } from '@/hooks/useToast';
 import {
   useMenuItems,
   useCreateMenuItem,
@@ -80,8 +82,21 @@ export default function MenuPage() {
 
   const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
-  const [addOpen, setAddOpen] = useState(false);
+  /* «Добавить блюдо» из чата группы открывает меню сразу с формой. Роль
+     известна уже при монтировании: группы загружаются до входа (bootstrap).
+     Состояние навигации гасится, чтобы возврат в меню не открывал форму
+     снова; участнику объясняем, почему формы нет. */
+  const location = useLocation();
+  const toast = useToast();
+  const launchAddDish =
+    (location.state as { launchAction?: LaunchAction } | null)?.launchAction === 'addDish';
+  const [addOpen, setAddOpen] = useState(() => launchAddDish && isAdmin);
   const [editTarget, setEditTarget] = useState<MenuItem | null>(null);
+  useEffect(() => {
+    if (!launchAddDish || !activeGroup) return;
+    navigate(location.pathname, { replace: true, state: null });
+    if (!isAdmin) toast.error('Добавлять блюда может только администратор группы');
+  }, [launchAddDish, activeGroup, isAdmin, navigate, location.pathname, toast]);
 
   const dishes = useMemo(() => items.map(toDish), [items]);
   const categories = useMemo(() => buildCategories(dishes), [dishes]);

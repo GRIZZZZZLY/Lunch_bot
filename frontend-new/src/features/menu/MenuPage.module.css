@@ -28,40 +28,6 @@
   color: var(--text-tertiary);
 }
 
-/* глобальный переключатель группы */
-.groupChip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  font: inherit;
-  font-size: var(--text-13);
-  font-weight: 700;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background-color var(--motion-fast) var(--ease-out);
-}
-
-@media (hover: hover) {
-  .groupChip:hover {
-    background: var(--accent-tint);
-  }
-}
-
-.groupChip:active {
-  opacity: 0.8;
-}
-
-.groupChip:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
-}
-
 .search {
   display: flex;
   align-items: center;
