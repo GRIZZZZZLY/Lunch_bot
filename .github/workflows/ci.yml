@@ -396,6 +396,20 @@ jobs:
         working-directory: frontend-new
         run: npm run test:e2e:integration
 
+      # Производительность заполненных экранов на мобильном профиле: Lighthouse
+      # открывает приложение как Telegram, с подписанным initData, и отменяет
+      # замер, если на экране не тот контент (frontend-new/lighthouse/).
+      # Пересев — потому что сценарии выше закрыли опрос и подтвердили долг.
+      - name: Reseed for Lighthouse
+        working-directory: backend
+        run: npm run e2e:seed
+
+      - name: Mobile Lighthouse on filled screens
+        working-directory: frontend-new
+        env:
+          LIGHTHOUSE_BASE_URL: ${{ env.E2E_INTEGRATION_BASE_URL }}
+        run: npm run lighthouse:mobile
+
       - name: Clean E2E data
         if: always()
         working-directory: backend
@@ -409,6 +423,7 @@ jobs:
           path: |
             frontend-new/playwright-report/
             frontend-new/test-results/
+            frontend-new/.lighthouseci-mobile/
             e2e-backend.log
           if-no-files-found: ignore
           retention-days: 14

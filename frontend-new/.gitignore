@@ -19,3 +19,4 @@ production-test-results/
 
 # Отчёты Lighthouse CI: генерируются на каждом прогоне.
 .lighthouseci/
+.lighthouseci-mobile/

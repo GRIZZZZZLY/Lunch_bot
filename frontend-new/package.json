@@ -26,6 +26,7 @@
     "ui-tour": "playwright test --config=playwright.tour.config.ts",
     "test:e2e:report": "playwright show-report",
     "lighthouse": "lhci autorun",
+    "lighthouse:mobile": "lhci autorun --config=./lighthouse/lighthouserc.mobile.cjs",
     "size:check": "node scripts/check-bundle-size.mjs"
   },
   "dependencies": {
