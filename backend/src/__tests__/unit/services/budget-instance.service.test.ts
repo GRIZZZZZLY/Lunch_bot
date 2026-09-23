@@ -77,6 +77,10 @@ beforeEach(() => {
 
   sendMessage = jest.fn().mockResolvedValue(undefined);
   botInstance.mockReturnValue({ api: { sendMessage } });
+  /* Уведомление об отмене — задание очереди в той же транзакции. */
+  asMock(prismaMock.outboxEvent.createManyAndReturn).mockResolvedValue([
+    { id: 501 },
+  ] as never);
 
   service = new BudgetService();
 });
@@ -112,13 +116,28 @@ describe('cancelMarkAsPaid', () => {
     });
   });
 
-  it('получателя уведомляют об отмене', async () => {
+  /* Имя в задании СЫРОЕ: экранирование — забота шаблона
+     (outbox.templates.test.ts), иначе при отправке оно удвоилось бы. */
+  it('получателю ставится задание об отмене', async () => {
+    prismaMock.transaction.findUnique.mockResolvedValue(
+      tx({
+        status: 'PENDING',
+        fromUser: { id: 1, firstName: 'Игорь_', telegramId: BigInt(555) },
+      }) as never
+    );
+
     await service.cancelMarkAsPaid(10, 1);
 
-    expect(sendMessage).toHaveBeenCalledWith(
-      777,
-      expect.stringContaining('Отменена отметка оплаты'),
-      { parse_mode: 'Markdown' }
+    expect(prismaMock.outboxEvent.createManyAndReturn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [
+          expect.objectContaining({
+            messageType: 'DEBT_MARK_CANCELLED',
+            recipientChatId: '777',
+            payload: { debtorFirstName: 'Игорь_', amount: '250.00₽' },
+          }),
+        ],
+      })
     );
   });
 
@@ -159,7 +178,7 @@ describe('cancelMarkAsPaid', () => {
     await expect(service.cancelMarkAsPaid(10, 1)).resolves.toMatchObject({
       status: 'PENDING',
     });
-    expect(sendMessage).not.toHaveBeenCalled();
+    expect(prismaMock.outboxEvent.createManyAndReturn).not.toHaveBeenCalled();
   });
 
   it('подтверждённый платёж отменить нельзя', async () => {
@@ -193,10 +212,10 @@ describe('делегирующие обёртки', () => {
   it('markAsPaid / confirmPayment / markAllPaidByResponsible идут в статические методы', async () => {
     const markAsPaid = jest
       .spyOn(BudgetService, 'markAsPaid')
-      .mockResolvedValue({ id: 10 });
+      .mockResolvedValue({ id: 10 } as never);
     const confirmPayment = jest
       .spyOn(BudgetService, 'confirmPayment')
-      .mockResolvedValue({ id: 10 });
+      .mockResolvedValue({ id: 10 } as never);
     const markAll = jest
       .spyOn(BudgetService, 'markAllPaidByResponsible')
       .mockResolvedValue(undefined);

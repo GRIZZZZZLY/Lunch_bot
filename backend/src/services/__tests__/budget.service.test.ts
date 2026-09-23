@@ -19,6 +19,7 @@ jest.mock('../../database/client', () => {
       count: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -252,7 +253,16 @@ describe('BudgetService.undoConfirmation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (prisma.transaction.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    /* Перечитывание внутри транзакции отмены отдаёт ту же строку. */
+    (prisma.transaction.findUniqueOrThrow as jest.Mock).mockImplementation(
+      (...args: unknown[]) => (prisma.transaction.findUnique as jest.Mock)(...args)
+    );
   });
+
+  function queuedJob(): Record<string, unknown> {
+    const call = (prisma.outboxEvent.createManyAndReturn as jest.Mock).mock.calls[0];
+    return (call[0] as { data: Array<Record<string, unknown>> }).data[0];
+  }
 
   it('возвращает подтверждённый долг в PAID в пределах суток', async () => {
     (prisma.transaction.findUnique as jest.Mock).mockResolvedValue({
@@ -286,14 +296,13 @@ describe('BudgetService.undoConfirmation', () => {
 
     await BudgetService.undoConfirmation(42, 7);
 
-    expect(mockEditMessageText).toHaveBeenCalledWith(
-      '111',
-      555,
-      expect.stringContaining('Подтверждение оплаты отменено'),
-      expect.objectContaining({ reply_markup: { inline_keyboard: [] } }),
-    );
-    // и должник всё равно получает отдельное уведомление
-    expect(mockSendMessage).toHaveBeenCalledWith(111, expect.stringContaining('отменено'));
+    /* Задание несёт старое сообщение: шаблон отмены переписывает его И шлёт
+       должнику новое (outbox.templates.test.ts, alsoSend). */
+    expect(queuedJob()).toMatchObject({
+      messageType: 'DEBT_CONFIRMATION_UNDONE',
+      recipientChatId: '111',
+      payload: expect.objectContaining({ editChatId: '111', editMessageId: 555 }),
+    });
   });
 
   it('без сохранённого сообщения просто уведомляет, не падая', async () => {
@@ -306,8 +315,8 @@ describe('BudgetService.undoConfirmation', () => {
 
     await BudgetService.undoConfirmation(42, 7);
 
-    expect(mockEditMessageText).not.toHaveBeenCalled();
-    expect(mockSendMessage).toHaveBeenCalled();
+    expect(queuedJob()).toMatchObject({ messageType: 'DEBT_CONFIRMATION_UNDONE' });
+    expect(queuedJob().payload).not.toHaveProperty('editMessageId');
   });
 
   it('после суток отказывает и статус не трогает', async () => {

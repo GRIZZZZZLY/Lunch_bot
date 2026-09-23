@@ -7,7 +7,8 @@ import { getBotInstance } from '../bot/bot-instance';
 import { UserService } from './user.service';
 import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
 import { escapeMarkdown } from '../utils/telegram-html';
-import { runAfterCommit } from '../utils/post-commit';
+import { OUTBOX_ENTITY_TRANSACTION, OutboxService } from './outbox.service';
+import { OutboxWorkerService } from './outbox-worker.service';
 
 interface PaymentInfo {
   paymentCard?: string | null;
@@ -270,8 +271,12 @@ export class StoreRunBudgetService {
 
   /**
    * Должник отметил оплату всего своего магазинного заказа (callback budget:srun_paid).
-   * Переводит все его PENDING-транзакции забега в PAID и шлёт инициатору
+   * Переводит все его PENDING-транзакции забега в PAID и ставит инициатору
    * одно уведомление с кнопкой подтверждения.
+   *
+   * Отбор и переход — одним `updateManyAndReturn`: раньше найденные строки
+   * переводились отдельным запросом, и двойное нажатие давало два перехода
+   * и два уведомления. Теперь второе нажатие не находит PENDING и получает null.
    */
   static async markStoreRunPaidByDebtor(
     storeRunId: number,
@@ -282,68 +287,67 @@ export class StoreRunBudgetService {
     });
     if (!debtor) return null;
 
-    const txs = await prisma.transaction.findMany({
-      where: { storeRunId, fromUserId: debtor.id, status: 'PENDING' },
-      include: { toUser: true },
+    const outcome = await prisma.$transaction(async db => {
+      const marked = await db.transaction.updateManyAndReturn({
+        where: { storeRunId, fromUserId: debtor.id, status: 'PENDING' },
+        data: {
+          status: 'PAID',
+          paidAt: now(),
+          transitionVersion: { increment: 1 },
+        },
+        select: { id: true, amount: true, toUserId: true, transitionVersion: true },
+      });
+      if (marked.length === 0) return null;
+
+      const initiator = await db.user.findUniqueOrThrow({
+        where: { id: marked[0].toUserId },
+      });
+      const total = formatCurrency(sumDecimals(marked.map(t => t.amount)));
+      const anchor = storeRunAnchor(marked);
+      const outboxIds = await OutboxService.enqueue(db, {
+        entityType: OUTBOX_ENTITY_TRANSACTION,
+        entityId: anchor.id,
+        transitionVersion: anchor.transitionVersion,
+        messageType: 'STORE_RUN_MARKED_PAID',
+        recipients: [
+          {
+            chatId: String(initiator.telegramId),
+            payload: {
+              storeRunId,
+              debtorId: debtor.id,
+              debtorFirstName: debtor.firstName ?? '',
+              amount: total,
+            },
+          },
+        ],
+      });
+
+      return { count: marked.length, total, outboxIds };
     });
-    if (txs.length === 0) return null;
+    if (!outcome) return null;
 
-    await prisma.transaction.updateMany({
-      where: { storeRunId, fromUserId: debtor.id, status: 'PENDING' },
-      data: { status: 'PAID', paidAt: now() },
-    });
-
-    const total = sumDecimals(txs.map(t => t.amount));
-    const initiator = txs[0].toUser;
-
-    /* Статусы уже переведены в PAID. Сбой отправки не должен возвращаться в
-       обработчик кнопки: он бы оставил нажатие без ответа при сохранённой
-       отметке. См. utils/post-commit.ts. */
-    const bot = getBotInstance();
-    if (bot) {
-      await runAfterCommit(
-        'storeRunBudget.markPaidByDebtor.notifyInitiator',
-        { storeRunId, debtorId: debtor.id },
-        () =>
-          bot.api.sendMessage(
-            Number(initiator.telegramId),
-            `💳 *Получена оплата по магазину!*\n\n${escapeMarkdown(debtor.firstName ?? '')} отметил(а) оплату ${formatCurrency(total)}`,
-            {
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: 'Подтвердить ✅',
-                      callback_data: `budget:srun_confirm:${storeRunId}:${debtor.id}`,
-                    },
-                  ],
-                ],
-              },
-            }
-          )
-      );
-    }
+    /* Статусы уже PAID; ответ на нажатие не ждёт Telegram. */
+    void OutboxWorkerService.deliverNow(outcome.outboxIds);
 
     logger.info('Store run debt marked paid by debtor', {
       storeRunId,
       debtorId: debtor.id,
-      count: txs.length,
+      count: outcome.count,
     });
-    return { count: txs.length, total: formatCurrency(total) };
+    return { count: outcome.count, total: outcome.total };
   }
 
   /**
    * Инициатор подтвердил получение оплаты от должника (callback budget:srun_confirm).
-   * Переводит PENDING/PAID транзакции этого должника в CONFIRMED и уведомляет его.
-   * Возвращает 'forbidden', если подтверждает не инициатор забега.
+   * Переводит PENDING/PAID транзакции этого должника в CONFIRMED и ставит ему
+   * уведомление. Возвращает 'forbidden', если подтверждает не инициатор забега.
    */
   static async confirmStoreRunByDebtor(
     storeRunId: number,
     debtorUserId: number,
     confirmerTelegramId: number
   ): Promise<{ count: number } | { error: 'no_tx' | 'forbidden' }> {
-    const txs = await prisma.transaction.findMany({
+    const payable = await prisma.transaction.findFirst({
       where: {
         storeRunId,
         fromUserId: debtorUserId,
@@ -351,44 +355,69 @@ export class StoreRunBudgetService {
       },
       include: { fromUser: true, toUser: true },
     });
-    if (txs.length === 0) return { error: 'no_tx' };
+    if (!payable) return { error: 'no_tx' };
 
-    const initiator = txs[0].toUser;
+    const initiator = payable.toUser;
     if (Number(initiator.telegramId) !== confirmerTelegramId) {
       return { error: 'forbidden' };
     }
 
-    await prisma.transaction.updateMany({
-      where: {
-        storeRunId,
-        fromUserId: debtorUserId,
-        status: { in: ['PENDING', 'PAID'] },
-      },
-      data: { status: 'CONFIRMED', confirmedAt: now() },
+    const outcome = await prisma.$transaction(async db => {
+      const confirmed = await db.transaction.updateManyAndReturn({
+        where: {
+          storeRunId,
+          fromUserId: debtorUserId,
+          toUserId: initiator.id,
+          status: { in: ['PENDING', 'PAID'] },
+        },
+        data: {
+          status: 'CONFIRMED',
+          confirmedAt: now(),
+          transitionVersion: { increment: 1 },
+        },
+        select: { id: true, amount: true, transitionVersion: true },
+      });
+      if (confirmed.length === 0) return null;
+
+      const anchor = storeRunAnchor(confirmed);
+      const outboxIds = await OutboxService.enqueue(db, {
+        entityType: OUTBOX_ENTITY_TRANSACTION,
+        entityId: anchor.id,
+        transitionVersion: anchor.transitionVersion,
+        messageType: 'DEBT_CONFIRMED',
+        recipients: [
+          {
+            chatId: String(payable.fromUser.telegramId),
+            payload: {
+              payeeFirstName: initiator.firstName ?? '',
+              amount: formatCurrency(sumDecimals(confirmed.map(t => t.amount))),
+            },
+          },
+        ],
+      });
+
+      return { count: confirmed.length, outboxIds };
     });
+    if (!outcome) return { error: 'no_tx' };
 
-    const debtor = txs[0].fromUser;
-    const total = sumDecimals(txs.map(t => t.amount));
-
-    // Долги уже CONFIRMED; доставка отделена от результата (post-commit.ts)
-    const bot = getBotInstance();
-    if (bot) {
-      await runAfterCommit(
-        'storeRunBudget.confirmByInitiator.notifyDebtor',
-        { storeRunId, debtorId: debtorUserId },
-        () =>
-          bot.api.sendMessage(
-            Number(debtor.telegramId),
-            `✅ Оплата подтверждена!\n\n${initiator.firstName} подтвердил(а) получение ${formatCurrency(total)}\n\nСпасибо! 🎉`
-          )
-      );
-    }
+    void OutboxWorkerService.deliverNow(outcome.outboxIds);
 
     logger.info('Store run debt confirmed by initiator', {
       storeRunId,
       debtorId: debtorUserId,
-      count: txs.length,
+      count: outcome.count,
     });
-    return { count: txs.length };
+    return { count: outcome.count };
   }
+}
+
+/**
+ * Долг, к которому привязано уведомление о целом заказе должника.
+ *
+ * Одно нажатие переводит сразу все позиции должника, а событие очереди
+ * привязано к одной строке. Берём первую по id: все позиции меняют статус
+ * вместе, поэтому устаревание уведомления видно по любой из них.
+ */
+function storeRunAnchor<T extends { id: number; transitionVersion: number }>(rows: T[]): T {
+  return rows.reduce((first, row) => (row.id < first.id ? row : first));
 }

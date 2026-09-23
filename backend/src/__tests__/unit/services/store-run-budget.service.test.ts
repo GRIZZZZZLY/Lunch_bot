@@ -134,6 +134,9 @@ beforeEach(() => {
   asMock(prismaMock.transaction.findMany).mockResolvedValue([]);
   asMock(prismaMock.transaction.updateMany).mockResolvedValue({ count: 1 });
   asMock(prismaMock.user.findFirst).mockResolvedValue(null);
+  asMock(prismaMock.outboxEvent.createManyAndReturn).mockResolvedValue([
+    { id: 1 },
+  ] as never);
 });
 
 afterEach(() => {
@@ -462,199 +465,103 @@ describe('notifyStoreRunSettled', () => {
   });
 });
 
+/**
+ * Кнопки бота для магазинных долгов.
+ *
+ * Уведомления этих переходов идут через очередь: задание ставится в той же
+ * транзакции, что и переход, а отправляется потом. Поэтому здесь проверяется
+ * переход и ЗАДАНИЕ, а не вызов Telegram — его в операции больше нет, и сбой
+ * Telegram не может превратить сохранённую отметку в ошибку. Доставку,
+ * блокировки строк и устаревание проверяет интеграционный набор на настоящей
+ * PostgreSQL (`budget-lifecycle.redis.test.ts`); текст и кнопки —
+ * `outbox.templates.test.ts`.
+ */
+function queuedJobs(): Array<Record<string, unknown>> {
+  return asMock(prismaMock.outboxEvent.createManyAndReturn).mock.calls.flatMap(
+    call => (call[0] as { data: Array<Record<string, unknown>> }).data
+  );
+}
+
 describe('markStoreRunPaidByDebtor', () => {
-  function debtorWith(txs: TxInit[]) {
+  function debtorWith(rows: Array<{ id: number; amount: number }>) {
     asMock(prismaMock.user.findFirst).mockResolvedValue(user(2));
-    asMock(prismaMock.transaction.findMany).mockResolvedValue(
-      txs.map(transaction)
+    asMock(prismaMock.transaction.updateManyAndReturn).mockResolvedValue(
+      rows.map(row => ({ ...row, toUserId: 1, transitionVersion: 1 }))
     );
+    asMock(prismaMock.user.findUniqueOrThrow).mockResolvedValue(user(1));
   }
 
   it('все долги должника по забегу переводятся в PAID одной операцией', async () => {
     debtorWith([
-      { id: 1, fromUserId: 2, amount: 150 },
-      { id: 2, fromUserId: 2, amount: 50 },
+      { id: 1, amount: 150 },
+      { id: 2, amount: 50 },
     ]);
 
     const result = await StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002);
 
-    expect(asMock(prismaMock.transaction.updateMany)).toHaveBeenCalledWith({
-      where: { storeRunId: 30, fromUserId: 2, status: 'PENDING' },
-      data: { status: 'PAID', paidAt: NOW },
-    });
-    expect(result).toMatchObject({ count: 2 });
-  });
-
-  it('инициатор получает уведомление с кнопкой подтверждения', async () => {
-    debtorWith([{ fromUserId: 2, amount: 150 }]);
-
-    await StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002);
-
-    expect(sentTo(1001)).toContain('Получена оплата по магазину');
-    const call = api.sendMessage.mock.calls.find(c => c[0] === 1001);
-    expect(JSON.stringify(call?.[2])).toContain('budget:srun_confirm:30:2');
-  });
-
-  it('имя должника в уведомлении инициатору экранируется', async () => {
-    asMock(prismaMock.user.findFirst).mockResolvedValue(
-      user(2, { firstName: 'Соус_острый' })
+    expect(asMock(prismaMock.transaction.updateManyAndReturn)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storeRunId: 30, fromUserId: 2, status: 'PENDING' },
+        data: { status: 'PAID', paidAt: NOW, transitionVersion: { increment: 1 } },
+      })
     );
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      transaction({ fromUserId: 2, amount: 150 }),
+    expect(result).toEqual({ count: 2, total: '200.00₽' });
+  });
+
+  it('инициатору ставится одно задание на весь заказ должника', async () => {
+    debtorWith([
+      { id: 7, amount: 150 },
+      { id: 3, amount: 50 },
     ]);
 
     await StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002);
 
-    expect(sentTo(1001)).toContain('Соус\\_острый');
+    expect(queuedJobs()).toEqual([
+      expect.objectContaining({
+        messageType: 'STORE_RUN_MARKED_PAID',
+        recipientChatId: '1001',
+        /* Привязка к первой по id позиции: все позиции меняют статус вместе. */
+        entityId: 3,
+        payload: {
+          storeRunId: 30,
+          debtorId: 2,
+          debtorFirstName: 'U2',
+          amount: '200.00₽',
+        },
+      }),
+    ]);
   });
 
   it('незнакомый пользователь ничего не отмечает', async () => {
     await expect(
       StoreRunBudgetService.markStoreRunPaidByDebtor(30, 9999)
     ).resolves.toBeNull();
-    expect(asMock(prismaMock.transaction.updateMany)).not.toHaveBeenCalled();
+    expect(asMock(prismaMock.transaction.updateManyAndReturn)).not.toHaveBeenCalled();
   });
 
-  it('без непогашенных долгов отметка не проходит', async () => {
-    asMock(prismaMock.user.findFirst).mockResolvedValue(user(2));
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([]);
+  /* Второе нажатие «Оплатил»: переход уже сделан первым, PENDING не осталось. */
+  it('без непогашенных долгов отметка не проходит и задание не ставится', async () => {
+    debtorWith([]);
 
     await expect(
       StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002)
     ).resolves.toBeNull();
-    expect(asMock(prismaMock.transaction.updateMany)).not.toHaveBeenCalled();
+    expect(queuedJobs()).toEqual([]);
   });
 
-  it('без бота статус всё равно меняется', async () => {
-    debtorWith([{ fromUserId: 2 }]);
-    asMock(getBotInstance).mockReturnValue(null);
+  it('сбой Telegram не касается операции: отправки внутри неё нет', async () => {
+    debtorWith([{ id: 1, amount: 150 }]);
+    api.sendMessage.mockRejectedValue(new Error('Bad Gateway'));
 
     await expect(
       StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002)
     ).resolves.toMatchObject({ count: 1 });
-    expect(api.sendMessage).not.toHaveBeenCalled();
-  });
-});
-
-describe('confirmStoreRunByDebtor', () => {
-  function pending(txs: TxInit[]) {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue(
-      txs.map(transaction)
-    );
-  }
-
-  it('инициатор подтверждает — долги переходят в CONFIRMED', async () => {
-    pending([
-      { id: 1, fromUserId: 2, amount: 150 },
-      { id: 2, fromUserId: 2, amount: 50 },
-    ]);
-
-    const result = await StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001);
-
-    expect(asMock(prismaMock.transaction.updateMany)).toHaveBeenCalledWith({
-      where: {
-        storeRunId: 30,
-        fromUserId: 2,
-        status: { in: ['PENDING', 'PAID'] },
-      },
-      data: { status: 'CONFIRMED', confirmedAt: NOW },
-    });
-    expect(result).toEqual({ count: 2 });
-  });
-
-  it('подтверждать может только инициатор забега', async () => {
-    pending([{ fromUserId: 2 }]);
-
-    await expect(
-      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1002)
-    ).resolves.toEqual({ error: 'forbidden' });
-    expect(asMock(prismaMock.transaction.updateMany)).not.toHaveBeenCalled();
-  });
-
-  it('без долгов подтверждать нечего', async () => {
-    pending([]);
-
-    await expect(
-      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001)
-    ).resolves.toEqual({ error: 'no_tx' });
-  });
-
-  it('должник узнаёт о подтверждении', async () => {
-    pending([{ fromUserId: 2, amount: 150 }]);
-
-    await StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001);
-
-    expect(sentTo(1002)).toContain('Оплата подтверждена');
-  });
-
-  it('без бота статус всё равно меняется', async () => {
-    pending([{ fromUserId: 2 }]);
-    asMock(getBotInstance).mockReturnValue(null);
-
-    await expect(
-      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001)
-    ).resolves.toEqual({ count: 1 });
-    expect(api.sendMessage).not.toHaveBeenCalled();
-  });
-});
-
-/**
- * Кнопки бота для магазинных долгов: статусы уже переведены в PostgreSQL, а
- * отправка в Telegram падает.
- *
- * Раньше ошибка пробрасывалась в обработчик callback, тот отвечал
- * «❌ Что-то пошло не так» — при уже сохранённой отметке. Хуже того, ответ на
- * нажатие тоже уходит в Telegram и тоже падал, а `bot.catch` в проекте нет.
- */
-describe('Telegram недоступен после перевода магазинных долгов', () => {
-  function telegramDown(): Error {
-    return Object.assign(new Error('Bad Gateway'), { error_code: 502 });
-  }
-
-  it('markStoreRunPaidByDebtor возвращает итог, а не ошибку', async () => {
-    asMock(prismaMock.user.findFirst).mockResolvedValue(user(2));
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      transaction({ fromUserId: 2, amount: 150 }),
-    ]);
-    api.sendMessage.mockRejectedValue(telegramDown());
-
-    await expect(
-      StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002)
-    ).resolves.toMatchObject({ count: 1 });
-
-    expect(asMock(prismaMock.transaction.updateMany)).toHaveBeenCalledWith({
-      where: { storeRunId: 30, fromUserId: 2, status: 'PENDING' },
-      data: { status: 'PAID', paidAt: NOW },
-    });
-  });
-
-  it('confirmStoreRunByDebtor возвращает итог, а не ошибку', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      transaction({ fromUserId: 2, amount: 150 }),
-    ]);
-    api.sendMessage.mockRejectedValue(telegramDown());
-
-    await expect(
-      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001)
-    ).resolves.toEqual({ count: 1 });
-
-    expect(asMock(prismaMock.transaction.updateMany)).toHaveBeenCalledWith({
-      where: {
-        storeRunId: 30,
-        fromUserId: 2,
-        status: { in: ['PENDING', 'PAID'] },
-      },
-      data: { status: 'CONFIRMED', confirmedAt: NOW },
-    });
   });
 
   /* Обратная граница: отказ самой записи должен остаться видимым. */
-  it('ошибка записи в БД по-прежнему идёт наружу', async () => {
+  it('ошибка записи в БД идёт наружу', async () => {
     asMock(prismaMock.user.findFirst).mockResolvedValue(user(2));
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      transaction({ fromUserId: 2, amount: 150 }),
-    ]);
-    asMock(prismaMock.transaction.updateMany).mockRejectedValue(
+    asMock(prismaMock.transaction.updateManyAndReturn).mockRejectedValue(
       new Error('db down')
     );
 
@@ -662,18 +569,85 @@ describe('Telegram недоступен после перевода магази
       StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002)
     ).rejects.toThrow('db down');
   });
+});
 
-  /* Подтверждать может только инициатор — изоляция уведомлений не должна
-     ослабить эту проверку. */
-  it('чужое подтверждение по-прежнему отклоняется', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      transaction({ fromUserId: 2, amount: 150 }),
+describe('confirmStoreRunByDebtor', () => {
+  function payable(rows: Array<{ id: number; amount: number }>) {
+    asMock(prismaMock.transaction.findFirst).mockResolvedValue(
+      (rows.length > 0 ? transaction({ fromUserId: 2 }) : null)
+    );
+    asMock(prismaMock.transaction.updateManyAndReturn).mockResolvedValue(
+      rows.map(row => ({ ...row, transitionVersion: 2 }))
+    );
+  }
+
+  it('инициатор подтверждает — долги переходят в CONFIRMED', async () => {
+    payable([
+      { id: 1, amount: 150 },
+      { id: 2, amount: 50 },
     ]);
-    api.sendMessage.mockRejectedValue(telegramDown());
+
+    const result = await StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001);
+
+    expect(asMock(prismaMock.transaction.updateManyAndReturn)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          storeRunId: 30,
+          fromUserId: 2,
+          toUserId: 1,
+          status: { in: ['PENDING', 'PAID'] },
+        },
+        data: {
+          status: 'CONFIRMED',
+          confirmedAt: NOW,
+          transitionVersion: { increment: 1 },
+        },
+      })
+    );
+    expect(result).toEqual({ count: 2 });
+  });
+
+  it('должнику ставится задание «оплата подтверждена»', async () => {
+    payable([{ id: 1, amount: 150 }]);
+
+    await StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001);
+
+    expect(queuedJobs()).toEqual([
+      expect.objectContaining({
+        messageType: 'DEBT_CONFIRMED',
+        recipientChatId: '1002',
+        payload: { payeeFirstName: 'U1', amount: '150.00₽' },
+      }),
+    ]);
+  });
+
+  it('подтверждать может только инициатор забега', async () => {
+    payable([{ id: 1, amount: 150 }]);
 
     await expect(
-      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 9999)
+      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1002)
     ).resolves.toEqual({ error: 'forbidden' });
-    expect(asMock(prismaMock.transaction.updateMany)).not.toHaveBeenCalled();
+    expect(asMock(prismaMock.transaction.updateManyAndReturn)).not.toHaveBeenCalled();
+  });
+
+  it('без долгов подтверждать нечего', async () => {
+    payable([]);
+
+    await expect(
+      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001)
+    ).resolves.toEqual({ error: 'no_tx' });
+  });
+
+  /* Между проверкой и переходом долг успели подтвердить другим нажатием. */
+  it('если переход уже сделан, повторного задания нет', async () => {
+    asMock(prismaMock.transaction.findFirst).mockResolvedValue(
+      transaction({ fromUserId: 2 })
+    );
+    asMock(prismaMock.transaction.updateManyAndReturn).mockResolvedValue([]);
+
+    await expect(
+      StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001)
+    ).resolves.toEqual({ error: 'no_tx' });
+    expect(queuedJobs()).toEqual([]);
   });
 });

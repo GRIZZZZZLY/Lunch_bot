@@ -35,6 +35,7 @@ import { cleanDatabase } from '../helpers/fixtures';
 import { generateTelegramInitData } from '../helpers/authHelper';
 import { setBotInstance } from '../../../bot/bot-instance';
 import { OutboxWorkerService } from '../../../services/outbox-worker.service';
+import { StoreRunBudgetService } from '../../../services/store-run-budget.service';
 
 /* Приложение поднимается ЛЕНИВО: без Redis набор пропускается целиком, и
    создавать express, временный каталог фронтенда и клиент Prisma незачем.
@@ -768,8 +769,9 @@ describe('отмена отметки отменяет и уведомление
 
     await settleDelivery();
 
-    /* Сообщение об оплате не ушло: долг больше не оплачен. */
-    expect(bot.sent).toHaveLength(0);
+    /* Сообщение об оплате не ушло: долг больше не оплачен. Уходит только
+       уведомление о самой отмене — оно тоже идёт через очередь. */
+    expect(bot.sent).toEqual([expect.stringContaining('Отменена отметка оплаты')]);
     const settled = await prisma.outboxEvent.findUnique({
       where: { id: job.id },
     });
@@ -816,5 +818,329 @@ describe('медленный Telegram не задерживает ответ', (
     expect(await statusOf(world.debtInA)).toBe('PAID');
 
     release?.();
+  });
+});
+
+/**
+ * Остальные переходы долга — через ту же очередь, что и отметка оплаты.
+ *
+ * До перевода подтверждение, обе отмены, массовое подтверждение и магазинные
+ * долги уведомляли напрямую: сбой Telegram не проваливал операцию, но
+ * сообщение терялось без следа и без повтора. Здесь для каждого перехода
+ * проверяется одно и то же свойство: задание появляется в БД вместе с
+ * переходом и доходит до адресата после восстановления Telegram.
+ */
+describe('остальные переходы долга идут через очередь', () => {
+  const DEBT_MESSAGE_ID = 555;
+
+  interface Sent {
+    chatId: number;
+    text: string;
+  }
+  interface Edited {
+    chatId: string;
+    messageId: number;
+    text: string;
+  }
+
+  /** Бот, который запоминает и новые сообщения, и правки старых. */
+  function recordingBot(): { sent: Sent[]; edited: Edited[] } {
+    const sent: Sent[] = [];
+    const edited: Edited[] = [];
+    setBotInstance({
+      api: {
+        sendMessage: async (chatId: number, text: string) => {
+          sent.push({ chatId: Number(chatId), text });
+          return { message_id: 9000 + sent.length };
+        },
+        editMessageText: async (chatId: string, messageId: number, text: string) => {
+          edited.push({ chatId: String(chatId), messageId, text });
+          return true;
+        },
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+    return { sent, edited };
+  }
+
+  /** Telegram лежит: и отправка, и правка падают недоступностью. */
+  function downBot(): void {
+    const unavailable = async () => {
+      throw Object.assign(new Error('Bad Gateway'), { error_code: 502 });
+    };
+    setBotInstance({
+      api: { sendMessage: unavailable, editMessageText: unavailable },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+  }
+
+  /** Все ожидающие задания — к отправке сейчас, без паузы backoff. */
+  async function makeQueueDue(): Promise<void> {
+    await prisma.outboxEvent.updateMany({
+      where: { status: 'PENDING' },
+      data: { nextAttemptAt: new Date(Date.now() - 1_000) },
+    });
+  }
+
+  async function eventsOf(messageType: string) {
+    return prisma.outboxEvent.findMany({
+      where: { messageType },
+      orderBy: { id: 'asc' },
+    });
+  }
+
+  async function post(path: string, token: string, body: object) {
+    return request(app)
+      .post(path)
+      .set('Authorization', `Bearer ${token}`)
+      .set('Idempotency-Key', uniqueKey('transition'))
+      .send(body)
+      .expect(200);
+  }
+
+  async function markAndConfirm(txId: number): Promise<void> {
+    await post('/api/budget/mark-paid', annaToken, { transactionId: txId });
+    await post('/api/budget/confirm-payment', borisToken, { transactionId: txId });
+  }
+
+  /** У долга есть сообщение, которое бот прислал при расчёте заказа. */
+  async function attachDebtMessage(txId: number): Promise<void> {
+    await prisma.transaction.update({
+      where: { id: txId },
+      data: {
+        debtMessageId: DEBT_MESSAGE_ID,
+        debtChatId: String(ANNA_TELEGRAM_ID),
+      },
+    });
+  }
+
+  async function pollOf(txId: number): Promise<number> {
+    return (await prisma.transaction.findUnique({ where: { id: txId } }))!.pollId!;
+  }
+
+  it('подтверждение при лежащем Telegram сохраняется, должник узнаёт позже', async () => {
+    downBot();
+    await markAndConfirm(world.debtInA);
+    expect(await statusOf(world.debtInA)).toBe('CONFIRMED');
+
+    await settleDelivery();
+    const [job] = await eventsOf('DEBT_CONFIRMED');
+    expect(job.status).toBe('PENDING');
+    expect(job.recipientChatId).toBe(String(ANNA_TELEGRAM_ID));
+
+    const bot = recordingBot();
+    await makeQueueDue();
+    await OutboxWorkerService.tick();
+
+    const toAnna = bot.sent.filter(m => m.chatId === ANNA_TELEGRAM_ID);
+    expect(toAnna).toHaveLength(1);
+    expect(toAnna[0].text).toContain('Оплата подтверждена');
+  });
+
+  it('подтверждение правит сохранённое сообщение о долге, а не шлёт новое', async () => {
+    await attachDebtMessage(world.debtInA);
+    const bot = recordingBot();
+
+    await markAndConfirm(world.debtInA);
+    await settleDelivery();
+
+    expect(bot.edited).toEqual([
+      expect.objectContaining({
+        chatId: String(ANNA_TELEGRAM_ID),
+        messageId: DEBT_MESSAGE_ID,
+        text: expect.stringContaining('Оплата подтверждена'),
+      }),
+    ]);
+    expect(bot.sent.filter(m => m.chatId === ANNA_TELEGRAM_ID)).toHaveLength(0);
+  });
+
+  it('повтор подтверждения не создаёт второе задание', async () => {
+    recordingBot();
+    await markAndConfirm(world.debtInA);
+    await post('/api/budget/confirm-payment', borisToken, {
+      transactionId: world.debtInA,
+    });
+
+    expect(await eventsOf('DEBT_CONFIRMED')).toHaveLength(1);
+  });
+
+  it('последнее подтверждение ставит «Все оплатили» получателю', async () => {
+    downBot();
+    await markAndConfirm(world.debtInA);
+
+    const [summary] = await eventsOf('DEBTS_ALL_CONFIRMED');
+    expect(summary.recipientChatId).toBe(String(BORIS_TELEGRAM_ID));
+
+    const bot = recordingBot();
+    await makeQueueDue();
+    await OutboxWorkerService.tick();
+
+    const toBoris = bot.sent.filter(m => m.chatId === BORIS_TELEGRAM_ID);
+    expect(toBoris.map(m => m.text)).toEqual(
+      expect.arrayContaining([expect.stringContaining('Все оплатили')])
+    );
+  });
+
+  /* Два последних долга подтверждаются одновременно. Проверка «все ли
+     подтверждены» в каждой транзакции видит чужой долг ещё неподтверждённым,
+     если транзакции не упорядочены, — и итоговое сообщение не получает никто.
+     Проверка после фиксации дала бы обратное: два одинаковых сообщения. */
+  it('одновременные подтверждения двух последних долгов дают одно «Все оплатили»', async () => {
+    recordingBot();
+    const vera = await prisma.user.create({
+      data: { telegramId: BigInt(700000203), firstName: 'Вера' },
+    });
+    const veraDebt = await prisma.transaction.create({
+      data: {
+        pollId: await pollOf(world.debtInA),
+        fromUserId: vera.id,
+        toUserId: world.borisId,
+        amount: 210,
+        status: 'PAID',
+      },
+    });
+    await prisma.transaction.update({
+      where: { id: world.debtInA },
+      data: { status: 'PAID' },
+    });
+
+    await Promise.all([
+      post('/api/budget/confirm-payment', borisToken, { transactionId: world.debtInA }),
+      post('/api/budget/confirm-payment', borisToken, { transactionId: veraDebt.id }),
+    ]);
+
+    expect(await statusOf(world.debtInA)).toBe('CONFIRMED');
+    expect(await statusOf(veraDebt.id)).toBe('CONFIRMED');
+    expect(await eventsOf('DEBTS_ALL_CONFIRMED')).toHaveLength(1);
+  });
+
+  it('отмена отметки ставит уведомление получателю', async () => {
+    downBot();
+    await post('/api/budget/mark-paid', annaToken, { transactionId: world.debtInA });
+    await post('/api/budget/cancel-mark', annaToken, { transactionId: world.debtInA });
+
+    const [job] = await eventsOf('DEBT_MARK_CANCELLED');
+    expect(job.recipientChatId).toBe(String(BORIS_TELEGRAM_ID));
+
+    const bot = recordingBot();
+    await makeQueueDue();
+    await OutboxWorkerService.tick();
+
+    /* «Получена оплата» устарело и не уходит; уходит только отмена. */
+    expect(bot.sent.map(m => m.text)).toEqual([
+      expect.stringContaining('Отменена отметка оплаты'),
+    ]);
+  });
+
+  /* Старое сообщение «оплата подтверждена» переписывается, И должник
+     получает новое: ему уже сказали, что долг закрыт. */
+  it('отмена подтверждения правит старое сообщение и шлёт новое', async () => {
+    await attachDebtMessage(world.debtInA);
+    recordingBot();
+    await markAndConfirm(world.debtInA);
+    await settleDelivery();
+
+    const bot = recordingBot();
+    await post('/api/budget/undo-confirmation', borisToken, {
+      transactionId: world.debtInA,
+    });
+    await settleDelivery();
+
+    expect(bot.edited).toEqual([
+      expect.objectContaining({
+        messageId: DEBT_MESSAGE_ID,
+        text: expect.stringContaining('Подтверждение оплаты отменено'),
+      }),
+    ]);
+    const toAnna = bot.sent.filter(m => m.chatId === ANNA_TELEGRAM_ID);
+    expect(toAnna).toHaveLength(1);
+    expect(toAnna[0].text).toContain('Подтверждение оплаты отменено');
+  });
+
+  it('кнопка «Все оплатили» ставит уведомление каждому должнику и сводку', async () => {
+    downBot();
+    await post('/api/budget/mark-all-paid', borisToken, {
+      pollId: await pollOf(world.debtInA),
+    });
+    expect(await statusOf(world.debtInA)).toBe('CONFIRMED');
+
+    const [confirmed] = await eventsOf('DEBT_CONFIRMED');
+    expect(confirmed.recipientChatId).toBe(String(ANNA_TELEGRAM_ID));
+    const [summary] = await eventsOf('DEBTS_ALL_CONFIRMED');
+    expect(summary.recipientChatId).toBe(String(BORIS_TELEGRAM_ID));
+
+    const bot = recordingBot();
+    await makeQueueDue();
+    await OutboxWorkerService.tick();
+
+    expect(bot.sent.find(m => m.chatId === BORIS_TELEGRAM_ID)?.text).toContain(
+      'Ты подтвердил оплату от всех участников'
+    );
+  });
+
+  describe('магазинные долги из кнопок бота', () => {
+    async function storeRunOf(txId: number): Promise<number> {
+      return (await prisma.transaction.findUnique({ where: { id: txId } }))!
+        .storeRunId!;
+    }
+
+    async function versionOf(txId: number): Promise<number> {
+      return (await prisma.transaction.findUnique({ where: { id: txId } }))!
+        .transitionVersion;
+    }
+
+    it('отметка и подтверждение поднимают версию и идут через очередь', async () => {
+      downBot();
+      const runB = await storeRunOf(world.debtInB);
+
+      await expect(
+        StoreRunBudgetService.markStoreRunPaidByDebtor(runB, ANNA_TELEGRAM_ID)
+      ).resolves.toEqual(expect.objectContaining({ count: 1 }));
+      expect(await statusOf(world.debtInB)).toBe('PAID');
+      expect(await versionOf(world.debtInB)).toBe(1);
+
+      const [marked] = await eventsOf('STORE_RUN_MARKED_PAID');
+      expect(marked.recipientChatId).toBe(String(BORIS_TELEGRAM_ID));
+
+      await expect(
+        StoreRunBudgetService.confirmStoreRunByDebtor(
+          runB,
+          world.annaId,
+          BORIS_TELEGRAM_ID
+        )
+      ).resolves.toEqual({ count: 1 });
+      expect(await statusOf(world.debtInB)).toBe('CONFIRMED');
+      expect(await versionOf(world.debtInB)).toBe(2);
+
+      /* Текст тот же, что у подтверждения долга по опросу, — и тип тот же. */
+      const [confirmed] = await eventsOf('DEBT_CONFIRMED');
+      expect(confirmed.recipientChatId).toBe(String(ANNA_TELEGRAM_ID));
+
+      /* Telegram восстановился. Должник узнаёт о подтверждении, а устаревшее
+         «получена оплата, подтверди» инициатору уже не уходит: он подтвердил. */
+      const bot = recordingBot();
+      await makeQueueDue();
+      await OutboxWorkerService.tick();
+
+      expect(bot.sent).toEqual([
+        expect.objectContaining({
+          chatId: ANNA_TELEGRAM_ID,
+          text: expect.stringContaining('Оплата подтверждена'),
+        }),
+      ]);
+      const stale = await prisma.outboxEvent.findUnique({ where: { id: marked.id } });
+      expect(stale!.status).toBe('SUPERSEDED');
+    });
+
+    it('двойное нажатие «Оплатил» даёт одно задание', async () => {
+      recordingBot();
+      const runB = await storeRunOf(world.debtInB);
+
+      const results = await Promise.all([
+        StoreRunBudgetService.markStoreRunPaidByDebtor(runB, ANNA_TELEGRAM_ID),
+        StoreRunBudgetService.markStoreRunPaidByDebtor(runB, ANNA_TELEGRAM_ID),
+      ]);
+
+      expect(results.filter(Boolean)).toHaveLength(1);
+      expect(await eventsOf('STORE_RUN_MARKED_PAID')).toHaveLength(1);
+    });
   });
 });

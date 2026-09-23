@@ -220,3 +220,89 @@ describe('запуск обработчика', () => {
     expect(true).toBe(true);
   });
 });
+
+/**
+ * Правка старого сообщения вместо нового.
+ *
+ * Сообщение о долге, присланное при расчёте заказа, переписывается при
+ * подтверждении: иначе в чате должника висели бы «оплати» и «оплата
+ * подтверждена» одновременно. Правка может не удаться (сообщение удалено или
+ * слишком старое) — тогда уходит новое, и его результат становится итогом.
+ */
+describe('правка сохранённого сообщения', () => {
+  let editMessageText: jest.Mock;
+
+  const confirmed = (payload: Record<string, unknown> = {}) =>
+    event({
+      messageType: 'DEBT_CONFIRMED',
+      recipientChatId: '555',
+      payload: {
+        payeeFirstName: 'Аня',
+        amount: '250.00₽',
+        editChatId: '555',
+        editMessageId: 33,
+        ...payload,
+      },
+    });
+
+  beforeEach(() => {
+    editMessageText = jest.fn().mockResolvedValue(true);
+    botInstance.mockReturnValue({ api: { sendMessage, editMessageText } });
+  });
+
+  it('удачная правка заменяет новое сообщение', async () => {
+    await expect(OutboxWorkerService.deliver(confirmed())).resolves.toBe(true);
+
+    expect(editMessageText).toHaveBeenCalledWith(
+      '555',
+      33,
+      expect.stringContaining('Оплата подтверждена'),
+      { reply_markup: { inline_keyboard: [] } }
+    );
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(outbox.markSent).toHaveBeenCalledWith(501, 33);
+  });
+
+  it('неудачная правка — уходит новое сообщение', async () => {
+    editMessageText.mockRejectedValue(new Error('message to edit not found'));
+
+    await expect(OutboxWorkerService.deliver(confirmed())).resolves.toBe(true);
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      555,
+      expect.stringContaining('Оплата подтверждена'),
+      {}
+    );
+    expect(outbox.markSent).toHaveBeenCalledWith(501, 4242);
+  });
+
+  it('правка и новое сообщение, когда шаблон требует обоих', async () => {
+    const undone = event({
+      messageType: 'DEBT_CONFIRMATION_UNDONE',
+      recipientChatId: '555',
+      payload: {
+        payeeFirstName: 'Аня',
+        amount: '250.00₽',
+        editChatId: '555',
+        editMessageId: 33,
+      },
+    });
+
+    await OutboxWorkerService.deliver(undone);
+
+    expect(editMessageText).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(outbox.markSent).toHaveBeenCalledWith(501, 4242);
+  });
+
+  it('недоступный Telegram — задание остаётся на повтор', async () => {
+    const down = Object.assign(new Error('Bad Gateway'), { error_code: 502 });
+    editMessageText.mockRejectedValue(down);
+    sendMessage.mockRejectedValue(down);
+
+    await expect(OutboxWorkerService.deliver(confirmed())).resolves.toBe(false);
+
+    expect(outbox.markFailed).toHaveBeenCalledWith(expect.objectContaining({ id: 501 }), down);
+    expect(outbox.markSent).not.toHaveBeenCalled();
+  });
+});

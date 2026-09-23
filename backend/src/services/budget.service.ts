@@ -11,12 +11,10 @@ import {
   sumDecimals,
   multiply,
 } from '../utils/decimal';
-import { getBotInstance } from '../bot/bot-instance';
-import { escapeMarkdown } from '../utils/telegram-html';
-import { runAfterCommit } from '../utils/post-commit';
 import {
   OUTBOX_ENTITY_TRANSACTION,
   OutboxService,
+  type PrismaTransactionClient,
 } from './outbox.service';
 import { OutboxWorkerService } from './outbox-worker.service';
 
@@ -26,11 +24,111 @@ interface PaymentInfo {
   paymentDetails?: string | null;
 }
 
+type DebtWithPeople = Transaction & { fromUser: User; toUser: User };
+
+/**
+ * Упорядочить изменения долгов одного опроса.
+ *
+ * Решение «все оплатили» принимается внутри транзакции подтверждения. Две
+ * одновременные транзакции, подтверждающие два последних долга, при READ
+ * COMMITTED видят чужой долг ещё неподтверждённым — и итог не получает никто.
+ * Блокировка строки опроса ставит их в очередь: вторая читает уже
+ * зафиксированное состояние первой.
+ *
+ * Берётся ДО изменения долга, иначе две транзакции захватывали бы строки в
+ * разном порядке. `FOR NO KEY UPDATE`, а не `FOR UPDATE`: второй конфликтует
+ * с блокировками внешних ключей и задерживал бы, например, запись голосов.
+ */
+async function lockPollDebts(db: PrismaTransactionClient, pollId: number): Promise<void> {
+  await db.$queryRaw`SELECT id FROM polls WHERE id = ${pollId} FOR NO KEY UPDATE`;
+}
+
+/** Сообщение о долге, присланное при расчёте заказа, — его правят, а не шлют новое. */
+function debtMessageTarget(row: {
+  debtMessageId: number | null;
+  debtChatId: string | null;
+}): { editChatId?: string; editMessageId?: number } {
+  return row.debtMessageId && row.debtChatId
+    ? { editChatId: row.debtChatId, editMessageId: row.debtMessageId }
+    : {};
+}
+
+/** Должнику: оплата подтверждена. */
+function enqueueDebtConfirmed(
+  db: PrismaTransactionClient,
+  row: DebtWithPeople
+): Promise<number[]> {
+  return OutboxService.enqueue(db, {
+    entityType: OUTBOX_ENTITY_TRANSACTION,
+    entityId: row.id,
+    transitionVersion: row.transitionVersion,
+    messageType: 'DEBT_CONFIRMED',
+    recipients: [
+      {
+        chatId: String(row.fromUser.telegramId),
+        payload: {
+          payeeFirstName: row.toUser.firstName ?? '',
+          amount: formatCurrency(row.amount),
+          ...debtMessageTarget(row),
+        },
+      },
+    ],
+  });
+}
+
+/**
+ * Сборщику: все оплатили.
+ *
+ * Событие привязано к долгу, чей переход закрыл список: если его
+ * подтверждение отменят раньше доставки, итог устареет и не уйдёт.
+ */
+function enqueueAllConfirmed(
+  db: PrismaTransactionClient,
+  anchor: DebtWithPeople,
+  debts: DebtWithPeople[],
+  forced: boolean
+): Promise<number[]> {
+  return OutboxService.enqueue(db, {
+    entityType: OUTBOX_ENTITY_TRANSACTION,
+    entityId: anchor.id,
+    transitionVersion: anchor.transitionVersion,
+    messageType: 'DEBTS_ALL_CONFIRMED',
+    recipients: [
+      {
+        chatId: String(anchor.toUser.telegramId),
+        payload: {
+          forced,
+          total: formatCurrency(sumDecimals(debts.map(debt => debt.amount))),
+          lines: debts.map(debt => ({
+            name: debt.fromUser.firstName ?? '',
+            amount: formatCurrency(debt.amount),
+          })),
+        },
+      },
+    ],
+  });
+}
+
+/** Итог «все оплатили», если подтверждение закрыло последний долг сборщика. */
+async function enqueueAllConfirmedIfComplete(
+  db: PrismaTransactionClient,
+  row: DebtWithPeople
+): Promise<number[]> {
+  const debts = await db.transaction.findMany({
+    where: { pollId: row.pollId, toUserId: row.toUserId },
+    include: { fromUser: true, toUser: true },
+    orderBy: { id: 'asc' },
+  });
+  if (debts.some(debt => debt.status !== 'CONFIRMED')) return [];
+
+  return enqueueAllConfirmed(db, row, debts, false);
+}
+
 export class BudgetService {
   /**
    * Отметить как оплаченное
    */
-  static async markAsPaid(txId: number, actorUserId: number): Promise<any> {
+  static async markAsPaid(txId: number, actorUserId: number): Promise<DebtWithPeople> {
     try {
       /* Переход состояния и ЗАДАНИЕ на уведомление — в одной транзакции.
          Раньше уведомление жило только в памяти между записью и вызовом
@@ -120,46 +218,63 @@ export class BudgetService {
   /**
    * Подтвердить оплату
    */
-  static async confirmPayment(txId: number, actorUserId: number): Promise<any> {
+  static async confirmPayment(txId: number, actorUserId: number): Promise<DebtWithPeople> {
     try {
-      const transition = await prisma.transaction.updateMany({
-        where: {
-          id: txId,
-          toUserId: actorUserId,
-          status: 'PAID',
-        },
-        data: {
-          status: 'CONFIRMED',
-          confirmedAt: now(),
-          transitionVersion: { increment: 1 },
-        },
-      });
-      const tx = await prisma.transaction.findUnique({
-        where: { id: txId },
-        include: { fromUser: true, toUser: true },
-      });
-      if (!tx) throw new Error('Transaction not found');
-      if (tx.toUserId !== actorUserId) throw new Error('Access denied');
-      if (transition.count === 0) {
-        if (tx.status === 'CONFIRMED') return tx;
-        if (tx.status === 'PENDING') {
-          throw new Error('Cannot confirm unpaid transaction');
+      const { tx, outboxIds, transitioned } = await prisma.$transaction(
+        async db => {
+          const target = await db.transaction.findUnique({
+            where: { id: txId },
+            select: { pollId: true },
+          });
+          if (!target) throw new Error('Transaction not found');
+          if (target.pollId != null) await lockPollDebts(db, target.pollId);
+
+          const transition = await db.transaction.updateMany({
+            where: {
+              id: txId,
+              toUserId: actorUserId,
+              status: 'PAID',
+            },
+            data: {
+              status: 'CONFIRMED',
+              confirmedAt: now(),
+              transitionVersion: { increment: 1 },
+            },
+          });
+          const row = await db.transaction.findUnique({
+            where: { id: txId },
+            include: { fromUser: true, toUser: true },
+          });
+          if (!row) throw new Error('Transaction not found');
+          if (row.toUserId !== actorUserId) throw new Error('Access denied');
+          if (transition.count === 0) {
+            if (row.status === 'CONFIRMED') {
+              return { tx: row, outboxIds: [], transitioned: false };
+            }
+            if (row.status === 'PENDING') {
+              throw new Error('Cannot confirm unpaid transaction');
+            }
+            throw new Error('Transaction state changed');
+          }
+
+          const ids = await enqueueDebtConfirmed(db, row);
+          /* «Все оплатили» решается здесь же, по состоянию внутри транзакции,
+             а не отдельным шагом после уведомления должнику: сбой того
+             уведомления раньше отменял и итог. Только долги опроса — у
+             магазинного забега своя финализация. */
+          if (row.pollId != null) {
+            ids.push(...(await enqueueAllConfirmedIfComplete(db, row)));
+          }
+
+          return { tx: row, outboxIds: ids, transitioned: true };
         }
-        throw new Error('Transaction state changed');
-      }
+      );
+
+      if (!transitioned) return tx;
 
       logger.info('Transaction confirmed', { txId });
       BudgetService.emitDebtUpdated(tx);
-      await BudgetService.notifyPaymentConfirmed(tx);
-
-      /* «Все оплатили» — независимая проверка сохранённого состояния, а не
-         продолжение уведомления должнику. Раньше сбой личного уведомления
-         пробрасывался и до этой проверки дело не доходило: последний
-         закрытый долг не давал сборщику итоговое сообщение.
-         Проверяем только poll-транзакции; у store-run своя финализация. */
-      if (tx.pollId != null) {
-        await this.checkAllPaid(tx.pollId, tx.toUserId);
-      }
+      void OutboxWorkerService.deliverNow(outboxIds);
 
       return tx;
     } catch (error) {
@@ -194,89 +309,6 @@ export class BudgetService {
   }
 
   /**
-   * Edit the debtor's existing "debt" message into a confirmation, falling
-   * back to a fresh DM if the original message is gone or unreachable.
-   * Shared by confirmPayment (one transaction) and markAllPaidByResponsible
-   * (a whole poll's worth) — same notification either way.
-   *
-   * Никогда не бросает: статус долга к этому моменту уже сохранён. Возвращает
-   * признак доставки — только по нему можно утверждать, что должник узнал.
-   */
-  private static async notifyPaymentConfirmed(tx: any): Promise<boolean> {
-    const bot = getBotInstance();
-    if (!bot) return false;
-
-    const confirmedText =
-      `✅ Оплата подтверждена!\n\n` +
-      `${tx.toUser.firstName} подтвердил(а) получение ${formatCurrency(tx.amount)}\n\n` +
-      `Спасибо! 🎉`;
-
-    let edited = false;
-    if (tx.debtMessageId && tx.debtChatId) {
-      edited = await runAfterCommit(
-        'budget.notifyPaymentConfirmed.editDebtMessage',
-        { txId: tx.id },
-        () =>
-          bot.api.editMessageText(
-            tx.debtChatId,
-            tx.debtMessageId,
-            confirmedText,
-            { reply_markup: { inline_keyboard: [] } }
-          )
-      );
-    }
-    if (edited) return true;
-
-    return runAfterCommit(
-      'budget.notifyPaymentConfirmed.sendToDebtor',
-      { txId: tx.id },
-      () => bot.api.sendMessage(Number(tx.fromUser.telegramId), confirmedText)
-    );
-  }
-
-  /**
-   * Сначала правим СТАРОЕ сообщение о долге. При подтверждении оно
-   * переписывается в «✅ Оплата подтверждена!», и после отмены висело в
-   * чате должника, утверждая обратное новому уведомлению. Одно и то же
-   * событие не должно оставлять в переписке два противоречащих факта.
-   *
-   * Сообщение «Все оплатили!» не трогаем: оно уходит самому сборщику —
-   * тому, кто отмену и сделал, — и его message_id нигде не сохраняется.
-   *
-   * Должника уведомляем ОБЯЗАТЕЛЬНО отдельным сообщением — ему уже сказали
-   * «оплата подтверждена», и молча вернуть долг было бы хуже самой ошибки.
-   */
-  private static async notifyConfirmationUndone(existing: any): Promise<void> {
-    const bot = getBotInstance();
-    if (!bot) return;
-
-    const text =
-      `↩️ Подтверждение оплаты отменено\n\n` +
-      `${existing.toUser.firstName} отменил(а) подтверждение ${formatCurrency(existing.amount)}. ` +
-      `Долг снова ждёт подтверждения — свяжитесь, если это ошибка.`;
-
-    if (existing.debtMessageId && existing.debtChatId) {
-      await runAfterCommit(
-        'budget.notifyConfirmationUndone.editStaleMessage',
-        { txId: existing.id },
-        () =>
-          bot.api.editMessageText(
-            existing.debtChatId,
-            existing.debtMessageId,
-            text,
-            { reply_markup: { inline_keyboard: [] } },
-          )
-      );
-    }
-
-    await runAfterCommit(
-      'budget.notifyConfirmationUndone.sendToDebtor',
-      { txId: existing.id },
-      () => bot.api.sendMessage(Number(existing.fromUser.telegramId), text)
-    );
-  }
-
-  /**
    * Сборщик отменяет своё подтверждение и возвращает долг в PAID.
    *
    * Подтверждение необратимо закрывало долг: промах по кнопке в списке из восьми
@@ -287,7 +319,7 @@ export class BudgetService {
    * Должника уведомляем обязательно: ему уже сказали «оплата подтверждена», и
    * молча вернуть долг было бы хуже самой ошибки.
    */
-  static async undoConfirmation(txId: number, actorUserId: number): Promise<any> {
+  static async undoConfirmation(txId: number, actorUserId: number): Promise<DebtWithPeople> {
     try {
       const existing = await prisma.transaction.findUnique({
         where: { id: txId },
@@ -306,76 +338,57 @@ export class BudgetService {
         throw new Error('Undo window has expired');
       }
 
-      /* Тот же атомарный guard, что в confirmPayment: между проверкой и записью
-         статус мог измениться (например, параллельная отмена). */
-      const transition = await prisma.transaction.updateMany({
-        where: { id: txId, toUserId: actorUserId, status: 'CONFIRMED' },
-        data: {
-          status: 'PAID',
-          confirmedAt: null,
-          transitionVersion: { increment: 1 },
-        },
+      const { tx, outboxIds } = await prisma.$transaction(async db => {
+        /* Та же очередь, что у подтверждения: иначе одновременные «подтвердить
+           последний» и «отменить другой» разошлись бы в решении, все ли
+           оплатили. */
+        if (existing.pollId != null) await lockPollDebts(db, existing.pollId);
+
+        /* Тот же атомарный guard, что в confirmPayment: между проверкой и
+           записью статус мог измениться (например, параллельная отмена). */
+        const transition = await db.transaction.updateMany({
+          where: { id: txId, toUserId: actorUserId, status: 'CONFIRMED' },
+          data: {
+            status: 'PAID',
+            confirmedAt: null,
+            transitionVersion: { increment: 1 },
+          },
+        });
+        if (transition.count === 0) throw new Error('Transaction state changed');
+
+        const row = await db.transaction.findUniqueOrThrow({
+          where: { id: txId },
+          include: { fromUser: true, toUser: true },
+        });
+        const ids = await OutboxService.enqueue(db, {
+          entityType: OUTBOX_ENTITY_TRANSACTION,
+          entityId: row.id,
+          transitionVersion: row.transitionVersion,
+          messageType: 'DEBT_CONFIRMATION_UNDONE',
+          recipients: [
+            {
+              chatId: String(row.fromUser.telegramId),
+              payload: {
+                payeeFirstName: row.toUser.firstName ?? '',
+                amount: formatCurrency(row.amount),
+                ...debtMessageTarget(row),
+              },
+            },
+          ],
+        });
+
+        return { tx: row, outboxIds: ids };
       });
-      if (transition.count === 0) throw new Error('Transaction state changed');
 
       logger.info('Payment confirmation undone', { txId, actorUserId });
-      BudgetService.emitDebtUpdated({ ...existing, status: 'PAID' });
-      await BudgetService.notifyConfirmationUndone(existing);
+      BudgetService.emitDebtUpdated(tx);
+      void OutboxWorkerService.deliverNow(outboxIds);
 
-      return prisma.transaction.findUnique({
-        where: { id: txId },
-        include: { fromUser: true, toUser: true },
-      });
+      return tx;
     } catch (error) {
       logger.error('Error undoing confirmation:', error);
       throw error;
     }
-  }
-
-  /**
-   * Notify every debtor whose transaction was force-confirmed, then send the
-   * responsible person a summary. `transactions` is guaranteed non-empty by
-   * the caller.
-   *
-   * Никогда не бросает: долги уже подтверждены в БД. Недоставленное
-   * уведомление одному должнику не отменяет уведомления остальным и не
-   * отменяет сводку сборщику.
-   */
-  private static async notifyAllPaidByResponsible(transactions: any[]): Promise<void> {
-    const bot = getBotInstance();
-    if (!bot) return;
-
-    let delivered = 0;
-    for (const tx of transactions) {
-      if (await BudgetService.notifyPaymentConfirmed(tx)) delivered += 1;
-    }
-    if (delivered < transactions.length) {
-      logger.warn('Some debtors were not notified about forced confirmation', {
-        delivered,
-        total: transactions.length,
-      });
-    }
-
-    // Отправляем итоговое сообщение ответственному
-    const totalReceived = sumDecimals(transactions.map(tx => tx.amount));
-    await runAfterCommit(
-      'budget.notifyAllPaidByResponsible.summary',
-      { count: transactions.length },
-      () =>
-        bot.api.sendMessage(
-          Number(transactions[0].toUser.telegramId),
-          `🎊 *Все оплатили!*\n\n` +
-            `Ты подтвердил оплату от всех участников\n\n` +
-            `💰 Итого получено: ${totalReceived.toFixed(2)}₽\n\n` +
-            `*Детали:*\n${transactions
-              .map(
-                tx =>
-                  `✅ ${escapeMarkdown(tx.fromUser.firstName ?? '')} — ${formatCurrency(tx.amount)}`
-              )
-              .join('\n')}\n\nСпасибо за организацию! 🙏`,
-          { parse_mode: 'Markdown' }
-        )
-    );
   }
 
   /**
@@ -386,86 +399,53 @@ export class BudgetService {
     responsibleUserId: number
   ): Promise<void> {
     try {
-      const transitioned = await prisma.transaction.updateManyAndReturn({
-        where: {
-          pollId,
-          toUserId: responsibleUserId,
-          status: { in: ['PENDING', 'PAID'] },
-        },
-        data: {
-          status: 'CONFIRMED',
-          confirmedAt: now(),
-          transitionVersion: { increment: 1 },
-        },
-        select: { id: true },
+      const { count, outboxIds } = await prisma.$transaction(async db => {
+        await lockPollDebts(db, pollId);
+
+        const transitioned = await db.transaction.updateManyAndReturn({
+          where: {
+            pollId,
+            toUserId: responsibleUserId,
+            status: { in: ['PENDING', 'PAID'] },
+          },
+          data: {
+            status: 'CONFIRMED',
+            confirmedAt: now(),
+            transitionVersion: { increment: 1 },
+          },
+          select: { id: true },
+        });
+        if (transitioned.length === 0) return { count: 0, outboxIds: [] };
+
+        const debts = await db.transaction.findMany({
+          where: { id: { in: transitioned.map(tx => tx.id) } },
+          include: { fromUser: true, toUser: true },
+          orderBy: { id: 'asc' },
+        });
+
+        /* Каждому должнику — своё задание: недоставленное одному не мешает
+           остальным и не отменяет сводку сборщику. */
+        const ids: number[] = [];
+        for (const debt of debts) {
+          ids.push(...(await enqueueDebtConfirmed(db, debt)));
+        }
+        ids.push(...(await enqueueAllConfirmed(db, debts[0], debts, true)));
+
+        return { count: debts.length, outboxIds: ids };
       });
 
-      const transactions = await prisma.transaction.findMany({
-        where: { id: { in: transitioned.map(tx => tx.id) } },
-        include: { fromUser: true, toUser: true },
-      });
-
-      if (transactions.length === 0) {
+      if (count === 0) {
         logger.info('markAllPaidByResponsible: no pending transactions', {
           pollId,
         });
         return;
       }
 
-      logger.info('All transactions confirmed by responsible', {
-        pollId,
-        count: transactions.length,
-      });
-
-      await BudgetService.notifyAllPaidByResponsible(transactions);
+      logger.info('All transactions confirmed by responsible', { pollId, count });
+      void OutboxWorkerService.deliverNow(outboxIds);
     } catch (error) {
       logger.error('Error in markAllPaidByResponsible:', error);
       throw error;
-    }
-  }
-
-  /**
-   * Проверка "Все оплатили"
-   */
-  static async checkAllPaid(
-    pollId: number,
-    responsibleUserId: number
-  ): Promise<void> {
-    try {
-      const allTx = await prisma.transaction.findMany({
-        where: { pollId, toUserId: responsibleUserId },
-        include: { fromUser: true, toUser: true },
-      });
-
-      const allConfirmed = allTx.every(tx => tx.status === 'CONFIRMED');
-
-      const bot = getBotInstance();
-      if (allConfirmed && allTx.length > 0 && bot) {
-        const totalReceived = sumDecimals(allTx.map(tx => tx.amount));
-
-        const sent = await runAfterCommit(
-          'budget.checkAllPaid.notifyResponsible',
-          { pollId },
-          () =>
-            bot.api.sendMessage(
-              Number(allTx[0].toUser.telegramId),
-              `🎊 *Все оплатили!*\n\n` +
-                `Все участники подтвердили оплату\n\n` +
-                `💰 Получено: ${totalReceived.toFixed(2)}₽\n\n` +
-                `*Подробности:*\n${allTx
-                  .map(
-                    tx =>
-                      `✅ ${escapeMarkdown(tx.fromUser.firstName ?? '')} — ${formatCurrency(tx.amount)}`
-                  )
-                  .join('\n')}\n\nСпасибо за организацию! 🙏`,
-              { parse_mode: 'Markdown' }
-            )
-        );
-
-        if (sent) logger.info('All paid notification sent', { pollId });
-      }
-    } catch (error) {
-      logger.error('Error checking all paid:', error);
     }
   }
 
@@ -498,50 +478,62 @@ export class BudgetService {
    */
   async cancelMarkAsPaid(transactionId: number, actorUserId: number) {
     try {
-      const transition = await prisma.transaction.updateMany({
-        where: {
-          id: transactionId,
-          fromUserId: actorUserId,
-          status: 'PAID',
-        },
-        data: {
-          status: 'PENDING',
-          paidAt: null,
-          confirmedAt: null,
-          transitionVersion: { increment: 1 },
-        },
-      });
-      const tx = await prisma.transaction.findUnique({
-        where: { id: transactionId },
-        include: { fromUser: true, toUser: true },
-      });
-      if (!tx) throw new Error('Transaction not found');
-      if (tx.fromUserId !== actorUserId) throw new Error('Access denied');
-      if (transition.count === 0) {
-        if (tx.status === 'PENDING') return tx;
-        if (tx.status === 'CONFIRMED') {
-          throw new Error('Cannot cancel confirmed payment');
+      const { tx, outboxIds, transitioned } = await prisma.$transaction(
+        async db => {
+          const transition = await db.transaction.updateMany({
+            where: {
+              id: transactionId,
+              fromUserId: actorUserId,
+              status: 'PAID',
+            },
+            data: {
+              status: 'PENDING',
+              paidAt: null,
+              confirmedAt: null,
+              transitionVersion: { increment: 1 },
+            },
+          });
+          const row = await db.transaction.findUnique({
+            where: { id: transactionId },
+            include: { fromUser: true, toUser: true },
+          });
+          if (!row) throw new Error('Transaction not found');
+          if (row.fromUserId !== actorUserId) throw new Error('Access denied');
+          if (transition.count === 0) {
+            if (row.status === 'PENDING') {
+              return { tx: row, outboxIds: [], transitioned: false };
+            }
+            if (row.status === 'CONFIRMED') {
+              throw new Error('Cannot cancel confirmed payment');
+            }
+            throw new Error('Transaction state changed');
+          }
+
+          const ids = await OutboxService.enqueue(db, {
+            entityType: OUTBOX_ENTITY_TRANSACTION,
+            entityId: row.id,
+            transitionVersion: row.transitionVersion,
+            messageType: 'DEBT_MARK_CANCELLED',
+            recipients: [
+              {
+                chatId: String(row.toUser.telegramId),
+                payload: {
+                  debtorFirstName: row.fromUser.firstName ?? '',
+                  amount: formatCurrency(row.amount),
+                },
+              },
+            ],
+          });
+
+          return { tx: row, outboxIds: ids, transitioned: true };
         }
-        throw new Error('Transaction state changed');
-      }
+      );
+
+      if (!transitioned) return tx;
 
       logger.info('Transaction mark cancelled', { transactionId });
       BudgetService.emitDebtUpdated(tx);
-
-      // Уведомляем ответственного; отметка уже снята в БД (см. post-commit.ts)
-      const bot = getBotInstance();
-      if (bot) {
-        await runAfterCommit(
-          'budget.cancelMarkAsPaid.notifyRecipient',
-          { txId: transactionId },
-          () =>
-            bot.api.sendMessage(
-              Number(tx.toUser.telegramId),
-              `⚠️ *Отменена отметка оплаты*\n\n${escapeMarkdown(tx.fromUser.firstName ?? '')} отменил(а) отметку оплаты ${tx.amount}₽`,
-              { parse_mode: 'Markdown' }
-            )
-        );
-      }
+      void OutboxWorkerService.deliverNow(outboxIds);
 
       return tx;
     } catch (error) {

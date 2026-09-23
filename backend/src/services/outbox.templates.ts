@@ -21,6 +21,14 @@ export interface RenderedOutboxMessage {
   text: string;
   parseMode?: 'Markdown';
   replyMarkup?: InlineKeyboardMarkup;
+  /**
+   * Сообщение, которое нужно ПЕРЕПИСАТЬ этим текстом, — обычно сообщение о
+   * долге, присланное при расчёте заказа. `alsoSend: false` — правка вместо
+   * нового сообщения, новое уходит, только если правка не удалась.
+   * `alsoSend: true` — правка устаревшего текста И новое сообщение: человеку
+   * нужно заметить событие, а не найти его в старой переписке.
+   */
+  edit?: { chatId: string; messageId: number; alsoSend: boolean };
 }
 
 /**
@@ -36,6 +44,32 @@ function str(payload: Record<string, unknown>, key: string): string {
 function num(payload: Record<string, unknown>, key: string): number | null {
   const value = payload[key];
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/** Цель правки из payload, если событие её несёт. */
+function editTarget(
+  payload: Record<string, unknown>,
+  alsoSend: boolean
+): RenderedOutboxMessage['edit'] {
+  const chatId = str(payload, 'editChatId');
+  const messageId = num(payload, 'editMessageId');
+  return chatId && messageId !== null ? { chatId, messageId, alsoSend } : undefined;
+}
+
+/** Кнопка подтверждения. Права и статус сервер проверяет заново при нажатии. */
+function confirmButton(callbackData: string): InlineKeyboardMarkup {
+  return { inline_keyboard: [[{ text: 'Подтвердить ✅', callback_data: callbackData }]] };
+}
+
+/** Строки «✅ Имя — сумма» для итога «Все оплатили». */
+function paidLines(payload: Record<string, unknown>): string {
+  const lines = Array.isArray(payload.lines) ? payload.lines : [];
+  return lines
+    .map(line => {
+      const row = line && typeof line === 'object' ? (line as Record<string, unknown>) : {};
+      return `✅ ${escapeMarkdown(str(row, 'name'))} — ${escapeMarkdown(str(row, 'amount'))}`;
+    })
+    .join('\n');
 }
 
 /**
@@ -67,18 +101,68 @@ export function renderOutboxMessage(
            долго, и его кнопка доказательством ничего не является. */
         ...(transactionId === null
           ? {}
-          : {
-              replyMarkup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: 'Подтвердить ✅',
-                      callback_data: `budget:confirm:${transactionId}`,
-                    },
-                  ],
-                ],
-              },
-            }),
+          : { replyMarkup: confirmButton(`budget:confirm:${transactionId}`) }),
+      };
+    }
+
+    case 'STORE_RUN_MARKED_PAID': {
+      const storeRunId = num(payload, 'storeRunId');
+      const debtorId = num(payload, 'debtorId');
+      return {
+        text:
+          `💳 *Получена оплата по магазину!*\n\n` +
+          `${escapeMarkdown(str(payload, 'debtorFirstName'))} отметил(а) оплату ` +
+          `${escapeMarkdown(str(payload, 'amount'))}`,
+        parseMode: 'Markdown',
+        ...(storeRunId === null || debtorId === null
+          ? {}
+          : { replyMarkup: confirmButton(`budget:srun_confirm:${storeRunId}:${debtorId}`) }),
+      };
+    }
+
+    case 'DEBT_MARK_CANCELLED':
+      return {
+        text:
+          `⚠️ *Отменена отметка оплаты*\n\n` +
+          `${escapeMarkdown(str(payload, 'debtorFirstName'))} отменил(а) отметку оплаты ` +
+          `${escapeMarkdown(str(payload, 'amount'))}`,
+        parseMode: 'Markdown',
+      };
+
+    /* Без разметки, как и прежде: имя подставляется как есть. */
+    case 'DEBT_CONFIRMED':
+      return {
+        text:
+          `✅ Оплата подтверждена!\n\n` +
+          `${str(payload, 'payeeFirstName')} подтвердил(а) получение ${str(payload, 'amount')}\n\n` +
+          `Спасибо! 🎉`,
+        edit: editTarget(payload, false),
+      };
+
+    /* Старое «оплата подтверждена» переписывается, и должник получает новое
+       сообщение: ему уже сказали, что долг закрыт, и молча вернуть долг было
+       бы хуже самой ошибки. */
+    case 'DEBT_CONFIRMATION_UNDONE':
+      return {
+        text:
+          `↩️ Подтверждение оплаты отменено\n\n` +
+          `${str(payload, 'payeeFirstName')} отменил(а) подтверждение ${str(payload, 'amount')}. ` +
+          `Долг снова ждёт подтверждения — свяжитесь, если это ошибка.`,
+        edit: editTarget(payload, true),
+      };
+
+    case 'DEBTS_ALL_CONFIRMED': {
+      const forced = payload.forced === true;
+      const total = escapeMarkdown(str(payload, 'total'));
+      return {
+        text: forced
+          ? `🎊 *Все оплатили!*\n\nТы подтвердил оплату от всех участников\n\n` +
+            `💰 Итого получено: ${total}\n\n*Детали:*\n${paidLines(payload)}\n\n` +
+            `Спасибо за организацию! 🙏`
+          : `🎊 *Все оплатили!*\n\nВсе участники подтвердили оплату\n\n` +
+            `💰 Получено: ${total}\n\n*Подробности:*\n${paidLines(payload)}\n\n` +
+            `Спасибо за организацию! 🙏`,
+        parseMode: 'Markdown',
       };
     }
 

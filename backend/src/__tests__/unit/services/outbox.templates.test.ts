@@ -88,3 +88,124 @@ describe('устойчивость к чужим данным', () => {
     expect(message!.replyMarkup).toBeUndefined();
   });
 });
+
+describe('STORE_RUN_MARKED_PAID', () => {
+  const payload = {
+    storeRunId: 30,
+    debtorId: 2,
+    debtorFirstName: 'Соус_острый',
+    amount: '200.00₽',
+  };
+
+  it('несёт кнопку подтверждения заказа этого должника', () => {
+    const message = renderOutboxMessage('STORE_RUN_MARKED_PAID', payload);
+
+    expect(message!.text).toContain('Получена оплата по магазину');
+    expect(message!.replyMarkup).toEqual({
+      inline_keyboard: [
+        [{ text: 'Подтвердить ✅', callback_data: 'budget:srun_confirm:30:2' }],
+      ],
+    });
+  });
+
+  it('имя должника экранируется', () => {
+    expect(renderOutboxMessage('STORE_RUN_MARKED_PAID', payload)!.text).toContain(
+      'Соус\\_острый'
+    );
+  });
+});
+
+describe('DEBT_MARK_CANCELLED', () => {
+  it('сообщает об отмене с экранированным именем', () => {
+    const message = renderOutboxMessage('DEBT_MARK_CANCELLED', {
+      debtorFirstName: 'Соус_острый',
+      amount: '250.00₽',
+    });
+
+    expect(message!.text).toContain('Отменена отметка оплаты');
+    expect(message!.text).toContain('Соус\\_острый');
+    expect(message!.text).toContain('250.00₽');
+    expect(message!.parseMode).toBe('Markdown');
+  });
+});
+
+describe('DEBT_CONFIRMED', () => {
+  it('без сохранённого сообщения — просто новое сообщение', () => {
+    const message = renderOutboxMessage('DEBT_CONFIRMED', {
+      payeeFirstName: 'Аня',
+      amount: '250.00₽',
+    });
+
+    expect(message!.text).toContain('Оплата подтверждена');
+    expect(message!.text).toContain('Аня подтвердил(а) получение 250.00₽');
+    expect(message!.edit).toBeUndefined();
+  });
+
+  it('с сохранённым сообщением — правка вместо нового', () => {
+    const message = renderOutboxMessage('DEBT_CONFIRMED', {
+      payeeFirstName: 'Аня',
+      amount: '250.00₽',
+      editChatId: '555',
+      editMessageId: 33,
+    });
+
+    expect(message!.edit).toEqual({ chatId: '555', messageId: 33, alsoSend: false });
+  });
+});
+
+describe('DEBT_CONFIRMATION_UNDONE', () => {
+  /* Должнику уже сказали «оплата подтверждена»: старое сообщение
+     переписывается, но и новое обязательно, иначе событие легко пропустить. */
+  it('правит старое сообщение И шлёт новое', () => {
+    const message = renderOutboxMessage('DEBT_CONFIRMATION_UNDONE', {
+      payeeFirstName: 'Аня',
+      amount: '250.00₽',
+      editChatId: '555',
+      editMessageId: 33,
+    });
+
+    expect(message!.text).toContain('Подтверждение оплаты отменено');
+    expect(message!.edit).toEqual({ chatId: '555', messageId: 33, alsoSend: true });
+  });
+});
+
+describe('DEBTS_ALL_CONFIRMED', () => {
+  const payload = {
+    total: '460.00₽',
+    lines: [
+      { name: 'Игорь', amount: '250.00₽' },
+      { name: 'Соус_острый', amount: '210.00₽' },
+    ],
+  };
+
+  it('после последнего подтверждения — «все участники подтвердили»', () => {
+    const message = renderOutboxMessage('DEBTS_ALL_CONFIRMED', {
+      ...payload,
+      forced: false,
+    });
+
+    expect(message!.text).toContain('Все участники подтвердили оплату');
+    expect(message!.text).toContain('Получено: 460.00₽');
+    expect(message!.text).toContain('✅ Игорь — 250.00₽');
+    expect(message!.text).toContain('✅ Соус\\_острый — 210.00₽');
+  });
+
+  it('после кнопки «Все оплатили» — «ты подтвердил оплату от всех»', () => {
+    const message = renderOutboxMessage('DEBTS_ALL_CONFIRMED', {
+      ...payload,
+      forced: true,
+    });
+
+    expect(message!.text).toContain('Ты подтвердил оплату от всех участников');
+    expect(message!.text).toContain('Итого получено: 460.00₽');
+  });
+
+  it('битые строки списка не ломают сборку', () => {
+    const message = renderOutboxMessage('DEBTS_ALL_CONFIRMED', {
+      total: '0.00₽',
+      lines: [null, 'строка', { name: 42 }],
+    });
+
+    expect(message!.text).toContain('Все оплатили');
+  });
+});

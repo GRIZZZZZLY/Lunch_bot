@@ -136,6 +136,26 @@ export class OutboxWorkerService {
       return false;
     }
 
+    if (message.edit) {
+      /* Неудачная правка — не сбой доставки: сообщение могло быть удалено
+         или слишком старым для правки. Тогда уходит новое сообщение, и
+         именно его результат записывается как итог задания. */
+      const edited = await bot.api
+        .editMessageText(message.edit.chatId, message.edit.messageId, message.text, {
+          ...(message.parseMode ? { parse_mode: message.parseMode } : {}),
+          reply_markup: { inline_keyboard: [] },
+        })
+        .then(
+          () => true,
+          () => false
+        );
+
+      if (edited && !message.edit.alsoSend) {
+        await OutboxService.markSent(event.id, message.edit.messageId);
+        return true;
+      }
+    }
+
     try {
       const sent = await bot.api.sendMessage(
         Number(event.recipientChatId),
