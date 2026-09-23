@@ -21,6 +21,8 @@ concurrency:
 
 permissions:
   contents: read
+  # Чтение запусков CI — для проверки, что выпускаемый коммит прошёл CI.
+  actions: read
 
 jobs:
   deploy:
@@ -31,6 +33,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      # До любого обращения к серверу: выпускается только коммит с успешным CI.
+      # Если CI для этого SHA ещё идёт, шаг ждёт до 40 минут.
+      - name: Require successful CI for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ github.sha }}
+        run: bash .github/scripts/require-green-ci.sh
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.10.0

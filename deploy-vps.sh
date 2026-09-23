@@ -84,6 +84,17 @@ SHA="$(git -C "$SOURCE_CHECKOUT" rev-parse "$REF^{commit}")"
 RELEASE="$RELEASES_DIR/$SHA"
 log "Релиз: ${SHA:0:8} → $RELEASE"
 
+# Workflow выпуска не пропустит коммит без успешного CI — здесь та же проверка,
+# если на сервере есть gh. Запасной путь нужен именно тогда, когда GitHub
+# недоступен, поэтому без gh это предупреждение, а не отказ.
+if command -v gh >/dev/null 2>&1; then
+  GITHUB_REPOSITORY="$(git -C "$SOURCE_CHECKOUT" remote get-url origin \
+    | sed -E 's#^.*github\.com[:/]##; s#\.git$##')" \
+    DEPLOY_SHA="$SHA" bash "$(dirname "$0")/.github/scripts/require-green-ci.sh"
+else
+  log "ВНИМАНИЕ: gh не найден, CI для ${SHA:0:8} не проверен. Проверьте его вручную до выката."
+fi
+
 PREVIOUS=""
 if [ -L "$CURRENT_LINK" ]; then
   PREVIOUS="$(readlink -f "$CURRENT_LINK")"
