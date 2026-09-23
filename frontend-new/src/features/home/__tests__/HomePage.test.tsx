@@ -592,3 +592,35 @@ describe('HomePage — действие из ссылки', () => {
     );
   });
 });
+
+/* Опрос закончился, пока главная открыта: сам по последнему голосу, по
+   таймеру или руками другого администратора. Мутации «завершить/отменить»
+   перечитывают «последний завершённый» только у нажавшего — у остальных
+   строка победителя показывала прошлый опрос («Победил: …, голосов не было»). */
+describe('HomePage — опрос закончился на глазах', () => {
+  it('строка победителя перечитывается', () => {
+    h.state.activePoll = {
+      id: 10,
+      status: 'ACTIVE',
+      duration: 30,
+      createdAt: new Date().toISOString(),
+      menuItems: [{ menuItemId: 1, menuItem: { id: 1, name: 'Плов' }, _count: { votes: 1 } }],
+    };
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(qc, 'invalidateQueries');
+    const tree = () => (
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <HomePage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const view = render(tree());
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['polls', 'last-completed'] });
+
+    h.state.activePoll = null;
+    view.rerender(tree());
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['polls', 'last-completed'] });
+  });
+});

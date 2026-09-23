@@ -11,7 +11,7 @@
  * только данные: барьер первого экрана спрашивает у них «ответ получен?», и
  * распаковка потеряла бы различие между «ответ есть» и «данные есть».
  */
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -59,6 +59,20 @@ export function useHomePoll() {
      голос уйдёт не в то голосование, которое человек открыл. */
   const activePoll = deepLinkPollId ? deepLinkPoll ?? null : fallbackActivePoll;
   const pollLoading = deepLinkPollId ? deepLinkLoading : activeLoading;
+
+  /* Опрос закончился, пока экран открыт: сам по последнему голосу, по таймеру
+     или руками другого администратора. Мутации «завершить/отменить»
+     перечитывают «последний завершённый» только у нажавшего, а сервер о
+     закрытии в поток не пишет — у остальных строка победителя показывала бы
+     прошлый опрос. */
+  const shownPollId = activePoll?.id ?? null;
+  const previousPollId = useRef(shownPollId);
+  useEffect(() => {
+    if (previousPollId.current !== null && previousPollId.current !== shownPollId) {
+      void qc.invalidateQueries({ queryKey: queryKeys.polls.lastCompleted });
+    }
+    previousPollId.current = shownPollId;
+  }, [shownPollId, qc]);
 
   /* Завершённый опрос — на итоги. Туда же недоступный или несуществующий:
      итоги умеют объяснить «нет доступа» и «не найден», а главная показала бы

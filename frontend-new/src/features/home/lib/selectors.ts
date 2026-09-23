@@ -158,12 +158,7 @@ export function budgetRow(debts: Transaction[], credits: Transaction[]): BudgetR
  */
 export function winnerRowVM(
   lastCompletedPoll: Poll | null | undefined,
-  lastPollResult: {
-    winnerId?: number;
-    winnerName?: string;
-    totalVotes: number;
-    responsible?: { name?: string };
-  } | null | undefined,
+  lastPollResult: PollResultPayload | null | undefined,
   allMenu: MenuItem[],
   isFresh: boolean,
 ): {
@@ -175,16 +170,82 @@ export function winnerRowVM(
 } | null {
   if (!lastCompletedPoll || !lastPollResult || !isFresh) return null;
 
+  const result = normalizePollResult(lastPollResult);
   const opts = mapPollToOptions(lastCompletedPoll, allMenu);
   const top = [...opts].sort((a, b) => b.votes - a.votes)[0];
-  const winnerVotes =
-    opts.find((o) => o.id === lastPollResult.winnerId)?.votes ?? top?.votes ?? lastPollResult.totalVotes;
+  const winnerOpt = opts.find((o) => o.id === result.winnerId);
+  const winnerVotes = result.winnerVotes ?? winnerOpt?.votes ?? top?.votes ?? result.totalVotes;
 
   return {
-    winnerName: lastPollResult.winnerName || top?.name || 'Блюдо',
+    winnerName: result.winnerName || winnerOpt?.name || top?.name || 'Блюдо',
     winnerVotes,
-    totalVotes: lastPollResult.totalVotes,
-    responsibleName: lastPollResult.responsible?.name,
+    totalVotes: result.totalVotes,
+    responsibleName: result.responsibleName,
     pollId: lastCompletedPoll.id,
   };
+}
+
+/**
+ * Итоги опроса в двух формах: плоская — старые ответы и моки, вложенная
+ * `{ result: … }` — то, что отдаёт сервер сейчас (`GET /polls/:id/results`).
+ */
+interface FlatPollResult {
+  winnerId?: number;
+  winnerName?: string;
+  totalVotes?: number;
+  responsible?: { name?: string };
+}
+
+interface NestedPollResult {
+  result?: {
+    winnerMenuItemId?: number | null;
+    totalVotes?: number;
+    winnerMenuItem?: { name?: string } | null;
+    responsibleUser?: { firstName?: string | null } | null;
+    rouletteData?: string | null;
+  } | null;
+}
+
+type PollResultPayload = FlatPollResult | NestedPollResult;
+
+function normalizePollResult(payload: PollResultPayload): {
+  winnerId?: number;
+  winnerName?: string;
+  winnerVotes?: number;
+  totalVotes: number;
+  responsibleName?: string;
+} {
+  if (!('result' in payload)) {
+    const flat = payload as FlatPollResult;
+    return {
+      winnerId: flat.winnerId,
+      winnerName: flat.winnerName,
+      totalVotes: flat.totalVotes ?? 0,
+      responsibleName: flat.responsible?.name,
+    };
+  }
+
+  const result = (payload as NestedPollResult).result ?? {};
+  const winnerId = result.winnerMenuItemId ?? undefined;
+  return {
+    winnerId,
+    winnerName: result.winnerMenuItem?.name,
+    /* «Последний завершённый» приходит без голосов, поэтому голоса
+       победителя берём из разбора итогов, а не из вариантов опроса. */
+    winnerVotes: winnerVoteCount(result.rouletteData, winnerId),
+    totalVotes: result.totalVotes ?? 0,
+    responsibleName: result.responsibleUser?.firstName ?? undefined,
+  };
+}
+
+function winnerVoteCount(rouletteData: string | null | undefined, winnerId: number | undefined) {
+  if (!rouletteData || winnerId === undefined) return undefined;
+  try {
+    const parsed = JSON.parse(rouletteData) as {
+      winners?: { menuItemId?: number; voteCount?: number }[];
+    };
+    return parsed.winners?.find((w) => w.menuItemId === winnerId)?.voteCount;
+  } catch {
+    return undefined;
+  }
 }

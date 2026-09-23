@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { budgetRow, dateCaption, greetingFor, pollEndsAt, resolveTargetGroup } from '../selectors';
-import type { Transaction } from '@/types/models';
+import { budgetRow, dateCaption, greetingFor, pollEndsAt, resolveTargetGroup, winnerRowVM } from '../selectors';
+import type { MenuItem, Poll, Transaction } from '@/types/models';
 
 describe('greetingFor / dateCaption', () => {
   it('время суток', () => {
@@ -106,5 +106,62 @@ describe('budgetRow — свод сценариев в строку', () => {
   });
   it('долг приоритетнее кредитов', () => {
     expect(budgetRow([tx({})], [tx({})]).kind).toBe('debt');
+  });
+});
+
+/**
+ * Итог последнего опроса на главной.
+ *
+ * Настоящий сервер отдаёт итоги вложенными: `{ result: { winnerMenuItem,
+ * totalVotes, rouletteData, responsibleUser } }`, а «последний завершённый»
+ * опрос — без голосов. Селектор читал только плоскую форму из моков, и на
+ * живом сервере главная для любого опроса показывала первое блюдо меню и
+ * «голосов не было».
+ */
+describe('winnerRowVM', () => {
+  const poll = {
+    id: 15,
+    status: 'COMPLETED',
+    selectedMenuItemIds: '[21,22]',
+    menuItems: [],
+    createdAt: '2026-09-24T10:00:00Z',
+  } as unknown as Poll;
+  const menu = [
+    { id: 21, name: 'Борщ' },
+    { id: 22, name: 'Паста' },
+  ] as unknown as MenuItem[];
+
+  it('читает вложенный ответ сервера', () => {
+    const served = {
+      result: {
+        winnerMenuItemId: 22,
+        totalVotes: 3,
+        winnerMenuItem: { id: 22, name: 'Паста' },
+        responsibleUser: { id: 61, firstName: 'Анна' },
+        rouletteData: JSON.stringify({ winners: [{ menuItemId: 22, voteCount: 2 }] }),
+      },
+    };
+
+    expect(winnerRowVM(poll, served, menu, true)).toEqual({
+      winnerName: 'Паста',
+      winnerVotes: 2,
+      totalVotes: 3,
+      responsibleName: 'Анна',
+      pollId: 15,
+    });
+  });
+
+  it('по-прежнему понимает плоскую форму', () => {
+    const flat = { winnerId: 22, winnerName: 'Паста', totalVotes: 3, responsible: { name: 'Анна' } };
+
+    expect(winnerRowVM(poll, flat, menu, true)).toMatchObject({
+      winnerName: 'Паста',
+      totalVotes: 3,
+      responsibleName: 'Анна',
+    });
+  });
+
+  it('несвежий итог не показывается', () => {
+    expect(winnerRowVM(poll, { result: { totalVotes: 1 } }, menu, false)).toBeNull();
   });
 });
