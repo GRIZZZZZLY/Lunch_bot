@@ -1,4 +1,5 @@
 import { VoteService } from '../vote.service';
+import { VoteXpService } from '../vote-xp.service';
 import { prisma } from '../../database/client';
 import { Vote, Prisma } from '@prisma/client';
 import { VoteType } from '../../types/vote.types';
@@ -240,7 +241,7 @@ describe('VoteService', () => {
 
     it('should create only new votes and return all selected votes', async () => {
       const awardVoteXpSpy = jest
-        .spyOn(VoteService as any, 'awardVoteXp')
+        .spyOn(VoteXpService, 'awardVoteXp')
         .mockResolvedValue(undefined);
 
       const existingVote = createMockVote({ pollId: 1, userId: 10, menuItemId: 2 });
