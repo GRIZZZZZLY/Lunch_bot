@@ -42,6 +42,9 @@ export const queryKeys = {
     /** Префикс для инвалидации активных голосований всех команд. */
     active: ['polls', 'active'] as const,
     activeForGroup: (groupId: GroupKey) => ['polls', 'active', groupId] as const,
+    /** Активные голосования всех команд человека (плашка команд в шапке).
+        Под префиксом `active`: инвалидации после голоса и создания его задевают. */
+    activeAllTeams: ['polls', 'active', '*'] as const,
     byId: (id: number) => ['polls', id] as const,
     results: (id: number) => ['polls', id, 'results'] as const,
     /** Префикс для инвалидации последнего завершённого во всех командах. */
@@ -78,6 +81,8 @@ export const queryKeys = {
     active: () => ['storeRuns', 'active'] as const,
     activeForGroup: (groupId: GroupKey) =>
       ['storeRuns', 'active', groupId] as const,
+    /** Активные закупки всех команд человека (плашка команд в шапке). */
+    activeAllTeams: () => ['storeRuns', 'active', '*'] as const,
     detail: (id: number) => ['storeRuns', 'detail', id] as const,
   },
   groupStores: {
