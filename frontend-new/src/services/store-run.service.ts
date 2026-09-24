@@ -95,6 +95,12 @@ export const storeRunService = {
       params: groupId ? { groupId } : undefined,
     });
   },
+  /** Активные закупки ВСЕХ команд человека; см. polls.service.getActiveAllTeams. */
+  getActiveAllTeams(): Promise<ApiResponse<StoreRunListItem[]>> {
+    return apiService.get<StoreRunListItem[]>('/store-runs/active', {
+      params: { groupId: undefined },
+    });
+  },
   getRun(id: number): Promise<ApiResponse<StoreRunWithRelations>> {
     return apiService.get<StoreRunWithRelations>(`/store-runs/${id}`);
   },

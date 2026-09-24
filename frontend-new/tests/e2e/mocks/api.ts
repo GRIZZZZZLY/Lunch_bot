@@ -254,8 +254,16 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
       return;
     }
 
+    /* Как на сервере: с groupId — одна команда, без него — все команды
+       человека. Мок, игнорирующий groupId, прятал клиент, который подмешивал
+       текущую команду в запрос «по всем командам». */
+    const groupFilter = url.searchParams.get('groupId');
+    const inGroup = (groupId: string | number) => !groupFilter || String(groupId) === groupFilter;
+
     if (method === 'GET' && path === '/polls/active') {
-      await route.fulfill({ json: ok(state.polls.filter((poll) => poll.status === 'ACTIVE')) });
+      await route.fulfill({
+        json: ok(state.polls.filter((poll) => poll.status === 'ACTIVE' && inGroup(poll.groupId))),
+      });
       return;
     }
     if (method === 'GET' && path === '/polls/last-completed') {
@@ -409,7 +417,7 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
     }
 
     if (method === 'GET' && path === '/store-runs/active') {
-      await route.fulfill({ json: ok(activeStoreRunList(state)) });
+      await route.fulfill({ json: ok(activeStoreRunList(state).filter((run) => inGroup(run.groupId))) });
       return;
     }
     if (method === 'POST' && path === '/store-runs') {

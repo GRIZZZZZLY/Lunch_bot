@@ -35,6 +35,15 @@ class PollsService {
     });
   }
 
+  /**
+   * Активные голосования ВСЕХ команд человека (плашка команд в шапке).
+   * `groupId: undefined` явно: без него api.service подмешал бы текущую
+   * команду, и сервер ответил бы только по ней.
+   */
+  getActiveAllTeams() {
+    return apiService.get<Poll[]>('/polls/active', { params: { groupId: undefined } });
+  }
+
   getActiveForGroup(groupId: string) {
     return apiService.get<Poll | null>(`/polls/active/${groupId}`);
   }

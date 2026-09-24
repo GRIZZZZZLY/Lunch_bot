@@ -19,14 +19,14 @@ export function useTeamActivity(enabled: boolean): ActivityByTeam | null {
   const on = enabled && authed;
   const polls = useQuery({
     queryKey: queryKeys.polls.activeAllTeams,
-    queryFn: async () => ((await pollsService.getActive()).data ?? []) as Poll[],
+    queryFn: async () => ((await pollsService.getActiveAllTeams()).data ?? []) as Poll[],
     enabled: on,
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
   const runs = useQuery({
     queryKey: queryKeys.storeRuns.activeAllTeams(),
-    queryFn: async () => (await storeRunService.getActive()).data ?? [],
+    queryFn: async () => (await storeRunService.getActiveAllTeams()).data ?? [],
     enabled: on,
     staleTime: 15_000,
     refetchInterval: 30_000,

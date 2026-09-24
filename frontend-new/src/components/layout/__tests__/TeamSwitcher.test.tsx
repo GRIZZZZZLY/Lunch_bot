@@ -84,6 +84,20 @@ describe('TeamSwitcher', () => {
     expect(screen.getByRole('radio', { name: 'Офис' })).toHaveAccessibleDescription('Тихо');
   });
 
+  /* Ссылка на старый опрос делает текущей его команду (useAdoptGroup), даже
+     архивную. Без плашки из такой команды было бы не выбраться: ряда команд
+     в Меню больше нет. */
+  it('текущей команды нет среди активных — плашка всё равно даёт выбрать', async () => {
+    useAppStore.setState({ currentGroupId: '30' });
+    h.groups = [...h.groups, group(30, 'Архив', false)];
+    renderSwitcher();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Команда не выбрана. Выбрать' }));
+    expect(screen.getAllByRole('radio').map((o) => o.getAttribute('aria-checked'))).toEqual(['false', 'false']);
+    await userEvent.click(screen.getByRole('radio', { name: 'Офис' }));
+    expect(useAppStore.getState().currentGroupId).toBe('10');
+  });
+
   /* С одной командой выбирать не из чего, а в шапке и так мало места. */
   it('с одной командой не показывается', () => {
     h.groups = [group(10, 'Офис'), group(30, 'Архив', false)];

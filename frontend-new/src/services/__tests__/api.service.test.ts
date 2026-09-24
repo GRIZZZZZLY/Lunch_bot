@@ -15,6 +15,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const fetchMock = vi.fn();
 
 import { apiService } from '../api.service';
+import { pollsService } from '../polls.service';
+import { storeRunService } from '../store-run.service';
 import { useAppStore } from '@/store/useAppStore';
 
 function ok(body: unknown = { success: true }) {
@@ -326,6 +328,18 @@ describe('подмешивание groupId в query', () => {
     expect(url).toContain('daysOld=45');
     expect(url).toContain('kind=polls');
     expect(url.match(/groupId=/g)).toHaveLength(1);
+  });
+
+  /* Плашка команд в шапке спрашивает о ВСЕХ командах человека: сервер
+     отвечает по всем, только если groupId нет вовсе. Подмешанная текущая
+     команда молча сужала ответ до неё, и другие команды всегда были «Тихо». */
+  it('запросы «по всем командам» уходят без groupId', async () => {
+    fetchMock.mockResolvedValue(ok({ success: true, data: [] }));
+    await pollsService.getActiveAllTeams();
+    await storeRunService.getActiveAllTeams();
+
+    expect(requestedUrl(0)).toMatch(/\/polls\/active$/);
+    expect(requestedUrl(1)).toMatch(/\/store-runs\/active$/);
   });
 });
 

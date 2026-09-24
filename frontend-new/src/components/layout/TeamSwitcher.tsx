@@ -32,7 +32,10 @@ export function TeamSwitcher({ activity, busyCount }: TeamSwitcherProps) {
   const uid = useId();
 
   const current = activeGroups.find((g) => String(g.id) === currentGroupId);
-  if (activeGroups.length < 2 || !current) return null;
+  if (activeGroups.length < 2) return null;
+  /* Текущей может оказаться команда не из активных: ссылка на старый опрос
+     делает текущей его команду, даже архивную (useAdoptGroup). Плашка остаётся —
+     другого способа сменить команду в продукте нет. */
 
   const busyId = `${uid}-busy`;
 
@@ -42,11 +45,11 @@ export function TeamSwitcher({ activity, busyCount }: TeamSwitcherProps) {
         type="button"
         className={styles.trigger}
         aria-haspopup="dialog"
-        aria-label={`Команда: ${current.title}. Сменить`}
+        aria-label={current ? `Команда: ${current.title}. Сменить` : 'Команда не выбрана. Выбрать'}
         aria-describedby={busyCount > 0 ? busyId : undefined}
         onClick={() => setOpen(true)}
       >
-        <span className={styles.title}>{current.title}</span>
+        <span className={styles.title}>{current ? current.title : 'Выбрать команду'}</span>
         <Icon name="chevronDown" size={14} />
         {busyCount > 0 && (
           <>

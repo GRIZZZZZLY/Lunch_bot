@@ -1,4 +1,5 @@
 import { expect, test } from '../fixtures/test';
+import { makeActivePoll } from '../scenarios/data';
 
 /**
  * Текущая команда видна на командных экранах, а ссылки из чата открывают
@@ -28,6 +29,22 @@ test.describe('Команда в шапке', () => {
         ),
       )
       .toBe(true);
+  });
+
+  /* Точка на плашке — про ДРУГИЕ команды. Их статусы приходят запросом без
+     groupId; если клиент подмешает текущую команду, мок (как и сервер)
+     ответит только по ней, и точки не будет. */
+  test('на главной точка говорит, что в другой команде идёт голосование', async ({ appPage, api }) => {
+    api.state.polls = [{ ...makeActivePoll(), id: 502, groupId: '2' }];
+    await appPage.goto('/');
+    await expect(
+      appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' }),
+    ).toHaveAccessibleDescription('Что-то идёт в командах: 1');
+
+    await appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' }).click();
+    await expect(appPage.getByRole('radio', { name: 'Команда Спутник' })).toHaveAccessibleDescription(
+      /^Голосуем · /,
+    );
   });
 
   test('в меню команда меняется той же плашкой в шапке', async ({ appPage }) => {
