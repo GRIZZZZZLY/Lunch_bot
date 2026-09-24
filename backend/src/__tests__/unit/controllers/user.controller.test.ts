@@ -135,6 +135,12 @@ describe('PUT /api/user/payment-info', () => {
       paymentPhone: '+79990001122',
       paymentDetails: 'СБП',
     });
+    // ответ PUT перечитывает реквизиты расшифрованными
+    userService.getPaymentInfo.mockResolvedValue({
+      paymentCard: 'https://pay.example/igor',
+      paymentPhone: '+79990001122',
+      paymentDetails: 'СБП',
+    });
   });
 
   it('сохраняет корректные реквизиты', async () => {
@@ -159,6 +165,34 @@ describe('PUT /api/user/payment-info', () => {
     });
     expect(res.body).toMatchObject({
       message: 'Payment info updated successfully',
+    });
+  });
+
+  /* Строка из базы после update зашифрована; клиенту уходит расшифровка. */
+  it('отвечает расшифрованными реквизитами, а не шифротекстом из базы', async () => {
+    userService.updatePaymentInfo.mockResolvedValue({
+      paymentCard: 'aXY=:dGFn:Y2lwaGVy',
+      paymentPhone: 'aXY=:dGFn:cGhvbmU=',
+      paymentDetails: 'aXY=:dGFn:ZGV0YWls',
+    });
+    userService.getPaymentInfo.mockResolvedValue({
+      paymentCard: 'https://pay.example/igor',
+      paymentPhone: '+79990001122',
+      paymentDetails: 'СБП',
+    });
+    const res = mockResponse();
+
+    await UserController.updatePaymentInfo(
+      mockRequest({ user: USER, body: { paymentCard: 'https://pay.example/igor' } }),
+      res
+    );
+
+    expect(res.body).toMatchObject({
+      data: {
+        paymentCard: 'https://pay.example/igor',
+        paymentPhone: '+79990001122',
+        paymentDetails: 'СБП',
+      },
     });
   });
 

@@ -162,7 +162,7 @@ export class UserController {
          старое значение. */
       const clearable = (v: string | null | undefined) => (v === null ? '' : v);
 
-      const updatedUser = await UserService.updatePaymentInfo(user.id, {
+      await UserService.updatePaymentInfo(user.id, {
         paymentCard: clearable(parsed.data.paymentCard),
         paymentPhone: clearable(parsed.data.paymentPhone),
         paymentDetails: clearable(parsed.data.paymentDetails),
@@ -170,12 +170,17 @@ export class UserController {
 
       logger.info(`Payment info updated for user ${user.id}`);
 
+      /* Ответ — расшифрованные реквизиты. updatePaymentInfo возвращает строку
+         из базы, где поля зашифрованы, и раньше клиенту уходил шифротекст:
+         интерфейс его не показывал только потому, что перечитывал GET. */
+      const saved = await UserService.getPaymentInfo(user.id);
+
       res.json({
         success: true,
         data: {
-          paymentCard: updatedUser.paymentCard,
-          paymentPhone: updatedUser.paymentPhone,
-          paymentDetails: updatedUser.paymentDetails,
+          paymentCard: saved?.paymentCard ?? null,
+          paymentPhone: saved?.paymentPhone ?? null,
+          paymentDetails: saved?.paymentDetails ?? null,
         },
         message: 'Payment info updated successfully',
         timestamp: new Date().toISOString(),

@@ -318,6 +318,30 @@ describe('notifyStoreRunSettled', () => {
     expect(text).toContain('Карта:');
   });
 
+  /* Ссылка СБП — не номер карты: раньше её маскировали в «**** …» из
+     случайных символов адреса, а подчёркивания ломали legacy-Markdown. Ссылка
+     уходит только кнопкой, текст несёт фиксированную строку. */
+  it('ссылка СБП приходит кнопкой с точным адресом, без маски и без адреса в тексте', async () => {
+    const link = 'https://www.tinkoff.ru/rm/ivanov_ivan1/Ab3_x9';
+    users.getPaymentInfo.mockResolvedValue({
+      paymentCard: link,
+      paymentPhone: null,
+      paymentDetails: null,
+    });
+    settled([{ fromUserId: 2 }]);
+
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
+
+    const call = api.sendMessage.mock.calls.find(c => c[0] === 1002);
+    const text = call?.[1] as string;
+    expect(text).toContain('Ссылка для перевода — кнопкой ниже');
+    expect(text).not.toContain('****');
+    expect(text).not.toContain(link);
+    const buttons = (call?.[2] as { reply_markup: { inline_keyboard: Array<Array<{ url?: string }>> } })
+      .reply_markup.inline_keyboard.flat();
+    expect(buttons.find(b => b.url)?.url).toBe(link);
+  });
+
   it('телефон и свободное описание тоже попадают в реквизиты', async () => {
     users.getPaymentInfo.mockResolvedValue({
       paymentCard: null,
