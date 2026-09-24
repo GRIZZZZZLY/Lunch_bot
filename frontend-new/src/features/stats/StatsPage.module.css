@@ -6,14 +6,6 @@
   padding: var(--space-4) var(--space-3) var(--space-4);
 }
 
-.title {
-  margin: 0;
-  padding: 0 var(--space-1);
-  font-size: var(--text-22);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
 .group {
   border-radius: var(--radius-block);
   background: var(--surface);

@@ -8,9 +8,11 @@ import { EmptyState, InlineNotice, Skeleton, Status } from '@/shared/ui';
 import { pluralize, pluralForm } from '@/shared/lib/pluralize';
 import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
 import { buildVM } from './lib/buildVM';
+import { useScreenHeader } from '@/app/layouts/screenHeader';
 import styles from './StatsPage.module.css';
 
 export function StatsPage() {
+  useScreenHeader('Статистика');
   const { user, isLoading: authLoading } = useAuth();
   /* Тот же лимит, что у профиля, серии и админки: четыре разных значения
      означали четыре отдельных запроса за одной и той же историей. */
@@ -30,7 +32,6 @@ export function StatsPage() {
   if (loading) {
     return (
       <div className={`rl ${styles.screen}`}>
-        <h1 className={styles.title}>Статистика</h1>
         {/* Заголовок на месте сразу, а место под данные в окне молчания не
             занимаем: ответ может успеть раньше, чем скелет понадобится. */}
         {showSkeleton && (
@@ -50,7 +51,6 @@ export function StatsPage() {
   if (historyQuery.isError) {
     return (
       <div className={`rl ${styles.screen}`}>
-        <h1 className={styles.title}>Статистика</h1>
         <InlineNotice tone="critical">
           Не удалось прочитать историю голосований, поэтому статистику показать не из чего.{' '}
           <button type="button" className={styles.retry} onClick={() => historyQuery.refetch()}>
@@ -64,7 +64,6 @@ export function StatsPage() {
   if (vm.pollsTotal === 0) {
     return (
       <div className={`rl ${styles.screen}`}>
-        <h1 className={styles.title}>Статистика</h1>
         <div className={styles.stateWrap}>
           <EmptyState
             icon="stats"
@@ -78,7 +77,6 @@ export function StatsPage() {
 
   return (
     <div className={`rl ${styles.screen}`}>
-      <h1 className={styles.title}>Статистика</h1>
 
       <section className={styles.group} aria-label="Ваше участие">
         <div className={styles.groupHead}>Ваше участие</div>

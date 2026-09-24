@@ -1,6 +1,7 @@
 /* Профиль (Phase 6, система C). Заглушки удалены сознательно: переключатель
    «Уведомления» ничего не сохранял, строка «Язык» не имела действия —
    не воспроизводить (аудит, план миграции). Тема — реальная функция. */
+import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +27,7 @@ import { formatPhone } from '@/shared/lib/phone';
 import styles from './ProfilePage.module.css';
 
 export function ProfilePage() {
+  useScreenHeader('Профиль');
   const navigate = useNavigate();
   const { user } = useAuth();
   const currentGroupId = useAppStore((s) => s.currentGroupId);
@@ -86,7 +88,7 @@ export function ProfilePage() {
           {name[0].toUpperCase()}
         </div>
         <div className={styles.headerMain}>
-          <h1 className={styles.name}>{name}</h1>
+          <h2 className={styles.name}>{name}</h2>
           <span className={styles.handle}>{handle}</span>
         </div>
       </div>

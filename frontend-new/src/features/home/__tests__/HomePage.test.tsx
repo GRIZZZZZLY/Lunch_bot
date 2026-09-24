@@ -170,7 +170,6 @@ describe('HomePage — состояния', () => {
     expect(screen.getByText('Группы пока нет')).toBeInTheDocument();
     expect(screen.getByText(/Добавьте бота в групповой чат/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Запустить голосование' })).not.toBeInTheDocument();
-    expect(screen.getByText(/Добрый|Доброе/)).toBeInTheDocument();
   });
 
   it('ошибка загрузки → ErrorState с «Повторить»', () => {

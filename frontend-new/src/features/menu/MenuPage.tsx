@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { LaunchAction } from '@/app/useLaunchLinkRoute';
+import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { useToast } from '@/hooks/useToast';
 import {
   useMenuItems,
@@ -122,24 +123,18 @@ export default function MenuPage() {
     setQuery('');
   };
 
+  // Число — только когда меню прочитано: пока идёт загрузка или она упала,
+  // «0 блюд» выдавало сбой за пустое меню.
+  const headerSubtitle = [
+    !isLoading && !error ? pluralize(dishes.length, 'блюдо', 'блюда', 'блюд') : null,
+    activeGroup?.title,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  useScreenHeader('Меню', undefined, headerSubtitle || undefined);
+
   return (
     <div className={`rl ${styles.screen}`}>
-      <div className={styles.head}>
-        <div>
-          <h1 className={styles.title}>Меню</h1>
-          {/* Число — только когда меню прочитано: пока идёт загрузка или она
-              упала, «0 блюд» выдавало сбой за пустое меню. */}
-          <p className={`tnum ${styles.subtitle}`}>
-            {[
-              !isLoading && !error ? pluralize(dishes.length, 'блюдо', 'блюда', 'блюд') : null,
-              activeGroup?.title,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-        </div>
-      </div>
-
       {activeGroups.length > 1 && (
         <div className={styles.cats} role="tablist" aria-label="Группа">
           {activeGroups.map((g, idx) => {

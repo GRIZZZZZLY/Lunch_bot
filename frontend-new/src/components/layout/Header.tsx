@@ -3,13 +3,18 @@ import { SchemeThemeToggle } from '@/components/rl/SchemeThemeToggle';
 import { useBootReveal } from '@/lib/motion';
 
 interface HeaderProps {
-  title?: string;
-  right?: ReactNode;
-  /** Строка под логотипом — текущая команда на корневых вкладках. */
+  /** Заголовок вкладки — единственный h1 экрана. */
+  title?: ReactNode;
+  /** Строка под заголовком. */
   subtitle?: ReactNode;
+  /** Плашка команд справа; null — нет. */
+  team?: ReactNode;
 }
 
-export function Header({ title = 'Rocket Lunch', right, subtitle }: HeaderProps) {
+/* Шапка корневых вкладок: заголовок вкладки, плашка команд, тема. Логотипа и
+   названия продукта нет — Telegram и так показывает имя бота. Правила —
+   docs/design-guidelines/screens.md, «Шапка вкладок». */
+export function Header({ title, subtitle, team }: HeaderProps) {
   // Верхняя грань кадра: при первом открытии оседает сверху (styles/motion.css).
   const boot = useBootReveal();
   // Подложка под шапкой нужна только над прокрученным содержимым (redesign-v2.css).
@@ -45,62 +50,40 @@ export function Header({ title = 'Rocket Lunch', right, subtitle }: HeaderProps)
           padding: '0 16px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 'var(--radius-control-sm)',
-              flexShrink: 0,
-              background: 'var(--vote, var(--accent))',
-              // Пара к --vote: раньше здесь стоял --danger-foreground, и правка
-              // danger-палитры увела бы цвет логотипа.
-              color: 'var(--vote-foreground, #fff)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {/* Логотип — маска, а не <img>: PNG одноцветный, и через
-                background: currentColor знак берёт --vote-foreground, то есть
-                остаётся читаемым и на кирпичной плитке светлой темы, и на
-                оранжевой тёмной. У <img> цвет был бы вшит в файл. */}
-            <div
-              aria-hidden
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {title ? (
+            <h1
+              className="font-head tight"
               style={{
-                width: 22,
-                height: 22,
-                background: 'currentColor',
-                WebkitMaskImage: 'url(/logo-rl.png)',
-                maskImage: 'url(/logo-rl.png)',
-                WebkitMaskSize: 'contain',
-                maskSize: 'contain',
-                WebkitMaskRepeat: 'no-repeat',
-                maskRepeat: 'no-repeat',
-                WebkitMaskPosition: 'center',
-                maskPosition: 'center',
-              }}
-            />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-            <div
-              className="tight"
-              style={{
-                // Unbounded — только бренд (система C)
-                fontFamily: 'var(--font-brand)',
-                fontWeight: 700,
+                margin: 0,
                 fontSize: 'var(--text-16)',
+                fontWeight: 700,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
               }}
             >
               {title}
+            </h1>
+          ) : null}
+          {subtitle ? (
+            <div
+              className="tnum"
+              style={{
+                marginTop: 2,
+                fontSize: 'var(--text-11)',
+                color: 'var(--text-tertiary)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {subtitle}
             </div>
-            {subtitle}
-          </div>
+          ) : null}
         </div>
-        {right ?? <SchemeThemeToggle />}
+        {team}
+        <SchemeThemeToggle />
       </header>
     </div>
   );

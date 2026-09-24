@@ -2,7 +2,7 @@
    без BottomNavigation и без второго брендового header.
    Назад: Telegram BackButton (в браузере — in-app fallback-кнопка);
    открытый оверлей закрывается раньше навигации (lib/backButton.ts). */
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { RouteFallback } from '@/components/common/RouteFallback';
@@ -11,20 +11,14 @@ import { IconButton } from '@/components/rl/primitives';
 import { getWebApp } from '@/lib/telegram';
 import { closeTopOverlay, setBaseBackHandler } from '@/lib/backButton';
 import { useBootReveal, usePageTransition, useRouteFocus } from '@/lib/motion';
-import {
-  ScreenHeaderContext,
-  type ScreenHeaderApi,
-  type ScreenHeaderState,
-} from './screenHeader';
-
-const EMPTY_HEADER: ScreenHeaderState = { title: '' };
+import { ScreenHeaderContext, useScreenHeaderState } from './screenHeader';
 
 export function DetailLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
-  const [header, setHeaderState] = useState<ScreenHeaderState>(EMPTY_HEADER);
+  const { header, api: headerApi } = useScreenHeaderState();
   /* Deep link открывает Mini App прямо здесь, минуя вкладки: кадр собирается
      так же, только без таббара — его на detail-экране нет. */
   const boot = useBootReveal();
@@ -43,17 +37,6 @@ export function DetailLayout() {
   }, [canGoBack, navigate]);
 
   useEffect(() => setBaseBackHandler(goBack), [goBack]);
-
-  const headerApi = useMemo<ScreenHeaderApi>(
-    () => ({
-      set: (next) =>
-        setHeaderState((prev) =>
-          prev.title === next.title && prev.action === next.action ? prev : next,
-        ),
-      reset: () => setHeaderState(EMPTY_HEADER),
-    }),
-    [],
-  );
 
   const inTelegram = !!getWebApp();
 

@@ -1,15 +1,19 @@
-/* Контекст заголовка detail-экрана. DetailLayout рендерит единый
-   ScreenHeader; страницы объявляют title/action через useScreenHeader. */
+/* Контекст заголовка экрана. DetailLayout и RootLayout рендерят единую шапку;
+   страницы объявляют title/action/subtitle через useScreenHeader. */
 import {
   createContext,
   useContext,
   useLayoutEffect,
+  useMemo,
+  useState,
   type ReactNode,
 } from 'react';
 
 export interface ScreenHeaderState {
   title: ReactNode;
   action?: ReactNode;
+  /** Строка под заголовком: дата на Главной, «12 блюд · Офис» в Меню. */
+  subtitle?: ReactNode;
 }
 
 export interface ScreenHeaderApi {
@@ -19,16 +23,37 @@ export interface ScreenHeaderApi {
 
 export const ScreenHeaderContext = createContext<ScreenHeaderApi | null>(null);
 
+const EMPTY_HEADER: ScreenHeaderState = { title: '' };
+
+/** Состояние шапки для layout'а: одно на detail-экраны и на корневые вкладки. */
+export function useScreenHeaderState() {
+  const [header, setHeader] = useState<ScreenHeaderState>(EMPTY_HEADER);
+  const api = useMemo<ScreenHeaderApi>(
+    () => ({
+      set: (next) =>
+        setHeader((prev) =>
+          prev.title === next.title && prev.action === next.action && prev.subtitle === next.subtitle
+            ? prev
+            : next,
+        ),
+      reset: () => setHeader(EMPTY_HEADER),
+    }),
+    [],
+  );
+  return { header, api };
+}
+
 /**
- * Объявляет заголовок и action-слот текущего detail-экрана.
- * ВАЖНО: `action` (JSX) обязан быть мемоизирован (useMemo), иначе каждый
- * рендер страницы будет обновлять layout и зациклит рендер.
+ * Объявляет заголовок, action-слот и подпись текущего экрана.
+ * ВАЖНО: JSX в `title`/`action`/`subtitle` обязан быть мемоизирован
+ * (useMemo), иначе каждый рендер страницы будет обновлять layout и зациклит
+ * рендер. Строки можно передавать как есть.
  */
-export function useScreenHeader(title: ReactNode, action?: ReactNode) {
+export function useScreenHeader(title: ReactNode, action?: ReactNode, subtitle?: ReactNode) {
   const ctx = useContext(ScreenHeaderContext);
   useLayoutEffect(() => {
     if (!ctx) return;
-    ctx.set({ title, action });
+    ctx.set({ title, action, subtitle });
     return () => ctx.reset();
-  }, [ctx, title, action]);
+  }, [ctx, title, action, subtitle]);
 }

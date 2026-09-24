@@ -28,6 +28,11 @@ function DetailProbe() {
   );
 }
 
+function TabProbe() {
+  useScreenHeader('Заголовок вкладки', undefined, 'Подпись вкладки');
+  return <div>tab-контент</div>;
+}
+
 function renderApp(initialPath: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -36,6 +41,8 @@ function renderApp(initialPath: string) {
         <Routes>
           <Route element={<RootLayout />}>
             <Route path="/" element={<div>root-контент</div>} />
+            <Route path="/tab" element={<TabProbe />} />
+            <Route path="/stats" element={<div>stats-контент</div>} />
           </Route>
           <Route element={<DetailLayout />}>
             <Route path="/detail" element={<DetailProbe />} />
@@ -57,6 +64,18 @@ describe('RootLayout', () => {
     renderApp('/');
     expect(screen.getByRole('navigation', { name: 'Основная навигация' })).toBeInTheDocument();
     expect(screen.getByText('root-контент')).toBeInTheDocument();
+  });
+
+  it('заголовок и подпись страницы — в шапке, заголовок — h1 экрана', () => {
+    renderApp('/tab');
+    expect(screen.getByRole('heading', { level: 1, name: 'Заголовок вкладки' })).toBeInTheDocument();
+    expect(screen.getByText('Подпись вкладки')).toBeInTheDocument();
+  });
+
+  it('без заголовка страницы шапка берёт название вкладки, логотипа нет', () => {
+    renderApp('/stats');
+    expect(screen.getByRole('heading', { level: 1, name: 'Статистика' })).toBeInTheDocument();
+    expect(screen.queryByText('Rocket Lunch')).not.toBeInTheDocument();
   });
 });
 

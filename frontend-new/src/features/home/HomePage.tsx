@@ -14,7 +14,7 @@ import type { CreatePollFormState } from '@/components/admin/types';
 import { CreateStoreRunSheet } from '@/features/store-run/components/CreateStoreRunSheet';
 import { ManageStoreSheet } from '@/features/store-run/components/ManageStoreSheet';
 import { useAppStore } from '@/store/useAppStore';
-import { Greeting } from './components/Greeting';
+import { useGreetingHeader } from './hooks/useGreetingHeader';
 import { TicketSlot } from './components/TicketSlot';
 import { FirstScreenSkeleton } from './components/FirstScreenSkeleton';
 import { WinnerRow } from './components/WinnerRow';
@@ -32,6 +32,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading: authLoading } = useAuth();
+  useGreetingHeader(user?.firstName, authLoading);
   const toast = useToast();
   const currentGroupId = useAppStore((s) => s.currentGroupId);
 
@@ -126,13 +127,11 @@ export function HomePage() {
   ) : null;
 
   if (!revealed) {
-    return <FirstScreenSkeleton name={user?.firstName} visible={showSkeleton} />;
+    return <FirstScreenSkeleton visible={showSkeleton} />;
   }
 
   return (
     <div className={`rl ${styles.screen}${waitedForData ? ' anim-cascade' : ''}`}>
-      <Greeting name={user?.firstName} loading={authLoading} />
-
       {/* Обёртка держит место под талон (styles.ticketSlot): без неё приход
           данных сдвигал всё ниже на треть экрана. */}
       <div className={styles.ticketSlot}>

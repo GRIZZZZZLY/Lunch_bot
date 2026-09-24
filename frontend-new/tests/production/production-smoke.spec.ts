@@ -21,7 +21,7 @@ test.describe('Безопасная проверка продакшена тол
       { name: 'Меню', path: '/menu', text: 'Меню' },
       { name: 'Статистика', path: '/stats', text: 'Статистика' },
       { name: 'Профиль', path: '/profile', text: 'Оформление' },
-      { name: 'Главная', path: '/', text: 'Rocket Lunch' },
+      { name: 'Главная', path: '/', text: /^(Доброе утро|Добрый день|Добрый вечер)/ },
     ] as const;
 
     for (const route of routes) {

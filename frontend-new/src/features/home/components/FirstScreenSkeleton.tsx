@@ -6,20 +6,16 @@
  * версткой соответствующих карточек, иначе на переходе появится прыжок.
  */
 import { Skeleton } from '@/shared/ui';
-import { Greeting } from './Greeting';
 import styles from '../HomePage.module.css';
 
 interface FirstScreenSkeletonProps {
-  name?: string;
   /** Окно молчания прошло — скелет можно показывать. */
   visible: boolean;
 }
 
-export function FirstScreenSkeleton({ name, visible }: FirstScreenSkeletonProps) {
+export function FirstScreenSkeleton({ visible }: FirstScreenSkeletonProps) {
   return (
     <div className={`rl ${styles.screen}`}>
-      <Greeting name={name} loading />
-
       <div className={styles.ticketSlot}>
         {visible && (
           <div className={`${styles.group} ${styles.ticketPad}`}>
