@@ -6,7 +6,6 @@ import { Suspense, useCallback, useEffect, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { RouteFallback } from '@/components/common/RouteFallback';
-import { ToastContainer } from '@/components/common/ToastContainer';
 import { IconButton } from '@/components/rl/primitives';
 import { getWebApp } from '@/lib/telegram';
 import { closeTopOverlay, setBaseBackHandler } from '@/lib/backButton';
@@ -102,7 +101,6 @@ export function DetailLayout() {
           </ErrorBoundary>
         </main>
       </ScreenHeaderContext.Provider>
-      <ToastContainer />
     </div>
   );
 }

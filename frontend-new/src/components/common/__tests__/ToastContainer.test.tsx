@@ -15,15 +15,21 @@ describe('ToastContainer', () => {
     expect(screen.getByRole('region', { name: 'Уведомления' })).toBeInTheDocument();
   });
 
-  it('ошибка объявляется как alert и сменяет прежнее уведомление', () => {
+  /* Одна постоянная вежливая область на всё. Своя live-роль у уведомления
+     внутри неё (alert, status) заставляла часть дикторов читать его дважды. */
+  it('новое уведомление сменяет прежнее и объявляется одной областью', () => {
     render(<ToastContainer />);
     act(() => {
       useToastStore.getState().push({ type: 'success', message: 'Сохранено' });
       useToastStore.getState().push({ type: 'error', message: 'Не удалось' });
     });
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Не удалось');
+    const region = screen.getByRole('region', { name: 'Уведомления' });
+    expect(region).toHaveAttribute('aria-live', 'polite');
+    expect(region.querySelector('.toast:not(.is-leaving)')).toHaveTextContent('Не удалось');
     expect(document.querySelectorAll('.toast:not(.is-leaving)')).toHaveLength(1);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   /* Открытая шторка делает #root инертным (BottomSheet). Уведомление внутри

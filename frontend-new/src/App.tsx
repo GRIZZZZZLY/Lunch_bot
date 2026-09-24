@@ -5,6 +5,7 @@ import { RootLayout } from '@/app/layouts/RootLayout';
 import { DetailLayout } from '@/app/layouts/DetailLayout';
 import { useLaunchLinkRoute } from '@/app/useLaunchLinkRoute';
 import { RouteFallback } from '@/components/common/RouteFallback';
+import { ToastContainer } from '@/components/common/ToastContainer';
 import { HomePage } from '@/features/home/HomePage';
 import { menuItemsQueryOptions } from '@/hooks/useMenu';
 import { paymentInfoQueryOptions } from '@/hooks/useUser';
@@ -110,31 +111,36 @@ export function AppRoutes() {
   usePrefetchTabs();
   useLaunchLinkRoute();
   return (
-    /* Внешняя граница — подстраховка для маршрутов вне layout'ов: рабочую
-       заглушку показывают сами layout'ы, сохраняя шапку и навигацию. */
-    <Suspense fallback={<RouteFallback />}>
-      <Routes>
-        <Route element={<RootLayout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/menu" element={<MenuPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          {/* Dev-only playground: в production не регистрируется (404); в
-              навигацию не добавлять. */}
-          {import.meta.env.DEV && <Route path="/dev/ui" element={<UiShowcasePage />} />}
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
+    <>
+      {/* Внешняя граница — подстраховка для маршрутов вне layout'ов: рабочую
+          заглушку показывают сами layout'ы, сохраняя шапку и навигацию. */}
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route element={<RootLayout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/menu" element={<MenuPage />} />
+            <Route path="/stats" element={<StatsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            {/* Dev-only playground: в production не регистрируется (404); в
+                навигацию не добавлять. */}
+            {import.meta.env.DEV && <Route path="/dev/ui" element={<UiShowcasePage />} />}
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
 
-        <Route element={<DetailLayout />}>
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/budget" element={<BudgetPage />} />
-          <Route path="/poll/history" element={<PollHistoryPage />} />
-          <Route path="/poll/:id/results" element={<PollResultsPage />} />
-          <Route path="/store-run/:id" element={<StoreRunPage />} />
-          <Route path="/suggestions" element={<SuggestionsPage />} />
-          <Route path="/suggestions/mine" element={<SuggestionsPage onlyMine />} />
-        </Route>
-      </Routes>
-    </Suspense>
+          <Route element={<DetailLayout />}>
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/budget" element={<BudgetPage />} />
+            <Route path="/poll/history" element={<PollHistoryPage />} />
+            <Route path="/poll/:id/results" element={<PollResultsPage />} />
+            <Route path="/store-run/:id" element={<StoreRunPage />} />
+            <Route path="/suggestions" element={<SuggestionsPage />} />
+            <Route path="/suggestions/mine" element={<SuggestionsPage onlyMine />} />
+          </Route>
+        </Routes>
+      </Suspense>
+      {/* Над раскладками и вне Suspense: переход вкладка ↔ detail-экран и
+          ожидание чанка её не пересоздают. */}
+      <ToastContainer />
+    </>
   );
 }

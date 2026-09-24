@@ -8,10 +8,16 @@ import { useAppStore } from '@/store/useAppStore';
 const h = vi.hoisted(() => ({
   groups: [] as unknown[],
   activity: null as ActivityByTeam | null,
+  enabled: undefined as boolean | undefined,
 }));
 
 vi.mock('@/hooks/useUser', () => ({ useMyGroups: () => ({ data: h.groups }) }));
-vi.mock('@/hooks/useTeamActivity', () => ({ useTeamActivity: () => h.activity }));
+vi.mock('@/hooks/useTeamActivity', () => ({
+  useTeamActivity: (enabled: boolean) => {
+    h.enabled = enabled;
+    return h.activity;
+  },
+}));
 
 import { TeamSlot } from '../TeamSlot';
 
@@ -77,6 +83,20 @@ describe('TeamSlot — одна команда', () => {
     h.activity = null;
     renderAt('/profile');
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+});
+
+describe('TeamSlot — запросы статусов', () => {
+  /* Без команд спрашивать не о ком: запросы раз в 30 секунд вернули бы пустоту. */
+  it('без команд статусы не запрашиваются', () => {
+    h.groups = [];
+    renderAt('/menu');
+    expect(h.enabled).toBe(false);
+  });
+
+  it('одна команда вне Главной — запрашиваются', () => {
+    renderAt('/menu');
+    expect(h.enabled).toBe(true);
   });
 });
 

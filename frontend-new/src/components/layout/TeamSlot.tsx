@@ -21,8 +21,9 @@ export function TeamSlot() {
     () => groups.filter((g) => g.isActive).map((g) => String(g.id)),
     [groups],
   );
-  /* Одной команде на Главной плашка не нужна — не тратим и запросы. */
-  const activity = useTeamActivity(teamIds.length >= 2 || !onHome);
+  /* Одной команде на Главной плашка не нужна, а без команд спрашивать не о
+     ком — не тратим и запросы. */
+  const activity = useTeamActivity(teamIds.length >= 2 || (teamIds.length === 1 && !onHome));
   const model = teamSlotModel({ teamIds, currentGroupId, activity: activity ?? {}, onHome });
 
   switch (model.kind) {

@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RootLayout } from '../RootLayout';
 import { DetailLayout } from '../DetailLayout';
 import { useScreenHeader } from '../screenHeader';
+import { NotFoundPage } from '@/pages/NotFoundPage';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { _resetBackButtonForTests } from '@/lib/backButton';
 import { useAppStore } from '@/store/useAppStore';
@@ -43,6 +44,7 @@ function renderApp(initialPath: string) {
             <Route path="/" element={<div>root-контент</div>} />
             <Route path="/tab" element={<TabProbe />} />
             <Route path="/stats" element={<div>stats-контент</div>} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
           <Route element={<DetailLayout />}>
             <Route path="/detail" element={<DetailProbe />} />
@@ -70,6 +72,19 @@ describe('RootLayout', () => {
     renderApp('/tab');
     expect(screen.getByRole('heading', { level: 1, name: 'Заголовок вкладки' })).toBeInTheDocument();
     expect(screen.getByText('Подпись вкладки')).toBeInTheDocument();
+  });
+
+  it('своей области уведомлений у раскладок нет — она одна, в AppRoutes', () => {
+    renderApp('/');
+    expect(screen.queryByRole('region', { name: 'Уведомления' })).not.toBeInTheDocument();
+    renderApp('/detail');
+    expect(screen.queryByRole('region', { name: 'Уведомления' })).not.toBeInTheDocument();
+  });
+
+  it('у экрана 404 есть заголовок первого уровня, и текст не дублируется', async () => {
+    renderApp('/unknown/path');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Экран не найден' })).toBeInTheDocument();
+    expect(screen.getAllByText('Экран не найден')).toHaveLength(1);
   });
 
   it('без заголовка страницы шапка берёт название вкладки, логотипа нет', () => {

@@ -1,6 +1,7 @@
 /* DEV-only витрина примитивов Phase 2C (/dev/ui). В production маршрут
    не регистрируется. Нужна для визуальной проверки и скриншотов тем. */
 import { useState } from 'react';
+import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { ConfirmDialog, EmptyState, ErrorState, InlineNotice, Skeleton, Status, TextField } from '@/shared/ui';
 import { Button, IconButton } from '@/components/rl/primitives';
 import { useCountdown } from '@/shared/lib/useCountdown';
@@ -17,6 +18,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function UiShowcasePage() {
+  useScreenHeader('Витрина компонентов');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingOpen, setPendingOpen] = useState(false);
   const [price, setPrice] = useState('0');

@@ -16,6 +16,8 @@ test.describe('Безопасная проверка продакшена тол
     const navigation = appPage.getByRole('navigation', { name: 'Основная навигация' });
     await expect(navigation).toBeVisible();
     await expect(appPage.getByRole('alert')).toHaveCount(0);
+    // Уведомления без live-роли: ошибку-уведомление ищем по её виду.
+    await expect(appPage.locator('.toast-error')).toHaveCount(0);
 
     const routes = [
       { name: 'Меню', path: '/menu', text: 'Меню' },

@@ -19,7 +19,10 @@ export function ToastContainer() {
   const dismiss = useToastStore((s) => s.dismiss);
 
   /* Область объявлений живёт всегда: live-region, появившийся вместе с первым
-     сообщением, экранный диктор может не заметить.
+     сообщением, экранный диктор может не заметить. Она единственная: своя
+     роль alert/status у уведомления внутри неё давала двойное чтение.
+     Монтируется один раз в AppRoutes, над раскладками, — переход вкладка ↔
+     detail-экран её не пересоздаёт.
 
      Портал у body, рядом со шторками, а не внутри #root: открытая шторка
      делает #root инертным (BottomSheet), и уведомление там было бы видно
@@ -30,7 +33,6 @@ export function ToastContainer() {
         <div
           key={t.id}
           className={`toast surf-elevated toast-${t.type}${t.leaving ? ' is-leaving' : ''}`}
-          role={t.type === 'error' ? 'alert' : 'status'}
         >
           <span className="toast-icon" aria-hidden>
             <Icon name={ICON[t.type]} size={14} />

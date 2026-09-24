@@ -7,7 +7,6 @@ import { TeamSlot } from '@/components/layout/TeamSlot';
 import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { RouteFallback } from '@/components/common/RouteFallback';
-import { ToastContainer } from '@/components/common/ToastContainer';
 import { ROOT_TABS } from '@/app/navigation';
 import { useBootReveal, usePageTransition, useRouteFocus } from '@/lib/motion';
 import { ScreenHeaderContext, useScreenHeaderState } from './screenHeader';
@@ -60,7 +59,6 @@ export function RootLayout() {
       </ScreenHeaderContext.Provider>
 
       <BottomNavigation items={ROOT_TABS} />
-      <ToastContainer />
     </div>
   );
 }
