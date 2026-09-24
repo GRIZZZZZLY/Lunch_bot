@@ -3,20 +3,33 @@
 Резервная копия считается рабочей только после успешного пробного
 восстановления в отдельную базу той же основной версии PostgreSQL.
 
-## Продакшен: копия вне сервера
+## Продакшен
 
-На сервере PostgreSQL 16 работает без контейнера, поэтому скрипты ниже (они
-обращаются к контейнеру `foodbot-postgres`) там не подходят. Для продакшена
-предназначен `scripts/backup-postgres-offsite.sh`: `pg_dump` в gzip и
-зашифрованный снимок restic в удалённое хранилище, запуск из cron. Настроен ли
-cron на сервере, из репозитория не видно — это проверяется на сервере.
+На сервере PostgreSQL 16 работает без контейнера, поэтому скрипты разработки
+ниже (они обращаются к контейнеру `foodbot-postgres`) там не подходят.
 
-Пробное восстановление — только в отдельную базу: дамп снят с
-`--clean --if-exists` и в рабочей базе сначала удалит таблицы. Порядок описан в
-шапке скрипта: `restic restore` → `createdb` проверочной базы →
-`gunzip | psql` → сверка числа строк ключевых таблиц с рабочей базой →
-`npx prisma migrate status` → запуск API на проверочной базе и `/health/ready`.
+Ежедневную копию снимает таймер systemd `telegram-food-bot-backup-db`
+(`backup-db.sh`, установка — `ops/backup-db/install-vps.sh`, подробности —
+[DEPLOYMENT.md](../DEPLOYMENT.md)): дамп в формате custom с файлом `.sha256` в
+`~/backups/rocket-lunch`, хранится 14 копий. Внеочередная копия перед выкатом:
+`sudo systemctl start telegram-food-bot-backup-db.service`.
+
+Пробное восстановление — только в отдельную базу:
+
+```bash
+cd ~/backups/rocket-lunch && sha256sum -c <копия>.dump.sha256
+sudo -u postgres createdb foodbot_restore_check
+sudo -u postgres pg_restore --no-owner --no-acl --exit-on-error \
+  -d foodbot_restore_check < <копия>.dump
+# сверить число строк ключевых таблиц и сумму долгов с foodbot_db
+sudo -u postgres dropdb foodbot_restore_check
+```
+
 Время восстановления записывайте по продовой базе: оно и есть фактический RTO.
+
+`scripts/backup-postgres-offsite.sh` (копия вне сервера через restic) на сервер
+не установлен: restic там нет. Если его ставить — порядок проверки в шапке
+скрипта, тоже только в отдельную базу: его дамп снят с `--clean --if-exists`.
 
 ## Создание копии (разработка, Docker)
 
