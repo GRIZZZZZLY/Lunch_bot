@@ -367,8 +367,14 @@ describe('createApiServer', () => {
     ['/sw.js', 'no-cache, no-store, must-revalidate'],
     ['/workbox-abc.js', 'no-cache, no-store, must-revalidate'],
     ['/assets/app-a1b2c3d4.js', 'public, max-age=31536000, immutable'],
+    // настоящий хеш Vite — base64url, не шестнадцатеричный
+    ['/assets/BudgetPage-Bovztort.js', 'public, max-age=31536000, immutable'],
+    ['/assets/icon-Ab3_E-9z.png', 'public, max-age=31536000, immutable'],
     ['/assets/app.js', 'public, max-age=3600, must-revalidate'],
-    ['/assets/logo.png', 'public, max-age=2592000'],
+    // картинка без хеша (public/) перепроверяется: замена логотипа видна сразу
+    ['/logo-rl.png', 'public, max-age=3600, must-revalidate'],
+    ['/theme-boot.js', 'public, max-age=3600, must-revalidate'],
+    ['/fonts/onest-cyrillic.woff2', 'public, max-age=2592000'],
     ['/assets/data.json', 'public, max-age=3600'],
   ])('кэширование %s — %s', async (url, expected) => {
     const { createApiServer } = loadServer();

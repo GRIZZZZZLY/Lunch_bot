@@ -278,17 +278,21 @@ export function createApiServer(): express.Application {
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
     }
-    // JS и CSS с хешами в имени - долгое кеширование (immutable)
-    else if (/\.(js|css)$/.test(path) && /-[a-f0-9]{8}\.(js|css)$/.test(path)) {
+    /* Файлы сборки с хешем в имени — навсегда: новое содержимое получает новое
+       имя. Vite пишет хеш в base64url (`BudgetPage-Bovztort.js`); прежнее
+       правило ждало шестнадцатеричный и не срабатывало ни разу. */
+    else if (path.startsWith('/assets/') && /-[A-Za-z0-9_-]{8}\.\w+$/.test(path)) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
-    // Остальные JS/CSS - короткое кеширование
-    else if (/\.(js|css)$/.test(path)) {
-      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate'); // 1 час
-    }
-    // Изображения и шрифты - долгое кеширование
-    else if (/\.(png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/.test(path)) {
+    // Шрифты меняются только сменой имени файла - долгое кеширование
+    else if (/\.(woff|woff2|ttf|eot)$/.test(path)) {
       res.setHeader('Cache-Control', 'public, max-age=2592000'); // 30 дней
+    }
+    /* JS, CSS и картинки без хеша (logo, theme-boot.js из public/) — час с
+       перепроверкой. Раньше картинки держались 30 дней, и замену логотипа
+       Cloudflare и браузеры не показывали бы месяц. */
+    else if (/\.(js|css|png|jpg|jpeg|gif|svg|ico)$/.test(path)) {
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate'); // 1 час
     }
     // Все остальное - короткое кеширование
     else {
