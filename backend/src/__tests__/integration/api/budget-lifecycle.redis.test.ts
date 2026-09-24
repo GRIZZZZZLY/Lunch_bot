@@ -760,10 +760,22 @@ describe('отмена отметки отменяет и уведомление
       .expect(200);
     expect(await statusOf(world.debtInA)).toBe('PENDING');
 
-    /* 3. Telegram восстановился, очередь дошла до задания. */
+    /* 3. Telegram восстановился, очередь дошла до заданий. Немедленная
+       попытка отправить уведомление об отмене могла успеть в сломанный
+       Telegram раньше замены бота — тогда оно тоже ждёт повтора. Раньше тест
+       делал готовым только первое задание и падал на таком порядке. Ждём
+       конца немедленных попыток и делаем готовыми все задания этого долга:
+       при любом порядке уведомление об отмене уходит ровно один раз. */
     const bot = silentBot();
+    for (let i = 0; i < 40; i++) {
+      const inFlight = await prisma.outboxEvent.count({
+        where: { entityType: 'TRANSACTION', entityId: world.debtInA, claimedUntil: { not: null } },
+      });
+      if (inFlight === 0) break;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
     await prisma.outboxEvent.updateMany({
-      where: { id: job.id },
+      where: { entityType: 'TRANSACTION', entityId: world.debtInA, status: 'PENDING' },
       data: { nextAttemptAt: new Date(Date.now() - 1_000) },
     });
 
