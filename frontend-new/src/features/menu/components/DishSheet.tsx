@@ -92,17 +92,19 @@ export function DishSheet({
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* «Например:» в подсказках: без него «Пельмени с говядиной» и «350»
+            читались как уже введённые значения. */}
         <TextField
           label="Название"
           value={name}
           autoFocus={!initial}
-          placeholder="Пельмени с говядиной"
+          placeholder="Например: пельмени с говядиной"
           onChange={(e) => setName(e.target.value)}
         />
         <TextField
           label="Описание (необязательно)"
           value={desc}
-          placeholder="Сметана, укроп, свежий чеснок"
+          placeholder="Например: сметана, укроп, чеснок"
           onChange={(e) => setDesc(e.target.value)}
         />
         <div className={styles.formGrid}>
@@ -110,13 +112,13 @@ export function DishSheet({
             label="Цена, ₽"
             value={price}
             inputMode="decimal"
-            placeholder="350"
+            placeholder="Например: 350"
             onChange={(e) => setPrice(e.target.value)}
           />
           <TextField
             label="Категория"
             value={cat}
-            placeholder="Горячее"
+            placeholder="Например: горячее"
             onChange={(e) => setCat(e.target.value)}
           />
         </div>

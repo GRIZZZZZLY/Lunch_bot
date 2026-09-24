@@ -91,7 +91,7 @@ export function CreateStoreRunSheet({
         <Field
           id="store-run-name"
           value={name}
-          placeholder="Пятёрочка у офиса"
+          placeholder="Например: Лента у метро"
           onChange={(e: ChangeEvent<HTMLInputElement>) => {
             setFreeName(e.target.value);
             setStoreId(null);

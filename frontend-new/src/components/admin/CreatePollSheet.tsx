@@ -11,6 +11,7 @@ import { hapticSelection } from '@/lib/haptics';
 import { Icon } from '@/components/rl/Icon';
 import { DAY_LABELS } from '@/lib/schedule';
 import { formatPriceOrDash } from '@/shared/lib/money';
+import { ConfirmDialog } from '@/shared/ui';
 
 const DEFAULT_DURATION_MINUTES = 30;
 
@@ -82,6 +83,7 @@ export function CreatePollSheet({
      к «90» и пустая строка при стирании — валидные состояния ввода, но не
      длительности; в состояние формы попадает только разобранное число. */
   const [customRaw, setCustomRaw] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // Компонент не размонтируется между открытиями — на каждое открытие
   // пересобираем форму, иначе остаётся выбор прошлой сессии (группа, блюда).
@@ -90,6 +92,7 @@ export function CreatePollSheet({
     if (open && !wasOpen.current) {
       setState(makeInitial(ctx, initial));
       setCustomRaw(null);
+      setConfirmingDelete(false);
     }
     wasOpen.current = open;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -356,10 +359,27 @@ export function CreatePollSheet({
               style={{ width: '100%', marginTop: 12 }}
               loading={deletingSchedule}
               disabled={submitting || deletingSchedule}
-              onClick={onDeleteSchedule}
+              onClick={() => setConfirmingDelete(true)}
             >
               Удалить расписание
             </Button>
+          )}
+          {/* Одно касание удаляло расписание целиком, без отмены: для
+              необратимого действия нужен вопрос, как у удаления блюда. */}
+          {confirmingDelete && schedule && onDeleteSchedule && (
+            <ConfirmDialog
+              title="Удалить расписание?"
+              description={`Голосования перестанут запускаться сами в ${schedule.time}. Прошедшие останутся в истории.`}
+              confirmLabel="Удалить расписание"
+              cancelLabel="Оставить"
+              destructive
+              pending={deletingSchedule}
+              onConfirm={() => {
+                setConfirmingDelete(false);
+                onDeleteSchedule();
+              }}
+              onCancel={() => setConfirmingDelete(false)}
+            />
           )}
         </div>
       )}

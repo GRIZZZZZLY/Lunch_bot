@@ -117,15 +117,17 @@ function UserRow({
       <div className={styles.rowActions}>
         {/* Подписи говорят, что произойдёт по нажатию, а не в каком человек
             состоянии: кнопка «Активен» блокировала участника. */}
+        {/* Нейтральная кнопка в обоих состояниях: зелёная «Снять» красила
+            понижение в цвет успеха, а «Админ» читалась как статус, не действие. */}
         <Button
           size="sm"
-          variant={user.isAdmin ? 'success' : 'secondary'}
+          variant="secondary"
           icon="crown"
           loading={busyAdmin}
           aria-label={user.isAdmin ? `Снять админа: ${name}` : `Сделать админом: ${name}`}
           onClick={onToggleAdmin}
         >
-          {user.isAdmin ? 'Снять' : 'Админ'}
+          {user.isAdmin ? 'Снять' : 'Назначить'}
         </Button>
         <Button
           size="sm"

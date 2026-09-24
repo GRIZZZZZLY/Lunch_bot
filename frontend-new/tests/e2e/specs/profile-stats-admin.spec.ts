@@ -38,6 +38,8 @@ test.describe('Профиль и настройки', () => {
     await appPage.getByRole('button', { name: 'Написать отзыв' }).click();
     const feedback = appPage.getByRole('dialog', { name: 'Оставьте отзыв' });
     await feedback.getByRole('button', { name: '5 звёзд' }).click();
+    // оценка озвучивается, а не только красится
+    await expect(feedback.getByRole('button', { name: '5 звёзд' })).toHaveAttribute('aria-pressed', 'true');
     await feedback.getByRole('textbox', { name: 'Текст отзыва' }).fill('Очень удобно');
     await feedback.getByRole('button', { name: 'Отправить' }).click();
     expect(api.lastRequest('POST', '/feedback')?.body).toMatchObject({ message: '[5★] Очень удобно' });

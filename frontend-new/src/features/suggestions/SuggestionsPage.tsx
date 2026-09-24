@@ -373,18 +373,18 @@ function SuggestionSheet({
         {/* Текст в шторке остаётся вместе с заполненной формой: переписывать
             название заново из-за обрыва связи человек не должен. */}
         {failure && <InlineNotice tone="critical">{failure}</InlineNotice>}
-        <TextField label="Название" value={name} autoFocus placeholder="Поке с лососем" onChange={(e) => setName(e.target.value)} />
+        <TextField label="Название" value={name} autoFocus placeholder="Например: поке с лососем" onChange={(e) => setName(e.target.value)} />
         <TextField
           label="Описание (необязательно)"
           value={description}
-          placeholder="Рис, лосось, авокадо"
+          placeholder="Например: рис, лосось, авокадо"
           onChange={(e) => setDescription(e.target.value)}
         />
         <TextField
           label="Примерная цена, ₽ (необязательно)"
           value={price}
           inputMode="decimal"
-          placeholder="450"
+          placeholder="Например: 450"
           hint="Админ группы посмотрит предложение и добавит блюдо в меню."
           onChange={(e) => setPrice(e.target.value)}
         />

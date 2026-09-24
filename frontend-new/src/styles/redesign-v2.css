@@ -536,3 +536,20 @@
   min-width: 100%;
   transform: translate(-50%, -50%);
 }
+
+/* Подложка шапки появляется только после прокрутки (класс is-scrolled ставит
+   Header.tsx). В покое обёртка прозрачна, чтобы в отступах была видна точечная
+   фактура; прокрученные карточки при этом выглядывали над и по бокам плавающей
+   шапки. Не scroll-timeline: с ним зависал axe в проверках доступности. */
+.rl.app-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--canvas);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+.rl.app-header.is-scrolled::before {
+  opacity: 1;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CreatePollSheet, type SheetSchedule } from '../CreatePollSheet';
 import type { CreatePollContext } from '../types';
@@ -172,10 +172,17 @@ describe('CreatePollSheet — расписание уже настроено', (
     expect(state.recurringDays).toContain('Сб');
   });
 
-  it('удаление расписания зовёт обработчик', async () => {
+  it('удаление расписания зовёт обработчик только после подтверждения', async () => {
     const { onDeleteSchedule } = renderSheet({ schedule });
     await userEvent.click(recurringSwitch());
+
     await userEvent.click(screen.getByRole('button', { name: 'Удалить расписание' }));
+    expect(onDeleteSchedule).not.toHaveBeenCalled();
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Оставить' }));
+    expect(onDeleteSchedule).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить расписание' }));
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Удалить расписание' }));
     expect(onDeleteSchedule).toHaveBeenCalledTimes(1);
   });
 

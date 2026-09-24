@@ -257,7 +257,7 @@ export function BudgetPage() {
                 переводит, и прошедшее время читалось как «уже списано».
                 Инфинитив заодно снимает вопрос рода. */}
             {/* Итог меняется после каждого действия — озвучиваем. */}
-            <span className={`tnum ${styles.groupTotal}`} role="status">
+            <span className={`tnum ${styles.groupTotal} ${styles.groupTotalOwed}`} role="status">
               {formatPrice(vm.myDebtTotal)}
             </span>
           </div>

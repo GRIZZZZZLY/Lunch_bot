@@ -4,6 +4,7 @@ import { Button, Field } from '@/components/rl/primitives';
 import { Icon } from '@/components/rl/Icon';
 import { useSendFeedback } from '@/hooks/useFeedback';
 import { useAuth } from '@/hooks/useAuth';
+import { pluralize } from '@/shared/lib/pluralize';
 
 interface Props {
   open: boolean;
@@ -70,18 +71,24 @@ export function FeedbackModal({ open, onClose }: Props) {
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 'var(--text-13)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Оценка</div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              key={n}
-              type="button"
-              className="btn btn--secondary press"
-              style={{ flex: 1, color: rating !== null && n <= rating ? 'var(--warning)' : 'var(--text-tertiary)' }}
-              onClick={() => setRating(n)}
-              aria-label={`${n} звёзд`}
-            >
-              <Icon name="star" size={20} stroke={rating !== null && n <= rating ? 2.2 : 1.75} />
-            </button>
-          ))}
+          {[1, 2, 3, 4, 5].map((n) => {
+            const on = rating !== null && n <= rating;
+            /* Выбранная звезда заливается: одна смена цвета контура почти не
+               отличала пять звёзд от ни одной. */
+            return (
+              <button
+                key={n}
+                type="button"
+                className="btn btn--secondary press"
+                style={{ flex: 1, color: on ? 'var(--warning)' : 'var(--text-tertiary)' }}
+                onClick={() => setRating(n)}
+                aria-label={pluralize(n, 'звезда', 'звезды', 'звёзд')}
+                aria-pressed={rating === n}
+              >
+                <Icon name="star" size={20} stroke={on ? 2.2 : 1.75} style={on ? { fill: 'currentColor' } : undefined} />
+              </button>
+            );
+          })}
         </div>
       </div>
       <Field

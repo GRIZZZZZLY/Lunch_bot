@@ -173,8 +173,16 @@ test.describe('Создание голосования', () => {
       await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
       const sheet = appPage.getByRole('dialog', { name: 'Создать опрос' });
       await sheet.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
-      await sheet.getByRole('button', { name: 'Удалить расписание' }).click();
 
+      // удаление необратимо — сначала вопрос, и «Оставить» ничего не трогает
+      await sheet.getByRole('button', { name: 'Удалить расписание' }).click();
+      const confirm = appPage.getByRole('alertdialog');
+      await expect(confirm).toContainText('перестанут запускаться сами в 11:30');
+      await confirm.getByRole('button', { name: 'Оставить' }).click();
+      expect(api.requests('DELETE', '/recurring/1101')).toHaveLength(0);
+
+      await sheet.getByRole('button', { name: 'Удалить расписание' }).click();
+      await confirm.getByRole('button', { name: 'Удалить расписание' }).click();
       await expect(appPage.getByText('Расписание удалено')).toBeVisible();
       expect(api.requests('DELETE', '/recurring/1101')).toHaveLength(1);
 

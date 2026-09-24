@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { SchemeThemeToggle } from '@/components/rl/SchemeThemeToggle';
 import { useBootReveal } from '@/lib/motion';
 
@@ -12,10 +12,18 @@ interface HeaderProps {
 export function Header({ title = 'Rocket Lunch', right, subtitle }: HeaderProps) {
   // Верхняя грань кадра: при первом открытии оседает сверху (styles/motion.css).
   const boot = useBootReveal();
+  // Подложка под шапкой нужна только над прокрученным содержимым (redesign-v2.css).
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <div
-      className={boot ? 'rl anim-boot-top' : 'rl'}
+      className={`rl app-header${scrolled ? ' is-scrolled' : ''}${boot ? ' anim-boot-top' : ''}`}
       style={{
         position: 'sticky',
         top: 0,

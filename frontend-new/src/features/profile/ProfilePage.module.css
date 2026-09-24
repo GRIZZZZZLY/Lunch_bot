@@ -90,6 +90,22 @@
   cursor: pointer;
 }
 
+/* Строчная кнопка в тексте: зона касания добирается до 44 px псевдоэлементом,
+   как у .chip, а строка не раздувается. */
+.retry {
+  position: relative;
+}
+
+.retry::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 50%;
+  height: var(--control-md);
+  transform: translateY(-50%);
+}
+
 .retry:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
