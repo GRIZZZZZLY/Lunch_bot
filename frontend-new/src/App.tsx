@@ -7,6 +7,7 @@ import { useLaunchLinkRoute } from '@/app/useLaunchLinkRoute';
 import { RouteFallback } from '@/components/common/RouteFallback';
 import { HomePage } from '@/features/home/HomePage';
 import { menuItemsQueryOptions } from '@/hooks/useMenu';
+import { paymentInfoQueryOptions } from '@/hooks/useUser';
 import { PROFILE_HISTORY_LIMIT, pollHistoryQueryOptions } from '@/hooks/useUser';
 import { queryClient } from '@/lib/queryClient';
 import { useAppStore } from '@/store/useAppStore';
@@ -74,6 +75,9 @@ function usePrefetchTabs() {
          Статистика и профиль читают одну историю с общим лимитом. */
       if (authStatus !== 'authenticated') return;
       queryClient.prefetchQuery(menuItemsQueryOptions({ groupId: currentGroupId })).catch(swallow);
+      /* Реквизиты профиля: без предзагрузки карточка секунду говорила «СБП не
+         задано», а потом показывала номер. От команды не зависят. */
+      queryClient.prefetchQuery(paymentInfoQueryOptions()).catch(swallow);
       /* История команды: тот же аргумент группы, что и в usePollHistory, —
          иначе греется соседняя ячейка кэша. Без команды греть нечего. */
       if (currentGroupId === null) return;

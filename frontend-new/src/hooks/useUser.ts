@@ -24,13 +24,21 @@ export function useMyGroups() {
   });
 }
 
+/** Общая для хука и предзагрузки вкладок (App.tsx): разойдутся ключ или
+    queryFn — предзагрузка согреет соседнюю ячейку кэша. */
+export function paymentInfoQueryOptions() {
+  return {
+    queryKey: ['user', 'payment-info'],
+    queryFn: async (): Promise<PaymentInfo | undefined> => (await userService.getPaymentInfo()).data,
+    staleTime: 60_000,
+  };
+}
+
 export function usePaymentInfo() {
   const authStatus = useAppStore((s) => s.authStatus);
   return useQuery({
-    queryKey: ['user', 'payment-info'],
-    queryFn: async (): Promise<PaymentInfo | undefined> => (await userService.getPaymentInfo()).data,
+    ...paymentInfoQueryOptions(),
     enabled: authStatus === 'authenticated',
-    staleTime: 60_000,
   });
 }
 

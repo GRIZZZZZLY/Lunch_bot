@@ -33,6 +33,18 @@ test.describe('Профиль и настройки', () => {
     expect(await appPage.evaluate(() => localStorage.getItem('rl-theme'))).toBe('dark');
   });
 
+  /* Реквизиты греются в фоне ещё на главной: профиль показывает номер сразу,
+     без секундного «СБП не задано» и без второго запроса. */
+  test('реквизиты загружены заранее и видны сразу при открытии профиля', async ({ appPage, api }) => {
+    await appPage.goto('/');
+    await expect.poll(() => api.requests('GET', '/user/payment-info').length).toBe(1);
+
+    await appPage.getByRole('navigation').getByRole('link', { name: 'Профиль' }).click();
+    await expect(appPage.getByText('СБП +7 900 111-22-33')).toBeVisible();
+    await expect(appPage.getByText('СБП не задано')).toHaveCount(0);
+    expect(api.requests('GET', '/user/payment-info')).toHaveLength(1);
+  });
+
   test('отправляет отзыв и открывает внешнюю оплату без настоящего платежа', async ({ appPage, api, telegram }) => {
     await appPage.goto('/profile');
     await appPage.getByRole('button', { name: 'Написать отзыв' }).click();

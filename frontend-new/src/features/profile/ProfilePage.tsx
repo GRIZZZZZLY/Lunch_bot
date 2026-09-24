@@ -20,7 +20,7 @@ import { FeedbackModal } from '@/components/modals/FeedbackModal';
 import { DonationModal } from '@/components/modals/DonationModal';
 import { SchemeThemeToggle } from '@/components/rl/SchemeThemeToggle';
 import { Icon } from '@/components/rl/Icon';
-import { InlineNotice, Status } from '@/shared/ui';
+import { InlineNotice, Skeleton, Status } from '@/shared/ui';
 import { pluralForm, pluralize } from '@/shared/lib/pluralize';
 import { formatPhone } from '@/shared/lib/phone';
 import styles from './ProfilePage.module.css';
@@ -30,7 +30,7 @@ export function ProfilePage() {
   const { user } = useAuth();
   const currentGroupId = useAppStore((s) => s.currentGroupId);
   const { data: myGroups = [] } = useMyGroups();
-  const { data: paymentInfo } = usePaymentInfo();
+  const { data: paymentInfo, isLoading: paymentLoading } = usePaymentInfo();
   const updatePayment = useUpdatePaymentInfo();
   /* Тот же лимит, что и у useStreak, — иначе ключи разойдутся и профиль
      сходит за историей дважды. */
@@ -151,13 +151,27 @@ export function ProfilePage() {
           <div className={styles.rowMain}>
             {/* Номер целиком, не «+7 *** 33»: строка нужна, чтобы убедиться,
                 что деньги придут куда надо, и маска этому мешала. */}
+            {/* Пока реквизиты не прочитаны — заглушка в высоту строк, а не
+                «СБП не задано»: ложное «не задано» секунду спустя менялось на
+                номер, и строка дёргалась. Обычно данные уже в кэше: их греет
+                предзагрузка вкладок (App.tsx). */}
             <span className={`tnum ${styles.rowName}`}>
-              {paymentInfo?.paymentPhone ? `СБП ${formatPhone(paymentInfo.paymentPhone)}` : 'СБП не задано'}
+              {paymentLoading ? (
+                <Skeleton variant="text" width="55%" height={14} style={{ display: 'inline-block', verticalAlign: 'middle' }} />
+              ) : paymentInfo?.paymentPhone ? (
+                `СБП ${formatPhone(paymentInfo.paymentPhone)}`
+              ) : (
+                'СБП не задано'
+              )}
             </span>
             <span className={styles.rowSub}>
-              {paymentInfo?.paymentPhone
-                ? paymentInfo.paymentDetails || 'банк не указан'
-                : 'без них вам не смогут перевести деньги'}
+              {paymentLoading ? (
+                <Skeleton variant="text" width="30%" height={10} style={{ display: 'inline-block', verticalAlign: 'middle' }} />
+              ) : paymentInfo?.paymentPhone ? (
+                paymentInfo.paymentDetails || 'банк не указан'
+              ) : (
+                'без них вам не смогут перевести деньги'
+              )}
             </span>
           </div>
           <span className={styles.link}>Изменить</span>
