@@ -150,7 +150,7 @@ test.describe('Администратор группы: все вкладки п
     expect(api.lastRequest('PUT', '/admin/users/202/active')?.body).toEqual({ isActive: false });
 
     await appPage.getByRole('tab', { name: 'Долги' }).click();
-    await expect(appPage.getByText('Должников')).toBeVisible();
+    await expect(appPage.getByText('старейший')).toBeVisible();
     await appPage.getByRole('button', { name: 'Напомнить всем' }).click();
     expect(api.requests('POST', '/admin/debts/remind-all')).toHaveLength(1);
     await appPage.getByRole('button', { name: /^Напомнить об этом долге/ }).click();
@@ -169,12 +169,34 @@ test.describe('Администратор группы: все вкладки п
     expect(api.lastRequest('DELETE', '/admin/cleanup/old-transactions')?.query.daysOld).toBe('90');
 
     await appPage.getByRole('tab', { name: 'Напоминания' }).click();
-    await expect(appPage.getByText('Авто-напоминания о долгах')).toBeVisible();
+    await expect(appPage.getByText('Автонапоминания о долгах')).toBeVisible();
     await appPage.getByRole('switch', { name: 'Включены' }).click();
     await appPage.getByRole('button', { name: 'Сохранить' }).click();
     await expect.poll(() => api.requests('PUT').some((request) => request.path.startsWith('/admin/reminder-settings/'))).toBe(true);
     await appPage.getByRole('switch', { name: 'Новый пользователь' }).click();
     await expect.poll(() => api.requests('PUT').some((request) => request.path.startsWith('/admin/notification-settings/'))).toBe(true);
+  });
+
+  /* Необратимое действие: диалог называет число до удаления, итог — после, и
+     оба говорят о голосованиях, которые удержали непогашенные долги. */
+  test('удаляет старые голосования и называет удержанные долгами', async ({ appPage, api }) => {
+    await appPage.goto('/admin');
+    await appPage.getByRole('tab', { name: 'Очистка' }).click();
+    await appPage.getByRole('spinbutton', { name: 'Срок для старых голосований' }).fill('60');
+    await appPage.getByRole('button', { name: 'Удалить' }).first().click();
+
+    const dialog = appPage.getByRole('alertdialog');
+    await expect(dialog).toContainText('Будет удалено: 3. Останется из-за непогашенных долгов: 1.');
+    await dialog.getByRole('button', { name: 'Удалить' }).click();
+
+    await expect(
+      appPage.getByText('Удалено голосований: 3. Осталось из-за непогашенных долгов: 1.'),
+    ).toBeVisible();
+    expect(api.lastRequest('DELETE', '/admin/cleanup/old-polls')?.query).toEqual({
+      daysOld: '60',
+      groupId: '1',
+    });
+    expect(api.requests('DELETE', '/admin/cleanup/old-transactions')).toHaveLength(0);
   });
 });
 

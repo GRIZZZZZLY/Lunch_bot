@@ -282,9 +282,11 @@ export function ShoppingItemRow({
 
       {confirmingNotFound && (
         <ConfirmDialog
-          title={`Отметить «${item.name}» как ненайденную?`}
+          /* Кнопка подтверждения повторяет действие строки — «Не нашли»; «Убрать
+             цену» было следствием, а не действием, и спорило с заголовком. */
+          title={`Не нашли «${item.name}»?`}
           description={`Цена ${formatPrice(pn ?? 0)} будет удалена, позиция не войдёт в расчёт.`}
-          confirmLabel="Убрать цену"
+          confirmLabel="Не нашли"
           destructive
           pending={busy('notFound')}
           onConfirm={markNotFound}

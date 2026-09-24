@@ -126,9 +126,10 @@ export function StatsPage() {
           {vm.allTied && <p className={styles.note}>пока у всех поровну</p>}
           {vm.leaders.map((l) => (
             <div key={l.id} className={styles.row}>
-              {/* Пустая колонка, а не символ: точка на месте номера читалась
-                  как мусор. Ширина .rank фиксированная, выравнивание держится. */}
-              <span className={`tnum ${styles.rank}`}>{vm.allTied ? '' : l.rank}</span>
+              {/* При равенстве колонки мест нет вовсе: пустая колонка шириной
+                  в номер выглядела как потерянная аватарка, а точка на месте
+                  номера — как мусор. */}
+              {!vm.allTied && <span className={`tnum ${styles.rank}`}>{l.rank}</span>}
               <div className={styles.rowMain}>
                 <div className={styles.rowName}>
                   {l.name}

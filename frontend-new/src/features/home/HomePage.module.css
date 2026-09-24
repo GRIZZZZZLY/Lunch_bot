@@ -150,13 +150,15 @@
   border-top: 1px solid var(--divider);
 }
 
-/* Круг-индикатор голоса; во включённом состоянии заливается цветом действия. */
+/* Круг-индикатор голоса; во включённом состоянии заливается цветом действия.
+   Контур — --text-tertiary, а не --divider: граница элемента управления
+   должна держать 3:1 к фону (WCAG 1.4.11), линия-разделитель её не держит. */
 .voteDot {
   width: 30px;
   height: 30px;
   border-radius: 50%;
   flex-shrink: 0;
-  border: 1.5px solid var(--divider);
+  border: 1.5px solid var(--text-tertiary);
   background: var(--surface);
   display: inline-flex;
   align-items: center;
@@ -238,9 +240,10 @@
 }
 
 /* Колонка процентов держит ширину: без неё «9%» → «10%» на живом SSE дёргает
-   название блюда и бар влево-вправо. */
+   название блюда и бар влево-вправо. Ширина в rem, а не в ch: ch зависит от
+   кегля, и у лидера (16px) колонка была шире — полосы строк кончались вразнобой. */
 .pct {
-  min-width: 4ch;
+  min-width: 3rem;
   font-size: var(--text-13);
   font-weight: 800;
   text-align: right;
@@ -383,7 +386,14 @@
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
 }
 
+/* flex, а не текстовая строка: Icon — блочный svg, и часы стояли отдельной
+   строкой над подписью «Автозапуск в …». */
 .ctaNote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   padding: 0 var(--space-4) var(--space-3);
   font-size: var(--text-11);
   color: var(--text-tertiary);

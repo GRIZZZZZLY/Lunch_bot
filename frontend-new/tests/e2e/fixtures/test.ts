@@ -9,6 +9,7 @@ import {
 } from '../mocks/telegram';
 import {
   createScenario,
+  E2E_NOW,
   type E2ERole,
   type E2EState,
   type FailureRule,
@@ -101,7 +102,7 @@ export const test = base.extend<TestFixtures>({
   },
 
   appPage: async ({ page, api: _api }, use) => {
-    await page.clock.install({ time: new Date('2026-07-20T09:05:00.000Z') });
+    await page.clock.install({ time: new Date(E2E_NOW) });
     await use(page);
   },
 

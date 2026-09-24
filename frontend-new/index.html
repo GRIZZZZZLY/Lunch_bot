@@ -9,6 +9,10 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
 
+    <!-- Блокирующий намеренно и первым: ставит data-theme до первой отрисовки,
+         иначе тёмная тема мигает светлым фоном. -->
+    <script src="/theme-boot.js"></script>
+
     <!-- Шрифты self-hosted (public/fonts), объявлены в src/styles/tokens.css.
          Preload — основной Onest и брендовый сабсет: 3 КБ ровно под строку
          «Rocket Lunch» в шапке. Без него заголовок рисовался в Onest и через

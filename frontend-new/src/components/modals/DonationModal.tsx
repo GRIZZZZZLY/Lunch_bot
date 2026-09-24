@@ -40,7 +40,7 @@ export function DonationModal({ open, onClose, sbpPhone }: Props) {
       }
     >
       <p style={{ margin: '0 0 14px', fontSize: 'var(--text-13)', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-        Rocket Lunch — open source. Ваш донат покрывает сервер и помогает добавлять новые фичи.
+        Rocket Lunch — проект с открытым кодом. Поддержка оплачивает сервер и помогает развивать приложение.
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>

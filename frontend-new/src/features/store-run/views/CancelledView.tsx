@@ -53,7 +53,7 @@ export function CancelledView({
         groups.map((group) => (
           <section key={group.userId} className={styles.section}>
             <h2 className={styles.sectionHead}>
-              {group.isMine ? 'Ваши позиции' : group.user?.firstName ?? 'Участник'}
+              {group.isMine ? 'Мои позиции' : group.user?.firstName ?? 'Участник'}
               <span className={styles.sectionCount}>· {group.items.length}</span>
             </h2>
             <div className={styles.rows}>

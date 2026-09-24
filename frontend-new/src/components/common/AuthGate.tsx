@@ -43,9 +43,12 @@ export function AuthGate({
 
   if (view === 'app') return <>{children}</>;
 
+  /* Экраны ниже рисуются до любого макета, поэтому класс `rl` ставится здесь:
+     стили Button и Spinner живут под `.rl`, и без него «Повторить» был голым
+     текстом, а спиннер загрузки — невидимым. */
   if (view === 'loading') {
     return (
-      <div className={styles.screen} role="status" aria-label="Загрузка">
+      <div className={`rl ${styles.screen}`} role="status" aria-label="Загрузка">
         <Spinner size={28} />
       </div>
     );
@@ -53,7 +56,7 @@ export function AuthGate({
 
   if (view === 'outside-telegram') {
     return (
-      <div className={styles.screen}>
+      <div className={`rl ${styles.screen}`}>
         <div className={styles.box}>
           <h1 className={styles.title}>Откройте в Telegram</h1>
           <p className={styles.text}>
@@ -65,7 +68,7 @@ export function AuthGate({
   }
 
   return (
-    <div className={styles.screen}>
+    <div className={`rl ${styles.screen}`}>
       <div className={styles.box} role="alert">
         <h1 className={styles.title}>Не удалось войти</h1>
         {authError && <p className={styles.text}>{authError}</p>}

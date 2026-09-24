@@ -14,7 +14,9 @@
 | `/` | Завершение / отмена опроса | ADMIN | ACTIVE | `home-polls.spec.ts` | `PATCH complete/cancel`, уведомление, отсутствие MEMBER-кнопок | покрыто, RL-US-038/039 |
 | `/` | Создание разового опроса | ADMIN | меню заполнено | `home-polls.spec.ts` | минимум 2 блюда, тело запроса, появление, закрытие, результаты | покрыто, критический путь |
 | `/` | Расписание | ADMIN | меню заполнено | `home-polls.spec.ts` | переключатель, дни/время/блюда, `POST /recurring` | покрыто, RL-US-029 |
+| `/` | Правка и удаление расписания | ADMIN | выключенное расписание есть | `home-polls.spec.ts` | подстановка настроек, `PATCH /recurring/:id` с включением, подпись «Автозапуск…»; `DELETE` и форма снова предлагает создать | покрыто |
 | `/` | Создание закупки | MEMBER → инициатор | нет активной закупки | `store-run.spec.ts` | валидация, длительность, POST, переход на `/store-run/602` | покрыто, RL-US-064 |
+| `/` | Справочник магазинов | MEMBER | подсказки есть | `store-run.spec.ts` | выбор уходит идентификатором; переименование и 409 на занятое имя; «Убрать из подсказок» — `DELETE`, магазин исчезает из подсказок, выбор в форме снимается; после переименования поле показывает новое имя | покрыто |
 | `/` | Пусто / 500 / повтор | MEMBER | пусто, ошибка | `home-polls.spec.ts` | понятный экран и восстановление | покрыто |
 | `/` | Нет групп | ADMIN | `groups=[]` | `home-polls.spec.ts`, `routes-auth.spec.ts` | нет административного запуска, нет пустого экрана | покрыто |
 | `/`, `/stats`, `/profile` | Текущая команда в шапке и её смена | MEMBER | несколько групп | `team-context.spec.ts` | шторка «Команда» без архивной группы, запросы с новым `groupId`; в `/menu` шапка команду не дублирует | покрыто |
@@ -36,9 +38,12 @@
 | `/profile` | Административная точка | CREATOR, ADMIN, globalAdmin, MEMBER | разные права | `profile-stats-admin.spec.ts` | видимость по группе; отсутствие у MEMBER | покрыто |
 | `/admin` | Прямая защита | MEMBER | прямой URL | `profile-stats-admin.spec.ts`, `routes-auth.spec.ts` | нет управляющих действий | покрыто |
 | `/admin` | Обзор / люди / долги / очистка / настройки | globalAdmin, ADMIN, CREATOR | заполнено | `profile-stats-admin.spec.ts` | вкладки, загрузка, switch и PUT настроек | покрыто, RL-US-093–097 |
+| `/admin` | Очистка старых голосований | ADMIN | есть удержанные долгами | `profile-stats-admin.spec.ts` | число в диалоге до удаления, `DELETE old-polls` с `daysOld`/`groupId`, итог с пропущенными | покрыто |
 | `/budget` | Пусто | MEMBER | нет транзакций | `budget-suggestions.spec.ts` | нет ложных кнопок | покрыто |
 | `/budget` | Оплатил / отменил отметку | должник | PENDING / PAID | `budget-suggestions.spec.ts` | правильный transactionId, UI и 403 | покрыто, RL-US-073/075 |
 | `/budget` | Подтверждение / напоминание | ответственный | PAID / PENDING | `budget-suggestions.spec.ts` | POST, завершение, уведомление | покрыто, RL-US-076/078 |
+| `/budget` | Отмена подтверждения | ответственный | CONFIRMED меньше суток | `budget-suggestions.spec.ts` | диалог с «Оставить», `undo-confirmation`, долг снова ждёт подтверждения | покрыто |
+| `/budget` | «Напомнить всем» | ответственный | два PENDING | `budget-suggestions.spec.ts` | диалог, по запросу на каждого должника, частичный отказ назван числом | покрыто |
 | `/suggestions` | Создание / валидация | MEMBER | список есть | `budget-suggestions.spec.ts` | невалидная цена, POST body, появление | покрыто |
 | `/suggestions` | Все / мои / статусы / удаление | MEMBER | PENDING/APPROVED/REJECTED | `budget-suggestions.spec.ts` | фильтр и ConfirmDialog | покрыто |
 | `/suggestions` | Принять / отклонить | ADMIN | два PENDING | `budget-suggestions.spec.ts` | groupId, причина, новый статус | покрыто |
@@ -47,6 +52,7 @@
 | `/poll/history` | История | MEMBER | одна запись | `routes-auth.spec.ts`, `profile-stats-admin.spec.ts` | прямой URL и Telegram BackButton | покрыто |
 | `/poll/:id/results` | Итоги / deep link | MEMBER | завершён / создан и закрыт | `home-polls.spec.ts`, `routes-auth.spec.ts` | победитель, переход по query и прямой URL | покрыто |
 | `/store-run/:id` | COLLECTING | участник | REQUESTED | `store-run.spec.ts` | add/edit/delete только своих; чужие read-only | покрыто, RL-US-065/066 |
+| `/store-run/:id` | Мои товары | участник | личный список есть | `store-run.spec.ts` | добавление одним запросом, удаление без изменения закупки, закрепление и откат отметки при отказе сервера | покрыто |
 | `/store-run/:id` | Закрыть / отменить сбор | инициатор | COLLECTING / empty | `store-run.spec.ts` | подтверждения, блокировка пустого, POST | покрыто, RL-US-067/071 |
 | `/store-run/:id` | SHOPPING | инициатор | REQUESTED/BOUGHT/NOT_FOUND | `store-run.spec.ts` | цена 0, ×quantity, смена статуса, запрет без цены | покрыто, RL-US-068/069 |
 | `/store-run/:id` | Расчёт | инициатор | есть необработанные | `store-run.spec.ts` | подтверждение, POST settle, SETTLED | покрыто, RL-US-070 |
@@ -63,7 +69,7 @@
 | Telegram WebApp | `mocks/telegram.ts` | установка до приложения; пользователь/initData; темы/события/safe-area; журнал `ready`, `expand`, `close`, BackButton, MainButton, HapticFeedback, links, invoice, alert/confirm |
 | API | `mocks/api.ts` | отдельное mutable-состояние на тест; неожиданный маршрут = 501 и падение теста; методы/пути/query/body записываются |
 | Изоляция | новый BrowserContext + `createScenario` на тест; Service Worker заблокирован | local/session/IndexedDB и React Query не разделяются между тестами; SSE подменён; порядок тестов не важен |
-| Время | `page.clock` = `2026-07-20T09:05:00Z` | таймеры опроса и закупки воспроизводимы |
+| Время | `page.clock` = `E2E_NOW` (`2026-07-20T09:05:00Z`, `scenarios/data.ts`) | таймеры опроса и закупки воспроизводимы; мок сверяет с теми же часами окна вроде суток на отмену подтверждения |
 | Ошибки | автоматическая fixture `diagnostics` | `pageerror`, значимый `console.error`, оборванная сеть и непредусмотренный API завершают тест ошибкой |
 | Доступность | `routes-auth.spec.ts` + `@axe-core/playwright` | serious/critical WCAG, доступные имена, контраст ключевого экрана |
 | Компоновка | `routes-auth.spec.ts` | нет горизонтальной прокрутки при 390×844 |

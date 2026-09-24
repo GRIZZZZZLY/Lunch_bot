@@ -19,7 +19,7 @@ export function ReminderSettingsCard() {
 
   return (
     <div className={styles.card}>
-      <h2 className={styles.title}>Авто-напоминания о долгах</h2>
+      <h2 className={styles.title}>Автонапоминания о долгах</h2>
 
       {reminderQuery.isLoading && <p className={styles.muted}>Загрузка…</p>}
 

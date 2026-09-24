@@ -2,6 +2,7 @@ import type { MenuItem, MenuSuggestion, Poll, PollResult, Transaction, User } fr
 import type { UserGroup } from '../../../src/services/user.service';
 import type { GroupStore } from '../../../src/services/group-store.service';
 import type { ItemPreset } from '../../../src/services/item-preset.service';
+import type { RecurringPoll } from '../../../src/services/recurring-poll.service';
 import type {
   StoreItem,
   StoreRunListItem,
@@ -71,6 +72,7 @@ export interface E2EState {
   storeRuns: StoreRunWithRelations[];
   groupStores: GroupStore[];
   itemPresets: ItemPreset[];
+  recurring: RecurringPoll[];
   debts: Transaction[];
   credits: Transaction[];
   suggestions: MenuSuggestion[];
@@ -87,6 +89,9 @@ export interface E2EState {
   protectedRequestExpired: boolean;
 }
 
+/** Часы браузера в каждом тесте. Мок сверяет с ними окна вроде суток на отмену
+    подтверждения: собственные часы Node здесь на два месяца впереди. */
+export const E2E_NOW = '2026-07-20T09:05:00.000Z';
 const CREATED_AT = '2026-07-14T09:00:00.000Z';
 const ACTIVE_CREATED_AT = '2026-07-20T09:00:00.000Z';
 /** Закупка открыта в 09:00, сбор до 10:00 — окно часа, как в жизни. */
@@ -472,6 +477,7 @@ export function createScenario(name: ScenarioName, role: E2ERole): E2EState {
        тянутся на главной, ещё до всякой закупки. */
     groupStores: makeGroupStores(),
     itemPresets: [],
+    recurring: [],
     debts: [],
     credits: [],
     suggestions: [],

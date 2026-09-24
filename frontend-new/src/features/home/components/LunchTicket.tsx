@@ -114,10 +114,12 @@ export function LunchTicket({
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [focusIdx, setFocusIdx] = useState(0);
 
-  const leadId = useMemo(
-    () => [...options].sort((a, b) => b.votes - a.votes)[0]?.id ?? null,
-    [options],
-  );
+  /* Лидер только единственный: при 50/50 первая строка получала крупный
+     оранжевый процент и выглядела победителем, хотя голоса разделились. */
+  const leadId = useMemo(() => {
+    const [first, second] = [...options].sort((a, b) => b.votes - a.votes);
+    return first && first.votes > 0 && first.votes !== second?.votes ? first.id : null;
+  }, [options]);
   const shares = useMemo(() => sharesOf(options, totalVotes), [options, totalVotes]);
   const timeLabel =
     cd.hours > 0 ? `${cd.hours}:${pad(cd.minutes)}:${pad(cd.seconds)}` : `${pad(cd.minutes)}:${pad(cd.seconds)}`;
@@ -233,9 +235,11 @@ export function LunchTicket({
 
       {/* SSE двигает бары молча — расклад проговариваем отдельно. */}
       <p className="sr-only" aria-live="polite">
-        {totalVotes > 0 && leadName
-          ? `Лидирует ${leadName}, ${shares.get(leadId as number) ?? 0} %. Всего ${pluralVotes(totalVotes)}.`
-          : 'Голосов пока нет'}
+        {totalVotes === 0
+          ? 'Голосов пока нет'
+          : leadName
+            ? `Лидирует ${leadName}, ${shares.get(leadId as number) ?? 0} %. Всего ${pluralVotes(totalVotes)}.`
+            : `Лидеров несколько, голоса разделились поровну. Всего ${pluralVotes(totalVotes)}.`}
       </p>
       </div>
 

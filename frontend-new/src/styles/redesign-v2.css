@@ -337,22 +337,25 @@
 .rl .range::-webkit-slider-thumb:active { transform: scale(1.15); }
 .rl .range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent);
   border: 3px solid var(--surface); cursor: pointer; }
+/* Выключенные переключатель и чекбокс держат 3:1 к фону (WCAG 1.4.11): на
+   --divider в тёмной теме их было почти не видно. Ползунок выключенного — тона
+   контура, во включённом он светлеет обратно. */
 .rl .switch {
   position: relative; width: 46px; height: 28px; border-radius: 999px;
-  background: var(--divider); border: 1px solid var(--divider); cursor: pointer; padding: 0;
+  background: var(--surface-secondary); border: 1px solid var(--text-tertiary); cursor: pointer; padding: 0;
   transition: background-color var(--motion-base) var(--ease-out);
 }
 .rl .switch::after {
   content: ""; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px;
-  border-radius: 50%; background: var(--elevated); box-shadow: var(--shadow-1);
-  transition: transform var(--motion-base) var(--ease-spring);
+  border-radius: 50%; background: var(--text-tertiary); box-shadow: var(--shadow-1);
+  transition: transform var(--motion-base) var(--ease-spring), background-color var(--motion-base) var(--ease-out);
 }
 .rl .switch.on { background: var(--accent-grad, var(--accent)); border-color: transparent; }
-.rl .switch.on::after { transform: translateX(18px); }
+.rl .switch.on::after { transform: translateX(18px); background: var(--elevated); }
 .rl .switch:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring); }
 .rl .switch:disabled { opacity: 0.5; cursor: not-allowed; }
 .rl .checkbox {
-  width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--divider);
+  width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--text-tertiary);
   background: var(--surface); display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; color: var(--accent-foreground);
   transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);

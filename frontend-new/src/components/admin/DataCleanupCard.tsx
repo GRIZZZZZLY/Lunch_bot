@@ -7,7 +7,7 @@ import {
 } from '@/hooks/useAdmin';
 import { Button, Field } from '@/components/rl/primitives';
 import { ConfirmDialog, InlineNotice } from '@/shared/ui';
-import { pluralForm, pluralize } from '@/shared/lib/pluralize';
+import { pluralize } from '@/shared/lib/pluralize';
 import styles from './AdminCards.module.css';
 
 type CleanupTarget = { kind: 'polls' | 'tx'; days: number };
@@ -41,14 +41,13 @@ export function DataCleanupCard() {
           : await cleanTx.mutateAsync(target.days);
       const deleted = res.data?.deleted ?? 0;
       const skipped = res.data?.skipped ?? 0;
-      const what = target.kind === 'polls' ? ['голосование', 'голосования', 'голосований'] : ['транзакцию', 'транзакции', 'транзакций'];
+      /* Число после двоеточия ни с чем не согласуется: «Удалено 1 транзакцию» и
+         «Пропущено 1: за ними…» были ошибками именно согласования. */
       setMsg({
         tone: 'info',
         text:
-          `Удалено ${pluralize(deleted, what[0], what[1], what[2])}` +
-          (skipped
-            ? `. Пропущено ${skipped}: за ними ещё висят непогашенные долги.`
-            : '.'),
+          `Удалено ${target.kind === 'polls' ? 'голосований' : 'транзакций'}: ${deleted}.` +
+          (skipped ? ` Осталось из-за непогашенных долгов: ${skipped}.` : ''),
       });
       setTarget(null);
     } catch {
@@ -111,14 +110,14 @@ export function DataCleanupCard() {
              хотя количество было известно и напечатано строкой выше. */
           description={
             preview.isLoading
-              ? `Считаю, сколько записей старше ${target.days} дней попадёт под удаление…`
+              ? `Считаю, сколько записей старше ${pluralize(target.days, 'дня', 'дней', 'дней')} попадёт под удаление…`
               : preview.data
                 ? `Будет удалено: ${preview.data.deletable}. ` +
                   (preview.data.blockedByDebt
-                    ? `Ещё ${preview.data.blockedByDebt} ${pluralForm(preview.data.blockedByDebt, 'останется', 'останутся', 'останутся')} — за ними непогашенные долги. `
+                    ? `Останется из-за непогашенных долгов: ${preview.data.blockedByDebt}. `
                     : '') +
                   'Действие необратимо.'
-                : `Будут удалены ${targetLabel} старше ${target.days} дней. Действие необратимо.`
+                : `Будут удалены ${targetLabel} старше ${pluralize(target.days, 'дня', 'дней', 'дней')}. Действие необратимо.`
           }
           confirmLabel="Удалить"
           destructive

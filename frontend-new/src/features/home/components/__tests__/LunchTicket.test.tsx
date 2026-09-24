@@ -212,3 +212,26 @@ describe('LunchTicket — админ-действия под подтвержд�
     expect(props.onCloseEarly).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('LunchTicket — лидер только единственный', () => {
+  it('у единственного лидера строка выделена и названа', () => {
+    renderTicket();
+    expect(screen.getByText(/^Лидирует Том-ям с креветками/)).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Том-ям/ }).className).toMatch(/lead/);
+  });
+
+  /* При 50/50 первая строка получала оформление лидера и читалась как победа. */
+  it('при ничьей не выделяет ни одну строку', () => {
+    renderTicket({
+      options: [
+        { id: 1, name: 'Борщ', votes: 1 },
+        { id: 2, name: 'Паста', votes: 1 },
+      ],
+      totalVotes: 2,
+    });
+    expect(screen.getByText(/^Лидеров несколько/)).toBeInTheDocument();
+    for (const name of [/Борщ/, /Паста/]) {
+      expect(screen.getByRole('radio', { name }).className).not.toMatch(/lead/);
+    }
+  });
+});

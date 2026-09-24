@@ -174,8 +174,12 @@ export function BottomSheet({
     }
   };
 
+  /* Свой контекст наложения у каждой шторки: вторая (подтверждение поверх
+     правки) целиком ложится выше первой, и её затемнение накрывает нижнюю.
+     Раньше затемнение второй (z 60) оказывалось под панелью первой (z 61) —
+     две светлые шторки сливались в одну. */
   return createPortal(
-    <div className="rl">
+    <div className="rl" style={{ position: 'relative', zIndex: 60 }}>
       <div
         onClick={beginClose}
         className={'sheet-scrim' + (closing ? ' is-closing' : '')}

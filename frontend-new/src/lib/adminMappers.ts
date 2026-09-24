@@ -7,7 +7,7 @@ import type {
   WeekBar,
 } from '@/components/admin/types';
 import type { MenuItem, Poll } from '@/types/models';
-import { pluralize } from '@/shared/lib/pluralize';
+import { pluralForm, pluralize } from '@/shared/lib/pluralize';
 
 const ICON_TONES: MenuItemIconTone[] = ['default', 'lav', 'sage', 'butter', 'rose', 'sky'];
 const POLL_TONES: PollItemTone[] = ['peach', 'lav', 'sage', 'butter', 'rose'];
@@ -98,10 +98,18 @@ export function buildDashboard(args: {
     ],
     /* Переносы задавались тегом <br> прямо в данных, а на месте показа
        вычищались регуляркой. Вёрстке здесь не место — перенос делает CSS. */
+    /* Подпись согласуется с числом: «1 опросов всего», «2 блюд в меню» были
+       ошибками. Дробное среднее по-русски требует родительного единственного:
+       «3,5 голоса». */
     stats: [
-      { num: String(totalPolls), label: 'опросов всего' },
-      { num: String(avgVotes), label: 'средн. голосов' },
-      { num: String(menuCount), label: 'блюд в меню' },
+      { num: String(totalPolls), label: pluralForm(totalPolls, 'опрос всего', 'опроса всего', 'опросов всего') },
+      {
+        num: avgVotes.toLocaleString('ru-RU'),
+        label: Number.isInteger(avgVotes)
+          ? pluralForm(avgVotes, 'голос на опрос', 'голоса на опрос', 'голосов на опрос')
+          : 'голоса на опрос',
+      },
+      { num: String(menuCount), label: pluralForm(menuCount, 'блюдо в меню', 'блюда в меню', 'блюд в меню') },
     ],
     chart: {
       title: 'Опросы по дням недели',

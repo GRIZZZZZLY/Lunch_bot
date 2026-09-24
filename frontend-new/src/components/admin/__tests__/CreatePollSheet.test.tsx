@@ -132,7 +132,7 @@ describe('CreatePollSheet — длительность', () => {
 describe('CreatePollSheet — расписание уже настроено', () => {
   it('подсказывает текущее время и подставляет настройки при включении', async () => {
     renderSheet({ schedule });
-    expect(screen.getByText(/сейчас 11:00/)).toBeInTheDocument();
+    expect(screen.getByText('запуск в 11:00')).toBeInTheDocument();
 
     await userEvent.click(recurringSwitch());
 
@@ -144,9 +144,14 @@ describe('CreatePollSheet — расписание уже настроено', (
     expect(screen.getByRole('button', { name: 'Сб' }).className).not.toContain('on');
   });
 
-  it('помечает выключенное расписание', () => {
+  /* Подпись не спорит с переключателем: пока он выключен — «на паузе» и время,
+     включён — что сохранение запустит расписание снова. */
+  it('помечает расписание на паузе', async () => {
     renderSheet({ schedule: { ...schedule, isEnabled: false } });
-    expect(screen.getByText(/выключено/)).toBeInTheDocument();
+    expect(screen.getByText('на паузе · запуск в 11:00')).toBeInTheDocument();
+
+    await userEvent.click(recurringSwitch());
+    expect(screen.getByText('на паузе — сохраните, чтобы включить')).toBeInTheDocument();
   });
 
   it('отдаёт изменённое время и дни родителю', async () => {

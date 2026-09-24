@@ -56,6 +56,75 @@ test.describe('Бюджет и долги', () => {
       expect(api.lastRequest('POST', '/budget/send-reminder')?.body).toEqual({ transactionId: 803 });
       await expect(appPage.getByText('Напоминание отправлено')).toBeVisible();
     });
+
+    /* Промах исправляется в течение суток: долг возвращается к «Отмечено», а не
+       к «не оплачен», и его можно подтвердить снова. */
+    test('отменяет ошибочное подтверждение через диалог', async ({ appPage, api }) => {
+      await appPage.goto('/budget');
+      await appPage.getByRole('button', { name: /^Подтвердить/ }).click();
+      await appPage.getByRole('alertdialog').getByRole('button', { name: 'Подтвердить' }).click();
+
+      const undo = appPage.getByRole('button', { name: /^Отменить подтверждение: Мария/ });
+      await undo.click();
+      const dialog = appPage.getByRole('alertdialog');
+      await expect(dialog).toContainText('снова будет ждать вашего подтверждения');
+      await dialog.getByRole('button', { name: 'Оставить' }).click();
+      expect(api.requests('POST', '/budget/undo-confirmation')).toHaveLength(0);
+
+      await undo.click();
+      await dialog.getByRole('button', { name: 'Отменить подтверждение' }).click();
+      await expect(appPage.getByText('Подтверждение отменено')).toBeVisible();
+      expect(api.lastRequest('POST', '/budget/undo-confirmation')?.body).toEqual({ transactionId: 803 });
+      await expect(appPage.getByRole('button', { name: /^Подтвердить: Мария/ })).toBeVisible();
+      await expect(appPage.getByText('Подтверждено сегодня')).toHaveCount(0);
+    });
+
+    test.describe('два ожидающих должника', () => {
+      test.beforeEach(({ api }) => {
+        const [maria] = api.state.credits;
+        api.state.credits = [
+          { ...maria, status: 'PENDING' },
+          {
+            ...maria,
+            id: 804,
+            amount: 250,
+            status: 'PENDING',
+            fromUserId: 304,
+            fromUser: { id: 304, firstName: 'Пётр', username: 'petr_e2e' },
+            reminderCount: 0,
+            lastReminderAt: null,
+          },
+        ];
+      });
+
+      test('напоминает всем одним действием после подтверждения', async ({ appPage, api }) => {
+        await appPage.goto('/budget');
+        await appPage.getByRole('button', { name: /^Напомнить всем/ }).click();
+        expect(api.requests('POST', '/budget/send-reminder')).toHaveLength(0);
+
+        const dialog = appPage.getByRole('alertdialog');
+        await expect(dialog).toContainText('Напомнить 2 участникам?');
+        await dialog.getByRole('button', { name: 'Напомнить всем' }).click();
+        await expect(appPage.getByText('Напоминания отправлены: 2')).toBeVisible();
+        expect(api.requests('POST', '/budget/send-reminder').map((r) => r.body)).toEqual([
+          { transactionId: 803 },
+          { transactionId: 804 },
+        ]);
+      });
+
+      test('говорит, что часть напоминаний не ушла', async ({ appPage, api }) => {
+        api.fail('POST', '/budget/send-reminder', {
+          status: 500,
+          error: 'Telegram недоступен',
+          code: 'INTERNAL_ERROR',
+          remaining: 1,
+        });
+        await appPage.goto('/budget');
+        await appPage.getByRole('button', { name: /^Напомнить всем/ }).click();
+        await appPage.getByRole('alertdialog').getByRole('button', { name: 'Напомнить всем' }).click();
+        await expect(appPage.getByText('Отправлено 1 из 2 — остальные не ушли')).toBeVisible();
+      });
+    });
   });
 });
 

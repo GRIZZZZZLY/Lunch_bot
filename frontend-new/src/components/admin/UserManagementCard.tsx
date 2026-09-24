@@ -99,13 +99,19 @@ function UserRow({
           {name}
           {user.username && <span className={styles.muted}> @{user.username}</span>}
         </span>
-        <span className={styles.rowSub}>
-          <Icon name="stats" size={12} />{' '}
-          <span className="tnum">{pluralize(user.totalVotes, 'голос', 'голоса', 'голосов')}</span>
-          {' · '}
+        {/* Иконка — блочный svg: в строке текста она рвала подпись на четыре
+            строки. Пары «иконка + подпись» не переносятся внутри себя. */}
+        <span className={`${styles.rowSub} ${styles.rowMeta}`}>
+          <span className={styles.metaItem}>
+            <Icon name="stats" size={12} />
+            <span className="tnum">{pluralize(user.totalVotes, 'голос', 'голоса', 'голосов')}</span>
+          </span>
           {/* pendingDebts — это СУММА, а подписана была «долгов»: человек с
               долгом 420 ₽ показывался как «420 долгов». */}
-          <Icon name="wallet" size={12} /> <span className="tnum">долг {formatPrice(user.pendingDebts)}</span>
+          <span className={styles.metaItem}>
+            <Icon name="wallet" size={12} />
+            <span className="tnum">долг {formatPrice(user.pendingDebts)}</span>
+          </span>
         </span>
       </div>
       <div className={styles.rowActions}>

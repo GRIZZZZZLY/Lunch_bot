@@ -42,18 +42,24 @@ export function CreateStoreRunSheet({
   onSubmit: (input: CreateStoreRunInput) => void | Promise<void>;
   onManageStore?: (store: GroupStore) => void;
 }) {
-  const [name, setName] = useState('');
+  const [freeName, setFreeName] = useState('');
   const [storeId, setStoreId] = useState<number | null>(null);
   const [mins, setMins] = useState<number>(COLLECT_PRESETS[COLLECT_PRESETS.length - 1]);
 
   if (!open) return null;
-  const canSubmit = (storeId !== null || name.trim().length > 0) && !busy;
+  /* Выбранный магазин читается из свежего списка, а не из копии: после
+     переименования поле показывает новое имя, после «Убрать из подсказок» выбор
+     снимается. Раньше уходил id скрытого магазина, и сервер отвечал «магазина
+     нет». */
+  const selected = storeId !== null ? (stores.find((s) => s.id === storeId) ?? null) : null;
+  const name = selected ? selected.name : freeName;
+  const canSubmit = (selected !== null || freeName.trim().length > 0) && !busy;
 
   const submit = () =>
     onSubmit(
-      storeId !== null
-        ? { storeId, collectMinutes: mins }
-        : { storeName: name.trim(), collectMinutes: mins },
+      selected
+        ? { storeId: selected.id, collectMinutes: mins }
+        : { storeName: freeName.trim(), collectMinutes: mins },
     );
 
   return (
@@ -74,10 +80,11 @@ export function CreateStoreRunSheet({
       <FormField label="Откуда заказываем" htmlFor="store-run-name">
         <StoreChips
           stores={stores}
-          selectedId={storeId}
+          selectedId={selected?.id ?? null}
           onSelect={(store) => {
             setStoreId(store.id);
-            setName(store.name);
+            // иначе скрытие чипа вернуло бы в поле давно набранный текст
+            setFreeName('');
           }}
           onManage={(store) => onManageStore?.(store)}
         />
@@ -86,7 +93,7 @@ export function CreateStoreRunSheet({
           value={name}
           placeholder="Пятёрочка у офиса"
           onChange={(e: ChangeEvent<HTMLInputElement>) => {
-            setName(e.target.value);
+            setFreeName(e.target.value);
             setStoreId(null);
           }}
         />

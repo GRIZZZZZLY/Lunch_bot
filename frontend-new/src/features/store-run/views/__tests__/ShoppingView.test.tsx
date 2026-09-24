@@ -196,13 +196,13 @@ describe('ShoppingView — BOUGHT / NOT_FOUND', () => {
     expect(h.setPrice.mutate).not.toHaveBeenCalled();
 
     const dialog = screen.getByRole('alertdialog');
-    expect(dialog).toHaveTextContent('Отметить «Молоко» как ненайденную?');
+    expect(dialog).toHaveTextContent('Не нашли «Молоко»?');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
     expect(h.setPrice.mutate).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole('button', rowBtn('Не нашли', 'Молоко')));
     await userEvent.click(
-      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Убрать цену' }),
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Не нашли' }),
     );
     expect(h.setPrice.mutate.mock.calls[0][0]).toEqual({ itemId: 10, payload: { price: null, status: 'NOT_FOUND' } });
   });

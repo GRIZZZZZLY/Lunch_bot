@@ -10,7 +10,7 @@ import type { DebtorInfo } from '@/services/admin.service';
 import { Button, IconButton } from '@/components/rl/primitives';
 import { ConfirmDialog, InlineNotice } from '@/shared/ui';
 import { formatPrice } from '@/features/store-run/lib/selectors';
-import { pluralize } from '@/shared/lib/pluralize';
+import { pluralForm, pluralize } from '@/shared/lib/pluralize';
 import styles from './AdminCards.module.css';
 
 type ForgiveTarget = { id: number; amount: number; who: string; toWhom: string };
@@ -52,12 +52,20 @@ export function DebtManagementCard() {
         <>
           {stats && (
             <div className={`${styles.block} ${styles.controls} ${styles.statsRow}`}>
-              <Stat label="Должников" value={String(stats.totalDebtors)} />
+              {/* Подписи строчные и согласованы с числом, как плитки «Обзора»:
+                  «1 Должников», «Средн.», «6 д Старый» читались как черновик. */}
+              <Stat
+                label={pluralForm(stats.totalDebtors, 'должник', 'должника', 'должников')}
+                value={String(stats.totalDebtors)}
+              />
               {/* formatPrice, а не «{n} ₽»: это было единственное место в
                   продукте, где деньги шли без разрядов. */}
-              <Stat label="Сумма" value={formatPrice(stats.totalDebtAmount)} />
-              <Stat label="Средн." value={formatPrice(Math.round(stats.avgDebtPerUser))} />
-              <Stat label="Старый" value={`${stats.oldestDebtAge} д`} />
+              <Stat label="всего" value={formatPrice(stats.totalDebtAmount)} />
+              <Stat label="на человека" value={formatPrice(Math.round(stats.avgDebtPerUser))} />
+              <Stat
+                label="старейший"
+                value={pluralize(stats.oldestDebtAge, 'день', 'дня', 'дней')}
+              />
             </div>
           )}
 

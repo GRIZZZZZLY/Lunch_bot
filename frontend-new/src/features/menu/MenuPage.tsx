@@ -127,9 +127,15 @@ export default function MenuPage() {
       <div className={styles.head}>
         <div>
           <h1 className={styles.title}>Меню</h1>
+          {/* Число — только когда меню прочитано: пока идёт загрузка или она
+              упала, «0 блюд» выдавало сбой за пустое меню. */}
           <p className={`tnum ${styles.subtitle}`}>
-            {pluralize(dishes.length, 'блюдо', 'блюда', 'блюд')}
-            {activeGroup ? ` · ${activeGroup.title}` : ''}
+            {[
+              !isLoading && !error ? pluralize(dishes.length, 'блюдо', 'блюда', 'блюд') : null,
+              activeGroup?.title,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         </div>
       </div>
@@ -191,7 +197,9 @@ export default function MenuPage() {
                 className={`${styles.cat}${category === c.id ? ` ${styles.on}` : ''}`}
                 onClick={() => setCategory(c.id)}
               >
-                {c.label} <span className={`tnum ${styles.count}`}>· {c.count}</span>
+                {c.label}{' '}
+                {/* «Все · 0» во время загрузки обещало пустое меню. */}
+                {!isLoading && <span className={`tnum ${styles.count}`}>· {c.count}</span>}
               </button>
             ))}
           </div>

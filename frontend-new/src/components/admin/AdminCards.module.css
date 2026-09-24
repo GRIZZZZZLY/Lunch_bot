@@ -120,6 +120,20 @@
   color: var(--text-tertiary);
 }
 
+/* Строка «иконка + подпись» под именем участника. */
+.rowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-3);
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
 .rowActions {
   display: flex;
   align-items: center;

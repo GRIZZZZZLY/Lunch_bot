@@ -142,7 +142,7 @@ describe('CancelledView', () => {
 
   it('история read-only: статусы и цены видны, контролов нет', () => {
     renderView(<CancelledView run={mkRun('CANCELLED', moneyItems())} currentUserId={3} />);
-    expect(screen.getByText('Ваши позиции')).toBeInTheDocument(); // группа текущего
+    expect(screen.getByText('Мои позиции')).toBeInTheDocument(); // группа текущего
     expect(screen.getAllByText('Куплено').length).toBeGreaterThan(0);
     expect(screen.getByText('Запрошено')).toBeInTheDocument();
     for (const name of ['Куплено', 'Не нашли', 'Рассчитать', 'Добавить позицию']) {

@@ -67,6 +67,8 @@ test.describe('Создание закупки', () => {
         exact: true,
       }),
     ).toBeVisible();
+    // поле под чипами показывает новое имя, а не копию старого
+    await expect(dialog.getByRole('textbox', { name: 'Откуда заказываем' })).toHaveValue('Магнит у дома');
   });
 
   test('занятое название переименование отклоняет', async ({ appPage, api }) => {
@@ -88,6 +90,28 @@ test.describe('Создание закупки', () => {
     await expect(
       appPage.getByText('Магазин с таким названием уже есть в этой группе.'),
     ).toBeVisible();
+  });
+
+  /* Скрытие, а не удаление: прошлые закупки магазин помнят, из подсказок он
+     уходит. */
+  test('убирает магазин из подсказок', async ({ appPage, api }) => {
+    await appPage.goto('/');
+    await appPage.getByRole('button', { name: /Закупка в магазине/ }).click();
+    const dialog = appPage.getByRole('dialog', { name: 'Новая закупка' });
+
+    await dialog.getByRole('button', { name: 'Магнит на Ленина' }).click();
+    await dialog.getByRole('button', { name: 'Изменить магазин «Магнит на Ленина»' }).click();
+    const manage = appPage.getByRole('dialog', { name: 'Магнит на Ленина' });
+    await manage.getByRole('button', { name: 'Убрать из подсказок' }).click();
+
+    await expect(manage).toHaveCount(0);
+    expect(api.requests('DELETE', '/groups/1/stores/902')).toHaveLength(1);
+    await expect(dialog.getByRole('button', { name: 'Магнит на Ленина', exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: 'Пятёрочка у офиса', exact: true })).toBeVisible();
+    /* Выбор снят вместе с магазином: иначе ушёл бы id скрытой записи, и
+       сервер ответил бы «магазина нет». */
+    await expect(dialog.getByRole('textbox', { name: 'Откуда заказываем' })).toHaveValue('');
+    await expect(dialog.getByRole('button', { name: 'Открыть сбор' })).toBeDisabled();
   });
 });
 
@@ -160,6 +184,35 @@ test.describe('Закупка: сбор позиций', () => {
     await expect(add.getByText('Кофе в зёрнах')).toHaveCount(0);
     expect(api.requests('DELETE', '/user/item-presets/802')).toHaveLength(1);
     expect(api.requests('POST', '/store-runs/601/items')).toHaveLength(0);
+  });
+
+  /* Отметка ставится сразу, до ответа сервера, — значит, при отказе она обязана
+     вернуться, иначе экран врёт о сохранённом. */
+  test('закрепляет товар и откатывает отметку при отказе сервера', async ({ appPage, api }) => {
+    await appPage.goto('/store-run/601');
+    await appPage.getByRole('button', { name: 'Добавить позицию' }).click();
+    const add = appPage.getByRole('dialog');
+
+    await add.getByRole('button', { name: 'Закрепить Кофе в зёрнах' }).click();
+    const unpin = add.getByRole('button', { name: 'Открепить Кофе в зёрнах' });
+    await expect(unpin).toHaveAttribute('aria-pressed', 'true');
+    await expect
+      .poll(() => api.lastRequest('PATCH', '/user/item-presets/802')?.body)
+      .toEqual({ pinned: true });
+
+    api.fail('PATCH', '/user/item-presets/802', {
+      status: 500,
+      error: 'Сервер не сохранил отметку',
+      code: 'E2E_PIN_FAILED',
+    });
+    /* После отказа список перечитывается и сам вернул бы отметку. Задержка
+       перечитывания оставляет на экране только откат: без него тест зелёный и
+       при сломанном откате. */
+    api.delay('GET', '/user/item-presets', 3_000);
+    await unpin.click();
+    await expect(appPage.getByText('Сервер не сохранил отметку')).toBeVisible();
+    await expect(unpin).toHaveAttribute('aria-pressed', 'true', { timeout: 1_000 });
+    expect(api.requests('PATCH', '/user/item-presets/802')).toHaveLength(2);
   });
 });
 
@@ -239,7 +292,7 @@ test.describe('Закупка: покупки инициатора', () => {
     const resetPrice = appPage.getByRole('alertdialog');
     await expect(resetPrice).toContainText('Молоко 3,2%');
     expect(api.requests('POST', '/store-runs/601/items/701/price')).toHaveLength(2);
-    await resetPrice.getByRole('button', { name: 'Убрать цену' }).click();
+    await resetPrice.getByRole('button', { name: 'Не нашли' }).click();
     expect(api.requests('POST', '/store-runs/601/items/701/price')).toHaveLength(3);
     await expect(appPage.getByText('Не нашли').first()).toBeVisible();
   });

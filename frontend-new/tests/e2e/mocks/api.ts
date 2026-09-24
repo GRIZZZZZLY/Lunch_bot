@@ -1,7 +1,8 @@
 import type { BrowserContext, Route } from '@playwright/test';
 import type { MenuItem, MenuSuggestion, Poll, Transaction } from '../../../src/types/models';
 import type { StoreItem, StoreRunWithRelations } from '../../../src/services/store-run.service';
-import { activeStoreRunList, makeActivePoll, makeStoreRun, type E2EState } from '../scenarios/data';
+import type { RecurringPoll } from '../../../src/services/recurring-poll.service';
+import { activeStoreRunList, E2E_NOW, makeActivePoll, makeStoreRun, type E2EState } from '../scenarios/data';
 
 const ok = <T>(data: T) => ({ success: true, data, timestamp: '2026-07-20T09:00:00.000Z' });
 const fail = (error: string, code: string) => ({ success: false, error, code });
@@ -584,11 +585,41 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
       });
       return;
     }
+    /* Отмена подтверждения — по правилам budget.controller: только получатель,
+       только подтверждённое и только сутки. Долг возвращается в «отмечен», а не
+       в «не оплачен»: отметку должника сервер не стирает. */
+    if (method === 'POST' && path === '/budget/undo-confirmation') {
+      const transactionId = Number(bodyRecord(body).transactionId);
+      const tx = [...state.debts, ...state.credits].find((candidate) => candidate.id === transactionId);
+      if (!tx) {
+        await route.fulfill({ status: 404, json: { error: 'Transaction not found' } });
+        return;
+      }
+      if (tx.toUserId !== state.user.id) {
+        await route.fulfill({ status: 403, json: { error: 'Access denied' } });
+        return;
+      }
+      if (tx.status !== 'CONFIRMED') {
+        await route.fulfill({ status: 409, json: { error: 'Платёж уже не подтверждён', code: 'WRONG_STATUS' } });
+        return;
+      }
+      const age = Date.parse(E2E_NOW) - Date.parse(tx.confirmedAt ?? '');
+      if (!(age <= 24 * 60 * 60 * 1000)) {
+        await route.fulfill({
+          status: 409,
+          json: { error: 'Отменить можно в течение суток после подтверждения', code: 'UNDO_WINDOW_EXPIRED' },
+        });
+        return;
+      }
+      tx.status = 'PAID';
+      tx.confirmedAt = null;
+      await route.fulfill({ json: { success: true } });
+      return;
+    }
     const budgetMutation: Record<string, (tx: Transaction) => void> = {
       '/budget/mark-paid': (tx) => { tx.status = 'PAID'; },
-      '/budget/confirm-payment': (tx) => { tx.status = 'CONFIRMED'; tx.confirmedAt = new Date().toISOString(); },
-      // окно отмены проверяет сервер; мок повторяет только смену статуса
-      '/budget/undo-confirmation': (tx) => { tx.status = 'PAID'; tx.confirmedAt = null; },
+      // по часам браузера: иначе подтверждённое «сегодня» выпадало бы из окна отмены
+      '/budget/confirm-payment': (tx) => { tx.status = 'CONFIRMED'; tx.confirmedAt = E2E_NOW; },
       '/budget/cancel-mark': (tx) => { tx.status = 'PENDING'; },
       '/budget/send-reminder': () => undefined,
     };
@@ -699,12 +730,79 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
       await route.fulfill({ status: 201, json: ok({ id: 1001, createdAt: '2026-07-20T09:00:00.000Z' }) });
       return;
     }
-    if (method === 'GET' && path.startsWith('/recurring/')) {
-      await route.fulfill({ json: ok(null) });
+    /* Расписание — как в recurring-poll.controller: дни и блюда хранятся
+       JSON-строкой и так же приходят клиенту, менять и удалять может только
+       админ группы, правка ищет расписание по groupId из тела. */
+    const recurringFields = (input: Record<string, unknown>): Partial<RecurringPoll> => {
+      const fields: Partial<RecurringPoll> = {};
+      if (Array.isArray(input.daysOfWeek)) fields.daysOfWeek = JSON.stringify(input.daysOfWeek);
+      if (typeof input.timeOfDay === 'string') fields.timeOfDay = input.timeOfDay;
+      if (typeof input.duration === 'number') fields.duration = input.duration;
+      if ('selectedMenuItemIds' in input) {
+        fields.selectedMenuItemIds = Array.isArray(input.selectedMenuItemIds)
+          ? JSON.stringify(input.selectedMenuItemIds)
+          : null;
+      }
+      if (typeof input.isEnabled === 'boolean') fields.isEnabled = input.isEnabled;
+      return fields;
+    };
+    const denyRecurring = () =>
+      route.fulfill({ status: 403, json: fail('Access denied. Admin rights required.', 'ACCESS_DENIED') });
+    const recurringByGroup = path.match(/^\/recurring\/(\d+)$/);
+    if (method === 'GET' && recurringByGroup) {
+      const groupId = Number(recurringByGroup[1]);
+      await route.fulfill({ json: ok(state.recurring.find((s) => s.groupId === groupId) ?? null) });
       return;
     }
     if (method === 'POST' && path === '/recurring') {
-      await route.fulfill({ status: 201, json: ok({ id: 1101, ...bodyRecord(body), isEnabled: true }) });
+      if (!isGroupAdmin(state)) {
+        await denyRecurring();
+        return;
+      }
+      const input = bodyRecord(body);
+      const schedule: RecurringPoll = {
+        id: 1101,
+        groupId: Number(input.groupId),
+        isEnabled: true,
+        daysOfWeek: '[]',
+        timeOfDay: '12:00',
+        duration: 30,
+        selectedMenuItemIds: null,
+        lastRunAt: null,
+        nextRunAt: null,
+        lastRunStatus: null,
+        lastRunMessage: null,
+        createdBy: state.user.id,
+        createdAt: '2026-07-20T09:00:00.000Z',
+        updatedAt: '2026-07-20T09:00:00.000Z',
+        ...recurringFields(input),
+      };
+      state.recurring.push(schedule);
+      await route.fulfill({ status: 201, json: ok(schedule) });
+      return;
+    }
+    if (recurringByGroup && (method === 'PATCH' || method === 'DELETE')) {
+      const id = Number(recurringByGroup[1]);
+      const input = bodyRecord(body);
+      const target =
+        method === 'PATCH'
+          ? state.recurring.find((s) => s.groupId === Number(input.groupId) && s.id === id)
+          : state.recurring.find((s) => s.id === id);
+      if (!target) {
+        await route.fulfill({ status: 404, json: fail('Schedule not found', 'NOT_FOUND') });
+        return;
+      }
+      if (!isGroupAdmin(state)) {
+        await denyRecurring();
+        return;
+      }
+      if (method === 'DELETE') {
+        state.recurring = state.recurring.filter((s) => s.id !== id);
+        await route.fulfill({ json: ok(null) });
+        return;
+      }
+      Object.assign(target, recurringFields(input), { updatedAt: '2026-07-20T09:00:00.000Z' });
+      await route.fulfill({ json: ok(target) });
       return;
     }
 
@@ -747,6 +845,12 @@ export async function installApiMock(context: BrowserContext, state: E2EState): 
     }
     if (method === 'GET' && path.startsWith('/admin/notification-settings/')) {
       await route.fulfill({ json: ok({ id: 1, groupId: 1, notifyOnNewUser: true, notifyOnNewPoll: true, notifyOnPollEnd: true, notifyOnDebtPaid: true, createdAt: CREATED_AT, updatedAt: CREATED_AT }) });
+      return;
+    }
+    /* Ответ — как у admin.controller: { deleted, skipped }; числа совпадают с
+       предпросмотром выше, чтобы диалог и итог не спорили друг с другом. */
+    if (method === 'DELETE' && path === '/admin/cleanup/old-polls') {
+      await route.fulfill({ json: ok({ deleted: 3, skipped: 1 }) });
       return;
     }
     if (path.startsWith('/admin/') && ['POST', 'PUT', 'DELETE'].includes(method)) {

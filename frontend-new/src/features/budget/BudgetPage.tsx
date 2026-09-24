@@ -378,7 +378,8 @@ export function BudgetPage() {
                     подтверждаешь. Заодно строка стала как в «Моих долгах». */}
                 <span className={styles.rowPerson}>
                   <span className={styles.rowName}>{c.name}</span>
-                  {c.status === 'PAID' && <Status tone="warning">Отметил</Status>}
+                  {/* «Отмечено», а не «Отметил»: чип стоял и у Марии. */}
+                  {c.status === 'PAID' && <Status tone="warning">Отмечено</Status>}
                 </span>
                 <Reference value={c.reference} />
                 <span className={`tnum ${styles.rowAmount}`}>{formatPrice(c.amount)}</span>
@@ -481,7 +482,9 @@ export function BudgetPage() {
       {undoing && (
         <ConfirmDialog
           title="Отменить подтверждение?"
-          description={`Долг ${undoing.name} на ${formatPrice(undoing.amount)} снова станет неоплаченным, участник получит уведомление.`}
+          /* Сервер возвращает долг в «отмечен», а не в «не оплачен»: отметку
+             должника он не стирает, и обещать обратное было неправдой. */
+          description={`${undoing.name} — ${formatPrice(undoing.amount)}. Долг снова будет ждать вашего подтверждения, участник получит уведомление.`}
           confirmLabel="Отменить подтверждение"
           cancelLabel="Оставить"
           destructive

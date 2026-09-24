@@ -229,7 +229,7 @@ function ParticipantShopping({
       </div>
 
       {mine.length > 0 ? (
-        <Section title="Ваши позиции" count={mine.length}>
+        <Section title="Мои позиции" count={mine.length}>
           {mine.map((item) => (
             <ReadOnlyShoppingItemRow key={item.id} item={item} showOwner={false} />
           ))}

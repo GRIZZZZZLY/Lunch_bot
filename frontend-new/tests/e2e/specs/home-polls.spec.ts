@@ -119,6 +119,71 @@ test.describe('Создание голосования', () => {
     });
   });
 
+  test.describe('расписание уже есть', () => {
+    test.beforeEach(({ api }) => {
+      api.state.recurring = [
+        {
+          id: 1101,
+          groupId: 1,
+          isEnabled: false,
+          daysOfWeek: '[1,3,5]',
+          timeOfDay: '11:30',
+          duration: 30,
+          selectedMenuItemIds: '[11,12]',
+          lastRunAt: null,
+          nextRunAt: null,
+          lastRunStatus: null,
+          lastRunMessage: null,
+          createdBy: 101,
+          createdAt: '2026-07-14T09:00:00.000Z',
+          updatedAt: '2026-07-14T09:00:00.000Z',
+        },
+      ];
+    });
+
+    /* Сохранение выключенного расписания его включает: «сохранить» значит
+       «хочу, чтобы работало». Блюда у расписания свои — выбирать их заново не
+       нужно. */
+    test('правит выключенное расписание и включает его', async ({ appPage, api }) => {
+      await appPage.goto('/');
+      await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
+      const sheet = appPage.getByRole('dialog', { name: 'Создать опрос' });
+      await expect(sheet.getByText('на паузе · запуск в 11:30')).toBeVisible();
+
+      await sheet.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
+      await sheet.getByRole('button', { name: 'Вт', exact: true }).click();
+      await sheet.getByRole('button', { name: 'Чт', exact: true }).click();
+      await sheet.getByRole('button', { name: 'Сохранить расписание' }).click();
+
+      await expect(appPage.getByText('Расписание обновлено')).toBeVisible();
+      expect(api.requests('POST', '/recurring')).toHaveLength(0);
+      expect(api.lastRequest('PATCH', '/recurring/1101')?.body).toEqual({
+        groupId: 1,
+        daysOfWeek: [1, 2, 3, 4, 5],
+        timeOfDay: '11:30',
+        duration: 30,
+        selectedMenuItemIds: [11, 12],
+        isEnabled: true,
+      });
+      await expect(appPage.getByText('Автозапуск в 11:30, по будням')).toBeVisible();
+    });
+
+    test('удаляет расписание', async ({ appPage, api }) => {
+      await appPage.goto('/');
+      await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
+      const sheet = appPage.getByRole('dialog', { name: 'Создать опрос' });
+      await sheet.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
+      await sheet.getByRole('button', { name: 'Удалить расписание' }).click();
+
+      await expect(appPage.getByText('Расписание удалено')).toBeVisible();
+      expect(api.requests('DELETE', '/recurring/1101')).toHaveLength(1);
+
+      // шторка закрылась; открытая заново, она предлагает создать расписание
+      await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
+      await expect(sheet.getByText('запланировать на несколько дней')).toBeVisible();
+    });
+  });
+
   test('чипы дней ловят палец за пределами видимой пилюли (хитбокс 44)', async ({ appPage }) => {
     await appPage.goto('/');
     await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
