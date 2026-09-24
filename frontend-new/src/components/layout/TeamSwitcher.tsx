@@ -2,11 +2,11 @@
  * Текущая команда и её смена — плашка «Офис ▾» в шапке вкладок, когда команд
  * две и больше. Точка на плашке — сколько команд сейчас заняты (правило —
  * lib/teamActivity.ts, teamSlotModel), шторка «Команды» — статус каждой.
+ * Выбор команды оставляет человека на той же вкладке.
  *
  * С одной командой не показывается: выбирать не из чего.
  */
 import { useId, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Icon } from '@/components/rl/Icon';
@@ -23,7 +23,6 @@ interface TeamSwitcherProps {
 }
 
 export function TeamSwitcher({ activity, busyCount }: TeamSwitcherProps) {
-  const navigate = useNavigate();
   const currentGroupId = useAppStore((s) => s.currentGroupId);
   const setCurrentGroupId = useAppStore((s) => s.setCurrentGroupId);
   const { data: groups = [] } = useMyGroups();
@@ -82,7 +81,6 @@ export function TeamSwitcher({ activity, busyCount }: TeamSwitcherProps) {
                   onClick={() => {
                     setCurrentGroupId(id);
                     setOpen(false);
-                    navigate('/');
                   }}
                 >
                   <span className={styles.optionMain}>

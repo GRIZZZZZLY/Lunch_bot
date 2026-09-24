@@ -39,8 +39,6 @@ test.describe('Безопасная проверка продакшена тол
     ) {
       await teamTrigger.click();
       await appPage.getByRole('radio', { name: identity.groupName, exact: true }).click();
-      // Выбор команды открывает Главную — возвращаемся в меню.
-      await navigation.getByRole('link', { name: 'Меню' }).click();
     }
     await expect(appPage.getByText(identity.groupName, { exact: false }).first()).toBeVisible();
     await expect(appPage.getByRole('button', { name: 'Добавить блюдо' })).toHaveCount(0);

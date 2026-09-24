@@ -132,11 +132,8 @@ test.describe('Группы и ошибки меню', () => {
       await appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' }).click();
       await expect(appPage.getByRole('radio', { name: 'Архивная группа' })).toHaveCount(0);
       await appPage.getByRole('radio', { name: 'Команда Спутник' }).click();
-      // Выбор команды открывает Главную — возвращаемся в меню.
-      await appPage
-        .getByRole('navigation', { name: 'Основная навигация' })
-        .getByRole('link', { name: 'Меню' })
-        .click();
+      // Выбор команды оставляет на вкладке: меню новой команды — сразу здесь.
+      await expect(appPage).toHaveURL(/\/menu$/);
       await expect(
         appPage.getByRole('button', { name: 'Команда: Команда Спутник. Сменить' }),
       ).toBeVisible();

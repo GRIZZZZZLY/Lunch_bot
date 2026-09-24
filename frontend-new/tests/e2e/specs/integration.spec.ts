@@ -29,14 +29,11 @@ function signedInitData(user: SeedUser = ANNA): string {
 const teamTrigger = (page: Page, title: string) =>
   page.getByRole('button', { name: `Команда: ${title}. Сменить` });
 
-/** Смена команды из шторки «Команды»; выбор открывает Главную — возвращаемся в меню. */
+/** Смена команды из шторки «Команды»; выбор оставляет человека в меню. */
 async function switchTeamOnMenu(page: Page, from: string, to: string) {
   await teamTrigger(page, from).click();
   await page.getByRole('radio', { name: to }).click();
-  await page
-    .getByRole('navigation', { name: 'Основная навигация' })
-    .getByRole('link', { name: 'Меню' })
-    .click();
+  await expect(page).toHaveURL(/\/menu$/);
 }
 
 test.describe('Настоящий сервер и тестовая PostgreSQL', () => {

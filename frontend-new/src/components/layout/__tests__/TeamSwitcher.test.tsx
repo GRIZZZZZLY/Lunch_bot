@@ -58,7 +58,9 @@ describe('TeamSwitcher', () => {
     expect(screen.getByRole('button', { name: 'Команда: Офис. Сменить' })).toBeInTheDocument();
   });
 
-  it('меняет команду из списка своих активных групп и открывает Главную', async () => {
+  /* Человек остаётся на своей вкладке: из Меню — меню новой команды, а не
+     Главная, куда потом пришлось бы возвращаться. */
+  it('меняет команду из списка своих активных групп и оставляет на вкладке', async () => {
     h.groups = [...h.groups, group(30, 'Архив', false)];
     renderSwitcher();
 
@@ -68,7 +70,7 @@ describe('TeamSwitcher', () => {
     expect(screen.getByRole('radio', { name: 'Офис' })).toHaveAttribute('aria-checked', 'true');
 
     await userEvent.click(screen.getByRole('radio', { name: 'Розница' }));
-    expect(screen.getByTestId('where')).toHaveTextContent(/^\/$/);
+    expect(screen.getByTestId('where')).toHaveTextContent('/stats');
 
     expect(useAppStore.getState().currentGroupId).toBe('20');
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
