@@ -1,7 +1,8 @@
 # Версия обязана совпадать с @playwright/test из frontend-new/package.json:
 # браузеры лежат в образе, и библиотека другой версии их не найдёт. При
-# обновлении пакета поднимать и этот тег.
-FROM mcr.microsoft.com/playwright:v1.62.1-noble
+# обновлении пакета поднимать и этот тег; совпадение сверяет
+# src/__tests__/production-smoke-image.test.ts.
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
 
 WORKDIR /app/frontend-new
 
