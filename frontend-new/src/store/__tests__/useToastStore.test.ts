@@ -21,11 +21,11 @@ describe('useToastStore.push', () => {
 
   it('различает сообщения по типу и заголовку', () => {
     const { push } = useToastStore.getState();
-    push({ type: 'success', message: 'Готово' });
-    push({ type: 'error', message: 'Готово' });
-    push({ type: 'success', message: 'Готово', title: 'Закупка' });
+    const a = push({ type: 'success', message: 'Готово' });
+    const b = push({ type: 'error', message: 'Готово' });
+    const c = push({ type: 'success', message: 'Готово', title: 'Закупка' });
 
-    expect(useToastStore.getState().toasts).toHaveLength(3);
+    expect(new Set([a, b, c]).size).toBe(3);
   });
 
   it('после закрытия то же сообщение показывается снова', () => {
@@ -40,6 +40,20 @@ describe('useToastStore.push', () => {
 });
 
 describe('useToastStore — уход', () => {
+  it('на экране одно уведомление: новое сменяет текущее', () => {
+    vi.useFakeTimers();
+    const { push } = useToastStore.getState();
+    const first = push({ type: 'error', message: 'Не удалось' });
+    const second = push({ type: 'success', message: 'Сохранено' });
+
+    const { toasts } = useToastStore.getState();
+    expect(toasts.filter((t) => !t.leaving).map((t) => t.id)).toEqual([second]);
+    expect(toasts.find((t) => t.id === first)?.leaving).toBe(true);
+
+    vi.advanceTimersByTime(TOAST_EXIT_MS);
+    expect(useToastStore.getState().toasts.map((t) => t.id)).toEqual([second]);
+  });
+
   it('снятие идёт в два шага: сначала флаг, потом удаление', () => {
     vi.useFakeTimers();
     const { push, dismiss } = useToastStore.getState();
