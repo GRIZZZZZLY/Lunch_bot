@@ -1,30 +1,29 @@
+/* Рамка уведомления = рамка шапки вкладок (Header.tsx): отступ сверху 8 px
+   плюс безопасная зона, поля 12 px внутри колонки 430 px, высота от 56 px.
+   Поверхность даёт тот же класс surf-elevated, что и у шапки. Менять эти
+   числа — только вместе с шапкой, иначе уведомление перестанет совпадать с
+   ней по краям. */
 .toast-stack {
   position: fixed;
-  /* Безопасную зону учитывают все остальные фиксированные элементы продукта —
-     нижняя навигация, шторка, шапка DetailLayout. Тост был единственным, кто
-     отмерял свои 16 px от края вьюпорта: под вырезом и шапкой Telegram он
-     заезжал под системные элементы. */
-  top: calc(16px + var(--safe-area-top, 0px));
+  top: calc(8px + var(--safe-area-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 400px;
+  width: calc(min(100%, 430px) - 24px);
   z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  /* Одна ячейка сетки: уходящее и входящее уведомления лежат друг на друге,
+     а не стопкой. */
+  display: grid;
   pointer-events: none;
 }
 
 .toast {
+  grid-area: 1 / 1;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 12px 12px 14px;
-  background: var(--surface);
-  border: 1px solid var(--divider);
-  border-radius: 14px;
-  box-shadow: var(--shadow-2);
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  /* Справа 4 px: у крестика своя область 44×44, она и держит поле. */
+  padding: 8px 4px 8px 16px;
   pointer-events: auto;
   animation: toast-in 220ms cubic-bezier(.2,.7,.2,1) both;
   color: var(--text-primary);
@@ -40,15 +39,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: var(--text-13);
-  color: #fff;
 }
 
-/* Тосты красились пастелью прежнего дизайна (--mint-500 и соседи): единственный
-   в продукте набор статусных цветов, который не менялся между темами и не
-   совпадал ни с плашками, ни с уведомлениями. Теперь те же семантические пары,
-   что и у InlineNotice со Status, вместе с их читаемым передним планом. */
+/* Те же семантические пары, что у InlineNotice и Status. */
 .toast-success .toast-icon { background: var(--success); color: var(--success-foreground); }
 .toast-error   .toast-icon { background: var(--danger);  color: var(--danger-foreground); }
 .toast-warning .toast-icon { background: var(--warning); color: var(--warning-foreground); }
@@ -62,27 +55,42 @@
 .toast-title {
   font-weight: 600;
   margin-bottom: 2px;
-  font-size: var(--text-13);
 }
 
+/* Без обрезки: длинный текст (ошибки сервера) растит рамку вниз. */
 .toast-msg {
   color: var(--text-secondary);
-  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .toast-close {
-  flex: 0 0 auto;
-  background: transparent;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
+  border-radius: var(--radius-control-sm);
+  background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  padding: 2px 4px;
-  font-size: 14px;
-  line-height: 1;
+  transition: color var(--motion-fast) var(--ease-out);
 }
 
-.toast-close:hover {
-  color: var(--text-primary);
+@media (hover: hover) {
+  .toast-close:hover {
+    color: var(--text-primary);
+  }
+}
+
+.toast-close:active {
+  opacity: 0.8;
+}
+
+.toast-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
 }
 
 @keyframes toast-in {
@@ -96,12 +104,9 @@
   }
 }
 
-/* Уход. Длительность обязана совпадать с TOAST_EXIT_MS в store/useToastStore.ts:
-   там стоит таймер снятия, и разошедшиеся числа дадут либо обрыв на середине,
-   либо застывший кадр после конца анимации.
-
-   Короче входа (180 против 220): тост уже прочитан, и растянутый уход читается
-   как залипание. Уходит тем же путём, которым пришёл, — вверх, откуда выехал. */
+/* Уход. Длительность обязана совпадать с TOAST_EXIT_MS в
+   store/useToastStore.ts. При prefers-reduced-motion глобальное правило из
+   redesign-v2.css сводит обе анимации к мгновенной смене. */
 .toast.is-leaving {
   animation: toast-out 180ms var(--ease-out) both;
   pointer-events: none;

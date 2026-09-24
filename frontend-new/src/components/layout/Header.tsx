@@ -30,7 +30,9 @@ export function Header({ title = 'Rocket Lunch', right, subtitle }: HeaderProps)
         zIndex: 40,
         // Обёртка прозрачная: точечная фактура (body::before) должна
         // просвечивать в отступах, иначе шапка снова читается плашкой.
-        padding: '8px 12px',
+        // Безопасная зона — как у шапки detail-экранов; эти же числа
+        // повторяет рамка уведомления (styles/toast.css).
+        padding: 'calc(8px + var(--safe-area-top, 0px)) 12px 8px',
       }}
     >
       <header
