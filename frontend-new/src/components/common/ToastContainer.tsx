@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { Icon, type IconName } from '@/components/rl/Icon';
 import { useToastStore, type ToastType } from '@/store/useToastStore';
 import '@/styles/toast.css';
@@ -18,8 +19,12 @@ export function ToastContainer() {
   const dismiss = useToastStore((s) => s.dismiss);
 
   /* Область объявлений живёт всегда: live-region, появившийся вместе с первым
-     сообщением, экранный диктор может не заметить. */
-  return (
+     сообщением, экранный диктор может не заметить.
+
+     Портал у body, рядом со шторками, а не внутри #root: открытая шторка
+     делает #root инертным (BottomSheet), и уведомление там было бы видно
+     поверх неё, но крестик не нажимался бы, а диктор молчал. */
+  return createPortal(
     <div className="rl toast-stack" role="region" aria-label="Уведомления" aria-live="polite">
       {toasts.map((t) => (
         <div
@@ -44,6 +49,7 @@ export function ToastContainer() {
           </button>
         </div>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }

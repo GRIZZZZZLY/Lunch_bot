@@ -45,7 +45,7 @@ export function Header({ title, subtitle, team }: HeaderProps) {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 12,
+          gap: 8,
           height: 56,
           padding: '0 16px',
         }}
@@ -56,7 +56,7 @@ export function Header({ title, subtitle, team }: HeaderProps) {
               className="font-head tight"
               style={{
                 margin: 0,
-                fontSize: 'var(--text-16)',
+                fontSize: 'var(--text-15)',
                 fontWeight: 700,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',

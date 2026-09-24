@@ -494,11 +494,6 @@
 /* Маршрут вне вкладок (404): подсвечивать нечего, плитка уходит на месте. */
 .rl .nav-pill.is-hidden { opacity: 0; }
 .rl .navbtn .nav-dot { display: none; }
-.rl .toast {
-  display: flex; align-items: flex-start; gap: var(--space-3);
-  padding: var(--space-3) var(--space-4); border-radius: var(--radius-block);
-  box-shadow: var(--shadow-3); border: 1px solid var(--divider);
-}
 
 /* ===== ХИТБОКСЫ КАСАНИЯ =====
    Продукт живёт только в Telegram и только под пальцем, поэтому 44×44 —
