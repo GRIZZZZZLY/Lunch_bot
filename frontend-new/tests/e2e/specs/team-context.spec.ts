@@ -30,10 +30,12 @@ test.describe('Команда в шапке', () => {
       .toBe(true);
   });
 
-  test('в меню не дублирует его собственный переключатель', async ({ appPage }) => {
+  test('в меню команда меняется той же плашкой в шапке', async ({ appPage }) => {
     await appPage.goto('/menu');
-    await expect(appPage.getByRole('tab', { name: 'Команда Ракета' })).toBeVisible();
-    await expect(appPage.getByRole('button', { name: /^Команда: / })).toHaveCount(0);
+    await expect(appPage.getByRole('tab', { name: 'Команда Ракета' })).toHaveCount(0);
+    await expect(
+      appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' }),
+    ).toBeVisible();
   });
 });
 
@@ -54,10 +56,9 @@ test.describe('Ссылки из чата', () => {
     test('«Открыть меню группы» делает её текущей', async ({ appPage }) => {
       await appPage.goto('/?groupId=-100000000002');
       await expect(appPage).toHaveURL(/\/menu$/);
-      await expect(appPage.getByRole('tab', { name: 'Команда Спутник' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      );
+      await expect(
+        appPage.getByRole('button', { name: 'Команда: Команда Спутник. Сменить' }),
+      ).toBeVisible();
     });
 
     test('«Добавить блюдо» открывает форму', async ({ appPage }) => {

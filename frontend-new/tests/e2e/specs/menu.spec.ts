@@ -127,13 +127,21 @@ test.describe('Группы и ошибки меню', () => {
   test.describe('несколько групп', () => {
     test.use({ scenario: 'groups-multiple', role: 'admin' });
 
-    test('переключает глобальную группу и повторяет запрос с новым groupId', async ({ appPage, api }) => {
+    test('переключает глобальную группу из шапки и повторяет запрос с новым groupId', async ({ appPage, api }) => {
       await appPage.goto('/menu');
-      await appPage.getByRole('tab', { name: 'Команда Спутник' }).click();
-      await expect(appPage.getByRole('tab', { name: 'Команда Спутник' })).toHaveAttribute('aria-selected', 'true');
+      await appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' }).click();
+      await expect(appPage.getByRole('radio', { name: 'Архивная группа' })).toHaveCount(0);
+      await appPage.getByRole('radio', { name: 'Команда Спутник' }).click();
+      // Выбор команды открывает Главную — возвращаемся в меню.
+      await appPage
+        .getByRole('navigation', { name: 'Основная навигация' })
+        .getByRole('link', { name: 'Меню' })
+        .click();
+      await expect(
+        appPage.getByRole('button', { name: 'Команда: Команда Спутник. Сменить' }),
+      ).toBeVisible();
       await expect.poll(() => api.requests('GET', '/menu').some((request) => request.query.groupId === '2')).toBe(true);
       await expect(appPage.getByRole('button', { name: 'Добавить блюдо' })).toHaveCount(0);
-      await expect(appPage.getByRole('tab', { name: 'Архивная группа' })).toHaveCount(0);
     });
   });
 

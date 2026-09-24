@@ -32,8 +32,16 @@ test.describe('Безопасная проверка продакшена тол
     }
 
     await navigation.getByRole('link', { name: 'Меню' }).click();
-    const groupTab = appPage.getByRole('tab', { name: identity.groupName, exact: true });
-    if ((await groupTab.count()) > 0) await groupTab.click();
+    const teamTrigger = appPage.getByRole('button', { name: /^Команда: .*\. Сменить$/ });
+    if (
+      (await teamTrigger.count()) > 0 &&
+      (await teamTrigger.getAttribute('aria-label')) !== `Команда: ${identity.groupName}. Сменить`
+    ) {
+      await teamTrigger.click();
+      await appPage.getByRole('radio', { name: identity.groupName, exact: true }).click();
+      // Выбор команды открывает Главную — возвращаемся в меню.
+      await navigation.getByRole('link', { name: 'Меню' }).click();
+    }
     await expect(appPage.getByText(identity.groupName, { exact: false }).first()).toBeVisible();
     await expect(appPage.getByRole('button', { name: 'Добавить блюдо' })).toHaveCount(0);
 

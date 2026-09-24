@@ -25,6 +25,20 @@ function signedInitData(user: SeedUser = ANNA): string {
   return params.toString();
 }
 
+/** Плашка текущей команды в шапке вкладок. */
+const teamTrigger = (page: Page, title: string) =>
+  page.getByRole('button', { name: `Команда: ${title}. Сменить` });
+
+/** Смена команды из шторки «Команды»; выбор открывает Главную — возвращаемся в меню. */
+async function switchTeamOnMenu(page: Page, from: string, to: string) {
+  await teamTrigger(page, from).click();
+  await page.getByRole('radio', { name: to }).click();
+  await page
+    .getByRole('navigation', { name: 'Основная навигация' })
+    .getByRole('link', { name: 'Меню' })
+    .click();
+}
+
 test.describe('Настоящий сервер и тестовая PostgreSQL', () => {
   test.skip(!integrationEnabled, 'Запускается только с E2E_INTEGRATION=1 после безопасного seed');
 
@@ -48,19 +62,18 @@ test.describe('Настоящий сервер и тестовая PostgreSQL', 
 
   /**
    * Тестовый пользователь состоит в двух командах (см. `backend/src/scripts/
-   * e2e-seed.ts`), поэтому на экране появляется переключатель, и название
-   * команды встречается дважды — в подзаголовке и на вкладке.
+   * e2e-seed.ts`), поэтому в шапке появляется плашка команды, и название
+   * команды встречается дважды — в подписи шапки и на плашке.
    *
-   * Проверяем ВЫБРАННУЮ вкладку, а не просто наличие текста: так утверждение
-   * говорит не «название где-то есть», а «открыта именно эта команда».
+   * Проверяем плашку ТЕКУЩЕЙ команды, а не просто наличие текста: так
+   * утверждение говорит не «название где-то есть», а «открыта именно эта
+   * команда».
    */
   test('@integration входит через подписанный initData и читает seeded menu', async ({ page }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
     await page.goto('/menu');
-    await expect(
-      page.getByRole('tab', { name: 'Команда E2E', selected: true })
-    ).toBeVisible();
+    await expect(teamTrigger(page, 'Команда E2E')).toBeVisible();
     await expect(page.getByText('Борщ E2E')).toBeVisible();
     await expect(page.getByText('Паста E2E')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Добавить блюдо' })).toBeVisible();
@@ -77,16 +90,12 @@ test.describe('Настоящий сервер и тестовая PostgreSQL', 
    */
   test('@integration главная A → переключение на B → меню команды B', async ({ page }) => {
     await page.goto('/menu');
-    await expect(
-      page.getByRole('tab', { name: 'Команда E2E', selected: true })
-    ).toBeVisible();
+    await expect(teamTrigger(page, 'Команда E2E')).toBeVisible();
     await expect(page.getByText('Борщ E2E')).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Команда Б E2E' }).click();
+    await switchTeamOnMenu(page, 'Команда E2E', 'Команда Б E2E');
 
-    await expect(
-      page.getByRole('tab', { name: 'Команда Б E2E', selected: true })
-    ).toBeVisible();
+    await expect(teamTrigger(page, 'Команда Б E2E')).toBeVisible();
     // Блюдо команды Б появилось, блюда команды А ушли.
     await expect(page.getByText('Плов Б E2E')).toBeVisible();
     await expect(page.getByText('Борщ E2E')).toHaveCount(0);
@@ -95,7 +104,7 @@ test.describe('Настоящий сервер и тестовая PostgreSQL', 
     /* Обратно — тоже без остатков: кэш обеих команд должен быть свой.
        Возврат отдельным шагом, потому что именно на нём проявлялся общий
        ключ: данные уже лежали в кэше и отдавались как актуальные. */
-    await page.getByRole('tab', { name: 'Команда E2E' }).click();
+    await switchTeamOnMenu(page, 'Команда Б E2E', 'Команда E2E');
     await expect(page.getByText('Борщ E2E')).toBeVisible();
     await expect(page.getByText('Плов Б E2E')).toHaveCount(0);
   });
@@ -107,16 +116,17 @@ test.describe('Настоящий сервер и тестовая PostgreSQL', 
    */
   test('@integration меню чужой команды не видно в открытой', async ({ page }) => {
     await page.goto('/menu');
-    await expect(
-      page.getByRole('tab', { name: 'Команда E2E', selected: true })
-    ).toBeVisible();
+    await expect(teamTrigger(page, 'Команда E2E')).toBeVisible();
+    await expect(page.getByText('Борщ E2E')).toBeVisible();
+    await expect(page.getByText('Плов Б E2E')).toHaveCount(0);
 
-    // Вкладка соседней команды есть, но её блюдо на экране не показано.
-    await expect(page.getByRole('tab', { name: 'Команда Б E2E' })).toBeVisible();
+    // Соседняя команда предлагается в шторке, а её блюдо на экране не показано.
+    await teamTrigger(page, 'Команда E2E').click();
+    await expect(page.getByRole('radio', { name: 'Команда Б E2E' })).toBeVisible();
     await expect(page.getByText('Плов Б E2E')).toHaveCount(0);
 
     // Команда, в которой пользователя нет, не предлагается вовсе.
-    await expect(page.getByRole('tab', { name: 'Команда В E2E' })).toHaveCount(0);
+    await expect(page.getByRole('radio', { name: 'Команда В E2E' })).toHaveCount(0);
   });
 });
 

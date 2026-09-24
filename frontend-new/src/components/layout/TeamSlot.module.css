@@ -1,0 +1,63 @@
+/* Одиночная плашка статуса (одна команда, не Главная). Цвет — значение:
+   голосование в паре vote, закупка в паре shop, как у Status. Видимая
+   высота 32 px, область касания — 44 px псевдоэлементом. */
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: var(--text-13);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.chip::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--control-md);
+  transform: translateY(-50%);
+}
+
+.text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.vote {
+  background: var(--vote-tint);
+  color: var(--vote-on-tint);
+}
+
+.shop {
+  background: var(--shop-tint);
+  color: var(--shop-on-tint);
+}
+
+@media (hover: hover) {
+  .chip:hover {
+    opacity: 0.9;
+  }
+}
+
+.chip:active {
+  opacity: 0.8;
+}
+
+.chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+}

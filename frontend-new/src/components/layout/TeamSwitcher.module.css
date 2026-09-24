@@ -1,26 +1,25 @@
-/* Текущая команда под логотипом в шапке. Вид компактный, область касания —
-   44 px невидимым псевдоэлементом («правило разведённых размеров»). */
+/* Плашка текущей команды справа в шапке вкладок. Видимая высота 32 px,
+   область касания — 44 px невидимым псевдоэлементом. */
 .trigger {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  max-width: calc(100% + 2 * var(--space-2));
+  flex: 0 1 auto;
   min-width: 0;
-  /* Отступ даёт кольцу фокуса воздух, отрицательное поле возвращает текст
-     на линию бренда. */
-  margin: -2px calc(-1 * var(--space-2));
-  padding: 2px var(--space-2);
+  max-width: 55%;
+  height: 32px;
+  padding: 0 var(--space-2) 0 var(--space-3);
   border: none;
-  background: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface-secondary);
   font: inherit;
   font-size: var(--text-13);
   font-weight: 600;
-  line-height: 1.2;
-  color: var(--text-secondary);
+  line-height: 1;
+  color: var(--text-primary);
   cursor: pointer;
-  border-radius: var(--radius-control-sm);
-  transition: color var(--motion-fast) var(--ease-out);
+  transition: background-color var(--motion-fast) var(--ease-out);
 }
 
 .trigger::after {
@@ -41,7 +40,7 @@
 
 @media (hover: hover) {
   .trigger:hover {
-    color: var(--text-primary);
+    background: var(--accent-tint);
   }
 }
 
@@ -51,7 +50,7 @@
 
 .trigger:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--focus-ring);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
 }
 
 .list {
@@ -98,4 +97,44 @@
 .option[aria-checked='true'] {
   background: var(--accent);
   color: var(--accent-foreground);
+}
+
+.dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: var(--text-11);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.optionMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-block: var(--space-2);
+}
+
+.optionTitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.optionStatus {
+  font-size: var(--text-13);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.option[aria-checked='true'] .optionStatus {
+  color: inherit;
+  opacity: 0.8;
 }

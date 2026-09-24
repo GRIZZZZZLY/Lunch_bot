@@ -1,6 +1,6 @@
-/* Меню (Phase 5, система C). Группа — ГЛОБАЛЬНЫЙ контекст: переключение
-   здесь меняет useAppStore.currentGroupId и весь продукт (голосование,
-   закупки, бюджет) следует за ним. Toggle блюда — с явным groupId (B4).
+/* Меню (Phase 5, система C). Группа — ГЛОБАЛЬНЫЙ контекст: команду меняют в
+   шапке вкладок; useAppStore.currentGroupId меняет весь продукт (голосование,
+   закупки, бюджет). Toggle блюда — с явным groupId (B4).
    FAB удалён: «Добавить блюдо» — кнопка под списком и в пустом состоянии. */
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -23,7 +23,6 @@ import { EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
 import { Button, IconButton, Switch } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { formatPriceOrDash } from '@/shared/lib/money';
-import { useRovingFocus } from '@/shared/lib/useRovingFocus';
 import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
 import { DishSheet, type DishInput } from './components/DishSheet';
 import styles from './MenuPage.module.css';
@@ -61,14 +60,8 @@ export default function MenuPage() {
   // Группа — глобальный контекст всего продукта (решение плана миграции):
   // никаких локальных «только для меню» групп.
   const currentGroupId = useAppStore((s) => s.currentGroupId);
-  const setCurrentGroupId = useAppStore((s) => s.setCurrentGroupId);
   const { data: myGroups = [] } = useMyGroups();
   const activeGroups = useMemo(() => myGroups.filter((g) => g.isActive), [myGroups]);
-  // Смена группы перезапрашивает меню, поэтому стрелки только двигают фокус.
-  const groupTabs = useRovingFocus(
-    activeGroups.length,
-    activeGroups.findIndex((g) => String(g.id) === currentGroupId),
-  );
   const activeGroup = activeGroups.find((g) => String(g.id) === currentGroupId);
 
   // Управление меню — по РОЛИ в выбранной группе (совпадает с бэком:
@@ -83,6 +76,15 @@ export default function MenuPage() {
 
   const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
+  /* Команду меняют в шапке (шторка «Команды»), а фильтры принадлежат прежней
+     команде: её категорий у новой может не быть. Сброс — во время рендера, а
+     не эффектом, иначе один кадр показывал бы новое меню со старым фильтром. */
+  const [filtersFor, setFiltersFor] = useState(currentGroupId);
+  if (filtersFor !== currentGroupId) {
+    setFiltersFor(currentGroupId);
+    setCategory('all');
+    setQuery('');
+  }
   /* «Добавить блюдо» из чата группы открывает меню сразу с формой. Роль
      известна уже при монтировании: группы загружаются до входа (bootstrap).
      Состояние навигации гасится, чтобы возврат в меню не открывал форму
@@ -115,14 +117,6 @@ export default function MenuPage() {
   const isEmpty = !isLoading && !error && dishes.length === 0;
   const isNoResults = !isLoading && !error && !isEmpty && filtered.length === 0;
 
-  const switchGroup = (id: string) => {
-    if (id === currentGroupId) return;
-    // смена глобальной группы: все group-scoped запросы перезапросятся по ключам
-    setCurrentGroupId(id);
-    setCategory('all');
-    setQuery('');
-  };
-
   // Число — только когда меню прочитано: пока идёт загрузка или она упала,
   // «0 блюд» выдавало сбой за пустое меню.
   const headerSubtitle = [
@@ -135,28 +129,6 @@ export default function MenuPage() {
 
   return (
     <div className={`rl ${styles.screen}`}>
-      {activeGroups.length > 1 && (
-        <div className={styles.cats} role="tablist" aria-label="Группа">
-          {activeGroups.map((g, idx) => {
-            const { ref, ...roving } = groupTabs.getItemProps(idx);
-            return (
-              <button
-                key={g.id}
-                ref={ref}
-                type="button"
-                role="tab"
-                aria-selected={String(g.id) === currentGroupId}
-                className={`${styles.cat}${String(g.id) === currentGroupId ? ` ${styles.on}` : ''}`}
-                onClick={() => switchGroup(String(g.id))}
-                {...roving}
-              >
-                {g.title}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {!isEmpty && !error && (
         <>
           <label className={styles.search}>
@@ -179,10 +151,9 @@ export default function MenuPage() {
               </button>
             )}
           </label>
-          {/* aria-pressed, а не только цвет: рядом, в той же шапке, переключатель
-              групп сделан правильным tablist с aria-selected, а фильтр категорий
-              не сообщал своё состояние вообще. Здесь не tablist — панелей нет,
-              фильтруется один и тот же список, поэтому переключатель-кнопка. */}
+          {/* aria-pressed, а не только цвет: раньше фильтр категорий не сообщал
+              своё состояние вообще. Здесь не tablist — панелей нет, фильтруется
+              один и тот же список, поэтому переключатель-кнопка. */}
           <div className={styles.cats}>
             {categories.map((c) => (
               <button

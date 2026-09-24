@@ -3,7 +3,7 @@
 import { Suspense, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
-import { TeamSwitcher } from '@/components/layout/TeamSwitcher';
+import { TeamSlot } from '@/components/layout/TeamSlot';
 import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { RouteFallback } from '@/components/common/RouteFallback';
@@ -30,11 +30,10 @@ export function RootLayout() {
   return (
     <div className="flex flex-col min-h-[100dvh] mx-auto w-full max-w-[430px]">
       <ScreenHeaderContext.Provider value={api}>
-        {/* В меню свой переключатель группы, второй в шапке дублировал бы его. */}
         <Header
           title={header.title || tabLabel}
           subtitle={header.subtitle}
-          team={pathname === '/menu' ? null : <TeamSwitcher />}
+          team={<TeamSlot />}
         />
 
         <main

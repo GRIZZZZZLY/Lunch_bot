@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useAppStore } from '@/store/useAppStore';
 
 const h = vi.hoisted(() => ({
@@ -138,12 +138,16 @@ describe('MenuPage — глобальный админ без роли в гру
   });
 });
 
-describe('MenuPage — глобальная группа', () => {
-  it('переключение группы меняет currentGroupId в сторе (не локально)', () => {
+describe('MenuPage — смена команды', () => {
+  it('ряда команд нет, а смена команды в шапке сбрасывает поиск', () => {
     h.state.groups = [group(10, 'Офис', 'ADMIN'), group(20, 'Розница')];
+    useAppStore.setState({ currentGroupId: '10' });
     render(<MenuPage />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Розница' }));
-    expect(useAppStore.getState().currentGroupId).toBe('20');
+    expect(screen.queryByRole('tab', { name: 'Розница' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Поиск блюд' }), { target: { value: 'суп' } });
+    act(() => useAppStore.setState({ currentGroupId: '20' }));
+    expect(screen.getByRole('textbox', { name: 'Поиск блюд' })).toHaveValue('');
   });
 });
 
