@@ -5,7 +5,8 @@
  *
  * - выборка ограничена: только PENDING, старше minDebtAge, не чаще intervalDays,
  *   не больше maxReminders раз — иначе человек получает напоминание каждый час;
- * - счётчик напоминаний инкрементится ТОЛЬКО после успешной отправки;
+ * - счётчик напоминаний растёт после успешной отправки и после отказа, который
+ *   повтор не исправит (бот заблокирован, чата нет); временный сбой его не тратит;
  * - падение отправки одному не отменяет рассылку остальным;
  * - задача идёт под распределённой блокировкой: два процесса не разошлют дубль.
  */
@@ -161,8 +162,29 @@ describe('рассылка напоминаний', () => {
     });
   });
 
-  it('заблокированный бот не увеличивает счётчик — напоминание не доставлено', async () => {
-    sendMessage.mockRejectedValue(new Error('bot was blocked by the user'));
+  /* Повтор такой отправки не поможет. Незасчитанная попытка оставляла долг в
+     выборке навсегда: задача каждый день падала на том же человеке, не глядя
+     ни на intervalDays, ни на maxReminders. */
+  it.each([
+    "Call to 'sendMessage' failed! (403: Forbidden: bot was blocked by the user)",
+    "Call to 'sendMessage' failed! (400: Bad Request: chat not found)",
+    "Call to 'sendMessage' failed! (403: Forbidden: bot can't initiate conversation with a user)",
+    "Call to 'sendMessage' failed! (403: Forbidden: user is deactivated)",
+  ])('отказ навсегда засчитывается как попытка: %s', async errorMessage => {
+    sendMessage.mockRejectedValue(new Error(errorMessage));
+
+    await runDebtReminderJobManually();
+
+    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: [1] } },
+      data: { reminderCount: { increment: 1 }, lastReminderAt: NOW },
+    });
+  });
+
+  it('временный сбой попытку не тратит — завтра задача повторит', async () => {
+    sendMessage.mockRejectedValue(
+      new Error("Call to 'sendMessage' failed! (429: Too Many Requests: retry after 5)")
+    );
 
     await runDebtReminderJobManually();
 
@@ -179,13 +201,13 @@ describe('рассылка напоминаний', () => {
       }),
     ] as never);
     sendMessage
-      .mockRejectedValueOnce(new Error('blocked'))
+      .mockRejectedValueOnce(new Error('socket hang up'))
       .mockResolvedValueOnce(undefined);
 
     await runDebtReminderJobManually();
 
     expect(sendMessage).toHaveBeenCalledTimes(2);
-    /* Счётчик поднят только у доставленного напоминания: у неудачной отправки
+    /* Счётчик поднят только у доставленного напоминания: у временного сбоя
        попытка из maxReminders не должна сгорать. */
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledTimes(1);
     expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({

@@ -6,6 +6,7 @@ import { getBotInstance } from '../bot/bot-instance';
 import { Prisma } from '@prisma/client';
 import { UserService, type PaymentInfo } from './user.service';
 import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
+import { classifyTelegramError, type TelegramSendErrorCode } from '../utils/telegram-errors';
 
 /**
  * Транзакция со связями, нужными для рассылки напоминаний.
@@ -33,7 +34,7 @@ const reminderInclude = {
 interface SendReminderResult {
   success: boolean;
   error?: string;
-  errorCode?: 'bot_blocked' | 'no_chat' | 'user_deactivated' | 'unknown';
+  errorCode?: TelegramSendErrorCode;
 }
 
 interface FailedUser {
@@ -41,7 +42,7 @@ interface FailedUser {
   firstName: string;
   lastName?: string;
   reason: string;
-  errorCode: 'bot_blocked' | 'no_chat' | 'user_deactivated' | 'unknown';
+  errorCode: TelegramSendErrorCode;
 }
 
 interface SendRemindersResult {
@@ -49,42 +50,6 @@ interface SendRemindersResult {
   failedCount: number;
   totalCount: number;
   failedUsers: FailedUser[];
-}
-
-/**
- * Классифицировать ошибку Telegram API
- */
-function classifyTelegramError(error: any): {
-  errorCode: SendReminderResult['errorCode'];
-  reason: string;
-} {
-  const errorMessage = error?.message || error?.description || String(error);
-
-  if (errorMessage.includes('bot was blocked by the user')) {
-    return {
-      errorCode: 'bot_blocked',
-      reason: 'Пользователь заблокировал бота',
-    };
-  }
-
-  if (
-    errorMessage.includes("bot can't initiate conversation") ||
-    errorMessage.includes('chat not found')
-  ) {
-    return {
-      errorCode: 'no_chat',
-      reason: 'Пользователь не начал чат с ботом',
-    };
-  }
-
-  if (errorMessage.includes('user is deactivated')) {
-    return {
-      errorCode: 'user_deactivated',
-      reason: 'Аккаунт пользователя деактивирован',
-    };
-  }
-
-  return { errorCode: 'unknown', reason: 'Неизвестная ошибка отправки' };
 }
 
 /**

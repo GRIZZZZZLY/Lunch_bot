@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { withDistributedLock } from '../utils/distributed-lock';
 import { pluralForm } from '../utils/pluralize';
 import { escapeMarkdown } from '../utils/telegram-html';
+import { classifyTelegramError } from '../utils/telegram-errors';
 
 /**
  * Форматирование возраста долга.
@@ -198,12 +199,13 @@ async function sendRemindersForGroup(
   // должников и остаётся в пределах лимитов Telegram (глобально ~30 msg/s).
   const CONCURRENCY = 4;
 
-  /** Успешно отправленное напоминание и долги, счётчики которых пора поднять. */
+  /** Итог отправки и долги, счётчики которых пора поднять. */
   type SendResult = { ok: boolean; transactionIds: number[] };
 
   const sendOne = async (
     debtorData: (typeof debtors)[number]
   ): Promise<SendResult> => {
+    const transactionIds: number[] = debtorData.debts.map((d: any) => d.id);
     try {
       const message = formatReminderMessage(
         settings.messageTemplate,
@@ -220,11 +222,20 @@ async function sendRemindersForGroup(
       logger.info(
         `[DebtReminderJob] Sent reminder to user ${debtorData.debtor.id} (${debtorData.debtor.firstName}) for ${debtorData.totalAmount.toFixed(2)} руб.`
       );
-      return {
-        ok: true,
-        transactionIds: debtorData.debts.map((d: any) => d.id),
-      };
+      return { ok: true, transactionIds };
     } catch (error) {
+      /* Бот заблокирован, чата нет, аккаунт удалён — повтор не поможет, и
+         попытка засчитывается. Иначе долг навсегда остаётся в выборке: задача
+         каждый день падает на том же человеке, не глядя ни на intervalDays,
+         ни на maxReminders. Временный сбой попытку не тратит. */
+      const { errorCode, reason } = classifyTelegramError(error);
+      if (errorCode !== 'unknown') {
+        logger.warn(
+          `[DebtReminderJob] Reminder to user ${debtorData.debtor.id} undeliverable: ${reason}`
+        );
+        return { ok: false, transactionIds };
+      }
+
       logger.error(
         `[DebtReminderJob] Failed to send reminder to user ${debtorData.debtor.id}:`,
         error
@@ -239,12 +250,9 @@ async function sendRemindersForGroup(
 
     const remindedIds: number[] = [];
     for (const result of results) {
-      if (result.ok) {
-        sent++;
-        remindedIds.push(...result.transactionIds);
-      } else {
-        failed++;
-      }
+      if (result.ok) sent++;
+      else failed++;
+      remindedIds.push(...result.transactionIds);
     }
 
     /* Счётчики поднимаются одним запросом на пачку, а не на должника: раньше
@@ -252,8 +260,9 @@ async function sendRemindersForGroup(
        Пачка, а не весь список, — намеренно: между отправкой и записью счётчика
        есть окно, и падение в нём приводит к повторному напоминанию тем, кому
        уже написали. С пачкой это окно ограничено CONCURRENCY должниками.
-       Счётчик поднимается ТОЛЬКО у тех, чьё сообщение ушло: иначе неудачная
-       отправка съедала бы попытку из maxReminders. */
+       Счётчик поднимается у тех, чьё сообщение ушло, и у тех, кому его не
+       доставить никогда (см. sendOne). Временный сбой попытку из maxReminders
+       не съедает. */
     if (remindedIds.length > 0) {
       await prisma.transaction.updateMany({
         where: { id: { in: remindedIds } },

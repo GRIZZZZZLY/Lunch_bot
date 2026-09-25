@@ -29,7 +29,7 @@ import { ESLint } from 'eslint';
  * вхождений `any`/`as any`/`@ts-ignore` во всём дереве, включая тесты и
  * одноразовые скрипты.
  */
-const THRESHOLD = 147;
+const THRESHOLD = 146;
 
 const IGNORED = [/__tests__/, /\.test\.ts$/, /[\\/]src[\\/]scripts[\\/]/];
 
