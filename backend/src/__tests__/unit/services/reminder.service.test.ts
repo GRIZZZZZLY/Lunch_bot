@@ -87,6 +87,45 @@ describe('sendReminder', () => {
     asMock(prismaMock.transaction.update).mockResolvedValue(tx());
   });
 
+  /* Одно касание отправляет сообщение в Telegram. Без паузы колонка кнопок
+     «Напомнить» превращала расчёт с коллегами в серию уведомлений подряд. */
+  it('повтор раньше чем через 6 часов не отправляется и говорит, сколько ждать', async () => {
+    prismaMock.transaction.findUnique.mockResolvedValue(
+      tx({ lastReminderAt: new Date(NOW.getTime() - 2 * 60 * 60 * 1000) }) as never
+    );
+
+    const result = await service.sendReminder(10, 2);
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Reminded recently',
+      errorCode: 'cooldown',
+      retryInHours: 4,
+    });
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(prismaMock.transaction.update).not.toHaveBeenCalled();
+  });
+
+  it('через 6 часов напомнить снова можно', async () => {
+    prismaMock.transaction.findUnique.mockResolvedValue(
+      tx({ lastReminderAt: new Date(NOW.getTime() - 6 * 60 * 60 * 1000) }) as never
+    );
+
+    const result = await service.sendReminder(10, 2);
+
+    expect(result).toEqual({ success: true });
+  });
+
+  it('пауза не выдаёт чужому время последнего напоминания: сначала права', async () => {
+    prismaMock.transaction.findUnique.mockResolvedValue(
+      tx({ lastReminderAt: new Date(NOW.getTime() - 60 * 1000) }) as never
+    );
+
+    const result = await service.sendReminder(10, 99);
+
+    expect(result.error).toBe('Only creditor can send reminders');
+  });
+
   it('получатель отправляет напоминание должнику', async () => {
     const result = await service.sendReminder(10, 2);
 

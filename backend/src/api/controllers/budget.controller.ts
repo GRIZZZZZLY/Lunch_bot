@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { BudgetService } from '../../services/budget.service';
 import { OrderCostsService } from '../../services/order-costs.service';
-import { ReminderService } from '../../services/reminder.service';
+import { ReminderService, type SendReminderResult } from '../../services/reminder.service';
+import type { ApiErrorCode } from '../error-codes';
 import { BudgetQueryService } from '../../services/budget-query.service';
 import { PollFlowService } from '../../services/poll-flow.service';
 import { GroupService } from '../../services/group.service';
@@ -17,6 +18,38 @@ import {
 import { toNumber } from '../../utils/decimal';
 import { serializeBigInt as serializeData } from '../../utils/serialize';
 import { PollQueryService } from '../../services/poll-query.service';
+
+/**
+ * Отказ ручного напоминания → HTTP-ответ. Русская фраза в `message` точнее
+ * словаря фронта: у паузы в ней число часов, у недоставки — причина.
+ */
+function reminderFailure(result: SendReminderResult): {
+  status: number;
+  code: ApiErrorCode;
+  message: string;
+} {
+  if (result.errorCode === 'cooldown') {
+    return {
+      status: 429,
+      code: 'REMINDER_COOLDOWN',
+      message: `Уже напоминали недавно. Повторить можно через ${result.retryInHours ?? 1} ч.`,
+    };
+  }
+  if (result.errorCode && result.errorCode !== 'unknown') {
+    return {
+      status: 422,
+      code: 'REMINDER_UNDELIVERABLE',
+      message: `${result.error ?? 'Сообщение не доставлено'} — напомните лично.`,
+    };
+  }
+  if (result.error === 'Only creditor can send reminders') {
+    return { status: 403, code: 'FORBIDDEN', message: 'Напомнить может только получатель платежа.' };
+  }
+  if (result.error === 'Transaction not found') {
+    return { status: 404, code: 'NOT_FOUND', message: 'Долг не найден — возможно, его уже закрыли.' };
+  }
+  return { status: 500, code: 'INTERNAL_ERROR', message: 'Не удалось отправить напоминание.' };
+}
 
 /**
  * Членство в запрошенной команде для read-эндпоинтов бюджета.
@@ -445,10 +478,24 @@ export class BudgetController {
 
       const { transactionId } = transactionIdBody.get(req);
 
-      await this.reminderService.sendReminder(
+      const result = await this.reminderService.sendReminder(
         transactionId,
         authenticatedUser.id
       );
+
+      /* Раньше результат не читался: заблокированный бот, чужой долг и пауза
+         отвечали «Reminder sent», и приложение писало «Напоминание
+         отправлено», хотя ничего не ушло. */
+      if (!result.success) {
+        const failure = reminderFailure(result);
+        res.status(failure.status).json({
+          success: false,
+          error: result.error ?? 'Failed to send reminder',
+          code: failure.code,
+          message: failure.message,
+        });
+        return;
+      }
 
       res.json({ success: true, message: 'Reminder sent' });
     } catch (error: unknown) {

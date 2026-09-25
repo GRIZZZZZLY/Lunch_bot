@@ -144,6 +144,8 @@ const BY_CODE: Record<string, string> = {
   // Инфраструктура
   RATE_LIMIT_EXCEEDED: 'Слишком много запросов. Подождите немного.',
   REMINDER_RATE_LIMIT: 'Напоминание уже отправлено. Подождите немного.',
+  REMINDER_COOLDOWN: 'Уже напоминали недавно. Повторить можно через несколько часов.',
+  REMINDER_UNDELIVERABLE: 'Напоминание не доставить через Telegram — напомните лично.',
   CONNECTION_LIMIT: 'Слишком много открытых вкладок приложения.',
   INTERNAL_ERROR: 'Ошибка на сервере. Попробуйте ещё раз.',
   NOT_IMPLEMENTED: 'Раздел пока не готов.',
@@ -180,6 +182,9 @@ const SERVER_TEXT_WINS = new Set([
   'AUTH_RATE_LIMIT',
   'POLL_CREATION_LIMIT',
   'REMINDER_RATE_LIMIT',
+  /* У паузы в тексте сервера число часов, у недоставки — причина. */
+  'REMINDER_COOLDOWN',
+  'REMINDER_UNDELIVERABLE',
   'VOTE_RATE_LIMIT',
   'RATE_LIMIT_EXCEEDED',
 ]);

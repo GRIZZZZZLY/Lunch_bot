@@ -129,6 +129,9 @@ export const STATE_CODES = [
   'CALCULATION_COMPLETED',
   'CALCULATION_NOT_READY',
   'POLL_ERROR',
+  /* Напоминание не доставить: должник заблокировал бота, не начинал с ним чат
+     или удалил аккаунт. Повтор не поможет — только лично. */
+  'REMINDER_UNDELIVERABLE',
 ] as const;
 
 /** Ограничители частоты. */
@@ -138,6 +141,9 @@ export const RATE_LIMIT_CODES = [
   'VOTE_RATE_LIMIT',
   'POLL_CREATION_LIMIT',
   'REMINDER_RATE_LIMIT',
+  /* Пауза между ручными напоминаниями одному должнику — не ограничитель
+     запросов, а правило предметной области (REMINDER_COOLDOWN_MS). */
+  'REMINDER_COOLDOWN',
   'CONNECTION_LIMIT',
 ] as const;
 

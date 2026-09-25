@@ -640,6 +640,7 @@ describe('GET /api/budget/stats', () => {
 
 describe('POST /api/budget/send-reminder', () => {
   it('отправляет напоминание по транзакции', async () => {
+    reminderService.sendReminder.mockResolvedValue({ success: true });
     const res = mockResponse();
 
     await controller.sendReminder(
@@ -649,6 +650,45 @@ describe('POST /api/budget/send-reminder', () => {
 
     expect(reminderService.sendReminder).toHaveBeenCalledWith(7, 2);
     expect(res.body).toMatchObject({ success: true, message: 'Reminder sent' });
+  });
+
+  /* Раньше результат сервиса не читался: заблокированный бот, чужой долг и
+     пауза между напоминаниями отвечали «Reminder sent», и приложение писало
+     «Напоминание отправлено», хотя ничего не ушло. */
+  it.each([
+    [{ success: false, error: 'Reminded recently', errorCode: 'cooldown', retryInHours: 4 }, 429, 'REMINDER_COOLDOWN'],
+    [{ success: false, error: 'Пользователь заблокировал бота', errorCode: 'bot_blocked' }, 422, 'REMINDER_UNDELIVERABLE'],
+    [{ success: false, error: 'Only creditor can send reminders', errorCode: 'unknown' }, 403, 'FORBIDDEN'],
+    [{ success: false, error: 'Transaction not found', errorCode: 'unknown' }, 404, 'NOT_FOUND'],
+    [{ success: false, error: 'Internal error', errorCode: 'unknown' }, 500, 'INTERNAL_ERROR'],
+  ])('отказ сервиса %j → %i %s', async (result, status, code) => {
+    reminderService.sendReminder.mockResolvedValue(result);
+    const res = mockResponse();
+
+    await controller.sendReminder(
+      mockRequest({ user: CREDITOR, body: { transactionId: 7 } }),
+      res
+    );
+
+    expect(res.statusCode).toBe(status);
+    expect(res.body).toMatchObject({ success: false, code });
+  });
+
+  it('пауза называет, через сколько часов можно повторить', async () => {
+    reminderService.sendReminder.mockResolvedValue({
+      success: false,
+      error: 'Reminded recently',
+      errorCode: 'cooldown',
+      retryInHours: 4,
+    });
+    const res = mockResponse();
+
+    await controller.sendReminder(
+      mockRequest({ user: CREDITOR, body: { transactionId: 7 } }),
+      res
+    );
+
+    expect((res.body as { message: string }).message).toContain('через 4 ч');
   });
 
   it('без аутентификации — 401', async () => {

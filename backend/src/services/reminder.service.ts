@@ -31,11 +31,22 @@ const reminderInclude = {
   poll: { include: { group: true } },
 } satisfies Prisma.TransactionInclude;
 
-interface SendReminderResult {
+export interface SendReminderResult {
   success: boolean;
   error?: string;
-  errorCode?: TelegramSendErrorCode;
+  /** `cooldown` — не отказ Telegram, а пауза между ручными напоминаниями. */
+  errorCode?: TelegramSendErrorCode | 'cooldown';
+  /** При `cooldown`: через сколько часов (с округлением вверх) можно снова. */
+  retryInHours?: number;
 }
+
+/**
+ * Пауза между ручными напоминаниями одному должнику. Одно касание «Напомнить»
+ * отправляет сообщение в Telegram, и без паузы колонка таких кнопок
+ * превращала расчёт с коллегами в серию уведомлений подряд. Экран «Расчёты»
+ * гасит кнопку на то же время (frontend-new buildBudget, REMINDER_COOLDOWN_MS).
+ */
+export const REMINDER_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
 interface FailedUser {
   id: number;
@@ -71,7 +82,7 @@ export class ReminderService {
     paymentInfo: PaymentInfo | null
   ): Promise<
     | { ok: true; message: string }
-    | { ok: false; error: string; errorCode: SendReminderResult['errorCode'] }
+    | { ok: false; error: string; errorCode: TelegramSendErrorCode }
   > {
     // Проверяем, что запрашивающий - это получатель платежа
     if (transaction.toUserId !== requestingUserId) {
@@ -161,6 +172,21 @@ ${paymentCard ? paymentCardLine(paymentCard) : ''}
           error: 'Transaction not found',
           errorCode: 'unknown',
         };
+      }
+
+      /* Пауза проверяется только у получателя: чужой должен получить отказ по
+         правам (deliverReminder), а не узнать, когда напоминали последний раз. */
+      if (transaction.toUserId === requestingUserId && transaction.lastReminderAt) {
+        const left =
+          REMINDER_COOLDOWN_MS - (now().getTime() - new Date(transaction.lastReminderAt).getTime());
+        if (left > 0) {
+          return {
+            success: false,
+            error: 'Reminded recently',
+            errorCode: 'cooldown',
+            retryInHours: Math.ceil(left / (60 * 60 * 1000)),
+          };
+        }
       }
 
       /* Реквизиты запрашиваются по вызывающему, а не по transaction.toUserId:
