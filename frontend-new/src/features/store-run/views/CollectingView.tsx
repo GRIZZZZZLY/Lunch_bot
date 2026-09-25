@@ -19,7 +19,8 @@ import {
 } from '@/hooks/useItemPresets';
 import { queryKeys } from '@/lib/queryClient';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { ConfirmDialog, EmptyState, FlipGroup, Status } from '@/shared/ui';
+import { ConfirmDialog, EmptyState, Status } from '@/shared/ui';
+import { FlipGroup } from '@/shared/ui/FlipGroup';
 import type { StoreItem, StoreRunWithRelations } from '@/services/store-run.service';
 import { groupItemsByParticipant, isInitiator as isInitiatorOf } from '../lib/selectors';
 import { StoreRunSummary } from '../components/StoreRunSummary';

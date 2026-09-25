@@ -15,7 +15,8 @@ import {
 } from '@/hooks/useBudget';
 import { useMoneyStream } from '@/hooks/useMoneyStream';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { ConfirmDialog, EmptyState, ErrorState, FlipGroup, Skeleton, Status } from '@/shared/ui';
+import { ConfirmDialog, EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
+import { FlipGroup } from '@/shared/ui/FlipGroup';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
