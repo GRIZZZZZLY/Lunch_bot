@@ -25,7 +25,7 @@
   background: var(--vote-tint);
   color: var(--vote);
   font-size: var(--text-18);
-  font-weight: 800;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -34,8 +34,9 @@
 .name {
   margin: 0;
   font-size: var(--text-18);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
 
 .handle {
@@ -62,7 +63,7 @@
 .stat b {
   display: block;
   font-size: var(--text-18);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 /* Было 10,5 px — мельче самого мелкого токена шкалы. Контраст здесь в норме
@@ -121,8 +122,8 @@
 .groupHead {
   padding: var(--space-3) var(--space-4) var(--space-2);
   font-size: var(--text-11);
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -130,7 +131,8 @@
 .groupHint {
   margin: calc(-1 * var(--space-1)) 0 0;
   padding: 0 var(--space-4) var(--space-2);
-  font-size: var(--text-11);
+  font-size: var(--text-13);
+  line-height: 1.5;
   color: var(--text-tertiary);
 }
 
@@ -193,7 +195,7 @@ button.row:active {
 .rowName {
   display: block;
   font-size: var(--text-15);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .rowSub {

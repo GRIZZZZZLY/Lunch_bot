@@ -27,8 +27,8 @@
 
 .ticketCap {
   font-size: var(--text-11);
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -36,8 +36,10 @@
 .ticketName {
   margin: 4px 0 2px;
   font-size: var(--text-22);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .ticketMeta {
@@ -54,8 +56,8 @@
 .groupHead {
   padding: var(--space-3) var(--space-4) var(--space-2);
   font-size: var(--text-11);
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -65,6 +67,8 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
+  /* Поля у строки свои — листок перелёта ложится ровно по ней (motion.css). */
+  --flip-lift-outset: 0px;
 }
 
 .row + .row {
@@ -81,7 +85,8 @@
   align-items: center;
   gap: 8px;
   font-size: var(--text-15);
-  font-weight: 700;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .rowSub {
@@ -93,7 +98,7 @@
 
 .rowVal {
   font-size: var(--text-15);
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -105,11 +110,17 @@
   overflow: hidden;
 }
 
+/* Как бар Главной: заполнение едет transform'ом, чтобы чужой голос по SSE
+   двигал полосу, а не перерисовывал её кадром. Левый торец скругляет overflow
+   родителя. */
 .barFill {
   display: block;
+  width: 100%;
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--vote);
+  transform: translateX(-100%);
+  transition: transform var(--motion-slow) var(--ease-out);
 }
 
 .avatar {
@@ -120,7 +131,7 @@
   background: var(--money-tint);
   color: var(--money);
   font-size: var(--text-16);
-  font-weight: 800;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;

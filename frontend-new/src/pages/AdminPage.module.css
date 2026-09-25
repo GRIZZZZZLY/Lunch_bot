@@ -141,7 +141,7 @@
 .cardTitle {
   margin: 0;
   font-size: var(--text-18);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -269,7 +269,7 @@
 .statNum {
   display: block;
   font-size: var(--text-22);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -372,7 +372,8 @@
 .pollTitle {
   display: block;
   font-size: var(--text-15);
-  font-weight: 700;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .pollMeta {

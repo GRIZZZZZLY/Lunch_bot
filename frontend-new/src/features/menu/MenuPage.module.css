@@ -151,7 +151,7 @@
   gap: var(--space-2);
   min-width: 0;
   font-size: var(--text-15);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 /* Сжимается имя, чип «Скрыто» держит ширину: иначе длинное название
@@ -186,7 +186,7 @@
 
 .price {
   font-size: var(--text-15);
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
 }
 

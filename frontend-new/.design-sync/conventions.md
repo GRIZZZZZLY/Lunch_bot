@@ -26,7 +26,7 @@
 - Домены-значения: `--vote`/`--vote-tint` (терракота), `--shop`/`--shop-tint` (шафран), `--money`/`--money-tint` (зелёный)
 - Семантика: `--success`, `--warning`, `--danger`, `--info` (+ `-tint` у каждого)
 - Отступы: `--space-1|2|3|4|6|8|12|16` (4…64px); радиусы: `--radius-card` (26), `--radius-block` (17), `--radius-control` (17), `--radius-pill`
-- Шрифт: `--text-11|13|15|16|18|22|28`; `--font-body` (Onest — всё), `--font-brand` (Unbounded — ТОЛЬКО логотип/редкие крупные заголовки)
+- Шрифт: `--text-11|13|15|16|18|22|28`; `--font-body` (Onest — всё, включая ₽ отдельным глифом); второй гарнитуры нет
 - Высоты контролов: `--control-sm|md|lg` (38/44/52); motion: `--motion-fast|base|slow`, `--ease-out|spring`
 
 Тап-цели ≥44px. Никаких градиентов/glow/glass в своём клее — плоские

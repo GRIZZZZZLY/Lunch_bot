@@ -35,8 +35,8 @@
 .kicker {
   margin: 0;
   font-size: var(--text-11);
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -53,7 +53,7 @@
    само. Крупнее становится только на последней минуте, вместе с --danger. */
 .timer {
   font-size: var(--text-22);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.03em;
   transition: color var(--motion-slow) var(--ease-out);
 }
@@ -176,7 +176,7 @@
 
 .option.lead .optionName {
   font-size: var(--text-18);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .optionSub {
@@ -225,7 +225,7 @@
 .pct {
   min-width: 3rem;
   font-size: var(--text-13);
-  font-weight: 800;
+  font-weight: 700;
   text-align: right;
   color: var(--text-tertiary);
 }
@@ -325,7 +325,8 @@
 }
 
 .stubNote {
-  font-size: var(--text-11);
+  font-size: var(--text-13);
+  line-height: 1.5;
   color: var(--text-tertiary);
   text-align: center;
 }
@@ -511,7 +512,7 @@
 .rowName {
   display: block;
   font-size: var(--text-15);
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -531,7 +532,7 @@
 
 .moneyVal {
   font-size: var(--text-15);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--money);
   white-space: nowrap;
 }
@@ -596,7 +597,8 @@
 
 .emptyTitle {
   font-size: var(--text-16);
-  font-weight: 800;
+  font-weight: 600;
+  text-wrap: balance;
   overflow-wrap: break-word;
 }
 

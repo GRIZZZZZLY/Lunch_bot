@@ -27,7 +27,6 @@ export default {
       },
       fontFamily: {
         sans: ['Onest', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
-        display: ['Unbounded', 'Onest', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {
         'grad-peach': 'linear-gradient(135deg, #F3C4A7 0%, #F7D5C1 100%)',

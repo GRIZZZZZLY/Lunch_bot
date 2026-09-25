@@ -44,7 +44,8 @@
 .rowName {
   display: block;
   font-size: var(--text-15);
-  font-weight: 700;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .rowSub {

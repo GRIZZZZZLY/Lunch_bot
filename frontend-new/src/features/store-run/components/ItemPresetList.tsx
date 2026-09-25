@@ -29,7 +29,7 @@ export function ItemPresetList({
 }) {
   if (presets.length === 0) {
     return (
-      <p style={{ margin: '18px 0', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 'var(--text-14)' }}>
+      <p style={{ margin: '18px 0', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 'var(--text-13)', lineHeight: 1.5 }}>
         Здесь появятся товары, которые вы заказываете. Добавьте первую позицию вручную.
       </p>
     );

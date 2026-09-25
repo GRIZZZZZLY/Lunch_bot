@@ -142,7 +142,9 @@ describe('визуальный фундамент 2B', () => {
 
   it('шрифты self-hosted, без Google Fonts CDN', () => {
     expect(tokensCss).toContain("url('/fonts/onest-");
-    expect(tokensCss).toContain("url('/fonts/unbounded-");
+    // ₽ нет в подмножествах кириллицы и латиницы: без отдельной грани рубль
+    // рисовался системным шрифтом рядом с цифрами Onest.
+    expect(tokensCss).toMatch(/url\('\/fonts\/onest-ruble\.woff2'\)[^}]*unicode-range: U\+20BD;/);
     expect(tokensCss).toContain('font-display: swap');
     expect(tokensCss).not.toContain('fonts.googleapis.com');
   });

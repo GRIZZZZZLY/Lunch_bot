@@ -24,8 +24,8 @@
 .groupTitle {
   margin: 0;
   font-size: var(--text-11);
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -50,6 +50,8 @@
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
+  /* Поля у строки свои — листок перелёта ложится ровно по ней (motion.css). */
+  --flip-lift-outset: 0px;
 }
 
 .row + .row {
@@ -64,7 +66,7 @@
   background: var(--money-tint);
   color: var(--money-on-tint);
   font-size: var(--text-15);
-  font-weight: 800;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -116,7 +118,9 @@
    обрезается само. */
 .rowRef {
   display: flex;
-  flex-wrap: wrap;
+  /* В одну строку: при переносе дата уезжала вниз вместе с точкой, и строка
+     начиналась с «·». Сжимается название — оно и обрезается многоточием. */
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: 0 var(--space-1);
   font-size: var(--text-11);
@@ -184,8 +188,8 @@
 .groupNote {
   margin: 0;
   padding: 0 var(--space-4) var(--space-3);
-  font-size: var(--text-11);
-  line-height: 1.45;
+  font-size: var(--text-13);
+  line-height: 1.5;
   color: var(--text-tertiary);
 }
 
@@ -277,8 +281,8 @@
 
 .payToLabel {
   font-size: var(--text-11);
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -302,7 +306,7 @@
 .rowAmount {
   display: block;
   font-size: var(--text-16);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
   white-space: nowrap;
 }
@@ -325,11 +329,17 @@
   overflow: hidden;
 }
 
+/* Заполнение едет transform'ом, как бар Главной: подтверждённая оплата
+   добавляет сумму на глазах, а не перерисовывает полосу кадром. Левый торец
+   скругляет overflow родителя. */
 .progressFill {
   display: block;
+  width: 100%;
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--money);
+  transform: translateX(-100%);
+  transition: transform var(--motion-slow) var(--ease-out);
 }
 
 /* Тот же уровень поверхности, что у .group, — значит та же тень и тот же радиус. */

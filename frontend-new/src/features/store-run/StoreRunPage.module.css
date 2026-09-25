@@ -96,7 +96,8 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  font-size: var(--text-11);
+  font-size: var(--text-13);
+  line-height: 1.5;
   color: var(--text-tertiary);
 }
 
@@ -121,6 +122,7 @@
 
 .counts {
   font-size: var(--text-13);
+  font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
 }
 
@@ -152,6 +154,7 @@
 
 .countdownEnd {
   font-size: var(--text-13);
+  font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
 }
 
@@ -210,6 +213,7 @@
 
 .sectionCount {
   color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
   font-weight: 500;
 }
 
@@ -235,6 +239,7 @@
   font-size: var(--text-15);
   font-weight: 500;
   color: var(--text-primary);
+  overflow-wrap: anywhere;
 }
 
 .rowQty {

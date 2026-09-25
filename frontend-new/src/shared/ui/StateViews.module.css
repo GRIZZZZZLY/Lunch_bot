@@ -26,6 +26,7 @@
   font-family: var(--font-body);
   font-size: var(--text-16);
   font-weight: 600;
+  text-wrap: balance;
   color: var(--text-primary);
 }
 

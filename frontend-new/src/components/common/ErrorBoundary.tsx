@@ -38,14 +38,14 @@ export class ErrorBoundary extends Component<Props, State> {
           border: '1px solid var(--divider)',
           borderRadius: 14,
           color: 'var(--text-primary)',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 13,
+          fontFamily: 'var(--font-body)',
+          fontSize: 'var(--text-13)',
         }}
       >
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 'var(--text-15)', marginBottom: 8 }}>
           Что-то пошло не так
         </div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12 }}>
+        <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-13)', lineHeight: 1.5, marginBottom: 12 }}>
           {this.state.error.message || 'Неизвестная ошибка'}
         </div>
         <button

@@ -214,7 +214,7 @@ export function BottomSheet({
         >
           <div style={{ width: 36, height: 4, borderRadius: 999, background: 'var(--divider)', margin: '0 auto 14px' }} />
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
-            <h3 id={titleId} className="font-head tight" style={{ margin: 0, fontSize: 'var(--text-18)', fontWeight: 700, lineHeight: 1.2 }}>
+            <h3 id={titleId} className="font-head tight" style={{ margin: 0, fontSize: 'var(--text-18)', fontWeight: 700, lineHeight: 1.2, textWrap: 'balance' }}>
               {title}
             </h3>
             {/* при closable=false beginClose выходит по guard — не показываем

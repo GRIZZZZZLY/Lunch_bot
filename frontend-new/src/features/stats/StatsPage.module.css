@@ -15,8 +15,8 @@
 .groupHead {
   padding: var(--space-3) var(--space-4) var(--space-2);
   font-size: var(--text-11);
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -42,7 +42,8 @@
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-15);
-  font-weight: 700;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .rowSub {
@@ -54,7 +55,7 @@
 
 .rowVal {
   font-size: var(--text-15);
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -62,7 +63,7 @@
   width: var(--space-6);
   flex-shrink: 0;
   font-size: var(--text-13);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--text-tertiary);
 }
 
@@ -91,12 +92,13 @@
 
 .partBig {
   font-size: var(--text-28);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .partCap {
   font-size: var(--text-13);
+  font-variant-numeric: tabular-nums;
   color: var(--text-tertiary);
 }
 
@@ -115,7 +117,8 @@
 .note {
   margin: 0;
   padding: 0 var(--space-4) var(--space-3);
-  font-size: var(--text-11);
+  font-size: var(--text-13);
+  line-height: 1.5;
   color: var(--text-tertiary);
 }
 
@@ -181,7 +184,7 @@
 
 .weekCount {
   font-size: var(--text-13);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 /* Было 10,5 px — мельче самого мелкого токена шкалы, как подписи показателей
