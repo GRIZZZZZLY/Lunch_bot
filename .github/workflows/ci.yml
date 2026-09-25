@@ -425,6 +425,9 @@ jobs:
             frontend-new/test-results/
             frontend-new/.lighthouseci-mobile/
             e2e-backend.log
+          # .lighthouseci-mobile — скрытая папка, а upload-artifact@v4 такие
+          # по умолчанию пропускает: при провале TBT отчётов не было вовсе.
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14
 
