@@ -6,7 +6,13 @@ import { now, toLocaleDateString } from '../utils/date';
 import { toNumber, formatCurrency, sumDecimals, multiply } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 import { PollQueryService } from './poll-query.service';
-import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
+import {
+  hasPaymentDetails,
+  isPaymentLink,
+  paymentCardLine,
+  paymentLinkButton,
+} from '../utils/payment-link';
+import { createPaymentInfoButton } from '../bot/keyboards/webapp.keyboard';
 import { escapeMarkdown } from '../utils/telegram-html';
 
 // Локальные типы для замены any
@@ -319,9 +325,17 @@ export class PollFlowService {
       }
 
       // Ваши реквизиты
-      message += `📌 *Твои реквизиты* (участники их уже видят):\n`;
       const paymentInfo = await UserService.getPaymentInfo(responsible.id);
       const paymentCard = paymentInfo?.paymentCard ?? null;
+      /* Без реквизитов раньше стоял заголовок «Твои реквизиты (участники их
+         уже видят)» и пустота под ним. Бюджет в приложении читает профиль
+         заново, поэтому указанные сейчас реквизиты должники увидят сразу. */
+      const missingPayment = !hasPaymentDetails(paymentInfo);
+      if (missingPayment) {
+        message += `📌 *Реквизитов нет* — участники не знают, куда переводить. Укажи их в профиле, и они сразу появятся у всех в «Бюджете команды».\n`;
+      } else {
+        message += `📌 *Твои реквизиты* (участники их уже видят):\n`;
+      }
       if (paymentCard) {
         message += `${paymentCardLine(paymentCard)}\n`;
       }
@@ -334,6 +348,7 @@ export class PollFlowService {
 
       const keyboard = {
         inline_keyboard: [
+          ...(missingPayment ? [[createPaymentInfoButton()]] : []),
           ...(paymentCard && isPaymentLink(paymentCard)
             ? [[paymentLinkButton(paymentCard)]]
             : []),

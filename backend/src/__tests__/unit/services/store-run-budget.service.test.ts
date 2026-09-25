@@ -366,6 +366,35 @@ describe('notifyStoreRunSettled', () => {
     expect(sentTo(1002)).toContain('не заполнил реквизиты');
   });
 
+  /* Сводка писала «Разослал участникам суммы и твои реквизиты» и тогда, когда
+     рассылать было нечего. */
+  it('инициатору без реквизитов сказано, что их нет, и дана кнопка их указать', async () => {
+    users.getPaymentInfo.mockResolvedValue(null);
+    settled([{ fromUserId: 2 }]);
+
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
+
+    const call = api.sendMessage.mock.calls.find(c => c[0] === 1001);
+    const text = call?.[1] as string;
+    expect(text).not.toContain('твои реквизиты');
+    expect(text).toContain('Реквизитов нет');
+    const button = (
+      call?.[2] as { reply_markup: { inline_keyboard: { text: string; web_app?: { url: string } }[][] } }
+    ).reply_markup.inline_keyboard[0][0];
+    expect(button.text).toBe('💳 Указать реквизиты');
+    expect(button.web_app?.url).toMatch(/\/profile\?edit=payment$/);
+  });
+
+  it('инициатору с реквизитами сводка говорит, что они разосланы, без лишней кнопки', async () => {
+    settled([{ fromUserId: 2 }]);
+
+    await StoreRunBudgetService.notifyStoreRunSettled(30);
+
+    const call = api.sendMessage.mock.calls.find(c => c[0] === 1001);
+    expect(call?.[1]).toContain('Разослал участникам суммы и твои реквизиты');
+    expect(JSON.stringify(call?.[2] ?? {})).not.toContain('Указать реквизиты');
+  });
+
   it('фамилия инициатора добавляется, если есть', async () => {
     settled([{ fromUserId: 2 }], {
       initiator: user(1, { lastName: 'Петров' }),

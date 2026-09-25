@@ -6,7 +6,17 @@
    что показываем целиком и разбиваем на группы, чтобы ошибку было видно
    глазом. Номер карты маской остаётся: он на этом экране и не показывается. */
 
+import type { PaymentInfo } from '@/services/user.service';
+
 export const PHONE_PREFIX = '+7 ';
+
+/** Указан ли хоть один реквизит. Та же мера, что у сервера: по ней должнику
+    уходит блок «Реквизиты» или «уточни перевод лично». */
+export function hasPaymentInfo(info?: PaymentInfo | null): boolean {
+  return Boolean(
+    info?.paymentPhone?.trim() || info?.paymentCard?.trim() || info?.paymentDetails?.trim(),
+  );
+}
 
 export function phoneDigits(raw: string): string {
   return raw.replace(/\D/g, '');

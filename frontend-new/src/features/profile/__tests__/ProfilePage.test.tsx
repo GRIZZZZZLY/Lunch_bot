@@ -17,10 +17,14 @@ const h = vi.hoisted(() => ({
     update: { mutateAsync: vi.fn(), isPending: false },
     pendingSuggestions: 0,
     pendingArgs: undefined as unknown,
+    search: '',
   },
 }));
 
-vi.mock('react-router-dom', () => ({ useNavigate: () => h.navigate }));
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => h.navigate,
+  useSearchParams: () => [new URLSearchParams(h.state.search)],
+}));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.state.user }) }));
 vi.mock('@/hooks/useStreak', () => ({ useStreak: () => ({ streak: h.state.streak }) }));
 vi.mock('@/store/useAppStore', () => ({
@@ -70,6 +74,24 @@ beforeEach(() => {
   h.state.streak = { current: 0, atRisk: false };
   h.state.pendingSuggestions = 0;
   h.state.pendingArgs = undefined;
+  h.state.search = '';
+});
+
+/* Кнопка «Указать реквизиты» в личке бота ведёт на /profile?edit=payment:
+   человек пришёл заполнить форму, а не искать её на экране. */
+describe('ProfilePage — вход по ссылке из бота', () => {
+  it('?edit=payment сразу открывает форму реквизитов', () => {
+    h.state.search = 'edit=payment';
+    render(<ProfilePage />);
+
+    expect(screen.getByRole('dialog', { name: 'Реквизиты СБП' })).toBeInTheDocument();
+  });
+
+  it('без параметра форма закрыта', () => {
+    render(<ProfilePage />);
+
+    expect(screen.queryByRole('dialog', { name: 'Реквизиты СБП' })).not.toBeInTheDocument();
+  });
 });
 
 /* Единственный вход в очередь модерации. Пока его не было, «Все предложения»

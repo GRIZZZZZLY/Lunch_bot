@@ -374,6 +374,40 @@ describe('sendBudgetNotifications', () => {
 
     expect(sendMessage.mock.calls[0][1]).toContain('Ты оформляешь заказ');
   });
+
+  /* Раньше под заголовком «Твои реквизиты (участники их уже видят)» было
+     пусто: ответственный думал, что ему переведут, а должникам было некуда. */
+  it('ответственному без реквизитов сказано, что их нет, и дана кнопка их указать', async () => {
+    userService.getPaymentInfo.mockResolvedValue({
+      paymentCard: null,
+      paymentPhone: null,
+      paymentDetails: null,
+    });
+
+    await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);
+
+    const [, message, options] = sendMessage.mock.calls[0] as [
+      number,
+      string,
+      { reply_markup: { inline_keyboard: { text: string; web_app?: { url: string } }[][] } },
+    ];
+    expect(message).not.toContain('участники их уже видят');
+    expect(message).toContain('Реквизитов нет');
+    const button = options.reply_markup.inline_keyboard[0][0];
+    expect(button.text).toBe('💳 Указать реквизиты');
+    expect(button.web_app?.url).toMatch(/\/profile\?edit=payment$/);
+  });
+
+  it('с реквизитами кнопки «Указать реквизиты» нет', async () => {
+    await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);
+
+    const options = sendMessage.mock.calls[0][2] as {
+      reply_markup: { inline_keyboard: { text: string }[][] };
+    };
+    const texts = options.reply_markup.inline_keyboard.flat().map((b) => b.text);
+    expect(texts).not.toContain('💳 Указать реквизиты');
+    expect(sendMessage.mock.calls[0][1]).toContain('Твои реквизиты');
+  });
 });
 
 /**

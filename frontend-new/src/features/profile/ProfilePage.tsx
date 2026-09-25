@@ -3,7 +3,7 @@
    не воспроизводить (аудит, план миграции). Тема — реальная функция. */
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { getAdminGroups, isGroupAdminRole } from '@/lib/permissions';
 import { usePendingSuggestionsCount } from '@/hooks/useSuggestions';
@@ -44,7 +44,10 @@ export function ProfilePage() {
   } = usePollHistory({ limit: PROFILE_HISTORY_LIMIT });
   const { streak } = useStreak();
 
-  const [sbpOpen, setSbpOpen] = useState(false);
+  /* Кнопка «Указать реквизиты» в личке бота ведёт сюда с ?edit=payment:
+     человек пришёл заполнить форму, а не искать её на экране. */
+  const [searchParams] = useSearchParams();
+  const [sbpOpen, setSbpOpen] = useState(() => searchParams.get('edit') === 'payment');
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
 

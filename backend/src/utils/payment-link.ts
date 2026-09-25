@@ -16,6 +16,22 @@ export function isPaymentLink(value: string): boolean {
   }
 }
 
+/**
+ * Указал ли получатель хоть один реквизит. Та же мера, по которой должнику
+ * в ЛС показывается блок «Реквизиты» или «уточни перевод лично».
+ */
+export function hasPaymentDetails(
+  info?: {
+    paymentCard?: string | null;
+    paymentPhone?: string | null;
+    paymentDetails?: string | null;
+  } | null
+): boolean {
+  return Boolean(
+    info?.paymentCard?.trim() || info?.paymentPhone?.trim() || info?.paymentDetails?.trim()
+  );
+}
+
 export function paymentLinkButton(value: string): { text: string; url: string } {
   return { text: '💳 Перевести по ссылке', url: value.trim() };
 }

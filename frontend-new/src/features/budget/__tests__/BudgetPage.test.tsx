@@ -48,6 +48,17 @@ vi.mock('@/hooks/useBudget', () => ({
 /* Поток мокаем: в юнит-тестах он полез бы в сеть, а проверяем мы экран. */
 vi.mock('@/hooks/useMoneyStream', () => ({ useMoneyStream: () => 'idle' }));
 
+/* Свои реквизиты: по умолчанию заполнены, чтобы остальные сценарии экрана не
+   видели предупреждения. */
+const pay = vi.hoisted(() => ({
+  query: { isSuccess: true, data: undefined as unknown },
+  update: { mutateAsync: vi.fn(), isPending: false },
+}));
+vi.mock('@/hooks/useUser', () => ({
+  usePaymentInfo: () => pay.query,
+  useUpdatePaymentInfo: () => pay.update,
+}));
+
 import { BudgetPage } from '../BudgetPage';
 
 const tx = (over: Record<string, unknown>) => ({
@@ -72,6 +83,44 @@ beforeEach(() => {
   for (const m of [h.state.markPaid, h.state.cancelMark, h.state.confirmPayment, h.state.sendReminder, h.state.remindAll, h.state.undoConfirmation]) {
     Object.assign(m, { mutate: vi.fn(), isPending: false, variables: undefined });
   }
+  pay.query = { isSuccess: true, data: { paymentPhone: '+79990001122' } };
+  pay.update = { mutateAsync: vi.fn(), isPending: false };
+});
+
+/* Блок «куда переводить» раньше просто пропадал: должник видел долг и не
+   понимал, куда платить, а получатель — почему ему не платят. */
+describe('BudgetPage — нет реквизитов', () => {
+  it('у долга без реквизитов получателя сказано спросить лично', () => {
+    h.state.debts = [tx({ toUser: { id: 2, firstName: 'Аня' } })];
+    render(<BudgetPage />);
+
+    expect(screen.getByText('Реквизитов нет — спросите лично')).toBeInTheDocument();
+  });
+
+  it('получателю без реквизитов показано предупреждение с кнопкой', async () => {
+    pay.query = { isSuccess: true, data: undefined };
+    h.state.credits = [tx({ fromUser: { id: 3, firstName: 'Оля' } })];
+    render(<BudgetPage />);
+
+    expect(screen.getByText(/должники не знают, куда переводить/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Указать реквизиты' }));
+    expect(await screen.findByRole('dialog', { name: 'Реквизиты СБП' })).toBeInTheDocument();
+  });
+
+  it('с реквизитами предупреждения нет', () => {
+    h.state.credits = [tx({ fromUser: { id: 3, firstName: 'Оля' } })];
+    render(<BudgetPage />);
+
+    expect(screen.queryByText(/должники не знают/)).not.toBeInTheDocument();
+  });
+
+  it('когда все отметили оплату, предупреждать поздно и незачем', () => {
+    pay.query = { isSuccess: true, data: undefined };
+    h.state.credits = [tx({ status: 'PAID', fromUser: { id: 3, firstName: 'Оля' } })];
+    render(<BudgetPage />);
+
+    expect(screen.queryByText(/должники не знают/)).not.toBeInTheDocument();
+  });
 });
 
 describe('BudgetPage — состояния', () => {

@@ -25,6 +25,7 @@ import { openExternalLink } from '@/lib/telegram';
 import { liveKey, useLiveChanges } from '@/shared/lib/liveChanges';
 import { formatPrice } from '@/features/store-run/lib/selectors';
 import { Icon } from '@/components/rl/Icon';
+import { PaymentMissingNotice } from '@/components/profile/PaymentMissingNotice';
 import {
   buildBudget,
   type BudgetReference,
@@ -291,7 +292,14 @@ export function BudgetPage() {
                   {/* Куда переводить — здесь, а не в чате с ботом: это единственный
                       момент, когда номер нужен. Показываем до отметки; после неё
                       важнее, сколько уже ждём подтверждения. */}
-                  {d.status === 'PENDING' && d.payTo && <PayTo value={d.payTo} />}
+                  {/* Без реквизитов блок раньше просто пропадал, и было не
+                      понять, куда платить. */}
+                  {d.status === 'PENDING' &&
+                    (d.payTo ? (
+                      <PayTo value={d.payTo} />
+                    ) : (
+                      <span className={styles.payToNote}>Реквизитов нет — спросите лично</span>
+                    ))}
                   {/* Без слова «подтверждения»: его говорит чип «Ждёт», а полная
                       фраза не влезала в ширину и обрезалась. */}
                   {d.status === 'PAID' && d.waiting && (
@@ -343,6 +351,13 @@ export function BudgetPage() {
               {formatPrice(vm.owedReceived)} из {formatPrice(vm.owedExpected)}
             </span>
           </div>
+          {/* Пока кто-то ещё не перевёл, пустые реквизиты — причина, по которой
+              он и не переведёт. Когда все отметили оплату, говорить поздно. */}
+          {pendingDebtors.length > 0 && (
+            <PaymentMissingNotice className={styles.paymentNotice}>
+              Реквизитов нет — должники не знают, куда переводить.
+            </PaymentMissingNotice>
+          )}
           {/* Массовое напоминание — от двух должников: на одном оно ничего не
               экономит, а кнопку в шапку добавляет. */}
           {pendingDebtors.length > 1 && (

@@ -5,11 +5,20 @@
    уходит `storeId`, и имя берёт сервер) или свободным вводом (тогда уходит
    `storeName`, и сервер сам заводит запись). Правка поля сбрасывает выбранный
    чип — иначе показанное имя и отправленный id могли бы разойтись. */
-import { useState, type ChangeEvent, type ReactNode } from 'react';
+import { lazy, Suspense, useState, type ChangeEvent, type ReactNode } from 'react';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { Button, Chip, Field } from '@/components/rl/primitives';
 import type { GroupStore } from '@/services/group-store.service';
 import { COLLECT_PRESETS } from '../lib/selectors';
+
+/* Шторка живёт в чанке главной, а главная у порога скорости: статический
+   импорт подсказки добавлял к нему 3,4 КБ. Отдельным чанком она грузится,
+   только когда шторку открыли. */
+const PaymentMissingNotice = lazy(() =>
+  import('@/components/profile/PaymentMissingNotice').then((m) => ({
+    default: m.PaymentMissingNotice,
+  })),
+);
 import { StoreChips } from './StoreChips';
 
 function FormField({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
@@ -107,6 +116,13 @@ export function CreateStoreRunSheet({
           ))}
         </div>
       </FormField>
+      {/* Деньги за закупку получает тот, кто её открыл: сказать про пустые
+          реквизиты надо до покупок, а не когда должникам некуда переводить. */}
+      <Suspense fallback={null}>
+        <PaymentMissingNotice>
+          Реквизитов нет — участники не узнают, куда переводить вам за покупки.
+        </PaymentMissingNotice>
+      </Suspense>
     </BottomSheet>
   );
 }

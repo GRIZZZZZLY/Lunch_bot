@@ -18,6 +18,15 @@ export function createWebAppButton(text: string, path: string = '') {
 }
 
 /**
+ * Кнопка в ЛС получателю денег, у которого нет реквизитов: открывает профиль
+ * сразу с формой реквизитов. Только для личных чатов — web_app в группе не
+ * работает.
+ */
+export function createPaymentInfoButton() {
+  return createWebAppButton('💳 Указать реквизиты', '/profile?edit=payment');
+}
+
+/**
  * Прямая ссылка на Mini App (Direct Link).
  * web_app кнопки НЕ работают в групповых чатах, но ссылка t.me/<bot>/<app>?startapp=...
  * открывает Mini App напрямую из группы, минуя промежуточный шаг в личке.

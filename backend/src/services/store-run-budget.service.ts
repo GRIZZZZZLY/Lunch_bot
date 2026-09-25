@@ -5,7 +5,13 @@ import { now } from '../utils/date';
 import { formatCurrency, sumDecimals } from '../utils/decimal';
 import { getBotInstance } from '../bot/bot-instance';
 import { UserService } from './user.service';
-import { isPaymentLink, paymentCardLine, paymentLinkButton } from '../utils/payment-link';
+import {
+  hasPaymentDetails,
+  isPaymentLink,
+  paymentCardLine,
+  paymentLinkButton,
+} from '../utils/payment-link';
+import { createPaymentInfoButton } from '../bot/keyboards/webapp.keyboard';
 import { escapeMarkdown } from '../utils/telegram-html';
 import { OUTBOX_ENTITY_TRANSACTION, OutboxService } from './outbox.service';
 import { OutboxWorkerService } from './outbox-worker.service';
@@ -151,7 +157,12 @@ export class StoreRunBudgetService {
         );
       }
 
-      await this.sendStoreRunCreditorSummary(storeRun, transactions, byDebtor);
+      await this.sendStoreRunCreditorSummary(
+        storeRun,
+        transactions,
+        byDebtor,
+        hasPaymentDetails(paymentInfo)
+      );
 
       logger.info('Store run settle notifications sent', {
         storeRunId,
@@ -190,7 +201,7 @@ export class StoreRunBudgetService {
       message += `\n\n`;
 
       const paymentCard = paymentInfo?.paymentCard ?? null;
-      if (paymentCard || paymentInfo?.paymentPhone || paymentInfo?.paymentDetails) {
+      if (hasPaymentDetails(paymentInfo)) {
         message += `💳 *Реквизиты:*\n`;
         if (paymentCard) {
           message += `${paymentCardLine(paymentCard)}\n`;
@@ -240,7 +251,8 @@ export class StoreRunBudgetService {
   private static async sendStoreRunCreditorSummary(
     storeRun: any,
     transactions: any[],
-    byDebtor: Map<number, any[]>
+    byDebtor: Map<number, any[]>,
+    hasPayment: boolean
   ): Promise<void> {
     try {
       const bot = getBotInstance();
@@ -248,7 +260,10 @@ export class StoreRunBudgetService {
       const total = sumDecimals(transactions.map(t => t.amount));
 
       let message = `🛍 *Забег «${escapeMarkdown(storeRun.storeName ?? '')}» закрыт*\n\n`;
-      message += `Разослал участникам суммы и твои реквизиты.\n\n`;
+      /* «…и твои реквизиты» писалось и тогда, когда рассылать было нечего. */
+      message += hasPayment
+        ? `Разослал участникам суммы и твои реквизиты.\n\n`
+        : `Разослал участникам суммы. *Реквизитов нет* — участники не знают, куда переводить. Укажи их в профиле, и они сразу появятся у всех в «Бюджете команды».\n\n`;
       message += `💰 *Тебе вернут: ${formatCurrency(total)}*\n\n`;
       message += `*Ждём перевод:*\n`;
       for (const [, txs] of byDebtor) {
@@ -262,6 +277,9 @@ export class StoreRunBudgetService {
         message,
         {
           parse_mode: 'Markdown',
+          ...(hasPayment
+            ? {}
+            : { reply_markup: { inline_keyboard: [[createPaymentInfoButton()]] } }),
         }
       );
     } catch (error) {
