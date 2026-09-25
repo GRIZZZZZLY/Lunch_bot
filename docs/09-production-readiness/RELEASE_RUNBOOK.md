@@ -37,7 +37,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
   `TELEGRAM_WEBHOOK_SECRET`;
 - `CORS_ORIGIN=https://точный-домен`;
 - `JWT_SECRET` ≥64, `ENCRYPTION_KEY` ровно 64 hex;
-- `TRUST_PROXY=1` только при одном доверенном прокси;
+- `TRUST_PROXY=1` только при одном доверенном прокси; за Cloudflare этот
+  прокси — Nginx с `ops/nginx/cloudflare-realip.conf`, иначе `req.ip` — адрес
+  Cloudflare и лимиты по IP общие для всех;
 - `ENABLE_HELMET=true`, `ENABLE_RATE_LIMIT=true`,
   `SKIP_TELEGRAM_VALIDATION=false`;
 - `API_BODY_LIMIT=256kb`, timeouts `30000/35000/5000`.

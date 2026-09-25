@@ -11,6 +11,8 @@
 - заполненный `backend/.env` с `NODE_ENV=production`,
   `FRONTEND_DIR=frontend-new`, `REDIS_ENABLED=true` и безопасными секретами;
 - настроенный TLS и проксирование Nginx;
+- за Cloudflare — настоящий адрес клиента в Nginx (раздел
+  «[Адрес клиента за Cloudflare](#адрес-клиента-за-cloudflare)»);
 - проверенная резервная копия PostgreSQL.
 
 Полный список условий выпуска:
@@ -87,6 +89,29 @@ pm2 logs rocket-lunch-bot --lines 100
 
 Порядок проверки миграций, дымовой проверки и отката:
 [RELEASE_RUNBOOK.md](docs/09-production-readiness/RELEASE_RUNBOOK.md).
+
+## Адрес клиента за Cloudflare
+
+Домен проксирует Cloudflare. Без отдельной настройки Nginx видит вместо
+пользователя адрес узла Cloudflare, и приложение получает его как `req.ip`.
+Все лимиты по IP тогда общие для всех, кого Cloudflare провёл через один узел.
+Первым упирается лимит входа `/api/auth/validate`: 120 за 15 минут, а Mini App
+проходит вход при каждом открытии. Настоящих адресов нет и в журналах.
+
+[ops/nginx/cloudflare-realip.conf](ops/nginx/cloudflare-realip.conf) берёт
+адрес из заголовка `CF-Connecting-IP`, но только для соединений из сетей
+Cloudflare: в обход Cloudflare заголовок не подделать. Установка:
+
+```bash
+sudo install -m 644 ops/nginx/cloudflare-realip.conf /etc/nginx/snippets/
+# в server { } сайта: include snippets/cloudflare-realip.conf;
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Проверка: у запросов `/api/` в `/var/log/nginx/access.log` стоят адреса
+пользователей, а не `162.158.*`, `172.64–71.*` или `104.16–27.*`. Список сетей
+Cloudflare опубликован на https://www.cloudflare.com/ips/. Если он изменится,
+обновите файл.
 
 ## Резервные копии
 
