@@ -179,7 +179,7 @@ test.describe('Два человека на настоящем сервере', 
     /* Анна узнаёт о подтверждении новым чтением с сервера. */
     await page.reload();
     await expect(page.getByText('Долг закрыт')).toBeVisible();
-    await expect(page.getByText('оплата подтверждена сборщиком')).toBeVisible();
+    await expect(page.getByText(/· оплата подтверждена$/)).toBeVisible();
     await boris.context().close();
   });
 
