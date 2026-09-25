@@ -15,7 +15,7 @@ import {
 } from '@/hooks/useBudget';
 import { useMoneyStream } from '@/hooks/useMoneyStream';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { ConfirmDialog, EmptyState, ErrorState, Skeleton, Status } from '@/shared/ui';
+import { ConfirmDialog, EmptyState, ErrorState, FlipGroup, Skeleton, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
@@ -245,8 +245,12 @@ export function BudgetPage() {
     );
   }
 
+  /* FlipGroup: подтверждённая оплата переезжает из «Вам должны» в «Можно
+     отменить», а оплата, отмеченная коллегой по SSE, поднимается в начало
+     списка. Без движения строка исчезала бы в одном месте и возникала в другом.
+     Ключ credit: общий у двух секций — это одна и та же транзакция. */
   return (
-    <div className={`rl ${styles.screen}`}>
+    <FlipGroup className={`rl ${styles.screen}`}>
       {vm.myDebts.length > 0 && (
         <section className={styles.group} aria-labelledby="budget-debts-heading">
           <div className={styles.groupHead}>
@@ -267,52 +271,54 @@ export function BudgetPage() {
             Переведите деньги сами, а кнопкой сообщите об этом получателю —
             приложение денег не переводит.
           </p>
-          {vm.myDebts.map((d) => (
-            <div key={d.id} className={rowClass(styles.row, liveChanges, liveKey.debt(d.id))}>
-              <div className={styles.avatar} aria-hidden>
-                {d.name[0].toUpperCase()}
-              </div>
-              <div className={styles.rowMain}>
-                {/* Сумма — главное на денежном экране, имя контрагента вторично.
-                    Статус говорит чип у имени: и текстовый дубль не нужен, и
-                    зона действия остаётся под одну кнопку — строка не переносится. */}
-                <span className={styles.rowPerson}>
-                  <span className={styles.rowName}>{d.name}</span>
-                  {d.status === 'PAID' && <Status tone="warning">Ждёт</Status>}
-                </span>
-                <Reference value={d.reference} />
-                <span className={`tnum ${styles.rowAmount}`}>{formatPrice(d.amount)}</span>
-                {/* Куда переводить — здесь, а не в чате с ботом: это единственный
-                    момент, когда номер нужен. Показываем до отметки; после неё
-                    важнее, сколько уже ждём подтверждения. */}
-                {d.status === 'PENDING' && d.payTo && <PayTo value={d.payTo} />}
-                {/* Без слова «подтверждения»: его говорит чип «Ждёт», а полная
-                    фраза не влезала в ширину и обрезалась. */}
-                {d.status === 'PAID' && d.waiting && (
-                  <span className={styles.rowWaiting}>уже {d.waiting}</span>
+          <div data-flip-list>
+            {vm.myDebts.map((d) => (
+              <div key={d.id} data-flip={`debt:${d.id}`} className={rowClass(styles.row, liveChanges, liveKey.debt(d.id))}>
+                <div className={styles.avatar} aria-hidden>
+                  {d.name[0].toUpperCase()}
+                </div>
+                <div className={styles.rowMain}>
+                  {/* Сумма — главное на денежном экране, имя контрагента вторично.
+                      Статус говорит чип у имени: и текстовый дубль не нужен, и
+                      зона действия остаётся под одну кнопку — строка не переносится. */}
+                  <span className={styles.rowPerson}>
+                    <span className={styles.rowName}>{d.name}</span>
+                    {d.status === 'PAID' && <Status tone="warning">Ждёт</Status>}
+                  </span>
+                  <Reference value={d.reference} />
+                  <span className={`tnum ${styles.rowAmount}`}>{formatPrice(d.amount)}</span>
+                  {/* Куда переводить — здесь, а не в чате с ботом: это единственный
+                      момент, когда номер нужен. Показываем до отметки; после неё
+                      важнее, сколько уже ждём подтверждения. */}
+                  {d.status === 'PENDING' && d.payTo && <PayTo value={d.payTo} />}
+                  {/* Без слова «подтверждения»: его говорит чип «Ждёт», а полная
+                      фраза не влезала в ширину и обрезалась. */}
+                  {d.status === 'PAID' && d.waiting && (
+                    <span className={styles.rowWaiting}>уже {d.waiting}</span>
+                  )}
+                </div>
+                {d.status === 'PENDING' ? (
+                  <Button
+                    variant="primary"
+                    loading={isBusy(d.id, 'mark')}
+                    aria-label={`Отметить оплату: ${d.name}, ${formatPrice(d.amount)}`}
+                    onClick={() => markPaid.mutate(d.id)}
+                  >
+                    Отметить
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    loading={isBusy(d.id, 'cancel')}
+                    aria-label={`Отменить отметку: ${d.name}, ${formatPrice(d.amount)}`}
+                    onClick={() => cancelMark.mutate(d.id)}
+                  >
+                    Отменить отметку
+                  </Button>
                 )}
               </div>
-              {d.status === 'PENDING' ? (
-                <Button
-                  variant="primary"
-                  loading={isBusy(d.id, 'mark')}
-                  aria-label={`Отметить оплату: ${d.name}, ${formatPrice(d.amount)}`}
-                  onClick={() => markPaid.mutate(d.id)}
-                >
-                  Отметить
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  loading={isBusy(d.id, 'cancel')}
-                  aria-label={`Отменить отметку: ${d.name}, ${formatPrice(d.amount)}`}
-                  onClick={() => cancelMark.mutate(d.id)}
-                >
-                  Отменить отметку
-                </Button>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
       )}
 
@@ -364,50 +370,54 @@ export function BudgetPage() {
           >
             <span
               className={styles.progressFill}
-              style={{ width: `${vm.owedExpected > 0 ? (vm.owedReceived / vm.owedExpected) * 100 : 0}%` }}
+              style={{
+                transform: `translateX(${(vm.owedExpected > 0 ? (vm.owedReceived / vm.owedExpected) * 100 : 0) - 100}%)`,
+              }}
             />
           </div>
-          {vm.owed.map((c) => (
-            <div key={c.id} className={rowClass(styles.row, liveChanges, liveKey.debt(c.id))}>
-              <div className={styles.avatar} aria-hidden>
-                {c.name[0].toUpperCase()}
+          <div data-flip-list>
+            {vm.owed.map((c) => (
+              <div key={c.id} data-flip={`credit:${c.id}`} className={rowClass(styles.row, liveChanges, liveKey.debt(c.id))}>
+                <div className={styles.avatar} aria-hidden>
+                  {c.name[0].toUpperCase()}
+                </div>
+                <div className={styles.rowMain}>
+                  {/* Чип, а не фраза: «отметил оплату» занимала ~110 px и вытесняла
+                      имя до «М…» — на 390 px было не видно, чей платёж
+                      подтверждаешь. Заодно строка стала как в «Моих долгах». */}
+                  <span className={styles.rowPerson}>
+                    <span className={styles.rowName}>{c.name}</span>
+                    {/* «Отмечено», а не «Отметил»: чип стоял и у Марии. */}
+                    {c.status === 'PAID' && <Status tone="warning">Отмечено</Status>}
+                  </span>
+                  <Reference value={c.reference} />
+                  <span className={`tnum ${styles.rowAmount}`}>{formatPrice(c.amount)}</span>
+                  {/* Память о напоминаниях: без неё сборщик напоминает повторно,
+                      не зная, что уже напоминал. */}
+                  {c.reminded && <span className={styles.rowWaiting}>{c.reminded}</span>}
+                </div>
+                {c.status === 'PAID' ? (
+                  <Button
+                    variant="primary"
+                    loading={isBusy(c.id, 'confirm')}
+                    aria-label={`Подтвердить: ${c.name}, ${formatPrice(c.amount)}`}
+                    onClick={() => setConfirming(c)}
+                  >
+                    Подтвердить
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    loading={isBusy(c.id, 'remind')}
+                    aria-label={`Напомнить: ${c.name}, ${formatPrice(c.amount)}`}
+                    onClick={() => sendReminder.mutate(c.id)}
+                  >
+                    Напомнить
+                  </Button>
+                )}
               </div>
-              <div className={styles.rowMain}>
-                {/* Чип, а не фраза: «отметил оплату» занимала ~110 px и вытесняла
-                    имя до «М…» — на 390 px было не видно, чей платёж
-                    подтверждаешь. Заодно строка стала как в «Моих долгах». */}
-                <span className={styles.rowPerson}>
-                  <span className={styles.rowName}>{c.name}</span>
-                  {/* «Отмечено», а не «Отметил»: чип стоял и у Марии. */}
-                  {c.status === 'PAID' && <Status tone="warning">Отмечено</Status>}
-                </span>
-                <Reference value={c.reference} />
-                <span className={`tnum ${styles.rowAmount}`}>{formatPrice(c.amount)}</span>
-                {/* Память о напоминаниях: без неё сборщик напоминает повторно,
-                    не зная, что уже напоминал. */}
-                {c.reminded && <span className={styles.rowWaiting}>{c.reminded}</span>}
-              </div>
-              {c.status === 'PAID' ? (
-                <Button
-                  variant="primary"
-                  loading={isBusy(c.id, 'confirm')}
-                  aria-label={`Подтвердить: ${c.name}, ${formatPrice(c.amount)}`}
-                  onClick={() => setConfirming(c)}
-                >
-                  Подтвердить
-                </Button>
-              ) : (
-                <Button
-                  variant="secondary"
-                  loading={isBusy(c.id, 'remind')}
-                  aria-label={`Напомнить: ${c.name}, ${formatPrice(c.amount)}`}
-                  onClick={() => sendReminder.mutate(c.id)}
-                >
-                  Напомнить
-                </Button>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
       )}
 
@@ -424,29 +434,31 @@ export function BudgetPage() {
           <p className={styles.groupNote}>
             Если подтвердили по ошибке — отмените в течение суток. Участник получит уведомление.
           </p>
-          {vm.undoable.map((c) => (
-            <div key={c.id} className={rowClass(styles.row, liveChanges, liveKey.debt(c.id))}>
-              <div className={styles.avatar} aria-hidden>
-                {c.name[0].toUpperCase()}
+          <div data-flip-list>
+            {vm.undoable.map((c) => (
+              <div key={c.id} data-flip={`credit:${c.id}`} className={rowClass(styles.row, liveChanges, liveKey.debt(c.id))}>
+                <div className={styles.avatar} aria-hidden>
+                  {c.name[0].toUpperCase()}
+                </div>
+                <div className={styles.rowMain}>
+                  <span className={styles.rowPerson}>
+                    <span className={styles.rowName}>{c.name}</span>
+                    <Status tone="success">Закрыт</Status>
+                  </span>
+                  <Reference value={c.reference} />
+                  <span className={`tnum ${styles.rowAmount}`}>{formatPrice(c.amount)}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  loading={undoConfirmation.isPending && undoConfirmation.variables === c.id}
+                  aria-label={`Отменить подтверждение: ${c.name}, ${formatPrice(c.amount)}`}
+                  onClick={() => setUndoing(c)}
+                >
+                  Отменить
+                </Button>
               </div>
-              <div className={styles.rowMain}>
-                <span className={styles.rowPerson}>
-                  <span className={styles.rowName}>{c.name}</span>
-                  <Status tone="success">Закрыт</Status>
-                </span>
-                <Reference value={c.reference} />
-                <span className={`tnum ${styles.rowAmount}`}>{formatPrice(c.amount)}</span>
-              </div>
-              <Button
-                variant="ghost"
-                loading={undoConfirmation.isPending && undoConfirmation.variables === c.id}
-                aria-label={`Отменить подтверждение: ${c.name}, ${formatPrice(c.amount)}`}
-                onClick={() => setUndoing(c)}
-              >
-                Отменить
-              </Button>
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
       )}
 
@@ -511,6 +523,6 @@ export function BudgetPage() {
           onCancel={() => setRemindingAll(false)}
         />
       )}
-    </div>
+    </FlipGroup>
   );
 }

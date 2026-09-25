@@ -146,7 +146,9 @@ export function ShoppingItemRow({
   const noPrice = item.status === 'BOUGHT' && pn == null;
 
   return (
-    <div className={styles.shopRow} id={`sr-item-${item.id}`} ref={rowRef}>
+    /* data-flip: при отметке строка пересоздаётся в другой секции, и FlipGroup
+       узнаёт в новом узле старый по этому ключу. */
+    <div className={styles.shopRow} id={`sr-item-${item.id}`} data-flip={`item:${item.id}`} ref={rowRef}>
       <div className={styles.shopRowInfo}>
         <div className={styles.rowMain}>
           <div className={styles.rowName}>

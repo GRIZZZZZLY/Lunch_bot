@@ -5,3 +5,4 @@ export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { ErrorState, type ErrorStateProps, type ErrorKind } from './ErrorState';
 export { InlineNotice, type InlineNoticeProps, type NoticeTone } from './InlineNotice';
 export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog';
+export { FlipGroup, type FlipGroupProps } from './FlipGroup';

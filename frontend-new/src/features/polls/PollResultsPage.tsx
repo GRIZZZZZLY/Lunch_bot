@@ -9,7 +9,7 @@ import { useMenuItems } from '@/hooks/useMenu';
 import { useSSE } from '@/hooks/useSSE';
 import { mapPollToOptions, totalVotes } from '@/lib/pollMappers';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { ErrorState, Status } from '@/shared/ui';
+import { ErrorState, FlipGroup, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import { useDelayedLoading } from '@/shared/lib/useDelayedLoading';
@@ -102,8 +102,10 @@ export function PollResultsPage() {
 
   const maxVotes = Math.max(1, ranking[0]?.votes ?? 0);
 
-  return body(
-    <>
+  /* Пока опрос идёт, расклад меняют чужие голоса по SSE, и лидер может смениться:
+     строки распределения меняются местами на глазах, а не кадром. */
+  return (
+    <FlipGroup className={`rl ${styles.screen}`}>
       <div className={styles.ticket}>
         <div className={styles.ticketCap}>
           {poll.status === 'ACTIVE' ? 'Лидирует' : 'Команда выбрала'}
@@ -117,20 +119,22 @@ export function PollResultsPage() {
       {ranking.length > 0 && (
         <section className={styles.group} aria-label="Распределение голосов">
           <div className={styles.groupHead}>Распределение</div>
-          {ranking.map((o) => (
-            <div key={o.id} className={styles.row}>
-              <div className={styles.rowMain}>
-                <div className={styles.rowName}>
-                  {o.name}
-                  {winnerIds.has(Number(o.id)) && <Status tone="success">победитель</Status>}
+          <div data-flip-list>
+            {ranking.map((o) => (
+              <div key={o.id} className={styles.row}>
+                <div className={styles.rowMain}>
+                  <div className={styles.rowName}>
+                    {o.name}
+                    {winnerIds.has(Number(o.id)) && <Status tone="success">победитель</Status>}
+                  </div>
+                  <div className={styles.bar}>
+                    <span className={styles.barFill} style={{ transform: `translateX(${(o.votes / maxVotes) * 100 - 100}%)` }} />
+                  </div>
                 </div>
-                <div className={styles.bar}>
-                  <span className={styles.barFill} style={{ width: `${(o.votes / maxVotes) * 100}%` }} />
-                </div>
+                <span className={`tnum ${styles.rowVal}`}>{o.votes}</span>
               </div>
-              <span className={`tnum ${styles.rowVal}`}>{o.votes}</span>
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
       )}
 
@@ -158,6 +162,6 @@ export function PollResultsPage() {
         winnerName={responsibleName ?? ''}
         onClose={() => setRouletteOpen(false)}
       />
-    </>,
+    </FlipGroup>
   );
 }

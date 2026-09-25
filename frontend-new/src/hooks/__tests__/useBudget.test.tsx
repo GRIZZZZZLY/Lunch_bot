@@ -98,4 +98,15 @@ describe('useConfirmPayment — оптимистичное подтвержде�
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(creditStatus(9)).toBe('PAID');
   });
+
+  it('ставит confirmedAt вместе со статусом: строка сразу попадает в «Подтверждено сегодня»', async () => {
+    h.confirmPayment.mockImplementation(() => new Promise(() => undefined));
+
+    const { result } = renderHook(() => useConfirmPayment(), { wrapper });
+    result.current.mutate(9);
+
+    await waitFor(() => expect(creditStatus(9)).toBe('CONFIRMED'));
+    const confirmedAt = qc.getQueryData<Transaction[]>(CREDITS_KEY)?.find((t) => t.id === 9)?.confirmedAt;
+    expect(Date.now() - new Date(confirmedAt ?? 0).getTime()).toBeLessThan(5_000);
+  });
 });

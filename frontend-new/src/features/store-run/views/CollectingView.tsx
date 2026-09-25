@@ -19,7 +19,7 @@ import {
 } from '@/hooks/useItemPresets';
 import { queryKeys } from '@/lib/queryClient';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
-import { ConfirmDialog, EmptyState, Status } from '@/shared/ui';
+import { ConfirmDialog, EmptyState, FlipGroup, Status } from '@/shared/ui';
 import type { StoreItem, StoreRunWithRelations } from '@/services/store-run.service';
 import { groupItemsByParticipant, isInitiator as isInitiatorOf } from '../lib/selectors';
 import { StoreRunSummary } from '../components/StoreRunSummary';
@@ -111,7 +111,7 @@ export function CollectingView({
     ) : null;
 
   return (
-    <div className={styles.screen}>
+    <FlipGroup className={styles.screen}>
       {summary}
 
       {/* У пустого состояния нет action: то же «Добавить позицию» стоит primary
@@ -220,6 +220,6 @@ export function CollectingView({
           onCancel={() => setConfirmCancel(false)}
         />
       )}
-    </div>
+    </FlipGroup>
   );
 }

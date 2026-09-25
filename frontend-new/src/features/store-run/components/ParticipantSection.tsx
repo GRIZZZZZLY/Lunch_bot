@@ -25,7 +25,7 @@ export function ParticipantSection({
         {title}
         <span className={styles.sectionCount}>· {items.length}</span>
       </h2>
-      <div className={styles.rows}>
+      <div className={styles.rows} data-flip-list>
         {items.map((item) => (
           <StoreItemRow
             key={item.id}

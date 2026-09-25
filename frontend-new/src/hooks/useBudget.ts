@@ -86,11 +86,25 @@ type Snapshot = ReturnType<Qc['getQueriesData']>;
  * префиксу ключа, а не по точному ключу: списки кэшируются вместе с params
  * (`['budget','debts',params]`), и патчить нужно любой из них.
  */
+/* Вместе со статусом ставим его время — ровно как сервер (budget.service):
+   PAID → paidAt, CONFIRMED → confirmedAt, возврат в PENDING обнуляет оба. Без
+   времени оптимистичная строка жила до ответа в промежуточном виде:
+   подтверждённая оплата выпадала отовсюду (секция «Подтверждено сегодня»
+   отбирает по confirmedAt) и возникала там только после рефетча, а у
+   отмеченной не было «ждёт …». */
+function stampOf(status: TransactionStatus): Partial<Transaction> {
+  const now = new Date().toISOString();
+  if (status === 'PAID') return { paidAt: now };
+  if (status === 'CONFIRMED') return { confirmedAt: now };
+  return { paidAt: null, confirmedAt: null };
+}
+
 function patchStatus(qc: Qc, list: 'debts' | 'credits', txId: number, status: TransactionStatus) {
   const filter = { queryKey: ['budget', list] };
   const snapshot = qc.getQueriesData(filter);
+  const stamp = stampOf(status);
   qc.setQueriesData<Transaction[]>(filter, (old) =>
-    old?.map((t) => (t.id === txId ? { ...t, status } : t)),
+    old?.map((t) => (t.id === txId ? { ...t, status, ...stamp } : t)),
   );
   return snapshot;
 }

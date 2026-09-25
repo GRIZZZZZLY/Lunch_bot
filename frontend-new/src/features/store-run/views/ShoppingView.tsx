@@ -6,7 +6,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useSetItemPrice, useSettleStoreRun } from '@/hooks/useStoreRun';
 import { useScreenHeader } from '@/app/layouts/screenHeader';
 import { Avatar } from '@/components/rl/primitives';
-import { ConfirmDialog, InlineNotice, Status } from '@/shared/ui';
+import { ConfirmDialog, FlipGroup, InlineNotice, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { pluralize } from '@/shared/lib/pluralize';
 import type { StoreItem, StoreRunWithRelations } from '@/services/store-run.service';
@@ -33,7 +33,9 @@ function Section({ title, count, children }: { title: string; count: number; chi
         {title}
         <span className={styles.sectionCount}>· {count}</span>
       </h2>
-      <div className={styles.rows}>{children}</div>
+      <div className={styles.rows} data-flip-list>
+        {children}
+      </div>
     </section>
   );
 }
@@ -139,7 +141,7 @@ export function ShoppingView({
   );
 
   return (
-    <div className={styles.screen}>
+    <FlipGroup className={styles.screen}>
       <div className={`${styles.card} ${styles.plainCard}`}>
         <ShoppingProgress progress={progress} live={liveRun} />
       </div>
@@ -193,7 +195,7 @@ export function ShoppingView({
           onCancel={() => setConfirmSettle(false)}
         />
       )}
-    </div>
+    </FlipGroup>
   );
 }
 
@@ -215,7 +217,7 @@ function ParticipantShopping({
   const personal = currentUserId != null ? personalDebtTotal(items, currentUserId, run.initiatorId) : 0;
 
   return (
-    <div className={styles.screen}>
+    <FlipGroup className={styles.screen}>
       {/* Кто в магазине и сколько обработано — одна карточка: два соседних
           блока об одном и том же состоянии закупки. */}
       <div className={`${styles.card} ${styles.plainCard} ${styles.summary}`}>
@@ -257,6 +259,6 @@ function ParticipantShopping({
       )}
 
       <InlineNotice tone="info">Инициатор рассчитает закупку после магазина.</InlineNotice>
-    </div>
+    </FlipGroup>
   );
 }
