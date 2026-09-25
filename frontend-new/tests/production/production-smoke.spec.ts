@@ -56,7 +56,9 @@ test.describe('Безопасная проверка продакшена тол
          `onlyMine` меняет его на «Мои предложения»
          (features/suggestions/SuggestionsPage.tsx). */
       const routes = [
-        { path: '/budget', heading: 'Бюджет команды' },
+        /* Оба названия: копия проверки на сервере переезжает на новую
+           версию раньше выкладки и должна пройти и на старом интерфейсе. */
+        { path: '/budget', heading: /^(Бюджет команды|Расчёты)$/ },
         { path: '/poll/history', heading: 'История голосований' },
         { path: '/suggestions', heading: 'Предложения блюд' },
         { path: '/suggestions/mine', heading: 'Мои предложения' },

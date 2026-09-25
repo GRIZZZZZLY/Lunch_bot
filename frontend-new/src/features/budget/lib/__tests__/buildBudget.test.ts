@@ -20,27 +20,130 @@ function tx(over: Partial<Transaction>): Transaction {
 describe('buildBudget — за что долг', () => {
   it('обеденный долг → блюдо и дата', () => {
     const vm = buildBudget([tx({ id: 5, menuItem: { id: 2, name: 'Паста карбонара' } })], []);
-    expect(vm.myDebts[0].reference).toEqual({ subject: 'Паста карбонара', when: '20 июля', href: '/poll/1/results' });
+    expect(vm.myDebts[0].reference).toEqual({ subject: 'Паста карбонара', when: '20 июля' });
   });
 
   it('магазинный долг → название магазина и дата', () => {
     const vm = buildBudget([tx({ id: 5, storeRun: { id: 9, storeName: 'Пятёрочка' } })], []);
-    expect(vm.myDebts[0].reference).toEqual({ subject: 'Пятёрочка', when: '20 июля', href: '/store-run/9' });
+    expect(vm.myDebts[0].reference).toEqual({ subject: 'Пятёрочка', when: '20 июля' });
   });
 
   it('API не дал ни блюда, ни магазина → только дата, без выдуманного текста', () => {
     const vm = buildBudget([tx({ id: 5 })], []);
-    expect(vm.myDebts[0].reference).toEqual({ subject: '', when: '20 июля', href: '/poll/1/results' });
+    expect(vm.myDebts[0].reference).toEqual({ subject: '', when: '20 июля' });
   });
 
-  it('ни забега, ни опроса → ссылки нет, а не выдуманный путь', () => {
-    const vm = buildBudget([tx({ id: 5, pollId: null })], []);
-    expect(vm.myDebts[0].reference.href).toBeNull();
-  });
-
-  it('кредит тоже получает ссылку', () => {
+  it('у кредита то же «за что»', () => {
     const vm = buildBudget([], [tx({ id: 7, menuItem: { id: 2, name: 'Борщ' } })]);
-    expect(vm.owed[0].reference).toEqual({ subject: 'Борщ', when: '20 июля', href: '/poll/1/results' });
+    expect(vm.owed[0].reference).toEqual({ subject: 'Борщ', when: '20 июля' });
+  });
+});
+
+/* Состав долга раскрывается прямо в строке. Раньше за ним надо было идти по
+   ссылке-дате на страницу закупки или результатов: два перехода ради одной
+   суммы. */
+describe('buildBudget — из чего сложилась сумма', () => {
+  it('магазинный долг → позиция и её цена', () => {
+    const vm = buildBudget(
+      [
+        tx({
+          id: 5,
+          amount: 180,
+          pollId: null,
+          storeRun: { id: 9, storeName: 'Пятёрочка' },
+          storeItem: { id: 40, name: 'Хлеб', quantity: 1 },
+        }),
+      ],
+      [],
+    );
+    expect(vm.myDebts[0].details).toEqual({
+      source: 'Закупка «Пятёрочка»',
+      lines: [{ label: 'Хлеб', amount: 180 }],
+      total: null,
+      events: [],
+      informative: true,
+    });
+  });
+
+  it('несколько штук одной позиции видны в названии', () => {
+    const vm = buildBudget(
+      [
+        tx({
+          pollId: null,
+          storeRun: { id: 9, storeName: 'Пятёрочка' },
+          storeItem: { id: 40, name: 'Кефир', quantity: 3 },
+        }),
+      ],
+      [],
+    );
+    expect(vm.myDebts[0].details.lines[0].label).toBe('Кефир × 3');
+  });
+
+  it('обеденный долг → блюдо, доли доставки, сервиса и чаевых и итог', () => {
+    const vm = buildBudget(
+      [
+        tx({
+          amount: 460,
+          menuItem: { id: 2, name: 'Паста карбонара' },
+          itemPrice: 380,
+          deliveryShare: 50,
+          serviceShare: 0,
+          tipShare: 30,
+        }),
+      ],
+      [],
+    );
+    expect(vm.myDebts[0].details).toEqual({
+      source: 'Обед',
+      lines: [
+        { label: 'Паста карбонара', amount: 380 },
+        { label: 'Доставка', amount: 50 },
+        { label: 'Чаевые', amount: 30 },
+      ],
+      total: 460,
+      events: [],
+      informative: true,
+    });
+  });
+
+  it('без цены блюда сумма не выдумывается: блюдо получает весь долг', () => {
+    const vm = buildBudget([tx({ amount: 300, menuItem: { id: 2, name: 'Борщ' } })], []);
+    expect(vm.myDebts[0].details.lines).toEqual([{ label: 'Борщ', amount: 300 }]);
+    expect(vm.myDebts[0].details.total).toBeNull();
+  });
+
+  /* «Подробнее» у одного блюда без долей повторял строку: «Обед / Борщ 390 ₽».
+     Кнопка нужна там, где раскрытие что-то добавляет. */
+  it.each([
+    ['блюдо без долей и без истории', tx({ menuItem: { id: 2, name: 'Борщ' } }), false],
+    ['блюдо с доставкой', tx({ menuItem: { id: 2, name: 'Борщ' }, itemPrice: 250, deliveryShare: 50 }), true],
+    ['блюдо с отметкой оплаты', tx({ menuItem: { id: 2, name: 'Борщ' }, paidAt: '2026-07-20T11:40:00' }), true],
+    [
+      'позиция закупки: её названия в строке нет',
+      tx({ pollId: null, storeRun: { id: 9, storeName: 'Пятёрочка' }, storeItem: { id: 4, name: 'Хлеб' } }),
+      true,
+    ],
+  ])('%s → раскрывать: %s', (_label, transaction, expected) => {
+    const vm = buildBudget([transaction], []);
+    expect(vm.myDebts[0].details.informative).toBe(expected);
+  });
+
+  it('отметка и подтверждение оплаты попадают в историю строки', () => {
+    const vm = buildBudget(
+      [],
+      [
+        tx({
+          status: 'CONFIRMED',
+          paidAt: '2026-07-20T12:40:00',
+          confirmedAt: '2026-07-20T13:05:00',
+        }),
+      ],
+      new Date('2026-07-20T14:00:00'),
+    );
+    expect(vm.undoable[0].details.events).toEqual([
+      'Оплату отметили 20 июля в 12:40',
+      'Оплату подтвердили 20 июля в 13:05',
+    ]);
   });
 });
 
@@ -110,6 +213,26 @@ describe('buildBudget — куда платить и сколько ждём', (
     const vm = buildBudget([], [tx({ id: 7 })], NOW);
     expect(vm.owed[0].reminded).toBe('');
   });
+
+  it('сегодняшнее напоминание называет время, а не только дату', () => {
+    const vm = buildBudget(
+      [],
+      [tx({ id: 7, reminderCount: 1, lastReminderAt: '2026-07-20T09:15:00' })],
+      NOW,
+    );
+    expect(vm.owed[0].reminded).toBe('1 напоминание · сегодня в 09:15');
+  });
+
+  /* Пауза та же, что на сервере (REMINDER_COOLDOWN_MS): 6 часов. */
+  it.each([
+    ['ни разу не напоминали', undefined, true],
+    ['напоминали 3 часа назад', '2026-07-20T09:00:00', false],
+    ['напоминали ровно 6 часов назад', '2026-07-20T06:00:00', true],
+    ['напоминали вчера', '2026-07-19T09:00:00', true],
+  ])('%s → можно напомнить: %s', (_label, lastReminderAt, expected) => {
+    const vm = buildBudget([], [tx({ id: 7, reminderCount: 1, lastReminderAt })], NOW);
+    expect(vm.owed[0].canRemind).toBe(expected);
+  });
 });
 
 describe('buildBudget — жизненный цикл долга', () => {
@@ -124,7 +247,8 @@ describe('buildBudget — жизненный цикл долга', () => {
     const vm = buildBudget([tx({ id: 5, status: 'PENDING', toUser: { id: 3, firstName: 'Оля' } })], []);
     expect(vm.myDebts).toHaveLength(1);
     expect(vm.myDebts[0]).toMatchObject({ id: 5, name: 'Оля', amount: 300, status: 'PENDING' });
-    expect(vm.myDebtTotal).toBe(300);
+    expect(vm.myDebtToTransfer).toBe(300);
+    expect(vm.myDebtAwaiting).toBe(0);
     expect(vm.isEmpty).toBe(false);
   });
 
@@ -151,7 +275,23 @@ describe('buildBudget — жизненный цикл долга', () => {
       [],
     );
     expect(vm.myDebts.map((d) => d.id)).toEqual([3, 2, 1]);
-    expect(vm.myDebtTotal).toBe(1100);
+    // «к переводу» и «ждёт подтверждения» — разные состояния, одним числом их не сложить
+    expect(vm.myDebtToTransfer).toBe(600);
+    expect(vm.myDebtAwaiting).toBe(500);
+  });
+
+  it('закрытые за сутки долги → кому и сколько, для итоговой карточки', () => {
+    const now = new Date('2026-07-20T12:00:00');
+    const vm = buildBudget(
+      [
+        tx({ id: 1, status: 'CONFIRMED', amount: 420, confirmedAt: '2026-07-20T11:00:00', toUser: { id: 3, firstName: 'Игорь' } }),
+        tx({ id: 2, status: 'CONFIRMED', amount: 180, confirmedAt: '2026-07-20T10:00:00', toUser: { id: 3, firstName: 'Игорь' } }),
+        tx({ id: 3, status: 'CONFIRMED', amount: 90, confirmedAt: '2026-07-10T10:00:00', toUser: { id: 4, firstName: 'Оля' } }),
+      ],
+      [],
+      now,
+    );
+    expect(vm.settled).toEqual({ count: 2, total: 600, names: ['Игорь'] });
   });
 });
 
@@ -178,6 +318,18 @@ describe('buildBudget — роль сборщика (кредиты)', () => {
     expect(vm.owed).toEqual([]);
     expect(vm.allCollected).toBe(true);
     expect(vm.isEmpty).toBe(false);
+  });
+
+  it('все рассчитались → имена без повторов, в порядке сумм', () => {
+    const vm = buildBudget(
+      [],
+      [
+        tx({ id: 1, status: 'CONFIRMED', amount: 200, fromUser: { id: 2, firstName: 'Ян' } }),
+        tx({ id: 2, status: 'CONFIRMED', amount: 500, fromUser: { id: 4, firstName: 'Оля' } }),
+        tx({ id: 3, status: 'CONFIRMED', amount: 100, fromUser: { id: 2, firstName: 'Ян' } }),
+      ],
+    );
+    expect(vm.collectedNames).toEqual(['Оля', 'Ян']);
   });
 
   it('роли сосуществуют: и долг, и кредит', () => {

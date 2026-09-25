@@ -369,6 +369,9 @@ function makeTransactions(): { debts: Transaction[]; credits: Transaction[] } {
         fromUser: USERS.current,
         // за что долг: обеденная транзакция несёт блюдо
         menuItem: { id: 12, name: 'Паста карбонара' },
+        // и разбивку суммы: цена блюда плюс доля доставки = 420
+        itemPrice: 380,
+        deliveryShare: 40,
       },
       {
         id: 802,
@@ -382,6 +385,8 @@ function makeTransactions(): { debts: Transaction[]; credits: Transaction[] } {
         fromUser: USERS.current,
         // а магазинная — забег: две строки к одному человеку теперь различимы
         storeRun: { id: 601, storeName: 'Пятёрочка у офиса' },
+        // позиция закупки — её видно в раскрытой строке
+        storeItem: { id: 7001, name: 'Молоко 3,2%', quantity: 2 },
         // отмечено сутки назад — экран должен показать, сколько уже ждём
         paidAt: '2026-07-19T09:00:00.000Z',
       },
@@ -398,6 +403,7 @@ function makeTransactions(): { debts: Transaction[]; credits: Transaction[] } {
         toUser: USERS.current,
         fromUser: { id: 303, firstName: 'Мария', username: 'maria_e2e' },
         menuItem: { id: 102, name: 'Борщ со сметаной' },
+        itemPrice: 390,
         // память о напоминаниях: сборщик должен видеть, что уже напоминал
         reminderCount: 2,
         lastReminderAt: '2026-07-19T09:00:00.000Z',

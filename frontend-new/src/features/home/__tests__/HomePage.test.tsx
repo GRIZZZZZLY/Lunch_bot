@@ -187,7 +187,7 @@ describe('HomePage — состояния', () => {
     ];
     renderHome();
     expect(screen.getByText('Не удалось загрузить')).toBeInTheDocument();
-    expect(screen.getByText('Бюджет команды')).toBeInTheDocument();
+    expect(screen.getByText('Расчёты')).toBeInTheDocument();
     expect(screen.getByText('Пятёрочка у офиса')).toBeInTheDocument();
   });
 
@@ -221,29 +221,47 @@ describe('HomePage — состояния', () => {
     expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
   });
 
-  it('долг → строка бюджета с кнопкой «Отметить», клик зовёт markPaid', async () => {
+  /* «Отметить · 260 ₽» на главной отмечал долг одним касанием, а реквизитов
+     на экране не было: человек отмечал, не переведя денег. Отметка живёт в
+     «Расчётах», рядом с тем, куда переводить. */
+  it('долг → строка «Расчёты» ведёт на экран расчётов, отметки на главной нет', () => {
     h.state.debts = [{ id: 7, amount: 260, status: 'PENDING' }];
     renderHome();
-    const pay = screen.getByRole('button', { name: /Отметить/ });
-    await userEvent.click(pay);
-    expect(h.state.markPaid.mutate).toHaveBeenCalledWith(7);
+    expect(screen.queryByRole('button', { name: /Отметить/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Расчёты/ })).toHaveTextContent('260');
+    expect(screen.getByText('К переводу')).toBeInTheDocument();
   });
 
-  it('кнопка подписана суммой той транзакции, которую гасит', () => {
+  /* «Вы должны за обед» стояло и у долга за магазин. */
+  it('несколько долгов — число долгов в подписи, без «за обед»', () => {
     h.state.debts = [
       { id: 7, amount: 300, status: 'PENDING' },
       { id: 8, amount: 200, status: 'PENDING' },
     ];
     renderHome();
-    // два перевода одной кнопкой не гасятся: разбор уходит в /budget
-    expect(screen.queryByRole('button', { name: /Отметить/ })).not.toBeInTheDocument();
-    expect(screen.getByText(/2 перевода/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Расчёты/ })).toHaveTextContent('К переводу · 2 долга');
+    expect(screen.queryByText(/за обед/)).not.toBeInTheDocument();
   });
 
-  it('один долг — кнопка с его собственной суммой', () => {
-    h.state.debts = [{ id: 7, amount: 300, status: 'PENDING' }];
+  it('отмеченный долг в «к переводу» не входит', () => {
+    h.state.debts = [
+      { id: 7, amount: 420, status: 'PENDING' },
+      { id: 8, amount: 180, status: 'PAID' },
+    ];
     renderHome();
-    expect(screen.getByRole('button', { name: /Отметить/ })).toHaveTextContent('300');
+    const row = screen.getByRole('button', { name: /^Расчёты/ });
+    expect(row).toHaveTextContent('420');
+    expect(row).not.toHaveTextContent('600');
+    expect(screen.getByText('К переводу')).toBeInTheDocument();
+  });
+
+  it('сборщику видно, сколько оплат ждут его подтверждения', () => {
+    h.state.credits = [
+      { id: 3, amount: 500, status: 'PAID' },
+      { id: 4, amount: 200, status: 'PENDING' },
+    ];
+    renderHome();
+    expect(screen.getByText('1 оплата ждёт подтверждения')).toBeInTheDocument();
   });
 
   it('сборщику — сумма без кнопки', () => {
@@ -251,6 +269,15 @@ describe('HomePage — состояния', () => {
     renderHome();
     expect(screen.getByText('Вам должны участники')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Отметить/ })).not.toBeInTheDocument();
+  });
+
+  /* Нажималась только левая часть, и снаружи строка не отличалась от подписи:
+     было непонятно, что она вообще куда-то ведёт. Без кнопки отметки строка
+     целиком — одна кнопка, вместе с суммой. */
+  it('без кнопки отметки строка «Расчёты» целиком нажимается, вместе с суммой', () => {
+    h.state.credits = [{ id: 3, amount: 500, status: 'PENDING' }];
+    renderHome();
+    expect(screen.getByRole('button', { name: /^Расчёты/ })).toHaveTextContent('500');
   });
 
   it('активная закупка — строкой со статусом', () => {
@@ -392,7 +419,7 @@ describe('HomePage — барьер первого экрана', () => {
     renderHome();
 
     expect(screen.queryByText('Группы пока нет')).not.toBeInTheDocument();
-    expect(screen.queryByText('Бюджет команды')).not.toBeInTheDocument();
+    expect(screen.queryByText('Расчёты')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Отметить/ })).not.toBeInTheDocument();
   });
 
@@ -402,7 +429,7 @@ describe('HomePage — барьер первого экрана', () => {
     renderHome();
 
     expect(screen.getByText('Группы пока нет')).toBeInTheDocument();
-    expect(screen.getByText('Бюджет команды')).toBeInTheDocument();
+    expect(screen.getByText('Расчёты')).toBeInTheDocument();
   });
 
   /* Предохранитель: без потолка достаточно одного запроса, выключенного по

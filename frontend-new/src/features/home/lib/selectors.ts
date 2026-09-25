@@ -88,10 +88,13 @@ export interface BudgetRowModel {
    * погашение всех, а помечать одну.
    */
   payableAmount: number;
-  /** Сколько активных долгов стоит за `amount` (kind='debt'). */
+  /** Сколько непереведённых долгов стоит за `amount` (kind='debt'). */
   payableCount: number;
   /** collector: сколько уже подтверждено. */
   confirmed: number;
+  /** collector: сколько оплат отметили должники и ждут подтверждения. Без
+      этого числа главная сборщика не показывала, что от него что-то ждут. */
+  toConfirm: number;
 }
 
 /**
@@ -102,17 +105,19 @@ export interface BudgetRowModel {
 export function budgetRow(debts: Transaction[], credits: Transaction[]): BudgetRowModel {
   const activeDebts = debts.filter((d) => d.status !== 'CONFIRMED');
   const activeCredits = credits.filter((c) => c.status !== 'CONFIRMED');
-  const pending = activeDebts
-    .filter((d) => d.status === 'PENDING')
-    .sort((a, b) => b.amount - a.amount)[0];
+  const unpaid = activeDebts.filter((d) => d.status === 'PENDING');
+  const pending = [...unpaid].sort((a, b) => b.amount - a.amount)[0];
   if (pending) {
+    /* Только непереведённое: отмеченный долг уже ушёл, и «2 перевода · 600 ₽»
+       при одном оставшемся звало переводить второй раз. */
     return {
       kind: 'debt',
-      amount: activeDebts.reduce((s, d) => s + d.amount, 0),
+      amount: unpaid.reduce((s, d) => s + d.amount, 0),
       payableTxId: pending.id,
       payableAmount: pending.amount,
-      payableCount: activeDebts.length,
+      payableCount: unpaid.length,
       confirmed: 0,
+      toConfirm: 0,
     };
   }
   const paid = activeDebts.filter((d) => d.status === 'PAID');
@@ -124,6 +129,7 @@ export function budgetRow(debts: Transaction[], credits: Transaction[]): BudgetR
       payableAmount: 0,
       payableCount: 0,
       confirmed: 0,
+      toConfirm: 0,
     };
   }
   if (activeCredits.length > 0) {
@@ -136,9 +142,10 @@ export function budgetRow(debts: Transaction[], credits: Transaction[]): BudgetR
       payableAmount: 0,
       payableCount: 0,
       confirmed: credits.filter((c) => c.status === 'CONFIRMED').reduce((s, c) => s + c.amount, 0),
+      toConfirm: activeCredits.filter((c) => c.status === 'PAID').length,
     };
   }
-  return { kind: 'hidden', amount: 0, payableTxId: null, payableAmount: 0, payableCount: 0, confirmed: 0 };
+  return { kind: 'hidden', amount: 0, payableTxId: null, payableAmount: 0, payableCount: 0, confirmed: 0, toConfirm: 0 };
 }
 
 /**

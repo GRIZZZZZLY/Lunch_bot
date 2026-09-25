@@ -44,6 +44,8 @@ const debtsInclude = {
   // без неё магазинные долги нельзя ни отфильтровать по команде, ни
   // проверить по членству.
   storeRun: { select: { id: true, storeName: true, groupId: true } },
+  // Позиция закупки: раскрытая строка «Расчётов» показывает, что куплено.
+  storeItem: { select: { id: true, name: true, quantity: true } },
   poll: {
     include: {
       group: true,
@@ -301,6 +303,7 @@ export class BudgetQueryService {
           // См. getUserDebts: за что долг — блюдо или магазин, и groupId
           // забега как вторая связь долга с командой.
           storeRun: { select: { id: true, storeName: true, groupId: true } },
+          storeItem: { select: { id: true, name: true, quantity: true } },
           poll: {
             include: {
               group: true,

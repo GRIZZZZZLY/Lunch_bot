@@ -23,22 +23,70 @@ const RUN_STATUS: Record<string, { tone: StatusTone; label: string }> = {
   CANCELLED: { tone: 'danger', label: 'Отменено' },
 };
 
+/* Стрелка перехода, как у строки победителя: без неё строки «Сейчас», ведущие
+   на другой экран, не отличались от подписей. */
+function RowChevron() {
+  return (
+    <span className={styles.rowSub} aria-hidden>
+      <Icon name="chevronRight" size={16} />
+    </span>
+  );
+}
+
+function BudgetMain({ budget }: { budget: Exclude<BudgetRowModel, { kind: 'hidden' }> }) {
+  return (
+    <>
+      <span className={`${styles.rowIcon} ${styles.money}`} aria-hidden>
+        <Icon name="wallet" size={18} />
+      </span>
+      <span className={styles.rowMain}>
+        <span className={styles.rowName}>Расчёты</span>
+        <span className={styles.rowSub}>
+          {/* «К переводу», как в «Расчётах». Без «за обед»: долг бывает и
+              за магазин. */}
+          {budget.kind === 'debt' &&
+            (budget.payableCount > 1 ? (
+              <>
+                К переводу ·{' '}
+                <span className="tnum">{plural(budget.payableCount, 'долг', 'долга', 'долгов')}</span>
+              </>
+            ) : (
+              'К переводу'
+            ))}
+          {budget.kind === 'awaiting' && 'Оплата ждёт подтверждения'}
+          {/* Отмеченные оплаты — первым: это задача сборщика, а «вам должны»
+              и «получено» — только сводка. */}
+          {budget.kind === 'collector' &&
+            (budget.toConfirm > 0 ? (
+              <span className={styles.rowSubTask}>
+                {plural(budget.toConfirm, 'оплата ждёт', 'оплаты ждут', 'оплат ждут')} подтверждения
+              </span>
+            ) : budget.confirmed > 0 ? (
+              <>
+                Вам должны участники · получено{' '}
+                <span className="tnum">{formatPrice(budget.confirmed)}</span>
+              </>
+            ) : (
+              'Вам должны участники'
+            ))}
+        </span>
+      </span>
+    </>
+  );
+}
+
 export function NowSection({
   winner,
   runs,
   budget,
-  paying,
   onOpenRun,
-  onMarkPaid,
   onOpenBudget,
   onNewRun,
 }: {
   winner: ReactNode;
   runs: StoreRunListItem[];
   budget: BudgetRowModel;
-  paying: boolean;
   onOpenRun: (id: number) => void;
-  onMarkPaid: (txId: number) => void;
   onOpenBudget: () => void;
   onNewRun: () => void;
 }) {
@@ -74,62 +122,26 @@ export function NowSection({
               </span>
             </span>
             <Status tone={st.tone}>{st.label}</Status>
+            <RowChevron />
           </button>
         );
       })}
 
+      {/* Строка целиком — одна кнопка в «Расчёты», как строки закупок и
+          победителя. Кнопки «Отметить · 260 ₽» здесь больше нет: она отмечала
+          долг одним касанием, а реквизитов на экране не было, и человек
+          отмечал, не переведя денег. Отметка живёт в «Расчётах», рядом с тем,
+          куда переводить. */}
       {budget.kind !== 'hidden' && (
-        <div className={styles.row}>
-          <button type="button" className={styles.rowTapArea} onClick={onOpenBudget}>
-            <span className={`${styles.rowIcon} ${styles.money}`} aria-hidden>
-              <Icon name="wallet" size={18} />
-            </span>
-            <span className={styles.rowMain}>
-              <span className={styles.rowName}>Бюджет команды</span>
-              <span className={styles.rowSub}>
-                {budget.kind === 'debt' &&
-                  (budget.payableCount > 1 ? (
-                    <>
-                      Вы должны за обед ·{' '}
-                      <span className="tnum">
-                        {plural(budget.payableCount, 'перевод', 'перевода', 'переводов')}
-                      </span>
-                    </>
-                  ) : (
-                    'Вы должны за обед'
-                  ))}
-                {budget.kind === 'awaiting' && 'Оплата ждёт подтверждения'}
-                {budget.kind === 'collector' &&
-                  (budget.confirmed > 0 ? (
-                    <>
-                      Вам должны участники · получено{' '}
-                      <span className="tnum">{formatPrice(budget.confirmed)}</span>
-                    </>
-                  ) : (
-                    'Вам должны участники'
-                  ))}
-              </span>
-            </span>
-          </button>
-          {/* Одна кнопка гасит одну транзакцию: при нескольких долгах суммы
-              разные, и подпись «за всё» была бы обещанием, которого мутация не
-              выполняет. Несколько переводов разбираем в /budget.
-              «Отметить», а не «Оплатил»: кнопка ничего не переводит, прошедшее
-              время читалось как «уже списано», и род оно тоже не угадывает.
-              Та же подпись, что в бюджете, — действие одно. */}
-          {budget.kind === 'debt' && budget.payableTxId != null && budget.payableCount === 1 ? (
-            <Button
-              variant="secondary"
-              loading={paying}
-              aria-label={`Отметить оплату: ${formatPrice(budget.payableAmount)}`}
-              onClick={() => onMarkPaid(budget.payableTxId!)}
-            >
-              Отметить · {formatPrice(budget.payableAmount)}
-            </Button>
-          ) : (
-            <span className={`tnum ${styles.moneyVal}`}>{formatPrice(budget.amount)}</span>
-          )}
-        </div>
+        <button type="button" className={`${styles.row} ${styles.tappable}`} onClick={onOpenBudget}>
+          <BudgetMain budget={budget} />
+          {/* Свой долг — нейтральным, как итог «Мои долги»: зелёный у суммы,
+              которую вы должны, читался как плюс на счёте. */}
+          <span className={`tnum ${styles.moneyVal}${budget.kind === 'debt' ? ` ${styles.moneyValOwed}` : ''}`}>
+            {formatPrice(budget.amount)}
+          </span>
+          <RowChevron />
+        </button>
       )}
 
       {!hasContent && (

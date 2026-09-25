@@ -63,7 +63,7 @@ export function HomePage() {
   const { allMenu, canCreate, hasGroup, scheduleHint } = create;
 
   /* ---- деньги и закупки: два независимых от голосования сценария ---- */
-  const { budget, markPaid, queries: budgetQueries } = useHomeBudget();
+  const { budget, queries: budgetQueries } = useHomeBudget();
   const {
     activeRuns,
     createStoreRun,
@@ -159,11 +159,7 @@ export function HomePage() {
         winner={winner}
         runs={activeRuns}
         budget={budget}
-        paying={markPaid.isPending}
         onOpenRun={(id) => navigate(`/store-run/${id}`)}
-        onMarkPaid={(txId) => {
-          if (!markPaid.isPending) markPaid.mutate(txId);
-        }}
         onOpenBudget={() => navigate('/budget')}
         onNewRun={sheets.openStoreRun}
       />

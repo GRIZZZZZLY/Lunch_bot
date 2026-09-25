@@ -105,6 +105,19 @@ describe('getUserDebts', () => {
     });
   });
 
+  /* Раскрытая строка «Расчётов» показывает, за что долг: у магазинного это
+     позиция закупки, а не только название магазина. */
+  it('магазинный долг приходит с названием и количеством позиции', async () => {
+    await service.getUserDebts(1);
+
+    const include = (
+      prismaMock.transaction.findMany.mock.calls[0][0] as {
+        include: { storeItem: { select: Record<string, boolean> } };
+      }
+    ).include;
+    expect(include.storeItem.select).toEqual({ id: true, name: true, quantity: true });
+  });
+
   it('свои реквизиты в список долгов не попадают', async () => {
     await service.getUserDebts(1);
 
@@ -260,6 +273,17 @@ describe('getUserCredits', () => {
       firstName: true,
       username: true,
     });
+  });
+
+  it('магазинный кредит приходит с названием и количеством позиции', async () => {
+    await service.getUserCredits(2);
+
+    const include = (
+      prismaMock.transaction.findMany.mock.calls[0][0] as {
+        include: { storeItem: { select: Record<string, boolean> } };
+      }
+    ).include;
+    expect(include.storeItem.select).toEqual({ id: true, name: true, quantity: true });
   });
 
   it('явный статус фильтрует выборку', async () => {

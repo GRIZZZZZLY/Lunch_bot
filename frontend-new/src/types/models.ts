@@ -134,6 +134,14 @@ export interface Transaction {
   /* За что долг: обеденная транзакция несёт блюдо, магазинная — забег. */
   menuItem?: { id: number; name: string };
   storeRun?: { id: number; storeName: string };
+  /* Из чего сложилась сумма — для раскрытой строки «Расчётов». Магазинный долг
+     несёт позицию закупки; обеденный — цену блюда и доли доставки, сервиса и
+     чаевых (скалярные колонки транзакции, приходят числом). */
+  storeItem?: { id: number; name: string; quantity?: number };
+  itemPrice?: number | null;
+  deliveryShare?: number | null;
+  serviceShare?: number | null;
+  tipShare?: number | null;
   /* Сколько раз напоминали и когда. Скалярные колонки — API отдавал их и раньше,
      тип не объявлял. */
   reminderCount?: number;

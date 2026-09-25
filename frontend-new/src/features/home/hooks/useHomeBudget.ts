@@ -1,5 +1,6 @@
 /**
- * Деньги на главной: строка «Бюджет команды» и отметка об оплате.
+ * Деньги на главной: строка «Расчёты». Отметки об оплате здесь нет — она
+ * живёт в «Расчётах», рядом с реквизитами.
  *
  * Долги и кредиты — отдельный от голосования сценарий, и на главной он живёт
  * ровно одной строкой. Вынесен из тела `HomePage` (задача 12), потому что
@@ -11,7 +12,7 @@
  */
 import { useMemo } from 'react';
 
-import { useCredits, useDebts, useMarkPaid } from '@/hooks/useBudget';
+import { useCredits, useDebts } from '@/hooks/useBudget';
 import { budgetRow } from '../lib/selectors';
 
 export function useHomeBudget() {
@@ -19,13 +20,11 @@ export function useHomeBudget() {
   const { data: debts = [] } = debtsQuery;
   const creditsQuery = useCredits();
   const { data: credits = [] } = creditsQuery;
-  const markPaid = useMarkPaid();
 
   const budget = useMemo(() => budgetRow(debts, credits), [debts, credits]);
 
   return {
     budget,
-    markPaid,
     /* Для барьера первого экрана — целые запросы, а не распакованные списки. */
     queries: { debtsQuery, creditsQuery },
   };

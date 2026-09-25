@@ -74,10 +74,13 @@ describe('budgetRow — свод сценариев в строку', () => {
   it('пусто → hidden', () => {
     expect(budgetRow([], []).kind).toBe('hidden');
   });
-  it('PENDING-долг → debt с суммой активных и payable-транзакцией', () => {
+  /* Отмеченный долг уже переведён: считать его в «к переводу» значило звать
+     человека переводить второй раз («2 перевода · 600 ₽» при одном оставшемся). */
+  it('PENDING-долг → debt: сумма и счёт только непереведённых', () => {
     const row = budgetRow([tx({ id: 7, amount: 260 }), tx({ id: 8, amount: 100, status: 'PAID' })], []);
     expect(row.kind).toBe('debt');
-    expect(row.amount).toBe(360);
+    expect(row.amount).toBe(260);
+    expect(row.payableCount).toBe(1);
     expect(row.payableTxId).toBe(7);
   });
   it('payableAmount — сумма именно погашаемой транзакции, а не всех долгов', () => {
@@ -106,6 +109,16 @@ describe('budgetRow — свод сценариев в строку', () => {
   });
   it('долг приоритетнее кредитов', () => {
     expect(budgetRow([tx({})], [tx({})]).kind).toBe('debt');
+  });
+  /* Должник отметил оплату и ждёт «уже 1 день», а главная сборщика говорила
+     только «Вам должны участники» — задачи для него было не видно. */
+  it('collector считает отмеченные оплаты, которые ждут его подтверждения', () => {
+    const row = budgetRow([], [tx({ status: 'PAID' }), tx({ status: 'PAID' }), tx({})]);
+    expect(row.kind).toBe('collector');
+    expect(row.toConfirm).toBe(2);
+  });
+  it('без отмеченных оплат подтверждать нечего', () => {
+    expect(budgetRow([], [tx({})]).toConfirm).toBe(0);
   });
 });
 

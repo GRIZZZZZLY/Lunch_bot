@@ -518,6 +518,13 @@
   text-overflow: ellipsis;
 }
 
+/* Задача сборщика в подписи («1 оплата ждёт подтверждения»): цвет домена
+   денег и вес 600 отличают её от сводки «Вам должны участники». */
+.rowSubTask {
+  color: var(--money);
+  font-weight: 600;
+}
+
 .rowSub {
   display: block;
   font-size: var(--text-11);
@@ -535,6 +542,11 @@
   font-weight: 700;
   color: var(--money);
   white-space: nowrap;
+}
+
+/* Свой долг — нейтральный, то же исключение, что у итога «Мои долги». */
+.moneyValOwed {
+  color: var(--text-primary);
 }
 
 /* Корешок секции «Сейчас». Подложка та же светлая, что у CTA талона (--accent

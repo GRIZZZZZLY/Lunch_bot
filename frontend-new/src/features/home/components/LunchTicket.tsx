@@ -10,6 +10,7 @@ import { ConfirmDialog, Status } from '@/shared/ui';
 import { Button } from '@/components/rl/primitives';
 import { hapticImpact } from '@/lib/haptics';
 import { Icon } from '@/components/rl/Icon';
+import { stamp } from '@/shared/lib/stamp';
 import { pluralVotes } from '../lib/selectors';
 import type { PollOptionVM } from '../lib/types';
 import styles from '../HomePage.module.css';
@@ -92,24 +93,14 @@ export function LunchTicket({
 
   /* Штамп играет на смене голоса, а не на монтировании: иначе открытие
      приложения с уже отданным голосом каждый раз изображало бы новое действие.
-     WAAPI, а не CSS-класс: повторный голос должен переигрывать анимацию, а это
-     в CSS требует снять класс и дёрнуть reflow. Media query WAAPI не читает —
-     проверяем reduced-motion сами. */
+     Сам жест — shared/lib/stamp (тот же печатает закрытый долг). */
   const dotRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const prevChoice = useRef(myChoiceId);
   useEffect(() => {
     const changed = prevChoice.current !== myChoiceId;
     prevChoice.current = myChoiceId;
     if (!changed || myChoiceId == null) return;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const dot = dotRefs.current[options.findIndex((o) => o.id === myChoiceId)];
-    dot?.animate?.(
-      [
-        { transform: 'scale(1.35)', opacity: 0.55 },
-        { transform: 'scale(1)', opacity: 1 },
-      ],
-      { duration: 300, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
-    );
+    stamp(dotRefs.current[options.findIndex((o) => o.id === myChoiceId)]);
   }, [myChoiceId, options]);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [focusIdx, setFocusIdx] = useState(0);

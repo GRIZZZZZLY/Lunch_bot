@@ -1,4 +1,4 @@
-/* Бюджет команды — система C: money-домен, две роли плоскими группами. */
+/* Расчёты — система C: money-домен, две роли плоскими группами. */
 .screen {
   display: flex;
   flex-direction: column;
@@ -36,6 +36,24 @@
   color: var(--money);
 }
 
+/* «к переводу» — подпись к сумме, тише самой суммы. */
+.groupTotalLabel {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Отмеченное, но не подтверждённое — отдельной строкой под шапкой, тоном
+   ожидания (как чип «Ждёт»), а не денег. */
+.groupAwaiting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: var(--text-13);
+  color: var(--text-secondary);
+}
+
 /* Итог собственных долгов — нейтральный: зелёный рядом с «Мои долги» читался
    как плюс на счёте. Исключение из правила «деньги всегда money» записано в
    design-system-c.md. */
@@ -43,22 +61,50 @@
   color: var(--text-primary);
 }
 
-/* flex-start, а не center: строка стала многострочной (за что · когда · сумма ·
-   реквизиты), и по центру аватар с кнопкой висели в пустоте. */
+/* Сетка, а не flex с переносом: раскрытая разбивка стоит в DOM сразу за
+   кнопкой «Подробнее» (так её читает диктор), а на экране — под строкой, по
+   колонке текста. start, а не center: строка многострочная (за что · когда ·
+   сумма · реквизиты), и по центру аватар с кнопкой висели в пустоте. */
 .row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'avatar main action'
+    '. details details';
+  align-items: start;
+  column-gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   /* Поля у строки свои — листок перелёта ложится ровно по ней (motion.css). */
   --flip-lift-outset: 0px;
 }
 
-.row + .row {
-  border-top: 1px solid var(--divider);
+/* Разделитель по колонке текста, а не рамкой строки: у строки скруглённые
+   углы (метка живого изменения), и border-top гнулся по ним дугой. ::after,
+   потому что ::before занят листком перелёта. */
+.row + .row::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(var(--space-4) + 40px + var(--space-3));
+  right: var(--space-4);
+  height: 1px;
+  background: var(--divider);
+  pointer-events: none;
+}
+
+.rowAction {
+  grid-area: action;
+}
+
+/* «Напомнили» остаётся в обходе с клавиатуры (aria-disabled), но касание и
+   наведение ему не нужны: наведение перекрашивало бы погашенную кнопку. */
+.rowAction[aria-disabled='true'] {
+  pointer-events: none;
 }
 
 .avatar {
+  grid-area: avatar;
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -73,115 +119,177 @@
 }
 
 .rowMain {
-  flex: 1;
+  grid-area: main;
   min-width: 0;
 }
 
-/* Контрагент — подпись к сумме, а не заголовок строки. */
+/* Контрагент — подпись к сумме, а не заголовок строки. Имя переносится, а не
+   режется: «Алекса…» рядом с 1 333,33 ₽ не давало сверить платёж с банком,
+   где имя полное. Чип при нехватке места уходит на следующую строку. */
 .rowPerson {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   min-width: 0;
   font-size: var(--text-13);
   font-weight: 500;
   color: var(--text-secondary);
 }
 
-/* Спутники (чип статуса) держат ширину, сжимается имя — но не до неузнаваемости:
-   пол в 5 знаков не даёт свернуть его в одну букву, а overflow на контейнере
-   гарантирует, что этот пол не вылезет за строку. */
-.rowPerson {
-  overflow: hidden;
-}
-
-.rowPerson > * {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
 .rowName {
-  min-width: 5ch;
-  flex-shrink: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-/* За что долг — отдельной строкой, а не хвостом к имени: в имени длинный текст
-   уже один раз выдавил его до одной буквы. Внутри строки сжимается название,
-   дата ширину держит. */
-/* Дата переносится на свою строку раньше, чем сжимается название: рядом с
-   кнопкой на 390 px оно резалось до «Пятёроч…», и было не понять, за что долг.
-   Многоточие остаётся только для названия длиннее всей строки.
-   Без overflow: hidden — он обрезал 44-пиксельную зону касания ссылки
-   (.rowRefLink::after), и нажать удавалось только по строке 18 px. Название
-   обрезается само. */
+/* За что долг — отдельной строкой, а не хвостом к имени. Обычный текст, а не
+   flex: название и дата переносятся как слова, точка держится за названием
+   неразрывным пробелом (Reference в BudgetPage.tsx), дата не рвётся. */
 .rowRef {
-  display: flex;
-  /* В одну строку: при переносе дата уезжала вниз вместе с точкой, и строка
-     начиналась с «·». Сжимается название — оно и обрезается многоточием. */
-  flex-wrap: nowrap;
-  align-items: baseline;
-  gap: 0 var(--space-1);
+  display: block;
   font-size: var(--text-11);
+  line-height: 1.4;
   color: var(--text-tertiary);
 }
 
-/* Ссылка на источник долга. Подчёркивание — единственный носитель того, что это
-   ссылка (цвет остаётся служебным), плюс тап-зона 44 px псевдоэлементом:
-   поднимать 11-й кегль до 44 px по-настоящему значило бы раздуть строку. */
-.rowRefLink {
+/* «Подробнее» — строчная кнопка под суммой. Вид компактный, касание 44 px
+   добирает псевдоэлемент (правило разведённых размеров): настоящая высота
+   44 px раздула бы каждую строку списка. */
+.more {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  /* Поле под кольцо фокуса: без него кольцо ложилось вплотную к буквам.
+     Отрицательный отступ возвращает текст на колонку строки. */
+  margin: 0 calc(-1 * var(--space-1));
+  padding: 2px var(--space-1);
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--text-13);
+  font-weight: 600;
   color: var(--text-secondary);
-  text-decoration: underline;
-  text-decoration-color: var(--divider);
-  text-underline-offset: 3px;
   cursor: pointer;
+  border-radius: var(--radius-control-sm);
+  transition: color var(--motion-fast) var(--ease-out),
+    opacity var(--motion-fast) var(--ease-out);
 }
 
-.rowRefLink::after {
+.more::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
+  left: -4px;
+  right: -4px;
   top: 50%;
   height: var(--control-md);
-  min-height: 100%;
   transform: translateY(-50%);
 }
 
 @media (hover: hover) {
-  .rowRefLink:hover {
-    text-decoration-color: var(--text-secondary);
+  .more:hover {
+    color: var(--text-primary);
   }
 }
 
-.rowRefLink:active {
-  opacity: 0.7;
+.more:active {
+  opacity: 0.6;
 }
 
-.rowRefLink:focus-visible {
+.more:disabled {
+  cursor: progress;
+  opacity: 0.5;
+}
+
+/* Строчные действия строки: «Подробнее», «Отменить отметку», «Отменить». */
+.rowLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.more:focus-visible {
   outline: none;
-  border-radius: var(--radius-control-sm);
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
 }
 
-.rowRefSubject {
-  min-width: 4ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.moreChevron {
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 
-.rowRefWhen {
+.more[aria-expanded='true'] .moreChevron {
+  transform: rotate(180deg);
+}
+
+/* Разбивка суммы — под строкой, от колонки текста до правого края (сетка
+   .row). Вторичная подложка внутри карточки, без тени: это часть строки, а не
+   отдельный блок. */
+.details {
+  grid-area: details;
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-control-sm);
+  background: var(--surface-secondary);
+  font-size: var(--text-13);
+  line-height: 1.5;
+}
+
+.detailsSource {
+  margin: 0 0 var(--space-2);
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.detailsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.detailsLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.detailsLine dt {
+  min-width: 0;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.detailsLine dd {
   flex-shrink: 0;
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
   white-space: nowrap;
 }
 
-/* Разделитель ставит вёрстка, а не текст: при обрезанном названии точка должна
-   остаться на своём месте. */
-.rowRefSubject + .rowRefWhen::before {
-  content: '· ';
+.detailsTotal {
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--divider);
+}
+
+.detailsTotal dt,
+.detailsTotal dd {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.detailsEvent {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-11);
+  color: var(--text-tertiary);
+}
+
+.rowRefSubject {
+  overflow-wrap: anywhere;
 }
 
 /* Разъяснение под шапкой секции: один раз на группу, не в каждой строке. */
@@ -248,42 +356,6 @@
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
 }
 
-/* Перевод по ссылке — главное действие строки: по нему открывается банк, а
-   телефон рядом надо скопировать и вставить руками. Поэтому заливка домена
-   денег, а не контурная кнопка, как у копирования. */
-.payToLink {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control-md);
-  white-space: nowrap;
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-control-sm);
-  background: var(--money-tint);
-  font: inherit;
-  font-size: var(--text-13);
-  font-weight: 700;
-  color: var(--money-on-tint);
-  cursor: pointer;
-  transition: opacity var(--motion-fast) var(--ease-out);
-}
-
-@media (hover: hover) {
-  .payToLink:hover {
-    opacity: 0.85;
-  }
-}
-
-.payToLink:active {
-  opacity: 0.75;
-}
-
-.payToLink:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
-}
-
 .payToLabel {
   font-size: var(--text-11);
   font-weight: 600;
@@ -303,14 +375,16 @@
   color: var(--text-secondary);
 }
 
-/* Сколько ждём / сколько напоминали. */
+/* Сколько ждём / сколько напоминали. Переносится, а не режется: см. Parts. */
 .rowWaiting {
   display: block;
   margin-top: var(--space-1);
   font-size: var(--text-11);
+  line-height: 1.4;
   color: var(--text-tertiary);
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.nowrap {
   white-space: nowrap;
 }
 
@@ -320,13 +394,6 @@
   font-weight: 700;
   letter-spacing: -0.01em;
   white-space: nowrap;
-}
-
-.rowAction {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
 }
 
 /* полоса «получено X из Y». Дорожка — нейтральный --divider, а не --money-tint:
@@ -385,11 +452,46 @@
   padding: var(--space-6) 0;
 }
 
-/* Метка живого изменения тинтует всю строку, и собственный тинт кнопки
-   перевода складывается с ней: замер дал падение с 4.93 до 4.01 в тёмной теме
-   при пороге 4.5 — подсветка ломала контраст ровно на том элементе, ради
-   которого строку и открывают. Пока метка держится, кнопка стоит на
-   непрозрачной поверхности, и складывать нечего. */
-:global(.live-flash.is-live) .payToLink {
-  background-color: var(--surface);
+/* Вопрос после перевода: человек вернулся из банка, и строка ждёт от него
+   отметки. Основной цвет текста — это следующий шаг, а не справка. */
+.transferPrompt {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-13);
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Печать закрытого цикла: размер аватара строки — карточка стоит в той же
+   колонке, что и строки долгов. Наклон — у рисунка внутри, потому что
+   transform самой печати занимает Штамп (WAAPI заменил бы поворот). */
+.seal {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--success);
+  border-radius: 50%;
+  background: var(--success-tint);
+  color: var(--success-on-tint);
+}
+
+.sealMark {
+  display: flex;
+  transform: rotate(-8deg);
+}
+
+.avatarSkeleton {
+  grid-area: avatar;
+}
+
+.skeletonGap {
+  margin-top: var(--space-2);
+}
+
+/* Обёртка под Штамп: transform строчному элементу не применяется. */
+.stamped {
+  display: inline-flex;
+  flex-shrink: 0;
 }

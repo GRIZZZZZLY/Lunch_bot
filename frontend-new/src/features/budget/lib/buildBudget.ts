@@ -15,14 +15,36 @@ export interface DebtLineVM {
   payTo: PayTo | null;
   /** Сколько уже ждёт подтверждения. Пусто, пока не отмечено. */
   waiting: string;
+  details: DebtDetails;
 }
 
 export interface BudgetReference {
   subject: string;
   when: string;
-  /** Куда ведёт ссылка «за что». null, если API не дал ни забега, ни опроса. */
-  href: string | null;
 }
+
+/**
+ * Из чего сложилась сумма — раскрывается прямо в строке. Раньше за этим шли по
+ * ссылке-дате на страницу закупки или результатов: из Главной в «Расчёты», из
+ * «Расчётов» дальше — два перехода ради одной суммы.
+ */
+export interface DebtDetails {
+  /** «Закупка «Пятёрочка»», «Обед» или пусто, если API не дал ни того ни другого. */
+  source: string;
+  lines: { label: string; amount: number }[];
+  /** Итог — только когда строк больше одной: у одной строки он её и повторяет. */
+  total: number | null;
+  /** Когда отметили и подтвердили оплату. */
+  events: string[];
+  /** Добавляет ли раскрытие что-то к строке. У одного блюда без долей и без
+      истории разбивка повторяла бы её: «Обед / Борщ 390 ₽». */
+  informative: boolean;
+}
+
+/** Пауза между ручными напоминаниями одному должнику. Хозяин правила —
+    сервер (backend reminder.service, REMINDER_COOLDOWN_MS); здесь только
+    показ: кнопка гаснет, а не ждёт отказа. */
+export const REMINDER_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
 export interface PayTo {
   /** Готовая ссылка СБП: один тап открывает банк. Главнее телефона. */
@@ -40,20 +62,37 @@ export interface CreditLineVM {
   reference: BudgetReference;
   /** Память о напоминаниях: «напоминали 2 раза, 14 июля». Пусто, если ни разу. */
   reminded: string;
+  /** Пауза после напоминания прошла (или напоминаний не было). */
+  canRemind: boolean;
+  details: DebtDetails;
 }
 
 /** Окно отмены подтверждения. Хозяин правила — сервер; здесь только показ. */
 export const UNDO_CONFIRM_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+/** Закрытые за сутки: кому и сколько — для итоговой карточки должника. */
+export interface SettledVM {
+  count: number;
+  total: number;
+  names: string[];
+}
+
 export interface BudgetVM {
   myDebts: DebtLineVM[];
-  myDebtTotal: number;
+  /** Ещё не переведено (PENDING). */
+  myDebtToTransfer: number;
+  /** Переведено и отмечено, ждёт получателя (PAID). Отдельно от «к переводу»:
+      сложенные вместе, они звали переводить уже переведённое. */
+  myDebtAwaiting: number;
   settledRecently: boolean; // активных долгов нет, но был закрытый — показать успех
+  settled: SettledVM;
   owed: CreditLineVM[];
   owedReceived: number; // подтверждено, ₽
   owedExpected: number; // всего к получению, ₽
   owedCount: number;
   allCollected: boolean; // мне были должны, все рассчитались
+  /** Кто рассчитался, по убыванию суммы, без повторов. */
+  collectedNames: string[];
   /** Подтверждённые за последние сутки — их ещё можно отменить. */
   undoable: CreditLineVM[];
   isEmpty: boolean;
@@ -101,12 +140,17 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
  * Память о напоминаниях. Сборщик, не видя её, напоминает повторно и выглядит
  * навязчивым; должник не понимает, забыли о нём или ещё не дошли.
  */
-function remindedOf(t: Transaction): string {
+function remindedOf(t: Transaction, now: Date): string {
   const count = t.reminderCount ?? 0;
   if (count < 1) return '';
-  const when = t.lastReminderAt
-    ? new Date(t.lastReminderAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
-    : '';
+  /* Сегодняшнее — со временем: рядом с погашенной кнопкой «Напомнили» дата
+     «20 июля» не говорит, когда можно снова. */
+  const last = t.lastReminderAt ? new Date(t.lastReminderAt) : null;
+  const when = !last
+    ? ''
+    : last.toDateString() === now.toDateString()
+      ? `сегодня в ${last.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+      : last.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
   /* Короткая форма: «напоминали 2 раза, 19 июля» не влезала в ширину строки и
      обрезалась ровно по дате — а дата здесь и есть полезная часть. */
   const times = pluralRu(count, 'напоминание', 'напоминания', 'напоминаний');
@@ -124,18 +168,79 @@ function remindedOf(t: Transaction): string {
  * целиком, а именно дата различает два долга одному человеку.
  */
 function referenceOf(t: Transaction): BudgetReference {
-  /* Ссылка на источник: прочитать «Пятёрочка у офиса» можно было и раньше, а
-     открыть закупку и увидеть, из чего сложились 180 ₽, — нет. Забег важнее
-     опроса: в нём видна разбивка по позициям. */
-  const runId = t.storeRun?.id ?? t.storeRunId ?? null;
-  const href = runId != null ? `/store-run/${runId}` : t.pollId != null ? `/poll/${t.pollId}/results` : null;
   return {
     subject: t.menuItem?.name || t.storeRun?.storeName || '',
     when: t.createdAt
       ? new Date(t.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
       : '',
-    href,
   };
+}
+
+/** «20 июля в 12:40». Склеиваем сами: форма «в» у Intl зависит от версии ICU. */
+function dayTime(iso: string): string {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return `${day} в ${time}`;
+}
+
+/* Доли обеда, которые сервер раскладывает на каждого. Нулевые не показываем:
+   «Сервисный сбор 0 ₽» — шум, а не сведение. */
+const SHARES = [
+  ['deliveryShare', 'Доставка'],
+  ['serviceShare', 'Сервисный сбор'],
+  ['tipShare', 'Чаевые'],
+] as const;
+
+function detailsOf(t: Transaction): DebtDetails {
+  const events: string[] = [];
+  if (t.paidAt) events.push(`Оплату отметили ${dayTime(t.paidAt)}`);
+  if (t.confirmedAt) events.push(`Оплату подтвердили ${dayTime(t.confirmedAt)}`);
+
+  if (t.storeRun || t.storeItem) {
+    const name = t.storeItem?.name || 'Покупка';
+    const qty = t.storeItem?.quantity ?? 1;
+    return {
+      source: t.storeRun ? `Закупка «${t.storeRun.storeName}»` : 'Закупка',
+      lines: [{ label: qty > 1 ? `${name} × ${qty}` : name, amount: t.itemPrice ?? t.amount }],
+      total: null,
+      events,
+      // В строке — магазин, а что куплено, видно только в раскрытии.
+      informative: Boolean(t.storeItem?.name) || events.length > 0,
+    };
+  }
+
+  /* Цена блюда без долей — это весь долг. Если цены нет (старые записи), блюдо
+     получает всю сумму: делить её за сервер было бы выдумкой. */
+  const shares = SHARES.flatMap(([key, label]) => {
+    const value = t[key] ?? 0;
+    return value > 0 ? [{ label, amount: value }] : [];
+  });
+  const dish = { label: t.menuItem?.name || 'Блюдо', amount: t.itemPrice ?? t.amount };
+  const lines = t.itemPrice != null ? [dish, ...shares] : [dish];
+  return {
+    source: t.pollId != null || t.menuItem ? 'Обед' : '',
+    lines,
+    total: lines.length > 1 ? t.amount : null,
+    events,
+    // Блюдо уже названо в строке — раскрывать стоит только доли и историю.
+    informative: lines.length > 1 || events.length > 0,
+  };
+}
+
+/* Имена по убыванию суммы на человека: первым — тот, чьи деньги весомее. */
+function namesBySum(txs: Transaction[], who: (t: Transaction) => { firstName?: string; username?: string } | undefined): string[] {
+  const byName = new Map<string, number>();
+  for (const t of txs) {
+    const name = personName(who(t));
+    byName.set(name, (byName.get(name) ?? 0) + t.amount);
+  }
+  return [...byName.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+}
+
+function canRemindOf(t: Transaction, now: Date): boolean {
+  if (!t.lastReminderAt) return true;
+  return now.getTime() - new Date(t.lastReminderAt).getTime() >= REMINDER_COOLDOWN_MS;
 }
 
 export function buildBudget(
@@ -154,11 +259,18 @@ export function buildBudget(
       payTo: payToOf(d),
       // ждём подтверждения с момента отметки, а не с создания долга
       waiting: d.status === 'PAID' && d.paidAt ? humanSince(d.paidAt, now) : '',
+      details: detailsOf(d),
     }))
     // сначала неоплаченные, внутри — по убыванию суммы
     .sort((a, b) => (a.status === b.status ? b.amount - a.amount : a.status === 'PENDING' ? -1 : 1));
-  const myDebtTotal = myDebts.reduce((s, d) => s + d.amount, 0);
+  const sumOf = (status: 'PENDING' | 'PAID') =>
+    myDebts.filter((d) => d.status === status).reduce((s, d) => s + d.amount, 0);
   const hadConfirmedDebt = debts.some((d) => d.status === 'CONFIRMED');
+  const recentlyConfirmed = debts.filter((d) => {
+    if (d.status !== 'CONFIRMED' || !d.confirmedAt) return false;
+    const age = now.getTime() - new Date(d.confirmedAt).getTime();
+    return age >= 0 && age <= UNDO_CONFIRM_WINDOW_MS;
+  });
 
   const owed = credits
     .filter((c) => c.status !== 'CONFIRMED')
@@ -168,7 +280,9 @@ export function buildBudget(
       amount: c.amount,
       status: c.status as 'PENDING' | 'PAID',
       reference: referenceOf(c),
-      reminded: remindedOf(c),
+      reminded: remindedOf(c, now),
+      canRemind: canRemindOf(c, now),
+      details: detailsOf(c),
     }))
     // сначала те, кто отметил оплату (их надо подтвердить)
     .sort((a, b) => (a.status === b.status ? b.amount - a.amount : a.status === 'PAID' ? -1 : 1));
@@ -177,6 +291,7 @@ export function buildBudget(
     .filter((c) => c.status === 'CONFIRMED')
     .reduce((s, c) => s + c.amount, 0);
   const owedCount = credits.length;
+  const collectedNames = namesBySum(credits.filter((c) => c.status === 'CONFIRMED'), (c) => c.fromUser);
 
   /* Подтверждённое уходит из активных, и отменить промах было негде. Держим
      сутки — ровно то окно, которое разрешает сервер. */
@@ -193,17 +308,26 @@ export function buildBudget(
       status: 'PAID' as const,
       reference: referenceOf(c),
       reminded: '',
+      canRemind: false,
+      details: detailsOf(c),
     }));
 
   return {
     myDebts,
-    myDebtTotal,
+    myDebtToTransfer: sumOf('PENDING'),
+    myDebtAwaiting: sumOf('PAID'),
     settledRecently: myDebts.length === 0 && hadConfirmedDebt,
+    settled: {
+      count: recentlyConfirmed.length,
+      total: recentlyConfirmed.reduce((s, d) => s + d.amount, 0),
+      names: namesBySum(recentlyConfirmed, (d) => d.toUser),
+    },
     owed,
     owedReceived,
     owedExpected,
     owedCount,
     allCollected: owedCount > 0 && owed.length === 0,
+    collectedNames,
     undoable,
     isEmpty:
       myDebts.length === 0 && owed.length === 0 && !hadConfirmedDebt && owedCount === 0,
