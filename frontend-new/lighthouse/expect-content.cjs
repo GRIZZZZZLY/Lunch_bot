@@ -11,7 +11,7 @@
 const EXPECTED = {
   '/': { selector: '[role="radiogroup"]', what: 'бюллетень идущего голосования' },
   '/menu': { text: 'Борщ E2E', what: 'блюдо из меню команды' },
-  '/budget': { text: 'Бюджет команды', what: 'заголовок бюджета' },
+  '/budget': { text: 'Расчёты', what: 'заголовок «Расчётов»' },
 };
 
 module.exports = async (browser, context) => {
