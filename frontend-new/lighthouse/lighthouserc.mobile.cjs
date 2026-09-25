@@ -47,8 +47,13 @@ module.exports = {
            Меню     0,93 · LCP 3,03 с · TBT 0    · CLS 0
          Пороги ловят заметное ухудшение, а не разницу между машинами: у CI
          процессор слабее, а TBT от него зависит сильнее всего. CLS 0,1 —
-         граница «хорошо» по Web Vitals. */
-      aggregationMethod: 'median-run',
+         граница «хорошо» по Web Vitals.
+
+         'median', а не 'median-run': второй берёт один «средний» прогон
+         целиком, и выброс TBT в нём решал всё. 2026-09-25 Главная дала
+         294 / 392 / 294 мс, и CI упал на 392. Медиана каждой метрики отдельно
+         гасит один выброс, а настоящее ухудшение сдвигает все три замера. */
+      aggregationMethod: 'median',
       assertions: {
         'categories:performance': ['error', { minScore: 0.8 }],
         'largest-contentful-paint': ['error', { maxNumericValue: 4000 }],
