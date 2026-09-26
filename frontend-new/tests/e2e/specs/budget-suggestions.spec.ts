@@ -15,8 +15,8 @@ test.describe('Бюджет и долги', () => {
       await appPage.getByRole('button', { name: /^Отметить/ }).click();
       expect(api.lastRequest('POST', '/budget/mark-paid')?.body).toEqual({ transactionId: 801 });
       await expect(appPage.getByText('Отмечено как оплачено. Ждём подтверждения.')).toBeVisible();
-      const markedDebt = appPage.getByText('420 ₽', { exact: true }).locator('../..');
-      await markedDebt.getByRole('button', { name: 'Отменить отметку' }).click();
+      /* Оба долга одному получателю — одна карточка; отмена у своей строки. */
+      await appPage.getByRole('button', { name: /^Отменить отметку: .+, 420 ₽$/ }).click();
       expect(api.lastRequest('POST', '/budget/cancel-mark')?.body).toEqual({ transactionId: 801 });
       await expect(appPage.getByText('Отметка снята')).toBeVisible();
     });
@@ -45,7 +45,8 @@ test.describe('Бюджет и долги', () => {
       const dialog = appPage.getByRole('alertdialog');
       await expect(dialog).toContainText('Передумать можно в течение суток');
       await dialog.getByRole('button', { name: 'Подтвердить' }).click();
-      expect(api.lastRequest('POST', '/budget/confirm-payment')?.body).toEqual({ transactionId: 803 });
+      /* Запрос уходит, когда Штамп осел (~0,3 с), — ждём его, а не проверяем сразу. */
+      await expect.poll(() => api.lastRequest('POST', '/budget/confirm-payment')?.body).toEqual({ transactionId: 803 });
       await expect(appPage.getByText('Все рассчитались')).toBeVisible();
     });
 

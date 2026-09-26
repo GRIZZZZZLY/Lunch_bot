@@ -31,13 +31,15 @@
 }
 
 .groupTotal {
-  font-size: var(--text-13);
+  font-size: var(--text-15);
   font-weight: 700;
   color: var(--money);
+  white-space: nowrap;
 }
 
 /* «к переводу» — подпись к сумме, тише самой суммы. */
 .groupTotalLabel {
+  font-size: var(--text-13);
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -95,6 +97,73 @@
 
 .rowAction {
   grid-area: action;
+}
+
+/* Строка без колонки кнопок: карточка должника (кнопки — полосой под суммой)
+   и подтверждённая оплата (отмена — строчной кнопкой). Колонка сжимала текст
+   до ~200 px, и названия блюд переносились в три строки. */
+.rowWide {
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-areas:
+    'avatar main'
+    '. details';
+}
+
+/* «Перевести · Отметить» — одной полосой под суммой, в порядке чтения:
+   глаз, палец и клавиша Tab идут одинаково. Перенос — если не влезли обе. */
+.actionBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Долги одному получателю — строки внутри карточки, по колонке текста. */
+.debtLines {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--divider);
+}
+
+.debtLine {
+  padding: var(--space-2) 0;
+}
+
+.debtLine + .debtLine {
+  border-top: 1px solid var(--divider);
+}
+
+.debtLineHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.debtLineHead .rowRef {
+  min-width: 0;
+  font-size: var(--text-13);
+  color: var(--text-secondary);
+}
+
+.debtLineAmount {
+  flex-shrink: 0;
+  font-size: var(--text-13);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.debtLineState {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.debtLineState .rowWaiting {
+  margin-top: 0;
 }
 
 /* «Напомнили» остаётся в обходе с клавиатуры (aria-disabled), но касание и
@@ -205,6 +274,7 @@
 .rowLinks {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2) var(--space-4);
   margin-top: var(--space-2);
 }
@@ -311,19 +381,11 @@
   padding: 0 var(--space-4) var(--space-3);
 }
 
-/* Куда переводить. Реквизиты — не украшение строки, поэтому у них своя
-   поверхность и полноценная тап-зона на копирование. */
-.payTo {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
 /* nowrap обязателен: без него номер телефона рвался по дефисам на две строки,
    и строка долга разрасталась до полэкрана. */
 .payToItem {
   display: inline-flex;
+  margin-top: var(--space-2);
   align-items: center;
   gap: var(--space-2);
   min-height: var(--control-md);
@@ -367,6 +429,11 @@
 /* Блоком, с отступом как у .payTo: строчным элементом он брал межстрочный
    интервал строки, и перенос «Реквизитов нет — / спросите лично» расходился
    на полтора ряда. */
+.payToNoteBy {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .payToNote {
   display: block;
   margin-top: var(--space-2);
@@ -386,6 +453,57 @@
 
 .nowrap {
   white-space: nowrap;
+}
+
+/* Отметка по строке — тише общей кнопки и в одной колонке справа: слева
+   она вставала то под «Подробнее», то вместо него. */
+.lineMark {
+  margin-left: auto;
+}
+
+/* Неудачная отметка — прямо на строке: тост исчезал, и было не понять,
+   какой долг получатель ещё не видит. */
+.markFailed {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--danger);
+}
+
+/* Место под кнопку, пока в строке печатается «Закрыт». */
+.holdSpace {
+  visibility: hidden;
+}
+
+/* В «получено X из Y» денежный цвет — только у пришедшего. */
+.groupTotalReceived {
+  color: var(--money);
+}
+
+/* Ждущее подтверждения — уже не задача: та же сумма, но тише долга. */
+.rowAmountWaiting {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* «уже 2 часа» — рядом с чипом «Ждёт», а не отдельной строкой. */
+.rowPersonNote {
+  font-size: var(--text-11);
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+/* Фокус встаёт на карточку после денежного действия (её кнопка к этому
+   времени могла исчезнуть). Кольцо — только при клавиатуре. */
+.row:focus {
+  outline: none;
+}
+
+.row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--focus-ring);
+  border-radius: var(--radius-control-sm);
 }
 
 .rowAmount {
@@ -444,8 +562,8 @@
 
 .successSub {
   display: block;
-  font-size: var(--text-11);
-  color: var(--text-tertiary);
+  font-size: var(--text-13);
+  color: var(--text-secondary);
 }
 
 .stateWrap {

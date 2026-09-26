@@ -18,7 +18,8 @@ vi.mock('@/services/budget.service', () => ({
 
 vi.mock('../useAuth', () => ({ useAuth: () => ({ isAuthenticated: true }) }));
 
-import { useConfirmPayment, useMarkPaid } from '../useBudget';
+import { useConfirmPayment, useMarkAllPaid, useMarkPaid } from '../useBudget';
+import { useToastStore } from '@/store/useToastStore';
 
 /* Команда фиксирована в ключе: хук берёт её из стора, тесты — из этой же
    константы, иначе патч оптимистичного статуса ушёл бы в соседнюю ячейку. */
@@ -88,8 +89,21 @@ describe('useMarkPaid — оптимистичная отметка', () => {
   });
 });
 
-describe('useConfirmPayment — оптимистичное подтверждение', () => {
-  it('переводит кредит в CONFIRMED, а при отказе возвращает PAID', async () => {
+/* Подтверждение применяется после ответа сервера, а не до: «Закрыт» и «Все
+   рассчитались» появлялись раньше, чем сервер соглашался, и при отказе
+   откатывались — сборщик успевал сказать команде неправду. */
+describe('useConfirmPayment — после ответа сервера', () => {
+  it('пока сервер не ответил, кредит остаётся отмеченным', async () => {
+    h.confirmPayment.mockImplementation(() => new Promise(() => undefined));
+
+    const { result } = renderHook(() => useConfirmPayment(), { wrapper });
+    result.current.mutate(9);
+
+    await waitFor(() => expect(result.current.isPending).toBe(true));
+    expect(creditStatus(9)).toBe('PAID');
+  });
+
+  it('при отказе ничего не меняется', async () => {
     h.confirmPayment.mockRejectedValue(new Error('нет сети'));
 
     const { result } = renderHook(() => useConfirmPayment(), { wrapper });
@@ -99,8 +113,8 @@ describe('useConfirmPayment — оптимистичное подтвержде�
     expect(creditStatus(9)).toBe('PAID');
   });
 
-  it('ставит confirmedAt вместе со статусом: строка сразу попадает в «Подтверждено сегодня»', async () => {
-    h.confirmPayment.mockImplementation(() => new Promise(() => undefined));
+  it('после успеха — CONFIRMED вместе с confirmedAt: строка сразу попадает в «Подтверждено сегодня»', async () => {
+    h.confirmPayment.mockResolvedValue({});
 
     const { result } = renderHook(() => useConfirmPayment(), { wrapper });
     result.current.mutate(9);
@@ -108,5 +122,36 @@ describe('useConfirmPayment — оптимистичное подтвержде�
     await waitFor(() => expect(creditStatus(9)).toBe('CONFIRMED'));
     const confirmedAt = qc.getQueryData<Transaction[]>(CREDITS_KEY)?.find((t) => t.id === 9)?.confirmedAt;
     expect(Date.now() - new Date(confirmedAt ?? 0).getTime()).toBeLessThan(5_000);
+  });
+});
+
+describe('useMarkAllPaid — «Отметить все»', () => {
+  beforeEach(() => useToastStore.setState({ toasts: [] }));
+  const lastToast = () => {
+    const toasts = useToastStore.getState().toasts;
+    return toasts[toasts.length - 1];
+  };
+
+  it('частичный отказ — ошибка с названием неотмеченного долга', async () => {
+    h.markPaid.mockImplementation((id: number) => (id === 6 ? Promise.reject(new Error('net')) : Promise.resolve({})));
+    const { result } = renderHook(() => useMarkAllPaid(), { wrapper });
+    result.current.mutate([
+      { id: 5, label: 'Паста, 420 ₽' },
+      { id: 6, label: 'Пятёрочка, 180 ₽' },
+    ]);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(lastToast()?.type).toBe('error');
+    expect(lastToast()?.message).toBe('Не отмечен долг: Пятёрочка, 180 ₽. Отметьте его ещё раз.');
+  });
+
+  it('все прошли — успех', async () => {
+    h.markPaid.mockResolvedValue({});
+    const { result } = renderHook(() => useMarkAllPaid(), { wrapper });
+    result.current.mutate([
+      { id: 5, label: 'Паста, 420 ₽' },
+      { id: 6, label: 'Пятёрочка, 180 ₽' },
+    ]);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(lastToast()?.type).toBe('success');
   });
 });

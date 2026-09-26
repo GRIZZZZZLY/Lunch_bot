@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { _resetBackButtonForTests } from '@/lib/backButton';
 
 const h = vi.hoisted(() => ({
@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
     debtsRefetch: vi.fn(),
     creditsRefetch: vi.fn(),
     markPaid: { mutate: vi.fn(), isPending: false, variables: undefined as unknown },
+    markAllPaid: { mutate: vi.fn(), isPending: false, variables: undefined as unknown },
     cancelMark: { mutate: vi.fn(), isPending: false, variables: undefined as unknown },
     confirmPayment: { mutate: vi.fn(), isPending: false, variables: undefined as unknown },
     sendReminder: { mutate: vi.fn(), isPending: false, variables: undefined as unknown },
@@ -38,6 +39,7 @@ vi.mock('@/hooks/useBudget', () => ({
     refetch: h.state.creditsRefetch,
   }),
   useMarkPaid: () => h.state.markPaid,
+  useMarkAllPaid: () => h.state.markAllPaid,
   useCancelMark: () => h.state.cancelMark,
   useConfirmPayment: () => h.state.confirmPayment,
   useSendReminder: () => h.state.sendReminder,
@@ -80,7 +82,7 @@ beforeEach(() => {
   h.state.creditsError = false;
   h.state.debtsRefetch = vi.fn();
   h.state.creditsRefetch = vi.fn();
-  for (const m of [h.state.markPaid, h.state.cancelMark, h.state.confirmPayment, h.state.sendReminder, h.state.remindAll, h.state.undoConfirmation]) {
+  for (const m of [h.state.markPaid, h.state.markAllPaid, h.state.cancelMark, h.state.confirmPayment, h.state.sendReminder, h.state.remindAll, h.state.undoConfirmation]) {
     Object.assign(m, { mutate: vi.fn(), isPending: false, variables: undefined });
   }
   pay.query = { isSuccess: true, data: { paymentPhone: '+79990001122' } };
@@ -265,6 +267,7 @@ describe('BudgetPage — Штамп на закрытии долга', () => {
   it('подтверждённая оплата печатается штампом, а открытие экрана — нет', async () => {
     const stampModule = await import('@/shared/lib/stamp');
     const spy = vi.spyOn(stampModule, 'stamp');
+    h.state.confirmPayment.mutate = vi.fn((_id: number, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.());
     h.state.credits = [tx({ id: 9, status: 'PAID', fromUser: { id: 2, firstName: 'Ян' } })];
     const { rerender } = render(<BudgetPage />);
     expect(spy).not.toHaveBeenCalled();
@@ -359,7 +362,7 @@ describe('BudgetPage — должник', () => {
     render(<BudgetPage />);
     expect(screen.getByText('Оля')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^Отметить оплату: Оля/ }));
-    expect(h.state.markPaid.mutate).toHaveBeenCalledWith(7);
+    expect(h.state.markPaid.mutate).toHaveBeenCalledWith(7, expect.any(Object));
   });
 
   it('PAID → «Отменить отметку» зовёт cancelMark(id), статус «Ждёт»', () => {
@@ -369,7 +372,7 @@ describe('BudgetPage — должник', () => {
     // статус говорит только чип — текстового дубля в строке быть не должно
     expect(screen.queryByText(/^уже /)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^Отменить отметку: Оля/ }));
-    expect(h.state.cancelMark.mutate).toHaveBeenCalledWith(7);
+    expect(h.state.cancelMark.mutate).toHaveBeenCalledWith(7, expect.any(Object));
   });
 
   /* Ссылка СБП — главное действие строки: по ней открывается банк, а телефон
@@ -431,7 +434,8 @@ describe('BudgetPage — должник', () => {
     render(<BudgetPage />);
 
     const cancel = screen.getByRole('button', { name: /^Отменить отметку: Пётр/ });
-    expect(cancel).toBeDisabled();
+    // занятая, но в фокусе: aria-disabled, а не disabled
+    expect(cancel).toHaveAttribute('aria-disabled', 'true');
     expect(cancel).toHaveAttribute('aria-busy', 'true');
     // а чужая строка занятой не выглядит
     expect(screen.getByRole('button', { name: /^Отметить оплату: Оля/ })).toBeEnabled();
@@ -471,7 +475,7 @@ describe('BudgetPage — сборщик', () => {
     const dialog = screen.getByRole('alertdialog');
     expect(dialog).toHaveTextContent('Передумать можно в течение суток');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Подтвердить' }));
-    expect(h.state.confirmPayment.mutate).toHaveBeenCalledWith(9);
+    expect(h.state.confirmPayment.mutate).toHaveBeenCalledWith(9, expect.any(Object));
   });
 
   it('отмена диалога не подтверждает оплату', () => {
@@ -568,7 +572,7 @@ describe('BudgetPage — честные итоги', () => {
   it('всё отмечено → переводить нечего, заметки «переведите сами» нет', () => {
     h.state.debts = [tx({ id: 8, amount: 180, status: 'PAID', toUser: { id: 3, firstName: 'Оля' } })];
     render(<BudgetPage />);
-    expect(screen.queryByText(/Переведите деньги сами/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/нажмите «Отметить»/)).not.toBeInTheDocument();
     expect(screen.queryByText('к переводу')).not.toBeInTheDocument();
     expect(screen.getByText(/180 ₽ ждёт подтверждения/)).toBeInTheDocument();
   });
@@ -675,5 +679,339 @@ describe('BudgetPage — концовка', () => {
     const undo = screen.getByText('Подтверждено сегодня');
     expect(done.compareDocumentPosition(undo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText(/Ян и Оля · 800 ₽/)).toBeInTheDocument();
+  });
+});
+
+/* Три долга одному человеку были тремя строками: три похода в банк, три
+   одинаковых номера, три «Отметить». Теперь это одна карточка получателя. */
+describe('BudgetPage — долги одному получателю', () => {
+  const igor = { id: 3, firstName: 'Игорь', paymentCard: 'https://www.tinkoff.ru/rm/abc', paymentPhone: '+79990001122' };
+  const three = () => [
+    tx({ id: 7, amount: 420, toUser: igor, menuItem: { id: 1, name: 'Паста' } }),
+    tx({ id: 8, amount: 180, toUser: igor, storeRun: { id: 9, storeName: 'Пятёрочка' }, pollId: null }),
+    tx({ id: 9, amount: 95.5, toUser: igor, menuItem: { id: 2, name: 'Морс' } }),
+  ];
+
+  beforeEach(() => {
+    vi.spyOn(window, 'open').mockReturnValue(null);
+  });
+
+  it('одна карточка: один перевод на всю сумму и один номер', () => {
+    h.state.debts = three();
+    render(<BudgetPage />);
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^Перевести/ })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /^Перевести 695,50 ₽: Игорь/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Скопировать СБП/ })).toHaveLength(1);
+  });
+
+  it('«Отметить все» отмечает каждый непереведённый долг получателя', () => {
+    h.state.debts = [...three(), tx({ id: 10, amount: 60, status: 'PAID', toUser: igor })];
+    render(<BudgetPage />);
+    fireEvent.click(screen.getByRole('button', { name: /^Отметить все: Игорь, 695,50 ₽/ }));
+    const sent = h.state.markAllPaid.mutate.mock.calls[0][0] as { id: number; label: string }[];
+    expect(sent.map((x) => x.id)).toEqual([7, 8, 9]);
+    // подпись долга — для сообщения, если его отметить не удастся
+    expect(sent[1].label).toBe('Пятёрочка, 180 ₽');
+  });
+
+  it('каждый долг в карточке можно отметить и отдельно', () => {
+    h.state.debts = three();
+    render(<BudgetPage />);
+    /* В имени — и за что: два долга на одну сумму звучали одинаково. */
+    fireEvent.click(screen.getByRole('button', { name: /^Отметить оплату: Игорь, Пятёрочка, 180 ₽/ }));
+    expect(h.state.markPaid.mutate).toHaveBeenCalledWith(8, expect.any(Object));
+  });
+
+  it('остался один непереведённый — кнопка карточки просто «Отметить»', () => {
+    h.state.debts = [three()[0], tx({ id: 8, amount: 180, status: 'PAID', toUser: igor })];
+    render(<BudgetPage />);
+    expect(screen.getByRole('button', { name: /^Отметить оплату: Игорь, 420 ₽/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Отметить все/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Отменить отметку: Игорь, 180 ₽/ })).toBeInTheDocument();
+    // счёт говорит то же, что сумма рядом
+    expect(screen.getByText('1 из 2 к переводу')).toBeInTheDocument();
+  });
+
+  /* Сумма стоит над кнопкой крупно — в самой кнопке она лишь повторялась. */
+  it('на кнопке перевода нет суммы, её говорит имя кнопки', () => {
+    h.state.debts = three();
+    render(<BudgetPage />);
+    expect(screen.getByRole('button', { name: /^Перевести/ })).toHaveTextContent(/^Перевести$/);
+  });
+
+  it('«Перевести» и «Отметить» стоят рядом, в порядке чтения', () => {
+    h.state.debts = [three()[0]];
+    render(<BudgetPage />);
+    const transfer = screen.getByRole('button', { name: /^Перевести/ });
+    const mark = screen.getByRole('button', { name: /^Отметить оплату: Игорь/ });
+    expect(transfer.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(transfer.parentElement).toBe(mark.parentElement);
+  });
+});
+
+describe('BudgetPage — подписи', () => {
+  it('заметка называет кнопку и не спорит с «Перевести»', () => {
+    h.state.debts = [tx({ id: 7, toUser: { id: 3, firstName: 'Оля', paymentCard: 'https://www.tinkoff.ru/rm/abc' } })];
+    render(<BudgetPage />);
+    expect(screen.getByText(/«Перевести» откроет ваш банк/)).toBeInTheDocument();
+    expect(screen.getByText(/нажмите «Отметить»/)).toBeInTheDocument();
+  });
+
+  it('заметка получателя подписана его именем', () => {
+    h.state.debts = [tx({ id: 7, toUser: { id: 3, firstName: 'Оля', paymentDetails: 'Только наличными' } })];
+    render(<BudgetPage />);
+    expect(screen.getByText('Оля:')).toBeInTheDocument();
+    expect(screen.getByText('Только наличными')).toBeInTheDocument();
+  });
+
+  it('после напоминания видно, когда можно снова', () => {
+    h.state.credits = [
+      tx({
+        id: 11,
+        fromUser: { id: 3, firstName: 'Оля' },
+        reminderCount: 1,
+        lastReminderAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      }),
+    ];
+    render(<BudgetPage />);
+    expect(screen.getByText(/^снова (завтра )?в \d\d:\d\d$/)).toBeInTheDocument();
+  });
+
+  /* Только телефон — ведущей становится копирование номера: без этого в
+     строке не было ни одной сплошной кнопки. */
+  it('при одном телефоне ведёт копирование номера', () => {
+    h.state.debts = [tx({ id: 7, toUser: { id: 3, firstName: 'Оля', paymentPhone: '+79990001122' } })];
+    render(<BudgetPage />);
+    expect(screen.getByRole('button', { name: /Скопировать СБП/ })).toHaveClass('btn--primary');
+  });
+});
+
+/* После одной отметки срабатывали до пяти объявлений: итог, строка ожидания,
+   тост… Итог секции теперь говорит одним голосом. */
+describe('BudgetPage — одно объявление итога', () => {
+  it('итог «Мои долги» — одна живая строка с обеими суммами', () => {
+    h.state.debts = [
+      tx({ id: 7, amount: 420, toUser: { id: 3, firstName: 'Оля' } }),
+      tx({ id: 8, amount: 180, status: 'PAID', toUser: { id: 4, firstName: 'Ян' } }),
+    ];
+    render(<BudgetPage />);
+    const section = screen.getByRole('region', { name: 'Мои долги' });
+    const live = within(section).getAllByRole('status').filter((el) => el.textContent);
+    expect(live).toHaveLength(1);
+    expect(live[0]).toHaveTextContent('К переводу 420 ₽, ждёт подтверждения 180 ₽');
+  });
+});
+
+describe('BudgetPage — «Отметить все» в пути', () => {
+  const igor = { id: 3, firstName: 'Игорь', paymentPhone: '+79990001122' };
+
+  /* Оптимистика уже перевела все долги в «ждёт», а запросы ещё идут по одному.
+     Кнопка исчезала сразу — не было видно, что отметка ещё в пути. */
+  it('пока запросы идут, кнопка на месте и занята, а отмена заблокирована', () => {
+    h.state.debts = [
+      tx({ id: 7, amount: 420, status: 'PAID', toUser: igor }),
+      tx({ id: 8, amount: 180, status: 'PAID', toUser: igor }),
+    ];
+    Object.assign(h.state.markAllPaid, {
+      isPending: true,
+      variables: [
+        { id: 7, label: 'a' },
+        { id: 8, label: 'b' },
+      ],
+    });
+    render(<BudgetPage />);
+    const button = screen.getByRole('button', { name: /^Отметить все: Игорь/ });
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    // строки — как до нажатия, но их отметки закрыты, пока пачка в пути
+    expect(screen.getByRole('button', { name: /^Отметить оплату: Игорь, .*420 ₽/ })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /^Отменить отметку/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('BudgetPage — штамп сборщика в строке', () => {
+  const original = HTMLElement.prototype.animate;
+  afterEach(() => {
+    HTMLElement.prototype.animate = original;
+  });
+
+  /* Запрос уходил через 320 мс после нажатия: «Закрыт» печатался раньше, чем
+     сервер хоть что-то узнал. Теперь запрос сразу, а строка держится на месте,
+     пока играет Штамп. */
+  it('после ответа сервера строка остаётся на месте со штампом', () => {
+    HTMLElement.prototype.animate = vi.fn(() => ({ onfinish: null }) as unknown as Animation);
+    h.state.confirmPayment.mutate = vi.fn((_id: number, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.());
+    h.state.credits = [
+      tx({ id: 9, status: 'PAID', fromUser: { id: 2, firstName: 'Ян' } }),
+      tx({ id: 10, fromUser: { id: 4, firstName: 'Оля' } }),
+    ];
+    const { rerender } = render(<BudgetPage />);
+    fireEvent.click(screen.getByRole('button', { name: /^Подтвердить: Ян/ }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Подтвердить' }));
+    expect(h.state.confirmPayment.mutate).toHaveBeenCalledWith(9, expect.any(Object));
+
+    h.state.credits = [
+      tx({ id: 9, status: 'CONFIRMED', confirmedAt: new Date().toISOString(), fromUser: { id: 2, firstName: 'Ян' } }),
+      tx({ id: 10, fromUser: { id: 4, firstName: 'Оля' } }),
+    ];
+    rerender(<BudgetPage />);
+    const owed = screen.getByRole('region', { name: 'Вам должны' });
+    expect(within(owed).getByText('Ян')).toBeInTheDocument();
+    expect(within(owed).getByText('Закрыт')).toBeInTheDocument();
+    expect(within(owed).queryByRole('button', { name: /^Подтвердить: Ян/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('BudgetPage — подтверждение правдиво', () => {
+  /* Пока сервер не ответил, «Закрыт» не печатается и «Все рассчитались» не
+     появляется: при отказе это было бы неправдой, которую сборщик уже увидел. */
+  it('до ответа — ни «Закрыт», ни «Все рассчитались»; при отказе строка как была', () => {
+    let fail: (() => void) | undefined;
+    h.state.confirmPayment.mutate = vi.fn((_id: number, opts?: { onError?: () => void }) => {
+      fail = opts?.onError;
+    });
+    h.state.credits = [tx({ id: 9, status: 'PAID', fromUser: { id: 2, firstName: 'Ян' } })];
+    render(<BudgetPage />);
+    fireEvent.click(screen.getByRole('button', { name: /^Подтвердить: Ян/ }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Подтвердить' }));
+
+    expect(screen.queryByText('Закрыт')).not.toBeInTheDocument();
+    expect(screen.queryByText('Все рассчитались')).not.toBeInTheDocument();
+    act(() => fail?.());
+    expect(screen.getByRole('button', { name: /^Подтвердить: Ян/ })).toBeInTheDocument();
+    expect(screen.queryByText('Закрыт')).not.toBeInTheDocument();
+  });
+});
+
+describe('BudgetPage — раскладка во время «Отметить все»', () => {
+  const igor = { id: 3, firstName: 'Игорь', paymentCard: 'https://www.tinkoff.ru/rm/abc', paymentPhone: '+79990001122' };
+
+  /* Оптимистика переводила долги в «ждёт», и карточка перестраивалась под
+     пальцем: пропадали «Перевести» и номер, кнопка прыгала влево. */
+  it('пока запросы идут, карточка выглядит как до нажатия', () => {
+    h.state.debts = [
+      tx({ id: 7, amount: 420, status: 'PAID', toUser: igor }),
+      tx({ id: 8, amount: 180, status: 'PAID', toUser: igor }),
+    ];
+    Object.assign(h.state.markAllPaid, {
+      isPending: true,
+      variables: [
+        { id: 7, label: 'a' },
+        { id: 8, label: 'b' },
+      ],
+    });
+    render(<BudgetPage />);
+    const transfer = screen.getByRole('button', { name: /^Перевести 600 ₽: Игорь/ });
+    const mark = screen.getByRole('button', { name: /^Отметить все: Игорь/ });
+    expect(transfer.parentElement).toBe(mark.parentElement);
+    expect(screen.getByRole('button', { name: /Скопировать СБП/ })).toBeInTheDocument();
+  });
+
+  it('отметка в строке — кнопка, а не ссылка как «Подробнее»', () => {
+    h.state.debts = [
+      tx({ id: 7, amount: 420, toUser: igor }),
+      tx({ id: 8, amount: 180, toUser: igor }),
+    ];
+    render(<BudgetPage />);
+    expect(screen.getByRole('button', { name: /^Отметить оплату: Игорь, 180 ₽/ })).toHaveClass('btn');
+  });
+});
+
+describe('BudgetPage — фокус после действия', () => {
+  const igor = { id: 3, firstName: 'Игорь', paymentPhone: '+79990001122' };
+
+  /* Кнопка исчезала вместе с фокусом, и клавиатура с диктором оказывались в
+     начале страницы. Теперь фокус встаёт на карточку. */
+  it('после «Отметить все» фокус — на карточке получателя', async () => {
+    h.state.debts = [
+      tx({ id: 7, amount: 420, toUser: igor }),
+      tx({ id: 8, amount: 180, toUser: igor }),
+    ];
+    h.state.markAllPaid.mutate = vi.fn((_items: unknown, opts?: { onSettled?: () => void }) => opts?.onSettled?.());
+    render(<BudgetPage />);
+    const button = screen.getByRole('button', { name: /^Отметить все: Игорь/ });
+    button.focus();
+    fireEvent.click(button);
+    const card = screen.getByRole('listitem');
+    await waitFor(() => expect(card).toHaveFocus());
+  });
+});
+
+describe('BudgetPage — одиночная отметка в пути', () => {
+  const olya = { id: 3, firstName: 'Оля', paymentPhone: '+79990001122' };
+
+  /* Отметка оптимистична: строка сразу становилась «ждёт», кнопка исчезала, и
+     фокус до ответа сервера лежал в начале страницы, а спиннера не было. */
+  it('пока запрос идёт, кнопка на месте, занята и держит фокус', () => {
+    h.state.debts = [tx({ id: 7, amount: 420, status: 'PAID', toUser: olya })];
+    Object.assign(h.state.markPaid, { isPending: true, variables: 7 });
+    render(<BudgetPage />);
+    const button = screen.getByRole('button', { name: /^Отметить оплату: Оля, 420 ₽/ });
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(button).not.toBeDisabled();
+  });
+
+  it('фокус встаёт на карточку сразу, без провала в начало страницы', () => {
+    h.state.debts = [tx({ id: 7, amount: 420, toUser: olya })];
+    h.state.markPaid.mutate = vi.fn((_id: number, opts?: { onSettled?: () => void }) => opts?.onSettled?.());
+    render(<BudgetPage />);
+    const button = screen.getByRole('button', { name: /^Отметить оплату: Оля/ });
+    button.focus();
+    fireEvent.click(button);
+    expect(screen.getByRole('listitem')).toHaveFocus();
+  });
+});
+
+/* После отказа отметки вела сплошная «Перевести» — звала заплатить второй раз,
+   а какой долг не отмечен, знал только исчезающий тост. */
+describe('BudgetPage — неудачная отметка', () => {
+  const igor = { id: 3, firstName: 'Игорь', paymentCard: 'https://www.tinkoff.ru/rm/abc', paymentPhone: '+79990001122' };
+
+  it('частичный отказ «Отметить все»: строка подписана, ведёт отметка', () => {
+    h.state.debts = [
+      tx({ id: 7, amount: 420, toUser: igor, menuItem: { id: 1, name: 'Паста' } }),
+      tx({ id: 8, amount: 180, toUser: igor, storeRun: { id: 9, storeName: 'Пятёрочка' }, pollId: null }),
+    ];
+    h.state.markAllPaid.mutate = vi.fn(
+      (items: { id: number; label: string }[], opts?: { onSuccess?: (r: unknown) => void }) =>
+        opts?.onSuccess?.({ failed: [items[1]], total: 2, lastError: null }),
+    );
+    render(<BudgetPage />);
+    fireEvent.click(screen.getByRole('button', { name: /^Отметить все: Игорь/ }));
+    expect(screen.getByText('Не отмечено — отметьте ещё раз')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Перевести/ })).toHaveClass('btn--outline');
+  });
+
+  it('отказ одиночной отметки: ведёт «Отметить», а не «Перевести»', () => {
+    h.state.debts = [tx({ id: 7, amount: 420, toUser: igor })];
+    h.state.markPaid.mutate = vi.fn((_id: number, opts?: { onError?: () => void }) => opts?.onError?.());
+    render(<BudgetPage />);
+    fireEvent.click(screen.getByRole('button', { name: /^Отметить оплату: Игорь/ }));
+    expect(screen.getByRole('button', { name: /^Отметить оплату: Игорь/ })).toHaveClass('btn--primary');
+    expect(screen.getByRole('button', { name: /^Перевести/ })).toHaveClass('btn--outline');
+    expect(screen.getByText('Не отмечено — отметьте ещё раз')).toBeInTheDocument();
+  });
+});
+
+describe('BudgetPage — мелочи', () => {
+  it('только что отмеченный долг — «только что», а не «уже меньше минуты»', () => {
+    h.state.debts = [
+      tx({ id: 8, status: 'PAID', paidAt: new Date().toISOString(), toUser: { id: 3, firstName: 'Оля' } }),
+    ];
+    render(<BudgetPage />);
+    expect(screen.getByText('только что')).toBeInTheDocument();
+    expect(screen.queryByText(/меньше минуты/)).not.toBeInTheDocument();
+  });
+
+  /* Зелёной была вся строка «390 ₽ из 2 050 ₽» — и та часть, что ещё не пришла. */
+  it('в «получено X из Y» денежный цвет только у полученного', () => {
+    h.state.credits = [
+      tx({ id: 9, status: 'CONFIRMED', amount: 390, fromUser: { id: 2, firstName: 'Ян' } }),
+      tx({ id: 10, amount: 300, fromUser: { id: 4, firstName: 'Оля' } }),
+    ];
+    render(<BudgetPage />);
+    const received = screen.getByText('390 ₽', { selector: 'span' });
+    expect(received.closest('[role="status"]')).toHaveTextContent('390 ₽ из 690 ₽');
+    expect(received.parentElement?.textContent).toBe('390 ₽ из 690 ₽');
   });
 });

@@ -113,7 +113,9 @@ describe('budgetRow — свод сценариев в строку', () => {
   /* Должник отметил оплату и ждёт «уже 1 день», а главная сборщика говорила
      только «Вам должны участники» — задачи для него было не видно. */
   it('collector считает отмеченные оплаты, которые ждут его подтверждения', () => {
-    const row = budgetRow([], [tx({ status: 'PAID' }), tx({ status: 'PAID' }), tx({})]);
+    const row = budgetRow([], [tx({ status: 'PAID', amount: 300 }), tx({ status: 'PAID', amount: 200 }), tx({ amount: 50 })]);
+    // сумма — того, что ждёт подтверждения, а не всех долгов
+    expect(row.amount).toBe(500);
     expect(row.kind).toBe('collector');
     expect(row.toConfirm).toBe(2);
   });

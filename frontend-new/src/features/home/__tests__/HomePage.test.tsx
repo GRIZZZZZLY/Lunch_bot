@@ -255,13 +255,18 @@ describe('HomePage — состояния', () => {
     expect(screen.getByText('К переводу')).toBeInTheDocument();
   });
 
-  it('сборщику видно, сколько оплат ждут его подтверждения', () => {
+  /* Рядом с «1 оплата ждёт подтверждения» стояла сумма всех долгов (700 ₽),
+     а ждёт подтверждения 500 ₽. */
+  it('сборщику видно, сколько оплат ждут его подтверждения и на какую сумму', () => {
     h.state.credits = [
       { id: 3, amount: 500, status: 'PAID' },
       { id: 4, amount: 200, status: 'PENDING' },
     ];
     renderHome();
     expect(screen.getByText('1 оплата ждёт подтверждения')).toBeInTheDocument();
+    const row = screen.getByRole('button', { name: /^Расчёты/ });
+    expect(row).toHaveTextContent('500');
+    expect(row).not.toHaveTextContent('700');
   });
 
   it('сборщику — сумма без кнопки', () => {

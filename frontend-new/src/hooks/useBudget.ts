@@ -113,10 +113,15 @@ function restore(qc: Qc, snapshot: Snapshot | undefined) {
   for (const [key, data] of snapshot ?? []) qc.setQueryData(key, data);
 }
 
-/* Три мутации, меняющие состояние, применяются оптимистично: тап по деньгам не
-   должен ждать round-trip. Отказ откатывает список к снимку и говорит вслух —
-   иначе строка молча вернулась бы в прежний статус. sendReminder оптимистики не
+/* Отметка и её отмена применяются оптимистично: тап по деньгам не должен
+   ждать round-trip. Отказ откатывает список к снимку и говорит вслух — иначе
+   строка молча вернулась бы в прежний статус. Подтверждение — после ответа
+   сервера (см. useConfirmPayment). sendReminder оптимистики не
    получает: он ничего не меняет в списке, а отправляет сообщение. */
+/* Следующий шаг в самом тексте: «не удалось» без него оставляло гадать,
+   повторять ли. */
+const MARK_FAILED = 'Не удалось отметить оплату. Проверьте связь и нажмите ещё раз.';
+
 export function useMarkPaid() {
   const qc = useQueryClient();
   const push = useToastStore((s) => s.push);
@@ -129,7 +134,69 @@ export function useMarkPaid() {
     onSuccess: () => push({ type: 'success', message: 'Отмечено как оплачено. Ждём подтверждения.' }),
     onError: (err, _id, ctx) => {
       restore(qc, ctx?.snapshot);
-      push({ type: 'error', message: apiErrorMessage(err, 'Не удалось отметить оплату') });
+      push({ type: 'error', message: apiErrorMessage(err, MARK_FAILED) });
+    },
+    onSettled: () => invalidateBudget(qc),
+  });
+}
+
+/**
+ * «Отметить все» в карточке получателя: по запросу на долг, как «Напомнить
+ * всем». Отдельного метода сервера нет, а отметка каждого — та же проверенная
+ * операция с идемпотентностью. Все строки уходят в «ждёт» сразу; если не
+ * прошёл ни один запрос — откат, если часть — список поправит перечитывание.
+ */
+export interface MarkAllItem {
+  id: number;
+  /** «Пятёрочка, 180 ₽» — чтобы при отказе назвать долг, а не «остальные». */
+  label: string;
+}
+
+export function useMarkAllPaid() {
+  const qc = useQueryClient();
+  const push = useToastStore((s) => s.push);
+  return useMutation({
+    mutationFn: async (items: MarkAllItem[]) => {
+      const failed: MarkAllItem[] = [];
+      let lastError: unknown = null;
+      for (const item of items) {
+        try {
+          await budgetService.markPaid(item.id);
+        } catch (err) {
+          failed.push(item);
+          lastError = err;
+        }
+      }
+      return { failed, total: items.length, lastError };
+    },
+    onMutate: async (items) => {
+      await qc.cancelQueries({ queryKey: ['budget', 'debts'] });
+      const snapshots = items.map((item) => patchStatus(qc, 'debts', item.id, 'PAID'));
+      return { snapshot: snapshots[0] };
+    },
+    onSuccess: ({ failed, total, lastError }, _items, ctx) => {
+      if (failed.length === total) {
+        restore(qc, ctx?.snapshot);
+        push({ type: 'error', message: apiErrorMessage(lastError, MARK_FAILED) });
+        return;
+      }
+      if (failed.length === 0) {
+        push({ type: 'success', message: 'Отмечено как оплачено. Ждём подтверждения.' });
+        return;
+      }
+      /* Частичный отказ — ошибка, а не справка: часть денег получатель не
+         увидит, пока человек не отметит их снова. Строки поправит перечитывание. */
+      push({
+        type: 'error',
+        message:
+          failed.length === 1
+            ? `Не отмечен долг: ${failed[0].label}. Отметьте его ещё раз.`
+            : `Не отмечены: ${failed.map((f) => f.label).join('; ')}. Отметьте их ещё раз.`,
+      });
+    },
+    onError: (err, _items, ctx) => {
+      restore(qc, ctx?.snapshot);
+      push({ type: 'error', message: apiErrorMessage(err, MARK_FAILED) });
     },
     onSettled: () => invalidateBudget(qc),
   });
@@ -140,14 +207,20 @@ export function useConfirmPayment() {
   const push = useToastStore((s) => s.push);
   return useMutation({
     mutationFn: (transactionId: number) => budgetService.confirmPayment(transactionId),
-    onMutate: async (transactionId) => {
+    /* Не оптимистично: «Закрыт» и «Все рассчитались» появлялись раньше ответа
+       сервера и при отказе откатывались — сборщик успевал сказать команде
+       неправду. Статус ставим после «да» сервера, вместе с confirmedAt:
+       строка сразу попадает в «Подтверждено сегодня». */
+    onSuccess: async (_data, transactionId) => {
       await qc.cancelQueries({ queryKey: ['budget', 'credits'] });
-      return { snapshot: patchStatus(qc, 'credits', transactionId, 'CONFIRMED') };
+      patchStatus(qc, 'credits', transactionId, 'CONFIRMED');
+      push({ type: 'success', message: 'Оплата подтверждена' });
     },
-    onSuccess: () => push({ type: 'success', message: 'Оплата подтверждена' }),
-    onError: (err, _id, ctx) => {
-      restore(qc, ctx?.snapshot);
-      push({ type: 'error', message: apiErrorMessage(err, 'Не удалось подтвердить оплату') });
+    onError: (err) => {
+      push({
+        type: 'error',
+        message: apiErrorMessage(err, 'Не удалось подтвердить оплату. Проверьте связь и нажмите ещё раз.'),
+      });
     },
     onSettled: () => invalidateBudget(qc),
   });

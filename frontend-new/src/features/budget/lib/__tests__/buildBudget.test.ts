@@ -369,3 +369,63 @@ describe('buildBudget — окно отмены подтверждения', () 
     expect(vm.undoable).toEqual([]);
   });
 });
+
+describe('buildBudget — долги по получателям', () => {
+  it('долги одному человеку — одна группа с суммами и id непереведённых', () => {
+    const igor = { id: 3, firstName: 'Игорь' };
+    const vm = buildBudget(
+      [
+        tx({ id: 1, amount: 420, toUser: igor }),
+        tx({ id: 2, amount: 180, status: 'PAID', toUser: igor }),
+        tx({ id: 3, amount: 95.5, toUser: igor }),
+        tx({ id: 4, amount: 700, toUser: { id: 5, firstName: 'Оля' } }),
+      ],
+      [],
+    );
+    expect(vm.debtGroups.map((g) => g.name)).toEqual(['Оля', 'Игорь']);
+    const g = vm.debtGroups[1];
+    // строки — по дате, затем по id: отметка их не переставляет
+    expect(g.debts.map((d) => d.id)).toEqual([1, 2, 3]);
+    expect(g.toTransfer).toBe(515.5);
+    expect(g.awaiting).toBe(180);
+    expect(g.pendingIds).toEqual([1, 3]);
+  });
+
+  /* После «Отметить все» список пересортировывался: карточка уезжала вниз, а
+     под палец вставала сплошная кнопка другого человека. */
+  it('порядок карточек не зависит от отметки', () => {
+    const debts = (igor: 'PENDING' | 'PAID') => [
+      tx({ id: 1, amount: 900, status: igor, toUser: { id: 3, firstName: 'Игорь' } }),
+      tx({ id: 2, amount: 100, toUser: { id: 5, firstName: 'Оля' } }),
+    ];
+    const before = buildBudget(debts('PENDING'), []).debtGroups.map((g) => g.name);
+    const after = buildBudget(debts('PAID'), []).debtGroups.map((g) => g.name);
+    expect(after).toEqual(before);
+  });
+
+  it('строки карточки — по дате', () => {
+    const igor = { id: 3, firstName: 'Игорь' };
+    const vm = buildBudget(
+      [
+        tx({ id: 1, amount: 900, createdAt: '2026-07-18T10:00:00', toUser: igor }),
+        tx({ id: 2, amount: 100, createdAt: '2026-07-14T10:00:00', toUser: igor }),
+      ],
+      [],
+    );
+    expect(vm.debtGroups[0].debts.map((d) => d.id)).toEqual([2, 1]);
+  });
+
+  it('когда можно напомнить снова — только пока идёт пауза', () => {
+    const now = new Date('2026-07-20T12:00:00');
+    const vm = buildBudget(
+      [],
+      [
+        tx({ id: 1, reminderCount: 1, lastReminderAt: '2026-07-20T11:00:00', fromUser: { id: 2, firstName: 'Ян' } }),
+        tx({ id: 2, reminderCount: 1, lastReminderAt: '2026-07-19T11:00:00', fromUser: { id: 3, firstName: 'Оля' } }),
+      ],
+      now,
+    );
+    expect(vm.owed.find((c) => c.id === 1)?.remindAgain).toBe('снова в 17:00');
+    expect(vm.owed.find((c) => c.id === 2)?.remindAgain).toBe('');
+  });
+});

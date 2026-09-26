@@ -7,6 +7,7 @@ import {
   useConfirmPayment,
   useCredits,
   useDebts,
+  useMarkAllPaid,
   useMarkPaid,
   useRemindAll,
   useSendReminder,
@@ -30,6 +31,7 @@ import {
   buildBudget,
   type BudgetReference,
   type CreditLineVM,
+  type DebtGroupVM,
   type DebtDetails,
   type PayTo as PayToVM,
 } from './lib/buildBudget';
@@ -39,17 +41,31 @@ type BusyKind = 'mark' | 'cancel' | 'confirm' | 'remind';
 
 /* Строка, изменившаяся по потоку, помечается на полторы секунды. Своё действие
    сюда не попадает: у него есть нажатие, спиннер и оптимистичное обновление. */
-function rowClass(base: string, live: ReadonlySet<string>, key: string): string {
-  return live.has(key) ? `${base} live-flash live-money is-live` : `${base} live-flash live-money`;
+function liveClass(base: string, isLive: boolean): string {
+  return isLive ? `${base} live-flash live-money is-live` : `${base} live-flash live-money`;
 }
 
+function rowClass(base: string, live: ReadonlySet<string>, key: string): string {
+  return liveClass(base, live.has(key));
+}
+
+/* Сумма в тексте: неразрывный пробел держит «₽» при числе. В имена кнопок
+   идёт formatPrice как есть. */
+function priceText(n: number): string {
+  return formatPrice(n).replace(' ₽', '\u00a0₽');
+}
+
+
 /**
- * Куда переводить. Раньше реквизиты существовали только в сообщении бота, и с
- * экрана оплаты заплатить было нельзя — приходилось выходить в чат и искать
- * нужное сообщение. Телефон СБП первым: это основной способ в продукте.
+ * Куда переводить и что делать дальше — одной полосой под суммой. Раньше
+ * «Отметить» стояла в колонке справа сверху и читалась раньше «Перевести»,
+ * а порядок клавиши Tab расходился с тем, что видит глаз.
  *
- * Копирование — не обязательный путь: номер остаётся видимым текстом, поэтому
- * недоступный clipboard (небезопасный контекст) ничего не ломает.
+ * Ссылка СБП главнее телефона: по ней плательщик попадает прямо в банк, а
+ * номер надо скопировать и вставить. Телефон остаётся видимым текстом — на
+ * случай, если ссылка не откроется, — поэтому недоступный clipboard ничего не
+ * ломает. Нет ссылки — ведёт сам номер: иначе в строке не было бы ни одной
+ * сплошной кнопки.
  */
 function PayTo({
   value,
@@ -58,15 +74,21 @@ function PayTo({
   started,
   lead,
   onStart,
+  mark,
+  prompt,
 }: {
   value: PayToVM;
   name: string;
   amount: number;
   /** Перевод уже начат: ведёт отметка, а не перевод. */
   started: boolean;
-  /** Строка в фокусе секции: сплошная кнопка на экране одна. */
+  /** Карточка в фокусе секции: сплошная кнопка на экране одна. */
   lead: boolean;
   onStart: () => void;
+  /** Кнопка отметки — в той же полосе, сразу после перевода. */
+  mark: ReactNode;
+  /** «Перевели?» — сразу под полосой, рядом с кнопкой, о которой спрашивает. */
+  prompt: ReactNode;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -76,56 +98,78 @@ function PayTo({
     return () => window.clearTimeout(t);
   }, [copied]);
 
-  /* Ссылка главнее телефона: по ней плательщик попадает прямо в свой банк, а
-     номер надо скопировать, переключиться в банк и вставить. Телефон при этом
-     остаётся видимым — на случай, если ссылка не откроется. */
   const link = safeLinkOf(value);
-  const item = value.phone ? { label: 'СБП', text: value.phone } : null;
-
-  if (!item && !link) {
-    return value.note ? <span className={styles.payToNote}>{value.note}</span> : null;
-  }
+  const phone = value.phone ?? null;
 
   /* Скопированный номер — тоже начало перевода: дальше человек уходит в банк.
      Отмечаем сразу, не дожидаясь clipboard, — он бывает недоступен. */
   const copy = () => {
-    if (!item) return;
+    if (!phone) return;
     onStart();
     navigator.clipboard
-      ?.writeText(item.text)
-      .then(() => setCopied(item.text))
+      ?.writeText(phone)
+      .then(() => setCopied(phone))
       .catch(() => undefined);
   };
+  const transferVariant = lead && !started ? 'primary' : 'outline';
+
+  if (!phone && !link) {
+    return (
+      <>
+        {/* Заметка получателя подписана: без имени «Только наличными»
+            читалось как правило приложения. */}
+        {value.note && (
+          <span className={styles.payToNote}>
+            <span className={styles.payToNoteBy}>{name}:</span> <span>{value.note}</span>
+          </span>
+        )}
+        <span className={styles.actionBar}>{mark}</span>
+      </>
+    );
+  }
 
   return (
-    <span className={styles.payTo}>
-      {/* Ведущая кнопка строки, пока перевод не начат: заметка над списком
-          говорит «переведите сами», и самой заметной должна быть кнопка,
-          которая переводит, а не та, что сообщает «уже перевёл». */}
-      {link && (
-        <Button
-          variant={lead && !started ? 'primary' : 'outline'}
-          iconRight="arrowRight"
-          aria-label={`Перевести ${formatPrice(amount)}: ${name}`}
-          /* openExternalLink, а не <a target="_blank">: внутри Mini App обычная
-             вкладка открывается так, что вернуться в приложение нельзя. */
-          onClick={() => {
-            onStart();
-            openExternalLink(link);
-          }}
-        >
-          Перевести {formatPrice(amount)}
-        </Button>
-      )}
-      {item && (
+    <>
+      <span className={styles.actionBar}>
+        {/* Сумма — в имени кнопки для диктора, а на виду она уже стоит над
+            кнопкой крупно; в самой кнопке она лишь повторялась. */}
+        {link && (
+          <Button
+            variant={transferVariant}
+            iconRight="arrowRight"
+            aria-label={`Перевести ${formatPrice(amount)}: ${name}`}
+            /* openExternalLink, а не <a target="_blank">: внутри Mini App обычная
+               вкладка открывается так, что вернуться в приложение нельзя. */
+            onClick={() => {
+              onStart();
+              openExternalLink(link);
+            }}
+          >
+            Перевести
+          </Button>
+        )}
+        {!link && phone && (
+          <Button
+            variant={transferVariant}
+            iconRight={copied ? 'check' : 'copy'}
+            aria-label={`Скопировать СБП: ${phone}`}
+            onClick={copy}
+          >
+            <span className="tnum">СБП {phone}</span>
+          </Button>
+        )}
+        {mark}
+      </span>
+      {prompt}
+      {link && phone && (
         <button
           type="button"
           className={styles.payToItem}
-          aria-label={`Скопировать ${item.label}: ${item.text}`}
+          aria-label={`Скопировать СБП: ${phone}`}
           onClick={copy}
         >
-          <span className={styles.payToLabel}>{item.label}</span>
-          <span className="tnum">{item.text}</span>
+          <span className={styles.payToLabel}>СБП</span>
+          <span className="tnum">{phone}</span>
           <Icon name={copied ? 'check' : 'copy'} size={14} />
         </button>
       )}
@@ -133,7 +177,7 @@ function PayTo({
       <span className="sr-only" role="status">
         {copied ? 'Скопировано' : ''}
       </span>
-    </span>
+    </>
   );
 }
 
@@ -172,11 +216,15 @@ function Reference({ value }: { value: BudgetReference }) {
 function RowLink({
   label,
   busy,
+  locked = false,
   onClick,
   children,
 }: {
   label: string;
+  /** Своё действие идёт: кнопка занята, но фокус с неё не слетает. */
   busy: boolean;
+  /** Действие закрыто чужим («Отметить все» ещё отправляет этот долг). */
+  locked?: boolean;
   onClick: () => void;
   children: ReactNode;
 }) {
@@ -186,8 +234,11 @@ function RowLink({
       className={styles.more}
       aria-label={label}
       aria-busy={busy || undefined}
-      disabled={busy}
-      onClick={onClick}
+      aria-disabled={busy || undefined}
+      disabled={locked}
+      onClick={() => {
+        if (!busy) onClick();
+      }}
     >
       {children}
     </button>
@@ -222,6 +273,21 @@ function writeStarted(ids: ReadonlySet<number>): void {
 function referenceText(ref: BudgetReference): string {
   const parts = [ref.subject, ref.when].filter(Boolean);
   return parts.length ? ` — ${parts.join(', ')}` : '';
+}
+
+/* Карточка, как до «Отметить все»: отправляемые долги ещё «к переводу». */
+function holdMarking(g: DebtGroupVM, markingIds: readonly number[]): DebtGroupVM {
+  const held = g.debts.filter((d) => d.status === 'PAID' && markingIds.includes(d.id));
+  if (held.length === 0) return g;
+  const heldSum = held.reduce((sum, d) => sum + d.amount, 0);
+  const debts = g.debts.map((d) => (held.includes(d) ? { ...d, status: 'PENDING' as const, waiting: '' } : d));
+  return {
+    ...g,
+    debts,
+    toTransfer: Math.round((g.toTransfer + heldSum) * 100) / 100,
+    awaiting: Math.round((g.awaiting - heldSum) * 100) / 100,
+    pendingIds: debts.filter((d) => d.status === 'PENDING').map((d) => d.id),
+  };
 }
 
 /* «Ян», «Ян и Оля», «Ян, Оля и Мария», «Ян, Оля и ещё 3». */
@@ -345,6 +411,41 @@ function useStampOnArrival(shown: boolean, ready: boolean) {
   return ref;
 }
 
+/* После денежного действия его кнопка часто исчезает (долг стал «ждёт»,
+   строка переехала), и фокус падал в начало страницы. Ставим его на карточку
+   или соседнюю строку — если человек за это время не ушёл фокусом сам. */
+function focusRow(target: string, from?: string) {
+  /* Сразу, пока кнопка действия ещё в DOM: через кадр она успевала исчезнуть,
+     и фокус проваливался в начало страницы. Кадр ждём, только если цели ещё
+     нет (строка переезжает в другую секцию). */
+  const attempt = () => {
+    const row = document.querySelector<HTMLElement>(`[data-flip="${target}"]`);
+    if (!row) return false;
+    const active = document.activeElement;
+    const origin = from ? document.querySelector(`[data-flip="${from}"]`) : null;
+    const free = !active || active === document.body || row.contains(active) || !!origin?.contains(active);
+    if (free) row.focus({ preventScroll: true });
+    return true;
+  };
+  if (!attempt()) window.requestAnimationFrame(attempt);
+}
+
+/* «уже меньше минуты» звучало странно — «только что». */
+function waitingText(since: string): string {
+  return since === 'меньше минуты' ? 'только что' : `уже ${since}`;
+}
+
+/* Штамп играет 300 мс; подтверждённая строка переезжает, когда оттиск осел. */
+const STAMP_MS = 320;
+
+function canStamp(): boolean {
+  return (
+    typeof HTMLElement !== 'undefined' &&
+    typeof HTMLElement.prototype.animate === 'function' &&
+    !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 /* Закрытие разбивки. Появление играет CSS (.anim-in), а уход CSS не поймать:
    React снимает узел сразу. Поэтому панель сначала гаснет, потом уходит.
    Без WAAPI или при reduced-motion — сразу. */
@@ -379,6 +480,7 @@ export function BudgetPage() {
   const debtsQuery = useDebts(undefined, live);
   const creditsQuery = useCredits(undefined, live);
   const markPaid = useMarkPaid();
+  const markAllPaid = useMarkAllPaid();
   const cancelMark = useCancelMark();
   const confirmPayment = useConfirmPayment();
   const sendReminder = useSendReminder();
@@ -425,13 +527,33 @@ export function BudgetPage() {
      них ведёт отметка. Порядок вставки важен — фокус у последнего начатого. */
   const [started, setStarted] = useState<ReadonlySet<number>>(readStarted);
   useEffect(() => writeStarted(started), [started]);
-  const startTransfer = (id: number) =>
+  /* Один перевод на всю карточку получателя — начатыми считаются все её
+     непереведённые долги. */
+  const startTransfer = (ids: readonly number[]) =>
     setStarted((prev) => {
-      if (prev.has(id)) return prev;
+      if (ids.every((id) => prev.has(id))) return prev;
       const next = new Set(prev);
-      next.add(id);
+      for (const id of ids) {
+        next.delete(id);
+        next.add(id);
+      }
       return next;
     });
+  /* Подтверждённая оплата печатается Штампом прямо в своей строке, до
+     переезда: при четырёх и больше должниках строка уезжала за край экрана и
+     печаталась там, где её никто не видел. */
+  /* Долги, отметить которые не удалось: строка подписана, ведёт отметка —
+     иначе вела бы «Перевести» и звала заплатить второй раз. */
+  const [failedIds, setFailedIds] = useState<ReadonlySet<number>>(() => new Set());
+  const markFailed = (ids: readonly number[]) => {
+    startTransfer(ids);
+    setFailedIds((prev) => new Set([...prev, ...ids]));
+  };
+  const clearFailed = (ids: readonly number[]) =>
+    setFailedIds((prev) => (ids.some((id) => prev.has(id)) ? new Set([...prev].filter((id) => !ids.includes(id))) : prev));
+  const [closing, setClosing] = useState<{ row: CreditLineVM; index: number } | null>(null);
+  const closingTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(closingTimer.current), []);
   /* Подтверждённые в этом визите — их строка «Закрыт» печатается Штампом. */
   const [closedNow, setClosedNow] = useState<ReadonlySet<number>>(() => new Set());
   /* Подтверждение необратимо: CONFIRMED нельзя отменить ни в интерфейсе, ни в
@@ -449,10 +571,10 @@ export function BudgetPage() {
   const showSkeleton = useDelayedLoading(loading);
   const ready = !loading && debtsQuery.data !== undefined && creditsQuery.data !== undefined;
   const settledRef = useStampOnArrival(vm.settledRecently && vm.myDebts.length === 0, ready);
-  const collectedRef = useStampOnArrival(vm.allCollected && vm.owed.length === 0, ready);
+  const collectedRef = useStampOnArrival(vm.allCollected && vm.owed.length === 0 && !closing, ready);
 
-  /* Скелет повторяет строку — аватар, подпись, сумма, кнопка, — чтобы приход
-     данных не перестраивал экран. */
+  /* Скелет повторяет карточку — аватар, имя, «за что», сумма и полоса из двух
+     кнопок, — чтобы приход данных не перестраивал экран. */
   if (loading) {
     return (
       <div className={`rl ${styles.screen}`}>
@@ -462,13 +584,17 @@ export function BudgetPage() {
               <Skeleton variant="text" width="30%" />
             </div>
             {[0, 1].map((i) => (
-              <div key={i} className={styles.row}>
+              <div key={i} className={`${styles.row} ${styles.rowWide}`}>
                 <Skeleton variant="circle" width={40} className={styles.avatarSkeleton} />
                 <div className={styles.rowMain}>
-                  <Skeleton variant="text" width="45%" />
-                  <Skeleton variant="text" width="30%" className={styles.skeletonGap} />
+                  <Skeleton variant="text" width="35%" />
+                  <Skeleton variant="text" width="55%" className={styles.skeletonGap} />
+                  <Skeleton variant="text" width="25%" height={20} className={styles.skeletonGap} />
+                  <span className={styles.actionBar}>
+                    <Skeleton variant="block" width={128} height={44} />
+                    <Skeleton variant="block" width={112} height={44} />
+                  </span>
                 </div>
-                <Skeleton variant="block" width={112} height={44} className={styles.rowAction} />
               </div>
             ))}
           </div>
@@ -517,12 +643,48 @@ export function BudgetPage() {
   }
 
   /* Сплошная кнопка на экране — одна на секцию («правило одного штампа»).
-     У должника ведёт последний начатый перевод, а если начатых нет — верхний
-     неоплаченный долг. У сборщика — первая отмеченная оплата. */
-  const pendingDebtIds = vm.myDebts.filter((d) => d.status === 'PENDING').map((d) => d.id);
-  const focusDebtId =
-    [...started].reverse().find((id) => pendingDebtIds.includes(id)) ?? pendingDebtIds[0];
+     У должника ведёт карточка последнего начатого перевода, а без начатых —
+     верхняя карточка с переводом. У сборщика — первая отмеченная оплата. */
+  const groupStarted = (g: DebtGroupVM) => g.pendingIds.some((id) => started.has(id));
+  /* «Отметить все» идёт запросами по одному, а оптимистика уже перевела долги
+     в «ждёт». Пока запросы идут, секция выглядит как до нажатия: иначе
+     пропадали «Перевести» и номер, кнопка прыгала, а сплошная уходила к
+     другому человеку — под палец, который ещё на этой карточке. */
+  const markingIds = markAllPaid.isPending ? (markAllPaid.variables ?? []).map((v) => v.id) : [];
+  /* Одиночная отметка — так же: строка «к переводу», пока запрос в пути, чтобы
+     кнопка оставалась на месте со спиннером и фокусом. */
+  const heldIds =
+    markPaid.isPending && markPaid.variables != null ? [...markingIds, markPaid.variables] : markingIds;
+  const debtGroups = heldIds.length === 0 ? vm.debtGroups : vm.debtGroups.map((g) => holdMarking(g, heldIds));
+  const toTransferShown = debtGroups.reduce((sum, g) => sum + g.toTransfer, 0);
+  const awaitingShown = debtGroups.reduce((sum, g) => sum + g.awaiting, 0);
+  const startedGroup = [...started]
+    .reverse()
+    .map((id) => debtGroups.find((g) => g.pendingIds.includes(id)))
+    .find(Boolean);
+  const focusGroupKey = startedGroup?.key ?? debtGroups.find((g) => g.toTransfer > 0)?.key;
   const focusCreditId = vm.owed.find((c) => c.status === 'PAID')?.id;
+  /* Пока играет Штамп, подтверждённая строка стоит на своём месте в «Вам
+     должны», хотя сервер уже спрошен и итог уже вырос. */
+  const closingId = closing?.row.id;
+  const owedShown =
+    closing && !vm.owed.some((c) => c.id === closing.row.id)
+      ? [...vm.owed.slice(0, closing.index), closing.row, ...vm.owed.slice(closing.index)]
+      : vm.owed;
+  const undoableShown = vm.undoable.filter((c) => c.id !== closingId);
+  /* «Отметить все» идёт запросами по одному, а оптимистика уже перевела долги
+     в «ждёт»: кнопка держится на месте занятой, отмена этих долгов закрыта. */
+  const lineLabel = (d: { reference: BudgetReference; amount: number }) =>
+    `${d.reference.subject ? `${d.reference.subject}, ` : ''}${formatPrice(d.amount)}`;
+  const anyLink = debtGroups.some((g) => g.toTransfer > 0 && safeLinkOf(g.payTo));
+  /* Одна живая строка на итог секции: после одной отметки срабатывали до пяти
+     объявлений — итог, строка ожидания, тост… */
+  const debtsSpoken = [
+    toTransferShown > 0 ? `К переводу ${formatPrice(toTransferShown)}` : '',
+    awaitingShown > 0 ? `ждёт подтверждения ${formatPrice(awaitingShown)}` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   /* FlipGroup: подтверждённая оплата переезжает из «Вам должны» в «Можно
      отменить», а оплата, отмеченная коллегой по SSE, поднимается в начало
@@ -537,127 +699,272 @@ export function BudgetPage() {
               Мои долги
             </h2>
             {/* Только то, что ещё переводить. Отмеченное уже ушло, и сложенное
-                с ним «600 ₽» после отметки звало переводить второй раз.
-                Итог меняется после каждого действия — озвучиваем. */}
-            {vm.myDebtToTransfer > 0 && (
-              <span className={`tnum ${styles.groupTotal} ${styles.groupTotalOwed}`} role="status">
-                <span className={styles.groupTotalLabel}>к переводу</span> {formatPrice(vm.myDebtToTransfer)}
+                с ним «600 ₽» после отметки звало переводить второй раз. */}
+            {toTransferShown > 0 && (
+              <span className={`tnum ${styles.groupTotal} ${styles.groupTotalOwed}`} aria-hidden>
+                <span className={styles.groupTotalLabel}>к переводу</span> {priceText(toTransferShown)}
               </span>
             )}
           </div>
-          {vm.myDebtAwaiting > 0 && (
-            <p className={styles.groupAwaiting} role="status">
+          <span className="sr-only" role="status">
+            {debtsSpoken}
+          </span>
+          {awaitingShown > 0 && (
+            <p className={styles.groupAwaiting} aria-hidden>
               <Icon name="clock" size={14} />
-              <span className="tnum">{`${formatPrice(vm.myDebtAwaiting)} ждёт подтверждения`}</span>
+              <span className="tnum">{`${priceText(awaitingShown)} ждёт подтверждения`}</span>
             </p>
           )}
           {/* Главное недоразумение экрана: человек нажимал «Оплатил» и уходил в
-              уверенности, что рассчитался. Говорим прямо, один раз на секцию, —
-              и только пока есть что переводить. */}
-          {vm.myDebtToTransfer > 0 && (
+              уверенности, что рассчитался. Заметка называет обе кнопки и не
+              спорит с «Перевести»: та открывает банк, а не переводит сама. */}
+          {toTransferShown > 0 && (
             <p className={styles.groupNote}>
-              Переведите деньги сами, а кнопкой сообщите об этом получателю —
-              приложение денег не переводит.
+              {anyLink
+                ? '«Перевести» откроет ваш банк — деньги переводите там. Потом нажмите «Отметить», и получатель увидит.'
+                : 'Переведите по номеру или лично, потом нажмите «Отметить» — получатель увидит.'}
             </p>
           )}
           <div data-flip-list role="list">
-            {vm.myDebts.map((d) => {
-              const key = `debt:${d.id}`;
-              const panelId = `details-debt-${d.id}`;
-              const open = expanded.has(key);
-              const lead = d.id === focusDebtId;
+            {debtGroups.map((g) => {
+              const lead = g.key === focusGroupKey;
+              const isStarted = groupStarted(g);
+              const single = g.debts.length === 1 ? g.debts[0] : null;
+              const markOne = g.pendingIds.length === 1 ? (g.debts.find((d) => d.id === g.pendingIds[0]) ?? null) : null;
               /* Отметка ведёт, когда перевод уже начат или начинать его
                  отсюда нечем. До этого она контурная: «Отметить» был самой
                  заметной кнопкой строки и читался как «заплатить». */
-              const markLeads = lead && (started.has(d.id) || !hasPayPath(d.payTo));
+              const markLeads = lead && (isStarted || !hasPayPath(g.payTo));
+              const live = g.debts.some((d) => liveChanges.has(liveKey.debt(d.id)));
+              const marking = g.debts.filter((d) => markingIds.includes(d.id));
+              const mark =
+                marking.length > 0 ? (
+                  <Button
+                    variant="outline"
+                    loading
+                    aria-label={`Отметить все: ${g.name}, ${formatPrice(marking.reduce((sum, d) => sum + d.amount, 0))}`}
+                  >
+                    Отметить все
+                  </Button>
+                ) : g.pendingIds.length === 0 ? null : markOne ? (
+                  <Button
+                    variant={markLeads ? 'primary' : 'outline'}
+                    loading={isBusy(markOne.id, 'mark')}
+                    aria-label={`Отметить оплату: ${g.name}, ${formatPrice(markOne.amount)}`}
+                    onClick={() => {
+                      clearFailed([markOne.id]);
+                      markPaid.mutate(markOne.id, {
+                        onError: () => markFailed([markOne.id]),
+                        onSettled: () => focusRow(`debtor:${g.key}`),
+                      });
+                    }}
+                  >
+                    Отметить
+                  </Button>
+                ) : (
+                  <Button
+                    variant={markLeads ? 'primary' : 'outline'}
+                    aria-label={`Отметить все: ${g.name}, ${formatPrice(g.toTransfer)}`}
+                    onClick={() => {
+                      const items = g.debts
+                        .filter((d) => d.status === 'PENDING')
+                        .map((d) => ({ id: d.id, label: lineLabel(d) }));
+                      clearFailed(items.map((i) => i.id));
+                      markAllPaid.mutate(items, {
+                        onSuccess: ({ failed }) => {
+                          if (failed.length > 0) markFailed(failed.map((f) => f.id));
+                        },
+                        onSettled: () => focusRow(`debtor:${g.key}`),
+                      });
+                    }}
+                  >
+                    Отметить все
+                  </Button>
+                );
+              /* Из банка человек возвращается сюда: строка напоминает, что
+                 получатель узнает о переводе только по отметке. */
+              const prompt =
+                g.toTransfer > 0 && isStarted ? (
+                  <p className={styles.transferPrompt} role="status">
+                    Перевели? Отметьте оплату — {g.name} увидит.
+                  </p>
+                ) : null;
+              const singleKey = single ? `debt:${single.id}` : '';
+              const singlePanel = single ? `details-debt-${single.id}` : '';
               return (
                 <div
-                  key={d.id}
+                  key={g.key}
                   role="listitem"
-                  data-flip={key}
-                  className={rowClass(styles.row, liveChanges, liveKey.debt(d.id))}
+                  tabIndex={-1}
+                  data-flip={`debtor:${g.key}`}
+                  className={`${liveClass(styles.row, live)} ${styles.rowWide}`}
                 >
                   <div className={styles.avatar} aria-hidden>
-                    {d.name[0].toUpperCase()}
+                    {g.name[0].toUpperCase()}
                   </div>
                   <div className={styles.rowMain}>
-                    {/* Сумма — главное на денежном экране, имя контрагента вторично.
-                        Статус говорит чип у имени: текстовый дубль не нужен. */}
                     <span className={styles.rowPerson}>
-                      <span className={styles.rowName}>{d.name}</span>
-                      {d.status === 'PAID' && (
+                      <span className={styles.rowName}>{g.name}</span>
+                      {g.toTransfer === 0 && (
                         <Status tone="neutral" icon="clock">
                           Ждёт
                         </Status>
                       )}
+                      {single?.status === 'PAID' && single.waiting && (
+                        <span className={styles.rowPersonNote}>{waitingText(single.waiting)}</span>
+                      )}
                     </span>
-                    <Reference value={d.reference} />
-                    <span className={`tnum ${styles.rowAmount}`}>{formatPrice(d.amount)}</span>
-                    {/* Куда переводить — здесь, а не в чате с ботом: это единственный
-                        момент, когда номер нужен. Показываем до отметки; после неё
-                        важнее, сколько уже ждём подтверждения. Без реквизитов блок
-                        раньше просто пропадал, и было не понять, куда платить. */}
-                    {d.status === 'PENDING' &&
-                      (d.payTo ? (
+                    {single ? (
+                      <Reference value={single.reference} />
+                    ) : (
+                      <span className={styles.rowRef}>
+                        {g.toTransfer > 0 && g.awaiting > 0
+                          ? `${g.pendingIds.length} из ${g.debts.length} к переводу`
+                          : pluralize(g.debts.length, 'долг', 'долга', 'долгов')}
+                      </span>
+                    )}
+                    {/* Сумма — главное на денежном экране: сколько переводить,
+                        а когда всё отмечено — сколько ждёт подтверждения. */}
+                    {/* Ждущее подтверждения — спокойнее долга: это уже не задача. */}
+                    <span className={`tnum ${styles.rowAmount}${g.toTransfer > 0 ? '' : ` ${styles.rowAmountWaiting}`}`}>
+                      {formatPrice(g.toTransfer > 0 ? g.toTransfer : g.awaiting)}
+                    </span>
+                    {single?.status === 'PENDING' && failedIds.has(single.id) && (
+                      <span className={styles.markFailed}>Не отмечено — отметьте ещё раз</span>
+                    )}
+                    {/* Куда переводить — здесь, а не в чате с ботом: это
+                        единственный момент, когда номер нужен. Без реквизитов
+                        блок раньше просто пропадал, и было не понять, куда
+                        платить. */}
+                    {g.toTransfer > 0 &&
+                      (g.payTo ? (
                         <PayTo
-                          value={d.payTo}
-                          name={d.name}
-                          amount={d.amount}
-                          started={started.has(d.id)}
+                          value={g.payTo}
+                          name={g.name}
+                          amount={g.toTransfer}
+                          started={isStarted}
                           lead={lead}
-                          onStart={() => startTransfer(d.id)}
+                          onStart={() => startTransfer(g.pendingIds)}
+                          mark={mark}
+                          prompt={prompt}
                         />
                       ) : (
-                        <span className={styles.payToNote}>Реквизитов нет — спросите лично</span>
+                        <>
+                          <span className={styles.payToNote}>Реквизитов нет — спросите лично</span>
+                          <span className={styles.actionBar}>{mark}</span>
+                        </>
                       ))}
-                    {/* Из банка человек возвращается сюда: строка напоминает, что
-                        получатель узнает о переводе только по отметке. */}
-                    {d.status === 'PENDING' && started.has(d.id) && (
-                      <p className={styles.transferPrompt} role="status">
-                        Перевели? Отметьте оплату — {d.name} увидит.
-                      </p>
-                    )}
-                    {/* Без слова «подтверждения»: его говорит чип «Ждёт». */}
-                    {d.status === 'PAID' && d.waiting && (
-                      <span className={styles.rowWaiting}>уже {d.waiting}</span>
-                    )}
-                    {(d.details.informative || d.status === 'PAID') && (
+                    {single && (single.details.informative || single.status === 'PAID') && (
                       <span className={styles.rowLinks}>
-                        {d.details.informative && (
+                        {single.details.informative && (
                           <MoreToggle
-                            open={open}
-                            controls={panelId}
-                            label={`${d.name}, ${formatPrice(d.amount)}`}
-                            onToggle={() => toggle(key, panelId)}
+                            open={expanded.has(singleKey)}
+                            controls={singlePanel}
+                            label={`${g.name}, ${formatPrice(single.amount)}`}
+                            onToggle={() => toggle(singleKey, singlePanel)}
                           />
                         )}
-                        {d.status === 'PAID' && (
+                        {single.status === 'PAID' && (
                           <RowLink
-                            label={`Отменить отметку: ${d.name}, ${formatPrice(d.amount)}`}
-                            busy={isBusy(d.id, 'cancel')}
-                            onClick={() => cancelMark.mutate(d.id)}
+                            label={`Отменить отметку: ${g.name}, ${formatPrice(single.amount)}`}
+                            busy={isBusy(single.id, 'cancel')}
+                            locked={markingIds.includes(single.id)}
+                            onClick={() => cancelMark.mutate(single.id, { onSettled: () => focusRow(`debtor:${g.key}`) })}
                           >
                             Отменить отметку
                           </RowLink>
                         )}
                       </span>
                     )}
+                    {/* Несколько долгов одному человеку — строки внутри карточки:
+                        перевод и номер у них общие, а разбивка и отметка — свои. */}
+                    {!single && (
+                      <div className={styles.debtLines}>
+                        {g.debts.map((d) => {
+                          const key = `debt:${d.id}`;
+                          const panelId = `details-debt-${d.id}`;
+                          const open = expanded.has(key);
+                          return (
+                            <div key={d.id} className={styles.debtLine}>
+                              <div className={styles.debtLineHead}>
+                                <Reference value={d.reference} />
+                                <span
+                                  className={`tnum ${styles.debtLineAmount}${d.status === 'PAID' ? ` ${styles.rowAmountWaiting}` : ''}`}
+                                >
+                                  {formatPrice(d.amount)}
+                                </span>
+                              </div>
+                              {d.status === 'PENDING' && failedIds.has(d.id) && (
+                                <span className={styles.markFailed}>Не отмечено — отметьте ещё раз</span>
+                              )}
+                              {/* Чип «Ждёт» у строки — только если в карточке есть что
+                                  переводить: иначе его уже говорит карточка, и четыре
+                                  одинаковых чипа подряд были шумом. */}
+                              {d.status === 'PAID' && (g.toTransfer > 0 || d.waiting) && (
+                                <span className={styles.debtLineState}>
+                                  {g.toTransfer > 0 && (
+                                    <Status tone="neutral" icon="clock">
+                                      Ждёт
+                                    </Status>
+                                  )}
+                                  {d.waiting && <span className={styles.rowWaiting}>{waitingText(d.waiting)}</span>}
+                                </span>
+                              )}
+                              {(d.details.informative || d.status === 'PAID' || g.pendingIds.length > 1) && (
+                                <span className={styles.rowLinks}>
+                                  {d.details.informative && (
+                                    <MoreToggle
+                                      open={open}
+                                      controls={panelId}
+                                      label={`${g.name}, ${formatPrice(d.amount)}`}
+                                      onToggle={() => toggle(key, panelId)}
+                                    />
+                                  )}
+                                  {d.status === 'PENDING' && g.pendingIds.length > 1 && (
+                                    /* Кнопка, а не строчная ссылка: «Отметить» сообщает
+                                       человеку о деньгах, «Подробнее» лишь раскрывает
+                                       — выглядеть одинаково они не должны. */
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      icon="check"
+                                      loading={isBusy(d.id, 'mark')}
+                                      disabled={markingIds.includes(d.id)}
+                                      aria-label={`Отметить оплату: ${g.name}, ${lineLabel(d)}`}
+                                      className={styles.lineMark}
+                                      onClick={() => {
+                                        clearFailed([d.id]);
+                                        markPaid.mutate(d.id, {
+                                          onError: () => markFailed([d.id]),
+                                          onSettled: () => focusRow(`debtor:${g.key}`),
+                                        });
+                                      }}
+                                    >
+                                      Отметить
+                                    </Button>
+                                  )}
+                                  {d.status === 'PAID' && (
+                                    <RowLink
+                                      label={`Отменить отметку: ${g.name}, ${lineLabel(d)}`}
+                                      busy={isBusy(d.id, 'cancel')}
+                                      locked={markingIds.includes(d.id)}
+                                      onClick={() => cancelMark.mutate(d.id, { onSettled: () => focusRow(`debtor:${g.key}`) })}
+                                    >
+                                      Отменить отметку
+                                    </RowLink>
+                                  )}
+                                </span>
+                              )}
+                              {open && <Details id={panelId} value={d.details} />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                   {/* Панель в DOM сразу за своей кнопкой: диктор читает разбивку
-                      следующей, а не после кнопки действия. На экране она под
-                      строкой — это делает сетка. */}
-                  {open && <Details id={panelId} value={d.details} />}
-                  {d.status === 'PENDING' && (
-                    <Button
-                      variant={markLeads ? 'primary' : 'outline'}
-                      className={styles.rowAction}
-                      loading={isBusy(d.id, 'mark')}
-                      aria-label={`Отметить оплату: ${d.name}, ${formatPrice(d.amount)}`}
-                      onClick={() => markPaid.mutate(d.id)}
-                    >
-                      Отметить
-                    </Button>
-                  )}
+                      следующей. На экране она под строкой — это делает сетка. */}
+                  {single && expanded.has(singleKey) && <Details id={singlePanel} value={single.details} />}
                 </div>
               );
             })}
@@ -674,14 +981,14 @@ export function BudgetPage() {
             </span>
             <span className={styles.successSub}>
               {vm.settled.count > 0
-                ? `${namesLine(vm.settled.names)} · ${formatPrice(vm.settled.total)} · оплата подтверждена`
+                ? `${namesLine(vm.settled.names)} · ${priceText(vm.settled.total)} · оплата подтверждена`
                 : 'все оплаты подтверждены'}
             </span>
           </div>
         </div>
       )}
 
-      {vm.owed.length > 0 && (
+      {owedShown.length > 0 && (
         <section className={styles.group} aria-labelledby="budget-owed-heading">
           <div className={styles.groupHead}>
             <h2 id="budget-owed-heading" className={styles.groupTitle}>
@@ -689,11 +996,11 @@ export function BudgetPage() {
             </h2>
             {/* Денежный цвет — у пришедших денег: «0 ₽ из 390 ₽» зелёным
                 читалось как уже собранная сумма. */}
-            <span
-              className={`tnum ${styles.groupTotal}${vm.owedReceived === 0 ? ` ${styles.groupTotalOwed}` : ''}`}
-              role="status"
-            >
-              {formatPrice(vm.owedReceived)} из {formatPrice(vm.owedExpected)}
+            <span className={`tnum ${styles.groupTotal} ${styles.groupTotalOwed}`} role="status">
+              <span className={vm.owedReceived > 0 ? styles.groupTotalReceived : undefined}>
+                {formatPrice(vm.owedReceived)}
+              </span>{' '}
+              из {formatPrice(vm.owedExpected)}
             </span>
           </div>
           {/* Полоса — сразу под итогом, который она рисует: между ними стояли
@@ -740,7 +1047,7 @@ export function BudgetPage() {
             </div>
           )}
           <div data-flip-list role="list">
-            {vm.owed.map((c) => {
+            {owedShown.map((c) => {
               const key = `credit:${c.id}`;
               const panelId = `details-credit-${c.id}`;
               const open = expanded.has(key);
@@ -748,6 +1055,7 @@ export function BudgetPage() {
                 <div
                   key={c.id}
                   role="listitem"
+                  tabIndex={-1}
                   data-flip={key}
                   className={rowClass(styles.row, liveChanges, liveKey.debt(c.id))}
                 >
@@ -759,10 +1067,18 @@ export function BudgetPage() {
                         а не «Отметил»: чип стоял и у Марии. */}
                     <span className={styles.rowPerson}>
                       <span className={styles.rowName}>{c.name}</span>
-                      {c.status === 'PAID' && (
-                        <Status tone="neutral" icon="clock">
-                          Отмечено
-                        </Status>
+                      {c.id === closingId ? (
+                        <Stamped play>
+                          <Status tone="success" icon="check">
+                            Закрыт
+                          </Status>
+                        </Stamped>
+                      ) : (
+                        c.status === 'PAID' && (
+                          <Status tone="neutral" icon="clock">
+                            Отмечено
+                          </Status>
+                        )
                       )}
                     </span>
                     <Reference value={c.reference} />
@@ -772,7 +1088,7 @@ export function BudgetPage() {
                         чему — напоминать больше не о чем. */}
                     {c.reminded && c.status === 'PENDING' && (
                       <span className={styles.rowWaiting}>
-                        <Parts text={c.reminded} />
+                        <Parts text={[c.reminded, c.remindAgain].filter(Boolean).join(' · ')} />
                       </span>
                     )}
                     {c.details.informative && (
@@ -787,7 +1103,15 @@ export function BudgetPage() {
                     )}
                   </div>
                   {open && <Details id={panelId} value={c.details} />}
-                  {c.status === 'PAID' ? (
+                  {/* Пока печатается «Закрыт», кнопки нет: штамп и есть ответ на
+                      нажатие, а спиннер рядом спорил с ним. */}
+                  {c.id === closingId ? (
+                    /* Невидимое место под кнопку: без него подпись «за что»
+                       раскладывалась шире, и строка прыгала посреди штампа. */
+                    <Button variant="outline" className={`${styles.rowAction} ${styles.holdSpace}`} aria-hidden tabIndex={-1}>
+                      Подтвердить
+                    </Button>
+                  ) : c.status === 'PAID' ? (
                     <Button
                       variant={c.id === focusCreditId ? 'primary' : 'outline'}
                       className={styles.rowAction}
@@ -833,13 +1157,13 @@ export function BudgetPage() {
 
       {/* Итог цикла — первым после активных долгов, выше списка отмены: там
           его видели последним, если вообще видели. */}
-      {vm.allCollected && vm.owed.length === 0 && (
+      {vm.allCollected && owedShown.length === 0 && (
         <div className={styles.successLine}>
           <Seal sealRef={collectedRef} />
           <div className={styles.successText}>
             <span className={styles.successTitle}>Все рассчитались</span>
             <span className={styles.successSub}>
-              {namesLine(vm.collectedNames)} · {formatPrice(vm.owedExpected)}
+              {namesLine(vm.collectedNames)} · {priceText(vm.owedExpected)}
             </span>
           </div>
         </div>
@@ -848,7 +1172,7 @@ export function BudgetPage() {
       {/* Отмена промаха. Подтверждённое уходит из активных, и до этого блока
           исправить ошибочное подтверждение было нельзя вообще. Окно — сутки,
           хозяин правила сервер; здесь только показ. */}
-      {vm.undoable.length > 0 && (
+      {undoableShown.length > 0 && (
         <section className={styles.group} aria-labelledby="budget-undo-heading">
           <div className={styles.groupHead}>
             <h2 id="budget-undo-heading" className={styles.groupTitle}>
@@ -859,7 +1183,7 @@ export function BudgetPage() {
             Если подтвердили по ошибке — отмените в течение суток. Участник получит уведомление.
           </p>
           <div data-flip-list role="list">
-            {vm.undoable.map((c) => {
+            {undoableShown.map((c) => {
               const key = `credit:${c.id}`;
               const panelId = `details-undo-${c.id}`;
               const open = expanded.has(key);
@@ -867,8 +1191,9 @@ export function BudgetPage() {
                 <div
                   key={c.id}
                   role="listitem"
+                  tabIndex={-1}
                   data-flip={key}
-                  className={rowClass(styles.row, liveChanges, liveKey.debt(c.id))}
+                  className={`${rowClass(styles.row, liveChanges, liveKey.debt(c.id))} ${styles.rowWide}`}
                 >
                   <div className={styles.avatar} aria-hidden>
                     {c.name[0].toUpperCase()}
@@ -921,10 +1246,38 @@ export function BudgetPage() {
           confirmLabel="Подтвердить"
           pending={isBusy(confirming.id, 'confirm')}
           onConfirm={() => {
-            const id = confirming.id;
+            const row = confirming;
+            const id = row.id;
+            const index = vm.owed.findIndex((c) => c.id === id);
+            const next = vm.owed[index + 1]?.id ?? vm.owed[index - 1]?.id;
             setConfirming(null);
-            setClosedNow((prev) => new Set(prev).add(id));
-            confirmPayment.mutate(id);
+            /* «Закрыт» — только после «да» сервера: раньше чип и «Все
+               рассчитались» появлялись до ответа и при отказе откатывались.
+               Пока ждём, «Подтвердить» занята и держит фокус. */
+            confirmPayment.mutate(id, {
+              onSuccess: () => {
+                /* Фокус сначала — на саму строку: она стоит на месте, пока
+                   печатается «Закрыт». Дальше — когда оттиск осел. */
+                focusRow(`credit:${id}`, `credit:${id}`);
+                const moveOn = () => {
+                  if (next != null) focusRow(`credit:${next}`, `credit:${id}`);
+                  else window.requestAnimationFrame(() => focusRow(`credit:${id}`));
+                };
+                /* Где Штамп сыграть нельзя (нет WAAPI, reduced-motion), строка
+                   переезжает сразу, а «Закрыт» печатается на новом месте. */
+                if (!canStamp()) {
+                  setClosedNow((prev) => new Set(prev).add(id));
+                  moveOn();
+                  return;
+                }
+                setClosing({ row, index });
+                window.clearTimeout(closingTimer.current);
+                closingTimer.current = window.setTimeout(() => {
+                  setClosing(null);
+                  moveOn();
+                }, STAMP_MS);
+              },
+            });
           }}
           onCancel={() => setConfirming(null)}
         />

@@ -135,9 +135,16 @@ export function NowSection({
       {budget.kind !== 'hidden' && (
         <button type="button" className={`${styles.row} ${styles.tappable}`} onClick={onOpenBudget}>
           <BudgetMain budget={budget} />
-          {/* Свой долг — нейтральным, как итог «Мои долги»: зелёный у суммы,
-              которую вы должны, читался как плюс на счёте. */}
-          <span className={`tnum ${styles.moneyVal}${budget.kind === 'debt' ? ` ${styles.moneyValOwed}` : ''}`}>
+          {/* Нейтрально — всё, что ещё не пришло: свой долг (зелёный читался
+              как плюс на счёте) и оплаты, ждущие подтверждения сборщика
+              (зелёный читался как уже полученные деньги). */}
+          <span
+            className={`tnum ${styles.moneyVal}${
+              budget.kind === 'debt' || (budget.kind === 'collector' && budget.toConfirm > 0)
+                ? ` ${styles.moneyValOwed}`
+                : ''
+            }`}
+          >
             {formatPrice(budget.amount)}
           </span>
           <RowChevron />

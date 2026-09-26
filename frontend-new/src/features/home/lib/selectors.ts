@@ -133,16 +133,19 @@ export function budgetRow(debts: Transaction[], credits: Transaction[]): BudgetR
     };
   }
   if (activeCredits.length > 0) {
+    const paidCredits = activeCredits.filter((c) => c.status === 'PAID');
     return {
       kind: 'collector',
-      // Только активные: подтверждённые деньги уже получены и в «вам должны»
-      // превращали закрытый расчёт в вечную задолженность.
-      amount: activeCredits.reduce((s, c) => s + c.amount, 0),
+      /* Пока есть что подтвердить — сумма того, что ждёт: рядом с «1 оплата
+         ждёт подтверждения» стояла сумма всех долгов, и было не понять, на
+         сколько подтверждать. Иначе — только активные: подтверждённые деньги
+         уже получены и превращали закрытый расчёт в вечную задолженность. */
+      amount: (paidCredits.length > 0 ? paidCredits : activeCredits).reduce((s, c) => s + c.amount, 0),
       payableTxId: null,
       payableAmount: 0,
       payableCount: 0,
       confirmed: credits.filter((c) => c.status === 'CONFIRMED').reduce((s, c) => s + c.amount, 0),
-      toConfirm: activeCredits.filter((c) => c.status === 'PAID').length,
+      toConfirm: paidCredits.length,
     };
   }
   return { kind: 'hidden', amount: 0, payableTxId: null, payableAmount: 0, payableCount: 0, confirmed: 0, toConfirm: 0 };

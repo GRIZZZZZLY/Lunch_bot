@@ -6,6 +6,8 @@ import type { Transaction } from '@/types/models';
 
 export interface DebtLineVM {
   id: number;
+  /** Кому должен: ключ группы. id получателя, а без него — имя. */
+  toKey: string;
   name: string; // кому должен (toUser)
   amount: number;
   status: 'PENDING' | 'PAID';
@@ -15,6 +17,8 @@ export interface DebtLineVM {
   payTo: PayTo | null;
   /** Сколько уже ждёт подтверждения. Пусто, пока не отмечено. */
   waiting: string;
+  /** Для порядка строк в карточке: по дате, как в выписке банка. */
+  createdAt: string;
   details: DebtDetails;
 }
 
@@ -64,11 +68,27 @@ export interface CreditLineVM {
   reminded: string;
   /** Пауза после напоминания прошла (или напоминаний не было). */
   canRemind: boolean;
+  /** «снова в 17:30», пока идёт пауза; иначе пусто. */
+  remindAgain: string;
   details: DebtDetails;
 }
 
 /** Окно отмены подтверждения. Хозяин правила — сервер; здесь только показ. */
 export const UNDO_CONFIRM_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** Долги одному получателю. Три долга Игорю были тремя строками: три похода
+    в банк, три одинаковых номера, три «Отметить». */
+export interface DebtGroupVM {
+  key: string;
+  name: string;
+  /** Реквизиты одни на получателя — берём у первого долга. */
+  payTo: PayTo | null;
+  /** По дате, затем по id: отметка строки не переставляет. */
+  debts: DebtLineVM[];
+  toTransfer: number;
+  awaiting: number;
+  pendingIds: number[];
+}
 
 /** Закрытые за сутки: кому и сколько — для итоговой карточки должника. */
 export interface SettledVM {
@@ -79,6 +99,8 @@ export interface SettledVM {
 
 export interface BudgetVM {
   myDebts: DebtLineVM[];
+  /** myDebts по получателям: с переводом — первыми, по убыванию суммы. */
+  debtGroups: DebtGroupVM[];
   /** Ещё не переведено (PENDING). */
   myDebtToTransfer: number;
   /** Переведено и отмечено, ждёт получателя (PAID). Отдельно от «к переводу»:
@@ -238,6 +260,53 @@ function namesBySum(txs: Transaction[], who: (t: Transaction) => { firstName?: s
   return [...byName.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
 }
 
+function groupDebts(debts: DebtLineVM[]): DebtGroupVM[] {
+  const byKey = new Map<string, DebtGroupVM>();
+  for (const d of debts) {
+    let g = byKey.get(d.toKey);
+    if (!g) {
+      g = { key: d.toKey, name: d.name, payTo: d.payTo, debts: [], toTransfer: 0, awaiting: 0, pendingIds: [] };
+      byKey.set(d.toKey, g);
+    }
+    g.debts.push(d);
+    if (d.status === 'PENDING') {
+      g.toTransfer += d.amount;
+      g.pendingIds.push(d.id);
+    } else {
+      g.awaiting += d.amount;
+    }
+    g.payTo ??= d.payTo;
+  }
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const byDate = (a: DebtLineVM, b: DebtLineVM) =>
+    a.createdAt === b.createdAt ? a.id - b.id : a.createdAt < b.createdAt ? -1 : 1;
+  /* Порядок не зависит от статуса: по всей сумме долгов получателю. После
+     «Отметить все» список пересортировывался, карточка уезжала вниз, а под
+     палец вставала сплошная кнопка другого человека. Строки — по дате. */
+  return [...byKey.values()]
+    .map((g) => ({
+      ...g,
+      debts: [...g.debts].sort(byDate),
+      pendingIds: [...g.debts].sort(byDate).filter((d) => d.status === 'PENDING').map((d) => d.id),
+      toTransfer: round(g.toTransfer),
+      awaiting: round(g.awaiting),
+    }))
+    .sort((a, b) => b.toTransfer + b.awaiting - (a.toTransfer + a.awaiting) || (a.key < b.key ? -1 : 1));
+}
+
+/* Когда пауза кончится. Без этого «Напомнили» гасла без срока, и было не
+   понять, ждать час или до завтра. */
+function remindAgainOf(t: Transaction, now: Date): string {
+  if (canRemindOf(t, now) || !t.lastReminderAt) return '';
+  const at = new Date(new Date(t.lastReminderAt).getTime() + REMINDER_COOLDOWN_MS);
+  const time = at.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  if (at.toDateString() === now.toDateString()) return `снова в ${time}`;
+  if (at.toDateString() === tomorrow.toDateString()) return `снова завтра в ${time}`;
+  return `снова ${at.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} в ${time}`;
+}
+
 function canRemindOf(t: Transaction, now: Date): boolean {
   if (!t.lastReminderAt) return true;
   return now.getTime() - new Date(t.lastReminderAt).getTime() >= REMINDER_COOLDOWN_MS;
@@ -252,6 +321,7 @@ export function buildBudget(
     .filter((d) => d.status !== 'CONFIRMED')
     .map((d) => ({
       id: d.id,
+      toKey: d.toUser?.id != null ? String(d.toUser.id) : d.toUserId != null ? String(d.toUserId) : personName(d.toUser),
       name: personName(d.toUser),
       amount: d.amount,
       status: d.status as 'PENDING' | 'PAID',
@@ -259,6 +329,7 @@ export function buildBudget(
       payTo: payToOf(d),
       // ждём подтверждения с момента отметки, а не с создания долга
       waiting: d.status === 'PAID' && d.paidAt ? humanSince(d.paidAt, now) : '',
+      createdAt: d.createdAt,
       details: detailsOf(d),
     }))
     // сначала неоплаченные, внутри — по убыванию суммы
@@ -282,6 +353,7 @@ export function buildBudget(
       reference: referenceOf(c),
       reminded: remindedOf(c, now),
       canRemind: canRemindOf(c, now),
+      remindAgain: remindAgainOf(c, now),
       details: detailsOf(c),
     }))
     // сначала те, кто отметил оплату (их надо подтвердить)
@@ -309,11 +381,13 @@ export function buildBudget(
       reference: referenceOf(c),
       reminded: '',
       canRemind: false,
+      remindAgain: '',
       details: detailsOf(c),
     }));
 
   return {
     myDebts,
+    debtGroups: groupDebts(myDebts),
     myDebtToTransfer: sumOf('PENDING'),
     myDebtAwaiting: sumOf('PAID'),
     settledRecently: myDebts.length === 0 && hadConfirmedDebt,
