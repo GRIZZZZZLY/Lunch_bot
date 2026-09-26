@@ -89,13 +89,24 @@ export function Button({
   if (block) cls.push('btn--block');
   if (loading) cls.push('is-loading');
   if (className) cls.push(className);
+  /* Занятая кнопка — aria-disabled, а не disabled: disabled сбрасывал фокус в
+     начало страницы, и после «Отметить» или «Подтвердить» клавиатура и диктор
+     теряли место. Повтор гасим сами, вместе с отправкой формы. */
+  const handleClick = withHaptic(hapticImpact, onClick);
   return (
     <button
       type={type}
       className={cls.join(' ')}
-      disabled={disabled || loading}
+      disabled={disabled}
+      aria-disabled={loading || undefined}
       aria-busy={loading || undefined}
-      onClick={withHaptic(hapticImpact, onClick)}
+      onClick={(e) => {
+        if (loading) {
+          e.preventDefault();
+          return;
+        }
+        handleClick(e);
+      }}
       {...rest}
     >
       {loading && <Spinner className="btn__spin" />}
@@ -130,13 +141,24 @@ export function IconButton({
   if (size === 'lg') cls.push('btn--lg');
   if (loading) cls.push('is-loading');
   if (className) cls.push(className);
+  /* Занятая кнопка — aria-disabled, а не disabled: disabled сбрасывал фокус в
+     начало страницы, и после «Отметить» или «Подтвердить» клавиатура и диктор
+     теряли место. Повтор гасим сами, вместе с отправкой формы. */
+  const handleClick = withHaptic(hapticImpact, onClick);
   return (
     <button
       type={type}
       className={cls.join(' ')}
-      disabled={disabled || loading}
+      disabled={disabled}
+      aria-disabled={loading || undefined}
       aria-busy={loading || undefined}
-      onClick={withHaptic(hapticImpact, onClick)}
+      onClick={(e) => {
+        if (loading) {
+          e.preventDefault();
+          return;
+        }
+        handleClick(e);
+      }}
       {...rest}
     >
       {loading ? <Spinner className="btn__spin" /> : <Icon name={name} size={size === 'sm' ? 18 : 20} />}

@@ -25,7 +25,9 @@ describe('Button', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  it('loading: aria-busy, disabled, клики не проходят, текст остаётся в DOM (ширина не меняется)', async () => {
+  /* Занятая — aria-disabled, а не disabled: disabled сбрасывал фокус (см.
+     components/rl/__tests__/Button.test.tsx). */
+  it('loading: aria-busy, aria-disabled, клики не проходят, текст остаётся в DOM (ширина не меняется)', async () => {
     const onClick = vi.fn();
     render(
       <Button loading onClick={onClick}>
@@ -34,7 +36,7 @@ describe('Button', () => {
     );
     const btn = screen.getByRole('button');
     expect(btn).toHaveAttribute('aria-busy', 'true');
-    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute('aria-disabled', 'true');
     expect(btn).toHaveTextContent('Сохранить');
     await userEvent.click(btn);
     expect(onClick).not.toHaveBeenCalled();
