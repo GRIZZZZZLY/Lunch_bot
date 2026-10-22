@@ -2,59 +2,21 @@ import { prisma } from '../../../database/client';
 import { MenuItem, User, Group, Poll, Prisma } from '@prisma/client';
 
 /**
- * Очищает тестовую базу данных
- * ВАЖНО: Удаляем в порядке зависимостей (от зависимых к независимым)
+ * Очищает тестовую базу данных: все таблицы, кроме журнала миграций.
+ *
+ * Раньше здесь был список deleteMany в порядке внешних ключей. Каждая новая
+ * таблица в него не попадала, пока тест не падал на внешнем ключе или на
+ * данных, протёкших из прошлого теста (так было с магазинными забегами и
+ * очередью уведомлений). Список таблиц берётся из самой базы.
  */
 export async function cleanDatabase() {
-  // 1. Удаляем данные с внешними ключами (самые зависимые)
-  await prisma.paymentReminder.deleteMany();
-  await prisma.transaction.deleteMany();
-  /* Задания на уведомление ссылаются на транзакцию по значению, без внешнего
-     ключа: FK бы их не унёс, и очередь протекала бы между тестами. */
-  await prisma.outboxEvent.deleteMany();
-  await prisma.xPHistory.deleteMany();
-  await prisma.userStats.deleteMany();
-  await prisma.adminReminder.deleteMany();
-  await prisma.groupMember.deleteMany();
-  await prisma.menuSuggestion.deleteMany();
-  await prisma.userAchievement.deleteMany();
-  await prisma.userQuest.deleteMany();
-  await prisma.userChallengeProgress.deleteMany();
-  await prisma.userProgress.deleteMany();
-  
-  // 2. Удаляем результаты голосований и ответственных
-  await prisma.responsibleSelection.deleteMany();
-  await prisma.pollOrderCosts.deleteMany();
-  await prisma.pollResult.deleteMany();
-  
-  // 3. Удаляем голоса
-  await prisma.vote.deleteMany();
-  
-  // 4. Удаляем голосования и recurring polls
-  await prisma.poll.deleteMany();
-  await prisma.recurringPoll.deleteMany();
-  
-  /* 4.1. Магазинные забеги: их не было, когда писался этот помощник, и
-     `store_runs.initiator_id` держал пользователя — удаление пользователей
-     падало на внешнем ключе, как только тест заводил забег. Позиции первыми:
-     они ссылаются на забег. */
-  await prisma.storeItem.deleteMany();
-  await prisma.storeRun.deleteMany();
-  await prisma.userItemPreset.deleteMany();
-  await prisma.groupStore.deleteMany();
-
-  // 5. Удаляем блюда (зависят от user через createdBy)
-  await prisma.menuItem.deleteMany();
-  
-  // 6. Удаляем standalone tables (no user/group FK dependencies)
-  await prisma.achievement.deleteMany();
-  await prisma.quest.deleteMany();
-  await prisma.challenge.deleteMany();
-  await prisma.season.deleteMany();
-  
-  // 7. Удаляем пользователей и группы (независимые)
-  await prisma.user.deleteMany();
-  await prisma.group.deleteMany();
+  const tables = await prisma.$queryRaw<Array<{ tablename: string }>>`
+    SELECT tablename FROM pg_tables
+    WHERE schemaname = current_schema() AND tablename <> '_prisma_migrations'
+  `;
+  if (tables.length === 0) return;
+  const list = tables.map(({ tablename }) => `"${tablename}"`).join(', ');
+  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} CASCADE`);
 }
 
 /**

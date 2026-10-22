@@ -587,7 +587,6 @@ describe('Telegram недоступен, затем восстановлен', (
     /* 4. Сообщение ушло само, без участия человека. */
     expect(working.sent).toHaveLength(1);
     expect(working.sent[0].chatId).toBe(BORIS_TELEGRAM_ID);
-    expect(working.sent[0].text).toContain('Получена оплата');
 
     const delivered = await prisma.outboxEvent.findUnique({
       where: { id: pending[0].id },
@@ -782,12 +781,17 @@ describe('отмена отметки отменяет и уведомление
     await settleDelivery();
 
     /* Сообщение об оплате не ушло: долг больше не оплачен. Уходит только
-       уведомление о самой отмене — оно тоже идёт через очередь. */
-    expect(bot.sent).toEqual([expect.stringContaining('Отменена отметка оплаты')]);
+       уведомление о самой отмене — оно тоже идёт через очередь. Какое
+       сообщение ушло, видно по заданию, а не по тексту шаблона. */
+    expect(bot.sent).toHaveLength(1);
     const settled = await prisma.outboxEvent.findUnique({
       where: { id: job.id },
     });
     expect(settled!.status).toBe('SUPERSEDED');
+    const [cancelled] = await prisma.outboxEvent.findMany({
+      where: { entityId: world.debtInA, messageType: 'DEBT_MARK_CANCELLED' },
+    });
+    expect(cancelled.status).toBe('SENT');
   });
 });
 
@@ -951,7 +955,8 @@ describe('остальные переходы долга идут через о�
 
     const toAnna = bot.sent.filter(m => m.chatId === ANNA_TELEGRAM_ID);
     expect(toAnna).toHaveLength(1);
-    expect(toAnna[0].text).toContain('Оплата подтверждена');
+    const [delivered] = await eventsOf('DEBT_CONFIRMED');
+    expect(delivered.status).toBe('SENT');
   });
 
   it('подтверждение правит сохранённое сообщение о долге, а не шлёт новое', async () => {
@@ -965,10 +970,12 @@ describe('остальные переходы долга идут через о�
       expect.objectContaining({
         chatId: String(ANNA_TELEGRAM_ID),
         messageId: DEBT_MESSAGE_ID,
-        text: expect.stringContaining('Оплата подтверждена'),
       }),
     ]);
     expect(bot.sent.filter(m => m.chatId === ANNA_TELEGRAM_ID)).toHaveLength(0);
+    const [confirmed] = await eventsOf('DEBT_CONFIRMED');
+    expect(confirmed.status).toBe('SENT');
+    expect(confirmed.sentMessageId).toBe(DEBT_MESSAGE_ID);
   });
 
   it('повтор подтверждения не создаёт второе задание', async () => {
@@ -992,10 +999,34 @@ describe('остальные переходы долга идут через о�
     await makeQueueDue();
     await OutboxWorkerService.tick();
 
+    /* «Получена оплата» к этому времени устарело: Борис уже подтвердил. До него
+       доходит одна сводка, и в ней сумма закрытых долгов. */
     const toBoris = bot.sent.filter(m => m.chatId === BORIS_TELEGRAM_ID);
-    expect(toBoris.map(m => m.text)).toEqual(
-      expect.arrayContaining([expect.stringContaining('Все оплатили')])
-    );
+    expect(toBoris).toHaveLength(1);
+    const [sent] = await eventsOf('DEBTS_ALL_CONFIRMED');
+    expect(sent.status).toBe('SENT');
+    expect(Number.parseFloat((sent.payload as { total: string }).total)).toBe(390);
+  });
+
+  it('пока есть незакрытый долг, сводки «Все оплатили» нет', async () => {
+    recordingBot();
+    const vera = await prisma.user.create({
+      data: { telegramId: BigInt(700000203), firstName: 'Вера' },
+    });
+    await prisma.transaction.create({
+      data: {
+        pollId: await pollOf(world.debtInA),
+        fromUserId: vera.id,
+        toUserId: world.borisId,
+        amount: 210,
+        status: 'PENDING',
+      },
+    });
+
+    await markAndConfirm(world.debtInA);
+
+    expect(await eventsOf('DEBT_CONFIRMED')).toHaveLength(1);
+    expect(await eventsOf('DEBTS_ALL_CONFIRMED')).toHaveLength(0);
   });
 
   /* Два последних долга подтверждаются одновременно. Проверка «все ли
@@ -1044,9 +1075,11 @@ describe('остальные переходы долга идут через о�
     await OutboxWorkerService.tick();
 
     /* «Получена оплата» устарело и не уходит; уходит только отмена. */
-    expect(bot.sent.map(m => m.text)).toEqual([
-      expect.stringContaining('Отменена отметка оплаты'),
-    ]);
+    expect(bot.sent).toHaveLength(1);
+    const [cancelled] = await eventsOf('DEBT_MARK_CANCELLED');
+    expect(cancelled.status).toBe('SENT');
+    const [marked] = await eventsOf('DEBT_MARKED_PAID');
+    expect(marked.status).toBe('SUPERSEDED');
   });
 
   /* Старое сообщение «оплата подтверждена» переписывается, И должник
@@ -1064,14 +1097,12 @@ describe('остальные переходы долга идут через о�
     await settleDelivery();
 
     expect(bot.edited).toEqual([
-      expect.objectContaining({
-        messageId: DEBT_MESSAGE_ID,
-        text: expect.stringContaining('Подтверждение оплаты отменено'),
-      }),
+      expect.objectContaining({ messageId: DEBT_MESSAGE_ID }),
     ]);
     const toAnna = bot.sent.filter(m => m.chatId === ANNA_TELEGRAM_ID);
     expect(toAnna).toHaveLength(1);
-    expect(toAnna[0].text).toContain('Подтверждение оплаты отменено');
+    const [undone] = await eventsOf('DEBT_CONFIRMATION_UNDONE');
+    expect(undone.status).toBe('SENT');
   });
 
   it('кнопка «Все оплатили» ставит уведомление каждому должнику и сводку', async () => {
@@ -1090,9 +1121,61 @@ describe('остальные переходы долга идут через о�
     await makeQueueDue();
     await OutboxWorkerService.tick();
 
-    expect(bot.sent.find(m => m.chatId === BORIS_TELEGRAM_ID)?.text).toContain(
-      'Ты подтвердил оплату от всех участников'
+    expect(bot.sent.filter(m => m.chatId === BORIS_TELEGRAM_ID)).toHaveLength(1);
+    expect(bot.sent.filter(m => m.chatId === ANNA_TELEGRAM_ID)).toHaveLength(1);
+    expect((await eventsOf('DEBTS_ALL_CONFIRMED'))[0].status).toBe('SENT');
+    expect((await eventsOf('DEBT_CONFIRMED'))[0].status).toBe('SENT');
+  });
+
+  /* Два должника: каждому своё задание, получателю — одна сводка на всю сумму. */
+  it('«Все оплатили» на двух должников: два задания и сводка на 600', async () => {
+    recordingBot();
+    const vera = await prisma.user.create({
+      data: { telegramId: BigInt(700000203), firstName: 'Вера' },
+    });
+    const veraDebt = await prisma.transaction.create({
+      data: {
+        pollId: await pollOf(world.debtInA),
+        fromUserId: vera.id,
+        toUserId: world.borisId,
+        amount: 210,
+        status: 'PAID',
+      },
+    });
+
+    await post('/api/budget/mark-all-paid', borisToken, {
+      pollId: await pollOf(world.debtInA),
+    });
+
+    expect(await statusOf(world.debtInA)).toBe('CONFIRMED');
+    expect(await statusOf(veraDebt.id)).toBe('CONFIRMED');
+    const confirmed = await eventsOf('DEBT_CONFIRMED');
+    expect(confirmed.map(e => e.recipientChatId).sort()).toEqual(
+      [String(ANNA_TELEGRAM_ID), '700000203'].sort()
     );
+    const summaries = await eventsOf('DEBTS_ALL_CONFIRMED');
+    expect(summaries).toHaveLength(1);
+    expect(Number.parseFloat((summaries[0].payload as { total: string }).total)).toBe(600);
+
+    // Повторное нажатие: закрывать нечего, новых заданий нет.
+    await post('/api/budget/mark-all-paid', borisToken, {
+      pollId: await pollOf(world.debtInA),
+    });
+    expect(await prisma.outboxEvent.count()).toBe(3);
+  });
+
+  /* Анна не сборщик этого заказа: её нажатие не закрывает чужие долги.
+     Маршрут отвечает успехом (закрывать «своё» нечего), но в базе ничего не
+     меняется — это и проверяется. */
+  it('«Все оплатили» от не-сборщика долгов не закрывает', async () => {
+    recordingBot();
+
+    await post('/api/budget/mark-all-paid', annaToken, {
+      pollId: await pollOf(world.debtInA),
+    });
+
+    expect(await statusOf(world.debtInA)).toBe('PENDING');
+    expect(await prisma.outboxEvent.count()).toBe(0);
   });
 
   describe('магазинные долги из кнопок бота', () => {
@@ -1139,12 +1222,9 @@ describe('остальные переходы долга идут через о�
       await makeQueueDue();
       await OutboxWorkerService.tick();
 
-      expect(bot.sent).toEqual([
-        expect.objectContaining({
-          chatId: ANNA_TELEGRAM_ID,
-          text: expect.stringContaining('Оплата подтверждена'),
-        }),
-      ]);
+      expect(bot.sent).toEqual([expect.objectContaining({ chatId: ANNA_TELEGRAM_ID })]);
+      const delivered = await prisma.outboxEvent.findUnique({ where: { id: confirmed.id } });
+      expect(delivered!.status).toBe('SENT');
       const stale = await prisma.outboxEvent.findUnique({ where: { id: marked.id } });
       expect(stale!.status).toBe('SUPERSEDED');
     });
@@ -1161,5 +1241,519 @@ describe('остальные переходы долга идут через о�
       expect(results.filter(Boolean)).toHaveLength(1);
       expect(await eventsOf('STORE_RUN_MARKED_PAID')).toHaveLength(1);
     });
+  });
+});
+
+/** Изменяющий запрос бюджета без `.expect`: отказы проверяются по ответу. */
+function budgetPost(path: string, token: string, body: object) {
+  return request(app)
+    .post(path)
+    .set('Authorization', `Bearer ${token}`)
+    .set('Idempotency-Key', uniqueKey('budget'))
+    .send(body);
+}
+
+async function setDebt(id: number, data: { status: string; confirmedAt?: Date | null }) {
+  await prisma.transaction.update({
+    where: { id },
+    data: { paidAt: new Date(), ...data },
+  });
+}
+
+/**
+ * Отказы на переходах долга, которых нет в «ограничениях ролей».
+ *
+ * Каждый отказ проверяется и по ответу, и по строке в базе: ответ без
+ * неизменной строки — половина дела.
+ */
+describe('отказы на переходах долга', () => {
+  it.each([
+    '/api/budget/mark-paid',
+    '/api/budget/confirm-payment',
+    '/api/budget/undo-confirmation',
+    '/api/budget/cancel-mark',
+    '/api/budget/send-reminder',
+  ])('%s: неизвестный долг — 404', async path => {
+    const response = await budgetPost(path, borisToken, { transactionId: 999_999 });
+
+    expect(response.status).toBe(404);
+  });
+
+  it('отменить подтверждение должник не может — 403', async () => {
+    await setDebt(world.debtInA, { status: 'CONFIRMED', confirmedAt: new Date() });
+
+    const response = await budgetPost('/api/budget/undo-confirmation', annaToken, {
+      transactionId: world.debtInA,
+    });
+
+    expect(response.status).toBe(403);
+    expect(await statusOf(world.debtInA)).toBe('CONFIRMED');
+  });
+
+  /* Окно — сутки с подтверждения: позже это уже переписывание истории. Время
+     подтверждения засеяно в базе, часы не подменяются. Без времени
+     подтверждения окно не открывается вовсе. */
+  it.each([
+    ['25 часов назад', new Date(Date.now() - 25 * 60 * 60 * 1000)],
+    ['неизвестно когда', null],
+  ])('подтверждение %s не отменить — 409 UNDO_WINDOW_EXPIRED', async (_label, confirmedAt) => {
+    await setDebt(world.debtInA, { status: 'CONFIRMED', confirmedAt });
+
+    const response = await budgetPost('/api/budget/undo-confirmation', borisToken, {
+      transactionId: world.debtInA,
+    });
+
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe('UNDO_WINDOW_EXPIRED');
+    expect(await statusOf(world.debtInA)).toBe('CONFIRMED');
+  });
+
+  it('неподтверждённый долг отменять нечего — 409 WRONG_STATUS', async () => {
+    await setDebt(world.debtInA, { status: 'PAID' });
+
+    const response = await budgetPost('/api/budget/undo-confirmation', borisToken, {
+      transactionId: world.debtInA,
+    });
+
+    expect(response.status).toBe(409);
+    expect(response.body.code).toBe('WRONG_STATUS');
+    expect(await statusOf(world.debtInA)).toBe('PAID');
+  });
+
+  it('снять отметку может только должник — 403', async () => {
+    await setDebt(world.debtInA, { status: 'PAID' });
+
+    const response = await budgetPost('/api/budget/cancel-mark', borisToken, {
+      transactionId: world.debtInA,
+    });
+
+    expect(response.status).toBe(403);
+    expect(await statusOf(world.debtInA)).toBe('PAID');
+  });
+
+  it('с подтверждённого долга отметку не снять', async () => {
+    await setDebt(world.debtInA, { status: 'CONFIRMED', confirmedAt: new Date() });
+
+    const response = await budgetPost('/api/budget/cancel-mark', annaToken, {
+      transactionId: world.debtInA,
+    });
+
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(await statusOf(world.debtInA)).toBe('CONFIRMED');
+    expect(await prisma.outboxEvent.count()).toBe(0);
+  });
+
+  it('повторное снятие отметки не повторяет уведомление', async () => {
+    await budgetPost('/api/budget/mark-paid', annaToken, { transactionId: world.debtInA }).expect(200);
+    await budgetPost('/api/budget/cancel-mark', annaToken, { transactionId: world.debtInA }).expect(200);
+    await budgetPost('/api/budget/cancel-mark', annaToken, { transactionId: world.debtInA }).expect(200);
+
+    expect(await statusOf(world.debtInA)).toBe('PENDING');
+    expect(
+      await prisma.outboxEvent.count({ where: { messageType: 'DEBT_MARK_CANCELLED' } })
+    ).toBe(1);
+  });
+
+  it.each(['CONFIRMED', 'FORGIVEN'])(
+    'закрытый долг (%s) снова отметить оплаченным нельзя',
+    async status => {
+      await setDebt(world.debtInA, { status, confirmedAt: new Date() });
+
+      const response = await budgetPost('/api/budget/mark-paid', annaToken, {
+        transactionId: world.debtInA,
+      });
+
+      expect(response.status).toBeGreaterThanOrEqual(400);
+      expect(await statusOf(world.debtInA)).toBe(status);
+      expect(await prisma.outboxEvent.count()).toBe(0);
+    }
+  );
+
+  // BUG: ожидаемый отказ на закрытом долге отвечает 500 «Failed to mark as paid» — как поломка сервера, а не 4xx.
+  it.failing.each(['CONFIRMED', 'FORGIVEN'])(
+    'закрытый долг (%s): отказ — ошибка клиента, а не сервера',
+    async status => {
+      await setDebt(world.debtInA, { status, confirmedAt: new Date() });
+
+      const response = await budgetPost('/api/budget/mark-paid', annaToken, {
+        transactionId: world.debtInA,
+      });
+
+      expect(response.status).toBeGreaterThanOrEqual(400);
+      expect(response.status).toBeLessThan(500);
+    }
+  );
+});
+
+/**
+ * Ручное напоминание должнику. Telegram подменён на границе: фальшивый бот
+ * сериализует запрос, как настоящий клиент, и может «быть заблокирован».
+ */
+describe('напоминание должнику', () => {
+  interface Reminder {
+    chatId: unknown;
+    text: string;
+    keyboard?: Array<Array<{ url?: string }>>;
+  }
+
+  function reminderBot(blockedChatId?: number): Reminder[] {
+    const sent: Reminder[] = [];
+    setBotInstance({
+      api: {
+        sendMessage: async (
+          chatId: unknown,
+          text: string,
+          options?: { reply_markup?: { inline_keyboard: Array<Array<{ url?: string }>> } }
+        ) => {
+          JSON.stringify({ chat_id: chatId, text, ...options });
+          if (Number(chatId) === blockedChatId) {
+            throw Object.assign(new Error('Forbidden: bot was blocked by the user'), {
+              error_code: 403,
+            });
+          }
+          sent.push({ chatId, text, keyboard: options?.reply_markup?.inline_keyboard });
+          return { message_id: sent.length };
+        },
+      },
+    } as unknown as Parameters<typeof setBotInstance>[0]);
+    return sent;
+  }
+
+  function remind(token: string, transactionId: number) {
+    return budgetPost('/api/budget/send-reminder', token, { transactionId });
+  }
+
+  const debtRow = (id: number) => prisma.transaction.findUniqueOrThrow({ where: { id } });
+
+  it('получатель напоминает: сообщение должнику, счётчик и запись', async () => {
+    const sent = reminderBot();
+
+    const response = await remind(borisToken, world.debtInA);
+
+    expect(response.status).toBe(200);
+    expect(sent.map(m => m.chatId)).toEqual([ANNA_TELEGRAM_ID]);
+    const row = await debtRow(world.debtInA);
+    expect(row.reminderCount).toBe(1);
+    expect(row.lastReminderAt).not.toBeNull();
+    expect(await prisma.paymentReminder.count({ where: { transactionId: world.debtInA } })).toBe(1);
+  });
+
+  it('должник напомнить не может — 403, ничего не уходит', async () => {
+    const sent = reminderBot();
+
+    const response = await remind(annaToken, world.debtInA);
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe('FORBIDDEN');
+    expect(sent).toHaveLength(0);
+    expect((await debtRow(world.debtInA)).reminderCount).toBe(0);
+  });
+
+  it('повтор раньше 6 часов — 429, второго сообщения нет', async () => {
+    const sent = reminderBot();
+    await remind(borisToken, world.debtInA).expect(200);
+
+    const again = await remind(borisToken, world.debtInA);
+
+    expect(again.status).toBe(429);
+    expect(again.body.code).toBe('REMINDER_COOLDOWN');
+    expect(sent).toHaveLength(1);
+    expect((await debtRow(world.debtInA)).reminderCount).toBe(1);
+
+    /* Чужой получает отказ по правам, а не паузу: иначе по ответу он узнал бы,
+       когда напоминали последний раз. */
+    const outsider = await remind(annaToken, world.debtInA);
+    expect(outsider.status).toBe(403);
+  });
+
+  it('через 6 часов напомнить снова можно', async () => {
+    const sent = reminderBot();
+    await prisma.transaction.update({
+      where: { id: world.debtInA },
+      data: { reminderCount: 1, lastReminderAt: new Date(Date.now() - 7 * 60 * 60 * 1000) },
+    });
+
+    await remind(borisToken, world.debtInA).expect(200);
+
+    expect(sent).toHaveLength(1);
+    expect((await debtRow(world.debtInA)).reminderCount).toBe(2);
+  });
+
+  /* Раньше результат отправки не читался: заблокированный бот отвечал
+     «Reminder sent», и приложение писало «Напоминание отправлено». */
+  it('недоставленное напоминание — 422, счётчик не растёт', async () => {
+    reminderBot(ANNA_TELEGRAM_ID);
+
+    const response = await remind(borisToken, world.debtInA);
+
+    expect(response.status).toBe(422);
+    expect(response.body.code).toBe('REMINDER_UNDELIVERABLE');
+    const row = await debtRow(world.debtInA);
+    expect(row.reminderCount).toBe(0);
+    expect(row.lastReminderAt).toBeNull();
+    expect(await prisma.paymentReminder.count()).toBe(0);
+  });
+
+  /* Реквизиты в базе зашифрованы: пока напоминание брало их сырыми, должник
+     получал шифротекст. Ссылка СБП уходит кнопкой — в legacy-Markdown тексте
+     ссылку не кладём. */
+  it('реквизиты получателя уходят расшифрованными, ссылка — кнопкой', async () => {
+    const link = 'https://qr.nspk.ru/AS1000TEST';
+    await request(app)
+      .put('/api/user/payment-info')
+      .set('Authorization', `Bearer ${borisToken}`)
+      .send({ paymentPhone: '+7 999 123-45-67', paymentCard: link })
+      .expect(200);
+    const sent = reminderBot();
+
+    await remind(borisToken, world.debtInA).expect(200);
+
+    expect(sent[0].text).toContain('+7 999 123-45-67');
+    expect(sent[0].text).not.toContain(link);
+    expect(sent[0].keyboard?.flat().map(button => button.url)).toEqual([link]);
+  });
+
+  /* Номер карты из времён до шифрования лежит открытым текстом. Полностью в
+     сообщение он не попадает, и кнопки перевода у него нет. */
+  it('старый номер карты маскируется и кнопки не даёт', async () => {
+    await prisma.user.update({
+      where: { id: world.borisId },
+      data: { paymentCard: '4276123456789012' },
+    });
+    const sent = reminderBot();
+
+    await remind(borisToken, world.debtInA).expect(200);
+
+    expect(sent[0].text).not.toContain('4276123456789012');
+    expect(sent[0].text).toContain('9012');
+    expect(sent[0].keyboard).toBeUndefined();
+  });
+
+  it('без бота — отказ, и напоминание не засчитывается', async () => {
+    setBotInstance(null as unknown as Parameters<typeof setBotInstance>[0]);
+
+    const response = await remind(borisToken, world.debtInA);
+
+    expect(response.status).toBeGreaterThanOrEqual(500);
+    expect((await debtRow(world.debtInA)).reminderCount).toBe(0);
+    expect(await prisma.paymentReminder.count()).toBe(0);
+  });
+
+  it('всем должникам заказа: счётчик растёт только у доставленных', async () => {
+    const vera = await prisma.user.create({
+      data: { telegramId: BigInt(700000203), firstName: 'Вера' },
+    });
+    const pollId = (await prisma.transaction.findUniqueOrThrow({ where: { id: world.debtInA } }))
+      .pollId!;
+    const veraDebt = await prisma.transaction.create({
+      data: { pollId, fromUserId: vera.id, toUserId: world.borisId, amount: 210, status: 'PENDING' },
+    });
+    reminderBot(700000203);
+
+    const response = await budgetPost('/api/budget/send-reminders-all', borisToken, { pollId });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ sentCount: 1, failedCount: 1, totalCount: 2 });
+    expect(response.body.failedUsers.map((u: { id: number }) => u.id)).toEqual([vera.id]);
+    expect((await debtRow(world.debtInA)).reminderCount).toBe(1);
+    expect((await debtRow(veraDebt.id)).reminderCount).toBe(0);
+  });
+});
+
+/**
+ * Чтения бюджета: приватность реквизитов и область команды.
+ *
+ * «Изоляция команд» выше проверяет `/debts`; здесь то же для `/credits` и
+ * `/stats`, плюс реквизиты — они в базе зашифрованы и ходят только в одну
+ * сторону: должник видит реквизиты получателя, и больше никто ничьи.
+ */
+describe('чтение бюджета: реквизиты и область команды', () => {
+  const BORIS_PHONE = '+7 999 123-45-67';
+  const ANNA_PHONE = '+7 911 000-00-00';
+
+  async function setPhone(token: string, paymentPhone: string, paymentDetails?: string) {
+    await request(app)
+      .put('/api/user/payment-info')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ paymentPhone, ...(paymentDetails ? { paymentDetails } : {}) })
+      .expect(200);
+  }
+
+  async function storedPhone(userId: number): Promise<string> {
+    return (await prisma.user.findUniqueOrThrow({ where: { id: userId } })).paymentPhone!;
+  }
+
+  function get(path: string, token: string, query: Record<string, unknown> = {}) {
+    return request(app).get(path).query(query).set('Authorization', `Bearer ${token}`);
+  }
+
+  it('в долгах реквизиты получателя расшифрованы, своих реквизитов нет', async () => {
+    await setPhone(borisToken, BORIS_PHONE, 'Т-Банк');
+    await setPhone(annaToken, ANNA_PHONE);
+    // В базе шифротекст — иначе проверка расшифровки ничего бы не доказывала.
+    expect(await storedPhone(world.borisId)).not.toBe(BORIS_PHONE);
+
+    const response = await get('/api/budget/debts', annaToken, { groupId: world.teamAId });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data[0].toUser).toMatchObject({
+      paymentPhone: BORIS_PHONE,
+      paymentDetails: 'Т-Банк',
+    });
+    const body = JSON.stringify(response.body);
+    expect(body).not.toContain(ANNA_PHONE);
+    expect(body).not.toContain(await storedPhone(world.annaId));
+  });
+
+  it('в кредитах реквизитов должника нет ни в каком виде', async () => {
+    await setPhone(annaToken, ANNA_PHONE);
+
+    const response = await get('/api/budget/credits', borisToken);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(2);
+    const body = JSON.stringify(response.body);
+    expect(body).not.toContain(ANNA_PHONE);
+    expect(body).not.toContain(await storedPhone(world.annaId));
+  });
+
+  it('кредиты по команде: ровно эта команда, чужая — 403', async () => {
+    const teamA = await get('/api/budget/credits', borisToken, { groupId: world.teamAId });
+    const teamB = await get('/api/budget/credits', borisToken, { groupId: world.teamBId });
+    const foreign = await get('/api/budget/credits', annaToken, { groupId: world.teamCId });
+
+    expect(teamA.body.data.map((tx: { amount: string }) => Number(tx.amount))).toEqual([390]);
+    expect(teamB.body.data.map((tx: { amount: string }) => Number(tx.amount))).toEqual([450]);
+    expect(foreign.status).toBe(403);
+  });
+
+  /* Долг Анны в команде Б (450) в статистику команды А не входит. */
+  it('статистика по команде: только эта команда, чужая — 403', async () => {
+    const teamA = await get('/api/budget/stats', annaToken, { groupId: world.teamAId });
+    const all = await get('/api/budget/stats', annaToken);
+    const foreign = await get('/api/budget/stats', annaToken, { groupId: world.teamCId });
+
+    expect(teamA.body.data).toMatchObject({ totalSpent: 390, totalReceived: 0, totalOrders: 1 });
+    expect(all.body.data).toMatchObject({ totalSpent: 840, totalOrders: 2 });
+    expect(foreign.status).toBe(403);
+  });
+
+  it('диапазон дат ограничивает статистику', async () => {
+    await prisma.transaction.update({
+      where: { id: world.debtInB },
+      data: { createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
+    });
+
+    const response = await get('/api/budget/stats', annaToken, {
+      from: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    expect(response.body.data).toMatchObject({ totalSpent: 390, totalOrders: 1 });
+  });
+
+  /* Реквизиты из времён до шифрования лежат открытым текстом и должны дойти
+     до должника как есть. */
+  it('реквизиты без шифрования отдаются как есть', async () => {
+    await prisma.user.update({
+      where: { id: world.borisId },
+      data: { paymentDetails: 'Сбер, Борис' },
+    });
+
+    const response = await get('/api/budget/debts', annaToken, { groupId: world.teamAId });
+
+    expect(response.body.data[0].toUser.paymentDetails).toBe('Сбер, Борис');
+  });
+
+  /* Магазинный долг без названия позиции показывал на экране одно имя и сумму. */
+  it('магазинный долг приходит с названием и количеством позиции', async () => {
+    const storeRunId = (await prisma.transaction.findUniqueOrThrow({ where: { id: world.debtInB } }))
+      .storeRunId!;
+    const item = await prisma.storeItem.create({
+      data: { storeRunId, userId: world.annaId, name: 'Молоко', quantity: 2, status: 'BOUGHT' },
+    });
+    await prisma.transaction.update({ where: { id: world.debtInB }, data: { storeItemId: item.id } });
+
+    const debts = await get('/api/budget/debts', annaToken, { groupId: world.teamBId });
+    const credits = await get('/api/budget/credits', borisToken, { groupId: world.teamBId });
+
+    expect(debts.body.data[0].storeItem).toMatchObject({ name: 'Молоко', quantity: 2 });
+    expect(credits.body.data[0].storeItem).toMatchObject({ name: 'Молоко', quantity: 2 });
+  });
+
+  /* Получатель вышел из команды: незакрытый долг ему больше не показывается
+     среди активных. */
+  it('activeOnly скрывает долг перед вышедшим из команды', async () => {
+    await prisma.groupMember.update({
+      where: { groupId_userId: { groupId: world.teamAId, userId: world.borisId } },
+      data: { isActive: false, leftAt: new Date() },
+    });
+
+    const response = await get('/api/budget/debts', annaToken, { activeOnly: 'true' });
+
+    expect(response.body.data.map((tx: { id: number }) => tx.id)).toEqual([world.debtInB]);
+  });
+
+  it('чужой userId в запросе игнорируется: долги берутся по токену', async () => {
+    const response = await get('/api/budget/debts', borisToken, { userId: world.annaId });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual([]);
+  });
+
+  it('activeOnly скрывает закрытые долги', async () => {
+    await setDebt(world.debtInB, { status: 'CONFIRMED', confirmedAt: new Date() });
+
+    const response = await get('/api/budget/debts', annaToken, { activeOnly: 'true' });
+
+    expect(response.body.data.map((tx: { id: number }) => tx.id)).toEqual([world.debtInA]);
+  });
+});
+
+/**
+ * Итоги и разбивка заказа: суммы чужих людей, поэтому только участникам
+ * группы заказа. Флаг `users.is_admin` когда-то открывал бюджет любой группы.
+ */
+describe('итоги заказа: только участникам группы заказа', () => {
+  const PATHS = ['poll-totals', 'order-costs', 'poll-breakdown'];
+
+  async function pollInTeamC(): Promise<number> {
+    return (
+      await prisma.poll.create({
+        data: { groupId: world.teamCId, status: 'COMPLETED', createdBy: world.borisId },
+      })
+    ).id;
+  }
+
+  function get(path: string, pollId: number, token: string) {
+    return request(app)
+      .get(`/api/budget/${path}/${pollId}`)
+      .set('Authorization', `Bearer ${token}`);
+  }
+
+  it.each(PATHS)('%s: не участник группы — 403, даже с флагом is_admin', async path => {
+    const pollId = await pollInTeamC();
+    await prisma.user.update({ where: { id: world.annaId }, data: { isAdmin: true } });
+
+    const response = await get(path, pollId, annaToken);
+
+    expect(response.status).toBe(403);
+  });
+
+  it.each(PATHS)('%s: неизвестное голосование — 404', async path => {
+    const response = await get(path, 999_999, annaToken);
+
+    expect(response.status).toBe(404);
+  });
+
+  it('участник группы получает разбивку по долгам заказа', async () => {
+    const pollId = (await prisma.transaction.findUniqueOrThrow({ where: { id: world.debtInA } }))
+      .pollId!;
+
+    const response = await get('poll-breakdown', pollId, borisToken);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.transactions).toEqual([
+      expect.objectContaining({ userId: world.annaId, totalAmount: 390 }),
+    ]);
   });
 });

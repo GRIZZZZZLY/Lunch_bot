@@ -191,4 +191,20 @@ describe('PollSchedulerService — single-instance advisory lock (integration)',
       (PollSchedulerService as unknown as { cronJob: unknown }).cronJob
     ).not.toBeNull();
   });
+
+  // Остановленный процесс обязан отдать лок: иначе после штатного рестарта
+  // (новый процесс поднимается, старый ещё не закрыл соединение) автоголосования
+  // не запускает никто.
+  it('releases the lock on stop() so the next instance can take over', async () => {
+    await PollSchedulerService.start();
+    await PollSchedulerService.stop();
+
+    holder = new Client({ connectionString: process.env.DATABASE_URL });
+    await holder.connect();
+    const taken = await holder.query('SELECT pg_try_advisory_lock($1) AS locked', [
+      SCHEDULER_LOCK_KEY,
+    ]);
+
+    expect(taken.rows[0].locked).toBe(true);
+  });
 });

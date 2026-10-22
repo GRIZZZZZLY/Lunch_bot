@@ -9,6 +9,11 @@ process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ||
   process.env.DATABASE_URL ||
   'postgresql://foodbot:foodbot_password@localhost:5432/foodbot_test_db';
+/* Лимитер по умолчанию выключен: тесты эндпоинтов каждый раз входят заново,
+   и настоящий лимит (50 входов с адреса) срабатывал посреди набора — при
+   локальном прогоне без этой переменной падали целые файлы с 429. Тесты самого
+   лимитера включают его явно. Явно заданное значение не перетирается. */
+process.env.ENABLE_RATE_LIMIT ??= 'false';
 
 // Mock console methods to reduce noise in test output
 global.console = {
