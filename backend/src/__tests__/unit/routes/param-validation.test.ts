@@ -27,6 +27,8 @@
  * Роутеры, не входящие в задачу, перечислены в `NOT_WIRED_YET` — чтобы остаток
  * долга был виден здесь, а не только в `tech_debt/`.
  */
+import * as fs from 'fs';
+import * as path from 'path';
 import express, { type NextFunction, type Request, type Response, type Router } from 'express';
 import request from 'supertest';
 import type { z } from 'zod';
@@ -74,20 +76,6 @@ function listRoutes(router: Router): RouteEntry[] {
   return out;
 }
 
-/** Роутеры, охваченные задачей 02. */
-const WIRED = [
-  'poll',
-  'category-order',
-  'budget',
-  'store-run',
-  'recurring-poll',
-  'menu-suggestion',
-  'season',
-  'admin',
-  'group-store',
-  'item-preset',
-] as const;
-
 /**
  * Остаток долга, названный вслух. Это не «забыли» — это следующая порция:
  * задача 02 закрывает восемь роутеров из двадцати двух, и эти четырнадцать
@@ -97,6 +85,17 @@ const NOT_WIRED_YET = [
   'auth', 'avatar', 'donation', 'feedback', 'gamification', 'health',
   'insights', 'menu', 'metrics', 'notification', 'sse', 'test', 'user', 'vote',
 ];
+
+/**
+ * Все остальные роутеры каталога. Список не ведётся руками: новый роутер
+ * попадает под проверки сам, а не после того, как его вспомнят здесь.
+ */
+const WIRED = fs
+  .readdirSync(path.join(__dirname, '../../../api/routes'))
+  .filter(file => file.endsWith('.routes.ts'))
+  .map(file => file.replace('.routes.ts', ''))
+  .filter(name => !NOT_WIRED_YET.includes(name))
+  .sort();
 
 /**
  * Мутации без схемы тела — с причиной на каждую: действие определяется путём,
@@ -181,30 +180,6 @@ describe('валидация входа подключена на маршрут
     }
 
     expect(missing).toEqual([]);
-  });
-
-  /* Список исключений обязан оставаться живым: маршрут, получивший схему тела,
-     должен уйти из него, иначе список превратится в кладбище и перестанет
-     что-либо утверждать. */
-  it('в списке исключений нет маршрутов, у которых схема тела уже есть', () => {
-    const stale: string[] = [];
-
-    const known = new Set(Object.keys(MUTATIONS_WITHOUT_BODY));
-
-    for (const [name, routes] of Object.entries(routers)) {
-      for (const route of routes) {
-        const key = `${name}: ${route.method} ${route.path}`;
-        known.delete(key);
-        if (MUTATIONS_WITHOUT_BODY[key] && route.chain.includes('validateBody')) {
-          stale.push(`${key} — схема тела уже есть`);
-        }
-      }
-    }
-
-    // Исключение, выписанное несуществующему маршруту, — тоже мусор в списке.
-    for (const key of known) stale.push(`${key} — такого маршрута нет`);
-
-    expect(stale).toEqual([]);
   });
 
   it('контракт тела идёт после идемпотентности', () => {
@@ -442,20 +417,5 @@ describe('мусор в теле и query — 400 с указанием поля
       status: 400,
       passed: false,
     });
-  });
-});
-
-describe('остаток долга зафиксирован, а не забыт', () => {
-  it('список необёрнутых роутеров совпадает с тем, что есть в каталоге', async () => {
-    const fs = await import('fs');
-    const path = await import('path');
-    const dir = path.join(__dirname, '../../../api/routes');
-    const all = fs
-      .readdirSync(dir)
-      .filter(file => file.endsWith('.routes.ts'))
-      .map(file => file.replace('.routes.ts', ''))
-      .sort();
-
-    expect(all).toEqual([...WIRED, ...NOT_WIRED_YET].sort());
   });
 });

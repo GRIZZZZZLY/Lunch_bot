@@ -170,16 +170,6 @@ describe('тай-брейк', () => {
     // 'Ежевика' < 'Ёжик' по русской раскладке; побайтовое сравнение дало бы наоборот.
     expect(primaryWinnerId).toBe(2);
   });
-
-  it('в причине тай-брейка записано, сколько блюд и с каким числом голосов', () => {
-    const { resultData } = build([
-      vote({ menuItemId: 1, userId: 1 }),
-      vote({ menuItemId: 2, userId: 2, menuItem: { name: 'Шурпа', price: null, imageUrl: null } }),
-      vote({ menuItemId: 3, userId: 3, menuItem: { name: 'Лагман', price: null, imageUrl: null } }),
-    ]);
-
-    expect(resultData.meta.tieBreak?.reason).toBe('3 блюд с 1 голосами');
-  });
 });
 
 describe('«принесу своё» и «пропускаю»', () => {

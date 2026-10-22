@@ -7,7 +7,7 @@
  * потому что перепутать их можно молча:
  *
  * - `toDecimal`/`sumMoney` остаются в `Decimal` и годятся для РАСЧЁТА;
- * - `toNumber`/`sumDecimals`/`multiply`/`divide` сводят к `number` и годятся
+ * - `toNumber`/`sumDecimals`/`multiply` сводят к `number` и годятся
  *   только для ОТОБРАЖЕНИЯ.
  *
  * Колонки денег в схеме — `Decimal`. Складывание через `number` даёт
@@ -16,15 +16,8 @@
 import { Prisma } from '@prisma/client';
 
 import {
-  averageDecimals,
-  divide,
   formatCurrency,
-  isEqual,
-  isGreaterThan,
-  isGreaterThanOrEqual,
-  isLessThan,
   multiply,
-  parseJsonValue,
   sumDecimals,
   sumMoney,
   toDecimal,
@@ -93,90 +86,10 @@ describe('перевод в number — только для отображени�
     expect(formatCurrency(null)).toBe('0.00₽');
     expect(formatCurrency(dec('10'), '$')).toBe('10.00$');
   });
-
-  it('среднее по пустому списку — ноль, а не деление на ноль', () => {
-    expect(averageDecimals([])).toBe(0);
-  });
-
-  it('среднее считается по числу элементов, включая нулевые', () => {
-    expect(averageDecimals([dec('10'), dec('20'), 0])).toBe(10);
-  });
 });
 
-describe('сравнения', () => {
-  it.each([
-    ['больше', isGreaterThan, dec('10'), dec('5'), true],
-    ['не больше равного', isGreaterThan, dec('5'), dec('5'), false],
-    ['больше или равно', isGreaterThanOrEqual, dec('5'), dec('5'), true],
-    ['меньше', isLessThan, dec('1.5'), dec('2'), true],
-    ['равно', isEqual, dec('7.00'), 7, true],
-  ])('%s', (_label, compare, a, b, expected) => {
-    expect(compare(a as never, b as never)).toBe(expected);
-  });
-
-  /* Отсутствующее значение — ноль: иначе сравнение с null давало бы false в обе
-     стороны, и «долг не меньше нуля» проходило бы для несуществующего долга. */
-  it('отсутствующее значение сравнивается как ноль', () => {
-    expect(isGreaterThan(dec('0.01'), null)).toBe(true);
-    expect(isEqual(null, 0)).toBe(true);
-  });
-});
-
-describe('умножение и деление', () => {
+describe('умножение', () => {
   it('умножает на количество', () => {
     expect(multiply(dec('250.50'), 2)).toBe(501);
-  });
-
-  /* Деление на ноль даёт 0, а не Infinity: делитель здесь — число участников,
-     и «Infinity рублей с человека» в интерфейсе хуже нуля. */
-  it('деление на ноль даёт ноль, а не Infinity', () => {
-    expect(divide(dec('100'), 0)).toBe(0);
-  });
-
-  it('делит на число участников', () => {
-    expect(divide(dec('300'), 3)).toBe(100);
-  });
-
-  /**
-   * Деление НЕ остаётся в Decimal — 1000/3 в double даёт 333.3333333333333, и
-   * трижды по столько уже не равно 1000. Это известное ограничение, записанное
-   * в `tech_debt/08`: политика округления при делении денег — продуктовое
-   * решение, а не побочный эффект рефакторинга. Тест фиксирует поведение КАК
-   * ЕСТЬ, чтобы смена политики была видна как смена теста.
-   */
-  it('деление теряет точность — поведение зафиксировано как есть', () => {
-    const share = divide(dec('1000'), 3);
-
-    // Точное частное непредставимо: доля — периодическая дробь.
-    expect(share).toBeCloseTo(333.3333333, 7);
-    expect(Number.isInteger(share * 100)).toBe(false);
-
-    /* Именно здесь теряется рубль: доля, округлённая до копеек (а показать и
-       записать в долг можно только её), трижды даёт 999.99, а не 1000. Кто
-       доплачивает копейку — продуктовое решение, и его тут нет. */
-    const rounded = Math.round(share * 100) / 100;
-    expect(rounded * 3).toBeCloseTo(999.99, 2);
-    expect(rounded * 3).not.toBe(1000);
-  });
-});
-
-describe('parseJsonValue', () => {
-  it('строка разбирается как JSON', () => {
-    expect(parseJsonValue<{ a: number }>('{"a":1}')).toEqual({ a: 1 });
-  });
-
-  it('готовый объект возвращается как есть', () => {
-    const value = { winners: [1, 2] };
-    expect(parseJsonValue(value)).toBe(value);
-  });
-
-  /* Пустой объект вместо null: вызывающие читают поля сразу, без проверки. */
-  it('null и undefined дают пустой объект', () => {
-    expect(parseJsonValue(null)).toEqual({});
-    expect(parseJsonValue(undefined)).toEqual({});
-  });
-
-  it('битая строка бросает — молча пустой объект скрыл бы порчу данных', () => {
-    expect(() => parseJsonValue('{не json')).toThrow();
   });
 });

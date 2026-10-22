@@ -1,18 +1,11 @@
 /**
- * Голосование — центральный сценарий приложения, и здесь же живёт проверка
- * права голоса. Один шлюз (assertMenuItemsAllowedForPoll) стоит перед каждым
- * способом отдать голос, поэтому он проверяется отдельно и подробно: без него
- * можно проголосовать в чужой группе, в закрытом голосовании или за блюдо,
- * которого в этом голосовании нет.
- *
- * Второе, что закреплено, — идемпотентность. Повторное нажатие не должно
- * добавлять второй голос за то же блюдо и не должно начислять XP второй раз;
- * ключ идемпотентности собирается из (poll, user, menuItem).
- *
- * Третье — XP и события живут ВНЕ транзакции: их сбой не имеет права откатить
- * уже поданный голос.
+ * Голосование: правила, которые не видны через HTTP или живут только в сервисе.
+ * Шлюз права голоса, пределы выбора и идемпотентность голоса проверяются на
+ * настоящей БД в integration/api/votes.redis.test.ts; здесь остались ветки
+ * сервиса (замена набора, разбивка, подсчёты) и арифметика XP за голос.
  */
 import { VoteService } from '../../../services/vote.service';
+import { VoteXpService } from '../../../services/vote-xp.service';
 import { GamificationService } from '../../../services/gamification.service';
 import { eventBus } from '../../../services/event-bus.service';
 import { VoteType } from '../../../types/vote.types';
@@ -107,272 +100,16 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('право голоса', () => {
-  const vote = { pollId: 1, userId: 5, menuItemId: 7 };
-
-  it('участник активного голосования голосует', async () => {
-    await expect(VoteService.createVote(vote)).resolves.toMatchObject({
-      menuItemId: 7,
-      voteType: VoteType.MENU_ITEM,
-    });
-  });
-
-  it('в несуществующем голосовании голос не принимается', async () => {
-    asMock(prismaMock.poll.findUnique).mockResolvedValue(null);
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow(
-      'Failed to create vote'
-    );
-    expect(asMock(prismaMock.vote.create)).not.toHaveBeenCalled();
-  });
-
-  it.each(['COMPLETED', 'CANCELLED', 'PENDING'])(
-    'в голосовании со статусом %s голос не принимается',
-    async status => {
-      eligible({ status });
-
-      await expect(VoteService.createVote(vote)).rejects.toThrow();
-      expect(asMock(prismaMock.vote.create)).not.toHaveBeenCalled();
-    }
-  );
-
-  it('после дедлайна голос не принимается', async () => {
-    eligible({ endedAt: new Date('2026-08-03T11:00:00.000Z') });
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow();
-  });
-
-  it('ровно в момент дедлайна голос ещё принимается', async () => {
-    eligible({ endedAt: NOW });
-
-    await expect(VoteService.createVote(vote)).resolves.toBeDefined();
-  });
-
-  it('не участник группы голосовать не может', async () => {
-    asMock(prismaMock.groupMember.findUnique).mockResolvedValue(null);
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow();
-  });
-
-  it('вышедший из группы голосовать не может', async () => {
-    asMock(prismaMock.groupMember.findUnique).mockResolvedValue({
-      isActive: false,
-    });
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow();
-  });
-
-  it('не приглашённый в это голосование голосовать не может', async () => {
-    asMock(prismaMock.pollParticipant.findUnique).mockResolvedValue(null);
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow();
-  });
-
-  it('участник с иным статусом, чем EXPECTED, голосовать не может', async () => {
-    asMock(prismaMock.pollParticipant.findUnique).mockResolvedValue({
-      status: 'DECLINED',
-    });
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow();
-  });
-
-  it('блюдо вне выбранного набора голосования отклоняется', async () => {
-    eligible({ selectedMenuItemIds: JSON.stringify([1, 2, 3]) });
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow();
-    expect(asMock(prismaMock.vote.create)).not.toHaveBeenCalled();
-  });
-
-  it('блюдо из выбранного набора принимается', async () => {
-    eligible({ selectedMenuItemIds: JSON.stringify([7, 8]) });
-
-    await expect(VoteService.createVote(vote)).resolves.toBeDefined();
-  });
-
-  it('битый набор блюд в голосовании не открывает голосование за что угодно', async () => {
-    eligible({ selectedMenuItemIds: '{not json' });
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow();
-  });
-
-  it('набор блюд, оказавшийся не массивом, тоже отклоняется', async () => {
-    eligible({ selectedMenuItemIds: JSON.stringify({ id: 7 }) });
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow();
-  });
-
-  it('блюдо из чужой группы отклоняется: проверка идёт по groupId', async () => {
-    menuItemsExist(0);
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow();
-    expect(asMock(prismaMock.menuItem.count)).toHaveBeenCalledWith({
-      where: { id: { in: [7] }, groupId: 100, isActive: true },
-    });
-  });
-
-  it('выключенное блюдо отклоняется', async () => {
-    menuItemsExist(0);
-
-    await expect(VoteService.createVote(vote)).rejects.toThrow();
-  });
-});
-
-describe('createVote', () => {
-  const vote = { pollId: 1, userId: 5, menuItemId: 7 };
-
-  it('первый голос начисляет XP и рассылает событие', async () => {
-    await VoteService.createVote(vote);
-
-    expect(gamification.awardXP).toHaveBeenCalled();
-    expect(emitted('vote_added')).toBe(true);
-  });
-
-  it('повторное нажатие не создаёт второй голос и не начисляет XP снова', async () => {
-    asMock(prismaMock.vote.findFirst).mockResolvedValue({
-      id: 900,
-      menuItemId: 7,
-    });
-
-    const result = await VoteService.createVote(vote);
-
-    expect(result).toMatchObject({ id: 900 });
-    expect(asMock(prismaMock.vote.create)).not.toHaveBeenCalled();
-    expect(gamification.awardXP).not.toHaveBeenCalled();
-    expect(emitted('vote_added')).toBe(false);
-  });
-
-  it('сбой начисления XP не отменяет голос', async () => {
-    gamification.awardXP.mockRejectedValue(new Error('xp service down'));
-
-    await expect(VoteService.createVote(vote)).resolves.toBeDefined();
-    expect(logger.error).toHaveBeenCalledWith(
-      'Failed to award XP for vote:',
-      expect.any(Error)
-    );
-  });
-});
-
-describe('createVoteWithType', () => {
-  it('голос «принесу своё» блюда не требует', async () => {
-    const vote = await VoteService.createVoteWithType({
-      pollId: 1,
-      userId: 5,
-      voteType: VoteType.BRING_OWN,
-      customOption: 'Салат из дома',
-    });
-
-    expect(vote).toMatchObject({
-      voteType: VoteType.BRING_OWN,
-      customOption: 'Салат из дома',
-    });
-    // Без блюда список для проверки пуст — обращения к меню нет.
-    expect(asMock(prismaMock.menuItem.count)).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ id: { in: [] } }) })
-    );
-  });
-
-  it('голос «пропускаю» тоже проходит проверку права голоса', async () => {
-    asMock(prismaMock.pollParticipant.findUnique).mockResolvedValue(null);
-
-    await expect(
-      VoteService.createVoteWithType({
-        pollId: 1,
-        userId: 5,
-        voteType: VoteType.SKIP,
-      })
-    ).rejects.toThrow('Failed to create vote with type');
-  });
-
-  it('указанное блюдо проверяется на доступность', async () => {
-    menuItemsExist(0);
-
-    await expect(
-      VoteService.createVoteWithType({
-        pollId: 1,
-        userId: 5,
-        voteType: VoteType.MENU_ITEM,
-        menuItemId: 7,
-      })
-    ).rejects.toThrow();
-  });
-});
-
 describe('createMultipleVotes', () => {
-  it('дубликаты в запросе схлопываются', async () => {
-    menuItemsExist(2);
-    asMock(prismaMock.vote.findMany).mockResolvedValue([]);
-
-    await VoteService.createMultipleVotes(1, 5, [7, 7, 8]);
-
-    const call = asMock(prismaMock.vote.createMany).mock.calls[0][0] as {
-      data: Array<{ menuItemId: number }>;
-    };
-    expect(call.data.map(row => row.menuItemId)).toEqual([7, 8]);
-  });
-
-  it('уже отданные голоса не дублируются', async () => {
-    menuItemsExist(2);
-    asMock(prismaMock.vote.findMany)
-      .mockResolvedValueOnce([{ id: 1, menuItemId: 7 }])
-      .mockResolvedValue([
-        { id: 1, menuItemId: 7 },
-        { id: 2, menuItemId: 8 },
-      ]);
-
-    await VoteService.createMultipleVotes(1, 5, [7, 8]);
-
-    const call = asMock(prismaMock.vote.createMany).mock.calls[0][0] as {
-      data: Array<{ menuItemId: number }>;
-    };
-    expect(call.data.map(row => row.menuItemId)).toEqual([8]);
-  });
-
-  it('XP начисляется только за новые голоса', async () => {
-    menuItemsExist(2);
-    asMock(prismaMock.vote.findMany)
-      .mockResolvedValueOnce([{ id: 1, menuItemId: 7 }])
-      .mockResolvedValue([
-        { id: 1, menuItemId: 7 },
-        { id: 2, menuItemId: 8 },
-      ]);
-
-    await VoteService.createMultipleVotes(1, 5, [7, 8]);
-
-    expect(gamification.awardXP).toHaveBeenCalledTimes(1);
-  });
-
-  it('когда всё уже отдано, ни вставки, ни XP, ни события', async () => {
-    menuItemsExist(1);
-    asMock(prismaMock.vote.findMany).mockResolvedValue([
-      { id: 1, menuItemId: 7 },
-    ]);
-
-    await VoteService.createMultipleVotes(1, 5, [7]);
-
-    expect(asMock(prismaMock.vote.createMany)).not.toHaveBeenCalled();
-    expect(gamification.awardXP).not.toHaveBeenCalled();
-    expect(emitted('vote_added')).toBe(false);
-  });
-
   it.each([
-    ['без блюд', [] as number[]],
-    ['с пустым списком', [] as number[]],
-  ])('запрос %s отклоняется', async (_name, ids) => {
-    await expect(VoteService.createMultipleVotes(1, 5, ids)).rejects.toThrow(
-      'Invalid parameters for multiple votes'
-    );
-  });
-
-  it('запрос без голосования отклоняется', async () => {
-    await expect(VoteService.createMultipleVotes(0, 5, [7])).rejects.toThrow(
-      'Invalid parameters for multiple votes'
-    );
-  });
-
-  it('запрос без пользователя отклоняется', async () => {
-    await expect(VoteService.createMultipleVotes(1, 0, [7])).rejects.toThrow(
-      'Invalid parameters for multiple votes'
-    );
+    ['без блюд', 1, 5, [] as number[]],
+    ['без голосования', 0, 5, [7]],
+    ['без пользователя', 1, 0, [7]],
+  ])('запрос %s отклоняется', async (_name, pollId, userId, ids) => {
+    await expect(
+      VoteService.createMultipleVotes(pollId, userId, ids)
+    ).rejects.toThrow();
+    expect(asMock(prismaMock.vote.createMany)).not.toHaveBeenCalled();
   });
 
   it('причина отказа доходит до вызывающего как есть', async () => {
@@ -459,149 +196,64 @@ describe('replaceUserVotes', () => {
   });
 });
 
-describe('множители XP', () => {
-  const vote = { pollId: 1, userId: 5, menuItemId: 7 };
-
-  function awardedXP(): number {
-    return gamification.awardXP.mock.calls[0][1] as number;
-  }
+describe('VoteXpService.awardVoteXp: множители XP', () => {
+  type PollTiming = { duration: number; createdAt: Date } | null;
+  type Row = {
+    name: string;
+    votesToday: number | Error;
+    votedItems: number[] | Error;
+    poll: PollTiming;
+    xp: number;
+  };
 
   /** Голосование на 4 часа: последний час ещё не наступил. */
-  function farFromDeadline(): void {
-    eligible({ duration: 240 });
-  }
+  const far: PollTiming = { duration: 240, createdAt: NOW };
+  /** Дедлайн в 12:30, сейчас 12:00 — последний час. */
+  const lastHour: PollTiming = {
+    duration: 60,
+    createdAt: new Date('2026-08-03T11:30:00.000Z'),
+  };
+  const down = new Error('db down');
 
-  /** Не первый голос за день. */
-  function notFirstToday(): void {
-    asMock(prismaMock.vote.count).mockResolvedValue(3);
-  }
+  it.each<Row>([
+    { name: 'без бонусов — 10', votesToday: 3, votedItems: [7, 8], poll: far, xp: 10 },
+    { name: 'первый голос за день ×1.5', votesToday: 1, votedItems: [7, 8], poll: far, xp: 15 },
+    { name: 'единогласное голосование ×1.3', votesToday: 3, votedItems: [7], poll: far, xp: 13 },
+    { name: 'голос в последний час ×1.4', votesToday: 3, votedItems: [7, 8], poll: lastHour, xp: 14 },
+    // 10 × 1.5 = 15, затем 15 × 1.3 = 19.5 — множитель округляет вниз.
+    { name: 'множители перемножаются с округлением вниз', votesToday: 1, votedItems: [7], poll: far, xp: 19 },
+    { name: 'сбой проверки первого голоса бонуса не даёт', votesToday: down, votedItems: [7, 8], poll: far, xp: 10 },
+    { name: 'сбой проверки единогласия бонуса не даёт', votesToday: 3, votedItems: down, poll: far, xp: 10 },
+    { name: 'удалённое голосование бонуса за дедлайн не даёт', votesToday: 3, votedItems: [7, 8], poll: null, xp: 10 },
+  ])('$name', async ({ votesToday, votedItems, poll, xp }) => {
+    if (votesToday instanceof Error) {
+      asMock(prismaMock.vote.count).mockRejectedValue(votesToday);
+    } else {
+      asMock(prismaMock.vote.count).mockResolvedValue(votesToday);
+    }
+    if (votedItems instanceof Error) {
+      asMock(prismaMock.vote.findMany).mockRejectedValue(votedItems);
+    } else {
+      asMock(prismaMock.vote.findMany).mockResolvedValue(
+        votedItems.map(menuItemId => ({ menuItemId }))
+      );
+    }
+    asMock(prismaMock.poll.findUnique).mockResolvedValue(poll);
 
-  /** Голоса разошлись по двум блюдам — не единогласно. */
-  function notUnanimous(): void {
-    asMock(prismaMock.vote.findMany).mockResolvedValue([
-      { menuItemId: 7 },
-      { menuItemId: 8 },
-    ]);
-  }
+    await VoteXpService.awardVoteXp(5, 1, 7);
 
-  it('базовое начисление — 10 XP', async () => {
-    farFromDeadline();
-    notFirstToday();
-    notUnanimous();
-
-    await VoteService.createVote(vote);
-
-    expect(awardedXP()).toBe(10);
+    expect(gamification.awardXP.mock.calls[0][1]).toBe(xp);
   });
 
-  it('первый голос за день даёт ×1.5', async () => {
-    farFromDeadline();
-    asMock(prismaMock.vote.count).mockResolvedValue(1);
-    notUnanimous();
+  it('сбой начисления XP наружу не выходит', async () => {
+    gamification.awardXP.mockRejectedValue(new Error('xp down'));
 
-    await VoteService.createVote(vote);
-
-    expect(awardedXP()).toBe(15);
-  });
-
-  it('единогласное голосование даёт ×1.3', async () => {
-    farFromDeadline();
-    notFirstToday();
-    asMock(prismaMock.vote.findMany).mockResolvedValue([{ menuItemId: 7 }]);
-
-    await VoteService.createVote(vote);
-
-    expect(awardedXP()).toBe(13);
-  });
-
-  it('голос в последний час даёт ×1.4', async () => {
-    notFirstToday();
-    notUnanimous();
-    eligible({
-      duration: 60,
-      createdAt: new Date('2026-08-03T11:30:00.000Z'),
-    });
-
-    await VoteService.createVote(vote);
-
-    expect(awardedXP()).toBe(14);
-  });
-
-  it('множители перемножаются и результат округляется', async () => {
-    farFromDeadline();
-    asMock(prismaMock.vote.count).mockResolvedValue(1);
-    asMock(prismaMock.vote.findMany).mockResolvedValue([{ menuItemId: 7 }]);
-
-    await VoteService.createVote(vote);
-
-    // 10 × 1.5 = 15, затем 15 × 1.3 = 19.5 — множитель округляет вниз: 19.
-    expect(awardedXP()).toBe(19);
-  });
-
-  it('ключ идемпотентности собран из голосования, участника и блюда', async () => {
-    await VoteService.createVote(vote);
-
-    expect(gamification.awardXP).toHaveBeenCalledWith(
-      5,
-      expect.any(Number),
-      expect.any(String),
-      'SOCIAL',
-      expect.objectContaining({ pollId: 1, menuItemId: 7, baseAmount: 10 }),
-      'vote:1:5:7'
-    );
-  });
-
-  it('сбой проверки «первого голоса за день» бонус не даёт', async () => {
-    farFromDeadline();
-    asMock(prismaMock.vote.count).mockRejectedValue(new Error('db down'));
-    notUnanimous();
-
-    await VoteService.createVote(vote);
-
-    expect(awardedXP()).toBe(10);
-  });
-
-  it('сбой проверки единогласия бонус не даёт', async () => {
-    farFromDeadline();
-    notFirstToday();
-    asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
-
-    await VoteService.createVote(vote);
-
-    expect(awardedXP()).toBe(10);
-  });
-
-  it('удалённое голосование бонус за дедлайн не даёт', async () => {
-    notFirstToday();
-    notUnanimous();
-    asMock(prismaMock.poll.findUnique)
-      .mockResolvedValueOnce({
-        id: 1,
-        status: 'ACTIVE',
-        endedAt: null,
-        groupId: 100,
-        selectedMenuItemIds: null,
-      })
-      .mockResolvedValue(null);
-
-    await VoteService.createVote(vote);
-
-    expect(awardedXP()).toBe(10);
+    await expect(VoteXpService.awardVoteXp(5, 1, 7)).resolves.toBeUndefined();
   });
 });
 
 describe('upsertVote', () => {
   const vote = { pollId: 1, userId: 5, menuItemId: 7 };
-
-  it('прежние голоса снимаются, остаётся один', async () => {
-    await VoteService.upsertVote(vote);
-
-    expect(asMock(prismaMock.vote.deleteMany)).toHaveBeenCalledWith({
-      where: { pollId: 1, userId: 5 },
-    });
-    expect(asMock(prismaMock.vote.create)).toHaveBeenCalled();
-    expect(emitted('vote_changed')).toBe(true);
-  });
 
   it('причина отказа доходит до вызывающего как есть', async () => {
     eligible({ status: 'COMPLETED' });
@@ -610,31 +262,6 @@ describe('upsertVote', () => {
       'Poll is not active'
     );
     expect(emitted('vote_changed')).toBe(false);
-  });
-
-  it('upsert с типом заменяет голос и сохраняет свой вариант', async () => {
-    const result = await VoteService.upsertVoteWithType({
-      pollId: 1,
-      userId: 5,
-      voteType: VoteType.BRING_OWN,
-      customOption: 'Плов из дома',
-    });
-
-    expect(result).toMatchObject({ customOption: 'Плов из дома' });
-    expect(asMock(prismaMock.vote.deleteMany)).toHaveBeenCalled();
-    expect(emitted('vote_changed')).toBe(true);
-  });
-
-  it('отказ в upsert с типом пробрасывается', async () => {
-    asMock(prismaMock.pollParticipant.findUnique).mockResolvedValue(null);
-
-    await expect(
-      VoteService.upsertVoteWithType({
-        pollId: 1,
-        userId: 5,
-        voteType: VoteType.SKIP,
-      })
-    ).rejects.toThrow('User is not eligible to vote in this poll');
   });
 });
 
@@ -670,44 +297,6 @@ describe('castVotes', () => {
     expect(asMock(prismaMock.vote.createMany)).toHaveBeenCalled();
   });
 
-  it('несуществующее голосование — PollNotFoundError, голоса не создаются', async () => {
-    asMock(prismaMock.poll.findUnique).mockResolvedValue(null);
-
-    await expect(VoteService.castVotes(1, 5, [7])).rejects.toMatchObject({
-      statusCode: 404,
-      code: 'POLL_NOT_FOUND',
-    });
-    expect(asMock(prismaMock.vote.createMany)).not.toHaveBeenCalled();
-  });
-
-  it('одиночный выбор: несколько блюд — 400 SINGLE_SELECTION_ONLY', async () => {
-    poll({ isMultiSelect: false });
-
-    await expect(VoteService.castVotes(1, 5, [7, 8])).rejects.toMatchObject({
-      statusCode: 400,
-      code: 'SINGLE_SELECTION_ONLY',
-    });
-    expect(asMock(prismaMock.vote.createMany)).not.toHaveBeenCalled();
-  });
-
-  it('одиночный выбор: одно блюдо проходит', async () => {
-    poll({ isMultiSelect: false });
-    // Общий дефолт файла (vote.count=1) для других describe тут не подходит:
-    // проверяем первый голос, без уже поданных за другие блюда.
-    asMock(prismaMock.vote.count).mockResolvedValue(0);
-
-    await expect(VoteService.castVotes(1, 5, [7])).resolves.toBeDefined();
-  });
-
-  it('превышен лимит выбора — 400 MAX_SELECTIONS_EXCEEDED с числом в тексте', async () => {
-    poll({ maxSelections: 2 });
-
-    await expect(VoteService.castVotes(1, 5, [7, 8, 9])).rejects.toMatchObject({
-      statusCode: 400,
-      code: 'MAX_SELECTIONS_EXCEEDED',
-      message: 'Maximum 2 selections allowed',
-    });
-  });
 
   /* У старых голосований поле пустое, и они считались множественными.
      Сохранено намеренно: смена умолчания — отдельное решение. */
@@ -715,73 +304,6 @@ describe('castVotes', () => {
     poll({ isMultiSelect: null });
 
     await expect(VoteService.castVotes(1, 5, [7, 8])).resolves.toBeDefined();
-  });
-
-  /* Лимит считается по МНОЖЕСТВУ, а не по длине массива: дубликаты давали
-     ложный отказ, хотя ниже createMultipleVotes набор всё равно дедуплицирует.
-     Через HTTP сюда приходит уже множество, но метод по своему докблоку
-     действует для любого вызывающего. */
-  it('дубликаты в запросе не считаются за отдельные голоса', async () => {
-    poll({ isMultiSelect: false });
-    asMock(prismaMock.vote.count).mockResolvedValue(0);
-
-    await expect(VoteService.castVotes(1, 5, [11, 11])).resolves.toBeDefined();
-  });
-
-  it('дубликаты не добирают предел множественного выбора', async () => {
-    poll({ maxSelections: 2 });
-    asMock(prismaMock.vote.count).mockResolvedValue(0);
-
-    await expect(
-      VoteService.castVotes(1, 5, [7, 7, 8, 8])
-    ).resolves.toBeDefined();
-  });
-
-  it('maxSelections больше трёх не поднимает предел выше трёх', async () => {
-    poll({ maxSelections: 10 });
-
-    await expect(VoteService.castVotes(1, 5, [7, 8, 9, 10])).rejects.toMatchObject({
-      code: 'MAX_SELECTIONS_EXCEEDED',
-      message: 'Maximum 3 selections allowed',
-    });
-  });
-});
-
-describe('removeVote', () => {
-  it('снимаются все голоса пользователя в голосовании', async () => {
-    asMock(prismaMock.poll.findUnique).mockResolvedValue({
-      id: 1,
-      status: 'ACTIVE',
-    });
-
-    await VoteService.removeVote(1, 5);
-
-    expect(asMock(prismaMock.vote.deleteMany)).toHaveBeenCalledWith({
-      where: { pollId: 1, userId: 5 },
-    });
-    expect(emitted('vote_removed')).toBe(true);
-  });
-
-  /* Причина отказа теперь доезжает до вызывающего. Раньше собственный `catch`
-     подменял её на «Failed to remove vote», из-за чего ветка 400 в контроллере
-     была недостижима и клиент получал 500 за закрытое голосование. Тест это
-     закреплял — вместе с подменой; закреплено обратное. */
-  it('из завершённого голосования голос убрать нельзя, и причина не теряется', async () => {
-    asMock(prismaMock.poll.findUnique).mockResolvedValue({
-      id: 1,
-      status: 'COMPLETED',
-    });
-
-    await expect(VoteService.removeVote(1, 5)).rejects.toThrow(
-      'Poll is not active'
-    );
-    expect(asMock(prismaMock.vote.deleteMany)).not.toHaveBeenCalled();
-  });
-
-  it('из несуществующего голосования голос убрать нельзя', async () => {
-    asMock(prismaMock.poll.findUnique).mockResolvedValue(null);
-
-    await expect(VoteService.removeVote(1, 5)).rejects.toThrow();
   });
 });
 
@@ -877,61 +399,6 @@ describe('getVoteBreakdown', () => {
     ]);
   });
 
-  it('сбой чтения превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.groupBy).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getVoteBreakdown(1)).rejects.toThrow(
-      'Failed to get vote breakdown'
-    );
-  });
-});
-
-describe('чтение голосов', () => {
-  it('голоса пользователя — только за блюда', async () => {
-    await VoteService.getUserVotes(1, 5);
-
-    expect(asMock(prismaMock.vote.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { pollId: 1, userId: 5, menuItemId: { not: null } },
-      })
-    );
-  });
-
-  it('сбой чтения голосов пользователя превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getUserVotes(1, 5)).rejects.toThrow(
-      'Failed to get user votes'
-    );
-  });
-
-  it('hasUserVoted при сбое отвечает «не голосовал», а не падает', async () => {
-    asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.hasUserVoted(1, 5)).resolves.toBe(false);
-  });
-
-  it('hasUserVoted подтверждает наличие голоса', async () => {
-    asMock(prismaMock.vote.findMany).mockResolvedValue([{ id: 1 }]);
-
-    await expect(VoteService.hasUserVoted(1, 5)).resolves.toBe(true);
-  });
-
-  it('все голоса голосования отдаются от новых к старым', async () => {
-    await VoteService.getPollVotes(1);
-
-    expect(asMock(prismaMock.vote.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { createdAt: 'desc' } })
-    );
-  });
-
-  it('сбой чтения всех голосов превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getPollVotes(1)).rejects.toThrow(
-      'Failed to get poll votes'
-    );
-  });
 });
 
 describe('подсчёты и списки', () => {
@@ -959,51 +426,6 @@ describe('подсчёты и списки', () => {
     expect(rows.map(row => row.menuItemId)).toEqual([8, 7]);
   });
 
-  it('сбой подсчёта по блюдам превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getVoteCountByMenuItem(1)).rejects.toThrow(
-      'Failed to get vote count by menu item'
-    );
-  });
-
-  it('в списке голосовавших пропущены голоса без блюда', async () => {
-    asMock(prismaMock.vote.findMany).mockResolvedValue([
-      {
-        createdAt: NOW,
-        user: { id: 1, telegramId: 111n, firstName: 'Иван', lastName: null, username: null },
-        menuItem: { name: 'Плов' },
-      },
-      {
-        createdAt: NOW,
-        user: { id: 2, telegramId: 222n, firstName: 'Пётр' },
-        menuItem: null,
-      },
-    ]);
-
-    const voters = await VoteService.getPollVoters(1);
-
-    expect(voters).toEqual([
-      {
-        id: 1,
-        telegramId: 111n,
-        firstName: 'Иван',
-        lastName: undefined,
-        username: undefined,
-        votedFor: 'Плов',
-        votedAt: NOW,
-      },
-    ]);
-  });
-
-  it('сбой чтения голосовавших превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getPollVoters(1)).rejects.toThrow(
-      'Failed to get poll voters'
-    );
-  });
-
   it('getVoters склеивает имя и фамилию', async () => {
     asMock(prismaMock.vote.findMany).mockResolvedValue([
       {
@@ -1020,14 +442,6 @@ describe('подсчёты и списки', () => {
       { userId: 1, userName: 'Иван Петров', menuItemName: 'Плов' },
       { userId: 2, userName: 'Пётр', menuItemName: 'Суп' },
     ]);
-  });
-
-  it('сбой в getVoters превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getVoters(1)).rejects.toThrow(
-      'Failed to get voters'
-    );
   });
 });
 
@@ -1077,209 +491,6 @@ describe('getMostPopularMenuItem', () => {
   });
 });
 
-describe('статистика пользователя', () => {
-  function stats(over: Record<string, unknown> = {}) {
-    asMock(prismaMock.vote.count).mockResolvedValue(
-      (over.totalVotes as number) ?? 7
-    );
-    asMock(prismaMock.vote.findMany).mockResolvedValue(
-      (over.polls as unknown[]) ?? [{ pollId: 1 }, { pollId: 2 }]
-    );
-    asMock(prismaMock.vote.groupBy).mockResolvedValue(
-      (over.favorites as unknown[]) ?? [
-        { menuItemId: 7, _count: { menuItemId: 4 } },
-      ]
-    );
-    asMock(prismaMock.vote.findFirst).mockResolvedValue(
-      'lastVote' in over ? over.lastVote : { createdAt: NOW }
-    );
-  }
-
-  it('считает голоса, голосования и любимые блюда', async () => {
-    stats();
-    asMock(prismaMock.menuItem.findMany).mockResolvedValue([
-      { id: 7, name: 'Плов' },
-    ]);
-
-    await expect(VoteService.getUserVoteStats(5)).resolves.toEqual({
-      totalVotes: 7,
-      pollsParticipated: 2,
-      favoriteMenuItems: [{ name: 'Плов', votes: 4 }],
-      lastVoteDate: NOW,
-    });
-  });
-
-  it('удалённое любимое блюдо подписывается номером', async () => {
-    stats();
-    asMock(prismaMock.menuItem.findMany).mockResolvedValue([]);
-
-    const result = await VoteService.getUserVoteStats(5);
-
-    expect(result.favoriteMenuItems).toEqual([
-      { name: 'Menu Item #7', votes: 4 },
-    ]);
-  });
-
-  it('без голосов дата последнего голоса не задана', async () => {
-    stats({ totalVotes: 0, polls: [], favorites: [], lastVote: null });
-
-    await expect(VoteService.getUserVoteStats(5)).resolves.toMatchObject({
-      totalVotes: 0,
-      pollsParticipated: 0,
-      favoriteMenuItems: [],
-      lastVoteDate: undefined,
-    });
-  });
-
-  it('сбой чтения статистики превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.count).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getUserVoteStats(5)).rejects.toThrow(
-      'Failed to get user vote stats'
-    );
-  });
-
-  it('история голосов отдаётся страницей и с общим числом', async () => {
-    asMock(prismaMock.vote.findMany).mockResolvedValue([{ id: 1 }]);
-    asMock(prismaMock.vote.count).mockResolvedValue(30);
-
-    await expect(VoteService.getUserVotesHistory(5, 10, 20)).resolves.toEqual({
-      votes: [{ id: 1 }],
-      total: 30,
-    });
-    expect(asMock(prismaMock.vote.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 10, skip: 20 })
-    );
-  });
-
-  it('по умолчанию история — первые 20', async () => {
-    await VoteService.getUserVotesHistory(5);
-
-    expect(asMock(prismaMock.vote.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 20, skip: 0 })
-    );
-  });
-
-  it('сбой чтения истории превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getUserVotesHistory(5)).rejects.toThrow(
-      'Failed to get user votes'
-    );
-  });
-});
-
-describe('обслуживание и топы', () => {
-  it('пустой список голосований в БД не идёт', async () => {
-    await expect(VoteService.removeExpiredVotes([])).resolves.toBe(0);
-
-    expect(asMock(prismaMock.vote.deleteMany)).not.toHaveBeenCalled();
-  });
-
-  it('удаляются только завершённые голосования старше 30 дней', async () => {
-    asMock(prismaMock.vote.deleteMany).mockResolvedValue({ count: 4 });
-
-    await expect(VoteService.removeExpiredVotes([1, 2])).resolves.toBe(4);
-    expect(asMock(prismaMock.vote.deleteMany)).toHaveBeenCalledWith({
-      where: {
-        pollId: { in: [1, 2] },
-        poll: {
-          status: 'COMPLETED',
-          createdAt: { lt: new Date('2026-07-04T12:00:00.000Z') },
-        },
-      },
-    });
-  });
-
-  it('сбой удаления превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.deleteMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.removeExpiredVotes([1])).rejects.toThrow(
-      'Failed to remove expired votes'
-    );
-  });
-
-  it('топ блюд считает и голоса, и уникальных голосовавших', async () => {
-    asMock(prismaMock.vote.groupBy)
-      .mockResolvedValueOnce([{ menuItemId: 7, _count: { menuItemId: 5 } }])
-      .mockResolvedValueOnce([
-        { menuItemId: 7, userId: 1 },
-        { menuItemId: 7, userId: 2 },
-        { menuItemId: null, userId: 3 },
-      ]);
-    asMock(prismaMock.menuItem.findMany).mockResolvedValue([
-      { id: 7, name: 'Плов' },
-    ]);
-
-    await expect(VoteService.getTopMenuItemsByVotes()).resolves.toEqual([
-      { menuItemId: 7, menuItemName: 'Плов', totalVotes: 5, uniqueVoters: 2 },
-    ]);
-  });
-
-  it('период и лимит применяются к запросу', async () => {
-    await VoteService.getTopMenuItemsByVotes(7, 3);
-
-    const call = asMock(prismaMock.vote.groupBy).mock.calls[0][0] as {
-      where: { createdAt: { gte: Date } };
-      take: number;
-    };
-    expect(call.where.createdAt.gte).toEqual(
-      new Date('2026-07-27T12:00:00.000Z')
-    );
-    expect(call.take).toBe(3);
-  });
-
-  it('фильтр по группе добавляется только когда группа задана', async () => {
-    await VoteService.getTopMenuItemsByVotes(30, 10, 100);
-
-    expect(
-      (
-        asMock(prismaMock.vote.groupBy).mock.calls[0][0] as {
-          where: Record<string, unknown>;
-        }
-      ).where
-    ).toMatchObject({ poll: { groupId: 100 } });
-  });
-
-  it('без группы фильтра по группе нет', async () => {
-    await VoteService.getTopMenuItemsByVotes();
-
-    expect(
-      (
-        asMock(prismaMock.vote.groupBy).mock.calls[0][0] as {
-          where: Record<string, unknown>;
-        }
-      ).where
-    ).not.toHaveProperty('poll');
-  });
-
-  it('сбой построения топа превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.groupBy).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getTopMenuItemsByVotes()).rejects.toThrow(
-      'Failed to get top menu items by votes'
-    );
-  });
-});
-
-describe('deleteVote', () => {
-  it('удаление голоса за блюдо адресное', async () => {
-    await VoteService.deleteVote(1, 5, 7);
-
-    expect(asMock(prismaMock.vote.deleteMany)).toHaveBeenCalledWith({
-      where: { pollId: 1, userId: 5, menuItemId: 7 },
-    });
-  });
-
-  it('сбой удаления превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.deleteMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.deleteVote(1, 5, 7)).rejects.toThrow(
-      'Failed to delete vote'
-    );
-  });
-});
-
 describe('getVoteTypeStats', () => {
   it('типы голосов считаются раздельно', async () => {
     asMock(prismaMock.vote.findMany).mockResolvedValue([
@@ -1308,13 +519,5 @@ describe('getVoteTypeStats', () => {
       skipVotes: 0,
       total: 1,
     });
-  });
-
-  it('сбой чтения превращается в понятную ошибку', async () => {
-    asMock(prismaMock.vote.findMany).mockRejectedValue(new Error('db down'));
-
-    await expect(VoteService.getVoteTypeStats(1)).rejects.toThrow(
-      'Failed to get vote type stats'
-    );
   });
 });

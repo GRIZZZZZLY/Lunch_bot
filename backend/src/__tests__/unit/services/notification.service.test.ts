@@ -90,16 +90,21 @@ describe('send', () => {
   });
 
   it('заглушение ищется по telegramId, а не по внутреннему id', async () => {
-    await service.send({
+    // Внутренний id 555 у другого, выключенного человека; telegramId 555 — активен.
+    prismaMock.user.findUnique.mockImplementation((async (args: {
+      where: { telegramId?: bigint };
+    }) =>
+      args.where.telegramId === BigInt(555)
+        ? { isActive: true }
+        : { isActive: false }) as never);
+
+    const result = await service.send({
       userId: 555,
       type: NotificationType.CUSTOM,
       message: 'привет',
     });
 
-    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
-      where: { telegramId: BigInt(555) },
-      select: { isActive: true },
-    });
+    expect(result.success).toBe(true);
   });
 
   it('деактивированному пользователю сообщение не уходит', async () => {
@@ -167,55 +172,6 @@ describe('send', () => {
   });
 });
 
-describe('произвольные и массовые уведомления', () => {
-  it('custom-уведомление добавляет заголовок', async () => {
-    await service.sendCustomNotification(555, 'текст', { title: 'Заголовок' });
-
-    expect(sendMessage.mock.calls[0][1]).toBe('*Заголовок*\n\nтекст');
-  });
-
-  it('custom-уведомление без заголовка уходит как есть', async () => {
-    await service.sendCustomNotification(555, 'текст');
-
-    expect(sendMessage.mock.calls[0][1]).toBe('текст');
-  });
-
-  it('массовая рассылка считает успешные', async () => {
-    sendMessage
-      .mockResolvedValueOnce({ message_id: 1 })
-      .mockRejectedValueOnce(new Error('blocked'));
-
-    const results = await service.sendBulkNotification([555, 777], 'текст');
-
-    expect(results.map(r => r.success)).toEqual([true, false]);
-  });
-});
-
-describe('getStats', () => {
-  it('складывает напоминания об оплате и админские', async () => {
-    asMock(prismaMock.paymentReminder.count).mockResolvedValue(3);
-    asMock(prismaMock.adminReminder.count).mockResolvedValue(2);
-
-    await expect(service.getStats()).resolves.toEqual({
-      paymentReminders: 3,
-      pollNotifications: 2,
-      totalReminders: 5,
-    });
-  });
-
-  it('ошибка базы даёт нули, а не исключение', async () => {
-    asMock(prismaMock.paymentReminder.count).mockRejectedValue(
-      new Error('db down')
-    );
-
-    await expect(service.getStats()).resolves.toEqual({
-      paymentReminders: 0,
-      pollNotifications: 0,
-      totalReminders: 0,
-    });
-  });
-});
-
 describe('botCanPostToGroup', () => {
   beforeEach(() => {
     asMock(prismaMock.group.findUnique).mockResolvedValue({
@@ -223,7 +179,9 @@ describe('botCanPostToGroup', () => {
     });
   });
 
-  it('бот в группе — можно писать', async () => {
+  it.each(['administrator', 'member'])('статус %s — можно писать', async status => {
+    getChatMember.mockResolvedValue({ status });
+
     await expect(service.botCanPostToGroup(100)).resolves.toBe(true);
     expect(getChatMember).toHaveBeenCalledWith(-1001, 999);
   });

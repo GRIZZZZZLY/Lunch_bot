@@ -1,10 +1,8 @@
 /**
- * Кнопки под сообщением голосования в группе. Их видят все участники, поэтому
- * каждое действие сначала проверяет права АДМИНА ЭТОЙ ГРУППЫ: без этого любой
- * участник мог бы завершить или отменить общий обед.
- *
- * Отдельно: рулетка не должна запускаться дважды и не должна крутиться, пока
- * голосование ещё активно.
+ * Кнопки под сообщением голосования в группе. Права админа группы, завершение,
+ * отмену и deep-link на тестовой БД проверяет integration/bot/poll-callbacks.
+ * Здесь — то, что через настоящий бот не воспроизвести: авторулетка, анимация
+ * рулетки и её запасные пути, сбои сервисов и Telegram.
  */
 import {
   handleCompletePoll,
@@ -207,86 +205,20 @@ afterEach(() => {
   process.env = envBackup;
 });
 
-describe('handleCompletePoll', () => {
-  it('админ группы завершает голосование и видит результаты', async () => {
-    const ctx = makeCtx();
+type Ctx = ReturnType<typeof makeCtx>;
 
-    await handleCompletePoll(ctx, 5);
+/** Анимация рулетки идёт на таймерах: прогоняем её до конца. */
+async function runRoulette(ctx: Ctx): Promise<void> {
+  const promise = handleRunRoulette(ctx, 5);
+  await jest.advanceTimersByTimeAsync(3000);
+  await promise;
+}
 
-    expect(pollCompletion.completePoll).toHaveBeenCalledWith(5);
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      '✅ Голосование завершено'
-    );
-    expect(ctx.editMessageText).toHaveBeenCalledWith(
-      expect.stringContaining('Результаты голосования'),
-      { parse_mode: 'Markdown' }
-    );
-  });
-
-  /* Три утверждения об одном сообщении — том, которое видит вся группа. Все
-     три раньше нарушались, и ни одно не падало: параметры `createResultsMessage`
-     были `any`. */
-  it('в сообщении стоит название опроса, а не «undefined»', async () => {
-    const ctx = makeCtx();
-
-    await handleCompletePoll(ctx, 5);
-
-    const [message] = ctx.editMessageText.mock.calls[0];
-    expect(message).toContain('Обед');
-    expect(message).not.toContain('undefined');
-  });
-
-  it('победившее блюдо попадает в сообщение', async () => {
-    const ctx = makeCtx();
-
-    await handleCompletePoll(ctx, 5);
-
-    expect(ctx.editMessageText.mock.calls[0][0]).toContain('Плов');
-  });
-
-  it('ответственный попадает в сообщение', async () => {
-    const ctx = makeCtx();
-
-    await handleCompletePoll(ctx, 5);
-
-    expect(ctx.editMessageText.mock.calls[0][0]).toContain('Игорь');
-  });
-
-  it('не админ группы завершить не может', async () => {
-    groupService.isUserGroupAdmin.mockResolvedValue(false);
-    const ctx = makeCtx();
-
-    await handleCompletePoll(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('Только администратор этой группы')
-    );
-    expect(pollCompletion.completePoll).not.toHaveBeenCalled();
-  });
-
-  it('незнакомый пользователь завершить не может', async () => {
-    userService.getUserByTelegramId.mockResolvedValue(null);
-    const ctx = makeCtx();
-
-    await handleCompletePoll(ctx, 5);
-
-    expect(pollCompletion.completePoll).not.toHaveBeenCalled();
-  });
-
-  it('голосования нет — отказ', async () => {
-    pollQuery.getPollById.mockResolvedValue(null);
-    const ctx = makeCtx();
-
-    await handleCompletePoll(ctx, 5);
-
-    expect(pollCompletion.completePoll).not.toHaveBeenCalled();
-  });
-
+describe('handleCompletePoll: авторулетка', () => {
   it('с включённой авторулеткой она запускается после завершения', async () => {
     process.env.AUTO_ROULETTE_ENABLED = 'true';
-    const ctx = makeCtx();
 
-    await handleCompletePoll(ctx, 5);
+    await handleCompletePoll(makeCtx(), 5);
     await jest.advanceTimersByTimeAsync(3000);
 
     expect(rouletteStub.runRoulette).toHaveBeenCalledWith(5);
@@ -295,60 +227,15 @@ describe('handleCompletePoll', () => {
   it('без голосов авторулетка не запускается', async () => {
     process.env.AUTO_ROULETTE_ENABLED = 'true';
     voteService.getPollVotes.mockResolvedValue([]);
-    const ctx = makeCtx();
 
-    await handleCompletePoll(ctx, 5);
+    await handleCompletePoll(makeCtx(), 5);
     await jest.advanceTimersByTimeAsync(3000);
 
     expect(rouletteStub.runRoulette).not.toHaveBeenCalled();
   });
-
-  it('ошибка завершения отвечает на нажатие', async () => {
-    pollCompletion.completePoll.mockRejectedValue(new Error('db down'));
-    const ctx = makeCtx();
-
-    await handleCompletePoll(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('Ошибка при завершении')
-    );
-  });
 });
 
 describe('handleRunRoulette', () => {
-  it('крутит рулетку и сохраняет результат', async () => {
-    const ctx = makeCtx();
-
-    const promise = handleRunRoulette(ctx, 5);
-    await jest.advanceTimersByTimeAsync(3000);
-    await promise;
-
-    expect(pollService.savePollResult).toHaveBeenCalledWith({
-      pollId: 5,
-      winnerMenuItemId: 1,
-      responsibleUserId: 7,
-      totalVotes: 3,
-      rouletteData: expect.any(String),
-    });
-  });
-
-  it('анимация правит одно и то же сообщение', async () => {
-    const ctx = makeCtx();
-
-    const promise = handleRunRoulette(ctx, 5);
-    await jest.advanceTimersByTimeAsync(3000);
-    await promise;
-
-    // Начальный текст + два шага + финал.
-    expect(ctx.api.editMessageText).toHaveBeenCalledTimes(4);
-    expect(ctx.api.editMessageText).toHaveBeenLastCalledWith(
-      -1001,
-      77,
-      expect.stringContaining('Игорь оформляет заказ'),
-      { parse_mode: 'Markdown' }
-    );
-  });
-
   /**
    * Имена участников попадают и в шаги анимации (их собирает
    * `roulette.service`), и в финальное сообщение. Шаблон шага разметки не
@@ -367,73 +254,38 @@ describe('handleRunRoulette', () => {
     });
     const ctx = makeCtx();
 
-    const promise = handleRunRoulette(ctx, 5);
-    await jest.advanceTimersByTimeAsync(3000);
-    await promise;
+    await runRoulette(ctx);
 
-    const texts = ctx.api.editMessageText.mock.calls.map(call => call[2]);
-    expect(texts).toContain('🎯 Игорь\\_П...');
-    expect(texts[texts.length - 1]).toContain('Аня\\_К оформляет заказ');
-    expect(texts[texts.length - 1]).toContain('Соус\\_острый \\*акция\\*');
+    const texts: string[] = ctx.api.editMessageText.mock.calls.map(call => call[2]);
+    expect(texts.some(text => text.includes('Игорь\\_П'))).toBe(true);
+    const final = texts[texts.length - 1];
+    expect(final).toContain('Аня\\_К');
+    expect(final).toContain('Соус\\_острый \\*акция\\*');
   });
 
-  it('активное голосование сначала надо завершить', async () => {
-    pollQuery.getPollById.mockResolvedValue({
-      id: 5,
-      groupId: 100,
-      status: 'ACTIVE',
-    });
+  it.each<[string, () => void]>([
+    ['без голосов рулетка не крутится', () => voteService.getPollVotes.mockResolvedValue([])],
+    [
+      'повторный запуск отклоняется',
+      () => pollService.getPollResult.mockResolvedValue({ responsibleUserId: 7 }),
+    ],
+  ])('%s', async (_name, arrange) => {
+    arrange();
     const ctx = makeCtx();
 
     await handleRunRoulette(ctx, 5);
 
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('Сначала завершите голосование')
-    );
+    expect(ctx.answerCallbackQuery).toHaveBeenCalled();
     expect(rouletteStub.runRoulette).not.toHaveBeenCalled();
+    expect(pollService.savePollResult).not.toHaveBeenCalled();
   });
 
-  it('без голосов рулетка не крутится', async () => {
-    voteService.getPollVotes.mockResolvedValue([]);
-    const ctx = makeCtx();
-
-    await handleRunRoulette(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('Никто не проголосовал')
-    );
-  });
-
-  it('повторный запуск отклоняется', async () => {
-    pollService.getPollResult.mockResolvedValue({ responsibleUserId: 7 });
-    const ctx = makeCtx();
-
-    await handleRunRoulette(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('Рулетка уже была запущена')
-    );
-    expect(rouletteStub.runRoulette).not.toHaveBeenCalled();
-  });
-
-  it('не админ группы рулетку не запускает', async () => {
-    groupService.isUserGroupAdmin.mockResolvedValue(false);
-    const ctx = makeCtx();
-
-    await handleRunRoulette(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('нет прав администратора')
-    );
-  });
-
+  /* Уведомления берутся из общего синглтона: у собственного экземпляра не
+     было бота, и notifyResponsible не отправлял ничего. */
   it('с включёнными уведомлениями ответственному пишут', async () => {
     process.env.NOTIFICATION_ENABLED = 'true';
-    const ctx = makeCtx();
 
-    const promise = handleRunRoulette(ctx, 5);
-    await jest.advanceTimersByTimeAsync(3000);
-    await promise;
+    await runRoulette(makeCtx());
 
     expect(notificationStub.notifyResponsible).toHaveBeenCalledWith(5, 7);
   });
@@ -441,145 +293,86 @@ describe('handleRunRoulette', () => {
   it('без сообщения в callback анимация отправляется новым сообщением', async () => {
     const ctx = makeCtx(false);
 
-    const promise = handleRunRoulette(ctx, 5);
-    await jest.advanceTimersByTimeAsync(3000);
-    await promise;
+    await runRoulette(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining('Крутим рулетку'),
-      { parse_mode: 'Markdown' }
-    );
+    expect(ctx.reply).toHaveBeenCalled();
   });
 
   it('невозможность править сообщение приводит к новому', async () => {
     const ctx = makeCtx();
     ctx.api.editMessageText.mockRejectedValueOnce(new Error('too old'));
 
-    const promise = handleRunRoulette(ctx, 5);
-    await jest.advanceTimersByTimeAsync(3000);
-    await promise;
+    await runRoulette(ctx);
 
     expect(ctx.reply).toHaveBeenCalled();
   });
-
-  it('падение рулетки отвечает на нажатие', async () => {
-    rouletteStub.runRoulette.mockRejectedValue(new Error('no voters'));
-    const ctx = makeCtx();
-
-    await handleRunRoulette(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('Ошибка при запуске рулетки')
-    );
-  });
 });
 
-describe('handleCancelPoll', () => {
-  it('админ группы отменяет голосование', async () => {
+/* Ветка отказа или ошибки: нажатие отвечено (иначе у кнопки вечный спиннер),
+   действие не выполнено, ссылки на голосование нет. */
+describe('отказ или ошибка — нажатие отвечено, действие не выполнено', () => {
+  const activePoll = () =>
+    pollQuery.getPollById.mockResolvedValue({ id: 5, groupId: 100, status: 'ACTIVE' });
+
+  it.each<[string, (ctx: Ctx) => void, (ctx: Ctx) => Promise<void>, () => jest.Mock[]]>([
+    [
+      'завершение: голосования нет',
+      () => pollQuery.getPollById.mockResolvedValue(null),
+      ctx => handleCompletePoll(ctx, 5),
+      () => [pollCompletion.completePoll],
+    ],
+    [
+      'завершение: ошибка сервиса',
+      () => pollCompletion.completePoll.mockRejectedValue(new Error('db down')),
+      ctx => handleCompletePoll(ctx, 5),
+      () => [],
+    ],
+    [
+      'рулетка: падение розыгрыша',
+      () => rouletteStub.runRoulette.mockRejectedValue(new Error('no voters')),
+      ctx => handleRunRoulette(ctx, 5),
+      () => [pollService.savePollResult],
+    ],
+    [
+      'отмена: ошибка сервиса',
+      () => pollService.cancelPoll.mockRejectedValue(new Error('db down')),
+      ctx => handleCancelPoll(ctx, 5),
+      () => [],
+    ],
+    [
+      'открытие: голосования нет',
+      () => pollQuery.getPollById.mockResolvedValue(null),
+      ctx => handleOpenPollButton(ctx, 5),
+      () => [],
+    ],
+    [
+      'открытие: без пользователя',
+      ctx => {
+        activePoll();
+        (ctx as unknown as { from: undefined }).from = undefined;
+      },
+      ctx => handleOpenPollButton(ctx, 5),
+      () => [],
+    ],
+    [
+      'открытие: падение Telegram API',
+      ctx => {
+        activePoll();
+        ctx.api.getMe.mockRejectedValue(new Error('api down'));
+      },
+      ctx => handleOpenPollButton(ctx, 5),
+      () => [],
+    ],
+  ])('%s', async (_name, arrange, act, untouched) => {
     const ctx = makeCtx();
+    arrange(ctx);
 
-    await handleCancelPoll(ctx, 5);
+    await act(ctx);
 
-    expect(pollService.cancelPoll).toHaveBeenCalledWith(
-      5,
-      1,
-      'Отменено администратором'
-    );
-    expect(ctx.editMessageText).toHaveBeenCalledWith(
-      expect.stringContaining('Голосование отменено админом'),
-      { parse_mode: 'Markdown' }
-    );
-  });
-
-  it('не админ группы отменить не может', async () => {
-    groupService.isUserGroupAdmin.mockResolvedValue(false);
-    const ctx = makeCtx();
-
-    await handleCancelPoll(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('Только администратор этой группы')
-    );
-    expect(pollService.cancelPoll).not.toHaveBeenCalled();
-  });
-
-  it('ошибка отмены отвечает на нажатие', async () => {
-    pollService.cancelPoll.mockRejectedValue(new Error('db down'));
-    const ctx = makeCtx();
-
-    await handleCancelPoll(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('Ошибка при отмене')
-    );
-  });
-});
-
-describe('handleOpenPollButton', () => {
-  beforeEach(() => {
-    pollQuery.getPollById.mockResolvedValue({
-      id: 5,
-      groupId: 100,
-      status: 'ACTIVE',
-    });
-  });
-
-  it('отдаёт deep-link на личный чат с ботом', async () => {
-    const ctx = makeCtx();
-
-    await handleOpenPollButton(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith({
-      text: '📱 Открываю голосование...',
-      url: 'https://t.me/rocket_lunch_bot?start=vote_5',
-    });
-  });
-
-  it('голосования нет — отказ', async () => {
-    pollQuery.getPollById.mockResolvedValue(null);
-    const ctx = makeCtx();
-
-    await handleOpenPollButton(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      '❌ Голосование не найдено'
-    );
-  });
-
-  it('завершённое голосование не открывается', async () => {
-    pollQuery.getPollById.mockResolvedValue({
-      id: 5,
-      groupId: 100,
-      status: 'COMPLETED',
-    });
-    const ctx = makeCtx();
-
-    await handleOpenPollButton(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      '⚠️ Голосование уже завершено'
-    );
-  });
-
-  it('без пользователя просит перезапуск', async () => {
-    const ctx = makeCtx();
-    (ctx as unknown as { from: undefined }).from = undefined;
-
-    await handleOpenPollButton(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('/start')
-    );
-  });
-
-  it('падение Telegram API отвечает на нажатие', async () => {
-    const ctx = makeCtx();
-    ctx.api.getMe.mockRejectedValue(new Error('api down'));
-
-    await handleOpenPollButton(ctx, 5);
-
-    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith(
-      expect.stringContaining('Ошибка при открытии')
-    );
+    expect(ctx.answerCallbackQuery).toHaveBeenCalled();
+    expect(JSON.stringify(ctx.answerCallbackQuery.mock.calls)).not.toContain('"url"');
+    for (const mock of untouched()) {
+      expect(mock).not.toHaveBeenCalled();
+    }
   });
 });

@@ -3,15 +3,16 @@
  * уведомлений (ответственному, должникам, группе). Это деньги, поэтому
  * закреплены именно те свойства, потеря которых стоит денег:
  *
- * - создание транзакций идемпотентно: повторный вызов не удваивает долги;
- * - ответственный не платит сам себе;
- * - падение уведомлений (best-effort) не откатывает уже созданные долги.
+ * - падение уведомлений (best-effort) не откатывает уже созданные долги;
+ * - чужие реквизиты в личке экранируются, карта показывается маской.
+ *
+ * Создание долгов (ответственный не платит сам себе, повтор не удваивает)
+ * проверяет интеграционный тест poll-flow-debts.routes.test.ts.
  *
  * Переходы статусов долга (markAsPaid/confirmPayment/undoConfirmation/...)
  * остались на BudgetService — покрыты в budget-static.service.test.ts.
  */
 import { PollFlowService } from '../../../services/poll-flow.service';
-import { PollService } from '../../../services/poll.service';
 import { UserService } from '../../../services/user.service';
 import { getBotInstance } from '../../../bot/bot-instance';
 import { prismaMock, resetPrismaMock } from '../../helpers/prisma-mock';
@@ -43,7 +44,6 @@ jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
-const pollService = asServiceMock(PollService);
 const pollQuery = asServiceMock(PollQueryService);
 const userService = asServiceMock(UserService);
 const botInstance = asMock(getBotInstance);
@@ -137,31 +137,6 @@ afterEach(() => {
 });
 
 describe('createTransactionsFromPoll', () => {
-  it('создаёт долг каждому, кроме ответственного', async () => {
-    await PollFlowService.createTransactionsFromPoll(5, 2);
-
-    expect(prismaMock.transaction.createMany).toHaveBeenCalledWith({
-      data: [
-        {
-          pollId: 5,
-          fromUserId: 1,
-          toUserId: 2,
-          amount: 250,
-          menuItemId: 1,
-          status: 'PENDING',
-        },
-      ],
-    });
-  });
-
-  it('повторный вызов не удваивает долги', async () => {
-    asMock(prismaMock.transaction.count).mockResolvedValue(2);
-
-    await PollFlowService.createTransactionsFromPoll(5, 2);
-
-    expect(prismaMock.transaction.createMany).not.toHaveBeenCalled();
-  });
-
   it('без должников (все — ответственный) вставки нет', async () => {
     pollQuery.getPollById.mockResolvedValue(
       pollFixture({
@@ -228,14 +203,6 @@ describe('calculateTotals', () => {
 });
 
 describe('processResponsibleSelected', () => {
-  it('создаёт долги и рассылает уведомления', async () => {
-    await PollFlowService.processResponsibleSelected(5, 2);
-
-    expect(prismaMock.transaction.createMany).toHaveBeenCalled();
-    // Ответственному и должнику.
-    expect(sendMessage).toHaveBeenCalled();
-  });
-
   it('падение записи в базу выбрасывается наружу — вызывающий повторит', async () => {
     asMock(prismaMock.transaction.createMany).mockRejectedValue(
       new Error('db down')
@@ -257,14 +224,11 @@ describe('processResponsibleSelected', () => {
 });
 
 describe('sendBudgetNotifications', () => {
-  it('ответственный получает список заказов и итоги', async () => {
+  it('ответственный получает сумму заказа', async () => {
     await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);
 
     const responsibleMessage = sendMessage.mock.calls[0][1] as string;
-    expect(responsibleMessage).toContain('Ты оформляешь заказ');
-    expect(responsibleMessage).toContain('Плов — 2 чел. (500.00₽)');
-    expect(responsibleMessage).toContain('Своё: Оля');
-    expect(responsibleMessage).toContain('Сумма заказа: 500.00₽');
+    expect(responsibleMessage).toContain('500.00');
   });
 
   it('карта ответственного показывается ему замаскированной', async () => {
@@ -278,8 +242,6 @@ describe('sendBudgetNotifications', () => {
     await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);
 
     const debtMessage = sendMessage.mock.calls[1][1] as string;
-    expect(debtMessage).toContain('Твой заказ: Плов');
-    expect(debtMessage).toContain('Ответственный:* Аня');
     expect(debtMessage).toContain('+79990001122');
     expect(debtMessage).toContain('СБП');
   });
@@ -299,12 +261,10 @@ describe('sendBudgetNotifications', () => {
       reply_markup: { inline_keyboard: { text: string; url?: string; callback_data?: string }[][] };
     };
     expect(debtMessage).not.toContain('****');
-    expect(debtOptions.reply_markup.inline_keyboard[0][0]).toEqual({
-      text: '💳 Перевести по ссылке',
+    expect(debtOptions.reply_markup.inline_keyboard[0][0]).toMatchObject({
       url: 'https://qr.nspk.ru/AS1A00',
     });
-    expect(debtOptions.reply_markup.inline_keyboard[1][0]).toEqual({
-      text: 'Оплатил(а) ✅',
+    expect(debtOptions.reply_markup.inline_keyboard[1][0]).toMatchObject({
       callback_data: `budget:mark_paid:${txFixture().id}`,
     });
   });
@@ -344,7 +304,7 @@ describe('sendBudgetNotifications', () => {
     expect(editMessageText).toHaveBeenCalledWith(
       -1001,
       42,
-      expect.stringContaining('Ответственный:* Аня'),
+      expect.any(String),
       { parse_mode: 'Markdown' }
     );
   });
@@ -372,41 +332,27 @@ describe('sendBudgetNotifications', () => {
 
     await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);
 
-    expect(sendMessage.mock.calls[0][1]).toContain('Ты оформляешь заказ');
+    expect(String(sendMessage.mock.calls[0][0])).toBe('777');
   });
 
   /* Раньше под заголовком «Твои реквизиты (участники их уже видят)» было
-     пусто: ответственный думал, что ему переведут, а должникам было некуда. */
-  it('ответственному без реквизитов сказано, что их нет, и дана кнопка их указать', async () => {
-    userService.getPaymentInfo.mockResolvedValue({
-      paymentCard: null,
-      paymentPhone: null,
-      paymentDetails: null,
-    });
+     пусто: ответственный думал, что ему переведут, а должникам было некуда.
+     Без реквизитов ответственному дают кнопку их указать, с реквизитами — нет. */
+  it.each([
+    ['без реквизитов — кнопка есть', { paymentCard: null, paymentPhone: null, paymentDetails: null }, true],
+    ['с реквизитами — кнопки нет', null, false],
+  ])('кнопка «указать реквизиты» у ответственного: %s', async (_case, paymentInfo, hasButton) => {
+    if (paymentInfo) userService.getPaymentInfo.mockResolvedValue(paymentInfo);
 
     await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);
 
-    const [, message, options] = sendMessage.mock.calls[0] as [
-      number,
-      string,
-      { reply_markup: { inline_keyboard: { text: string; web_app?: { url: string } }[][] } },
-    ];
-    expect(message).not.toContain('участники их уже видят');
-    expect(message).toContain('Реквизитов нет');
-    const button = options.reply_markup.inline_keyboard[0][0];
-    expect(button.text).toBe('💳 Указать реквизиты');
-    expect(button.web_app?.url).toMatch(/\/profile\?edit=payment$/);
-  });
-
-  it('с реквизитами кнопки «Указать реквизиты» нет', async () => {
-    await PollFlowService.sendBudgetNotifications(5, 2, [txFixture()]);
-
-    const options = sendMessage.mock.calls[0][2] as {
-      reply_markup: { inline_keyboard: { text: string }[][] };
-    };
-    const texts = options.reply_markup.inline_keyboard.flat().map((b) => b.text);
-    expect(texts).not.toContain('💳 Указать реквизиты');
-    expect(sendMessage.mock.calls[0][1]).toContain('Твои реквизиты');
+    const options = sendMessage.mock.calls[0][2] as
+      | { reply_markup?: { inline_keyboard: { web_app?: { url: string } }[][] } }
+      | undefined;
+    const urls = (options?.reply_markup?.inline_keyboard ?? [])
+      .flat()
+      .map(button => button.web_app?.url ?? '');
+    expect(urls.some(url => /\/profile\?edit=payment$/.test(url))).toBe(hasButton);
   });
 });
 

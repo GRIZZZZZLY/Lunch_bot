@@ -19,14 +19,17 @@ jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
-const { logger } = jest.requireMock('../../../utils/logger');
-
-/** Приватное состояние: окно времён ответа и накопленный снимок. */
+/** Сброс состояния синглтона между тестами (только подготовка, не проверка). */
 const internals = metricsService as unknown as {
   responseTimes: number[];
-  MAX_RESPONSE_TIMES: number;
-  metrics: { errors24h: number; totalPolls: number; totalVotes: number };
+  metrics: { errors24h: number };
 };
+
+/** Ответ prisma.<model>.count по условию, а не по порядку вызовов. */
+function countByStatus(byStatus: Record<string, number>, otherwise: number) {
+  return (async (args?: { where?: { status?: string } }) =>
+    byStatus[args?.where?.status ?? ''] ?? otherwise) as never;
+}
 
 /** Значение метрики Prometheus по имени, из текстового экспорта. */
 async function metricValue(name: string, labels = ''): Promise<number | null> {
@@ -56,33 +59,10 @@ beforeEach(() => {
 });
 
 describe('collectMetrics', () => {
-  it('снимок собирается одним пакетом запросов', async () => {
-    asMock(prismaMock.poll.count)
-      .mockResolvedValueOnce(10)
-      .mockResolvedValueOnce(2)
-      .mockResolvedValueOnce(8);
-    asMock(prismaMock.vote.count).mockResolvedValue(40);
-    asMock(prismaMock.user.count).mockResolvedValue(7);
-    asMock(prismaMock.transaction.count).mockResolvedValue(12);
-
-    const metrics = await metricsService.collectMetrics();
-
-    expect(metrics).toMatchObject({
-      totalPolls: 10,
-      activePolls: 2,
-      completedPolls: 8,
-      totalVotes: 40,
-      totalUsers: 7,
-      totalTransactions: 12,
-    });
-    expect(metrics.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-  });
-
   it('активные голосования и пользователи попадают в Prometheus', async () => {
-    asMock(prismaMock.poll.count)
-      .mockResolvedValueOnce(10)
-      .mockResolvedValueOnce(3)
-      .mockResolvedValueOnce(7);
+    asMock(prismaMock.poll.count).mockImplementation(
+      countByStatus({ ACTIVE: 3, COMPLETED: 7 }, 10)
+    );
     asMock(prismaMock.user.count).mockResolvedValue(5);
 
     await metricsService.collectMetrics();
@@ -99,9 +79,6 @@ describe('collectMetrics', () => {
     const metrics = await metricsService.collectMetrics();
 
     expect(metrics.totalPolls).toBe(4);
-    expect(logger.error).toHaveBeenCalledWith('Failed to collect metrics', {
-      error: expect.any(Error),
-    });
   });
 
   it('getMetrics отдаёт копию, а не сам снимок', () => {
@@ -109,10 +86,6 @@ describe('collectMetrics', () => {
     first.errors24h = 999;
 
     expect(metricsService.getMetrics().errors24h).not.toBe(999);
-  });
-
-  it('registry доступен для экспорта', () => {
-    expect(metricsService.getRegistry()).toBeDefined();
   });
 });
 
@@ -139,38 +112,18 @@ describe('время ответа', () => {
     expect((await metricsService.collectMetrics()).avgResponseTime).toBe(101);
   });
 
-  it('окно ограничено: старые значения вытесняются', () => {
-    const limit = internals.MAX_RESPONSE_TIMES;
-
-    for (let i = 0; i < limit + 10; i++) {
-      metricsService.recordResponseTime(i);
+  it('окно ограничено: старые значения вытесняются', async () => {
+    metricsService.recordResponseTime(1_000_000);
+    for (let i = 0; i < 10_000; i++) {
+      metricsService.recordResponseTime(0);
     }
 
-    expect(internals.responseTimes).toHaveLength(limit);
-    // Первые 10 значений вытеснены — окно скользящее.
-    expect(internals.responseTimes[0]).toBe(10);
+    // Без вытеснения выброс дал бы среднее около 100.
+    expect((await metricsService.collectMetrics()).avgResponseTime).toBe(0);
   });
 });
 
 describe('счётчики', () => {
-  it('созданные голосования считаются', async () => {
-    const before = (await metricValue('food_bot_polls_created_total')) ?? 0;
-
-    metricsService.incrementPollsCreated();
-
-    await expect(metricValue('food_bot_polls_created_total')).resolves.toBe(
-      before + 1
-    );
-  });
-
-  it('голоса считаются', async () => {
-    const before = (await metricValue('food_bot_votes_total')) ?? 0;
-
-    metricsService.incrementVotes();
-
-    await expect(metricValue('food_bot_votes_total')).resolves.toBe(before + 1);
-  });
-
   it('ошибки считаются и попадают в суточный счётчик', async () => {
     metricsService.incrementErrors('db');
     metricsService.incrementErrors('db');
@@ -198,7 +151,6 @@ describe('счётчики', () => {
     metricsService.resetErrorCount();
 
     expect(metricsService.getMetrics().errors24h).toBe(0);
-    expect(logger.info).toHaveBeenCalledWith('Error count reset');
   });
 
   it('HTTP-запрос учитывается и в счётчике, и в среднем времени', async () => {
@@ -210,7 +162,7 @@ describe('счётчики', () => {
         'method="GET",route="/api/polls",status="200"'
       )
     ).resolves.toBe(1);
-    expect(internals.responseTimes).toContain(42);
+    expect((await metricsService.collectMetrics()).avgResponseTime).toBe(42);
   });
 
   it('срезы rate-limit разложены по корзинам', async () => {
@@ -244,24 +196,12 @@ describe('счётчики', () => {
 });
 
 describe('getDetailedStats', () => {
-  it('считает срезы за сутки и за неделю', async () => {
-    asMock(prismaMock.poll.count)
-      .mockResolvedValueOnce(2) // polls 24h
-      .mockResolvedValueOnce(9); // polls 7d
-    asMock(prismaMock.vote.count)
-      .mockResolvedValueOnce(8) // votes 24h
-      .mockResolvedValueOnce(30); // votes 7d
-    asMock(prismaMock.user.count).mockResolvedValue(1);
-
-    await expect(metricsService.getDetailedStats()).resolves.toMatchObject({
-      last24h: { polls: 2, votes: 8, users: 1 },
-      last7d: { polls: 9, votes: 30 },
-    });
-  });
-
   it('среднее число голосов на голосование берётся из снимка', async () => {
-    internals.metrics.totalPolls = 4;
-    internals.metrics.totalVotes = 10;
+    asMock(prismaMock.poll.count).mockImplementation(countByStatus({}, 4));
+    asMock(prismaMock.vote.count).mockResolvedValue(10);
+    await metricsService.collectMetrics();
+    asMock(prismaMock.poll.count).mockResolvedValue(0);
+    asMock(prismaMock.vote.count).mockResolvedValue(0);
 
     const stats = await metricsService.getDetailedStats();
 
@@ -269,7 +209,7 @@ describe('getDetailedStats', () => {
   });
 
   it('без голосований среднее — ноль, а не деление на ноль', async () => {
-    internals.metrics.totalPolls = 0;
+    await metricsService.collectMetrics();
 
     expect((await metricsService.getDetailedStats())?.avgVotesPerPoll).toBe(0);
   });
@@ -278,9 +218,6 @@ describe('getDetailedStats', () => {
     asMock(prismaMock.poll.count).mockRejectedValue(new Error('db down'));
 
     await expect(metricsService.getDetailedStats()).resolves.toBeNull();
-    expect(logger.error).toHaveBeenCalledWith('Failed to get detailed stats', {
-      error: expect.any(Error),
-    });
   });
 });
 
@@ -294,12 +231,10 @@ describe('getDetailedStats', () => {
  */
 describe('показатели очереди уведомлений', () => {
   beforeEach(() => {
-    /* stats() делает три count и один findFirst: PENDING, FAILED,
-       PENDING с попытками, затем самое старое ожидающее. */
-    asMock(prismaMock.outboxEvent.count)
-      .mockResolvedValueOnce(7)
-      .mockResolvedValueOnce(2)
-      .mockResolvedValueOnce(3);
+    /* Ожидающие, упавшие и ожидающие с попытками различаются условием. */
+    asMock(prismaMock.outboxEvent.count).mockImplementation((async (args: {
+      where: { status: string; attempts?: unknown };
+    }) => (args.where.status === 'FAILED' ? 2 : args.where.attempts ? 3 : 7)) as never);
     asMock(prismaMock.outboxEvent.findFirst).mockResolvedValue({
       createdAt: new Date(Date.now() - 90_000),
     });
@@ -329,8 +264,6 @@ describe('показатели очереди уведомлений', () => {
   });
 
   it('пустая очередь даёт нули, а не отсутствие метрики', async () => {
-    /* `mockReset`, а не `clearAllMocks`: очередь `mockResolvedValueOnce` из
-       beforeEach иначе остаётся и продолжает отдавать прежние числа. */
     asMock(prismaMock.outboxEvent.count).mockReset().mockResolvedValue(0);
     asMock(prismaMock.outboxEvent.findFirst)
       .mockReset()

@@ -24,14 +24,21 @@ describe('payment-link', () => {
     expect(isPaymentLink('2200 1234 5678 9012')).toBe(false);
   });
 
-  it('для ссылки строка сообщения указывает на кнопку, для legacy-номера — маска', () => {
-    expect(paymentCardLine('https://qr.nspk.ru/AS1A00')).toBe('🔗 Ссылка для перевода — кнопкой ниже');
-    expect(paymentCardLine('2200123456789012')).toBe('💳 Карта: **** **** **** 9012');
+  it('ссылка не попадает в текст сообщения — она уходит кнопкой', () => {
+    expect(paymentCardLine('https://qr.nspk.ru/AS1A00')).not.toContain('qr.nspk.ru');
+  });
+
+  it('номер карты в сообщении замаскирован: виден только хвост', () => {
+    const line = paymentCardLine('2200123456789012');
+
+    expect(line).not.toContain('2200123456789012');
+    expect(line).not.toContain('22001234');
+    expect(line).toContain('9012');
   });
 
   it('кнопка несёт url как есть', () => {
-    expect(paymentLinkButton('https://qr.nspk.ru/AS1A00')).toEqual({
-      text: '💳 Перевести по ссылке', url: 'https://qr.nspk.ru/AS1A00',
-    });
+    expect(paymentLinkButton('https://qr.nspk.ru/AS1A00')).toEqual(
+      expect.objectContaining({ url: 'https://qr.nspk.ru/AS1A00' })
+    );
   });
 });

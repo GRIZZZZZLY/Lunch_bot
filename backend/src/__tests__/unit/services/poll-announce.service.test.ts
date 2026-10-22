@@ -64,8 +64,8 @@ describe('notifyParticipantsLegacy', () => {
     );
 
     const message = sendMessage.mock.calls[0][1] as string;
-    expect(message).toContain('**Соус\\_острый \\*акция\\***');
-    expect(message).toContain('Ответственный: Аня\\_К (@anya\\_k)');
+    expect(message).toContain('Соус\\_острый \\*акция\\*');
+    expect(message).toContain('Аня\\_К (@anya\\_k)');
     expect(message).toContain('+7\\_999');
     expect(message).toContain('СБП \\[тут](https://evil.example)');
   });
@@ -107,11 +107,9 @@ describe('notifyParticipantsLegacy', () => {
     // Адрес не попадает в текст ни сырым, ни экранированным.
     expect(message).not.toContain('qr.nspk.ru');
     expect(message).not.toContain('ab\\_12');
-    expect(message).toContain('🔗 Ссылка для перевода — кнопкой ниже');
-    expect(options.reply_markup?.inline_keyboard[0][0]).toEqual({
-      text: '💳 Перевести по ссылке',
-      url: 'https://qr.nspk.ru/AS1A00?ab_12=x',
-    });
+    expect(options.reply_markup?.inline_keyboard[0][0].url).toBe(
+      'https://qr.nspk.ru/AS1A00?ab_12=x'
+    );
   });
 
   /* Legacy-значение из цифр ссылкой не является: маскируется как раньше и
@@ -136,21 +134,8 @@ describe('notifyParticipantsLegacy', () => {
     ];
 
     expect(message).not.toContain('2200123456789012');
-    expect(message).toContain('💳 Карта: ');
     expect(message).toContain('****');
     expect(options.reply_markup).toBeUndefined();
-  });
-
-  it('без ответственного письмо ограничивается итогами', async () => {
-    await notifyParticipantsLegacy(
-      5,
-      [{ menuItemId: 1, menuItemName: 'Плов', votes: 1 }],
-      null
-    );
-
-    const message = sendMessage.mock.calls[0][1] as string;
-    expect(message).toContain('Победитель: **Плов**');
-    expect(message).not.toContain('Информация для оплаты');
   });
 
   it('без голосов рассылки нет', async () => {

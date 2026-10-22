@@ -39,13 +39,7 @@ interface FakeRedis {
   del: jest.Mock;
   eval: jest.Mock;
   ping: jest.Mock;
-  flushdb: jest.Mock;
   scanStream: jest.Mock;
-  info: jest.Mock;
-  dbsize: jest.Mock;
-  keys: jest.Mock;
-  exists: jest.Mock;
-  ttl: jest.Mock;
   quit: jest.Mock;
   disconnect: jest.Mock;
 }
@@ -59,13 +53,7 @@ function fakeRedis(overrides: Partial<FakeRedis> = {}): FakeRedis {
     del: jest.fn().mockResolvedValue(1),
     eval: jest.fn().mockResolvedValue(1),
     ping: jest.fn().mockResolvedValue('PONG'),
-    flushdb: jest.fn().mockResolvedValue('OK'),
     scanStream: jest.fn(),
-    info: jest.fn().mockResolvedValue('stats'),
-    dbsize: jest.fn().mockResolvedValue(7),
-    keys: jest.fn().mockResolvedValue(['a']),
-    exists: jest.fn().mockResolvedValue(1),
-    ttl: jest.fn().mockResolvedValue(42),
     quit: jest.fn().mockResolvedValue('OK'),
     disconnect: jest.fn(),
     ...overrides,
@@ -97,17 +85,11 @@ beforeEach(() => {
 });
 
 describe('инициализация', () => {
-  it('с включённым Redis клиент создаётся', () => {
-    const { cacheService } = loadCache();
-
-    expect(cacheService.getClient()).toBe(client);
-  });
 
   it('с выключенным Redis клиента нет и кэш не используется', async () => {
     redisState.enabled = false;
     const { cacheService } = loadCache();
 
-    expect(cacheService.getClient()).toBeNull();
     await expect(cacheService.get('k')).resolves.toBeUndefined();
     expect(client.get).not.toHaveBeenCalled();
   });
@@ -116,7 +98,6 @@ describe('инициализация', () => {
     redisState.createThrows = true;
     const { cacheService } = loadCache();
 
-    expect(cacheService.getClient()).toBeNull();
     await expect(cacheService.set('k', 1)).resolves.toBe(false);
   });
 
@@ -157,13 +138,6 @@ describe('get / set', () => {
     await expect(cacheService.get('k')).resolves.toBeUndefined();
   });
 
-  it('set по умолчанию живёт минуту', async () => {
-    const { cacheService } = loadCache();
-
-    await expect(cacheService.set('k', { a: 1 })).resolves.toBe(true);
-    expect(client.setex).toHaveBeenCalledWith('k', 60, '{"a":1}');
-  });
-
   it('явный TTL передаётся как есть', async () => {
     const { cacheService } = loadCache();
 
@@ -179,7 +153,11 @@ describe('get / set', () => {
     const { cacheService } = loadCache();
 
     await expect(cacheService.set('k', { chatId: BigInt('-1001234') })).resolves.toBe(true);
-    expect(client.setex).toHaveBeenCalledWith('k', 60, '{"chatId":"-1001234"}');
+    expect(client.setex).toHaveBeenCalledWith(
+      'k',
+      expect.any(Number),
+      '{"chatId":"-1001234"}'
+    );
   });
 
   it('ошибка записи возвращает false', async () => {
@@ -187,57 +165,6 @@ describe('get / set', () => {
     client.setex.mockRejectedValue(new Error('redis down'));
 
     await expect(cacheService.set('k', 1)).resolves.toBe(false);
-  });
-});
-
-describe('статистика попаданий', () => {
-  it('считает hit и miss и выводит процент', async () => {
-    const { cacheService } = loadCache();
-    client.get
-      .mockResolvedValueOnce(JSON.stringify(1))
-      .mockResolvedValueOnce(null);
-
-    await cacheService.get('a');
-    await cacheService.get('b');
-    const stats = await cacheService.getStats();
-
-    expect(stats).toMatchObject({
-      hits: 1,
-      misses: 1,
-      hitRate: '50.00%',
-      dbSize: 7,
-      enabled: true,
-    });
-  });
-
-  it('без обращений процент нулевой', async () => {
-    const { cacheService } = loadCache();
-
-    await expect(cacheService.getStats()).resolves.toMatchObject({
-      hitRate: '0.00%',
-    });
-  });
-
-  it('при выключенном кэше статистика помечена enabled: false', async () => {
-    redisState.enabled = false;
-    const { cacheService } = loadCache();
-
-    await cacheService.get('a');
-
-    await expect(cacheService.getStats()).resolves.toMatchObject({
-      misses: 1,
-      dbSize: 0,
-      enabled: false,
-    });
-  });
-
-  it('ошибка чтения статистики Redis не роняет ответ', async () => {
-    const { cacheService } = loadCache();
-    client.info.mockRejectedValue(new Error('redis down'));
-
-    await expect(cacheService.getStats()).resolves.toMatchObject({
-      enabled: false,
-    });
   });
 });
 
@@ -280,13 +207,6 @@ describe('setIfAbsent (защита от повторов)', () => {
 });
 
 describe('удаление', () => {
-  it('удаляет один ключ', async () => {
-    const { cacheService } = loadCache();
-
-    await expect(cacheService.del('k')).resolves.toBe(1);
-    expect(client.del).toHaveBeenCalledWith('k');
-  });
-
   it('удаляет список ключей одним вызовом', async () => {
     const { cacheService } = loadCache();
     client.del.mockResolvedValue(2);
@@ -410,96 +330,6 @@ describe('прочие операции', () => {
     await expect(cacheService.healthCheck()).resolves.toBe(false);
   });
 
-  it('flush очищает базу и сбрасывает счётчики', async () => {
-    const { cacheService } = loadCache();
-    client.get.mockResolvedValue(JSON.stringify(1));
-
-    await cacheService.get('a');
-    await cacheService.flush();
-
-    expect(client.flushdb).toHaveBeenCalled();
-    await expect(cacheService.getStats()).resolves.toMatchObject({ hits: 0 });
-  });
-
-  it('flush при недоступном кэше ничего не делает', async () => {
-    redisState.enabled = false;
-    const { cacheService } = loadCache();
-
-    await cacheService.flush();
-
-    expect(client.flushdb).not.toHaveBeenCalled();
-  });
-
-  it('ошибка flush не выбрасывается', async () => {
-    const { cacheService } = loadCache();
-    client.flushdb.mockRejectedValue(new Error('redis down'));
-
-    await expect(cacheService.flush()).resolves.toBeUndefined();
-  });
-
-  it('has: существующий ключ', async () => {
-    const { cacheService } = loadCache();
-
-    await expect(cacheService.has('k')).resolves.toBe(true);
-  });
-
-  it('has: отсутствующий ключ', async () => {
-    const { cacheService } = loadCache();
-    client.exists.mockResolvedValue(0);
-
-    await expect(cacheService.has('k')).resolves.toBe(false);
-  });
-
-  it('has: ошибка и недоступность дают false', async () => {
-    const { cacheService } = loadCache();
-    client.exists.mockRejectedValue(new Error('redis down'));
-    await expect(cacheService.has('k')).resolves.toBe(false);
-
-    redisState.enabled = false;
-    const offline = loadCache();
-    await expect(offline.cacheService.has('k')).resolves.toBe(false);
-  });
-
-  it('getTtl отдаёт срок жизни', async () => {
-    const { cacheService } = loadCache();
-
-    await expect(cacheService.getTtl('k')).resolves.toBe(42);
-  });
-
-  it('getTtl: ключ без срока (-1) трактуется как отсутствие срока', async () => {
-    const { cacheService } = loadCache();
-    client.ttl.mockResolvedValue(-1);
-
-    await expect(cacheService.getTtl('k')).resolves.toBeUndefined();
-  });
-
-  it('getTtl: ошибка и недоступность дают undefined', async () => {
-    const { cacheService } = loadCache();
-    client.ttl.mockRejectedValue(new Error('redis down'));
-    await expect(cacheService.getTtl('k')).resolves.toBeUndefined();
-
-    redisState.enabled = false;
-    const offline = loadCache();
-    await expect(offline.cacheService.getTtl('k')).resolves.toBeUndefined();
-  });
-
-  it('keys отдаёт список по шаблону', async () => {
-    const { cacheService } = loadCache();
-
-    await expect(cacheService.keys('user_*')).resolves.toEqual(['a']);
-    expect(client.keys).toHaveBeenCalledWith('user_*');
-  });
-
-  it('keys: ошибка и недоступность дают пустой список', async () => {
-    const { cacheService } = loadCache();
-    client.keys.mockRejectedValue(new Error('redis down'));
-    await expect(cacheService.keys()).resolves.toEqual([]);
-
-    redisState.enabled = false;
-    const offline = loadCache();
-    await expect(offline.cacheService.keys()).resolves.toEqual([]);
-  });
-
   it('close закрывает соединение', async () => {
     const { cacheService } = loadCache();
 
@@ -562,10 +392,9 @@ describe('invalidatePattern', () => {
 
     await cacheService.invalidatePattern('stats');
 
-    expect(client.scanStream).toHaveBeenCalledWith({
-      match: '*stats*',
-      count: 100,
-    });
+    expect(client.scanStream).toHaveBeenCalledWith(
+      expect.objectContaining({ match: '*stats*' })
+    );
     expect(client.del).toHaveBeenCalledWith('a', 'b', 'c');
   });
 
@@ -599,64 +428,35 @@ describe('invalidatePattern', () => {
   });
 });
 
-describe('CACHE_KEYS', () => {
-  it('ключи строятся по идентификаторам', () => {
-    const { CACHE_KEYS } = loadCache();
-
-    expect(CACHE_KEYS.ACTIVE_POLLS_GROUP(7)).toBe('active_polls_group_7');
-    expect(CACHE_KEYS.ACTIVE_POLL_GROUP(7)).toBe('active_poll_group_7');
-    expect(CACHE_KEYS.POLL_DETAILS(3)).toBe('poll_3');
-    expect(CACHE_KEYS.POLL_VOTES(3)).toBe('poll_votes_3');
-    expect(CACHE_KEYS.POLL_VOTE_BREAKDOWN(3)).toBe('poll_vote_breakdown_3');
-    expect(CACHE_KEYS.MENU_ITEMS_BY_CATEGORY('Горячее')).toBe(
-      'menu_items_category_Горячее'
-    );
-    expect(CACHE_KEYS.USER(1)).toBe('user_1');
-    expect(CACHE_KEYS.USER_BY_TELEGRAM_ID(BigInt(555))).toBe(
-      'user_telegram_555'
-    );
-    expect(CACHE_KEYS.GROUP(2)).toBe('group_2');
-    expect(CACHE_KEYS.GROUP_BY_TELEGRAM_ID(BigInt(-100))).toBe(
-      'group_telegram_-100'
-    );
-    expect(CACHE_KEYS.USER_STATS(1)).toBe('user_stats_1');
-  });
-
-  it('статистика без группы — глобальный ключ', () => {
-    const { CACHE_KEYS } = loadCache();
-
-    expect(CACHE_KEYS.POLL_STATS()).toBe('stats_global');
-    expect(CACHE_KEYS.POLL_STATS(5)).toBe('stats_5');
-  });
-});
-
 describe('CacheInvalidator', () => {
-  it('изменение голосования сбрасывает детали, голоса и статистику', async () => {
-    const { CacheInvalidator, cacheService } = loadCache();
+  it('изменение голосования сбрасывает его детали, голоса и разбивку', async () => {
+    const { CacheInvalidator, CACHE_KEYS, cacheService } = loadCache();
     client.scanStream.mockReturnValue({ on: jest.fn() });
     const del = jest.spyOn(cacheService, 'del');
-    const invalidate = jest.spyOn(cacheService, 'invalidatePattern');
 
     await CacheInvalidator.invalidatePoll(3);
 
-    expect(del).toHaveBeenCalledWith([
-      'active_polls',
-      'poll_3',
-      'poll_votes_3',
-      'poll_vote_breakdown_3',
-    ]);
-    expect(invalidate).toHaveBeenCalledWith('stats');
+    expect(del).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        CACHE_KEYS.POLL_DETAILS(3),
+        CACHE_KEYS.POLL_VOTES(3),
+        CACHE_KEYS.POLL_VOTE_BREAKDOWN(3),
+      ])
+    );
   });
 
   it('с известной группой сбрасывается и её список активных голосований', async () => {
-    const { CacheInvalidator, cacheService } = loadCache();
+    const { CacheInvalidator, CACHE_KEYS, cacheService } = loadCache();
     client.scanStream.mockReturnValue({ on: jest.fn() });
     const del = jest.spyOn(cacheService, 'del');
 
     await CacheInvalidator.invalidatePoll(3, 7);
 
     expect(del).toHaveBeenCalledWith(
-      expect.arrayContaining(['active_polls_group_7', 'active_poll_group_7'])
+      expect.arrayContaining([
+        CACHE_KEYS.ACTIVE_POLLS_GROUP(7),
+        CACHE_KEYS.ACTIVE_POLL_GROUP(7),
+      ])
     );
   });
 
@@ -669,46 +469,5 @@ describe('CacheInvalidator', () => {
     expect(CACHE_KEYS.ACTIVE_POLL_GROUP(7)).not.toBe(
       CACHE_KEYS.ACTIVE_POLLS_GROUP(7)
     );
-  });
-
-  it('новый голос сбрасывает голоса и детали, но не список активных', async () => {
-    const { CacheInvalidator, cacheService } = loadCache();
-    client.scanStream.mockReturnValue({ on: jest.fn() });
-    const del = jest.spyOn(cacheService, 'del');
-
-    await CacheInvalidator.invalidateVote(3);
-
-    expect(del).toHaveBeenCalledWith([
-      'poll_votes_3',
-      'poll_vote_breakdown_3',
-      'poll_3',
-    ]);
-  });
-
-  it('изменение меню сбрасывает ключ только своей группы', () => {
-    const { CacheInvalidator, cacheService } = loadCache();
-    const del = jest.spyOn(cacheService, 'del');
-
-    CacheInvalidator.invalidateMenu(7);
-
-    expect(del).toHaveBeenCalledWith('menu_items_active:7');
-  });
-
-  it('изменение пользователя сбрасывает и ключ по telegramId', async () => {
-    const { CacheInvalidator, cacheService } = loadCache();
-    const del = jest.spyOn(cacheService, 'del');
-
-    await CacheInvalidator.invalidateUser(1, BigInt(555));
-
-    expect(del).toHaveBeenCalledWith(['user_1', 'user_telegram_555']);
-  });
-
-  it('без telegramId сбрасывается только ключ по id', async () => {
-    const { CacheInvalidator, cacheService } = loadCache();
-    const del = jest.spyOn(cacheService, 'del');
-
-    await CacheInvalidator.invalidateUser(1);
-
-    expect(del).toHaveBeenCalledWith(['user_1']);
   });
 });

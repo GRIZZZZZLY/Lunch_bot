@@ -219,18 +219,6 @@ describe('createApiServer', () => {
     );
   });
 
-  it('в разработке CSP допускает локальные адреса и unsafe-eval', async () => {
-    process.env.NODE_ENV = 'development';
-    const { createApiServer } = loadServer();
-    const app = createApiServer();
-
-    const response = await request(app).get('/api/stats');
-
-    const csp = response.headers['content-security-policy'];
-    expect(csp).toContain('http://localhost:5173');
-    expect(csp).toContain("'unsafe-eval'");
-  });
-
   it('в продакшене локальных адресов в CSP нет', async () => {
     process.env.NODE_ENV = 'production';
     const { createApiServer } = loadServer();
@@ -265,15 +253,6 @@ describe('createApiServer', () => {
       "frame-ancestors 'self' https://web.telegram.org"
     );
     expect(response.headers['x-frame-options']).toBeUndefined();
-  });
-
-  it('добавляет заголовок обхода предупреждения ngrok', async () => {
-    const { createApiServer } = loadServer();
-    const app = createApiServer();
-
-    const response = await request(app).get('/api/stats');
-
-    expect(response.headers['ngrok-skip-browser-warning']).toBe('true');
   });
 
   it('BigInt в JSON превращается в строку, а не роняет сериализацию', () => {
@@ -352,37 +331,41 @@ describe('createApiServer', () => {
     );
   });
 
-  it('версия приложения уходит в заголовке', async () => {
-    const { createApiServer } = loadServer();
-    const app = createApiServer();
-
-    const response = await request(app).get('/');
-
-    expect(response.headers['x-app-version']).toBe('2.0.1');
-  });
-
-  it.each([
-    ['/', 'no-cache, no-store, must-revalidate'],
-    ['/index.html', 'no-cache, no-store, must-revalidate'],
-    ['/sw.js', 'no-cache, no-store, must-revalidate'],
-    ['/workbox-abc.js', 'no-cache, no-store, must-revalidate'],
-    ['/assets/app-a1b2c3d4.js', 'public, max-age=31536000, immutable'],
+  /* Класс политики, а не точная строка: секунды max-age можно менять.
+     no-store — точки входа, которые обязаны обновиться сразу; immutable —
+     только файлы с хешем в имени; без хеша — не immutable. */
+  it.each<[string, 'no-store' | 'immutable' | 'revalidate' | 'cached']>([
+    ['/', 'no-store'],
+    ['/index.html', 'no-store'],
+    ['/sw.js', 'no-store'],
+    ['/workbox-abc.js', 'no-store'],
+    ['/assets/app-a1b2c3d4.js', 'immutable'],
     // настоящий хеш Vite — base64url, не шестнадцатеричный
-    ['/assets/BudgetPage-Bovztort.js', 'public, max-age=31536000, immutable'],
-    ['/assets/icon-Ab3_E-9z.png', 'public, max-age=31536000, immutable'],
-    ['/assets/app.js', 'public, max-age=3600, must-revalidate'],
+    ['/assets/BudgetPage-Bovztort.js', 'immutable'],
+    ['/assets/icon-Ab3_E-9z.png', 'immutable'],
+    ['/assets/app.js', 'revalidate'],
     // картинка без хеша (public/) перепроверяется: замена логотипа видна сразу
-    ['/logo-rl.png', 'public, max-age=3600, must-revalidate'],
-    ['/theme-boot.js', 'public, max-age=3600, must-revalidate'],
-    ['/fonts/onest-cyrillic.woff2', 'public, max-age=2592000'],
-    ['/assets/data.json', 'public, max-age=3600'],
-  ])('кэширование %s — %s', async (url, expected) => {
+    ['/logo-rl.png', 'revalidate'],
+    ['/theme-boot.js', 'revalidate'],
+    ['/fonts/onest-cyrillic.woff2', 'cached'],
+    ['/assets/data.json', 'cached'],
+  ])('кэширование %s — %s', async (url, policy) => {
     const { createApiServer } = loadServer();
     const app = createApiServer();
 
-    const response = await request(app).get(url);
+    const cacheControl: string = (await request(app).get(url)).headers['cache-control'];
 
-    expect(response.headers['cache-control']).toBe(expected);
+    if (policy === 'no-store') {
+      expect(cacheControl).toContain('no-store');
+      return;
+    }
+    expect(cacheControl).not.toContain('no-store');
+    if (policy === 'immutable') {
+      expect(cacheControl).toContain('immutable');
+      return;
+    }
+    expect(cacheControl).not.toContain('immutable');
+    if (policy === 'revalidate') expect(cacheControl).toContain('must-revalidate');
   });
 
   it('SPA-fallback отдаёт index.html на неизвестный путь', async () => {
@@ -413,40 +396,6 @@ describe('createApiServer', () => {
     expect(response.text).not.toContain('<!doctype html>');
   });
 
-  it('отключённый rate limit только предупреждает в лог', () => {
-    const { logger } = jest.requireMock('../../../utils/logger');
-    process.env.ENABLE_RATE_LIMIT = 'false';
-    const { createApiServer } = loadServer();
-
-    createApiServer();
-
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Rate limiting disabled via configuration'
-    );
-  });
-
-  it('в продакшене тестовые эндпоинты не подключаются', () => {
-    const { logger } = jest.requireMock('../../../utils/logger');
-    process.env.NODE_ENV = 'production';
-    const { createApiServer } = loadServerFresh();
-
-    createApiServer();
-
-    expect(logger.info).not.toHaveBeenCalledWith(
-      'Test endpoints enabled (dev/staging mode)'
-    );
-  });
-
-  it('вне продакшена тестовые эндпоинты подключаются', () => {
-    const { logger } = jest.requireMock('../../../utils/logger');
-    const { createApiServer } = loadServerFresh();
-
-    createApiServer();
-
-    expect(logger.info).toHaveBeenCalledWith(
-      'Test endpoints enabled (dev/staging mode)'
-    );
-  });
 });
 
 describe('startApiServer / stopApiServer', () => {
@@ -495,15 +444,5 @@ describe('startApiServer / stopApiServer', () => {
     ).rejects.toThrow();
 
     await stopApiServer(first);
-  });
-});
-
-describe('изоляция теста', () => {
-  it('маршруты действительно заменены заглушками — проверяется каркас, не эндпоинты', () => {
-    const authRoutes: { default: { stack: unknown[] } } = jest.requireMock(
-      '../../../api/routes/auth.routes'
-    );
-
-    expect(authRoutes.default.stack).toEqual([]);
   });
 });

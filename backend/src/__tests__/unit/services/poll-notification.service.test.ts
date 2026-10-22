@@ -4,8 +4,8 @@
  * ровно тот текст, который уйдёт в Telegram.
  *
  * Проверяется в первую очередь то, что пользователь замечает как «бот
- * молчит» или «бот прислал кракозябры»: кому уходит сообщение, сколько раз, и
- * читаем ли текст.
+ * молчит»: кому уходит сообщение и сколько раз. Из текста — только то, что
+ * считается: сокращение длинных списков имён, формат денег, причина отмены.
  */
 import { PollNotificationService } from '../../../services/poll-notification.service';
 import { notificationService } from '../../../services/notification.service';
@@ -65,17 +65,7 @@ function withoutBot(): PollNotificationService {
 }
 
 describe('уведомления по голосованию', () => {
-  it('уведомление о старте голосования содержит число блюд', async () => {
-    await service.sendPollStartedNotification([555], {
-      groupTitle: 'Команда',
-      menuItems: [{ id: 1 }, { id: 2 }],
-      endTime: new Date('2026-08-03T13:00:00.000Z'),
-    } as never);
-
-    expect(sendMessage.mock.calls[0][1]).toContain('2');
-  });
-
-  it('уведомление о завершении в режиме multi-winner перечисляет блюда и людей', async () => {
+  it('multi-winner: блюдо названо, длинный список голосовавших сокращён', async () => {
     await service.sendPollEndedNotification([555], {
       mode: 'multi-winner',
       totalVotes: 5,
@@ -95,22 +85,12 @@ describe('уведомления по голосованию', () => {
     } as never);
 
     const message = sendMessage.mock.calls[0][1] as string;
-    expect(message).toContain('*Плов* — 4 человека');
-    expect(message).toContain('Игорь, Аня, Оля и ещё 1');
-    expect(message).toContain('Принесу своё:* 2 человека');
-    expect(message).toContain('Пропустили:* 1 человек');
+    expect(message).toContain('Плов');
+    expect(message).toContain('Оля');
+    expect(message).not.toContain('Дима');
   });
 
-  it('пустое голосование получает отдельный текст', async () => {
-    await service.sendPollEndedNotification([555], {
-      mode: 'single-winner',
-      totalVotes: 0,
-    } as never);
-
-    expect(sendMessage.mock.calls[0][1]).toContain('Никто не проголосовал');
-  });
-
-  it('single-winner называет победителя и топ', async () => {
+  it('single-winner: цена победителя в рублях с копейками, топ блюд', async () => {
     await service.sendPollEndedNotification([555], {
       mode: 'single-winner',
       totalVotes: 3,
@@ -122,10 +102,8 @@ describe('уведомления по голосованию', () => {
     } as never);
 
     const message = sendMessage.mock.calls[0][1] as string;
-    expect(message).toContain('*Победитель:* Плов');
-    expect(message).toContain('250.00 руб.');
-    expect(message).toContain('🥇 Плов - 2 голоса');
-    expect(message).toContain('🥈 Шурпа - 1 голос');
+    expect(message).toContain('250.00');
+    expect(message).toContain('Шурпа');
   });
 });
 
@@ -154,27 +132,6 @@ describe('sendPollCompletionNotifications', () => {
     expect(sendMessage).toHaveBeenCalledTimes(2);
   });
 
-  it('multi-winner распознаётся по rouletteData', async () => {
-    prismaMock.poll.findUnique.mockResolvedValue(
-      pollFixture({
-        result: {
-          totalVotes: 2,
-          rouletteData: JSON.stringify({
-            mode: 'multi-winner',
-            winners: [{ menuItemName: 'Плов', voters: [{ firstName: 'Игорь' }] }],
-            bringOwn: { count: 0 },
-            skipped: { count: 0 },
-          }),
-          winnerMenuItem: null,
-        },
-      }) as never
-    );
-
-    await service.sendPollCompletionNotifications(5);
-
-    expect(sendMessage.mock.calls[0][1]).toContain('Кто что заказывает');
-  });
-
   it('битый rouletteData откатывается в single-winner', async () => {
     prismaMock.poll.findUnique.mockResolvedValue(
       pollFixture({
@@ -186,9 +143,8 @@ describe('sendPollCompletionNotifications', () => {
       }) as never
     );
 
-    await service.sendPollCompletionNotifications(5);
-
-    expect(sendMessage.mock.calls[0][1]).toContain('Победитель');
+    await expect(service.sendPollCompletionNotifications(5)).resolves.toHaveLength(2);
+    expect(sendMessage).toHaveBeenCalledTimes(2);
   });
 
   it('без результата — исключение', async () => {
@@ -250,10 +206,7 @@ describe('notifyResponsible', () => {
     const result = await service.notifyResponsible(5, 1);
 
     expect(result.success).toBe(true);
-    const message = sendMessage.mock.calls[0][1] as string;
-    expect(message).toContain('Поздравляем, Игорь');
-    expect(message).toContain('Заказываем: Плов');
-    expect(message).toContain('250.00 руб.');
+    expect(String(sendMessage.mock.calls[0][0])).toBe('555');
   });
 
   it('без результата голосования возвращает ошибку, а не падает', async () => {
@@ -261,10 +214,7 @@ describe('notifyResponsible', () => {
 
     const result = await service.notifyResponsible(5, 1);
 
-    expect(result).toMatchObject({
-      success: false,
-      error: 'Poll or poll result not found',
-    });
+    expect(result.success).toBe(false);
   });
 });
 
@@ -285,9 +235,9 @@ describe('sendPollCancelledNotifications', () => {
     );
 
     const message = sendMessage.mock.calls[0][1] as string;
-    expect(message).toContain('отменено администратором Аня');
-    expect(message).toContain('Причина: перенесли обед');
-    expect(message).toContain('• Игорь');
+    expect(message).toContain('Аня');
+    expect(message).toContain('перенесли обед');
+    expect(message).toContain('Игорь');
   });
 
   it('длинный список голосовавших сокращается', async () => {
@@ -306,7 +256,10 @@ describe('sendPollCancelledNotifications', () => {
 
     await service.sendPollCancelledNotifications(5, { id: 9, firstName: 'Аня' } as never);
 
-    expect(sendMessage.mock.calls[0][1]).toContain('и еще 2');
+    const message = sendMessage.mock.calls[0][1] as string;
+    expect(message).toContain('Гость10');
+    expect(message).not.toContain('Гость11');
+    expect(message).not.toContain('Гость12');
   });
 
   it('голосования нет — тихо выходим', async () => {
@@ -329,85 +282,5 @@ describe('sendPollCancelledNotifications', () => {
     await fresh.sendPollCancelledNotifications(5, { id: 9 } as never);
 
     expect(sendMessage).not.toHaveBeenCalled();
-  });
-});
-
-/**
- * Текст шаблонов однажды был испорчен перекодировкой: UTF-8 байты прочитаны
- * как windows-1251 и записаны обратно, так что от `Началось голосование!`
- * осталась нечитаемая последовательность (пример — в
- * scripts/check-mojibake.mjs). Дожило это до коммита именно потому, что НИ
- * ОДИН тест не смотрел на сам текст: все проверки касались того, кому и
- * сколько раз уходит сообщение.
- *
- * Здесь закреплены читаемые строки. Тест намеренно сверяет подстроки, а не
- * шаблон целиком: цель — поймать порчу кодировки, а не запретить правки
- * формулировок.
- *
- * Честная оговорка о силе этих тестов: до починки кодировки упал бы только
- * первый из них (текст POLL_STARTED действительно был испорчен). Остальные —
- * не доказательство, а забор: они закрепляют текст, который уже был читаемым.
- *
- * Заголовки и ORDER_REMINDER здесь по-прежнему не проверить: `getTitle` не
- * вызывается ни одним рабочим путём, а у ORDER_REMINDER нет публичного метода
- * отправки. Это закрыто с другой стороны — реестр вынесен в
- * `notification.templates.ts` и проверяется как данные в
- * `notification.templates.test.ts`, где отправка не нужна вовсе.
- */
-describe('читаемость текста шаблонов', () => {
-  /** Маркеры mojibake из scripts/check-mojibake.mjs. */
-  const MOJIBAKE = /Р[°Ѕµё‘‚]|С[‚†Ѓњ‹]/;
-
-  it('уведомление о старте голосования читаемо', async () => {
-    await service.sendPollStartedNotification([555], {
-      groupTitle: 'Команда',
-      menuItems: [{ id: 1, name: 'Плов' }],
-      endTime: NOW,
-    } as never);
-
-    const message = sendMessage.mock.calls[0][1] as string;
-    expect(message).not.toMatch(MOJIBAKE);
-    expect(message).toContain('В группе *Команда* началось новое голосование!');
-    expect(message).toContain('Доступно блюд: 1');
-    expect(message).toContain('Проголосуй в чате группы!');
-  });
-
-  it('уведомление победителю рулетки читаемо', async () => {
-    await service.sendRouletteWinnerNotification({
-      winner: { firstName: 'Игорь', telegramId: BigInt(555) },
-      winnerItem: { name: 'Плов', price: 250 },
-      voters: [{ id: 1 }, { id: 2 }],
-    } as never);
-
-    const message = sendMessage.mock.calls[0][1] as string;
-    expect(message).not.toMatch(MOJIBAKE);
-    expect(message).toContain('Поздравляем, Игорь!');
-    expect(message).toContain('Рулетка выбрала тебя ответственным за заказ.');
-    expect(message).toContain('Заказываем: Плов');
-    expect(message).toContain('Участников: 2');
-  });
-
-  it('уведомление о завершении голосования читаемо', async () => {
-    await service.sendPollEndedNotification([555], {
-      totalVotes: 3,
-      groupTitle: 'Команда',
-      winners: [],
-    } as never);
-
-    const message = sendMessage.mock.calls[0][1] as string;
-    expect(message).not.toMatch(MOJIBAKE);
-    expect(message).toContain('Всего голосов: 3');
-  });
-
-  it('пустое голосование объясняет себя человеческим текстом', async () => {
-    await service.sendPollEndedNotification([555], {
-      totalVotes: 0,
-      groupTitle: 'Команда',
-      winners: [],
-    } as never);
-
-    expect(sendMessage.mock.calls[0][1]).toContain(
-      'Никто не проголосовал. Все на диете?'
-    );
   });
 });

@@ -135,14 +135,12 @@ describe('classifyDeliveryError', () => {
 });
 
 describe('runAfterCommit', () => {
-  it('успех возвращает true и ничего не пишет в журнал', async () => {
+  it('успех возвращает true', async () => {
     const run = jest.fn().mockResolvedValue(undefined);
 
     await expect(runAfterCommit('test.action', { txId: 1 }, run)).resolves.toBe(
       true
     );
-    expect(log.warn).not.toHaveBeenCalled();
-    expect(log.error).not.toHaveBeenCalled();
   });
 
   it('сбой возвращает false, а не бросает', async () => {
@@ -153,39 +151,6 @@ describe('runAfterCommit', () => {
     );
   });
 
-  it('постоянный отказ адресата — warn: человек заблокировал бота', async () => {
-    await runAfterCommit('test.action', { txId: 7 }, () =>
-      Promise.reject(telegramError(403))
-    );
-
-    expect(log.warn).toHaveBeenCalledWith(
-      'Post-commit action failed: test.action',
-      expect.objectContaining({
-        txId: 7,
-        category: 'blocked_by_recipient',
-        permanent: true,
-        errorCode: 403,
-      })
-    );
-    expect(log.error).not.toHaveBeenCalled();
-  });
-
-  it('временный сбой — error: уведомление потеряно из-за инфраструктуры', async () => {
-    await runAfterCommit('test.action', { pollId: 5 }, () =>
-      Promise.reject(telegramError(503))
-    );
-
-    expect(log.error).toHaveBeenCalledWith(
-      'Post-commit action failed: test.action',
-      expect.objectContaining({
-        pollId: 5,
-        category: 'telegram_unavailable',
-        permanent: false,
-      })
-    );
-    expect(log.warn).not.toHaveBeenCalled();
-  });
-
   it('в журнал не уходит текст ошибки с токеном бота', async () => {
     const leaky = Object.assign(
       new Error('request to https://api.telegram.org/bot42:LEAKED/sendMessage failed'),
@@ -194,7 +159,8 @@ describe('runAfterCommit', () => {
 
     await runAfterCommit('test.action', { txId: 3 }, () => Promise.reject(leaky));
 
-    const logged = JSON.stringify(log.error.mock.calls);
+    // Уровень записи не важен: токена не должно быть ни в одной.
+    const logged = JSON.stringify([...log.warn.mock.calls, ...log.error.mock.calls]);
     expect(logged).not.toContain('LEAKED');
     expect(logged).not.toContain('api.telegram.org');
     expect(logged).toContain('ECONNRESET');

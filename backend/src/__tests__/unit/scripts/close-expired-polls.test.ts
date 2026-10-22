@@ -52,17 +52,9 @@ const expiredRow = (id: number) => ({
   votesCount: 2,
 });
 
-/* Консоль перехватывается один раз на файл: `jest.spyOn` на уже замоканном
-   методе возвращает ТОТ ЖЕ мок, поэтому пересоздание спая в `beforeEach`
-   копило бы вывод всех тестов в одну строку. */
-const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-const errorLog = jest
-  .spyOn(console, 'error')
-  .mockImplementation(() => undefined);
-
-/** Всё, что скрипт напечатал оператору, одной строкой. */
-const output = (): string =>
-  log.mock.calls.map(call => call.join(' ')).join('\n');
+/* Консоль скрипта перехватывается, чтобы не засорять вывод Jest. */
+jest.spyOn(console, 'log').mockImplementation(() => undefined);
+jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
 beforeEach(() => {
   resetPrismaMock();
@@ -71,8 +63,6 @@ beforeEach(() => {
      следующий — тест проверял бы чужую заготовку. */
   closeExpiredPoll.mockReset();
   PollCompletionService.findExpiredActivePolls.mockReset();
-  log.mockClear();
-  errorLog.mockClear();
   jest.useFakeTimers().setSystemTime(NOW);
 });
 
@@ -105,87 +95,17 @@ describe('close-expired-polls', () => {
     expect(code).toBe(1);
   });
 
-  it('оператор видит, какое именно голосование не закрылось', async () => {
-    twoExpired();
-    closeExpiredPoll
-      .mockRejectedValueOnce(new Error('boom'))
-      .mockResolvedValueOnce('completed');
-
-    await main();
-
-    expect(errorLog).toHaveBeenCalledWith(
-      '❌ Голосование 1 (группа 10) не закрылось:',
-      expect.any(Error)
-    );
-    expect(output()).toContain('Не закрылось: 1');
-  });
-
-  /* Иначе сбой выглядел бы как безобидная гонка с планировщиком, и оператор
-     решил бы, что всё в порядке. */
-  it('неудача не выдаётся за параллельное закрытие', async () => {
-    twoExpired();
-    closeExpiredPoll
-      .mockRejectedValueOnce(new Error('boom'))
-      .mockResolvedValueOnce('completed');
-
-    await main();
-
-    expect(output()).not.toContain('закрыл кто-то другой');
-  });
-
-  it('когда всё закрылось, отчёт двумя числами и код выхода 0', async () => {
-    twoExpired();
-    closeExpiredPoll
-      .mockResolvedValueOnce('completed')
-      .mockResolvedValueOnce('cancelled');
-
-    const code = await main();
-
-    expect(code).toBe(0);
-    expect(output()).toContain('Завершено: 1, отменено (без голосов): 1');
-    expect(output()).not.toContain('Не закрылось');
-  });
-
-  /* Исход `failed` — «голосование осталось ACTIVE»: путь завершения проглотил
-     ошибку. Считать его успехом значило бы напечатать «Завершено» и отдать
-     код 0 при потерянном обеде. */
-  it('исход failed идёт в неудачи, а не в завершённые', async () => {
-    twoExpired();
-    closeExpiredPoll
-      .mockResolvedValueOnce('failed')
-      .mockResolvedValueOnce('completed');
-
-    const code = await main();
-
-    expect(code).toBe(1);
-    expect(output()).toContain('Завершено: 1, отменено (без голосов): 0');
-    expect(output()).toContain('Не закрылось: 1');
-    expect(errorLog).toHaveBeenCalledWith(
-      '❌ Голосование 1 (группа 10) осталось ACTIVE — причина в логе сервиса'
-    );
-  });
-
-  /* `skipped` — это не сбой: голосование закрыл планировщик или человек между
+  /* `failed` — «голосование осталось ACTIVE»: путь завершения проглотил ошибку,
+     считать его успехом значило бы отдать код 0 при потерянном обеде.
+     `skipped` — не сбой: голосование закрыл планировщик или человек между
      отчётом и записью, и оптимистичная блокировка это поймала. */
-  it('чужое параллельное закрытие остаётся не ошибкой', async () => {
+  it.each<[string, string, number]>([
+    ['исход failed — неудача', 'failed', 1],
+    ['чужое параллельное закрытие (skipped) — не ошибка', 'skipped', 0],
+  ])('%s', async (_name, outcome, exitCode) => {
     twoExpired();
-    closeExpiredPoll.mockResolvedValue('skipped');
+    closeExpiredPoll.mockResolvedValueOnce(outcome).mockResolvedValueOnce('skipped');
 
-    const code = await main();
-
-    expect(code).toBe(0);
-    expect(output()).toContain('закрыл кто-то другой параллельно');
-    expect(output()).not.toContain('Не закрылось');
-  });
-
-  it('без просроченных голосований закрывать нечего', async () => {
-    prismaMock.poll.findMany.mockResolvedValue([] as never);
-
-    const code = await main();
-
-    expect(code).toBe(0);
-    expect(output()).toContain('No expired polls found!');
-    expect(PollCompletionService.findExpiredActivePolls).not.toHaveBeenCalled();
-    expect(closeExpiredPoll).not.toHaveBeenCalled();
+    expect(await main()).toBe(exitCode);
   });
 });

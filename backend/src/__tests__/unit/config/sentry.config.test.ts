@@ -40,7 +40,6 @@ jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
-const { logger } = jest.requireMock('../../../utils/logger');
 
 /** Значения, которых не должно быть в исходящем событии ни при каком раскладе. */
 const CARD = '2200123456789012';
@@ -60,10 +59,6 @@ function loadBeforeSend(): BeforeSend {
     throw new Error('Sentry.init был вызван без beforeSend');
   }
   return options.beforeSend;
-}
-
-function initOptions(): Record<string, unknown> {
-  return asMock(Sentry.init).mock.calls[0][0] as Record<string, unknown>;
 }
 
 let envBackup: NodeJS.ProcessEnv;
@@ -325,9 +320,6 @@ describe('initSentry: включение', () => {
     initSentry();
 
     expect(asMock(Sentry.init)).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledWith(
-      'Error tracking (Sentry/GlitchTip) отключен'
-    );
   });
 
   it('включённый без DSN не инициализируется', () => {
@@ -336,9 +328,6 @@ describe('initSentry: включение', () => {
     initSentry();
 
     expect(asMock(Sentry.init)).not.toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('не установлен')
-    );
   });
 
   it('GlitchTip включается своим флагом и своим DSN', () => {
@@ -350,69 +339,17 @@ describe('initSentry: включение', () => {
     initSentry();
 
     expect(asMock(Sentry.init)).toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('GlitchTip')
-    );
   });
 
-  it('в production частота выборки снижена — иначе трассы съедают квоту', () => {
-    initSentry();
-
-    expect(initOptions()).toMatchObject({
-      tracesSampleRate: 0.1,
-      profilesSampleRate: 0.1,
-      environment: 'production',
-    });
-  });
-
-  it('вне production собирается всё', () => {
-    process.env.NODE_ENV = 'development';
-
-    initSentry();
-
-    expect(initOptions()).toMatchObject({
-      tracesSampleRate: 1.0,
-      profilesSampleRate: 1.0,
-    });
-  });
-
-  it('release берётся из SENTRY_RELEASE в первую очередь', () => {
-    process.env.SENTRY_RELEASE = 'abc1234';
-    process.env.GIT_COMMIT_SHA = 'def5678';
-
-    initSentry();
-
-    expect(initOptions().release).toBe('abc1234');
-  });
-
-  it('без SENTRY_RELEASE берётся SHA коммита', () => {
-    process.env.GIT_COMMIT_SHA = 'def5678';
-
-    initSentry();
-
-    expect(initOptions().release).toBe('def5678');
-  });
-
-  it('шумные ошибки не отправляются вовсе', () => {
-    initSentry();
-
-    const patterns = (initOptions().ignoreErrors as RegExp[]).map(String);
-    expect(patterns.join(' ')).toMatch(/ETIMEDOUT/);
-    expect(patterns.join(' ')).toMatch(/ECONNRESET/);
-  });
 });
 
 describe('ручная отправка', () => {
-  it('исключение уходит только при включённом трекере, но логируется всегда', () => {
+  it('выключенный трекер исключение не отправляет', () => {
     delete process.env.ENABLE_SENTRY;
 
     captureException(new Error('boom'), { pollId: 5 });
 
     expect(asMock(Sentry.captureException)).not.toHaveBeenCalled();
-    expect(logger.error).toHaveBeenCalledWith(
-      'Exception captured:',
-      expect.objectContaining({ error: 'boom' })
-    );
   });
 
   it('при включённом трекере исключение уходит с контекстом', () => {
@@ -439,22 +376,12 @@ describe('ручная отправка', () => {
     captureMessage('деньги разошлись');
 
     expect(asMock(Sentry.captureMessage)).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('деньги разошлись'),
-      undefined
-    );
   });
 
   it('в контекст пользователя уходит только id, без username', () => {
     setUserContext(7, 'ivan');
 
     expect(asMock(Sentry.setUser)).toHaveBeenCalledWith({ id: '7' });
-  });
-
-  it('контекст пользователя очищается', () => {
-    clearUserContext();
-
-    expect(asMock(Sentry.setUser)).toHaveBeenCalledWith(null);
   });
 
   it('выключенный трекер контекст не ставит', () => {

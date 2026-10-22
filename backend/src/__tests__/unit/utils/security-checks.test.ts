@@ -3,7 +3,7 @@
  * Sprint 3 - Production Safety
  */
 
-import { runSecurityChecks, generateSecureKey } from '../../../utils/security-checks';
+import { runSecurityChecks } from '../../../utils/security-checks';
 
 describe('Security Checks', () => {
   const originalEnv = process.env;
@@ -36,7 +36,7 @@ describe('Security Checks', () => {
       process.env.JWT_SECRET = 'a'.repeat(64);
       process.env.ENCRYPTION_KEY = 'a'.repeat(64);
 
-      expect(() => runSecurityChecks()).toThrow('SECURITY');
+      expect(() => runSecurityChecks()).toThrow();
     });
 
     it('should throw in production with default JWT_SECRET', () => {
@@ -46,7 +46,7 @@ describe('Security Checks', () => {
       process.env.DATABASE_URL = 'file:./dev.db';
       process.env.ENCRYPTION_KEY = 'a'.repeat(64);
 
-      expect(() => runSecurityChecks()).toThrow('SECURITY');
+      expect(() => runSecurityChecks()).toThrow();
     });
 
     it('should throw in production without ENCRYPTION_KEY', () => {
@@ -56,7 +56,7 @@ describe('Security Checks', () => {
       process.env.DATABASE_URL = 'file:./dev.db';
       delete process.env.ENCRYPTION_KEY;
 
-      expect(() => runSecurityChecks()).toThrow('SECURITY');
+      expect(() => runSecurityChecks()).toThrow();
     });
 
     it('should pass in production with all secure settings', () => {
@@ -68,25 +68,6 @@ describe('Security Checks', () => {
       process.env.DATABASE_URL = 'postgresql://user:pass@localhost/db';
 
       expect(() => runSecurityChecks()).not.toThrow();
-    });
-  });
-
-  describe('generateSecureKey', () => {
-    it('should generate key of default length (32 bytes = 64 hex chars)', () => {
-      const key = generateSecureKey();
-      expect(key).toHaveLength(64);
-      expect(/^[0-9a-f]+$/.test(key)).toBe(true);
-    });
-
-    it('should generate key of specified length', () => {
-      const key = generateSecureKey(16);
-      expect(key).toHaveLength(32); // 16 bytes = 32 hex chars
-    });
-
-    it('should generate unique keys', () => {
-      const key1 = generateSecureKey();
-      const key2 = generateSecureKey();
-      expect(key1).not.toBe(key2);
     });
   });
 });

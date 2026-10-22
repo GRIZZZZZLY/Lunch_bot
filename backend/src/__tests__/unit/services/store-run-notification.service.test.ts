@@ -8,6 +8,9 @@
  *   в группах web_app не работает;
  * - названия магазинов и имена людей уходят в HTML и обязаны экранироваться,
  *   иначе Telegram отвечает `can't parse entities` и сообщение не доходит.
+ *
+ * Кто получает приглашения и что id сообщений сохраняются, проверяет
+ * integration/api/store-runs.redis.test.ts.
  */
 import { StoreRunNotificationService } from '../../../services/store-run-notification.service';
 import { getBotInstance } from '../../../bot/bot-instance';
@@ -80,11 +83,6 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-function withoutBot(): StoreRunNotificationService {
-  mockedGetBotInstance.mockReturnValue(null);
-  return service;
-}
-
 describe('notifyGroupMembersAboutStoreRun', () => {
   beforeEach(() => {
     prismaMock.storeRun.findUnique.mockResolvedValue(storeRunFixture() as never);
@@ -92,23 +90,6 @@ describe('notifyGroupMembersAboutStoreRun', () => {
       { userId: 2, user: { id: 2, firstName: 'Аня', telegramId: BigInt(777) } },
     ] as never);
     asMock(prismaMock.storeRun.update).mockResolvedValue({ id: 5 });
-  });
-
-  it('шлёт приглашение участникам, кроме инициатора', async () => {
-    const results = await service.notifyGroupMembersAboutStoreRun(5);
-
-    expect(prismaMock.groupMember.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          groupId: 100,
-          isActive: true,
-          participatesInPolls: true,
-          userId: { not: 1 },
-        }),
-      })
-    );
-    expect(results).toHaveLength(1);
-    expect(sendMessage.mock.calls[0][1]).toContain('идёт в «Магнит»');
   });
 
   it('в личку идёт web_app-кнопка с id забега', async () => {
@@ -127,27 +108,6 @@ describe('notifyGroupMembersAboutStoreRun', () => {
     expect(sendMessage.mock.calls[0][2].reply_markup).toBeUndefined();
   });
 
-  it('id доставленных сообщений сохраняются — потом их надо удалить', async () => {
-    await service.notifyGroupMembersAboutStoreRun(5);
-
-    expect(prismaMock.storeRun.update).toHaveBeenCalledWith({
-      where: { id: 5 },
-      data: { dmMessages: JSON.stringify([{ chatId: 777, messageId: 42 }]) },
-    });
-  });
-
-  it('недоставленное приглашение в список не попадает', async () => {
-    sendMessage.mockRejectedValue(new Error('bot blocked'));
-
-    const results = await service.notifyGroupMembersAboutStoreRun(5);
-
-    expect(results[0].success).toBe(false);
-    expect(prismaMock.storeRun.update).toHaveBeenCalledWith({
-      where: { id: 5 },
-      data: { dmMessages: '[]' },
-    });
-  });
-
   it('падение записи id не роняет рассылку', async () => {
     asMock(prismaMock.storeRun.update).mockRejectedValue(new Error('db down'));
 
@@ -156,32 +116,10 @@ describe('notifyGroupMembersAboutStoreRun', () => {
     ).resolves.toHaveLength(1);
   });
 
-  it('имя магазина экранируется для HTML', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(
-      storeRunFixture({ storeName: 'A & <b>B</b>' }) as never
-    );
-
-    await service.notifyGroupMembersAboutStoreRun(5);
-
-    expect(sendMessage.mock.calls[0][1]).toContain('A &amp; &lt;b&gt;B&lt;/b&gt;');
-  });
-
-  it('забега нет — пустой результат', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(null);
-
-    await expect(service.notifyGroupMembersAboutStoreRun(5)).resolves.toEqual([]);
-  });
-
   it('некому писать — пустой результат', async () => {
     asMock(prismaMock.groupMember.findMany).mockResolvedValue([] as never);
 
     await expect(service.notifyGroupMembersAboutStoreRun(5)).resolves.toEqual([]);
-  });
-
-  it('без бота рассылки нет', async () => {
-    const fresh = withoutBot();
-
-    await expect(fresh.notifyGroupMembersAboutStoreRun(5)).resolves.toEqual([]);
   });
 });
 
@@ -198,23 +136,6 @@ describe('notifyShoppingStarted', () => {
     ] as never);
   });
 
-  it('сообщает добавившим позиции, что сбор закрыт', async () => {
-    const results = await service.notifyShoppingStarted(5);
-
-    // Инициатор исключён, дубликаты userId свёрнуты.
-    expect(prismaMock.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: { in: [2] }, isActive: true } })
-    );
-    expect(results).toHaveLength(1);
-    expect(sendMessage.mock.calls[0][1]).toContain('пошёл в «Магнит»');
-  });
-
-  it('забега нет — пусто', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(null);
-
-    await expect(service.notifyShoppingStarted(5)).resolves.toEqual([]);
-  });
-
   it('никто ничего не добавил — пусто', async () => {
     asMock(prismaMock.storeItem.findMany).mockResolvedValue([
       { userId: 1 },
@@ -228,12 +149,6 @@ describe('notifyShoppingStarted', () => {
 
     await expect(service.notifyShoppingStarted(5)).resolves.toEqual([]);
   });
-
-  it('без бота — пусто', async () => {
-    const fresh = withoutBot();
-
-    await expect(fresh.notifyShoppingStarted(5)).resolves.toEqual([]);
-  });
 });
 
 describe('notifyStoreRunExpired', () => {
@@ -242,25 +157,8 @@ describe('notifyStoreRunExpired', () => {
 
     await service.notifyStoreRunExpired(5);
 
-    expect(sendMessage).toHaveBeenCalledWith(
-      555,
-      expect.stringContaining('авто-отменён'),
-      expect.objectContaining({ parse_mode: 'HTML' })
-    );
-  });
-
-  it('забега нет — молчим', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(null);
-
-    await service.notifyStoreRunExpired(5);
-
-    expect(sendMessage).not.toHaveBeenCalled();
-  });
-
-  it('без бота молчим', async () => {
-    const fresh = withoutBot();
-
-    await expect(fresh.notifyStoreRunExpired(5)).resolves.toBeUndefined();
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage.mock.calls[0][0]).toBe(555);
   });
 });
 
@@ -279,37 +177,11 @@ describe('postStoreRunToGroup', () => {
     expect(result).toMatchObject({ success: true, messageId: 42 });
   });
 
-  it('id группового сообщения сохраняется', async () => {
-    await service.postStoreRunToGroup(5);
-
-    expect(prismaMock.storeRun.update).toHaveBeenCalledWith({
-      where: { id: 5 },
-      data: { groupMessageId: 42 },
-    });
-  });
-
   it('падение записи id не отменяет успех публикации', async () => {
     asMock(prismaMock.storeRun.update).mockRejectedValue(new Error('db down'));
 
     await expect(service.postStoreRunToGroup(5)).resolves.toMatchObject({
       success: true,
-    });
-  });
-
-  it('забега нет — понятный код ошибки', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(null);
-
-    await expect(service.postStoreRunToGroup(5)).resolves.toMatchObject({
-      success: false,
-      error: 'run_not_found',
-    });
-  });
-
-  it('без бота — понятный код ошибки', async () => {
-    const fresh = withoutBot();
-
-    await expect(fresh.postStoreRunToGroup(5)).resolves.toMatchObject({
-      error: 'bot_not_initialized',
     });
   });
 
@@ -326,13 +198,13 @@ describe('postStoreRunToGroup', () => {
 describe('notifyInitiatorCollectionClosed', () => {
   beforeEach(() => {
     prismaMock.storeRun.findUnique.mockResolvedValue(storeRunFixture() as never);
-    asMock(prismaMock.storeItem.count).mockResolvedValue(4);
+    asMock(prismaMock.storeItem.count).mockResolvedValue(17);
   });
 
   it('сообщает число собранных позиций и даёт кнопку', async () => {
     const result = await service.notifyInitiatorCollectionClosed(5);
 
-    expect(sendMessage.mock.calls[0][1]).toContain('Набралось позиций: 4');
+    expect(sendMessage.mock.calls[0][1]).toContain('17');
     expect(
       sendMessage.mock.calls[0][2].reply_markup.inline_keyboard[0][0].web_app.url
     ).toBe('https://app.example.com?storeRunId=5');
@@ -346,51 +218,20 @@ describe('notifyInitiatorCollectionClosed', () => {
 
     expect(sendMessage.mock.calls[0][2].reply_markup).toBeUndefined();
   });
-
-  it('забега нет — ошибка', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(null);
-
-    await expect(
-      service.notifyInitiatorCollectionClosed(5)
-    ).resolves.toMatchObject({ error: 'run_not_found' });
-  });
-
-  it('без бота — ошибка', async () => {
-    const fresh = withoutBot();
-
-    await expect(
-      fresh.notifyInitiatorCollectionClosed(5)
-    ).resolves.toMatchObject({ error: 'bot_not_initialized' });
-  });
 });
 
 describe('deleteStoreRunMessages', () => {
-  it('удаляет и групповой пост, и личные приглашения', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(
-      storeRunFixture({
-        dmMessages: JSON.stringify([
-          { chatId: 777, messageId: 11 },
-          { chatId: 888, messageId: 12 },
-        ]),
-      }) as never
-    );
-
-    await service.deleteStoreRunMessages(5);
-
-    expect(deleteMessage).toHaveBeenCalledWith(-1001, 77);
-    expect(deleteMessage).toHaveBeenCalledWith(777, 11);
-    expect(deleteMessage).toHaveBeenCalledWith(888, 12);
-  });
-
-  it('уже удалённое сообщение не роняет очистку', async () => {
+  it('сбой одного удаления не мешает удалить остальные', async () => {
     prismaMock.storeRun.findUnique.mockResolvedValue(
       storeRunFixture({
         dmMessages: JSON.stringify([{ chatId: 777, messageId: 11 }]),
       }) as never
     );
-    deleteMessage.mockRejectedValue(new Error('message to delete not found'));
+    deleteMessage.mockRejectedValueOnce(new Error('message to delete not found'));
 
     await expect(service.deleteStoreRunMessages(5)).resolves.toBeUndefined();
+    expect(deleteMessage).toHaveBeenCalledWith(-1001, 77);
+    expect(deleteMessage).toHaveBeenCalledWith(777, 11);
   });
 
   it('битый JSON приглашений не роняет очистку', async () => {
@@ -416,38 +257,9 @@ describe('deleteStoreRunMessages', () => {
 
     expect(deleteMessage).toHaveBeenCalledTimes(1);
   });
-
-  it('забега нет — молчим', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(null);
-
-    await service.deleteStoreRunMessages(5);
-
-    expect(deleteMessage).not.toHaveBeenCalled();
-  });
-
-  it('без бота молчим', async () => {
-    const fresh = withoutBot();
-
-    await expect(fresh.deleteStoreRunMessages(5)).resolves.toBeUndefined();
-  });
 });
 
 describe('markStoreRunGroupCompleted', () => {
-  it('правит групповой пост и снимает кнопку', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(storeRunFixture() as never);
-
-    await service.markStoreRunGroupCompleted(5);
-
-    expect(editMessageText).toHaveBeenCalledWith(
-      -1001,
-      77,
-      expect.stringContaining('завершён'),
-      { parse_mode: 'HTML' }
-    );
-    // reply_markup не передаётся — Telegram убирает клавиатуру.
-    expect(editMessageText.mock.calls[0][3]).not.toHaveProperty('reply_markup');
-  });
-
   it('без группового сообщения правка не нужна', async () => {
     prismaMock.storeRun.findUnique.mockResolvedValue(
       storeRunFixture({ groupMessageId: null }) as never
@@ -463,22 +275,6 @@ describe('markStoreRunGroupCompleted', () => {
     editMessageText.mockRejectedValue(new Error('message is not modified'));
 
     await expect(service.markStoreRunGroupCompleted(5)).resolves.toBeUndefined();
-  });
-
-  it('забега нет — молчим', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(null);
-
-    await service.markStoreRunGroupCompleted(5);
-
-    expect(editMessageText).not.toHaveBeenCalled();
-  });
-
-  it('без бота молчим', async () => {
-    const fresh = withoutBot();
-
-    await expect(
-      fresh.markStoreRunGroupCompleted(5)
-    ).resolves.toBeUndefined();
   });
 });
 
@@ -499,17 +295,6 @@ describe('notifyStoreRunParticipantsNoDebt', () => {
     asMock(prismaMock.user.findMany).mockResolvedValue([
       { id: 3, telegramId: BigInt(888) },
     ] as never);
-  });
-
-  it('пишет только тем, у кого долга не возникло', async () => {
-    const results = await service.notifyStoreRunParticipantsNoDebt(5);
-
-    // Участник 2 — должник, инициатор исключён, остаётся 3.
-    expect(prismaMock.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: { in: [3] }, isActive: true } })
-    );
-    expect(results).toHaveLength(1);
-    expect(sendMessage.mock.calls[0][1]).toContain('платить не надо');
   });
 
   it('все участники — должники, писать некому', async () => {
@@ -533,14 +318,6 @@ describe('notifyStoreRunParticipantsNoDebt', () => {
     ).resolves.toEqual([]);
   });
 
-  it('забега нет — пусто', async () => {
-    prismaMock.storeRun.findUnique.mockResolvedValue(null);
-
-    await expect(
-      service.notifyStoreRunParticipantsNoDebt(5)
-    ).resolves.toEqual([]);
-  });
-
   it('получатели деактивированы — пусто', async () => {
     asMock(prismaMock.user.findMany).mockResolvedValue([] as never);
 
@@ -549,12 +326,106 @@ describe('notifyStoreRunParticipantsNoDebt', () => {
     ).resolves.toEqual([]);
   });
 
-  it('без бота — пусто', async () => {
-    const fresh = withoutBot();
+  it('сбой отправки одному не мешает остальным, результат на каждого', async () => {
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([] as never);
+    asMock(prismaMock.user.findMany).mockResolvedValue([
+      { id: 2, telegramId: BigInt(777) },
+      { id: 3, telegramId: BigInt(888) },
+    ] as never);
+    sendMessage.mockRejectedValueOnce(new Error('bot blocked by user'));
 
-    await expect(
-      fresh.notifyStoreRunParticipantsNoDebt(5)
-    ).resolves.toEqual([]);
+    const results = await service.notifyStoreRunParticipantsNoDebt(5);
+
+    expect(results.map(r => r.success)).toEqual([false, true]);
+  });
+});
+
+/**
+ * Без бота или без забега ни один метод не бросает и ничего не шлёт в
+ * Telegram. Данные во всех строках такие, что с ботом и забегом каждый метод
+ * дошёл бы до Telegram: это проверяет первая таблица.
+ */
+describe('без бота или без забега', () => {
+  const METHODS = [
+    'notifyGroupMembersAboutStoreRun',
+    'notifyShoppingStarted',
+    'notifyStoreRunExpired',
+    'postStoreRunToGroup',
+    'notifyInitiatorCollectionClosed',
+    'deleteStoreRunMessages',
+    'markStoreRunGroupCompleted',
+    'notifyStoreRunParticipantsNoDebt',
+  ] as const;
+  type Method = (typeof METHODS)[number];
+
+  function call(method: Method): Promise<unknown> {
+    return service[method](5);
+  }
+
+  function telegramCalls(): number {
+    return (
+      sendMessage.mock.calls.length +
+      editMessageText.mock.calls.length +
+      deleteMessage.mock.calls.length
+    );
+  }
+
+  beforeEach(() => {
+    prismaMock.storeRun.findUnique.mockResolvedValue(
+      storeRunFixture({
+        dmMessages: JSON.stringify([{ chatId: 777, messageId: 11 }]),
+      }) as never
+    );
+    asMock(prismaMock.storeRun.update).mockResolvedValue({ id: 5 });
+    asMock(prismaMock.groupMember.findMany).mockResolvedValue([
+      { userId: 2, user: { id: 2, firstName: 'Аня', telegramId: BigInt(777) } },
+    ] as never);
+    asMock(prismaMock.storeItem.findMany).mockResolvedValue([{ userId: 2 }] as never);
+    asMock(prismaMock.storeItem.count).mockResolvedValue(1);
+    asMock(prismaMock.transaction.findMany).mockResolvedValue([] as never);
+    asMock(prismaMock.user.findMany).mockResolvedValue([
+      { id: 2, telegramId: BigInt(777), firstName: 'Аня' },
+    ] as never);
+  });
+
+  it.each(METHODS)('с ботом и забегом %s доходит до Telegram', async method => {
+    await call(method);
+
+    expect(telegramCalls()).toBeGreaterThan(0);
+  });
+
+  const failed = (error: string) => expect.objectContaining({ success: false, error });
+
+  it.each([
+    ['notifyGroupMembersAboutStoreRun', []],
+    ['notifyShoppingStarted', []],
+    ['notifyStoreRunExpired', undefined],
+    ['postStoreRunToGroup', failed('bot_not_initialized')],
+    ['notifyInitiatorCollectionClosed', failed('bot_not_initialized')],
+    ['deleteStoreRunMessages', undefined],
+    ['markStoreRunGroupCompleted', undefined],
+    ['notifyStoreRunParticipantsNoDebt', []],
+  ] as Array<[Method, unknown]>)('без бота %s молчит', async (method, expected) => {
+    mockedGetBotInstance.mockReturnValue(null);
+
+    await expect(call(method)).resolves.toEqual(expected);
+    expect(telegramCalls()).toBe(0);
+  });
+
+  it.each([
+    ['notifyGroupMembersAboutStoreRun', []],
+    ['notifyShoppingStarted', []],
+    ['notifyStoreRunExpired', undefined],
+    ['postStoreRunToGroup', failed('run_not_found')],
+    ['notifyInitiatorCollectionClosed', failed('run_not_found')],
+    ['deleteStoreRunMessages', undefined],
+    ['markStoreRunGroupCompleted', undefined],
+    ['notifyStoreRunParticipantsNoDebt', []],
+  ] as Array<[Method, unknown]>)('забега нет: %s молчит', async (method, expected) => {
+    prismaMock.storeRun.findUnique.mockResolvedValue(null);
+
+    await expect(call(method)).resolves.toEqual(expected);
+    expect(telegramCalls()).toBe(0);
   });
 });
 

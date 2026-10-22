@@ -1,15 +1,8 @@
 /**
- * Автозакрытие голосования по кворуму.
- *
- * Правило приехало из контроллера (задача 06): там оно жило локальной функцией
- * `autoCompleteIfQuorumReached`, действовало для одного эндпоинта и проверялось
- * через HTTP-моки. Главное свойство — «сбой закрытия не отменяет уже поданный
- * голос» — на уровне контроллера проверить было нельзя честно: сервис был
- * замокан, то есть тест проверял собственную заглушку.
- *
- * Остальное завершение (`completePoll`, `completePollMultiWinner`, отмена
- * истёкших) закреплено в `poll.service.test.ts` — тесты переехали вместе с
- * методами и вызывают их по новому адресу.
+ * Автозакрытие голосования по кворуму: ветки, которые не видны через HTTP.
+ * Само правило кворума (все ожидаемые проголосовали, выключенное автозавершение,
+ * режим нескольких победителей) проверяется на настоящей БД в
+ * integration/api/votes.redis.test.ts.
  */
 import { PollCompletionService } from '../../../services/poll-completion.service';
 import { GroupService } from '../../../services/group.service';
@@ -52,7 +45,6 @@ jest.mock('../../../utils/logger', () => ({
 }));
 
 const groups = asServiceMock(GroupService);
-const { logger } = jest.requireMock('../../../utils/logger');
 
 /**
  * Голосование, готовое к автозакрытию: активно, автозавершение включено.
@@ -89,26 +81,6 @@ beforeEach(() => {
 });
 
 describe('completeIfQuorumReached', () => {
-  it('пока проголосовали не все — голосование не закрывается', async () => {
-    participants([1, 2], [1]);
-
-    await expect(
-      PollCompletionService.completeIfQuorumReached(5, 1)
-    ).resolves.toBe(false);
-    expect(asMock(prismaMock.poll.updateMany)).not.toHaveBeenCalled();
-  });
-
-  it('когда проголосовали все ожидаемые — закрывает и отдаёт true', async () => {
-    participants([1, 2], [1, 2]);
-    asMock(prismaMock.poll.updateMany).mockResolvedValue({ count: 1 });
-    asMock(prismaMock.pollResult.create).mockResolvedValue({ id: 700 });
-
-    await expect(
-      PollCompletionService.completeIfQuorumReached(5, 1)
-    ).resolves.toBe(true);
-    expect(asMock(prismaMock.pollResult.create)).toHaveBeenCalled();
-  });
-
   /**
    * То, ради чего правило и переехало из контроллера: голос уже записан, и
    * падение закрытия не имеет права превратиться в ошибку ответа. Раньше это
@@ -121,19 +93,6 @@ describe('completeIfQuorumReached', () => {
     await expect(
       PollCompletionService.completeIfQuorumReached(5, 1)
     ).resolves.toBe(false);
-    expect(logger.error).toHaveBeenCalled();
-  });
-
-  it('выключенное в группе автозавершение не закрывает голосование', async () => {
-    groups.getGroupSettings.mockResolvedValue({
-      autoCompleteEnabled: false,
-    });
-    participants([1], [1]);
-
-    await expect(
-      PollCompletionService.completeIfQuorumReached(5, 1)
-    ).resolves.toBe(false);
-    expect(asMock(prismaMock.poll.updateMany)).not.toHaveBeenCalled();
   });
 
   /* Пустой снимок ожидаемых участников — не кворум: иначе голосование в группе,
@@ -144,41 +103,6 @@ describe('completeIfQuorumReached', () => {
     await expect(
       PollCompletionService.completeIfQuorumReached(5, 1)
     ).resolves.toBe(false);
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('no EXPECTED participants')
-    );
-  });
-
-  it('неактивное голосование не проверяется', async () => {
-    asMock(prismaMock.poll.findUnique).mockResolvedValue({
-      id: 5,
-      status: 'COMPLETED',
-      groupId: 100,
-    });
-
-    await expect(
-      PollCompletionService.completeIfQuorumReached(5, 1)
-    ).resolves.toBe(false);
-    expect(asMock(prismaMock.pollParticipant.findMany)).not.toHaveBeenCalled();
-  });
-
-  /* Закрытие идёт в режиме НЕСКОЛЬКИХ победителей — так работает подача голоса
-     через `/api/polls/:id/vote`. Второй путь (`checkQuorumAndComplete`,
-     vote.controller) закрывает с одним победителем; расхождение зафиксировано
-     в `tech_debt/06`. */
-  it('закрывает в режиме нескольких победителей, с итогами в rouletteData', async () => {
-    participants([1], [1]);
-    asMock(prismaMock.poll.updateMany).mockResolvedValue({ count: 1 });
-    asMock(prismaMock.pollResult.create).mockResolvedValue({ id: 700 });
-
-    await PollCompletionService.completeIfQuorumReached(5, 42);
-
-    const call = asMock(prismaMock.pollResult.create).mock.calls[0][0] as {
-      data: { responsibleUserId: number; rouletteData?: string };
-    };
-    expect(call.data.responsibleUserId).toBe(42);
-    expect(JSON.parse(call.data.rouletteData!)).toMatchObject({
-      mode: 'multi-winner',
-    });
+    expect(asMock(prismaMock.poll.updateMany)).not.toHaveBeenCalled();
   });
 });

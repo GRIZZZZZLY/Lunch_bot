@@ -8,8 +8,8 @@
  * кроме чтения файла маршрутов, она больше не держалась: новый эндпоинт без
  * guard'а компилируется, проходит все тесты сервисов и открывает чужие данные.
  *
- * Здесь эта фраза становится проверяемой. Ожидаемое соответствие взято из
- * матрицы `tech_debt/04-auth-matrix.md`.
+ * Какой guard на каком маршруте, проверяют эндпоинт-тесты
+ * integration/api/category-orders.redis.test.ts. Здесь остаётся порядок слоёв.
  */
 import type { Router } from 'express';
 
@@ -45,29 +45,6 @@ function listRoutes(router: Router): RouteEntry[] {
   return out;
 }
 
-/** `метод путь` → guard, который ОБЯЗАН быть в цепочке. */
-const EXPECTED_GUARD: Record<string, string> = {
-  'GET /polls/:pollId/category-orders': 'requirePollAccess',
-  'GET /polls/:pollId/category-orders/my': 'requirePollAccess',
-  'GET /category-orders/:id': 'requireCategoryOrderParticipant',
-  'GET /category-orders/:id/progress': 'requireCategoryOrderParticipant',
-  'GET /category-orders/:id/participants': 'requireCategoryOrderResponsible',
-  'GET /category-orders/:id/order-items': 'requireCategoryOrderResponsible',
-  'POST /category-orders/:id/order-items': 'requireCategoryOrderResponsible',
-  'POST /category-orders/:id/finalize': 'requireCategoryOrderResponsible',
-  'POST /category-orders/:id/volunteer': 'requireCategoryOrderPollAccess',
-  'PUT /category-orders/:id/costs': 'requireCategoryOrderResponsible',
-  'GET /order-items/:id/edit-history': 'requireOrderItemGroupAdmin',
-};
-
-/**
- * Единственный маршрут без guard'а на цепочке — и это разобрано в матрице:
- * здесь `:id` относится к ПОЗИЦИИ, а не к категорийному заказу, поэтому
- * middleware по `:id` проверял бы не ту сущность. Проверка осталась в
- * `deleteOrderItem`, где сначала выясняется, какому заказу позиция принадлежит.
- */
-const KNOWN_WITHOUT_GUARD = ['DELETE /order-items/:id'];
-
 let routes: RouteEntry[];
 
 beforeAll(async () => {
@@ -84,20 +61,6 @@ describe('маршруты категорийных заказов', () => {
     expect(unauthenticated).toEqual([]);
   });
 
-  it('у каждого маршрута стоит ожидаемый guard авторизации', () => {
-    const actual: Record<string, string | null> = {};
-    for (const r of routes) {
-      const key = `${r.method} ${r.path}`;
-      const guard = r.chain.find(name => name.startsWith('require'));
-      actual[key] = guard ?? null;
-    }
-
-    const expected: Record<string, string | null> = { ...EXPECTED_GUARD };
-    for (const key of KNOWN_WITHOUT_GUARD) expected[key] = null;
-
-    expect(actual).toEqual(expected);
-  });
-
   /* Все guard'ы читают req.user, поэтому обязаны стоять ПОСЛЕ аутентификации.
      Перестановка «для красоты» превратила бы проверку в чтение undefined. */
   it('guard авторизации идёт после аутентификации', () => {
@@ -106,67 +69,6 @@ describe('маршруты категорийных заказов', () => {
       const guardAt = r.chain.findIndex(n => n.startsWith('require'));
       if (guardAt < 0) continue;
       expect(guardAt).toBeGreaterThan(authAt);
-    }
-  });
-
-  /**
-   * Полные цепочки, целиком. Это дублирует проверки выше — и намеренно:
-   * порядок здесь виден глазами, а не выводится из четырёх отдельных
-   * утверждений. `<anonymous>` — это `writeLimiter` из express-rate-limit,
-   * у него нет имени функции; он стоит ДО авторизации осознанно, потому что
-   * guard'ы ходят в базу и без лимита их можно дёргать чужими id без конца.
-   */
-  it('цепочки middleware закреплены целиком', () => {
-    const actual = Object.fromEntries(
-      routes.map(r => [`${r.method} ${r.path}`, r.chain.join(' | ')])
-    );
-
-    expect(actual).toEqual({
-      'GET /polls/:pollId/category-orders':
-        'telegramAuthMiddleware | validateParams | requirePollAccess | getCategoryOrdersForPoll',
-      'GET /polls/:pollId/category-orders/my':
-        'telegramAuthMiddleware | validateParams | requirePollAccess | getMyCategoryOrdersForPoll',
-      'GET /category-orders/:id':
-        'telegramAuthMiddleware | validateParams | requireCategoryOrderParticipant | getCategoryOrder',
-      'GET /category-orders/:id/progress':
-        'telegramAuthMiddleware | validateParams | requireCategoryOrderParticipant | getProgress',
-      'GET /category-orders/:id/participants':
-        'telegramAuthMiddleware | validateParams | requireCategoryOrderResponsible | getParticipants',
-      'GET /category-orders/:id/order-items':
-        'telegramAuthMiddleware | validateParams | requireCategoryOrderResponsible | getOrderItems',
-      'GET /order-items/:id/edit-history':
-        'telegramAuthMiddleware | validateParams | requireOrderItemGroupAdmin | getEditHistory',
-      'POST /category-orders/:id/order-items':
-        'telegramAuthMiddleware | validateParams | <anonymous> | requireCategoryOrderResponsible | idempotencyMiddleware | validateBody | saveOrderItem',
-      'POST /category-orders/:id/finalize':
-        'telegramAuthMiddleware | validateParams | <anonymous> | requireCategoryOrderResponsible | idempotencyMiddleware | finalizeCalculation',
-      'POST /category-orders/:id/volunteer':
-        'telegramAuthMiddleware | validateParams | <anonymous> | requireCategoryOrderPollAccess | idempotencyMiddleware | volunteerForCategory',
-      'PUT /category-orders/:id/costs':
-        'telegramAuthMiddleware | validateParams | <anonymous> | requireCategoryOrderResponsible | idempotencyMiddleware | validateBody | updateCosts',
-      'DELETE /order-items/:id':
-        'telegramAuthMiddleware | validateParams | <anonymous> | idempotencyMiddleware | deleteOrderItem',
-    });
-  });
-
-  /* Разбор `:id` обязан стоять до авторизации: guard'ы сами читают параметр и
-     с `NaN` пошли бы в базу за несуществующим ресурсом. А разбор тела —
-     наоборот, после идемпотентности: ключ считается по исходному телу. */
-  it('params валидируются до авторизации, body — после идемпотентности', () => {
-    for (const r of routes) {
-      const paramsAt = r.chain.indexOf('validateParams');
-      const guardAt = r.chain.findIndex(n => n.startsWith('require'));
-      if (paramsAt >= 0 && guardAt >= 0) {
-        expect(paramsAt).toBeLessThan(guardAt);
-      }
-
-      const bodyAt = r.chain.indexOf('validateBody');
-      const idemAt = r.chain.findIndex(n =>
-        n.toLowerCase().includes('idempotency')
-      );
-      if (bodyAt >= 0 && idemAt >= 0) {
-        expect(bodyAt).toBeGreaterThan(idemAt);
-      }
     }
   });
 

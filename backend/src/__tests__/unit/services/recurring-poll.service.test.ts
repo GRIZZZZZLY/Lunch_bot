@@ -4,9 +4,10 @@
  *
  * - «уже запускали сегодня» и «в группе есть активное голосование» должны
  *   останавливать запуск, иначе в чате появляются дубли;
- * - если бота выгнали из группы, расписание ВЫКЛЮЧАЕТСЯ, а не долбит каждый
- *   день в пустоту;
- * - блюда для автоголосования обязаны принадлежать этой же группе.
+ * - блюда для автоголосования берутся из расписания, если оно их задаёт.
+ *
+ * Создание и правка расписаний, права и «бота выгнали — расписание
+ * выключается» проверяют интеграционные тесты на тестовой БД.
  */
 import { RecurringPollService } from '../../../services/recurring-poll.service';
 import { PollService } from '../../../services/poll.service';
@@ -30,7 +31,6 @@ jest.mock('../../../services/poll-query.service', () => ({
     getActivePollInGroup: jest.fn(),
   },
 }));
-
 
 jest.mock('../../../services/menu.service', () => ({
   MenuService: { getActiveMenuItems: jest.fn() },
@@ -119,43 +119,6 @@ describe('createRecurring', () => {
     createdBy: 1,
   };
 
-  it('создаёт расписание и считает следующий запуск', async () => {
-    const created = await RecurringPollService.createRecurring(data);
-
-    expect(created).toMatchObject({
-      groupId: 100,
-      daysOfWeek: '[1,3,5]',
-      timeOfDay: '11:30',
-      duration: 30,
-    });
-    // Сегодня понедельник, 11:30 ещё впереди.
-    expect((created as { nextRunAt: Date }).nextRunAt).toEqual(
-      new Date(2026, 7, 3, 11, 30, 0)
-    );
-  });
-
-  it('выбранные блюда проверяются на принадлежность группе', async () => {
-    await RecurringPollService.createRecurring({
-      ...data,
-      selectedMenuItemIds: [1, 2],
-    });
-
-    expect(prismaMock.menuItem.count).toHaveBeenCalledWith({
-      where: { id: { in: [1, 2] }, groupId: 100, isActive: true, deletedAt: null },
-    });
-  });
-
-  it('чужое или удалённое блюдо в расписание не попадёт', async () => {
-    asMock(prismaMock.menuItem.count).mockResolvedValue(1);
-
-    await expect(
-      RecurringPollService.createRecurring({
-        ...data,
-        selectedMenuItemIds: [1, 999],
-      })
-    ).rejects.toThrow('must be active and belong to the group');
-  });
-
   it.each([
     ['без дней недели', { daysOfWeek: [] }],
     ['время без двоеточия', { timeOfDay: '1130' }],
@@ -168,24 +131,6 @@ describe('createRecurring', () => {
     ).rejects.toThrow();
     expect(prismaMock.recurringPoll.create).not.toHaveBeenCalled();
   });
-
-  it('группы нет — отказ', async () => {
-    asMock(prismaMock.group.findUnique).mockResolvedValue(null);
-
-    await expect(RecurringPollService.createRecurring(data)).rejects.toThrow(
-      'Group not found'
-    );
-  });
-
-  it('второе расписание для группы не создаётся', async () => {
-    asMock(prismaMock.recurringPoll.findUnique).mockResolvedValue(
-      recurringFixture()
-    );
-
-    await expect(RecurringPollService.createRecurring(data)).rejects.toThrow(
-      'already has a recurring poll schedule'
-    );
-  });
 });
 
 describe('updateRecurring', () => {
@@ -195,66 +140,6 @@ describe('updateRecurring', () => {
     );
   });
 
-  it('меняет длительность, не пересчитывая расписание', async () => {
-    await RecurringPollService.updateRecurring(1, { duration: 45 });
-
-    const data = (
-      prismaMock.recurringPoll.update.mock.calls[0][0] as {
-        data: Record<string, unknown>;
-      }
-    ).data;
-    expect(data.duration).toBe(45);
-    // Дни и время не менялись — следующий запуск остаётся прежним.
-    expect(data.nextRunAt).toEqual(new Date(2026, 7, 3, 11, 30, 0));
-  });
-
-  it('смена времени пересчитывает следующий запуск', async () => {
-    await RecurringPollService.updateRecurring(1, { timeOfDay: '12:00' });
-
-    const data = (
-      prismaMock.recurringPoll.update.mock.calls[0][0] as {
-        data: { nextRunAt: Date };
-      }
-    ).data;
-    expect(data.nextRunAt).toEqual(new Date(2026, 7, 3, 12, 0, 0));
-  });
-
-  it('список блюд можно очистить', async () => {
-    await RecurringPollService.updateRecurring(1, { selectedMenuItemIds: null });
-
-    expect(prismaMock.recurringPoll.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ selectedMenuItemIds: null }),
-      })
-    );
-  });
-
-  it('новый список блюд проверяется на принадлежность группе', async () => {
-    asMock(prismaMock.menuItem.count).mockResolvedValue(0);
-
-    await expect(
-      RecurringPollService.updateRecurring(1, { selectedMenuItemIds: [999] })
-    ).rejects.toThrow('must be active and belong to the group');
-  });
-
-  it('выключение расписания сохраняется', async () => {
-    await RecurringPollService.updateRecurring(1, { isEnabled: false });
-
-    expect(prismaMock.recurringPoll.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ isEnabled: false }),
-      })
-    );
-  });
-
-  it('расписания нет — отказ', async () => {
-    asMock(prismaMock.recurringPoll.findUnique).mockResolvedValue(null);
-
-    await expect(
-      RecurringPollService.updateRecurring(1, { duration: 45 })
-    ).rejects.toThrow('Recurring poll not found');
-  });
-
   it.each([
     ['невалидное время', { timeOfDay: '99:99' }],
     ['длительность вне диапазона', { duration: 1000 }],
@@ -262,97 +147,6 @@ describe('updateRecurring', () => {
     await expect(
       RecurringPollService.updateRecurring(1, patch)
     ).rejects.toThrow();
-  });
-});
-
-describe('простые операции', () => {
-  it('удаление', async () => {
-    await RecurringPollService.deleteRecurring(1);
-
-    expect(prismaMock.recurringPoll.delete).toHaveBeenCalledWith({
-      where: { id: 1 },
-    });
-  });
-
-  it('ошибка удаления выбрасывается наружу', async () => {
-    asMock(prismaMock.recurringPoll.delete).mockRejectedValue(
-      new Error('db down')
-    );
-
-    await expect(RecurringPollService.deleteRecurring(1)).rejects.toThrow(
-      'db down'
-    );
-  });
-
-  it('включение и выключение', async () => {
-    await RecurringPollService.toggleEnabled(1, false);
-
-    expect(prismaMock.recurringPoll.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: { isEnabled: false },
-    });
-  });
-
-  it('ошибка переключения выбрасывается наружу', async () => {
-    asMock(prismaMock.recurringPoll.update).mockRejectedValue(
-      new Error('db down')
-    );
-
-    await expect(RecurringPollService.toggleEnabled(1, true)).rejects.toThrow(
-      'db down'
-    );
-  });
-
-  it('чтение по группе включает группу и автора', async () => {
-    asMock(prismaMock.recurringPoll.findUnique).mockResolvedValue(
-      recurringFixture()
-    );
-
-    await RecurringPollService.getByGroupId(100);
-
-    expect(prismaMock.recurringPoll.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { groupId: 100 } })
-    );
-  });
-
-  it('ошибка чтения по группе выбрасывается наружу', async () => {
-    asMock(prismaMock.recurringPoll.findUnique).mockRejectedValue(
-      new Error('db down')
-    );
-
-    await expect(RecurringPollService.getByGroupId(100)).rejects.toThrow(
-      'db down'
-    );
-  });
-
-  it('чтение по id', async () => {
-    asMock(prismaMock.recurringPoll.findUnique).mockResolvedValue(
-      recurringFixture()
-    );
-
-    await expect(RecurringPollService.getById(1)).resolves.toMatchObject({
-      id: 1,
-    });
-  });
-
-  it('все расписания сортируются от новых к старым', async () => {
-    asMock(prismaMock.recurringPoll.findMany).mockResolvedValue([] as never);
-
-    await RecurringPollService.getAllSchedules();
-
-    expect(prismaMock.recurringPoll.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { createdAt: 'desc' } })
-    );
-  });
-
-  it('ошибка чтения всех расписаний выбрасывается наружу', async () => {
-    asMock(prismaMock.recurringPoll.findMany).mockRejectedValue(
-      new Error('db down')
-    );
-
-    await expect(RecurringPollService.getAllSchedules()).rejects.toThrow(
-      'db down'
-    );
   });
 });
 
@@ -372,16 +166,6 @@ describe('getActiveSchedules', () => {
       })
     );
   });
-
-  it('ошибка выборки выбрасывается наружу', async () => {
-    asMock(prismaMock.recurringPoll.findMany).mockRejectedValue(
-      new Error('db down')
-    );
-
-    await expect(RecurringPollService.getActiveSchedules()).rejects.toThrow(
-      'db down'
-    );
-  });
 });
 
 describe('executeScheduledPoll', () => {
@@ -391,22 +175,12 @@ describe('executeScheduledPoll', () => {
     );
   });
 
-  it('создаёт голосование, помечает его автоматическим и планирует напоминания', async () => {
-    const result = await RecurringPollService.executeScheduledPoll(1);
-
-    expect(result).toMatchObject({ success: true, pollId: 5, status: 'SUCCESS' });
-    expect(prismaMock.poll.update).toHaveBeenCalledWith({
-      where: { id: 5 },
-      data: { selectedMenuItemIds: '[1,2]', isAutomatic: true },
-    });
-  });
-
   it('сообщение уходит в группу, messageId сохраняется', async () => {
     await RecurringPollService.executeScheduledPoll(1);
 
     expect(sendMessage).toHaveBeenCalledWith(
       -1001,
-      expect.stringContaining('Голосование за обед запущено'),
+      expect.any(String),
       expect.objectContaining({ parse_mode: 'Markdown' })
     );
     expect(prismaMock.poll.update).toHaveBeenCalledWith({
@@ -432,19 +206,6 @@ describe('executeScheduledPoll', () => {
     const result = await RecurringPollService.executeScheduledPoll(1);
 
     expect(result).toMatchObject({ status: 'SKIPPED_CONFLICT' });
-    expect(pollService.createPoll).not.toHaveBeenCalled();
-  });
-
-  it('бота выгнали — расписание выключается, а не долбит каждый день', async () => {
-    notifications.botCanPostToGroup.mockResolvedValue(false);
-
-    const result = await RecurringPollService.executeScheduledPoll(1);
-
-    expect(result).toMatchObject({ status: 'FAILED_BOT_REMOVED' });
-    expect(prismaMock.recurringPoll.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: { isEnabled: false },
-    });
     expect(pollService.createPoll).not.toHaveBeenCalled();
   });
 
@@ -496,7 +257,6 @@ describe('executeScheduledPoll', () => {
     expect(result).toMatchObject({
       success: false,
       status: 'FAILED_ERROR',
-      message: 'Recurring poll not found',
     });
   });
 
@@ -553,29 +313,6 @@ describe('calculateNextRun', () => {
 });
 
 describe('getExecutionHistory', () => {
-  it('отдаёт автоматические голосования с числом голосов', async () => {
-    asMock(prismaMock.poll.findMany).mockResolvedValue([
-      {
-        id: 5,
-        startedAt: MONDAY_9AM,
-        status: 'COMPLETED',
-        _count: { votes: 4 },
-      },
-    ] as never);
-
-    const history = await RecurringPollService.getExecutionHistory(100);
-
-    expect(prismaMock.poll.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ groupId: 100, isAutomatic: true }),
-        take: 7,
-      })
-    );
-    expect(history).toEqual([
-      { date: MONDAY_9AM, status: 'COMPLETED', pollId: 5, voteCount: 4 },
-    ]);
-  });
-
   it('ошибка чтения даёт пустую историю, а не исключение', async () => {
     asMock(prismaMock.poll.findMany).mockRejectedValue(new Error('db down'));
 
@@ -586,28 +323,6 @@ describe('getExecutionHistory', () => {
 });
 
 describe('checkAdminAccess', () => {
-  it('админ группы проходит', async () => {
-    await expect(
-      RecurringPollService.checkAdminAccess(1, 100)
-    ).resolves.toBe(true);
-    expect(prismaMock.groupMember.findFirst).toHaveBeenCalledWith({
-      where: {
-        userId: 1,
-        groupId: 100,
-        isActive: true,
-        role: { in: ['ADMIN', 'CREATOR'] },
-      },
-    });
-  });
-
-  it('обычный участник не проходит', async () => {
-    asMock(prismaMock.groupMember.findFirst).mockResolvedValue(null);
-
-    await expect(RecurringPollService.checkAdminAccess(1, 100)).resolves.toBe(
-      false
-    );
-  });
-
   it('ошибка базы трактуется как отказ', async () => {
     asMock(prismaMock.groupMember.findFirst).mockRejectedValue(
       new Error('db down')
@@ -616,54 +331,5 @@ describe('checkAdminAccess', () => {
     await expect(RecurringPollService.checkAdminAccess(1, 100)).resolves.toBe(
       false
     );
-  });
-});
-
-describe('форматирование для интерфейса', () => {
-  it.each([
-    ['[0,1,2,3,4,5,6]', 'Каждый день'],
-    ['[1,2,3,4,5]', 'Пн-Пт'],
-    ['[6,0]', 'Выходные'],
-    ['[1,3]', 'Пн, Ср'],
-  ])('дни %s описываются как «%s»', (daysOfWeek, expected) => {
-    const text = RecurringPollService.formatSchedule(
-      recurringFixture({ daysOfWeek }) as never
-    );
-
-    expect(text).toContain(expected);
-    expect(text).toContain('11:30');
-    expect(text).toContain('30 мин');
-  });
-
-  it('без следующего запуска так и сказано', () => {
-    expect(
-      RecurringPollService.getNextRunInfo(
-        recurringFixture({ nextRunAt: null }) as never
-      )
-    ).toBe('Не запланировано');
-  });
-
-  it('меньше часа — в минутах', () => {
-    expect(
-      RecurringPollService.getNextRunInfo(
-        recurringFixture({ nextRunAt: new Date(2026, 7, 3, 9, 30, 0) }) as never
-      )
-    ).toBe('Через 30 мин');
-  });
-
-  it('меньше суток — в часах', () => {
-    expect(
-      RecurringPollService.getNextRunInfo(
-        recurringFixture({ nextRunAt: new Date(2026, 7, 3, 14, 0, 0) }) as never
-      )
-    ).toBe('Через 5 ч');
-  });
-
-  it('дальше суток — датой', () => {
-    expect(
-      RecurringPollService.getNextRunInfo(
-        recurringFixture({ nextRunAt: new Date(2026, 7, 5, 11, 30, 0) }) as never
-      )
-    ).toBe('05.08 в 11:30');
   });
 });

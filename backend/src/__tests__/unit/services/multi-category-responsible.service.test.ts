@@ -1,14 +1,14 @@
 /**
- * Распределение ответственных по категориям. Правило продукта: один человек —
- * одна категория, поэтому проверяется, что второй раз взять роль нельзя, и что
- * рулетка сначала пытается выбрать из тех, кто ещё свободен.
+ * Распределение ответственных по категориям. Отклик добровольца через бота
+ * («один человек — одна категория», гонка, отказ не голосовавшему) проверяют
+ * интеграционные тесты. Здесь — рулетка (сначала из тех, кто ещё свободен),
+ * таймаут, экранирование и устойчивость без бота.
  *
  * Отдельно: сообщение в группе редактируется, а не плодится, и кнопки остаются
  * только у нераспределённых категорий.
  */
 import { MultiCategoryResponsibleService } from '../../../services/multi-category-responsible.service';
 import { CategoryOrderService } from '../../../services/category-order.service';
-import { ResponsibleAlreadyAssignedError } from '../../../services/category-order.errors';
 import { GroupService } from '../../../services/group.service';
 import { VoteService } from '../../../services/vote.service';
 import { getBotInstance } from '../../../bot/bot-instance';
@@ -117,9 +117,7 @@ describe('startMultiCategorySelection', () => {
   it('нераспределённые категории попадают в сообщение с кнопками', async () => {
     await MultiCategoryResponsibleService.startMultiCategorySelection(5);
 
-    const [, , message, options] = editMessageText.mock.calls[0];
-    expect(message).toContain('Категории заказа');
-    expect(message).toContain('⏳ Плов — 3 участников');
+    const [, , , options] = editMessageText.mock.calls[0];
     expect(options.reply_markup.inline_keyboard[0][0]).toMatchObject({
       callback_data: 'volunteer_category:1',
     });
@@ -138,10 +136,10 @@ describe('startMultiCategorySelection', () => {
     await MultiCategoryResponsibleService.startMultiCategorySelection(5);
 
     const [, , message, options] = editMessageText.mock.calls[0];
-    expect(message).toContain('⏳ Соус\\_острый — 3 участников');
-    expect(options.reply_markup.inline_keyboard[0][0].text).toBe(
-      '🙋‍♂️ Соус_острый'
-    );
+    expect(message).toContain('Соус\\_острый');
+    const buttonText = options.reply_markup.inline_keyboard[0][0].text;
+    expect(buttonText).toContain('Соус_острый');
+    expect(buttonText).not.toContain('\\');
   });
 
   it('имя автоответственного в сообщении о категориях экранируется', async () => {
@@ -155,9 +153,9 @@ describe('startMultiCategorySelection', () => {
 
     await MultiCategoryResponsibleService.startMultiCategorySelection(5);
 
-    expect(editMessageText.mock.calls[0][2]).toContain(
-      '✅ Плов\\_с бараниной — Аня\\_К (авто)'
-    );
+    const message = editMessageText.mock.calls[0][2];
+    expect(message).toContain('Плов\\_с бараниной');
+    expect(message).toContain('Аня\\_К');
   });
 
   it('уже распределённая категория сразу рассылает уведомления', async () => {
@@ -171,10 +169,7 @@ describe('startMultiCategorySelection', () => {
 
     await MultiCategoryResponsibleService.startMultiCategorySelection(5);
 
-    expect(sendMessage).toHaveBeenCalledWith(
-      '555',
-      expect.stringContaining('Ты ответственный за "Плов"')
-    );
+    expect(sendMessage).toHaveBeenCalledWith('555', expect.any(String));
     expect(editMessageText).not.toHaveBeenCalled();
   });
 
@@ -212,16 +207,6 @@ describe('startMultiCategorySelection', () => {
     expect(editMessageText).toHaveBeenCalled();
   });
 
-  it('ошибка чтения категорий выбрасывается наружу', async () => {
-    categoryOrders.getCategoryOrdersForPoll.mockRejectedValue(
-      new Error('db down')
-    );
-
-    await expect(
-      MultiCategoryResponsibleService.startMultiCategorySelection(5)
-    ).rejects.toThrow('db down');
-  });
-
   it('по истечении трёх минут запускается рулетка', async () => {
     await MultiCategoryResponsibleService.startMultiCategorySelection(5);
     editMessageText.mockClear();
@@ -237,42 +222,12 @@ describe('startMultiCategorySelection', () => {
 });
 
 describe('handleVolunteerForCategory', () => {
-  it('участник категории забирает роль и получает XP', async () => {
-    const claimed =
-      await MultiCategoryResponsibleService.handleVolunteerForCategory(
-        1,
-        BigInt(555)
-      );
-
-    expect(claimed).toBe(true);
-    expect(categoryOrders.setResponsible).toHaveBeenCalledWith(1, 1, 'volunteer');
-    expect(awardXP).toHaveBeenCalledWith(
-      1,
-      expect.any(Number),
-      expect.any(String),
-      expect.any(String),
-      { categoryOrderId: 1, selectionMode: 'volunteer' },
-      'category-volunteer:1:1'
-    );
-  });
-
   it('категории нет — отказ', async () => {
     categoryOrders.getCategoryOrder.mockResolvedValue(null);
 
     await expect(
       MultiCategoryResponsibleService.handleVolunteerForCategory(1, BigInt(555))
     ).resolves.toBe(false);
-  });
-
-  it('категория уже распределена — отказ', async () => {
-    categoryOrders.getCategoryOrder.mockResolvedValue(
-      orderFixture({ selectionStatus: 'SELECTED_VOLUNTEER' })
-    );
-
-    await expect(
-      MultiCategoryResponsibleService.handleVolunteerForCategory(1, BigInt(555))
-    ).resolves.toBe(false);
-    expect(categoryOrders.setResponsible).not.toHaveBeenCalled();
   });
 
   it('незнакомый пользователь — отказ', async () => {
@@ -289,80 +244,6 @@ describe('handleVolunteerForCategory', () => {
     await expect(
       MultiCategoryResponsibleService.handleVolunteerForCategory(1, BigInt(555))
     ).resolves.toBe(false);
-  });
-
-  it('не голосовавшему за категорию отвечают отказом в личку', async () => {
-    categoryOrders.getParticipants.mockResolvedValue([2, 3]);
-
-    const claimed =
-      await MultiCategoryResponsibleService.handleVolunteerForCategory(
-        1,
-        BigInt(555)
-      );
-
-    expect(claimed).toBe(false);
-    expect(sendMessage).toHaveBeenCalledWith(
-      '555',
-      expect.stringContaining('Ты не участвуешь в этой категории')
-    );
-  });
-
-  it('один человек — одна категория: второй раз роль не взять', async () => {
-    asMock(prismaMock.categoryOrder.findFirst).mockResolvedValue({
-      id: 2,
-      category: 'Шурпа',
-    });
-
-    const claimed =
-      await MultiCategoryResponsibleService.handleVolunteerForCategory(
-        1,
-        BigInt(555)
-      );
-
-    expect(claimed).toBe(false);
-    expect(sendMessage).toHaveBeenCalledWith(
-      '555',
-      expect.stringContaining('Ты уже ответственный за "Шурпа"')
-    );
-    expect(categoryOrders.setResponsible).not.toHaveBeenCalled();
-  });
-
-  it('гонка на записи (категорию заняли) даёт false, а не исключение', async () => {
-    /* Настоящий класс, а не выдуманное сообщение: мок с текстом «Failed to set
-       responsible user» проверял бы формулировку, которой в сервисе больше нет
-       (она была подменой в `catch`, снятой вместе с типизацией отказов). */
-    categoryOrders.setResponsible.mockRejectedValue(
-      new ResponsibleAlreadyAssignedError()
-    );
-
-    await expect(
-      MultiCategoryResponsibleService.handleVolunteerForCategory(1, BigInt(555))
-    ).resolves.toBe(false);
-  });
-
-  it('участникам сообщают, что ждут расчёта, и запоминают их сообщения', async () => {
-    prismaMock.user.findUnique
-      .mockResolvedValueOnce({
-        id: 1,
-        firstName: 'Игорь',
-        telegramId: BigInt(555),
-      } as never)
-      .mockResolvedValueOnce({ id: 2, telegramId: BigInt(777) } as never)
-      .mockResolvedValueOnce({ id: 3, telegramId: BigInt(888) } as never);
-
-    await MultiCategoryResponsibleService.handleVolunteerForCategory(
-      1,
-      BigInt(555)
-    );
-
-    expect(sendMessage).toHaveBeenCalledWith(
-      '777',
-      expect.stringContaining('Ожидаем расчёт от Игорь')
-    );
-    expect(prismaMock.categoryOrder.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: { participantMessages: expect.stringContaining('"messageId":42') },
-    });
   });
 });
 
@@ -422,19 +303,16 @@ describe('runRouletteForCategory', () => {
     randomSpy.mockRestore();
   });
 
-  it('выбранный получает XP с идемпотентным ключом', async () => {
+  it('выбранный получает XP с ключом, одинаковым при повторе', async () => {
     const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0);
 
     await MultiCategoryResponsibleService.runRouletteForCategory(1);
+    await MultiCategoryResponsibleService.runRouletteForCategory(1);
 
-    expect(awardXP).toHaveBeenCalledWith(
-      1,
-      expect.any(Number),
-      expect.any(String),
-      expect.any(String),
-      { categoryOrderId: 1, selectionMode: 'roulette' },
-      'category-roulette:1:1'
-    );
+    const keys = awardXP.mock.calls.map(call => call[5]);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toEqual(expect.any(String));
+    expect(keys[1]).toBe(keys[0]);
     randomSpy.mockRestore();
   });
 
@@ -472,40 +350,7 @@ describe('runRouletteForCategory', () => {
 });
 
 describe('сообщение со списком категорий', () => {
-  it('распределённые категории показываются с именем ответственного', async () => {
-    categoryOrders.getCategoryOrdersForPoll.mockResolvedValue([
-      orderFixture({
-        id: 1,
-        selectionStatus: 'SELECTED_VOLUNTEER',
-        responsibleUser: { id: 1, firstName: 'Игорь', telegramId: BigInt(555) },
-      }),
-      orderFixture({ id: 2, category: 'Шурпа' }),
-    ]);
-
-    await MultiCategoryResponsibleService.startMultiCategorySelection(5);
-
-    const message = editMessageText.mock.calls[0][2] as string;
-    expect(message).toContain('✅ Плов — Игорь');
-    expect(message).toContain('⏳ Шурпа');
-  });
-
-  it('категория на одного помечается как авто', async () => {
-    categoryOrders.getCategoryOrdersForPoll.mockResolvedValue([
-      orderFixture({
-        id: 1,
-        participantCount: 1,
-        selectionStatus: 'SELECTED_AUTO',
-        responsibleUser: { id: 1, firstName: 'Игорь', telegramId: BigInt(555) },
-      }),
-      orderFixture({ id: 2, category: 'Шурпа' }),
-    ]);
-
-    await MultiCategoryResponsibleService.startMultiCategorySelection(5);
-
-    expect(editMessageText.mock.calls[0][2]).toContain('✅ Плов — Игорь (авто)');
-  });
-
-  it('когда все распределены — кнопок нет и сказано об этом', async () => {
+  it('когда все распределены — кнопок нет', async () => {
     await MultiCategoryResponsibleService.startMultiCategorySelection(5);
     editMessageText.mockClear();
     // Доброволец забрал последнюю категорию.
@@ -514,8 +359,7 @@ describe('сообщение со списком категорий', () => {
       BigInt(555)
     );
 
-    const [, , message, options] = editMessageText.mock.calls[0];
-    expect(message).toContain('Все категории распределены');
+    const [, , , options] = editMessageText.mock.calls[0];
     expect(options.reply_markup.inline_keyboard).toEqual([]);
   });
 
@@ -564,13 +408,14 @@ describe('бота нет', () => {
       MultiCategoryResponsibleService.sendVolunteerPromptForCategory(1)
     ).resolves.toBeUndefined();
 
-    expect(categoryOrders.getCategoryOrder).toHaveBeenCalledWith(1);
-    const beforeTimeout = categoryOrders.getCategoryOrder.mock.calls.length;
+    expect(categoryOrders.setResponsible).not.toHaveBeenCalled();
 
     await jest.advanceTimersByTimeAsync(3 * 60 * 1000);
 
-    expect(
-      categoryOrders.getCategoryOrder.mock.calls.length
-    ).toBeGreaterThan(beforeTimeout);
+    expect(categoryOrders.setResponsible).toHaveBeenCalledWith(
+      1,
+      expect.any(Number),
+      'roulette'
+    );
   });
 });

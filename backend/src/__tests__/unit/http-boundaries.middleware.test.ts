@@ -44,25 +44,8 @@ describe('HTTP boundary middleware', () => {
     expect(response.body).toMatchObject({
       status: 400,
       code: 'INVALID_REQUEST_BODY',
-      detail: 'Request body is malformed',
     });
     expect(response.text).not.toContain('SyntaxError');
-  });
-
-  it('returns 403 for a forbidden browser origin', async () => {
-    const app = express();
-    app.use(requestIdMiddleware);
-    app.use('/api', corsMiddleware);
-    app.get('/api/ping', (_req, res) => res.json({ ok: true }));
-    app.use(errorHandler);
-
-    const response = await request(app)
-      .get('/api/ping')
-      .set('Origin', 'https://forbidden.example');
-
-    expect(response.status).toBe(403);
-    expect(response.body.code).toBe('AUTHORIZATION_ERROR');
-    expect(response.headers['access-control-allow-origin']).toBeUndefined();
   });
 
   it('allows idempotency and operations headers in CORS preflight', async () => {

@@ -1,22 +1,19 @@
 /**
  * Аутентификация HTTP-слоя. Это граница доверия всего API: за ней контроллеры
- * считают `req.user` доказанным. Проверяются все ветки, включая режим обхода
- * подписи:
+ * считают `req.user` доказанным.
  *
- * - SKIP_TELEGRAM_VALIDATION в продакшене обязан ломать запрос, а не тихо
- *   пропускать всех;
- * - в режиме обхода НЕТ отката на TEST_USER_ID — иначе голоса разных людей
- *   смешались бы под одним аккаунтом;
- * - access-токеном нельзя обновлять сессию, refresh-токеном нельзя ходить по API.
+ * Обычные исходы (нет токена, истёк, refresh вместо access, пользователь
+ * деактивирован, обход подписи в production) проверены на настоящем API в
+ * integration/api/auth-surface.routes.test.ts. Здесь остаются ветки, до
+ * которых через HTTP не добраться без подмены сервисов:
  *
- * Повторное использование refresh-токена и разбор подписи покрыты отдельно в
- * unit/refresh-token.middleware.test.ts и unit/telegram-auth.security.test.ts.
+ * - legacy-откат на initData, когда проверка JWT бросает;
+ * - режим обхода подписи: НЕТ отката на TEST_USER_ID — иначе голоса разных
+ *   людей смешались бы под одним аккаунтом.
+ *
+ * Разбор подписи initData покрыт в unit/utils/telegram-auth.test.ts.
  */
-import {
-  telegramAuthMiddleware,
-  validateInitDataMiddleware,
-  optionalAuthMiddleware,
-} from '../../../api/middleware/telegram-auth';
+import { telegramAuthMiddleware } from '../../../api/middleware/telegram-auth';
 import { UserService } from '../../../services/user.service';
 import { JwtService } from '../../../services/jwt.service';
 import { validateTelegramInitData } from '../../../utils/telegram-auth';
@@ -76,99 +73,25 @@ afterEach(() => {
   process.env = envBackup;
 });
 
-describe('telegramAuthMiddleware — обычный режим', () => {
-  it('валидный access-токен пропускает и кладёт пользователя в запрос', async () => {
-    const req = mockRequest({ headers: { authorization: `Bearer ${JWT}` } });
-    const res = mockResponse();
-    const next = jest.fn();
-
-    await telegramAuthMiddleware(req, res, next);
-
-    expect(next).toHaveBeenCalled();
-    expect((req as unknown as { user: unknown }).user).toBe(USER);
-  });
-
-  it.each([
-    ['без заголовка', {}],
-    ['не Bearer', { authorization: 'Basic abc' }],
-  ])('%s — 401 MISSING_TOKEN', async (_label, headers) => {
-    const res = mockResponse();
-    const next = jest.fn();
-
-    await telegramAuthMiddleware(mockRequest({ headers }), res, next);
-
-    expect(res.statusCode).toBe(401);
-    expect(res.body).toMatchObject({ code: 'MISSING_TOKEN' });
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it('истёкший токен — 401 TOKEN_EXPIRED', async () => {
-    jwtService.verifyToken.mockReturnValue(null);
-    validateInitData.mockReturnValue(null);
-    const res = mockResponse();
-
-    await telegramAuthMiddleware(
-      mockRequest({ headers: { authorization: `Bearer ${JWT}` } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.statusCode).toBe(401);
-    expect(res.body).toMatchObject({ code: 'TOKEN_EXPIRED' });
-  });
-
-  it('refresh-токеном по API ходить нельзя — 401 INVALID_TOKEN_TYPE', async () => {
-    jwtService.verifyToken.mockReturnValue({ userId: 1, type: 'refresh' });
-    const res = mockResponse();
-    const next = jest.fn();
-
-    await telegramAuthMiddleware(
-      mockRequest({ headers: { authorization: `Bearer ${JWT}` } }),
-      res,
-      next
-    );
-
-    expect(res.statusCode).toBe(401);
-    expect(res.body).toMatchObject({ code: 'INVALID_TOKEN_TYPE' });
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ['пользователя нет', null],
-    ['пользователь деактивирован', { ...USER, isActive: false }],
-  ])('%s — 401 USER_NOT_ACTIVE', async (_label, user) => {
-    userService.getUserById.mockResolvedValue(user);
-    const res = mockResponse();
-
-    await telegramAuthMiddleware(
-      mockRequest({ headers: { authorization: `Bearer ${JWT}` } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.statusCode).toBe(401);
-    expect(res.body).toMatchObject({ code: 'USER_NOT_ACTIVE' });
-  });
-
-  it('падение JWT-проверки откатывается на initData (обратная совместимость)', async () => {
+describe('telegramAuthMiddleware — legacy-откат на initData', () => {
+  beforeEach(() => {
     jwtService.verifyToken.mockImplementation(() => {
       throw new Error('malformed');
     });
+  });
+
+  it('падение JWT-проверки откатывается на initData (обратная совместимость)', async () => {
     validateInitData.mockReturnValue({ id: 555 });
     const req = mockRequest({ headers: { authorization: 'Bearer initdata' } });
     const next = jest.fn();
 
     await telegramAuthMiddleware(req, mockResponse(), next);
 
-    expect(validateInitData).toHaveBeenCalledWith('initdata');
     expect((req as unknown as { user: unknown }).user).toBe(USER);
     expect(next).toHaveBeenCalled();
   });
 
   it('невалидный initData в legacy-пути — 401 INVALID_TOKEN', async () => {
-    jwtService.verifyToken.mockImplementation(() => {
-      throw new Error('malformed');
-    });
     validateInitData.mockReturnValue(null);
     const res = mockResponse();
 
@@ -183,9 +106,6 @@ describe('telegramAuthMiddleware — обычный режим', () => {
   });
 
   it('legacy-путь: неактивный пользователь — 401 USER_NOT_ACTIVE', async () => {
-    jwtService.verifyToken.mockImplementation(() => {
-      throw new Error('malformed');
-    });
     validateInitData.mockReturnValue({ id: 555 });
     userService.getUserByTelegramId.mockResolvedValue({
       ...USER,
@@ -204,9 +124,6 @@ describe('telegramAuthMiddleware — обычный режим', () => {
   });
 
   it('падение разбора initData тоже даёт 401, а не 500', async () => {
-    jwtService.verifyToken.mockImplementation(() => {
-      throw new Error('malformed');
-    });
     validateInitData.mockImplementation(() => {
       throw new Error('boom');
     });
@@ -221,17 +138,6 @@ describe('telegramAuthMiddleware — обычный режим', () => {
     expect(res.statusCode).toBe(401);
     expect(res.body).toMatchObject({ code: 'INVALID_TOKEN' });
   });
-
-  it('неожиданная ошибка внутри — 500', async () => {
-    const res = mockResponse();
-    (res.status as jest.Mock).mockImplementationOnce(() => {
-      throw new Error('response broken');
-    });
-
-    await telegramAuthMiddleware(mockRequest({ headers: {} }), res, jest.fn());
-
-    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
-  });
 });
 
 describe('telegramAuthMiddleware — режим обхода подписи', () => {
@@ -239,39 +145,18 @@ describe('telegramAuthMiddleware — режим обхода подписи', ()
     process.env.SKIP_TELEGRAM_VALIDATION = 'true';
   });
 
-  it('в продакшене режим обхода ломает запрос, а не пропускает всех', async () => {
-    process.env.NODE_ENV = 'production';
-    const res = mockResponse();
-    const next = jest.fn();
-
-    await telegramAuthMiddleware(
-      mockRequest({ headers: { authorization: `Bearer ${JWT}` } }),
-      res,
-      next
-    );
-
-    expect(res.statusCode).toBe(500);
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it('JWT в режиме обхода всё равно проверяется', async () => {
-    const req = mockRequest({ headers: { authorization: `Bearer ${JWT}` } });
-    const next = jest.fn();
-
-    await telegramAuthMiddleware(req, mockResponse(), next);
-
-    expect(jwtService.verifyToken).toHaveBeenCalledWith(JWT);
-    expect((req as unknown as { user: unknown }).user).toBe(USER);
-  });
-
   it('initData даёт настоящего пользователя из Telegram', async () => {
+    const dev = { ...USER, id: 7, telegramId: BigInt(777) };
     parseInitDataUnsafe.mockReturnValue({ id: 777, first_name: 'Dev' });
+    userService.getUserByTelegramId.mockImplementation(async (telegramId: bigint) =>
+      telegramId === BigInt(777) ? dev : null
+    );
     const req = mockRequest({ headers: { authorization: 'Bearer initdata' } });
     const next = jest.fn();
 
     await telegramAuthMiddleware(req, mockResponse(), next);
 
-    expect(userService.getUserByTelegramId).toHaveBeenCalledWith(BigInt(777));
+    expect((req as unknown as { user: unknown }).user).toBe(dev);
     expect(next).toHaveBeenCalled();
   });
 
@@ -287,29 +172,10 @@ describe('telegramAuthMiddleware — режим обхода подписи', ()
 
     await telegramAuthMiddleware(req, mockResponse(), jest.fn());
 
-    expect(userService.createUser).toHaveBeenCalledWith({
-      telegramId: '777',
-      username: 'dev',
-      firstName: 'Dev',
-      lastName: undefined,
-    });
-    expect((req as unknown as { user: { id: number } }).user.id).toBe(42);
-  });
-
-  it('без username подставляется user_<id>', async () => {
-    parseInitDataUnsafe.mockReturnValue({ id: 777, first_name: 'Dev' });
-    userService.getUserByTelegramId.mockResolvedValue(null);
-    userService.createUser.mockResolvedValue({ id: 42 });
-
-    await telegramAuthMiddleware(
-      mockRequest({ headers: { authorization: 'Bearer initdata' } }),
-      mockResponse(),
-      jest.fn()
-    );
-
     expect(userService.createUser).toHaveBeenCalledWith(
-      expect.objectContaining({ username: 'user_777' })
+      expect.objectContaining({ telegramId: '777' })
     );
+    expect((req as unknown as { user: { id: number } }).user.id).toBe(42);
   });
 
   it('без пригодных данных отказывает, а НЕ подставляет тестового пользователя', async () => {
@@ -401,197 +267,5 @@ describe('telegramAuthMiddleware — режим обхода подписи', ()
 
     expect(res.statusCode).toBe(401);
     expect(next).not.toHaveBeenCalled();
-  });
-});
-
-/* Тесты adminMiddleware удалены вместе с самим middleware: понятия глобального
-   администратора больше нет. Права на ресурс группы проверяет
-   requireGroupAdmin (см. middleware/guards.test.ts), служебные операции —
-   operationsApiMiddleware там же. */
-
-describe('validateInitDataMiddleware', () => {
-  it('валидный initData кладёт данные Telegram в запрос', async () => {
-    validateInitData.mockReturnValue({ id: 555, first_name: 'Игорь' });
-    const req = mockRequest({ body: { initData: 'user=...&hash=abc' } });
-    const next = jest.fn();
-
-    await validateInitDataMiddleware(req, mockResponse(), next);
-
-    expect((req as unknown as { telegramUser: { id: number } }).telegramUser.id).toBe(
-      555
-    );
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('без initData — 400', async () => {
-    const res = mockResponse();
-    const next = jest.fn();
-
-    await validateInitDataMiddleware(mockRequest({ body: {} }), res, next);
-
-    expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'MISSING_INIT_DATA' });
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it('неверная подпись — 400', async () => {
-    validateInitData.mockReturnValue(null);
-    const res = mockResponse();
-
-    await validateInitDataMiddleware(
-      mockRequest({ body: { initData: 'garbage' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.statusCode).toBe(400);
-    expect(res.body).toMatchObject({ code: 'INVALID_INIT_DATA' });
-  });
-
-  it('в продакшене режим обхода ломает запрос', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.SKIP_TELEGRAM_VALIDATION = 'true';
-    const res = mockResponse();
-
-    await validateInitDataMiddleware(
-      mockRequest({ body: { initData: 'x' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.statusCode).toBe(500);
-  });
-
-  it('в режиме обхода берёт настоящего пользователя из initData', async () => {
-    process.env.SKIP_TELEGRAM_VALIDATION = 'true';
-    parseInitDataUnsafe.mockReturnValue({ id: 777 });
-    const req = mockRequest({ body: { initData: 'x' } });
-    const next = jest.fn();
-
-    await validateInitDataMiddleware(req, mockResponse(), next);
-
-    expect(validateInitData).not.toHaveBeenCalled();
-    expect((req as unknown as { telegramUser: { id: number } }).telegramUser.id).toBe(
-      777
-    );
-    expect(next).toHaveBeenCalled();
-  });
-
-  it.each([
-    ['пустой initData', ''],
-    ['только пробелы', '   '],
-  ])('в режиме обхода %s — 401 без подстановки тестового пользователя', async (_label, initData) => {
-    process.env.SKIP_TELEGRAM_VALIDATION = 'true';
-    const res = mockResponse();
-    const next = jest.fn();
-
-    await validateInitDataMiddleware(mockRequest({ body: { initData } }), res, next);
-
-    expect(res.statusCode).toBe(401);
-    expect(res.body).toMatchObject({ code: 'MISSING_TELEGRAM_DATA' });
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it('в режиме обхода пользователь без id не принимается', async () => {
-    process.env.SKIP_TELEGRAM_VALIDATION = 'true';
-    parseInitDataUnsafe.mockReturnValue({ first_name: 'Dev' });
-    const res = mockResponse();
-
-    await validateInitDataMiddleware(
-      mockRequest({ body: { initData: 'x' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.statusCode).toBe(401);
-  });
-
-  it('падение разбора в режиме обхода даёт 401', async () => {
-    process.env.SKIP_TELEGRAM_VALIDATION = 'true';
-    parseInitDataUnsafe.mockImplementation(() => {
-      throw new Error('boom');
-    });
-    const res = mockResponse();
-
-    await validateInitDataMiddleware(
-      mockRequest({ body: { initData: 'x' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.statusCode).toBe(401);
-  });
-
-  it('неожиданная ошибка — 500', async () => {
-    validateInitData.mockImplementation(() => {
-      throw new Error('boom');
-    });
-    const res = mockResponse();
-
-    await validateInitDataMiddleware(
-      mockRequest({ body: { initData: 'x' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.statusCode).toBe(500);
-    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
-  });
-});
-
-describe('optionalAuthMiddleware', () => {
-  it('с валидным токеном пользователь появляется в запросе', async () => {
-    const req = mockRequest({ headers: { authorization: `Bearer ${JWT}` } });
-    const next = jest.fn();
-
-    await optionalAuthMiddleware(req, mockResponse(), next);
-
-    expect((req as unknown as { user: unknown }).user).toBe(USER);
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('без токена запрос идёт дальше анонимно', async () => {
-    const req = mockRequest();
-    const next = jest.fn();
-
-    await optionalAuthMiddleware(req, mockResponse(), next);
-
-    expect((req as unknown as { user: unknown }).user).toBeUndefined();
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('битый токен не мешает анонимному доступу', async () => {
-    jwtService.verifyToken.mockImplementation(() => {
-      throw new Error('malformed');
-    });
-    const req = mockRequest({ headers: { authorization: 'Bearer garbage' } });
-    const next = jest.fn();
-
-    await optionalAuthMiddleware(req, mockResponse(), next);
-
-    expect((req as unknown as { user: unknown }).user).toBeUndefined();
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('refresh-токен пользователя не аутентифицирует', async () => {
-    jwtService.verifyToken.mockReturnValue({ userId: 1, type: 'refresh' });
-    const req = mockRequest({ headers: { authorization: `Bearer ${JWT}` } });
-    const next = jest.fn();
-
-    await optionalAuthMiddleware(req, mockResponse(), next);
-
-    expect((req as unknown as { user: unknown }).user).toBeUndefined();
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('деактивированный пользователь остаётся анонимным', async () => {
-    userService.getUserById.mockResolvedValue({ ...USER, isActive: false });
-    const req = mockRequest({ headers: { authorization: `Bearer ${JWT}` } });
-    const next = jest.fn();
-
-    await optionalAuthMiddleware(req, mockResponse(), next);
-
-    expect((req as unknown as { user: unknown }).user).toBeUndefined();
-    expect(next).toHaveBeenCalled();
   });
 });

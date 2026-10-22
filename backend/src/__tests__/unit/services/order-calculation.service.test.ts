@@ -1,19 +1,14 @@
 /**
- * Расчёт заказа: превращение введённых цен в долги конкретным людям. Здесь
- * ошибка выражается в деньгах, поэтому проверяется в первую очередь то, что
- * защищает суммы:
- *
- * 1. Финализировать можно только полный состав. Если хоть один участник не
- *    ввёл цену — или в заказе оказался посторонний, — расчёт отклоняется:
- *    иначе доставка и чаевые делятся не на всех и часть денег теряется.
- * 2. Финализация идемпотентна и атомарна. Повторный вызов не создаёт второй
- *    комплект долгов, а смена статуса и вставка транзакций живут в одной
- *    транзакции БД.
- * 3. Ответственный себе не должен: его позиция исключается из транзакций.
- * 4. Доли доставки, сервиса и чаевых делятся на всех участников, включая
- *    ответственного.
+ * Расчёт заказа: превращение введённых цен в долги конкретным людям.
+ * Основной путь (позиции, финализация, долги в копейках, идемпотентность)
+ * проверяется на настоящей БД в integration/api/category-orders.redis.test.ts.
+ * Здесь остаются чистое деление на копейки, отказы финализации и ветки сбоев
+ * рассылки, которые через HTTP не воспроизвести.
  */
-import { OrderCalculationService } from '../../../services/order-calculation.service';
+import {
+  OrderCalculationService,
+  splitIntoKopecks,
+} from '../../../services/order-calculation.service';
 import { CategoryOrderService } from '../../../services/category-order.service';
 import { UserService } from '../../../services/user.service';
 import { getBotInstance } from '../../../bot/bot-instance';
@@ -45,7 +40,6 @@ jest.mock('../../../utils/logger', () => ({
 
 const categoryOrders = asServiceMock(CategoryOrderService);
 const users = asServiceMock(UserService);
-const { logger } = jest.requireMock('../../../utils/logger');
 
 const api = {
   sendMessage: jest.fn(),
@@ -90,12 +84,6 @@ function categoryOrder(over: Record<string, unknown> = {}) {
   };
 }
 
-/** Отдаёт транзакции, которые сервис попытался вставить через createMany. */
-function insertedRows(): Array<Record<string, unknown>> {
-  const call = asMock(prismaMock.transaction.createMany).mock.calls[0];
-  return (call?.[0] as { data: Array<Record<string, unknown>> })?.data ?? [];
-}
-
 beforeEach(() => {
   resetPrismaMock();
   jest.clearAllMocks();
@@ -117,10 +105,7 @@ beforeEach(() => {
   asMock(prismaMock.orderItem.update).mockImplementation((async (args: {
     data: Record<string, unknown>;
   }) => ({ id: 100, ...args.data })) as never);
-  asMock(prismaMock.orderItem.delete).mockResolvedValue({ id: 100 });
   asMock(prismaMock.orderItemEditLog.createMany).mockResolvedValue({ count: 1 });
-  asMock(prismaMock.orderItemEditLog.findMany).mockResolvedValue([]);
-  asMock(prismaMock.orderItem.findMany).mockResolvedValue([]);
   asMock(prismaMock.categoryOrder.updateMany).mockResolvedValue({ count: 1 });
   asMock(prismaMock.transaction.createMany).mockResolvedValue({ count: 1 });
   asMock(prismaMock.transaction.findMany).mockResolvedValue([]);
@@ -128,112 +113,21 @@ beforeEach(() => {
   asMock(prismaMock.user.findMany).mockResolvedValue([]);
 });
 
-describe('saveOrderItem', () => {
-  const base = {
-    categoryOrderId: 10,
-    userId: 2,
-    itemName: 'Плов',
-    price: 350,
-    enteredBy: 2,
-  };
-
-  it('новая позиция создаётся и итоги пересчитываются', async () => {
-    await OrderCalculationService.saveOrderItem(base);
-
-    expect(asMock(prismaMock.orderItem.create)).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        categoryOrderId: 10,
-        userId: 2,
-        itemName: 'Плов',
-        price: 350,
-        enteredBy: 2,
-      }),
-    });
-    expect(categoryOrders.recalculateTotals).toHaveBeenCalledWith(10);
-  });
-
-  it('пробелы вокруг названия и заметки срезаются', async () => {
-    await OrderCalculationService.saveOrderItem({
-      ...base,
-      itemName: '  Плов  ',
-      notes: '  без лука  ',
-    });
-
-    expect(asMock(prismaMock.orderItem.create).mock.calls[0][0]).toMatchObject({
-      data: { itemName: 'Плов', notes: 'без лука' },
-    });
-  });
-
-  it('пустая заметка не сохраняется как пустая строка', async () => {
-    await OrderCalculationService.saveOrderItem({ ...base, notes: '   ' });
-
-    expect(
-      (
-        asMock(prismaMock.orderItem.create).mock.calls[0][0] as {
-          data: { notes?: string };
-        }
-      ).data.notes
-    ).toBeUndefined();
-  });
-
-  it('название из одних пробелов отклоняется до обращения к БД', async () => {
-    await expect(
-      OrderCalculationService.saveOrderItem({ ...base, itemName: '   ' })
-    ).rejects.toThrow('Item name is required');
-
-    expect(asMock(prismaMock.orderItem.findUnique)).not.toHaveBeenCalled();
-  });
-
-  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY, 1_000_001])(
-    'цена %p отклоняется',
-    async price => {
-      await expect(
-        OrderCalculationService.saveOrderItem({ ...base, price })
-      ).rejects.toThrow('Price must be between');
-    }
-  );
-
-  it('верхняя граница цены допустима', async () => {
-    await expect(
-      OrderCalculationService.saveOrderItem({ ...base, price: 1_000_000 })
-    ).resolves.toBeDefined();
-  });
-
-  it('повторный ввод обновляет ту же позицию, а не создаёт вторую', async () => {
-    asMock(prismaMock.orderItem.findUnique).mockResolvedValue({
-      id: 100,
-      itemName: 'Плов',
-      price: 300,
-      notes: null,
-    });
-
-    await OrderCalculationService.saveOrderItem({ ...base, price: 350 });
-
-    expect(asMock(prismaMock.orderItem.create)).not.toHaveBeenCalled();
-    expect(asMock(prismaMock.orderItem.update)).toHaveBeenCalledWith({
-      where: { id: 100 },
-      data: expect.objectContaining({ price: 350 }),
-    });
-  });
-
-  it('позиция ищется по паре (заказ, участник) — по одной на человека', async () => {
-    await OrderCalculationService.saveOrderItem(base);
-
-    expect(asMock(prismaMock.orderItem.findUnique)).toHaveBeenCalledWith({
-      where: { categoryOrderId_userId: { categoryOrderId: 10, userId: 2 } },
-    });
-  });
-
-  it('сбой БД превращается в понятную ошибку', async () => {
-    asMock(prismaMock.orderItem.create).mockRejectedValue(new Error('db down'));
-
-    await expect(OrderCalculationService.saveOrderItem(base)).rejects.toThrow(
-      'Failed to save order item'
-    );
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error saving order item:',
-      expect.any(Error)
-    );
+/**
+ * Деньги — в целых копейках, и доли в сумме дают ровно исходную сумму.
+ * Раньше доля считалась делением в плавающей точке: 100 ₽ доставки на троих
+ * записывались как 33.333333333333336, и сборщик недополучал копейку.
+ */
+describe('splitIntoKopecks', () => {
+  it.each([
+    [100, 3, [3334, 3333, 3333]],
+    [90, 3, [3000, 3000, 3000]],
+    [10.1, 3, [337, 337, 336]],
+    [0.05, 3, [2, 2, 1]],
+    [7.01, 1, [701]],
+    [0, 2, [0, 0]],
+  ])('%p ₽ на %p → %p коп.', (total, parts, expected) => {
+    expect(splitIntoKopecks(total, parts)).toEqual(expected);
   });
 });
 
@@ -262,49 +156,6 @@ describe('журнал правок', () => {
     return (data ?? []).map(row => row.fieldChanged);
   }
 
-  it('смена цены фиксируется с прежним и новым значением', async () => {
-    existing({ price: 300 });
-
-    await OrderCalculationService.saveOrderItem(base);
-
-    const [row] = (
-      asMock(prismaMock.orderItemEditLog.createMany).mock.calls[0][0] as {
-        data: Array<Record<string, unknown>>;
-      }
-    ).data;
-    expect(row).toMatchObject({
-      orderItemId: 100,
-      editedBy: 7,
-      fieldChanged: 'price',
-      oldValue: '300',
-      newValue: '350',
-    });
-  });
-
-  it('смена названия фиксируется', async () => {
-    existing({ itemName: 'Суп' });
-
-    await OrderCalculationService.saveOrderItem(base);
-
-    expect(loggedFields()).toContain('itemName');
-  });
-
-  it('появление заметки фиксируется', async () => {
-    existing();
-
-    await OrderCalculationService.saveOrderItem({ ...base, notes: 'без лука' });
-
-    expect(loggedFields()).toContain('notes');
-  });
-
-  it('повторное сохранение без изменений журнал не пишет', async () => {
-    existing();
-
-    await OrderCalculationService.saveOrderItem(base);
-
-    expect(asMock(prismaMock.orderItemEditLog.createMany)).not.toHaveBeenCalled();
-  });
-
   it('несколько изменений пишутся одной вставкой', async () => {
     existing({ itemName: 'Суп', price: 300 });
 
@@ -322,229 +173,18 @@ describe('журнал правок', () => {
 
     await expect(
       OrderCalculationService.saveOrderItem(base)
-    ).resolves.toBeDefined();
-
-    expect(asMock(prismaMock.orderItem.update)).toHaveBeenCalled();
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error logging changes:',
-      expect.any(Error)
-    );
-  });
-});
-
-describe('deleteOrderItem', () => {
-  it('удаление пересчитывает итоги заказа', async () => {
-    asMock(prismaMock.orderItem.findUnique).mockResolvedValue({
-      categoryOrderId: 10,
-    });
-
-    await OrderCalculationService.deleteOrderItem(100);
-
-    expect(asMock(prismaMock.orderItem.delete)).toHaveBeenCalledWith({
-      where: { id: 100 },
-    });
-    expect(categoryOrders.recalculateTotals).toHaveBeenCalledWith(10);
-  });
-
-  it('удаление несуществующей позиции не пересчитывает итоги', async () => {
-    asMock(prismaMock.orderItem.findUnique).mockResolvedValue(null);
-
-    /* 404 со своим кодом вместо «Failed to delete order item»: до типизации
-       удаление уже удалённой позиции выглядело как сбой сервера. */
-    await expect(
-      OrderCalculationService.deleteOrderItem(100)
-    ).rejects.toMatchObject({
-      message: 'OrderItem not found',
-      statusCode: 404,
-      code: 'ITEM_NOT_FOUND',
-    });
-
-    expect(categoryOrders.recalculateTotals).not.toHaveBeenCalled();
+    ).resolves.toMatchObject({ price: 350 });
   });
 });
 
 describe('getProgress', () => {
-  function progressRow(participantCount: number, orderItems: number) {
-    asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue({
-      participantCount,
-      _count: { orderItems },
-    });
-  }
-
-  it('считает процент заполненности', async () => {
-    progressRow(4, 1);
-
-    await expect(OrderCalculationService.getProgress(10)).resolves.toEqual({
-      total: 4,
-      filled: 1,
-      isComplete: false,
-      percentage: 25,
-    });
-  });
-
-  it('полностью заполненный заказ помечается готовым', async () => {
-    progressRow(3, 3);
-
-    const progress = await OrderCalculationService.getProgress(10);
-
-    expect(progress).toMatchObject({ isComplete: true, percentage: 100 });
-  });
-
-  it('заказ без участников не считается готовым при нуле позиций', async () => {
-    progressRow(0, 0);
-
-    const progress = await OrderCalculationService.getProgress(10);
-
-    expect(progress).toMatchObject({ isComplete: false, percentage: 0 });
-  });
-
   it('процент округляется', async () => {
-    progressRow(3, 1);
+    asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue({
+      participantCount: 3,
+      _count: { orderItems: 1 },
+    });
 
     expect((await OrderCalculationService.getProgress(10)).percentage).toBe(33);
-  });
-
-  it('несуществующий заказ — 404 NOT_FOUND', async () => {
-    asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue(null);
-
-    await expect(OrderCalculationService.getProgress(10)).rejects.toMatchObject({
-      message: 'CategoryOrder not found',
-      statusCode: 404,
-      code: 'NOT_FOUND',
-    });
-  });
-});
-
-describe('finalizeCalculation: кто с кем рассчитывается', () => {
-  function setup(over: Record<string, unknown> = {}) {
-    const order = categoryOrder(over);
-    asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue(order);
-    return order;
-  }
-
-  it('ответственный себе долг не выставляет', async () => {
-    setup();
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([]);
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    const rows = insertedRows();
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ fromUserId: 2, toUserId: 1, amount: 400 });
-  });
-
-  it('доли доставки, сервиса и чаевых делятся на всех, включая ответственного', async () => {
-    setup({ deliveryCost: 200, serviceFee: 100, tip: 50 });
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    const [row] = insertedRows();
-    expect(row).toMatchObject({
-      itemPrice: 400,
-      deliveryShare: 100,
-      serviceShare: 50,
-      tipShare: 25,
-      amount: 575,
-    });
-  });
-
-  it('транзакции создаются со статусом PENDING и ссылкой на голосование', async () => {
-    setup();
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    expect(insertedRows()[0]).toMatchObject({
-      status: 'PENDING',
-      pollId: 5,
-      categoryOrderId: 10,
-    });
-  });
-
-  it('возвращает число созданных транзакций и состав', async () => {
-    setup();
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      { id: 1, fromUserId: 2, toUserId: 1, amount: 400 },
-    ]);
-
-    await expect(
-      OrderCalculationService.finalizeCalculation(10)
-    ).resolves.toEqual({
-      transactionsCreated: 1,
-      participantCount: 2,
-      orderItemsCount: 2,
-    });
-  });
-
-  it('заказ из одного человека, он же ответственный, транзакций не создаёт', async () => {
-    categoryOrders.getParticipants.mockResolvedValue([1]);
-    setup({ items: [{ userId: 1, price: 300 }] });
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    expect(asMock(prismaMock.transaction.createMany)).not.toHaveBeenCalled();
-  });
-});
-
-/**
- * Деньги — в целых копейках, и доли в сумме дают ровно исходную сумму.
- *
- * Раньше доля считалась делением в плавающей точке: 100 ₽ доставки на троих
- * записывались как 33.333333333333336, люди видели и платили по 33,33, и
- * сборщик недополучал копейку на каждом таком заказе. Остаток копеек
- * достаётся должникам: сборщик уже оплатил весь счёт, и округление не должно
- * ложиться на него.
- */
-describe('finalizeCalculation: копейки', () => {
-  const kopecks = (value: unknown) => Math.round(Number(value) * 100);
-  const isWholeKopecks = (value: unknown) =>
-    Math.abs(Number(value) * 100 - kopecks(value)) < 1e-9;
-
-  function threePeople(over: Record<string, unknown>) {
-    categoryOrders.getParticipants.mockResolvedValue([1, 2, 3]);
-    asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue(
-      categoryOrder({
-        items: [
-          { userId: 1, price: 300 },
-          { userId: 2, price: 400 },
-          { userId: 3, price: 500 },
-        ],
-        ...over,
-      })
-    );
-  }
-
-  it('100 ₽ доставки на троих: 33,34 + 33,33 + 33,33', async () => {
-    threePeople({ deliveryCost: 100 });
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    const byUser = new Map(insertedRows().map(row => [row.fromUserId, row]));
-    expect(byUser.get(2)).toMatchObject({ deliveryShare: 33.34, amount: 433.34 });
-    expect(byUser.get(3)).toMatchObject({ deliveryShare: 33.33, amount: 533.33 });
-  });
-
-  it('каждая сумма — целые копейки, и доли сходятся с исходными суммами', async () => {
-    threePeople({ deliveryCost: 100, serviceFee: 10, tip: 7.01 });
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    const rows = insertedRows();
-    for (const row of rows) {
-      for (const field of ['amount', 'itemPrice', 'deliveryShare', 'serviceShare', 'tipShare']) {
-        expect(isWholeKopecks(row[field])).toBe(true);
-      }
-      expect(kopecks(row.amount)).toBe(
-        kopecks(row.itemPrice) + kopecks(row.deliveryShare) + kopecks(row.serviceShare) + kopecks(row.tipShare)
-      );
-    }
-    /* Доля сборщика в транзакции не попадает — она то, что осталось от
-       исходной суммы, и не может быть больше доли любого должника. */
-    for (const [field, total] of [['deliveryShare', 100], ['serviceShare', 10], ['tipShare', 7.01]] as const) {
-      const debtors = rows.map(row => kopecks(row[field]));
-      const collector = kopecks(total) - debtors.reduce((a, b) => a + b, 0);
-      expect(Math.min(...debtors)).toBeGreaterThanOrEqual(collector);
-      expect(Math.max(...debtors) - collector).toBeLessThanOrEqual(1);
-    }
   });
 });
 
@@ -561,15 +201,6 @@ describe('finalizeCalculation: отказы', () => {
     await expect(
       OrderCalculationService.finalizeCalculation(10)
     ).rejects.toThrow('CategoryOrder not found');
-  });
-
-  it('кто-то не ввёл цену — расчёт отклоняется', async () => {
-    categoryOrders.getParticipants.mockResolvedValue([1, 2, 3]);
-    setup();
-
-    await expect(
-      OrderCalculationService.finalizeCalculation(10)
-    ).rejects.toThrow('must exactly match category participants');
   });
 
   it('посторонний в заказе — расчёт отклоняется', async () => {
@@ -649,75 +280,6 @@ describe('finalizeCalculation: отказы', () => {
   });
 });
 
-describe('finalizeCalculation: идемпотентность', () => {
-  beforeEach(() => {
-    asMock(prismaMock.categoryOrder.findUnique).mockResolvedValue(
-      categoryOrder()
-    );
-  });
-
-  it('статус переводится только из PENDING или IN_PROGRESS', async () => {
-    await OrderCalculationService.finalizeCalculation(10);
-
-    expect(asMock(prismaMock.categoryOrder.updateMany)).toHaveBeenCalledWith({
-      where: {
-        id: 10,
-        calculationStatus: { in: ['PENDING', 'IN_PROGRESS'] },
-      },
-      data: expect.objectContaining({ calculationStatus: 'COMPLETED' }),
-    });
-  });
-
-  it('повторная финализация не создаёт второй комплект долгов', async () => {
-    asMock(prismaMock.categoryOrder.updateMany).mockResolvedValue({ count: 0 });
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      { id: 1, fromUserId: 2, toUserId: 1, amount: 400 },
-    ]);
-    // Внутри транзакции сервис перечитывает статус — он уже COMPLETED.
-    asMock(prismaMock.categoryOrder.findUnique)
-      .mockResolvedValueOnce(categoryOrder())
-      .mockResolvedValue({ calculationStatus: 'COMPLETED' });
-
-    const result = await OrderCalculationService.finalizeCalculation(10);
-
-    expect(asMock(prismaMock.transaction.createMany)).not.toHaveBeenCalled();
-    expect(result.transactionsCreated).toBe(1);
-  });
-
-  it('повторная финализация не рассылает уведомления второй раз', async () => {
-    asMock(prismaMock.categoryOrder.updateMany).mockResolvedValue({ count: 0 });
-    asMock(prismaMock.categoryOrder.findUnique)
-      .mockResolvedValueOnce(categoryOrder())
-      .mockResolvedValue({ calculationStatus: 'COMPLETED' });
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      { id: 1, fromUserId: 2, toUserId: 1, amount: 400 },
-    ]);
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    expect(api.sendMessage).not.toHaveBeenCalled();
-  });
-
-  it('гонка со сторонним изменением статуса прерывает расчёт', async () => {
-    asMock(prismaMock.categoryOrder.updateMany).mockResolvedValue({ count: 0 });
-    asMock(prismaMock.categoryOrder.findUnique)
-      .mockResolvedValueOnce(categoryOrder())
-      .mockResolvedValue({ calculationStatus: 'CANCELLED' });
-
-    await expect(
-      OrderCalculationService.finalizeCalculation(10)
-    ).rejects.toThrow('Category order state changed during finalization');
-  });
-
-  it('вставка транзакций терпит дубликаты: повтор внутри одной попытки безопасен', async () => {
-    await OrderCalculationService.finalizeCalculation(10);
-
-    expect(asMock(prismaMock.transaction.createMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ skipDuplicates: true })
-    );
-  });
-});
-
 describe('уведомления о долге', () => {
   const TX = {
     id: 500,
@@ -754,7 +316,7 @@ describe('уведомления о долге', () => {
     return api.sendMessage.mock.calls[0][1] as string;
   }
 
-  it('должник получает сумму, разбивку и реквизиты', async () => {
+  it('должник получает сообщение с суммой к оплате', async () => {
     setup();
 
     await OrderCalculationService.finalizeCalculation(10);
@@ -764,75 +326,29 @@ describe('уведомления о долге', () => {
       expect.any(String),
       expect.objectContaining({ reply_markup: expect.any(Object) })
     );
-    const text = sentText();
-    expect(text).toContain('Плов');
-    expect(text).toContain('Блюдо: 400.00₽');
-    expect(text).toContain('Доставка: 100.00₽');
-    expect(text).toContain('Сервис: 50.00₽');
-    expect(text).toContain('Чаевые: 25.00₽');
-    expect(text).toContain('**** **** **** 1234');
-    expect(text).toContain('@ivan');
+    expect(sentText()).toContain('575');
   });
 
-  /* Основное уведомление о долге по категорийному заказу — последнее место,
-     которое печатало ссылку СБП под подписью «Карта». Ссылка уходит кнопкой:
-     путь отправки inline-клавиатуру и так несёт (кнопка «Оплатил»). */
-  it('ссылка СБП уходит кнопкой, а не подписью «Карта»', async () => {
+  /* Ссылка СБП уходит кнопкой рядом с «Оплатил», а не текстом под подписью
+     «Карта»; legacy-номер остаётся в тексте только маской. */
+  it.each([
+    { card: 'https://qr.nspk.ru/AS1A00', linkButtons: ['https://qr.nspk.ru/AS1A00'] },
+    { card: '2200 1234', linkButtons: [] },
+  ])('реквизиты $card: ссылка только кнопкой, номер только маской', async ({ card, linkButtons }) => {
     users.getPaymentInfoMany.mockResolvedValue(
-      new Map([[1, { paymentCard: 'https://qr.nspk.ru/AS1A00', paymentPhone: null }]])
+      new Map([[1, { paymentCard: card, paymentPhone: null }]])
     );
     setup();
 
     await OrderCalculationService.finalizeCalculation(10);
 
-    const text = sentText();
-    expect(text).not.toContain('Карта');
-    expect(text).not.toContain('https://qr.nspk.ru/AS1A00');
-    expect(text).toContain('кнопкой ниже');
-
+    expect(sentText()).not.toContain(card);
     const markup = api.sendMessage.mock.calls[0][2] as {
-      reply_markup: { inline_keyboard: { text: string; url?: string }[][] };
+      reply_markup: { inline_keyboard: { url?: string; callback_data?: string }[][] };
     };
-    expect(markup.reply_markup.inline_keyboard[0]).toEqual([
-      { text: '💳 Перевести по ссылке', url: 'https://qr.nspk.ru/AS1A00' },
-    ]);
-    /* Кнопка «Оплатил» никуда не уходит — ссылка добавляется рядом, а не
-       вместо неё. */
-    expect(JSON.stringify(markup)).toContain('budget:mark_paid:500');
-  });
-
-  it('legacy-номер карты остаётся в тексте маскированным и кнопки не даёт', async () => {
-    setup();
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    const markup = api.sendMessage.mock.calls[0][2] as {
-      reply_markup: { inline_keyboard: unknown[][] };
-    };
-    expect(markup.reply_markup.inline_keyboard).toHaveLength(1);
-    expect(JSON.stringify(markup)).not.toContain('Перевести по ссылке');
-  });
-
-  it('кнопка «Оплатил» несёт id транзакции', async () => {
-    setup();
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    const markup = JSON.stringify(api.sendMessage.mock.calls[0][2]);
-    expect(markup).toContain('budget:mark_paid:500');
-  });
-
-  it('нулевые доли в разбивку не попадают', async () => {
-    setup();
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      { ...TX, deliveryShare: 0, serviceShare: 0, tipShare: 0, amount: 400 },
-    ]);
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    const text = sentText();
-    expect(text).not.toContain('Доставка');
-    expect(text).not.toContain('Чаевые');
+    const buttons = markup.reply_markup.inline_keyboard.flat();
+    expect(buttons.flatMap(button => (button.url ? [button.url] : []))).toEqual(linkButtons);
+    expect(buttons.map(button => button.callback_data)).toContain('budget:mark_paid:500');
   });
 
   it('телефон показывается вместо карты, если карты нет', async () => {
@@ -846,74 +362,14 @@ describe('уведомления о долге', () => {
     expect(sentText()).toContain('+7 999 000');
   });
 
-  /* Ответственного нет в карте — это и есть «реквизитов нет»: одиночный
-     вариант отдавал бы здесь null. */
-  it('без реквизитов ответственного остаётся предупреждение в логе', async () => {
+  /* Ответственного нет в карте — это и есть «реквизитов нет». */
+  it('без реквизитов ответственного сообщение всё равно уходит', async () => {
     users.getPaymentInfoMany.mockResolvedValue(new Map());
     setup();
 
     await OrderCalculationService.finalizeCalculation(10);
 
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Responsible has no payment details',
-      expect.objectContaining({ responsibleId: 1 })
-    );
     expect(api.sendMessage).toHaveBeenCalled();
-  });
-
-  it('ответственный без username помечается прямо в сообщении', async () => {
-    setup();
-    asMock(prismaMock.user.findMany)
-      .mockReset()
-      .mockResolvedValueOnce([{ id: 2, telegramId: 222n, firstName: 'Пётр' }])
-      .mockResolvedValueOnce([{ id: 1, firstName: 'Иван', username: null }]);
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    expect(sentText()).toContain('тег не указан');
-  });
-
-  /* Реквизиты берутся ДО цикла, одним запросом на всех ответственных. Раньше
-     запрос был внутри цикла по должникам, и от повторов спасал только Map —
-     то есть цена рассылки росла от числа разных ответственных. */
-  it('реквизиты запрашиваются одним вызовом, не по должнику', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      TX,
-      { ...TX, id: 501, fromUserId: 3 },
-    ]);
-    asMock(prismaMock.categoryOrder.findUnique)
-      .mockResolvedValueOnce(categoryOrder())
-      .mockResolvedValue({ participantMessages: null });
-    asMock(prismaMock.user.findMany)
-      .mockResolvedValueOnce([
-        { id: 2, telegramId: 222n, firstName: 'Пётр' },
-        { id: 3, telegramId: 333n, firstName: 'Анна' },
-      ])
-      .mockResolvedValueOnce([{ id: 1, firstName: 'Иван', username: 'ivan' }]);
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    expect(users.getPaymentInfoMany).toHaveBeenCalledTimes(1);
-    expect(users.getPaymentInfoMany).toHaveBeenCalledWith([1]);
-    expect(api.sendMessage).toHaveBeenCalledTimes(2);
-  });
-
-  it('сообщение «ожидаем расчёт» редактируется, а не дублируется новым', async () => {
-    setup({
-      participantMessages: JSON.stringify({
-        '2': { messageId: 77, chatId: '222' },
-      }),
-    });
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    expect(api.editMessageText).toHaveBeenCalledWith(
-      '222',
-      77,
-      expect.stringContaining('Сумма к оплате'),
-      expect.any(Object)
-    );
-    expect(api.sendMessage).not.toHaveBeenCalled();
   });
 
   it('если правка не удалась, уходит новое сообщение', async () => {
@@ -927,21 +383,6 @@ describe('уведомления о долге', () => {
     await OrderCalculationService.finalizeCalculation(10);
 
     expect(api.sendMessage).toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Failed to edit waiting message, sending new one',
-      expect.any(Object)
-    );
-  });
-
-  it('id отправленного сообщения сохраняется на транзакции', async () => {
-    setup();
-
-    await OrderCalculationService.finalizeCalculation(10);
-
-    expect(asMock(prismaMock.transaction.update)).toHaveBeenCalledWith({
-      where: { id: 500 },
-      data: { debtMessageId: 900, debtChatId: '222' },
-    });
   });
 
   it('должник, которого нет в БД, пропускается без падения рассылки', async () => {
@@ -972,12 +413,8 @@ describe('уведомления о долге', () => {
     expect(api.sendMessage).not.toHaveBeenCalled();
   });
 
-  /**
-   * Раньше проверка `if (!botInstance)` была недостижима — botInstance был
-   * функцией и всегда правдив, — поэтому отсутствие бота проявлялось падением
-   * на `.api` и попадало в логи как ошибка рассылки. Теперь это штатный
-   * пропуск: расчёт уже записан, ошибки быть не должно.
-   */
+  /* Раньше проверка `if (!botInstance)` была недостижима, и отсутствие бота
+     проявлялось падением рассылки. Расчёт уже записан, ошибки быть не должно. */
   it('отсутствие бота не отменяет уже записанные долги', async () => {
     asMock(getBotInstance).mockReturnValue(null);
     setup();
@@ -985,14 +422,6 @@ describe('уведомления о долге', () => {
     await expect(
       OrderCalculationService.finalizeCalculation(10)
     ).resolves.toMatchObject({ transactionsCreated: 1 });
-
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Bot instance not initialized, skipping debt notifications'
-    );
-    expect(logger.error).not.toHaveBeenCalledWith(
-      'Error sending debt notifications:',
-      expect.any(Error)
-    );
   });
 
   it('сбой рассылки не отменяет расчёт', async () => {
@@ -1002,64 +431,5 @@ describe('уведомления о долге', () => {
     await expect(
       OrderCalculationService.finalizeCalculation(10)
     ).resolves.toMatchObject({ transactionsCreated: 1 });
-  });
-
-  it('битый JSON в participantMessages не ломает рассылку', async () => {
-    setup({ participantMessages: '{not json' });
-
-    await expect(
-      OrderCalculationService.finalizeCalculation(10)
-    ).resolves.toMatchObject({ transactionsCreated: 1 });
-
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error sending debt notifications:',
-      expect.any(Error)
-    );
-  });
-});
-
-describe('чтение истории и позиций', () => {
-  it('история правок сортируется от новых к старым', async () => {
-    asMock(prismaMock.orderItemEditLog.findMany).mockResolvedValue([
-      { id: 2, fieldChanged: 'price' },
-    ]);
-
-    await expect(OrderCalculationService.getEditHistory(100)).resolves.toHaveLength(1);
-    expect(asMock(prismaMock.orderItemEditLog.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { orderItemId: 100 },
-        orderBy: { timestamp: 'desc' },
-      })
-    );
-  });
-
-  it('сбой чтения истории превращается в понятную ошибку', async () => {
-    asMock(prismaMock.orderItemEditLog.findMany).mockRejectedValue(
-      new Error('db down')
-    );
-
-    await expect(OrderCalculationService.getEditHistory(100)).rejects.toThrow(
-      'Failed to get edit history'
-    );
-  });
-
-  it('позиции заказа отдаются с авторами', async () => {
-    asMock(prismaMock.orderItem.findMany).mockResolvedValue([{ id: 100 }]);
-
-    await expect(OrderCalculationService.getOrderItems(10)).resolves.toHaveLength(1);
-    expect(asMock(prismaMock.orderItem.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { categoryOrderId: 10 },
-        orderBy: { userId: 'asc' },
-      })
-    );
-  });
-
-  it('сбой чтения позиций превращается в понятную ошибку', async () => {
-    asMock(prismaMock.orderItem.findMany).mockRejectedValue(new Error('db down'));
-
-    await expect(OrderCalculationService.getOrderItems(10)).rejects.toThrow(
-      'Failed to get order items'
-    );
   });
 });

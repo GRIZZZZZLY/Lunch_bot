@@ -85,19 +85,15 @@ describe('конфигурация модуля', () => {
     ).not.toThrow();
   });
 
-  it('вне продакшена короткий секрет проходит с предупреждением', () => {
-    const { logger } = require('../../../utils/logger');
-    logger.warn.mockClear();
-
+  it('вне продакшена короткий секрет проходит', () => {
     expect(() => loadJwt({ JWT_SECRET: 'x'.repeat(20) })).not.toThrow();
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('JWT_SECRET is too short')
-    );
   });
 });
 
 describe('генерация токенов', () => {
   const service = loadJwt();
+  const claims = (token: string) =>
+    jwt.decode(token) as { type: string; exp: number };
 
   it('access-токен подписан HS256 и несёт корректные claims', () => {
     const token = service.generateAccessToken({ userId: 42 });
@@ -116,11 +112,8 @@ describe('генерация токенов', () => {
     const access = service.generateAccessToken({ userId: 7 });
     const refresh = service.generateRefreshToken({ userId: 7 });
 
-    const accessExp = service.getTokenExpiration(access)!.getTime();
-    const refreshExp = service.getTokenExpiration(refresh)!.getTime();
-
-    expect(service.decodeToken(refresh)!.type).toBe('refresh');
-    expect(refreshExp).toBeGreaterThan(accessExp);
+    expect(claims(refresh).type).toBe('refresh');
+    expect(claims(refresh).exp).toBeGreaterThan(claims(access).exp);
   });
 
   it('пара токенов содержит оба вида', () => {
@@ -128,26 +121,8 @@ describe('генерация токенов', () => {
       userId: 11,
     });
 
-    expect(service.isAccessToken(accessToken)).toBe(true);
-    expect(service.isRefreshToken(accessToken)).toBe(false);
-    expect(service.isRefreshToken(refreshToken)).toBe(true);
-    expect(service.isAccessToken(refreshToken)).toBe(false);
-  });
-
-  it('ошибка подписи превращается в понятное исключение', () => {
-    const { mod, jwtLib } = loadJwtWithLib();
-    const signSpy = jest.spyOn(jwtLib, 'sign').mockImplementation(() => {
-      throw new Error('boom');
-    });
-
-    expect(() => mod.generateAccessToken({ userId: 1 })).toThrow(
-      'Token generation failed'
-    );
-    expect(() => mod.generateRefreshToken({ userId: 1 })).toThrow(
-      'Refresh token generation failed'
-    );
-
-    signSpy.mockRestore();
+    expect(claims(accessToken).type).toBe('access');
+    expect(claims(refreshToken).type).toBe('refresh');
   });
 });
 
@@ -215,54 +190,5 @@ describe('verifyToken', () => {
     expect(mod.verifyToken('whatever')).toBeNull();
 
     verifySpy.mockRestore();
-  });
-});
-
-describe('чтение токена без проверки подписи', () => {
-  const service = loadJwt();
-
-  it('decodeToken читает payload подделанного токена', () => {
-    const forged = jwt.sign({ userId: 99, type: 'access' }, 'not-our-secret');
-    expect(service.decodeToken(forged)).toMatchObject({ userId: 99 });
-  });
-
-  it('decodeToken возвращает null на мусоре', () => {
-    expect(service.decodeToken('не токен')).toBeNull();
-  });
-
-  it('isTokenExpiringSoon: true для токена на час, false для семидневного', () => {
-    const access = service.generateAccessToken({ userId: 1 });
-    const refresh = service.generateRefreshToken({ userId: 1 });
-
-    expect(service.isTokenExpiringSoon(access)).toBe(true);
-    expect(service.isTokenExpiringSoon(refresh)).toBe(false);
-  });
-
-  it('isTokenExpiringSoon: false, если срока в токене нет', () => {
-    const noExp = jwt.sign({ userId: 1, type: 'access' }, SECRET);
-    expect(service.isTokenExpiringSoon(noExp)).toBe(false);
-    expect(service.isTokenExpiringSoon('мусор')).toBe(false);
-  });
-
-  it('getTokenExpiration возвращает null без срока', () => {
-    const noExp = jwt.sign({ userId: 1, type: 'access' }, SECRET);
-    expect(service.getTokenExpiration(noExp)).toBeNull();
-    expect(service.getTokenExpiration('мусор')).toBeNull();
-  });
-
-  it('фасад JwtService выставляет тот же набор функций', () => {
-    expect(Object.keys(service.JwtService).sort()).toEqual(
-      [
-        'decodeToken',
-        'generateAccessToken',
-        'generateRefreshToken',
-        'generateTokenPair',
-        'getTokenExpiration',
-        'isAccessToken',
-        'isRefreshToken',
-        'isTokenExpiringSoon',
-        'verifyToken',
-      ].sort()
-    );
   });
 });

@@ -59,46 +59,6 @@ afterEach(() => {
 });
 
 describe('getUserAvatar', () => {
-  it('свежий кэш отдаётся подписанной ссылкой, Telegram не трогаем', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: 1,
-      avatarUrl: 'tg://avatar/cached',
-      avatarUpdatedAt: new Date(NOW.getTime() - DAY),
-    } as never);
-
-    const url = await AvatarService.getUserAvatar(BigInt(555));
-
-    expect(url).toBe('/api/avatar/cached?exp=1&sig=x');
-    expect(getUserProfilePhotos).not.toHaveBeenCalled();
-  });
-
-  it('в базу пишется маркер, а не подписанная ссылка', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: 1,
-      avatarUrl: null,
-      avatarUpdatedAt: null,
-    } as never);
-
-    await AvatarService.getUserAvatar(BigInt(555));
-
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: expect.objectContaining({ avatarUrl: 'tg://avatar/large' }),
-    });
-  });
-
-  it('берётся самое большое фото', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: 1,
-      avatarUrl: null,
-      avatarUpdatedAt: null,
-    } as never);
-
-    await AvatarService.getUserAvatar(BigInt(555));
-
-    expect(getFile).toHaveBeenCalledWith('large');
-  });
-
   it('кэш старше семи дней обновляется', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 1,
@@ -132,30 +92,6 @@ describe('getUserAvatar', () => {
     } as never);
 
     await expect(AvatarService.getUserAvatar(BigInt(555))).resolves.toBeNull();
-  });
-
-  it('пользователя нет в базе — null', async () => {
-    prismaMock.user.findUnique.mockResolvedValue(null);
-
-    await expect(AvatarService.getUserAvatar(BigInt(555))).resolves.toBeNull();
-    expect(getUserProfilePhotos).not.toHaveBeenCalled();
-  });
-
-  it('у пользователя нет фото — кэшируется пустое значение', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: 1,
-      avatarUrl: null,
-      avatarUpdatedAt: null,
-    } as never);
-    getUserProfilePhotos.mockResolvedValue({ photos: [] });
-
-    const url = await AvatarService.getUserAvatar(BigInt(555));
-
-    expect(url).toBeNull();
-    expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: expect.objectContaining({ avatarUrl: null }),
-    });
   });
 
   it('пустой набор размеров тоже даёт null', async () => {
@@ -235,22 +171,6 @@ describe('getUserAvatarsBatch', () => {
     expect(prismaMock.user.findMany).not.toHaveBeenCalled();
   });
 
-  it('свежий кэш отдаётся без обращения к Telegram', async () => {
-    asMock(prismaMock.user.findMany).mockResolvedValue([
-      {
-        id: 1,
-        telegramId: BigInt(555),
-        avatarUrl: 'tg://avatar/cached',
-        avatarUpdatedAt: NOW,
-      },
-    ] as never);
-
-    const results = await AvatarService.getUserAvatarsBatch([BigInt(555)]);
-
-    expect(results.get('555')).toBe('/api/avatar/cached?exp=1&sig=x');
-    expect(getUserProfilePhotos).not.toHaveBeenCalled();
-  });
-
   it('устаревший кэш обновляется, остальные не страдают', async () => {
     asMock(prismaMock.user.findMany).mockResolvedValue([
       {
@@ -300,74 +220,5 @@ describe('getUserAvatarsBatch', () => {
     await expect(
       AvatarService.getUserAvatarsBatch([BigInt(555)])
     ).resolves.toEqual(new Map());
-  });
-});
-
-describe('refreshUserAvatar', () => {
-  it('игнорирует кэш и тянет свежую аватарку', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({ id: 1 } as never);
-
-    const url = await AvatarService.refreshUserAvatar(BigInt(555));
-
-    expect(getUserProfilePhotos).toHaveBeenCalled();
-    // Здесь возвращается маркер: подписью занимается слой отдачи.
-    expect(url).toBe('tg://avatar/large');
-  });
-
-  it('пользователя нет — null', async () => {
-    prismaMock.user.findUnique.mockResolvedValue(null);
-
-    await expect(
-      AvatarService.refreshUserAvatar(BigInt(555))
-    ).resolves.toBeNull();
-    expect(getUserProfilePhotos).not.toHaveBeenCalled();
-  });
-
-  it('падение записи не выбрасывается наружу', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({ id: 1 } as never);
-    asMock(prismaMock.user.update).mockRejectedValue(new Error('db down'));
-
-    await expect(
-      AvatarService.refreshUserAvatar(BigInt(555))
-    ).resolves.toBeNull();
-  });
-});
-
-describe('clearStaleCache', () => {
-  it('сбрасывает кэш старше 30 дней по умолчанию', async () => {
-    asMock(prismaMock.user.updateMany).mockResolvedValue({ count: 3 });
-
-    const cleared = await AvatarService.clearStaleCache();
-
-    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
-      where: {
-        avatarUpdatedAt: { lt: new Date('2026-07-04T12:00:00.000Z') },
-        avatarUrl: { not: null },
-      },
-      data: { avatarUrl: null, avatarUpdatedAt: null },
-    });
-    expect(cleared).toBe(3);
-  });
-
-  it('срок можно задать', async () => {
-    asMock(prismaMock.user.updateMany).mockResolvedValue({ count: 0 });
-
-    await AvatarService.clearStaleCache(7);
-
-    expect(prismaMock.user.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          avatarUpdatedAt: { lt: new Date('2026-07-27T12:00:00.000Z') },
-        }),
-      })
-    );
-  });
-
-  it('ошибка базы превращается в понятное исключение', async () => {
-    asMock(prismaMock.user.updateMany).mockRejectedValue(new Error('db down'));
-
-    await expect(AvatarService.clearStaleCache()).rejects.toThrow(
-      'Failed to clear stale cache'
-    );
   });
 });

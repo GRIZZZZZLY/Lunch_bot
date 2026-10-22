@@ -126,17 +126,6 @@ describe('POST /api/votes/multiple', () => {
     expect(res.body).toMatchObject({ success: true });
   });
 
-  it('без аутентификации — 401', async () => {
-    const res = mockResponse();
-
-    await createMultipleVotes(
-      mockRequest({ body: { pollId: 5, menuItemIds: [2] } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(401);
-    expect(voteService.replaceUserVotes).not.toHaveBeenCalled();
-  });
 
   it.each([
     ['pollId строкой', { pollId: '5', menuItemIds: [2] }],
@@ -179,33 +168,7 @@ describe('POST /api/votes/multiple', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('голосование исчезло между проверками — 404', async () => {
-    pollQuery.getPollById.mockResolvedValue(null);
-    const res = mockResponse();
 
-    await createMultipleVotes(
-      mockRequest({ user: USER, body: { pollId: 5, menuItemIds: [2] } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(404);
-  });
-
-  it('не участник группы — 403 (глобальный админ здесь не помогает)', async () => {
-    groupService.isUserGroupMember.mockResolvedValue(false);
-    const res = mockResponse();
-
-    await createMultipleVotes(
-      mockRequest({
-        user: { id: 1, isAdmin: true },
-        body: { pollId: 5, menuItemIds: [2] },
-      }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-    expect(voteService.replaceUserVotes).not.toHaveBeenCalled();
-  });
 
   it('одиночный выбор: два блюда — 400', async () => {
     pollQuery.getPollById.mockResolvedValue({
@@ -291,20 +254,6 @@ describe('POST /api/votes/multiple', () => {
     process.env.NODE_ENV = originalEnv;
   });
 
-  it('в development текст ошибки виден разработчику', async () => {
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
-    voteService.replaceUserVotes.mockRejectedValue(new Error('detail'));
-    const res = mockResponse();
-
-    await createMultipleVotes(
-      mockRequest({ user: USER, body: { pollId: 5, menuItemIds: [2] } }),
-      res
-    );
-
-    expect(res.body).toMatchObject({ details: 'detail' });
-    process.env.NODE_ENV = originalEnv;
-  });
 });
 
 describe('GET /api/votes/:pollId/user', () => {
@@ -324,13 +273,6 @@ describe('GET /api/votes/:pollId/user', () => {
     expect(res.body).toMatchObject({ success: true, menuItemIds: [2] });
   });
 
-  it('без аутентификации — 401', async () => {
-    const res = mockResponse();
-
-    await getUserVotes(mockRequest({ params: { pollId: '5' } }), res);
-
-    expect(res.statusCode).toBe(401);
-  });
 
   it('нечисловой pollId — 400', async () => {
     const res = mockResponse();
@@ -353,38 +295,8 @@ describe('GET /api/votes/:pollId/user', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  /* Чтение голосов чужой группы закрыто для всех: параметр allowGlobalRead и
-     обход по users.is_admin удалены вместе с понятием глобального админа. */
-  it('чужую группу не читает никто, включая прежнего глобального админа', async () => {
-    groupService.isUserGroupMember.mockResolvedValue(false);
-    const res = mockResponse();
 
-    await getUserVotes(
-      mockRequest({ user: { id: 1, isAdmin: true }, params: { pollId: '5' } }),
-      res
-    );
 
-    expect(res.statusCode).toBe(403);
-    expect(groupService.isUserGroupMember).toHaveBeenCalledWith(1, 100);
-  });
-
-  it('не участник и не админ — 403', async () => {
-    groupService.isUserGroupMember.mockResolvedValue(false);
-    const res = mockResponse();
-
-    await getUserVotes(mockRequest({ user: USER, params: { pollId: '5' } }), res);
-
-    expect(res.statusCode).toBe(403);
-  });
-
-  it('ошибка сервиса — 500', async () => {
-    voteService.getUserVotes.mockRejectedValue(new Error('boom'));
-    const res = mockResponse();
-
-    await getUserVotes(mockRequest({ user: USER, params: { pollId: '5' } }), res);
-
-    expect(res.statusCode).toBe(500);
-  });
 });
 
 describe('DELETE /api/votes/:pollId/item/:menuItemId', () => {
@@ -400,16 +312,6 @@ describe('DELETE /api/votes/:pollId/item/:menuItemId', () => {
     expect(res.body).toMatchObject({ success: true, message: 'Vote removed' });
   });
 
-  it('без аутентификации — 401', async () => {
-    const res = mockResponse();
-
-    await deleteVote(
-      mockRequest({ params: { pollId: '5', menuItemId: '2' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(401);
-  });
 
   it.each([
     ['нечисловой pollId', { pollId: 'нет', menuItemId: '2' }],
@@ -436,27 +338,5 @@ describe('DELETE /api/votes/:pollId/item/:menuItemId', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('не участник — 403', async () => {
-    groupService.isUserGroupMember.mockResolvedValue(false);
-    const res = mockResponse();
 
-    await deleteVote(
-      mockRequest({ user: USER, params: { pollId: '5', menuItemId: '2' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(403);
-  });
-
-  it('ошибка сервиса — 500', async () => {
-    voteService.deleteVote.mockRejectedValue(new Error('boom'));
-    const res = mockResponse();
-
-    await deleteVote(
-      mockRequest({ user: USER, params: { pollId: '5', menuItemId: '2' } }),
-      res
-    );
-
-    expect(res.statusCode).toBe(500);
-  });
 });

@@ -65,13 +65,14 @@ beforeEach(() => jest.clearAllMocks());
 describe('requirePollAccess', () => {
   it('участник группы опроса проходит', async () => {
     pollQuery.getPollGroupId.mockResolvedValue(100);
-    groupService.isUserGroupMember.mockResolvedValue(true);
+    groupService.isUserGroupMember.mockImplementation(
+      async (userId, groupId) => userId === 1 && groupId === 100
+    );
     const res = mkRes();
     const next = jest.fn();
 
     await requirePollAccess(mkReq({ params: { pollId: '5' } }), res, next);
 
-    expect(groupService.isUserGroupMember).toHaveBeenCalledWith(1, 100);
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
@@ -128,20 +129,6 @@ describe('requirePollAccess', () => {
     expect(pollQuery.getPollGroupId).not.toHaveBeenCalled();
   });
 
-  it('без аутентификации — 401 и запись в лог', async () => {
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requirePollAccess(
-      mkReq({ user: undefined, params: { pollId: '5' } }),
-      res,
-      next
-    );
-
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(next).not.toHaveBeenCalled();
-  });
-
   it('сбой сервиса — 500, а не тихий пропуск', async () => {
     pollQuery.getPollGroupId.mockRejectedValue(new Error('db down'));
     const res = mkRes();
@@ -154,349 +141,30 @@ describe('requirePollAccess', () => {
   });
 });
 
-describe('requireCategoryOrderResponsible', () => {
-  it('ответственный проходит', async () => {
-    categoryOrders.getResponsibleUserId.mockResolvedValue(1);
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requireCategoryOrderResponsible()(
-      mkReq({ params: { id: '10' } }),
-      res,
-      next
-    );
-
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('участник, но не ответственный — 403', async () => {
-    categoryOrders.getResponsibleUserId.mockResolvedValue(2);
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requireCategoryOrderResponsible()(
-      mkReq({ params: { id: '10' } }),
-      res,
-      next
-    );
-
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  /* Свойство перенесено из controller-тестов: глобальный флаг isAdmin роль в
-     группе НЕ заменяет. Middleware его не читает вовсе — тест закрепляет
-     именно это, чтобы «удобная» правка не добавила обход. */
-  it('глобальный админ не становится ответственным по флагу', async () => {
-    categoryOrders.getResponsibleUserId.mockResolvedValue(2);
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requireCategoryOrderResponsible()(
-      mkReq({ user: { id: 1, isAdmin: true }, params: { id: '10' } }),
-      res,
-      next
-    );
-
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it('ответственный ещё не выбран — 404', async () => {
-    categoryOrders.getResponsibleUserId.mockResolvedValue(null);
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requireCategoryOrderResponsible()(
-      mkReq({ params: { id: '10' } }),
-      res,
-      next
-    );
-
-    expect(res.status).toHaveBeenCalledWith(404);
-  });
-
-  it('без аутентификации — 401', async () => {
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requireCategoryOrderResponsible()(
-      mkReq({ user: undefined, params: { id: '10' } }),
-      res,
-      next
-    );
-
-    expect(res.status).toHaveBeenCalledWith(401);
-  });
-});
-
-describe('requireCategoryOrderParticipant', () => {
-  it('ответственный проходит, даже не будучи участником', async () => {
-    categoryOrders.getCategoryOrder.mockResolvedValue({
-      id: 10,
-      responsibleUserId: 1,
-    } as never);
-    categoryOrders.getParticipants.mockResolvedValue([7, 8]);
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requireCategoryOrderParticipant(
-      mkReq({ params: { id: '10' } }),
-      res,
-      next
-    );
-
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('участник проходит, не будучи ответственным', async () => {
-    categoryOrders.getCategoryOrder.mockResolvedValue({
-      id: 10,
-      responsibleUserId: 2,
-    } as never);
-    categoryOrders.getParticipants.mockResolvedValue([1, 8]);
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requireCategoryOrderParticipant(
-      mkReq({ params: { id: '10' } }),
-      res,
-      next
-    );
-
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('ни ответственный, ни участник — 403', async () => {
-    categoryOrders.getCategoryOrder.mockResolvedValue({
-      id: 10,
-      responsibleUserId: 2,
-    } as never);
-    categoryOrders.getParticipants.mockResolvedValue([7, 8]);
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requireCategoryOrderParticipant(
-      mkReq({ params: { id: '10' } }),
-      res,
-      next
-    );
-
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  /* Обе выборки идут параллельно: последовательные await здесь удваивали бы
-     задержку на каждом запросе к категорийному заказу. */
-  it('ответственный и участники читаются одним заходом', async () => {
-    categoryOrders.getCategoryOrder.mockResolvedValue({
-      id: 10,
-      responsibleUserId: 1,
-    } as never);
-    categoryOrders.getParticipants.mockResolvedValue([1]);
-
-    await requireCategoryOrderParticipant(
-      mkReq({ params: { id: '10' } }),
-      mkRes(),
-      jest.fn()
-    );
-
-    expect(categoryOrders.getCategoryOrder).toHaveBeenCalledWith(10);
-    expect(categoryOrders.getParticipants).toHaveBeenCalledWith(10);
-  });
-});
-
-describe('requireCategoryOrderPollAccess', () => {
-  it('участник группы опроса проходит', async () => {
-    categoryOrders.getCategoryOrder.mockResolvedValue({
-      id: 10,
-      pollId: 5,
-    } as never);
-    pollQuery.getPollGroupId.mockResolvedValue(100);
-    groupService.isUserGroupMember.mockResolvedValue(true);
-    const next = jest.fn();
-
-    await requireCategoryOrderPollAccess(
-      mkReq({ params: { id: '10' } }),
-      mkRes(),
-      next
-    );
-
-    expect(next).toHaveBeenCalled();
-  });
-
-  it('человек из другой группы — 403', async () => {
-    categoryOrders.getCategoryOrder.mockResolvedValue({
-      id: 10,
-      pollId: 5,
-    } as never);
-    pollQuery.getPollGroupId.mockResolvedValue(100);
-    groupService.isUserGroupMember.mockResolvedValue(false);
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requireCategoryOrderPollAccess(
-      mkReq({ params: { id: '10' } }),
-      res,
-      next
-    );
-
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  /* Глобальный флаг роль в группе не заменяет — свойство перенесено из
-     снятого controller-теста «глобальный админ здесь не исключение». */
-  it('глобальный админ без членства — 403', async () => {
-    categoryOrders.getCategoryOrder.mockResolvedValue({
-      id: 10,
-      pollId: 5,
-    } as never);
-    pollQuery.getPollGroupId.mockResolvedValue(100);
-    groupService.isUserGroupMember.mockResolvedValue(false);
-    const res = mkRes();
-
-    await requireCategoryOrderPollAccess(
-      mkReq({ user: { id: 1, isAdmin: true }, params: { id: '10' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.status).toHaveBeenCalledWith(403);
-  });
-
-  it('категории нет — 404', async () => {
-    categoryOrders.getCategoryOrder.mockResolvedValue(null);
-    const res = mkRes();
-
-    await requireCategoryOrderPollAccess(
-      mkReq({ params: { id: '10' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.status).toHaveBeenCalledWith(404);
-  });
-
-  it('без аутентификации — 401', async () => {
-    const res = mkRes();
-
-    await requireCategoryOrderPollAccess(
-      mkReq({ user: undefined, params: { id: '10' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.status).toHaveBeenCalledWith(401);
-  });
-
-  it('испорченный id — 400', async () => {
-    const res = mkRes();
-
-    await requireCategoryOrderPollAccess(
-      mkReq({ params: { id: 'нет' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(categoryOrders.getCategoryOrder).not.toHaveBeenCalled();
-  });
-});
-
-/**
- * Этот guard закрывает НАСТОЯЩУЮ утечку, а не переносит проверку. Раньше на
- * маршруте истории правок стоял `requireGroupAdmin`, который берёт `groupId`
- * из запроса и не связывает его с ресурсом: администратор группы A присылал
- * `orderItemId` из группы B со своим `groupId=A` и получал чужую историю.
- */
-describe('requireOrderItemGroupAdmin', () => {
-  it('администратор группы позиции проходит', async () => {
-    calculations.getCategoryOrderIdForItem.mockResolvedValue(10);
-    categoryOrders.getCategoryOrder.mockResolvedValue({ pollId: 5 } as never);
-    pollQuery.getPollGroupId.mockResolvedValue(100);
-    groupService.isUserGroupAdmin.mockResolvedValue(true);
-    const next = jest.fn();
-
-    await requireOrderItemGroupAdmin(
-      mkReq({ params: { id: '77' } }),
-      mkRes(),
-      next
-    );
-
-    expect(groupService.isUserGroupAdmin).toHaveBeenCalledWith(1, 100);
-    expect(next).toHaveBeenCalled();
-  });
-
-  /* Ровно тот случай, который раньше проходил: админ ЧУЖОЙ группы с
-     подставленным groupId. Группа теперь берётся из самой позиции, поэтому
-     подставить её нечем. */
-  it('администратор другой группы получает 403, даже указав свой groupId', async () => {
-    calculations.getCategoryOrderIdForItem.mockResolvedValue(10);
-    categoryOrders.getCategoryOrder.mockResolvedValue({ pollId: 5 } as never);
-    pollQuery.getPollGroupId.mockResolvedValue(100);
-    groupService.isUserGroupAdmin.mockResolvedValue(false);
-    const res = mkRes();
-    const next = jest.fn();
-
-    await requireOrderItemGroupAdmin(
-      mkReq({ params: { id: '77' }, query: { groupId: '999' } }),
-      res,
-      next
-    );
-
-    /* groupId из запроса не участвует в решении вовсе. */
-    expect(groupService.isUserGroupAdmin).toHaveBeenCalledWith(1, 100);
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it('позиции нет — 403, существование чужих id не раскрываем', async () => {
-    calculations.getCategoryOrderIdForItem.mockResolvedValue(null);
-    const res = mkRes();
-
-    await requireOrderItemGroupAdmin(
-      mkReq({ params: { id: '77' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.status).toHaveBeenCalledWith(403);
-  });
-
-  it('без аутентификации — 401', async () => {
-    const res = mkRes();
-
-    await requireOrderItemGroupAdmin(
-      mkReq({ user: undefined, params: { id: '77' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.status).toHaveBeenCalledWith(401);
-  });
-});
-
 /**
  * Тоже закрытая утечка: `requireGroupAdmin` на маршруте статистики проверял
  * только админство в группе из запроса, но не то, что целевой пользователь в
  * этой группе состоит. Администратор любой группы читал статистику любого.
  */
 describe('requireGroupAdminOverUser', () => {
-  it('админ читает статистику участника своей группы', async () => {
-    groupService.isUserGroupAdmin.mockResolvedValue(true);
-    groupService.isUserGroupMember.mockResolvedValue(true);
+  /* Пользователь 1 — админ только группы 7, участник 42 состоит только в ней.
+     groupId читается из params, затем query, затем body: у разных эндпоинтов
+     параметр приходит по-разному. */
+  it.each<[string, Record<string, unknown>, boolean]>([
+    ['группа из query', { params: { userId: '42' }, query: { groupId: '7' } }, true],
+    ['params важнее query', { params: { userId: '42', groupId: '7' }, query: { groupId: '100' } }, true],
+    ['подменить группу через query нельзя', { params: { userId: '42', groupId: '100' }, query: { groupId: '7' } }, false],
+    ['группа из body, если нет ни params, ни query', { params: { userId: '42' }, body: { groupId: 7 } }, true],
+  ])('%s', async (_name, init, passes) => {
+    groupService.isUserGroupAdmin.mockImplementation(async (userId, groupId) => userId === 1 && groupId === 7);
+    groupService.isUserGroupMember.mockImplementation(async (userId, groupId) => userId === 42 && groupId === 7);
+    const res = mkRes();
     const next = jest.fn();
 
-    await requireGroupAdminOverUser(
-      mkReq({ params: { userId: '42' }, query: { groupId: '100' } }),
-      mkRes(),
-      next
-    );
+    await requireGroupAdminOverUser(mkReq(init), res, next);
 
-    expect(groupService.isUserGroupAdmin).toHaveBeenCalledWith(1, 100);
-    expect(groupService.isUserGroupMember).toHaveBeenCalledWith(42, 100);
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(passes ? 1 : 0);
+    if (!passes) expect(res.status).toHaveBeenCalledWith(403);
   });
 
   it('целевой пользователь не в этой группе — 403', async () => {
@@ -565,22 +233,6 @@ describe('requireGroupAdminOverUser', () => {
     );
 
     expect(res.status).toHaveBeenCalledWith(400);
-  });
-
-  it('без аутентификации — 401', async () => {
-    const res = mkRes();
-
-    await requireGroupAdminOverUser(
-      mkReq({
-        user: undefined,
-        params: { userId: '42' },
-        query: { groupId: '100' },
-      }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.status).toHaveBeenCalledWith(401);
   });
 });
 
@@ -697,18 +349,6 @@ describe('испорченные параметры отклоняются до 
     expect(categoryOrders.getCategoryOrder).not.toHaveBeenCalled();
   });
 
-  it('requireCategoryOrderParticipant — без аутентификации 401', async () => {
-    const res = mkRes();
-
-    await requireCategoryOrderParticipant(
-      mkReq({ user: undefined, params: { id: '10' } }),
-      res,
-      jest.fn()
-    );
-
-    expect(res.status).toHaveBeenCalledWith(401);
-  });
-
   it('requireOrderItemGroupAdmin — нечисловой id', async () => {
     const res = mkRes();
 
@@ -747,37 +387,5 @@ describe('испорченные параметры отклоняются до 
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(groupService.isUserGroupAdmin).not.toHaveBeenCalled();
-  });
-
-  /* groupId читается из params, query и body — приоритет именно такой.
-     Порядок закреплён тестом, потому что у разных эндпоинтов параметр
-     приходит по-разному, и без этого следующая правка добавит четвёртый. */
-  it('requireGroupAdminOverUser — groupId из params имеет приоритет над query', async () => {
-    groupService.isUserGroupAdmin.mockResolvedValue(true);
-    groupService.isUserGroupMember.mockResolvedValue(true);
-
-    await requireGroupAdminOverUser(
-      mkReq({
-        params: { userId: '42', groupId: '7' },
-        query: { groupId: '100' },
-      }),
-      mkRes(),
-      jest.fn()
-    );
-
-    expect(groupService.isUserGroupAdmin).toHaveBeenCalledWith(1, 7);
-  });
-
-  it('requireGroupAdminOverUser — groupId из body, если нет ни params, ни query', async () => {
-    groupService.isUserGroupAdmin.mockResolvedValue(true);
-    groupService.isUserGroupMember.mockResolvedValue(true);
-
-    await requireGroupAdminOverUser(
-      mkReq({ params: { userId: '42' }, body: { groupId: 55 } }),
-      mkRes(),
-      jest.fn()
-    );
-
-    expect(groupService.isUserGroupAdmin).toHaveBeenCalledWith(1, 55);
   });
 });

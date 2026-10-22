@@ -1,17 +1,13 @@
 /**
- * Расчёт по забегу в магазин: «иду в магазин» → кто кому сколько должен.
- * Расходы по обеду закреплены в budget.service.test.ts и budget-static —
- * здесь магазинная часть.
+ * Расчёт по забегу в магазин: уведомления и кнопки бота.
+ * Создание долгов (инициатор себе не должен, двойное завершение не удваивает)
+ * проверяется на настоящей БД в integration/api/store-runs.redis.test.ts.
  *
  * Смысловые правила, из-за которых это стоит тестов:
  *
- * 1. Инициатор себе не должен. Он потратил свои деньги, и его собственные
- *    позиции в долги не превращаются.
- * 2. Один забег → одна транзакция на товар, но уведомление одно на человека:
- *    люди переводят одной суммой за весь свой заказ, а не по позиции.
- * 3. Создание транзакций идемпотентно (createMany + skipDuplicates и
- *    уникальный индекс): двойной клик «завершить забег» не удваивает долги.
- * 4. Подтвердить оплату может только инициатор забега — иначе должник
+ * 1. Уведомление одно на человека: люди переводят одной суммой за весь свой
+ *    заказ, а не по позиции.
+ * 2. Подтвердить оплату может только инициатор забега — иначе должник
  *    закрывал бы долг сам себе.
  */
 import { StoreRunBudgetService } from '../../../services/store-run-budget.service';
@@ -42,7 +38,6 @@ jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
-const { logger } = jest.requireMock('../../../utils/logger');
 const users = asServiceMock(UserService);
 
 const api = { sendMessage: jest.fn() };
@@ -105,11 +100,6 @@ function transaction(init: TxInit) {
   };
 }
 
-function insertedRows(): Array<Record<string, unknown>> {
-  const call = asMock(prismaMock.transaction.createMany).mock.calls[0];
-  return (call?.[0] as { data: Array<Record<string, unknown>> })?.data ?? [];
-}
-
 function sentTo(telegramId: number): string | undefined {
   const call = api.sendMessage.mock.calls.find(c => c[0] === telegramId);
   return call?.[1] as string | undefined;
@@ -143,133 +133,6 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('createTransactionsForStoreRun', () => {
-  it('на каждый купленный товар создаётся долг в пользу инициатора', async () => {
-    asMock(prismaMock.storeRun.findUnique).mockResolvedValue(
-      storeRun([
-        { id: 10, userId: 2, price: 150 },
-        { id: 11, userId: 3, price: 250 },
-      ])
-    );
-
-    await StoreRunBudgetService.createTransactionsForStoreRun(30);
-
-    expect(insertedRows()).toEqual([
-      expect.objectContaining({
-        storeItemId: 10,
-        fromUserId: 2,
-        toUserId: 1,
-        amount: 150,
-        status: 'PENDING',
-      }),
-      expect.objectContaining({ storeItemId: 11, fromUserId: 3, amount: 250 }),
-    ]);
-  });
-
-  it('позиции инициатора в долги не превращаются', async () => {
-    asMock(prismaMock.storeRun.findUnique).mockResolvedValue(
-      storeRun([
-        { id: 10, userId: 1, price: 150 },
-        { id: 11, userId: 2, price: 250 },
-      ])
-    );
-
-    await StoreRunBudgetService.createTransactionsForStoreRun(30);
-
-    expect(insertedRows()).toHaveLength(1);
-    expect(insertedRows()[0]).toMatchObject({ fromUserId: 2 });
-  });
-
-  it('не купленные позиции не считаются', async () => {
-    asMock(prismaMock.storeRun.findUnique).mockResolvedValue(
-      storeRun([
-        { id: 10, userId: 2, status: 'NOT_FOUND' },
-        { id: 11, userId: 2, status: 'BOUGHT' },
-      ])
-    );
-
-    await StoreRunBudgetService.createTransactionsForStoreRun(30);
-
-    expect(insertedRows().map(row => row.storeItemId)).toEqual([11]);
-  });
-
-  it('позиция без цены не создаёт долг на пустую сумму', async () => {
-    asMock(prismaMock.storeRun.findUnique).mockResolvedValue(
-      storeRun([{ id: 10, userId: 2, price: null }])
-    );
-
-    await StoreRunBudgetService.createTransactionsForStoreRun(30);
-
-    expect(asMock(prismaMock.transaction.createMany)).not.toHaveBeenCalled();
-  });
-
-  it('забег без чужих позиций возвращает пустой список', async () => {
-    asMock(prismaMock.storeRun.findUnique).mockResolvedValue(
-      storeRun([{ id: 10, userId: 1 }])
-    );
-
-    await expect(
-      StoreRunBudgetService.createTransactionsForStoreRun(30)
-    ).resolves.toEqual([]);
-    expect(logger.info).toHaveBeenCalledWith('No billable items for store run', {
-      storeRunId: 30,
-    });
-  });
-
-  it('вставка идемпотентна: повторный клик долги не удваивает', async () => {
-    asMock(prismaMock.storeRun.findUnique).mockResolvedValue(
-      storeRun([{ id: 10, userId: 2 }])
-    );
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      transaction({ fromUserId: 2 }),
-    ]);
-
-    const result = await StoreRunBudgetService.createTransactionsForStoreRun(30);
-
-    expect(asMock(prismaMock.transaction.createMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ skipDuplicates: true })
-    );
-    // Возвращается полный набор забега, кто бы его ни вставил.
-    expect(result).toHaveLength(1);
-  });
-
-  it('несуществующий забег — ошибка', async () => {
-    await expect(
-      StoreRunBudgetService.createTransactionsForStoreRun(30)
-    ).rejects.toThrow('Store run 30 not found');
-  });
-
-  it('работает внутри переданной транзакции БД', async () => {
-    const tx = {
-      storeRun: {
-        findUnique: jest.fn().mockResolvedValue(storeRun([{ id: 10, userId: 2 }])),
-      },
-      transaction: {
-        createMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findMany: jest.fn().mockResolvedValue([transaction({ fromUserId: 2 })]),
-      },
-    };
-
-    await StoreRunBudgetService.createTransactionsForStoreRun(30, tx as never);
-
-    expect(tx.transaction.createMany).toHaveBeenCalled();
-    expect(asMock(prismaMock.transaction.createMany)).not.toHaveBeenCalled();
-  });
-
-  it('сбой вставки пробрасывается наружу', async () => {
-    asMock(prismaMock.storeRun.findUnique).mockResolvedValue(
-      storeRun([{ id: 10, userId: 2 }])
-    );
-    asMock(prismaMock.transaction.createMany).mockRejectedValue(
-      new Error('db down')
-    );
-
-    await expect(
-      StoreRunBudgetService.createTransactionsForStoreRun(30)
-    ).rejects.toThrow('db down');
-  });
-});
-
 describe('notifyStoreRunSettled', () => {
   function settled(txs: TxInit[], over: Record<string, unknown> = {}) {
     asMock(prismaMock.storeRun.findUnique).mockResolvedValue(
@@ -294,7 +157,7 @@ describe('notifyStoreRunSettled', () => {
     const toDebtor = sentTo(1002) as string;
     expect(toDebtor).toContain('Хлеб');
     expect(toDebtor).toContain('Молоко');
-    expect(toDebtor).toContain('К оплате: 200');
+    expect(toDebtor).toContain('200');
   });
 
   it('в письме есть название магазина, получатель и кнопка «Оплатил»', async () => {
@@ -315,7 +178,7 @@ describe('notifyStoreRunSettled', () => {
 
     const text = sentTo(1002) as string;
     expect(text).not.toContain('2200123456789012');
-    expect(text).toContain('Карта:');
+    expect(text).toContain('9012');
   });
 
   /* Ссылка СБП — не номер карты: раньше её маскировали в «**** …» из
@@ -334,7 +197,6 @@ describe('notifyStoreRunSettled', () => {
 
     const call = api.sendMessage.mock.calls.find(c => c[0] === 1002);
     const text = call?.[1] as string;
-    expect(text).toContain('Ссылка для перевода — кнопкой ниже');
     expect(text).not.toContain('****');
     expect(text).not.toContain(link);
     const buttons = (call?.[2] as { reply_markup: { inline_keyboard: Array<Array<{ url?: string }>> } })
@@ -357,52 +219,29 @@ describe('notifyStoreRunSettled', () => {
     expect(text).toContain('Сбер, СБП');
   });
 
-  it('без реквизитов должнику прямо сказано уточнить лично', async () => {
-    users.getPaymentInfo.mockResolvedValue(null);
-    settled([{ fromUserId: 2 }]);
-
-    await StoreRunBudgetService.notifyStoreRunSettled(30);
-
-    expect(sentTo(1002)).toContain('не заполнил реквизиты');
-  });
-
-  /* Сводка писала «Разослал участникам суммы и твои реквизиты» и тогда, когда
-     рассылать было нечего. */
-  it('инициатору без реквизитов сказано, что их нет, и дана кнопка их указать', async () => {
-    users.getPaymentInfo.mockResolvedValue(null);
-    settled([{ fromUserId: 2 }]);
-
-    await StoreRunBudgetService.notifyStoreRunSettled(30);
-
-    const call = api.sendMessage.mock.calls.find(c => c[0] === 1001);
-    const text = call?.[1] as string;
-    expect(text).not.toContain('твои реквизиты');
-    expect(text).toContain('Реквизитов нет');
-    const button = (
-      call?.[2] as { reply_markup: { inline_keyboard: { text: string; web_app?: { url: string } }[][] } }
-    ).reply_markup.inline_keyboard[0][0];
-    expect(button.text).toBe('💳 Указать реквизиты');
-    expect(button.web_app?.url).toMatch(/\/profile\?edit=payment$/);
-  });
-
-  it('инициатору с реквизитами сводка говорит, что они разосланы, без лишней кнопки', async () => {
+  /* Сводка обещала разосланные реквизиты и тогда, когда их не было. Без
+     реквизитов инициатору дают кнопку их указать, с реквизитами — нет. */
+  it.each([
+    ['без реквизитов получает кнопку их указать', null, true],
+    [
+      'с реквизитами лишней кнопки не получает',
+      { paymentCard: '2200123456789012', paymentPhone: null, paymentDetails: null },
+      false,
+    ],
+  ])('инициатор %s', async (_case, paymentInfo, expectButton) => {
+    users.getPaymentInfo.mockResolvedValue(paymentInfo);
     settled([{ fromUserId: 2 }]);
 
     await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     const call = api.sendMessage.mock.calls.find(c => c[0] === 1001);
-    expect(call?.[1]).toContain('Разослал участникам суммы и твои реквизиты');
-    expect(JSON.stringify(call?.[2] ?? {})).not.toContain('Указать реквизиты');
-  });
-
-  it('фамилия инициатора добавляется, если есть', async () => {
-    settled([{ fromUserId: 2 }], {
-      initiator: user(1, { lastName: 'Петров' }),
-    });
-
-    await StoreRunBudgetService.notifyStoreRunSettled(30);
-
-    expect(sentTo(1002)).toContain('U1 Петров');
+    const keyboard =
+      (call?.[2] as { reply_markup?: { inline_keyboard: { web_app?: { url: string } }[][] } })
+        ?.reply_markup?.inline_keyboard ?? [];
+    const webAppUrls = keyboard.flat().flatMap(b => (b.web_app ? [b.web_app.url] : []));
+    expect(webAppUrls).toEqual(
+      expectButton ? [expect.stringMatching(/\/profile\?edit=payment$/)] : []
+    );
   });
 
   /**
@@ -445,7 +284,7 @@ describe('notifyStoreRunSettled', () => {
     await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     const summary = sentTo(1001) as string;
-    expect(summary).toContain('Тебе вернут: 400');
+    expect(summary).toContain('400');
     expect(summary).toContain('U2');
     expect(summary).toContain('U3');
   });
@@ -456,10 +295,6 @@ describe('notifyStoreRunSettled', () => {
     await StoreRunBudgetService.notifyStoreRunSettled(30);
 
     expect(api.sendMessage).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledWith(
-      'notifyStoreRunSettled: no pending transactions',
-      { storeRunId: 30 }
-    );
   });
 
   it('несуществующий забег рассылки не порождает', async () => {
@@ -473,14 +308,12 @@ describe('notifyStoreRunSettled', () => {
 
   it('без бота рассылка не запускается', async () => {
     asMock(getBotInstance).mockReturnValue(null);
+    settled([{ fromUserId: 2 }]);
 
-    await StoreRunBudgetService.notifyStoreRunSettled(30);
-
-    expect(logger.error).toHaveBeenCalledWith(
-      'notifyStoreRunSettled: bot not initialized',
-      { storeRunId: 30 }
-    );
-    expect(asMock(prismaMock.storeRun.findUnique)).not.toHaveBeenCalled();
+    await expect(
+      StoreRunBudgetService.notifyStoreRunSettled(30)
+    ).resolves.toBeUndefined();
+    expect(api.sendMessage).not.toHaveBeenCalled();
   });
 
   it('заблокировавший бота должник не мешает уведомить остальных', async () => {
@@ -496,10 +329,6 @@ describe('notifyStoreRunSettled', () => {
       StoreRunBudgetService.notifyStoreRunSettled(30)
     ).resolves.toBeUndefined();
     expect(api.sendMessage).toHaveBeenCalledTimes(3);
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error sending store run debt notification:',
-      expect.any(Error)
-    );
   });
 
   it('сбой чтения долгов не пробрасывается наружу', async () => {
@@ -511,10 +340,7 @@ describe('notifyStoreRunSettled', () => {
     await expect(
       StoreRunBudgetService.notifyStoreRunSettled(30)
     ).resolves.toBeUndefined();
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error sending store run settle notifications:',
-      expect.any(Error)
-    );
+    expect(api.sendMessage).not.toHaveBeenCalled();
   });
 });
 
@@ -552,12 +378,6 @@ describe('markStoreRunPaidByDebtor', () => {
 
     const result = await StoreRunBudgetService.markStoreRunPaidByDebtor(30, 1002);
 
-    expect(asMock(prismaMock.transaction.updateManyAndReturn)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { storeRunId: 30, fromUserId: 2, status: 'PENDING' },
-        data: { status: 'PAID', paidAt: NOW, transitionVersion: { increment: 1 } },
-      })
-    );
     expect(result).toEqual({ count: 2, total: '200.00₽' });
   });
 
@@ -633,46 +453,6 @@ describe('confirmStoreRunByDebtor', () => {
       rows.map(row => ({ ...row, transitionVersion: 2 }))
     );
   }
-
-  it('инициатор подтверждает — долги переходят в CONFIRMED', async () => {
-    payable([
-      { id: 1, amount: 150 },
-      { id: 2, amount: 50 },
-    ]);
-
-    const result = await StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001);
-
-    expect(asMock(prismaMock.transaction.updateManyAndReturn)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          storeRunId: 30,
-          fromUserId: 2,
-          toUserId: 1,
-          status: { in: ['PENDING', 'PAID'] },
-        },
-        data: {
-          status: 'CONFIRMED',
-          confirmedAt: NOW,
-          transitionVersion: { increment: 1 },
-        },
-      })
-    );
-    expect(result).toEqual({ count: 2 });
-  });
-
-  it('должнику ставится задание «оплата подтверждена»', async () => {
-    payable([{ id: 1, amount: 150 }]);
-
-    await StoreRunBudgetService.confirmStoreRunByDebtor(30, 2, 1001);
-
-    expect(queuedJobs()).toEqual([
-      expect.objectContaining({
-        messageType: 'DEBT_CONFIRMED',
-        recipientChatId: '1002',
-        payload: { payeeFirstName: 'U1', amount: '150.00₽' },
-      }),
-    ]);
-  });
 
   it('подтверждать может только инициатор забега', async () => {
     payable([{ id: 1, amount: 150 }]);

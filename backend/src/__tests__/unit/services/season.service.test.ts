@@ -1,10 +1,10 @@
 /**
- * Сезоны геймификации. Два свойства, которые нельзя терять:
+ * Сезоны геймификации. Ротацию, нумерацию, призы по местам и лидерборд
+ * группы проверяет интеграционный набор gamification.redis.test.ts. Здесь:
  *
- * 1. Ротация не должна закрывать сезон раньше срока — иначе награды получают
- *    не те, и «месяц» превращается в неделю.
- * 2. Награды выдаются с идемпотентным ключом на (сезон, пользователь, место):
- *    повторный запуск ротации не должен начислить приз дважды.
+ * - награды выдаются с идемпотентным ключом на (сезон, пользователь, место):
+ *   повторная выдача того же сезона несёт те же ключи и приз не удвоит;
+ * - пустые и неполные данные и сбои БД не роняют чтение и ротацию.
  */
 import { SeasonService } from '../../../services/season.service';
 import { GamificationService } from '../../../services/gamification.service';
@@ -70,45 +70,16 @@ afterEach(() => {
 });
 
 describe('чтение сезонов', () => {
-  it('текущий сезон — активный с наибольшим номером', async () => {
-    prismaMock.season.findFirst.mockResolvedValue(seasonFixture() as never);
-
-    const season = await SeasonService.getCurrentSeason();
-
-    expect(prismaMock.season.findFirst).toHaveBeenCalledWith({
-      where: { isActive: true },
-      orderBy: { number: 'desc' },
-    });
-    expect(season).toMatchObject({ id: 3 });
-  });
-
   it('ошибка базы даёт null, а не исключение', async () => {
     prismaMock.season.findFirst.mockRejectedValue(new Error('db down'));
 
     await expect(SeasonService.getCurrentSeason()).resolves.toBeNull();
   });
 
-  it('список сезонов идёт от свежего к старому', async () => {
-    prismaMock.season.findMany.mockResolvedValue([seasonFixture()] as never);
-
-    await SeasonService.getAllSeasons(5);
-
-    expect(prismaMock.season.findMany).toHaveBeenCalledWith({
-      orderBy: { number: 'desc' },
-      take: 5,
-    });
-  });
-
   it('ошибка базы даёт пустой список', async () => {
     prismaMock.season.findMany.mockRejectedValue(new Error('db down'));
 
     await expect(SeasonService.getAllSeasons()).resolves.toEqual([]);
-  });
-
-  it('сезон по id', async () => {
-    prismaMock.season.findUnique.mockResolvedValue(seasonFixture() as never);
-
-    await expect(SeasonService.getSeasonById(3)).resolves.toMatchObject({ id: 3 });
   });
 
   it('ошибка базы при чтении по id даёт null', async () => {
@@ -133,101 +104,12 @@ describe('createMonthlySeason', () => {
   });
 
   it('срок нового сезона — месяц от сегодня', async () => {
-    await SeasonService.createMonthlySeason();
-
-    const data = (prismaMock.season.create.mock.calls[0][0] as {
-      data: { startDate: Date; endDate: Date };
-    }).data;
-    expect(data.startDate).toEqual(NOW);
-    expect(data.endDate).toEqual(new Date('2026-09-03T12:00:00.000Z'));
-  });
-
-  it('номер продолжает нумерацию последнего сезона', async () => {
-    // Первый findFirst — активный сезон, второй — последний по номеру.
-    prismaMock.season.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ number: 7 } as never);
-
     const season = await SeasonService.createMonthlySeason();
 
-    expect(season).toMatchObject({ number: 8 });
-  });
-
-  it('активный сезон деактивируется перед созданием нового', async () => {
-    prismaMock.season.findFirst
-      .mockResolvedValueOnce(seasonFixture() as never)
-      .mockResolvedValueOnce(seasonFixture() as never);
-
-    await SeasonService.createMonthlySeason();
-
-    expect(prismaMock.season.update).toHaveBeenCalledWith({
-      where: { id: 3 },
-      data: { isActive: false },
+    expect(season).toMatchObject({
+      startDate: NOW,
+      endDate: new Date('2026-09-03T12:00:00.000Z'),
     });
-  });
-
-  it('награды и метаданные пишутся строкой JSON', async () => {
-    await SeasonService.createMonthlySeason();
-
-    const data = (prismaMock.season.create.mock.calls[0][0] as {
-      data: { rewards: string; metadata: string };
-    }).data;
-    expect(JSON.parse(data.rewards).top3).toHaveLength(3);
-    expect(JSON.parse(data.metadata)).toMatchObject({ totalParticipants: 0 });
-  });
-
-  it('ошибка базы превращается в понятное исключение', async () => {
-    prismaMock.season.create.mockRejectedValue(new Error('db down'));
-
-    await expect(SeasonService.createMonthlySeason()).rejects.toThrow(
-      'Failed to create monthly season'
-    );
-  });
-});
-
-describe('rotateSeason', () => {
-  beforeEach(() => {
-    prismaMock.season.create.mockResolvedValue({ id: 11, number: 4 } as never);
-    prismaMock.season.findUnique.mockResolvedValue(seasonFixture() as never);
-    asMock(prismaMock.xPHistory.groupBy).mockResolvedValue([] as never);
-  });
-
-  it('без активного сезона просто создаёт первый', async () => {
-    prismaMock.season.findFirst.mockResolvedValue(null);
-
-    await SeasonService.rotateSeason();
-
-    expect(prismaMock.season.create).toHaveBeenCalled();
-  });
-
-  it('сезон, который ещё не закончился, ротировать нельзя', async () => {
-    prismaMock.season.findFirst.mockResolvedValue(
-      seasonFixture({ endDate: new Date('2026-09-01T00:00:00.000Z') }) as never
-    );
-
-    await expect(SeasonService.rotateSeason()).rejects.toThrow(
-      'Failed to rotate season'
-    );
-    expect(prismaMock.season.update).not.toHaveBeenCalled();
-  });
-
-  it('закончившийся сезон закрывается, награды выдаются, создаётся новый', async () => {
-    prismaMock.season.findFirst.mockResolvedValue(seasonFixture() as never);
-    asMock(prismaMock.xPHistory.groupBy).mockResolvedValue([
-      { userId: 1, _sum: { amount: 900 } },
-    ] as never);
-    prismaMock.user.findMany.mockResolvedValue([
-      { id: 1, firstName: 'Игорь', lastName: null, username: 'igor' },
-    ] as never);
-
-    await SeasonService.rotateSeason();
-
-    expect(prismaMock.season.update).toHaveBeenCalledWith({
-      where: { id: 3 },
-      data: { isActive: false },
-    });
-    expect(gamification.awardXP).toHaveBeenCalled();
-    expect(prismaMock.season.create).toHaveBeenCalled();
   });
 });
 
@@ -254,57 +136,17 @@ describe('awardSeasonRewards', () => {
     prismaMock.season.findUnique.mockResolvedValue(seasonFixture() as never);
   });
 
-  it('топ-3 получают свои призы в порядке мест', async () => {
+  it('идемпотентный ключ уникален на место и повторяется при повторной выдаче', async () => {
     leaderboardOf(3);
 
     await SeasonService.awardSeasonRewards(3);
-
-    expect(gamification.awardXP).toHaveBeenCalledTimes(3);
-    expect(gamification.awardXP).toHaveBeenNthCalledWith(
-      1,
-      1,
-      500,
-      expect.stringContaining('1 место'),
-      'SOCIAL',
-      expect.objectContaining({ position: 1 }),
-      'season:3:1:position:1'
-    );
-    expect(gamification.awardXP).toHaveBeenNthCalledWith(
-      3,
-      3,
-      200,
-      expect.any(String),
-      'SOCIAL',
-      expect.objectContaining({ position: 3 }),
-      'season:3:3:position:3'
-    );
-  });
-
-  it('идемпотентный ключ уникален на место — повтор не удвоит приз', async () => {
-    leaderboardOf(3);
-
+    const first = gamification.awardXP.mock.calls.map(call => call[5]);
+    gamification.awardXP.mockClear();
     await SeasonService.awardSeasonRewards(3);
+    const second = gamification.awardXP.mock.calls.map(call => call[5]);
 
-    const keys = gamification.awardXP.mock.calls.map(call => call[5]);
-    expect(new Set(keys).size).toBe(keys.length);
-  });
-
-  it('места с 4 по 10 получают приз топ-10', async () => {
-    leaderboardOf(10);
-
-    await SeasonService.awardSeasonRewards(3);
-
-    // Лидерборд отдаёт максимум 10 записей: 3 призовых + 7 «топ-10».
-    expect(gamification.awardXP).toHaveBeenCalledTimes(10);
-    expect(gamification.awardXP).toHaveBeenNthCalledWith(
-      4,
-      4,
-      100,
-      expect.stringContaining('топ-10'),
-      'SOCIAL',
-      expect.any(Object),
-      'season:3:4:position:4'
-    );
+    expect(new Set(first).size).toBe(first.length);
+    expect(second).toEqual(first);
   });
 
   it('сезона нет — награды не выдаются', async () => {
@@ -354,34 +196,6 @@ describe('awardSeasonRewards', () => {
 });
 
 describe('getSeasonLeaderboard', () => {
-  it('суммирует XP за сезон и нумерует места', async () => {
-    asMock(prismaMock.xPHistory.groupBy).mockResolvedValue([
-      { userId: 2, _sum: { amount: 900 } },
-      { userId: 1, _sum: { amount: 400 } },
-    ] as never);
-    prismaMock.user.findMany.mockResolvedValue([
-      { id: 1, firstName: 'Игорь', lastName: null, username: 'igor' },
-      { id: 2, firstName: 'Аня', lastName: 'П', username: null },
-    ] as never);
-
-    const board = await SeasonService.getSeasonLeaderboard(3, 10);
-
-    expect(board).toEqual([
-      {
-        userId: 2,
-        totalXP: 900,
-        position: 1,
-        user: { firstName: 'Аня', lastName: 'П', username: null },
-      },
-      {
-        userId: 1,
-        totalXP: 400,
-        position: 2,
-        user: { firstName: 'Игорь', lastName: null, username: 'igor' },
-      },
-    ]);
-  });
-
   it('нулевая сумма не превращается в undefined', async () => {
     asMock(prismaMock.xPHistory.groupBy).mockResolvedValue([
       { userId: 1, _sum: { amount: null } },
@@ -393,34 +207,6 @@ describe('getSeasonLeaderboard', () => {
     const board = await SeasonService.getSeasonLeaderboard(3);
 
     expect(board[0].totalXP).toBe(0);
-  });
-
-  it('с groupId выборка ограничена активными участниками группы', async () => {
-    asMock(prismaMock.xPHistory.groupBy).mockResolvedValue([] as never);
-
-    await SeasonService.getSeasonLeaderboard(3, 5, 100);
-
-    expect(asMock(prismaMock.xPHistory.groupBy)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          seasonId: 3,
-          user: {
-            groupMemberships: { some: { groupId: 100, isActive: true } },
-          },
-        },
-        take: 5,
-      })
-    );
-  });
-
-  it('без groupId фильтра по группе нет', async () => {
-    asMock(prismaMock.xPHistory.groupBy).mockResolvedValue([] as never);
-
-    await SeasonService.getSeasonLeaderboard(3);
-
-    expect(asMock(prismaMock.xPHistory.groupBy)).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { seasonId: 3 } })
-    );
   });
 
   it('ошибка базы даёт пустой лидерборд', async () => {
@@ -445,38 +231,6 @@ describe('getUserSeasonStats', () => {
     prismaMock.user.findMany.mockResolvedValue([
       { id: 1, firstName: 'Игорь', lastName: null, username: null },
     ] as never);
-  });
-
-  it('считает сумму, разбивку по категориям и место', async () => {
-    const stats = await SeasonService.getUserSeasonStats(1, 3);
-
-    expect(stats).toEqual({
-      seasonId: 3,
-      seasonName: 'Июль 2026',
-      totalXP: 175,
-      position: 1,
-      categoriesBreakdown: {
-        GASTRO: 125,
-        RESPONSIBLE: 0,
-        SOCIAL: 50,
-        EXPLORER: 0,
-      },
-    });
-  });
-
-  it('без seasonId берётся текущий сезон', async () => {
-    await SeasonService.getUserSeasonStats(1);
-
-    expect(prismaMock.season.findFirst).toHaveBeenCalledWith({
-      where: { isActive: true },
-      orderBy: { number: 'desc' },
-    });
-  });
-
-  it('сезона нет — null', async () => {
-    prismaMock.season.findUnique.mockResolvedValue(null);
-
-    await expect(SeasonService.getUserSeasonStats(1, 3)).resolves.toBeNull();
   });
 
   it('пользователя нет в лидерборде — место null', async () => {
@@ -512,49 +266,5 @@ describe('getUserSeasonStats', () => {
     prismaMock.xPHistory.findMany.mockRejectedValue(new Error('db down'));
 
     await expect(SeasonService.getUserSeasonStats(1, 3)).resolves.toBeNull();
-  });
-});
-
-describe('checkAndRotateSeason', () => {
-  beforeEach(() => {
-    prismaMock.season.create.mockResolvedValue({ id: 11, number: 4 } as never);
-    prismaMock.season.findUnique.mockResolvedValue(seasonFixture() as never);
-    asMock(prismaMock.xPHistory.groupBy).mockResolvedValue([] as never);
-  });
-
-  it('без активного сезона создаёт первый', async () => {
-    prismaMock.season.findFirst.mockResolvedValue(null);
-
-    await SeasonService.checkAndRotateSeason();
-
-    expect(prismaMock.season.create).toHaveBeenCalled();
-  });
-
-  it('закончившийся сезон ротируется', async () => {
-    prismaMock.season.findFirst.mockResolvedValue(seasonFixture() as never);
-
-    await SeasonService.checkAndRotateSeason();
-
-    expect(prismaMock.season.update).toHaveBeenCalledWith({
-      where: { id: 3 },
-      data: { isActive: false },
-    });
-  });
-
-  it('действующий сезон не трогается', async () => {
-    prismaMock.season.findFirst.mockResolvedValue(
-      seasonFixture({ endDate: new Date('2026-09-01T00:00:00.000Z') }) as never
-    );
-
-    await SeasonService.checkAndRotateSeason();
-
-    expect(prismaMock.season.update).not.toHaveBeenCalled();
-    expect(prismaMock.season.create).not.toHaveBeenCalled();
-  });
-
-  it('ошибка внутри не выбрасывается наружу (задача по расписанию)', async () => {
-    prismaMock.season.findFirst.mockRejectedValue(new Error('db down'));
-
-    await expect(SeasonService.checkAndRotateSeason()).resolves.toBeUndefined();
   });
 });

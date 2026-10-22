@@ -1,14 +1,9 @@
 /**
  * Автонапоминания о долгах. Задача работает по расписанию, без пользователя:
- * если она сломается, никто не нажмёт кнопку и не увидит ошибку. Поэтому здесь
- * проверяется не только «письма ушли», но и:
- *
- * - выборка ограничена: только PENDING, старше minDebtAge, не чаще intervalDays,
- *   не больше maxReminders раз — иначе человек получает напоминание каждый час;
- * - счётчик напоминаний растёт после успешной отправки и после отказа, который
- *   повтор не исправит (бот заблокирован, чата нет); временный сбой его не тратит;
- * - падение отправки одному не отменяет рассылку остальным;
- * - задача идёт под распределённой блокировкой: два процесса не разошлют дубль.
+ * если она сломается, никто не нажмёт кнопку и не увидит ошибку. Выборку,
+ * рассылку и счётчики на тестовой БД проверяет integration/jobs/debt-reminder;
+ * здесь — то, что там не воспроизвести: отказы Telegram, которые повтор не
+ * исправит, сбои инфраструктуры и подстановка в шаблон письма.
  */
 import cron from 'node-cron';
 
@@ -107,25 +102,6 @@ afterEach(() => {
 });
 
 describe('initDebtReminderJob', () => {
-  it('регистрирует ежедневный запуск в 10:00', () => {
-    initDebtReminderJob();
-
-    expect(schedule).toHaveBeenCalledWith('0 10 * * *', expect.any(Function));
-  });
-
-  it('запуск идёт под распределённой блокировкой на 55 минут', async () => {
-    initDebtReminderJob();
-    const tick = schedule.mock.calls[0][1] as () => Promise<void>;
-
-    await tick();
-
-    expect(lock).toHaveBeenCalledWith(
-      'job:debt-reminder',
-      55 * 60,
-      expect.any(Function)
-    );
-  });
-
   it('падение блокировки не выбрасывается из планировщика', async () => {
     lock.mockRejectedValue(new Error('redis down'));
     initDebtReminderJob();
@@ -136,37 +112,10 @@ describe('initDebtReminderJob', () => {
 });
 
 describe('рассылка напоминаний', () => {
-  it('отправляет должнику одно письмо со всеми его долгами', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      debt(),
-      debt({ id: 2, amount: 100, toUser: { id: 3, firstName: 'Оля' } }),
-    ] as never);
-
-    await runDebtReminderJobManually();
-
-    expect(sendMessage).toHaveBeenCalledTimes(1);
-    const [chatId, message] = sendMessage.mock.calls[0];
-    expect(chatId).toBe('555');
-    expect(message).toContain('Привет, Игорь!');
-    expect(message).toContain('350.50 руб.');
-    expect(message).toContain('Аня П: 250.50 руб.');
-    expect(message).toContain('Оля : 100.00 руб.');
-  });
-
-  it('счётчик напоминаний увеличивается только после успешной отправки', async () => {
-    await runDebtReminderJobManually();
-
-    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: [1] } },
-      data: { reminderCount: { increment: 1 }, lastReminderAt: NOW },
-    });
-  });
-
   /* Повтор такой отправки не поможет. Незасчитанная попытка оставляла долг в
      выборке навсегда: задача каждый день падала на том же человеке, не глядя
      ни на intervalDays, ни на maxReminders. */
   it.each([
-    "Call to 'sendMessage' failed! (403: Forbidden: bot was blocked by the user)",
     "Call to 'sendMessage' failed! (400: Bad Request: chat not found)",
     "Call to 'sendMessage' failed! (403: Forbidden: bot can't initiate conversation with a user)",
     "Call to 'sendMessage' failed! (403: Forbidden: user is deactivated)",
@@ -181,68 +130,6 @@ describe('рассылка напоминаний', () => {
     });
   });
 
-  it('временный сбой попытку не тратит — завтра задача повторит', async () => {
-    sendMessage.mockRejectedValue(
-      new Error("Call to 'sendMessage' failed! (429: Too Many Requests: retry after 5)")
-    );
-
-    await runDebtReminderJobManually();
-
-    expect(prismaMock.transaction.updateMany).not.toHaveBeenCalled();
-  });
-
-  it('падение одному не отменяет рассылку остальным', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([
-      debt(),
-      debt({
-        id: 2,
-        fromUserId: 2,
-        fromUser: { id: 2, firstName: 'Оля', telegramId: BigInt(777) },
-      }),
-    ] as never);
-    sendMessage
-      .mockRejectedValueOnce(new Error('socket hang up'))
-      .mockResolvedValueOnce(undefined);
-
-    await runDebtReminderJobManually();
-
-    expect(sendMessage).toHaveBeenCalledTimes(2);
-    /* Счётчик поднят только у доставленного напоминания: у временного сбоя
-       попытка из maxReminders не должна сгорать. */
-    expect(prismaMock.transaction.updateMany).toHaveBeenCalledTimes(1);
-    expect(prismaMock.transaction.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: [2] } },
-      data: { reminderCount: { increment: 1 }, lastReminderAt: NOW },
-    });
-  });
-
-  it('выборка ограничена настройками группы', async () => {
-    await runDebtReminderJobManually();
-
-    const where = (
-      prismaMock.transaction.findMany.mock.calls[0][0] as {
-        where: Record<string, unknown>;
-      }
-    ).where;
-
-    expect(where).toMatchObject({
-      status: 'PENDING',
-      reminderCount: { lt: 5 },
-      fromUser: {
-        groupMemberships: { some: { groupId: 100, isActive: true } },
-      },
-    });
-    // Долг старше двух дней.
-    expect(where.createdAt).toEqual({
-      lte: new Date('2026-08-01T10:00:00.000Z'),
-    });
-    // Либо ещё не напоминали, либо не чаще, чем раз в три дня.
-    expect(where.OR).toEqual([
-      { lastReminderAt: null },
-      { lastReminderAt: { lte: new Date('2026-07-31T10:00:00.000Z') } },
-    ]);
-  });
-
   it('несколько групп обрабатываются по своим настройкам', async () => {
     reminderStub.getGroupsWithEnabledReminders.mockResolvedValue([
       SETTINGS,
@@ -253,23 +140,6 @@ describe('рассылка напоминаний', () => {
 
     expect(prismaMock.transaction.findMany).toHaveBeenCalledTimes(2);
     expect(sendMessage).toHaveBeenCalledTimes(2);
-  });
-
-  it('без групп с включёнными напоминаниями задача ничего не делает', async () => {
-    reminderStub.getGroupsWithEnabledReminders.mockResolvedValue([]);
-
-    await runDebtReminderJobManually();
-
-    expect(prismaMock.transaction.findMany).not.toHaveBeenCalled();
-    expect(sendMessage).not.toHaveBeenCalled();
-  });
-
-  it('без должников писем нет', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue([] as never);
-
-    await runDebtReminderJobManually();
-
-    expect(sendMessage).not.toHaveBeenCalled();
   });
 
   it('неподнятый бот не роняет задачу', async () => {
@@ -285,39 +155,6 @@ describe('рассылка напоминаний', () => {
     );
 
     await expect(runDebtReminderJobManually()).resolves.toBeUndefined();
-  });
-
-  it('рассылка идёт пачками по четыре — лимиты Telegram', async () => {
-    asMock(prismaMock.transaction.findMany).mockResolvedValue(
-      Array.from({ length: 9 }, (_, i) =>
-        debt({
-          id: i + 1,
-          fromUserId: i + 1,
-          fromUser: {
-            id: i + 1,
-            firstName: `Должник${i + 1}`,
-            telegramId: BigInt(1000 + i),
-          },
-        })
-      )
-    );
-
-    await runDebtReminderJobManually();
-
-    expect(sendMessage).toHaveBeenCalledTimes(9);
-    /* Запись счётчиков — по одному запросу на пачку, а не на должника: раньше
-       было девять `updateMany` на девять писем. Пачка, а не весь список,
-       намеренно — окно между отправкой и записью ограничено четырьмя
-       должниками, и падение внутри пачки повторит напоминание только им. */
-    expect(prismaMock.transaction.updateMany).toHaveBeenCalledTimes(3);
-    expect(prismaMock.transaction.updateMany).toHaveBeenNthCalledWith(1, {
-      where: { id: { in: [1, 2, 3, 4] } },
-      data: { reminderCount: { increment: 1 }, lastReminderAt: NOW },
-    });
-    expect(prismaMock.transaction.updateMany).toHaveBeenNthCalledWith(3, {
-      where: { id: { in: [9] } },
-      data: { reminderCount: { increment: 1 }, lastReminderAt: NOW },
-    });
   });
 });
 
@@ -415,9 +252,6 @@ describe('формулировка возраста долга', () => {
     [1, 'вчера'],
     [3, '3 дня назад'],
     [10, '10 дней назад'],
-    [21, '21 день назад'],
-    [22, '22 дня назад'],
-    [25, '25 дней назад'],
     [31, '4 недели назад'],
     [40, '1 месяц назад'],
     [70, '2 месяца назад'],

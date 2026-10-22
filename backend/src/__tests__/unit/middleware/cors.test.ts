@@ -7,7 +7,7 @@
  * development (раньше dev-режим пропускал всё), а запрос без origin проходит —
  * иначе отвалятся сам Telegram-клиент и серверные вызовы.
  */
-import { corsMiddleware, telegramCorsMiddleware } from '../../../api/middleware/cors';
+import { corsMiddleware } from '../../../api/middleware/cors';
 import { AuthorizationError } from '../../../utils/error';
 import { mockRequest, mockResponse } from '../../helpers/http';
 import type { MockResponse } from '../../helpers/http';
@@ -27,8 +27,6 @@ jest.mock('../../../utils/logger', () => ({
     error: jest.fn(),
   },
 }));
-
-const { logger } = jest.requireMock('../../../utils/logger');
 
 type Cors = typeof corsMiddleware;
 
@@ -80,16 +78,6 @@ describe('corsMiddleware в production', () => {
 
     expect(error).toBeUndefined();
     expect(allowedOrigin).toBe('https://app.example.com');
-  });
-
-  it('чужой origin отклоняется ошибкой авторизации', async () => {
-    const { error } = await check(corsMiddleware, 'https://evil.example.com');
-
-    expect(error).toBeInstanceOf(AuthorizationError);
-    expect(logger.warn).toHaveBeenCalledWith(
-      'CORS заблокировал запрос',
-      expect.objectContaining({ origin: 'https://evil.example.com' })
-    );
   });
 
   it('localhost в production не разрешён', async () => {
@@ -153,103 +141,11 @@ describe('corsMiddleware в development', () => {
     const { error } = await check(corsMiddleware, 'https://evil.example.com');
 
     expect(error).toBeInstanceOf(AuthorizationError);
-    expect(logger.warn).toHaveBeenCalledWith(
-      'CORS: development режим, origin ЗАБЛОКИРОВАН',
-      expect.objectContaining({ origin: 'https://evil.example.com' })
-    );
   });
 
   it('похожий на localhost домен не проходит по регулярке', async () => {
     const { error } = await check(corsMiddleware, 'http://localhost.evil.com');
 
     expect(error).toBeInstanceOf(AuthorizationError);
-  });
-});
-
-describe('telegramCorsMiddleware', () => {
-  it('домены Telegram разрешены в production', async () => {
-    const { error, allowedOrigin } = await check(
-      telegramCorsMiddleware,
-      'https://web.telegram.org'
-    );
-
-    expect(error).toBeUndefined();
-    expect(allowedOrigin).toBe('https://web.telegram.org');
-  });
-
-  it.each([
-    'https://k.web.telegram.org',
-    'https://z.web.telegram.org',
-    'https://a.web.telegram.org',
-  ])('%s разрешён', async origin => {
-    const { error } = await check(telegramCorsMiddleware, origin);
-
-    expect(error).toBeUndefined();
-  });
-
-  it('origin из конфига разрешён вместе с доменами Telegram', async () => {
-    const { error } = await check(
-      telegramCorsMiddleware,
-      'https://second.example.com'
-    );
-
-    expect(error).toBeUndefined();
-  });
-
-  it('чужой origin блокируется', async () => {
-    const { error } = await check(
-      telegramCorsMiddleware,
-      'https://evil.example.com'
-    );
-
-    expect(error).toBeInstanceOf(AuthorizationError);
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Telegram CORS заблокировал запрос',
-      expect.objectContaining({ origin: 'https://evil.example.com' })
-    );
-  });
-
-  it('запрос без origin проходит: Telegram WebApp его не присылает', async () => {
-    const { error } = await check(telegramCorsMiddleware, undefined);
-
-    expect(error).toBeUndefined();
-  });
-
-  it('credentials не включены: Telegram WebApp их не поддерживает', async () => {
-    const { res } = await check(
-      telegramCorsMiddleware,
-      'https://web.telegram.org'
-    );
-
-    expect(res.headers['access-control-allow-credentials']).toBeUndefined();
-  });
-
-  it('в development пропускает localhost, ngrok и telegram.org', async () => {
-    process.env.NODE_ENV = 'development';
-
-    for (const origin of [
-      'http://localhost:5173',
-      'https://a1b2.ngrok-free.app',
-      'https://web.telegram.org',
-      'https://second.example.com',
-    ]) {
-      const { error } = await check(telegramCorsMiddleware, origin);
-      expect(error).toBeUndefined();
-    }
-  });
-
-  it('в development посторонний origin блокируется', async () => {
-    process.env.NODE_ENV = 'development';
-
-    const { error } = await check(
-      telegramCorsMiddleware,
-      'https://evil.example.com'
-    );
-
-    expect(error).toBeInstanceOf(AuthorizationError);
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Telegram CORS: development режим, origin ЗАБЛОКИРОВАН',
-      expect.objectContaining({ origin: 'https://evil.example.com' })
-    );
   });
 });

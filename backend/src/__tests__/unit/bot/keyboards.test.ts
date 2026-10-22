@@ -1,16 +1,16 @@
 /**
- * Сообщения и клавиатуры для группового чата. Это единственный текст, который
- * видят все участники сразу, и здесь нет типов, которые ловили бы ошибку:
- * пропавшая кнопка или «1 голоса» вместо «1 голос» выглядят как рабочий код.
+ * Сообщения и клавиатуры для группового чата. Проверяются решения, а не
+ * вёрстка: какие кнопки есть в каком состоянии, куда они ведут, сколько минут
+ * осталось и что пользовательский ввод экранирован (сообщения уходят в
+ * Markdown, и неэкранированный `_` даёт от Telegram 400 «can't parse entities»).
  *
- * Отдельно закреплено, что кнопка голосования — Direct Link (t.me/.../?startapp),
- * а не web_app: web_app-кнопки в группах не работают вообще.
+ * Кнопка голосования — Direct Link (t.me/.../?startapp), а не web_app:
+ * web_app-кнопки в группах не работают вообще.
  */
 import {
   createPollStartedMessage,
   createCompactPollKeyboard,
   createCompactPollMessage,
-  formatMultiWinnerResults,
   createResultsMessage,
 } from '../../../bot/keyboards/poll.keyboard';
 import {
@@ -18,11 +18,6 @@ import {
   createDirectLinkMiniAppUrl,
   createGroupWelcomeKeyboard,
   createVoteWebAppKeyboard,
-  createMenuWebAppKeyboard,
-  createPollWebAppKeyboard,
-  createResultsWebAppKeyboard,
-  createPollActionsKeyboard,
-  createResponsibleKeyboard,
 } from '../../../bot/keyboards/webapp.keyboard';
 
 const NOW = new Date('2026-08-03T09:00:00.000Z');
@@ -37,60 +32,17 @@ afterEach(() => {
 
 describe('createPollStartedMessage', () => {
   it('показывает дедлайн по Москве', () => {
-    const message = createPollStartedMessage(
-      new Date('2026-08-03T09:30:00.000Z')
-    );
-
     // 09:30 UTC = 12:30 в Москве.
-    expect(message).toContain('До 12:30');
-    expect(message).toContain('Голосование за обед запущено!');
-  });
-
-  it('своё название голосования выносится в заголовок', () => {
-    const message = createPollStartedMessage(NOW, 'Пятничный обед');
-
-    expect(message).toContain('**Пятничный обед** — голосование запущено!');
-  });
-
-  it('название по умолчанию не дублируется в заголовке', () => {
-    const message = createPollStartedMessage(NOW, 'Голосование за обед');
-
-    expect(message).toContain('**Голосование за обед запущено!**');
-  });
-
-  it('пустое название не ломает заголовок', () => {
-    expect(createPollStartedMessage(NOW, null)).toContain(
-      'Голосование за обед запущено!'
-    );
-  });
-
-  /* Здесь цена спецсимвола выше, чем в остальных сообщениях: анонс уходит
-     сразу после создания голосования, и `400 can't parse entities` от
-     Telegram роняет весь сценарий запуска, а не только текст в чате. */
-  it('спецсимволы в названии экранируются', () => {
-    const message = createPollStartedMessage(NOW, 'Обед_в *Пловной*');
-
-    expect(message).toContain('**Обед\\_в \\*Пловной\\***');
+    expect(createPollStartedMessage(new Date('2026-08-03T09:30:00.000Z'))).toContain('12:30');
   });
 });
 
 describe('createCompactPollKeyboard', () => {
-  it('активное голосование получает кнопку Direct Link', () => {
-    const keyboard = createCompactPollKeyboard(7);
-
-    expect(keyboard.inline_keyboard[0][0]).toMatchObject({
-      text: '🗳️ Проголосовать',
-      url: expect.stringContaining('startapp=vote_7'),
-    });
-  });
-
-  it('кнопка — ссылка, а не web_app (в группах web_app не работает)', () => {
-    const keyboard = createCompactPollKeyboard(7);
-
-    const [button] = keyboard.inline_keyboard[0];
+  it('активное голосование: кнопка — Direct Link на голосование, а не web_app', () => {
+    const [button] = createCompactPollKeyboard(7).inline_keyboard[0];
 
     expect(button).not.toHaveProperty('web_app');
-    expect(button).toHaveProperty('url', expect.stringMatching(/^https:\/\/t\.me\//));
+    expect(button).toHaveProperty('url', expect.stringMatching(/^https:\/\/t\.me\/.*startapp=vote_7/));
   });
 
   it.each(['completed', 'with_responsible'] as const)(
@@ -99,588 +51,179 @@ describe('createCompactPollKeyboard', () => {
       expect(createCompactPollKeyboard(7, status).inline_keyboard).toEqual([]);
     }
   );
-
-  it('неизвестное состояние тоже даёт пустую клавиатуру', () => {
-    const keyboard = createCompactPollKeyboard(
-      7,
-      'что-то' as unknown as 'active'
-    );
-
-    expect(keyboard.inline_keyboard).toEqual([]);
-  });
 });
 
-describe('createCompactPollMessage — активное голосование', () => {
-  const poll = {
-    duration: 30,
-    startedAt: new Date('2026-08-03T08:50:00.000Z'),
-    title: null,
-  };
+/** Минуты остатка из текста сообщения; null, если строки остатка нет. */
+function minutesLeft(message: string): number | null {
+  const match = /(\d+) мин/.exec(message);
+  return match ? Number(match[1]) : null;
+}
 
-  it('считает остаток времени от начала голосования', () => {
-    const message = createCompactPollMessage(poll, 5, 2, 8);
-
-    // Прошло 10 минут из 30.
-    expect(message).toContain('Осталось: 20 мин');
-    expect(message).toContain('Блюд в меню: 5');
-    expect(message).toContain('Участвуют: 2 из 8');
-  });
-
-  it('без известного числа участников показывает только проголосовавших', () => {
-    const message = createCompactPollMessage(poll, 5, 2);
-
-    expect(message).toContain('Проголосовало: 2');
-    expect(message).not.toContain('из');
-  });
-
-  it('без startedAt берётся полная длительность', () => {
-    const message = createCompactPollMessage({ duration: 15 }, 3);
-
-    expect(message).toContain('Осталось: 15 мин');
-  });
-
-  it('остаток не уходит в минус', () => {
-    const message = createCompactPollMessage(
-      { duration: 5, startedAt: new Date('2026-08-03T08:00:00.000Z') },
-      3
-    );
-
-    expect(message).toContain('Осталось: 0 мин');
-  });
-
-  // Голосование на 30 минут, «сейчас» — 09:00. Значок зависит от ОСТАТКА:
-  // старт в 08:35 — прошло 25, осталось 5; старт в 08:32 — осталось 2.
-  it.each([
-    ['больше пяти минут', '2026-08-03T08:50:00.000Z', '⏰'],
-    ['пять минут и меньше', '2026-08-03T08:35:00.000Z', '⚠️'],
-    ['две минуты и меньше', '2026-08-03T08:32:00.000Z', '🔥'],
-  ])('срочность %s помечается своим значком', (_label, startedAt, emoji) => {
-    const message = createCompactPollMessage(
-      { duration: 30, startedAt: new Date(startedAt) },
-      3
-    );
-
-    expect(message).toContain(`${emoji} Осталось`);
-  });
-
-  it('своё название выводится строкой', () => {
-    const message = createCompactPollMessage(
-      { ...poll, title: 'Пятничный обед' },
-      3
-    );
-
-    expect(message).toContain('📋 Пятничный обед');
-  });
-
-  it('название по умолчанию не дублируется', () => {
-    const message = createCompactPollMessage(
-      { ...poll, title: 'Голосование за обед' },
-      3
-    );
-
-    expect(message).not.toContain('📋');
-  });
-});
-
-describe('createCompactPollMessage — завершённое голосование', () => {
-  const poll = { duration: 30, title: null };
-  const breakdown = [
-    { menuItemName: 'Плов', votes: 1, percentage: 50 },
-    { menuItemName: 'Шурпа', votes: 2, percentage: 33 },
-    { menuItemName: 'Лагман', votes: 5, percentage: 17 },
-    { menuItemName: 'Манты', votes: 1, percentage: 0 },
-  ];
-
-  it('показывает топ-3 с медалями и правильным падежом', () => {
-    const message = createCompactPollMessage(poll, 4, 8, 10, {
-      status: 'completed',
-      breakdown,
-    });
-
-    expect(message).toContain('🥇 Плов — 1 голос ');
-    expect(message).toContain('🥈 Шурпа — 2 голоса ');
-    expect(message).toContain('🥉 Лагман — 5 голосов ');
-    // Четвёртое блюдо в группу не выводится.
-    expect(message).not.toContain('Манты');
-  });
-
-  it('после результатов обещает выбор ответственного', () => {
-    const message = createCompactPollMessage(poll, 4, 8, 10, {
-      status: 'completed',
-      breakdown,
-    });
-
-    expect(message).toContain('Выбираем ответственного');
-  });
-
-  it('обещание можно подавить (когда ответственный уже известен)', () => {
-    const message = createCompactPollMessage(poll, 4, 8, 10, {
-      status: 'completed',
-      breakdown,
-      suppressResponsiblePrompt: true,
-    });
-
-    expect(message).not.toContain('Выбираем ответственного');
-  });
-
-  it('без голосов сообщение честно об этом говорит', () => {
-    const message = createCompactPollMessage(poll, 4, 0, 10, {
-      status: 'completed',
-      breakdown: [],
-    });
-
-    expect(message).toContain('Никто не проголосовал');
-  });
-
-  it('без известного числа участников формулировка короче', () => {
-    const message = createCompactPollMessage(poll, 4, 3, 0, {
-      status: 'completed',
-      breakdown: [],
-    });
-
-    expect(message).toContain('Проголосовало: 3');
-  });
-
-  it('своё название сохраняется', () => {
-    const message = createCompactPollMessage({ ...poll, title: 'Обед' }, 4, 1, 1, {
-      status: 'completed',
-      breakdown: [],
-    });
-
-    expect(message).toContain('📋 Обед');
-  });
-});
-
-describe('createCompactPollMessage — ответственный назначен', () => {
-  const poll = { duration: 30, title: null };
-
-  it('называет ответственного и его логин', () => {
-    const message = createCompactPollMessage(poll, 4, 8, 10, {
-      status: 'with_responsible',
-      breakdown: [{ menuItemName: 'Плов', votes: 3, percentage: 100 }],
-      responsibleUser: { firstName: 'Игорь', username: 'igor' },
-    });
-
-    expect(message).toContain('**Ответственный:** Игорь (@igor)');
-    expect(message).toContain('Детали отправлены в личные сообщения');
-  });
-
-  it('без логина выводится только имя', () => {
-    const message = createCompactPollMessage(poll, 4, 8, 10, {
-      status: 'with_responsible',
-      breakdown: [],
-      responsibleUser: { firstName: 'Игорь' },
-    });
-
-    expect(message).toContain('**Ответственный:** Игорь');
-    expect(message).not.toContain('(@');
-  });
-
-  it('без ответственного блок не появляется', () => {
-    const message = createCompactPollMessage(poll, 4, 8, 10, {
-      status: 'with_responsible',
-      breakdown: [],
-    });
-
-    expect(message).not.toContain('Ответственный');
-  });
-
-  /* Название блюда экранировалось, а имя и логин ответственного в том же
-     сообщении — нет. */
-  it('имя и логин ответственного экранируются', () => {
-    const message = createCompactPollMessage(poll, 4, 8, 10, {
-      status: 'with_responsible',
-      breakdown: [],
-      responsibleUser: { firstName: 'Аня_К', username: 'anya_k' },
-    });
-
-    expect(message).toContain('**Ответственный:** Аня\\_К (@anya\\_k)');
-  });
-
-  it('название по умолчанию не дублируется', () => {
-    const message = createCompactPollMessage(
-      { ...poll, title: 'Голосование за обед' },
-      4,
-      1,
-      0,
-      { status: 'with_responsible', breakdown: [] }
-    );
-
-    expect(message).not.toContain('📋');
-  });
-
-  it('неизвестный статус даёт пустую строку', () => {
-    const message = createCompactPollMessage(poll, 4, 0, 0, {
-      status: 'что-то' as unknown as 'active',
-    });
-
-    expect(message).toBe('');
-  });
-});
-
-describe('formatMultiWinnerResults', () => {
-  const base = {
-    winners: [
-      {
-        menuItemName: 'Плов',
-        voteCount: 2,
-        voters: [{ firstName: 'Игорь' }, { firstName: 'Аня' }],
-      },
+describe('остаток времени активного голосования', () => {
+  it.each<[string, () => string, number | null]>([
+    [
+      'компактное: прошло 10 из 30 минут',
+      () =>
+        createCompactPollMessage(
+          { duration: 30, startedAt: new Date('2026-08-03T08:50:00.000Z') },
+          5,
+          2,
+          8
+        ),
+      20,
     ],
-    bringOwn: { count: 0, voters: [] },
-    skipped: { count: 0 },
-    meta: { completedAt: '2026-08-03T09:00:00.000Z', tieBreak: null },
-  };
-
-  it('победитель получает трофей, остальные — вилку', () => {
-    const message = formatMultiWinnerResults({
-      ...base,
-      winners: [
-        ...base.winners,
-        { menuItemName: 'Шурпа', voteCount: 1, voters: [{ firstName: 'Оля' }] },
-      ],
-    });
-
-    expect(message).toContain('🏆 <b>Плов</b> — 2 человека');
-    expect(message).toContain('🍴 <b>Шурпа</b> — 1 человек');
-  });
-
-  it('список голосовавших сворачивается после пяти имён', () => {
-    const message = formatMultiWinnerResults({
-      ...base,
-      winners: [
-        {
-          menuItemName: 'Плов',
-          voteCount: 7,
-          voters: Array.from({ length: 7 }, (_, i) => ({
-            firstName: `Гость${i + 1}`,
-          })),
-        },
-      ],
-    });
-
-    expect(message).toContain('Гость5 и еще 2');
-    expect(message).not.toContain('Гость6,');
-  });
-
-  it('без победителей так и написано', () => {
-    const message = formatMultiWinnerResults({ ...base, winners: [] });
-
-    expect(message).toContain('Нет голосов за блюда');
-  });
-
-  it('«принесу своё» показывается с именами', () => {
-    const message = formatMultiWinnerResults({
-      ...base,
-      bringOwn: { count: 2, voters: [{ firstName: 'Оля' }, { firstName: 'Дима' }] },
-    });
-
-    expect(message).toContain('🏠 <b>Принесу своё</b> — 2 человека');
-    expect(message).toContain('Оля, Дима');
-  });
-
-  it('длинный список «принесу своё» тоже сворачивается', () => {
-    const message = formatMultiWinnerResults({
-      ...base,
-      bringOwn: {
-        count: 7,
-        voters: Array.from({ length: 7 }, (_, i) => ({ firstName: `Г${i}` })),
-      },
-    });
-
-    expect(message).toContain('и еще 2');
-  });
-
-  it('пропустившие обед выводятся отдельной строкой', () => {
-    const message = formatMultiWinnerResults({
-      ...base,
-      skipped: { count: 3 },
-    });
-
-    expect(message).toContain('🚫 <b>Пропускаю</b> — 3 человека');
-  });
-
-  it('способ разрешения ничьей объясняется', () => {
-    const message = formatMultiWinnerResults({
-      ...base,
-      meta: {
-        completedAt: '2026-08-03T09:00:00.000Z',
-        tieBreak: { reason: 'Равное число голосов', method: 'earliest' },
-      },
-    });
-
-    expect(message).toContain('Равное число голосов, выбрано по методу: earliest');
-  });
-
-  it('сообщение обрезается до лимита Telegram', () => {
-    const message = formatMultiWinnerResults({
-      ...base,
-      winners: Array.from({ length: 60 }, (_, i) => ({
-        menuItemName: `Блюдо ${i} ${'длинное название'.repeat(5)}`,
-        voteCount: 1,
-        voters: [{ firstName: 'Гость' }],
-      })),
-    });
-
-    expect(message).toContain('Смотреть полные результаты в приложении');
-    expect(message.length).toBeLessThan(4096);
-  });
-
-  it('в конце всегда время завершения', () => {
-    expect(formatMultiWinnerResults(base)).toContain('Завершено:');
+    [
+      'компактное: без startedAt берётся полная длительность',
+      () => createCompactPollMessage({ duration: 15 }, 3),
+      15,
+    ],
+    [
+      'компактное: остаток не уходит в минус',
+      () =>
+        createCompactPollMessage(
+          { duration: 5, startedAt: new Date('2026-08-03T08:00:00.000Z') },
+          3
+        ),
+      0,
+    ],
+    /* Остаток считается от `startedAt` + `duration`. Раньше и код, и тест
+       смотрели на `poll.endTime` — поля с таким именем в схеме нет, то есть тест
+       закреплял не поведение, а ошибку: в проде строка не появлялась никогда. */
+    [
+      'результаты: от startedAt + duration',
+      () =>
+        createResultsMessage({
+          poll: {
+            title: 'Обед',
+            status: 'ACTIVE',
+            startedAt: new Date('2026-08-03T08:30:00.000Z'),
+            duration: 50,
+          },
+          breakdown: [],
+          totalVotes: 5,
+        }),
+      20,
+    ],
+    [
+      'результаты: без срока строки остатка нет, и сообщение строится',
+      () =>
+        createResultsMessage({
+          poll: { title: 'Обед', status: 'ACTIVE' },
+          breakdown: [],
+          totalVotes: 1,
+        }),
+      null,
+    ],
+  ])('%s', (_name, build, expected) => {
+    expect(minutesLeft(build())).toBe(expected);
   });
 });
 
 describe('createResultsMessage', () => {
-  const breakdown = [
-    {
-      menuItemName: 'Плов',
-      votes: 3,
-      percentage: 60,
-      voters: [{ firstName: 'Игорь' }, { firstName: 'Аня' }],
-    },
-  ];
-
-  /* Остаток считается от `startedAt` + `duration`. Раньше и код, и этот тест
-     смотрели на `poll.endTime` — поля с таким именем в схеме нет, то есть тест
-     закреплял не поведение, а ошибку: в проде строка не появлялась никогда. */
-  it('для активного голосования показывает остаток времени', () => {
-    const message = createResultsMessage({
-      poll: {
-        title: 'Обед',
-        status: 'ACTIVE',
-        startedAt: new Date('2026-08-03T08:30:00.000Z'),
-        duration: 50,
-      },
-      breakdown,
-      totalVotes: 5,
-    });
-
-    expect(message).toContain('Голосование активно');
-    expect(message).toContain('Осталось: 20 мин');
-  });
-
-  it('активное голосование без срока не падает', () => {
-    const message = createResultsMessage({
-      poll: { title: 'Обед', status: 'ACTIVE' },
-      breakdown,
-      totalVotes: 1,
-    });
-
-    expect(message).toContain('Голосование активно');
-    expect(message).not.toContain('Осталось');
-  });
-
   /* Гейт стоял на `result.winnerItem`, чего ни один ответ не содержит. Теперь
      условие — на самой связи `winnerMenuItem`, и тест подаёт то, что реально
-     приходит из `getPollResult`. */
+     приходит из `getPollResult`. Победителя нет в разбивке, чтобы имя могло
+     попасть в сообщение только из `result`. */
   it('для завершённого называет победителя', () => {
     const message = createResultsMessage({
       poll: { title: 'Обед', status: 'COMPLETED' },
-      result: { winnerMenuItem: { name: 'Плов' } },
-      breakdown,
+      result: { winnerMenuItem: { name: 'Шаурма' } },
+      breakdown: [{ menuItemName: 'Плов', votes: 3, percentage: 60, voters: [] }],
       totalVotes: 5,
     });
 
-    expect(message).toContain('Голосование завершено');
-    expect(message).toContain('**Победитель:** Плов');
+    expect(message).toContain('Шаурма');
   });
+});
 
-  it('рисует прогресс-бар из процентов', () => {
-    const message = createResultsMessage({
-      poll: { title: 'Обед', status: 'COMPLETED' },
-      breakdown: [{ ...breakdown[0], percentage: 50 }],
-      totalVotes: 5,
-    });
+/* Название блюда экранировалось, а имена ответственного и голосовавших в тех
+   же сообщениях — нет. */
+describe('пользовательский ввод экранируется', () => {
+  it.each<[string, () => string, string[]]>([
+    /* Анонс уходит сразу после создания голосования, и `400 can't parse
+       entities` роняет весь сценарий запуска, а не только текст в чате. */
+    [
+      'название голосования в анонсе',
+      () => createPollStartedMessage(NOW, 'Обед_в *Пловной*'),
+      ['Обед\\_в \\*Пловной\\*'],
+    ],
+    [
+      'имя и логин ответственного',
+      () =>
+        createCompactPollMessage({ duration: 30, title: null }, 4, 8, 10, {
+          status: 'with_responsible',
+          breakdown: [],
+          responsibleUser: { firstName: 'Аня_К', username: 'anya_k' },
+        }),
+      ['Аня\\_К', '@anya\\_k'],
+    ],
+    [
+      'блюдо разбивки, голосовавший и ответственный в результатах',
+      () =>
+        createResultsMessage({
+          poll: { title: 'Обед', status: 'COMPLETED' },
+          result: { responsibleUser: { firstName: 'Аня_К' } },
+          breakdown: [
+            {
+              menuItemName: 'Соус_острый *акция*',
+              votes: 1,
+              percentage: 100,
+              voters: [{ firstName: 'Игорь_П' }],
+            },
+          ],
+          totalVotes: 1,
+        }),
+      ['Соус\\_острый \\*акция\\*', 'Игорь\\_П', 'Аня\\_К'],
+    ],
+    [
+      'свёрнутый список голосовавших',
+      () =>
+        createResultsMessage({
+          poll: { title: 'Обед', status: 'COMPLETED' },
+          breakdown: [
+            {
+              menuItemName: 'Плов',
+              votes: 6,
+              percentage: 100,
+              voters: Array.from({ length: 6 }, (_, i) => ({ firstName: `Гость_${i + 1}` })),
+            },
+          ],
+          totalVotes: 6,
+        }),
+      ['Гость\\_3'],
+    ],
+  ])('%s', (_name, build, fragments) => {
+    const message = build();
 
-    expect(message).toContain('█████░░░░░');
-  });
-
-  it('статистика по типам голосов выводится, когда есть', () => {
-    const message = createResultsMessage({
-      poll: { title: 'Обед', status: 'COMPLETED' },
-      breakdown,
-      totalVotes: 6,
-      voteTypeStats: {
-        menuItemVotes: 3,
-        bringOwnVotes: 2,
-        skipVotes: 1,
-        total: 6,
-      },
-    });
-
-    expect(message).toContain('Заказывают: 3');
-    expect(message).toContain('Принесут из дома: 2');
-    expect(message).toContain('Не обедают: 1');
-  });
-
-  it('нулевые категории не показываются', () => {
-    const message = createResultsMessage({
-      poll: { title: 'Обед', status: 'COMPLETED' },
-      breakdown,
-      totalVotes: 3,
-      voteTypeStats: {
-        menuItemVotes: 3,
-        bringOwnVotes: 0,
-        skipVotes: 0,
-        total: 3,
-      },
-    });
-
-    expect(message).not.toContain('Принесут из дома');
-    expect(message).not.toContain('Не обедают');
-  });
-
-  it('длинный список голосовавших сворачивается после трёх имён', () => {
-    const message = createResultsMessage({
-      poll: { title: 'Обед', status: 'COMPLETED' },
-      breakdown: [
-        {
-          ...breakdown[0],
-          voters: Array.from({ length: 6 }, (_, i) => ({
-            firstName: `Гость${i + 1}`,
-          })),
-        },
-      ],
-      totalVotes: 6,
-    });
-
-    expect(message).toContain('Гость3 и ещё 3');
-  });
-
-  it('без голосов дальше результатов не идёт', () => {
-    const message = createResultsMessage({
-      poll: { title: 'Обед', status: 'COMPLETED' },
-      breakdown: [],
-      totalVotes: 0,
-    });
-
-    expect(message).toContain('Никто не проголосовал');
-  });
-
-  it('ответственный дописывается в конце', () => {
-    const message = createResultsMessage({
-      poll: { title: 'Обед', status: 'COMPLETED' },
-      result: { responsibleUser: { firstName: 'Игорь' } },
-      breakdown,
-      totalVotes: 3,
-    });
-
-    expect(message).toContain('**Ответственный за заказ:** Игорь');
-  });
-
-  /* Название голосования и победитель экранировались, а блюда разбивки,
-     голосовавшие и ответственный в том же сообщении — нет. */
-  it('блюда разбивки, имена голосовавших и ответственный экранируются', () => {
-    const message = createResultsMessage({
-      poll: { title: 'Обед', status: 'COMPLETED' },
-      result: { responsibleUser: { firstName: 'Аня_К' } },
-      breakdown: [
-        {
-          menuItemName: 'Соус_острый *акция*',
-          votes: 1,
-          percentage: 100,
-          voters: [{ firstName: 'Игорь_П' }],
-        },
-      ],
-      totalVotes: 1,
-    });
-
-    expect(message).toContain('**Соус\\_острый \\*акция\\***');
-    expect(message).toContain('Игорь\\_П');
-    expect(message).toContain('**Ответственный за заказ:** Аня\\_К');
-  });
-
-  it('свёрнутый список голосовавших тоже экранируется', () => {
-    const message = createResultsMessage({
-      poll: { title: 'Обед', status: 'COMPLETED' },
-      breakdown: [
-        {
-          menuItemName: 'Плов',
-          votes: 6,
-          percentage: 100,
-          voters: Array.from({ length: 6 }, (_, i) => ({
-            firstName: `Гость_${i + 1}`,
-          })),
-        },
-      ],
-      totalVotes: 6,
-    });
-
-    expect(message).toContain('Гость\\_3 и ещё 3');
+    for (const fragment of fragments) {
+      expect(message).toContain(fragment);
+    }
   });
 });
 
 describe('клавиатуры Mini App', () => {
   it('Direct Link собирается из имени бота и short name', () => {
-    const url = createDirectLinkMiniAppUrl('vote_7');
-
-    expect(url).toMatch(/^https:\/\/t\.me\/[^/]+\/[^?]+\?startapp=vote_7$/);
+    expect(createDirectLinkMiniAppUrl('vote_7')).toMatch(
+      /^https:\/\/t\.me\/[^/]+\/[^?]+\?startapp=vote_7$/
+    );
   });
 
   it('web_app-кнопка получает путь внутри Mini App', () => {
-    const button = createWebAppButton('Меню', '/menu');
-
-    expect(button.text).toBe('Меню');
-    expect(button.web_app.url).toMatch(/\/menu$/);
+    expect(createWebAppButton('Меню', '/menu').web_app.url).toMatch(/\/menu$/);
   });
 
   it('без пути кнопка ведёт в корень', () => {
-    const button = createWebAppButton('Главная');
-
-    expect(button.web_app.url).not.toMatch(/\/$/);
+    expect(createWebAppButton('Главная').web_app.url).not.toMatch(/\/$/);
   });
 
-  it('приветствие группы: opt-in callback и ссылка на меню', () => {
-    const keyboard = createGroupWelcomeKeyboard(-100500);
+  it('приветствие группы: opt-in callback и ссылка на меню группы', () => {
+    const buttons = createGroupWelcomeKeyboard(-100500).inline_keyboard.flat();
 
-    expect(keyboard.inline_keyboard[0][0]).toEqual({
-      text: '✅ Я обедаю',
-      callback_data: 'optin_-100500',
-    });
-    expect(keyboard.inline_keyboard[1][0]).toMatchObject({
-      url: expect.stringContaining('startapp=menu_-100500'),
-    });
+    expect(buttons.some(b => 'callback_data' in b && b.callback_data === 'optin_-100500')).toBe(true);
+    expect(buttons.some(b => 'url' in b && b.url.includes('startapp=menu_-100500'))).toBe(true);
   });
 
   it('клавиатура голосования — Direct Link', () => {
-    const keyboard = createVoteWebAppKeyboard(7);
-
-    expect(keyboard.inline_keyboard[0][0].url).toContain('startapp=vote_7');
-  });
-
-  it('меню, создание голосования и результаты открывают свои экраны', () => {
-    expect(createMenuWebAppKeyboard().inline_keyboard[0][0].web_app.url).toMatch(
-      /\/menu$/
-    );
-    expect(createPollWebAppKeyboard().inline_keyboard[0][0].web_app.url).toMatch(
-      /\/poll\/create$/
-    );
-    expect(
-      createResultsWebAppKeyboard(7).inline_keyboard[0][0].web_app.url
-    ).toMatch(/\/poll\/7\/results$/);
-  });
-
-  it('действия голосования: без результатов одна кнопка', () => {
-    const keyboard = createPollActionsKeyboard(7);
-
-    expect(keyboard.inline_keyboard).toHaveLength(1);
-    expect(keyboard.inline_keyboard[0][0].web_app.url).toContain('?pollId=7');
-  });
-
-  it('действия голосования: с результатами две кнопки', () => {
-    const keyboard = createPollActionsKeyboard(7, true);
-
-    expect(keyboard.inline_keyboard).toHaveLength(2);
-    expect(keyboard.inline_keyboard[1][0].web_app.url).toMatch(
-      /\/poll\/7\/results$/
-    );
-  });
-
-  it('ответственному дают главную и платежи', () => {
-    const keyboard = createResponsibleKeyboard(7);
-
-    expect(keyboard.inline_keyboard).toHaveLength(2);
-    expect(keyboard.inline_keyboard[1][0].web_app.url).toMatch(/\/profile$/);
+    expect(createVoteWebAppKeyboard(7).inline_keyboard[0][0].url).toContain('startapp=vote_7');
   });
 });

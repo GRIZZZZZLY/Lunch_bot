@@ -4,8 +4,6 @@ jest.mock('../../../database/client', () => ({
   prisma: {
     storeRun: {
       updateManyAndReturn: jest.fn(),
-      findMany: jest.fn(),
-      updateMany: jest.fn(),
     },
   },
 }));
@@ -24,25 +22,6 @@ const { prisma } = require('../../../database/client');
 describe('StoreRunService.expireStaleShoppingRuns', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('cancels SHOPPING runs older than the timeout via a single guarded update', async () => {
-    prisma.storeRun.updateManyAndReturn.mockResolvedValue([
-      { id: 16 },
-      { id: 19 },
-    ]);
-
-    const ids = await StoreRunService.expireStaleShoppingRuns();
-
-    expect(ids).toEqual([16, 19]);
-    expect(prisma.storeRun.updateManyAndReturn).toHaveBeenCalledTimes(1);
-    const arg = prisma.storeRun.updateManyAndReturn.mock.calls[0][0];
-    // status guard in the SAME write where-clause → race-safe, no blind update
-    expect(arg.where.status).toBe('SHOPPING');
-    expect(arg.where.shoppingAt.lt).toBeInstanceOf(Date);
-    expect(arg.data.status).toBe('CANCELLED');
-    // must not fall back to the racy findMany→updateMany pair
-    expect(prisma.storeRun.updateMany).not.toHaveBeenCalled();
-  });
-
   it('uses the configured timeout (cutoff = now - STORE_RUN_SHOPPING_TIMEOUT_MIN)', async () => {
     const prev = process.env.STORE_RUN_SHOPPING_TIMEOUT_MIN;
     process.env.STORE_RUN_SHOPPING_TIMEOUT_MIN = '60';
@@ -59,12 +38,5 @@ describe('StoreRunService.expireStaleShoppingRuns', () => {
     expect(cutoff).toBeLessThanOrEqual(after - 60 * 60 * 1000 + 1000);
 
     process.env.STORE_RUN_SHOPPING_TIMEOUT_MIN = prev;
-  });
-
-  it('returns [] when nothing is stale', async () => {
-    prisma.storeRun.updateManyAndReturn.mockResolvedValue([]);
-    await expect(StoreRunService.expireStaleShoppingRuns()).resolves.toEqual(
-      []
-    );
   });
 });

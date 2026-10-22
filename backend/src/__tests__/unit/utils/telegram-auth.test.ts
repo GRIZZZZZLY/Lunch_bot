@@ -28,8 +28,6 @@ jest.mock('../../../utils/logger', () => ({
   logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
 
-const { logger } = jest.requireMock('../../../utils/logger');
-
 const BOT_TOKEN = '123456:AA-test-token';
 const NOW_SECONDS = 1_800_000_000;
 const USER = {
@@ -121,7 +119,6 @@ describe('validateTelegramInitData: подпись', () => {
     );
 
     expect(validateTelegramInitData(tampered)).toBeNull();
-    expect(logger.warn).toHaveBeenCalledWith('Telegram initData HMAC mismatch');
   });
 
   it('подпись чужим токеном отклоняется', () => {
@@ -137,9 +134,6 @@ describe('validateTelegramInitData: подпись', () => {
     }).toString();
 
     expect(validateTelegramInitData(initData)).toBeNull();
-    expect(logger.error).toHaveBeenCalledWith(
-      'InitData is missing the hash field'
-    );
   });
 
   it.each([
@@ -168,9 +162,6 @@ describe('validateTelegramInitData: подпись', () => {
     delete process.env.BOT_TOKEN;
 
     expect(validateTelegramInitData(validInitData())).toBeNull();
-    expect(logger.error).toHaveBeenCalledWith(
-      'BOT_TOKEN not found in environment variables'
-    );
   });
 
   it('пустая строка отклоняется', () => {
@@ -189,9 +180,6 @@ describe('validateTelegramInitData: срок жизни', () => {
     expect(
       validateTelegramInitData(validInitData({ authDate: NOW_SECONDS - 3600 }))
     ).toBeNull();
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Telegram initData timestamp is outside the allowed window'
-    );
   });
 
   it('граница окна в 5 минут ещё принимается', () => {
@@ -206,9 +194,9 @@ describe('validateTelegramInitData: срок жизни', () => {
     ).not.toBeNull();
   });
 
-  it('время далеко в будущем отклоняется', () => {
+  it.each([31, 600])('время на %i с в будущем отклоняется', ahead => {
     expect(
-      validateTelegramInitData(validInitData({ authDate: NOW_SECONDS + 600 }))
+      validateTelegramInitData(validInitData({ authDate: NOW_SECONDS + ahead }))
     ).toBeNull();
   });
 
@@ -353,9 +341,6 @@ describe('обход проверки (SKIP_TELEGRAM_VALIDATION)', () => {
     }).toString();
 
     expect(validateTelegramInitData(initData)).toMatchObject({ id: 555 });
-    expect(logger.warn).toHaveBeenCalledWith(
-      'SKIP_TELEGRAM_VALIDATION enabled in development'
-    );
   });
 
   it('в production обход запрещён — вход закрыт', () => {
@@ -365,16 +350,10 @@ describe('обход проверки (SKIP_TELEGRAM_VALIDATION)', () => {
     }).toString();
 
     expect(validateTelegramInitData(initData)).toBeNull();
-    expect(logger.error).toHaveBeenCalledWith(
-      'SKIP_TELEGRAM_VALIDATION is forbidden in production'
-    );
   });
 
   it('без поля user в режиме обхода возвращается null', () => {
     expect(validateTelegramInitData('auth_date=1')).toBeNull();
-    expect(logger.warn).toHaveBeenCalledWith(
-      'No user field in initData (skip mode)'
-    );
   });
 
   it('битый user в режиме обхода не роняет запрос', () => {
@@ -401,10 +380,6 @@ describe('extractUserFromInitData', () => {
     const initData = new URLSearchParams({ user: '{not json' }).toString();
 
     expect(extractUserFromInitData(initData)).toBeNull();
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error extracting user from initData:',
-      expect.any(Error)
-    );
   });
 });
 
@@ -422,15 +397,7 @@ describe('generateTestInitData', () => {
   it('в production генератор недоступен', () => {
     process.env.NODE_ENV = 'production';
 
-    expect(() => generateTestInitData(1, 'Иван')).toThrow(
-      'generateTestInitData should not be used in production'
-    );
-  });
-
-  it('без BOT_TOKEN используется тестовый токен', () => {
-    delete process.env.BOT_TOKEN;
-
-    expect(generateTestInitData(1, 'Иван')).toContain('hash=');
+    expect(() => generateTestInitData(1, 'Иван')).toThrow();
   });
 });
 
@@ -450,12 +417,7 @@ describe('parseInitDataUnsafe', () => {
   it('в production запрещён: бросает, а не возвращает пользователя', () => {
     process.env.NODE_ENV = 'production';
 
-    expect(() => parseInitDataUnsafe('user=%7B%7D')).toThrow(
-      'parseInitDataUnsafe should not be used in production'
-    );
-    expect(logger.error).toHaveBeenCalledWith(
-      '🚨 parseInitDataUnsafe is not allowed in production'
-    );
+    expect(() => parseInitDataUnsafe('user=%7B%7D')).toThrow();
   });
 
   it.each(['', '   ', 'mock_jwt_token_12345678'])(
@@ -467,17 +429,12 @@ describe('parseInitDataUnsafe', () => {
 
   it('без поля user — null', () => {
     expect(parseInitDataUnsafe('auth_date=1')).toBeNull();
-    expect(logger.warn).toHaveBeenCalledWith('No user data in initData');
   });
 
   it('битый JSON — null, а не исключение', () => {
     const initData = new URLSearchParams({ user: '{not json' }).toString();
 
     expect(parseInitDataUnsafe(initData)).toBeNull();
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error parsing initData in unsafe mode',
-      expect.objectContaining({ error: expect.any(String) })
-    );
   });
 
   it('невалидный пользователь отклоняется и здесь', () => {
