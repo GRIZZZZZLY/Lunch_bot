@@ -28,7 +28,13 @@ export function useSSE(options: UseSSEOptions): SSEStatus {
   const handle = useCallback(
     ({ event, data }: StreamEvent) => {
       if (event !== 'poll_updated' || !pollId) return;
-      const parsed: PollUpdatedEvent = JSON.parse(data);
+      let parsed: PollUpdatedEvent;
+      try {
+        parsed = JSON.parse(data) as PollUpdatedEvent;
+      } catch {
+        // Битый кадр пропускаем: исключение ушло бы в транспорт, а следующий кадр обновит экран.
+        return;
+      }
       void qc.invalidateQueries({ queryKey: queryKeys.polls.byId(pollId) });
       void qc.invalidateQueries({ queryKey: queryKeys.polls.active });
       void qc.invalidateQueries({ queryKey: queryKeys.polls.myVotes(pollId) });

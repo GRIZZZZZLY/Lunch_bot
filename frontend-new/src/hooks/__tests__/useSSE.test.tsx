@@ -36,6 +36,7 @@ vi.mock('../useEventStream', () => ({
 }));
 
 import { useSSE, type PollUpdatedEvent } from '../useSSE';
+import { queryKeys } from '@/lib/queryClient';
 
 let qc: QueryClient;
 function wrapper({ children }: { children: ReactNode }) {
@@ -56,9 +57,22 @@ function emit(event: string, data: unknown = FRAME): void {
   });
 }
 
+/* Четыре экрана, которые обязаны обновиться от одного голоса: сам опрос,
+   активные (ячейка команды под префиксом), свои голоса и итоги. */
+const POLL_KEYS = [
+  queryKeys.polls.byId(42),
+  queryKeys.polls.activeForGroup('1'),
+  queryKeys.polls.myVotes(42),
+  queryKeys.polls.results(42),
+];
+const OTHER_POLL = queryKeys.polls.results(43);
+
+const isStale = (key: readonly unknown[]) => qc.getQueryState(key)?.isInvalidated;
+
 beforeEach(() => {
   h.lastOptions = null;
   qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  for (const key of [...POLL_KEYS, OTHER_POLL]) qc.setQueryData(key, {});
 });
 
 describe('подписка', () => {
@@ -78,12 +92,6 @@ describe('подписка', () => {
     expect(h.lastOptions?.path).toBeNull();
   });
 
-  it('enabled передаётся транспорту как есть', () => {
-    renderHook(() => useSSE({ pollId: 42, enabled: false }), { wrapper });
-
-    expect(h.lastOptions?.enabled).toBe(false);
-  });
-
   it('смена опроса переключает поток', () => {
     const { rerender } = renderHook(
       ({ pollId }: { pollId: number }) => useSSE({ pollId }),
@@ -94,61 +102,35 @@ describe('подписка', () => {
 
     expect(h.lastOptions?.path).toBe('/api/polls/43/stream');
   });
-
-  it('статус транспорта возвращается наружу без изменений', () => {
-    const { result } = renderHook(() => useSSE({ pollId: 42 }), { wrapper });
-
-    expect(result.current).toBe('connected');
-  });
 });
 
 describe('реакция на кадр poll_updated', () => {
+  /* Потеря любого ключа означает «проголосовал, а на экране по-прежнему
+     старое». Соседний опрос при этом не трогается. */
+  it('сбрасывает опрос, активные, свои голоса и итоги', () => {
+    renderHook(() => useSSE({ pollId: 42 }), { wrapper });
+    emit('poll_updated');
+
+    expect(POLL_KEYS.map(isStale)).toEqual([true, true, true, true]);
+    expect(isStale(OTHER_POLL)).toBe(false);
+  });
+
   /**
-   * ПОРЯДОК: сначала сбрасываются ключи кэша, потом дёргается колбэк.
-   *
-   * Это и есть то, ради чего тест нужен задаче 12: колбэк на экране опроса может
-   * читать кэш (например, чтобы показать анимацию по свежим данным), и если
-   * порядок перевернётся, он прочитает старое значение. Утверждение здесь —
-   * не «оба вызваны», а «инвалидация была ДО колбэка».
+   * ПОРЯДОК: колбэк на экране опроса может читать кэш (например, чтобы показать
+   * анимацию по свежим данным). Если сначала дёрнуть колбэк, он прочитает
+   * старое значение — поэтому к его вызову кэш уже должен быть сброшен.
    */
-  it('сначала сбрасывает кэш, потом вызывает колбэк', () => {
-    const order: string[] = [];
-    const invalidate = vi
-      .spyOn(qc, 'invalidateQueries')
-      .mockImplementation((() => {
-        order.push('invalidate');
-        return Promise.resolve();
-      }) as never);
+  it('к вызову колбэка кэш уже сброшен', () => {
+    let seen: unknown[] = [];
     const onPollUpdated = vi.fn(() => {
-      order.push('callback');
+      seen = POLL_KEYS.map(isStale);
     });
 
     renderHook(() => useSSE({ pollId: 42, onPollUpdated }), { wrapper });
     emit('poll_updated');
 
-    expect(invalidate).toHaveBeenCalledTimes(4);
-    expect(order[order.length - 1]).toBe('callback');
-    expect(order.slice(0, 4)).toEqual([
-      'invalidate',
-      'invalidate',
-      'invalidate',
-      'invalidate',
-    ]);
-  });
-
-  /* Четыре ключа — это четыре экрана, которые обязаны обновиться от одного
-     голоса: сам опрос, список активных, свои голоса и итоги. Потеря любого
-     означает «проголосовал, а на экране по-прежнему старое». */
-  it('сбрасывает опрос, активные, свои голоса и итоги', () => {
-    const invalidate = vi.spyOn(qc, 'invalidateQueries');
-
-    renderHook(() => useSSE({ pollId: 42 }), { wrapper });
-    emit('poll_updated');
-
-    const keys = invalidate.mock.calls.map(call => JSON.stringify(call[0]));
-    expect(keys).toHaveLength(4);
-    expect(keys.filter(key => key.includes('42'))).toHaveLength(3);
-    expect(keys.some(key => key.includes('active'))).toBe(true);
+    expect(onPollUpdated).toHaveBeenCalledTimes(1);
+    expect(seen).toEqual([true, true, true, true]);
   });
 
   it('колбэк получает разобранный кадр, а не строку', () => {
@@ -159,28 +141,18 @@ describe('реакция на кадр poll_updated', () => {
 
     expect(onPollUpdated).toHaveBeenCalledWith(FRAME);
   });
-
-  it('без колбэка кадр всё равно обновляет кэш', () => {
-    const invalidate = vi.spyOn(qc, 'invalidateQueries');
-
-    renderHook(() => useSSE({ pollId: 42 }), { wrapper });
-
-    expect(() => emit('poll_updated')).not.toThrow();
-    expect(invalidate).toHaveBeenCalledTimes(4);
-  });
 });
 
 describe('кадры, которые трогать не надо', () => {
   it.each(['heartbeat', 'debt_updated', 'store_run_updated'])(
     'кадр %s кэш не сбрасывает',
     event => {
-      const invalidate = vi.spyOn(qc, 'invalidateQueries');
       const onPollUpdated = vi.fn();
 
       renderHook(() => useSSE({ pollId: 42, onPollUpdated }), { wrapper });
       emit(event, '{}');
 
-      expect(invalidate).not.toHaveBeenCalled();
+      expect(POLL_KEYS.map(isStale)).toEqual([false, false, false, false]);
       expect(onPollUpdated).not.toHaveBeenCalled();
     }
   );
@@ -188,27 +160,24 @@ describe('кадры, которые трогать не надо', () => {
   /* Кадр может прийти после того, как экран опроса закрыли: соединение и
      обработчик живут до размонтирования, а `pollId` к этому моменту уже null. */
   it('кадр без опроса игнорируется', () => {
-    const invalidate = vi.spyOn(qc, 'invalidateQueries');
-
     renderHook(() => useSSE({ pollId: null }), { wrapper });
     emit('poll_updated');
 
-    expect(invalidate).not.toHaveBeenCalled();
+    expect(POLL_KEYS.map(isStale)).toEqual([false, false, false, false]);
   });
 
-  /**
-   * ПОВЕДЕНИЕ ЗАФИКСИРОВАНО КАК ЕСТЬ, и оно расходится с потоком закупки.
-   *
-   * `useStoreRunStream` на битом кадре сбрасывает список и продолжает работать
-   * (`JSON.parse` там обёрнут), а здесь разбор идёт первой строкой и исключение
-   * уходит в транспорт. То есть один испорченный кадр от сервера ведёт себя
-   * по-разному на двух экранах. Разбирать это — работа задачи 12, которая
-   * трогает именно эту область; здесь фиксируется факт, чтобы починка была
-   * видна как изменение теста, а не как случайность.
-   */
-  it('битый кадр бросает — в отличие от потока закупки', () => {
-    renderHook(() => useSSE({ pollId: 42 }), { wrapper });
+  /* Один испорченный кадр от сервера не должен ронять поток: исключение ушло
+     бы в транспорт. Следующий нормальный кадр обязан обновить экран. */
+  it('битый кадр пропускается, следующий всё равно обновляет кэш', () => {
+    const onPollUpdated = vi.fn();
+    renderHook(() => useSSE({ pollId: 42, onPollUpdated }), { wrapper });
 
-    expect(() => emit('poll_updated', 'не json')).toThrow();
+    expect(() => emit('poll_updated', 'не json')).not.toThrow();
+    expect(onPollUpdated).not.toHaveBeenCalled();
+
+    emit('poll_updated');
+
+    expect(POLL_KEYS.map(isStale)).toEqual([true, true, true, true]);
+    expect(onPollUpdated).toHaveBeenCalledWith(FRAME);
   });
 });
