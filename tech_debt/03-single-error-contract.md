@@ -190,8 +190,9 @@ it.each([
 `DUPLICATE_ENTRY`, `P2025` → 404 `NOT_FOUND`, — то есть у переведённых
 handler'ов сбой БД теперь даёт не 500. Для продукта это лучше, но менять
 контракт молча нельзя: оба случая закреплены тестами
-(`category-order-error-delegation.test.ts`), включая «неизвестный код Prisma
-остаётся 500».
+(`category-order-error-delegation.test.ts`, после его удаления —
+`unit/middleware/error-handler.test.ts`), включая «незнакомая ошибка Prisma
+доходит до 500».
 
 Переведён `category-order.controller.ts` — 11 блоков, тот файл, который режет
 задача 08. Почему один, а не все 73: перевод меняет подпись handler'а на
@@ -208,6 +209,10 @@ handler'ов сбой БД теперь даёт не 500. Для продукт
 настоящий `errorHandler` и проверяет КОНКРЕТНЫЙ статус. Именно этот тест поймал,
 что общая замена задела `finalizeCalculation` с его собственным кодом
 `FINALIZATION_ERROR`.
+
+Позже тесты контроллеров с подменённой Prisma удалили, и этот тест вместе с
+ними. Конкретные статусы маршрутов категорийных заказов теперь проверяет
+HTTP-набор `integration/api/category-orders.redis.test.ts` на тестовой базе.
 
 ## Критерии готовности
 
@@ -233,8 +238,10 @@ handler'ов сбой БД теперь даёт не 500. Для продукт
       остальных 68 catch-блоков, и она пересекается с задачами 05–08, которые
       будут переписывать те же сервисы. Делать её надо там.
 - [x] В переведённых handler'ах есть тест на конкретный статус:
-      `category-order-error-delegation.test.ts` соединяет handler с настоящим
-      `errorHandler` и проверяет 500/404/400 и legacy-поля, а не «не 200».
+      `category-order-error-delegation.test.ts` соединял handler с настоящим
+      `errorHandler` и проверял 500/404/400 и legacy-поля, а не «не 200».
+      Сейчас эту роль несут `category-orders.redis.test.ts` (статусы маршрутов)
+      и `error-handler.test.ts` (коды Prisma, legacy-поля).
 - [x] `error-handler.test.ts` и `telegram-auth.middleware.test.ts` **не
       менялись** (`git diff` по ним пуст) и зелёные.
 - [x] Ручных `res.status(500)` в `category-order.controller.ts` было 12,

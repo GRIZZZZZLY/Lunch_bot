@@ -29,7 +29,7 @@ npm run db:migrate
 Один тест:
 
 ```bash
-npm test -- src/services/__tests__/poll.service.test.ts
+npm test -- src/__tests__/unit/services/poll.service.test.ts
 npm test -- -t "название теста"
 ```
 
@@ -119,8 +119,11 @@ npm run test:e2e:full
 
 ## Тесты
 
-- Серверные тесты: `backend/src/__tests__/` и
-  `backend/src/services/__tests__/`.
+- Серверные тесты: `backend/src/__tests__/integration/` (HTTP, бот и задачи
+  на тестовой PostgreSQL) и `backend/src/__tests__/unit/` (чистые функции).
+  Файлы `*.redis.test.ts` собираются только с `REDIS_ENABLED=true`.
+- Что тест должен проверять и чего не должен:
+  [docs/05-testing/README.md](docs/05-testing/README.md#каким-должен-быть-тест).
 - Тесты основного интерфейса: рядом с кодом и в `frontend-new/tests/`.
 - Сквозные тесты: `frontend-new/tests/e2e/`.
 - Порог покрытия не понижать ради прохождения CI.

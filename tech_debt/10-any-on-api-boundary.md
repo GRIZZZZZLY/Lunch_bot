@@ -47,13 +47,13 @@ static async getPollHistory(...): Promise<{ polls: any[]; total: number }>
 
 | Файл | `any` |
 |---|---|
-| `services/__tests__/notification.service.test.ts` | 20 |
+| `services/__tests__/notification.service.test.ts` (позже удалён) | 20 |
 | `services/poll-flow.service.ts` | 16 |
 | `services/notification.service.ts` | 14 |
 | `bot/keyboards/poll.keyboard.ts` | 13 |
 | `scripts/migrate-sqlite-to-postgres.ts` | 10 |
 | `services/poll.service.extensions.ts` | 9 |
-| `services/__tests__/menu-suggestion.service.test.ts` | 9 |
+| `services/__tests__/menu-suggestion.service.test.ts` (позже удалён) | 9 |
 | `services/order-calculation.service.ts` | 8 |
 | `services/multi-category-responsible.service.ts` | 8 |
 | `api/middleware/telegram-auth.ts` | 8 |
