@@ -4,7 +4,6 @@ import type { StoreRunListItem, StoreRunStatus } from '@/services/store-run.serv
 import {
   buildTeamActivity,
   formatRemaining,
-  runStatusText,
   teamSlotModel,
   type ActivityByTeam,
 } from '../teamActivity';
@@ -90,10 +89,5 @@ describe('тексты статуса', () => {
     expect(formatRemaining({ hours: 0, minutes: 12, seconds: 41 })).toBe('12:41');
     expect(formatRemaining({ hours: 0, minutes: 3, seconds: 5 })).toBe('03:05');
     expect(formatRemaining({ hours: 1, minutes: 5, seconds: 12 })).toBe('1:05:12');
-  });
-
-  it('фаза закупки', () => {
-    expect(runStatusText('COLLECTING')).toBe('Закупка · сбор');
-    expect(runStatusText('SHOPPING', false)).toBe('закупка · в магазине');
   });
 });

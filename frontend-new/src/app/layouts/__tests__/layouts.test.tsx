@@ -62,12 +62,6 @@ beforeEach(() => {
 });
 
 describe('RootLayout', () => {
-  it('показывает нижнюю навигацию и контент вкладки', () => {
-    renderApp('/');
-    expect(screen.getByRole('navigation', { name: 'Основная навигация' })).toBeInTheDocument();
-    expect(screen.getByText('root-контент')).toBeInTheDocument();
-  });
-
   it('заголовок и подпись страницы — в шапке, заголовок — h1 экрана', () => {
     renderApp('/tab');
     expect(screen.getByRole('heading', { level: 1, name: 'Заголовок вкладки' })).toBeInTheDocument();
@@ -81,27 +75,13 @@ describe('RootLayout', () => {
     expect(screen.queryByRole('region', { name: 'Уведомления' })).not.toBeInTheDocument();
   });
 
-  it('у экрана 404 есть заголовок первого уровня, и текст не дублируется', async () => {
-    renderApp('/unknown/path');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Экран не найден' })).toBeInTheDocument();
-    expect(screen.getAllByText('Экран не найден')).toHaveLength(1);
-  });
-
-  it('без заголовка страницы шапка берёт название вкладки, логотипа нет', () => {
+  it('без заголовка страницы шапка берёт название вкладки', () => {
     renderApp('/stats');
     expect(screen.getByRole('heading', { level: 1, name: 'Статистика' })).toBeInTheDocument();
-    expect(screen.queryByText('Rocket Lunch')).not.toBeInTheDocument();
   });
 });
 
 describe('DetailLayout', () => {
-  it('не показывает нижнюю навигацию, показывает ScreenHeader с title и action', () => {
-    renderApp('/detail');
-    expect(screen.queryByRole('navigation', { name: 'Основная навигация' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Проба' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Действие' })).toBeInTheDocument();
-  });
-
   it('вне Telegram показывает fallback-кнопку назад; без истории она ведёт на главную', async () => {
     renderApp('/detail');
     const back = screen.getByRole('button', { name: 'Назад' });

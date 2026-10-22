@@ -23,15 +23,20 @@ vi.mock('@/store/useAppStore', () => ({
 }));
 
 import { useMoneyStream } from '../useMoneyStream';
+import { queryKeys } from '@/lib/queryClient';
 
 let qc: QueryClient;
 function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
+const DEBTS = queryKeys.budget.debts('1');
+const isStale = () => qc.getQueryState(DEBTS)?.isInvalidated;
+
 beforeEach(() => {
   h.lastOptions = null;
   qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  qc.setQueryData(DEBTS, []);
 });
 
 describe('useMoneyStream', () => {
@@ -42,22 +47,20 @@ describe('useMoneyStream', () => {
   });
 
   it('debt_updated сбрасывает кэш бюджета', () => {
-    const spy = vi.spyOn(qc, 'invalidateQueries');
     renderHook(() => useMoneyStream(), { wrapper });
 
     h.lastOptions?.onEvent({ event: 'debt_updated', data: '{}' });
 
-    expect(spy).toHaveBeenCalledWith({ queryKey: ['budget'] });
+    expect(isStale()).toBe(true);
   });
 
   it('heartbeat и прочие кадры кэш не трогают', () => {
-    const spy = vi.spyOn(qc, 'invalidateQueries');
     renderHook(() => useMoneyStream(), { wrapper });
 
     h.lastOptions?.onEvent({ event: 'heartbeat', data: '{}' });
     h.lastOptions?.onEvent({ event: 'poll_updated', data: '{}' });
 
-    expect(spy).not.toHaveBeenCalled();
+    expect(isStale()).toBe(false);
   });
 });
 

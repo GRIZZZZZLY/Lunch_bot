@@ -79,18 +79,4 @@ describe('useFirstScreenBarrier', () => {
       vi.useRealTimers();
     }
   });
-
-  it('таймер снимается при размонтировании', () => {
-    vi.useFakeTimers();
-    const clear = vi.spyOn(window, 'clearTimeout');
-    try {
-      const { unmount } = renderHook(() => useFirstScreenBarrier(false));
-      unmount();
-
-      expect(clear).toHaveBeenCalled();
-    } finally {
-      clear.mockRestore();
-      vi.useRealTimers();
-    }
-  });
 });

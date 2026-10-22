@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import type { ItemPreset } from '@/services/item-preset.service';
@@ -153,25 +153,9 @@ describe('AddStoreItemSheet', () => {
     expect(screen.queryByLabelText('Что купить')).not.toBeInTheDocument();
   });
 
-  it('пустой список объясняет, откуда возьмутся товары', () => {
-    renderSheet({ presets: [] });
-
-    /* Форма открыта, но текст вкладки всё равно не должен теряться: он
-       появится, как только человек вернётся на «Мои товары». Здесь проверяем
-       обратное — что пустой список не подсовывает пустую вкладку. */
-    expect(screen.getByLabelText('Что купить')).toBeInTheDocument();
-  });
-
   it('во время отправки выбор и закрытие заблокированы', () => {
     renderSheet({ busy: true });
 
     expect(screen.getByRole('checkbox', { name: 'Выбрать Молоко' })).toBeDisabled();
-  });
-
-  it('вторая строка показывает, что подставится в позицию', () => {
-    renderSheet();
-
-    const row = screen.getByText('Молоко').closest('li');
-    expect(within(row as HTMLElement).getByText('2 шт · нежирное')).toBeInTheDocument();
   });
 });

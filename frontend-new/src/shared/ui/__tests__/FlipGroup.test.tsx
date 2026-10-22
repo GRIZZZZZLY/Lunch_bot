@@ -63,25 +63,7 @@ function Lists({ first, second }: { first: number[]; second: number[] }) {
   );
 }
 
-const firstTransform = (testId: string) =>
-  calls.find((c) => c.el === screen.getByTestId(testId) && 'transform' in c.keyframes[0])?.keyframes[0].transform;
-
 describe('FlipGroup', () => {
-  it('строка, сменившая секцию, летит листком от старого места; соседи съезжают, стоящие на месте не трогаются', () => {
-    const { rerender } = render(<Lists first={[1, 2]} second={[3]} />);
-    // было: s1 0, r1 50, r2 100, s2 150, r3 200
-    rerender(<Lists first={[2]} second={[3, 1]} />);
-    // стало: s1 0, r2 50, s2 100, r3 150, r1 200
-
-    expect(firstTransform('s2')).toBe('translate(0px, 50px)');
-    expect(firstTransform('r2')).toBe('translate(0px, 50px)');
-    // r1 едет внутри s2, поэтому из его пути вычтено смещение карточки: 50 − 200 − 50.
-    expect(firstTransform('r1')).toBe('translate(0px, -200px)');
-    expect(screen.getByTestId('r1')).toHaveClass('flip-lift');
-    // r3 сдвинулся ровно вместе со своей карточкой — своего движения у него нет.
-    expect(firstTransform('r3')).toBeUndefined();
-  });
-
   it('исчезнувшая строка гаснет призраком, а не пропадает кадром', () => {
     const { rerender } = render(<Lists first={[1]} second={[3]} />);
     rerender(<Lists first={[1]} second={[]} />);
@@ -92,27 +74,17 @@ describe('FlipGroup', () => {
     expect(ghost).not.toHaveAttribute('data-testid', expect.anything());
   });
 
-  it('полная смена содержимого не анимируется: это приход данных, а не изменение', () => {
-    const { rerender } = render(
-      <FlipGroup>
-        <div data-testid="loading">…</div>
-      </FlipGroup>,
-    );
-    rerender(
-      <FlipGroup>
-        <section data-testid="s1">готово</section>
-      </FlipGroup>,
-    );
-
-    expect(calls).toHaveLength(0);
-  });
-
-  it('prefers-reduced-motion: экран меняется мгновенно, как раньше', () => {
-    window.matchMedia = ((query: string) => ({ matches: query.includes('reduce'), media: query })) as typeof window.matchMedia;
+  /* Пара «без настройки / reduce» на одной перестановке: первая строка
+     доказывает, что сценарий вообще анимируется, иначе ноль во второй ничего
+     бы не значил. */
+  it.each([
+    ['без настройки движения перестановка анимируется', false],
+    ['prefers-reduced-motion: экран меняется мгновенно', true],
+  ])('%s', (_name, reduce) => {
+    window.matchMedia = ((query: string) => ({ matches: reduce && query.includes('reduce'), media: query })) as typeof window.matchMedia;
     const { rerender } = render(<Lists first={[1, 2]} second={[3]} />);
     rerender(<Lists first={[2]} second={[3, 1]} />);
 
-    expect(calls).toHaveLength(0);
-    expect(screen.getByTestId('r1')).not.toHaveClass('flip-lift');
+    expect(calls.length > 0).toBe(!reduce);
   });
 });

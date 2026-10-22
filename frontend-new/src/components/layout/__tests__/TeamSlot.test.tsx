@@ -1,23 +1,28 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { ActivityByTeam } from '@/lib/teamActivity';
+import { pollsService } from '@/services/polls.service';
+import { storeRunService } from '@/services/store-run.service';
 import { useAppStore } from '@/store/useAppStore';
 
 const h = vi.hoisted(() => ({
   groups: [] as unknown[],
   activity: null as ActivityByTeam | null,
-  enabled: undefined as boolean | undefined,
+  /* Настоящий useTeamActivity: видно, уходят ли запросы статусов в сеть. */
+  realActivity: false,
 }));
 
 vi.mock('@/hooks/useUser', () => ({ useMyGroups: () => ({ data: h.groups }) }));
-vi.mock('@/hooks/useTeamActivity', () => ({
-  useTeamActivity: (enabled: boolean) => {
-    h.enabled = enabled;
-    return h.activity;
-  },
-}));
+vi.mock('@/hooks/useTeamActivity', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/useTeamActivity')>();
+  const fake = { useTeamActivity: () => h.activity };
+  return {
+    useTeamActivity: (enabled: boolean) => (h.realActivity ? actual : fake).useTeamActivity(enabled),
+  };
+});
 
 import { TeamSlot } from '../TeamSlot';
 
@@ -35,20 +40,23 @@ function Where() {
 }
 
 function renderAt(path: string) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route
-          path="*"
-          element={
-            <>
-              <TeamSlot />
-              <Where />
-            </>
-          }
-        />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <TeamSlot />
+                <Where />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -57,7 +65,13 @@ const endsAt = new Date(Date.now() + 10 * 60_000).toISOString();
 beforeEach(() => {
   h.groups = [group(10, 'Офис')];
   h.activity = { '10': { pollEndsAt: endsAt } };
+  h.realActivity = false;
   useAppStore.setState({ currentGroupId: '10' });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  useAppStore.setState({ authStatus: 'idle' });
 });
 
 describe('TeamSlot — одна команда', () => {
@@ -88,15 +102,21 @@ describe('TeamSlot — одна команда', () => {
 
 describe('TeamSlot — запросы статусов', () => {
   /* Без команд спрашивать не о ком: запросы раз в 30 секунд вернули бы пустоту. */
-  it('без команд статусы не запрашиваются', () => {
-    h.groups = [];
-    renderAt('/menu');
-    expect(h.enabled).toBe(false);
-  });
+  it.each([
+    ['без команд — не запрашиваются', [], false],
+    ['одна команда вне Главной — запрашиваются', [group(10, 'Офис')], true],
+  ])('%s', async (_, groups, asked) => {
+    h.groups = groups;
+    h.realActivity = true;
+    useAppStore.setState({ authStatus: 'authenticated' });
+    const polls = vi.spyOn(pollsService, 'getActiveAllTeams').mockResolvedValue({ data: [] } as never);
+    const runs = vi.spyOn(storeRunService, 'getActiveAllTeams').mockResolvedValue({ data: [] } as never);
 
-  it('одна команда вне Главной — запрашиваются', () => {
     renderAt('/menu');
-    expect(h.enabled).toBe(true);
+    await act(async () => {});
+
+    expect(polls.mock.calls.length > 0).toBe(asked);
+    expect(runs.mock.calls.length > 0).toBe(asked);
   });
 });
 
@@ -109,14 +129,6 @@ describe('TeamSlot — две команды', () => {
     renderAt('/');
     const trigger = screen.getByRole('button', { name: 'Команда: Офис. Сменить' });
     expect(trigger).not.toHaveAccessibleDescription();
-  });
-
-  it('на Главной точка говорит о других командах', () => {
-    h.activity = { '20': { pollEndsAt: endsAt } };
-    renderAt('/');
-    expect(screen.getByRole('button', { name: 'Команда: Офис. Сменить' })).toHaveAccessibleDescription(
-      'Что-то идёт в командах: 1',
-    );
   });
 
   it('вне Главной точка считает и текущую', () => {

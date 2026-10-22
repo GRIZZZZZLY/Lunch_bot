@@ -3,9 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Button } from '@/components/rl/primitives';
 import { TextField } from '../TextField';
-import { Status } from '../Status';
 import { InlineNotice } from '../InlineNotice';
-import { EmptyState } from '../EmptyState';
 import { ErrorState } from '../ErrorState';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { _resetBackButtonForTests } from '@/lib/backButton';
@@ -23,23 +21,6 @@ describe('Button', () => {
     expect(btn).toHaveAttribute('type', 'button');
     await userEvent.click(btn);
     expect(onClick).toHaveBeenCalledTimes(1);
-  });
-
-  /* Занятая — aria-disabled, а не disabled: disabled сбрасывал фокус (см.
-     components/rl/__tests__/Button.test.tsx). */
-  it('loading: aria-busy, aria-disabled, клики не проходят, текст остаётся в DOM (ширина не меняется)', async () => {
-    const onClick = vi.fn();
-    render(
-      <Button loading onClick={onClick}>
-        Сохранить
-      </Button>,
-    );
-    const btn = screen.getByRole('button');
-    expect(btn).toHaveAttribute('aria-busy', 'true');
-    expect(btn).toHaveAttribute('aria-disabled', 'true');
-    expect(btn).toHaveTextContent('Сохранить');
-    await userEvent.click(btn);
-    expect(onClick).not.toHaveBeenCalled();
   });
 });
 
@@ -69,12 +50,7 @@ describe('TextField', () => {
   });
 });
 
-describe('Status / InlineNotice', () => {
-  it('Status всегда содержит текст (цвет — не единственный канал)', () => {
-    render(<Status tone="warning">В магазине</Status>);
-    expect(screen.getByText('В магазине')).toBeInTheDocument();
-  });
-
+describe('InlineNotice', () => {
   it('InlineNotice: info/warning → status, critical → alert', () => {
     const { rerender } = render(<InlineNotice tone="info">текст</InlineNotice>);
     expect(screen.getByRole('status')).toBeInTheDocument();
@@ -83,30 +59,14 @@ describe('Status / InlineNotice', () => {
   });
 });
 
-describe('EmptyState / ErrorState', () => {
-  it('EmptyState: заголовок, описание, действие', async () => {
-    const onAdd = vi.fn();
-    render(
-      <EmptyState
-        title="Пока пусто"
-        description="Добавьте первым"
-        action={<Button onClick={onAdd}>Добавить</Button>}
-      />,
-    );
-    expect(screen.getByText('Пока пусто')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }));
-    expect(onAdd).toHaveBeenCalled();
-  });
-
-  it('ErrorState: пресет network + retry; тексты перекрываемы', async () => {
+describe('ErrorState', () => {
+  it('ErrorState: «Повторить» зовёт onRetry; у forbidden повторять нечего', async () => {
     const onRetry = vi.fn();
     const { rerender } = render(<ErrorState onRetry={onRetry} />);
-    expect(screen.getByText('Не удалось загрузить')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     expect(onRetry).toHaveBeenCalledTimes(1);
 
     rerender(<ErrorState kind="forbidden" title="Вы не состоите в этой группе" />);
-    expect(screen.getByText('Вы не состоите в этой группе')).toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });

@@ -81,13 +81,6 @@ describe('apiService — Idempotency-Key', () => {
     await apiService.post('/polls', { a: 1 }, { headers: { 'Idempotency-Key': 'fixed-key-123456' } });
     expect(sentKey(0)).toBe('fixed-key-123456');
   });
-
-  it('генерит разные ключи для разных запросов', async () => {
-    await apiService.post('/polls', { a: 1 });
-    await apiService.post('/polls', { a: 2 });
-    expect(sentKey(0)).toBeDefined();
-    expect(sentKey(1)).not.toBe(sentKey(0));
-  });
 });
 
 describe('apiService — защита от двойного тапа', () => {

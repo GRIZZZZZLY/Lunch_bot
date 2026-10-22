@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitForElementToBeRemoved, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BottomSheet } from '@/components/rl/BottomSheet';
 import { ToastContainer } from '../ToastContainer';
@@ -17,7 +17,7 @@ describe('ToastContainer', () => {
 
   /* Одна постоянная вежливая область на всё. Своя live-роль у уведомления
      внутри неё (alert, status) заставляла часть дикторов читать его дважды. */
-  it('новое уведомление сменяет прежнее и объявляется одной областью', () => {
+  it('новое уведомление сменяет прежнее и объявляется одной областью', async () => {
     render(<ToastContainer />);
     act(() => {
       useToastStore.getState().push({ type: 'success', message: 'Сохранено' });
@@ -26,10 +26,11 @@ describe('ToastContainer', () => {
 
     const region = screen.getByRole('region', { name: 'Уведомления' });
     expect(region).toHaveAttribute('aria-live', 'polite');
-    expect(region.querySelector('.toast:not(.is-leaving)')).toHaveTextContent('Не удалось');
-    expect(document.querySelectorAll('.toast:not(.is-leaving)')).toHaveLength(1);
+    expect(within(region).getByText('Не удалось')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    await waitForElementToBeRemoved(() => screen.queryByText('Сохранено'));
+    expect(within(region).getByText('Не удалось')).toBeInTheDocument();
   });
 
   /* Открытая шторка делает #root инертным (BottomSheet). Уведомление внутри
@@ -59,6 +60,6 @@ describe('ToastContainer', () => {
     });
 
     await userEvent.click(screen.getByRole('button', { name: 'Закрыть уведомление' }));
-    expect(document.querySelector('.toast')).toHaveClass('is-leaving');
+    await waitForElementToBeRemoved(() => screen.queryByText('Сбор закрыт'));
   });
 });

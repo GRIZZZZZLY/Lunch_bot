@@ -1,93 +1,80 @@
 /* Регрессия доступности денежного контура: закупка → расчёт → долги.
    Статусные чипы здесь стоят на собственном тинте, и базовые токены
    --success/--warning когда-то давали 3.7–3.99:1 при пороге 4.5 (аудит
-   2026-08-01). Проверяем обе темы: в тёмной тинт затемняет фон, в светлой
-   осветляет, поэтому провал воспроизводился только в светлой. */
-import AxeBuilder from '@axe-core/playwright';
-import type { Page } from '@playwright/test';
+   2026-08-01). Текст на тинте обязан брать *-on-tint. Проверяем обе темы:
+   в тёмной тинт затемняет фон, в светлой осветляет, и провал в одной теме
+   не виден в другой. */
+import type { Locator, Page } from '@playwright/test';
 import { expect, test } from '../fixtures/test';
+import { expectNoSeriousViolations } from '../fixtures/a11y';
+import type { E2ERole, ScenarioName } from '../scenarios/data';
 
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
-
-/**
- * Экраны входят анимацией `screenIn` (opacity 0 → 1). Пока она играет, axe
- * читает БЛЕКЛЫЕ цвета: --text-tertiary #6b655b поверх канваса при alpha 0.89
- * измеряется как #7a746a и даёт 4.03 вместо 5.03. Тест из-за этого падал
- * примерно в одном прогоне из шести — не на дефекте палитры, а на гонке с
- * анимацией. Ждём завершения всех конечных анимаций; бесконечные (шиммер
- * скелетона, спиннер) пропускаем, иначе ожидание не кончится никогда.
- */
-async function settleAnimations(page: Page) {
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
-        .map((a) => a.finished.catch(() => undefined)),
-    ),
-  );
+interface MoneyScreen {
+  title: string;
+  scenario: ScenarioName;
+  role: E2ERole;
+  path: string;
+  /** Признак того, что экран загрузился и чипы на месте. */
+  ready: (page: Page) => Locator;
+  smoke?: boolean;
 }
 
-async function expectNoSeriousViolations(page: Page) {
-  await settleAnimations(page);
-  const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-  const blocking = violations
-    .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
-    .map((violation) => ({
-      id: violation.id,
-      nodes: violation.nodes.map((node) => ({
-        target: node.target.join(' '),
-        summary: node.failureSummary,
-      })),
-    }));
-  expect(blocking, 'serious/critical нарушения WCAG').toEqual([]);
+const SCREENS: MoneyScreen[] = [
+  {
+    title: 'долги: должник',
+    scenario: 'budget-debtor',
+    role: 'debtor',
+    path: '/budget',
+    ready: (page) => page.getByRole('button', { name: /^Отметить/ }),
+    smoke: true,
+  },
+  {
+    title: 'долги: чип «оплачено» у ответственного',
+    scenario: 'budget-responsible',
+    role: 'responsible',
+    path: '/budget',
+    ready: (page) => page.getByRole('button', { name: 'Подтвердить' }),
+  },
+  {
+    title: 'закупка: чип «Сбор»',
+    scenario: 'store-collecting',
+    role: 'storeInitiator',
+    path: '/store-run/601',
+    ready: (page) => page.getByRole('button', { name: 'Закрыть сбор' }),
+  },
+  {
+    title: 'закупка: чипы «Куплено» и «В магазине»',
+    scenario: 'store-shopping',
+    role: 'storeInitiator',
+    path: '/store-run/601',
+    ready: (page) => page.getByRole('button', { name: 'Рассчитать' }),
+    smoke: true,
+  },
+  {
+    title: 'закупка: чип «Рассчитано»',
+    scenario: 'store-settled',
+    role: 'storeParticipant',
+    path: '/store-run/601',
+    ready: (page) => page.getByRole('button', { name: 'На главную' }),
+  },
+];
+
+for (const screen of SCREENS) {
+  test.describe(`Доступность: ${screen.title}`, () => {
+    test.use({ scenario: screen.scenario, role: screen.role });
+
+    for (const theme of ['light', 'dark'] as const) {
+      const tag = screen.smoke && theme === 'light' ? '@smoke ' : '';
+      test(`${tag}${theme === 'light' ? 'светлая' : 'тёмная'} тема без serious-нарушений`, async ({
+        appPage,
+        telegram,
+      }) => {
+        await appPage.goto(screen.path);
+        await expect(screen.ready(appPage)).toBeVisible();
+        if (theme === 'dark') await telegram.setTheme('dark');
+        await expect(appPage.locator('html')).toHaveAttribute('data-theme', theme);
+        await expectNoSeriousViolations(appPage);
+      });
+    }
+  });
 }
-
-test.describe('Доступность: долги', () => {
-  test.describe('должник', () => {
-    test.use({ scenario: 'budget-debtor', role: 'debtor' });
-    test('@smoke светлая тема без serious-нарушений', async ({ appPage }) => {
-      await appPage.goto('/budget');
-      await expect(appPage.getByRole('button', { name: /^Отметить/ })).toBeVisible();
-      await expectNoSeriousViolations(appPage);
-    });
-  });
-
-  test.describe('ответственный', () => {
-    test.use({ scenario: 'budget-responsible', role: 'responsible' });
-    test('чип «оплачено» на тинте держит контраст', async ({ appPage }) => {
-      await appPage.goto('/budget');
-      await expect(appPage.getByRole('button', { name: 'Подтвердить' })).toBeVisible();
-      await expectNoSeriousViolations(appPage);
-    });
-  });
-});
-
-test.describe('Доступность: закупка', () => {
-  test.describe('сбор', () => {
-    test.use({ scenario: 'store-collecting', role: 'storeInitiator' });
-    test('чип «Сбор» на тинте держит контраст', async ({ appPage }) => {
-      await appPage.goto('/store-run/601');
-      await expect(appPage.getByRole('button', { name: 'Закрыть сбор' })).toBeVisible();
-      await expectNoSeriousViolations(appPage);
-    });
-  });
-
-  test.describe('покупки', () => {
-    test.use({ scenario: 'store-shopping', role: 'storeInitiator' });
-    test('@smoke чипы «Куплено» и «В магазине» держат контраст', async ({ appPage }) => {
-      await appPage.goto('/store-run/601');
-      await expect(appPage.getByRole('button', { name: 'Рассчитать' })).toBeVisible();
-      await expectNoSeriousViolations(appPage);
-    });
-  });
-
-  test.describe('итог', () => {
-    test.use({ scenario: 'store-settled', role: 'storeParticipant' });
-    test('чип «Рассчитано» держит контраст', async ({ appPage }) => {
-      await appPage.goto('/store-run/601');
-      await expect(appPage.getByRole('button', { name: 'На главную' })).toBeVisible();
-      await expectNoSeriousViolations(appPage);
-    });
-  });
-});

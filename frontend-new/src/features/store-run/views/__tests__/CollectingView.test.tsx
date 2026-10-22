@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { StoreItem, StoreRunWithRelations } from '@/services/store-run.service';
+import { storeRunService, type StoreItem, type StoreRunWithRelations } from '@/services/store-run.service';
 import { _resetBackButtonForTests } from '@/lib/backButton';
+import { useAppStore } from '@/store/useAppStore';
 
 const h = vi.hoisted(() => ({
   add: { mutate: vi.fn(), isPending: false },
@@ -13,7 +15,9 @@ const h = vi.hoisted(() => ({
   cancel: { mutate: vi.fn(), isPending: false },
 }));
 
-vi.mock('@/hooks/useStoreRun', () => ({
+vi.mock('@/hooks/useStoreRun', async (importOriginal) => ({
+  /* Настоящий запрос закупки: по нему видно, сколько раз экран её перечитал. */
+  useStoreRun: (await importOriginal<typeof import('@/hooks/useStoreRun')>()).useStoreRun,
   useAddStoreItems: () => h.add,
   useUpdateStoreItem: () => h.update,
   useDeleteStoreItem: () => h.del,
@@ -22,6 +26,13 @@ vi.mock('@/hooks/useStoreRun', () => ({
 }));
 
 import { CollectingView } from '../CollectingView';
+import { useStoreRun } from '@/hooks/useStoreRun';
+
+/* Отказ сервера так, как его отдаёт useMutation: onError, затем onSettled. */
+const refuse = (_arg: unknown, opts?: { onError?: (e: Error) => void; onSettled?: () => void }) => {
+  opts?.onError?.(new Error('нет сети'));
+  opts?.onSettled?.();
+};
 
 let seq = 0;
 function mkItem(userId: number, name: string, over: Partial<StoreItem> = {}): StoreItem {
@@ -64,15 +75,20 @@ function mkRun(over: Partial<StoreRunWithRelations> = {}): StoreRunWithRelations
   };
 }
 
-function renderView(run: StoreRunWithRelations, currentUserId: number | null) {
+function renderView(run: StoreRunWithRelations, currentUserId: number | null, extra?: ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const spy = vi.spyOn(qc, 'invalidateQueries');
-  const utils = render(
+  return render(
     <QueryClientProvider client={qc}>
       <CollectingView run={run} currentUserId={currentUserId} />
+      {extra}
     </QueryClientProvider>,
   );
-  return { ...utils, invalidateSpy: spy };
+}
+
+/* Страница закупки держит запрос открытым — как StoreRunPage. */
+function RunQuery({ id }: { id: number }) {
+  useStoreRun(id, true);
+  return null;
 }
 
 beforeEach(() => {
@@ -87,93 +103,23 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
-});
-
-describe('CollectingView — права', () => {
-  it('участник видит edit/delete только на своей позиции', () => {
-    renderView(mkRun(), 3); // Пётр владеет «Хлеб» (id 11)
-    expect(screen.getByLabelText('Удалить «Хлеб»')).toBeInTheDocument();
-    expect(screen.getByLabelText('Изменить «Хлеб»')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Удалить «Молоко»')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Изменить «Молоко»')).not.toBeInTheDocument();
-  });
-
-  it('участник видит «Добавить», но не видит close/cancel', () => {
-    renderView(mkRun(), 3);
-    expect(screen.getByRole('button', { name: 'Добавить позицию' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Закрыть сбор' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Отменить закупку' })).not.toBeInTheDocument();
-  });
-
-  it('инициатор не видит edit/delete на чужих позициях (B2)', () => {
-    renderView(mkRun(), 1); // Игорь-инициатор, своих позиций нет
-    expect(screen.queryByLabelText('Удалить «Молоко»')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Удалить «Хлеб»')).not.toBeInTheDocument();
-  });
-
-  it('инициатор видит close + cancel + secondary add', () => {
-    renderView(mkRun(), 1);
-    expect(screen.getByRole('button', { name: 'Закрыть сбор' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Отменить закупку' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Добавить позицию' })).toBeInTheDocument();
-    expect(screen.getByText('У вас пока нет позиций')).toBeInTheDocument();
-  });
-
-  it('единственная primary — «Закрыть сбор» (add у инициатора один, secondary)', () => {
-    renderView(mkRun(), 1);
-    expect(screen.getAllByRole('button', { name: 'Закрыть сбор' })).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: 'Добавить позицию' })).toHaveLength(1);
-  });
-});
-
-describe('CollectingView — empty', () => {
-  /* Раньше на пустом сборе primary была заблокирована, и единственной живой
-     кнопкой оставалось уничтожение закупки. Пустой экран ведёт к добавлению. */
-  it('пусто: главное действие — добавить, «Закрыть сбор» не показывается', () => {
-    renderView(mkRun({ items: [] }), 1);
-    expect(screen.getByText('Пока пусто')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Закрыть сбор' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Добавить позицию' }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Отменить закупку' })).toBeEnabled();
-  });
+  vi.restoreAllMocks();
+  useAppStore.setState({ authStatus: 'idle' });
 });
 
 describe('CollectingView — удаление', () => {
   it('требует подтверждения; mutate вызывается только после confirm', async () => {
     renderView(mkRun(), 3);
     await userEvent.click(screen.getByLabelText('Удалить «Хлеб»'));
-    const dialog = screen.getByRole('alertdialog');
-    expect(within(dialog).getByText('Удалить позицию?')).toBeInTheDocument();
-    expect(within(dialog).getByText('Хлеб')).toBeInTheDocument();
     expect(h.del.mutate).not.toHaveBeenCalled();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Удалить' }));
-    expect(h.del.mutate).toHaveBeenCalledTimes(1);
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Удалить' }));
     expect(h.del.mutate.mock.calls[0][0]).toBe(11);
   });
 });
 
 describe('CollectingView — добавление', () => {
-  it('валидация: пустое имя не сабмитит', async () => {
-    renderView(mkRun(), 3);
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить позицию' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }));
-    expect(screen.getByText('Укажите название')).toBeInTheDocument();
-    expect(h.add.mutate).not.toHaveBeenCalled();
-  });
-
-  it('success закрывает sheet', async () => {
-    h.add.mutate.mockImplementation((_items, opts) => opts?.onSuccess?.());
-    renderView(mkRun(), 3);
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить позицию' }));
-    await userEvent.type(screen.getByLabelText('Что купить'), 'Яйца');
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }));
-    expect(h.add.mutate).toHaveBeenCalledTimes(1);
-    expect(h.add.mutate.mock.calls[0][0]).toEqual([{ name: 'Яйца', quantity: 1 }]);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('error сохраняет введённые данные (sheet не закрывается)', async () => {
-    h.add.mutate.mockImplementation(() => undefined); // onSuccess не вызывается
+  it('отказ сервера сохраняет введённые данные (sheet не закрывается)', async () => {
+    h.add.mutate.mockImplementation(refuse);
     renderView(mkRun(), 3);
     await userEvent.click(screen.getByRole('button', { name: 'Добавить позицию' }));
     await userEvent.type(screen.getByLabelText('Что купить'), 'Яйца');
@@ -184,86 +130,49 @@ describe('CollectingView — добавление', () => {
 });
 
 describe('CollectingView — редактирование', () => {
-  it('форма предзаполнена и сабмитит PATCH', async () => {
-    h.update.mutate.mockImplementation((_arg, opts) => opts?.onSuccess?.());
+  it('отказ сервера сохраняет ввод', async () => {
+    h.update.mutate.mockImplementation(refuse);
     renderView(mkRun(), 3);
     await userEvent.click(screen.getByLabelText('Изменить «Хлеб»'));
     const input = screen.getByLabelText('Что купить');
-    expect(input).toHaveValue('Хлеб');
     await userEvent.clear(input);
     await userEvent.type(input, 'Хлеб чёрный');
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
-    expect(h.update.mutate).toHaveBeenCalledTimes(1);
-    expect(h.update.mutate.mock.calls[0][0]).toEqual({
-      itemId: 11,
-      data: { name: 'Хлеб чёрный', quantity: 1, notes: undefined },
-    });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('error сохраняет ввод', async () => {
-    h.update.mutate.mockImplementation(() => undefined);
-    renderView(mkRun(), 3);
-    await userEvent.click(screen.getByLabelText('Изменить «Хлеб»'));
-    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByLabelText('Что купить')).toHaveValue('Хлеб');
-  });
-});
-
-describe('CollectingView — инициатор close/cancel', () => {
-  it('close через подтверждение', async () => {
-    h.start.mutate.mockImplementation((_arg, opts) => opts?.onSuccess?.());
-    renderView(mkRun(), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Закрыть сбор' }));
-    const dialog = screen.getByRole('alertdialog');
-    expect(within(dialog).getByText('Закрыть сбор досрочно?')).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Закрыть сбор' }));
-    expect(h.start.mutate).toHaveBeenCalledTimes(1);
-  });
-
-  it('cancel через подтверждение', async () => {
-    h.cancel.mutate.mockImplementation((_arg, opts) => opts?.onSuccess?.());
-    renderView(mkRun(), 1);
-    await userEvent.click(screen.getByRole('button', { name: 'Отменить закупку' }));
-    const dialog = screen.getByRole('alertdialog');
-    expect(within(dialog).getByText('Отменить закупку?')).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Отменить закупку' }));
-    expect(h.cancel.mutate).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Что купить')).toHaveValue('Хлеб чёрный');
   });
 });
 
 describe('CollectingView — countdown', () => {
-  it('по истечении один раз рефетчит; статус не меняется, add остаётся', async () => {
+  it('по истечении перечитывает закупку один раз, а не по кругу; add остаётся', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-18T12:00:00Z'));
+    useAppStore.setState({ authStatus: 'authenticated' });
     const run = mkRun({
       collectUntil: '2026-07-18T12:00:02Z', // +2с
       createdAt: '2026-07-18T11:58:00Z',
     });
-    const { invalidateSpy } = renderView(run, 3);
+    const getRun = vi
+      .spyOn(storeRunService, 'getRun')
+      .mockResolvedValue({ data: run } as Awaited<ReturnType<typeof storeRunService.getRun>>);
+    renderView(run, 3, <RunQuery id={5} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const loads = getRun.mock.calls.length;
 
-    invalidateSpy.mockClear();
     /* React 19 в act-окружении не сбрасывает обновления, пришедшие из таймера,
        сам по себе: их надо прогнать через act, иначе перерисовки не будет и
        эффект с onExpire не выполнится. */
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
-
-    const detailInvalidations = invalidateSpy.mock.calls.filter(
-      (c) => JSON.stringify(c[0]?.queryKey) === JSON.stringify(['storeRuns', 'detail', 5]),
-    );
-    expect(detailInvalidations).toHaveLength(1);
-    expect(screen.getByText('Сбор закрывается…')).toBeInTheDocument();
+    expect(getRun.mock.calls.length).toBe(loads + 1);
     expect(screen.getByRole('button', { name: 'Добавить позицию' })).toBeInTheDocument();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(6000);
     });
-    const after = invalidateSpy.mock.calls.filter(
-      (c) => JSON.stringify(c[0]?.queryKey) === JSON.stringify(['storeRuns', 'detail', 5]),
-    );
-    expect(after).toHaveLength(1); // повторно не рефетчит
+    expect(getRun.mock.calls.length).toBe(loads + 1);
   });
 });

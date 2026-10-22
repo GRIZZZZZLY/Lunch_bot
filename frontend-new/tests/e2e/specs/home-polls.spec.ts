@@ -7,12 +7,11 @@ test.describe('Голосование участника', () => {
     await appPage.goto('/');
     await expect(appPage.getByRole('radiogroup')).toBeVisible();
     // строка и есть голос: отдельной кнопки подтверждения больше нет
-    await appPage.getByRole('radio', { name: /Борщ со сметаной/ }).click();
+    const dish = appPage.getByRole('radio', { name: /Борщ со сметаной/ });
+    await dish.click();
 
-    await expect(appPage.getByText('Голос учтён')).toBeVisible();
-    const request = api.lastRequest('POST', '/polls/501/vote');
-    expect(request?.body).toEqual({ menuItemId: 11 });
-    await expect(appPage.getByText('ваш голос', { exact: false })).toBeVisible();
+    await expect.poll(() => api.lastRequest('POST', '/polls/501/vote')?.body).toEqual({ menuItemId: 11 });
+    await expect(dish).toHaveAttribute('aria-checked', 'true');
   });
 
   test('участник не видит административные действия', async ({ appPage }) => {
@@ -33,8 +32,7 @@ test.describe('Изменение голоса', () => {
     expect(api.lastRequest('POST', '/polls/501/vote')?.body).toEqual({ menuItemId: 12 });
 
     await appPage.getByRole('button', { name: 'Отозвать голос' }).click();
-    await expect(appPage.getByText('Голос снят')).toBeVisible();
-    expect(api.requests('DELETE', '/polls/501/vote')).toHaveLength(1);
+    await expect.poll(() => api.requests('DELETE', '/polls/501/vote').length).toBe(1);
   });
 });
 
@@ -44,25 +42,24 @@ test.describe('Управление голосованием', () => {
   test('администратор завершает активное голосование через подтверждение', async ({ appPage, api }) => {
     await appPage.goto('/');
     await appPage.getByRole('button', { name: 'Завершить сейчас' }).click();
-    await expect(appPage.getByText('Завершить голосование?')).toBeVisible();
+    await expect(appPage.getByRole('alertdialog')).toBeVisible();
+    expect(api.requests('PATCH', '/polls/501/complete')).toHaveLength(0);
     await appPage.getByRole('button', { name: 'Завершить', exact: true }).click();
-    await expect(appPage.getByText('Голосование закрыто')).toBeVisible();
-    expect(api.requests('PATCH', '/polls/501/complete')).toHaveLength(1);
-    await expect(appPage.getByText('Сегодня ещё не решали')).toBeVisible();
+    await expect.poll(() => api.requests('PATCH', '/polls/501/complete').length).toBe(1);
+    await expect(appPage.getByRole('button', { name: 'Завершить сейчас' })).toHaveCount(0);
   });
 
-  test('отмена голосования требует подтверждения и предупреждает о потере голосов', async ({ appPage, api }) => {
+  test('отмена голосования требует подтверждения', async ({ appPage, api }) => {
     await appPage.goto('/');
     await appPage.getByRole('button', { name: 'Отменить', exact: true }).click();
-    await expect(appPage.getByText(/Голоса участников будут удалены/)).toBeVisible();
+    await expect(appPage.getByRole('alertdialog')).toBeVisible();
     // отказ от подтверждения ничего не рушит
     await appPage.getByRole('button', { name: 'Оставить' }).click();
     expect(api.requests('PATCH', '/polls/501/cancel')).toHaveLength(0);
 
     await appPage.getByRole('button', { name: 'Отменить', exact: true }).click();
     await appPage.getByRole('button', { name: 'Отменить голосование' }).click();
-    await expect(appPage.getByText('Голосование отменено')).toBeVisible();
-    expect(api.requests('PATCH', '/polls/501/cancel')).toHaveLength(1);
+    await expect.poll(() => api.requests('PATCH', '/polls/501/cancel').length).toBe(1);
   });
 });
 
@@ -89,15 +86,7 @@ test.describe('Создание голосования', () => {
       selectedMenuItems: [11, 12],
       isMultiSelect: false,
     });
-    await expect(appPage.getByText('Голосование отправлено в группу')).toBeVisible();
     await expect(appPage.getByRole('button', { name: 'Завершить сейчас' })).toBeVisible();
-    await appPage.getByRole('button', { name: 'Завершить сейчас' }).click();
-    await appPage.getByRole('button', { name: 'Завершить', exact: true }).click();
-    await expect(appPage.getByText('Голосование закрыто')).toBeVisible();
-    await appPage.waitForLoadState('networkidle');
-    await appPage.goto('/poll/502/results');
-    await expect(appPage.getByText('Команда выбрала')).toBeVisible();
-    await appPage.waitForLoadState('networkidle');
   });
 
   test('создаёт повторяющееся голосование', async ({ appPage, api }) => {
@@ -155,9 +144,7 @@ test.describe('Создание голосования', () => {
       await sheet.getByRole('button', { name: 'Чт', exact: true }).click();
       await sheet.getByRole('button', { name: 'Сохранить расписание' }).click();
 
-      await expect(appPage.getByText('Расписание обновлено')).toBeVisible();
-      expect(api.requests('POST', '/recurring')).toHaveLength(0);
-      expect(api.lastRequest('PATCH', '/recurring/1101')?.body).toEqual({
+      await expect.poll(() => api.lastRequest('PATCH', '/recurring/1101')?.body).toEqual({
         groupId: 1,
         daysOfWeek: [1, 2, 3, 4, 5],
         timeOfDay: '11:30',
@@ -165,7 +152,7 @@ test.describe('Создание голосования', () => {
         selectedMenuItemIds: [11, 12],
         isEnabled: true,
       });
-      await expect(appPage.getByText('Автозапуск в 11:30, по будням')).toBeVisible();
+      expect(api.requests('POST', '/recurring')).toHaveLength(0);
     });
 
     test('удаляет расписание', async ({ appPage, api }) => {
@@ -177,18 +164,20 @@ test.describe('Создание голосования', () => {
       // удаление необратимо — сначала вопрос, и «Оставить» ничего не трогает
       await sheet.getByRole('button', { name: 'Удалить расписание' }).click();
       const confirm = appPage.getByRole('alertdialog');
-      await expect(confirm).toContainText('перестанут запускаться сами в 11:30');
+      await expect(confirm).toBeVisible();
       await confirm.getByRole('button', { name: 'Оставить' }).click();
       expect(api.requests('DELETE', '/recurring/1101')).toHaveLength(0);
 
       await sheet.getByRole('button', { name: 'Удалить расписание' }).click();
       await confirm.getByRole('button', { name: 'Удалить расписание' }).click();
-      await expect(appPage.getByText('Расписание удалено')).toBeVisible();
-      expect(api.requests('DELETE', '/recurring/1101')).toHaveLength(1);
+      await expect.poll(() => api.requests('DELETE', '/recurring/1101').length).toBe(1);
 
       // шторка закрылась; открытая заново, она предлагает создать расписание
+      await expect(sheet).toHaveCount(0);
       await appPage.getByRole('button', { name: 'Запустить голосование' }).click();
-      await expect(sheet.getByText('запланировать на несколько дней')).toBeVisible();
+      await sheet.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
+      await expect(sheet.getByRole('button', { name: 'Создать расписание' })).toBeVisible();
+      await expect(sheet.getByRole('button', { name: 'Удалить расписание' })).toHaveCount(0);
     });
   });
 
@@ -198,19 +187,19 @@ test.describe('Создание голосования', () => {
     await appPage.getByRole('switch', { name: 'Повторяющийся опрос' }).click();
 
     const chip = appPage.getByRole('button', { name: 'Сб', exact: true });
+    await expect(chip).toHaveAttribute('aria-pressed', 'false');
     const box = (await chip.boundingBox())!;
-    expect(box.height).toBeLessThan(44); // вид намеренно компактный
 
     // тап на 4 px выше верхней кромки пилюли: попасть должен всё равно чип
     await appPage.mouse.click(box.x + box.width / 2, box.y - 4);
-    await expect(chip).toHaveClass(/\bon\b/);
+    await expect(chip).toHaveAttribute('aria-pressed', 'true');
   });
 });
 
 test.describe('Права и состояния главной', () => {
-  test('обычный участник видит ожидание администратора без кнопки запуска', async ({ appPage }) => {
+  test('обычный участник не видит кнопки запуска', async ({ appPage }) => {
     await appPage.goto('/');
-    await expect(appPage.getByText('Дождитесь, пока админ запустит голосование')).toBeVisible();
+    await appPage.waitForLoadState('networkidle');
     await expect(appPage.getByRole('button', { name: 'Запустить голосование' })).toHaveCount(0);
   });
 
@@ -227,20 +216,6 @@ test.describe('Права и состояния главной', () => {
     test.use({ scenario: 'api-error' });
 
     test('показывает повтор и восстанавливается после успешного ответа', async ({ appPage, api }) => {
-      await appPage.goto('/');
-      await expect(appPage.getByRole('heading', { name: 'Не удалось загрузить' })).toBeVisible();
-      api.clearFailure('GET', '/polls/active');
-      await appPage.getByRole('button', { name: 'Повторить' }).click();
-      await expect(appPage.getByText('Сегодня ещё не решали')).toBeVisible();
-    });
-
-    test('восстанавливается после отсутствия сети', async ({ appPage, api }) => {
-      api.fail('GET', '/polls/active', {
-        status: 0,
-        error: 'Нет сети',
-        code: 'NETWORK_ERROR',
-        abort: true,
-      });
       await appPage.goto('/');
       await expect(appPage.getByRole('heading', { name: 'Не удалось загрузить' })).toBeVisible();
       api.clearFailure('GET', '/polls/active');

@@ -163,8 +163,13 @@ test.describe('Два человека на настоящем сервере', 
 
   test('@integration долг: Анна отмечает оплату, Борис подтверждает', async ({ page, browser }) => {
     await page.goto('/budget');
+    /* Отметка оптимистичная: ждём ответа сервера, а не кнопки или тоста. */
+    const marked = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname.endsWith('/budget/mark-paid') && response.ok(),
+    );
     await page.getByRole('button', { name: /^Отметить/ }).click();
-    await expect(page.getByText('Отмечено как оплачено. Ждём подтверждения.')).toBeVisible();
+    await marked;
 
     const boris = await openAs(browser, BORIS);
     await openTeamA(boris);
@@ -192,8 +197,14 @@ test.describe('Два человека на настоящем сервере', 
     const boris = await openAs(browser, BORIS);
     await openTeamA(boris);
     await boris.goto('/');
+    const voted = boris.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        /\/polls\/\d+\/vote$/.test(new URL(response.url()).pathname) &&
+        response.ok(),
+    );
     await boris.getByRole('radio', { name: /Паста E2E/ }).click();
-    await expect(boris.getByText('Голос учтён')).toBeVisible();
+    await voted;
 
     /* Голос Анны — последний из ожидаемых: опрос закрывается сам. Анна
        видит победителя без перезагрузки — раньше строка победителя

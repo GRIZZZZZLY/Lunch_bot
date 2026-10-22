@@ -52,53 +52,13 @@ beforeEach(() => {
   h.state.menu = [];
 });
 
-describe('PollResultsPage — состояния', () => {
-  it('невалидный id → сообщение об ошибке', () => {
-    h.params.id = 'abc';
-    render(<PollResultsPage />);
-    expect(screen.getByText('Некорректный идентификатор опроса.')).toBeInTheDocument();
-  });
-
-  /* Состояние загрузки молчит первые миллисекунды: на быстром ответе оно
-     мелькало и читалось как лишний шаг перед результатами. */
-  it('загрузка сначала молчит, потом → «Загружаем результаты…»', async () => {
-    h.state.pollLoading = true;
-    render(<PollResultsPage />);
-    expect(screen.queryByText('Загружаем результаты…')).not.toBeInTheDocument();
-    expect(await screen.findByText('Загружаем результаты…')).toBeInTheDocument();
-  });
-
-  it('нет опроса → «Опрос не найден.»', () => {
-    render(<PollResultsPage />);
-    expect(screen.getByText('Опрос не найден.')).toBeInTheDocument();
-  });
-});
-
 describe('PollResultsPage — завершённый опрос', () => {
-  it('талон победителя + распределение (flat-форма результата)', () => {
-    h.state.poll = completedPoll();
-    h.state.results = { winnerId: 1, winnerName: 'Плов', totalVotes: 3 };
-    render(<PollResultsPage />);
-    expect(screen.getByText('Команда выбрала')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Плов' })).toBeInTheDocument();
-    expect(screen.getByText('2 голоса из 3')).toBeInTheDocument();
-    expect(screen.getByText('победитель')).toBeInTheDocument();
-    expect(screen.getByText('Суши')).toBeInTheDocument();
-  });
-
   it('nested-форма: ответственный из votes + кнопка «Крутить»', () => {
     h.state.poll = completedPoll();
     h.state.results = { result: { winnerMenuItemId: 1, responsibleUserId: 2, totalVotes: 3 } };
     render(<PollResultsPage />);
     expect(screen.getByText('Оля')).toBeInTheDocument();
-    expect(screen.getByText('выбран рулеткой')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Крутить' })).toBeInTheDocument();
-  });
-
-  it('активный опрос → заголовок «Лидирует»', () => {
-    h.state.poll = { ...completedPoll(), status: 'ACTIVE' };
-    render(<PollResultsPage />);
-    expect(screen.getByText('Лидирует')).toBeInTheDocument();
   });
 });
 

@@ -162,4 +162,12 @@ export const test = base.extend<TestFixtures>({
   ],
 });
 
+/* Уведомления в регионе «Уведомления». Текст не сверяем: формулировки — дело
+   словаря lib/apiError.ts и экрана. Тип (ошибка или успех) наружу не выставлен
+   ни ролью, ни атрибутом, поэтому проверяем сам факт уведомления. */
+export const toasts = (page: Page) =>
+  page
+    .getByRole('region', { name: 'Уведомления' })
+    .getByRole('button', { name: 'Закрыть уведомление' });
+
 export { expect } from '@playwright/test';

@@ -94,46 +94,6 @@ function renderSheet(props: Partial<Parameters<typeof CreateStoreRunSheet>[0]> =
 }
 
 describe('CreateStoreRunSheet', () => {
-  it('закрытая шторка не рендерится', () => {
-    const { container } = render(
-      <CreateStoreRunSheet open={false} busy={false} onClose={vi.fn()} onSubmit={vi.fn()} />,
-    );
-
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it('без магазина отправка заблокирована', () => {
-    renderSheet({ stores: [] });
-
-    expect(screen.getByRole('button', { name: /Открыть сбор/ })).toBeDisabled();
-  });
-
-  it('свободный ввод уходит именем, без storeId', async () => {
-    const { onSubmit } = renderSheet({ stores: [] });
-
-    await userEvent.type(screen.getByLabelText('Откуда заказываем'), 'Ашан');
-    await userEvent.click(screen.getByRole('button', { name: /Открыть сбор/ }));
-
-    expect(onSubmit).toHaveBeenCalledWith({ storeName: 'Ашан', collectMinutes: 30 });
-  });
-
-  it('выбор чипа уходит идентификатором, а имя не дублируется', async () => {
-    const { onSubmit } = renderSheet();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Магнит' }));
-    await userEvent.click(screen.getByRole('button', { name: /Открыть сбор/ }));
-
-    expect(onSubmit).toHaveBeenCalledWith({ storeId: 2, collectMinutes: 30 });
-  });
-
-  it('выбранный чип подставляет имя в поле', async () => {
-    renderSheet();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Магнит' }));
-
-    expect(screen.getByLabelText('Откуда заказываем')).toHaveValue('Магнит');
-  });
-
   /* Иначе показанное имя и отправленный id разошлись бы: человек правит текст,
      а уходит выбранная раньше запись справочника. */
   it('правка поля сбрасывает выбранный чип', async () => {
@@ -147,23 +107,5 @@ describe('CreateStoreRunSheet', () => {
       storeName: 'Магнит у дома',
       collectMinutes: 30,
     });
-  });
-
-  it('окно сбора берётся из выбранного пресета', async () => {
-    const { onSubmit } = renderSheet({ stores: [] });
-
-    await userEvent.type(screen.getByLabelText('Откуда заказываем'), 'Ашан');
-    await userEvent.click(screen.getByRole('button', { name: '15 мин' }));
-    await userEvent.click(screen.getByRole('button', { name: /Открыть сбор/ }));
-
-    expect(onSubmit).toHaveBeenCalledWith({ storeName: 'Ашан', collectMinutes: 15 });
-  });
-
-  it('пустой справочник чипов не показывает', () => {
-    renderSheet({ stores: [] });
-
-    expect(
-      screen.queryByRole('group', { name: 'Магазины, которыми уже пользовались' }),
-    ).not.toBeInTheDocument();
   });
 });

@@ -62,13 +62,21 @@ describe('useCountdown', () => {
     expect(result.current.totalSeconds).toBe(300);
   });
 
-  it('cleanup: интервал и listener снимаются при unmount', () => {
-    const removeSpy = vi.spyOn(document, 'removeEventListener');
-    const { unmount } = renderHook(() => useCountdown(T0 + 60_000));
+  it('после unmount таймеров нет, возврат во вкладку ничего не пересчитывает', () => {
+    let renders = 0;
+    const { unmount } = renderHook(() => {
+      renders += 1;
+      return useCountdown(T0 + 60_000);
+    });
     unmount();
-    expect(removeSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
     expect(vi.getTimerCount()).toBe(0);
-    removeSpy.mockRestore();
+
+    const rendersAtUnmount = renders;
+    expect(() => {
+      vi.setSystemTime(T0 + 30_000);
+      document.dispatchEvent(new Event('visibilitychange'));
+    }).not.toThrow();
+    expect(renders).toBe(rendersAtUnmount);
   });
 
   it('null/некорректный target — ноль без таймеров', () => {

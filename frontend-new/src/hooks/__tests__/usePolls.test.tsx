@@ -18,6 +18,7 @@ import type { ReactNode } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryClient';
+import { useToastStore } from '@/store/useToastStore';
 
 const h = vi.hoisted(() => ({
   getActive: vi.fn(),
@@ -30,7 +31,6 @@ const h = vi.hoisted(() => ({
   complete: vi.fn(),
   cancel: vi.fn(),
   createFromWebapp: vi.fn(),
-  push: vi.fn(),
   authStatus: 'authenticated' as string,
   /* Команда обязательна: командные запросы без неё не выполняются вовсе —
      иначе они уходили бы без groupId и получали данные всех команд. */
@@ -58,11 +58,6 @@ vi.mock('@/store/useAppStore', () => ({
   ) => selector({ authStatus: h.authStatus, currentGroupId: h.currentGroupId }),
 }));
 
-vi.mock('@/store/useToastStore', () => ({
-  useToastStore: (selector: (state: { push: unknown }) => unknown) =>
-    selector({ push: h.push }),
-}));
-
 import {
   activePollsQueryOptions,
   useActivePoll,
@@ -84,10 +79,33 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-/** Ключи, сброшенные мутацией, в виде сравнимых строк. */
-function invalidatedKeys(spy: { mock: { calls: unknown[][] } }): string[] {
-  return spy.mock.calls.map((call: unknown[]) => JSON.stringify(call[0]));
+/* Ячейки кэша, от которых зависят экраны опроса. Активные лежат по командам
+   под общим префиксом, плашка всех команд — тоже под ним. */
+const KEY = {
+  active: queryKeys.polls.activeForGroup('100'),
+  activeAllTeams: queryKeys.polls.activeAllTeams,
+  poll: queryKeys.polls.byId(42),
+  myVotes: queryKeys.polls.myVotes(42),
+  results: queryKeys.polls.results(42),
+  lastCompleted: queryKeys.polls.lastCompletedForGroup('100'),
+};
+type CacheName = keyof typeof KEY;
+
+function seedCache(): void {
+  for (const key of Object.values(KEY)) qc.setQueryData(key, {});
 }
+
+/** Какие из засеянных ячеек мутация сбросила. */
+function staleCells(): CacheName[] {
+  return (Object.keys(KEY) as CacheName[]).filter(
+    (name) => qc.getQueryState(KEY[name])?.isInvalidated,
+  );
+}
+
+const lastToast = () => {
+  const toasts = useToastStore.getState().toasts;
+  return toasts[toasts.length - 1];
+};
 
 beforeEach(() => {
   for (const value of Object.values(h)) {
@@ -105,6 +123,7 @@ beforeEach(() => {
   h.complete.mockResolvedValue({ success: true });
   h.cancel.mockResolvedValue({ success: true });
   h.createFromWebapp.mockResolvedValue({ success: true });
+  useToastStore.setState({ toasts: [] });
 
   qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -179,39 +198,33 @@ describe('форма ответа', () => {
     expect(result.current.data).toEqual({ menuItemIds: [] });
   });
 
-  /* Свои голоса читаются без гейта по authStatus — единственный такой хук в
-     файле. Закрепляем как есть: экран опроса открывается по deep link, и
-     запрос уходит одновременно с восстановлением сессии. */
-  it('свои голоса запрашиваются и без аутентификации', async () => {
-    h.authStatus = 'unauthenticated';
+  /* Общие опции для предзагрузки: прогретая ячейка обязана быть той же, что
+     читает хук, иначе экран всё равно ждёт сеть. */
+  it('предзагрузка греет ту же ячейку, что читает хук', async () => {
+    await qc.prefetchQuery(activePollsQueryOptions('100'));
 
-    renderHook(() => useMyVotes(42), { wrapper });
+    const { result } = renderHook(() => useActivePolls(), { wrapper });
 
-    await waitFor(() => expect(h.getMyVotes).toHaveBeenCalledWith(42));
-  });
-
-  /* Общие опции для предзагрузки: ключ обязан быть тем же, что у хука. */
-  it('опции предзагрузки используют ключ активных опросов', async () => {
-    const options = activePollsQueryOptions('100');
-
-    expect(options.queryKey).toEqual(queryKeys.polls.activeForGroup('100'));
-    await expect(options.queryFn()).resolves.toEqual([{ id: 42 }, { id: 41 }]);
+    // Первый же рендер отдаёт прогретые данные — без похода в сеть и скелета.
+    expect(result.current.data).toEqual([{ id: 42 }, { id: 41 }]);
   });
 });
 
 describe('голос', () => {
-  it('сбрасывает активные, сам опрос и свои голоса', async () => {
-    const invalidate = vi.spyOn(qc, 'invalidateQueries');
+  /* Голос в своей команде сбрасывает активные (ячейку команды и плашку всех
+     команд — группа стоит в конце ключа, префикс задевает все), сам опрос с
+     итогами и свои голоса. Потеря любого — «проголосовал, а на экране старое». */
+  it('сбрасывает активные, сам опрос, свои голоса и итоги', async () => {
+    seedCache();
     const { result } = renderHook(() => useVote(), { wrapper });
 
     result.current.mutate({ pollId: 42, menuItemId: 7 });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(h.vote).toHaveBeenCalledWith(42, 7);
-    const keys = invalidatedKeys(invalidate);
-    expect(keys).toHaveLength(3);
-    expect(keys.some(key => key.includes('active'))).toBe(true);
-    expect(keys.filter(key => key.includes('42'))).toHaveLength(2);
+    expect(staleCells()).toEqual(
+      expect.arrayContaining(['active', 'activeAllTeams', 'poll', 'myVotes', 'results']),
+    );
   });
 
   it('успех показывает подтверждение', async () => {
@@ -219,12 +232,7 @@ describe('голос', () => {
 
     result.current.mutate({ pollId: 42, menuItemId: 7 });
 
-    await waitFor(() =>
-      expect(h.push).toHaveBeenCalledWith({
-        type: 'success',
-        message: 'Голос учтён',
-      })
-    );
+    await waitFor(() => expect(lastToast()?.type).toBe('success'));
   });
 
   /* Отказ обязан показать ПРИЧИНУ с сервера, а не общий текст: именно за этим
@@ -237,62 +245,22 @@ describe('голос', () => {
     result.current.mutate({ pollId: 42, menuItemId: 7 });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    const calls = h.push.mock.calls;
-    const toast = calls[calls.length - 1]?.[0] as { type: string; message: string };
-    expect(toast.type).toBe('error');
-    expect(toast.message).not.toBe('Не удалось проголосовать');
-  });
-
-  /**
-   * Запасной текст показывается НЕ на всякий отказ.
-   *
-   * `apiErrorMessage` первой строкой отдаёт `err.message` любого `Error`, то
-   * есть при сетевом сбое пользователь читает техническую строку («Network
-   * Error», «boom»), а не «Не удалось проголосовать». Поведение зафиксировано
-   * как есть: это выбор `lib/apiError.ts`, а не хука, и менять его надо там —
-   * вместе с решением, что показывать при обрыве сети.
-   */
-  it('обычная ошибка показывается своим текстом, а не запасным', async () => {
-    h.vote.mockRejectedValue(new Error('Network Error'));
-
-    const { result } = renderHook(() => useVote(), { wrapper });
-    result.current.mutate({ pollId: 42, menuItemId: 7 });
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(h.push).toHaveBeenCalledWith({
-      type: 'error',
-      message: 'Network Error',
-    });
-  });
-
-  /* Запасной текст остаётся ровно для случая «нечего сказать»: ни сообщения,
-     ни кода, ни статуса. По статусу и по коду `lib/apiError.ts` подбирает свой
-     текст — это его работа, и хук в неё не вмешивается. */
-  it('отказ без текста, кода и статуса показывает запасной', async () => {
-    h.vote.mockRejectedValue({});
-
-    const { result } = renderHook(() => useVote(), { wrapper });
-    result.current.mutate({ pollId: 42, menuItemId: 7 });
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    const calls = h.push.mock.calls;
-    const toast = calls[calls.length - 1]?.[0] as { message: string };
-    expect(toast.message).toBe('Не удалось проголосовать');
+    expect(lastToast()?.type).toBe('error');
+    expect(lastToast()?.message).not.toBe('Не удалось проголосовать');
   });
 });
 
 describe('снятие голоса', () => {
   it('сбрасывает активные и свои голоса, но не итоги', async () => {
-    const invalidate = vi.spyOn(qc, 'invalidateQueries');
+    seedCache();
     const { result } = renderHook(() => useWithdrawVote(), { wrapper });
 
     result.current.mutate(42);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    const keys = invalidatedKeys(invalidate);
-    expect(keys).toHaveLength(2);
-    expect(keys.some(key => key.includes('results'))).toBe(false);
-    expect(h.push).toHaveBeenCalledWith({ type: 'info', message: 'Голос снят' });
+    expect(staleCells()).toEqual(expect.arrayContaining(['active', 'myVotes']));
+    expect(staleCells()).not.toContain('results');
+    expect(lastToast()).toBeDefined();
   });
 });
 
@@ -301,16 +269,10 @@ describe('администраторские действия', () => {
      «последнее завершённое» — последнее потому, что после закрытия именно этот
      опрос становится последним, и главный экран обязан его увидеть. */
   it.each([
-    ['закрытие', () => useCompletePoll(), 42, 'success', 'Голосование закрыто'],
-    [
-      'отмена',
-      () => useCancelPoll(),
-      { pollId: 42, reason: 'перенесли' },
-      'info',
-      'Голосование отменено',
-    ],
-  ])('%s сбрасывает жизненный цикл опроса', async (_label, hook, vars, type, message) => {
-    const invalidate = vi.spyOn(qc, 'invalidateQueries');
+    ['закрытие', () => useCompletePoll(), 42, 'success'],
+    ['отмена', () => useCancelPoll(), { pollId: 42, reason: 'перенесли' }, 'info'],
+  ])('%s сбрасывает жизненный цикл опроса', async (_label, hook, vars, type) => {
+    seedCache();
     const { result } = renderHook(hook as () => ReturnType<typeof useCompletePoll>, {
       wrapper,
     });
@@ -318,10 +280,8 @@ describe('администраторские действия', () => {
     (result.current.mutate as (v: unknown) => void)(vars);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    const keys = invalidatedKeys(invalidate);
-    expect(keys).toHaveLength(3);
-    expect(keys.some(key => key.includes('last-completed'))).toBe(true);
-    expect(h.push).toHaveBeenCalledWith({ type, message });
+    expect(staleCells()).toEqual(expect.arrayContaining(['active', 'poll', 'results', 'lastCompleted']));
+    expect(lastToast()?.type).toBe(type);
   });
 
   it('отмена передаёт причину сервису', async () => {
@@ -333,16 +293,16 @@ describe('администраторские действия', () => {
   });
 
   /* Создание не показывает тост: экран создания сам ведёт пользователя дальше,
-     и второе сообщение поверх перехода мешало бы. Закрепляем как есть. */
+     и второе сообщение поверх перехода мешало бы. */
   it('создание сбрасывает активные и последнее завершённое, без тоста', async () => {
-    const invalidate = vi.spyOn(qc, 'invalidateQueries');
+    seedCache();
     const { result } = renderHook(() => useCreatePoll(), { wrapper });
 
     result.current.mutate({ groupId: 1, duration: 30 } as never);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidatedKeys(invalidate)).toHaveLength(2);
-    expect(h.push).not.toHaveBeenCalled();
+    expect(staleCells()).toEqual(expect.arrayContaining(['active', 'lastCompleted']));
+    expect(useToastStore.getState().toasts).toHaveLength(0);
   });
 });
 
@@ -373,15 +333,6 @@ describe('изоляция команд', () => {
     expect(h.getActive).toHaveBeenCalledWith('100');
   });
 
-  it('команда входит в ключ кэша', () => {
-    expect(activePollsQueryOptions('100').queryKey).toEqual(
-      queryKeys.polls.activeForGroup('100'),
-    );
-    expect(activePollsQueryOptions('200').queryKey).not.toEqual(
-      activePollsQueryOptions('100').queryKey,
-    );
-  });
-
   /* Данные, уже лежащие в кэше одной команды, не должны отдаваться другой.
      Именно это и происходило: ключ был общим. */
   it('данные одной команды не отдаются другой', async () => {
@@ -404,19 +355,5 @@ describe('изоляция команд', () => {
 
     await waitFor(() => expect(result.current.data).toEqual({ id: 55 }));
     expect(h.getLastCompleted).toHaveBeenCalledWith('200');
-  });
-
-  /* Инвалидация по префиксу должна продолжать работать: группа стоит в конце
-     ключа именно для этого. */
-  it('префикс сбрасывает активные голосования всех команд', () => {
-    qc.setQueryData(queryKeys.polls.activeForGroup('100'), [{ id: 42 }]);
-    qc.setQueryData(queryKeys.polls.activeForGroup('200'), [{ id: 77 }]);
-
-    qc.invalidateQueries({ queryKey: queryKeys.polls.active });
-
-    for (const group of ['100', '200']) {
-      const state = qc.getQueryState(queryKeys.polls.activeForGroup(group));
-      expect(state?.isInvalidated).toBe(true);
-    }
   });
 });

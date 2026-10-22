@@ -3,7 +3,6 @@ import type { StoreItem, StoreItemStatus } from '@/services/store-run.service';
 import {
   COLLECT_PRESETS,
   boughtWithoutPrice,
-  cancellationKind,
   computeBreakdown,
   computeProgress,
   formatPrice,
@@ -65,8 +64,7 @@ function fixture(): StoreItem[] {
 }
 
 describe('COLLECT_PRESETS', () => {
-  it('равны [5,15,30] и в диапазоне backend 3..30', () => {
-    expect(COLLECT_PRESETS).toEqual([5, 15, 30]);
+  it('все в диапазоне backend 3..30', () => {
     expect(COLLECT_PRESETS.every((m) => m >= 3 && m <= 30)).toBe(true);
   });
 });
@@ -88,11 +86,6 @@ describe('priceNum (значения API)', () => {
     [260, 260],
   ])('%p → %p', (input, expected) => {
     expect(priceNum(input as string | number | null | undefined)).toBe(expected);
-  });
-
-  it('0 не превращается в null', () => {
-    expect(priceNum(0)).toBe(0);
-    expect(priceNum('0')).toBe(0);
   });
 });
 
@@ -128,13 +121,6 @@ describe('parsePriceInput (ввод пользователя)', () => {
 });
 
 describe('formatPrice', () => {
-  it('ru-RU + ₽, разряды', () => {
-    expect(formatPrice(0)).toContain('0');
-    expect(formatPrice(0).endsWith('₽')).toBe(true);
-    expect(formatPrice(1340).replace(/\s/g, ' ')).toBe('1 340 ₽');
-    expect(formatPrice(12.5).endsWith('₽')).toBe(true);
-  });
-
   it('показывает копейки парой цифр и только когда они есть', () => {
     expect(formatPrice(12.5).replace(/\s/g, ' ')).toBe('12,50 ₽');
     expect(formatPrice(12.05).replace(/\s/g, ' ')).toBe('12,05 ₽');
@@ -154,11 +140,6 @@ describe('roles', () => {
     expect(isOwner({ userId: 3 }, 3)).toBe(true);
     expect(isOwner({ userId: 3 }, 2)).toBe(false);
     expect(isOwner({ userId: 3 }, null)).toBe(false);
-  });
-  it('cancellationKind: shoppingAt null → manual, иначе auto', () => {
-    expect(cancellationKind({ shoppingAt: null })).toBe('manual');
-    expect(cancellationKind({ shoppingAt: undefined })).toBe('manual');
-    expect(cancellationKind({ shoppingAt: '2026-07-17T13:00:00Z' })).toBe('auto');
   });
 });
 

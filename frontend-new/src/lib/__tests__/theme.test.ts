@@ -73,16 +73,6 @@ describe('initThemeSync / applyThemeNow', () => {
     document.documentElement.classList.remove('dark');
   });
 
-  it('регистрирует ровно одну подписку на themeChanged и одну на matchMedia', () => {
-    const { wa, handlers } = fakeWebApp('dark');
-    const cleanup = initThemeSync(wa);
-    expect(handlers.get('themeChanged')?.size).toBe(1);
-    expect(mm.listeners.size).toBe(1);
-    cleanup();
-    expect(handlers.get('themeChanged')?.size).toBe(0);
-    expect(mm.listeners.size).toBe(0);
-  });
-
   it('смена темы Telegram применяется к <html>', () => {
     const fake = fakeWebApp('dark');
     window.Telegram = { WebApp: fake.wa };
@@ -112,7 +102,7 @@ describe('initThemeSync / applyThemeNow', () => {
     cleanup();
   });
 
-  it('после cleanup события больше не применяют тему', () => {
+  it('после cleanup события Telegram больше не применяют тему', () => {
     const fake = fakeWebApp('dark');
     window.Telegram = { WebApp: fake.wa };
     const cleanup = initThemeSync(fake.wa);
@@ -122,5 +112,16 @@ describe('initThemeSync / applyThemeNow', () => {
     fake.setScheme('light');
     fake.handlers.get('themeChanged')?.forEach((fn) => fn());
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+  });
+
+  it('после cleanup смена системной схемы больше не применяет тему', () => {
+    const cleanup = initThemeSync(null);
+    applyThemeNow();
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    cleanup();
+
+    (mm.mql as { matches: boolean }).matches = true;
+    mm.listeners.forEach((fn) => fn());
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
 });

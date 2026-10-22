@@ -2,31 +2,30 @@ import { describe, expect, it } from 'vitest';
 import { apiErrorMessage } from '../apiError';
 
 const FALLBACK = 'Не удалось создать закупку';
+const CYRILLIC = /[А-Яа-яЁё]/;
 
 describe('apiErrorMessage', () => {
-  it('переводит код бэкенда в понятную причину', () => {
-    expect(apiErrorMessage({ code: 'ACTIVE_RUN_EXISTS', error: 'You already have an active store run' }, FALLBACK)).toBe(
-      'У вас уже есть активная закупка.',
-    );
-    expect(apiErrorMessage({ code: 'POLL_ALREADY_ACTIVE' }, 'Не удалось создать опрос')).toBe(
-      'В этой группе уже идёт голосование.',
-    );
-  });
+  /* Тексты словаря не сверяются: проверяется, что код распознан (причина
+     своя, а не запасная), понятна по-русски и английский текст сервера не
+     просочился. */
+  it.each([
+    'ACTIVE_RUN_EXISTS',
+    'POLL_ALREADY_ACTIVE',
+    'NOT_ENOUGH_ITEMS',
+    'GROUP_NOT_FOUND',
+    'INVALID_DURATION',
+    'BOT_NOT_AVAILABLE',
+    // Из класса AuthorizationError через error-handler — не литерал, легко потерять.
+    'AUTHORIZATION_ERROR',
+    'INVALID_QUERY',
+    // Лимитер без серверного текста всё равно объясняется словарём.
+    'POLL_CREATION_LIMIT',
+  ])('код %s получает свою причину, а не запасной текст', code => {
+    const message = apiErrorMessage({ code, error: 'Something failed' }, FALLBACK);
 
-  it('знает коды создания опроса из webapp', () => {
-    const fallback = 'Не удалось создать опрос';
-    expect(apiErrorMessage({ code: 'NOT_ENOUGH_ITEMS' }, fallback)).toBe(
-      'Для голосования нужно минимум два активных блюда в меню.',
-    );
-    expect(apiErrorMessage({ code: 'GROUP_NOT_FOUND' }, fallback)).toBe(
-      'Группа не найдена — проверьте, что бот ещё в чате.',
-    );
-    expect(apiErrorMessage({ code: 'INVALID_DURATION' }, fallback)).toBe(
-      'Недопустимая длительность голосования.',
-    );
-    expect(apiErrorMessage({ code: 'BOT_NOT_AVAILABLE' }, fallback)).toBe(
-      'Бот сейчас недоступен. Попробуйте через минуту.',
-    );
+    expect(message).not.toBe(FALLBACK);
+    expect(message).toMatch(CYRILLIC);
+    expect(message).not.toContain('Something');
   });
 
   it('не показывает английский текст с сервера', () => {
@@ -40,15 +39,18 @@ describe('apiErrorMessage', () => {
     ).toBe('Заголовок Idempotency-Key обязателен.');
   });
 
-  it('падает на статус, когда кода нет', () => {
-    expect(apiErrorMessage({ status: 403 }, FALLBACK)).toBe('Недостаточно прав для этого действия.');
-    expect(apiErrorMessage({ status: 429 }, FALLBACK)).toBe('Слишком много запросов. Подождите немного.');
+  it.each([403, 429])('статус %s без кода объясняется, а не запасным текстом', status => {
+    const message = apiErrorMessage({ status }, FALLBACK);
+
+    expect(message).not.toBe(FALLBACK);
+    expect(message).toMatch(CYRILLIC);
   });
 
-  it('разбирает голый axios-error', () => {
-    expect(apiErrorMessage({ response: { data: { code: 'FORBIDDEN' } } }, FALLBACK)).toBe(
-      'Недостаточно прав для этого действия.',
-    );
+  it('голый axios-error разбирается так же, как тело ответа', () => {
+    const message = apiErrorMessage({ response: { data: { code: 'FORBIDDEN' } } }, FALLBACK);
+
+    expect(message).not.toBe(FALLBACK);
+    expect(message).toBe(apiErrorMessage({ code: 'FORBIDDEN' }, FALLBACK));
   });
 
   it('Error отдаёт своё сообщение, мусор — запасной текст', () => {
@@ -84,30 +86,11 @@ describe('словарь кодов после задачи 03', () => {
     ).toBe('Достигнут лимит. Подождите час.');
   });
 
-  it('без серверного текста лимитер всё равно объясняется словарём', () => {
-    expect(apiErrorMessage({ code: 'POLL_CREATION_LIMIT' }, FALLBACK)).toContain(
-      'голосован'
-    );
-  });
-
   /* Приходит из union-типа StoreRunError, а не литералом — однажды остался без
      текста именно потому, что его не нашли поиском. */
   it('INVALID_INPUT из StoreRunError имеет текст', () => {
     expect(apiErrorMessage({ code: 'INVALID_INPUT' }, FALLBACK)).not.toBe(
       FALLBACK
-    );
-  });
-
-  /* Приходит из класса AuthorizationError через error-handler — тоже не литерал. */
-  it('AUTHORIZATION_ERROR из cors имеет текст', () => {
-    expect(apiErrorMessage({ code: 'AUTHORIZATION_ERROR' }, FALLBACK)).toBe(
-      'Недостаточно прав для этого действия.'
-    );
-  });
-
-  it('поиск от двух символов объясняется по делу, а не «ошибка приложения»', () => {
-    expect(apiErrorMessage({ code: 'INVALID_QUERY' }, FALLBACK)).toContain(
-      '2 символа'
     );
   });
 

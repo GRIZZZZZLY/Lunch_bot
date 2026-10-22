@@ -7,10 +7,14 @@ import { ROOT_TABS } from '@/app/navigation';
 
 describe('activeIndex', () => {
   it('находит вкладку по точному пути', () => {
-    expect(activeIndex(ROOT_TABS, '/')).toBe(0);
-    expect(activeIndex(ROOT_TABS, '/menu')).toBe(1);
-    expect(activeIndex(ROOT_TABS, '/stats')).toBe(2);
-    expect(activeIndex(ROOT_TABS, '/profile')).toBe(3);
+    const tabs = [
+      { to: '/', label: 'Главная', icon: 'home' as const, end: true },
+      { to: '/menu', label: 'Меню', icon: 'menu' as const },
+      { to: '/profile', label: 'Профиль', icon: 'user' as const },
+    ];
+    expect(activeIndex(tabs, '/')).toBe(0);
+    expect(activeIndex(tabs, '/menu')).toBe(1);
+    expect(activeIndex(tabs, '/profile')).toBe(2);
   });
 
   it('у Главной end: вложенные пути ей не принадлежат', () => {

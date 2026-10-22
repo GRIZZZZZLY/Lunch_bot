@@ -12,95 +12,69 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('useDelayedLoading', () => {
-  it('молчит в первые миллисекунды загрузки', () => {
-    const { result } = renderHook(() => useDelayedLoading(true));
-    expect(result.current).toBe(false);
+/* Границы передаются явно и отличаются от значений по умолчанию: тест держит
+   поведение, а не сами числа. */
+const DELAY = 100;
+const MIN = 200;
 
-    act(() => {
-      vi.advanceTimersByTime(179);
-    });
-    expect(result.current).toBe(false);
+function mount() {
+  return renderHook(({ loading }) => useDelayedLoading(loading, DELAY, MIN), {
+    initialProps: { loading: true },
   });
+}
 
-  it('показывает скелет, когда ожидание оказалось настоящим', () => {
-    const { result } = renderHook(() => useDelayedLoading(true));
-    act(() => {
-      vi.advanceTimersByTime(180);
-    });
-    expect(result.current).toBe(true);
+describe('useDelayedLoading', () => {
+  /* Загрузка стартует в 0, заканчивается в endAt (Infinity — ещё идёт),
+     скелет проверяется в checkAt. */
+  it.each([
+    ['до задержки скелета нет', Infinity, DELAY - 1, false],
+    ['ожидание оказалось настоящим — скелет появляется', Infinity, DELAY, true],
+    ['ответ пришёл после появления — скелет держит минимум', DELAY + 20, DELAY + MIN - 1, true],
+    ['минимум отсчитан от появления скелета, а не от ответа', DELAY + 20, DELAY + MIN, false],
+  ])('%s', (_name, endAt, checkAt, expected) => {
+    const { result, rerender } = mount();
+
+    if (endAt <= checkAt) {
+      act(() => {
+        vi.advanceTimersByTime(endAt);
+      });
+      rerender({ loading: false });
+      act(() => {
+        vi.advanceTimersByTime(checkAt - endAt);
+      });
+    } else {
+      act(() => {
+        vi.advanceTimersByTime(checkAt);
+      });
+    }
+
+    expect(result.current).toBe(expected);
   });
 
   it('быстрый ответ не показывает скелет вообще', () => {
-    const { result, rerender } = renderHook(({ loading }) => useDelayedLoading(loading), {
-      initialProps: { loading: true },
-    });
+    const { result, rerender } = mount();
 
     act(() => {
-      vi.advanceTimersByTime(120);
+      vi.advanceTimersByTime(DELAY / 2);
     });
     rerender({ loading: false });
 
     act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(result.current).toBe(false);
-  });
-
-  it('появившийся скелет не гаснет мгновенно: держит минимум', () => {
-    const { result, rerender } = renderHook(({ loading }) => useDelayedLoading(loading), {
-      initialProps: { loading: true },
-    });
-
-    act(() => {
-      vi.advanceTimersByTime(200);
-    });
-    expect(result.current).toBe(true);
-
-    // Данные пришли через 20ms после появления скелета — значит из минимума
-    // остаётся 240ms, и они отсчитываются от появления, а не от этого момента.
-    act(() => {
-      vi.advanceTimersByTime(20);
-    });
-    rerender({ loading: false });
-    expect(result.current).toBe(true);
-
-    act(() => {
-      vi.advanceTimersByTime(219);
-    });
-    expect(result.current).toBe(true);
-
-    act(() => {
-      vi.advanceTimersByTime(1);
+      vi.advanceTimersByTime(DELAY + MIN);
     });
     expect(result.current).toBe(false);
   });
 
   it('долгая загрузка не продлевает минимум задним числом', () => {
-    const { result, rerender } = renderHook(({ loading }) => useDelayedLoading(loading), {
-      initialProps: { loading: true },
-    });
+    const { result, rerender } = mount();
 
     act(() => {
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(DELAY + MIN * 10);
     });
     expect(result.current).toBe(true);
 
     // Минимум давно истёк — контент показываем сразу.
     rerender({ loading: false });
     expect(result.current).toBe(false);
-  });
-
-  it('границы настраиваются', () => {
-    const { result } = renderHook(() => useDelayedLoading(true, 500, 100));
-    act(() => {
-      vi.advanceTimersByTime(499);
-    });
-    expect(result.current).toBe(false);
-
-    act(() => {
-      vi.advanceTimersByTime(1);
-    });
-    expect(result.current).toBe(true);
   });
 });

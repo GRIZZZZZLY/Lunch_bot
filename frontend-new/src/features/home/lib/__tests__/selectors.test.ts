@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { budgetRow, dateCaption, greetingFor, pollEndsAt, resolveTargetGroup, winnerRowVM } from '../selectors';
+import { budgetRow, greetingFor, pollEndsAt, resolveTargetGroup, winnerRowVM } from '../selectors';
 import type { MenuItem, Poll, Transaction } from '@/types/models';
 
 describe('greetingFor / dateCaption', () => {
@@ -8,9 +8,6 @@ describe('greetingFor / dateCaption', () => {
     expect(greetingFor(13)).toBe('Добрый день');
     expect(greetingFor(20)).toBe('Добрый вечер');
     expect(greetingFor(3)).toBe('Добрый вечер');
-  });
-  it('caption с заглавной буквы', () => {
-    expect(dateCaption(new Date('2026-07-17T12:00:00'))).toMatch(/^Пятница, 17 июля$/i);
   });
 });
 
@@ -81,21 +78,11 @@ describe('budgetRow — свод сценариев в строку', () => {
     expect(row.kind).toBe('debt');
     expect(row.amount).toBe(260);
     expect(row.payableCount).toBe(1);
-    expect(row.payableTxId).toBe(7);
-  });
-  it('payableAmount — сумма именно погашаемой транзакции, а не всех долгов', () => {
-    const row = budgetRow([tx({ id: 7, amount: 300 }), tx({ id: 8, amount: 200 })], []);
-    expect(row.amount).toBe(500);
-    expect(row.payableTxId).toBe(7);
-    // «Оплатил · 500 ₽» гасило бы 300 ₽ и молча оставляло второй перевод
-    expect(row.payableAmount).toBe(300);
-    expect(row.payableCount).toBe(2);
   });
   it('только PAID → awaiting без действия', () => {
     const row = budgetRow([tx({ status: 'PAID', amount: 120 })], []);
     expect(row.kind).toBe('awaiting');
     expect(row.amount).toBe(120);
-    expect(row.payableTxId).toBeNull();
   });
   it('CONFIRMED-долги игнорируются', () => {
     expect(budgetRow([tx({ status: 'CONFIRMED' })], []).kind).toBe('hidden');

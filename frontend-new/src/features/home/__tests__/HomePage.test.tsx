@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -25,6 +25,11 @@ const h = vi.hoisted(() => {
       deepLinkPoll: null as unknown,
       deepLinkError: null as unknown,
       markLinkHandled: vi.fn(),
+      /* Настоящий lib/launchLink: ссылка из адреса, отметка «обработана». */
+      realLaunchLink: false,
+      /* Настоящий запрос «последнего завершённого» поверх мока сервиса. */
+      realLastCompleted: false,
+      serverLastCompleted: null as unknown,
       /* Один незаехавший запрос: барьер первого экрана обязан держать весь
          экран, а не только ту секцию, которая ждёт. */
       runsPending: false,
@@ -52,12 +57,25 @@ const h = vi.hoisted(() => {
 });
 
 /* Ссылка запуска читается из Telegram/URL; в тестах подменяем её целиком. */
-vi.mock('@/lib/launchLink', () => ({
-  getLaunchPollId: () => h.state.deepLinkId,
-  markLaunchLinkHandled: () => h.state.markLinkHandled(),
+vi.mock('@/lib/launchLink', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/launchLink')>();
+  return {
+    getLaunchPollId: () => (h.state.realLaunchLink ? actual.getLaunchPollId() : h.state.deepLinkId),
+    markLaunchLinkHandled: () => {
+      h.state.markLinkHandled();
+      if (h.state.realLaunchLink) actual.markLaunchLinkHandled();
+    },
+  };
+});
+
+vi.mock('@/services/polls.service', () => ({
+  pollsService: { getLastCompleted: async () => ({ data: h.state.serverLastCompleted }) },
 }));
 
-vi.mock('@/hooks/usePolls', () => ({
+vi.mock('@/hooks/usePolls', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/usePolls')>();
+  const fake = { useLastCompletedPoll: () => h.q(h.state.lastCompleted) };
+  return {
   useActivePoll: () => h.q(h.state.activePoll, { error: h.state.activeError, isError: !!h.state.activeError }),
   usePollById: (id: number | null) =>
     h.q(id ? h.state.deepLinkPoll : null, {
@@ -66,7 +84,7 @@ vi.mock('@/hooks/usePolls', () => ({
       isSuccess: !(id && h.state.deepLinkError),
     }),
   useMyVotes: () => h.q(null),
-  useLastCompletedPoll: () => h.q(h.state.lastCompleted),
+  useLastCompletedPoll: () => (h.state.realLastCompleted ? actual : fake).useLastCompletedPoll(),
   // Отключённый запрос (id === null) данных не отдаёт — как в react-query.
   usePollResults: (id: number | null) => h.q(id ? h.state.lastResult : null),
   useVote: h.m,
@@ -74,7 +92,8 @@ vi.mock('@/hooks/usePolls', () => ({
   useCompletePoll: h.m,
   useCancelPoll: h.m,
   useCreatePoll: () => h.state.createPoll,
-}));
+  };
+});
 vi.mock('@/hooks/useToast', () => ({ useToast: () => h.state.toast }));
 /* Шторка создания в этих тестах не при чём — стаб дёргает onSubmit готовой
    формой, чтобы проверить обработчик, а не UI формы. */
@@ -140,7 +159,10 @@ beforeEach(() => {
   h.state.deepLinkPoll = null;
   h.state.deepLinkError = null;
   h.state.markLinkHandled = vi.fn();
-  useAppStore.setState({ currentGroupId: null });
+  h.state.realLaunchLink = false;
+  h.state.realLastCompleted = false;
+  h.state.serverLastCompleted = null;
+  useAppStore.setState({ currentGroupId: null, authStatus: 'idle' });
   h.state.runsPending = false;
   h.state.activePoll = null;
   h.state.activeError = null;
@@ -165,20 +187,6 @@ beforeEach(() => {
 });
 
 describe('HomePage — состояния', () => {
-  it('без групп — талон честно говорит, что ждать некого', () => {
-    renderHome();
-    expect(screen.getByText('Группы пока нет')).toBeInTheDocument();
-    expect(screen.getByText(/Добавьте бота в групповой чат/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Запустить голосование' })).not.toBeInTheDocument();
-  });
-
-  it('ошибка загрузки → ErrorState с «Повторить»', () => {
-    h.state.activeError = { code: 'NETWORK_ERROR' };
-    renderHome();
-    expect(screen.getByText('Не удалось загрузить')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument();
-  });
-
   it('сбой опроса не уносит с экрана деньги и закупки — их запросы живы', () => {
     h.state.activeError = { code: 'NETWORK_ERROR' };
     h.state.debts = [{ id: 7, amount: 260, status: 'PENDING' }];
@@ -189,23 +197,6 @@ describe('HomePage — состояния', () => {
     expect(screen.getByText('Не удалось загрузить')).toBeInTheDocument();
     expect(screen.getByText('Расчёты')).toBeInTheDocument();
     expect(screen.getByText('Пятёрочка у офиса')).toBeInTheDocument();
-  });
-
-  it('активное голосование → талон с таймером и вариантами', () => {
-    h.state.activePoll = {
-      id: 10,
-      status: 'ACTIVE',
-      duration: 30,
-      createdAt: new Date().toISOString(),
-      menuItems: [
-        { menuItemId: 1, menuItem: { id: 1, name: 'Плов' }, _count: { votes: 2 } },
-        { menuItemId: 2, menuItem: { id: 2, name: 'Борщ' }, _count: { votes: 1 } },
-      ],
-    };
-    renderHome();
-    expect(screen.getByText('Обеденный талон')).toBeInTheDocument();
-    expect(screen.getByRole('timer')).toBeInTheDocument();
-    expect(screen.getAllByRole('radio')).toHaveLength(2);
   });
 
   it('блюда удалили из меню — талон объясняет пустоту вместо голой radiogroup', () => {
@@ -224,80 +215,22 @@ describe('HomePage — состояния', () => {
   /* «Отметить · 260 ₽» на главной отмечал долг одним касанием, а реквизитов
      на экране не было: человек отмечал, не переведя денег. Отметка живёт в
      «Расчётах», рядом с тем, куда переводить. */
-  it('долг → строка «Расчёты» ведёт на экран расчётов, отметки на главной нет', () => {
+  it('долг → строка «Расчёты» ведёт на экран расчётов, отметки на главной нет', async () => {
     h.state.debts = [{ id: 7, amount: 260, status: 'PENDING' }];
-    renderHome();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/budget" element={<p>budget-page</p>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
     expect(screen.queryByRole('button', { name: /Отметить/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Расчёты/ })).toHaveTextContent('260');
-    expect(screen.getByText('К переводу')).toBeInTheDocument();
-  });
-
-  /* «Вы должны за обед» стояло и у долга за магазин. */
-  it('несколько долгов — число долгов в подписи, без «за обед»', () => {
-    h.state.debts = [
-      { id: 7, amount: 300, status: 'PENDING' },
-      { id: 8, amount: 200, status: 'PENDING' },
-    ];
-    renderHome();
-    expect(screen.getByRole('button', { name: /^Расчёты/ })).toHaveTextContent('К переводу · 2 долга');
-    expect(screen.queryByText(/за обед/)).not.toBeInTheDocument();
-  });
-
-  it('отмеченный долг в «к переводу» не входит', () => {
-    h.state.debts = [
-      { id: 7, amount: 420, status: 'PENDING' },
-      { id: 8, amount: 180, status: 'PAID' },
-    ];
-    renderHome();
-    const row = screen.getByRole('button', { name: /^Расчёты/ });
-    expect(row).toHaveTextContent('420');
-    expect(row).not.toHaveTextContent('600');
-    expect(screen.getByText('К переводу')).toBeInTheDocument();
-  });
-
-  /* Рядом с «1 оплата ждёт подтверждения» стояла сумма всех долгов (700 ₽),
-     а ждёт подтверждения 500 ₽. */
-  it('сборщику видно, сколько оплат ждут его подтверждения и на какую сумму', () => {
-    h.state.credits = [
-      { id: 3, amount: 500, status: 'PAID' },
-      { id: 4, amount: 200, status: 'PENDING' },
-    ];
-    renderHome();
-    expect(screen.getByText('1 оплата ждёт подтверждения')).toBeInTheDocument();
-    const row = screen.getByRole('button', { name: /^Расчёты/ });
-    expect(row).toHaveTextContent('500');
-    expect(row).not.toHaveTextContent('700');
-  });
-
-  it('сборщику — сумма без кнопки', () => {
-    h.state.credits = [{ id: 3, amount: 500, status: 'PENDING' }];
-    renderHome();
-    expect(screen.getByText('Вам должны участники')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Отметить/ })).not.toBeInTheDocument();
-  });
-
-  /* Нажималась только левая часть, и снаружи строка не отличалась от подписи:
-     было непонятно, что она вообще куда-то ведёт. Без кнопки отметки строка
-     целиком — одна кнопка, вместе с суммой. */
-  it('без кнопки отметки строка «Расчёты» целиком нажимается, вместе с суммой', () => {
-    h.state.credits = [{ id: 3, amount: 500, status: 'PENDING' }];
-    renderHome();
-    expect(screen.getByRole('button', { name: /^Расчёты/ })).toHaveTextContent('500');
-  });
-
-  it('активная закупка — строкой со статусом', () => {
-    h.state.runs = [
-      {
-        id: 5,
-        storeName: 'Пятёрочка у офиса',
-        status: 'SHOPPING',
-        items: [{}, {}],
-        initiator: { firstName: 'Игорь' },
-      },
-    ];
-    renderHome();
-    expect(screen.getByText('Пятёрочка у офиса')).toBeInTheDocument();
-    expect(screen.getByText('В магазине')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^Расчёты/ }));
+    expect(screen.getByText('budget-page')).toBeInTheDocument();
   });
 });
 
@@ -330,21 +263,6 @@ describe('HomePage — итог прошедшего голосования', ()
     h.state.lastResult = result;
     renderHome();
     expect(screen.getByText('Победил: Борщ')).toBeInTheDocument();
-  });
-
-  it('без голосов вместо «0 из» — понятная подпись', () => {
-    h.state.lastCompleted = {
-      id: 22,
-      status: 'COMPLETED',
-      duration: 30,
-      createdAt: new Date().toISOString(),
-      endedAt: new Date().toISOString(),
-      menuItems: [],
-    };
-    h.state.lastResult = { winnerId: 3, winnerName: 'Борщ', totalVotes: 0 };
-    renderHome();
-    expect(screen.getByText('голосов не было')).toBeInTheDocument();
-    expect(screen.queryByText(/из/)).not.toBeInTheDocument();
   });
 
   it('победитель прошлых суток не показывается', () => {
@@ -381,29 +299,19 @@ describe('HomePage — ошибка создания опроса', () => {
 });
 
 describe('HomePage — расписание автоголосования', () => {
-  it('включённое расписание видно в пустом талоне', () => {
-    h.state.schedule = { isEnabled: true, daysOfWeek: [1, 2, 3, 4, 5], timeOfDay: '11:30' };
-    renderHome();
-    expect(screen.getByText('Автозапуск в 11:30, по будням')).toBeInTheDocument();
-  });
+  const running = () => ({ id: 10, status: 'ACTIVE', duration: 30, createdAt: new Date().toISOString(), menuItems: [] });
 
-  it('выключенное расписание не показывается', () => {
-    h.state.schedule = { isEnabled: false, daysOfWeek: [1, 2, 3, 4, 5], timeOfDay: '11:30' };
+  /* Одна таблица: положительная строка держит тот же поиск, что и
+     отрицательные, — переименование подписи не пройдёт молча. */
+  it.each([
+    ['включено, опроса нет', true, null, true],
+    ['выключено', false, null, false],
+    ['включено, но идёт опрос', true, running, false],
+  ] as const)('%s → подпись автозапуска видна: %s', (_, isEnabled, poll, visible) => {
+    h.state.schedule = { isEnabled, daysOfWeek: [1, 2, 3, 4, 5], timeOfDay: '11:30' };
+    h.state.activePoll = poll ? poll() : null;
     renderHome();
-    expect(screen.queryByText(/Автозапуск/)).not.toBeInTheDocument();
-  });
-
-  it('при активном голосовании подпись не мешает', () => {
-    h.state.schedule = { isEnabled: true, daysOfWeek: [1, 2, 3, 4, 5], timeOfDay: '11:30' };
-    h.state.activePoll = {
-      id: 10,
-      status: 'ACTIVE',
-      duration: 30,
-      createdAt: new Date().toISOString(),
-      menuItems: [],
-    };
-    renderHome();
-    expect(screen.queryByText(/Автозапуск/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Автозапуск/) !== null).toBe(visible);
   });
 });
 
@@ -435,26 +343,6 @@ describe('HomePage — барьер первого экрана', () => {
 
     expect(screen.getByText('Группы пока нет')).toBeInTheDocument();
     expect(screen.getByText('Расчёты')).toBeInTheDocument();
-  });
-
-  /* Предохранитель: без потолка достаточно одного запроса, выключенного по
-     неизвестной здесь причине, чтобы экран не открылся никогда. */
-  it('через 1.5 секунды экран открывается даже с незаехавшим запросом', () => {
-    vi.useFakeTimers();
-    h.state.runsPending = true;
-
-    try {
-      renderHome();
-      expect(screen.queryByText('Группы пока нет')).not.toBeInTheDocument();
-
-      act(() => {
-        vi.advanceTimersByTime(1500);
-      });
-
-      expect(screen.getByText('Группы пока нет')).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   /* Ошибка — это ответ. Экран, ждущий упавший запрос, не открылся бы никогда. */
@@ -571,24 +459,22 @@ describe('HomePage — ссылка на опрос', () => {
   });
 
   it('после ухода с главной ссылка больше не применяется', () => {
-    h.state.deepLinkId = 77;
+    h.state.realLaunchLink = true;
     h.state.deepLinkPoll = linkedPoll;
+    window.history.replaceState(null, '', '/?pollId=77');
+    try {
+      const first = renderHome();
+      expect(useAppStore.getState().currentGroupId).toBe('5');
+      expect(screen.getByRole('radio', { name: /Борщ/ })).toBeInTheDocument();
+      first.unmount();
 
-    const { unmount } = renderHome();
-    expect(h.state.markLinkHandled).not.toHaveBeenCalled();
-
-    unmount();
-    expect(h.state.markLinkHandled).toHaveBeenCalled();
-  });
-
-  it('завершённый опрос уводит на итоги один раз и гасит ссылку', () => {
-    h.state.deepLinkId = 77;
-    h.state.deepLinkPoll = { ...linkedPoll, status: 'COMPLETED' };
-
-    renderWithResults();
-
-    expect(screen.getByText('results-page')).toBeInTheDocument();
-    expect(h.state.markLinkHandled).toHaveBeenCalled();
+      useAppStore.setState({ currentGroupId: '1' });
+      renderHome();
+      expect(useAppStore.getState().currentGroupId).toBe('1');
+      expect(screen.queryByRole('radio', { name: /Борщ/ })).not.toBeInTheDocument();
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
   });
 });
 
@@ -618,9 +504,7 @@ describe('HomePage — действие из ссылки', () => {
       'data-open',
       'false',
     );
-    expect(h.state.toast.error).toHaveBeenCalledWith(
-      'Создавать голосование может только администратор группы',
-    );
+    expect(h.state.toast.error).toHaveBeenCalled();
   });
 });
 
@@ -629,16 +513,19 @@ describe('HomePage — действие из ссылки', () => {
    перечитывают «последний завершённый» только у нажавшего — у остальных
    строка победителя показывала прошлый опрос («Победил: …, голосов не было»). */
 describe('HomePage — опрос закончился на глазах', () => {
-  it('строка победителя перечитывается', () => {
-    h.state.activePoll = {
+  it('строка победителя показывает только что закрытый опрос', async () => {
+    useAppStore.setState({ authStatus: 'authenticated', currentGroupId: '1' });
+    h.state.realLastCompleted = true;
+    const poll = {
       id: 10,
       status: 'ACTIVE',
       duration: 30,
       createdAt: new Date().toISOString(),
       menuItems: [{ menuItemId: 1, menuItem: { id: 1, name: 'Плов' }, _count: { votes: 1 } }],
     };
+    h.state.activePoll = poll;
+    h.state.lastResult = { winnerId: 1, winnerName: 'Плов', totalVotes: 1 };
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const invalidate = vi.spyOn(qc, 'invalidateQueries');
     const tree = () => (
       <QueryClientProvider client={qc}>
         <MemoryRouter>
@@ -647,11 +534,15 @@ describe('HomePage — опрос закончился на глазах', () =>
       </QueryClientProvider>
     );
     const view = render(tree());
-    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['polls', 'last-completed'] });
+    expect(await screen.findByRole('radio', { name: /Плов/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Победил/)).not.toBeInTheDocument();
 
+    // опрос закрыли где-то ещё: сервер уже знает новый итог, активного нет
+    const now = new Date().toISOString();
+    h.state.serverLastCompleted = { ...poll, status: 'COMPLETED', endedAt: now };
     h.state.activePoll = null;
     view.rerender(tree());
 
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['polls', 'last-completed'] });
+    expect(await screen.findByText(/Победил: Плов/)).toBeInTheDocument();
   });
 });

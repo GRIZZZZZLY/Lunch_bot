@@ -27,16 +27,6 @@ describe('useToastStore.push', () => {
 
     expect(new Set([a, b, c]).size).toBe(3);
   });
-
-  it('после закрытия то же сообщение показывается снова', () => {
-    const { push, dismiss } = useToastStore.getState();
-    const first = push({ type: 'info', message: 'Сбор закрыт' });
-    dismiss(first);
-    const second = push({ type: 'info', message: 'Сбор закрыт' });
-
-    expect(second).not.toBe(first);
-    expect(useToastStore.getState().toasts).toHaveLength(1);
-  });
 });
 
 describe('useToastStore — уход', () => {

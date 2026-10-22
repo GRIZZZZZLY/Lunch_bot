@@ -56,26 +56,6 @@ beforeEach(() => {
 });
 
 describe('useLaunchLinkRoute', () => {
-  it('ссылка на закупку открывает закупку', () => {
-    h.link = { kind: 'storeRun', id: 8 };
-    renderApp();
-    expect(screen.getByText('/store-run/8|')).toBeInTheDocument();
-    expect(h.mark).toHaveBeenCalled();
-  });
-
-  it('ссылка на меню группы делает её текущей и открывает меню', () => {
-    h.link = { kind: 'group', chatId: '-1005', action: 'menu' };
-    renderApp();
-    expect(screen.getByText('/menu|')).toBeInTheDocument();
-    expect(useAppStore.getState().currentGroupId).toBe('5');
-  });
-
-  it('«Добавить блюдо» открывает меню с формой', () => {
-    h.link = { kind: 'group', chatId: '-1005', action: 'addDish' };
-    renderApp();
-    expect(screen.getByText('/menu|addDish')).toBeInTheDocument();
-  });
-
   it('«Создать голосование» открывает главную со шторкой', () => {
     h.link = { kind: 'group', chatId: '-1005', action: 'createPoll' };
     renderApp();

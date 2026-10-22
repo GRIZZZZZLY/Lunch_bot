@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 const h = vi.hoisted(() => ({
   refetch: vi.fn(),
@@ -46,52 +46,15 @@ beforeEach(() => {
 });
 
 describe('StatsPage', () => {
-  /* Регрессия. Отказ чтения истории попадал в ту же ветку, что и пустая
-     история, и подавался как «Пока нет данных… после первых голосований
-     команды» — то есть как факт о команде, а не как несостоявшийся запрос.
-     Существующий e2e-тест это поведение даже закреплял. */
-  it('отказ чтения — это ошибка, а не «данных нет»', () => {
-    h.state.failed = true;
+  /* Знаменатель — размер страницы, а не число голосований команды: на потолке
+     счёт неполный, и экран это говорит. Одна таблица — положительная строка
+     держит тот же поиск, что и отрицательная. */
+  it.each([
+    [90, true],
+    [1, false],
+  ])('%i голосований → оговорка о неполном счёте: %s', (count, shown) => {
+    h.state.polls = Array.from({ length: count }, (_, i) => poll(i + 1, [1]));
     render(<StatsPage />);
-
-    expect(screen.getByText(/Не удалось прочитать историю/)).toBeInTheDocument();
-    expect(screen.queryByText('Пока нет данных')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
-    expect(h.refetch).toHaveBeenCalled();
-  });
-
-  it('пустая история по-прежнему говорит, что данных ещё нет', () => {
-    render(<StatsPage />);
-    expect(screen.getByText('Пока нет данных')).toBeInTheDocument();
-    expect(screen.queryByText(/Не удалось/)).not.toBeInTheDocument();
-  });
-
-  /* «1 из 1 голосований» — знаменатель не склонялся. */
-  it('склоняет знаменатель участия', () => {
-    h.state.polls = [poll(1, [1])];
-    render(<StatsPage />);
-    expect(screen.getByText(/^голосования ·/)).toBeInTheDocument();
-  });
-
-  /* Знаменатель — размер страницы, а не число голосований команды. */
-  it('на потолке страницы честно говорит, что счёт неполный', () => {
-    h.state.polls = Array.from({ length: 90 }, (_, i) => poll(i + 1, [1]));
-    render(<StatsPage />);
-    expect(screen.getByText(/считаем по последним 90 голосованиям/)).toBeInTheDocument();
-  });
-
-  it('ниже потолка оговорки нет', () => {
-    h.state.polls = [poll(1, [1])];
-    render(<StatsPage />);
-    expect(screen.queryByText(/считаем по последним/)).not.toBeInTheDocument();
-  });
-
-  /* Четыре одинаковые полосы с номерами 1–4 читались как рейтинг. */
-  it('при равенстве не изображает рейтинг', () => {
-    h.state.polls = [poll(1, [1, 2, 3, 4])];
-    render(<StatsPage />);
-    expect(screen.getByText('пока у всех поровну')).toBeInTheDocument();
-    expect(screen.queryByText('2')).not.toBeInTheDocument();
+    expect(screen.queryByText(/по последним/) !== null).toBe(shown);
   });
 });

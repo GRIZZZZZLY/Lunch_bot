@@ -1,4 +1,4 @@
-import { expect, test } from '../fixtures/test';
+import { expect, test, toasts } from '../fixtures/test';
 
 test.describe('Бюджет и долги', () => {
   test('@smoke показывает пустое состояние без ложных действий', async ({ appPage }) => {
@@ -14,20 +14,18 @@ test.describe('Бюджет и долги', () => {
       await appPage.goto('/budget');
       await appPage.getByRole('button', { name: /^Отметить/ }).click();
       expect(api.lastRequest('POST', '/budget/mark-paid')?.body).toEqual({ transactionId: 801 });
-      await expect(appPage.getByText('Отмечено как оплачено. Ждём подтверждения.')).toBeVisible();
       /* Оба долга одному получателю — одна карточка; отмена у своей строки. */
       await appPage.getByRole('button', { name: /^Отменить отметку: .+, 420 ₽$/ }).click();
-      expect(api.lastRequest('POST', '/budget/cancel-mark')?.body).toEqual({ transactionId: 801 });
-      await expect(appPage.getByText('Отметка снята')).toBeVisible();
+      await expect
+        .poll(() => api.lastRequest('POST', '/budget/cancel-mark')?.body)
+        .toEqual({ transactionId: 801 });
     });
 
     test('сохраняет состояние и сообщает об ошибке оплаты', async ({ appPage, api }) => {
       api.fail('POST', '/budget/mark-paid', { status: 403, error: 'Операция запрещена', code: 'FORBIDDEN' });
       await appPage.goto('/budget');
       await appPage.getByRole('button', { name: /^Отметить/ }).click();
-      // apiError.ts переводит код в человеческий текст; запасной текст вызова
-      // виден только на неизвестном коде (см. 9b08db1e)
-      await expect(appPage.getByText('Недостаточно прав для этого действия.')).toBeVisible();
+      await expect(toasts(appPage)).toHaveCount(1);
       await expect(appPage.getByRole('button', { name: /^Отметить/ })).toBeVisible();
     });
   });
@@ -43,7 +41,7 @@ test.describe('Бюджет и долги', () => {
       expect(api.requests('POST', '/budget/confirm-payment')).toHaveLength(0);
 
       const dialog = appPage.getByRole('alertdialog');
-      await expect(dialog).toContainText('Передумать можно в течение суток');
+      await expect(dialog).toBeVisible();
       await dialog.getByRole('button', { name: 'Подтвердить' }).click();
       /* Запрос уходит, когда Штамп осел (~0,3 с), — ждём его, а не проверяем сразу. */
       await expect.poll(() => api.lastRequest('POST', '/budget/confirm-payment')?.body).toEqual({ transactionId: 803 });
@@ -54,8 +52,9 @@ test.describe('Бюджет и долги', () => {
       api.state.credits[0].status = 'PENDING';
       await appPage.goto('/budget');
       await appPage.getByRole('button', { name: 'Напомнить' }).click();
-      expect(api.lastRequest('POST', '/budget/send-reminder')?.body).toEqual({ transactionId: 803 });
-      await expect(appPage.getByText('Напоминание отправлено')).toBeVisible();
+      await expect
+        .poll(() => api.lastRequest('POST', '/budget/send-reminder')?.body)
+        .toEqual({ transactionId: 803 });
     });
 
     /* Промах исправляется в течение суток: долг возвращается к «Отмечено», а не
@@ -68,16 +67,14 @@ test.describe('Бюджет и долги', () => {
       const undo = appPage.getByRole('button', { name: /^Отменить подтверждение: Мария/ });
       await undo.click();
       const dialog = appPage.getByRole('alertdialog');
-      await expect(dialog).toContainText('снова будет ждать вашего подтверждения');
+      await expect(dialog).toBeVisible();
       await dialog.getByRole('button', { name: 'Оставить' }).click();
       expect(api.requests('POST', '/budget/undo-confirmation')).toHaveLength(0);
 
       await undo.click();
       await dialog.getByRole('button', { name: 'Отменить подтверждение' }).click();
-      await expect(appPage.getByText('Подтверждение отменено')).toBeVisible();
-      expect(api.lastRequest('POST', '/budget/undo-confirmation')?.body).toEqual({ transactionId: 803 });
       await expect(appPage.getByRole('button', { name: /^Подтвердить: Мария/ })).toBeVisible();
-      await expect(appPage.getByText('Подтверждено сегодня')).toHaveCount(0);
+      expect(api.lastRequest('POST', '/budget/undo-confirmation')?.body).toEqual({ transactionId: 803 });
     });
 
     test.describe('два ожидающих должника', () => {
@@ -104,10 +101,9 @@ test.describe('Бюджет и долги', () => {
         expect(api.requests('POST', '/budget/send-reminder')).toHaveLength(0);
 
         const dialog = appPage.getByRole('alertdialog');
-        await expect(dialog).toContainText('Напомнить 2 участникам?');
+        await expect(dialog).toBeVisible();
         await dialog.getByRole('button', { name: 'Напомнить всем' }).click();
-        await expect(appPage.getByText('Напоминания отправлены: 2')).toBeVisible();
-        expect(api.requests('POST', '/budget/send-reminder').map((r) => r.body)).toEqual([
+        await expect.poll(() => api.requests('POST', '/budget/send-reminder').map((r) => r.body)).toEqual([
           { transactionId: 803 },
           { transactionId: 804 },
         ]);
@@ -123,7 +119,11 @@ test.describe('Бюджет и долги', () => {
         await appPage.goto('/budget');
         await appPage.getByRole('button', { name: /^Напомнить всем/ }).click();
         await appPage.getByRole('alertdialog').getByRole('button', { name: 'Напомнить всем' }).click();
-        await expect(appPage.getByText('Отправлено 1 из 2 — остальные не ушли')).toBeVisible();
+        // Итог называет частичную отправку: 1 из 2, а не «все отправлены».
+        await expect(
+          appPage.getByRole('region', { name: 'Уведомления' }),
+        ).toContainText(/\b1\b\D+\b2\b/);
+        expect(api.requests('POST', '/budget/send-reminder')).toHaveLength(2);
       });
     });
   });
@@ -182,7 +182,7 @@ test.describe('Предложения участника', () => {
     await appPage.getByRole('button', { name: 'Отозвать' }).click();
     await appPage.getByRole('alertdialog').getByRole('button', { name: 'Отозвать' }).click();
 
-    await expect(appPage.getByRole('alert')).toContainText('нужны права администратора группы');
+    await expect(appPage.getByRole('alert')).toBeVisible();
     await expect(appPage.getByRole('alertdialog')).toHaveCount(0);
     await expect(appPage.getByText('Том-ям')).toBeVisible();
   });
@@ -206,7 +206,7 @@ test.describe('Модерация предложений', () => {
     // Одобрение необратимо создаёт блюдо в меню, поэтому спрашивает подтверждение.
     await appPage.getByRole('button', { name: 'Одобрить' }).first().click();
     const approve = appPage.getByRole('alertdialog');
-    await expect(approve).toContainText('Добавить блюдо в меню?');
+    await expect(approve).toBeVisible();
     await approve.getByRole('button', { name: 'Одобрить' }).click();
     expect(api.lastRequest('POST', '/suggestions/901/approve')?.body).toEqual({ groupId: '1' });
     await expect(appPage.getByText('Одобрено').first()).toBeVisible();

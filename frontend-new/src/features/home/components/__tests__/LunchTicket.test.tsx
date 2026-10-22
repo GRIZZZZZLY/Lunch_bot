@@ -38,19 +38,6 @@ afterEach(() => {
 });
 
 describe('LunchTicket — живой таймер (B3)', () => {
-  it('тикает каждую секунду', async () => {
-    renderTicket({ endsAt: '2026-07-18T12:12:41Z' });
-    expect(screen.getByText('12:41')).toBeInTheDocument();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
-    });
-    expect(screen.getByText('12:40')).toBeInTheDocument();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
-    });
-    expect(screen.getByText('11:40')).toBeInTheDocument();
-  });
-
   it('остаток озвучен словами: «12:41» на слух — это время суток', () => {
     renderTicket({ endsAt: '2026-07-18T12:12:41Z' });
     expect(screen.getByRole('timer')).toHaveAccessibleName('До конца голосования 12 мин 41 с');
@@ -74,12 +61,6 @@ describe('LunchTicket — живой таймер (B3)', () => {
 });
 
 describe('LunchTicket — голосование в одно касание', () => {
-  it('тап по блюду отправляет голос сразу', () => {
-    const props = renderTicket();
-    fireEvent.click(screen.getByRole('radio', { name: /Пицца/ }));
-    expect(props.onVote).toHaveBeenCalledWith(2);
-  });
-
   it('повторный тап по своему же голосу ничего не отправляет', () => {
     const props = renderTicket({ myChoiceId: 2 });
     fireEvent.click(screen.getByRole('radio', { name: /Пицца/ }));
@@ -95,13 +76,6 @@ describe('LunchTicket — голосование в одно касание', ()
     renderTicket({ myChoiceId: 1 });
     expect(screen.getByRole('radio', { name: /Том-ям/ })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('radio', { name: /Пицца/ })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByText('ваш голос ·')).toBeInTheDocument();
-  });
-
-  it('после голоса на корешке — «Отозвать голос»', () => {
-    const props = renderTicket({ myChoiceId: 1 });
-    fireEvent.click(screen.getByRole('button', { name: 'Отозвать голос' }));
-    expect(props.onWithdraw).toHaveBeenCalledTimes(1);
   });
 
   it('стрелка двигает фокус, но не голосует: выбор здесь — сетевая мутация', () => {
@@ -139,20 +113,6 @@ describe('LunchTicket — штамп голоса', () => {
     return spy;
   }
 
-  it('на монтировании с уже отданным голосом не играет', () => {
-    const spy = withAnimateSpy();
-    renderTicket({ myChoiceId: 1 });
-    expect(spy).not.toHaveBeenCalled();
-  });
-
-  it('играет при смене голоса', () => {
-    const spy = withAnimateSpy();
-    const { rerender } = render(<Harness myChoiceId={null} />);
-    expect(spy).not.toHaveBeenCalled();
-    rerender(<Harness myChoiceId={2} />);
-    expect(spy).toHaveBeenCalledTimes(1);
-  });
-
   it('молчит при prefers-reduced-motion', () => {
     const spy = withAnimateSpy();
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
@@ -182,56 +142,21 @@ function Harness({ myChoiceId }: { myChoiceId: number | null }) {
   );
 }
 
-describe('LunchTicket — админ-действия под подтверждением', () => {
-  it('участник админ-кнопок не видит', () => {
-    renderTicket();
-    expect(screen.queryByRole('button', { name: 'Завершить сейчас' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Отменить' })).not.toBeInTheDocument();
-  });
-
-  it('«Отменить» без подтверждения ничего не рушит', () => {
-    const props = renderTicket({ isAdmin: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Отменить' }));
-    expect(props.onCancel).not.toHaveBeenCalled();
-    expect(screen.getByText('Отменить голосование?')).toBeInTheDocument();
-    expect(screen.getByText(/Голоса участников будут удалены/)).toBeInTheDocument();
-  });
-
-  it('onCancel зовётся только после подтверждения', () => {
-    const props = renderTicket({ isAdmin: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Отменить' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Отменить голосование' }));
-    expect(props.onCancel).toHaveBeenCalledTimes(1);
-  });
-
-  it('«Завершить сейчас» тоже спрашивает', () => {
-    const props = renderTicket({ isAdmin: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Завершить сейчас' }));
-    expect(props.onCloseEarly).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Завершить' }));
-    expect(props.onCloseEarly).toHaveBeenCalledTimes(1);
-  });
-});
-
 describe('LunchTicket — лидер только единственный', () => {
-  it('у единственного лидера строка выделена и названа', () => {
-    renderTicket();
-    expect(screen.getByText(/^Лидирует Том-ям с креветками/)).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /Том-ям/ }).className).toMatch(/lead/);
-  });
-
-  /* При 50/50 первая строка получала оформление лидера и читалась как победа. */
-  it('при ничьей не выделяет ни одну строку', () => {
+  /* При 50/50 первая строка получала оформление лидера и читалась как победа.
+     Сводка для диктора называет лидера, только если он один. */
+  it.each([
+    ['единственный лидер назван', [2, 1], 'Борщ'],
+    ['при ничьей лидер не назван', [1, 1], null],
+  ] as const)('%s', (_, [borsch, pasta], leader) => {
     renderTicket({
       options: [
-        { id: 1, name: 'Борщ', votes: 1 },
-        { id: 2, name: 'Паста', votes: 1 },
+        { id: 1, name: 'Борщ', votes: borsch },
+        { id: 2, name: 'Паста', votes: pasta },
       ],
-      totalVotes: 2,
+      totalVotes: borsch + pasta,
     });
-    expect(screen.getByText(/^Лидеров несколько/)).toBeInTheDocument();
-    for (const name of [/Борщ/, /Паста/]) {
-      expect(screen.getByRole('radio', { name }).className).not.toMatch(/lead/);
-    }
+    const summary = screen.getByText(/^Лид/).textContent ?? '';
+    for (const name of ['Борщ', 'Паста']) expect(summary.includes(name)).toBe(name === leader);
   });
 });

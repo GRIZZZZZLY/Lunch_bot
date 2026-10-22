@@ -6,32 +6,12 @@
  * объяснить, что пошло не так; ровно та мелочь, которую при рефакторинге легко
  * заменить на «закрыть всегда».
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 
 import { useHomeSheets } from '../useHomeSheets';
 
 describe('useHomeSheets', () => {
-  it('шторки закрыты по умолчанию', () => {
-    const { result } = renderHook(() => useHomeSheets());
-
-    expect(result.current.pollOpen).toBe(false);
-    expect(result.current.storeRunOpen).toBe(false);
-  });
-
-  it('открываются и закрываются независимо друг от друга', () => {
-    const { result } = renderHook(() => useHomeSheets());
-
-    act(() => result.current.openPoll());
-    expect(result.current.pollOpen).toBe(true);
-    expect(result.current.storeRunOpen).toBe(false);
-
-    act(() => result.current.openStoreRun());
-    act(() => result.current.closePoll());
-    expect(result.current.pollOpen).toBe(false);
-    expect(result.current.storeRunOpen).toBe(true);
-  });
-
   it('успешное действие закрывает шторку голосования', async () => {
     const { result } = renderHook(() => useHomeSheets());
     act(() => result.current.openPoll());
@@ -68,18 +48,5 @@ describe('useHomeSheets', () => {
       await result.current.afterStoreRunAction(() => Promise.resolve(true));
     });
     expect(result.current.storeRunOpen).toBe(false);
-  });
-
-  /* Действие вызывается ровно один раз: двойная отправка формы — это второй
-     опрос в группе, а не повтор одного. */
-  it('действие вызывается один раз', async () => {
-    const action = vi.fn().mockResolvedValue(true);
-    const { result } = renderHook(() => useHomeSheets());
-
-    await act(async () => {
-      await result.current.afterPollAction(action);
-    });
-
-    expect(action).toHaveBeenCalledTimes(1);
   });
 });

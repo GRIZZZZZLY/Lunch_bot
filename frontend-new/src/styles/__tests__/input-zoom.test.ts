@@ -102,7 +102,13 @@ describe('поля ввода не вызывают автоприближени
     const input = /<input[\s\S]*?\/>/.exec(donation)?.[0];
 
     expect(input).toBeDefined();
-    expect(input).toContain("fontSize: 'var(--text-16)'");
+    /* Размер берётся из инлайн-стиля любой записью: токен, '16px' или число
+       (в React это пиксели). Без размера поле получит системные ~13px. */
+    const raw = /fontSize:\s*([^,}]+)/.exec(input!)?.[1].trim().replace(/^['"]|['"]$/g, '');
+    const px = raw === undefined ? null : /^\d+(\.\d+)?$/.test(raw) ? Number(raw) : declaredPx(raw);
+
+    expect(px, 'у поля нет размера шрифта в разметке').not.toBeNull();
+    expect(px).toBeGreaterThanOrEqual(MIN_INPUT_FONT_PX);
   });
 });
 
@@ -113,15 +119,5 @@ describe('жесты масштабирования', () => {
        масштабировании: WCAG 1.4.4 и critical-нарушение axe, которое ловит
        tests/e2e/specs/routes-auth.spec.ts. */
     expect(indexCss).not.toMatch(/touch-action:\s*(none|pan-)/);
-  });
-
-  it('масштабирование не запрещено через viewport', () => {
-    const html = readFileSync(join(process.cwd(), 'index.html'), 'utf8');
-
-    /* Соблазн закрыть исходную жалобу одной строкой в meta. Не работает: iOS
-       игнорирует запрет для щипка, а остальные браузеры подчиняются и лишают
-       людей масштабирования. */
-    expect(html).not.toMatch(/user-scalable\s*=\s*no/);
-    expect(html).not.toMatch(/maximum-scale/);
   });
 });

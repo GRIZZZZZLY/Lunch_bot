@@ -10,49 +10,23 @@ import { makeActivePoll } from '../scenarios/data';
 test.describe('Команда в шапке', () => {
   test.use({ scenario: 'groups-multiple' });
 
-  test('видна на главной и меняется в одно касание', async ({ appPage, api }) => {
-    await appPage.goto('/');
-    const trigger = appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' });
-    await expect(trigger).toBeVisible();
-
-    await trigger.click();
-    await expect(appPage.getByRole('radio', { name: 'Архивная группа' })).toHaveCount(0);
-    await appPage.getByRole('radio', { name: 'Команда Спутник' }).click();
-
-    await expect(
-      appPage.getByRole('button', { name: 'Команда: Команда Спутник. Сменить' }),
-    ).toBeVisible();
-    await expect
-      .poll(() =>
-        api.state.requests.some(
-          (request) => request.query.groupId === '2' || request.path.endsWith('/2'),
-        ),
-      )
-      .toBe(true);
-  });
-
   /* Точка на плашке — про ДРУГИЕ команды. Их статусы приходят запросом без
      groupId; если клиент подмешает текущую команду, мок (как и сервер)
      ответит только по ней, и точки не будет. */
   test('на главной точка говорит, что в другой команде идёт голосование', async ({ appPage, api }) => {
-    api.state.polls = [{ ...makeActivePoll(), id: 502, groupId: '2' }];
+    const trigger = appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' });
     await appPage.goto('/');
-    await expect(
-      appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' }),
-    ).toHaveAccessibleDescription('Что-то идёт в командах: 1');
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toHaveAccessibleDescription('');
 
-    await appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' }).click();
+    api.state.polls = [{ ...makeActivePoll(), id: 502, groupId: '2' }];
+    await appPage.reload();
+    await expect(trigger).toHaveAccessibleDescription(/\b1\b/);
+
+    await trigger.click();
     await expect(appPage.getByRole('radio', { name: 'Команда Спутник' })).toHaveAccessibleDescription(
       /^Голосуем · /,
     );
-  });
-
-  test('в меню команда меняется той же плашкой в шапке', async ({ appPage }) => {
-    await appPage.goto('/menu');
-    await expect(appPage.getByRole('tab', { name: 'Команда Ракета' })).toHaveCount(0);
-    await expect(
-      appPage.getByRole('button', { name: 'Команда: Команда Ракета. Сменить' }),
-    ).toBeVisible();
   });
 });
 

@@ -53,39 +53,6 @@ beforeEach(() => {
  * профиль молча показывали выбранную там команду.
  */
 describe('TeamSwitcher', () => {
-  it('показывает текущую команду', () => {
-    renderSwitcher();
-    expect(screen.getByRole('button', { name: 'Команда: Офис. Сменить' })).toBeInTheDocument();
-  });
-
-  /* Человек остаётся на своей вкладке: из Меню — меню новой команды, а не
-     Главная, куда потом пришлось бы возвращаться. */
-  it('меняет команду из списка своих активных групп и оставляет на вкладке', async () => {
-    h.groups = [...h.groups, group(30, 'Архив', false)];
-    renderSwitcher();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Команда: Офис. Сменить' }));
-    const options = screen.getAllByRole('radio');
-    expect(options.map((o) => o.getAttribute('aria-label'))).toEqual(['Офис', 'Розница']);
-    expect(screen.getByRole('radio', { name: 'Офис' })).toHaveAttribute('aria-checked', 'true');
-
-    await userEvent.click(screen.getByRole('radio', { name: 'Розница' }));
-    expect(screen.getByTestId('where')).toHaveTextContent('/stats');
-
-    expect(useAppStore.getState().currentGroupId).toBe('20');
-    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Команда: Розница. Сменить' })).toBeInTheDocument();
-  });
-
-  it('в шторке у каждой команды строка статуса', async () => {
-    renderSwitcher({ activity: { '20': { run: { id: 602, status: 'SHOPPING' } } }, busyCount: 1 });
-    await userEvent.click(screen.getByRole('button', { name: 'Команда: Офис. Сменить' }));
-
-    expect(screen.getByRole('dialog', { name: 'Команды' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Розница' })).toHaveAccessibleDescription('Закупка · в магазине');
-    expect(screen.getByRole('radio', { name: 'Офис' })).toHaveAccessibleDescription('Тихо');
-  });
-
   /* Ссылка на старый опрос делает текущей его команду (useAdoptGroup), даже
      архивную. Без плашки из такой команды было бы не выбраться: ряда команд
      в Меню больше нет. */

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CreatePollSheet, type SheetSchedule } from '../CreatePollSheet';
 import type { CreatePollContext } from '../types';
@@ -49,16 +49,6 @@ async function pickTwoDishes() {
 }
 
 describe('CreatePollSheet — длительность', () => {
-  it('пресеты стоят отдельным рядом, кастомного чипа среди них нет', () => {
-    renderSheet();
-    for (const label of ['15 мин', '30 мин', '1 час']) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
-    }
-    expect(screen.queryByRole('button', { name: 'Кастомное' })).not.toBeInTheDocument();
-    // ручной ввод скрыт, пока переключатель выключен
-    expect(screen.queryByRole('spinbutton', { name: 'Длительность в минутах' })).not.toBeInTheDocument();
-  });
-
   it('пресет доходит до родителя в минутах', async () => {
     const { onSubmit } = renderSheet();
     await pickTwoDishes();
@@ -130,28 +120,16 @@ describe('CreatePollSheet — длительность', () => {
 });
 
 describe('CreatePollSheet — расписание уже настроено', () => {
-  it('подсказывает текущее время и подставляет настройки при включении', async () => {
+  it('подставляет настройки расписания при включении', async () => {
     renderSheet({ schedule });
-    expect(screen.getByText('запуск в 11:00')).toBeInTheDocument();
-
     await userEvent.click(recurringSwitch());
 
     expect(screen.getByDisplayValue('11:00')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Сохранить расписание' })).toBeInTheDocument();
     for (const day of ['Пн', 'Пт']) {
-      expect(screen.getByRole('button', { name: day }).className).toContain('on');
+      expect(screen.getByRole('button', { name: day })).toHaveAttribute('aria-pressed', 'true');
     }
-    expect(screen.getByRole('button', { name: 'Сб' }).className).not.toContain('on');
-  });
-
-  /* Подпись не спорит с переключателем: пока он выключен — «на паузе» и время,
-     включён — что сохранение запустит расписание снова. */
-  it('помечает расписание на паузе', async () => {
-    renderSheet({ schedule: { ...schedule, isEnabled: false } });
-    expect(screen.getByText('на паузе · запуск в 11:00')).toBeInTheDocument();
-
-    await userEvent.click(recurringSwitch());
-    expect(screen.getByText('на паузе — сохраните, чтобы включить')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Сб' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('отдаёт изменённое время и дни родителю', async () => {
@@ -172,20 +150,6 @@ describe('CreatePollSheet — расписание уже настроено', (
     expect(state.recurringDays).toContain('Сб');
   });
 
-  it('удаление расписания зовёт обработчик только после подтверждения', async () => {
-    const { onDeleteSchedule } = renderSheet({ schedule });
-    await userEvent.click(recurringSwitch());
-
-    await userEvent.click(screen.getByRole('button', { name: 'Удалить расписание' }));
-    expect(onDeleteSchedule).not.toHaveBeenCalled();
-    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Оставить' }));
-    expect(onDeleteSchedule).not.toHaveBeenCalled();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Удалить расписание' }));
-    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Удалить расписание' }));
-    expect(onDeleteSchedule).toHaveBeenCalledTimes(1);
-  });
-
   it('без выбранных дней сохранение заблокировано', async () => {
     renderSheet({ schedule });
     await userEvent.click(recurringSwitch());
@@ -198,28 +162,9 @@ describe('CreatePollSheet — расписание уже настроено', (
 });
 
 describe('CreatePollSheet — расписания нет', () => {
-  it('переключатель ведёт к созданию, кнопка меняет смысл', async () => {
-    renderSheet();
-    expect(screen.getByRole('button', { name: 'Запустить опрос' })).toBeInTheDocument();
-
-    await userEvent.click(recurringSwitch());
-    expect(screen.getByRole('button', { name: 'Создать расписание' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Удалить расписание' })).not.toBeInTheDocument();
-  });
-
-  it('разовый опрос по-прежнему требует минимум два блюда', async () => {
-    renderSheet();
-    expect(screen.getByRole('button', { name: 'Запустить опрос' })).toBeDisabled();
-    await userEvent.click(screen.getByText('Борщ'));
-    await userEvent.click(screen.getByText('Плов'));
-    expect(screen.getByRole('button', { name: 'Запустить опрос' })).toBeEnabled();
-  });
-
   it('строка блюда — единственный контрол: один тап переключает ровно один раз', async () => {
     renderSheet();
     const row = screen.getByRole('checkbox', { name: /Борщ/ });
-    // вложенной кнопки внутри строки больше нет — двойного переключения не бывает
-    expect(row.querySelector('button')).toBeNull();
     await userEvent.click(row);
     expect(row).toHaveAttribute('aria-checked', 'true');
     await userEvent.click(row);

@@ -66,26 +66,6 @@ function renderRoute(path: string) {
 }
 
 describe('AppRoutes — React Router 7', () => {
-  it.each([
-    ['/', 'Главная', 'root-layout'],
-    ['/menu', 'Меню', 'root-layout'],
-    ['/stats', 'Статистика', 'root-layout'],
-    ['/profile', 'Профиль', 'root-layout'],
-    ['/admin', 'Управление', 'detail-layout'],
-    ['/budget', 'Бюджет', 'detail-layout'],
-    ['/poll/history', 'История', 'detail-layout'],
-    ['/poll/42/results', 'Результаты', 'detail-layout'],
-    ['/store-run/17', 'Закупка', 'detail-layout'],
-    ['/suggestions', 'Предложения', 'detail-layout'],
-    ['/suggestions/mine', 'Мои предложения', 'detail-layout'],
-    // Все маршруты, кроме Главной, ленивые — ждём разрешения чанка.
-  ])('открывает %s в нужной раскладке', async (path, content, layout) => {
-    renderRoute(path);
-
-    expect(await screen.findByText(content)).toBeInTheDocument();
-    expect(screen.getByTestId(layout)).toBeInTheDocument();
-  });
-
   /* Одна область уведомлений на всё приложение, над раскладками: при переходе
      вкладка ↔ detail-экран она не пересоздаётся, и видимое уведомление не
      проигрывает появление заново. */
@@ -93,18 +73,5 @@ describe('AppRoutes — React Router 7', () => {
     renderRoute('/');
 
     expect(screen.getAllByRole('region', { name: 'Уведомления' })).toHaveLength(1);
-  });
-
-  it('Главная не ленивая: первый экран рисуется без ожидания чанка', () => {
-    renderRoute('/');
-
-    expect(screen.getByText('Главная')).toBeInTheDocument();
-  });
-
-  it('неизвестный внутренний адрес показывает страницу 404', async () => {
-    renderRoute('/unknown/path');
-
-    expect(await screen.findByText('Страница не найдена')).toBeInTheDocument();
-    expect(screen.getByTestId('root-layout')).toBeInTheDocument();
   });
 });

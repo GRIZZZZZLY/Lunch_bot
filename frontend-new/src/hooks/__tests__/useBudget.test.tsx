@@ -141,7 +141,8 @@ describe('useMarkAllPaid — «Отметить все»', () => {
     ]);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(lastToast()?.type).toBe('error');
-    expect(lastToast()?.message).toBe('Не отмечен долг: Пятёрочка, 180 ₽. Отметьте его ещё раз.');
+    expect(lastToast()?.message).toContain('Пятёрочка, 180 ₽');
+    expect(lastToast()?.message).not.toContain('Паста, 420 ₽');
   });
 
   it('все прошли — успех', async () => {

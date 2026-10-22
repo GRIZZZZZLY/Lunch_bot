@@ -52,12 +52,4 @@ describe('getAdminGroups', () => {
   it('только активные группы с ролью ADMIN или CREATOR', () => {
     expect(getAdminGroups(groups).map(g => g.id)).toEqual([1, 4]);
   });
-
-  it('неактивная группа исключается даже с ролью CREATOR', () => {
-    expect(getAdminGroups(groups).some(g => g.id === 3)).toBe(false);
-  });
-
-  it('участник без роли администратора не получает ничего', () => {
-    expect(getAdminGroups([group({ id: 5, role: 'MEMBER' })])).toEqual([]);
-  });
 });

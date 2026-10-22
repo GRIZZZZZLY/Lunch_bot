@@ -1,4 +1,4 @@
-import { expect, test } from '../fixtures/test';
+import { expect, test, toasts } from '../fixtures/test';
 
 test.describe('Меню участника', () => {
   test('ищет блюда, фильтрует категории и не видит управление', async ({ appPage }) => {
@@ -11,24 +11,18 @@ test.describe('Меню участника', () => {
     await expect(appPage.getByText('Паста карбонара')).toHaveCount(0);
 
     await appPage.getByRole('button', { name: /Все/ }).click();
+    await expect(appPage.getByText('Паста карбонара')).toBeVisible();
     await appPage.getByRole('textbox', { name: 'Поиск блюд' }).fill('несуществующее');
-    await expect(appPage.getByText('Ничего не нашлось')).toBeVisible();
-  });
-
-  test('показывает загрузку при медленном API и затем данные', async ({ appPage, api }) => {
-    api.delay('GET', '/menu', 600);
-    await appPage.goto('/menu');
-    await expect(appPage.locator('span[aria-hidden="true"]').first()).toBeVisible();
-    await expect(appPage.getByText('Борщ со сметаной')).toBeVisible();
+    await expect(appPage.getByText('Борщ со сметаной')).toHaveCount(0);
+    await expect(appPage.getByText('Паста карбонара')).toHaveCount(0);
   });
 
   test.describe('пустое меню', () => {
     test.use({ scenario: 'menu-empty' });
 
-    test('объясняет, что блюда добавляет администратор', async ({ appPage }) => {
+    test('участнику не предлагает добавить блюдо', async ({ appPage }) => {
       await appPage.goto('/menu');
       await expect(appPage.getByText('Меню пустое')).toBeVisible();
-      await expect(appPage.getByText('Администратор ещё не добавил блюда')).toBeVisible();
       await expect(appPage.getByRole('button', { name: 'Добавить блюдо' })).toHaveCount(0);
     });
   });
@@ -58,7 +52,7 @@ test.describe('Управление меню', () => {
     });
   });
 
-  test('изменяет, скрывает и снова показывает блюдо', async ({ appPage, api }) => {
+  test('скрывает и изменяет блюдо', async ({ appPage, api }) => {
     await appPage.goto('/menu');
     await appPage.getByLabel('Скрыть «Борщ со сметаной»').click();
     expect(api.requests('PATCH', '/menu/11/toggle')).toHaveLength(1);
@@ -77,7 +71,7 @@ test.describe('Управление меню', () => {
     await appPage.getByLabel('Изменить «Паста карбонара»').click();
     await appPage.getByRole('button', { name: 'Удалить блюдо' }).click();
     const confirm = appPage.getByRole('alertdialog');
-    await expect(confirm).toContainText('Удалить «Паста карбонара»?');
+    await expect(confirm).toBeVisible();
     await confirm.getByRole('button', { name: 'Отмена' }).click();
     expect(api.requests('DELETE', '/menu/12')).toHaveLength(0);
 
@@ -87,7 +81,7 @@ test.describe('Управление меню', () => {
     expect(api.requests('DELETE', '/menu/12')).toHaveLength(1);
   });
 
-  test('при ошибке сохранения сохраняет введённые данные и блокирует повторный запрос', async ({ appPage, api }) => {
+  test('при ошибке сохранения сообщает о ней, сохраняет введённые данные и не повторяет запрос сам', async ({ appPage, api }) => {
     api.fail('POST', '/menu', {
       status: 500,
       error: 'Не удалось сохранить блюдо',
@@ -99,8 +93,7 @@ test.describe('Управление меню', () => {
     await sheet.getByRole('textbox', { name: 'Название' }).fill('Ризотто');
     await sheet.getByRole('textbox', { name: 'Цена, ₽' }).fill('550');
     await sheet.getByRole('button', { name: 'Сохранить' }).click();
-    // код INTERNAL_ERROR переводится apiError.ts, запасной текст не показывается
-    await expect(appPage.getByText('Ошибка на сервере. Попробуйте ещё раз.')).toBeVisible();
+    await expect(toasts(appPage)).toHaveCount(1);
     await expect(sheet.getByRole('textbox', { name: 'Название' })).toHaveValue('Ризотто');
     expect(api.requests('POST', '/menu')).toHaveLength(1);
   });

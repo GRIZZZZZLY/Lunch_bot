@@ -88,7 +88,7 @@ Backend-порог в комментарии конфига описан как 
 
 0. `npm --prefix frontend-new i -D @vitest/coverage-v8` — зависимости нет.
 1. В `frontend-new/vite.config.ts` добавить блок `coverage` (провайдер `v8`),
-   исключив `tests/e2e/**`, `tests/tour/**`, `src/test/**`, `*.d.ts`.
+   исключив `tests/e2e/**`, `src/test/**`, `*.d.ts`.
 2. Скрипт `"test:coverage": "vitest run --coverage"`.
 3. В `ci.yml` в job «Frontend-new quality» заменить `npm test` на
    `npm run test:coverage` + upload артефакта, по аналогии с backend-job.
