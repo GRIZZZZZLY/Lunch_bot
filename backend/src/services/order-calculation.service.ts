@@ -434,10 +434,17 @@ export class OrderCalculationService {
         where: { id: categoryOrder.id },
         select: { participantMessages: true },
       });
-      const participantMsgs: Record<string, { messageId: number; chatId: string }> =
-        coRecord?.participantMessages
-          ? JSON.parse(coRecord.participantMessages)
-          : {};
+      /* Ссылки на «⏳ Ожидаем расчёт» нужны только чтобы править их вместо
+         новой отправки. Испорченная запись считается пустой: брошенный здесь
+         JSON.parse обрывал рассылку, и о долге не узнавал никто. */
+      let participantMsgs: Record<string, { messageId: number; chatId: string }> = {};
+      try {
+        participantMsgs = JSON.parse(coRecord?.participantMessages || '{}') ?? {};
+      } catch {
+        logger.warn('Broken participantMessages, debt messages are sent anew', {
+          categoryOrderId: categoryOrder.id,
+        });
+      }
 
       // Предзагрузка должников и ответственных одним запросом каждый (вместо 2N findUnique)
       const debtorIds = [...new Set(transactions.map(t => t.fromUserId))];

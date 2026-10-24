@@ -111,10 +111,8 @@ it('ожидание расчёта правится в сообщение о д
   expect((await prisma.transaction.findUniqueOrThrow({ where: { id: d2Debt.id } })).debtMessageId).not.toBeNull();
 });
 
-// BUG: битый JSON в participant_messages роняет JSON.parse в начале рассылки,
-// и ни один должник не получает сообщения о долге — хотя ссылки на ожидания
-// нужны лишь для правки, а новое сообщение можно отправить всегда.
-it.failing('испорченные ссылки на ожидания не лишают должников сообщения о долге', async () => {
+// Регрессия: битый JSON в participant_messages ронял рассылку, и о долге не узнавал никто.
+it('испорченные ссылки на ожидания не лишают должников сообщения о долге', async () => {
   const order = await orderReadyToFinalize('{"broken":');
 
   await OrderCalculationService.finalizeCalculation(order.categoryOrderId);
