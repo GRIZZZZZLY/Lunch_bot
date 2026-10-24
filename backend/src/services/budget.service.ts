@@ -17,6 +17,7 @@ import {
   type PrismaTransactionClient,
 } from './outbox.service';
 import { OutboxWorkerService } from './outbox-worker.service';
+import { DebtStateError } from './budget.errors';
 
 interface PaymentInfo {
   paymentCard?: string | null;
@@ -160,9 +161,9 @@ export class BudgetService {
               return { tx: row, outboxIds: [], transitioned: false };
             }
             if (row.status === 'CONFIRMED') {
-              throw new Error('Cannot modify confirmed payment');
+              throw new DebtStateError('Cannot modify confirmed payment');
             }
-            throw new Error('Transaction state changed');
+            throw new DebtStateError('Transaction state changed');
           }
 
           const ids = await OutboxService.enqueue(db, {
@@ -252,9 +253,9 @@ export class BudgetService {
               return { tx: row, outboxIds: [], transitioned: false };
             }
             if (row.status === 'PENDING') {
-              throw new Error('Cannot confirm unpaid transaction');
+              throw new DebtStateError('Cannot confirm unpaid transaction');
             }
-            throw new Error('Transaction state changed');
+            throw new DebtStateError('Transaction state changed');
           }
 
           const ids = await enqueueDebtConfirmed(db, row);
@@ -354,7 +355,7 @@ export class BudgetService {
             transitionVersion: { increment: 1 },
           },
         });
-        if (transition.count === 0) throw new Error('Transaction state changed');
+        if (transition.count === 0) throw new DebtStateError('Transaction state changed');
 
         const row = await db.transaction.findUniqueOrThrow({
           where: { id: txId },
@@ -504,9 +505,9 @@ export class BudgetService {
               return { tx: row, outboxIds: [], transitioned: false };
             }
             if (row.status === 'CONFIRMED') {
-              throw new Error('Cannot cancel confirmed payment');
+              throw new DebtStateError('Cannot cancel confirmed payment');
             }
-            throw new Error('Transaction state changed');
+            throw new DebtStateError('Transaction state changed');
           }
 
           const ids = await OutboxService.enqueue(db, {

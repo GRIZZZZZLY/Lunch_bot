@@ -1369,8 +1369,8 @@ describe('отказы на переходах долга', () => {
     }
   );
 
-  // BUG: ожидаемый отказ на закрытом долге отвечает 500 «Failed to mark as paid» — как поломка сервера, а не 4xx.
-  it.failing.each(['CONFIRMED', 'FORGIVEN'])(
+  // Регрессия: отказ на закрытом долге отвечал 500 «Failed to mark as paid».
+  it.each(['CONFIRMED', 'FORGIVEN'])(
     'закрытый долг (%s): отказ — ошибка клиента, а не сервера',
     async status => {
       await setDebt(world.debtInA, { status, confirmedAt: new Date() });

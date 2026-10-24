@@ -7,6 +7,7 @@ import { BudgetQueryService } from '../../services/budget-query.service';
 import { PollFlowService } from '../../services/poll-flow.service';
 import { GroupService } from '../../services/group.service';
 import { logger } from '../../utils/logger';
+import { BaseError } from '../../utils/error';
 import { respondIfInvalidInput } from '../middleware/validate';
 import {
   budgetDebtsQuery,
@@ -249,6 +250,9 @@ export class BudgetController {
       res.json({ success: true });
     } catch (error) {
       if (respondIfInvalidInput(req, res, error)) return;
+      /* Отказ по состоянию долга (уже подтверждён или списан) — 409 со своим
+         кодом через error-handler, а не 500, как поломка сервера. */
+      if (error instanceof BaseError) throw error;
       logger.error('[BudgetController] Error marking as paid:', error);
       res.status(500).json({ error: 'Failed to mark as paid' });
     }
@@ -296,6 +300,7 @@ export class BudgetController {
       res.json({ success: true });
     } catch (error) {
       if (respondIfInvalidInput(req, res, error)) return;
+      if (error instanceof BaseError) throw error;
       logger.error('[BudgetController] Error confirming payment:', error);
       res.status(500).json({ error: 'Failed to confirm payment' });
     }
@@ -394,6 +399,7 @@ export class BudgetController {
       res.json({ success: true });
     } catch (error) {
       if (respondIfInvalidInput(req, res, error)) return;
+      if (error instanceof BaseError) throw error;
       logger.error('[BudgetController] Error canceling mark:', error);
       res.status(500).json({ error: 'Failed to cancel mark' });
     }

@@ -14,3 +14,15 @@ export class DebtNotFoundError extends BaseError {
     super(message, 404, 'NOT_FOUND');
   }
 }
+
+/**
+ * Переход запрещён состоянием долга: он уже закрыт (подтверждён, списан) или
+ * сменился, пока шёл запрос. 409, а не 400: запрос корректен, мешает состояние.
+ * Код тот же, что у отмены подтверждения. Сообщения прежние — на них смотрят
+ * журналы и тесты сервиса.
+ */
+export class DebtStateError extends BaseError {
+  constructor(message: string) {
+    super(message, 409, 'WRONG_STATUS');
+  }
+}
